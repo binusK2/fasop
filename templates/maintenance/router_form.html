@@ -1,0 +1,246 @@
+{% extends 'base.html' %}
+{% block title %}Maintenance Router/Switch — {{ device.nama }}{% endblock %}
+{% block page_title %}Form Maintenance Router/Switch{% endblock %}
+
+{% block content %}
+
+<div class="d-flex align-items-center gap-2 mb-3">
+    <a href="{% url 'device_view' device.id %}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Kembali ke Perangkat
+    </a>
+</div>
+
+<!-- INFO PERANGKAT -->
+<div class="card mb-4" style="border-left: 4px solid #3b82f6;">
+    <div class="card-body py-2 px-4 d-flex align-items-center gap-4 flex-wrap">
+        <div>
+            <div style="font-size:11px; color:#64748b; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Perangkat</div>
+            <div style="font-size:15px; font-weight:700;">{{ device.nama }}</div>
+        </div>
+        <div>
+            <div style="font-size:11px; color:#64748b; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Jenis</div>
+            <div style="font-size:13px;">{{ device.jenis }}</div>
+        </div>
+        <div>
+            <div style="font-size:11px; color:#64748b; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">IP Address</div>
+            <div class="mono">{{ device.ip_address }}</div>
+        </div>
+        <div>
+            <div style="font-size:11px; color:#64748b; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Lokasi</div>
+            <div style="font-size:13px;">{{ device.lokasi }}</div>
+        </div>
+    </div>
+</div>
+
+<form method="post" enctype="multipart/form-data">
+{% csrf_token %}
+
+<!-- SECTION 1: INFORMASI MAINTENANCE -->
+<div class="card mb-4">
+    <div class="card-body px-4 py-3">
+        <h6 class="mb-3" style="font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:#64748b;">
+            <i class="bi bi-info-circle me-2 text-primary"></i>Informasi Maintenance
+        </h6>
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Jenis Maintenance</label>
+                {{ maintenance_form.maintenance_type }}
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Tanggal</label>
+                {{ maintenance_form.date }}
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Pelaksana</label>
+                {{ maintenance_form.technician }}
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Status</label>
+                {{ maintenance_form.status }}
+            </div>
+            <div class="col-12">
+                <label class="form-label">Deskripsi / Keluhan</label>
+                {{ maintenance_form.description }}
+            </div>
+            <div class="col-12">
+                <label class="form-label">Foto Dokumentasi</label>
+                {{ maintenance_form.photo }}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SECTION 2: CHECKLIST FISIK -->
+<div class="card mb-4">
+    <div class="card-body px-4 py-3">
+        <h6 class="mb-3" style="font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:#64748b;">
+            <i class="bi bi-clipboard-check me-2 text-success"></i>Pemeriksaan Fisik
+        </h6>
+        <table class="table table-bordered align-middle mb-0">
+            <thead style="background:#f8fafc;">
+                <tr>
+                    <th style="width:50%; font-size:12px;">Item Pemeriksaan</th>
+                    <th style="font-size:12px;">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>
+                        <div style="font-weight:600; font-size:13px;">Kondisi Fisik Unit</div>
+                        <div style="font-size:11.5px; color:#64748b;">Tidak ada kerusakan fisik, korosi, atau debu berlebih</div>
+                    </td>
+                    <td>{{ detail_form.kondisi_fisik }}</td>
+                </tr>
+                <tr>
+                    <td>
+                        <div style="font-weight:600; font-size:13px;">Indikator LED Link/Port</div>
+                        <div style="font-size:11.5px; color:#64748b;">LED link menyala normal sesuai status koneksi</div>
+                    </td>
+                    <td>{{ detail_form.led_link }}</td>
+                </tr>
+                <tr>
+                    <td>
+                        <div style="font-weight:600; font-size:13px;">Kondisi Kabel & Konektor</div>
+                        <div style="font-size:11.5px; color:#64748b;">Kabel tidak putus, konektor terpasang kencang</div>
+                    </td>
+                    <td>{{ detail_form.kondisi_kabel }}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- SECTION 3: NILAI PENGUKURAN -->
+<div class="card mb-4">
+    <div class="card-body px-4 py-3">
+        <h6 class="mb-3" style="font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:#64748b;">
+            <i class="bi bi-speedometer2 me-2 text-warning"></i>Nilai Pengukuran
+        </h6>
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Tegangan Input <span class="text-muted">(Volt)</span></label>
+                {{ detail_form.tegangan_input }}
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Suhu Perangkat <span class="text-muted">(°C)</span></label>
+                {{ detail_form.suhu_perangkat }}
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">CPU Load <span class="text-muted">(%)</span></label>
+                <div class="input-group">
+                    {{ detail_form.cpu_load }}
+                </div>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Memory Usage <span class="text-muted">(%)</span></label>
+                {{ detail_form.memory_usage }}
+            </div>
+        </div>
+
+        <!-- Visual gauge bar (opsional, hanya tampilan) -->
+        <div class="row g-2 mt-1" id="gauge-row" style="display:none !important;">
+        </div>
+    </div>
+</div>
+
+<!-- SECTION 4: STATUS PORT & INTERFACE -->
+<div class="card mb-4">
+    <div class="card-body px-4 py-3">
+        <h6 class="mb-3" style="font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:#64748b;">
+            <i class="bi bi-diagram-2 me-2 text-info"></i>Kondisi Interface & Port
+        </h6>
+        <div class="row g-3 mb-3">
+            <div class="col-md-3">
+                <label class="form-label">Port Aktif</label>
+                {{ detail_form.jumlah_port_aktif }}
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Port Total</label>
+                {{ detail_form.jumlah_port_total }}
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">IP Address / Routing Status</label>
+                <div>{{ detail_form.status_routing }}</div>
+            </div>
+        </div>
+
+        <!-- Progress bar port aktif / total -->
+        <div id="port-progress-wrap" class="mb-3" style="display:none;">
+            <div style="font-size:12px; color:#64748b; margin-bottom:4px;">Utilisasi Port: <span id="port-pct">0</span>%</div>
+            <div class="progress" style="height:8px; border-radius:4px;">
+                <div id="port-bar" class="progress-bar bg-success" style="width:0%;"></div>
+            </div>
+        </div>
+
+        <div>
+            <label class="form-label">Detail Status Port (opsional)</label>
+            {{ detail_form.detail_port }}
+            <div style="font-size:11.5px; color:#94a3b8;" class="mt-1">
+                Contoh: ether1 UP (WAN), ether2 UP, ether3 DOWN, sfp1 UP
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SECTION 5: CATATAN TAMBAHAN -->
+<div class="card mb-4">
+    <div class="card-body px-4 py-3">
+        <h6 class="mb-3" style="font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:#64748b;">
+            <i class="bi bi-journal-text me-2"></i>Catatan Tambahan
+        </h6>
+        {{ detail_form.catatan_tambahan }}
+    </div>
+</div>
+
+<!-- ERROR DISPLAY -->
+{% if maintenance_form.errors or detail_form.errors %}
+<div class="alert alert-danger">
+    <strong>Mohon perbaiki error berikut:</strong>
+    {{ maintenance_form.errors }}
+    {{ detail_form.errors }}
+</div>
+{% endif %}
+
+<!-- SUBMIT -->
+<div class="d-flex gap-2 justify-content-end pb-4">
+    <a href="{% url 'device_view' device.id %}" class="btn btn-outline-secondary">
+        Batal
+    </a>
+    <button type="submit" class="btn btn-primary px-4">
+        <i class="bi bi-floppy me-1"></i>Simpan Maintenance
+    </button>
+</div>
+
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Live progress bar port
+const portAktif = document.querySelector('[name="jumlah_port_aktif"]');
+const portTotal = document.querySelector('[name="jumlah_port_total"]');
+
+function updatePortBar() {
+    const a = parseFloat(portAktif.value) || 0;
+    const t = parseFloat(portTotal.value) || 0;
+    const wrap = document.getElementById('port-progress-wrap');
+    const bar  = document.getElementById('port-bar');
+    const pct  = document.getElementById('port-pct');
+
+    if (t > 0) {
+        wrap.style.display = 'block';
+        const p = Math.min(100, Math.round(a / t * 100));
+        bar.style.width = p + '%';
+        bar.className = 'progress-bar ' + (p > 80 ? 'bg-success' : p > 40 ? 'bg-warning' : 'bg-danger');
+        pct.textContent = p;
+    } else {
+        wrap.style.display = 'none';
+    }
+}
+
+if (portAktif && portTotal) {
+    portAktif.addEventListener('input', updatePortBar);
+    portTotal.addEventListener('input', updatePortBar);
+}
+</script>
+{% endblock %}

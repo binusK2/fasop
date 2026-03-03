@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login — FASOP UP2B</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@600&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            background: #0f172a;
+        }
+
+        .left-panel {
+            flex: 1;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .left-panel::before {
+            content: '';
+            position: absolute;
+            width: 500px; height: 500px;
+            background: radial-gradient(circle, rgba(59,130,246,0.12) 0%, transparent 70%);
+            top: -100px; left: -100px;
+        }
+
+        .left-panel::after {
+            content: '';
+            position: absolute;
+            width: 400px; height: 400px;
+            background: radial-gradient(circle, rgba(16,185,129,0.08) 0%, transparent 70%);
+            bottom: -100px; right: -100px;
+        }
+
+        .left-content {
+            position: relative;
+            z-index: 1;
+            max-width: 380px;
+        }
+
+        .brand-mark {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 48px;
+        }
+
+        .brand-icon {
+            width: 44px; height: 44px;
+            background: #3b82f6;
+            border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 22px;
+            color: white;
+        }
+
+        .brand-name {
+            font-size: 16px;
+            font-weight: 700;
+            color: white;
+            letter-spacing: 0.3px;
+        }
+
+        .brand-sub {
+            font-size: 11px;
+            color: #64748b;
+        }
+
+        .hero-title {
+            font-size: 36px;
+            font-weight: 700;
+            color: white;
+            line-height: 1.2;
+            margin-bottom: 16px;
+        }
+
+        .hero-title span {
+            color: #3b82f6;
+        }
+
+        .hero-desc {
+            color: #64748b;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .feature-list {
+            margin-top: 40px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .feature-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #94a3b8;
+            font-size: 13px;
+        }
+
+        .feature-item .fi-icon {
+            width: 28px; height: 28px;
+            background: rgba(59,130,246,0.12);
+            border-radius: 6px;
+            display: flex; align-items: center; justify-content: center;
+            color: #3b82f6;
+            font-size: 13px;
+            flex-shrink: 0;
+        }
+
+        /* RIGHT PANEL */
+        .right-panel {
+            width: 440px;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 48px 40px;
+        }
+
+        .login-box {
+            width: 100%;
+        }
+
+        .login-box h2 {
+            font-size: 24px;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 6px;
+        }
+
+        .login-box .subtitle {
+            color: #64748b;
+            font-size: 13.5px;
+            margin-bottom: 32px;
+        }
+
+        .form-group {
+            margin-bottom: 18px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 12.5px;
+            font-weight: 600;
+            color: #475569;
+            margin-bottom: 6px;
+        }
+
+        .input-wrapper {
+            position: relative;
+        }
+
+        .input-wrapper .input-icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #94a3b8;
+            font-size: 15px;
+        }
+
+        .input-wrapper input {
+            width: 100%;
+            padding: 10px 12px 10px 38px;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 9px;
+            font-size: 14px;
+            font-family: 'DM Sans', sans-serif;
+            color: #0f172a;
+            outline: none;
+            transition: border-color 0.15s;
+        }
+
+        .input-wrapper input:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+        }
+
+        .btn-login {
+            width: 100%;
+            padding: 11px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 9px;
+            font-size: 14px;
+            font-weight: 600;
+            font-family: 'DM Sans', sans-serif;
+            cursor: pointer;
+            transition: background 0.15s, transform 0.1s;
+            margin-top: 8px;
+        }
+
+        .btn-login:hover { background: #2563eb; }
+        .btn-login:active { transform: scale(0.98); }
+
+        .error-msg {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #991b1b;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            margin-top: 14px;
+        }
+
+        @media (max-width: 768px) {
+            .left-panel { display: none; }
+            .right-panel { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="left-panel">
+        <div class="left-content">
+            <div class="brand-mark">
+                <div class="brand-icon"><i class="bi bi-cpu"></i></div>
+                <div>
+                    <div class="brand-name">FASOP UP2B</div>
+                    <div class="brand-sub">Sistem Informasi Aset</div>
+                </div>
+            </div>
+            <h1 class="hero-title">Kelola <span>Aset</span> &<br>Pemeliharaan<br>Peralatan</h1>
+            <p class="hero-desc">Platform manajemen aset peralatan fasop yang terintegrasi dengan sistem pemeliharaan terencana.</p>
+            <div class="feature-list">
+                <div class="feature-item">
+                    <div class="fi-icon"><i class="bi bi-hdd-rack"></i></div>
+                    Inventaris peralatan lengkap & terstruktur
+                </div>
+                <div class="feature-item">
+                    <div class="fi-icon"><i class="bi bi-tools"></i></div>
+                    Tracking pemeliharaan preventif & korektif
+                </div>
+                <div class="feature-item">
+                    <div class="fi-icon"><i class="bi bi-bar-chart-line"></i></div>
+                    Dashboard & laporan bulanan otomatis
+                </div>
+                <div class="feature-item">
+                    <div class="fi-icon"><i class="bi bi-file-earmark-excel"></i></div>
+                    Export data ke Excel kapan saja
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="right-panel">
+        <div class="login-box">
+            <h2>Selamat Datang 👋</h2>
+            <p class="subtitle">Masuk ke sistem untuk melanjutkan</p>
+
+            <form method="post">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label>Username</label>
+                    <div class="input-wrapper">
+                        <span class="input-icon"><i class="bi bi-person"></i></span>
+                        <input type="text" name="username" placeholder="Masukkan username" required autofocus>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <div class="input-wrapper">
+                        <span class="input-icon"><i class="bi bi-lock"></i></span>
+                        <input type="password" name="password" placeholder="Masukkan password" required>
+                    </div>
+                </div>
+                <button type="submit" class="btn-login">
+                    <i class="bi bi-box-arrow-in-right me-1"></i> Masuk
+                </button>
+                {% if form.errors %}
+                <div class="error-msg">
+                    <i class="bi bi-exclamation-circle me-1"></i>
+                    Username atau password tidak sesuai. Silakan coba lagi.
+                </div>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+
+</body>
+</html>

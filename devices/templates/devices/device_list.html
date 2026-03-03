@@ -1,0 +1,157 @@
+{% extends 'base.html' %}
+{% block title %}Peralatan — FASOP{% endblock %}
+{% block page_title %}Inventory Peralatan{% endblock %}
+
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+    <div>
+        <h2 class="mb-0" style="font-size:20px;font-weight:700;">
+            Inventory Perangkat
+            {% if filter_type %}<span class="text-muted fw-normal" style="font-size:16px;"> — {{ filter_type.name }}</span>{% endif %}
+        </h2>
+        <p class="text-muted mb-0" style="font-size:13px;">{{ devices|length }} perangkat ditemukan</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'device_add' %}" class="btn btn-primary btn-sm">
+            <i class="bi bi-plus-lg me-1"></i>Tambah Perangkat
+        </a>
+        <a href="{% url 'export_devices_excel' %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}" class="btn btn-outline-success btn-sm">
+            <i class="bi bi-file-earmark-excel me-1"></i>Export Excel
+        </a>
+    </div>
+</div>
+
+<!-- FILTER -->
+<div class="card mb-3">
+    <div class="card-body py-2 px-3">
+        <form method="get" class="row g-2 align-items-end">
+            {% if selected_jenis %}
+                <input type="hidden" name="jenis" value="{{ selected_jenis }}">
+            {% endif %}
+            <div class="col-md-4">
+                <label class="form-label">Cari</label>
+                <input type="text" name="q" class="form-control form-control-sm"
+                       placeholder="Nama / IP perangkat" value="{{ search }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Lokasi</label>
+                <select name="lokasi" class="form-select form-select-sm">
+                    <option value="">Semua Lokasi</option>
+                    {% for l in lokasi_list %}
+                    <option value="{{ l }}" {% if l == selected_lokasi %}selected{% endif %}>{{ l }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-auto d-flex gap-2">
+                <button class="btn btn-primary btn-sm">
+                    <i class="bi bi-funnel me-1"></i>Filter
+                </button>
+                {% if search or selected_lokasi %}
+                <a href="{% url 'device_list' %}{% if selected_jenis %}?jenis={{ selected_jenis }}{% endif %}"
+                   class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-x-lg me-1"></i>Reset
+                </a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- TABLE -->
+<div class="table-card">
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Nama Perangkat</th>
+                    <th>Jenis</th>
+                    <th>Merk / Type</th>
+                    <th>IP Address</th>
+                    <th>Lokasi</th>
+                    <th>Serial</th>
+                    <th>Aksi</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for d in devices %}
+                <tr>
+                    <td class="text-muted" style="font-size:12px;">{{ forloop.counter }}</td>
+                    <td>
+                        <a href="{% url 'device_view' d.id %}" class="text-decoration-none" style="font-size:13.5px;font-weight:600;color:#0f172a;">
+                            {{ d.nama }}
+                        </a>
+                    </td>
+                    <td>
+                        {% if d.jenis %}
+                        <span style="font-size:11.5px;background:#eff6ff;color:#2563eb;padding:3px 9px;border-radius:20px;font-weight:500;white-space:nowrap;">
+                            {{ d.jenis }}
+                        </span>
+                        {% else %}<span class="text-muted">—</span>{% endif %}
+                    </td>
+                    <td>
+                        <div style="font-size:13px;font-weight:500;">{{ d.merk|default:"—" }}</div>
+                        <div style="font-size:11.5px;color:#94a3b8;">{{ d.type|default:"" }}</div>
+                    </td>
+                    <td class="mono">{{ d.ip_address|default:"—" }}</td>
+                    <td style="font-size:12.5px;color:#64748b;">{{ d.lokasi|default:"—" }}</td>
+                    <td class="mono" style="font-size:11.5px;color:#94a3b8;">{{ d.serial_number|default:"—" }}</td>
+                    <td>
+                        <div class="d-flex gap-1">
+                            <a href="{% url 'device_view' d.id %}" class="btn btn-sm btn-outline-primary" title="Detail">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                            <a href="{% url 'device_edit' d.id %}" class="btn btn-sm btn-outline-warning" title="Edit">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <button class="btn btn-sm btn-outline-danger" title="Hapus"
+                                    onclick="confirmDelete('{% url 'device_delete' d.id %}', '{{ d.nama }}')">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="text-center text-muted py-5">
+                        <i class="bi bi-inbox fs-2 d-block mb-2"></i>
+                        Tidak ada perangkat ditemukan
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- MODAL KONFIRMASI DELETE -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:400px;">
+        <div class="modal-content" style="border-radius:14px;border:none;">
+            <div class="modal-body p-4 text-center">
+                <div style="width:52px;height:52px;background:#fef2f2;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;">
+                    <i class="bi bi-trash" style="font-size:22px;color:#ef4444;"></i>
+                </div>
+                <h6 style="font-size:16px;font-weight:700;margin-bottom:6px;">Hapus Perangkat?</h6>
+                <p style="font-size:13px;color:#64748b;" id="deleteModalDesc">Perangkat ini akan dihapus permanen.</p>
+                <div class="d-flex gap-2 justify-content-center mt-3">
+                    <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+                    <a id="deleteLink" href="#" class="btn btn-danger px-4">Hapus</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function confirmDelete(url, name) {
+    document.getElementById('deleteModalDesc').textContent = 'Perangkat "' + name + '" akan dihapus permanen.';
+    document.getElementById('deleteLink').href = url;
+    new bootstrap.Modal(document.getElementById('deleteModal')).show();
+}
+</script>
+{% endblock %}

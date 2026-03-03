@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<h1>Layanan ICON+</h1>
+<a href="{% url 'icon_add' %}" class="btn btn-primary mb-3">
+    Tambah
+</a>
+<table class="table table-bordered table-hover">
+    <thead>
+        <tr class="table-primary" style="text-align:center; vertical-align:middle;">
+            <th>No</th>
+            <th>Nama</th>
+            <th>Lokasi Layanan</th>
+            <th>Bandwidth</th>
+            <th>SID 1</th>
+            <th>SID 2</th>
+            <th>Kontrak</th>
+            <th>Kondisi</th>
+            <th>Keterangan</th>
+            <th>Aksi</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for d in icons %}
+        <tr style="text-align:center; vertical-align:middle;">
+            <td>{{ forloop.counter }}</td>
+            <td>{{ d.name }}</td>
+            <td>{{ d.lokasi_layanan }}</td>
+            <td>{{ d.bandwidth }}</td>
+            <td>{{ d.SID1 }}</td>
+            <td>{{ d.SID2 }}</td>
+            <td>{{ d.kontrak }}</td>
+            <td>{{ d.kondisi_operasional }}</td>
+            <td>{{ d.keterangan }}</td>
+            <td style="width: 150px; text-align:center;">
+                <a href="{% url 'icon_edit' d.id %}" class="btn btn-warning btn-sm">Edit</a>
+                <form method="post" action="{% url 'icon_delete' d.id %}" style="display:inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Yakin mau hapus?')">
+                        Delete
+                    </button>
+                </form>
+
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% endblock %}
