@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
-from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio
-from .forms import MaintenanceForm, MaintenancePLCForm, MaintenanceRouterForm, MaintenanceRadioForm
+from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier
+from .forms import MaintenanceForm, MaintenancePLCForm, MaintenanceRouterForm, MaintenanceRadioForm, MaintenanceVoIPForm, MaintenanceMuxForm, MaintenanceRectifierForm
 from devices.models import Device, DeviceType
 from django.db.models import Q, Count
 from django.db.models.functions import Trim
@@ -24,6 +24,12 @@ DEVICE_FORM_MAP = {
     'ROUTER': (MaintenanceRouterForm, 'maintenance/router_form.html'),
     'SWITCH': (MaintenanceRouterForm, 'maintenance/switch_form.html'),
     'RADIO': (MaintenanceRadioForm, 'maintenance/radio_form.html'),
+    'VOIP':        (MaintenanceVoIPForm,  'maintenance/voip_form.html'),
+    'MULTIPLEXER':  (MaintenanceMuxForm,        'maintenance/mux_form.html'),
+    'RECTIFIER':    (MaintenanceRectifierForm,   'maintenance/rectifier_form.html'),
+    'CATU DAYA':    (MaintenanceRectifierForm,   'maintenance/rectifier_form.html'),
+    'CATUDAYA':     (MaintenanceRectifierForm,   'maintenance/rectifier_form.html'),
+    'RECTIFIER & BATTERY': (MaintenanceRectifierForm, 'maintenance/rectifier_form.html'),
 }
 
 DEFAULT_TEMPLATE = 'maintenance/maintenance_form.html'
@@ -108,10 +114,17 @@ def maintenance_create(request, device_id):
         mform = MaintenanceForm()
         dform = detail_form_class() if detail_form_class else None
 
+    slot_fields = []
+    if dform and dform.__class__.__name__ == 'MaintenanceMuxForm':
+        for letter in 'ABCDEFGH':
+            l = letter.lower()
+            slot_fields.append((letter, dform['slot_' + l + '_modul'], dform['slot_' + l + '_isian']))
+
     return render(request, template, {
         'maintenance_form': mform,
         'detail_form':      dform,
         'device':           device,
+        'slot_fields':      slot_fields,
     })
 
 
@@ -139,6 +152,9 @@ def maintenance_detail(request, pk):
     plc_detail    = None
     router_detail = None
     radio_detail  = None
+    voip_detail   = None
+    mux_detail    = None
+    rect_detail   = None
 
     if device_type == 'PLC':
         try:
@@ -156,6 +172,24 @@ def maintenance_detail(request, pk):
         try:
             radio_detail = maintenance.maintenanceradio
         except MaintenanceRadio.DoesNotExist:
+            pass
+
+    elif device_type == 'VOIP':
+        try:
+            voip_detail = maintenance.maintenancevoip
+        except MaintenanceVoIP.DoesNotExist:
+            pass
+
+    elif device_type == 'MULTIPLEXER':
+        try:
+            mux_detail = maintenance.maintenancemux
+        except MaintenanceMux.DoesNotExist:
+            pass
+
+    elif device_type in ('RECTIFIER', 'CATU DAYA', 'CATUDAYA', 'RECTIFIER & BATTERY'):
+        try:
+            rect_detail = maintenance.maintenancerectifier
+        except MaintenanceRectifier.DoesNotExist:
             pass
 
     # Checklist peralatan terpasang untuk template radio
@@ -186,12 +220,105 @@ def maintenance_detail(request, pk):
             ('Status Switching / VLAN',  router_detail.status_routing),
         ]
 
+
+
+    # Context untuk Rectifier detail
+    rect_list = []
+    bat_list  = []
+    if rect_detail:
+        d = rect_detail
+        # rect_list: (rn, merk, tipe, kondisi, kapasitas, v_rect, v_bat, teg_pos, teg_neg, v_drop, a_rect, a_bat, a_load)
+        for n in [1, 2]:
+            rect_list.append((
+                n,
+                getattr(d, f'rect{n}_merk', ''),
+                getattr(d, f'rect{n}_tipe', ''),
+                getattr(d, f'rect{n}_kondisi', ''),
+                getattr(d, f'rect{n}_kapasitas', ''),
+                getattr(d, f'rect{n}_v_rectifier', None),
+                getattr(d, f'rect{n}_v_battery', None),
+                getattr(d, f'rect{n}_teg_pos_ground', None),
+                getattr(d, f'rect{n}_teg_neg_ground', None),
+                getattr(d, f'rect{n}_v_dropper', None),
+                getattr(d, f'rect{n}_a_rectifier', None),
+                getattr(d, f'rect{n}_a_battery', None),
+                getattr(d, f'rect{n}_a_load', None),
+            ))
+        # bat_list: (bn, merk, tipe, kondisi, kapasitas, jumlah, kabel, mur, sel_rak, air, v_total, v_load, cells)
+        for n in [1, 2]:
+            bat_list.append((
+                n,
+                getattr(d, f'bat{n}_merk', ''),
+                getattr(d, f'bat{n}_tipe', ''),
+                getattr(d, f'bat{n}_kondisi', ''),
+                getattr(d, f'bat{n}_kapasitas', ''),
+                getattr(d, f'bat{n}_jumlah', None),
+                getattr(d, f'bat{n}_kondisi_kabel', ''),
+                getattr(d, f'bat{n}_kondisi_mur_baut', ''),
+                getattr(d, f'bat{n}_kondisi_sel_rak', ''),
+                getattr(d, f'bat{n}_air_battery', None),
+                getattr(d, f'bat{n}_v_total', None),
+                getattr(d, f'bat{n}_v_load', None),
+                getattr(d, f'bat{n}_cells', []),
+            ))
+
+    # Context tambahan untuk MUX detail
+    mux_slots = []
+    mux_psu_list = []
+    hs_list = []
+    if mux_detail:
+        for letter in 'ABCDEFGH':
+            l = letter.lower()
+            mux_slots.append((
+                letter,
+                getattr(mux_detail, f'slot_{l}_modul', ''),
+                getattr(mux_detail, f'slot_{l}_isian', ''),
+            ))
+        mux_psu_list = [
+            ('PSU 1', mux_detail.psu1_status, mux_detail.psu1_temp1, mux_detail.psu1_temp2, mux_detail.psu1_temp3),
+            ('PSU 2', mux_detail.psu2_status, mux_detail.psu2_temp1, mux_detail.psu2_temp2, mux_detail.psu2_temp3),
+            ('FAN',   mux_detail.fan_status,  None, None, None),
+        ]
+        hs_list = [('1', 'hs1'), ('2', 'hs2')]
+
+    # Checklist untuk Mux (PSU & FAN status)
+    mux_checklist = []
+    if mux_detail:
+        mux_checklist = [
+            ('PSU 1', mux_detail.psu1_status),
+            ('PSU 2', mux_detail.psu2_status),
+            ('FAN',   mux_detail.fan_status),
+        ]
+
+    # Checklist untuk VoIP
+    voip_checklist = []
+    if voip_detail:
+        voip_checklist = [
+            ('Kondisi Fisik Perangkat', voip_detail.kondisi_fisik),
+            ('NTP Server',             voip_detail.ntp_server),
+            ('Web Config',             voip_detail.webconfig),
+            ('Status Power Supply',    voip_detail.ps_status),
+        ]
+
     return render(request, 'maintenance/maintenance_detail.html', {
         'maintenance':      maintenance,
         'device_type':      device_type,
         'plc_detail':       plc_detail,
         'router_detail':    router_detail,
         'radio_detail':     radio_detail,
+        'voip_detail':      voip_detail,
+        'voip_checklist':   voip_checklist,
+        'mux_detail':       mux_detail,
+        'mux_checklist':    mux_checklist,
+        'mux_slots':        mux_slots,
+        'mux_psu_list':     mux_psu_list,
+        'hs_list':          hs_list,
+        'rect_detail':      rect_detail,
+        'rect_list':        rect_list,
+        'bat_list':         bat_list,
+        'rect_v_list':      [('Rectifier', rect_detail.rect1_v_rectifier if rect_detail else None, 'V'), ('Battery', rect_detail.rect1_v_battery if rect_detail else None, 'V'), ('Teg(+) GND', rect_detail.rect1_teg_pos_ground if rect_detail else None, 'V'), ('Teg(-) GND', rect_detail.rect1_teg_neg_ground if rect_detail else None, 'V'), ('Dropper', rect_detail.rect1_v_dropper if rect_detail else None, 'V')] if rect_detail else [],
+        'rect_a_list':      [('Rectifier', rect_detail.rect1_a_rectifier if rect_detail else None), ('Battery', rect_detail.rect1_a_battery if rect_detail else None), ('Load', rect_detail.rect1_a_load if rect_detail else None)] if rect_detail else [],
+        'bat_kondisi_list': [('Kabel Battery', rect_detail.bat1_kondisi_kabel if rect_detail else ''), ('Mur & Baut', rect_detail.bat1_kondisi_mur_baut if rect_detail else ''), ('Sel & Rak', rect_detail.bat1_kondisi_sel_rak if rect_detail else '')] if rect_detail else [],
         'radio_checklist':  radio_checklist,
         'router_checklist': router_checklist,
         'switch_checklist': switch_checklist,
@@ -217,6 +344,14 @@ def maintenance_edit(request, pk):
                 detail_instance = maintenance.maintenanceplc
             elif detail_form_class.__name__ == 'MaintenanceRouterForm':
                 detail_instance = maintenance.maintenancerouter
+            elif detail_form_class.__name__ == 'MaintenanceRadioForm':
+                detail_instance = maintenance.maintenanceradio
+            elif detail_form_class.__name__ == 'MaintenanceVoIPForm':
+                detail_instance = maintenance.maintenancevoip
+            elif detail_form_class.__name__ == 'MaintenanceMuxForm':
+                detail_instance = maintenance.maintenancemux
+            elif detail_form_class.__name__ == 'MaintenanceRectifierForm':
+                detail_instance = maintenance.maintenancerectifier
         except Exception:
             pass
 
@@ -238,12 +373,19 @@ def maintenance_edit(request, pk):
         mform = MaintenanceForm(instance=maintenance)
         dform = detail_form_class(instance=detail_instance) if detail_form_class else None
 
+    slot_fields_edit = []
+    if dform and dform.__class__.__name__ == 'MaintenanceMuxForm':
+        for letter in 'ABCDEFGH':
+            l = letter.lower()
+            slot_fields_edit.append((letter, dform['slot_' + l + '_modul'], dform['slot_' + l + '_isian']))
+
     return render(request, edit_template, {
         'maintenance_form': mform,
         'detail_form':      dform,
         'device':           device,
         'is_edit':          True,
         'maintenance':      maintenance,
+        'slot_fields':      slot_fields_edit,
     })
 
 # ─────────────────────────────────────────────────────────────────────

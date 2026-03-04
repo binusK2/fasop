@@ -61,7 +61,7 @@ def device_create(request):
             return redirect('device_list')
     else:
         form = DeviceForm()
-    return render(request, 'devices/device_form.html', {'form': form})
+    return render(request, 'devices/device_form.html', {'form': form, 'is_edit': False})
 
 
 @login_required
@@ -71,10 +71,10 @@ def device_update(request, pk):
         form = DeviceForm(request.POST, request.FILES, instance=device)
         if form.is_valid():
             form.save()
-            return redirect('device_list')
+            return redirect('device_view', pk=device.pk)
     else:
         form = DeviceForm(instance=device)
-    return render(request, 'devices/device_form.html', {'form': form})
+    return render(request, 'devices/device_form.html', {'form': form, 'is_edit': True, 'device': device})
 
 
 @login_required
@@ -204,7 +204,44 @@ def lokasi_list(request):
 @login_required
 def layanan_icon(request):
     icons = Icon.objects.all()
-    return render(request, 'devices/layanan_icon.html', {'icons': icons})
+
+    # Filter
+    search = request.GET.get('q', '').strip()
+    selected_kondisi = request.GET.get('kondisi', '').strip()
+
+    if search:
+        icons = icons.filter(
+            Q(name__icontains=search) |
+            Q(lokasi_layanan__icontains=search) |
+            Q(SID1__icontains=search) |
+            Q(SID2__icontains=search) |
+            Q(keterangan__icontains=search)
+        )
+    if selected_kondisi:
+        icons = icons.filter(kondisi_operasional__icontains=selected_kondisi)
+
+    icons = list(icons)
+
+    # Summary counters
+    operasi_baik     = sum(1 for i in icons if i.kondisi_operasional and 'Baik' in i.kondisi_operasional)
+    operasi_gangguan = sum(1 for i in icons if i.kondisi_operasional and ('Gangguan' in i.kondisi_operasional or 'NOK' in i.kondisi_operasional))
+    operasi_lain     = len(icons) - operasi_baik - operasi_gangguan
+
+    # Distinct kondisi values for filter dropdown
+    kondisi_list = sorted(set(
+        i.kondisi_operasional for i in Icon.objects.all()
+        if i.kondisi_operasional
+    ))
+
+    return render(request, 'devices/layanan_icon.html', {
+        'icons':            icons,
+        'search':           search,
+        'selected_kondisi': selected_kondisi,
+        'kondisi_list':     kondisi_list,
+        'operasi_baik':     operasi_baik,
+        'operasi_gangguan': operasi_gangguan,
+        'operasi_lain':     operasi_lain,
+    })
 
 
 @login_required
@@ -216,7 +253,11 @@ def icon_create(request):
             return redirect('layanan_icon')
     else:
         form = IconForm()
-    return render(request, 'devices/icon_form.html', {'form': form})
+    return render(request, 'devices/icon_form.html', {
+        'form': form,
+        'is_edit': False,
+        'kondisi_choices': [('Operasi Baik','Operasi Baik'),('Gangguan','Gangguan'),('Tidak Operasi','Tidak Operasi'),('Dalam Pemeliharaan','Dalam Pemeliharaan')],
+    })
 
 
 @login_required
@@ -229,7 +270,12 @@ def icon_update(request, pk):
             return redirect('layanan_icon')
     else:
         form = IconForm(instance=icon)
-    return render(request, 'devices/icon_form.html', {'form': form})
+    return render(request, 'devices/icon_form.html', {
+        'form': form,
+        'is_edit': True,
+        'icon': icon,
+        'kondisi_choices': [('Operasi Baik','Operasi Baik'),('Gangguan','Gangguan'),('Tidak Operasi','Tidak Operasi'),('Dalam Pemeliharaan','Dalam Pemeliharaan')],
+    })
 
 
 @login_required
@@ -349,4 +395,132 @@ def export_devices_excel(request):
     )
     response['Content-Disposition'] = 'attachment; filename="inventory_peralatan_fasop.xlsx"'
     wb.save(response)
+    return response
+
+
+@login_required
+def export_icon_excel(request):
+    from datetime import date
+
+    icons = Icon.objects.all()
+
+    # Apply same filters as list view
+    search = request.GET.get('q', '').strip()
+    selected_kondisi = request.GET.get('kondisi', '').strip()
+    if search:
+        icons = icons.filter(
+            Q(name__icontains=search) |
+            Q(lokasi_layanan__icontains=search) |
+            Q(SID1__icontains=search) |
+            Q(SID2__icontains=search) |
+            Q(keterangan__icontains=search)
+        )
+    if selected_kondisi:
+        icons = icons.filter(kondisi_operasional__icontains=selected_kondisi)
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Layanan ICON+"
+
+    # Styles
+    header_fill  = PatternFill("solid", fgColor="0F172A")
+    header_font  = Font(bold=True, color="FFFFFF", size=11)
+    header_align = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    center_align = Alignment(horizontal="center", vertical="center")
+    left_align   = Alignment(horizontal="left", vertical="center", wrap_text=True)
+    thin_border  = Border(
+        left=Side(style='thin'), right=Side(style='thin'),
+        top=Side(style='thin'),  bottom=Side(style='thin')
+    )
+    alt_fill = PatternFill("solid", fgColor="F8FAFC")
+
+    COLS = 9
+
+    # Judul
+    ws.merge_cells(f'A1:{get_column_letter(COLS)}1')
+    ws['A1'].value     = "DATA LAYANAN ICON+ — FASOP UP2B"
+    ws['A1'].font      = Font(bold=True, size=13)
+    ws['A1'].alignment = Alignment(horizontal="center", vertical="center")
+    ws['A1'].fill      = PatternFill("solid", fgColor="EFF6FF")
+    ws.row_dimensions[1].height = 28
+
+    ws.merge_cells(f'A2:{get_column_letter(COLS)}2')
+    ws['A2'].value     = f"Dicetak: {date.today().strftime('%d %B %Y')}"
+    ws['A2'].alignment = Alignment(horizontal="center")
+    ws['A2'].font      = Font(size=10, italic=True, color="64748B")
+    ws.row_dimensions[2].height = 18
+    ws.row_dimensions[3].height = 6  # spacer
+
+    # Header row
+    headers    = ['No', 'Nama Layanan', 'Lokasi Layanan', 'Bandwidth', 'SID 1', 'SID 2', 'Kontrak', 'Kondisi Operasional', 'Keterangan']
+    col_widths = [5,    28,             25,                14,          22,      22,      18,        22,                   35]
+
+    for col_idx, (h, w) in enumerate(zip(headers, col_widths), 1):
+        cell = ws.cell(row=4, column=col_idx, value=h)
+        cell.font      = header_font
+        cell.fill      = header_fill
+        cell.alignment = header_align
+        cell.border    = thin_border
+        ws.column_dimensions[get_column_letter(col_idx)].width = w
+    ws.row_dimensions[4].height = 22
+
+    # Conditional fill colours for kondisi
+    green_fill  = PatternFill("solid", fgColor="DCFCE7")
+    red_fill    = PatternFill("solid", fgColor="FEE2E2")
+    yellow_fill = PatternFill("solid", fgColor="FEF3C7")
+
+    # Data rows
+    for row_idx, d in enumerate(icons, 1):
+        ws_row = row_idx + 4
+        row_data = [
+            row_idx,
+            d.name or '-',
+            d.lokasi_layanan or '-',
+            d.bandwidth or '-',
+            d.SID1 or '-',
+            d.SID2 or '-',
+            d.kontrak or '-',
+            d.kondisi_operasional or '-',
+            d.keterangan or '-',
+        ]
+        for col_idx, value in enumerate(row_data, 1):
+            cell            = ws.cell(row=ws_row, column=col_idx, value=value)
+            cell.border     = thin_border
+            cell.alignment  = center_align if col_idx == 1 else left_align
+            if row_idx % 2 == 0:
+                cell.fill = alt_fill
+
+        # Colour-code kondisi cell (col 8)
+        kondisi_val = d.kondisi_operasional or ''
+        kondisi_cell = ws.cell(row=ws_row, column=8)
+        if 'Baik' in kondisi_val:
+            kondisi_cell.fill = green_fill
+            kondisi_cell.font = Font(bold=True, color="065F46")
+        elif 'Gangguan' in kondisi_val or 'NOK' in kondisi_val:
+            kondisi_cell.fill = red_fill
+            kondisi_cell.font = Font(bold=True, color="991B1B")
+        elif kondisi_val != '-':
+            kondisi_cell.fill = yellow_fill
+            kondisi_cell.font = Font(bold=True, color="92400E")
+
+        ws.row_dimensions[ws_row].height = 18
+
+    # Freeze header
+    ws.freeze_panes = 'A5'
+
+    # Auto-filter
+    ws.auto_filter.ref = f'A4:{get_column_letter(COLS)}{4 + icons.count() if hasattr(icons, "count") else 4 + len(list(icons))}'
+
+    # Response
+    from django.http import HttpResponse
+    import io
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+    filename = f"layanan_icon_{date.today().strftime('%Y%m%d')}.xlsx"
+    response = HttpResponse(
+        buffer.getvalue(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
     return response

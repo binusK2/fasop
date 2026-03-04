@@ -1,0 +1,349 @@
+{% extends 'base.html' %}
+{% block title %}{% if is_edit %}Edit{% else %}Form{% endif %} Maintenance VoIP — {{ device.nama }}{% endblock %}
+{% block page_title %}{% if is_edit %}Edit{% else %}Form{% endif %} Maintenance VoIP{% endblock %}
+
+{% block content %}
+
+<div class="d-flex align-items-center gap-2 mb-3">
+    {% if is_edit %}
+    <a href="{% url 'maintenance_view' maintenance.id %}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Kembali ke Detail
+    </a>
+    {% else %}
+    <a href="{% url 'device_view' device.id %}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Kembali ke Perangkat
+    </a>
+    {% endif %}
+</div>
+
+<!-- DEVICE INFO BANNER -->
+<div class="card mb-4" style="background:linear-gradient(135deg,#0f172a 0%,#4c1d95 100%);border:none;">
+    <div class="card-body py-3 px-4">
+        <div class="d-flex align-items-center gap-4 flex-wrap">
+            <div style="width:42px;height:42px;background:rgba(167,139,250,0.2);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <i class="bi bi-telephone-fill" style="font-size:20px;color:#c4b5fd;"></i>
+            </div>
+            <div>
+                <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Perangkat</div>
+                <div style="font-size:16px;font-weight:700;color:#f1f5f9;">{{ device.nama }}</div>
+            </div>
+            <div class="vr" style="background:rgba(255,255,255,0.1);width:1px;align-self:stretch;"></div>
+            <div>
+                <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Jenis</div>
+                <div style="font-size:13px;color:#cbd5e1;">{{ device.jenis }}</div>
+            </div>
+            <div>
+                <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">IP Address</div>
+                <div class="mono" style="color:#c4b5fd;">{{ device.ip_address|default:"—" }}</div>
+            </div>
+            <div>
+                <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Lokasi</div>
+                <div style="font-size:13px;color:#cbd5e1;">{{ device.lokasi|default:"—" }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<form method="post" enctype="multipart/form-data" id="voip-form"
+    {% if is_edit %}action="{% url 'maintenance_edit' maintenance.id %}"{% endif %}>
+{% csrf_token %}
+
+<!-- ══ 1. INFORMASI MAINTENANCE ══════════════════════════════ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-title-bar">
+            <span class="bar" style="background:#3b82f6;"></span>
+            <span>Informasi Maintenance</span>
+        </div>
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Jenis Maintenance</label>
+                {{ maintenance_form.maintenance_type }}
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Tanggal</label>
+                {{ maintenance_form.date }}
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Pelaksana</label>
+                {{ maintenance_form.technician }}
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Status</label>
+                {{ maintenance_form.status }}
+            </div>
+            <div class="col-12">
+                <label class="form-label">Deskripsi / Keluhan</label>
+                {{ maintenance_form.description }}
+            </div>
+            <div class="col-12">
+                <label class="form-label">Foto Dokumentasi</label>
+                {{ maintenance_form.photo }}
+                <div class="form-text">Format: JPG, PNG. Maks 10MB.</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ 2. INFORMASI VOIP ═════════════════════════════════════ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-title-bar">
+            <span class="bar" style="background:#8b5cf6;"></span>
+            <span>Informasi VoIP</span>
+        </div>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <div class="measure-card">
+                    <div class="measure-label">IP Address VoIP</div>
+                    {{ detail_form.ip_address }}
+                    <div style="font-size:11px;color:#94a3b8;margin-top:4px;">IP khusus perangkat VoIP (jika berbeda)</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="measure-card">
+                    <div class="measure-label">Extension Number</div>
+                    {{ detail_form.extension_number }}
+                    <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Nomor ekstensi yang terdaftar</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="measure-card">
+                    <div class="measure-label">SIP Server 1</div>
+                    {{ detail_form.sip_server_1 }}
+                    <div style="font-size:11px;color:#94a3b8;margin-top:4px;">IP/hostname SIP server utama</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="measure-card">
+                    <div class="measure-label">SIP Server 2</div>
+                    {{ detail_form.sip_server_2 }}
+                    <div style="font-size:11px;color:#94a3b8;margin-top:4px;">IP/hostname SIP server backup</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ 3. KONDISI LINGKUNGAN ═════════════════════════════════ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-title-bar">
+            <span class="bar" style="background:#f59e0b;"></span>
+            <span>Kondisi Lingkungan</span>
+        </div>
+        <div class="row g-3">
+            <div class="col-md-3">
+                <div class="measure-card">
+                    <div class="measure-label">Suhu Ruangan</div>
+                    <div class="input-group">
+                        {{ detail_form.suhu_ruangan }}
+                        <span class="input-group-text measure-unit">°C</span>
+                    </div>
+                    <div id="suhu-bar-wrap" style="margin-top:8px;display:none;">
+                        <div style="height:5px;background:#e2e8f0;border-radius:3px;overflow:hidden;">
+                            <div id="suhu-bar" style="height:100%;border-radius:3px;transition:width 0.3s;"></div>
+                        </div>
+                        <div id="suhu-label" style="font-size:10.5px;color:#94a3b8;margin-top:3px;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ 4. PEMERIKSAAN PERANGKAT ══════════════════════════════ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-title-bar">
+            <span class="bar" style="background:#10b981;"></span>
+            <span>Pemeriksaan Perangkat</span>
+            <span style="font-size:11px;color:#94a3b8;margin-left:4px;">— Pilih OK / NOK</span>
+        </div>
+        <div class="row g-2" id="checklist-container"></div>
+
+        <!-- Hidden Django select fields -->
+        <div style="display:none;">
+            <div id="field-kondisi_fisik">{{ detail_form.kondisi_fisik }}</div>
+            <div id="field-ntp_server">{{ detail_form.ntp_server }}</div>
+            <div id="field-webconfig">{{ detail_form.webconfig }}</div>
+            <div id="field-ps_status">{{ detail_form.ps_status }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ 5. POWER SUPPLY ══════════════════════════════════════ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-title-bar">
+            <span class="bar" style="background:#f97316;"></span>
+            <span>Power Supply</span>
+        </div>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <div class="measure-card">
+                    <div class="measure-label">Merk Power Supply</div>
+                    {{ detail_form.ps_merk }}
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="measure-card">
+                    <div class="measure-label">Tegangan Input</div>
+                    <div class="input-group">
+                        {{ detail_form.ps_tegangan_input }}
+                        <span class="input-group-text measure-unit">V</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ 6. CATATAN ════════════════════════════════════════════ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-title-bar">
+            <span class="bar" style="background:#64748b;"></span>
+            <span>Catatan</span>
+        </div>
+        {{ detail_form.catatan }}
+    </div>
+</div>
+
+{% if maintenance_form.errors or detail_form.errors %}
+<div class="alert alert-danger">
+    <i class="bi bi-exclamation-triangle me-2"></i>
+    <strong>Mohon perbaiki error berikut:</strong>
+    {{ maintenance_form.errors }}{{ detail_form.errors }}
+</div>
+{% endif %}
+
+<div class="d-flex gap-2 justify-content-end pb-4">
+    {% if is_edit %}
+    <a href="{% url 'maintenance_view' maintenance.id %}" class="btn btn-outline-secondary">
+        <i class="bi bi-x me-1"></i>Batal
+    </a>
+    {% else %}
+    <a href="{% url 'device_view' device.id %}" class="btn btn-outline-secondary">
+        <i class="bi bi-x me-1"></i>Batal
+    </a>
+    {% endif %}
+    <button type="submit" class="btn btn-primary px-4">
+        <i class="bi bi-floppy me-1"></i>
+        {% if is_edit %}Simpan Perubahan{% else %}Simpan Maintenance{% endif %}
+    </button>
+</div>
+
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<style>
+.section-title-bar { display:flex;align-items:center;gap:8px;margin-bottom:14px; }
+.section-title-bar .bar { width:5px;height:18px;border-radius:3px;flex-shrink:0; }
+.section-title-bar > span:nth-child(2) { font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#475569; }
+.measure-card { background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px; }
+.measure-label { font-size:11.5px;font-weight:700;color:#64748b;margin-bottom:7px;text-transform:uppercase;letter-spacing:0.4px; }
+.measure-unit { background:#e2e8f0;border-color:#e2e8f0 !important;font-size:12px;font-weight:700;color:#475569;min-width:48px;justify-content:center; }
+.checklist-card { background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:11px 13px;transition:border-color 0.15s,background 0.15s;height:100%; }
+.checklist-card.status-ok  { border-color:#10b981;background:#f0fdf4; }
+.checklist-card.status-nok { border-color:#ef4444;background:#fef2f2; }
+.checklist-label { font-size:12.5px;font-weight:600;color:#334155;margin-bottom:4px; }
+.checklist-sublabel { font-size:11px;color:#94a3b8;margin-bottom:9px; }
+.checklist-toggle { display:flex;gap:6px; }
+.toggle-btn { flex:1;padding:5px 0;border-radius:6px;font-size:12px;font-weight:700;border:1.5px solid transparent;cursor:pointer;transition:all 0.12s; }
+.toggle-btn.ok  { background:#fff;border-color:#d1fae5;color:#9ca3af; }
+.toggle-btn.nok { background:#fff;border-color:#fee2e2;color:#9ca3af; }
+.toggle-btn.ok:hover  { background:#d1fae5;color:#065f46;border-color:#6ee7b7; }
+.toggle-btn.nok:hover { background:#fee2e2;color:#991b1b;border-color:#fca5a5; }
+.toggle-btn.ok.selected  { background:#10b981;border-color:#10b981;color:#fff; }
+.toggle-btn.nok.selected { background:#ef4444;border-color:#ef4444;color:#fff; }
+</style>
+
+<script>
+const CHECKLIST = [
+    { id: 'kondisi_fisik', label: 'Kondisi Fisik Perangkat', sub: 'Tidak ada kerusakan, korosi, atau debu berlebih' },
+    { id: 'ntp_server',    label: 'NTP Server',              sub: 'Waktu tersinkronisasi dengan server NTP' },
+    { id: 'webconfig',     label: 'Web Config',              sub: 'Antarmuka web konfigurasi dapat diakses' },
+    { id: 'ps_status',     label: 'Status Power Supply',     sub: 'Catu daya berfungsi normal' },
+];
+
+function setStatus(fieldName, value) {
+    const card = document.getElementById('card-' + fieldName);
+    if (card) {
+        card.classList.toggle('status-ok',  value === 'OK');
+        card.classList.toggle('status-nok', value === 'NOK');
+        card.querySelectorAll('.toggle-btn').forEach(btn => {
+            btn.classList.toggle('selected',
+                (btn.classList.contains('ok')  && value === 'OK') ||
+                (btn.classList.contains('nok') && value === 'NOK')
+            );
+        });
+    }
+    const wrap = document.getElementById('field-' + fieldName);
+    if (wrap) {
+        const sel = wrap.querySelector('select');
+        if (sel) sel.value = value;
+    }
+}
+
+function getFieldValue(fieldName) {
+    const wrap = document.getElementById('field-' + fieldName);
+    if (!wrap) return '';
+    const sel = wrap.querySelector('select');
+    return sel ? sel.value : '';
+}
+
+function renderChecklist() {
+    const container = document.getElementById('checklist-container');
+    if (!container) return;
+    container.innerHTML = '';
+    CHECKLIST.forEach(({ id, label, sub }) => {
+        const col = document.createElement('div');
+        col.className = 'col-md-3 col-sm-6';
+        col.innerHTML = `
+            <div class="checklist-card" id="card-${id}">
+                <div class="checklist-label">${label}</div>
+                <div class="checklist-sublabel">${sub}</div>
+                <div class="checklist-toggle">
+                    <button type="button" class="toggle-btn ok"  onclick="setStatus('${id}','OK')">✓ OK</button>
+                    <button type="button" class="toggle-btn nok" onclick="setStatus('${id}','NOK')">✗ NOK</button>
+                </div>
+            </div>`;
+        container.appendChild(col);
+    });
+    CHECKLIST.forEach(({ id }) => {
+        const val = getFieldValue(id);
+        if (val) setStatus(id, val);
+    });
+}
+
+function updateSuhuBar() {
+    const input = document.querySelector('[name="suhu_ruangan"]');
+    if (!input) return;
+    const run = () => {
+        const val = parseFloat(input.value);
+        const wrap = document.getElementById('suhu-bar-wrap');
+        const bar  = document.getElementById('suhu-bar');
+        const lbl  = document.getElementById('suhu-label');
+        if (!isNaN(val) && val > 0) {
+            wrap.style.display = 'block';
+            const pct = Math.min(100, Math.max(0, ((val - 15) / 30) * 100));
+            bar.style.width = pct + '%';
+            if (val <= 25)      { bar.style.background = '#10b981'; lbl.textContent = 'Normal (' + val + '°C)'; }
+            else if (val <= 32) { bar.style.background = '#f59e0b'; lbl.textContent = 'Hangat (' + val + '°C)'; }
+            else                { bar.style.background = '#ef4444'; lbl.textContent = 'Panas! (' + val + '°C)'; }
+        } else {
+            wrap.style.display = 'none';
+        }
+    };
+    input.addEventListener('input', run);
+    run();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    renderChecklist();
+    updateSuhuBar();
+});
+</script>
+{% endblock %}

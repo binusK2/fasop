@@ -340,8 +340,19 @@ function setStatus(fieldName, value) {
             );
         });
     }
+    // Sync ke underlying Select widget
     const wrap = document.getElementById('field-' + fieldName);
-    if (wrap) { const sel = wrap.querySelector('select'); if (sel) sel.value = value; }
+    if (wrap) {
+        const sel = wrap.querySelector('select');
+        if (sel) sel.value = value;
+    }
+}
+
+function getFieldValue(fieldName) {
+    const wrap = document.getElementById('field-' + fieldName);
+    if (!wrap) return '';
+    const sel = wrap.querySelector('select');
+    return sel ? sel.value : '';
 }
 
 function renderChecklist() {
@@ -362,11 +373,10 @@ function renderChecklist() {
             </div>`;
         container.appendChild(col);
     });
+    // Restore nilai existing dari hidden select
     CHECKLIST.forEach(({ id }) => {
-        const wrap = document.getElementById('field-' + id);
-        if (!wrap) return;
-        const sel = wrap.querySelector('select');
-        if (sel && sel.value) setStatus(id, sel.value);
+        const val = getFieldValue(id);
+        if (val) setStatus(id, val);
     });
 }
 

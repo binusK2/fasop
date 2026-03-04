@@ -4,35 +4,6 @@
 
 {% block content %}
 
-<div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
-    <a href="{% url 'maintenance_list' %}" class="btn btn-sm btn-outline-secondary">
-        <i class="bi bi-arrow-left me-1"></i>Kembali
-    </a>
-    <a href="{% url 'device_view' maintenance.device.id %}" class="btn btn-sm btn-outline-primary">
-        <i class="bi bi-hdd-rack me-1"></i>Lihat Perangkat
-    </a>
-    <a href="{% url 'export_maintenance_pdf' maintenance.id %}" class="btn btn-sm btn-outline-danger" target="_blank">
-        <i class="bi bi-file-earmark-pdf me-1"></i>Export PDF
-    </a>
-    {% if maintenance.status == 'Open' %}
-    <a href="{% url 'maintenance_edit' maintenance.id %}" class="btn btn-sm btn-outline-warning">
-        <i class="bi bi-pencil me-1"></i>Edit
-    </a>
-    {% endif %}
-    <button class="btn btn-sm btn-outline-danger ms-1" onclick="confirmDelete()">
-        <i class="bi bi-trash me-1"></i>Hapus
-    </button>
-    {% if maintenance.status == 'Open' %}
-    <form method="post" action="{% url 'maintenance_update_status' maintenance.id %}" class="ms-auto">
-        {% csrf_token %}
-        <input type="hidden" name="status" value="Done">
-        <button class="btn btn-success btn-sm px-3">
-            <i class="bi bi-check-lg me-1"></i>Tandai Selesai
-        </button>
-    </form>
-    {% endif %}
-</div>
-
 <!-- MODAL DELETE -->
 <div class="modal fade" id="deleteModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered" style="max-width:380px;">
@@ -54,65 +25,171 @@
     </div>
 </div>
 
-<!-- HEADER CARD -->
-<div class="card mb-4">
-    <div class="card-body py-3 px-4">
-        <div class="row g-3">
-            <div class="col-md-2">
-                <div style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Tanggal</div>
-                <div style="font-size:15px;font-weight:700;">{{ maintenance.date|date:"d M Y" }}</div>
+<!-- ═══════════════ DARK BANNER ═══════════════ -->
+<div class="card mb-4" style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);border:none;overflow:visible;">
+    <div class="card-body py-0 px-0">
+
+        <!-- Top row: device identity + actions -->
+        <div class="d-flex align-items-center gap-3 px-4 py-3 flex-wrap" style="border-bottom:1px solid rgba(255,255,255,0.07);">
+            <!-- Device icon -->
+            <div style="width:42px;height:42px;background:rgba(59,130,246,0.2);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <i class="bi bi-hdd-rack-fill" style="font-size:20px;color:#93c5fd;"></i>
             </div>
-            <div class="col-md-3">
-                <div style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Perangkat</div>
-                <div style="font-size:14px;font-weight:600;">{{ maintenance.device.nama }}</div>
-                <div style="font-size:12px;color:#64748b;">{{ maintenance.device.lokasi }}</div>
+            <!-- Device name + jenis -->
+            <div>
+                <div style="font-size:17px;font-weight:700;color:#f1f5f9;line-height:1.2;">{{ maintenance.device.nama }}</div>
+                <div class="d-flex align-items-center gap-2 mt-1">
+                    {% if maintenance.device.jenis %}
+                    <span style="font-size:11px;background:rgba(59,130,246,0.25);color:#93c5fd;padding:2px 8px;border-radius:20px;font-weight:500;">{{ maintenance.device.jenis }}</span>
+                    {% endif %}
+                    <span style="font-size:11px;color:#64748b;">{{ maintenance.device.lokasi }}</span>
+                </div>
             </div>
-            <div class="col-md-2">
-                <div style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Jenis</div>
-                <span style="font-size:12px;background:#f0f9ff;color:#0369a1;padding:3px 9px;border-radius:20px;">{{ maintenance.maintenance_type }}</span>
+
+            <!-- Divider -->
+            <div style="width:1px;height:36px;background:rgba(255,255,255,0.1);margin:0 4px;display:none;" class="d-md-block"></div>
+
+            <!-- Meta items -->
+            <div class="d-flex gap-4 flex-wrap ms-md-2">
+                <div>
+                    <div style="font-size:10px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Tanggal</div>
+                    <div style="font-size:13px;font-weight:700;color:#e2e8f0;">{{ maintenance.date|date:"d M Y" }}</div>
+                </div>
+                <div>
+                    <div style="font-size:10px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Jenis</div>
+                    <span style="font-size:11px;background:rgba(14,165,233,0.2);color:#7dd3fc;padding:2px 9px;border-radius:20px;font-weight:600;">{{ maintenance.maintenance_type }}</span>
+                </div>
+                <div>
+                    <div style="font-size:10px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Pelaksana</div>
+                    <div style="font-size:13px;color:#e2e8f0;">{{ maintenance.technician|default:"—" }}</div>
+                </div>
+                <div>
+                    <div style="font-size:10px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Status</div>
+                    {% if maintenance.status == 'Done' %}
+                    <span style="font-size:11.5px;font-weight:700;color:#065f46;background:#dcfce7;padding:3px 10px;border-radius:20px;">&#10003; Done</span>
+                    {% else %}
+                    <span style="font-size:11.5px;font-weight:700;color:#1d4ed8;background:#dbeafe;padding:3px 10px;border-radius:20px;">&#9679; Open</span>
+                    {% endif %}
+                </div>
             </div>
-            <div class="col-md-2">
-                <div style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Pelaksana</div>
-                <div style="font-size:14px;">{{ maintenance.technician|default:"—" }}</div>
-            </div>
-            <div class="col-md-3">
-                <div style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Status</div>
-                {% if maintenance.status == 'Done' %}
-                <span class="badge-status badge-done">&#10003; Done</span>
+
+            <!-- Actions (pushed to right) -->
+            <div class="d-flex gap-2 ms-auto flex-wrap align-items-center">
+                <a href="{% url 'maintenance_list' %}" class="btn btn-sm" style="background:rgba(255,255,255,0.08);color:#cbd5e1;border:1px solid rgba(255,255,255,0.12);font-size:12px;">
+                    <i class="bi bi-arrow-left me-1"></i>Kembali
+                </a>
+                {% if maintenance.status == 'Open' %}
+                <a href="{% url 'maintenance_edit' maintenance.id %}" class="btn btn-sm" style="background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.3);font-size:12px;">
+                    <i class="bi bi-pencil me-1"></i>Edit
+                </a>
+                {% endif %}
+                <a href="{% url 'export_maintenance_pdf' maintenance.id %}" class="btn btn-sm" style="background:rgba(239,68,68,0.15);color:#fca5a5;border:1px solid rgba(239,68,68,0.3);font-size:12px;" target="_blank">
+                    <i class="bi bi-file-earmark-pdf me-1"></i>PDF
+                </a>
+                <button class="btn btn-sm" onclick="confirmDelete()" style="background:rgba(239,68,68,0.15);color:#fca5a5;border:1px solid rgba(239,68,68,0.3);font-size:12px;">
+                    <i class="bi bi-trash me-1"></i>Hapus
+                </button>
+                {% if maintenance.status == 'Open' %}
+                <form method="post" action="{% url 'maintenance_update_status' maintenance.id %}" class="m-0">
+                    {% csrf_token %}
+                    <input type="hidden" name="status" value="Done">
+                    <button class="btn btn-sm px-3" style="background:#10b981;color:#fff;border:none;font-size:12px;font-weight:600;">
+                        <i class="bi bi-check-lg me-1"></i>Tandai Selesai
+                    </button>
+                </form>
                 {% else %}
-                <span class="badge-status badge-open">Open</span>
+                <form method="post" action="{% url 'maintenance_update_status' maintenance.id %}" class="m-0">
+                    {% csrf_token %}
+                    <input type="hidden" name="status" value="Open">
+                    <button class="btn btn-sm" onclick="return confirm('Buka kembali maintenance ini untuk diedit?')" style="background:rgba(255,255,255,0.08);color:#cbd5e1;border:1px solid rgba(255,255,255,0.12);font-size:12px;">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i>Buka Kembali
+                    </button>
+                </form>
                 {% endif %}
             </div>
         </div>
+
         {% if maintenance.description %}
-        <div class="mt-3 pt-3 border-top">
-            <div style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Deskripsi</div>
-            <div style="font-size:13.5px;">{{ maintenance.description }}</div>
+        <!-- Deskripsi row -->
+        <div class="px-4 py-2" style="border-bottom:1px solid rgba(255,255,255,0.07);">
+            <span style="font-size:10px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-right:10px;">Deskripsi</span>
+            <span style="font-size:13px;color:#cbd5e1;">{{ maintenance.description }}</span>
         </div>
         {% endif %}
+
     </div>
 </div>
 
 <div class="row g-3">
 
-    <!-- FOTO -->
+    <!-- PANEL KIRI: DEVICE DETAIL + FOTO -->
     <div class="col-md-4">
-        <div class="card h-100">
-            <div class="card-body text-center">
-                <div style="font-size:12px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;" class="mb-2">Foto Dokumentasi</div>
+
+        <!-- Device Info Card -->
+        <div class="card mb-3">
+            <div class="card-body px-4 py-3">
+                <table style="width:100%;border-collapse:collapse;">
+                    {% if maintenance.device.merk %}
+                    <tr>
+                        <td style="font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;padding:6px 0;width:45%;">Merk</td>
+                        <td style="font-size:13px;color:#334155;padding:6px 0;">{{ maintenance.device.merk }}</td>
+                    </tr>
+                    {% endif %}
+                    {% if maintenance.device.type %}
+                    <tr>
+                        <td style="font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;padding:6px 0;">Model / Type</td>
+                        <td style="font-size:13px;color:#334155;padding:6px 0;">{{ maintenance.device.type }}</td>
+                    </tr>
+                    {% endif %}
+                    {% if maintenance.device.serial_number %}
+                    <tr>
+                        <td style="font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;padding:6px 0;">Serial Number</td>
+                        <td style="font-size:12px;color:#334155;padding:6px 0;font-family:'JetBrains Mono',monospace;">{{ maintenance.device.serial_number }}</td>
+                    </tr>
+                    {% endif %}
+                    {% if maintenance.device.firmware_version %}
+                    <tr>
+                        <td style="font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;padding:6px 0;">Firmware</td>
+                        <td style="font-size:12px;color:#334155;padding:6px 0;font-family:'JetBrains Mono',monospace;">{{ maintenance.device.firmware_version }}</td>
+                    </tr>
+                    {% endif %}
+                    <tr>
+                        <td style="font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;padding:6px 0;">IP Address</td>
+                        <td style="font-size:12px;color:#3b82f6;padding:6px 0;font-family:'JetBrains Mono',monospace;font-weight:600;">{{ maintenance.device.ip_address|default:"—" }}</td>
+                    </tr>
+                    <tr>
+                        <td style="font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;padding:6px 0;">Lokasi</td>
+                        <td style="font-size:13px;color:#334155;padding:6px 0;">{{ maintenance.device.lokasi|default:"—" }}</td>
+                    </tr>
+                </table>
+                <div class="pt-2 mt-1" style="border-top:1px solid #f1f5f9;">
+                    <a href="{% url 'device_view' maintenance.device.id %}"
+                       style="font-size:12px;color:#3b82f6;text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:4px;">
+                        <i class="bi bi-box-arrow-up-right" style="font-size:11px;"></i>
+                        Lihat Detail Perangkat
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Foto Dokumentasi -->
+        <div class="card">
+            <div class="card-body px-4 py-3">
+                <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">Foto Dokumentasi</div>
                 {% if maintenance.photo %}
-                <img src="{{ maintenance.photo.url }}" class="img-fluid rounded" style="max-height:220px;object-fit:contain;">
+                <img src="{{ maintenance.photo.url }}" class="img-fluid rounded" style="max-height:220px;width:100%;object-fit:cover;border-radius:8px;">
                 {% else %}
                 <div class="d-flex align-items-center justify-content-center rounded"
-                     style="height:160px;background:#f1f5f9;color:#94a3b8;">
-                    <div>
-                        <i class="bi bi-image fs-1 d-block mb-1"></i>
+                     style="height:140px;background:#f1f5f9;color:#94a3b8;border-radius:8px;">
+                    <div class="text-center">
+                        <i class="bi bi-image fs-2 d-block mb-1"></i>
                         <span style="font-size:12px;">Tidak ada foto</span>
                     </div>
                 </div>
                 {% endif %}
             </div>
         </div>
+
     </div>
 
     <!-- DETAIL TEKNIS -->
@@ -655,7 +732,10 @@
                             </tr>
                         </thead>
                         <tbody id="router-sfp-tbody">
-                            <tr><td colspan="7" class="text-muted text-center" style="font-size:12px;">Memuat data SFP...</td></tr>
+                            <tr><td colspan="7" class="text-muted text-center py-3" style="font-size:12px;">
+                                <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                                Memuat data SFP...
+                            </td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -670,8 +750,20 @@
         {% include 'maintenance/switch_detail_section.html' %}
         {% endif %}
 
+        {% if voip_detail %}
+        {% include 'maintenance/voip_detail_section.html' %}
+        {% endif %}
+
+        {% if mux_detail %}
+        {% include 'maintenance/mux_detail_section.html' %}
+        {% endif %}
+
+        {% if rect_detail %}
+        {% include 'maintenance/rectifier_detail_section.html' %}
+        {% endif %}
+
         <!-- Tidak ada detail khusus -->
-        {% if not plc_detail and not router_detail and not radio_detail %}
+        {% if not plc_detail and not router_detail and not radio_detail and not voip_detail and not mux_detail %}
         <div class="card">
             <div class="card-body text-center py-4 text-muted">
                 <i class="bi bi-journal-text fs-3 d-block mb-2"></i>
@@ -721,30 +813,50 @@ function confirmDelete() {
 }
 </script>
 {% if router_detail and router_detail.sfp_port_data %}
-<script type="application/json" id="router-sfp-data">{{ router_detail.sfp_port_data }}</script>
+<script type="application/json" id="router-sfp-data">{{ router_detail.sfp_port_data|safe }}</script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     var raw;
-    try { raw = JSON.parse(document.getElementById('router-sfp-data').textContent); } catch(e) { return; }
-    if (!raw || !raw.length) return;
+    try {
+        raw = JSON.parse(document.getElementById('router-sfp-data').textContent);
+    } catch(e) {
+        var t = document.getElementById('router-sfp-tbody');
+        if (t) t.innerHTML = '<tr><td colspan="7" class="text-center text-danger py-3" style="font-size:12px;">' +
+            '<i class="bi bi-exclamation-triangle-fill me-1"></i>Format data SFP tidak valid</td></tr>';
+        return;
+    }
 
-    // Cari tbody mana yang ada (router atau switch)
-    var tbody = document.getElementById('router-sfp-tbody') || document.getElementById('switch-sfp-tbody');
+    var tbody = document.getElementById('router-sfp-tbody');
     if (!tbody) return;
 
-    tbody.innerHTML = '';
+    tbody.innerHTML = ''; // hapus baris placeholder/spinner
+
+    if (!raw || !raw.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-muted text-center py-3" style="font-size:12px;">Tidak ada data SFP tercatat</td></tr>';
+        return;
+    }
+
+    var hasVal = function(v) { return v !== undefined && v !== null && v !== ''; };
+
     raw.forEach(function(d, i) {
-        var sc = d.status === 'UP' ? '#065f46' : d.status === 'DOWN' ? '#991b1b' : '#64748b';
-        var sb = d.status === 'UP' ? '#dcfce7' : d.status === 'DOWN' ? '#fee2e2' : '#f1f5f9';
+        var isUp   = d.status === 'UP';
+        var isDown = d.status === 'DOWN';
+        var sc = isUp ? '#065f46' : isDown ? '#991b1b' : '#64748b';
+        var sb = isUp ? '#dcfce7' : isDown ? '#fee2e2' : '#f1f5f9';
         var tr = document.createElement('tr');
         tr.innerHTML =
             '<td style="padding:8px 12px;"><span style="font-family:JetBrains Mono,monospace;font-weight:700;font-size:12px;color:#8b5cf6;">SFP ' + (i+1) + '</span></td>' +
-            '<td style="padding:8px 12px;font-family:JetBrains Mono,monospace;">' + (d.tx ? d.tx + ' dBm' : '—') + '</td>' +
-            '<td style="padding:8px 12px;font-family:JetBrains Mono,monospace;">' + (d.rx ? d.rx + ' dBm' : '—') + '</td>' +
-            '<td style="padding:8px 12px;font-family:JetBrains Mono,monospace;">' + (d.lambda ? d.lambda + ' nm' : '—') + '</td>' +
+            '<td style="padding:8px 12px;font-family:JetBrains Mono,monospace;">' +
+                (hasVal(d.tx) ? d.tx + '<span style="color:#94a3b8;font-size:11px;margin-left:2px;">dBm</span>' : '—') + '</td>' +
+            '<td style="padding:8px 12px;font-family:JetBrains Mono,monospace;">' +
+                (hasVal(d.rx) ? d.rx + '<span style="color:#94a3b8;font-size:11px;margin-left:2px;">dBm</span>' : '—') + '</td>' +
+            '<td style="padding:8px 12px;font-family:JetBrains Mono,monospace;">' +
+                (hasVal(d.lambda) ? d.lambda + '<span style="color:#94a3b8;font-size:11px;margin-left:2px;">nm</span>' : '—') + '</td>' +
             '<td style="padding:8px 12px;">' + (d.bandwidth || '—') + '</td>' +
             '<td style="padding:8px 12px;">' + (d.merk || '—') + '</td>' +
-            '<td style="padding:8px 12px;">' + (d.status ? '<span style="font-size:11.5px;font-weight:700;color:' + sc + ';background:' + sb + ';padding:2px 10px;border-radius:20px;">' + d.status + '</span>' : '—') + '</td>';
+            '<td style="padding:8px 12px;">' +
+                (d.status ? '<span style="font-size:11.5px;font-weight:700;color:' + sc + ';background:' + sb + ';padding:2px 10px;border-radius:20px;">' + d.status + '</span>' : '—') +
+            '</td>';
         tbody.appendChild(tr);
     });
 });

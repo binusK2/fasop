@@ -18,4 +18,5 @@ urlpatterns = [
     # ✅ BARU: QR Code & Export
     path('qr/<int:pk>/', views.device_qr, name='device_qr'),
     path('export/devices/', views.export_devices_excel, name='export_devices_excel'),
+    path('export/icon/', views.export_icon_excel, name='export_icon_excel'),
 ]
