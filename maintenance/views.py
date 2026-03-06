@@ -20,16 +20,16 @@ from datetime import date
 # Tambahkan jenis baru di sini tanpa ubah view!
 # ─────────────────────────────────────────────────────────────────────
 DEVICE_FORM_MAP = {
-    'PLC':                 (MaintenancePLCForm,       'maintenance/maintenance_form.html'),
-    'ROUTER':              (MaintenanceRouterForm,    'maintenance/maintenance_form.html'),
-    'SWITCH':              (MaintenanceRouterForm,    'maintenance/maintenance_form.html'),
-    'RADIO':               (MaintenanceRadioForm,     'maintenance/maintenance_form.html'),
-    'VOIP':                (MaintenanceVoIPForm,      'maintenance/maintenance_form.html'),
-    'MULTIPLEXER':         (MaintenanceMuxForm,       'maintenance/maintenance_form.html'),
-    'RECTIFIER':           (MaintenanceRectifierForm, 'maintenance/maintenance_form.html'),
-    'CATU DAYA':           (MaintenanceRectifierForm, 'maintenance/maintenance_form.html'),
-    'CATUDAYA':            (MaintenanceRectifierForm, 'maintenance/maintenance_form.html'),
-    'RECTIFIER & BATTERY': (MaintenanceRectifierForm, 'maintenance/maintenance_form.html'),
+    'PLC':    (MaintenancePLCForm,    'maintenance/plc_form.html'),
+    'ROUTER': (MaintenanceRouterForm, 'maintenance/router_form.html'),
+    'SWITCH': (MaintenanceRouterForm, 'maintenance/switch_form.html'),
+    'RADIO': (MaintenanceRadioForm, 'maintenance/radio_form.html'),
+    'VOIP':        (MaintenanceVoIPForm,  'maintenance/voip_form.html'),
+    'MULTIPLEXER':  (MaintenanceMuxForm,        'maintenance/mux_form.html'),
+    'RECTIFIER':    (MaintenanceRectifierForm,   'maintenance/rectifier_form.html'),
+    'CATU DAYA':    (MaintenanceRectifierForm,   'maintenance/rectifier_form.html'),
+    'CATUDAYA':     (MaintenanceRectifierForm,   'maintenance/rectifier_form.html'),
+    'RECTIFIER & BATTERY': (MaintenanceRectifierForm, 'maintenance/rectifier_form.html'),
 }
 
 DEFAULT_TEMPLATE = 'maintenance/maintenance_form.html'
@@ -56,8 +56,8 @@ def maintenance_list(request):
     date_to   = request.GET.get('date_to') or ''
 
     maintenances = Maintenance.objects.select_related(
-        'device', 'device__jenis', 'signed_by'
-    ).prefetch_related('technicians').order_by('-date')
+        'device', 'device__jenis'
+    ).order_by('-date')
 
     if status:    maintenances = maintenances.filter(status=status)
     if lokasi:    maintenances = maintenances.filter(device__lokasi__iexact=lokasi)
@@ -120,12 +120,10 @@ def maintenance_create(request, device_id):
             l = letter.lower()
             slot_fields.append((letter, dform['slot_' + l + '_modul'], dform['slot_' + l + '_isian']))
 
-    _dtype = device.jenis.name.strip().upper() if device.jenis else ''
     return render(request, template, {
         'maintenance_form': mform,
         'detail_form':      dform,
         'device':           device,
-        'device_type':      _dtype,
         'slot_fields':      slot_fields,
     })
 
@@ -381,12 +379,10 @@ def maintenance_edit(request, pk):
             l = letter.lower()
             slot_fields_edit.append((letter, dform['slot_' + l + '_modul'], dform['slot_' + l + '_isian']))
 
-    _dtype_e = device.jenis.name.strip().upper() if device.jenis else ''
     return render(request, edit_template, {
         'maintenance_form': mform,
         'detail_form':      dform,
         'device':           device,
-        'device_type':      _dtype_e,
         'is_edit':          True,
         'maintenance':      maintenance,
         'slot_fields':      slot_fields_edit,
@@ -414,7 +410,7 @@ def maintenance_report(request):
     maintenances = (
         Maintenance.objects
         .filter(date__year=selected_year, date__month=selected_month)
-        .select_related('device', 'device__jenis').prefetch_related('technicians')
+        .select_related('device', 'device__jenis', 'technician')
         .order_by('date')
     )
 
@@ -471,7 +467,7 @@ def export_maintenance_excel(request):
     year      = request.GET.get('year') or ''
     month     = request.GET.get('month') or ''
 
-    qs = Maintenance.objects.select_related('device','device__jenis','signed_by').prefetch_related('technicians').order_by('-date')
+    qs = Maintenance.objects.select_related('device','device__jenis','technician').order_by('-date')
 
     if status:    qs = qs.filter(status=status)
     if lokasi:    qs = qs.filter(device__lokasi__iexact=lokasi)
@@ -521,7 +517,7 @@ def export_maintenance_excel(request):
     for ri, m in enumerate(qs, 1):
         wr = ri + 4
         row_data = [ri, m.date.strftime('%d/%m/%Y'), str(m.device), m.device.lokasi,
-                    m.maintenance_type, ', '.join(t.get_full_name() or t.username for t in m.technicians.all()) or '-',
+                    m.maintenance_type, str(m.technician) if m.technician else '-',
                     m.description or '-', m.status]
         for ci, val in enumerate(row_data, 1):
             cell = ws.cell(row=wr, column=ci, value=val)
@@ -593,7 +589,15 @@ def export_maintenance_pdf(request, pk):
                 sigs['asisten_manager'] = sig_path
         except Exception:
             pass
-    # Hanya signature asisten manager yang dipakai di pengesahan
+    # Signature pelaksana (technician pertama yang punya signature)
+    for tech in maintenance.technicians.all():
+        try:
+            sp = tech.profile.signature.path
+            if sp:
+                sigs['operator'] = sp
+                break
+        except Exception:
+            pass
 
     techs_str = ', '.join(
         t.get_full_name() or t.username for t in maintenance.technicians.all()
@@ -614,7 +618,6 @@ def export_maintenance_pdf(request, pk):
             'date':             maintenance.date.strftime('%d %B %Y'),
             'maintenance_type': maintenance.maintenance_type,
             'technician':       techs_str,
-            'signed_by':        maintenance.signed_by.get_full_name() or maintenance.signed_by.username if maintenance.signed_by else '',
             'status':           maintenance.status,
             'description':      maintenance.description or '',
         },
@@ -817,3 +820,4 @@ def profile_view(request):
             messages.success(request, 'Tanda tangan berhasil disimpan.')
         return redirect('profile_view')
     return render(request, 'maintenance/profile.html', {'profile': profile})
+

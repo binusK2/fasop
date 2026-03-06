@@ -3,7 +3,6 @@
 {% block page_title %}{% if is_edit %}Edit{% else %}Form{% endif %} Maintenance Rectifier & Battery{% endblock %}
 
 {% block content %}
-
 <div class="d-flex align-items-center gap-2 mb-3">
     {% if is_edit %}
     <a href="{% url 'maintenance_view' maintenance.id %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Kembali ke Detail</a>
@@ -36,23 +35,18 @@
 <!-- 1. INFORMASI MAINTENANCE -->
 <div class="card mb-3">
     <div class="card-body px-4 py-3">
-        <div class="section-title-bar"><span class="bar" style="background:#3b82f6;"></span><span>Informasi Maintenance</span></div>
+        <div class="rc-sec" style="--c:#3b82f6;">Informasi Maintenance</div>
         <div class="row g-3">
-            <div class="col-md-3"><label class="form-label field-label">Jenis Maintenance</label>{{ maintenance_form.maintenance_type }}</div>
-            <div class="col-md-3"><label class="form-label field-label">Tanggal</label>{{ maintenance_form.date }}</div>
-            <div class="col-md-3"><label class="form-label field-label">Pelaksana</label><div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;max-height:130px;overflow-y:auto;">
-                    {% for cb in maintenance_form.technicians %}
-                    <div class="form-check" style="margin-bottom:4px;">
-                        {{ cb.tag }}
-                        <label class="form-check-label" for="{{ cb.id_for_label }}" style="font-size:13px;">
-                            {{ cb.choice_label }}
-                        </label>
-                    </div>
-                    {% endfor %}
-                </div></div>
-            <div class="col-md-3"><label class="form-label field-label">Status</label>{{ maintenance_form.status }}</div>
-            <div class="col-12"><label class="form-label field-label">Deskripsi / Keluhan</label>{{ maintenance_form.description }}</div>
-            <div class="col-12"><label class="form-label field-label">Foto Dokumentasi</label>{{ maintenance_form.photo }}</div>
+            <div class="col-md-3"><div class="rc-card"><div class="rc-lbl">Jenis Maintenance</div>{{ maintenance_form.maintenance_type }}</div></div>
+            <div class="col-md-3"><div class="rc-card"><div class="rc-lbl">Tanggal</div>{{ maintenance_form.date }}</div></div>
+            <div class="col-md-3"><div class="rc-card"><div class="rc-lbl">Pelaksana</div>
+                <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;max-height:130px;overflow-y:auto;">
+                    {% for cb in maintenance_form.technicians %}<div class="form-check mb-1">{{ cb.tag }}<label class="form-check-label" for="{{ cb.id_for_label }}" style="font-size:13px;">{{ cb.choice_label }}</label></div>{% endfor %}
+                </div>
+            </div></div>
+            <div class="col-md-3"><div class="rc-card"><div class="rc-lbl">Status</div>{{ maintenance_form.status }}</div></div>
+            <div class="col-12"><div class="rc-card"><div class="rc-lbl">Deskripsi / Keluhan</div>{{ maintenance_form.description }}</div></div>
+            <div class="col-12"><div class="rc-card"><div class="rc-lbl">Foto Dokumentasi</div>{{ maintenance_form.photo }}</div></div>
         </div>
     </div>
 </div>
@@ -60,12 +54,12 @@
 <!-- 2. KONDISI LINGKUNGAN -->
 <div class="card mb-3">
     <div class="card-body px-4 py-3">
-        <div class="section-title-bar"><span class="bar" style="background:#f59e0b;"></span><span>Kondisi Lingkungan</span></div>
+        <div class="rc-sec" style="--c:#f59e0b;">Kondisi Lingkungan</div>
         <div class="row g-3">
-            <div class="col-md-3"><div class="measure-card"><div class="measure-label">Suhu Ruangan</div><div class="input-group">{{ detail_form.suhu_ruangan }}<span class="input-group-text measure-unit">°C</span></div></div></div>
-            <div class="col-md-3"><div class="measure-card"><div class="measure-label">Exhaust Fan</div>{{ detail_form.exhaust_fan }}</div></div>
-            <div class="col-md-3"><div class="measure-card"><div class="measure-label">Kebersihan</div>{{ detail_form.kebersihan }}</div></div>
-            <div class="col-md-3"><div class="measure-card"><div class="measure-label">Lampu Penerangan</div>{{ detail_form.lampu_penerangan }}</div></div>
+            <div class="col-md-3"><div class="rc-card"><div class="rc-lbl">Suhu Ruangan</div><div class="input-group">{{ detail_form.suhu_ruangan }}<span class="input-group-text rc-unit">°C</span></div></div></div>
+            <div class="col-md-3"><div class="rc-card"><div class="rc-lbl">Exhaust Fan</div>{{ detail_form.exhaust_fan }}</div></div>
+            <div class="col-md-3"><div class="rc-card"><div class="rc-lbl">Kebersihan</div>{{ detail_form.kebersihan }}</div></div>
+            <div class="col-md-3"><div class="rc-card"><div class="rc-lbl">Lampu Penerangan</div>{{ detail_form.lampu_penerangan }}</div></div>
         </div>
     </div>
 </div>
@@ -73,32 +67,29 @@
 <!-- 3. RECTIFIER -->
 <div class="card mb-3">
     <div class="card-body px-4 py-3">
-        <div class="section-title-bar">
-            <span class="bar" style="background:#8b5cf6;"></span>
-            <span>Rectifier</span>
-        </div>
+        <div class="rc-sec" style="--c:#8b5cf6;">Rectifier</div>
         <div class="row g-3 mb-3">
-            <div class="col-md-3"><div class="measure-card"><div class="measure-label">Merk</div>{{ detail_form.rect1_merk }}</div></div>
-            <div class="col-md-3"><div class="measure-card"><div class="measure-label">Tipe</div>{{ detail_form.rect1_tipe }}</div></div>
-            <div class="col-md-3"><div class="measure-card"><div class="measure-label">Kapasitas</div>{{ detail_form.rect1_kapasitas }}</div></div>
-            <div class="col-md-3"><div class="measure-card"><div class="measure-label">Kondisi</div>
-                <div style="display:none;" id="field-rect1_kondisi">{{ detail_form.rect1_kondisi }}</div>
-                <div class="psu-toggle-wrap"><button type="button" class="toggle-btn ok" onclick="setToggle('rect1_kondisi','OK')">✓ OK</button><button type="button" class="toggle-btn nok" onclick="setToggle('rect1_kondisi','NOK')">✗ NOK</button></div>
+            <div class="col-md-3"><div class="rc-card"><div class="rc-lbl">Merk</div>{{ detail_form.rect1_merk }}</div></div>
+            <div class="col-md-3"><div class="rc-card"><div class="rc-lbl">Tipe</div>{{ detail_form.rect1_tipe }}</div></div>
+            <div class="col-md-3"><div class="rc-card"><div class="rc-lbl">Kapasitas</div>{{ detail_form.rect1_kapasitas }}</div></div>
+            <div class="col-md-3"><div class="rc-card"><div class="rc-lbl">Kondisi</div>
+                <div id="field-rect1_kondisi" style="display:none;">{{ detail_form.rect1_kondisi }}</div>
+                <div class="rc-tog-wrap"><button type="button" class="rc-tog ok" data-f="rect1_kondisi" data-v="OK">✓ OK</button><button type="button" class="rc-tog nok" data-f="rect1_kondisi" data-v="NOK">✗ NOK</button></div>
             </div></div>
         </div>
-        <div class="row-sub-label">Tegangan DC</div>
+        <div class="rc-sub">Tegangan DC</div>
         <div class="row g-3 mb-3">
-            <div class="col-md-2"><div class="measure-card"><div class="measure-label">Rectifier</div><div class="input-group">{{ detail_form.rect1_v_rectifier }}<span class="input-group-text measure-unit">V</span></div></div></div>
-            <div class="col-md-2"><div class="measure-card"><div class="measure-label">Battery</div><div class="input-group">{{ detail_form.rect1_v_battery }}<span class="input-group-text measure-unit">V</span></div></div></div>
-            <div class="col-md-2"><div class="measure-card"><div class="measure-label">Teg(+) Ground</div><div class="input-group">{{ detail_form.rect1_teg_pos_ground }}<span class="input-group-text measure-unit">V</span></div></div></div>
-            <div class="col-md-2"><div class="measure-card"><div class="measure-label">Teg(-) Ground</div><div class="input-group">{{ detail_form.rect1_teg_neg_ground }}<span class="input-group-text measure-unit">V</span></div></div></div>
-            <div class="col-md-2"><div class="measure-card"><div class="measure-label">Dropper</div><div class="input-group">{{ detail_form.rect1_v_dropper }}<span class="input-group-text measure-unit">V</span></div></div></div>
+            <div class="col-md-2"><div class="rc-card"><div class="rc-lbl">Rectifier</div><div class="input-group">{{ detail_form.rect1_v_rectifier }}<span class="input-group-text rc-unit">V</span></div></div></div>
+            <div class="col-md-2"><div class="rc-card"><div class="rc-lbl">Battery</div><div class="input-group">{{ detail_form.rect1_v_battery }}<span class="input-group-text rc-unit">V</span></div></div></div>
+            <div class="col-md-2"><div class="rc-card"><div class="rc-lbl">Teg(+) Ground</div><div class="input-group">{{ detail_form.rect1_teg_pos_ground }}<span class="input-group-text rc-unit">V</span></div></div></div>
+            <div class="col-md-2"><div class="rc-card"><div class="rc-lbl">Teg(-) Ground</div><div class="input-group">{{ detail_form.rect1_teg_neg_ground }}<span class="input-group-text rc-unit">V</span></div></div></div>
+            <div class="col-md-2"><div class="rc-card"><div class="rc-lbl">Dropper</div><div class="input-group">{{ detail_form.rect1_v_dropper }}<span class="input-group-text rc-unit">V</span></div></div></div>
         </div>
-        <div class="row-sub-label">Arus DC</div>
+        <div class="rc-sub">Arus DC</div>
         <div class="row g-3">
-            <div class="col-md-2"><div class="measure-card"><div class="measure-label">Arus Rectifier</div><div class="input-group">{{ detail_form.rect1_a_rectifier }}<span class="input-group-text measure-unit">A</span></div></div></div>
-            <div class="col-md-2"><div class="measure-card"><div class="measure-label">Arus Battery</div><div class="input-group">{{ detail_form.rect1_a_battery }}<span class="input-group-text measure-unit">A</span></div></div></div>
-            <div class="col-md-2"><div class="measure-card"><div class="measure-label">Arus Load</div><div class="input-group">{{ detail_form.rect1_a_load }}<span class="input-group-text measure-unit">A</span></div></div></div>
+            <div class="col-md-2"><div class="rc-card"><div class="rc-lbl">Arus Rectifier</div><div class="input-group">{{ detail_form.rect1_a_rectifier }}<span class="input-group-text rc-unit">A</span></div></div></div>
+            <div class="col-md-2"><div class="rc-card"><div class="rc-lbl">Arus Battery</div><div class="input-group">{{ detail_form.rect1_a_battery }}<span class="input-group-text rc-unit">A</span></div></div></div>
+            <div class="col-md-2"><div class="rc-card"><div class="rc-lbl">Arus Load</div><div class="input-group">{{ detail_form.rect1_a_load }}<span class="input-group-text rc-unit">A</span></div></div></div>
         </div>
     </div>
 </div>
@@ -106,88 +97,67 @@
 <!-- 4. BATTERY -->
 <div class="card mb-3">
     <div class="card-body px-4 py-3">
-        <div class="section-title-bar"><span class="bar" style="background:#10b981;"></span><span>Battery</span></div>
-
+        <div class="rc-sec" style="--c:#10b981;">Battery</div>
+        <!-- Info Battery -->
         <div class="row g-3 mb-3">
-            <div class="col-md-2"><div class="measure-card"><div class="measure-label">Merk</div>{{ detail_form.bat1_merk }}</div></div>
-            <div class="col-md-2"><div class="measure-card"><div class="measure-label">Tipe</div>{{ detail_form.bat1_tipe }}</div></div>
-            <div class="col-md-2"><div class="measure-card"><div class="measure-label">Kapasitas</div>{{ detail_form.bat1_kapasitas }}</div></div>
-            <div class="col-md-2"><div class="measure-card"><div class="measure-label">Jumlah Cell</div>{{ detail_form.bat1_jumlah }}</div></div>
-            <div class="col-md-2"><div class="measure-card"><div class="measure-label">Kondisi</div>
-                <div style="display:none;" id="field-bat1_kondisi">{{ detail_form.bat1_kondisi }}</div>
-                <div class="psu-toggle-wrap"><button type="button" class="toggle-btn ok" onclick="setToggle('bat1_kondisi','OK')">✓ OK</button><button type="button" class="toggle-btn nok" onclick="setToggle('bat1_kondisi','NOK')">✗ NOK</button></div>
+            <div class="col-md-3"><div class="rc-card"><div class="rc-lbl">Merk</div>{{ detail_form.bat1_merk }}</div></div>
+            <div class="col-md-3"><div class="rc-card"><div class="rc-lbl">Tipe</div>{{ detail_form.bat1_tipe }}</div></div>
+            <div class="col-md-3"><div class="rc-card"><div class="rc-lbl">Kapasitas</div>{{ detail_form.bat1_kapasitas }}</div></div>
+            <div class="col-md-3"><div class="rc-card"><div class="rc-lbl">Jumlah Cell</div>
+                <div style="display:none;">{{ detail_form.bat1_jumlah }}</div>
+                <div style="font-size:15px;font-weight:700;color:#10b981;padding:5px 0;">40 Cell</div>
             </div></div>
         </div>
-
-        <div class="row-sub-label">Kondisi Fisik</div>
+        <!-- Kondisi Fisik — 4 kolom 1 baris -->
+        <div class="rc-sub">Kondisi Fisik</div>
         <div class="row g-3 mb-3">
-            <div class="col-md-3"><div class="measure-card"><div class="measure-label">Kabel Battery</div>
-                <div style="display:none;" id="field-bat1_kondisi_kabel">{{ detail_form.bat1_kondisi_kabel }}</div>
-                <div class="psu-toggle-wrap"><button type="button" class="toggle-btn ok" onclick="setToggle('bat1_kondisi_kabel','OK')">✓ OK</button><button type="button" class="toggle-btn nok" onclick="setToggle('bat1_kondisi_kabel','NOK')">✗ NOK</button></div>
+            <div class="col-md-3"><div class="rc-card"><div class="rc-lbl">Kondisi Battery</div>
+                <div id="field-bat1_kondisi" style="display:none;">{{ detail_form.bat1_kondisi }}</div>
+                <div class="rc-tog-wrap"><button type="button" class="rc-tog ok" data-f="bat1_kondisi" data-v="OK">✓ OK</button><button type="button" class="rc-tog nok" data-f="bat1_kondisi" data-v="NOK">✗ NOK</button></div>
             </div></div>
-            <div class="col-md-3"><div class="measure-card"><div class="measure-label">Mur & Baut</div>
-                <div style="display:none;" id="field-bat1_kondisi_mur_baut">{{ detail_form.bat1_kondisi_mur_baut }}</div>
-                <div class="psu-toggle-wrap"><button type="button" class="toggle-btn ok" onclick="setToggle('bat1_kondisi_mur_baut','OK')">✓ OK</button><button type="button" class="toggle-btn nok" onclick="setToggle('bat1_kondisi_mur_baut','NOK')">✗ NOK</button></div>
+            <div class="col-md-3"><div class="rc-card"><div class="rc-lbl">Kabel Battery</div>
+                <div id="field-bat1_kondisi_kabel" style="display:none;">{{ detail_form.bat1_kondisi_kabel }}</div>
+                <div class="rc-tog-wrap"><button type="button" class="rc-tog ok" data-f="bat1_kondisi_kabel" data-v="OK">✓ OK</button><button type="button" class="rc-tog nok" data-f="bat1_kondisi_kabel" data-v="NOK">✗ NOK</button></div>
             </div></div>
-            <div class="col-md-3"><div class="measure-card"><div class="measure-label">Sel & Rak</div>
-                <div style="display:none;" id="field-bat1_kondisi_sel_rak">{{ detail_form.bat1_kondisi_sel_rak }}</div>
-                <div class="psu-toggle-wrap"><button type="button" class="toggle-btn ok" onclick="setToggle('bat1_kondisi_sel_rak','OK')">✓ OK</button><button type="button" class="toggle-btn nok" onclick="setToggle('bat1_kondisi_sel_rak','NOK')">✗ NOK</button></div>
+            <div class="col-md-3"><div class="rc-card"><div class="rc-lbl">Mur & Baut</div>
+                <div id="field-bat1_kondisi_mur_baut" style="display:none;">{{ detail_form.bat1_kondisi_mur_baut }}</div>
+                <div class="rc-tog-wrap"><button type="button" class="rc-tog ok" data-f="bat1_kondisi_mur_baut" data-v="OK">✓ OK</button><button type="button" class="rc-tog nok" data-f="bat1_kondisi_mur_baut" data-v="NOK">✗ NOK</button></div>
+            </div></div>
+            <div class="col-md-3"><div class="rc-card"><div class="rc-lbl">Sel & Rak</div>
+                <div id="field-bat1_kondisi_sel_rak" style="display:none;">{{ detail_form.bat1_kondisi_sel_rak }}</div>
+                <div class="rc-tog-wrap"><button type="button" class="rc-tog ok" data-f="bat1_kondisi_sel_rak" data-v="OK">✓ OK</button><button type="button" class="rc-tog nok" data-f="bat1_kondisi_sel_rak" data-v="NOK">✗ NOK</button></div>
             </div></div>
         </div>
-
-        <!-- Cell table hint -->
-        <div class="d-flex align-items-center gap-3 mb-2">
-            <div class="row-sub-label" style="margin:0;">Pengukuran Per Cell</div>
-            <div id="cell-hint" style="display:none;">
-                <span style="font-size:11px;background:#f0fdf4;color:#065f46;padding:2px 10px;border-radius:20px;border:1px solid #a7f3d0;">
-                    <i class="bi bi-keyboard me-1"></i>Ketik <strong>3 digit</strong> mis. <code style="font-size:11px;">985</code> → <strong>1.985 V</strong> &nbsp;·&nbsp; <code style="font-size:11px;">0.12</code> → <strong>0.12 V</strong> &nbsp;·&nbsp; <kbd style="font-size:10px;">Enter</kbd> lanjut ke cell bawah
-                </span>
-            </div>
+        <!-- Tabel 40 Cell -->
+        <div class="d-flex align-items-center justify-content-between mb-2">
+            <div class="rc-sub" style="margin:0;">Pengukuran Per Cell <span style="color:#10b981;font-weight:700;">(40 Cell)</span></div>
+            <span style="font-size:11px;background:#f0fdf4;color:#065f46;padding:3px 12px;border-radius:20px;border:1px solid #a7f3d0;white-space:nowrap;">
+                <i class="bi bi-keyboard me-1"></i>Ketik <strong>3 digit</strong> mis. <code>985</code> → <strong>1.985 V</strong> · <kbd>Enter</kbd> lanjut bawah
+            </span>
         </div>
-
-        <div id="cell-table-wrap" style="display:none;" class="table-responsive mb-3">
-            <table class="table table-sm cell-table">
+        <div class="table-responsive mb-3" style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">
+            <table class="rc-ctbl">
                 <thead>
                     <tr>
-                        <th style="width:46px;padding:7px 10px;font-size:11px;color:#065f46;background:#f0fdf4;">Cell</th>
-                        <th style="padding:7px 14px;font-size:11px;color:#334155;text-align:center;background:#f0fdf4;">V Float</th>
-                        <th style="padding:7px 14px;font-size:11px;color:#92400e;text-align:center;background:#fffbeb;">VD 0 Jam</th>
-                        <th style="padding:7px 14px;font-size:11px;color:#92400e;text-align:center;background:#fffbeb;">VD ½ Jam</th>
-                        <th style="padding:7px 14px;font-size:11px;color:#92400e;text-align:center;background:#fffbeb;">VD 1 Jam</th>
-                        <th style="padding:7px 14px;font-size:11px;color:#92400e;text-align:center;background:#fffbeb;">VD 2 Jam</th>
-                        <th style="padding:7px 14px;font-size:11px;color:#1d4ed8;text-align:center;background:#eff6ff;">V Boost</th>
+                        <th class="ct-n">#</th>
+                        <th class="ct-f">V Float</th>
+                        <th class="ct-d">VD 0 Jam</th>
+                        <th class="ct-d">VD ½ Jam</th>
+                        <th class="ct-d">VD 1 Jam</th>
+                        <th class="ct-d">VD 2 Jam</th>
+                        <th class="ct-b">V Boost</th>
                     </tr>
                 </thead>
                 <tbody id="cell-tbody"></tbody>
             </table>
         </div>
-
-        <!-- hidden cell data -->
         {{ detail_form.bat1_cells }}
-
-        <!-- Ringkasan bawah cell — Air Battery / V Total / V Load -->
-        <div class="d-flex align-items-stretch gap-0 mt-1" style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;">
-            <div style="flex:1;padding:8px 14px;background:#f8fafc;border-right:1px solid #e2e8f0;">
-                <div style="font-size:10.5px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">Air Battery</div>
-                <div class="input-group input-group-sm">
-                    {{ detail_form.bat1_air_battery }}
-                    <span class="input-group-text measure-unit">V</span>
-                </div>
-            </div>
-            <div style="flex:1;padding:8px 14px;background:#eff6ff;border-right:1px solid #e2e8f0;">
-                <div style="font-size:10.5px;font-weight:700;color:#1d4ed8;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">V Total</div>
-                <div class="input-group input-group-sm">
-                    {{ detail_form.bat1_v_total }}
-                    <span class="input-group-text measure-unit">V</span>
-                </div>
-            </div>
-            <div style="flex:1;padding:8px 14px;background:#eff6ff;">
-                <div style="font-size:10.5px;font-weight:700;color:#1d4ed8;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">V Load</div>
-                <div class="input-group input-group-sm">
-                    {{ detail_form.bat1_v_load }}
-                    <span class="input-group-text measure-unit">V</span>
-                </div>
-            </div>
+        <!-- Ringkasan Tegangan -->
+        <div class="rc-sub">Ringkasan Tegangan</div>
+        <div class="row g-3">
+            <div class="col-md-4"><div class="rc-card"><div class="rc-lbl">Air Battery</div><div class="input-group">{{ detail_form.bat1_air_battery }}<span class="input-group-text rc-unit">V</span></div></div></div>
+            <div class="col-md-4"><div class="rc-card" style="background:#eff6ff;border-color:#bfdbfe;"><div class="rc-lbl" style="color:#1d4ed8;">V Total Bank</div><div class="input-group">{{ detail_form.bat1_v_total }}<span class="input-group-text rc-unit" style="background:#dbeafe;color:#1d4ed8;border-color:#bfdbfe;">V</span></div></div></div>
+            <div class="col-md-4"><div class="rc-card" style="background:#eff6ff;border-color:#bfdbfe;"><div class="rc-lbl" style="color:#1d4ed8;">V Load</div><div class="input-group">{{ detail_form.bat1_v_load }}<span class="input-group-text rc-unit" style="background:#dbeafe;color:#1d4ed8;border-color:#bfdbfe;">V</span></div></div></div>
         </div>
     </div>
 </div>
@@ -195,16 +165,13 @@
 <!-- 5. CATATAN -->
 <div class="card mb-3">
     <div class="card-body px-4 py-3">
-        <div class="section-title-bar"><span class="bar" style="background:#64748b;"></span><span>Catatan</span></div>
-        <textarea name="catatan" class="form-control"
-                  rows="4"
-                  style="width:100%;min-height:100px;resize:vertical;font-size:13.5px;color:#334155;"
-                  placeholder="Catatan pemeliharaan...">{% if detail_form.catatan.value %}{{ detail_form.catatan.value }}{% endif %}</textarea>
+        <div class="rc-sec" style="--c:#64748b;">Catatan</div>
+        <textarea name="catatan" class="form-control" rows="4" style="font-size:13.5px;color:#334155;resize:vertical;" placeholder="Catatan pemeliharaan...">{% if detail_form.catatan.value %}{{ detail_form.catatan.value }}{% endif %}</textarea>
     </div>
 </div>
 
 {% if maintenance_form.errors or detail_form.errors %}
-<div class="alert alert-danger mb-3"><i class="bi bi-exclamation-triangle me-2"></i><strong>Perbaiki error berikut:</strong>{{ maintenance_form.errors }}{{ detail_form.errors }}</div>
+<div class="alert alert-danger mb-3"><i class="bi bi-exclamation-triangle me-2"></i><strong>Perbaiki error:</strong>{{ maintenance_form.errors }}{{ detail_form.errors }}</div>
 {% endif %}
 
 <div class="d-flex gap-2 justify-content-end pb-4">
@@ -217,172 +184,125 @@
 
 {% block extra_js %}
 <style>
-.section-title-bar{display:flex;align-items:center;gap:8px;margin-bottom:14px;}
-.section-title-bar .bar{width:5px;height:18px;border-radius:3px;flex-shrink:0;}
-.section-title-bar>span:nth-child(2){font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#475569;}
-.row-sub-label{font-size:10.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;display:flex;align-items:center;gap:6px;}
-.row-sub-label::before{content:'';width:4px;height:12px;border-radius:2px;background:#8b5cf6;display:inline-block;flex-shrink:0;}
-.field-label{font-size:11.5px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;}
-.measure-card{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;}
-.field-card{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;}
-.measure-label{font-size:11.5px;font-weight:700;color:#64748b;margin-bottom:7px;text-transform:uppercase;letter-spacing:0.4px;}
-.measure-unit{background:#e2e8f0;border-color:#e2e8f0!important;font-size:12px;font-weight:700;color:#475569;min-width:36px;justify-content:center;}
-.psu-toggle-wrap{display:flex;gap:6px;}
-.toggle-btn{flex:1;padding:5px 0;border-radius:6px;font-size:12px;font-weight:700;border:1.5px solid transparent;cursor:pointer;transition:all .12s;}
-.toggle-btn.ok{background:#fff;border-color:#d1fae5;color:#9ca3af;}
-.toggle-btn.nok{background:#fff;border-color:#fee2e2;color:#9ca3af;}
-.toggle-btn.ok.selected{background:#10b981;border-color:#10b981;color:#fff;}
-.toggle-btn.nok.selected{background:#ef4444;border-color:#ef4444;color:#fff;}
-.cell-table{margin:0;}
-.cell-table thead th{border-bottom:2px solid #e2e8f0;}
-.cell-table tbody tr:nth-child(even){background:#f8fafc;}
-.cell-table td{padding:3px 6px;vertical-align:middle;border-bottom:1px solid #f1f5f9;}
-.cell-input{width:76px;padding:4px 6px;font-size:12.5px;font-family:'JetBrains Mono',monospace;border:1.5px solid #e2e8f0;border-radius:6px;text-align:center;transition:border-color .1s,box-shadow .1s;background:#fff;}
-.cell-input:focus{border-color:#10b981!important;outline:none;box-shadow:0 0 0 2px rgba(16,185,129,.15)!important;}
-.field-card textarea{position:relative;z-index:1;}
-.cell-input.has-val{border-color:#6ee7b7!important;background:#d1fae5!important;color:#065f46!important;font-weight:600!important;}
-.cell-input.val-zero{border-color:#fcd34d!important;background:#fef9c3!important;color:#92400e!important;font-weight:600!important;}
-.cell-num{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;color:#10b981;}
+.rc-sec{display:flex;align-items:center;gap:10px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:#475569;margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid #f1f5f9;}
+.rc-sec::before{content:'';width:5px;height:20px;border-radius:3px;background:var(--c,#3b82f6);flex-shrink:0;}
+.rc-sub{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;margin-bottom:10px;display:flex;align-items:center;gap:6px;}
+.rc-sub::before{content:'';width:4px;height:13px;border-radius:2px;background:#8b5cf6;flex-shrink:0;}
+.rc-card{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:11px 14px;height:100%;}
+.rc-lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#64748b;margin-bottom:7px;}
+.rc-unit{background:#e2e8f0;border-color:#e2e8f0!important;font-size:12px;font-weight:700;color:#475569;min-width:36px;justify-content:center;}
+/* Toggle */
+.rc-tog-wrap{display:flex;gap:6px;}
+.rc-tog{flex:1;padding:6px 0;border-radius:7px;font-size:12px;font-weight:700;border:1.5px solid transparent;cursor:pointer;transition:all .12s;background:#fff;}
+.rc-tog.ok{border-color:#d1fae5;color:#9ca3af;}
+.rc-tog.nok{border-color:#fee2e2;color:#9ca3af;}
+.rc-tog.ok.on{background:#10b981;border-color:#10b981;color:#fff;}
+.rc-tog.nok.on{background:#ef4444;border-color:#ef4444;color:#fff;}
+/* Tabel cell */
+.rc-ctbl{width:100%;border-collapse:collapse;}
+.rc-ctbl thead th{padding:8px 8px;font-size:11px;font-weight:700;text-align:center;white-space:nowrap;border-bottom:2px solid #e2e8f0;}
+.ct-n{width:46px;background:#f0fdf4;color:#065f46;}
+.ct-f{background:#f0fdf4;color:#334155;min-width:95px;}
+.ct-d{background:#fffbeb;color:#92400e;min-width:90px;}
+.ct-b{background:#eff6ff;color:#1d4ed8;min-width:90px;}
+.rc-ctbl tbody tr:nth-child(odd){background:#fff;}
+.rc-ctbl tbody tr:nth-child(even){background:#f8fafc;}
+.rc-ctbl tbody td{padding:3px 5px;vertical-align:middle;text-align:center;border-bottom:1px solid #f1f5f9;}
+.cn{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:#10b981;}
+/* Input cell */
+.ci{width:84px;padding:4px 6px;font-size:12.5px;font-family:'JetBrains Mono',monospace;border:1.5px solid #e2e8f0;border-radius:6px;text-align:center;background:#fff;outline:none;transition:border-color .1s,background .1s;}
+.ci:focus{border-color:#10b981!important;box-shadow:0 0 0 2px rgba(16,185,129,.15)!important;}
+.ci.v-ok{border-color:#6ee7b7!important;background:#d1fae5!important;color:#065f46!important;font-weight:700!important;}
+.ci.v-low{border-color:#fbbf24!important;background:#fef9c3!important;color:#92400e!important;font-weight:700!important;}
 </style>
 <script>
-function setToggle(n,v){
-    const field=document.getElementById('field-'+n);
-    if(!field) return;
-    // Set select value
-    const sel=field.querySelector('select');
-    if(sel) sel.value=v;
-    // Update semua button di wrap sibling maupun wrap terdekat
-    const wrap=field.nextElementSibling;
-    if(wrap && wrap.classList.contains('psu-toggle-wrap')){
-        wrap.querySelectorAll('.toggle-btn').forEach(b=>{
-            const isOk  = b.classList.contains('ok')  && v==='OK';
-            const isNok = b.classList.contains('nok') && v==='NOK';
-            b.classList.toggle('selected', isOk||isNok);
-        });
-    }
-}
+/* Toggle OK/NOK */
+document.addEventListener('click',e=>{
+    const b=e.target.closest('.rc-tog');
+    if(!b) return;
+    const f=document.getElementById('field-'+b.dataset.f);
+    if(!f) return;
+    const s=f.querySelector('select');
+    if(s) s.value=b.dataset.v;
+    const w=f.nextElementSibling;
+    if(w) w.querySelectorAll('.rc-tog').forEach(x=>x.classList.toggle('on',x.dataset.v===b.dataset.v));
+});
 
+/* 40 Cell table */
 const COLS=['v_float','vd_0','vd_half','vd_1','vd_2','v_boost'];
+const NC=40;
 
-function formatVoltage(inp){
-    const raw=inp.value.trim();
-    if(!raw) return;
-    let val;
-    if(raw.includes('.')){
-        val=parseFloat(raw);
-    } else {
-        // No decimal — treat as digits after "1."
-        val=parseFloat('1.'+raw.padStart(3,'0'));
-    }
-    if(!isNaN(val)){
-        inp.value=val;
-        inp.classList.remove('has-val','val-zero');
-        inp.classList.add(val<1?'val-zero':'has-val');
-    }
+function pv(s){
+    s=(s||'').trim();
+    if(!s) return null;
+    const v=s.includes('.')?parseFloat(s):parseFloat('1.'+s.padStart(3,'0'));
+    return isNaN(v)?null:v;
 }
-
-function getAllCellInputs(){
-    return Array.from(document.querySelectorAll('.cell-input'));
+function col(inp,v){
+    inp.classList.remove('v-ok','v-low');
+    if(v!==null) inp.classList.add(v>=1?'v-ok':'v-low');
 }
-
-function syncCellData(){
-    const data={};
-    getAllCellInputs().forEach(inp=>{
-        const c=inp.dataset.cell,col=inp.dataset.col;
-        if(!data[c]) data[c]={cell:parseInt(c)};
-        const v=parseFloat(inp.value);
-        data[c][col]=isNaN(v)?null:v;
+function sync(){
+    const rows={};
+    document.querySelectorAll('.ci').forEach(i=>{
+        const c=i.dataset.cell,k=i.dataset.col;
+        if(!rows[c]) rows[c]={cell:parseInt(c)};
+        const v=parseFloat(i.value);
+        rows[c][k]=isNaN(v)?null:v;
     });
     const h=document.querySelector('input[name="bat1_cells"]');
-    if(h) h.value=JSON.stringify(Object.values(data));
+    if(h) h.value=JSON.stringify(Object.values(rows));
 }
-
-function buildCellTable(count,existing){
-    const tbody=document.getElementById('cell-tbody');
-    const wrap=document.getElementById('cell-table-wrap');
-    const hint=document.getElementById('cell-hint');
-    tbody.innerHTML='';
-    if(!count||count<1){wrap.style.display='none';hint.style.display='none';return;}
-    wrap.style.display='';hint.style.display='';
-
-    for(let i=1;i<=count;i++){
-        const ex=existing.find(e=>e.cell==i)||{};
+function build(ex){
+    const tb=document.getElementById('cell-tbody');
+    tb.innerHTML='';
+    for(let i=1;i<=NC;i++){
+        const e=(ex||[]).find(r=>r.cell==i)||{};
         const tr=document.createElement('tr');
-        const tdN=document.createElement('td');
-        tdN.innerHTML=`<span class="cell-num">${String(i).padStart(2,'0')}</span>`;
-        tr.appendChild(tdN);
-
-        COLS.forEach(col=>{
+        const tn=document.createElement('td');
+        tn.innerHTML=`<span class="cn">${String(i).padStart(2,'0')}</span>`;
+        tr.appendChild(tn);
+        COLS.forEach(k=>{
             const td=document.createElement('td');
             const inp=document.createElement('input');
-            inp.type='text'; inp.inputMode='decimal';
-            inp.className='cell-input';
-            inp.dataset.cell=i; inp.dataset.col=col;
-            const stored=ex[col];
-            if(stored!==undefined&&stored!==null){
-                inp.value=stored;
-                inp.classList.add(stored<1?'val-zero':'has-val');
-            } else { inp.placeholder='—'; }
-
-            inp.addEventListener('blur',()=>{formatVoltage(inp);syncCellData();});
-            inp.addEventListener('keydown',e=>{
-                if(e.key==='Enter'){
-                    e.preventDefault();
-                    formatVoltage(inp);syncCellData();
-                    // Turun ke cell berikutnya, kolom yang sama
-                    const nextCell=parseInt(inp.dataset.cell)+1;
-                    const nextCol=inp.dataset.col;
-                    const next=document.querySelector(`.cell-input[data-cell="${nextCell}"][data-col="${nextCol}"]`);
-                    if(next) next.focus();
-                }
+            inp.type='text';inp.inputMode='decimal';
+            inp.className='ci';inp.placeholder='—';
+            inp.dataset.cell=i;inp.dataset.col=k;
+            const sv=e[k];
+            if(sv!==undefined&&sv!==null){inp.value=sv;col(inp,sv);}
+            inp.addEventListener('blur',()=>{const v=pv(inp.value);if(v!==null)inp.value=v;col(inp,v);sync();});
+            inp.addEventListener('input',()=>inp.classList.remove('v-ok','v-low'));
+            inp.addEventListener('keydown',e2=>{
+                if(e2.key!=='Enter') return;
+                e2.preventDefault();
+                const v=pv(inp.value);if(v!==null)inp.value=v;col(inp,v);sync();
+                const nx=document.querySelector(`.ci[data-cell="${i+1}"][data-col="${k}"]`);
+                if(nx) nx.focus();
             });
-            inp.addEventListener('input',()=>inp.classList.remove('has-val','val-zero'));
             td.appendChild(inp);tr.appendChild(td);
         });
-        tbody.appendChild(tr);
+        tb.appendChild(tr);
     }
-    syncCellData();
+    sync();
 }
 
 document.addEventListener('DOMContentLoaded',()=>{
-    // restore toggles — jalankan saat DOM ready
-    ['rect1_kondisi',
-     'bat1_kondisi','bat1_kondisi_kabel','bat1_kondisi_mur_baut','bat1_kondisi_sel_rak'
-    ].forEach(n=>{
-        const field=document.getElementById('field-'+n);
-        if(!field) return;
-        const sel=field.querySelector('select');
-        if(sel && sel.value) setToggle(n, sel.value);
-        // Listener: klik langsung update select
-        const wrap=field.nextElementSibling;
-        if(wrap && wrap.classList.contains('psu-toggle-wrap')){
-            wrap.querySelectorAll('.toggle-btn').forEach(b=>{
-                b.addEventListener('click',()=>{
-                    const v=b.classList.contains('ok')?'OK':'NOK';
-                    setToggle(n,v);
-                });
-            });
-        }
+    /* Restore toggle */
+    ['rect1_kondisi','bat1_kondisi','bat1_kondisi_kabel','bat1_kondisi_mur_baut','bat1_kondisi_sel_rak'].forEach(n=>{
+        const f=document.getElementById('field-'+n);
+        if(!f) return;
+        const s=f.querySelector('select');
+        if(!s||!s.value) return;
+        const w=f.nextElementSibling;
+        if(w) w.querySelectorAll('.rc-tog').forEach(b=>b.classList.toggle('on',b.dataset.v===s.value));
     });
-
-    // cell table
-    const jInp=document.querySelector('input[name="bat1_jumlah"]');
-    const cInp=document.querySelector('input[name="bat1_cells"]');
-    let existing=[];
-    try{existing=JSON.parse(cInp?.value||'[]');}catch(e){}
-
-    if(jInp){
-        buildCellTable(parseInt(jInp.value)||0,existing);
-        jInp.addEventListener('input',()=>{
-            const cur={};
-            getAllCellInputs().forEach(inp=>{
-                const c=inp.dataset.cell,col=inp.dataset.col;
-                if(!cur[c]) cur[c]={cell:parseInt(c)};
-                const v=parseFloat(inp.value);cur[c][col]=isNaN(v)?null:v;
-            });
-            buildCellTable(parseInt(jInp.value)||0,Object.values(cur));
-        });
-    }
+    /* Jumlah cell = 40 */
+    const ji=document.querySelector('input[name="bat1_jumlah"]');
+    if(ji) ji.value=40;
+    /* Build tabel */
+    let ex=[];
+    try{const h=document.querySelector('input[name="bat1_cells"]');ex=JSON.parse(h?.value||'[]');}catch(e){}
+    build(ex);
 });
 </script>
 {% endblock %}

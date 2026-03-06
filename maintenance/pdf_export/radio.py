@@ -1,105 +1,99 @@
 """
 pdf_export/radio.py
-Konten PDF untuk perangkat Radio Komunikasi.
 """
 from reportlab.lib.units import mm
 from reportlab.platypus import Table
 from ._base import (
-    _p, _val, _sc, _sbg, _grid, _sec, _draw,
-    C_BLUE_MID, C_GRAY_HEAD, C_WHITE, C_GRAY_TXT,
-    TA_CENTER, CW, H, ML
+    _p,
+    _val,
+    _sc,
+    _sbg,
+    _grid,
+    _sec,
+    _draw,
+    C_BLUE_MID,
+    C_GRAY_HEAD,
+    C_WHITE,
+    C_GRAY_TXT,
+    TA_CENTER,
+    CW,
+    H,
+    ML
 )
 
 
 def render(c, y, data):
-    rad = data.get('radio', {})
-    y  -= 2*mm
+    r = data.get('radio', {})
+    y -= 2*mm
 
+    # Kondisi lingkungan + peralatan
     y = _draw(c, _sec('II.  KONDISI LINGKUNGAN & PERALATAN'), ML, y)
     y -= 0.5*mm
+    LW2 = (CW-2*mm)/2
+
     env_items = [
-        ('Suhu Ruangan',     f"{rad.get('suhu_ruangan','')} °C" if rad.get('suhu_ruangan') else '-'),
-        ('Exhaust Fan',      rad.get('exhaust_fan', '')),
-        ('Kebersihan',       rad.get('kebersihan', '')),
-        ('Lampu Penerangan', rad.get('lampu_penerangan', '')),
+        ('Suhu Ruangan',     f"{r.get('suhu_ruangan','')} °C" if r.get('suhu_ruangan') else '-'),
+        ('Kebersihan',       _val(r.get('kebersihan'))),
+        ('Lampu Penerangan', _val(r.get('lampu_penerangan'))),
+        ('Jenis Antena',     _val(r.get('jenis_antena'))),
     ]
-    QW = CW / 4
-    env = Table([[_p(l,7.5,True), _p(v,7.5)] for l, v in env_items],
-                colWidths=[QW*0.6, QW*1.4]*2)
-    env_ex = []
-    for i, (l, v) in enumerate(env_items):
-        col = (i % 2) * 2
-        env_ex.append(('BACKGROUND',(col,i//2),(col,i//2), C_GRAY_HEAD))
-    env.setStyle(_grid(env_ex))
-    y = _draw(c, env, ML, y)
+    equip_items = [
+        ('Radio',        r.get('ada_radio','')),
+        ('Battery',      r.get('ada_battery','')),
+        ('Power Supply', r.get('ada_power_supply','')),
+    ]
+
+    # Kiri: lingkungan (teks biasa)
+    tl_rows = [[_p(l,7.5), _p(v,7.5,True,C_BLUE_MID,TA_CENTER)] for l,v in env_items]
+    tl = Table(tl_rows, colWidths=[LW2-18*mm, 18*mm])
+    tl_ex = [('BACKGROUND',(0,i),(0,i),C_GRAY_HEAD if i%2==0 else C_WHITE) for i in range(len(env_items))]
+    tl.setStyle(_grid(tl_ex))
+
+    # Kanan: peralatan (OK/NOK badge)
+    merk_items = [
+        ('Merk Battery',       _val(r.get('merk_battery'))),
+        ('Merk Power Supply',  _val(r.get('merk_power_supply'))),
+    ]
+    tr_rows = [[_p(l,7.5), _sc(v)] for l,v in equip_items] +               [[_p(l,7.5), _p(v,7.5,False,C_GRAY_TXT,TA_CENTER)] for l,v in merk_items]
+    tr = Table(tr_rows, colWidths=[LW2-16*mm, 16*mm])
+    tr_ex = []
+    for i,(l,v) in enumerate(equip_items):
+        tr_ex.append(('BACKGROUND',(1,i),(1,i),_sbg(v)))
+        tr_ex.append(('BACKGROUND',(0,i),(0,i),C_GRAY_HEAD if i%2==0 else C_WHITE))
+    for i,_ in enumerate(merk_items):
+        ri = i + len(equip_items)
+        tr_ex.append(('BACKGROUND',(0,ri),(-1,ri),C_GRAY_HEAD if ri%2==0 else C_WHITE))
+    tr.setStyle(_grid(tr_ex))
+
+    for t in (tl,tr): t.wrapOn(c,CW,H)
+    ty = y
+    tl.drawOn(c, ML,              ty - tl._height)
+    tr.drawOn(c, ML+LW2+2*mm,     ty - tr._height)
+    y = ty - max(tl._height, tr._height)
 
     y -= 2*mm
     y = _draw(c, _sec('III.  NILAI PENGUKURAN'), ML, y)
     y -= 0.5*mm
-    mes = [
-        ('Tegangan Input',  _val(rad.get('tegangan_input')),  'V'),
-        ('Daya Pancar TX',  _val(rad.get('daya_pancar_tx')),  'dBm'),
-        ('Level RX',        _val(rad.get('level_rx')),        'dBm'),
-        ('Frek. TX',        _val(rad.get('frek_tx')),         'MHz'),
-        ('Frek. RX',        _val(rad.get('frek_rx')),         'MHz'),
-        ('VSWR',            _val(rad.get('vswr')),            ''),
-        ('BER',             _val(rad.get('ber')),             ''),
-        ('Suhu Perangkat',  _val(rad.get('suhu_perangkat')),  '°C'),
+    meas = [
+        ('SWR',                 _val(r.get('swr')),            '',    '-'),
+        ('Power TX',            _val(r.get('power_tx')),       'W',   '-'),
+        ('Tegangan Battery',    _val(r.get('tegangan_battery')),'V',  '≥ 11 V'),
+        ('Tegangan Power Supply',_val(r.get('tegangan_psu')),  'V',   '13.5-14 V'),
+        ('Frekuensi TX / Tone', _val(r.get('frekuensi_tx')),  'MHz', '-'),
+        ('Frekuensi RX / Tone', _val(r.get('frekuensi_rx')),  'MHz', '-'),
     ]
-    ncol = 4; MW = CW / ncol
-    mes_rows = []
-    for i in range(0, len(mes), ncol):
-        chunk = mes[i:i+ncol]
-        row = []
-        for lbl, val, unit in chunk:
-            row += [_p(lbl, 7, True, C_GRAY_TXT),
-                    _p(f"{val} {unit}".strip() if val != '-' else '-',
-                       7.5, True, C_BLUE_MID, TA_CENTER)]
-        while len(row) < ncol*2:
-            row += [_p(''), _p('')]
-        mes_rows.append(row)
-    mt = Table(mes_rows, colWidths=[MW/2, MW/2]*ncol)
-    mt_ex = []
-    for i in range(len(mes_rows)):
-        for j in range(0, ncol*2, 2):
-            mt_ex.append(('BACKGROUND',(j,i),(j,i), C_GRAY_HEAD))
-    mt.setStyle(_grid(mt_ex))
-    y = _draw(c, mt, ML, y)
+    UC = [CW-28*mm-14*mm, 28*mm, 14*mm]
+    mb = Table([[_p(l,7.5), _p(v,8,True,C_BLUE_MID,TA_CENTER), _p(f'{s}\n{n}',6.5,False,C_GRAY_TXT,TA_CENTER)]
+                for l,v,s,n in meas], colWidths=UC)
+    mb.setStyle(_grid([('BACKGROUND',(0,i),(-1,i),C_GRAY_HEAD if i%2==0 else C_WHITE) for i in range(len(meas))]))
+    y = _draw(c, mb, ML, y)
 
-    # Checklist fisik
-    checks = [
-        ('Kondisi Antena',    rad.get('kondisi_antena', '')),
-        ('Kondisi Kabel RF',  rad.get('kondisi_kabel_rf', '')),
-        ('Grounding',         rad.get('grounding', '')),
-        ('Konektor',          rad.get('kondisi_konektor', '')),
-    ]
-    if any(v for _, v in checks):
-        y -= 2*mm
-        y = _draw(c, _sec('IV.  KONDISI FISIK'), ML, y)
-        y -= 0.5*mm
-        QW4 = CW / 4
-        ck_tbl = Table([
-            [_p(l, 7, True, C_GRAY_TXT, TA_CENTER) for l, _ in checks],
-            [_sc(v) for _, v in checks],
-        ], colWidths=[QW4]*4)
-        ck_style = [
-            ('BACKGROUND',(0,0),(-1,0), C_GRAY_HEAD),
-            ('ALIGN',     (0,0),(-1,-1),'CENTER'),
-            ('BOX',       (0,0),(-1,-1), 0.4, C_GRAY_TXT.__class__.__module__ and __import__('reportlab.lib.colors',fromlist=['HexColor']).HexColor('#CBD5E1')),
-            ('INNERGRID', (0,0),(-1,-1), 0.3, __import__('reportlab.lib.colors',fromlist=['HexColor']).HexColor('#CBD5E1')),
-        ]
-        for i, (_, v) in enumerate(checks):
-            ck_style.append(('BACKGROUND',(i,1),(i,1), _sbg(v)))
-        from reportlab.platypus import TableStyle
-        ck_tbl.setStyle(TableStyle(ck_style))
-        y = _draw(c, ck_tbl, ML, y)
-
-    cat = (rad.get('catatan') or '').strip()
+    cat = r.get('catatan','')
     if cat:
         y -= 2*mm
-        y = _draw(c, _sec('V.  CATATAN'), ML, y)
+        y = _draw(c, _sec('IV.  CATATAN'), ML, y)
         y -= 0.5*mm
-        ct = Table([[_p(cat, 7.5)]], colWidths=[CW])
+        ct = Table([[_p(_val(cat),7.5)]], colWidths=[CW])
         ct.setStyle(_grid([('MINROWHEIGHT',(0,0),(-1,-1),8*mm)]))
         y = _draw(c, ct, ML, y)
     return y

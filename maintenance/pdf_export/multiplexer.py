@@ -1,13 +1,24 @@
 """
 pdf_export/multiplexer.py
-Konten PDF untuk perangkat Multiplexer.
 """
 from reportlab.lib.units import mm
 from reportlab.platypus import Table
 from ._base import (
-    _p, _val, _sc, _sbg, _grid, _sec, _draw,
-    C_BLUE_MID, C_GRAY_HEAD, C_WHITE, C_GRAY_TXT,
-    TA_CENTER, CW, H, ML
+    _p,
+    _val,
+    _sc,
+    _sbg,
+    _grid,
+    _sec,
+    _draw,
+    C_BLUE_MID,
+    C_GRAY_HEAD,
+    C_WHITE,
+    C_GRAY_TXT,
+    TA_CENTER,
+    CW,
+    H,
+    ML
 )
 
 
