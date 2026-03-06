@@ -66,7 +66,16 @@
             </div>
             <div class="col-md-3">
                 <label class="form-label">Pelaksana</label>
-                {{ maintenance_form.technician }}
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;max-height:130px;overflow-y:auto;">
+                    {% for cb in maintenance_form.technicians %}
+                    <div class="form-check" style="margin-bottom:4px;">
+                        {{ cb.tag }}
+                        <label class="form-check-label" for="{{ cb.id_for_label }}" style="font-size:13px;">
+                            {{ cb.choice_label }}
+                        </label>
+                    </div>
+                    {% endfor %}
+                </div>
             </div>
             <div class="col-md-3">
                 <label class="form-label">Status</label>

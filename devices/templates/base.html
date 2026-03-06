@@ -495,7 +495,8 @@
     <div class="sidebar-brand">
         <div class="brand-icon"><i class="bi bi-cpu"></i></div>
         <h6>Asset Peralatan Fasop</h6>
-        <small>UP2B Sistem</small>
+        <small>UP2B Sistem Makassar</small>
+        
     </div>
 
     <div class="sidebar-section">
@@ -591,14 +592,14 @@
 
     {% if user.is_authenticated %}
     <div class="sidebar-user">
-        <div class="d-flex align-items-center gap-2">
+        <a href="{% url 'profile_view' %}" style="text-decoration:none;display:flex;align-items:center;gap:8px;flex:1;min-width:0;" title="Profil & Tanda Tangan">
             <div class="user-avatar">{{ user.username|first|upper }}</div>
             <div class="user-info">
                 <div class="user-name">{{ user.username }}</div>
-                <div class="user-role">{% if user.is_superuser %}Administrator{% else %}Pengguna{% endif %}</div>
+                <div class="user-role">{% if user.is_superuser %}Administrator{% elif user.profile.role == "asisten_manager" %}Asisten Manager{% else %}Teknisi{% endif %}</div>
             </div>
-        </div>
-        <form action="{% url 'logout' %}" method="post">
+        </a>
+        <form action="{% url 'logout' %}" method="post" style="flex-shrink:0;">
             {% csrf_token %}
             <button type="submit" class="sidebar-logout-btn">
                 <i class="bi bi-box-arrow-right"></i>

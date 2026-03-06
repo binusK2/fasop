@@ -26,13 +26,22 @@ class MaintenanceForm(forms.ModelForm):
         widgets = {
             'maintenance_type': forms.Select(attrs={'class': 'form-select'}),
             'description':      forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
-            'technician':       forms.Select(attrs={'class': 'form-select'}),
+            'technicians':      forms.CheckboxSelectMultiple(attrs={'class': 'technician-checkbox-list'}),
             'status':           forms.Select(attrs={'class': 'form-select'}),
             'photo':            forms.FileInput(attrs={'class': 'form-control'}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Hanya tampilkan user dengan role teknisi
+        from django.contrib.auth.models import User
+        from devices.models import UserProfile
+        technician_ids = UserProfile.objects.filter(
+            role='technician'
+        ).values_list('user_id', flat=True)
+        self.fields['technicians'].queryset = User.objects.filter(
+            id__in=technician_ids, is_active=True
+        ).order_by('first_name', 'username')
         for name, field in self.fields.items():
             if not isinstance(field.widget, (forms.RadioSelect, forms.DateInput)):
                 if not field.widget.attrs.get('class'):

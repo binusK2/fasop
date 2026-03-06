@@ -53,3 +53,23 @@ class Icon(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class UserProfile(models.Model):
+    ROLE_CHOICES = (
+        ('technician',       'Teknisi / Pelaksana'),
+        ('asisten_manager',  'Asisten Manager Operasi'),
+    )
+    user      = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    role      = models.CharField(max_length=30, choices=ROLE_CHOICES, default='technician', verbose_name='Peran')
+    signature = models.ImageField(upload_to='signatures/', blank=True, null=True, verbose_name='Tanda Tangan')
+
+    class Meta:
+        verbose_name = 'Profil Pengguna'
+
+    def __str__(self):
+        return f"{self.user.get_full_name() or self.user.username} ({self.get_role_display()})"
+
+    @property
+    def is_asisten_manager(self):
+        return self.role == 'asisten_manager'

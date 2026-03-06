@@ -162,7 +162,7 @@
                             {{ m.maintenance_type }}
                         </span>
                     </td>
-                    <td style="font-size:13px;">{{ m.technician|default:"—" }}</td>
+                    <td style="font-size:13px;">{% for t in m.technicians.all %}{{ t.get_full_name|default:t.username }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}</td>
                     <td>
                         {% if m.status == 'Done' %}
                         <span class="badge-status badge-done">Done</span>

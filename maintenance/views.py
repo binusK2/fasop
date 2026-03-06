@@ -20,16 +20,16 @@ from datetime import date
 # Tambahkan jenis baru di sini tanpa ubah view!
 # ─────────────────────────────────────────────────────────────────────
 DEVICE_FORM_MAP = {
-    'PLC':    (MaintenancePLCForm,    'maintenance/plc_form.html'),
-    'ROUTER': (MaintenanceRouterForm, 'maintenance/router_form.html'),
-    'SWITCH': (MaintenanceRouterForm, 'maintenance/switch_form.html'),
-    'RADIO': (MaintenanceRadioForm, 'maintenance/radio_form.html'),
-    'VOIP':        (MaintenanceVoIPForm,  'maintenance/voip_form.html'),
-    'MULTIPLEXER':  (MaintenanceMuxForm,        'maintenance/mux_form.html'),
-    'RECTIFIER':    (MaintenanceRectifierForm,   'maintenance/rectifier_form.html'),
-    'CATU DAYA':    (MaintenanceRectifierForm,   'maintenance/rectifier_form.html'),
-    'CATUDAYA':     (MaintenanceRectifierForm,   'maintenance/rectifier_form.html'),
-    'RECTIFIER & BATTERY': (MaintenanceRectifierForm, 'maintenance/rectifier_form.html'),
+    'PLC':                 (MaintenancePLCForm,       'maintenance/maintenance_form.html'),
+    'ROUTER':              (MaintenanceRouterForm,    'maintenance/maintenance_form.html'),
+    'SWITCH':              (MaintenanceRouterForm,    'maintenance/maintenance_form.html'),
+    'RADIO':               (MaintenanceRadioForm,     'maintenance/maintenance_form.html'),
+    'VOIP':                (MaintenanceVoIPForm,      'maintenance/maintenance_form.html'),
+    'MULTIPLEXER':         (MaintenanceMuxForm,       'maintenance/maintenance_form.html'),
+    'RECTIFIER':           (MaintenanceRectifierForm, 'maintenance/maintenance_form.html'),
+    'CATU DAYA':           (MaintenanceRectifierForm, 'maintenance/maintenance_form.html'),
+    'CATUDAYA':            (MaintenanceRectifierForm, 'maintenance/maintenance_form.html'),
+    'RECTIFIER & BATTERY': (MaintenanceRectifierForm, 'maintenance/maintenance_form.html'),
 }
 
 DEFAULT_TEMPLATE = 'maintenance/maintenance_form.html'
@@ -56,8 +56,8 @@ def maintenance_list(request):
     date_to   = request.GET.get('date_to') or ''
 
     maintenances = Maintenance.objects.select_related(
-        'device', 'device__jenis'
-    ).order_by('-date')
+        'device', 'device__jenis', 'signed_by'
+    ).prefetch_related('technicians').order_by('-date')
 
     if status:    maintenances = maintenances.filter(status=status)
     if lokasi:    maintenances = maintenances.filter(device__lokasi__iexact=lokasi)
@@ -120,10 +120,12 @@ def maintenance_create(request, device_id):
             l = letter.lower()
             slot_fields.append((letter, dform['slot_' + l + '_modul'], dform['slot_' + l + '_isian']))
 
+    _dtype = device.jenis.name.strip().upper() if device.jenis else ''
     return render(request, template, {
         'maintenance_form': mform,
         'detail_form':      dform,
         'device':           device,
+        'device_type':      _dtype,
         'slot_fields':      slot_fields,
     })
 
@@ -379,10 +381,12 @@ def maintenance_edit(request, pk):
             l = letter.lower()
             slot_fields_edit.append((letter, dform['slot_' + l + '_modul'], dform['slot_' + l + '_isian']))
 
+    _dtype_e = device.jenis.name.strip().upper() if device.jenis else ''
     return render(request, edit_template, {
         'maintenance_form': mform,
         'detail_form':      dform,
         'device':           device,
+        'device_type':      _dtype_e,
         'is_edit':          True,
         'maintenance':      maintenance,
         'slot_fields':      slot_fields_edit,
@@ -410,7 +414,7 @@ def maintenance_report(request):
     maintenances = (
         Maintenance.objects
         .filter(date__year=selected_year, date__month=selected_month)
-        .select_related('device', 'device__jenis', 'technician')
+        .select_related('device', 'device__jenis').prefetch_related('technicians')
         .order_by('date')
     )
 
@@ -467,7 +471,7 @@ def export_maintenance_excel(request):
     year      = request.GET.get('year') or ''
     month     = request.GET.get('month') or ''
 
-    qs = Maintenance.objects.select_related('device','device__jenis','technician').order_by('-date')
+    qs = Maintenance.objects.select_related('device','device__jenis','signed_by').prefetch_related('technicians').order_by('-date')
 
     if status:    qs = qs.filter(status=status)
     if lokasi:    qs = qs.filter(device__lokasi__iexact=lokasi)
@@ -517,7 +521,7 @@ def export_maintenance_excel(request):
     for ri, m in enumerate(qs, 1):
         wr = ri + 4
         row_data = [ri, m.date.strftime('%d/%m/%Y'), str(m.device), m.device.lokasi,
-                    m.maintenance_type, str(m.technician) if m.technician else '-',
+                    m.maintenance_type, ', '.join(t.get_full_name() or t.username for t in m.technicians.all()) or '-',
                     m.description or '-', m.status]
         for ci, val in enumerate(row_data, 1):
             cell = ws.cell(row=wr, column=ci, value=val)
@@ -549,37 +553,56 @@ def export_maintenance_pdf(request, pk):
     device_kind = device.jenis.name.strip().upper() if device.jenis else 'GENERIC'
 
     # ── Ambil detail sesuai jenis ──────────────────────────────────
-    router_detail = None
-    plc_detail    = None
+    router_detail = plc_detail = radio_detail = None
+    voip_detail = mux_detail = rect_detail = None
+
+    def _try(fn):
+        try: return fn()
+        except Exception: return None
 
     if device_kind in ('ROUTER', 'SWITCH'):
-        try:
-            router_detail = maintenance.maintenancerouter
-        except MaintenanceRouter.DoesNotExist:
-            pass
+        router_detail = _try(lambda: maintenance.maintenancerouter)
     elif device_kind == 'PLC':
-        try:
-            plc_detail = maintenance.maintenanceplc
-        except MaintenancePLC.DoesNotExist:
-            pass
+        plc_detail = _try(lambda: maintenance.maintenanceplc)
+    elif device_kind == 'RADIO':
+        radio_detail = _try(lambda: maintenance.maintenanceradio)
+    elif device_kind == 'VOIP':
+        voip_detail = _try(lambda: maintenance.maintenancevoip)
+    elif device_kind == 'MULTIPLEXER':
+        mux_detail = _try(lambda: maintenance.maintenancemux)
+    elif device_kind in ('RECTIFIER', 'CATU DAYA', 'CATUDAYA', 'RECTIFIER & BATTERY'):
+        rect_detail = _try(lambda: maintenance.maintenancerectifier)
 
     # SFP JSON
     sfp_ports = []
     if router_detail and router_detail.sfp_port_data:
-        try:
-            sfp_ports = json.loads(router_detail.sfp_port_data)
-        except Exception:
-            pass
+        try: sfp_ports = json.loads(router_detail.sfp_port_data)
+        except Exception: pass
 
     # ── Susun dict data ────────────────────────────────────────────
     def _g(obj, attr, default=None):
-        """getattr with empty-string fallback."""
         val = getattr(obj, attr, default)
         return val if val not in (None, '') else default
+
+    # Signature dari asisten manager
+    sigs = {}
+    if maintenance.signed_by:
+        try:
+            sig_path = maintenance.signed_by.profile.signature.path
+            if sig_path:
+                sigs['asisten_manager'] = sig_path
+        except Exception:
+            pass
+    # Hanya signature asisten manager yang dipakai di pengesahan
+
+    techs_str = ', '.join(
+        t.get_full_name() or t.username for t in maintenance.technicians.all()
+    ) or '-'
 
     data = {
         'print_date':  date_cls.today().strftime('%d %B %Y'),
         'device_kind': device_kind,
+        'signatures':  sigs,
 
         'info': {
             'device_name':      device.nama,
@@ -590,50 +613,151 @@ def export_maintenance_pdf(request, pk):
             'brand':            _g(device, 'merk', '-'),
             'date':             maintenance.date.strftime('%d %B %Y'),
             'maintenance_type': maintenance.maintenance_type,
-            'technician':       str(maintenance.technician) if maintenance.technician else '-',
+            'technician':       techs_str,
+            'signed_by':        maintenance.signed_by.get_full_name() or maintenance.signed_by.username if maintenance.signed_by else '',
             'status':           maintenance.status,
             'description':      maintenance.description or '',
         },
 
-        # Router / Switch fields
         'fisik': {
             'kondisi_fisik': _g(router_detail, 'kondisi_fisik', ''),
             'led_link':      _g(router_detail, 'led_link', ''),
             'kondisi_kabel': _g(router_detail, 'kondisi_kabel', ''),
         } if router_detail else {},
-
         'pengukuran': {
             'tegangan_input': _g(router_detail, 'tegangan_input'),
             'suhu_perangkat': _g(router_detail, 'suhu_perangkat'),
             'cpu_load':       _g(router_detail, 'cpu_load'),
             'memory_usage':   _g(router_detail, 'memory_usage'),
         } if router_detail else {},
-
         'port': {
             'jumlah_port_aktif': _g(router_detail, 'jumlah_port_aktif'),
             'jumlah_port_total': _g(router_detail, 'jumlah_port_total'),
             'status_routing':    _g(router_detail, 'status_routing', ''),
             'detail_port':       _g(router_detail, 'detail_port', ''),
         } if router_detail else {},
-
         'sfp_ports':        sfp_ports,
         'catatan_tambahan': (_g(router_detail, 'catatan_tambahan', '') if router_detail else ''),
 
-        # PLC fields
         'plc': {
-            'akses_plc':          _g(plc_detail, 'akses_plc', ''),
-            'remote_akses_plc':   _g(plc_detail, 'remote_akses_plc', ''),
-            'time_sync':          _g(plc_detail, 'time_sync', ''),
-            'wave_trap':          _g(plc_detail, 'wave_trap', ''),
-            'imu':                _g(plc_detail, 'imu', ''),
-            'kabel_coaxial':      _g(plc_detail, 'kabel_coaxial', ''),
-            'transmission_line':  _g(plc_detail, 'transmission_line'),
-            'rx_pilot_level':     _g(plc_detail, 'rx_pilot_level'),
-            'freq_tx':            _g(plc_detail, 'freq_tx'),
-            'bandwidth_tx':       _g(plc_detail, 'bandwidth_tx'),
-            'freq_rx':            _g(plc_detail, 'freq_rx'),
-            'bandwidth_rx':       _g(plc_detail, 'bandwidth_rx'),
+            'akses_plc':         _g(plc_detail, 'akses_plc', ''),
+            'remote_akses_plc':  _g(plc_detail, 'remote_akses_plc', ''),
+            'time_sync':         _g(plc_detail, 'time_sync', ''),
+            'wave_trap':         _g(plc_detail, 'wave_trap', ''),
+            'imu':               _g(plc_detail, 'imu', ''),
+            'kabel_coaxial':     _g(plc_detail, 'kabel_coaxial', ''),
+            'transmission_line': _g(plc_detail, 'transmission_line'),
+            'rx_pilot_level':    _g(plc_detail, 'rx_pilot_level'),
+            'freq_tx':           _g(plc_detail, 'freq_tx'),
+            'bandwidth_tx':      _g(plc_detail, 'bandwidth_tx'),
+            'freq_rx':           _g(plc_detail, 'freq_rx'),
+            'bandwidth_rx':      _g(plc_detail, 'bandwidth_rx'),
         } if plc_detail else {},
+
+        'radio': {
+            'suhu_ruangan':     _g(radio_detail, 'suhu_ruangan'),
+            'kebersihan':       _g(radio_detail, 'kebersihan', ''),
+            'lampu_penerangan': _g(radio_detail, 'lampu_penerangan', ''),
+            'ada_radio':        _g(radio_detail, 'ada_radio', ''),
+            'ada_battery':      _g(radio_detail, 'ada_battery', ''),
+            'merk_battery':     _g(radio_detail, 'merk_battery', ''),
+            'ada_power_supply': _g(radio_detail, 'ada_power_supply', ''),
+            'merk_power_supply':_g(radio_detail, 'merk_power_supply', ''),
+            'jenis_antena':     _g(radio_detail, 'jenis_antena', ''),
+            'swr':              _g(radio_detail, 'swr', ''),
+            'power_tx':         _g(radio_detail, 'power_tx'),
+            'tegangan_battery': _g(radio_detail, 'tegangan_battery'),
+            'tegangan_psu':     _g(radio_detail, 'tegangan_psu'),
+            'frekuensi_tx':     _g(radio_detail, 'frekuensi_tx'),
+            'frekuensi_rx':     _g(radio_detail, 'frekuensi_rx'),
+            'catatan':          _g(radio_detail, 'catatan', ''),
+        } if radio_detail else {},
+
+        'voip': {
+            'ip_address':        _g(voip_detail, 'ip_address', ''),
+            'extension_number':  _g(voip_detail, 'extension_number', ''),
+            'sip_server_1':      _g(voip_detail, 'sip_server_1', ''),
+            'sip_server_2':      _g(voip_detail, 'sip_server_2', ''),
+            'suhu_ruangan':      _g(voip_detail, 'suhu_ruangan'),
+            'kondisi_fisik':     _g(voip_detail, 'kondisi_fisik', ''),
+            'ntp_server':        _g(voip_detail, 'ntp_server', ''),
+            'webconfig':         _g(voip_detail, 'webconfig', ''),
+            'ps_merk':           _g(voip_detail, 'ps_merk', ''),
+            'ps_tegangan_input': _g(voip_detail, 'ps_tegangan_input'),
+            'ps_status':         _g(voip_detail, 'ps_status', ''),
+            'catatan':           _g(voip_detail, 'catatan', ''),
+        } if voip_detail else {},
+
+        'mux': {
+            'brand':         _g(mux_detail, 'brand', ''),
+            'firmware':      _g(mux_detail, 'firmware', ''),
+            'sync_source_1': _g(mux_detail, 'sync_source_1', ''),
+            'sync_source_2': _g(mux_detail, 'sync_source_2', ''),
+            'suhu_ruangan':  _g(mux_detail, 'suhu_ruangan'),
+            'kebersihan':    _g(mux_detail, 'kebersihan', ''),
+            'hs1_merk':      _g(mux_detail, 'hs1_merk', ''),
+            'hs1_tx_bias':   _g(mux_detail, 'hs1_tx_bias'),
+            'hs1_jarak':     _g(mux_detail, 'hs1_jarak'),
+            'hs1_tx':        _g(mux_detail, 'hs1_tx'),
+            'hs1_lambda':    _g(mux_detail, 'hs1_lambda'),
+            'hs1_suhu':      _g(mux_detail, 'hs1_suhu'),
+            'hs1_rx':        _g(mux_detail, 'hs1_rx'),
+            'hs1_bandwidth': _g(mux_detail, 'hs1_bandwidth', ''),
+            'hs2_merk':      _g(mux_detail, 'hs2_merk', ''),
+            'hs2_tx_bias':   _g(mux_detail, 'hs2_tx_bias'),
+            'hs2_jarak':     _g(mux_detail, 'hs2_jarak'),
+            'hs2_tx':        _g(mux_detail, 'hs2_tx'),
+            'hs2_lambda':    _g(mux_detail, 'hs2_lambda'),
+            'hs2_suhu':      _g(mux_detail, 'hs2_suhu'),
+            'hs2_rx':        _g(mux_detail, 'hs2_rx'),
+            'hs2_bandwidth': _g(mux_detail, 'hs2_bandwidth', ''),
+            'psu1_status':   _g(mux_detail, 'psu1_status', ''),
+            'psu1_temp1':    _g(mux_detail, 'psu1_temp1'),
+            'psu1_temp2':    _g(mux_detail, 'psu1_temp2'),
+            'psu1_temp3':    _g(mux_detail, 'psu1_temp3'),
+            'psu2_status':   _g(mux_detail, 'psu2_status', ''),
+            'psu2_temp1':    _g(mux_detail, 'psu2_temp1'),
+            'psu2_temp2':    _g(mux_detail, 'psu2_temp2'),
+            'psu2_temp3':    _g(mux_detail, 'psu2_temp3'),
+            'fan_status':    _g(mux_detail, 'fan_status', ''),
+            'catatan':       _g(mux_detail, 'catatan', ''),
+            **{f'slot_{l.lower()}_modul': _g(mux_detail, f'slot_{l.lower()}_modul', '')
+               for l in 'ABCDEFGH'},
+            **{f'slot_{l.lower()}_isian': _g(mux_detail, f'slot_{l.lower()}_isian', '')
+               for l in 'ABCDEFGH'},
+        } if mux_detail else {},
+
+        'rectifier': {
+            'suhu_ruangan':        _g(rect_detail, 'suhu_ruangan'),
+            'exhaust_fan':         _g(rect_detail, 'exhaust_fan', ''),
+            'kebersihan':          _g(rect_detail, 'kebersihan', ''),
+            'lampu_penerangan':    _g(rect_detail, 'lampu_penerangan', ''),
+            'rect1_merk':          _g(rect_detail, 'rect1_merk', ''),
+            'rect1_tipe':          _g(rect_detail, 'rect1_tipe', ''),
+            'rect1_kondisi':       _g(rect_detail, 'rect1_kondisi', ''),
+            'rect1_kapasitas':     _g(rect_detail, 'rect1_kapasitas', ''),
+            'rect1_v_rectifier':   _g(rect_detail, 'rect1_v_rectifier'),
+            'rect1_v_battery':     _g(rect_detail, 'rect1_v_battery'),
+            'rect1_teg_pos_ground':_g(rect_detail, 'rect1_teg_pos_ground'),
+            'rect1_teg_neg_ground':_g(rect_detail, 'rect1_teg_neg_ground'),
+            'rect1_v_dropper':     _g(rect_detail, 'rect1_v_dropper'),
+            'rect1_a_rectifier':   _g(rect_detail, 'rect1_a_rectifier'),
+            'rect1_a_battery':     _g(rect_detail, 'rect1_a_battery'),
+            'rect1_a_load':        _g(rect_detail, 'rect1_a_load'),
+            'bat1_merk':           _g(rect_detail, 'bat1_merk', ''),
+            'bat1_tipe':           _g(rect_detail, 'bat1_tipe', ''),
+            'bat1_kondisi':        _g(rect_detail, 'bat1_kondisi', ''),
+            'bat1_kapasitas':      _g(rect_detail, 'bat1_kapasitas', ''),
+            'bat1_jumlah':         _g(rect_detail, 'bat1_jumlah'),
+            'bat1_kondisi_kabel':  _g(rect_detail, 'bat1_kondisi_kabel', ''),
+            'bat1_kondisi_mur_baut':_g(rect_detail,'bat1_kondisi_mur_baut',''),
+            'bat1_kondisi_sel_rak': _g(rect_detail,'bat1_kondisi_sel_rak', ''),
+            'bat1_air_battery':    _g(rect_detail, 'bat1_air_battery'),
+            'bat1_v_total':        _g(rect_detail, 'bat1_v_total'),
+            'bat1_v_load':         _g(rect_detail, 'bat1_v_load'),
+            'bat1_cells':          _g(rect_detail, 'bat1_cells', []),
+            'catatan':             _g(rect_detail, 'catatan', ''),
+        } if rect_detail else {},
     }
 
     # ── Generate & stream ──────────────────────────────────────────
@@ -646,3 +770,50 @@ def export_maintenance_pdf(request, pk):
     response = HttpResponse(buffer, content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     return response
+
+
+# ─────────────────────────────────────────────────────────────────────
+# TANDA TANGAN (Asisten Manager)
+# ─────────────────────────────────────────────────────────────────────
+@login_required
+def maintenance_sign(request, pk):
+    """Asisten Manager menandatangani laporan pemeliharaan."""
+    from django.utils import timezone
+    maintenance = get_object_or_404(Maintenance, pk=pk)
+
+    # Hanya asisten manager boleh sign
+    try:
+        is_am = request.user.profile.is_asisten_manager
+    except Exception:
+        is_am = False
+
+    if not is_am:
+        from django.contrib import messages
+        messages.error(request, 'Hanya Asisten Manager yang dapat menandatangani laporan.')
+        return redirect('maintenance_view', pk=pk)
+
+    if request.method == 'POST':
+        maintenance.signed_by = request.user
+        maintenance.signed_at = timezone.now()
+        maintenance.save(update_fields=['signed_by', 'signed_at'])
+        from django.contrib import messages
+        messages.success(request, 'Laporan berhasil ditandatangani.')
+
+    return redirect('maintenance_view', pk=pk)
+
+
+# ─────────────────────────────────────────────────────────────────────
+# PROFILE — upload tanda tangan
+# ─────────────────────────────────────────────────────────────────────
+@login_required
+def profile_view(request):
+    from devices.models import UserProfile
+    from django.contrib import messages
+    profile, _ = UserProfile.objects.get_or_create(user=request.user)
+    if request.method == 'POST':
+        if 'signature' in request.FILES:
+            profile.signature = request.FILES['signature']
+            profile.save()
+            messages.success(request, 'Tanda tangan berhasil disimpan.')
+        return redirect('profile_view')
+    return render(request, 'maintenance/profile.html', {'profile': profile})

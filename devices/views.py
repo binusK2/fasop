@@ -108,6 +108,7 @@ def dashboard(request):
     total_maintenance = Maintenance.objects.count()
     maintenance_open = Maintenance.objects.filter(status='Open').count()
     maintenance_done = Maintenance.objects.filter(status='Done').count()
+    belum_ttd = Maintenance.objects.filter(status='Done', signed_by__isnull=True).count()
 
     maintenance_by_month = (
         Maintenance.objects
@@ -131,6 +132,7 @@ def dashboard(request):
         'total_maintenance': total_maintenance,
         'maintenance_open': maintenance_open,
         'maintenance_done': maintenance_done,
+        'belum_ttd': belum_ttd,
         'maintenance_by_month': maintenance_by_month,
         'recent_open_maintenance': recent_open_maintenance,
     })

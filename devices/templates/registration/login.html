@@ -4,292 +4,332 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login — FASOP UP2B</title>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;600;700;800;900&family=Barlow+Condensed:wght@700;800;900&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-        body {
-            font-family: 'DM Sans', sans-serif;
-            min-height: 100vh;
-            display: flex;
-            background: #0f172a;
+        :root {
+            --blue:      #2563eb;
+            --blue-lite: #3b82f6;
+            --yellow:    #facc15;
+            --bg:        #060d1a;
+            --surface:   #0d1b2e;
+            --border:    rgba(255,255,255,0.07);
+            --text-muted:#4d6585;
         }
 
-        .left-panel {
-            flex: 1;
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+        body {
+            font-family: 'Barlow', sans-serif;
+            min-height: 100vh;
+            background: var(--bg);
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 40px;
-            position: relative;
             overflow: hidden;
         }
 
-        .left-panel::before {
+        /* ── Animated background grid ── */
+        body::before {
             content: '';
-            position: absolute;
-            width: 500px; height: 500px;
-            background: radial-gradient(circle, rgba(59,130,246,0.12) 0%, transparent 70%);
-            top: -100px; left: -100px;
+            position: fixed; inset: 0;
+            background-image:
+                linear-gradient(rgba(37,99,235,0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(37,99,235,0.04) 1px, transparent 1px);
+            background-size: 48px 48px;
+            animation: gridDrift 20s linear infinite;
+            pointer-events: none;
         }
 
-        .left-panel::after {
-            content: '';
-            position: absolute;
-            width: 400px; height: 400px;
-            background: radial-gradient(circle, rgba(16,185,129,0.08) 0%, transparent 70%);
-            bottom: -100px; right: -100px;
+        @keyframes gridDrift {
+            0%   { background-position: 0 0; }
+            100% { background-position: 48px 48px; }
         }
 
-        .left-content {
+        /* ── Glow blobs ── */
+        .blob {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(90px);
+            pointer-events: none;
+            opacity: 0.18;
+            animation: blobPulse 8s ease-in-out infinite alternate;
+        }
+        .blob-1 {
+            width: 480px; height: 480px;
+            background: #1d4ed8;
+            top: -160px; left: -120px;
+        }
+        .blob-2 {
+            width: 360px; height: 360px;
+            background: #facc15;
+            bottom: -100px; right: -80px;
+            opacity: 0.08;
+            animation-delay: -4s;
+        }
+        @keyframes blobPulse {
+            0%   { transform: scale(1)   translate(0,  0);  }
+            100% { transform: scale(1.2) translate(30px, 20px); }
+        }
+
+        /* ── Card ── */
+        .card {
             position: relative;
-            z-index: 1;
-            max-width: 380px;
+            z-index: 10;
+            width: 400px;
+            background: linear-gradient(145deg, #0d1b2e 0%, #080f1c 100%);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 48px 44px 44px;
+            box-shadow: 0 40px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04) inset;
+            animation: cardIn 0.7s cubic-bezier(0.22,1,0.36,1) both;
+        }
+        @keyframes cardIn {
+            from { opacity:0; transform: translateY(28px) scale(0.97); }
+            to   { opacity:1; transform: translateY(0) scale(1); }
         }
 
-        .brand-mark {
+        /* ── Lightning bolt icon ── */
+        .bolt-wrap {
             display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 48px;
+            justify-content: center;
+            margin-bottom: 28px;
+            animation: cardIn 0.9s cubic-bezier(0.22,1,0.36,1) both;
+            animation-delay: 0.1s;
         }
-
-        .brand-icon {
-            width: 44px; height: 44px;
-            background: #3b82f6;
-            border-radius: 12px;
+        .bolt-ring {
+            position: relative;
+            width: 88px; height: 88px;
             display: flex; align-items: center; justify-content: center;
-            font-size: 22px;
-            color: white;
+        }
+        .bolt-ring::before {
+            content: '';
+            position: absolute; inset: 0;
+            border-radius: 50%;
+            border: 1.5px solid transparent;
+            background: linear-gradient(135deg, #2563eb44, #facc1533, #2563eb44) border-box;
+            -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: destination-out;
+            mask-composite: exclude;
+            animation: ringRotate 6s linear infinite;
+        }
+        @keyframes ringRotate {
+            to { transform: rotate(360deg); }
+        }
+        .bolt-bg {
+            width: 72px; height: 72px;
+            background: radial-gradient(135deg at 30% 30%, #1d4ed8 0%, #0d1b2e 80%);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 0 32px rgba(37,99,235,0.4), 0 0 64px rgba(37,99,235,0.15);
+        }
+        .bolt-icon {
+            font-size: 34px;
+            color: var(--yellow);
+            filter: drop-shadow(0 0 10px rgba(250,204,21,0.6));
+            animation: boltFlash 3s ease-in-out infinite;
+        }
+        @keyframes boltFlash {
+            0%, 90%, 100% { filter: drop-shadow(0 0 10px rgba(250,204,21,0.6)); }
+            95%            { filter: drop-shadow(0 0 22px rgba(250,204,21,1)) brightness(1.3); }
         }
 
-        .brand-name {
-            font-size: 16px;
+        /* ── Brand text ── */
+        .brand {
+            text-align: center;
+            margin-bottom: 36px;
+            animation: cardIn 1s cubic-bezier(0.22,1,0.36,1) both;
+            animation-delay: 0.15s;
+        }
+        .brand-title {
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 36px;
+            font-weight: 900;
+            letter-spacing: 1px;
+            color: #fff;
+            line-height: 1;
+        }
+        .brand-title span {
+            color: var(--yellow);
+        }
+        .brand-org {
+            font-size: 11px;
             font-weight: 700;
-            color: white;
+            letter-spacing: 2.5px;
+            text-transform: uppercase;
+            color: var(--blue-lite);
+            margin-top: 6px;
+        }
+        .brand-loc {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 3px;
             letter-spacing: 0.3px;
         }
 
-        .brand-sub {
-            font-size: 11px;
-            color: #64748b;
+        /* ── Divider ── */
+        .divider {
+            height: 1px;
+            background: var(--border);
+            margin-bottom: 28px;
         }
 
-        .hero-title {
-            font-size: 36px;
-            font-weight: 700;
-            color: white;
-            line-height: 1.2;
+        /* ── Form ── */
+        .form-group {
             margin-bottom: 16px;
         }
-
-        .hero-title span {
-            color: #3b82f6;
-        }
-
-        .hero-desc {
-            color: #64748b;
-            font-size: 14px;
-            line-height: 1.6;
-        }
-
-        .feature-list {
-            margin-top: 40px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .feature-item {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            color: #94a3b8;
-            font-size: 13px;
-        }
-
-        .feature-item .fi-icon {
-            width: 28px; height: 28px;
-            background: rgba(59,130,246,0.12);
-            border-radius: 6px;
-            display: flex; align-items: center; justify-content: center;
-            color: #3b82f6;
-            font-size: 13px;
-            flex-shrink: 0;
-        }
-
-        /* RIGHT PANEL */
-        .right-panel {
-            width: 440px;
-            background: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 48px 40px;
-        }
-
-        .login-box {
-            width: 100%;
-        }
-
-        .login-box h2 {
-            font-size: 24px;
-            font-weight: 700;
-            color: #0f172a;
-            margin-bottom: 6px;
-        }
-
-        .login-box .subtitle {
-            color: #64748b;
-            font-size: 13.5px;
-            margin-bottom: 32px;
-        }
-
-        .form-group {
-            margin-bottom: 18px;
-        }
-
         .form-group label {
             display: block;
-            font-size: 12.5px;
-            font-weight: 600;
-            color: #475569;
-            margin-bottom: 6px;
+            font-size: 11.5px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: #3b82f6;
+            margin-bottom: 7px;
         }
-
-        .input-wrapper {
+        .input-wrap {
             position: relative;
         }
-
-        .input-wrapper .input-icon {
+        .input-wrap .ico {
             position: absolute;
-            left: 12px;
+            left: 13px;
             top: 50%;
             transform: translateY(-50%);
-            color: #94a3b8;
+            color: var(--text-muted);
             font-size: 15px;
+            pointer-events: none;
+            transition: color 0.2s;
         }
-
-        .input-wrapper input {
+        .input-wrap input {
             width: 100%;
-            padding: 10px 12px 10px 38px;
-            border: 1.5px solid #e2e8f0;
-            border-radius: 9px;
+            padding: 11px 13px 11px 40px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.09);
+            border-radius: 10px;
             font-size: 14px;
-            font-family: 'DM Sans', sans-serif;
-            color: #0f172a;
+            font-family: 'Barlow', sans-serif;
+            color: #e2e8f0;
             outline: none;
-            transition: border-color 0.15s;
+            transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
         }
-
-        .input-wrapper input:focus {
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+        .input-wrap input::placeholder { color: #2d4260; }
+        .input-wrap input:focus {
+            border-color: var(--blue-lite);
+            background: rgba(59,130,246,0.05);
+            box-shadow: 0 0 0 3px rgba(59,130,246,0.12);
         }
+        .input-wrap input:focus ~ .ico { color: var(--blue-lite); }
 
+        /* ── Button ── */
         .btn-login {
             width: 100%;
-            padding: 11px;
-            background: #3b82f6;
+            padding: 12px;
+            margin-top: 8px;
+            background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
             color: white;
             border: none;
-            border-radius: 9px;
+            border-radius: 10px;
             font-size: 14px;
-            font-weight: 600;
-            font-family: 'DM Sans', sans-serif;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            font-family: 'Barlow', sans-serif;
             cursor: pointer;
-            transition: background 0.15s, transform 0.1s;
-            margin-top: 8px;
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
         }
-
-        .btn-login:hover { background: #2563eb; }
+        .btn-login::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, transparent 0%, rgba(255,255,255,0.1) 100%);
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .btn-login:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(37,99,235,0.45); }
+        .btn-login:hover::after { opacity: 1; }
         .btn-login:active { transform: scale(0.98); }
 
+        /* ── Error ── */
         .error-msg {
-            background: #fef2f2;
-            border: 1px solid #fecaca;
-            color: #991b1b;
+            background: rgba(239,68,68,0.1);
+            border: 1px solid rgba(239,68,68,0.25);
+            color: #fca5a5;
             padding: 10px 14px;
             border-radius: 8px;
-            font-size: 13px;
+            font-size: 12.5px;
             margin-top: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
-        @media (max-width: 768px) {
-            .left-panel { display: none; }
-            .right-panel { width: 100%; }
+        /* ── Footer tag ── */
+        .card-footer {
+            margin-top: 28px;
+            text-align: center;
+            font-size: 10.5px;
+            color: #1e3251;
+            letter-spacing: 0.5px;
+        }
+
+        @media (max-width: 460px) {
+            .card { width: 92vw; padding: 36px 28px 32px; }
         }
     </style>
 </head>
 <body>
 
-    <div class="left-panel">
-        <div class="left-content">
-            <div class="brand-mark">
-                <div class="brand-icon"><i class="bi bi-cpu"></i></div>
-                <div>
-                    <div class="brand-name">FASOP UP2B</div>
-                    <div class="brand-sub">Sistem Informasi Aset</div>
-                </div>
-            </div>
-            <h1 class="hero-title">Kelola <span>Aset</span> &<br>Pemeliharaan<br>Peralatan</h1>
-            <p class="hero-desc">Platform manajemen aset peralatan fasop yang terintegrasi dengan sistem pemeliharaan terencana.</p>
-            <div class="feature-list">
-                <div class="feature-item">
-                    <div class="fi-icon"><i class="bi bi-hdd-rack"></i></div>
-                    Inventaris peralatan lengkap & terstruktur
-                </div>
-                <div class="feature-item">
-                    <div class="fi-icon"><i class="bi bi-tools"></i></div>
-                    Tracking pemeliharaan preventif & korektif
-                </div>
-                <div class="feature-item">
-                    <div class="fi-icon"><i class="bi bi-bar-chart-line"></i></div>
-                    Dashboard & laporan bulanan otomatis
-                </div>
-                <div class="feature-item">
-                    <div class="fi-icon"><i class="bi bi-file-earmark-excel"></i></div>
-                    Export data ke Excel kapan saja
-                </div>
+<div class="blob blob-1"></div>
+<div class="blob blob-2"></div>
+
+<div class="card">
+
+    <div class="bolt-wrap">
+        <div class="bolt-ring">
+            <div class="bolt-bg">
+                <i class="bi bi-lightning-charge-fill bolt-icon"></i>
             </div>
         </div>
     </div>
 
-    <div class="right-panel">
-        <div class="login-box">
-            <h2>Selamat Datang 👋</h2>
-            <p class="subtitle">Masuk ke sistem untuk melanjutkan</p>
-
-            <form method="post">
-                {% csrf_token %}
-                <div class="form-group">
-                    <label>Username</label>
-                    <div class="input-wrapper">
-                        <span class="input-icon"><i class="bi bi-person"></i></span>
-                        <input type="text" name="username" placeholder="Masukkan username" required autofocus>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label>Password</label>
-                    <div class="input-wrapper">
-                        <span class="input-icon"><i class="bi bi-lock"></i></span>
-                        <input type="password" name="password" placeholder="Masukkan password" required>
-                    </div>
-                </div>
-                <button type="submit" class="btn-login">
-                    <i class="bi bi-box-arrow-in-right me-1"></i> Masuk
-                </button>
-                {% if form.errors %}
-                <div class="error-msg">
-                    <i class="bi bi-exclamation-circle me-1"></i>
-                    Username atau password tidak sesuai. Silakan coba lagi.
-                </div>
-                {% endif %}
-            </form>
-        </div>
+    <div class="brand">
+        <div class="brand-title">FASOP <span>UP2B</span></div>
+        <div class="brand-org">UIP3B Sulawesi</div>
+        <div class="brand-loc">UP2B Sistem Makassar</div>
     </div>
+
+    <div class="divider"></div>
+
+    <form method="post">
+        {% csrf_token %}
+        <div class="form-group">
+            <label>Username</label>
+            <div class="input-wrap">
+                <input type="text" name="username" placeholder="Masukkan username" required autofocus>
+                <i class="bi bi-person ico"></i>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Password</label>
+            <div class="input-wrap">
+                <input type="password" name="password" placeholder="Masukkan password" required>
+                <i class="bi bi-lock ico"></i>
+            </div>
+        </div>
+        <button type="submit" class="btn-login">
+            <i class="bi bi-box-arrow-in-right me-1"></i> Masuk
+        </button>
+        {% if form.errors %}
+        <div class="error-msg">
+            <i class="bi bi-exclamation-circle"></i>
+            Username atau password tidak sesuai.
+        </div>
+        {% endif %}
+    </form>
+
+    <div class="card-footer">PT PLN (Persero) · UIP3B Sulawesi</div>
+</div>
 
 </body>
 </html>

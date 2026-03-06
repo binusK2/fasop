@@ -61,7 +61,7 @@
                 </div>
                 <div>
                     <div style="font-size:10px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Pelaksana</div>
-                    <div style="font-size:13px;color:#e2e8f0;">{{ maintenance.technician|default:"—" }}</div>
+                    <div style="font-size:13px;color:#e2e8f0;">{% for t in maintenance.technicians.all %}{{ t.get_full_name|default:t.username }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}</div>
                 </div>
                 <div>
                     <div style="font-size:10px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Status</div>
@@ -71,6 +71,18 @@
                     <span style="font-size:11.5px;font-weight:700;color:#1d4ed8;background:#dbeafe;padding:3px 10px;border-radius:20px;">&#9679; Open</span>
                     {% endif %}
                 </div>
+                <div>
+                    <div style="font-size:10px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">TTD AM</div>
+                    {% if maintenance.signed_by %}
+                    <span style="font-size:11px;font-weight:700;color:#065f46;background:#dcfce7;padding:3px 10px;border-radius:20px;">
+                        <i class="bi bi-patch-check-fill me-1"></i>{{ maintenance.signed_by.get_full_name|default:maintenance.signed_by.username }}
+                    </span>
+                    {% else %}
+                    <span style="font-size:11px;font-weight:600;color:#92400e;background:#fef3c7;padding:3px 10px;border-radius:20px;">
+                        <i class="bi bi-clock-history me-1"></i>Belum TTD
+                    </span>
+                    {% endif %}
+                </div>
             </div>
 
             <!-- Actions (pushed to right) -->
@@ -78,7 +90,7 @@
                 <a href="{% url 'maintenance_list' %}" class="btn btn-sm" style="background:rgba(255,255,255,0.08);color:#cbd5e1;border:1px solid rgba(255,255,255,0.12);font-size:12px;">
                     <i class="bi bi-arrow-left me-1"></i>Kembali
                 </a>
-                {% if maintenance.status == 'Open' %}
+                {% if maintenance.status == 'Open' and not maintenance.signed_by %}
                 <a href="{% url 'maintenance_edit' maintenance.id %}" class="btn btn-sm" style="background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.3);font-size:12px;">
                     <i class="bi bi-pencil me-1"></i>Edit
                 </a>
@@ -86,6 +98,18 @@
                 <a href="{% url 'export_maintenance_pdf' maintenance.id %}" class="btn btn-sm" style="background:rgba(239,68,68,0.15);color:#fca5a5;border:1px solid rgba(239,68,68,0.3);font-size:12px;" target="_blank">
                     <i class="bi bi-file-earmark-pdf me-1"></i>PDF
                 </a>
+                {% if request.user.profile.is_asisten_manager and not maintenance.signed_by %}
+                <form method="post" action="{% url 'maintenance_sign' maintenance.id %}" class="m-0">
+                    {% csrf_token %}
+                    <button class="btn btn-sm px-3" style="background:rgba(16,185,129,0.2);color:#6ee7b7;border:1px solid rgba(16,185,129,0.35);font-size:12px;font-weight:600;">
+                        <i class="bi bi-pen me-1"></i>Sign
+                    </button>
+                </form>
+                {% elif maintenance.signed_by %}
+                <span style="font-size:11.5px;font-weight:600;color:#6ee7b7;padding:0 6px;display:flex;align-items:center;gap:4px;">
+                    <i class="bi bi-patch-check-fill"></i>Signed
+                </span>
+                {% endif %}
                 <button class="btn btn-sm" onclick="confirmDelete()" style="background:rgba(239,68,68,0.15);color:#fca5a5;border:1px solid rgba(239,68,68,0.3);font-size:12px;">
                     <i class="bi bi-trash me-1"></i>Hapus
                 </button>
@@ -98,6 +122,7 @@
                     </button>
                 </form>
                 {% else %}
+                {% if not maintenance.signed_by %}
                 <form method="post" action="{% url 'maintenance_update_status' maintenance.id %}" class="m-0">
                     {% csrf_token %}
                     <input type="hidden" name="status" value="Open">
@@ -105,6 +130,11 @@
                         <i class="bi bi-arrow-counterclockwise me-1"></i>Buka Kembali
                     </button>
                 </form>
+                {% else %}
+                <span style="font-size:11px;color:#6ee7b7;display:flex;align-items:center;gap:5px;padding:0 4px;">
+                    <i class="bi bi-lock-fill"></i>Sudah Ditandatangani
+                </span>
+                {% endif %}
                 {% endif %}
             </div>
         </div>

@@ -58,6 +58,24 @@
         </div>
     </div>
     <div class="col-6 col-md-3">
+        <div class="stat-card" style="{% if belum_ttd %}border-left:3px solid #f59e0b;{% endif %}">
+            <div class="stat-icon" style="background:#fffbeb;color:#d97706;">
+                <i class="bi bi-pen"></i>
+            </div>
+            <div>
+                <div class="stat-value" style="color:#d97706;">{{ belum_ttd }}</div>
+                <div class="stat-label">Belum Ditandatangani</div>
+                {% if belum_ttd %}
+                <div style="margin-top:4px;">
+                    <a href="{% url 'maintenance_list' %}?status=Done&unsigned=1" style="font-size:11px;color:#d97706;font-weight:600;text-decoration:none;">
+                        <i class="bi bi-arrow-right me-1"></i>Lihat laporan
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
         <div class="stat-card">
             <div class="stat-icon" style="background:#fdf4ff;color:#a855f7;">
                 <i class="bi bi-wrench-adjustable"></i>
