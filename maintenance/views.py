@@ -410,7 +410,7 @@ def maintenance_report(request):
     maintenances = (
         Maintenance.objects
         .filter(date__year=selected_year, date__month=selected_month)
-        .select_related('device', 'device__jenis', 'technician')
+        .select_related('device', 'device__jenis', 'signed_by')
         .order_by('date')
     )
 
@@ -467,7 +467,7 @@ def export_maintenance_excel(request):
     year      = request.GET.get('year') or ''
     month     = request.GET.get('month') or ''
 
-    qs = Maintenance.objects.select_related('device','device__jenis','technician').order_by('-date')
+    qs = Maintenance.objects.select_related('device','device__jenis','signed_by').prefetch_related('technicians').order_by('-date')
 
     if status:    qs = qs.filter(status=status)
     if lokasi:    qs = qs.filter(device__lokasi__iexact=lokasi)
@@ -517,7 +517,7 @@ def export_maintenance_excel(request):
     for ri, m in enumerate(qs, 1):
         wr = ri + 4
         row_data = [ri, m.date.strftime('%d/%m/%Y'), str(m.device), m.device.lokasi,
-                    m.maintenance_type, str(m.technician) if m.technician else '-',
+                    m.maintenance_type, ', '.join(t.get_full_name() or t.username for t in m.technicians.all()) or '-',
                     m.description or '-', m.status]
         for ci, val in enumerate(row_data, 1):
             cell = ws.cell(row=wr, column=ci, value=val)
@@ -614,7 +614,8 @@ def export_maintenance_pdf(request, pk):
             'lokasi':           _g(device, 'lokasi', '-'),
             'ip_address':       _g(device, 'ip_address', '-'),
             'serial_number':    _g(device, 'serial_number', '-'),
-            'brand':            _g(device, 'merk', '-'),
+            'merk':            _g(device, 'merk', '-'),
+            'type':             _g(device, 'type', '-'),
             'date':             maintenance.date.strftime('%d %B %Y'),
             'maintenance_type': maintenance.maintenance_type,
             'technician':       techs_str,
@@ -820,4 +821,3 @@ def profile_view(request):
             messages.success(request, 'Tanda tangan berhasil disimpan.')
         return redirect('profile_view')
     return render(request, 'maintenance/profile.html', {'profile': profile})
-

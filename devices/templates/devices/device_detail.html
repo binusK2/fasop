@@ -19,16 +19,16 @@
     </a>
 </div>
 
-<div class="row g-3">
+<div class="row g-3 mb-3">
 
-    <!-- FOTO + QR -->
+    <!-- FOTO -->
     <div class="col-md-3">
-        <div class="card">
+        <div class="card h-100">
             <div class="card-body text-center p-2">
                 {% if device.foto %}
-                    <img src="{{ device.foto.url }}" class="img-fluid rounded mb-3" style="max-height:350px; object-fit:contain;">
+                    <img src="{{ device.foto.url }}" class="img-fluid rounded" style="max-height:300px; object-fit:contain;">
                 {% else %}
-                    <div class="d-flex align-items-center justify-content-center rounded mb-3"
+                    <div class="d-flex align-items-center justify-content-center rounded"
                          style="height:160px; background:#f1f5f9; color:#94a3b8;">
                         <i class="bi bi-image fs-1"></i>
                     </div>
@@ -68,7 +68,7 @@
                     </tr>
                     <tr>
                         <td style="font-size:12px; color:#64748b; font-weight:600; padding:10px 16px;">IP Address</td>
-                        <td class="mono" style="padding:10px 16px;">{{ device.ip_address }}</td>
+                        <td class="mono" style="padding:10px 16px;">{{ device.ip_address|default:"-" }}</td>
                     </tr>
                     <tr>
                         <td style="font-size:12px; color:#64748b; font-weight:600; padding:10px 16px;">Lokasi</td>
@@ -83,37 +83,35 @@
         </div>
     </div>
 
-    <!-- KETERANGAN -->
+    <!-- KETERANGAN + RINGKASAN MAINTENANCE -->
     <div class="col-md-4">
-        <div class="card">
+        <div class="card mb-3">
             <div class="card-body">
-                <h6 style="font-size:13px; font-weight:600; color:#64748b;">Keterangan</h6>
-                <p style="font-size:13.5px;">{{ device.keterangan|default:"—" }}</p>
+                <h6 style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#64748b;" class="mb-2">Keterangan</h6>
+                <p style="font-size:13.5px;margin:0;color:#374151;">{{ device.keterangan|default:"—" }}</p>
             </div>
         </div>
-
-        <!-- Ringkasan Maintenance -->
-        <div class="card mt-3">
+        <div class="card">
             <div class="card-body">
-                <h6 style="font-size:13px; font-weight:600; color:#64748b;" class="mb-3">Ringkasan Maintenance</h6>
+                <h6 style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#64748b;" class="mb-3">Ringkasan Maintenance</h6>
                 <div class="row g-2 text-center">
                     <div class="col-4">
-                        <div style="font-size:22px; font-weight:700; font-family:'JetBrains Mono', monospace;">
-                            {{ maintenance_total }}
+                        <div style="background:#f8fafc;border-radius:10px;padding:10px 6px;">
+                            <div style="font-size:24px;font-weight:700;color:#1e293b;">{{ maintenance_total }}</div>
+                            <div style="font-size:11px;color:#94a3b8;font-weight:500;">Total</div>
                         </div>
-                        <div style="font-size:11px; color:#64748b;">Total</div>
                     </div>
                     <div class="col-4">
-                        <div style="font-size:22px; font-weight:700; font-family:'JetBrains Mono', monospace; color:#10b981;">
-                            {{ maintenance_done }}
+                        <div style="background:#f0fdf4;border-radius:10px;padding:10px 6px;">
+                            <div style="font-size:24px;font-weight:700;color:#10b981;">{{ maintenance_done }}</div>
+                            <div style="font-size:11px;color:#6ee7b7;font-weight:500;">Selesai</div>
                         </div>
-                        <div style="font-size:11px; color:#64748b;">Selesai</div>
                     </div>
                     <div class="col-4">
-                        <div style="font-size:22px; font-weight:700; font-family:'JetBrains Mono', monospace; color:#f59e0b;">
-                            {{ maintenance_open }}
+                        <div style="background:#fffbeb;border-radius:10px;padding:10px 6px;">
+                            <div style="font-size:24px;font-weight:700;color:#f59e0b;">{{ maintenance_open }}</div>
+                            <div style="font-size:11px;color:#fcd34d;font-weight:500;">Open</div>
                         </div>
-                        <div style="font-size:11px; color:#64748b;">Open</div>
                     </div>
                 </div>
             </div>
@@ -121,6 +119,30 @@
     </div>
 
 </div>
+
+<!-- SPESIFIKASI KHUSUS -->
+{% if spesifikasi_display %}
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="d-flex align-items-center gap-2 mb-3">
+            <span style="width:5px;height:18px;border-radius:3px;background:#8b5cf6;flex-shrink:0;display:inline-block;"></span>
+            <span style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#475569;">Spesifikasi Khusus</span>
+        </div>
+        <div class="row g-2">
+            {% for item in spesifikasi_display %}
+            <div class="col-md-3 col-sm-4 col-6">
+                <div style="background:{% if item.is_sfp %}#f5f3ff{% else %}#f8fafc{% endif %};border:1px solid {% if item.is_sfp %}#ddd6fe{% else %}#e2e8f0{% endif %};border-radius:8px;padding:10px 14px;height:100%;">
+                    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:{% if item.is_sfp %}#7c3aed{% else %}#94a3b8{% endif %};margin-bottom:4px;">
+                        {% if item.is_sfp %}<i class="bi bi-diagram-3 me-1" style="font-size:9px;"></i>{% endif %}{{ item.label }}
+                    </div>
+                    <div style="font-size:14px;font-weight:600;color:#1e293b;">{{ item.value|default:"—" }}</div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
 
 <!-- RIWAYAT MAINTENANCE -->
 <div class="table-card mt-3">
@@ -133,7 +155,7 @@
     <div class="table-responsive">
         <table class="table">
             <thead>
-                <tr>
+                <tr style="text-align: center;">
                     <th>Tanggal</th>
                     <th>Tipe</th>
                     <th>Pelaksana</th>
@@ -144,7 +166,7 @@
             </thead>
             <tbody>
                 {% for m in maintenance_history %}
-                <tr>
+                <tr style="text-align: center;">
                     <td style="font-size:12.5px;white-space:nowrap;">{{ m.date|date:"d M Y" }}</td>
                     <td>
                         <span style="font-size:11.5px;padding:3px 9px;border-radius:20px;font-weight:500;
@@ -153,7 +175,7 @@
                         </span>
                     </td>
                     <td style="font-size:13px;">{{ m.technician|default:"—" }}</td>
-                    <td style="font-size:12.5px;color:#64748b;max-width:220px;" class="text-truncate-2">
+                    <td style="font-size:12.5px;color:#64748b;max-width:220px; text-align: center;">
                         {{ m.description|default:"—" }}
                     </td>
                     <td>

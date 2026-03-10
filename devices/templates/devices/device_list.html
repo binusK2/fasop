@@ -63,20 +63,50 @@
     <div class="table-responsive">
         <table class="table">
             <thead>
-                <tr>
+                <tr style="text-align: center;">
                     <th>#</th>
-                    <th>Nama Perangkat</th>
-                    <th>Jenis</th>
-                    <th>Merk / Type</th>
-                    <th>IP Address</th>
-                    <th>Lokasi</th>
-                    <th>Serial</th>
+                    <th class="sort-th {% if current_sort == 'nama' %}sort-active{% endif %}">
+                        <a href="?{% if current_sort == 'nama' and current_dir == 'asc' %}sort=nama&dir=desc{% else %}sort=nama&dir=asc{% endif %}{% if search %}&q={{ search }}{% endif %}{% if selected_lokasi %}&lokasi={{ selected_lokasi }}{% endif %}{% if selected_jenis %}&jenis={{ selected_jenis }}{% endif %}" class="sort-link">
+                            Nama Perangkat
+                            <span class="sort-icon">{% if current_sort == 'nama' %}{% if current_dir == 'asc' %}<i class="bi bi-sort-alpha-down"></i>{% else %}<i class="bi bi-sort-alpha-up"></i>{% endif %}{% else %}<i class="bi bi-arrow-down-up text-muted opacity-50"></i>{% endif %}</span>
+                        </a>
+                    </th>
+                    <th class="sort-th {% if current_sort == 'jenis' %}sort-active{% endif %}">
+                        <a href="?{% if current_sort == 'jenis' and current_dir == 'asc' %}sort=jenis&dir=desc{% else %}sort=jenis&dir=asc{% endif %}{% if search %}&q={{ search }}{% endif %}{% if selected_lokasi %}&lokasi={{ selected_lokasi }}{% endif %}{% if selected_jenis %}&jenis={{ selected_jenis }}{% endif %}" class="sort-link">
+                            Jenis
+                            <span class="sort-icon">{% if current_sort == 'jenis' %}{% if current_dir == 'asc' %}<i class="bi bi-sort-alpha-down"></i>{% else %}<i class="bi bi-sort-alpha-up"></i>{% endif %}{% else %}<i class="bi bi-arrow-down-up text-muted opacity-50"></i>{% endif %}</span>
+                        </a>
+                    </th>
+                    <th class="sort-th {% if current_sort == 'merk' %}sort-active{% endif %}">
+                        <a href="?{% if current_sort == 'merk' and current_dir == 'asc' %}sort=merk&dir=desc{% else %}sort=merk&dir=asc{% endif %}{% if search %}&q={{ search }}{% endif %}{% if selected_lokasi %}&lokasi={{ selected_lokasi }}{% endif %}{% if selected_jenis %}&jenis={{ selected_jenis }}{% endif %}" class="sort-link">
+                            Merk / Type
+                            <span class="sort-icon">{% if current_sort == 'merk' %}{% if current_dir == 'asc' %}<i class="bi bi-sort-alpha-down"></i>{% else %}<i class="bi bi-sort-alpha-up"></i>{% endif %}{% else %}<i class="bi bi-arrow-down-up text-muted opacity-50"></i>{% endif %}</span>
+                        </a>
+                    </th>
+                    <th class="sort-th {% if current_sort == 'ip' %}sort-active{% endif %}">
+                        <a href="?{% if current_sort == 'ip' and current_dir == 'asc' %}sort=ip&dir=desc{% else %}sort=ip&dir=asc{% endif %}{% if search %}&q={{ search }}{% endif %}{% if selected_lokasi %}&lokasi={{ selected_lokasi }}{% endif %}{% if selected_jenis %}&jenis={{ selected_jenis }}{% endif %}" class="sort-link">
+                            IP Address
+                            <span class="sort-icon">{% if current_sort == 'ip' %}{% if current_dir == 'asc' %}<i class="bi bi-sort-alpha-down"></i>{% else %}<i class="bi bi-sort-alpha-up"></i>{% endif %}{% else %}<i class="bi bi-arrow-down-up text-muted opacity-50"></i>{% endif %}</span>
+                        </a>
+                    </th>
+                    <th class="sort-th {% if current_sort == 'lokasi' %}sort-active{% endif %}">
+                        <a href="?{% if current_sort == 'lokasi' and current_dir == 'asc' %}sort=lokasi&dir=desc{% else %}sort=lokasi&dir=asc{% endif %}{% if search %}&q={{ search }}{% endif %}{% if selected_lokasi %}&lokasi={{ selected_lokasi }}{% endif %}{% if selected_jenis %}&jenis={{ selected_jenis }}{% endif %}" class="sort-link">
+                            Lokasi
+                            <span class="sort-icon">{% if current_sort == 'lokasi' %}{% if current_dir == 'asc' %}<i class="bi bi-sort-alpha-down"></i>{% else %}<i class="bi bi-sort-alpha-up"></i>{% endif %}{% else %}<i class="bi bi-arrow-down-up text-muted opacity-50"></i>{% endif %}</span>
+                        </a>
+                    </th>
+                    <th class="sort-th {% if current_sort == 'serial' %}sort-active{% endif %}">
+                        <a href="?{% if current_sort == 'serial' and current_dir == 'asc' %}sort=serial&dir=desc{% else %}sort=serial&dir=asc{% endif %}{% if search %}&q={{ search }}{% endif %}{% if selected_lokasi %}&lokasi={{ selected_lokasi }}{% endif %}{% if selected_jenis %}&jenis={{ selected_jenis }}{% endif %}" class="sort-link">
+                            Serial
+                            <span class="sort-icon">{% if current_sort == 'serial' %}{% if current_dir == 'asc' %}<i class="bi bi-sort-alpha-down"></i>{% else %}<i class="bi bi-sort-alpha-up"></i>{% endif %}{% else %}<i class="bi bi-arrow-down-up text-muted opacity-50"></i>{% endif %}</span>
+                        </a>
+                    </th>
                     <th>Aksi</th>
                 </tr>
             </thead>
             <tbody>
                 {% for d in devices %}
-                <tr>
+                <tr style="text-align:center;vertical-align:middle;">
                     <td class="text-muted" style="font-size:12px;">{{ forloop.counter }}</td>
                     <td>
                         <a href="{% url 'device_view' d.id %}" class="text-decoration-none" style="font-size:13.5px;font-weight:600;color:#0f172a;">
@@ -98,7 +128,7 @@
                     <td style="font-size:12.5px;color:#64748b;">{{ d.lokasi|default:"—" }}</td>
                     <td class="mono" style="font-size:11.5px;color:#94a3b8;">{{ d.serial_number|default:"—" }}</td>
                     <td>
-                        <div class="d-flex gap-1">
+                        <div class="d-flex gap-1 justify-content-center">
                             <a href="{% url 'device_view' d.id %}" class="btn btn-sm btn-outline-primary" title="Detail">
                                 <i class="bi bi-eye"></i>
                             </a>
@@ -147,6 +177,20 @@
 {% endblock %}
 
 {% block extra_js %}
+<style>
+.sort-th { white-space: nowrap; }
+.sort-link {
+    text-decoration: none;
+    color: inherit;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    transition: color 0.15s;
+}
+.sort-link:hover { color: #2563eb; }
+.sort-active .sort-link { color: #2563eb; }
+.sort-icon { font-size: 12px; line-height: 1; }
+</style>
 <script>
 function confirmDelete(url, name) {
     document.getElementById('deleteModalDesc').textContent = 'Perangkat "' + name + '" akan dihapus permanen.';

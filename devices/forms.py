@@ -2,11 +2,29 @@ from django import forms
 from .models import Device, Icon
 
 class DeviceForm(forms.ModelForm):
+    ip_address = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Kosongkan jika tidak ada'}),
+        label='IP Address',
+    )
 
     class Meta:
         model = Device
         fields = '__all__'
         exclude = ['is_deleted', 'deleted_by']
+
+    def clean_ip_address(self):
+        ip = self.cleaned_data.get('ip_address', '').strip()
+        if not ip or ip == '-':
+            return None
+        # Validate IP format using Django's validator
+        from django.core.validators import validate_ipv46_address
+        from django.core.exceptions import ValidationError as DjangoValidationError
+        try:
+            validate_ipv46_address(ip)
+        except DjangoValidationError:
+            raise forms.ValidationError('Masukkan alamat IP yang valid (contoh: 192.168.1.1)')
+        return ip
 
     def clean_lokasi(self):
         lokasi = self.cleaned_data.get('lokasi')

@@ -1,9 +1,43 @@
 from .models import DeviceType, Device
 from django.db.models.functions import Trim
 
+# Urutan custom sidebar peralatan
+DEVICE_TYPE_ORDER = [
+    "Router",
+    "Switch",
+    "Radio",
+    "VoIP",
+    "Multiplexer",
+    "PLC",
+    "Teleproteksi",
+    "RoIP",
+    "Catu Daya",
+    "RTU",
+    "SAS",
+    "SERVER",
+    "UPS",
+    "Workstation PC",
+    "GPS",
+    "GENSET",
+    "DFR",
+    "RELE DEFENSE SCHEME",
+]
+
 def device_types(request):
+    all_types = list(DeviceType.objects.all())
+
+    def sort_key(dt):
+        # Cari posisi nama di DEVICE_TYPE_ORDER (case-insensitive)
+        name_lower = dt.name.strip().lower()
+        for i, ordered_name in enumerate(DEVICE_TYPE_ORDER):
+            if ordered_name.lower() == name_lower:
+                return i
+        return len(DEVICE_TYPE_ORDER)  # yang tidak ada di list, taruh di bawah
+
+    all_types.sort(key=sort_key)
+
     return {
-        'navbar_device_types': DeviceType.objects.all()
+        'navbar_device_types': all_types
     }
 
 def lokasi_list(request):

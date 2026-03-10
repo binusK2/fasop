@@ -10,6 +10,8 @@ from django.http import HttpResponse
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
+import json
+from .device_schema import DEVICE_SCHEMA
 
 
 @login_required
@@ -17,6 +19,9 @@ def device_list(request):
     jenis_id = request.GET.get('jenis')
     search = request.GET.get('q') or ''
     lokasi = request.GET.get('lokasi')
+    sort = request.GET.get('sort', 'nama')
+    direction = request.GET.get('dir', 'asc')
+
     devices = Device.objects.filter(is_deleted=False)
 
     if jenis_id:
@@ -30,6 +35,20 @@ def device_list(request):
 
     if lokasi:
         devices = devices.filter(lokasi=lokasi)
+
+    # Sorting
+    SORT_FIELDS = {
+        'nama': 'nama',
+        'jenis': 'jenis__name',
+        'merk': 'merk',
+        'ip': 'ip_address',
+        'lokasi': 'lokasi',
+        'serial': 'serial_number',
+    }
+    order_field = SORT_FIELDS.get(sort, 'nama')
+    if direction == 'desc':
+        order_field = '-' + order_field
+    devices = devices.order_by(order_field)
 
     lokasi_list = (
         Device.objects
@@ -49,6 +68,8 @@ def device_list(request):
         'selected_jenis': jenis_id,
         'lokasi_list': lokasi_list,
         'selected_lokasi': lokasi,
+        'current_sort': sort,
+        'current_dir': direction,
     })
 
 
@@ -57,11 +78,21 @@ def device_create(request):
     if request.method == 'POST':
         form = DeviceForm(request.POST, request.FILES)
         if form.is_valid():
-            form.save()
+            device = form.save(commit=False)
+            spesifikasi_raw = request.POST.get('spesifikasi_json', '{}')
+            try:
+                device.spesifikasi = json.loads(spesifikasi_raw)
+            except (json.JSONDecodeError, ValueError):
+                device.spesifikasi = {}
+            device.save()
             return redirect('device_list')
     else:
         form = DeviceForm()
-    return render(request, 'devices/device_form.html', {'form': form, 'is_edit': False})
+    return render(request, 'devices/device_form.html', {
+        'form': form,
+        'is_edit': False,
+        'device_schema_json': json.dumps(DEVICE_SCHEMA),
+    })
 
 
 @login_required
@@ -70,11 +101,23 @@ def device_update(request, pk):
     if request.method == 'POST':
         form = DeviceForm(request.POST, request.FILES, instance=device)
         if form.is_valid():
-            form.save()
+            dev = form.save(commit=False)
+            spesifikasi_raw = request.POST.get('spesifikasi_json', '{}')
+            try:
+                dev.spesifikasi = json.loads(spesifikasi_raw)
+            except (json.JSONDecodeError, ValueError):
+                dev.spesifikasi = {}
+            dev.save()
             return redirect('device_view', pk=device.pk)
     else:
         form = DeviceForm(instance=device)
-    return render(request, 'devices/device_form.html', {'form': form, 'is_edit': True, 'device': device})
+    return render(request, 'devices/device_form.html', {
+        'form': form,
+        'is_edit': True,
+        'device': device,
+        'device_schema_json': json.dumps(DEVICE_SCHEMA),
+        'existing_spesifikasi': json.dumps(device.spesifikasi or {}),
+    })
 
 
 @login_required
@@ -146,12 +189,40 @@ def device_detail(request, pk):
     maintenance_done = maintenance_history.filter(status='Done').count()
     maintenance_open = maintenance_history.filter(status='Open').count()
 
+    # Bangun spesifikasi_display: [{label, value, is_sfp}] berdasarkan schema
+    spesifikasi_display = []
+    if device.spesifikasi and device.jenis:
+        jenis_name = device.jenis.name
+        schema_fields = DEVICE_SCHEMA.get(jenis_name, [])
+        # Buat mapping key -> label dari schema
+        label_map = {f["key"]: f["label"] for f in schema_fields}
+        for key, value in device.spesifikasi.items():
+            if not value and value != 0:
+                continue
+            label = label_map.get(key, key.replace("_", " ").title())
+            if key == "sfp_speeds" and isinstance(value, list):
+                # Tampilkan per port
+                for i, speed in enumerate(value, 1):
+                    if speed:
+                        spesifikasi_display.append({
+                            "label": f"SFP Port {i}",
+                            "value": speed,
+                            "is_sfp": True,
+                        })
+            else:
+                spesifikasi_display.append({
+                    "label": label,
+                    "value": value if not isinstance(value, list) else ", ".join(str(v) for v in value if v),
+                    "is_sfp": False,
+                })
+
     return render(request, 'devices/device_detail.html', {
         'device': device,
         'maintenance_history': maintenance_history,
         'maintenance_total': maintenance_total,
         'maintenance_done': maintenance_done,
         'maintenance_open': maintenance_open,
+        'spesifikasi_display': spesifikasi_display,
     })
 
 
@@ -225,9 +296,25 @@ def layanan_icon(request):
     icons = list(icons)
 
     # Summary counters
-    operasi_baik     = sum(1 for i in icons if i.kondisi_operasional and 'Baik' in i.kondisi_operasional)
-    operasi_gangguan = sum(1 for i in icons if i.kondisi_operasional and ('Gangguan' in i.kondisi_operasional or 'NOK' in i.kondisi_operasional))
-    operasi_lain     = len(icons) - operasi_baik - operasi_gangguan
+    operasi_baik = sum(
+        1 for i in icons
+        if i.kondisi_operasional and 'Baik' in i.kondisi_operasional
+    )
+    operasi_gangguan = sum(
+        1 for i in icons
+        if i.kondisi_operasional and (
+            'Gangguan' in i.kondisi_operasional or
+            'NOK' in i.kondisi_operasional
+        )
+    )
+    operasi_lain = sum(
+        1 for i in icons
+        if i.kondisi_operasional and
+        'Baik' not in i.kondisi_operasional and
+        'Gangguan' not in i.kondisi_operasional and
+        'NOK' not in i.kondisi_operasional and
+        'Tidak Operasi' in i.kondisi_operasional
+    )
 
     # Distinct kondisi values for filter dropdown
     kondisi_list = sorted(set(
@@ -241,8 +328,8 @@ def layanan_icon(request):
         'selected_kondisi': selected_kondisi,
         'kondisi_list':     kondisi_list,
         'operasi_baik':     operasi_baik,
-        'operasi_gangguan': operasi_gangguan,
-        'operasi_lain':     operasi_lain,
+        'gangguan':         operasi_gangguan,
+        'lainnya':          operasi_lain,
     })
 
 

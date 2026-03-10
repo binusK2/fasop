@@ -141,19 +141,19 @@ def draw_info(c, y, info):
     def ir(l1,v1,l2,v2):
         return [_p(l1,7.5,True),_p(_val(v1),7.5),_p(l2,7.5,True),_p(_val(v2),7.5)]
     jenis_merk = ' / '.join(filter(None,[str(info.get('device_type') or '').strip(),
-                                         str(info.get('brand') or '').strip()])) or '-'
+                                         str(info.get('merk') or '').strip()])) or '-'
     rows = [
         ir('Nama Perangkat',info.get('device_name'),'Jenis / Merk',jenis_merk),
-        ir('Lokasi',info.get('lokasi'),'IP Address',info.get('ip_address')),
-        ir('No. Seri',info.get('serial_number'),'Tgl. Pemeliharaan',info.get('date')),
-        ir('Jenis Kegiatan',info.get('maintenance_type'),'Pelaksana',info.get('technician')),
-        ir('Status Perangkat',info.get('status'),'',''),
+        ir('Lokasi',info.get('lokasi'),'Type',info.get('type')),
+        ir('No. Seri',info.get('serial_number'), 'IP Address',info.get('ip_address')),
+        ir('Jenis Kegiatan',info.get('maintenance_type'), 'Tgl. Pemeliharaan',info.get('date')),
+        ir('Status Perangkat',info.get('status'),'Pelaksana',info.get('technician')),
     ]
     itbl = Table(rows, colWidths=[LW,VW,LW,VW])
     itbl.setStyle(_grid([
         ('BACKGROUND',(0,0),(0,-1),C_GRAY_HEAD),('BACKGROUND',(2,0),(2,-1),C_GRAY_HEAD),
         ('FONTNAME',(0,0),(0,-1),'Helvetica-Bold'),('FONTNAME',(2,0),(2,-1),'Helvetica-Bold'),
-        ('SPAN',(2,4),(3,4)),('BACKGROUND',(2,4),(3,4),C_WHITE),
+        # FIX: SPAN (2,4)-(3,4) dihapus — span itu yang bikin value Pelaksana tertimpa
     ]))
     y = _draw(c, itbl, ML, y)
     desc = (info.get('description') or '').strip()
@@ -170,7 +170,8 @@ def draw_footer(c):
     c.line(ML, fy+4*mm, W-MR, fy+4*mm)
     c.setFont('Helvetica', 6); c.setFillColor(C_GRAY_TXT)
     c.drawString(ML, fy+1.5*mm,
-        'Jl. Letjen Hertasning Blok B, Pandang, Panakkukang, Makassar 90222'        '    |    www.pln.co.id    |    T 0411 440066')
+        'Jl. Letjen Hertasning Blok B, Pandang, Panakkukang, Makassar 90222'
+        '    |    www.pln.co.id    |    T 0411 440066')
     c.drawRightString(W-MR, fy+1.5*mm, 'Paraf ___________________')
 
 # ── Pengesahan ───────────────────────────────────────────────────────

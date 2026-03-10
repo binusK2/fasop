@@ -173,6 +173,23 @@
     </div>
 </div>
 
+
+<!-- ══ 4. SPESIFIKASI KHUSUS (dinamis per jenis perangkat) ════════ -->
+<div id="spesifikasi-section" class="card mb-3" style="display:none;">
+    <div class="card-body px-4 py-3">
+        <div class="section-title-bar">
+            <span class="bar" style="background:#8b5cf6;"></span>
+            <span>Spesifikasi Khusus</span>
+        </div>
+        <div id="spesifikasi-fields" class="row g-3">
+            <!-- Field akan di-render otomatis oleh JS -->
+        </div>
+    </div>
+</div>
+
+<!-- Hidden input: spesifikasi dikirim sebagai JSON string -->
+<input type="hidden" name="spesifikasi_json" id="spesifikasi_json" value="{}">
+
 {% if form.non_field_errors %}
 <div class="alert alert-danger mb-3">
     <i class="bi bi-exclamation-triangle me-2"></i>{{ form.non_field_errors }}
@@ -264,5 +281,187 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+</script>
+
+<script>
+(function () {
+  const SCHEMA = {{ device_schema_json|safe }};
+  const existing = {% if existing_spesifikasi %}{{ existing_spesifikasi|safe }}{% else %}{}{% endif %};
+
+  const jenisSelect  = document.querySelector('[name="jenis"]');
+  const section      = document.getElementById('spesifikasi-section');
+  const fieldsDiv    = document.getElementById('spesifikasi-fields');
+  const hiddenInput  = document.getElementById('spesifikasi_json');
+
+  // Peta: id DeviceType → name (diisi setelah DOM ready via option text)
+  function getSelectedJenisName() {
+    const opt = jenisSelect?.options[jenisSelect.selectedIndex];
+    return opt ? opt.text.trim() : '';
+  }
+
+  function renderFields(jenisName) {
+    const fields = SCHEMA[jenisName];
+    fieldsDiv.innerHTML = '';
+
+    if (!fields || fields.length === 0) {
+      section.style.display = 'none';
+      return;
+    }
+
+    section.style.display = '';
+
+    fields.forEach(f => {
+      const col = document.createElement('div');
+      col.className = 'col-md-6';
+      const val = existing[f.key] ?? '';
+
+      let inputHtml = '';
+
+      if (f.type === 'select') {
+        const opts = (f.options || []).map(o =>
+          `<option value="${o}" ${val === o ? 'selected' : ''}>${o}</option>`
+        ).join('');
+        inputHtml = `<select class="form-select spec-field" data-key="${f.key}">
+                       <option value="">— Pilih —</option>${opts}
+                     </select>`;
+
+      } else if (f.type === 'multiselect') {
+        const checkboxes = (f.options || []).map(o => {
+          const checked = Array.isArray(val) ? val.includes(o) : false;
+          return `<div class="form-check form-check-inline">
+                    <input class="form-check-input spec-multi" type="checkbox"
+                           data-key="${f.key}" value="${o}" ${checked ? 'checked' : ''}>
+                    <label class="form-check-label" style="font-size:12px;">${o}</label>
+                  </div>`;
+        }).join('');
+        inputHtml = `<div class="spec-multigroup" data-key="${f.key}">${checkboxes}</div>`;
+
+      } else if (f.type === 'textarea') {
+        inputHtml = `<textarea class="form-control spec-field" data-key="${f.key}"
+                       rows="3" placeholder="${f.placeholder || ''}">${val}</textarea>`;
+
+      } else if (f.type === 'sfp_speed') {
+        // Tipe khusus: render N dropdown sesuai nilai sfp_port
+        // Placeholder — akan di-render ulang oleh renderSfpSpeeds()
+        inputHtml = `<div id="sfp-speed-container" class="row g-2" data-options='${JSON.stringify(f.options || [])}'></div>`;
+        col.className = 'col-12';
+
+      } else {
+        inputHtml = `<input type="${f.type === 'number' ? 'number' : f.type === 'date' ? 'date' : 'text'}"
+                       class="form-control spec-field" data-key="${f.key}"
+                       placeholder="${f.placeholder || ''}" value="${val}">`;
+      }
+
+      col.innerHTML = `
+        <div class="field-card">
+          <label class="field-label">${f.label}</label>
+          ${inputHtml}
+        </div>`;
+      fieldsDiv.appendChild(col);
+    });
+
+    // Re-attach listeners
+    attachListeners();
+
+    // Kalau ada field sfp_speed, render langsung berdasarkan nilai sfp_port saat ini
+    const sfpPortInput = fieldsDiv.querySelector('[data-key="sfp_port"]');
+    if (sfpPortInput) {
+      renderSfpSpeeds(parseInt(sfpPortInput.value) || 0);
+      sfpPortInput.addEventListener('input', () => {
+        renderSfpSpeeds(parseInt(sfpPortInput.value) || 0);
+      });
+    }
+
+    collectSpesifikasi();
+  }
+
+  function renderSfpSpeeds(count) {
+    const container = document.getElementById('sfp-speed-container');
+    if (!container) return;
+
+    const options = JSON.parse(container.dataset.options || '[]');
+    const existingValues = Array.isArray(existing.sfp_speeds) ? existing.sfp_speeds : [];
+
+    container.innerHTML = '';
+
+    if (count <= 0) {
+      container.closest('.field-card').querySelector('.field-label').textContent = 'Kecepatan per Port SFP';
+      container.innerHTML = `<div class="col-12"><small style="color:#94a3b8;">Isi Jumlah Port SFP terlebih dahulu</small></div>`;
+      return;
+    }
+
+    container.closest('.field-card').querySelector('.field-label').textContent =
+      `Kecepatan per Port SFP (${count} port)`;
+
+    for (let i = 0; i < count; i++) {
+      const opts = options.map(o =>
+        `<option value="${o}" ${existingValues[i] === o ? 'selected' : ''}>${o}</option>`
+      ).join('');
+      const div = document.createElement('div');
+      div.className = 'col-md-4 col-6';
+      div.innerHTML = `
+        <div style="font-size:11px;color:#64748b;font-weight:600;margin-bottom:4px;">SFP Port ${i + 1}</div>
+        <select class="form-select form-select-sm sfp-speed-select" data-sfp-index="${i}">
+          <option value="">— Pilih —</option>${opts}
+        </select>`;
+      container.appendChild(div);
+    }
+
+    // Pasang listener ke tiap select SFP
+    container.querySelectorAll('.sfp-speed-select').forEach(sel => {
+      sel.addEventListener('change', collectSpesifikasi);
+    });
+
+    collectSpesifikasi();
+  }
+
+  function collectSpesifikasi() {
+    const data = {};
+
+    // Single value fields
+    fieldsDiv.querySelectorAll('.spec-field').forEach(el => {
+      const key = el.dataset.key;
+      if (key) data[key] = el.value;
+    });
+
+    // Multiselect (checkboxes)
+    const multiGroups = {};
+    fieldsDiv.querySelectorAll('.spec-multi').forEach(cb => {
+      const key = cb.dataset.key;
+      if (!multiGroups[key]) multiGroups[key] = [];
+      if (cb.checked) multiGroups[key].push(cb.value);
+    });
+    Object.assign(data, multiGroups);
+
+    // SFP speeds → simpan sebagai array
+    const sfpSelects = fieldsDiv.querySelectorAll('.sfp-speed-select');
+    if (sfpSelects.length > 0) {
+      data['sfp_speeds'] = Array.from(sfpSelects).map(s => s.value);
+    }
+
+    hiddenInput.value = JSON.stringify(data);
+  }
+
+  function attachListeners() {
+    fieldsDiv.querySelectorAll('.spec-field').forEach(el => {
+      el.addEventListener('change', collectSpesifikasi);
+      el.addEventListener('input', collectSpesifikasi);
+    });
+    fieldsDiv.querySelectorAll('.spec-multi').forEach(cb => {
+      cb.addEventListener('change', collectSpesifikasi);
+    });
+  }
+
+  // Trigger on jenis change
+  jenisSelect?.addEventListener('change', () => {
+    renderFields(getSelectedJenisName());
+  });
+
+  // On page load: render if jenis already selected (edit mode)
+  document.addEventListener('DOMContentLoaded', () => {
+    const jenisName = getSelectedJenisName();
+    if (jenisName) renderFields(jenisName);
+  });
+})();
 </script>
 {% endblock %}

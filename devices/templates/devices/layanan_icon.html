@@ -81,7 +81,7 @@
     <div class="table-responsive">
         <table class="table">
             <thead>
-                <tr>
+                <tr style="text-align: center;">
                     <th style="width:40px;">#</th>
                     <th>Nama Layanan</th>
                     <th>Lokasi</th>
@@ -104,18 +104,18 @@
                         <div style="font-size:11px;color:#94a3b8;margin-top:1px;">{{ d.nama_layanan }}</div>
                         {% endif %}
                     </td>
-                    <td style="font-size:13px;color:#475569;">{{ d.lokasi_layanan|default:"—" }}</td>
-                    <td>
+                    <td style="font-size:13px;color:#475569; text-align: center;">{{ d.lokasi_layanan|default:"—" }}</td>
+                    <td style="text-align: center;">
                         {% if d.bandwidth and d.bandwidth != "None" %}
                         <span style="font-size:12px;font-weight:700;background:#eff6ff;color:#1d4ed8;padding:2px 8px;border-radius:20px;font-family:'JetBrains Mono',monospace;">{{ d.bandwidth }}</span>
                         {% else %}
                         <span style="color:#94a3b8;font-size:13px;">—</span>
                         {% endif %}
                     </td>
-                    <td><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#334155;">{{ d.SID1|default:"—" }}</span></td>
-                    <td><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#334155;">{{ d.SID2|default:"—" }}</span></td>
-                    <td style="font-size:12.5px;color:#475569;">{{ d.kontrak|default:"—" }}</td>
-                    <td>
+                    <td style="text-align: center;"><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#334155;">{{ d.SID1|default:"—" }}</span></td>
+                    <td style="text-align: center;"><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#334155; ">{{ d.SID2|default:"—" }}</span></td>
+                    <td style="font-size:12.5px;color:#475569; text-align: center;">{{ d.kontrak|default:"—" }}</td>
+                    <td style="text-align: center;">
                         {% if d.kondisi_operasional %}
                             {% if "Baik" in d.kondisi_operasional %}
                             <span style="font-size:11.5px;font-weight:600;background:#dcfce7;color:#065f46;padding:3px 10px;border-radius:20px;white-space:nowrap;">

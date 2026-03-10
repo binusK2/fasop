@@ -21,7 +21,7 @@ class Device(models.Model):
     type = models.CharField(max_length=100, blank=True, null=True)
     serial_number = models.CharField(max_length=100, blank=True, null=True)
     firmware_version = models.CharField(max_length=100, blank=True, null=True)
-    ip_address = models.GenericIPAddressField()
+    ip_address = models.GenericIPAddressField(blank=True, null=True)
     lokasi = models.CharField(max_length=150)
     keterangan = models.TextField(blank=True, null=True)
     foto = models.ImageField(upload_to='device_photos/', blank=True, null=True)
@@ -33,8 +33,8 @@ class Device(models.Model):
         blank=True,
         related_name='deleted_devices'
     )
-
     is_deleted = models.BooleanField(default=False)
+    spesifikasi = models.JSONField(blank=True, null=True, default=dict)  # ← tambahan
 
     def __str__(self):
         return self.nama
