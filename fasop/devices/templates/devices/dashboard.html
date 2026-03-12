@@ -1,0 +1,287 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard — FASOP UP2B{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+    <h2>Dashboard Overview</h2>
+    <p class="text-muted mb-0">Ringkasan data aset dan pemeliharaan peralatan Fasop UP2B</p>
+</div>
+
+<!-- STAT CARDS -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon" style="background:#eff6ff;color:#3b82f6;">
+                <i class="bi bi-hdd-rack"></i>
+            </div>
+            <div>
+                <div class="stat-value">{{ total_devices }}</div>
+                <div class="stat-label">Total Peralatan</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon" style="background:#f0fdf4;color:#10b981;">
+                <i class="bi bi-check2-circle"></i>
+            </div>
+            <div>
+                <div class="stat-value" style="color:#10b981;">{{ maintenance_done }}</div>
+                <div class="stat-label">Maintenance Selesai</div>
+                <!-- {% if total_maintenance %}
+                <div style="margin-top:6px;">
+                    <div style="height:4px;background:#e2e8f0;border-radius:2px;overflow:hidden;">
+                        <div style="height:100%;background:#10b981;border-radius:2px;width:{% widthratio maintenance_done total_maintenance 100 %}%;transition:width 0.6s;"></div>
+                    </div>
+                    <div style="font-size:10.5px;color:#94a3b8;margin-top:3px;">{% widthratio maintenance_done total_maintenance 100 %}% completion</div>
+                </div>
+                {% endif %} -->
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon" style="background:#fffbeb;color:#f59e0b;">
+                <i class="bi bi-clock-history"></i>
+            </div>
+            <div>
+                <div class="stat-value" style="color:#f59e0b;">{{ maintenance_open }}</div>
+                <div class="stat-label">Maintenance Open</div>
+                <!-- {% if maintenance_open %}
+                <div style="font-size:11px;color:#f59e0b;margin-top:4px;font-weight:500;">
+                    <i class="bi bi-exclamation-circle me-1"></i>Perlu ditindaklanjuti
+                </div>
+                {% endif %} -->
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon" style="background:#fdf4ff;color:#a855f7;">
+                <i class="bi bi-wrench-adjustable"></i>
+            </div>
+            <div>
+                <div class="stat-value">{{ total_maintenance }}</div>
+                <div class="stat-label">Total Maintenance</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card" style="{% if belum_ttd %}border-left:3px solid #f59e0b;{% endif %}">
+            <div class="stat-icon" style="background:#fffbeb;color:#d97706;">
+                <i class="bi bi-pen"></i>
+            </div>
+            <div>
+                <div class="stat-value" style="color:#d97706;">{{ belum_ttd }}</div>
+                <div class="stat-label">Belum Ditandatangani</div>
+                {% if belum_ttd %}
+                <div style="margin-top:4px;">
+                    <a href="{% url 'maintenance_list' %}?status=Done&unsigned=1" style="font-size:11px;color:#d97706;font-weight:600;text-decoration:none;">
+                        <i class="bi bi-arrow-right me-1"></i>Lihat laporan
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- CHARTS ROW -->
+<div class="row g-3 mb-4">
+    <div class="col-md-5">
+        <div class="card h-100">
+            <div class="card-body">
+                <h6 style="font-size:13px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;" class="mb-3">Distribusi Jenis Perangkat</h6>
+                <canvas id="deviceDoughnut" style="max-height:210px;"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-7">
+        <div class="card h-100">
+            <div class="card-body">
+                <h6 style="font-size:13px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;" class="mb-3">Trend Pemeliharaan 6 Bulan Terakhir</h6>
+                <canvas id="maintenanceLine" style="max-height:210px;"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- BOTTOM ROW -->
+<div class="row g-3">
+
+    <!-- Perangkat per Jenis -->
+    <div class="col-md-6">
+        <div class="table-card">
+            <div class="table-header">
+                <h6>Perangkat per Jenis</h6>
+                <a href="{% url 'device_list' %}" class="btn btn-sm btn-outline-primary">Lihat Semua</a>
+            </div>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Jenis</th>
+                        <th>Jumlah</th>
+                        <th style="width:120px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for d in device_by_type %}
+                    <tr>
+                        <td>
+                            <a href="{% url 'device_list' %}?jenis={{ d.jenis__id }}" class="text-decoration-none fw-500" style="font-size:13px;">
+                                {{ d.jenis__name|default:"(Tidak ada jenis)" }}
+                            </a>
+                        </td>
+                        <td><span class="mono" style="font-weight:700;">{{ d.total }}</span></td>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <div style="flex:1;height:6px;background:#f1f5f9;border-radius:3px;overflow:hidden;">
+                                    <div style="height:100%;background:#3b82f6;border-radius:3px;width:{{ d.pct }}%;"></div>
+                                </div>
+                                <span style="font-size:11px;color:#94a3b8;width:28px;">{{ d.pct }}%</span>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Maintenance Open Terbaru -->
+    <div class="col-md-6">
+        <div class="table-card">
+            <div class="table-header">
+                <h6>Maintenance Open Terbaru</h6>
+                <a href="{% url 'maintenance_list' %}?status=Open" class="btn btn-sm btn-outline-warning">Lihat Semua</a>
+            </div>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Tanggal</th>
+                        <th>Perangkat</th>
+                        <th>Tipe</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for m in recent_open_maintenance %}
+                    <tr>
+                        <td style="font-size:12px;color:#64748b;white-space:nowrap;">{{ m.date|date:"d M Y" }}</td>
+                        <td>
+                            <div style="font-size:13px;font-weight:500;">{{ m.device.nama }}</div>
+                            <div style="font-size:11px;color:#94a3b8;">{{ m.device.lokasi }}</div>
+                        </td>
+                        <td>
+                            <span style="font-size:11px;padding:2px 8px;border-radius:20px;font-weight:500;
+                                {% if m.maintenance_type == 'Preventive' %}background:#f0fdf4;color:#166534;{% else %}background:#fff7ed;color:#9a3412;{% endif %}">
+                                {{ m.maintenance_type }}
+                            </span>
+                        </td>
+                        <td>
+                            <a href="{% url 'maintenance_view' m.id %}" class="btn btn-sm btn-outline-secondary">
+                                <i class="bi bi-arrow-right"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center text-muted py-4">
+                            <i class="bi bi-check-circle text-success fs-4 d-block mb-1"></i>
+                            Tidak ada maintenance open
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const chartDefaults = {
+    font: { family: "'DM Sans', sans-serif" }
+};
+Chart.defaults.font.family = "'DM Sans', sans-serif";
+
+// DOUGHNUT - Jenis Perangkat
+new Chart(document.getElementById('deviceDoughnut'), {
+    type: 'doughnut',
+    data: {
+        labels: [{% for d in device_by_type %}"{{ d.jenis__name|default:'Lainnya' }}"{% if not forloop.last %},{% endif %}{% endfor %}],
+        datasets: [{
+            data: [{% for d in device_by_type %}{{ d.total }}{% if not forloop.last %},{% endif %}{% endfor %}],
+            backgroundColor: ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec4899','#84cc16','#f97316','#64748b'],
+            borderWidth: 3,
+            borderColor: '#fff',
+            hoverOffset: 6
+        }]
+    },
+    options: {
+        responsive: true,
+        cutout: '68%',
+        plugins: {
+            legend: {
+                position: 'right',
+                labels: { font: { size: 12 }, padding: 14, usePointStyle: true }
+            },
+            tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed}` } }
+        }
+    }
+});
+
+// LINE - Maintenance per bulan
+new Chart(document.getElementById('maintenanceLine'), {
+    type: 'line',
+    data: {
+        labels: [{% for m in maintenance_by_month %}"{{ m.month|date:'M Y' }}"{% if not forloop.last %},{% endif %}{% endfor %}],
+        datasets: [{
+            label: 'Jumlah Maintenance',
+            data: [{% for m in maintenance_by_month %}{{ m.total }}{% if not forloop.last %},{% endif %}{% endfor %}],
+            borderColor: '#3b82f6',
+            backgroundColor: 'rgba(59,130,246,0.07)',
+            borderWidth: 2.5,
+            fill: true,
+            tension: 0.4,
+            pointBackgroundColor: '#fff',
+            pointBorderColor: '#3b82f6',
+            pointBorderWidth: 2,
+            pointRadius: 5,
+            pointHoverRadius: 7
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                backgroundColor: '#0f172a',
+                padding: 10,
+                cornerRadius: 8,
+                callbacks: { label: ctx => `  ${ctx.parsed.y} maintenance` }
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                ticks: { stepSize: 1, precision: 0, font: { size: 11 }, color: '#94a3b8' },
+                grid: { color: '#f1f5f9' },
+                border: { display: false }
+            },
+            x: {
+                ticks: { font: { size: 11 }, color: '#94a3b8' },
+                grid: { display: false },
+                border: { display: false }
+            }
+        }
+    }
+});
+</script>
+{% endblock %}

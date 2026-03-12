@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+{% block title %}Profil — FASOP UP2B{% endblock %}
+{% block page_title %}Profil Akun{% endblock %}
+
+{% block content %}
+
+{% if messages %}
+{% for message in messages %}
+<div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show mb-3" role="alert" style="border-radius:10px;font-size:13.5px;">
+    <i class="bi bi-{% if message.tags == 'success' %}check-circle-fill{% else %}info-circle-fill{% endif %} me-2"></i>
+    {{ message }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endfor %}
+{% endif %}
+
+<div class="row g-4">
+    <!-- Info Akun -->
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body px-4 py-4">
+                <div style="width:64px;height:64px;background:linear-gradient(135deg,#1e3a5f,#3b82f6);border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:16px;">
+                    <i class="bi bi-person-fill" style="font-size:28px;color:white;"></i>
+                </div>
+                <h5 style="font-size:16px;font-weight:700;color:#0f172a;margin-bottom:4px;">
+                    {{ request.user.get_full_name|default:request.user.username }}
+                </h5>
+                <p style="font-size:13px;color:#64748b;margin-bottom:12px;">{{ request.user.email|default:"—" }}</p>
+
+                <table style="width:100%;border-collapse:collapse;">
+                    <tr>
+                        <td style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;padding:7px 0;width:40%;">Username</td>
+                        <td style="font-size:13px;color:#334155;padding:7px 0;font-family:'JetBrains Mono',monospace;">{{ request.user.username }}</td>
+                    </tr>
+                    <tr>
+                        <td style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;padding:7px 0;">Peran</td>
+                        <td style="padding:7px 0;">
+                            {% if profile.role == 'asisten_manager' %}
+                            <span style="font-size:11.5px;font-weight:700;color:#1d4ed8;background:#dbeafe;padding:3px 10px;border-radius:20px;">
+                                <i class="bi bi-shield-check me-1"></i>Asisten Manager
+                            </span>
+                            {% else %}
+                            <span style="font-size:11.5px;font-weight:700;color:#065f46;background:#dcfce7;padding:3px 10px;border-radius:20px;">
+                                <i class="bi bi-person-gear me-1"></i>Teknisi
+                            </span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tanda Tangan -->
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body px-4 py-4">
+                <div class="d-flex align-items-center gap-2 mb-4">
+                    <span style="width:5px;height:18px;background:#3b82f6;border-radius:3px;display:inline-block;"></span>
+                    <h6 class="mb-0" style="font-size:13px;font-weight:700;color:#0f172a;">Tanda Tangan Digital</h6>
+                </div>
+
+                <!-- Preview TTD -->
+                <div style="border:2px dashed #e2e8f0;border-radius:12px;padding:20px;text-align:center;margin-bottom:20px;background:#f8fafc;min-height:120px;display:flex;align-items:center;justify-content:center;">
+                    {% if profile.signature %}
+                    <img src="{{ profile.signature.url }}" alt="Tanda Tangan"
+                         style="max-height:100px;max-width:100%;object-fit:contain;">
+                    {% else %}
+                    <div style="color:#94a3b8;text-align:center;">
+                        <i class="bi bi-pen" style="font-size:32px;display:block;margin-bottom:8px;"></i>
+                        <span style="font-size:13px;">Belum ada tanda tangan</span>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Upload form -->
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label style="font-size:12px;font-weight:700;color:#475569;margin-bottom:6px;display:block;">
+                            Upload Gambar Tanda Tangan
+                        </label>
+                        <input type="file" name="signature" accept="image/*" class="form-control"
+                               style="font-size:13px;">
+                        <div style="font-size:11.5px;color:#94a3b8;margin-top:6px;">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Gunakan gambar PNG dengan background transparan untuk hasil terbaik. Ukuran disarankan: 300×100 px.
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="font-size:13px;font-weight:600;">
+                        <i class="bi bi-cloud-arrow-up me-2"></i>Simpan Tanda Tangan
+                    </button>
+                    {% if profile.signature %}
+                    <a href="{{ profile.signature.url }}" target="_blank"
+                       class="btn btn-outline-secondary ms-2" style="font-size:13px;">
+                        <i class="bi bi-eye me-1"></i>Lihat Penuh
+                    </a>
+                    {% endif %}
+                </form>
+
+                {% if profile.role == 'asisten_manager' %}
+                <div class="mt-4 pt-3 border-top" style="font-size:12.5px;color:#64748b;line-height:1.6;">
+                    <i class="bi bi-lightbulb-fill me-1 text-warning"></i>
+                    Sebagai <strong>Asisten Manager</strong>, tanda tangan Anda akan otomatis tercantum di kolom kiri form pengesahan PDF ketika Anda menekan tombol <strong>Sign</strong> pada detail maintenance.
+                </div>
+                {% else %}
+                <div class="mt-4 pt-3 border-top" style="font-size:12.5px;color:#64748b;line-height:1.6;">
+                    <i class="bi bi-lightbulb-fill me-1 text-warning"></i>
+                    Tanda tangan Anda akan muncul di kolom kanan (Operator Gardu Induk) pada form pengesahan PDF jika Anda tercatat sebagai pelaksana maintenance.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

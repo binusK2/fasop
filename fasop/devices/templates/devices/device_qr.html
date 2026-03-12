@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>QR Code — {{ device.nama }}</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&family=JetBrains+Mono:wght@600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'DM Sans', sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: #f1f5f9;
+            margin: 0;
+        }
+
+        .qr-card {
+            background: white;
+            border-radius: 16px;
+            padding: 32px 28px;
+            text-align: center;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+            max-width: 320px;
+            width: 100%;
+        }
+
+        .qr-card .org {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: #94a3b8;
+            margin-bottom: 6px;
+        }
+
+        .qr-card h2 {
+            font-size: 18px;
+            font-weight: 700;
+            color: #0f172a;
+            margin: 0 0 4px;
+        }
+
+        .qr-card .jenis {
+            font-size: 12px;
+            background: #eff6ff;
+            color: #2563eb;
+            padding: 3px 10px;
+            border-radius: 20px;
+            display: inline-block;
+            margin-bottom: 20px;
+        }
+
+        #qr-canvas-wrap {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 16px;
+        }
+
+        .device-info {
+            font-size: 12px;
+            color: #64748b;
+            margin-top: 12px;
+        }
+
+        .device-info strong {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: #0f172a;
+        }
+
+        .btn-print {
+            margin-top: 20px;
+            padding: 10px 24px;
+            background: #0f172a;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            font-family: 'DM Sans', sans-serif;
+            cursor: pointer;
+        }
+
+        @media print {
+            body { background: white; }
+            .btn-print { display: none; }
+            .qr-card { box-shadow: none; padding: 0; }
+        }
+    </style>
+</head>
+<body>
+<div class="qr-card">
+    <div class="org">FASOP UP2B</div>
+    <h2>{{ device.nama }}</h2>
+    {% if device.jenis %}
+    <div class="jenis">{{ device.jenis }}</div>
+    {% endif %}
+
+    <div id="qr-canvas-wrap"></div>
+
+    <div class="device-info">
+        IP Address: <strong>{{ device.ip_address }}</strong><br>
+        Lokasi: {{ device.lokasi }}<br>
+        {% if device.serial_number %}
+        S/N: <strong>{{ device.serial_number }}</strong>
+        {% endif %}
+    </div>
+
+    <button class="btn-print" onclick="window.print()">🖨️ Print QR Code</button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<script>
+    new QRCode(document.getElementById('qr-canvas-wrap'), {
+        text: "{{ detail_url }}",
+        width: 180,
+        height: 180,
+        colorDark: '#0f172a',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.M
+    });
+</script>
+</body>
+</html>

@@ -1,0 +1,219 @@
+{% extends 'base.html' %}
+{% block title %}Laporan Bulanan — FASOP{% endblock %}
+{% block page_title %}Laporan Pemeliharaan Bulanan{% endblock %}
+
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+    <h2 class="mb-0" style="font-size:20px; font-weight:700;">Laporan Pemeliharaan Bulanan</h2>
+    <a href="{% url 'export_maintenance_excel' %}?year={{ selected_year }}&month={{ selected_month }}"
+       class="btn btn-outline-success btn-sm">
+        <i class="bi bi-file-earmark-excel me-1"></i>Export Excel Bulan Ini
+    </a>
+</div>
+
+<!-- FILTER BULAN -->
+<div class="card mb-4">
+    <div class="card-body py-2 px-3">
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-auto">
+                <label class="form-label">Bulan</label>
+                <select name="month" class="form-select form-select-sm" style="width:140px;">
+                    {% for m in month_choices %}
+                    <option value="{{ m.value }}" {% if m.value == selected_month %}selected{% endif %}>{{ m.label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-auto">
+                <label class="form-label">Tahun</label>
+                <select name="year" class="form-select form-select-sm" style="width:100px;">
+                    {% for y in year_choices %}
+                    <option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-auto">
+                <button class="btn btn-primary btn-sm"><i class="bi bi-search me-1"></i>Tampilkan</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- SUMMARY CARDS -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon" style="background:#eff6ff; color:#3b82f6;">
+                <i class="bi bi-wrench-adjustable"></i>
+            </div>
+            <div>
+                <div class="stat-value">{{ summary.total }}</div>
+                <div class="stat-label">Total Maintenance</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon" style="background:#f0fdf4; color:#10b981;">
+                <i class="bi bi-check2-circle"></i>
+            </div>
+            <div>
+                <div class="stat-value">{{ summary.done }}</div>
+                <div class="stat-label">Selesai</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon" style="background:#fffbeb; color:#f59e0b;">
+                <i class="bi bi-clock-history"></i>
+            </div>
+            <div>
+                <div class="stat-value">{{ summary.open }}</div>
+                <div class="stat-label">Open</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon" style="background:#fdf4ff; color:#a855f7;">
+                <i class="bi bi-shield-check"></i>
+            </div>
+            <div>
+                <div class="stat-value">{{ summary.preventive }}</div>
+                <div class="stat-label">Preventive</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- BREAKDOWN PER JENIS PERANGKAT -->
+<div class="row g-3 mb-4">
+    <div class="col-md-5">
+        <div class="card h-100">
+            <div class="card-body">
+                <h6 style="font-size:14px; font-weight:600;" class="mb-3">Maintenance per Jenis Perangkat</h6>
+                <canvas id="jenisChart" style="max-height:200px;"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-7">
+        <div class="table-card h-100">
+            <div class="table-header">
+                <h6>Breakdown per Jenis</h6>
+            </div>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Jenis Perangkat</th>
+                        <th>Total</th>
+                        <th>Done</th>
+                        <th>Open</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in by_type %}
+                    <tr>
+                        <td style="font-size:13px;">{{ row.device__jenis__name|default:"(Tidak ada jenis)" }}</td>
+                        <td class="mono">{{ row.total }}</td>
+                        <td><span style="color:#10b981; font-weight:600;">{{ row.done }}</span></td>
+                        <td><span style="color:#f59e0b; font-weight:600;">{{ row.open }}</span></td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="4" class="text-center text-muted">Tidak ada data</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- TABEL DETAIL -->
+<div class="table-card">
+    <div class="table-header">
+        <h6>Detail Maintenance — {{ period_label }}</h6>
+    </div>
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Tanggal</th>
+                    <th>Perangkat</th>
+                    <th>Lokasi</th>
+                    <th>Jenis</th>
+                    <th>Pelaksana</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for m in maintenances %}
+                <tr>
+                    <td style="font-size:12px; color:#94a3b8;">{{ forloop.counter }}</td>
+                    <td style="font-size:12.5px;">{{ m.date|date:"d M Y" }}</td>
+                    <td>
+                        <a href="{% url 'maintenance_view' m.id %}" class="text-decoration-none" style="font-size:13px;font-weight:500;color:#0f172a;">
+                            {{ m.device }}
+                        </a>
+                    </td>
+                    <td style="font-size:12.5px; color:#64748b;">{{ m.device.lokasi }}</td>
+                    <td>
+                        <span style="font-size:11.5px;padding:3px 9px;border-radius:20px;font-weight:500;{% if m.maintenance_type == 'Preventive' %}background:#f0fdf4;color:#166534;{% else %}background:#fff7ed;color:#9a3412;{% endif %}">
+                            {{ m.maintenance_type }}
+                        </span>
+                    </td>
+                    <td style="font-size:13px;">{{ m.technician|default:"—" }}</td>
+                    <td>
+                        {% if m.status == 'Done' %}
+                        <span class="badge-status badge-done">Done</span>
+                        {% else %}
+                        <span class="badge-status badge-open">Open</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-4">
+                        <i class="bi bi-inbox fs-4 d-block mb-2"></i>
+                        Tidak ada data maintenance bulan ini
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+new Chart(document.getElementById('jenisChart'), {
+    type: 'bar',
+    data: {
+        labels: [{% for row in by_type %}"{{ row.device__jenis__name|default:'Lainnya' }}"{% if not forloop.last %},{% endif %}{% endfor %}],
+        datasets: [
+            {
+                label: 'Done',
+                data: [{% for row in by_type %}{{ row.done }}{% if not forloop.last %},{% endif %}{% endfor %}],
+                backgroundColor: '#10b981'
+            },
+            {
+                label: 'Open',
+                data: [{% for row in by_type %}{{ row.open }}{% if not forloop.last %},{% endif %}{% endfor %}],
+                backgroundColor: '#f59e0b'
+            }
+        ]
+    },
+    options: {
+        responsive: true,
+        plugins: { legend: { position: 'top' } },
+        scales: {
+            x: { stacked: true, grid: { display: false } },
+            y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } }
+        }
+    }
+});
+</script>
+{% endblock %}

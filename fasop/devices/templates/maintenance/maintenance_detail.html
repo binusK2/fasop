@@ -1,0 +1,889 @@
+{% extends 'base.html' %}
+{% block title %}Detail Maintenance — FASOP{% endblock %}
+{% block page_title %}Detail Maintenance{% endblock %}
+
+{% block content %}
+
+<!-- MODAL DELETE -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:380px;">
+        <div class="modal-content" style="border-radius:14px;border:none;">
+            <div class="modal-body p-4 text-center">
+                <div style="width:52px;height:52px;background:#fef2f2;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;">
+                    <i class="bi bi-trash" style="font-size:22px;color:#ef4444;"></i>
+                </div>
+                <h6 style="font-size:16px;font-weight:700;margin-bottom:6px;">Hapus Maintenance?</h6>
+                <p style="font-size:13px;color:#64748b;">Data maintenance ini akan dihapus permanen dan tidak bisa dikembalikan.</p>
+                <div class="d-flex gap-2 justify-content-center mt-3">
+                    <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+                    <a href="{% url 'maintenance_delete' maintenance.id %}" class="btn btn-danger px-4">
+                        <i class="bi bi-trash me-1"></i>Hapus
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════ DARK BANNER ═══════════════ -->
+<div class="card mb-4" style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);border:none;overflow:visible;">
+    <div class="card-body py-0 px-0">
+
+        <!-- Top row: device identity + actions -->
+        <div class="d-flex align-items-center gap-3 px-4 py-3 flex-wrap" style="border-bottom:1px solid rgba(255,255,255,0.07);">
+            <!-- Device icon -->
+            <div style="width:42px;height:42px;background:rgba(59,130,246,0.2);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <i class="bi bi-hdd-rack-fill" style="font-size:20px;color:#93c5fd;"></i>
+            </div>
+            <!-- Device name + jenis -->
+            <div>
+                <div style="font-size:17px;font-weight:700;color:#f1f5f9;line-height:1.2;">{{ maintenance.device.nama }}</div>
+                <div class="d-flex align-items-center gap-2 mt-1">
+                    {% if maintenance.device.jenis %}
+                    <span style="font-size:11px;background:rgba(59,130,246,0.25);color:#93c5fd;padding:2px 8px;border-radius:20px;font-weight:500;">{{ maintenance.device.jenis }}</span>
+                    {% endif %}
+                    <span style="font-size:11px;color:#64748b;">{{ maintenance.device.lokasi }}</span>
+                </div>
+            </div>
+
+            <!-- Divider -->
+            <div style="width:1px;height:36px;background:rgba(255,255,255,0.1);margin:0 4px;display:none;" class="d-md-block"></div>
+
+            <!-- Meta items -->
+            <div class="d-flex gap-4 flex-wrap ms-md-2">
+                <div>
+                    <div style="font-size:10px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Tanggal</div>
+                    <div style="font-size:13px;font-weight:700;color:#e2e8f0;">{{ maintenance.date|date:"d M Y" }}</div>
+                </div>
+                <div>
+                    <div style="font-size:10px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Jenis</div>
+                    <span style="font-size:11px;background:rgba(14,165,233,0.2);color:#7dd3fc;padding:2px 9px;border-radius:20px;font-weight:600;">{{ maintenance.maintenance_type }}</span>
+                </div>
+                <div>
+                    <div style="font-size:10px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Pelaksana</div>
+                    <div style="font-size:13px;color:#e2e8f0;">{% for t in maintenance.technicians.all %}{{ t.get_full_name|default:t.username }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}</div>
+                </div>
+                <div>
+                    <div style="font-size:10px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Status</div>
+                    {% if maintenance.status == 'Done' %}
+                    <span style="font-size:11.5px;font-weight:700;color:#065f46;background:#dcfce7;padding:3px 10px;border-radius:20px;">&#10003; Done</span>
+                    {% else %}
+                    <span style="font-size:11.5px;font-weight:700;color:#1d4ed8;background:#dbeafe;padding:3px 10px;border-radius:20px;">&#9679; Open</span>
+                    {% endif %}
+                </div>
+                <div>
+                    <div style="font-size:10px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">TTD AM</div>
+                    {% if maintenance.signed_by %}
+                    <span style="font-size:11px;font-weight:700;color:#065f46;background:#dcfce7;padding:3px 10px;border-radius:20px;">
+                        <i class="bi bi-patch-check-fill me-1"></i>{{ maintenance.signed_by.get_full_name|default:maintenance.signed_by.username }}
+                    </span>
+                    {% else %}
+                    <span style="font-size:11px;font-weight:600;color:#92400e;background:#fef3c7;padding:3px 10px;border-radius:20px;">
+                        <i class="bi bi-clock-history me-1"></i>Belum TTD
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Actions (pushed to right) -->
+            <div class="d-flex gap-2 ms-auto flex-wrap align-items-center">
+                <a href="{% url 'maintenance_list' %}" class="btn btn-sm" style="background:rgba(255,255,255,0.08);color:#cbd5e1;border:1px solid rgba(255,255,255,0.12);font-size:12px;">
+                    <i class="bi bi-arrow-left me-1"></i>Kembali
+                </a>
+                {% if maintenance.status == 'Open' %}
+                <a href="{% url 'maintenance_edit' maintenance.id %}" class="btn btn-sm" style="background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.3);font-size:12px;">
+                    <i class="bi bi-pencil me-1"></i>Edit
+                </a>
+                {% endif %}
+                <a href="{% url 'export_maintenance_pdf' maintenance.id %}" class="btn btn-sm" style="background:rgba(239,68,68,0.15);color:#fca5a5;border:1px solid rgba(239,68,68,0.3);font-size:12px;" target="_blank">
+                    <i class="bi bi-file-earmark-pdf me-1"></i>PDF
+                </a>
+                {% if request.user.profile.is_asisten_manager and not maintenance.signed_by %}
+                <form method="post" action="{% url 'maintenance_sign' maintenance.id %}" class="m-0">
+                    {% csrf_token %}
+                    <button class="btn btn-sm px-3" style="background:rgba(16,185,129,0.2);color:#6ee7b7;border:1px solid rgba(16,185,129,0.35);font-size:12px;font-weight:600;">
+                        <i class="bi bi-pen me-1"></i>Sign
+                    </button>
+                </form>
+                {% elif maintenance.signed_by %}
+                <span style="font-size:11.5px;font-weight:600;color:#6ee7b7;padding:0 6px;display:flex;align-items:center;gap:4px;">
+                    <i class="bi bi-patch-check-fill"></i>Signed
+                </span>
+                {% endif %}
+                <button class="btn btn-sm" onclick="confirmDelete()" style="background:rgba(239,68,68,0.15);color:#fca5a5;border:1px solid rgba(239,68,68,0.3);font-size:12px;">
+                    <i class="bi bi-trash me-1"></i>Hapus
+                </button>
+                {% if maintenance.status == 'Open' %}
+                <form method="post" action="{% url 'maintenance_update_status' maintenance.id %}" class="m-0">
+                    {% csrf_token %}
+                    <input type="hidden" name="status" value="Done">
+                    <button class="btn btn-sm px-3" style="background:#10b981;color:#fff;border:none;font-size:12px;font-weight:600;">
+                        <i class="bi bi-check-lg me-1"></i>Tandai Selesai
+                    </button>
+                </form>
+                {% else %}
+                <form method="post" action="{% url 'maintenance_update_status' maintenance.id %}" class="m-0">
+                    {% csrf_token %}
+                    <input type="hidden" name="status" value="Open">
+                    <button class="btn btn-sm" onclick="return confirm('Buka kembali maintenance ini untuk diedit?')" style="background:rgba(255,255,255,0.08);color:#cbd5e1;border:1px solid rgba(255,255,255,0.12);font-size:12px;">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i>Buka Kembali
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if maintenance.description %}
+        <!-- Deskripsi row -->
+        <div class="px-4 py-2" style="border-bottom:1px solid rgba(255,255,255,0.07);">
+            <span style="font-size:10px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-right:10px;">Deskripsi</span>
+            <span style="font-size:13px;color:#cbd5e1;">{{ maintenance.description }}</span>
+        </div>
+        {% endif %}
+
+    </div>
+</div>
+
+<div class="row g-3">
+
+    <!-- PANEL KIRI: DEVICE DETAIL + FOTO -->
+    <div class="col-md-4">
+
+        <!-- Device Info Card -->
+        <div class="card mb-3">
+            <div class="card-body px-4 py-3">
+                <table style="width:100%;border-collapse:collapse;">
+                    {% if maintenance.device.merk %}
+                    <tr>
+                        <td style="font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;padding:6px 0;width:45%;">Merk</td>
+                        <td style="font-size:13px;color:#334155;padding:6px 0;">{{ maintenance.device.merk }}</td>
+                    </tr>
+                    {% endif %}
+                    {% if maintenance.device.type %}
+                    <tr>
+                        <td style="font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;padding:6px 0;">Model / Type</td>
+                        <td style="font-size:13px;color:#334155;padding:6px 0;">{{ maintenance.device.type }}</td>
+                    </tr>
+                    {% endif %}
+                    {% if maintenance.device.serial_number %}
+                    <tr>
+                        <td style="font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;padding:6px 0;">Serial Number</td>
+                        <td style="font-size:12px;color:#334155;padding:6px 0;font-family:'JetBrains Mono',monospace;">{{ maintenance.device.serial_number }}</td>
+                    </tr>
+                    {% endif %}
+                    {% if maintenance.device.firmware_version %}
+                    <tr>
+                        <td style="font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;padding:6px 0;">Firmware</td>
+                        <td style="font-size:12px;color:#334155;padding:6px 0;font-family:'JetBrains Mono',monospace;">{{ maintenance.device.firmware_version }}</td>
+                    </tr>
+                    {% endif %}
+                    <tr>
+                        <td style="font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;padding:6px 0;">IP Address</td>
+                        <td style="font-size:12px;color:#3b82f6;padding:6px 0;font-family:'JetBrains Mono',monospace;font-weight:600;">{{ maintenance.device.ip_address|default:"—" }}</td>
+                    </tr>
+                    <tr>
+                        <td style="font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;padding:6px 0;">Lokasi</td>
+                        <td style="font-size:13px;color:#334155;padding:6px 0;">{{ maintenance.device.lokasi|default:"—" }}</td>
+                    </tr>
+                </table>
+                <div class="pt-2 mt-1" style="border-top:1px solid #f1f5f9;">
+                    <a href="{% url 'device_view' maintenance.device.id %}"
+                       style="font-size:12px;color:#3b82f6;text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:4px;">
+                        <i class="bi bi-box-arrow-up-right" style="font-size:11px;"></i>
+                        Lihat Detail Perangkat
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Foto Dokumentasi -->
+        <div class="card">
+            <div class="card-body px-4 py-3">
+                <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">Foto Dokumentasi</div>
+                {% if maintenance.photo %}
+                <img src="{{ maintenance.photo.url }}" class="img-fluid rounded" style="max-height:220px;width:100%;object-fit:cover;border-radius:8px;">
+                {% else %}
+                <div class="d-flex align-items-center justify-content-center rounded"
+                     style="height:140px;background:#f1f5f9;color:#94a3b8;border-radius:8px;">
+                    <div class="text-center">
+                        <i class="bi bi-image fs-2 d-block mb-1"></i>
+                        <span style="font-size:12px;">Tidak ada foto</span>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+    </div>
+
+    <!-- DETAIL TEKNIS -->
+    <div class="col-md-8">
+
+        <!-- ═══════════════ DETAIL PLC ═══════════════ -->
+        {% if plc_detail %}
+        <div class="card">
+            <div class="card-body px-4 py-3">
+
+                <!-- Checklist Status -->
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <span style="width:5px;height:18px;background:#10b981;border-radius:3px;display:inline-block;"></span>
+                    <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#64748b;">Checklist Status</h6>
+                </div>
+                <div class="row g-2 mb-4">
+                    <div class="col-md-4 col-sm-6">
+                        <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 13px;border-radius:10px;{% if plc_detail.akses_plc == 'OK' %}background:#f0fdf4;border:1.5px solid #6ee7b7;{% elif plc_detail.akses_plc == 'NOK' %}background:#fef2f2;border:1.5px solid #fca5a5;{% else %}background:#f8fafc;border:1.5px solid #e2e8f0;{% endif %}">
+                            <span style="font-size:12.5px;font-weight:600;color:#334155;">Akses PLC</span>
+                            {% if plc_detail.akses_plc == 'OK' %}
+                                <span style="font-size:11.5px;font-weight:700;color:#065f46;background:#dcfce7;padding:2px 10px;border-radius:20px;">&#10003; OK</span>
+                            {% elif plc_detail.akses_plc == 'NOK' %}
+                                <span style="font-size:11.5px;font-weight:700;color:#991b1b;background:#fee2e2;padding:2px 10px;border-radius:20px;">&#10007; NOK</span>
+                            {% else %}
+                                <span style="font-size:12px;color:#94a3b8;font-weight:500;">&#8212;</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-4 col-sm-6">
+                        <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 13px;border-radius:10px;{% if plc_detail.remote_akses_plc == 'OK' %}background:#f0fdf4;border:1.5px solid #6ee7b7;{% elif plc_detail.remote_akses_plc == 'NOK' %}background:#fef2f2;border:1.5px solid #fca5a5;{% else %}background:#f8fafc;border:1.5px solid #e2e8f0;{% endif %}">
+                            <span style="font-size:12.5px;font-weight:600;color:#334155;">Remote Akses PLC</span>
+                            {% if plc_detail.remote_akses_plc == 'OK' %}
+                                <span style="font-size:11.5px;font-weight:700;color:#065f46;background:#dcfce7;padding:2px 10px;border-radius:20px;">&#10003; OK</span>
+                            {% elif plc_detail.remote_akses_plc == 'NOK' %}
+                                <span style="font-size:11.5px;font-weight:700;color:#991b1b;background:#fee2e2;padding:2px 10px;border-radius:20px;">&#10007; NOK</span>
+                            {% else %}
+                                <span style="font-size:12px;color:#94a3b8;font-weight:500;">&#8212;</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-4 col-sm-6">
+                        <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 13px;border-radius:10px;{% if plc_detail.time_sync == 'OK' %}background:#f0fdf4;border:1.5px solid #6ee7b7;{% elif plc_detail.time_sync == 'NOK' %}background:#fef2f2;border:1.5px solid #fca5a5;{% else %}background:#f8fafc;border:1.5px solid #e2e8f0;{% endif %}">
+                            <span style="font-size:12.5px;font-weight:600;color:#334155;">Sinkronisasi Waktu</span>
+                            {% if plc_detail.time_sync == 'OK' %}
+                                <span style="font-size:11.5px;font-weight:700;color:#065f46;background:#dcfce7;padding:2px 10px;border-radius:20px;">&#10003; OK</span>
+                            {% elif plc_detail.time_sync == 'NOK' %}
+                                <span style="font-size:11.5px;font-weight:700;color:#991b1b;background:#fee2e2;padding:2px 10px;border-radius:20px;">&#10007; NOK</span>
+                            {% else %}
+                                <span style="font-size:12px;color:#94a3b8;font-weight:500;">&#8212;</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-4 col-sm-6">
+                        <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 13px;border-radius:10px;{% if plc_detail.wave_trap == 'OK' %}background:#f0fdf4;border:1.5px solid #6ee7b7;{% elif plc_detail.wave_trap == 'NOK' %}background:#fef2f2;border:1.5px solid #fca5a5;{% else %}background:#f8fafc;border:1.5px solid #e2e8f0;{% endif %}">
+                            <span style="font-size:12.5px;font-weight:600;color:#334155;">Wave Trap</span>
+                            {% if plc_detail.wave_trap == 'OK' %}
+                                <span style="font-size:11.5px;font-weight:700;color:#065f46;background:#dcfce7;padding:2px 10px;border-radius:20px;">&#10003; OK</span>
+                            {% elif plc_detail.wave_trap == 'NOK' %}
+                                <span style="font-size:11.5px;font-weight:700;color:#991b1b;background:#fee2e2;padding:2px 10px;border-radius:20px;">&#10007; NOK</span>
+                            {% else %}
+                                <span style="font-size:12px;color:#94a3b8;font-weight:500;">&#8212;</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-4 col-sm-6">
+                        <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 13px;border-radius:10px;{% if plc_detail.imu == 'OK' %}background:#f0fdf4;border:1.5px solid #6ee7b7;{% elif plc_detail.imu == 'NOK' %}background:#fef2f2;border:1.5px solid #fca5a5;{% else %}background:#f8fafc;border:1.5px solid #e2e8f0;{% endif %}">
+                            <span style="font-size:12.5px;font-weight:600;color:#334155;">IMU</span>
+                            {% if plc_detail.imu == 'OK' %}
+                                <span style="font-size:11.5px;font-weight:700;color:#065f46;background:#dcfce7;padding:2px 10px;border-radius:20px;">&#10003; OK</span>
+                            {% elif plc_detail.imu == 'NOK' %}
+                                <span style="font-size:11.5px;font-weight:700;color:#991b1b;background:#fee2e2;padding:2px 10px;border-radius:20px;">&#10007; NOK</span>
+                            {% else %}
+                                <span style="font-size:12px;color:#94a3b8;font-weight:500;">&#8212;</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-4 col-sm-6">
+                        <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 13px;border-radius:10px;{% if plc_detail.kabel_coaxial == 'OK' %}background:#f0fdf4;border:1.5px solid #6ee7b7;{% elif plc_detail.kabel_coaxial == 'NOK' %}background:#fef2f2;border:1.5px solid #fca5a5;{% else %}background:#f8fafc;border:1.5px solid #e2e8f0;{% endif %}">
+                            <span style="font-size:12.5px;font-weight:600;color:#334155;">Kabel Coaxial</span>
+                            {% if plc_detail.kabel_coaxial == 'OK' %}
+                                <span style="font-size:11.5px;font-weight:700;color:#065f46;background:#dcfce7;padding:2px 10px;border-radius:20px;">&#10003; OK</span>
+                            {% elif plc_detail.kabel_coaxial == 'NOK' %}
+                                <span style="font-size:11.5px;font-weight:700;color:#991b1b;background:#fee2e2;padding:2px 10px;border-radius:20px;">&#10007; NOK</span>
+                            {% else %}
+                                <span style="font-size:12px;color:#94a3b8;font-weight:500;">&#8212;</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Nilai Pengukuran -->
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <span style="width:5px;height:18px;background:#f59e0b;border-radius:3px;display:inline-block;"></span>
+                    <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#64748b;">Nilai Pengukuran</h6>
+                </div>
+
+                <!-- Level -->
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;">
+                            <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Transmission Line Level</div>
+                            <div style="font-size:20px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;">
+                                {{ plc_detail.transmission_line|default:"—" }}
+                                {% if plc_detail.transmission_line %}<span style="font-size:13px;font-weight:500;color:#64748b;"> dBm</span>{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;">
+                            <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Rx Pilot Level</div>
+                            <div style="font-size:20px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;">
+                                {{ plc_detail.rx_pilot_level|default:"—" }}
+                                {% if plc_detail.rx_pilot_level %}<span style="font-size:13px;font-weight:500;color:#64748b;"> dBm</span>{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Divider TX/RX -->
+                <div class="d-flex align-items-center gap-3 mb-3">
+                    <div style="flex:1;height:1px;background:#e2e8f0;"></div>
+                    <span style="font-size:11px;font-weight:700;color:#94a3b8;letter-spacing:0.7px;text-transform:uppercase;white-space:nowrap;">Frekuensi &amp; Bandwidth</span>
+                    <div style="flex:1;height:1px;background:#e2e8f0;"></div>
+                </div>
+
+                <!-- TX -->
+                <div style="font-size:11.5px;font-weight:700;color:#3b82f6;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">
+                    <i class="bi bi-arrow-up-circle-fill me-1"></i>Transmit (TX)
+                </div>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:12px 14px;">
+                            <div style="font-size:11px;font-weight:700;color:#3b82f6;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Frequency TX</div>
+                            <div style="font-size:20px;font-weight:700;color:#1e3a5f;font-family:'JetBrains Mono',monospace;">
+                                {{ plc_detail.freq_tx|default:"—" }}
+                                {% if plc_detail.freq_tx %}<span style="font-size:13px;font-weight:500;color:#64748b;"> MHz</span>{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:12px 14px;">
+                            <div style="font-size:11px;font-weight:700;color:#3b82f6;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Bandwidth TX</div>
+                            <div style="font-size:20px;font-weight:700;color:#1e3a5f;font-family:'JetBrains Mono',monospace;">
+                                {{ plc_detail.bandwidth_tx|default:"—" }}
+                                {% if plc_detail.bandwidth_tx %}<span style="font-size:13px;font-weight:500;color:#64748b;"> MHz</span>{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- RX -->
+                <div style="font-size:11.5px;font-weight:700;color:#10b981;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">
+                    <i class="bi bi-arrow-down-circle-fill me-1"></i>Receive (RX)
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div style="background:#f0fdf4;border:1px solid #a7f3d0;border-radius:10px;padding:12px 14px;">
+                            <div style="font-size:11px;font-weight:700;color:#10b981;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Frequency RX</div>
+                            <div style="font-size:20px;font-weight:700;color:#064e3b;font-family:'JetBrains Mono',monospace;">
+                                {{ plc_detail.freq_rx|default:"—" }}
+                                {% if plc_detail.freq_rx %}<span style="font-size:13px;font-weight:500;color:#64748b;"> MHz</span>{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div style="background:#f0fdf4;border:1px solid #a7f3d0;border-radius:10px;padding:12px 14px;">
+                            <div style="font-size:11px;font-weight:700;color:#10b981;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Bandwidth RX</div>
+                            <div style="font-size:20px;font-weight:700;color:#064e3b;font-family:'JetBrains Mono',monospace;">
+                                {{ plc_detail.bandwidth_rx|default:"—" }}
+                                {% if plc_detail.bandwidth_rx %}<span style="font-size:13px;font-weight:500;color:#64748b;"> MHz</span>{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+        {% endif %}
+
+
+        <!-- ═══════════════ DETAIL RADIO ═══════════════ -->
+        {% if radio_detail %}
+        <div class="card mb-3">
+            <div class="card-body px-4 py-3">
+
+                <!-- Kondisi Ruangan -->
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <span style="width:5px;height:18px;background:#8b5cf6;border-radius:3px;display:inline-block;"></span>
+                    <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#64748b;">Kondisi Ruangan</h6>
+                </div>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-4">
+                        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;">
+                            <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Suhu Ruangan</div>
+                            <div style="font-size:20px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;">
+                                {{ radio_detail.suhu_ruangan|default:"—" }}
+                                {% if radio_detail.suhu_ruangan %}<span style="font-size:13px;font-weight:500;color:#64748b;"> °C</span>{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;">
+                            <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Kebersihan</div>
+                            <div style="font-size:15px;font-weight:700;
+                                {% if radio_detail.kebersihan == 'Bersih' %}color:#10b981;{% elif radio_detail.kebersihan == 'Kotor' %}color:#ef4444;{% else %}color:#94a3b8;{% endif %}">
+                                {% if radio_detail.kebersihan == 'Bersih' %}✓ {% elif radio_detail.kebersihan == 'Kotor' %}✗ {% endif %}
+                                {{ radio_detail.kebersihan|default:"—" }}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;">
+                            <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Lampu Penerangan</div>
+                            <div style="font-size:15px;font-weight:700;
+                                {% if radio_detail.lampu_penerangan == 'Menyala' %}color:#10b981;{% elif radio_detail.lampu_penerangan == 'Tidak Menyala' or radio_detail.lampu_penerangan == 'Tidak Ada' %}color:#ef4444;{% elif radio_detail.lampu_penerangan == 'Redup' %}color:#f59e0b;{% else %}color:#94a3b8;{% endif %}">
+                                {{ radio_detail.lampu_penerangan|default:"—" }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Peralatan Terpasang -->
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <span style="width:5px;height:18px;background:#10b981;border-radius:3px;display:inline-block;"></span>
+                    <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#64748b;">Peralatan Terpasang</h6>
+                </div>
+                <div class="row g-2 mb-4">
+                    {% for field_name, label, val in radio_checklist %}
+                    <div class="col-md-4 col-sm-6">
+                        <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 13px;border-radius:10px;{% if val == 'OK' %}background:#f0fdf4;border:1.5px solid #6ee7b7;{% elif val == 'NOK' %}background:#fef2f2;border:1.5px solid #fca5a5;{% else %}background:#f8fafc;border:1.5px solid #e2e8f0;{% endif %}">
+                            <span style="font-size:12.5px;font-weight:600;color:#334155;">{{ label }}</span>
+                            {% if val == 'OK' %}
+                                <span style="font-size:11.5px;font-weight:700;color:#065f46;background:#dcfce7;padding:2px 10px;border-radius:20px;">&#10003; OK</span>
+                            {% elif val == 'NOK' %}
+                                <span style="font-size:11.5px;font-weight:700;color:#991b1b;background:#fee2e2;padding:2px 10px;border-radius:20px;">&#10007; NOK</span>
+                            {% else %}
+                                <span style="font-size:12px;color:#94a3b8;font-weight:500;">&#8212;</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                    <!-- Hardcode fallback (tanpa context processor) -->
+                    {% if not radio_checklist %}
+                    {% for fld, lbl, fval in radio_checks_inline %}
+                    <div class="col-md-4 col-sm-6">
+                        <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 13px;border-radius:10px;{% if fval == 'OK' %}background:#f0fdf4;border:1.5px solid #6ee7b7;{% elif fval == 'NOK' %}background:#fef2f2;border:1.5px solid #fca5a5;{% else %}background:#f8fafc;border:1.5px solid #e2e8f0;{% endif %}">
+                            <span style="font-size:12.5px;font-weight:600;color:#334155;">{{ lbl }}</span>
+                            {% if fval == 'OK' %}<span style="font-size:11.5px;font-weight:700;color:#065f46;background:#dcfce7;padding:2px 10px;border-radius:20px;">&#10003; OK</span>
+                            {% elif fval == 'NOK' %}<span style="font-size:11.5px;font-weight:700;color:#991b1b;background:#fee2e2;padding:2px 10px;border-radius:20px;">&#10007; NOK</span>
+                            {% else %}<span style="font-size:12px;color:#94a3b8;font-weight:500;">&#8212;</span>{% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                    {% endif %}
+
+                    <!-- Jenis Antena -->
+                    {% if radio_detail.merk_battery %}
+                    <div class="col-md-4 col-sm-6">
+                        <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 13px;border-radius:10px;background:#f8fafc;border:1.5px solid #e2e8f0;">
+                            <span style="font-size:12.5px;font-weight:600;color:#334155;">Merk Battery</span>
+                            <span style="font-size:12px;font-weight:600;color:#475569;">{{ radio_detail.merk_battery }}</span>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% if radio_detail.merk_power_supply %}
+                    <div class="col-md-4 col-sm-6">
+                        <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 13px;border-radius:10px;background:#f8fafc;border:1.5px solid #e2e8f0;">
+                            <span style="font-size:12.5px;font-weight:600;color:#334155;">Merk Power Supply</span>
+                            <span style="font-size:12px;font-weight:600;color:#475569;">{{ radio_detail.merk_power_supply }}</span>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% if radio_detail.jenis_antena %}
+                    <div class="col-md-4 col-sm-6">
+                        <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 13px;border-radius:10px;background:#eff6ff;border:1.5px solid #bfdbfe;">
+                            <span style="font-size:12.5px;font-weight:600;color:#334155;">Jenis Antena</span>
+                            <span style="font-size:11.5px;font-weight:700;color:#1e40af;background:#dbeafe;padding:2px 10px;border-radius:20px;">{{ radio_detail.jenis_antena }}</span>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Nilai Pengukuran -->
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <span style="width:5px;height:18px;background:#f59e0b;border-radius:3px;display:inline-block;"></span>
+                    <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#64748b;">Nilai Pengukuran</h6>
+                </div>
+
+                <!-- SWR + Power -->
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;">
+                            <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">SWR</div>
+                            {% if radio_detail.swr == '<1.5' %}
+                                <div style="font-size:15px;font-weight:700;color:#10b981;">&#10003; &lt; 1,5 <span style="font-size:11px;color:#94a3b8;">(Baik)</span></div>
+                            {% elif radio_detail.swr == '>1.5' %}
+                                <div style="font-size:15px;font-weight:700;color:#ef4444;">&#10007; &gt; 1,5 <span style="font-size:11px;color:#94a3b8;">(Buruk)</span></div>
+                            {% else %}
+                                <div style="font-size:20px;font-weight:700;color:#94a3b8;">—</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;">
+                            <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Power TX</div>
+                            <div style="font-size:20px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;">
+                                {{ radio_detail.power_tx|default:"—" }}
+                                {% if radio_detail.power_tx %}<span style="font-size:13px;font-weight:500;color:#64748b;"> W</span>{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tegangan -->
+                <div class="d-flex align-items-center gap-3 mb-3">
+                    <div style="flex:1;height:1px;background:#e2e8f0;"></div>
+                    <span style="font-size:11px;font-weight:700;color:#94a3b8;letter-spacing:0.7px;text-transform:uppercase;white-space:nowrap;">Tegangan</span>
+                    <div style="flex:1;height:1px;background:#e2e8f0;"></div>
+                </div>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;">
+                            <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Tegangan Battery</div>
+                            <div style="font-size:20px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;">
+                                {{ radio_detail.tegangan_battery|default:"—" }}
+                                {% if radio_detail.tegangan_battery %}<span style="font-size:13px;font-weight:500;color:#64748b;"> V</span>{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;">
+                            <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Tegangan Power Supply</div>
+                            <div style="font-size:20px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;">
+                                {{ radio_detail.tegangan_psu|default:"—" }}
+                                {% if radio_detail.tegangan_psu %}<span style="font-size:13px;font-weight:500;color:#64748b;"> V</span>{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Frekuensi -->
+                <div class="d-flex align-items-center gap-3 mb-3">
+                    <div style="flex:1;height:1px;background:#e2e8f0;"></div>
+                    <span style="font-size:11px;font-weight:700;color:#94a3b8;letter-spacing:0.7px;text-transform:uppercase;white-space:nowrap;">Frekuensi</span>
+                    <div style="flex:1;height:1px;background:#e2e8f0;"></div>
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:12px 14px;">
+                            <div style="font-size:11px;font-weight:700;color:#3b82f6;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">&#8593; TX / Tone</div>
+                            <div style="font-size:20px;font-weight:700;color:#1e3a5f;font-family:'JetBrains Mono',monospace;">
+                                {{ radio_detail.frekuensi_tx|default:"—" }}
+                                {% if radio_detail.frekuensi_tx %}<span style="font-size:13px;font-weight:500;color:#64748b;"> MHz</span>{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div style="background:#f0fdf4;border:1px solid #a7f3d0;border-radius:10px;padding:12px 14px;">
+                            <div style="font-size:11px;font-weight:700;color:#10b981;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">&#8595; RX / Tone</div>
+                            <div style="font-size:20px;font-weight:700;color:#064e3b;font-family:'JetBrains Mono',monospace;">
+                                {{ radio_detail.frekuensi_rx|default:"—" }}
+                                {% if radio_detail.frekuensi_rx %}<span style="font-size:13px;font-weight:500;color:#64748b;"> MHz</span>{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {% if radio_detail.catatan %}
+                <div class="mt-3 pt-3 border-top">
+                    <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Catatan</div>
+                    <div style="font-size:13.5px;color:#334155;">{{ radio_detail.catatan }}</div>
+                </div>
+                {% endif %}
+
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- ═══════════════ DETAIL ROUTER ═══════════════ -->
+        {% if router_detail and device_type == 'ROUTER' %}
+
+        <!-- Checklist Fisik -->
+        <div class="card mb-3">
+            <div class="card-body px-4 py-3">
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <span style="width:5px;height:18px;background:#10b981;border-radius:3px;display:inline-block;"></span>
+                    <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#64748b;">Pemeriksaan Fisik</h6>
+                </div>
+                <div class="row g-2">
+                    {% for label, val in router_checklist %}
+                    <div class="col-md-4">
+                        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:10px;
+                            {% if val == 'OK' %}background:#f0fdf4;border:1.5px solid #6ee7b7;
+                            {% elif val == 'NOK' %}background:#fef2f2;border:1.5px solid #fca5a5;
+                            {% else %}background:#f8fafc;border:1.5px solid #e2e8f0;{% endif %}">
+                            <span style="font-size:12.5px;font-weight:600;color:#334155;">{{ label }}</span>
+                            {% if val == 'OK' %}
+                                <span style="font-size:11.5px;font-weight:700;color:#065f46;background:#dcfce7;padding:2px 10px;border-radius:20px;">&#10003; OK</span>
+                            {% elif val == 'NOK' %}
+                                <span style="font-size:11.5px;font-weight:700;color:#991b1b;background:#fee2e2;padding:2px 10px;border-radius:20px;">&#10007; NOK</span>
+                            {% else %}
+                                <span style="font-size:12px;color:#94a3b8;font-weight:500;">&#8212;</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Nilai Pengukuran -->
+        <div class="card mb-3">
+            <div class="card-body px-4 py-3">
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <span style="width:5px;height:18px;background:#f59e0b;border-radius:3px;display:inline-block;"></span>
+                    <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#64748b;">Nilai Pengukuran</h6>
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;text-align:center;">
+                            <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Tegangan Input</div>
+                            <div style="font-size:22px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;">{{ router_detail.tegangan_input|default:"—" }}</div>
+                            {% if router_detail.tegangan_input %}<div style="font-size:11px;color:#94a3b8;">Volt</div>{% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;text-align:center;">
+                            <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Suhu Perangkat</div>
+                            <div style="font-size:22px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;">{{ router_detail.suhu_perangkat|default:"—" }}</div>
+                            {% if router_detail.suhu_perangkat %}<div style="font-size:11px;color:#94a3b8;">°C</div>{% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;text-align:center;">
+                            <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">CPU Load</div>
+                            <div style="font-size:22px;font-weight:700;font-family:'JetBrains Mono',monospace;{% if router_detail.cpu_load > 80 %}color:#ef4444;{% elif router_detail.cpu_load > 60 %}color:#f59e0b;{% else %}color:#10b981;{% endif %}">{{ router_detail.cpu_load|default:"—" }}</div>
+                            {% if router_detail.cpu_load %}
+                            <div style="font-size:11px;color:#94a3b8;margin-bottom:4px;">%</div>
+                            <div style="height:4px;background:#e2e8f0;border-radius:2px;overflow:hidden;">
+                                <div style="height:100%;border-radius:2px;width:{{ router_detail.cpu_load }}%;{% if router_detail.cpu_load > 80 %}background:#ef4444;{% elif router_detail.cpu_load > 60 %}background:#f59e0b;{% else %}background:#10b981;{% endif %}"></div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;text-align:center;">
+                            <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Memory Usage</div>
+                            <div style="font-size:22px;font-weight:700;font-family:'JetBrains Mono',monospace;{% if router_detail.memory_usage > 80 %}color:#ef4444;{% elif router_detail.memory_usage > 60 %}color:#f59e0b;{% else %}color:#10b981;{% endif %}">{{ router_detail.memory_usage|default:"—" }}</div>
+                            {% if router_detail.memory_usage %}
+                            <div style="font-size:11px;color:#94a3b8;margin-bottom:4px;">%</div>
+                            <div style="height:4px;background:#e2e8f0;border-radius:2px;overflow:hidden;">
+                                <div style="height:100%;border-radius:2px;width:{{ router_detail.memory_usage }}%;{% if router_detail.memory_usage > 80 %}background:#ef4444;{% elif router_detail.memory_usage > 60 %}background:#f59e0b;{% else %}background:#10b981;{% endif %}"></div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Port & Interface -->
+        <div class="card mb-3">
+            <div class="card-body px-4 py-3">
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <span style="width:5px;height:18px;background:#3b82f6;border-radius:3px;display:inline-block;"></span>
+                    <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#64748b;">Status Port & Interface</h6>
+                </div>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-5">
+                        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:14px 18px;">
+                            <div style="font-size:11px;font-weight:700;color:#3b82f6;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Port Aktif / Total</div>
+                            <div style="font-size:28px;font-weight:700;color:#1e3a5f;font-family:'JetBrains Mono',monospace;line-height:1;">
+                                {{ router_detail.jumlah_port_aktif|default:"—" }}
+                                {% if router_detail.jumlah_port_total %}
+                                <span style="font-size:16px;color:#94a3b8;font-weight:500;"> / {{ router_detail.jumlah_port_total }}</span>
+                                {% endif %}
+                            </div>
+                            {% if router_detail.jumlah_port_aktif and router_detail.jumlah_port_total %}
+                            <div style="margin-top:10px;">
+                                <div style="height:6px;background:#dbeafe;border-radius:3px;overflow:hidden;">
+                                    <div style="height:100%;background:#3b82f6;border-radius:3px;width:{% widthratio router_detail.jumlah_port_aktif router_detail.jumlah_port_total 100 %}%;"></div>
+                                </div>
+                                <div style="font-size:10.5px;color:#64748b;margin-top:3px;">{% widthratio router_detail.jumlah_port_aktif router_detail.jumlah_port_total 100 %}% utilisasi</div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 18px;text-align:center;">
+                            <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:8px;">IP / Routing Status</div>
+                            {% if router_detail.status_routing == 'OK' %}
+                                <span style="font-size:13px;font-weight:700;color:#065f46;background:#dcfce7;padding:4px 14px;border-radius:20px;">&#10003; OK</span>
+                            {% elif router_detail.status_routing == 'NOK' %}
+                                <span style="font-size:13px;font-weight:700;color:#991b1b;background:#fee2e2;padding:4px 14px;border-radius:20px;">&#10007; NOK</span>
+                            {% else %}
+                                <span style="font-size:16px;color:#94a3b8;">—</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% if router_detail.detail_port %}
+                <div class="mb-3">
+                    <div style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Detail Port</div>
+                    <pre style="background:#f8fafc;padding:12px 16px;border-radius:10px;font-size:12.5px;font-family:'JetBrains Mono',monospace;margin:0;white-space:pre-wrap;color:#334155;border:1px solid #e2e8f0;">{{ router_detail.detail_port }}</pre>
+                </div>
+                {% endif %}
+                {% if router_detail.catatan_tambahan %}
+                <div>
+                    <div style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Catatan Tambahan</div>
+                    <p style="font-size:13.5px;color:#334155;margin:0;">{{ router_detail.catatan_tambahan }}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- SFP Port -->
+        {% if router_detail.sfp_port_data %}
+        <div class="card mb-3">
+            <div class="card-body px-4 py-3">
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <span style="width:5px;height:18px;background:#8b5cf6;border-radius:3px;display:inline-block;"></span>
+                    <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#64748b;">
+                        SFP Port
+                        {% if router_detail.jumlah_sfp_port %}
+                        <span style="font-size:11px;background:#f5f3ff;color:#7c3aed;padding:2px 8px;border-radius:20px;font-weight:500;margin-left:6px;">{{ router_detail.jumlah_sfp_port }} port</span>
+                        {% endif %}
+                    </h6>
+                </div>
+                <div class="table-responsive" id="router-sfp-table">
+                    <table class="table table-sm mb-0" style="font-size:12.5px;">
+                        <thead style="background:#f5f3ff;">
+                            <tr>
+                                <th style="font-size:11px;color:#7c3aed;padding:8px 12px;">Port</th>
+                                <th style="font-size:11px;color:#64748b;padding:8px 12px;">Tx Power</th>
+                                <th style="font-size:11px;color:#64748b;padding:8px 12px;">Rx Power</th>
+                                <th style="font-size:11px;color:#64748b;padding:8px 12px;">Lambda</th>
+                                <th style="font-size:11px;color:#64748b;padding:8px 12px;">Bandwidth</th>
+                                <th style="font-size:11px;color:#64748b;padding:8px 12px;">Merk / Tipe</th>
+                                <th style="font-size:11px;color:#64748b;padding:8px 12px;">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="router-sfp-tbody">
+                            <tr><td colspan="7" class="text-muted text-center py-3" style="font-size:12px;">
+                                <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                                Memuat data SFP...
+                            </td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% endif %}
+
+        <!-- ═══════════════ DETAIL SWITCH ═══════════════ -->
+        {% if router_detail and device_type == 'SWITCH' %}
+        {% include 'maintenance/switch_detail_section.html' %}
+        {% endif %}
+
+        {% if voip_detail %}
+        {% include 'maintenance/voip_detail_section.html' %}
+        {% endif %}
+
+        {% if mux_detail %}
+        {% include 'maintenance/mux_detail_section.html' %}
+        {% endif %}
+
+        {% if rect_detail %}
+        {% include 'maintenance/rectifier_detail_section.html' %}
+        {% endif %}
+
+        <!-- Tidak ada detail khusus -->
+        {% if not plc_detail and not router_detail and not radio_detail and not voip_detail and not mux_detail %}
+        <div class="card">
+            <div class="card-body text-center py-4 text-muted">
+                <i class="bi bi-journal-text fs-3 d-block mb-2"></i>
+                Tidak ada data checklist khusus untuk jenis perangkat ini
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+</div>
+
+{% endblock %}
+
+<style>
+/* PLC Checklist items */
+.plc-check-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 9px 13px;
+    border-radius: 10px;
+    background: #f8fafc;
+    border: 1.5px solid #e2e8f0;
+    transition: all 0.15s;
+}
+.plc-check-item.ok  { background: #f0fdf4; border-color: #6ee7b7; }
+.plc-check-item.nok { background: #fef2f2; border-color: #fca5a5; }
+
+.plc-check-label {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #334155;
+}
+.plc-badge {
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 2px 10px;
+    border-radius: 20px;
+}
+.plc-badge.ok  { color: #065f46; background: #dcfce7; }
+.plc-badge.nok { color: #991b1b; background: #fee2e2; }
+</style>
+{% block extra_js %}
+<script>
+function confirmDelete() {
+    new bootstrap.Modal(document.getElementById('deleteModal')).show();
+}
+</script>
+{% if router_detail and router_detail.sfp_port_data %}
+<script type="application/json" id="router-sfp-data">{{ router_detail.sfp_port_data|safe }}</script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var raw;
+    try {
+        raw = JSON.parse(document.getElementById('router-sfp-data').textContent);
+    } catch(e) {
+        var t = document.getElementById('router-sfp-tbody');
+        if (t) t.innerHTML = '<tr><td colspan="7" class="text-center text-danger py-3" style="font-size:12px;">' +
+            '<i class="bi bi-exclamation-triangle-fill me-1"></i>Format data SFP tidak valid</td></tr>';
+        return;
+    }
+
+    var tbody = document.getElementById('router-sfp-tbody');
+    if (!tbody) return;
+
+    tbody.innerHTML = ''; // hapus baris placeholder/spinner
+
+    if (!raw || !raw.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-muted text-center py-3" style="font-size:12px;">Tidak ada data SFP tercatat</td></tr>';
+        return;
+    }
+
+    var hasVal = function(v) { return v !== undefined && v !== null && v !== ''; };
+
+    raw.forEach(function(d, i) {
+        var isUp   = d.status === 'UP';
+        var isDown = d.status === 'DOWN';
+        var sc = isUp ? '#065f46' : isDown ? '#991b1b' : '#64748b';
+        var sb = isUp ? '#dcfce7' : isDown ? '#fee2e2' : '#f1f5f9';
+        var tr = document.createElement('tr');
+        tr.innerHTML =
+            '<td style="padding:8px 12px;"><span style="font-family:JetBrains Mono,monospace;font-weight:700;font-size:12px;color:#8b5cf6;">SFP ' + (i+1) + '</span></td>' +
+            '<td style="padding:8px 12px;font-family:JetBrains Mono,monospace;">' +
+                (hasVal(d.tx) ? d.tx + '<span style="color:#94a3b8;font-size:11px;margin-left:2px;">dBm</span>' : '—') + '</td>' +
+            '<td style="padding:8px 12px;font-family:JetBrains Mono,monospace;">' +
+                (hasVal(d.rx) ? d.rx + '<span style="color:#94a3b8;font-size:11px;margin-left:2px;">dBm</span>' : '—') + '</td>' +
+            '<td style="padding:8px 12px;font-family:JetBrains Mono,monospace;">' +
+                (hasVal(d.lambda) ? d.lambda + '<span style="color:#94a3b8;font-size:11px;margin-left:2px;">nm</span>' : '—') + '</td>' +
+            '<td style="padding:8px 12px;">' + (d.bandwidth || '—') + '</td>' +
+            '<td style="padding:8px 12px;">' + (d.merk || '—') + '</td>' +
+            '<td style="padding:8px 12px;">' +
+                (d.status ? '<span style="font-size:11.5px;font-weight:700;color:' + sc + ';background:' + sb + ';padding:2px 10px;border-radius:20px;">' + d.status + '</span>' : '—') +
+            '</td>';
+        tbody.appendChild(tr);
+    });
+});
+</script>
+{% endif %}
+{% endblock %}

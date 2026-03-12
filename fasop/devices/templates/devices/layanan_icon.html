@@ -1,0 +1,182 @@
+{% extends 'base.html' %}
+{% block title %}Layanan ICON+ — FASOP{% endblock %}
+{% block page_title %}Layanan ICON+{% endblock %}
+
+{% block content %}
+
+<!-- HEADER -->
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+    <div>
+        <h2 class="mb-0" style="font-size:20px;font-weight:700;">Layanan ICON+</h2>
+        <p class="text-muted mb-0" style="font-size:13px;">{{ icons|length }} layanan terdaftar</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'icon_add' %}" class="btn btn-primary btn-sm">
+            <i class="bi bi-plus-lg me-1"></i>Tambah Layanan
+        </a>
+        <a href="{% url 'export_icon_excel' %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}" class="btn btn-outline-success btn-sm">
+            <i class="bi bi-file-earmark-excel me-1"></i>Export Excel
+        </a>
+    </div>
+</div>
+
+<!-- SEARCH -->
+<div class="card mb-3">
+    <div class="card-body py-2 px-3">
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label" style="font-size:12px;font-weight:600;color:#64748b;">Cari</label>
+                <input type="text" name="q" class="form-control form-control-sm"
+                    placeholder="Nama / SID / Lokasi..." value="{{ search|default:'' }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label" style="font-size:12px;font-weight:600;color:#64748b;">Kondisi</label>
+                <select name="kondisi" class="form-select form-select-sm">
+                    <option value="">Semua Kondisi</option>
+                    {% for k in kondisi_list %}
+                    <option value="{{ k }}" {% if k == selected_kondisi %}selected{% endif %}>{{ k }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-auto d-flex gap-2">
+                <button class="btn btn-primary btn-sm"><i class="bi bi-funnel me-1"></i>Filter</button>
+                {% if search or selected_kondisi %}
+                <a href="{% url 'layanan_icon' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-x-lg me-1"></i>Reset</a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- STATS SUMMARY -->
+<div class="row g-3 mb-3">
+    <div class="col-md-3">
+        <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:14px 18px;">
+            <div style="font-size:11px;font-weight:700;color:#065f46;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Total Layanan</div>
+            <div style="font-size:26px;font-weight:800;color:#065f46;">{{ icons|length }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:14px 18px;">
+            <div style="font-size:11px;font-weight:700;color:#1e40af;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Operasi Baik</div>
+            <div style="font-size:26px;font-weight:800;color:#1e40af;">{{ operasi_baik }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:14px 18px;">
+            <div style="font-size:11px;font-weight:700;color:#991b1b;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Gangguan</div>
+            <div style="font-size:26px;font-weight:800;color:#991b1b;">{{ gangguan }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:14px 18px;">
+            <div style="font-size:11px;font-weight:700;color:#9a3412;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Lainnya</div>
+            <div style="font-size:26px;font-weight:800;color:#9a3412;">{{ lainnya }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- TABLE -->
+<div class="table-card">
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th style="width:40px;">#</th>
+                    <th>Nama Layanan</th>
+                    <th>Lokasi</th>
+                    <th>Bandwidth</th>
+                    <th>SID 1</th>
+                    <th>SID 2</th>
+                    <th>Kontrak</th>
+                    <th>Kondisi</th>
+                    <th>Keterangan</th>
+                    <th style="width:100px;">Aksi</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for d in icons %}
+                <tr>
+                    <td class="text-muted" style="font-size:12px;">{{ forloop.counter }}</td>
+                    <td>
+                        <div style="font-weight:600;font-size:13.5px;color:#1e293b;">{{ d.name }}</div>
+                        {% if d.nama_layanan and d.nama_layanan != d.name %}
+                        <div style="font-size:11px;color:#94a3b8;margin-top:1px;">{{ d.nama_layanan }}</div>
+                        {% endif %}
+                    </td>
+                    <td style="font-size:13px;color:#475569;">{{ d.lokasi_layanan|default:"—" }}</td>
+                    <td>
+                        {% if d.bandwidth and d.bandwidth != "None" %}
+                        <span style="font-size:12px;font-weight:700;background:#eff6ff;color:#1d4ed8;padding:2px 8px;border-radius:20px;font-family:'JetBrains Mono',monospace;">{{ d.bandwidth }}</span>
+                        {% else %}
+                        <span style="color:#94a3b8;font-size:13px;">—</span>
+                        {% endif %}
+                    </td>
+                    <td><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#334155;">{{ d.SID1|default:"—" }}</span></td>
+                    <td><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#334155;">{{ d.SID2|default:"—" }}</span></td>
+                    <td style="font-size:12.5px;color:#475569;">{{ d.kontrak|default:"—" }}</td>
+                    <td>
+                        {% if d.kondisi_operasional %}
+                            {% if "Baik" in d.kondisi_operasional %}
+                            <span style="font-size:11.5px;font-weight:600;background:#dcfce7;color:#065f46;padding:3px 10px;border-radius:20px;white-space:nowrap;">
+                                <i class="bi bi-check-circle-fill me-1"></i>{{ d.kondisi_operasional }}
+                            </span>
+                            {% elif "Gangguan" in d.kondisi_operasional %}
+                            <span style="font-size:11.5px;font-weight:600;background:#fee2e2;color:#991b1b;padding:3px 10px;border-radius:20px;white-space:nowrap;">
+                                <i class="bi bi-exclamation-circle-fill me-1"></i>{{ d.kondisi_operasional }}
+                            </span>
+                            {% else %}
+                            <span style="font-size:11.5px;font-weight:600;background:#f1f5f9;color:#475569;padding:3px 10px;border-radius:20px;white-space:nowrap;">
+                                {{ d.kondisi_operasional }}
+                            </span>
+                            {% endif %}
+                        {% else %}
+                        <span style="color:#94a3b8;font-size:13px;">—</span>
+                        {% endif %}
+                    </td>
+                    <td style="font-size:12px;color:#64748b;max-width:250px;">{{ d.keterangan|default:"—" }}</td>
+                    <td>
+                        <div class="d-flex gap-1">
+                            <a href="{% url 'icon_edit' d.id %}" class="btn btn-sm btn-outline-warning" style="padding:3px 8px;font-size:12px;">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <form method="post" action="{% url 'icon_delete' d.id %}" style="display:inline;">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-outline-danger" style="padding:3px 8px;font-size:12px;"
+                                    onclick="return confirm('Hapus layanan {{ d.name }}?')">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="10" class="text-center py-5">
+                        <i class="bi bi-wifi-off fs-2 d-block mb-2 text-muted"></i>
+                        <div style="color:#64748b;font-size:13px;">Belum ada data layanan ICON+</div>
+                        <a href="{% url 'icon_add' %}" class="btn btn-primary btn-sm mt-2">
+                            <i class="bi bi-plus-lg me-1"></i>Tambah Layanan
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<style>
+.table-card { background:#fff;border-radius:12px;border:1px solid #e2e8f0;overflow:hidden; }
+.table { margin-bottom:0; }
+.table thead tr { background:#f8fafc; }
+.table thead th { font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#64748b;border-bottom:2px solid #e2e8f0;padding:10px 14px;white-space:nowrap; }
+.table tbody tr { border-bottom:1px solid #f1f5f9;transition:background 0.1s; }
+.table tbody tr:hover { background:#f8fafc; }
+.table tbody td { padding:10px 14px;vertical-align:middle;border:none; }
+.table tbody tr:last-child { border-bottom:none; }
+</style>
+{% endblock %}
