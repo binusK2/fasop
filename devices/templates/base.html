@@ -646,10 +646,21 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script>
     // Tanggal di topbar
-    const d = new Date();
-    const opts = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-    document.getElementById('topbar-date').textContent = d.toLocaleDateString('id-ID', opts);
+    // const d = new Date();
+    // const opts = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+    // document.getElementById('topbar-date').textContent = d.toLocaleDateString('id-ID', opts);
 
+
+    // Tanggal & Jam di topbar
+    function updateClock() {
+        const d = new Date();
+        const dateOpts = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+        const dateStr = d.toLocaleDateString('id-ID', dateOpts);
+        const timeStr = d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        document.getElementById('topbar-date').textContent = dateStr + '  |  ' + timeStr;
+    }
+    updateClock();
+    setInterval(updateClock, 1000);
     // ── Sidebar group toggle ─────────────────────────────────────
     document.querySelectorAll('.sidebar-group-toggle').forEach(btn => {
         btn.addEventListener('click', function () {

@@ -20,7 +20,7 @@ class Maintenance(models.Model):
 
     device          = models.ForeignKey(Device, on_delete=models.CASCADE)
     maintenance_type = models.CharField(max_length=20, choices=MAINTENANCE_TYPE)
-    date            = models.DateField()
+    date            = models.DateTimeField()
     description     = models.TextField(blank=True)
     technicians     = models.ManyToManyField(User, blank=True, related_name='maintenance_technician_set', verbose_name='Pelaksana')
     signed_by       = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='signed_maintenances', verbose_name='Ditandatangani oleh')

@@ -14,9 +14,9 @@ TEXT_WIDGET   = lambda rows=3: forms.Textarea(attrs={'class': 'form-control', 'r
 # ─────────────────────────────────────────────────────────────────────
 class MaintenanceForm(forms.ModelForm):
 
-    date = forms.DateField(
-        widget=forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
-        input_formats=['%Y-%m-%d']
+    date = forms.DateTimeField(
+        widget=forms.DateTimeInput(attrs={'type': 'datetime-local', 'class': 'form-control'}),
+        input_formats=['%Y-%m-%dT%H:%M']
     )
 
     class Meta:
@@ -43,7 +43,7 @@ class MaintenanceForm(forms.ModelForm):
             id__in=technician_ids, is_active=True
         ).order_by('first_name', 'username')
         for name, field in self.fields.items():
-            if not isinstance(field.widget, (forms.RadioSelect, forms.DateInput)):
+            if not isinstance(field.widget, (forms.RadioSelect, forms.DateTimeInput)):
                 if not field.widget.attrs.get('class'):
                     field.widget.attrs['class'] = 'form-control'
 
