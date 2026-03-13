@@ -5,6 +5,9 @@
     <title>QR Code — {{ device.nama }}</title>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&family=JetBrains+Mono:wght@600&display=swap" rel="stylesheet">
     <style>
+        /* ════════════════════════════════
+           TAMPILAN LAYAR
+        ════════════════════════════════ */
         body {
             font-family: 'DM Sans', sans-serif;
             display: flex;
@@ -14,7 +17,6 @@
             background: #f1f5f9;
             margin: 0;
         }
-
         .qr-card {
             background: white;
             border-radius: 16px;
@@ -24,7 +26,6 @@
             max-width: 320px;
             width: 100%;
         }
-
         .qr-card .org {
             font-size: 11px;
             font-weight: 600;
@@ -33,14 +34,12 @@
             color: #94a3b8;
             margin-bottom: 6px;
         }
-
         .qr-card h2 {
             font-size: 18px;
             font-weight: 700;
             color: #0f172a;
             margin: 0 0 4px;
         }
-
         .qr-card .jenis {
             font-size: 12px;
             background: #eff6ff;
@@ -50,28 +49,31 @@
             display: inline-block;
             margin-bottom: 20px;
         }
-
         #qr-canvas-wrap {
             display: flex;
             justify-content: center;
             margin-bottom: 16px;
         }
-
         .device-info {
             font-size: 12px;
             color: #64748b;
             margin-top: 12px;
+            line-height: 1.7;
         }
-
         .device-info strong {
             font-family: 'JetBrains Mono', monospace;
             font-size: 12px;
             color: #0f172a;
         }
-
-        .btn-print {
+        .btn-group-print {
             margin-top: 20px;
-            padding: 10px 24px;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .btn-print {
+            padding: 10px 20px;
             background: #0f172a;
             color: white;
             border: none;
@@ -81,16 +83,136 @@
             font-family: 'DM Sans', sans-serif;
             cursor: pointer;
         }
+        .btn-print-label {
+            padding: 10px 20px;
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            font-family: 'DM Sans', sans-serif;
+            cursor: pointer;
+        }
 
+        /* Label tersembunyi di layar */
+        #label-wrap { display: none; }
+
+        /* ════════════════════════════════
+           PRINT NORMAL (A4)
+        ════════════════════════════════ */
         @media print {
             body { background: white; }
-            .btn-print { display: none; }
-            .qr-card { box-shadow: none; padding: 0; }
+            .btn-group-print { display: none; }
+            .qr-card { box-shadow: none; }
+        }
+
+        /* ════════════════════════════════
+           PRINT LABEL 24mm × 30mm
+           Semua ukuran dalam mm agar
+           100% scale = pas di label
+        ════════════════════════════════ */
+        @media print {
+            body.mode-label {
+                display: block;
+                margin: 0;
+                padding: 0;
+                background: white;
+            }
+
+            /* Sembunyikan card utama */
+            body.mode-label #main-card { display: none !important; }
+
+            /* Tampilkan label */
+            body.mode-label #label-wrap {
+                display: block !important;
+                width: 24mm;
+                padding: 0;
+                margin: 0;
+            }
+
+            body.mode-label #label-inner {
+                width: 24mm;
+                padding: 1mm 1.5mm;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 0.5mm;
+                font-family: Arial, sans-serif;
+                box-sizing: border-box;
+            }
+
+            body.mode-label .l-org {
+                font-size: 5pt;
+                font-weight: 700;
+                letter-spacing: 0.8px;
+                text-transform: uppercase;
+                color: #94a3b8;
+                text-align: center;
+            }
+            body.mode-label .l-nama {
+                font-size: 7pt;
+                font-weight: 700;
+                color: #0f172a;
+                text-align: center;
+                line-height: 1.2;
+                word-break: break-word;
+            }
+            body.mode-label .l-jenis {
+                font-size: 5pt;
+                background: #eff6ff;
+                color: #2563eb;
+                padding: 0.3mm 1.5mm;
+                border-radius: 8pt;
+                font-weight: 600;
+                text-align: center;
+            }
+            /* QR: paksa 18mm × 18mm agar pas */
+            body.mode-label #qr-label img,
+            body.mode-label #qr-label canvas {
+                width: 18mm !important;
+                height: 18mm !important;
+                display: block;
+            }
+            body.mode-label .l-divider {
+                width: 23mm;
+                height: 0.2mm;
+                background: #e2e8f0;
+            }
+            body.mode-label .l-row {
+                width: 20mm;
+                display: flex;
+                justify-content: space-between;
+                align-items: baseline;
+                gap: 1mm;
+            }
+            body.mode-label .l-key {
+                font-size: 4.5pt;
+                color: #94a3b8;
+                font-weight: 700;
+                white-space: nowrap;
+                flex-shrink: 0;
+            }
+            body.mode-label .l-val {
+                font-size: 5pt;
+                color: #0f172a;
+                font-weight: 700;
+                font-family: 'Courier New', monospace;
+                text-align: right;
+                word-break: break-all;
+            }
+            body.mode-label .l-val-plain {
+                font-size: 5pt;
+                color: #374151;
+                text-align: right;
+            }
         }
     </style>
 </head>
 <body>
-<div class="qr-card">
+
+<!-- ── Card tampilan layar ── -->
+<div class="qr-card" id="main-card">
     <div class="org">FASOP UP2B</div>
     <h2>{{ device.nama }}</h2>
     {% if device.jenis %}
@@ -100,26 +222,85 @@
     <div id="qr-canvas-wrap"></div>
 
     <div class="device-info">
-        IP Address: <strong>{{ device.ip_address }}</strong><br>
-        Lokasi: {{ device.lokasi }}<br>
+        <strong>{{ device.ip_address }}</strong><br>
+        {{ device.lokasi }}<br>
         {% if device.serial_number %}
-        S/N: <strong>{{ device.serial_number }}</strong>
+        <strong>{{ device.serial_number }}</strong>
         {% endif %}
     </div>
 
-    <button class="btn-print" onclick="window.print()">🖨️ Print QR Code</button>
+    <div class="btn-group-print">
+        <button class="btn-print" onclick="window.print()">🖨️ Print Normal</button>
+        <button class="btn-print-label" onclick="printLabel()">🏷️ Print Label 24mm</button>
+    </div>
+</div>
+
+<!-- ── Label 24×30mm (tersembunyi di layar, muncul saat print label) ── -->
+<div id="label-wrap">
+    <div id="label-inner">
+        <div class="l-org">FASOP UP2B</div>
+        <div class="l-nama">{{ device.nama }}</div>
+        {% if device.jenis %}
+        <div class="l-jenis">{{ device.jenis }}</div>
+        {% endif %}
+
+        <!-- QR Code — di-generate via JS -->
+        <div id="qr-label"></div>
+
+        <div class="l-divider"></div>
+
+        {% if device.ip_address %}
+        <div style="text-align:center;" class="l-val">{{ device.ip_address }}</div>
+        {% endif %}
+
+        {% if device.serial_number %}
+        <div style="text-align:center;" class="l-val">{{ device.serial_number }}</div>
+        {% endif %}
+
+        {% if device.lokasi %}
+        <div style="text-align:center;" class="l-val-plain">{{ device.lokasi }}</div>
+        {% endif %}
+
+        {% if device.serial_number %}
+        <div style="text-align:center;" class="l-val">{{ device.serial_number }}</div>
+        {% endif %}
+    </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <script>
+    const QR_URL = "{{ detail_url }}";
+
+    // QR layar — besar
     new QRCode(document.getElementById('qr-canvas-wrap'), {
-        text: "{{ detail_url }}",
-        width: 180,
-        height: 180,
-        colorDark: '#0f172a',
-        colorLight: '#ffffff',
+        text: QR_URL, width: 180, height: 180,
+        colorDark: '#0f172a', colorLight: '#ffffff',
         correctLevel: QRCode.CorrectLevel.M
     });
+
+    // QR label — 64px (di CSS print dipaksa 17mm)
+    new QRCode(document.getElementById('qr-label'), {
+        text: QR_URL, width: 64, height: 64,
+        colorDark: '#000000', colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.H  // High = lebih tahan kecil
+    });
+
+    function printLabel() {
+        const s = document.createElement('style');
+        s.id = 'page-label';
+        // 24mm lebar, 30mm panjang — scale 100% langsung pas
+        s.textContent = `@media print { @page { size: 24mm auto; margin: 0; } }`;
+        document.head.appendChild(s);
+
+        document.body.classList.add('mode-label');
+        window.print();
+
+        setTimeout(() => {
+            document.body.classList.remove('mode-label');
+            const el = document.getElementById('page-label');
+            if (el) el.remove();
+        }, 1500);
+    }
 </script>
 </body>
 </html>
