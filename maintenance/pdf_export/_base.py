@@ -249,7 +249,10 @@ def draw_pengesahan(c, y, info, signatures=None):
     y = _draw(c, ttl, ML, y)
 
     # ── Zona TTD ──────────────────────────────────────────────────
-    zt = y; zh = _TTD_ZONE_H; zb = zt - zh
+    # ── Zona TTD — tinggi dinamis sesuai jumlah pelaksana ────────────
+    n_names = len([n for n in technicians.split(',') if n.strip()]) if technicians else 0
+    dynamic_h = max(_TTD_ZONE_H, (10 + n_names * 8) * mm)
+    zt = y; zh = dynamic_h; zb = zt - zh
     c.setStrokeColor(C_GRAY_LINE); c.setLineWidth(0.4)
     c.rect(ML,        zb, AM_W,  zh, fill=0, stroke=1)
     c.rect(ML + AM_W, zb, TEK_W, zh, fill=0, stroke=1)
@@ -273,13 +276,22 @@ def draw_pengesahan(c, y, info, signatures=None):
         c.restoreState()
 
     # Daftar nama pelaksana di kolom kanan
+    # Daftar nama pelaksana di kolom kanan — pakai Table agar auto-height
     if technicians:
         names = [n.strip() for n in technicians.split(',') if n.strip()]
-        c.setFont('Helvetica-Bold', 7); c.setFillColor(colors.HexColor('#475569'))
-        c.drawString(ML + AM_W + 6*mm, zt - 7*mm, 'Nama Pelaksana:')
-        c.setFont('Helvetica', 8); c.setFillColor(colors.HexColor('#0F172A'))
-        for i, name in enumerate(names):
-            c.drawString(ML + AM_W + 6*mm, zt - (13 + i*8)*mm, f'{i+1}.  {name}')
+        name_rows = [[_p('Nama Pelaksana:', 7, True, C_GRAY_TXT)]] + \
+                    [[_p(f'{i+1}.  {name}', 8)] for i, name in enumerate(names)]
+        name_tbl = Table(name_rows, colWidths=[TEK_W - 4*mm])
+        name_tbl.setStyle(TableStyle([
+            ('LEFTPADDING',   (0,0),(-1,-1), 6*mm),
+            ('TOPPADDING',    (0,0),(-1,-1), 3),
+            ('BOTTOMPADDING', (0,0),(-1,-1), 3),
+            ('VALIGN',        (0,0),(-1,-1), 'TOP'),
+        ]))
+        tw, th = name_tbl.wrapOn(c, TEK_W, H)
+        # Gambar di tengah vertikal kolom kanan jika muat, atau dari atas
+        name_y = max(zb + 2*mm, zt - th - 2*mm)
+        name_tbl.drawOn(c, ML + AM_W, name_y)
 
     y = zb
 
