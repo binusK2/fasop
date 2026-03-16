@@ -235,7 +235,7 @@ def draw_pengesahan(c, y, info, signatures=None):
 
     # ── Sub-header "Asisten Manager Operasi" ──────────────────────
     ttl = Table([
-        [_p('Asisten Manager Operasi', 7, True, C_GRAY_TXT, TA_CENTER),
+        [_p('Asisten Manager Fasilitas Operasi', 7, True, C_GRAY_TXT, TA_CENTER),
          _p('', 7)]
     ], colWidths=[AM_W, TEK_W])
     ttl.setStyle(TableStyle([
