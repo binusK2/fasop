@@ -17,7 +17,9 @@ from ._base import (
     C_GRAY_TXT,
     TA_CENTER,
     CW,
-    ML
+    ML,
+    W,
+    H,
 )
 
 
