@@ -543,15 +543,13 @@
             {% endwith %}
             {% endfor %}
 
-            <a href="{% url 'lokasi_list' %}"
-               class="sidebar-link {% if url_name == 'lokasi_list' %}active{% endif %}">
-                <span class="si-icon"><i class="bi bi-geo-alt"></i></span>
-                Daftar Site
-            </a>
+            
         </div>
 
         {% endwith %}
     </div>
+
+
 
     <div class="sidebar-section">
         <div class="sidebar-section-label">Pemeliharaan</div>
@@ -579,6 +577,15 @@
             </a>
         </div>
         {% endwith %}
+    </div>
+
+    <div class="sidebar-section">
+        <div class="sidebar-section-label">Site peralatan</div>
+        <a href="{% url 'lokasi_list' %}"
+            class="sidebar-link {% if request.resolver_match.url_name == 'lokasi_list' %}active{% endif %}">
+            <span class="si-icon"><i class="bi bi-geo-alt"></i></span>
+            Daftar Site
+        </a>
     </div>
 
     <div class="sidebar-section">
