@@ -10,6 +10,7 @@ from io import BytesIO
 import openpyxl
 import json
 from datetime import date as date_cls
+from django.utils import timezone as dj_timezone
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from datetime import date
@@ -622,7 +623,7 @@ def export_maintenance_pdf(request, pk):
         ) or '-'
 
     data = {
-        'print_date':  date_cls.today().strftime('%d %B %Y'),
+        'print_date':  dj_timezone.localtime(dj_timezone.now()).strftime('%d %B %Y  %H:%M'),
         'print_by':    request.user.get_full_name() or request.user.username,
         'device_kind': device_kind,
         'signatures':  sigs,
@@ -635,7 +636,7 @@ def export_maintenance_pdf(request, pk):
             'serial_number':    _g(device, 'serial_number', '-'),
             'merk':            _g(device, 'merk', '-'),
             'type':             _g(device, 'type', '-'),
-            'date':             maintenance.date.strftime('%d %B %Y  %H:%M'),
+            'date':             dj_timezone.localtime(maintenance.date).strftime('%d %B %Y  %H:%M'),
             'maintenance_type': maintenance.maintenance_type,
             'technician':       techs_str,
             'status':           maintenance.status,
@@ -790,8 +791,8 @@ def export_maintenance_pdf(request, pk):
     build_pdf(data, buffer)
     buffer.seek(0)
 
-    filename = (f"laporan_{device.nama}_{maintenance.date}.pdf"
-                .replace(' ', '_').replace('/', '-'))
+    clean_date = dj_timezone.localtime(maintenance.date).strftime('%d-%m-%Y_%H.%M')
+    filename = f"LAPORAN_PEMELIHARAAN_{device.nama}_{clean_date}.pdf".replace(' ', '_')
     response = HttpResponse(buffer, content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     return response
