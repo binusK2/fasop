@@ -25,5 +25,7 @@ def build_pdf(data: dict, output_path):
     y = draw_info(c, y, info)
     y = _MAP.get(kind, generic).render(c, y, data)
     y = draw_pengesahan(c, y, info, signatures=data.get('signatures'))
-    draw_footer(c)
+    draw_footer(c,
+                print_by=data.get('print_by', ''),
+                print_date=data.get('print_date', ''))
     c.save()

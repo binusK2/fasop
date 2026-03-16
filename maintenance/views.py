@@ -623,6 +623,7 @@ def export_maintenance_pdf(request, pk):
 
     data = {
         'print_date':  date_cls.today().strftime('%d %B %Y'),
+        'print_by':    request.user.get_full_name() or request.user.username,
         'device_kind': device_kind,
         'signatures':  sigs,
 
