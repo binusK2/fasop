@@ -25,6 +25,7 @@ class Device(models.Model):
     lokasi = models.CharField(max_length=150)
     keterangan = models.TextField(blank=True, null=True)
     foto = models.ImageField(upload_to='device_photos/', blank=True, null=True)
+    foto2 = models.ImageField(upload_to='device_photos/', blank=True, null=True, verbose_name='Foto 2')
     created_at = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(
         User,

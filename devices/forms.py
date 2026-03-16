@@ -41,6 +41,7 @@ class DeviceForm(forms.ModelForm):
             })
 
             self.fields['foto'].widget.attrs.update({'class': 'form-control'})
+            self.fields['foto2'].widget.attrs.update({'class': 'form-control'})
 
     
 
