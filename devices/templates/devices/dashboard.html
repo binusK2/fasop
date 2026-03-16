@@ -94,7 +94,7 @@
         <div class="card h-100">
             <div class="card-body">
                 <h6 style="font-size:13px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;" class="mb-3">Distribusi Jenis Perangkat</h6>
-                <canvas id="deviceDoughnut" style="max-height:210px;"></canvas>
+                <canvas id="deviceBarChart" style="max-height:220px;"></canvas>
             </div>
         </div>
     </div>
@@ -102,7 +102,7 @@
         <div class="card h-100">
             <div class="card-body">
                 <h6 style="font-size:13px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;" class="mb-3">Trend Pemeliharaan 6 Bulan Terakhir</h6>
-                <canvas id="maintenanceLine" style="max-height:210px;"></canvas>
+                <canvas id="maintenanceLine" style="max-height:220px;"></canvas>
             </div>
         </div>
     </div>
@@ -111,37 +111,62 @@
 <!-- BOTTOM ROW -->
 <div class="row g-3">
 
-    <!-- Perangkat per Jenis -->
+    <!-- Maintenance per Lokasi -->
     <div class="col-md-6">
         <div class="table-card">
             <div class="table-header">
-                <h6>Perangkat per Jenis</h6>
-                <a href="{% url 'device_list' %}" class="btn btn-sm btn-outline-primary">Lihat Semua</a>
+                <h6><i class="bi bi-geo-alt me-1" style="color:#3b82f6;"></i>Maintenance per Lokasi</h6>
+                <a href="{% url 'maintenance_list' %}" class="btn btn-sm btn-outline-primary">Lihat Semua</a>
             </div>
             <table class="table">
                 <thead>
                     <tr>
-                        <th>Jenis</th>
-                        <th>Jumlah</th>
+                        <th>Lokasi</th>
+                        <th style="text-align:center;width:70px;">Total</th>
+                        <th style="text-align:center;width:65px;">Open</th>
+                        <th style="text-align:center;width:65px;">Done</th>
                         <th style="width:120px;"></th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for d in device_by_type %}
+                    {% for row in maintenance_by_lokasi %}
                     <tr>
                         <td>
-                            <a href="{% url 'device_list' %}?jenis={{ d.jenis__id }}" class="text-decoration-none fw-500" style="font-size:13px;">
-                                {{ d.jenis__name|default:"(Tidak ada jenis)" }}
+                            <a href="{% url 'maintenance_list' %}?lokasi={{ row.device__lokasi }}"
+                               class="text-decoration-none" style="font-size:13px;font-weight:500;color:#1e293b;">
+                                {{ row.device__lokasi }}
                             </a>
                         </td>
-                        <td><span class="mono" style="font-weight:700;">{{ d.total }}</span></td>
+                        <td style="text-align:center;">
+                            <span style="font-size:13px;font-weight:700;color:#1e293b;">{{ row.total }}</span>
+                        </td>
+                        <td style="text-align:center;">
+                            {% if row.open %}
+                            <span style="font-size:11.5px;font-weight:600;background:#dbeafe;color:#1d4ed8;padding:2px 9px;border-radius:20px;">{{ row.open }}</span>
+                            {% else %}
+                            <span style="color:#cbd5e1;font-size:12px;">—</span>
+                            {% endif %}
+                        </td>
+                        <td style="text-align:center;">
+                            {% if row.done %}
+                            <span style="font-size:11.5px;font-weight:600;background:#dcfce7;color:#065f46;padding:2px 9px;border-radius:20px;">{{ row.done }}</span>
+                            {% else %}
+                            <span style="color:#cbd5e1;font-size:12px;">—</span>
+                            {% endif %}
+                        </td>
                         <td>
                             <div class="d-flex align-items-center gap-2">
                                 <div style="flex:1;height:6px;background:#f1f5f9;border-radius:3px;overflow:hidden;">
-                                    <div style="height:100%;background:#3b82f6;border-radius:3px;width:{{ d.pct }}%;"></div>
+                                    <div style="height:100%;background:#3b82f6;border-radius:3px;width:{% widthratio row.total max_lokasi 100 %}%;"></div>
                                 </div>
-                                <span style="font-size:11px;color:#94a3b8;width:28px;">{{ d.pct }}%</span>
+                                <span style="font-size:11px;color:#94a3b8;width:28px;">{% widthratio row.total max_lokasi 100 %}%</span>
                             </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center text-muted py-4">
+                            <i class="bi bi-inbox fs-4 d-block mb-1"></i>Belum ada data
                         </td>
                     </tr>
                     {% endfor %}
@@ -162,6 +187,7 @@
                     <tr>
                         <th>Tanggal</th>
                         <th>Perangkat</th>
+                        <th>Pelaksana</th>
                         <th>Tipe</th>
                         <th></th>
                     </tr>
@@ -169,10 +195,24 @@
                 <tbody>
                     {% for m in recent_open_maintenance %}
                     <tr>
-                        <td style="font-size:12px;color:#64748b;white-space:nowrap;">{{ m.date|date:"d M Y" }}</td>
+                        <td style="white-space:nowrap;">
+                            <div style="font-size:12.5px;font-weight:600;color:#1e293b;">{{ m.date|date:"d M Y" }}</div>
+                            <div style="font-size:11px;color:#94a3b8;"><i class="bi bi-clock" style="font-size:10px;"></i> {{ m.date|date:"H:i" }}</div>
+                        </td>
                         <td>
                             <div style="font-size:13px;font-weight:500;">{{ m.device.nama }}</div>
                             <div style="font-size:11px;color:#94a3b8;">{{ m.device.lokasi }}</div>
+                        </td>
+                        <td>
+                            {% if m.pelaksana_names %}
+                            <div style="display:flex;flex-wrap:wrap;gap:3px;">
+                                {% for n in m.pelaksana_names %}
+                                <span style="font-size:10.5px;background:#eff6ff;color:#1d4ed8;padding:1px 7px;border-radius:20px;white-space:nowrap;">{{ n }}</span>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <span style="color:#cbd5e1;font-size:12px;">—</span>
+                            {% endif %}
                         </td>
                         <td>
                             <span style="font-size:11px;padding:2px 8px;border-radius:20px;font-weight:500;
@@ -181,14 +221,14 @@
                             </span>
                         </td>
                         <td>
-                            <a href="{% url 'maintenance_view' m.id %}" class="btn btn-sm btn-outline-secondary">
+                            <a href="{% url 'maintenance_view' m.id %}" class="btn btn-sm btn-outline-secondary" style="padding:3px 8px;">
                                 <i class="bi bi-arrow-right"></i>
                             </a>
                         </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="4" class="text-center text-muted py-4">
+                        <td colspan="5" class="text-center text-muted py-4">
                             <i class="bi bi-check-circle text-success fs-4 d-block mb-1"></i>
                             Tidak ada maintenance open
                         </td>
@@ -211,37 +251,57 @@ const chartDefaults = {
 };
 Chart.defaults.font.family = "'DM Sans', sans-serif";
 
-// DOUGHNUT - Jenis Perangkat
-new Chart(document.getElementById('deviceDoughnut'), {
-    type: 'doughnut',
+// HORIZONTAL BAR - Jenis Perangkat
+const barLabels = [{% for d in device_by_type %}"{{ d.jenis__name|default:'Lainnya' }}"{% if not forloop.last %},{% endif %}{% endfor %}];
+const barData   = [{% for d in device_by_type %}{{ d.total }}{% if not forloop.last %},{% endif %}{% endfor %}];
+const barColors = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec4899','#84cc16','#f97316','#64748b'];
+
+new Chart(document.getElementById('deviceBarChart'), {
+    type: 'bar',
     data: {
-        labels: [{% for d in device_by_type %}"{{ d.jenis__name|default:'Lainnya' }}"{% if not forloop.last %},{% endif %}{% endfor %}],
+        labels: barLabels,
         datasets: [{
-            data: [{% for d in device_by_type %}{{ d.total }}{% if not forloop.last %},{% endif %}{% endfor %}],
-            backgroundColor: ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec4899','#84cc16','#f97316','#64748b'],
-            borderWidth: 3,
-            borderColor: '#fff',
-            hoverOffset: 6
+            data: barData,
+            backgroundColor: barColors.slice(0, barLabels.length).map(c => c + 'cc'),
+            borderColor:     barColors.slice(0, barLabels.length),
+            borderWidth: 1.5,
+            borderRadius: 6,
+            borderSkipped: false,
         }]
     },
     options: {
+        indexAxis: 'y',
         responsive: true,
-        cutout: '68%',
         plugins: {
-            legend: {
-                position: 'right',
-                labels: { font: { size: 12 }, padding: 14, usePointStyle: true }
+            legend: { display: false },
+            tooltip: {
+                backgroundColor: '#0f172a',
+                padding: 10,
+                cornerRadius: 8,
+                callbacks: { label: ctx => `  ${ctx.parsed.x} perangkat` }
+            }
+        },
+        scales: {
+            x: {
+                beginAtZero: true,
+                ticks: { stepSize: 1, precision: 0, font: { size: 11 }, color: '#94a3b8' },
+                grid: { color: '#f1f5f9' },
+                border: { display: false }
             },
-            tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed}` } }
+            y: {
+                ticks: { font: { size: 11 }, color: '#334155' },
+                grid: { display: false },
+                border: { display: false }
+            }
         }
     }
 });
 
-// LINE - Maintenance per bulan
+// LINE - Maintenance per bulan (selalu 6 bulan)
 new Chart(document.getElementById('maintenanceLine'), {
     type: 'line',
     data: {
-        labels: [{% for m in maintenance_by_month %}"{{ m.month|date:'M Y' }}"{% if not forloop.last %},{% endif %}{% endfor %}],
+        labels: [{% for m in maintenance_by_month %}"{{ m.month_label }}"{% if not forloop.last %},{% endif %}{% endfor %}],
         datasets: [{
             label: 'Jumlah Maintenance',
             data: [{% for m in maintenance_by_month %}{{ m.total }}{% if not forloop.last %},{% endif %}{% endfor %}],

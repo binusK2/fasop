@@ -19,31 +19,28 @@ class MaintenanceForm(forms.ModelForm):
         input_formats=['%Y-%m-%dT%H:%M']
     )
 
+    # Field khusus untuk menerima input pelaksana dari tag-input JS
+    pelaksana_input = forms.CharField(
+        required=False,
+        widget=forms.HiddenInput(attrs={'id': 'id_pelaksana_input'})
+    )
+
     class Meta:
         model  = Maintenance
         fields = '__all__'
-        exclude = ['device', 'created_at']
+        exclude = ['device', 'created_at', 'technicians']
         widgets = {
             'maintenance_type': forms.Select(attrs={'class': 'form-select'}),
             'description':      forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
-            'technicians':      forms.CheckboxSelectMultiple(attrs={'class': 'technician-checkbox-list'}),
             'status':           forms.Select(attrs={'class': 'form-select'}),
             'photo':            forms.FileInput(attrs={'class': 'form-control'}),
+            'pelaksana_names':  forms.HiddenInput(attrs={'id': 'id_pelaksana_names'}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Hanya tampilkan user dengan role teknisi
-        from django.contrib.auth.models import User
-        from devices.models import UserProfile
-        technician_ids = UserProfile.objects.filter(
-            role='technician'
-        ).values_list('user_id', flat=True)
-        self.fields['technicians'].queryset = User.objects.filter(
-            id__in=technician_ids, is_active=True
-        ).order_by('first_name', 'username')
         for name, field in self.fields.items():
-            if not isinstance(field.widget, (forms.RadioSelect, forms.DateTimeInput)):
+            if not isinstance(field.widget, (forms.RadioSelect, forms.DateTimeInput, forms.HiddenInput)):
                 if not field.widget.attrs.get('class'):
                     field.widget.attrs['class'] = 'form-control'
 

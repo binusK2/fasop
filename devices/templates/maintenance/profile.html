@@ -53,6 +53,38 @@
 
     <!-- Tanda Tangan -->
     <div class="col-md-8">
+        <!-- Nama Tampilan (Alias) -->
+        <div class="card mb-3">
+            <div class="card-body px-4 py-4">
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <span style="width:5px;height:18px;background:#8b5cf6;border-radius:3px;display:inline-block;"></span>
+                    <h6 class="mb-0" style="font-size:13px;font-weight:700;color:#0f172a;">Nama Tampilan di PDF</h6>
+                </div>
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label style="font-size:12px;font-weight:700;color:#475569;margin-bottom:6px;display:block;">
+                            Alias / Nama Lengkap
+                        </label>
+                        <input type="text" name="display_name" value="{{ profile.display_name }}"
+                               class="form-control" style="font-size:13px;"
+                               placeholder="Contoh: Ir. Bambang Sutrisno, M.T.">
+                        <div style="font-size:11.5px;color:#94a3b8;margin-top:6px;">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Nama ini akan muncul di PDF laporan bagian
+                            {% if profile.role == 'asisten_manager' %}<strong>Asisten Manager</strong>{% else %}<strong>Pelaksana</strong>{% endif %}.
+                            Jika kosong, otomatis pakai nama akun
+                            <strong>{{ request.user.get_full_name|default:request.user.username }}</strong>.
+                        </div>
+                    </div>
+                    <button type="submit" name="save_display_name" class="btn btn-sm"
+                            style="background:#8b5cf6;color:#fff;border:none;font-size:13px;font-weight:600;border-radius:8px;padding:6px 18px;">
+                        <i class="bi bi-check-lg me-2"></i>Simpan Nama
+                    </button>
+                </form>
+            </div>
+        </div>
+
         <div class="card">
             <div class="card-body px-4 py-4">
                 <div class="d-flex align-items-center gap-2 mb-4">

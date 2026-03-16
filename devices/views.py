@@ -10,6 +10,8 @@ from django.http import HttpResponse
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
+from datetime import date as date_type
+from dateutil.relativedelta import relativedelta
 import json
 from .device_schema import DEVICE_SCHEMA
 
@@ -84,6 +86,7 @@ def device_create(request):
                 device.spesifikasi = json.loads(spesifikasi_raw)
             except (json.JSONDecodeError, ValueError):
                 device.spesifikasi = {}
+            device.created_by = request.user
             device.save()
             return redirect('device_list')
     else:
@@ -153,21 +156,39 @@ def dashboard(request):
     maintenance_done = Maintenance.objects.filter(status='Done').count()
     belum_ttd = Maintenance.objects.filter(status='Done', signed_by__isnull=True).count()
 
-    maintenance_by_month = (
+    # Selalu tampilkan 6 bulan terakhir, isi 0 jika tidak ada data
+    today = date_type.today()
+    months_6 = [today.replace(day=1) - relativedelta(months=i) for i in range(5, -1, -1)]
+    counts_qs = (
         Maintenance.objects
         .annotate(month=TruncMonth('date'))
         .values('month')
         .annotate(total=Count('id'))
-        .order_by('month')
     )
+    counts_map = {m['month'].date().replace(day=1): m['total'] for m in counts_qs}
+    maintenance_by_month = [
+        {'month_label': m.strftime('%b %Y'), 'total': counts_map.get(m, 0)}
+        for m in months_6
+    ]
 
-    # Maintenance open terbaru (5 record)
+    # Maintenance open terbaru (5 record) — tangkap status 'Open' maupun blank/null
     recent_open_maintenance = (
         Maintenance.objects
-        .filter(status='Open')
-        .select_related('device')
+        .exclude(status='Done')
+        .select_related('device', 'device__jenis')
         .order_by('-date')[:5]
     )
+
+    # Maintenance per lokasi (top 8)
+    maintenance_by_lokasi = (
+        Maintenance.objects
+        .exclude(device__lokasi__isnull=True)
+        .exclude(device__lokasi__exact='')
+        .values('device__lokasi')
+        .annotate(total=Count('id'), open=Count('id', filter=Q(status='Open')), done=Count('id', filter=Q(status='Done')))
+        .order_by('-total')[:8]
+    )
+    max_lokasi = maintenance_by_lokasi[0]['total'] if maintenance_by_lokasi else 1
 
     return render(request, 'devices/dashboard.html', {
         'total_devices': total_devices,
@@ -178,6 +199,8 @@ def dashboard(request):
         'belum_ttd': belum_ttd,
         'maintenance_by_month': maintenance_by_month,
         'recent_open_maintenance': recent_open_maintenance,
+        'maintenance_by_lokasi':   maintenance_by_lokasi,
+        'max_lokasi':              max_lokasi,
     })
 
 
@@ -281,6 +304,8 @@ def layanan_icon(request):
     # Filter
     search = request.GET.get('q', '').strip()
     selected_kondisi = request.GET.get('kondisi', '').strip()
+    sort_by  = request.GET.get('sort', 'name')
+    sort_dir = request.GET.get('dir', 'asc')
 
     if search:
         icons = icons.filter(
@@ -292,6 +317,20 @@ def layanan_icon(request):
         )
     if selected_kondisi:
         icons = icons.filter(kondisi_operasional__icontains=selected_kondisi)
+
+    # Sort
+    SORT_FIELDS = {
+        'name':     'name',
+        'lokasi':   'lokasi_layanan',
+        'bandwidth':'bandwidth',
+        'sid1':     'SID1',
+        'kontrak':  'kontrak',
+        'kondisi':  'kondisi_operasional',
+    }
+    order_field = SORT_FIELDS.get(sort_by, 'name')
+    if sort_dir == 'desc':
+        order_field = '-' + order_field
+    icons = icons.order_by(order_field)
 
     icons = list(icons)
 
@@ -330,6 +369,8 @@ def layanan_icon(request):
         'operasi_baik':     operasi_baik,
         'gangguan':         operasi_gangguan,
         'lainnya':          operasi_lain,
+        'sort_by':          sort_by,
+        'sort_dir':         sort_dir,
     })
 
 

@@ -83,13 +83,93 @@
             <thead>
                 <tr style="text-align: center;">
                     <th style="width:40px;">#</th>
-                    <th>Nama Layanan</th>
-                    <th>Lokasi</th>
-                    <th>Bandwidth</th>
-                    <th>SID 1</th>
+
+                    {% with col="name" label="Nama Layanan" %}
+                    <th style="text-align:left;">
+                        <a href="?q={{ search }}&kondisi={{ selected_kondisi }}&sort={{ col }}&dir={% if sort_by == col and sort_dir == 'asc' %}desc{% else %}asc{% endif %}"
+                           style="text-decoration:none;color:inherit;display:inline-flex;align-items:center;gap:4px;">
+                            {{ label }}
+                            {% if sort_by == col %}
+                                <i class="bi bi-arrow-{% if sort_dir == 'asc' %}up{% else %}down{% endif %}-short" style="color:#3b82f6;"></i>
+                            {% else %}
+                                <i class="bi bi-arrow-down-up" style="color:#cbd5e1;font-size:10px;"></i>
+                            {% endif %}
+                        </a>
+                    </th>
+                    {% endwith %}
+
+                    {% with col="lokasi" label="Lokasi" %}
+                    <th>
+                        <a href="?q={{ search }}&kondisi={{ selected_kondisi }}&sort={{ col }}&dir={% if sort_by == col and sort_dir == 'asc' %}desc{% else %}asc{% endif %}"
+                           style="text-decoration:none;color:inherit;display:inline-flex;align-items:center;gap:4px;">
+                            {{ label }}
+                            {% if sort_by == col %}
+                                <i class="bi bi-arrow-{% if sort_dir == 'asc' %}up{% else %}down{% endif %}-short" style="color:#3b82f6;"></i>
+                            {% else %}
+                                <i class="bi bi-arrow-down-up" style="color:#cbd5e1;font-size:10px;"></i>
+                            {% endif %}
+                        </a>
+                    </th>
+                    {% endwith %}
+
+                    {% with col="bandwidth" label="Bandwidth" %}
+                    <th>
+                        <a href="?q={{ search }}&kondisi={{ selected_kondisi }}&sort={{ col }}&dir={% if sort_by == col and sort_dir == 'asc' %}desc{% else %}asc{% endif %}"
+                           style="text-decoration:none;color:inherit;display:inline-flex;align-items:center;gap:4px;">
+                            {{ label }}
+                            {% if sort_by == col %}
+                                <i class="bi bi-arrow-{% if sort_dir == 'asc' %}up{% else %}down{% endif %}-short" style="color:#3b82f6;"></i>
+                            {% else %}
+                                <i class="bi bi-arrow-down-up" style="color:#cbd5e1;font-size:10px;"></i>
+                            {% endif %}
+                        </a>
+                    </th>
+                    {% endwith %}
+
+                    {% with col="sid1" label="SID 1" %}
+                    <th>
+                        <a href="?q={{ search }}&kondisi={{ selected_kondisi }}&sort={{ col }}&dir={% if sort_by == col and sort_dir == 'asc' %}desc{% else %}asc{% endif %}"
+                           style="text-decoration:none;color:inherit;display:inline-flex;align-items:center;gap:4px;">
+                            {{ label }}
+                            {% if sort_by == col %}
+                                <i class="bi bi-arrow-{% if sort_dir == 'asc' %}up{% else %}down{% endif %}-short" style="color:#3b82f6;"></i>
+                            {% else %}
+                                <i class="bi bi-arrow-down-up" style="color:#cbd5e1;font-size:10px;"></i>
+                            {% endif %}
+                        </a>
+                    </th>
+                    {% endwith %}
+
                     <th>SID 2</th>
-                    <th>Kontrak</th>
-                    <th>Kondisi</th>
+
+                    {% with col="kontrak" label="Kontrak" %}
+                    <th>
+                        <a href="?q={{ search }}&kondisi={{ selected_kondisi }}&sort={{ col }}&dir={% if sort_by == col and sort_dir == 'asc' %}desc{% else %}asc{% endif %}"
+                           style="text-decoration:none;color:inherit;display:inline-flex;align-items:center;gap:4px;">
+                            {{ label }}
+                            {% if sort_by == col %}
+                                <i class="bi bi-arrow-{% if sort_dir == 'asc' %}up{% else %}down{% endif %}-short" style="color:#3b82f6;"></i>
+                            {% else %}
+                                <i class="bi bi-arrow-down-up" style="color:#cbd5e1;font-size:10px;"></i>
+                            {% endif %}
+                        </a>
+                    </th>
+                    {% endwith %}
+
+                    {% with col="kondisi" label="Kondisi" %}
+                    <th>
+                        <a href="?q={{ search }}&kondisi={{ selected_kondisi }}&sort={{ col }}&dir={% if sort_by == col and sort_dir == 'asc' %}desc{% else %}asc{% endif %}"
+                           style="text-decoration:none;color:inherit;display:inline-flex;align-items:center;gap:4px;">
+                            {{ label }}
+                            {% if sort_by == col %}
+                                <i class="bi bi-arrow-{% if sort_dir == 'asc' %}up{% else %}down{% endif %}-short" style="color:#3b82f6;"></i>
+                            {% else %}
+                                <i class="bi bi-arrow-down-up" style="color:#cbd5e1;font-size:10px;"></i>
+                            {% endif %}
+                        </a>
+                    </th>
+                    {% endwith %}
+
                     <th>Keterangan</th>
                     <th style="width:100px;">Aksi</th>
                 </tr>

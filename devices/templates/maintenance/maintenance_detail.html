@@ -54,6 +54,7 @@
                 <div>
                     <div style="font-size:10px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Tanggal</div>
                     <div style="font-size:13px;font-weight:700;color:#e2e8f0;">{{ maintenance.date|date:"d M Y" }}</div>
+                    <div style="font-size:11.5px;color:#94a3b8;">{{ maintenance.date|date:"H:i" }} WIB</div>
                 </div>
                 <div>
                     <div style="font-size:10px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Jenis</div>
@@ -61,7 +62,7 @@
                 </div>
                 <div>
                     <div style="font-size:10px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Pelaksana</div>
-                    <div style="font-size:13px;color:#e2e8f0;">{% for t in maintenance.technicians.all %}{{ t.get_full_name|default:t.username }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}</div>
+                    <div style="font-size:13px;color:#e2e8f0;">{% if maintenance.pelaksana_names %}{% for n in maintenance.pelaksana_names %}{{ n }}{% if not forloop.last %}, {% endif %}{% endfor %}{% else %}—{% endif %}</div>
                 </div>
                 <div>
                     <div style="font-size:10px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Status</div>
@@ -77,6 +78,11 @@
                     <span style="font-size:11px;font-weight:700;color:#065f46;background:#dcfce7;padding:3px 10px;border-radius:20px;">
                         <i class="bi bi-patch-check-fill me-1"></i>{{ maintenance.signed_by.get_full_name|default:maintenance.signed_by.username }}
                     </span>
+                    {% if maintenance.catatan_am %}
+                    <div style="font-size:11px;color:#94a3b8;margin-top:4px;max-width:220px;white-space:normal;line-height:1.4;">
+                        <i class="bi bi-chat-left-text me-1"></i>{{ maintenance.catatan_am|truncatechars:80 }}
+                    </div>
+                    {% endif %}
                     {% else %}
                     <span style="font-size:11px;font-weight:600;color:#92400e;background:#fef3c7;padding:3px 10px;border-radius:20px;">
                         <i class="bi bi-clock-history me-1"></i>Belum TTD
@@ -99,12 +105,10 @@
                     <i class="bi bi-file-earmark-pdf me-1"></i>PDF
                 </a>
                 {% if request.user.profile.is_asisten_manager and not maintenance.signed_by %}
-                <form method="post" action="{% url 'maintenance_sign' maintenance.id %}" class="m-0">
-                    {% csrf_token %}
-                    <button class="btn btn-sm px-3" style="background:rgba(16,185,129,0.2);color:#6ee7b7;border:1px solid rgba(16,185,129,0.35);font-size:12px;font-weight:600;">
-                        <i class="bi bi-pen me-1"></i>Sign
-                    </button>
-                </form>
+                <button type="button" class="btn btn-sm px-3" data-bs-toggle="modal" data-bs-target="#modalSign"
+                    style="background:rgba(16,185,129,0.2);color:#6ee7b7;border:1px solid rgba(16,185,129,0.35);font-size:12px;font-weight:600;">
+                    <i class="bi bi-pen me-1"></i>Sign
+                </button>
                 {% elif maintenance.signed_by %}
                 <span style="font-size:11.5px;font-weight:600;color:#6ee7b7;padding:0 6px;display:flex;align-items:center;gap:4px;">
                     <i class="bi bi-patch-check-fill"></i>Signed
@@ -804,6 +808,129 @@
 
     </div>
 </div>
+
+{# ── Card Catatan Asisten Manager ─────────────────────────────────── #}
+{% if maintenance.catatan_am or maintenance.signed_by %}
+<div class="card mt-3" style="border:1px solid #e0f2fe;border-left:4px solid #0ea5e9;">
+    <div class="card-body py-3 px-4">
+        <div class="d-flex align-items-start gap-3">
+            <div style="width:36px;height:36px;background:#e0f2fe;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <i class="bi bi-chat-left-quote-fill" style="color:#0284c7;font-size:15px;"></i>
+            </div>
+            <div style="flex:1;">
+                <div class="d-flex align-items-center justify-content-between mb-1">
+                    <div style="font-size:11px;font-weight:700;color:#0369a1;text-transform:uppercase;letter-spacing:0.5px;">
+                        Catatan Asisten Manager
+                    </div>
+                    {% if request.user.profile.is_asisten_manager and maintenance.signed_by %}
+                    <button type="button" class="btn btn-sm" data-bs-toggle="modal" data-bs-target="#modalEditCatatan"
+                        style="font-size:11px;padding:2px 10px;border-radius:20px;background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd;">
+                        <i class="bi bi-pencil me-1"></i>Edit
+                    </button>
+                    {% endif %}
+                </div>
+                {% if maintenance.catatan_am %}
+                <p style="font-size:13.5px;color:#1e293b;margin:0;line-height:1.7;white-space:pre-line;">{{ maintenance.catatan_am }}</p>
+                {% else %}
+                <p style="font-size:13px;color:#94a3b8;margin:0;font-style:italic;">Belum ada catatan.</p>
+                {% endif %}
+                <div style="font-size:11px;color:#94a3b8;margin-top:8px;">
+                    <i class="bi bi-person-fill me-1"></i>{{ maintenance.signed_by.get_full_name|default:maintenance.signed_by.username }}
+                    {% if maintenance.signed_at %}
+                    &nbsp;·&nbsp;<i class="bi bi-clock me-1"></i>{{ maintenance.signed_at|date:"d M Y H:i" }}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{# ── Modal Edit Catatan AM (setelah TTD) ─────────────────────────── #}
+{% if request.user.profile.is_asisten_manager and maintenance.signed_by %}
+<div class="modal fade" id="modalEditCatatan" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:480px;">
+        <div class="modal-content" style="border-radius:16px;border:none;box-shadow:0 20px 60px rgba(0,0,0,0.15);">
+            <div class="modal-header border-0 pb-0 px-4 pt-4">
+                <div class="d-flex align-items-center gap-3">
+                    <div style="width:40px;height:40px;background:#e0f2fe;border-radius:10px;display:flex;align-items:center;justify-content:center;">
+                        <i class="bi bi-chat-left-text-fill" style="color:#0284c7;font-size:16px;"></i>
+                    </div>
+                    <div>
+                        <h5 class="mb-0" style="font-size:16px;font-weight:700;">Edit Catatan AM</h5>
+                        <div style="font-size:12px;color:#94a3b8;">{{ maintenance.device }} — {{ maintenance.date|date:"d M Y" }}</div>
+                    </div>
+                </div>
+                <button type="button" class="btn-close ms-auto" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'maintenance_catatan_am_edit' maintenance.id %}">
+                {% csrf_token %}
+                <div class="modal-body px-4 py-3">
+                    <label class="form-label fw-semibold" style="font-size:13px;">Catatan</label>
+                    <textarea name="catatan_am" class="form-control" rows="5"
+                        style="border-radius:10px;font-size:13px;resize:none;"
+                        placeholder="Tuliskan catatan atau arahan…">{{ maintenance.catatan_am }}</textarea>
+                    <div style="font-size:11.5px;color:#94a3b8;margin-top:6px;">
+                        <i class="bi bi-info-circle me-1"></i>Kosongkan untuk menghapus catatan.
+                    </div>
+                </div>
+                <div class="modal-footer border-0 px-4 pb-4 pt-0 gap-2">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal" style="border-radius:8px;">
+                        Batal
+                    </button>
+                    <button type="submit" class="btn btn-sm px-4" style="background:#0ea5e9;color:#fff;border:none;border-radius:8px;font-weight:600;">
+                        <i class="bi bi-check-lg me-1"></i>Simpan Catatan
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{# ── Modal Sign ───────────────────────────────────────────────────── #}
+{% if request.user.profile.is_asisten_manager and not maintenance.signed_by %}
+<div class="modal fade" id="modalSign" tabindex="-1" aria-labelledby="modalSignLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:480px;">
+        <div class="modal-content" style="border-radius:16px;border:none;box-shadow:0 20px 60px rgba(0,0,0,0.15);">
+            <div class="modal-header border-0 pb-0 px-4 pt-4">
+                <div class="d-flex align-items-center gap-3">
+                    <div style="width:40px;height:40px;background:#dcfce7;border-radius:10px;display:flex;align-items:center;justify-content:center;">
+                        <i class="bi bi-pen-fill" style="color:#16a34a;font-size:16px;"></i>
+                    </div>
+                    <div>
+                        <h5 class="mb-0" style="font-size:16px;font-weight:700;" id="modalSignLabel">Tandatangani Laporan</h5>
+                        <div style="font-size:12px;color:#94a3b8;">{{ maintenance.device }} — {{ maintenance.date|date:"d M Y H:i" }}</div>
+                    </div>
+                </div>
+                <button type="button" class="btn-close ms-auto" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'maintenance_sign' maintenance.id %}">
+                {% csrf_token %}
+                <div class="modal-body px-4 py-3">
+                    <label class="form-label fw-semibold" style="font-size:13px;">
+                        Catatan <span style="color:#94a3b8;font-weight:400;">(opsional)</span>
+                    </label>
+                    <textarea name="catatan_am" class="form-control" rows="4"
+                        style="border-radius:10px;font-size:13px;resize:none;"
+                        placeholder="Tuliskan catatan, arahan, atau komentar untuk laporan ini…"></textarea>
+                    <div style="font-size:11.5px;color:#94a3b8;margin-top:6px;">
+                        <i class="bi bi-info-circle me-1"></i>Catatan akan tampil di halaman detail dan laporan PDF.
+                    </div>
+                </div>
+                <div class="modal-footer border-0 px-4 pb-4 pt-0 gap-2">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal" style="border-radius:8px;">
+                        Batal
+                    </button>
+                    <button type="submit" class="btn btn-success btn-sm px-4" style="border-radius:8px;font-weight:600;">
+                        <i class="bi bi-patch-check me-1"></i>Tandatangani
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 {% endblock %}
 

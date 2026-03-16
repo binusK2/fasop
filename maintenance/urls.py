@@ -14,5 +14,6 @@ urlpatterns = [
     path('export/', views.export_maintenance_excel, name='export_maintenance_excel'),
     path('export-pdf/<int:pk>/', views.export_maintenance_pdf, name='export_maintenance_pdf'),
     path('sign/<int:pk>/', views.maintenance_sign, name='maintenance_sign'),
+    path('catatan-am/<int:pk>/', views.maintenance_catatan_am_edit, name='maintenance_catatan_am_edit'),
     path('profile/', views.profile_view, name='profile_view'),
 ]

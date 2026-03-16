@@ -39,14 +39,9 @@
         <div class="row g-3">
             <div class="col-md-3"><div class="rc-card"><div class="rc-lbl">Jenis Maintenance</div>{{ maintenance_form.maintenance_type }}</div></div>
             <div class="col-md-3"><div class="rc-card"><div class="rc-lbl">Tanggal</div>{{ maintenance_form.date }}</div></div>
-            <div class="col-md-3"><div class="rc-card"><div class="rc-lbl">Pelaksana</div>
-                <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;max-height:130px;overflow-y:auto;">
-                    {% for cb in maintenance_form.technicians %}<div class="form-check mb-1">{{ cb.tag }}<label class="form-check-label" for="{{ cb.id_for_label }}" style="font-size:13px;">{{ cb.choice_label }}</label></div>{% endfor %}
-                </div>
-            </div></div>
-            <div class="col-md-3"><div class="rc-card"><div class="rc-lbl">Status</div>{{ maintenance_form.status }}</div></div>
-            <div class="col-12"><div class="rc-card"><div class="rc-lbl">Deskripsi / Keluhan</div>{{ maintenance_form.description }}</div></div>
-            <div class="col-12"><div class="rc-card"><div class="rc-lbl">Foto Dokumentasi</div>{{ maintenance_form.photo }}</div></div>
+            {% include 'maintenance/_pelaksana_tag_input.html' %}
+            <div class="col-md-8"><div class="rc-card"><div class="rc-lbl">Deskripsi / Keluhan</div>{{ maintenance_form.description }}</div></div>
+            <div class="col-md-4"><div class="rc-card"><div class="rc-lbl">Foto Dokumentasi</div>{{ maintenance_form.photo }}<div class="form-text mt-1">Format: JPG, PNG. Maks 10MB.</div></div></div>
         </div>
     </div>
 </div>

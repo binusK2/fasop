@@ -161,6 +161,11 @@ def draw_info(c, y, info):
         dt = Table([[_p('Deskripsi / Keluhan:',7.5,True),_p(desc,7.5)]],colWidths=[LW,CW-LW])
         dt.setStyle(_grid([('BACKGROUND',(0,0),(0,0),C_GRAY_HEAD)]))
         y = _draw(c, dt, ML, y)
+    catatan_am = (info.get('catatan_am') or '').strip()
+    if catatan_am:
+        ca = Table([[_p('Catatan Asisten Manager:',7.5,True),_p(catatan_am,7.5)]],colWidths=[LW,CW-LW])
+        ca.setStyle(_grid([('BACKGROUND',(0,0),(0,0),colors.HexColor('#E0F2FE'))]))
+        y = _draw(c, ca, ML, y)
     return y
 
 # ── Footer ───────────────────────────────────────────────────────────

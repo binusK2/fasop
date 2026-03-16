@@ -1,0 +1,102 @@
+{# ── Pelaksana Tag-Input (partial template, di-include dari form maintenance) #}
+
+{# Hidden field yang akan dikirim ke server #}
+{{ maintenance_form.pelaksana_names }}
+
+<div class="{% if is_edit %}col-md-3{% else %}col-md-6{% endif %}">
+    <label class="form-label fw-semibold">Pelaksana</label>
+
+    {# Container tag #}
+    <div id="pelaksana-tag-box"
+         style="min-height:80px;border:1px solid #e2e8f0;border-radius:8px;
+                padding:8px 10px;background:#f8fafc;cursor:text;"
+         onclick="document.getElementById('pelaksana-text-input').focus();">
+
+        <div id="pelaksana-tags"
+             style="display:flex;flex-wrap:wrap;gap:5px 6px;margin-bottom:4px;"></div>
+
+        <input id="pelaksana-text-input" type="text"
+               placeholder="Ketik nama, tekan Enter…"
+               autocomplete="off"
+               style="border:none;outline:none;background:transparent;
+                      font-size:13px;width:100%;min-width:120px;" />
+    </div>
+    <div class="form-text">Ketik nama lalu tekan <kbd>Enter</kbd> untuk menambahkan.</div>
+</div>
+
+{% if is_edit %}
+<div class="col-md-3">
+    <label class="form-label fw-semibold">Status</label>
+    {{ maintenance_form.status }}
+</div>
+{% else %}
+{# Saat create: status dikunci Open via hidden input, tidak tampil ke user #}
+<input type="hidden" name="status" value="Open">
+{% endif %}
+
+<script>
+(function () {
+    // Nilai awal saat edit
+    var initial = [];
+    {% if is_edit and pelaksana_names_json %}
+    try { initial = JSON.parse('{{ pelaksana_names_json|escapejs }}'); } catch(e){}
+    {% endif %}
+
+    var names      = initial.slice();
+    var tagsEl     = document.getElementById('pelaksana-tags');
+    var textInput  = document.getElementById('pelaksana-text-input');
+    var hiddenInput = document.getElementById('id_pelaksana_names');
+
+    function sync() {
+        hiddenInput.value = JSON.stringify(names);
+    }
+
+    function render() {
+        tagsEl.innerHTML = '';
+        names.forEach(function (n, i) {
+            var span = document.createElement('span');
+            span.style.cssText =
+                'display:inline-flex;align-items:center;gap:5px;' +
+                'background:#dbeafe;color:#1d4ed8;border-radius:20px;' +
+                'padding:3px 10px;font-size:12px;font-weight:500;white-space:nowrap;';
+            span.innerHTML =
+                '<i class="bi bi-person" style="font-size:11px;"></i>' +
+                '<span>' + escHtml(n) + '</span>' +
+                '<span data-idx="' + i + '" ' +
+                      'style="cursor:pointer;font-size:14px;line-height:1;' +
+                             'color:#93c5fd;margin-left:2px;" ' +
+                      'title="Hapus">&times;</span>';
+            span.querySelector('[data-idx]').addEventListener('click', function () {
+                names.splice(parseInt(this.dataset.idx), 1);
+                render();
+                sync();
+            });
+            tagsEl.appendChild(span);
+        });
+        sync();
+    }
+
+    function escHtml(s) {
+        return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    textInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            var val = textInput.value.trim();
+            if (val) {
+                names.push(val);
+                textInput.value = '';
+                render();
+            }
+        }
+        // Backspace saat input kosong → hapus tag terakhir
+        if (e.key === 'Backspace' && textInput.value === '' && names.length) {
+            names.pop();
+            render();
+        }
+    });
+
+    render(); // tampilkan initial saat edit
+})();
+</script>

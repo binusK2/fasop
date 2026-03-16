@@ -26,6 +26,14 @@ class Device(models.Model):
     keterangan = models.TextField(blank=True, null=True)
     foto = models.ImageField(upload_to='device_photos/', blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_devices',
+        verbose_name='Ditambahkan oleh'
+    )
     deleted_by = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
@@ -60,9 +68,11 @@ class UserProfile(models.Model):
         ('technician',       'Teknisi / Pelaksana'),
         ('asisten_manager',  'Asisten Manager Operasi'),
     )
-    user      = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
-    role      = models.CharField(max_length=30, choices=ROLE_CHOICES, default='technician', verbose_name='Peran')
-    signature = models.ImageField(upload_to='signatures/', blank=True, null=True, verbose_name='Tanda Tangan')
+    user         = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    role         = models.CharField(max_length=30, choices=ROLE_CHOICES, default='technician', verbose_name='Peran')
+    display_name = models.CharField(max_length=150, blank=True, default='', verbose_name='Nama Tampilan / Alias',
+                                    help_text='Nama lengkap yang akan muncul di PDF (opsional). Jika kosong, pakai nama akun.')
+    signature    = models.ImageField(upload_to='signatures/', blank=True, null=True, verbose_name='Tanda Tangan')
 
     class Meta:
         verbose_name = 'Profil Pengguna'
@@ -73,3 +83,7 @@ class UserProfile(models.Model):
     @property
     def is_asisten_manager(self):
         return self.role == 'asisten_manager'
+
+    def get_display_name(self):
+        """Nama yang ditampilkan di PDF: alias > full_name > username."""
+        return self.display_name.strip() or self.user.get_full_name() or self.user.username

@@ -102,6 +102,13 @@ def maintenance_create(request, device_id):
         if mform.is_valid() and (dform is None or dform.is_valid()):
             maintenance = mform.save(commit=False)
             maintenance.device = device
+            maintenance.status = 'Open'  # selalu Open saat baru dibuat
+            # Simpan nama pelaksana manual (JSON array dari tag-input)
+            names_raw = request.POST.get('pelaksana_names', '[]')
+            try:
+                maintenance.pelaksana_names = json.loads(names_raw)
+            except (json.JSONDecodeError, ValueError):
+                maintenance.pelaksana_names = []
             maintenance.save()
 
             if dform:
@@ -363,7 +370,13 @@ def maintenance_edit(request, pk):
         dform = detail_form_class(request.POST, instance=detail_instance) if detail_form_class else None
 
         if mform.is_valid() and (dform is None or dform.is_valid()):
-            mform.save()
+            m = mform.save(commit=False)
+            names_raw = request.POST.get('pelaksana_names', '[]')
+            try:
+                m.pelaksana_names = json.loads(names_raw)
+            except (json.JSONDecodeError, ValueError):
+                m.pelaksana_names = []
+            m.save()
             if dform:
                 detail = dform.save(commit=False)
                 detail.maintenance = maintenance
@@ -386,6 +399,7 @@ def maintenance_edit(request, pk):
         'is_edit':          True,
         'maintenance':      maintenance,
         'slot_fields':      slot_fields_edit,
+        'pelaksana_names_json': json.dumps(maintenance.pelaksana_names or []),
     })
 
 # ─────────────────────────────────────────────────────────────────────
@@ -599,9 +613,13 @@ def export_maintenance_pdf(request, pk):
         except Exception:
             pass
 
-    techs_str = ', '.join(
-        t.get_full_name() or t.username for t in maintenance.technicians.all()
-    ) or '-'
+    # Nama pelaksana: prioritaskan pelaksana_names (input manual), fallback ke User M2M
+    if maintenance.pelaksana_names:
+        techs_str = ', '.join(n for n in maintenance.pelaksana_names if n)
+    else:
+        techs_str = ', '.join(
+            t.get_full_name() or t.username for t in maintenance.technicians.all()
+        ) or '-'
 
     data = {
         'print_date':  date_cls.today().strftime('%d %B %Y'),
@@ -616,11 +634,13 @@ def export_maintenance_pdf(request, pk):
             'serial_number':    _g(device, 'serial_number', '-'),
             'merk':            _g(device, 'merk', '-'),
             'type':             _g(device, 'type', '-'),
-            'date':             maintenance.date.strftime('%d %B %Y'),
+            'date':             maintenance.date.strftime('%d %B %Y  %H:%M'),
             'maintenance_type': maintenance.maintenance_type,
             'technician':       techs_str,
             'status':           maintenance.status,
             'description':      maintenance.description or '',
+            'catatan_am':       maintenance.catatan_am or '',
+            'signed_by':        maintenance.signed_by.profile.get_display_name() if maintenance.signed_by and hasattr(maintenance.signed_by, 'profile') else (maintenance.signed_by.get_full_name() or maintenance.signed_by.username if maintenance.signed_by else ''),
         },
 
         'fisik': {
@@ -799,9 +819,34 @@ def maintenance_sign(request, pk):
     if request.method == 'POST':
         maintenance.signed_by = request.user
         maintenance.signed_at = timezone.now()
-        maintenance.save(update_fields=['signed_by', 'signed_at'])
+        maintenance.catatan_am = request.POST.get('catatan_am', '').strip()
+        maintenance.save(update_fields=['signed_by', 'signed_at', 'catatan_am'])
         from django.contrib import messages
         messages.success(request, 'Laporan berhasil ditandatangani.')
+
+    return redirect('maintenance_view', pk=pk)
+
+
+@login_required
+def maintenance_catatan_am_edit(request, pk):
+    """Asisten Manager mengedit / menambah catatan setelah TTD."""
+    maintenance = get_object_or_404(Maintenance, pk=pk)
+
+    try:
+        is_am = request.user.profile.is_asisten_manager
+    except Exception:
+        is_am = False
+
+    if not is_am:
+        from django.contrib import messages
+        messages.error(request, 'Hanya Asisten Manager yang dapat mengubah catatan.')
+        return redirect('maintenance_view', pk=pk)
+
+    if request.method == 'POST':
+        maintenance.catatan_am = request.POST.get('catatan_am', '').strip()
+        maintenance.save(update_fields=['catatan_am'])
+        from django.contrib import messages
+        messages.success(request, 'Catatan berhasil diperbarui.')
 
     return redirect('maintenance_view', pk=pk)
 
@@ -819,5 +864,9 @@ def profile_view(request):
             profile.signature = request.FILES['signature']
             profile.save()
             messages.success(request, 'Tanda tangan berhasil disimpan.')
+        elif 'save_display_name' in request.POST:
+            profile.display_name = request.POST.get('display_name', '').strip()
+            profile.save(update_fields=['display_name'])
+            messages.success(request, 'Nama tampilan berhasil disimpan.')
         return redirect('profile_view')
     return render(request, 'maintenance/profile.html', {'profile': profile})
