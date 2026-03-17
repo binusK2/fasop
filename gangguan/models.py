@@ -2,7 +2,33 @@ from django.db import models
 from django.contrib.auth.models import User
 from devices.models import Device
 from django.utils import timezone
-import datetime
+import os
+import re
+
+
+def slugify_simple(text):
+    text = str(text).strip().upper()
+    text = re.sub(r'[^\w\s-]', '', text)
+    text = re.sub(r'[\s]+', '_', text)
+    return text[:40]
+
+
+def gangguan_eviden_upload(nomor, site, n, filename):
+    ext  = os.path.splitext(filename)[1].lower() or '.jpg'
+    site_slug = slugify_simple(site or 'SITE')
+    nomor_slug = str(nomor).replace('-', '')
+    tgl  = timezone.localtime(timezone.now()).strftime('%Y%m%d_%H%M%S')
+    return f'gangguan_eviden/{nomor_slug}_{site_slug}_{tgl}_{n}{ext}'
+
+
+def eviden1_upload(instance, filename):
+    return gangguan_eviden_upload(instance.nomor_gangguan or 'GNG', instance.site, 1, filename)
+
+def eviden2_upload(instance, filename):
+    return gangguan_eviden_upload(instance.nomor_gangguan or 'GNG', instance.site, 2, filename)
+
+def eviden3_upload(instance, filename):
+    return gangguan_eviden_upload(instance.nomor_gangguan or 'GNG', instance.site, 3, filename)
 
 
 def generate_nomor_gangguan():
@@ -79,9 +105,9 @@ class Gangguan(models.Model):
     catatan_penutupan   = models.TextField(blank=True, verbose_name='Catatan Penutupan', help_text='Diisi saat gangguan dinyatakan selesai / closed')
 
     # ── Foto Eviden ──────────────────────────────────────────────
-    foto_eviden1    = models.ImageField(upload_to='gangguan_eviden/', blank=True, null=True, verbose_name='Foto Eviden 1')
-    foto_eviden2    = models.ImageField(upload_to='gangguan_eviden/', blank=True, null=True, verbose_name='Foto Eviden 2')
-    foto_eviden3    = models.ImageField(upload_to='gangguan_eviden/', blank=True, null=True, verbose_name='Foto Eviden 3')
+    foto_eviden1    = models.ImageField(upload_to=eviden1_upload, blank=True, null=True, verbose_name='Foto Eviden 1')
+    foto_eviden2    = models.ImageField(upload_to=eviden2_upload, blank=True, null=True, verbose_name='Foto Eviden 2')
+    foto_eviden3    = models.ImageField(upload_to=eviden3_upload, blank=True, null=True, verbose_name='Foto Eviden 3')
 
     # ── Metadata ─────────────────────────────────────────────────
     created_at      = models.DateTimeField(auto_now_add=True, verbose_name='Dibuat Pada')

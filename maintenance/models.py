@@ -1,6 +1,24 @@
 from django.db import models
 from devices.models import Device
 from django.contrib.auth.models import User
+from django.utils import timezone
+import os
+import re
+
+
+def slugify_simple(text):
+    text = str(text).strip().upper()
+    text = re.sub(r'[^\w\s-]', '', text)
+    text = re.sub(r'[\s]+', '_', text)
+    return text[:40]
+
+
+def maintenance_photo_upload(instance, filename):
+    ext   = os.path.splitext(filename)[1].lower() or '.jpg'
+    nama  = slugify_simple(instance.device.nama if instance.device else 'PERANGKAT')
+    lokasi = slugify_simple(instance.device.lokasi if instance.device and instance.device.lokasi else 'LOKASI')
+    tgl   = timezone.localtime(timezone.now()).strftime('%Y%m%d_%H%M%S')
+    return f'maintenance_photos/{nama}_{lokasi}_{tgl}{ext}'
 
 
 # ─────────────────────────────────────────────────────────────
@@ -28,7 +46,7 @@ class Maintenance(models.Model):
     signed_at       = models.DateTimeField(null=True, blank=True, verbose_name='Waktu TTD')
     catatan_am      = models.TextField(blank=True, default='', verbose_name='Catatan Asisten Manager')
     status          = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Open')
-    photo           = models.ImageField(upload_to='maintenance_photos/', blank=True, null=True)
+    photo           = models.ImageField(upload_to=maintenance_photo_upload, blank=True, null=True)
     created_at      = models.DateTimeField(auto_now_add=True)
 
     class Meta:

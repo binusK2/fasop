@@ -1,5 +1,32 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.utils import timezone
+import os
+import re
+
+
+def slugify_simple(text):
+    """Bersihkan teks jadi aman untuk nama file."""
+    text = str(text).strip().upper()
+    text = re.sub(r'[^\w\s-]', '', text)
+    text = re.sub(r'[\s]+', '_', text)
+    return text[:40]  # batasi panjang
+
+
+def device_foto_upload(instance, filename):
+    ext   = os.path.splitext(filename)[1].lower() or '.jpg'
+    nama  = slugify_simple(instance.nama  or 'PERANGKAT')
+    jenis = slugify_simple(instance.jenis.name if instance.jenis else 'LAINNYA')
+    tgl   = timezone.localtime(timezone.now()).strftime('%Y%m%d_%H%M%S')
+    return f'device_photos/{nama}_{jenis}_{tgl}{ext}'
+
+
+def device_foto2_upload(instance, filename):
+    ext   = os.path.splitext(filename)[1].lower() or '.jpg'
+    nama  = slugify_simple(instance.nama  or 'PERANGKAT')
+    jenis = slugify_simple(instance.jenis.name if instance.jenis else 'LAINNYA')
+    tgl   = timezone.localtime(timezone.now()).strftime('%Y%m%d_%H%M%S')
+    return f'device_photos/{nama}_{jenis}_{tgl}_2{ext}'
 
 # Create your models here.
 class DeviceType(models.Model):
@@ -34,8 +61,8 @@ class Device(models.Model):
         verbose_name='Status Operasi'
     )
     keterangan = models.TextField(blank=True, null=True)
-    foto = models.ImageField(upload_to='device_photos/', blank=True, null=True)
-    foto2 = models.ImageField(upload_to='device_photos/', blank=True, null=True, verbose_name='Foto 2')
+    foto = models.ImageField(upload_to=device_foto_upload, blank=True, null=True)
+    foto2 = models.ImageField(upload_to=device_foto2_upload, blank=True, null=True, verbose_name='Foto 2')
     created_at = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(
         User,
