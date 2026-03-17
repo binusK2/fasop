@@ -553,7 +553,7 @@ function copyLaporanWA() {
 `📋 *LAPORAN GANGGUAN*
 ━━━━━━━━━━━━━━━━━━━━
 🔖 *Nomor:* {{ gangguan.nomor_gangguan }}
-🕐 *Waktu:* {{ gangguan.tanggal_gangguan|date:"d M Y, H:i" }} WIB
+🕐 *Waktu:* {{ gangguan.tanggal_gangguan|date:'d M Y, H:i' }} WIB
 📍 *Lokasi:* {{ gangguan.site|escapejs }}
 ⚙️ *Peralatan:* {% if gangguan.peralatan %}{{ gangguan.peralatan.nama|escapejs }}{% else %}—{% endif %}
 🏷️ *Kategori:* {{ gangguan.get_kategori_display|escapejs }}
@@ -572,7 +572,7 @@ function copyLaporanWA() {
 
 ⚡ *Dampak Gangguan*
 {{ gangguan.dampak_gangguan|escapejs }}${logTeks}
-👤 *Dideklarasikan oleh:* {{ gangguan.created_by.get_full_name|default:gangguan.created_by.username|default:"—"|escapejs }}
+👤 *Dideklarasikan oleh:* {{ gangguan.created_by.get_full_name|default:gangguan.created_by.username|default:'—'|escapejs }}
 ━━━━━━━━━━━━━━━━━━━━
 _FASOP UP2B Sistem Makassar_`;
 
