@@ -115,10 +115,33 @@
                 {% for d in devices %}
                 <tr style="text-align:center;vertical-align:middle;">
                     <td class="text-muted" style="font-size:12px;">{{ forloop.counter }}</td>
-                    <td>
-                        <a href="{% url 'device_view' d.id %}?next={{ request.get_full_path|urlencode }}" class="text-decoration-none" style="font-size:13.5px;font-weight:600;color:#0f172a;">
-                            {{ d.nama }}
-                        </a>
+                    <td style="text-align:left;">
+                        <div style="display:flex;align-items:center;gap:10px;">
+                            <!-- Thumbnail -->
+                            {% if d.foto %}
+                            <img src="{{ d.foto.url }}"
+                                 onclick="openThumbLightbox('{{ d.foto.url }}', '{{ d.nama|escapejs }}')"
+                                 style="width:40px;height:40px;object-fit:cover;border-radius:8px;
+                                        border:1px solid #e2e8f0;cursor:zoom-in;flex-shrink:0;
+                                        transition:opacity 0.15s;"
+                                 onmouseover="this.style.opacity='0.8'"
+                                 onmouseout="this.style.opacity='1'"
+                                 title="Klik untuk perbesar">
+                            {% else %}
+                            <div style="width:40px;height:40px;border-radius:8px;background:#f1f5f9;
+                                        border:1px dashed #cbd5e1;flex-shrink:0;display:flex;
+                                        align-items:center;justify-content:center;"
+                                 title="Belum ada foto">
+                                <i class="bi bi-camera" style="color:#cbd5e1;font-size:14px;"></i>
+                            </div>
+                            {% endif %}
+                            <!-- Nama -->
+                            <a href="{% url 'device_view' d.id %}?next={{ request.get_full_path|urlencode }}"
+                               class="text-decoration-none"
+                               style="font-size:13.5px;font-weight:600;color:#0f172a;">
+                                {{ d.nama }}
+                            </a>
+                        </div>
                     </td>
                     <td>
                         {% if d.jenis %}
@@ -212,7 +235,35 @@
 .sort-active .sort-link { color: #2563eb; }
 .sort-icon { font-size: 12px; line-height: 1; }
 </style>
+
+<!-- Lightbox thumbnail -->
+<div id="thumb-lightbox" onclick="closeThumbLightbox()"
+     style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);
+            z-index:9999;align-items:center;justify-content:center;flex-direction:column;gap:12px;">
+    <div style="font-size:13px;font-weight:600;color:rgba(255,255,255,0.85);" id="thumb-lightbox-title"></div>
+    <img id="thumb-lightbox-img" src=""
+         style="max-width:88vw;max-height:82vh;border-radius:12px;
+                box-shadow:0 8px 40px rgba(0,0,0,0.5);object-fit:contain;">
+    <div style="font-size:12px;color:rgba(255,255,255,0.4);">Klik di mana saja untuk menutup</div>
+    <button onclick="closeThumbLightbox()"
+            style="position:fixed;top:18px;right:22px;background:none;border:none;
+                   color:#fff;font-size:26px;cursor:pointer;line-height:1;">✕</button>
+</div>
+
 <script>
+function openThumbLightbox(url, nama) {
+    const lb = document.getElementById('thumb-lightbox');
+    document.getElementById('thumb-lightbox-img').src = url;
+    document.getElementById('thumb-lightbox-title').textContent = nama;
+    lb.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+function closeThumbLightbox() {
+    document.getElementById('thumb-lightbox').style.display = 'none';
+    document.body.style.overflow = '';
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeThumbLightbox(); });
+
 function confirmDelete(url, name) {
     document.getElementById('deleteModalDesc').textContent = 'Perangkat "' + name + '" akan dihapus permanen.';
     document.getElementById('deleteLink').href = url;
