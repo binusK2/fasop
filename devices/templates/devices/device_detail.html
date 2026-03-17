@@ -5,9 +5,15 @@
 {% block content %}
 
 <div class="d-flex align-items-center gap-2 mb-3">
+    {% if request.GET.next %}
+    <a href="{{ request.GET.next }}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Kembali
+    </a>
+    {% else %}
     <a href="{% url 'device_list' %}" class="btn btn-sm btn-outline-secondary">
         <i class="bi bi-arrow-left me-1"></i>Kembali
     </a>
+    {% endif %}
     <a href="{% url 'device_edit' device.id %}" class="btn btn-sm btn-outline-warning">
         <i class="bi bi-pencil me-1"></i>Edit
     </a>
@@ -104,8 +110,24 @@
                         <td style="font-size:13px; padding:10px 16px;">{{ device.type|default:"-" }}</td>
                     </tr>
                     <tr>
-                        <td style="font-size:12px; color:#64748b; font-weight:600; padding:10px 16px;">Serial Number</td>
-                        <td class="mono" style="padding:10px 16px;">{{ device.serial_number|default:"-" }}</td>
+                        <td style="font-size:12px; color:#64748b; font-weight:600; padding:10px 16px;">Status Operasi</td>
+                        <td style="padding:10px 16px;">
+                            {% if device.status_operasi == 'operasi' %}
+                            <span style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;
+                                         color:#065f46;background:#dcfce7;padding:4px 12px;border-radius:20px;border:1px solid #a7f3d0;">
+                                <span style="width:8px;height:8px;border-radius:50%;background:#10b981;
+                                             box-shadow:0 0 0 3px rgba(16,185,129,0.25);display:inline-block;"></span>
+                                Operasi
+                            </span>
+                            {% else %}
+                            <span style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;
+                                         color:#991b1b;background:#fee2e2;padding:4px 12px;border-radius:20px;border:1px solid #fca5a5;">
+                                <span style="width:8px;height:8px;border-radius:50%;background:#ef4444;
+                                             box-shadow:0 0 0 3px rgba(239,68,68,0.25);display:inline-block;"></span>
+                                Tidak Operasi
+                            </span>
+                            {% endif %}
+                        </td>
                     </tr>
                     <tr>
                         <td style="font-size:12px; color:#64748b; font-weight:600; padding:10px 16px;">Firmware</td>

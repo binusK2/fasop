@@ -1,0 +1,240 @@
+{% extends 'base.html' %}
+{% block title %}History Gangguan — FASOP{% endblock %}
+{% block page_title %}History Gangguan{% endblock %}
+
+{% block content %}
+<style>
+    .stat-mini {
+        background: white;
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 16px 20px;
+        display: flex; align-items: center; gap: 12px;
+    }
+    .stat-mini .icon-box {
+        width: 40px; height: 40px; border-radius: 10px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 18px; flex-shrink: 0;
+    }
+    .stat-mini .val { font-size: 24px; font-weight: 700; line-height: 1; font-family: 'JetBrains Mono', monospace; }
+    .stat-mini .lbl { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+
+    .ticket-card {
+        background: white;
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 16px 20px;
+        transition: box-shadow 0.15s, border-color 0.15s;
+        text-decoration: none;
+        display: block;
+        color: inherit;
+    }
+    .ticket-card:hover {
+        box-shadow: 0 4px 16px rgba(59,130,246,0.1);
+        border-color: #bfdbfe;
+        color: inherit;
+    }
+    .ticket-card.status-open    { border-left: 4px solid #ef4444; }
+    .ticket-card.status-in_progress { border-left: 4px solid #f59e0b; }
+    .ticket-card.status-resolved { border-left: 4px solid #10b981; }
+    .ticket-card.status-closed  { border-left: 4px solid #94a3b8; }
+
+    .status-pill {
+        display: inline-flex; align-items: center; gap: 5px;
+        padding: 3px 10px; border-radius: 20px;
+        font-size: 11.5px; font-weight: 700; white-space: nowrap;
+    }
+    .pill-open        { background:#fee2e2; color:#991b1b; border:1px solid #fca5a5; }
+    .pill-in_progress { background:#fffbeb; color:#92400e; border:1px solid #fde68a; }
+    .pill-resolved    { background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; }
+    .pill-closed      { background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; }
+
+    .sev-pill {
+        display: inline-block; padding: 2px 8px;
+        border-radius: 20px; font-size: 10.5px; font-weight: 700;
+    }
+    .sev-kritis { background:#fef2f2; color:#dc2626; }
+    .sev-tinggi { background:#fff7ed; color:#ea580c; }
+    .sev-sedang { background:#fffbeb; color:#d97706; }
+    .sev-rendah { background:#f0fdf4; color:#16a34a; }
+
+    .filter-bar {
+        background: white;
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 14px 18px;
+        margin-bottom: 20px;
+    }
+</style>
+
+<!-- ── Header ──────────────────────────────────────────────── -->
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+        <h2 class="mb-0" style="font-size:20px;font-weight:700;">History Gangguan</h2>
+        <p class="text-muted mb-0" style="font-size:13px;">{{ gangguan_list|length }} tiket ditemukan</p>
+    </div>
+    <a href="{% url 'gangguan_create' %}" class="btn btn-danger">
+        <i class="bi bi-exclamation-triangle me-1"></i>Deklarasi Gangguan
+    </a>
+</div>
+
+<!-- ── Statistik ──────────────────────────────────────────── -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3 col-lg">
+        <div class="stat-mini">
+            <div class="icon-box" style="background:#f1f5f9;color:#475569;"><i class="bi bi-ticket-perforated"></i></div>
+            <div><div class="val">{{ stats.total }}</div><div class="lbl">Total</div></div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3 col-lg">
+        <div class="stat-mini">
+            <div class="icon-box" style="background:#fee2e2;color:#ef4444;"><i class="bi bi-exclamation-circle"></i></div>
+            <div><div class="val" style="color:#ef4444;">{{ stats.open }}</div><div class="lbl">Open</div></div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3 col-lg">
+        <div class="stat-mini">
+            <div class="icon-box" style="background:#fffbeb;color:#f59e0b;"><i class="bi bi-hourglass-split"></i></div>
+            <div><div class="val" style="color:#f59e0b;">{{ stats.in_progress }}</div><div class="lbl">In Progress</div></div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3 col-lg">
+        <div class="stat-mini">
+            <div class="icon-box" style="background:#f0fdf4;color:#10b981;"><i class="bi bi-check-circle"></i></div>
+            <div><div class="val" style="color:#10b981;">{{ stats.resolved }}</div><div class="lbl">Resolved</div></div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3 col-lg">
+        <div class="stat-mini">
+            <div class="icon-box" style="background:#f1f5f9;color:#64748b;"><i class="bi bi-archive"></i></div>
+            <div><div class="val" style="color:#64748b;">{{ stats.closed }}</div><div class="lbl">Closed</div></div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Filter Bar ─────────────────────────────────────────── -->
+<form method="get" class="filter-bar">
+    <div class="row g-2 align-items-end">
+        <div class="col-md-3">
+            <label style="font-size:11.5px;font-weight:600;color:#64748b;">Cari</label>
+            <input type="text" name="q" value="{{ search }}" class="form-control form-control-sm"
+                   placeholder="Nomor, site, summary…">
+        </div>
+        <div class="col-md-2">
+            <label style="font-size:11.5px;font-weight:600;color:#64748b;">Status</label>
+            <select name="status" class="form-select form-select-sm">
+                <option value="">Semua Status</option>
+                {% for val, label in STATUS_CHOICES %}
+                <option value="{{ val }}" {% if status_filter == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label style="font-size:11.5px;font-weight:600;color:#64748b;">Kategori</label>
+            <select name="kategori" class="form-select form-select-sm">
+                <option value="">Semua Kategori</option>
+                {% for val, label in KATEGORI_CHOICES %}
+                <option value="{{ val }}" {% if kategori_filter == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label style="font-size:11.5px;font-weight:600;color:#64748b;">Keparahan</label>
+            <select name="severity" class="form-select form-select-sm">
+                <option value="">Semua</option>
+                {% for val, label in SEVERITY_CHOICES %}
+                <option value="{{ val }}" {% if severity_filter == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label style="font-size:11.5px;font-weight:600;color:#64748b;">Site</label>
+            <input list="site-filter-list" name="site" value="{{ site_filter }}"
+                   class="form-control form-control-sm" placeholder="Semua site">
+            <datalist id="site-filter-list">
+                {% for s in site_list %}<option value="{{ s }}">{% endfor %}
+            </datalist>
+        </div>
+        <div class="col-md-1">
+            <button type="submit" class="btn btn-sm btn-primary w-100">Filter</button>
+        </div>
+        {% if search or status_filter or kategori_filter or severity_filter or site_filter %}
+        <div class="col-auto">
+            <a href="{% url 'gangguan_list' %}" class="btn btn-sm btn-outline-secondary">Reset</a>
+        </div>
+        {% endif %}
+    </div>
+</form>
+
+<!-- ── Daftar Tiket ───────────────────────────────────────── -->
+<div class="d-flex flex-column gap-3">
+    {% for g in gangguan_list %}
+    <a href="{% url 'gangguan_detail' g.pk %}" class="ticket-card status-{{ g.status }}">
+        <div class="d-flex align-items-start justify-content-between gap-3 flex-wrap">
+
+            <!-- Kiri: nomor + site + summary -->
+            <div style="flex:1;min-width:0;">
+                <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+                    <span style="font-family:'JetBrains Mono',monospace;font-size:12.5px;font-weight:700;color:#64748b;">
+                        {{ g.nomor_gangguan }}
+                    </span>
+                    <span class="status-pill pill-{{ g.status }}">
+                        {% if g.status == 'open' %}<i class="bi bi-circle-fill" style="font-size:7px;"></i> Open
+                        {% elif g.status == 'in_progress' %}<i class="bi bi-hourglass-split" style="font-size:10px;"></i> In Progress
+                        {% elif g.status == 'resolved' %}<i class="bi bi-check-circle-fill" style="font-size:10px;"></i> Resolved
+                        {% else %}<i class="bi bi-archive" style="font-size:10px;"></i> Closed
+                        {% endif %}
+                    </span>
+                    <span class="sev-pill sev-{{ g.tingkat_keparahan }}">{{ g.get_tingkat_keparahan_display }}</span>
+                    <span style="font-size:11px;background:#eff6ff;color:#2563eb;padding:2px 8px;border-radius:20px;font-weight:600;">
+                        {{ g.get_kategori_display }}
+                    </span>
+                </div>
+
+                <div style="font-size:15px;font-weight:700;color:#0f172a;margin-bottom:4px;">
+                    <i class="bi bi-geo-alt-fill me-1" style="color:#3b82f6;font-size:13px;"></i>{{ g.site }}
+                    {% if g.peralatan %}
+                    <span style="font-size:12.5px;color:#64748b;font-weight:500;"> — {{ g.peralatan.nama }}</span>
+                    {% endif %}
+                </div>
+
+                <div style="font-size:13px;color:#475569;" class="text-truncate">{{ g.executive_summary }}</div>
+            </div>
+
+            <!-- Kanan: waktu + durasi -->
+            <div class="text-end flex-shrink-0">
+                <div style="font-size:12.5px;font-weight:600;color:#0f172a;">
+                    {{ g.tanggal_gangguan|date:"d M Y" }}
+                </div>
+                <div style="font-size:11.5px;color:#94a3b8;">
+                    {{ g.tanggal_gangguan|date:"H:i" }} WIB
+                </div>
+                <div style="font-size:11.5px;margin-top:4px;color:{% if g.is_open %}#f59e0b{% else %}#10b981{% endif %};">
+                    <i class="bi bi-clock me-1"></i>{{ g.durasi }}
+                </div>
+                {% if g.created_by %}
+                <div style="font-size:11px;color:#94a3b8;margin-top:2px;">
+                    <i class="bi bi-person me-1"></i>{{ g.created_by.username }}
+                </div>
+                {% endif %}
+            </div>
+
+        </div>
+    </a>
+    {% empty %}
+    <div class="card">
+        <div class="card-body text-center py-5 text-muted">
+            <i class="bi bi-exclamation-triangle fs-1 d-block mb-2" style="color:#e2e8f0;"></i>
+            <div style="font-size:15px;font-weight:600;margin-bottom:6px;">Belum ada catatan gangguan</div>
+            <div style="font-size:13px;margin-bottom:16px;">{% if search or status_filter %}Tidak ada tiket yang sesuai filter{% else %}Klik tombol untuk mendeklarasikan gangguan pertama{% endif %}</div>
+            {% if not search and not status_filter %}
+            <a href="{% url 'gangguan_create' %}" class="btn btn-danger btn-sm">
+                <i class="bi bi-plus-lg me-1"></i>Deklarasi Gangguan
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% endblock %}

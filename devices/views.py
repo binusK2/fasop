@@ -1,12 +1,12 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
-from .models import Device, Icon, DeviceType
+from .models import Device, Icon, DeviceType, SiteLocation
 from .forms import DeviceForm, IconForm
 from django.db.models import Count, Q
 from django.db.models.functions import TruncMonth, Lower, Trim
 from maintenance.models import Maintenance
 from django.utils.timezone import now
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
@@ -18,11 +18,12 @@ from .device_schema import DEVICE_SCHEMA
 
 @login_required
 def device_list(request):
-    jenis_id = request.GET.get('jenis')
-    search = request.GET.get('q') or ''
-    lokasi = request.GET.get('lokasi')
-    sort = request.GET.get('sort', 'nama')
-    direction = request.GET.get('dir', 'asc')
+    jenis_id       = request.GET.get('jenis')
+    search         = request.GET.get('q') or ''
+    lokasi         = request.GET.get('lokasi')
+    status_operasi = request.GET.get('status_operasi')
+    sort           = request.GET.get('sort', 'nama')
+    direction      = request.GET.get('dir', 'asc')
 
     devices = Device.objects.filter(is_deleted=False)
 
@@ -37,6 +38,9 @@ def device_list(request):
 
     if lokasi:
         devices = devices.filter(lokasi=lokasi)
+
+    if status_operasi:
+        devices = devices.filter(status_operasi=status_operasi)
 
     # Sorting
     SORT_FIELDS = {
@@ -65,13 +69,14 @@ def device_list(request):
     )
 
     return render(request, 'devices/device_list.html', {
-        'devices': devices,
-        'search': search,
-        'selected_jenis': jenis_id,
-        'lokasi_list': lokasi_list,
-        'selected_lokasi': lokasi,
-        'current_sort': sort,
-        'current_dir': direction,
+        'devices':          devices,
+        'search':           search,
+        'selected_jenis':   jenis_id,
+        'lokasi_list':      lokasi_list,
+        'selected_lokasi':  lokasi,
+        'selected_status':  status_operasi,
+        'current_sort':     sort,
+        'current_dir':      direction,
     })
 
 
@@ -134,7 +139,9 @@ def device_delete(request, pk):
 
 @login_required
 def dashboard(request):
-    total_devices = Device.objects.filter(is_deleted=False).count()
+    total_devices  = Device.objects.filter(is_deleted=False).count()
+    dev_operasi    = Device.objects.filter(is_deleted=False, status_operasi='operasi').count()
+    dev_tdk_operasi= Device.objects.filter(is_deleted=False, status_operasi='tidak_operasi').count()
 
     # Hitung per jenis + persen untuk progress bar
     device_by_type_qs = (
@@ -190,17 +197,56 @@ def dashboard(request):
     )
     max_lokasi = maintenance_by_lokasi[0]['total'] if maintenance_by_lokasi else 1
 
+    # ── Gangguan stats ───────────────────────────────────────────
+    from gangguan.models import Gangguan
+    gangguan_total      = Gangguan.objects.count()
+    gangguan_open       = Gangguan.objects.filter(status='open').count()
+    gangguan_progress   = Gangguan.objects.filter(status='in_progress').count()
+    gangguan_resolved   = Gangguan.objects.filter(status='resolved').count()
+    gangguan_closed     = Gangguan.objects.filter(status='closed').count()
+
+    # Trend gangguan 6 bulan (berdasarkan tanggal_gangguan)
+    gangguan_counts_qs = (
+        Gangguan.objects
+        .annotate(month=TruncMonth('tanggal_gangguan'))
+        .values('month')
+        .annotate(total=Count('id'))
+    )
+    gangguan_counts_map = {g['month'].date().replace(day=1): g['total'] for g in gangguan_counts_qs}
+    gangguan_by_month = [
+        {'month_label': m.strftime('%b %Y'), 'total': gangguan_counts_map.get(m, 0)}
+        for m in months_6
+    ]
+
+    # Gangguan terbaru open/in_progress
+    recent_gangguan = (
+        Gangguan.objects
+        .filter(status__in=['open', 'in_progress'])
+        .select_related('peralatan', 'created_by')
+        .order_by('-tanggal_gangguan')[:5]
+    )
+
     return render(request, 'devices/dashboard.html', {
-        'total_devices': total_devices,
-        'device_by_type': device_by_type,
-        'total_maintenance': total_maintenance,
-        'maintenance_open': maintenance_open,
-        'maintenance_done': maintenance_done,
-        'belum_ttd': belum_ttd,
+        'total_devices':    total_devices,
+        'dev_operasi':      dev_operasi,
+        'dev_tdk_operasi':  dev_tdk_operasi,
+        'device_by_type':   device_by_type,
+        'total_maintenance':    total_maintenance,
+        'maintenance_open':     maintenance_open,
+        'maintenance_done':     maintenance_done,
+        'belum_ttd':            belum_ttd,
         'maintenance_by_month': maintenance_by_month,
         'recent_open_maintenance': recent_open_maintenance,
         'maintenance_by_lokasi':   maintenance_by_lokasi,
         'max_lokasi':              max_lokasi,
+        # gangguan
+        'gangguan_total':    gangguan_total,
+        'gangguan_open':     gangguan_open,
+        'gangguan_progress': gangguan_progress,
+        'gangguan_resolved': gangguan_resolved,
+        'gangguan_closed':   gangguan_closed,
+        'gangguan_by_month': gangguan_by_month,
+        'recent_gangguan':   recent_gangguan,
     })
 
 
@@ -288,13 +334,46 @@ def lokasi_list(request):
         loc = (m.device.lokasi or '').strip()
         open_by_lokasi[loc] = open_by_lokasi.get(loc, 0) + 1
 
+    # Ambil koordinat dari SiteLocation
+    site_coords = {sl.nama: sl for sl in SiteLocation.objects.all()}
+
     lokasi_list_final = []
     for row in lokasi_data:
         row = dict(row)
         row['maintenance_open'] = open_by_lokasi.get(row['lokasi_clean'], 0)
+        sl = site_coords.get(row['lokasi_clean'])
+        row['latitude']  = sl.latitude  if sl and sl.has_coords else None
+        row['longitude'] = sl.longitude if sl and sl.has_coords else None
+        row['has_coords'] = bool(row['latitude'] and row['longitude'])
         lokasi_list_final.append(row)
 
     return render(request, 'devices/lokasi_list.html', {'lokasi_data': lokasi_list_final})
+
+
+def api_lokasi_devices(request, lokasi_nama):
+    """API endpoint: kembalikan daftar device di suatu lokasi sebagai JSON."""
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Unauthenticated'}, status=401)
+    devices = (
+        Device.objects
+        .filter(is_deleted=False, lokasi__iexact=lokasi_nama)
+        .select_related('jenis')
+        .values('id', 'nama', 'jenis__name', 'merk', 'type', 'ip_address', 'serial_number')
+        .order_by('jenis__name', 'nama')
+    )
+    data = [
+        {
+            'id':     d['id'],
+            'nama':   d['nama'],
+            'jenis':  d['jenis__name'] or '-',
+            'merk':   d['merk'],
+            'type':   d['type'] or '-',
+            'ip':     d['ip_address'] or '-',
+            'sn':     d['serial_number'] or '-',
+        }
+        for d in devices
+    ]
+    return JsonResponse({'lokasi': lokasi_nama, 'devices': data})
 
 
 @login_required

@@ -10,6 +10,7 @@ urlpatterns = [
     path('view/<int:pk>/', views.device_detail, name='device_view'),
     path('type/<int:type_id>/', views.device_by_type, name='device_by_type'),
     path('lokasi/', views.lokasi_list, name='lokasi_list'),
+    path('api/lokasi/<str:lokasi_nama>/devices/', views.api_lokasi_devices, name='api_lokasi_devices'),
     path('layanan-icon/', views.layanan_icon, name='layanan_icon'),
     path('icon/', views.icon_create, name='icon_add'),
     path('icon/edit/<int:pk>/', views.icon_update, name='icon_edit'),

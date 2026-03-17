@@ -125,6 +125,16 @@
                     {% if form.lokasi.errors %}<div class="field-error">{{ form.lokasi.errors.0 }}</div>{% endif %}
                 </div>
             </div>
+            <div class="col-md-6">
+                <div class="field-card">
+                    <label class="field-label">Status Operasi</label>
+                    <div class="input-group">
+                        <span class="input-group-text field-addon"><i class="bi bi-activity"></i></span>
+                        {{ form.status_operasi }}
+                    </div>
+                    {% if form.status_operasi.errors %}<div class="field-error">{{ form.status_operasi.errors.0 }}</div>{% endif %}
+                </div>
+            </div>
         </div>
     </div>
 </div>

@@ -515,14 +515,14 @@
 
         {# Tombol toggle grup Peralatan #}
         <button class="sidebar-link sidebar-group-toggle w-100 text-start border-0
-            {% if 'device' in url_name or url_name == 'lokasi_list' %}active open{% endif %}"
+            {% if 'device' in url_name %}active open{% endif %}"
             data-target="submenu-peralatan" type="button">
             <span class="si-icon"><i class="bi bi-hdd-rack"></i></span>
             Semua Peralatan
             <i class="bi bi-chevron-right sidebar-toggle-btn ms-auto"></i>
         </button>
 
-        <div class="sidebar-submenu {% if 'device' in url_name or url_name == 'lokasi_list' %}open{% endif %}"
+        <div class="sidebar-submenu {% if 'device' in url_name %}open{% endif %}"
              id="submenu-peralatan">
 
             <a href="{% url 'device_list' %}"
@@ -574,6 +574,34 @@
                class="sidebar-link {% if url_name == 'maintenance_report' %}active{% endif %}">
                 <span class="si-icon"><i class="bi bi-file-earmark-bar-graph"></i></span>
                 Laporan Pemeliharaan
+            </a>
+        </div>
+        {% endwith %}
+    </div>
+
+    <div class="sidebar-section">
+        <div class="sidebar-section-label">Gangguan</div>
+
+        {% with url_name=request.resolver_match.url_name %}
+        <button class="sidebar-link sidebar-group-toggle w-100 text-start border-0
+            {% if 'gangguan' in url_name %}active open{% endif %}"
+            data-target="submenu-gangguan" type="button">
+            <span class="si-icon"><i class="bi bi-exclamation-triangle"></i></span>
+            Gangguan
+            <i class="bi bi-chevron-right sidebar-toggle-btn ms-auto"></i>
+        </button>
+
+        <div class="sidebar-submenu {% if 'gangguan' in url_name %}open{% endif %}"
+             id="submenu-gangguan">
+            <a href="{% url 'gangguan_create' %}"
+               class="sidebar-link {% if url_name == 'gangguan_create' %}active{% endif %}">
+                <span class="si-icon"><i class="bi bi-plus-circle"></i></span>
+                Deklarasi Gangguan
+            </a>
+            <a href="{% url 'gangguan_list' %}"
+               class="sidebar-link {% if url_name == 'gangguan_list' or url_name == 'gangguan_detail' or url_name == 'gangguan_edit' %}active{% endif %}">
+                <span class="si-icon"><i class="bi bi-ticket-perforated"></i></span>
+                History Gangguan
             </a>
         </div>
         {% endwith %}

@@ -1,0 +1,607 @@
+{% extends 'base.html' %}
+{% block title %}{{ gangguan.nomor_gangguan }} — FASOP{% endblock %}
+{% block page_title %}Detail Gangguan{% endblock %}
+
+{% block content %}
+<style>
+    .g-pill {
+        display:inline-flex;align-items:center;gap:5px;
+        padding:4px 12px;border-radius:20px;
+        font-size:12px;font-weight:700;white-space:nowrap;
+    }
+    .pill-open        {background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;}
+    .pill-in_progress {background:#fffbeb;color:#92400e;border:1px solid #fde68a;}
+    .pill-resolved    {background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;}
+    .pill-closed      {background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;}
+    .sev-kritis{background:#fef2f2;color:#dc2626;border:1px solid #fca5a5;}
+    .sev-tinggi{background:#fff7ed;color:#ea580c;border:1px solid #fed7aa;}
+    .sev-sedang{background:#fffbeb;color:#d97706;border:1px solid #fde68a;}
+    .sev-rendah{background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;}
+
+    /* ── Card ── */
+    .g-card{background:white;border:1px solid var(--border-color);border-radius:12px;overflow:hidden;margin-bottom:14px;}
+    .g-card-head{
+        padding:11px 18px;background:#f8fafc;border-bottom:1px solid var(--border-color);
+        display:flex;align-items:center;gap:8px;
+        font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#475569;
+    }
+    .g-card-body{padding:0;}
+
+    /* ── Baris detail ── */
+    .detail-row{
+        display:grid;grid-template-columns:140px 1fr;
+        padding:12px 20px;border-bottom:1px solid #f1f5f9;
+        align-items:center;gap:12px;
+    }
+    .detail-row:last-child{border-bottom:none;}
+    .detail-row .lbl{
+        font-size:11.5px;font-weight:700;color:#94a3b8;
+        text-transform:uppercase;letter-spacing:0.4px;
+        white-space:nowrap;
+    }
+    .detail-row .val{
+        font-size:13.5px;color:#1e293b;line-height:1.7;
+        white-space:pre-wrap;word-break:break-word;
+        text-align:left;
+    }
+    .detail-row .val.italic{color:#94a3b8;font-style:italic;text-align:left;}
+
+    /* ── Accent strip kiri per row ── */
+    .acc-summary  {border-left:3px solid #8b5cf6;padding-left:17px;}
+    .acc-indikasi {border-left:3px solid #f59e0b;padding-left:17px;}
+    .acc-penyebab {border-left:3px solid #ef4444;padding-left:17px;}
+    .acc-dampak   {border-left:3px solid #8b5cf6;padding-left:17px;}
+    .acc-tindak   {border-left:3px solid #10b981;padding-left:17px;}
+    .acc-penutupan{border-left:3px solid #3b82f6;padding-left:17px;}
+
+    /* ── Info tabel kanan ── */
+    .info-tbl{width:100%;border-collapse:collapse;}
+    .info-tbl td{padding:9px 14px;border-bottom:1px solid #f1f5f9;font-size:13px;vertical-align:top;}
+    .info-tbl tr:last-child td{border-bottom:none;}
+    .info-tbl .lbl{width:45%;color:#64748b;font-weight:600;font-size:12px;white-space:nowrap;}
+
+    /* ── Timeline ── */
+    .tl-wrap{position:relative;}
+    .tl-wrap::before{
+        content:'';position:absolute;left:5px;top:10px;bottom:10px;
+        width:2px;background:#e2e8f0;
+    }
+    .tl-item{display:flex;gap:12px;padding-bottom:16px;position:relative;}
+    .tl-item:last-child{padding-bottom:0;}
+    .tl-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;margin-top:3px;z-index:1;border:2px solid white;}
+    .tl-dot.done   {background:#10b981;box-shadow:0 0 0 2px #bbf7d0;}
+    .tl-dot.current{background:#3b82f6;box-shadow:0 0 0 2px #bfdbfe;}
+    .tl-dot.pending{background:#e2e8f0;}
+
+    /* ── Log timeline ── */
+    .log-tl{position:relative;}
+    .log-tl::before{content:'';position:absolute;left:6px;top:10px;bottom:10px;width:2px;background:#d1fae5;}
+    .log-item{display:flex;gap:10px;padding-bottom:14px;position:relative;}
+    .log-item:last-child{padding-bottom:0;}
+    .log-dot{width:14px;height:14px;border-radius:50%;background:#10b981;border:2px solid white;
+             box-shadow:0 0 0 2px #d1fae5;flex-shrink:0;margin-top:2px;z-index:1;}
+    .log-bubble{flex:1;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 14px;}
+    .log-bubble-time{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:#0f172a;}
+    .log-bubble-text{font-size:13.5px;color:#374151;line-height:1.65;margin-top:5px;white-space:pre-wrap;word-break:break-word;}
+
+    /* ── Closed banner ── */
+    .closed-banner{
+        background:#f1f5f9;border:1px solid #cbd5e1;border-radius:10px;
+        padding:12px 16px;display:flex;align-items:center;gap:10px;
+        font-size:13px;color:#475569;font-weight:500;margin-bottom:14px;
+    }
+
+    /* ── Foto ── */
+    .foto-thumb{width:100%;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0;
+                cursor:pointer;transition:opacity 0.15s;}
+    .foto-thumb:hover{opacity:0.82;}
+</style>
+
+<!-- ── Topbar ─────────────────────────────────────────────────── -->
+<div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+    <div class="d-flex align-items-center gap-2">
+        <a href="{% url 'gangguan_list' %}" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>Kembali
+        </a>
+        {% if gangguan.status != 'closed' %}
+        <a href="{% url 'gangguan_edit' gangguan.pk %}" class="btn btn-sm btn-outline-warning">
+            <i class="bi bi-pencil me-1"></i>Edit
+        </a>
+        {% else %}
+        <span class="btn btn-sm btn-outline-secondary disabled" style="opacity:.5;cursor:not-allowed;" title="Tiket closed tidak bisa diedit">
+            <i class="bi bi-lock me-1"></i>Edit
+        </span>
+        {% endif %}
+    </div>
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+        <span class="g-pill pill-{{ gangguan.status }}">
+            {% if gangguan.status == 'open' %}<i class="bi bi-circle-fill" style="font-size:7px;"></i>Open
+            {% elif gangguan.status == 'in_progress' %}<i class="bi bi-hourglass-split" style="font-size:11px;"></i>In Progress
+            {% elif gangguan.status == 'resolved' %}<i class="bi bi-check-circle-fill" style="font-size:11px;"></i>Resolved
+            {% else %}<i class="bi bi-archive" style="font-size:11px;"></i>Closed{% endif %}
+        </span>
+        <span class="g-pill sev-{{ gangguan.tingkat_keparahan }}">{{ gangguan.get_tingkat_keparahan_display }}</span>
+        <span class="g-pill" style="background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;">{{ gangguan.get_kategori_display }}</span>
+    </div>
+</div>
+
+{% if gangguan.status == 'closed' %}
+<div class="closed-banner">
+    <i class="bi bi-lock-fill" style="color:#94a3b8;font-size:16px;flex-shrink:0;"></i>
+    Tiket ini sudah <strong>Closed</strong> dan tidak dapat diedit. Buka tiket baru jika terjadi gangguan ulang.
+</div>
+{% endif %}
+
+<div class="row g-3">
+
+<!-- ═══ KOLOM KIRI ════════════════════════════════════════════ -->
+<div class="col-lg-8">
+
+    <!-- Hero card -->
+    <div class="g-card">
+        <div class="g-card-body" style="padding:18px 20px;">
+            <div class="d-flex align-items-start justify-content-between gap-3 flex-wrap">
+                <div>
+                    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;margin-bottom:3px;">Nomor Gangguan</div>
+                    <div style="font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;color:#3b82f6;letter-spacing:1px;">
+                        {{ gangguan.nomor_gangguan }}
+                    </div>
+                    <div style="margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                        <span style="font-size:13px;color:#475569;">
+                            <i class="bi bi-geo-alt-fill me-1" style="color:#3b82f6;"></i>
+                            <strong>{{ gangguan.site }}</strong>
+                        </span>
+                        {% if gangguan.peralatan %}
+                        <span style="color:#cbd5e1;">·</span>
+                        <a href="{% url 'device_view' gangguan.peralatan.pk %}"
+                           style="font-size:13px;color:#64748b;text-decoration:none;"
+                           onmouseover="this.style.color='#3b82f6'" onmouseout="this.style.color='#64748b'">
+                            <i class="bi bi-hdd-rack me-1"></i>{{ gangguan.peralatan.nama }}
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="text-end flex-shrink-0">
+                    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;margin-bottom:3px;">Durasi</div>
+                    <div style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;font-size:15px;font-weight:700;
+                        {% if gangguan.is_open %}background:#fffbeb;color:#92400e;border:1px solid #fde68a;
+                        {% else %}background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;{% endif %}">
+                        <i class="bi bi-clock"></i>{{ gangguan.durasi }}
+                    </div>
+                    <div style="font-size:11px;color:#94a3b8;margin-top:3px;">
+                        {% if gangguan.is_open %}sedang berlangsung{% else %}sudah selesai{% endif %}
+                    </div>
+                </div>
+            </div>
+            <!-- Baris waktu -->
+            <div style="margin-top:14px;padding-top:12px;border-top:1px solid #f1f5f9;
+                        display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
+                <div>
+                    <div style="font-size:11px;font-weight:600;color:#94a3b8;margin-bottom:1px;">Waktu Gangguan</div>
+                    <div style="font-size:13px;font-weight:600;color:#0f172a;">
+                        {{ gangguan.tanggal_gangguan|date:"d M Y" }}
+                        <span style="color:#64748b;font-weight:400;">{{ gangguan.tanggal_gangguan|date:"H:i" }} WIB</span>
+                    </div>
+                </div>
+                {% if gangguan.tanggal_resolved %}
+                <div style="color:#cbd5e1;font-size:16px;">→</div>
+                <div>
+                    <div style="font-size:11px;font-weight:600;color:#10b981;margin-bottom:1px;">Waktu Resolved</div>
+                    <div style="font-size:13px;font-weight:600;color:#0f172a;">
+                        {{ gangguan.tanggal_resolved|date:"d M Y" }}
+                        <span style="color:#64748b;font-weight:400;">{{ gangguan.tanggal_resolved|date:"H:i" }} WIB</span>
+                    </div>
+                </div>
+                {% endif %}
+                <div>
+                    <div style="font-size:11px;font-weight:600;color:#94a3b8;margin-bottom:1px;">Oleh</div>
+                    <div style="font-size:13px;font-weight:600;color:#0f172a;">
+                        {{ gangguan.created_by.get_full_name|default:gangguan.created_by.username|default:"—" }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Isi laporan — satu kartu kompak -->
+    <div class="g-card">
+        <div class="g-card-head">
+            <i class="bi bi-journal-text" style="color:#ef4444;font-size:13px;"></i>
+            Laporan Gangguan
+        </div>
+        <div class="g-card-body">
+            <div class="detail-row acc-summary">
+                <div class="lbl" style="color:#8b5cf6;">Executive Summary</div>
+                <div class="val">{{ gangguan.executive_summary }}</div>
+            </div>
+            <div class="detail-row acc-indikasi">
+                <div class="lbl">Indikasi</div>
+                <div class="val">{{ gangguan.indikasi_gangguan }}</div>
+            </div>
+            <div class="detail-row acc-penyebab">
+                <div class="lbl">Penyebab</div>
+                <div class="val {% if not gangguan.penyebab_gangguan %}italic{% endif %}">
+                    {% if gangguan.penyebab_gangguan %}{{ gangguan.penyebab_gangguan }}
+                    {% else %}Belum diidentifikasi{% endif %}
+                </div>
+            </div>
+            <div class="detail-row acc-dampak">
+                <div class="lbl">Dampak</div>
+                <div class="val">{{ gangguan.dampak_gangguan }}</div>
+            </div>
+            {% if gangguan.catatan_penutupan %}
+            <div class="detail-row acc-penutupan">
+                <div class="lbl" style="color:#3b82f6;">Catatan Penutupan</div>
+                <div class="val">{{ gangguan.catatan_penutupan }}</div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Log Tindak Lanjut -->
+    <div class="g-card">
+        <div class="g-card-head">
+            <i class="bi bi-journal-check" style="color:#10b981;font-size:13px;"></i>
+            Log Tindak Lanjut
+            <span style="margin-left:auto;background:#f0fdf4;color:#166534;font-size:11px;
+                         padding:2px 8px;border-radius:20px;font-weight:600;text-transform:none;letter-spacing:0;">
+                {{ log_entries|length }} entri
+            </span>
+        </div>
+        <div class="g-card-body" style="padding:16px 20px;">
+
+            <!-- Form tambah (hanya jika belum closed) -->
+            {% if gangguan.status != 'closed' %}
+            <form method="post" action="{% url 'gangguan_add_log' gangguan.pk %}"
+                  style="background:#f8fafc;border:1px dashed #d1fae5;border-radius:10px;
+                         padding:14px;margin-bottom:{% if log_entries %}18px{% else %}0{% endif %};">
+                {% csrf_token %}
+                <div style="font-size:11.5px;font-weight:700;color:#059669;margin-bottom:10px;">
+                    <i class="bi bi-plus-circle me-1"></i>Tambah Entri Log
+                </div>
+                <div class="row g-2">
+                    <div class="col-md-4">
+                        <label style="font-size:11px;font-weight:600;color:#64748b;display:block;margin-bottom:3px;">Waktu Aksi</label>
+                        {{ log_form.waktu_aksi }}
+                    </div>
+                    <div class="col-md-8">
+                        <label style="font-size:11px;font-weight:600;color:#64748b;display:block;margin-bottom:3px;">Keterangan Tindakan</label>
+                        {{ log_form.keterangan }}
+                    </div>
+                </div>
+                <div class="text-end mt-2">
+                    <button type="submit" class="btn btn-sm btn-success px-3">
+                        <i class="bi bi-plus-lg me-1"></i>Simpan
+                    </button>
+                </div>
+            </form>
+            {% endif %}
+
+            <!-- Timeline log -->
+            {% if log_entries %}
+            <div class="log-tl">
+                {% for log in log_entries %}
+                <div class="log-item log-entry-wa"
+                     data-waktu="{{ log.waktu_aksi|date:'d M Y H:i' }} WIB"
+                     data-isi="{{ log.keterangan|escapejs }}">
+                    <div class="log-dot"></div>
+                    <div class="log-bubble">
+                        <div class="d-flex align-items-center justify-content-between flex-wrap gap-1">
+                            <span class="log-bubble-time">
+                                <i class="bi bi-clock me-1" style="color:#10b981;font-size:11px;"></i>
+                                {{ log.waktu_aksi|date:"d M Y, H:i" }} WIB
+                            </span>
+                            <div class="d-flex align-items-center gap-2">
+                                {% if log.dibuat_oleh %}
+                                <span style="font-size:11px;color:#94a3b8;">
+                                    <i class="bi bi-person me-1"></i>{{ log.dibuat_oleh.username }}
+                                </span>
+                                {% endif %}
+                                {% if gangguan.status != 'closed' %}
+                                <form method="post" action="{% url 'gangguan_delete_log' gangguan.pk log.pk %}"
+                                      onsubmit="return confirm('Hapus entri ini?');" style="display:inline;margin:0;">
+                                    {% csrf_token %}
+                                    <button type="submit"
+                                            style="background:none;border:none;color:#fca5a5;font-size:12px;
+                                                   cursor:pointer;padding:0;line-height:1;"
+                                            onmouseover="this.style.color='#ef4444'"
+                                            onmouseout="this.style.color='#fca5a5'">
+                                        <i class="bi bi-trash3"></i>
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="log-bubble-text">{{ log.keterangan }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div style="text-align:center;padding:20px 0;color:#94a3b8;font-size:13px;">
+                <i class="bi bi-journal-plus d-block mb-2" style="font-size:22px;opacity:.5;"></i>
+                Belum ada entri log.
+            </div>
+            {% endif %}
+
+        </div>
+    </div>
+
+    <!-- Foto Eviden -->
+    {% if gangguan.foto_eviden1 or gangguan.foto_eviden2 or gangguan.foto_eviden3 %}
+    <div class="g-card">
+        <div class="g-card-head">
+            <i class="bi bi-images" style="color:#0ea5e9;font-size:13px;"></i>
+            Foto Eviden
+            <span style="margin-left:auto;font-size:11px;color:#94a3b8;text-transform:none;letter-spacing:0;font-weight:400;">
+                Klik untuk perbesar
+            </span>
+        </div>
+        <div class="g-card-body" style="padding:14px 16px;">
+            <div class="row g-2">
+                {% if gangguan.foto_eviden1 %}
+                <div class="col-{% if gangguan.foto_eviden2 or gangguan.foto_eviden3 %}4{% else %}12{% endif %}">
+                    <img src="{{ gangguan.foto_eviden1.url }}" class="foto-thumb"
+                         style="height:{% if gangguan.foto_eviden2 or gangguan.foto_eviden3 %}140px{% else %}220px{% endif %};"
+                         onclick="openLightbox('{{ gangguan.foto_eviden1.url }}')">
+                </div>
+                {% endif %}
+                {% if gangguan.foto_eviden2 %}
+                <div class="col-4">
+                    <img src="{{ gangguan.foto_eviden2.url }}" class="foto-thumb" style="height:140px;"
+                         onclick="openLightbox('{{ gangguan.foto_eviden2.url }}')">
+                </div>
+                {% endif %}
+                {% if gangguan.foto_eviden3 %}
+                <div class="col-4">
+                    <img src="{{ gangguan.foto_eviden3.url }}" class="foto-thumb" style="height:140px;"
+                         onclick="openLightbox('{{ gangguan.foto_eviden3.url }}')">
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+<!-- ═══ END KOLOM KIRI ════════════════════════════════════════ -->
+
+<!-- ═══ KOLOM KANAN ══════════════════════════════════════════ -->
+<div class="col-lg-4">
+
+    <!-- Quick update status (hanya jika belum closed) -->
+    {% if gangguan.status != 'closed' %}
+    <div class="g-card" style="border:1px solid #fde68a;">
+        <div class="g-card-head" style="background:#fffbeb;border-bottom:1px solid #fde68a;color:#92400e;">
+            <i class="bi bi-lightning-fill" style="color:#f59e0b;font-size:13px;"></i>
+            Update Status
+        </div>
+        <div class="g-card-body" style="padding:16px;">
+            <form method="post" action="{% url 'gangguan_update_status' gangguan.pk %}">
+                {% csrf_token %}
+                <div class="mb-2">
+                    <label style="font-size:11.5px;font-weight:600;color:#64748b;display:block;margin-bottom:5px;">Status Baru</label>
+                    <select name="status" class="form-select form-select-sm">
+                        <option value="open"        {% if gangguan.status == 'open' %}selected{% endif %}>Open</option>
+                        <option value="in_progress" {% if gangguan.status == 'in_progress' %}selected{% endif %}>In Progress</option>
+                        <option value="resolved"    {% if gangguan.status == 'resolved' %}selected{% endif %}>Resolved</option>
+                        <option value="closed"      {% if gangguan.status == 'closed' %}selected{% endif %}>Closed</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label style="font-size:11.5px;font-weight:600;color:#64748b;display:block;margin-bottom:5px;">Catatan</label>
+                    <textarea name="catatan_penutupan" class="form-control form-control-sm"
+                              rows="3" placeholder="Catatan update status (opsional)…" style="resize:none;"></textarea>
+                </div>
+                <button type="submit" class="btn btn-sm btn-primary w-100">
+                    <i class="bi bi-check-lg me-1"></i>Simpan Status
+                </button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Salin Laporan WhatsApp -->
+    <div class="g-card" style="border:1px solid #86efac;">
+        <div class="g-card-head" style="background:#f0fdf4;border-bottom:1px solid #bbf7d0;color:#166534;">
+            <i class="bi bi-whatsapp" style="color:#25d366;font-size:14px;"></i>
+            Salin Laporan WA
+        </div>
+        <div class="g-card-body" style="padding:14px 16px;">
+            <p style="font-size:12px;color:#64748b;margin-bottom:12px;line-height:1.6;">
+                Format teks siap kirim ke grup manajemen via WhatsApp, termasuk log tindak lanjut.
+            </p>
+            <button onclick="copyLaporanWA()" id="btn-copy-wa"
+                    class="btn btn-sm w-100 fw-bold"
+                    style="background:#25d366;color:white;border:none;">
+                <i class="bi bi-whatsapp me-1"></i>Salin Laporan
+            </button>
+            <div id="copy-success"
+                 style="display:none;margin-top:8px;font-size:12px;color:#166534;
+                        background:#f0fdf4;padding:7px 10px;border-radius:6px;text-align:center;
+                        border:1px solid #bbf7d0;">
+                <i class="bi bi-check-circle me-1"></i>Laporan berhasil disalin!
+            </div>
+        </div>
+    </div>
+
+    <!-- Informasi tiket -->
+    <div class="g-card">
+        <div class="g-card-head">
+            <i class="bi bi-info-circle" style="color:#64748b;font-size:13px;"></i>
+            Informasi Tiket
+        </div>
+        <table class="info-tbl">
+            <tr>
+                <td class="lbl">Nomor</td>
+                <td style="font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#3b82f6;padding:9px 14px;">
+                    {{ gangguan.nomor_gangguan }}
+                </td>
+            </tr>
+            <tr>
+                <td class="lbl" style="padding:9px 14px;">Status</td>
+                <td style="padding:9px 14px;">
+                    <span class="g-pill pill-{{ gangguan.status }}" style="font-size:11px;padding:2px 9px;">{{ gangguan.get_status_display }}</span>
+                </td>
+            </tr>
+            <tr>
+                <td class="lbl" style="padding:9px 14px;">Keparahan</td>
+                <td style="padding:9px 14px;">
+                    <span class="g-pill sev-{{ gangguan.tingkat_keparahan }}" style="font-size:11px;padding:2px 9px;">{{ gangguan.get_tingkat_keparahan_display }}</span>
+                </td>
+            </tr>
+            <tr>
+                <td class="lbl" style="padding:9px 14px;">Dibuat oleh</td>
+                <td style="padding:9px 14px;font-size:13px;">{{ gangguan.created_by.get_full_name|default:gangguan.created_by.username|default:"—" }}</td>
+            </tr>
+            <tr>
+                <td class="lbl" style="padding:9px 14px;">Dibuat pada</td>
+                <td style="padding:9px 14px;font-size:12px;color:#64748b;">{{ gangguan.created_at|date:"d M Y, H:i" }}</td>
+            </tr>
+            <tr>
+                <td class="lbl" style="padding:9px 14px;">Diupdate</td>
+                <td style="padding:9px 14px;font-size:12px;color:#64748b;">{{ gangguan.updated_at|date:"d M Y, H:i" }}</td>
+            </tr>
+        </table>
+    </div>
+
+    <!-- Progress status -->
+    <div class="g-card">
+        <div class="g-card-head">
+            <i class="bi bi-clock-history" style="color:#3b82f6;font-size:13px;"></i>
+            Progress Status
+        </div>
+        <div class="g-card-body" style="padding:16px 20px;">
+            {% with s=gangguan.status %}
+            <div class="tl-wrap" style="display:flex;flex-direction:column;gap:16px;">
+                <div class="tl-item">
+                    <div class="tl-dot {% if s == 'open' %}current{% else %}done{% endif %}"></div>
+                    <div>
+                        <div style="font-size:13px;font-weight:{% if s == 'open' %}700{% else %}500{% endif %};color:{% if s == 'open' %}#0f172a{% else %}#10b981{% endif %};">Open</div>
+                        {% if s == 'open' %}<div style="font-size:11px;color:#94a3b8;">Status saat ini</div>{% endif %}
+                    </div>
+                </div>
+                <div class="tl-item">
+                    <div class="tl-dot {% if s == 'in_progress' %}current{% elif s == 'resolved' or s == 'closed' %}done{% else %}pending{% endif %}"></div>
+                    <div>
+                        <div style="font-size:13px;font-weight:{% if s == 'in_progress' %}700{% else %}400{% endif %};color:{% if s == 'in_progress' %}#0f172a{% elif s == 'resolved' or s == 'closed' %}#10b981{% else %}#94a3b8{% endif %};">In Progress</div>
+                        {% if s == 'in_progress' %}<div style="font-size:11px;color:#94a3b8;">Status saat ini</div>{% endif %}
+                    </div>
+                </div>
+                <div class="tl-item">
+                    <div class="tl-dot {% if s == 'resolved' %}current{% elif s == 'closed' %}done{% else %}pending{% endif %}"></div>
+                    <div>
+                        <div style="font-size:13px;font-weight:{% if s == 'resolved' %}700{% else %}400{% endif %};color:{% if s == 'resolved' %}#0f172a{% elif s == 'closed' %}#10b981{% else %}#94a3b8{% endif %};">Resolved</div>
+                        {% if s == 'resolved' %}<div style="font-size:11px;color:#94a3b8;">Status saat ini</div>{% endif %}
+                        {% if gangguan.tanggal_resolved %}<div style="font-size:11px;color:#94a3b8;">{{ gangguan.tanggal_resolved|date:"d M Y, H:i" }}</div>{% endif %}
+                    </div>
+                </div>
+                <div class="tl-item">
+                    <div class="tl-dot {% if s == 'closed' %}current{% else %}pending{% endif %}"></div>
+                    <div>
+                        <div style="font-size:13px;font-weight:{% if s == 'closed' %}700{% else %}400{% endif %};color:{% if s == 'closed' %}#0f172a{% else %}#94a3b8{% endif %};">Closed</div>
+                        {% if s == 'closed' %}<div style="font-size:11px;color:#94a3b8;">Status saat ini</div>{% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endwith %}
+        </div>
+    </div>
+
+</div>
+<!-- ═══ END KOLOM KANAN ═══════════════════════════════════════ -->
+</div>
+
+<!-- Lightbox -->
+<div id="lightbox" onclick="closeLightbox()"
+     style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.9);
+            z-index:9999;align-items:center;justify-content:center;">
+    <img id="lightbox-img" src=""
+         style="max-width:92vw;max-height:92vh;border-radius:10px;box-shadow:0 8px 40px rgba(0,0,0,0.5);">
+    <button onclick="closeLightbox()"
+            style="position:fixed;top:18px;right:22px;background:none;border:none;
+                   color:#fff;font-size:28px;cursor:pointer;line-height:1;">✕</button>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function openLightbox(url) {
+    const lb = document.getElementById('lightbox');
+    document.getElementById('lightbox-img').src = url;
+    lb.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+function closeLightbox() {
+    document.getElementById('lightbox').style.display = 'none';
+    document.body.style.overflow = '';
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
+
+function copyLaporanWA() {
+    const logItems = document.querySelectorAll('.log-entry-wa');
+    let logTeks = '';
+    if (logItems.length > 0) {
+        logTeks = '\n\n📋 *Log Tindak Lanjut*\n';
+        logItems.forEach(el => {
+            logTeks += '• ' + el.dataset.waktu + '\n  ' + el.dataset.isi + '\n';
+        });
+    }
+
+    const teks =
+`📋 *LAPORAN GANGGUAN*
+━━━━━━━━━━━━━━━━━━━━
+🔖 *Nomor:* {{ gangguan.nomor_gangguan }}
+🕐 *Waktu:* {{ gangguan.tanggal_gangguan|date:"d M Y, H:i" }} WIB
+📍 *Lokasi:* {{ gangguan.site|escapejs }}
+⚙️ *Peralatan:* {% if gangguan.peralatan %}{{ gangguan.peralatan.nama|escapejs }}{% else %}—{% endif %}
+🏷️ *Kategori:* {{ gangguan.get_kategori_display|escapejs }}
+🚨 *Keparahan:* {{ gangguan.get_tingkat_keparahan_display }}
+📊 *Status:* {{ gangguan.get_status_display }}
+⏱️ *Durasi:* {{ gangguan.durasi }}
+
+📝 *Executive Summary*
+{{ gangguan.executive_summary|escapejs }}
+
+🔍 *Indikasi Gangguan*
+{{ gangguan.indikasi_gangguan|escapejs }}
+
+🔧 *Penyebab Gangguan*
+{% if gangguan.penyebab_gangguan %}{{ gangguan.penyebab_gangguan|escapejs }}{% else %}Dalam proses identifikasi{% endif %}
+
+⚡ *Dampak Gangguan*
+{{ gangguan.dampak_gangguan|escapejs }}${logTeks}
+👤 *Dideklarasikan oleh:* {{ gangguan.created_by.get_full_name|default:gangguan.created_by.username|default:"—"|escapejs }}
+━━━━━━━━━━━━━━━━━━━━
+_FASOP UP2B Sistem Makassar_`;
+
+    const btn = document.getElementById('btn-copy-wa');
+    const ok  = document.getElementById('copy-success');
+
+    navigator.clipboard.writeText(teks).then(() => {
+        showCopied(btn, ok);
+    }).catch(() => {
+        const ta = document.createElement('textarea');
+        ta.value = teks;
+        ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;';
+        document.body.appendChild(ta);
+        ta.focus(); ta.select();
+        try { document.execCommand('copy'); } catch(e) {}
+        document.body.removeChild(ta);
+        showCopied(btn, ok);
+    });
+}
+
+function showCopied(btn, ok) {
+    btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Tersalin!';
+    btn.style.background = '#16a34a';
+    ok.style.display = 'block';
+    setTimeout(() => {
+        btn.innerHTML = '<i class="bi bi-whatsapp me-1"></i>Salin Laporan';
+        btn.style.background = '#25d366';
+        ok.style.display = 'none';
+    }, 3000);
+}
+</script>
+{% endblock %}

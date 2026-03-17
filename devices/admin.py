@@ -1,9 +1,20 @@
 from django.contrib import admin
-from .models import Device, DeviceType
+from .models import Device, DeviceType, SiteLocation
 
 admin.site.register(Device)
 admin.site.register(DeviceType)
-# Register your models here.
+
+@admin.register(SiteLocation)
+class SiteLocationAdmin(admin.ModelAdmin):
+    list_display  = ['nama', 'latitude', 'longitude', 'has_coords', 'keterangan']
+    search_fields = ['nama']
+    list_display_links = ['nama']
+
+    def has_coords(self, obj):
+        return obj.has_coords
+    has_coords.boolean = True
+    has_coords.short_description = 'Ada Koordinat'
+
 
 from .models import UserProfile
 from django.db.models.signals import post_save

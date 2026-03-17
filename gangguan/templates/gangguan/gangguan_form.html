@@ -1,0 +1,213 @@
+{% extends 'base.html' %}
+{% block title %}{% if is_edit %}Edit Gangguan{% else %}Deklarasi Gangguan{% endif %} — FASOP{% endblock %}
+{% block page_title %}{% if is_edit %}Edit Gangguan{% else %}Deklarasi Gangguan{% endif %}{% endblock %}
+
+{% block content %}
+<style>
+    .section-bar {
+        display: flex; align-items: center; gap: 8px;
+        margin-bottom: 16px;
+    }
+    .section-bar .bar {
+        width: 4px; height: 18px; border-radius: 3px; flex-shrink: 0;
+    }
+    .section-bar span:last-child {
+        font-size: 12px; font-weight: 700; text-transform: uppercase;
+        letter-spacing: 0.6px; color: #475569;
+    }
+    .field-label {
+        font-size: 12px; font-weight: 600; color: #64748b;
+        margin-bottom: 5px; display: block;
+    }
+    .field-label .req { color: #ef4444; margin-left: 2px; }
+    .field-hint {
+        font-size: 11px; color: #94a3b8; margin-top: 4px;
+    }
+    .severity-badge {
+        display: inline-flex; align-items: center; gap: 5px;
+        padding: 4px 12px; border-radius: 20px;
+        font-size: 12px; font-weight: 700;
+    }
+    .sev-kritis  { background:#fee2e2; color:#991b1b; border:1px solid #fca5a5; }
+    .sev-tinggi  { background:#fff7ed; color:#9a3412; border:1px solid #fed7aa; }
+    .sev-sedang  { background:#fffbeb; color:#92400e; border:1px solid #fde68a; }
+    .sev-rendah  { background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; }
+</style>
+
+<div class="d-flex align-items-center gap-2 mb-4">
+    <a href="{% url 'gangguan_list' %}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Kembali
+    </a>
+    {% if is_edit %}
+    <a href="{% url 'gangguan_detail' gangguan.pk %}" class="btn btn-sm btn-outline-primary">
+        <i class="bi bi-eye me-1"></i>Lihat Detail
+    </a>
+    {% endif %}
+</div>
+
+<form method="post" enctype="multipart/form-data" autocomplete="off">
+{% csrf_token %}
+
+<!-- ── 1. IDENTITAS GANGGUAN ──────────────────────────────── -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-bar">
+            <span class="bar" style="background:#ef4444;"></span>
+            <span>Identitas Gangguan</span>
+        </div>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label class="field-label">Tanggal & Jam Gangguan <span class="req">*</span></label>
+                {{ form.tanggal_gangguan }}
+                {% if form.tanggal_gangguan.errors %}<div class="text-danger" style="font-size:11.5px;margin-top:4px;">{{ form.tanggal_gangguan.errors.0 }}</div>{% endif %}
+            </div>
+            <div class="col-md-4">
+                <label class="field-label">Kategori Gangguan <span class="req">*</span></label>
+                {{ form.kategori }}
+            </div>
+            <div class="col-md-4">
+                <label class="field-label">Tingkat Keparahan <span class="req">*</span></label>
+                {{ form.tingkat_keparahan }}
+                <div class="field-hint">Kritis = berdampak luas, Rendah = terisolir/minor</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── 2. LOKASI & PERALATAN ─────────────────────────────── -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-bar">
+            <span class="bar" style="background:#3b82f6;"></span>
+            <span>Lokasi & Peralatan</span>
+        </div>
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="field-label">Site / Lokasi Gangguan <span class="req">*</span></label>
+                <input list="site-options" name="site" id="id_site"
+                       value="{% if form.site.value %}{{ form.site.value }}{% endif %}"
+                       class="form-control" placeholder="Ketik atau pilih site…" required>
+                <datalist id="site-options">
+                    {% for s in site_list %}<option value="{{ s }}">{% endfor %}
+                </datalist>
+                {% if form.site.errors %}<div class="text-danger" style="font-size:11.5px;margin-top:4px;">{{ form.site.errors.0 }}</div>{% endif %}
+                <div class="field-hint">Nama site yang mengalami gangguan</div>
+            </div>
+            <div class="col-md-6">
+                <label class="field-label">Peralatan Terdampak</label>
+                {{ form.peralatan }}
+                <div class="field-hint">Opsional — jika gangguan terkait satu perangkat spesifik</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── 3. LAPORAN GANGGUAN ───────────────────────────────── -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-bar">
+            <span class="bar" style="background:#8b5cf6;"></span>
+            <span>Laporan Gangguan</span>
+        </div>
+        <div class="row g-3">
+            <div class="col-12">
+                <label class="field-label">Executive Summary <span class="req">*</span></label>
+                {{ form.executive_summary }}
+                <div class="field-hint">Ringkasan singkat kondisi gangguan untuk pelaporan cepat</div>
+                {% if form.executive_summary.errors %}<div class="text-danger" style="font-size:11.5px;">{{ form.executive_summary.errors.0 }}</div>{% endif %}
+            </div>
+            <div class="col-md-6">
+                <label class="field-label">Indikasi Gangguan <span class="req">*</span></label>
+                {{ form.indikasi_gangguan }}
+                <div class="field-hint">Gejala atau tanda yang terdeteksi pertama kali</div>
+                {% if form.indikasi_gangguan.errors %}<div class="text-danger" style="font-size:11.5px;">{{ form.indikasi_gangguan.errors.0 }}</div>{% endif %}
+            </div>
+            <div class="col-md-6">
+                <label class="field-label">Penyebab Gangguan</label>
+                {{ form.penyebab_gangguan }}
+                <div class="field-hint">Root cause — bisa diisi belakangan jika belum diketahui</div>
+            </div>
+            <div class="col-md-6">
+                <label class="field-label">Dampak Gangguan <span class="req">*</span></label>
+                {{ form.dampak_gangguan }}
+                <div class="field-hint">Dampak terhadap layanan, pelanggan, atau sistem lain</div>
+                {% if form.dampak_gangguan.errors %}<div class="text-danger" style="font-size:11.5px;">{{ form.dampak_gangguan.errors.0 }}</div>{% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── 4. STATUS & PENUTUPAN ─────────────────────────────── -->
+<div class="card mb-4">
+    <div class="card-body px-4 py-3">
+        <div class="section-bar">
+            <span class="bar" style="background:#10b981;"></span>
+            <span>Status & Penutupan</span>
+        </div>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label class="field-label">Status Gangguan <span class="req">*</span></label>
+                {{ form.status }}
+            </div>
+            <div class="col-md-8">
+                <label class="field-label">Catatan Penutupan</label>
+                {{ form.catatan_penutupan }}
+                <div class="field-hint">Diisi saat gangguan dinyatakan Resolved / Closed</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── 5. FOTO EVIDEN ─────────────────────────────────────── -->
+<div class="card mb-4">
+    <div class="card-body px-4 py-3">
+        <div class="section-bar">
+            <span class="bar" style="background:#0ea5e9;"></span>
+            <span>Foto Eviden</span>
+        </div>
+        <p style="font-size:12px;color:#94a3b8;margin-bottom:14px;">Unggah maksimal 3 foto sebagai dokumentasi/bukti gangguan</p>
+        <div class="row g-3">
+            {% for i, foto_field in forloop_foto %}{% endfor %}
+            <div class="col-md-4">
+                <label class="field-label">Foto Eviden 1</label>
+                {% if form.instance.foto_eviden1 %}
+                <div class="mb-2">
+                    <img src="{{ form.instance.foto_eviden1.url }}" style="width:100%;height:120px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0;">
+                </div>
+                {% endif %}
+                {{ form.foto_eviden1 }}
+            </div>
+            <div class="col-md-4">
+                <label class="field-label">Foto Eviden 2</label>
+                {% if form.instance.foto_eviden2 %}
+                <div class="mb-2">
+                    <img src="{{ form.instance.foto_eviden2.url }}" style="width:100%;height:120px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0;">
+                </div>
+                {% endif %}
+                {{ form.foto_eviden2 }}
+            </div>
+            <div class="col-md-4">
+                <label class="field-label">Foto Eviden 3</label>
+                {% if form.instance.foto_eviden3 %}
+                <div class="mb-2">
+                    <img src="{{ form.instance.foto_eviden3.url }}" style="width:100%;height:120px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0;">
+                </div>
+                {% endif %}
+                {{ form.foto_eviden3 }}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── SUBMIT ─────────────────────────────────────────────── -->
+<div class="d-flex gap-2">
+    <button type="submit" class="btn btn-primary px-4">
+        <i class="bi bi-{% if is_edit %}floppy{% else %}plus-lg{% endif %} me-1"></i>
+        {% if is_edit %}Simpan Perubahan{% else %}Deklarasi Gangguan{% endif %}
+    </button>
+    <a href="{% if is_edit %}{% url 'gangguan_detail' gangguan.pk %}{% else %}{% url 'gangguan_list' %}{% endif %}"
+       class="btn btn-outline-secondary">Batal</a>
+</div>
+
+</form>
+{% endblock %}

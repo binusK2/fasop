@@ -4,41 +4,187 @@
 
 {% block content %}
 
-<div class="d-flex align-items-center justify-content-between mb-3">
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+<style>
+    /* ── Peta ────────────────────────────────────── */
+    #site-map {
+        height: 420px;
+        border-radius: 0;
+        z-index: 1;
+    }
+
+    /* ── Popup peralatan dalam peta ─────────────── */
+    .map-popup-title {
+        font-size: 14px;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 6px;
+        border-bottom: 1px solid #e2e8f0;
+        padding-bottom: 6px;
+    }
+    .map-popup-meta {
+        font-size: 11.5px;
+        color: #64748b;
+        margin-bottom: 8px;
+    }
+    .map-popup-device-list {
+        max-height: 200px;
+        overflow-y: auto;
+        font-size: 12px;
+    }
+    .map-popup-device-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+        padding: 5px 0;
+        border-bottom: 1px solid #f1f5f9;
+    }
+    .map-popup-device-item:last-child { border-bottom: none; }
+    .map-popup-badge {
+        display: inline-block;
+        padding: 1px 7px;
+        border-radius: 20px;
+        background: #eff6ff;
+        color: #2563eb;
+        font-size: 10.5px;
+        font-weight: 600;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+    .map-popup-link {
+        display: block;
+        margin-top: 10px;
+        text-align: center;
+        font-size: 12px;
+        color: #3b82f6;
+        font-weight: 600;
+        text-decoration: none;
+    }
+    .map-popup-link:hover { text-decoration: underline; }
+    .map-loading {
+        text-align: center;
+        padding: 12px;
+        color: #94a3b8;
+        font-size: 12.5px;
+    }
+
+    /* ── Kartu Site ──────────────────────────────── */
+    .site-card {
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        background: white;
+        transition: box-shadow 0.15s, border-color 0.15s;
+    }
+    .site-card.has-map-pin {
+        cursor: pointer;
+    }
+    .site-card:hover {
+        box-shadow: 0 4px 16px rgba(59,130,246,0.12);
+        border-color: #bfdbfe;
+    }
+
+    .pin-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 10.5px;
+        padding: 2px 8px;
+        border-radius: 20px;
+        font-weight: 600;
+    }
+    .pin-badge.with-pin {
+        background: #ecfdf5;
+        color: #059669;
+    }
+    .pin-badge.no-pin {
+        background: #f8fafc;
+        color: #94a3b8;
+    }
+</style>
+
+<!-- ── Header ───────────────────────────────────────────────────── -->
+<div class="d-flex align-items-center justify-content-between mb-4">
     <div>
         <h2 class="mb-0" style="font-size:20px;font-weight:700;">Daftar Site / Lokasi</h2>
-        <p class="text-muted mb-0" style="font-size:13px;">{{ lokasi_data|length }} lokasi terdaftar</p>
+        <p class="text-muted mb-0" style="font-size:13px;">
+            {{ lokasi_data|length }} lokasi terdaftar
+            &nbsp;·&nbsp;
+            <span id="map-site-count" style="color:#3b82f6;font-weight:600;"></span>
+        </p>
+    </div>
+    <button id="toggle-map-btn" class="btn btn-sm btn-outline-primary" onclick="toggleMap()">
+        <i class="bi bi-map me-1"></i>Tampilkan Peta
+    </button>
+</div>
+
+<!-- ── PETA ─────────────────────────────────────────────────────── -->
+<div id="map-wrapper" style="display:none;" class="mb-4">
+    <div class="card" style="border-radius:14px;overflow:hidden;border:1px solid var(--border-color);">
+        <div style="padding:14px 18px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-size:13.5px;font-weight:600;color:#0f172a;">
+                <i class="bi bi-map-fill me-2" style="color:#3b82f6;"></i>Peta Lokasi Site
+            </span>
+            <span style="font-size:12px;color:#94a3b8;">
+                <i class="bi bi-info-circle me-1"></i>Klik marker atau kartu untuk melihat peralatan
+            </span>
+        </div>
+        <div id="site-map"></div>
+        <div id="map-no-coord-info" style="padding:10px 18px;background:#fffbeb;border-top:1px solid #fde68a;font-size:12px;color:#92400e;display:none;">
+            <i class="bi bi-exclamation-triangle me-1"></i>
+            <span id="no-coord-msg"></span>
+            &nbsp;—&nbsp; Tambahkan koordinat di
+            <a href="/admin/devices/sitelocation/" target="_blank" style="color:#92400e;font-weight:600;">
+                Admin Panel → Lokasi Site
+            </a>
+        </div>
     </div>
 </div>
 
+<!-- ── GRID KARTU SITE ───────────────────────────────────────────── -->
 <div class="row g-3">
     {% for l in lokasi_data %}
     <div class="col-md-4 col-sm-6">
-        <div class="card h-100" style="transition:box-shadow 0.15s;" onmouseover="this.style.boxShadow='0 4px 16px rgba(59,130,246,0.10)'" onmouseout="this.style.boxShadow=''">
-            <div class="card-body p-4">
-                <div class="d-flex align-items-start justify-content-between mb-3">
-                    <div style="width:40px;height:40px;background:#eff6ff;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                        <i class="bi bi-geo-alt-fill" style="color:#3b82f6;font-size:18px;"></i>
-                    </div>
+        <div class="site-card h-100 {% if l.has_coords %}has-map-pin{% endif %} p-4"
+             data-lokasi="{{ l.lokasi_clean }}"
+             data-lat="{{ l.latitude|default:'' }}"
+             data-lng="{{ l.longitude|default:'' }}"
+             onclick="onCardClick(this)">
+
+            <div class="d-flex align-items-start justify-content-between mb-3">
+                <div style="width:40px;height:40px;background:#eff6ff;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                    <i class="bi bi-geo-alt-fill" style="color:#3b82f6;font-size:18px;"></i>
+                </div>
+                <div class="d-flex flex-column align-items-end gap-1">
                     <span style="font-size:11px;background:#f1f5f9;color:#64748b;padding:3px 9px;border-radius:20px;font-weight:600;">
                         {{ l.total_device }} perangkat
                     </span>
+                    {% if l.has_coords %}
+                    <span class="pin-badge with-pin"><i class="bi bi-pin-map-fill"></i>Ada di peta</span>
+                    {% else %}
+                    <span class="pin-badge no-pin"><i class="bi bi-pin-map"></i>Belum ada pin</span>
+                    {% endif %}
                 </div>
-                <div style="font-size:15px;font-weight:700;color:#0f172a;margin-bottom:4px;">{{ l.lokasi_clean }}</div>
-                {% if l.maintenance_open %}
-                <div style="font-size:12px;color:#f59e0b;font-weight:500;margin-bottom:12px;">
-                    <i class="bi bi-exclamation-circle me-1"></i>{{ l.maintenance_open }} maintenance open
-                </div>
-                {% else %}
-                <div style="font-size:12px;color:#10b981;font-weight:500;margin-bottom:12px;">
-                    <i class="bi bi-check-circle me-1"></i>Semua maintenance selesai
-                </div>
-                {% endif %}
-                <a href="{% url 'device_list' %}?lokasi={{ l.lokasi_clean }}"
-                   class="btn btn-sm btn-outline-primary w-100">
-                    <i class="bi bi-hdd-rack me-1"></i>Lihat Peralatan
-                </a>
             </div>
+
+            <div style="font-size:15px;font-weight:700;color:#0f172a;margin-bottom:4px;">{{ l.lokasi_clean }}</div>
+
+            {% if l.maintenance_open %}
+            <div style="font-size:12px;color:#f59e0b;font-weight:500;margin-bottom:12px;">
+                <i class="bi bi-exclamation-circle me-1"></i>{{ l.maintenance_open }} maintenance open
+            </div>
+            {% else %}
+            <div style="font-size:12px;color:#10b981;font-weight:500;margin-bottom:12px;">
+                <i class="bi bi-check-circle me-1"></i>Semua maintenance selesai
+            </div>
+            {% endif %}
+
+            <a href="{% url 'device_list' %}?lokasi={{ l.lokasi_clean }}"
+               class="btn btn-sm btn-outline-primary w-100"
+               onclick="event.stopPropagation()">
+                <i class="bi bi-hdd-rack me-1"></i>Lihat Peralatan
+            </a>
         </div>
     </div>
     {% empty %}
@@ -53,4 +199,189 @@
     {% endfor %}
 </div>
 
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ── Data site dari Django ─────────────────────────────────────────
+const SITE_DATA = [
+    {% for l in lokasi_data %}{% if l.has_coords %}
+    {
+        nama: "{{ l.lokasi_clean|escapejs }}",
+        lat: {{ l.latitude }},
+        lng: {{ l.longitude }},
+        total_device: {{ l.total_device }},
+        maint_open: {{ l.maintenance_open }},
+    },
+    {% endif %}{% endfor %}
+];
+
+const NO_COORD_SITES = [
+    {% for l in lokasi_data %}{% if not l.has_coords %}"{{ l.lokasi_clean|escapejs }}",{% endif %}{% endfor %}
+];
+
+// Update counter badge
+document.getElementById('map-site-count').textContent =
+    SITE_DATA.length + ' lokasi ada di peta';
+
+// ── State peta ────────────────────────────────────────────────────
+let map = null;
+let markers = {};
+let mapInited = false;
+let mapVisible = false;
+
+function toggleMap() {
+    const wrapper = document.getElementById('map-wrapper');
+    const btn     = document.getElementById('toggle-map-btn');
+    mapVisible = !mapVisible;
+    wrapper.style.display = mapVisible ? 'block' : 'none';
+    btn.innerHTML = mapVisible
+        ? '<i class="bi bi-x-lg me-1"></i>Tutup Peta'
+        : '<i class="bi bi-map me-1"></i>Tampilkan Peta';
+
+    if (mapVisible && !mapInited) initMap();
+    else if (mapVisible) map.invalidateSize();
+}
+
+function initMap() {
+    mapInited = true;
+
+    // Center default: Sulawesi Selatan
+    let centerLat = -5.1477, centerLng = 119.4327, zoom = 9;
+    if (SITE_DATA.length === 1) {
+        centerLat = SITE_DATA[0].lat;
+        centerLng = SITE_DATA[0].lng;
+        zoom = 13;
+    } else if (SITE_DATA.length > 1) {
+        centerLat = SITE_DATA.reduce((s, d) => s + d.lat, 0) / SITE_DATA.length;
+        centerLng = SITE_DATA.reduce((s, d) => s + d.lng, 0) / SITE_DATA.length;
+    }
+
+    map = L.map('site-map').setView([centerLat, centerLng], zoom);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+        maxZoom: 18,
+    }).addTo(map);
+
+    // ── Custom SVG marker ─────────────────────────────────────────
+    function makeIcon(fillColor) {
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="44" viewBox="0 0 32 44">
+          <path d="M16 1 C8.3 1 2 7.3 2 15 C2 24 16 43 16 43 C16 43 30 24 30 15 C30 7.3 23.7 1 16 1 Z"
+                fill="${fillColor}" stroke="white" stroke-width="2"/>
+          <circle cx="16" cy="15" r="6" fill="white" opacity="0.9"/>
+        </svg>`;
+        return L.divIcon({
+            html: `<div style="filter:drop-shadow(0 3px 8px rgba(0,0,0,0.28))">${svg}</div>`,
+            iconSize:    [32, 44],
+            iconAnchor:  [16, 44],
+            popupAnchor: [0, -46],
+            className:   '',
+        });
+    }
+
+    const iconNormal = makeIcon('#3b82f6');
+    const iconAlert  = makeIcon('#f59e0b');
+
+    // ── Pasang marker ─────────────────────────────────────────────
+    SITE_DATA.forEach(site => {
+        const icon   = site.maint_open > 0 ? iconAlert : iconNormal;
+        const marker = L.marker([site.lat, site.lng], { icon, title: site.nama }).addTo(map);
+        marker.on('click', () => openSitePopup(marker, site));
+        markers[site.nama] = marker;
+    });
+
+    // Fit bounds
+    if (SITE_DATA.length > 1) {
+        const grp = L.featureGroup(Object.values(markers));
+        map.fitBounds(grp.getBounds().pad(0.25));
+    }
+
+    // Info site tanpa koordinat
+    if (NO_COORD_SITES.length > 0) {
+        document.getElementById('no-coord-msg').textContent =
+            NO_COORD_SITES.length + ' site belum memiliki koordinat GPS: ' + NO_COORD_SITES.join(', ');
+        document.getElementById('map-no-coord-info').style.display = 'block';
+    }
+}
+
+// ── Popup dengan daftar peralatan via API ─────────────────────────
+function openSitePopup(marker, site) {
+    const statusHtml = site.maint_open > 0
+        ? `<span style="color:#f59e0b;"><i class="bi bi-exclamation-circle"></i> ${site.maint_open} maintenance open</span>`
+        : `<span style="color:#10b981;"><i class="bi bi-check-circle"></i> Semua selesai</span>`;
+
+    // Tampilkan popup dengan loading dulu
+    marker.bindPopup(
+        `<div style="min-width:240px;max-width:280px;">
+            <div class="map-popup-title">${site.nama}</div>
+            <div class="map-popup-meta">${site.total_device} perangkat &nbsp;·&nbsp; ${statusHtml}</div>
+            <div class="map-loading"><i class="bi bi-arrow-repeat"></i> Memuat peralatan…</div>
+         </div>`,
+        { maxWidth: 300, minWidth: 240 }
+    ).openPopup();
+
+    // Fetch list device dari API
+    fetch(`/api/lokasi/${encodeURIComponent(site.nama)}/devices/`)
+        .then(r => r.json())
+        .then(data => {
+            const devs = data.devices || [];
+            let devHtml = '';
+            if (devs.length === 0) {
+                devHtml = '<div class="map-loading" style="color:#94a3b8;">Tidak ada perangkat</div>';
+            } else {
+                devs.forEach(d => {
+                    const sub = [d.merk, d.type !== '-' ? d.type : '', d.ip !== '-' ? d.ip : '']
+                                .filter(Boolean).join(' · ');
+                    devHtml += `
+                    <div class="map-popup-device-item">
+                        <span class="map-popup-badge">${d.jenis}</span>
+                        <div>
+                            <div style="font-weight:600;color:#0f172a;font-size:12.5px;">${d.nama}</div>
+                            <div style="color:#94a3b8;font-size:11px;">${sub}</div>
+                        </div>
+                    </div>`;
+                });
+            }
+
+            marker.setPopupContent(`
+                <div style="min-width:240px;max-width:280px;">
+                    <div class="map-popup-title">${site.nama}</div>
+                    <div class="map-popup-meta">${site.total_device} perangkat &nbsp;·&nbsp; ${statusHtml}</div>
+                    <div class="map-popup-device-list">${devHtml}</div>
+                    <a class="map-popup-link"
+                       href="/devices/?lokasi=${encodeURIComponent(site.nama)}">
+                        <i class="bi bi-hdd-rack me-1"></i>Lihat semua peralatan →
+                    </a>
+                </div>`);
+        })
+        .catch(() => {
+            marker.setPopupContent(`
+                <div style="min-width:240px;">
+                    <div class="map-popup-title">${site.nama}</div>
+                    <div class="map-loading" style="color:#ef4444;">
+                        <i class="bi bi-exclamation-triangle me-1"></i>Gagal memuat data
+                    </div>
+                </div>`);
+        });
+}
+
+// ── Klik kartu site → fokus peta ke lokasi ───────────────────────
+function onCardClick(card) {
+    const lat  = parseFloat(card.dataset.lat);
+    const lng  = parseFloat(card.dataset.lng);
+    const nama = card.dataset.lokasi;
+    if (!lat || !lng) return;
+
+    if (!mapVisible) toggleMap();
+
+    setTimeout(() => {
+        map.invalidateSize();
+        map.flyTo([lat, lng], 14, { duration: 1 });
+        const m = markers[nama];
+        if (m) setTimeout(() => m.openPopup(), 900);
+    }, mapVisible ? 50 : 420);
+}
+</script>
 {% endblock %}

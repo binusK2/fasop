@@ -23,6 +23,16 @@ class Device(models.Model):
     firmware_version = models.CharField(max_length=100, blank=True, null=True)
     ip_address = models.GenericIPAddressField(blank=True, null=True)
     lokasi = models.CharField(max_length=150)
+    STATUS_CHOICES = (
+        ('operasi', 'Operasi'),
+        ('tidak_operasi', 'Tidak Operasi'),
+    )
+    status_operasi = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='operasi',
+        verbose_name='Status Operasi'
+    )
     keterangan = models.TextField(blank=True, null=True)
     foto = models.ImageField(upload_to='device_photos/', blank=True, null=True)
     foto2 = models.ImageField(upload_to='device_photos/', blank=True, null=True, verbose_name='Foto 2')
@@ -62,6 +72,31 @@ class Icon(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class SiteLocation(models.Model):
+    """Menyimpan koordinat GPS untuk setiap site/lokasi peralatan."""
+    nama = models.CharField(
+        max_length=150,
+        unique=True,
+        verbose_name='Nama Site',
+        help_text='Harus sama persis dengan nilai lokasi pada data Device'
+    )
+    latitude = models.FloatField(verbose_name='Latitude', null=True, blank=True)
+    longitude = models.FloatField(verbose_name='Longitude', null=True, blank=True)
+    keterangan = models.TextField(blank=True, null=True, verbose_name='Keterangan')
+
+    class Meta:
+        verbose_name = 'Lokasi Site'
+        verbose_name_plural = 'Lokasi Site'
+        ordering = ['nama']
+
+    def __str__(self):
+        return self.nama
+
+    @property
+    def has_coords(self):
+        return self.latitude is not None and self.longitude is not None
 
 
 class UserProfile(models.Model):
