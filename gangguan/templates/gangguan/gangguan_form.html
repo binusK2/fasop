@@ -95,8 +95,53 @@
             </div>
             <div class="col-md-6">
                 <label class="field-label">Peralatan Terdampak</label>
-                {{ form.peralatan }}
-                <div class="field-hint">Opsional — jika gangguan terkait satu perangkat spesifik</div>
+
+                <!-- Filter jenis -->
+                <div class="d-flex gap-2 mb-2">
+                    <select id="filter-jenis" class="form-select form-select-sm"
+                            style="flex:0 0 auto;width:160px;">
+                        <option value="">Semua Jenis</option>
+                    </select>
+                    <div style="position:relative;flex:1;">
+                        <i class="bi bi-search" style="position:absolute;left:9px;top:50%;
+                           transform:translateY(-50%);color:#94a3b8;font-size:12px;pointer-events:none;"></i>
+                        <input type="text" id="search-peralatan"
+                               class="form-control form-control-sm"
+                               style="padding-left:28px;"
+                               placeholder="Cari nama perangkat…">
+                    </div>
+                </div>
+
+                <!-- Dropdown peralatan (hidden input sesungguhnya) -->
+                <input type="hidden" name="peralatan" id="id_peralatan"
+                       value="{{ selected_peralatan_id }}">
+
+                <div id="peralatan-selected"
+                     style="display:none;background:#eff6ff;border:1px solid #bfdbfe;
+                            border-radius:8px;padding:8px 12px;margin-bottom:6px;
+                            display:flex;align-items:center;justify-content:space-between;">
+                    <div>
+                        <div style="font-size:13px;font-weight:600;color:#1d4ed8;" id="peralatan-selected-nama">—</div>
+                        <div style="font-size:11px;color:#64748b;" id="peralatan-selected-info"></div>
+                    </div>
+                    <button type="button" onclick="clearPeralatan()"
+                            style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:14px;padding:0;">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+
+                <div id="peralatan-dropdown"
+                     style="border:1px solid #e2e8f0;border-radius:8px;max-height:200px;
+                            overflow-y:auto;background:white;display:none;">
+                    <div id="peralatan-list"></div>
+                    <div id="peralatan-empty"
+                         style="display:none;padding:12px 14px;text-align:center;
+                                font-size:12.5px;color:#94a3b8;">
+                        <i class="bi bi-search me-1"></i>Tidak ada perangkat ditemukan
+                    </div>
+                </div>
+
+                <div class="field-hint">Opsional — pilih jenis lalu cari nama perangkat</div>
             </div>
         </div>
     </div>
@@ -210,4 +255,112 @@
 </div>
 
 </form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const ALL_DEVICES = {{ device_json|safe }};
+const ALL_TYPES   = {{ type_json|safe }};
+let selectedJenisId = 0;
+let searchVal = '';
+
+// ── Isi dropdown jenis ────────────────────────────────────────
+const filterJenis = document.getElementById('filter-jenis');
+ALL_TYPES.forEach(t => {
+    const opt = document.createElement('option');
+    opt.value = t.id;
+    opt.textContent = t.name;
+    filterJenis.appendChild(opt);
+});
+
+filterJenis.addEventListener('change', function() {
+    selectedJenisId = parseInt(this.value) || 0;
+    renderList();
+});
+
+document.getElementById('search-peralatan').addEventListener('input', function() {
+    searchVal = this.value.trim().toLowerCase();
+    renderList();
+    document.getElementById('peralatan-dropdown').style.display = 'block';
+});
+
+document.getElementById('search-peralatan').addEventListener('focus', function() {
+    renderList();
+    document.getElementById('peralatan-dropdown').style.display = 'block';
+});
+
+// ── Render daftar perangkat ───────────────────────────────────
+function renderList() {
+    const filtered = ALL_DEVICES.filter(d => {
+        const matchJenis = !selectedJenisId || d.jenis_id === selectedJenisId;
+        const matchSearch = !searchVal ||
+            d.nama.toLowerCase().includes(searchVal) ||
+            d.lokasi.toLowerCase().includes(searchVal);
+        return matchJenis && matchSearch;
+    });
+
+    const listEl  = document.getElementById('peralatan-list');
+    const emptyEl = document.getElementById('peralatan-empty');
+    listEl.innerHTML = '';
+
+    if (filtered.length === 0) {
+        emptyEl.style.display = 'block';
+        return;
+    }
+    emptyEl.style.display = 'none';
+
+    filtered.forEach(d => {
+        const item = document.createElement('div');
+        item.style.cssText = 'padding:9px 14px;cursor:pointer;border-bottom:1px solid #f1f5f9;transition:background 0.1s;';
+        item.innerHTML = `
+            <div style="font-size:13px;font-weight:600;color:#0f172a;">${d.nama}</div>
+            <div style="font-size:11px;color:#94a3b8;margin-top:1px;">
+                <span style="background:#eff6ff;color:#2563eb;padding:1px 7px;border-radius:20px;font-weight:600;font-size:10.5px;">${d.jenis_nama}</span>
+                ${d.lokasi ? ' · ' + d.lokasi : ''}
+            </div>`;
+        item.onmouseenter = () => item.style.background = '#f8fafc';
+        item.onmouseleave = () => item.style.background = '';
+        item.onclick = () => selectPeralatan(d);
+        listEl.appendChild(item);
+    });
+}
+
+// ── Pilih perangkat ───────────────────────────────────────────
+function selectPeralatan(d) {
+    document.getElementById('id_peralatan').value = d.id;
+    document.getElementById('peralatan-selected-nama').textContent = d.nama;
+    document.getElementById('peralatan-selected-info').textContent =
+        d.jenis_nama + (d.lokasi ? ' · ' + d.lokasi : '');
+
+    const selEl = document.getElementById('peralatan-selected');
+    selEl.style.display = 'flex';
+
+    document.getElementById('peralatan-dropdown').style.display = 'none';
+    document.getElementById('search-peralatan').value = '';
+    searchVal = '';
+}
+
+function clearPeralatan() {
+    document.getElementById('id_peralatan').value = '';
+    document.getElementById('peralatan-selected').style.display = 'none';
+    document.getElementById('peralatan-selected-nama').textContent = '—';
+}
+
+// ── Tutup dropdown kalau klik di luar ────────────────────────
+document.addEventListener('click', function(e) {
+    const wrapper = document.getElementById('peralatan-dropdown');
+    const search  = document.getElementById('search-peralatan');
+    const jenis   = document.getElementById('filter-jenis');
+    if (!wrapper.contains(e.target) && e.target !== search && e.target !== jenis) {
+        wrapper.style.display = 'none';
+    }
+});
+
+// ── Restore nilai saat edit ───────────────────────────────────
+const initId = parseInt('{{ selected_peralatan_id }}') || 0;
+if (initId) {
+    const found = ALL_DEVICES.find(d => d.id === initId);
+    if (found) selectPeralatan(found);
+}
+</script>
 {% endblock %}

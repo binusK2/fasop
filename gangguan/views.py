@@ -66,6 +66,33 @@ def gangguan_list(request):
     })
 
 
+def _get_device_json():
+    """Kembalikan semua device aktif sebagai list dict untuk JS filter."""
+    import json
+    from devices.models import DeviceType
+    devices = (
+        Device.objects.filter(is_deleted=False)
+        .select_related('jenis')
+        .order_by('jenis__name', 'lokasi', 'nama')
+        .values('id', 'nama', 'lokasi', 'jenis__id', 'jenis__name')
+    )
+    device_list = [
+        {
+            'id':    d['id'],
+            'nama':  d['nama'],
+            'lokasi': d['lokasi'] or '',
+            'jenis_id':   d['jenis__id'] or 0,
+            'jenis_nama': d['jenis__name'] or 'Lainnya',
+        }
+        for d in devices
+    ]
+    types = (
+        DeviceType.objects.all().order_by('name').values('id', 'name')
+    )
+    type_list = [{'id': t['id'], 'name': t['name']} for t in types]
+    return json.dumps(device_list), json.dumps(type_list)
+
+
 @login_required
 def gangguan_create(request):
     """Deklarasi gangguan baru."""
@@ -79,18 +106,21 @@ def gangguan_create(request):
     else:
         form = GangguanForm(initial={'tanggal_gangguan': timezone.localtime(timezone.now()).strftime('%Y-%m-%dT%H:%M')})
 
-    # Ambil daftar site dari Device untuk autocomplete
     site_list = list(
         Device.objects.filter(is_deleted=False)
         .exclude(lokasi__isnull=True).exclude(lokasi__exact='')
         .values_list('lokasi', flat=True)
         .distinct().order_by('lokasi')
     )
+    device_json, type_json = _get_device_json()
 
     return render(request, 'gangguan/gangguan_form.html', {
-        'form':      form,
-        'is_edit':   False,
-        'site_list': site_list,
+        'form':        form,
+        'is_edit':     False,
+        'site_list':   site_list,
+        'device_json': device_json,
+        'type_json':   type_json,
+        'selected_peralatan_id': None,
     })
 
 
@@ -130,12 +160,16 @@ def gangguan_update(request, pk):
         .values_list('lokasi', flat=True)
         .distinct().order_by('lokasi')
     )
+    device_json, type_json = _get_device_json()
 
     return render(request, 'gangguan/gangguan_form.html', {
-        'form':      form,
-        'gangguan':  gangguan,
-        'is_edit':   True,
-        'site_list': site_list,
+        'form':        form,
+        'gangguan':    gangguan,
+        'is_edit':     True,
+        'site_list':   site_list,
+        'device_json': device_json,
+        'type_json':   type_json,
+        'selected_peralatan_id': gangguan.peralatan_id or '',
     })
 
 
