@@ -9,4 +9,6 @@ urlpatterns = [
     path('<int:pk>/update-status/', views.gangguan_update_status,  name='gangguan_update_status'),
     path('<int:pk>/log/tambah/',     views.gangguan_add_log,        name='gangguan_add_log'),
     path('<int:pk>/log/<int:log_pk>/hapus/', views.gangguan_delete_log, name='gangguan_delete_log'),
+    # Public status page — tanpa login
+    path('status/<str:nomor>/<str:token>/', views.gangguan_public_status, name='gangguan_public'),
 ]

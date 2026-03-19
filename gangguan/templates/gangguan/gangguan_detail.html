@@ -398,6 +398,46 @@
     </div>
     {% endif %}
 
+    <!-- Share Link Publik -->
+    <div class="g-card" style="border:1px solid #bfdbfe;">
+        <div class="g-card-head" style="background:#eff6ff;border-bottom:1px solid #bfdbfe;color:#1d4ed8;">
+            <i class="bi bi-share-fill" style="color:#3b82f6;font-size:13px;"></i>
+            Bagikan Status Publik
+        </div>
+        <div class="g-card-body" style="padding:14px 16px;">
+            <p style="font-size:12px;color:#64748b;margin-bottom:10px;line-height:1.6;">
+                Siapapun yang punya link ini bisa melihat status gangguan tanpa perlu login.
+            </p>
+            {% if gangguan.public_token %}
+            {% with public_url=request.scheme|add:"://"|add:request.get_host|add:"/gangguan/status/"|add:gangguan.nomor_gangguan|add:"/"|add:gangguan.public_token|add:"/" %}
+            <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#475569;
+                        background:#f8fafc;border:1px solid #e2e8f0;border-radius:7px;
+                        padding:7px 10px;word-break:break-all;margin-bottom:10px;"
+                 id="publicUrl">{{ public_url }}</div>
+            <div class="d-flex gap-2">
+                <button onclick="copyPublicUrl()" id="btn-copy-public"
+                        class="btn btn-sm w-100 fw-bold"
+                        style="background:#3b82f6;color:white;border:none;">
+                    <i class="bi bi-clipboard me-1"></i>Salin Link
+                </button>
+                <a href="{{ public_url }}" target="_blank"
+                   class="btn btn-sm btn-outline-primary" title="Buka di tab baru">
+                    <i class="bi bi-box-arrow-up-right"></i>
+                </a>
+            </div>
+            {% endwith %}
+            {% else %}
+            <div style="font-size:12px;color:#94a3b8;">Token belum tersedia. Simpan ulang gangguan ini.</div>
+            {% endif %}
+            <div id="copy-public-success"
+                 style="display:none;margin-top:8px;font-size:12px;color:#166534;
+                        background:#f0fdf4;padding:7px 10px;border-radius:6px;text-align:center;
+                        border:1px solid #bbf7d0;">
+                <i class="bi bi-check-circle me-1"></i>Link berhasil disalin!
+            </div>
+        </div>
+    </div>
+
     <!-- Salin Laporan WhatsApp -->
     <div class="g-card" style="border:1px solid #86efac;">
         <div class="g-card-head" style="background:#f0fdf4;border-bottom:1px solid #bbf7d0;color:#166534;">
@@ -569,6 +609,46 @@ function closeLightbox() {
     document.body.style.overflow = '';
 }
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
+
+function copyPublicUrl() {
+    const el  = document.getElementById('publicUrl');
+    const btn = document.getElementById('btn-copy-public');
+    const ok  = document.getElementById('copy-public-success');
+    if (!el) return;
+    const url = el.textContent.trim();
+
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(url).then(() => showPublicCopied(btn, ok))
+            .catch(() => fallbackPublicCopy(url, btn, ok));
+    } else {
+        fallbackPublicCopy(url, btn, ok);
+    }
+}
+
+function fallbackPublicCopy(url, btn, ok) {
+    const ta = document.createElement('textarea');
+    ta.value = url;
+    ta.setAttribute('readonly', '');
+    ta.style.cssText = 'position:fixed;top:0;left:0;width:2em;height:2em;padding:0;border:none;outline:none;box-shadow:none;background:transparent;opacity:0;';
+    document.body.appendChild(ta);
+    ta.focus(); ta.select(); ta.setSelectionRange(0, 99999);
+    try {
+        const success = document.execCommand('copy');
+        if (success) showPublicCopied(btn, ok);
+    } catch(e) {}
+    document.body.removeChild(ta);
+}
+
+function showPublicCopied(btn, ok) {
+    btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Tersalin!';
+    btn.style.background = '#10b981';
+    ok.style.display = 'block';
+    setTimeout(() => {
+        btn.innerHTML = '<i class="bi bi-clipboard me-1"></i>Salin Link';
+        btn.style.background = '#3b82f6';
+        ok.style.display = 'none';
+    }, 3000);
+}
 
 function copyLaporanWA() {
     const logItems = document.querySelectorAll('.log-entry-wa');

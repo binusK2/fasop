@@ -107,6 +107,10 @@
             <div class="col-auto">
                 <button type="submit" class="btn btn-sm btn-primary">Filter</button>
                 <a href="{% url 'hi_list' %}" class="btn btn-sm btn-outline-secondary ms-1">Reset</a>
+                <button type="button" class="btn btn-sm btn-outline-danger ms-auto"
+                        data-bs-toggle="modal" data-bs-target="#modalExportPDF">
+                    <i class="bi bi-file-earmark-pdf me-1"></i>Export PDF
+                </button>
             </div>
             <div class="col-auto ms-auto">
                 <span style="font-size:12px;color:#64748b;">
@@ -233,6 +237,72 @@
     </div>
 </div>
 
+
+{# ── Modal Export PDF ── #}
+<div class="modal fade" id="modalExportPDF" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:420px;">
+        <div class="modal-content" style="border-radius:14px;">
+            <div class="modal-header" style="border-bottom:1px solid #f1f5f9;padding:16px 20px;">
+                <h6 class="modal-title" style="font-weight:700;">
+                    <i class="bi bi-file-earmark-pdf me-2" style="color:#ef4444;"></i>Export Laporan Health Index
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="padding:20px;">
+                <div class="mb-3">
+                    <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:6px;">
+                        <i class="bi bi-calendar3 me-1"></i>Bulan
+                    </label>
+                    <select id="expBulan" class="form-select form-select-sm">
+                        <option value="1"  {% if today_bulan == 1  %}selected{% endif %}>Januari</option>
+                        <option value="2"  {% if today_bulan == 2  %}selected{% endif %}>Februari</option>
+                        <option value="3"  {% if today_bulan == 3  %}selected{% endif %}>Maret</option>
+                        <option value="4"  {% if today_bulan == 4  %}selected{% endif %}>April</option>
+                        <option value="5"  {% if today_bulan == 5  %}selected{% endif %}>Mei</option>
+                        <option value="6"  {% if today_bulan == 6  %}selected{% endif %}>Juni</option>
+                        <option value="7"  {% if today_bulan == 7  %}selected{% endif %}>Juli</option>
+                        <option value="8"  {% if today_bulan == 8  %}selected{% endif %}>Agustus</option>
+                        <option value="9"  {% if today_bulan == 9  %}selected{% endif %}>September</option>
+                        <option value="10" {% if today_bulan == 10 %}selected{% endif %}>Oktober</option>
+                        <option value="11" {% if today_bulan == 11 %}selected{% endif %}>November</option>
+                        <option value="12" {% if today_bulan == 12 %}selected{% endif %}>Desember</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:6px;">
+                        <i class="bi bi-calendar me-1"></i>Tahun
+                    </label>
+                    <select id="expTahun" class="form-select form-select-sm">
+                        <option value="{{ today_tahun|add:'-1' }}">{{ today_tahun|add:'-1' }}</option>
+                        <option value="{{ today_tahun }}" selected>{{ today_tahun }}</option>
+                        <option value="{{ today_tahun|add:'1' }}">{{ today_tahun|add:'1' }}</option>
+                    </select>
+                </div>
+                <div class="mb-1">
+                    <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:6px;">
+                        <i class="bi bi-geo-alt me-1"></i>Lokasi / Site
+                    </label>
+                    <select id="expLokasi" class="form-select form-select-sm">
+                        <option value="">— Semua Lokasi —</option>
+                        {% for lok in lokasi_list %}
+                        <option value="{{ lok }}">{{ lok }}</option>
+                        {% endfor %}
+                    </select>
+                    <div style="font-size:11px;color:#94a3b8;margin-top:4px;">
+                        Kosongkan untuk export semua lokasi
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer" style="border-top:1px solid #f1f5f9;padding:12px 20px;">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-sm btn-danger" onclick="doExport()">
+                    <i class="bi bi-download me-1"></i>Download PDF
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
@@ -240,6 +310,16 @@
 function setFilter(kategori) {
     document.getElementById('kategoriSelect').value = kategori;
     document.getElementById('filterForm').submit();
+}
+
+function doExport() {
+    const bulan  = document.getElementById('expBulan').value;
+    const tahun  = document.getElementById('expTahun').value;
+    const lokasi = document.getElementById('expLokasi').value;
+    let url = `{% url 'export_hi_pdf' %}?bulan=${bulan}&tahun=${tahun}`;
+    if (lokasi) url += `&lokasi=${encodeURIComponent(lokasi)}`;
+    window.open(url, '_blank');
+    bootstrap.Modal.getInstance(document.getElementById('modalExportPDF')).hide();
 }
 </script>
 {% endblock %}

@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Status Gangguan {{ gangguan.nomor_gangguan }} — FASOP UP2B</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            background: #f1f5f9;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            min-height: 100vh;
+            padding: 0;
+        }
+
+        /* ── Top Bar ── */
+        .top-bar {
+            background: #0f172a;
+            padding: 12px 0;
+            text-align: center;
+        }
+        .top-bar .brand {
+            color: #fff;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+        .top-bar .sub {
+            color: #64748b;
+            font-size: 11px;
+            margin-top: 2px;
+        }
+
+        /* ── Container ── */
+        .page-wrap {
+            max-width: 720px;
+            margin: 32px auto;
+            padding: 0 16px 48px;
+        }
+
+        /* ── Status Hero ── */
+        .hero-card {
+            background: white;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 1px 8px rgba(0,0,0,0.08);
+            margin-bottom: 16px;
+        }
+        .hero-stripe {
+            height: 5px;
+        }
+        .hero-body { padding: 24px; }
+
+        .nomor-tag {
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            font-weight: 700;
+            color: #3b82f6;
+            background: #eff6ff;
+            padding: 4px 12px;
+            border-radius: 20px;
+            display: inline-block;
+            margin-bottom: 10px;
+        }
+        .hero-title {
+            font-size: 20px;
+            font-weight: 800;
+            color: #0f172a;
+            margin: 0 0 6px;
+        }
+        .hero-meta {
+            font-size: 12.5px;
+            color: #64748b;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            margin-top: 8px;
+        }
+
+        /* ── Pills ── */
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 14px;
+            border-radius: 20px;
+            font-size: 12.5px;
+            font-weight: 700;
+            border: 1px solid;
+        }
+        .pill-open        { background:#fee2e2;color:#991b1b;border-color:#fca5a5; }
+        .pill-in_progress { background:#fffbeb;color:#92400e;border-color:#fde68a; }
+        .pill-resolved    { background:#f0fdf4;color:#166534;border-color:#bbf7d0; }
+        .pill-closed      { background:#f1f5f9;color:#475569;border-color:#cbd5e1; }
+        .pill-kritis { background:#fef2f2;color:#dc2626;border-color:#fca5a5; }
+        .pill-tinggi { background:#fff7ed;color:#ea580c;border-color:#fed7aa; }
+        .pill-sedang { background:#fffbeb;color:#d97706;border-color:#fde68a; }
+        .pill-rendah { background:#f0fdf4;color:#16a34a;border-color:#bbf7d0; }
+
+        /* ── Durasi ── */
+        .durasi-box {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: #fffbeb;
+            border: 1px solid #fde68a;
+            border-radius: 10px;
+            padding: 8px 16px;
+            font-size: 15px;
+            font-weight: 700;
+            color: #92400e;
+        }
+        .durasi-box.selesai {
+            background: #f0fdf4;
+            border-color: #bbf7d0;
+            color: #166534;
+        }
+
+        /* ── Info Grid ── */
+        .info-card {
+            background: white;
+            border-radius: 14px;
+            padding: 20px 24px;
+            box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+            margin-bottom: 16px;
+        }
+        .info-section-title {
+            font-size: 10.5px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            color: #64748b;
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .info-row {
+            display: grid;
+            grid-template-columns: 130px 1fr;
+            gap: 8px;
+            padding: 8px 0;
+            border-bottom: 1px solid #f1f5f9;
+            align-items: flex-start;
+        }
+        .info-row:last-child { border-bottom: none; }
+        .info-lbl { font-size: 11.5px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.3px; }
+        .info-val { font-size: 13.5px; color: #1e293b; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+        .info-val.muted { color: #94a3b8; font-style: italic; }
+
+        /* ── Timeline Log ── */
+        .log-wrap { position: relative; padding-left: 20px; }
+        .log-wrap::before {
+            content: '';
+            position: absolute;
+            left: 5px;
+            top: 8px;
+            bottom: 8px;
+            width: 2px;
+            background: #d1fae5;
+        }
+        .log-item { position: relative; margin-bottom: 14px; }
+        .log-dot {
+            width: 12px;
+            height: 12px;
+            background: #10b981;
+            border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 0 0 2px #d1fae5;
+            position: absolute;
+            left: -17px;
+            top: 4px;
+        }
+        .log-bubble {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 10px 14px;
+        }
+        .log-time {
+            font-size: 11.5px;
+            font-weight: 700;
+            color: #0f172a;
+            font-family: 'Courier New', monospace;
+        }
+        .log-text {
+            font-size: 13px;
+            color: #374151;
+            line-height: 1.65;
+            margin-top: 5px;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        /* ── Footer publik ── */
+        .public-footer {
+            text-align: center;
+            padding: 24px 0 0;
+            font-size: 11.5px;
+            color: #94a3b8;
+        }
+        .refresh-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 7px 16px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #475569;
+            cursor: pointer;
+            text-decoration: none;
+            margin-top: 10px;
+        }
+        .refresh-btn:hover { background: #f1f5f9; color: #1e293b; }
+
+        /* ── Share box ── */
+        .share-box {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+        .share-url {
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            color: #475569;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 7px;
+            padding: 8px 12px;
+            word-break: break-all;
+            margin: 8px 0;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Top Bar -->
+<div class="top-bar">
+    <div class="brand"><i class="bi bi-lightning-charge-fill me-1" style="color:#f59e0b;"></i>FASOP UP2B Sistem Makassar</div>
+    <div class="sub">Halaman Status Gangguan — Publik</div>
+</div>
+
+<div class="page-wrap">
+
+    {% with s=gangguan.status %}
+
+    <!-- ── Hero ── -->
+    <div class="hero-card">
+        <div class="hero-stripe" style="background:
+            {% if s == 'open' %}#ef4444
+            {% elif s == 'in_progress' %}#f59e0b
+            {% elif s == 'resolved' %}#10b981
+            {% else %}#94a3b8{% endif %};"></div>
+        <div class="hero-body">
+            <div class="d-flex align-items-start justify-content-between flex-wrap gap-3">
+                <div>
+                    <div class="nomor-tag">{{ gangguan.nomor_gangguan }}</div>
+                    <div class="hero-title">{{ gangguan.site }}</div>
+                    <div class="d-flex flex-wrap gap-2 mt-2">
+                        <span class="pill pill-{{ s }}">
+                            {% if s == 'open' %}<i class="bi bi-circle-fill" style="font-size:7px;"></i>Open
+                            {% elif s == 'in_progress' %}<i class="bi bi-hourglass-split"></i>In Progress
+                            {% elif s == 'resolved' %}<i class="bi bi-check-circle-fill"></i>Resolved
+                            {% else %}<i class="bi bi-archive"></i>Closed{% endif %}
+                        </span>
+                        <span class="pill pill-{{ gangguan.tingkat_keparahan }}">
+                            {{ gangguan.get_tingkat_keparahan_display }}
+                        </span>
+                        <span class="pill" style="background:#f1f5f9;color:#475569;border-color:#e2e8f0;">
+                            {{ gangguan.get_kategori_display }}
+                        </span>
+                    </div>
+                    <div class="hero-meta">
+                        <span><i class="bi bi-clock me-1"></i>{{ gangguan.tanggal_gangguan|date:"d M Y, H:i" }} WITA</span>
+                        {% if gangguan.peralatan %}
+                        <span><i class="bi bi-cpu me-1"></i>{{ gangguan.peralatan.nama }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="text-end">
+                    <div style="font-size:10.5px;font-weight:600;color:#94a3b8;text-transform:uppercase;margin-bottom:5px;">Durasi</div>
+                    <div class="durasi-box {% if not gangguan.is_open %}selesai{% endif %}">
+                        <i class="bi bi-clock"></i>
+                        {{ gangguan.durasi }}
+                    </div>
+                    <div style="font-size:10.5px;color:#94a3b8;margin-top:4px;">
+                        {% if gangguan.is_open %}sedang berlangsung{% else %}sudah selesai{% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Laporan ── -->
+    <div class="info-card">
+        <div class="info-section-title">
+            <i class="bi bi-journal-text" style="color:#8b5cf6;"></i>Laporan Gangguan
+        </div>
+        <div class="info-row">
+            <div class="info-lbl">Executive Summary</div>
+            <div class="info-val">{{ gangguan.executive_summary }}</div>
+        </div>
+        <div class="info-row">
+            <div class="info-lbl">Indikasi</div>
+            <div class="info-val">{{ gangguan.indikasi_gangguan }}</div>
+        </div>
+        <div class="info-row">
+            <div class="info-lbl">Penyebab</div>
+            <div class="info-val {% if not gangguan.penyebab_gangguan %}muted{% endif %}">{% if gangguan.penyebab_gangguan %}{{ gangguan.penyebab_gangguan }}{% else %}Dalam proses identifikasi{% endif %}</div>
+        </div>
+        <div class="info-row">
+            <div class="info-lbl">Dampak</div>
+            <div class="info-val">{{ gangguan.dampak_gangguan }}</div>
+        </div>
+        {% if gangguan.tanggal_resolved %}
+        <div class="info-row">
+            <div class="info-lbl">Waktu Resolved</div>
+            <div class="info-val" style="color:#10b981;font-weight:600;">
+                {{ gangguan.tanggal_resolved|date:"d M Y, H:i" }} WITA
+            </div>
+        </div>
+        {% endif %}
+        {% if gangguan.catatan_penutupan %}
+        <div class="info-row">
+            <div class="info-lbl">Catatan Penutupan</div>
+            <div class="info-val">{{ gangguan.catatan_penutupan }}</div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- ── Log Tindak Lanjut ── -->
+    <div class="info-card">
+        <div class="info-section-title">
+            <i class="bi bi-journal-check" style="color:#10b981;"></i>
+            Log Tindak Lanjut
+            <span style="margin-left:auto;background:#f0fdf4;color:#166534;font-size:10px;
+                         padding:2px 8px;border-radius:20px;font-weight:600;text-transform:none;letter-spacing:0;">
+                {{ log_entries|length }} entri
+            </span>
+        </div>
+        {% if log_entries %}
+        <div class="log-wrap">
+            {% for log in log_entries %}
+            <div class="log-item">
+                <div class="log-dot"></div>
+                <div class="log-bubble">
+                    <div class="log-time">
+                        <i class="bi bi-clock me-1" style="color:#10b981;font-size:10px;"></i>
+                        {{ log.waktu_aksi|date:"d M Y, H:i" }} WITA
+                    </div>
+                    <div class="log-text">{{ log.keterangan }}</div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div style="text-align:center;padding:20px 0;color:#94a3b8;font-size:13px;">
+            <i class="bi bi-journal-plus d-block mb-2" style="font-size:22px;opacity:.4;"></i>
+            Belum ada entri log tindak lanjut.
+        </div>
+        {% endif %}
+    </div>
+
+    {% endwith %}
+
+    <!-- ── Refresh & Share ── -->
+    <div class="share-box">
+        <div style="font-size:11.5px;font-weight:700;color:#475569;margin-bottom:6px;">
+            <i class="bi bi-share me-1"></i>Bagikan Link Status
+        </div>
+        <div class="share-url" id="shareUrl">{{ request.build_absolute_uri }}</div>
+        <button onclick="copyUrl()" id="copyBtn"
+                style="background:#0f172a;color:#fff;border:none;border-radius:7px;
+                       padding:7px 16px;font-size:12px;font-weight:600;cursor:pointer;">
+            <i class="bi bi-clipboard me-1"></i>Salin Link
+        </button>
+    </div>
+
+    <!-- ── Footer ── -->
+    <div class="public-footer">
+        <div>Dikelola oleh <strong>FASOP UP2B Sistem Makassar</strong></div>
+        <div style="margin-top:4px;">Terakhir diperbarui: {{ gangguan.updated_at|date:"d M Y, H:i" }} WITA</div>
+        <a href="javascript:location.reload()" class="refresh-btn">
+            <i class="bi bi-arrow-clockwise"></i>Refresh Status
+        </a>
+    </div>
+
+</div>
+
+<script>
+function copyUrl() {
+    const url = document.getElementById('shareUrl').textContent.trim();
+    const btn = document.getElementById('copyBtn');
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(url).then(() => showCopied(btn));
+    } else {
+        const ta = document.createElement('textarea');
+        ta.value = url;
+        ta.style.cssText = 'position:fixed;opacity:0;';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        showCopied(btn);
+    }
+}
+function showCopied(btn) {
+    btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Tersalin!';
+    btn.style.background = '#10b981';
+    setTimeout(() => {
+        btn.innerHTML = '<i class="bi bi-clipboard me-1"></i>Salin Link';
+        btn.style.background = '#0f172a';
+    }, 2500);
+}
+</script>
+</body>
+</html>

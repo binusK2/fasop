@@ -118,6 +118,11 @@ class Gangguan(models.Model):
         verbose_name='Dideklarasikan oleh'
     )
     updated_at      = models.DateTimeField(auto_now=True, verbose_name='Diupdate Pada')
+    public_token    = models.CharField(
+        max_length=40, blank=True, unique=True, null=True,
+        verbose_name='Token Publik',
+        help_text='Token unik untuk akses halaman status publik'
+    )
 
     class Meta:
         verbose_name        = 'Gangguan'
@@ -130,6 +135,9 @@ class Gangguan(models.Model):
     def save(self, *args, **kwargs):
         if not self.nomor_gangguan:
             self.nomor_gangguan = generate_nomor_gangguan()
+        if not self.public_token:
+            import secrets
+            self.public_token = secrets.token_urlsafe(20)
         # Auto-set tanggal_resolved saat status pertama kali resolved/closed
         if self.status in ('resolved', 'closed') and not self.tanggal_resolved:
             self.tanggal_resolved = timezone.now()

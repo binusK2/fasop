@@ -1,0 +1,194 @@
+{% extends 'base.html' %}
+{% load device_filters %}
+{% block title %}Konfigurasi Health Index — FASOP{% endblock %}
+{% block page_title %}Konfigurasi Health Index{% endblock %}
+
+{% block content %}
+
+<div class="d-flex align-items-center gap-2 mb-4">
+    <a href="{% url 'hi_list' %}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Kembali
+    </a>
+</div>
+
+{# ── INFO CARD ── #}
+<div class="card mb-4" style="border:1.5px solid #bfdbfe;border-radius:14px;background:#eff6ff;">
+    <div class="card-body py-3 px-4">
+        <div class="d-flex align-items-start gap-3">
+            <i class="bi bi-info-circle-fill" style="color:#3b82f6;font-size:22px;flex-shrink:0;margin-top:2px;"></i>
+            <div>
+                <div style="font-size:13px;font-weight:700;color:#1d4ed8;margin-bottom:4px;">Cara Kerja Konfigurasi Faktor</div>
+                <div style="font-size:12.5px;color:#1e40af;line-height:1.7;">
+                    Setiap faktor memiliki <strong>bobot maksimum pengurangan</strong> skor HI.
+                    Semakin besar nilainya (negatif), semakin besar pengaruh faktor tersebut terhadap skor akhir.
+                    Faktor yang tidak aktif tidak akan dihitung. Total bobot aktif saat ini: <strong>{{ total_bobot }}</strong> poin.
+                </div>
+                <div style="font-size:11.5px;color:#3b82f6;margin-top:6px;">
+                    <i class="bi bi-lightbulb me-1"></i>
+                    Faktor baru yang spesifik per jenis (CPU/Memory, Power, Suhu) hanya dihitung
+                    jika data dari hasil maintenance tersedia.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# ── FORM ── #}
+<form method="post">
+    {% csrf_token %}
+    <div class="card mb-3">
+        <div style="padding:14px 20px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;">
+            <h6 style="margin:0;font-size:13.5px;font-weight:700;">
+                <i class="bi bi-sliders me-1" style="color:#8b5cf6;"></i>Bobot Faktor Health Index
+            </h6>
+            <div class="d-flex gap-2">
+                <button type="submit" name="action" value="reset"
+                        class="btn btn-sm btn-outline-secondary"
+                        onclick="return confirm('Reset semua bobot ke nilai default?')">
+                    <i class="bi bi-arrow-counterclockwise me-1"></i>Reset Default
+                </button>
+                <button type="submit" name="action" value="save" class="btn btn-sm btn-primary">
+                    <i class="bi bi-check-lg me-1"></i>Simpan Perubahan
+                </button>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table mb-0">
+                <thead>
+                    <tr style="background:#f8fafc;">
+                        <th style="font-size:11px;color:#64748b;padding:10px 20px;">FAKTOR</th>
+                        <th style="font-size:11px;color:#64748b;padding:10px 16px;text-align:center;width:160px;">BOBOT MAKS</th>
+                        <th style="font-size:11px;color:#64748b;padding:10px 16px;text-align:center;width:80px;">DEFAULT</th>
+                        <th style="font-size:11px;color:#64748b;padding:10px 16px;text-align:center;width:80px;">AKTIF</th>
+                        <th style="font-size:11px;color:#64748b;padding:10px 16px;width:200px;">PENGARUH</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cfg in configs %}
+                    <tr style="border-top:1px solid #f1f5f9;" id="row-{{ cfg.faktor_key }}">
+                        <td style="padding:14px 20px;">
+                            <div class="d-flex align-items-center gap-2">
+                                <div style="width:32px;height:32px;border-radius:8px;flex-shrink:0;
+                                            {% if cfg.aktif %}background:#f0f0ff;{% else %}background:#f1f5f9;{% endif %}
+                                            display:flex;align-items:center;justify-content:center;">
+                                    <i class="bi {{ cfg.icon }}" style="font-size:14px;
+                                        {% if cfg.aktif %}color:#8b5cf6;{% else %}color:#cbd5e1;{% endif %}"></i>
+                                </div>
+                                <div>
+                                    <div style="font-size:13px;font-weight:600;color:{% if cfg.aktif %}#1e293b{% else %}#94a3b8{% endif %};">
+                                        {{ cfg.nama }}
+                                    </div>
+                                    <div style="font-size:10.5px;color:#94a3b8;font-family:'JetBrains Mono',monospace;">
+                                        {{ cfg.faktor_key }}
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+
+                        {# Input bobot #}
+                        <td style="padding:14px 16px;text-align:center;">
+                            <div class="input-group input-group-sm" style="max-width:130px;margin:0 auto;">
+                                <input type="number"
+                                       name="bobot_{{ cfg.faktor_key }}"
+                                       value="{{ cfg.bobot_maks }}"
+                                       max="0" step="1"
+                                       class="form-control text-center"
+                                       style="font-weight:700;font-size:14px;
+                                              {% if cfg.aktif %}color:#ef4444;{% else %}color:#cbd5e1;{% endif %}"
+                                       {% if not cfg.aktif %}disabled{% endif %}
+                                       onchange="updateBar('{{ cfg.faktor_key }}', this.value)">
+                                <span class="input-group-text" style="font-size:11px;background:#f8fafc;color:#94a3b8;">poin</span>
+                            </div>
+                        </td>
+
+                        {# Default #}
+                        <td style="padding:14px 16px;text-align:center;font-size:12px;color:#94a3b8;font-weight:600;">
+                            {{ default_bobot|get_item:cfg.faktor_key|default:"—" }}
+                        </td>
+
+                        {# Toggle aktif #}
+                        <td style="padding:14px 16px;text-align:center;">
+                            <div class="form-check form-switch d-flex justify-content-center">
+                                <input class="form-check-input" type="checkbox"
+                                       name="aktif_{{ cfg.faktor_key }}"
+                                       id="aktif_{{ cfg.faktor_key }}"
+                                       {% if cfg.aktif %}checked{% endif %}
+                                       onchange="toggleRow('{{ cfg.faktor_key }}', this.checked)"
+                                       style="width:36px;height:20px;cursor:pointer;">
+                            </div>
+                        </td>
+
+                        {# Visual bar pengaruh #}
+<td style="padding:14px 16px;">
+    <div style="display:flex;align-items:center;gap:8px;">
+        <div style="flex:1;background:#f1f5f9;border-radius:10px;height:8px;overflow:hidden;">
+            <div id="bar-{{ cfg.faktor_key }}"
+                 style="height:100%;border-radius:10px;
+                        {% if cfg.aktif %}background:#8b5cf6;{% else %}background:#e2e8f0;{% endif %}
+                        width:{% widthratio cfg.bobot_maks|abs_val total_bobot 100 %}%;
+                        transition:width 0.3s;"></div>
+        </div>
+        <span id="pct-{{ cfg.faktor_key }}"
+              style="font-size:11px;font-weight:700;color:#64748b;min-width:32px;text-align:right;">
+            {% widthratio cfg.bobot_maks|abs_val total_bobot 100 %}%
+        </span>
+    </div>
+</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div style="padding:14px 20px;border-top:1px solid #f1f5f9;display:flex;justify-content:flex-end;gap:2px;">
+            <button type="submit" name="action" value="save" class="btn btn-primary">
+                <i class="bi bi-check-lg me-1"></i>Simpan Perubahan
+            </button>
+        </div>
+    </div>
+</form>
+
+{# ── LEGEND WARNA STATUS ── #}
+<div class="card">
+    <div class="card-body px-4 py-3">
+        <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#64748b;margin-bottom:12px;">
+            Panduan Kategori Health Index
+        </div>
+        <div style="display:flex;gap:24px;flex-wrap:wrap;">
+            {% for label, color, bg, border, range in kategori_guide %}
+            <div style="display:flex;align-items:center;gap:8px;">
+                <div style="width:12px;height:12px;border-radius:3px;background:{{ bg }};border:1.5px solid {{ border }};"></div>
+                <span style="font-size:12.5px;font-weight:600;color:{{ color }};">{{ label }}</span>
+                <span style="font-size:11px;color:#94a3b8;">{{ range }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleRow(key, isActive) {
+    const input = document.querySelector(`input[name="bobot_${key}"]`);
+    const row   = document.getElementById(`row-${key}`);
+    const bar   = document.getElementById(`bar-${key}`);
+
+    if (input) input.disabled = !isActive;
+    if (bar)   bar.style.background = isActive ? '#8b5cf6' : '#e2e8f0';
+}
+
+function updateBar(key, val) {
+    // Update visual bar saat nilai berubah (perkiraan)
+    const bar = document.getElementById(`bar-${key}`);
+    const pct = document.getElementById(`pct-${key}`);
+    // Sederhana: tampilkan nilai absolut saja
+    if (bar && pct) {
+        const abs = Math.abs(parseInt(val) || 0);
+        pct.textContent = abs + ' pt';
+    }
+}
+</script>
+{% endblock %}

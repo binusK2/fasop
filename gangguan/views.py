@@ -209,3 +209,13 @@ def gangguan_delete_log(request, pk, log_pk):
     if request.method == 'POST':
         log.delete()
     return redirect('gangguan_detail', pk=pk)
+
+
+def gangguan_public_status(request, nomor, token):
+    """Halaman publik status gangguan — TIDAK perlu login."""
+    gangguan = get_object_or_404(Gangguan, nomor_gangguan=nomor, public_token=token)
+    log_entries = gangguan.log_entries.order_by('waktu_aksi')
+    return render(request, 'gangguan/gangguan_public.html', {
+        'gangguan':    gangguan,
+        'log_entries': log_entries,
+    })

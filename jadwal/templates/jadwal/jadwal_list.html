@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
-{% block title %}Jadwal Kunjungan — FASOP{% endblock %}
-{% block page_title %}Jadwal Kunjungan{% endblock %}
+{% block title %}Jadwal Pemeliharaan — FASOP{% endblock %}
+{% block page_title %}Jadwal Pemeliharaan{% endblock %}
 
 {% block content %}
 
@@ -76,7 +76,11 @@
                 </select>
                 <button type="submit" class="btn btn-sm btn-primary">Filter</button>
                 <a href="{% url 'jadwal_list' %}" class="btn btn-sm btn-outline-secondary">Reset</a>
-                <button type="button" class="btn btn-sm btn-success ms-auto"
+                <a href="{% url 'export_jadwal_pdf' %}?tahun={{ filter_tahun }}"
+                   class="btn btn-sm btn-outline-danger ms-auto" target="_blank">
+                    <i class="bi bi-file-earmark-pdf me-1"></i>Export PDF
+                </a>
+                <button type="button" class="btn btn-sm btn-success"
                         data-bs-toggle="modal" data-bs-target="#modalTambah">
                     <i class="bi bi-plus-lg me-1"></i>Tambah Jadwal
                 </button>
