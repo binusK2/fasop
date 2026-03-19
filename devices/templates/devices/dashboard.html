@@ -276,7 +276,7 @@
     <div class="col-md-6">
         <div class="tbl-card h-100">
             <div class="tbl-head">
-                <h6><i class="bi bi-calendar2-week me-1" style="color:#3b82f6;"></i>Jadwal Kunjungan Terdekat</h6>
+                <h6><i class="bi bi-calendar2-week me-1" style="color:#3b82f6;"></i>Jadwal Pemeliharaan Terdekat</h6>
                 <a href="{% url 'jadwal_list' %}" class="btn btn-sm btn-outline-primary">Lihat Semua</a>
             </div>
             {% if jadwal_terdekat %}
@@ -325,7 +325,7 @@
             {% else %}
             <div class="text-center py-4" style="color:#94a3b8;">
                 <i class="bi bi-calendar-x fs-3 d-block mb-2" style="color:#cbd5e1;"></i>
-                <div style="font-size:13px;">Belum ada jadwal kunjungan</div>
+                <div style="font-size:13px;">Belum ada jadwal pemeliharaan</div>
                 <a href="{% url 'jadwal_list' %}" class="btn btn-sm btn-outline-primary mt-2">
                     <i class="bi bi-plus-lg me-1"></i>Buat Jadwal
                 </a>
