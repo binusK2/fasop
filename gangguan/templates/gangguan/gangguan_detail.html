@@ -180,7 +180,7 @@
                     <div style="font-size:11px;font-weight:600;color:#94a3b8;margin-bottom:1px;">Waktu Gangguan</div>
                     <div style="font-size:13px;font-weight:600;color:#0f172a;">
                         {{ gangguan.tanggal_gangguan|date:"d M Y" }}
-                        <span style="color:#64748b;font-weight:400;">{{ gangguan.tanggal_gangguan|date:"H:i" }} WIB</span>
+                        <span style="color:#64748b;font-weight:400;">{{ gangguan.tanggal_gangguan|date:"H:i" }} WITA</span>
                     </div>
                 </div>
                 {% if gangguan.tanggal_resolved %}
@@ -189,7 +189,7 @@
                     <div style="font-size:11px;font-weight:600;color:#10b981;margin-bottom:1px;">Waktu Resolved</div>
                     <div style="font-size:13px;font-weight:600;color:#0f172a;">
                         {{ gangguan.tanggal_resolved|date:"d M Y" }}
-                        <span style="color:#64748b;font-weight:400;">{{ gangguan.tanggal_resolved|date:"H:i" }} WIB</span>
+                        <span style="color:#64748b;font-weight:400;">{{ gangguan.tanggal_resolved|date:"H:i" }} WITA</span>
                     </div>
                 </div>
                 {% endif %}
@@ -279,14 +279,14 @@
             <div class="log-tl">
                 {% for log in log_entries %}
                 <div class="log-item log-entry-wa"
-                     data-waktu="{{ log.waktu_aksi|date:'d M Y H:i' }} WIB"
+                     data-waktu="{{ log.waktu_aksi|date:'d M Y H:i' }} WITA"
                      data-isi="{{ log.keterangan|escapejs }}">
                     <div class="log-dot"></div>
                     <div class="log-bubble">
                         <div class="d-flex align-items-center justify-content-between flex-wrap gap-1">
                             <span class="log-bubble-time">
                                 <i class="bi bi-clock me-1" style="color:#10b981;font-size:11px;"></i>
-                                {{ log.waktu_aksi|date:"d M Y, H:i" }} WIB
+                                {{ log.waktu_aksi|date:"d M Y, H:i" }} WITA
                             </span>
                             <div class="d-flex align-items-center gap-2">
                                 {% if log.dibuat_oleh %}
@@ -584,7 +584,7 @@ function copyLaporanWA() {
 `📋 *LAPORAN GANGGUAN*
 ━━━━━━━━━━━━━━━━━━━━
 🔖 *Nomor:* {{ gangguan.nomor_gangguan }}
-🕐 *Waktu:* {{ gangguan.tanggal_gangguan|date:'d M Y, H:i' }} WIB
+🕐 *Waktu:* {{ gangguan.tanggal_gangguan|date:'d M Y, H:i' }} WITA
 📍 *Lokasi:* {{ gangguan.site|escapejs }}
 ⚙️ *Peralatan:* {% if gangguan.peralatan %}{{ gangguan.peralatan.nama|escapejs }}{% else %}—{% endif %}
 🏷️ *Kategori:* {{ gangguan.get_kategori_display|escapejs }}
