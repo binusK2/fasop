@@ -628,19 +628,6 @@
             <span class="si-icon"><i class="bi bi-heart-pulse"></i></span>
             Health Index
         </a>
-        <a href="{% url 'notifikasi_list' %}"
-           class="sidebar-link {% if 'notifikasi' in request.resolver_match.url_name %}active{% endif %}">
-            <span class="si-icon"><i class="bi bi-bell"></i></span>
-            Notifikasi
-            {% if notif_unread_count > 0 %}
-            <span id="notif-badge" class="si-badge"
-                  style="background:#ef4444;color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:auto;">
-                {{ notif_unread_count }}
-            </span>
-            {% else %}
-            <span id="notif-badge" style="display:none;background:#ef4444;color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:auto;" class="si-badge"></span>
-            {% endif %}
-        </a>
     </div>
 
     <div class="sidebar-section">
@@ -690,6 +677,33 @@
         </button>
         <span class="topbar-title">{% block page_title %}{% endblock %}</span>
         <div class="topbar-right">
+            {# ── Bell Notifikasi ── #}
+            <a href="{% url 'notifikasi_list' %}" class="text-decoration-none"
+               style="position:relative;display:inline-flex;align-items:center;justify-content:center;
+                      width:34px;height:34px;border-radius:8px;color:#64748b;
+                      transition:background 0.15s;"
+               onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''">
+                <i class="bi bi-bell" style="font-size:17px;"></i>
+                {% if notif_unread_count > 0 %}
+                <span id="notif-badge"
+                      style="position:absolute;top:3px;right:3px;
+                             background:#ef4444;color:#fff;
+                             font-size:9px;font-weight:800;line-height:1;
+                             padding:2px 4px;border-radius:20px;
+                             min-width:16px;text-align:center;
+                             border:1.5px solid #fff;">
+                    {{ notif_unread_count }}
+                </span>
+                {% else %}
+                <span id="notif-badge"
+                      style="display:none;position:absolute;top:3px;right:3px;
+                             background:#ef4444;color:#fff;
+                             font-size:9px;font-weight:800;line-height:1;
+                             padding:2px 4px;border-radius:20px;
+                             min-width:16px;text-align:center;
+                             border:1.5px solid #fff;"></span>
+                {% endif %}
+            </a>
             <span class="text-muted" style="font-size:12px;">
                 <i class="bi bi-calendar3 me-1"></i>
                 <span id="topbar-date"></span>
