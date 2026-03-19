@@ -226,6 +226,26 @@ def dashboard(request):
         .order_by('-tanggal_gangguan')[:5]
     )
 
+    # ── Health Index summary ─────────────────────────────────────
+    from health_index.calculator import calculate_hi
+    hi_summary = {'sangat_baik': 0, 'baik': 0, 'cukup': 0, 'buruk': 0, 'kritis': 0}
+    hi_kritis_list = []
+    for dev in Device.objects.filter(is_deleted=False).select_related('jenis'):
+        hi = calculate_hi(dev)
+        s = hi['score']
+        if s >= 85:
+            hi_summary['sangat_baik'] += 1
+        elif s >= 70:
+            hi_summary['baik'] += 1
+        elif s >= 50:
+            hi_summary['cukup'] += 1
+        elif s >= 25:
+            hi_summary['buruk'] += 1
+        else:
+            hi_summary['kritis'] += 1
+            hi_kritis_list.append({'device': dev, 'hi': hi})
+    hi_kritis_list = hi_kritis_list[:5]  # tampilkan max 5
+
     return render(request, 'devices/dashboard.html', {
         'total_devices':    total_devices,
         'dev_operasi':      dev_operasi,
@@ -247,6 +267,9 @@ def dashboard(request):
         'gangguan_closed':   gangguan_closed,
         'gangguan_by_month': gangguan_by_month,
         'recent_gangguan':   recent_gangguan,
+        # health index
+        'hi_summary':        hi_summary,
+        'hi_kritis_list':    hi_kritis_list,
     })
 
 
@@ -285,6 +308,15 @@ def device_detail(request, pk):
                     "is_sfp": False,
                 })
 
+    # Hitung umur peralatan (dalam tahun) dari tahun_operasi
+    umur_peralatan = None
+    if device.tahun_operasi:
+        umur_peralatan = date_type.today().year - device.tahun_operasi
+
+    # Hitung Health Index
+    from health_index.calculator import calculate_hi
+    health_index = calculate_hi(device)
+
     return render(request, 'devices/device_detail.html', {
         'device': device,
         'maintenance_history': maintenance_history,
@@ -292,6 +324,8 @@ def device_detail(request, pk):
         'maintenance_done': maintenance_done,
         'maintenance_open': maintenance_open,
         'spesifikasi_display': spesifikasi_display,
+        'umur_peralatan': umur_peralatan,
+        'health_index': health_index,
     })
 
 

@@ -1,0 +1,245 @@
+{% extends 'base.html' %}
+{% block title %}Health Index Peralatan — FASOP{% endblock %}
+{% block page_title %}Health Index Peralatan{% endblock %}
+
+{% block content %}
+
+{# ── SUMMARY CARDS ──────────────────────────────────────────────────── #}
+<div class="row g-3 mb-4">
+    <div class="col">
+        <div style="background:#dcfce7;border:1px solid #a7f3d0;border-radius:12px;padding:14px 20px;display:flex;align-items:center;gap:14px;cursor:pointer;"
+             onclick="setFilter('Sangat Baik')">
+            <div style="width:42px;height:42px;background:#10b981;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <i class="bi bi-shield-check" style="color:#fff;font-size:20px;"></i>
+            </div>
+            <div>
+                <div style="font-size:26px;font-weight:800;color:#065f46;line-height:1;">{{ summary.sangat_baik }}</div>
+                <div style="font-size:11px;font-weight:600;color:#059669;text-transform:uppercase;letter-spacing:0.5px;">Sangat Baik</div>
+            </div>
+        </div>
+    </div>
+    <div class="col">
+        <div style="background:#dbeafe;border:1px solid #bfdbfe;border-radius:12px;padding:14px 20px;display:flex;align-items:center;gap:14px;cursor:pointer;"
+             onclick="setFilter('Baik')">
+            <div style="width:42px;height:42px;background:#3b82f6;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <i class="bi bi-shield" style="color:#fff;font-size:20px;"></i>
+            </div>
+            <div>
+                <div style="font-size:26px;font-weight:800;color:#1d4ed8;line-height:1;">{{ summary.baik }}</div>
+                <div style="font-size:11px;font-weight:600;color:#2563eb;text-transform:uppercase;letter-spacing:0.5px;">Baik</div>
+            </div>
+        </div>
+    </div>
+    <div class="col">
+        <div style="background:#fef3c7;border:1px solid #fde68a;border-radius:12px;padding:14px 20px;display:flex;align-items:center;gap:14px;cursor:pointer;"
+             onclick="setFilter('Cukup')">
+            <div style="width:42px;height:42px;background:#f59e0b;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <i class="bi bi-shield-exclamation" style="color:#fff;font-size:20px;"></i>
+            </div>
+            <div>
+                <div style="font-size:26px;font-weight:800;color:#92400e;line-height:1;">{{ summary.cukup }}</div>
+                <div style="font-size:11px;font-weight:600;color:#d97706;text-transform:uppercase;letter-spacing:0.5px;">Cukup</div>
+            </div>
+        </div>
+    </div>
+    <div class="col">
+        <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:14px 20px;display:flex;align-items:center;gap:14px;cursor:pointer;"
+             onclick="setFilter('Buruk')">
+            <div style="width:42px;height:42px;background:#f97316;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <i class="bi bi-shield-slash" style="color:#fff;font-size:20px;"></i>
+            </div>
+            <div>
+                <div style="font-size:26px;font-weight:800;color:#9a3412;line-height:1;">{{ summary.buruk }}</div>
+                <div style="font-size:11px;font-weight:600;color:#ea580c;text-transform:uppercase;letter-spacing:0.5px;">Buruk</div>
+            </div>
+        </div>
+    </div>
+    <div class="col">
+        <div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:12px;padding:14px 20px;display:flex;align-items:center;gap:14px;cursor:pointer;"
+             onclick="setFilter('Kritis')">
+            <div style="width:42px;height:42px;background:#ef4444;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <i class="bi bi-exclamation-triangle-fill" style="color:#fff;font-size:20px;"></i>
+            </div>
+            <div>
+                <div style="font-size:26px;font-weight:800;color:#991b1b;line-height:1;">{{ summary.kritis }}</div>
+                <div style="font-size:11px;font-weight:600;color:#dc2626;text-transform:uppercase;letter-spacing:0.5px;">Kritis</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# ── FILTER BAR ─────────────────────────────────────────────────────── #}
+<form method="get" id="filterForm" class="card mb-3">
+    <div class="card-body py-2 px-3">
+        <div class="row g-2 align-items-center">
+            <div class="col-md-3">
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text" style="background:#f8fafc;border-color:#e2e8f0;">
+                        <i class="bi bi-search" style="color:#94a3b8;"></i>
+                    </span>
+                    <input type="text" name="q" class="form-control form-control-sm"
+                           placeholder="Cari nama / lokasi…" value="{{ search }}">
+                </div>
+            </div>
+            <div class="col-md-2">
+                <select name="kategori" class="form-select form-select-sm" id="kategoriSelect">
+                    <option value="">— Semua Kategori —</option>
+                    {% for k in kategori_choices %}
+                    <option value="{{ k }}" {% if k == filter_kategori %}selected{% endif %}>{{ k }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select name="lokasi" class="form-select form-select-sm">
+                    <option value="">— Semua Lokasi —</option>
+                    {% for lok in lokasi_list %}
+                    <option value="{{ lok }}" {% if lok == filter_lokasi %}selected{% endif %}>{{ lok }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select name="sort" class="form-select form-select-sm">
+                    <option value="score_asc"  {% if sort == 'score_asc'  %}selected{% endif %}>Skor ↑ (kritis duluan)</option>
+                    <option value="score_desc" {% if sort == 'score_desc' %}selected{% endif %}>Skor ↓ (terbaik duluan)</option>
+                    <option value="nama"       {% if sort == 'nama'       %}selected{% endif %}>Nama A–Z</option>
+                </select>
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-sm btn-primary">Filter</button>
+                <a href="{% url 'hi_list' %}" class="btn btn-sm btn-outline-secondary ms-1">Reset</a>
+            </div>
+            <div class="col-auto ms-auto">
+                <span style="font-size:12px;color:#64748b;">
+                    Menampilkan <strong>{{ results|length }}</strong> dari <strong>{{ summary.total }}</strong> peralatan
+                </span>
+            </div>
+        </div>
+    </div>
+</form>
+
+{# ── TABEL ──────────────────────────────────────────────────────────── #}
+<div class="table-card">
+    <div class="table-responsive">
+        <table class="table mb-0">
+            <thead>
+                <tr style="background:#f8fafc;">
+                    <th style="font-size:11px;color:#64748b;padding:10px 14px;white-space:nowrap;">PERALATAN</th>
+                    <th style="font-size:11px;color:#64748b;padding:10px 14px;">LOKASI</th>
+                    <th style="font-size:11px;color:#64748b;padding:10px 14px;text-align:center;">HEALTH INDEX</th>
+                    <th style="font-size:11px;color:#64748b;padding:10px 14px;text-align:center;">KATEGORI</th>
+                    <th style="font-size:11px;color:#64748b;padding:10px 14px;text-align:center;">UMUR</th>
+                    <th style="font-size:11px;color:#64748b;padding:10px 14px;text-align:center;">STATUS</th>
+                    <th style="font-size:11px;color:#64748b;padding:10px 14px;text-align:center;">MAINTENANCE</th>
+                    <th style="font-size:11px;color:#64748b;padding:10px 14px;text-align:center;">GANGGUAN</th>
+                    <th style="font-size:11px;color:#64748b;padding:10px 14px;text-align:center;">AKSI</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in results %}
+                {% with d=r.device hi=r.hi kat=r.hi.kategori %}
+                <tr style="border-top:1px solid #f1f5f9;transition:background 0.12s;"
+                    onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
+
+                    {# Nama & Jenis #}
+                    <td style="padding:12px 14px;">
+                        <div style="font-size:13px;font-weight:600;color:#1e293b;">{{ d.nama }}</div>
+                        {% if d.jenis %}
+                        <div style="font-size:11px;color:#64748b;margin-top:2px;">{{ d.jenis }}</div>
+                        {% endif %}
+                    </td>
+
+                    {# Lokasi #}
+                    <td style="padding:12px 14px;font-size:12px;color:#475569;">{{ d.lokasi|default:"—" }}</td>
+
+                    {# Skor + Progress Bar #}
+                    <td style="padding:12px 14px;text-align:center;min-width:130px;">
+                        <div style="display:flex;align-items:center;gap:10px;">
+                            <div style="flex:1;background:#e2e8f0;border-radius:20px;height:8px;overflow:hidden;">
+                                <div style="width:{{ hi.score }}%;height:100%;border-radius:20px;
+                                            background:{{ kat.accent }};transition:width 0.5s;"></div>
+                            </div>
+                            <span style="font-size:15px;font-weight:800;color:{{ kat.color }};min-width:36px;text-align:right;">
+                                {{ hi.score }}
+                            </span>
+                        </div>
+                    </td>
+
+                    {# Badge Kategori #}
+                    <td style="padding:12px 14px;text-align:center;">
+                        <span style="display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;
+                                     color:{{ kat.color }};background:{{ kat.bg }};padding:4px 12px;
+                                     border-radius:20px;border:1px solid {{ kat.border }};white-space:nowrap;">
+                            <i class="bi {{ kat.icon }}" style="font-size:11px;"></i>
+                            {{ kat.label }}
+                        </span>
+                    </td>
+
+                    {# Umur #}
+                    <td style="padding:12px 14px;text-align:center;font-size:12.5px;color:#475569;">
+                        {% if hi.umur is not None %}
+                            {{ hi.umur }} thn
+                        {% else %}
+                            <span style="color:#cbd5e1;">—</span>
+                        {% endif %}
+                    </td>
+
+                    {# Status Operasi #}
+                    <td style="padding:12px 14px;text-align:center;">
+                        {% if d.status_operasi == 'operasi' %}
+                        <span style="font-size:11px;font-weight:600;color:#065f46;background:#dcfce7;padding:3px 9px;border-radius:20px;">
+                            <i class="bi bi-circle-fill" style="font-size:7px;"></i> Operasi
+                        </span>
+                        {% else %}
+                        <span style="font-size:11px;font-weight:600;color:#991b1b;background:#fee2e2;padding:3px 9px;border-radius:20px;">
+                            <i class="bi bi-circle-fill" style="font-size:7px;"></i> Tidak Operasi
+                        </span>
+                        {% endif %}
+                    </td>
+
+                    {# Total Maintenance #}
+                    <td style="padding:12px 14px;text-align:center;font-size:13px;font-weight:600;color:#1e293b;">
+                        {{ hi.total_maintenance }}
+                    </td>
+
+                    {# Gangguan #}
+                    <td style="padding:12px 14px;text-align:center;">
+                        {% if hi.total_gangguan > 0 %}
+                        <span style="font-size:13px;font-weight:600;color:#dc2626;">{{ hi.total_gangguan }}</span>
+                        {% else %}
+                        <span style="font-size:13px;color:#cbd5e1;">0</span>
+                        {% endif %}
+                    </td>
+
+                    {# Aksi #}
+                    <td style="padding:12px 14px;text-align:center;">
+                        <a href="{% url 'hi_detail' d.id %}"
+                           class="btn btn-sm btn-outline-primary" style="border-radius:8px;padding:4px 10px;"
+                           title="Lihat Detail HI">
+                            <i class="bi bi-bar-chart-line me-1"></i>Detail
+                        </a>
+                    </td>
+                </tr>
+                {% endwith %}
+                {% empty %}
+                <tr>
+                    <td colspan="9" class="text-center text-muted py-5">
+                        <i class="bi bi-inbox fs-2 d-block mb-2"></i>
+                        Tidak ada peralatan yang sesuai filter
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function setFilter(kategori) {
+    document.getElementById('kategoriSelect').value = kategori;
+    document.getElementById('filterForm').submit();
+}
+</script>
+{% endblock %}

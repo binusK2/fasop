@@ -8,6 +8,17 @@ class DeviceForm(forms.ModelForm):
         label='IP Address',
     )
 
+    tahun_operasi = forms.IntegerField(
+        required=False,
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'contoh: 2019',
+            'min': '1990',
+            'max': '2100',
+        }),
+        label='Tahun Operasi',
+    )
+
     class Meta:
         model = Device
         fields = '__all__'

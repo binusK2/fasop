@@ -135,6 +135,19 @@
                     {% if form.status_operasi.errors %}<div class="field-error">{{ form.status_operasi.errors.0 }}</div>{% endif %}
                 </div>
             </div>
+            <div class="col-md-6">
+                <div class="field-card">
+                    <label class="field-label">Tahun Operasi</label>
+                    <div class="input-group">
+                        <span class="input-group-text field-addon"><i class="bi bi-calendar-event"></i></span>
+                        {{ form.tahun_operasi }}
+                    </div>
+                    <div style="font-size:11px;color:#94a3b8;margin-top:5px;">
+                        Tahun peralatan mulai beroperasi (contoh: 2019)
+                    </div>
+                    {% if form.tahun_operasi.errors %}<div class="field-error">{{ form.tahun_operasi.errors.0 }}</div>{% endif %}
+                </div>
+            </div>
         </div>
     </div>
 </div>

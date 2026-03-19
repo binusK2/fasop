@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'devices',
     'maintenance',
     'gangguan',
+    'health_index',
 ]
 
 MIDDLEWARE = [

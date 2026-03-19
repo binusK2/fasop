@@ -617,6 +617,15 @@
     </div>
 
     <div class="sidebar-section">
+        <div class="sidebar-section-label">Kondisi Peralatan</div>
+        <a href="{% url 'hi_list' %}"
+           class="sidebar-link {% if 'hi_' in request.resolver_match.url_name %}active{% endif %}">
+            <span class="si-icon"><i class="bi bi-heart-pulse"></i></span>
+            Health Index
+        </a>
+    </div>
+
+    <div class="sidebar-section">
         <div class="sidebar-section-label">Layanan</div>
         <a href="{% url 'layanan_icon' %}"
            class="sidebar-link {% if request.resolver_match.url_name == 'layanan_icon' %}active{% endif %}">

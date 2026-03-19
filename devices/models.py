@@ -81,6 +81,12 @@ class Device(models.Model):
     )
     is_deleted = models.BooleanField(default=False)
     spesifikasi = models.JSONField(blank=True, null=True, default=dict)  # ← tambahan
+    tahun_operasi = models.IntegerField(
+        blank=True,
+        null=True,
+        verbose_name='Tahun Operasi',
+        help_text='Tahun peralatan mulai beroperasi (contoh: 2019)'
+    )
 
     def __str__(self):
         return self.nama

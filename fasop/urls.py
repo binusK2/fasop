@@ -25,6 +25,7 @@ urlpatterns = [
     path('', include('devices.urls')),
     path('maintenance/', include('maintenance.urls')),
     path('gangguan/', include('gangguan.urls')),
+    path('health-index/', include('health_index.urls')),
 
     path('login/', auth_views.LoginView.as_view(template_name='registration/login.html'), name='login'),
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
