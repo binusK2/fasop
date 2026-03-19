@@ -231,7 +231,7 @@ def dashboard(request):
     hi_summary = {'sangat_baik': 0, 'baik': 0, 'cukup': 0, 'buruk': 0, 'kritis': 0}
     hi_kritis_list = []
     for dev in Device.objects.filter(is_deleted=False).select_related('jenis'):
-        hi = calculate_hi(dev)
+        hi = calculate_hi(dev, save_snapshot=False)
         s = hi['score']
         if s >= 85:
             hi_summary['sangat_baik'] += 1
@@ -245,6 +245,41 @@ def dashboard(request):
             hi_summary['kritis'] += 1
             hi_kritis_list.append({'device': dev, 'hi': hi})
     hi_kritis_list = hi_kritis_list[:5]  # tampilkan max 5
+
+    # ── Jadwal kunjungan terdekat ─────────────────────────────────
+    try:
+        from jadwal.models import JadwalKunjungan
+        from datetime import date as _date
+        today_d = _date.today()
+        jadwal_terdekat = (
+            JadwalKunjungan.objects
+            .exclude(status='done')
+            .filter(
+                tahun_rencana=today_d.year,
+                bulan_rencana__gte=today_d.month
+            )
+            .order_by('bulan_rencana', 'lokasi')[:5]
+        )
+        jadwal_terdekat = [
+            {'jadwal': j, 'progress': j.get_progress()}
+            for j in jadwal_terdekat
+        ]
+    except Exception:
+        jadwal_terdekat = []
+
+    # ── Notifikasi terbaru belum dibaca ───────────────────────────
+    try:
+        from notifikasi.models import Notifikasi
+        notif_terbaru = (
+            Notifikasi.objects
+            .filter(is_read=False)
+            .select_related('device')
+            .order_by('-created_at')[:5]
+        )
+        notif_unread_total = Notifikasi.objects.filter(is_read=False).count()
+    except Exception:
+        notif_terbaru      = []
+        notif_unread_total = 0
 
     return render(request, 'devices/dashboard.html', {
         'total_devices':    total_devices,
@@ -270,6 +305,10 @@ def dashboard(request):
         # health index
         'hi_summary':        hi_summary,
         'hi_kritis_list':    hi_kritis_list,
+        # jadwal & notifikasi
+        'jadwal_terdekat':   jadwal_terdekat,
+        'notif_terbaru':     notif_terbaru,
+        'notif_unread_total': notif_unread_total,
     })
 
 

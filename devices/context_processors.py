@@ -27,12 +27,11 @@ def device_types(request):
     all_types = list(DeviceType.objects.all())
 
     def sort_key(dt):
-        # Cari posisi nama di DEVICE_TYPE_ORDER (case-insensitive)
         name_lower = dt.name.strip().lower()
         for i, ordered_name in enumerate(DEVICE_TYPE_ORDER):
             if ordered_name.lower() == name_lower:
                 return i
-        return len(DEVICE_TYPE_ORDER)  # yang tidak ada di list, taruh di bawah
+        return len(DEVICE_TYPE_ORDER)
 
     all_types.sort(key=sort_key)
 
@@ -56,3 +55,14 @@ def lokasi_list(request):
     return {
         'navbar_lokasi_list': lokasi
     }
+
+def notifikasi_count(request):
+    """Inject jumlah notifikasi belum dibaca ke semua template."""
+    if not request.user.is_authenticated:
+        return {'notif_unread_count': 0}
+    try:
+        from notifikasi.models import Notifikasi
+        count = Notifikasi.objects.filter(is_read=False).count()
+    except Exception:
+        count = 0
+    return {'notif_unread_count': count}

@@ -42,6 +42,8 @@ INSTALLED_APPS = [
     'maintenance',
     'gangguan',
     'health_index',
+    'notifikasi',
+    'jadwal',
 ]
 
 MIDDLEWARE = [
@@ -68,6 +70,7 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'devices.context_processors.device_types',
                 'devices.context_processors.lokasi_list',
+                'devices.context_processors.notifikasi_count',
             ],
         },
     },

@@ -563,12 +563,17 @@
             <i class="bi bi-chevron-right sidebar-toggle-btn ms-auto"></i>
         </button>
 
-        <div class="sidebar-submenu {% if 'maintenance' in url_name %}open{% endif %}"
+        <div class="sidebar-submenu {% if 'maintenance' in url_name or 'jadwal' in url_name %}open{% endif %}"
              id="submenu-pemeliharaan">
             <a href="{% url 'maintenance_list' %}"
                class="sidebar-link {% if url_name == 'maintenance_list' or url_name == 'maintenance_view' or url_name == 'maintenance_edit' %}active{% endif %}">
                 <span class="si-icon"><i class="bi bi-card-checklist"></i></span>
                 Semua Pemeliharaan
+            </a>
+            <a href="{% url 'jadwal_list' %}"
+               class="sidebar-link {% if 'jadwal' in url_name %}active{% endif %}">
+                <span class="si-icon"><i class="bi bi-calendar2-week"></i></span>
+                Jadwal Pemeliharaan
             </a>
             <a href="{% url 'maintenance_report' %}"
                class="sidebar-link {% if url_name == 'maintenance_report' %}active{% endif %}">
@@ -622,6 +627,19 @@
            class="sidebar-link {% if 'hi_' in request.resolver_match.url_name %}active{% endif %}">
             <span class="si-icon"><i class="bi bi-heart-pulse"></i></span>
             Health Index
+        </a>
+        <a href="{% url 'notifikasi_list' %}"
+           class="sidebar-link {% if 'notifikasi' in request.resolver_match.url_name %}active{% endif %}">
+            <span class="si-icon"><i class="bi bi-bell"></i></span>
+            Notifikasi
+            {% if notif_unread_count > 0 %}
+            <span id="notif-badge" class="si-badge"
+                  style="background:#ef4444;color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:auto;">
+                {{ notif_unread_count }}
+            </span>
+            {% else %}
+            <span id="notif-badge" style="display:none;background:#ef4444;color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:auto;" class="si-badge"></span>
+            {% endif %}
         </a>
     </div>
 
@@ -738,5 +756,27 @@
     });
 </script>
 {% block extra_js %}{% endblock %}
+
+<script>
+// ── Polling notifikasi tiap 60 detik ─────────────────────────────────────────
+(function pollNotif() {
+    setTimeout(async function tick() {
+        try {
+            const res  = await fetch('{% url "notifikasi_count" %}');
+            const data = await res.json();
+            const badge = document.getElementById('notif-badge');
+            if (badge) {
+                if (data.unread_count > 0) {
+                    badge.textContent     = data.unread_count;
+                    badge.style.display   = 'inline-flex';
+                } else {
+                    badge.style.display   = 'none';
+                }
+            }
+        } catch(e) {}
+        setTimeout(tick, 60000);
+    }, 60000);
+})();
+</script>
 </body>
 </html>

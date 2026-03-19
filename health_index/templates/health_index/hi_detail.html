@@ -154,6 +154,26 @@
     {% endfor %}
 </div>
 
+{# ── TREN HI ─────────────────────────────────────────────────────────── #}
+{% if has_tren %}
+<div class="card mt-4">
+    <div class="card-body px-4 py-3">
+        <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#64748b;margin-bottom:14px;">
+            <i class="bi bi-graph-up me-1" style="color:#3b82f6;"></i> Tren Health Index (Historis)
+        </div>
+        <canvas id="hiTrenChart" style="max-height:200px;"></canvas>
+    </div>
+</div>
+{% else %}
+<div class="card mt-4">
+    <div class="card-body text-center py-4" style="color:#94a3b8;">
+        <i class="bi bi-graph-up fs-3 d-block mb-2" style="color:#cbd5e1;"></i>
+        <div style="font-size:13px;">Tren akan muncul setelah ada data dari bulan-bulan sebelumnya.</div>
+        <div style="font-size:11px;margin-top:4px;">Snapshot otomatis disimpan setiap bulan.</div>
+    </div>
+</div>
+{% endif %}
+
 {# ── SKALA HI ────────────────────────────────────────────────────────── #}
 <div class="card">
     <div class="card-body px-4 py-3">
@@ -188,4 +208,68 @@
 </div>
 
 {% endwith %}
+{% endblock %}
+
+{% block extra_js %}
+{% if has_tren %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const labels = [{% for l in tren_labels %}"{{ l }}"{% if not forloop.last %},{% endif %}{% endfor %}];
+const scores = [{% for s in tren_scores %}{{ s }}{% if not forloop.last %},{% endif %}{% endfor %}];
+const colors = [{% for c in tren_colors %}"{{ c }}"{% if not forloop.last %},{% endif %}{% endfor %}];
+
+new Chart(document.getElementById('hiTrenChart'), {
+    type: 'line',
+    data: {
+        labels: labels,
+        datasets: [{
+            label: 'Skor HI',
+            data: scores,
+            borderColor: '#3b82f6',
+            backgroundColor: 'rgba(59,130,246,0.07)',
+            borderWidth: 2.5,
+            fill: true,
+            tension: 0.4,
+            pointBackgroundColor: colors,
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2,
+            pointRadius: 6,
+            pointHoverRadius: 9,
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                backgroundColor: '#0f172a',
+                padding: 12,
+                cornerRadius: 8,
+                callbacks: {
+                    label: ctx => {
+                        const s = ctx.parsed.y;
+                        let kat = s >= 85 ? 'Sangat Baik' : s >= 70 ? 'Baik' : s >= 50 ? 'Cukup' : s >= 25 ? 'Buruk' : 'Kritis';
+                        return `  Skor: ${s} — ${kat}`;
+                    }
+                }
+            },
+            annotation: {}
+        },
+        scales: {
+            y: {
+                min: 0, max: 100,
+                ticks: { stepSize: 25, font: { size: 11 }, color: '#94a3b8' },
+                grid: { color: '#f1f5f9' },
+                border: { display: false }
+            },
+            x: {
+                ticks: { font: { size: 11 }, color: '#94a3b8' },
+                grid: { display: false },
+                border: { display: false }
+            }
+        }
+    }
+});
+</script>
+{% endif %}
 {% endblock %}
