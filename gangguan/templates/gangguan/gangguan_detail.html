@@ -220,10 +220,7 @@
             </div>
             <div class="detail-row acc-penyebab">
                 <div class="lbl">Penyebab</div>
-                <div class="val {% if not gangguan.penyebab_gangguan %}italic{% endif %}">
-                    {% if gangguan.penyebab_gangguan %}{{ gangguan.penyebab_gangguan }}
-                    {% else %}Belum diidentifikasi{% endif %}
-                </div>
+                <div class="val {% if not gangguan.penyebab_gangguan %}italic{% endif %}">{% if gangguan.penyebab_gangguan %}{{ gangguan.penyebab_gangguan }}{% else %}Belum diidentifikasi{% endif %}</div>
             </div>
             <div class="detail-row acc-dampak">
                 <div class="lbl">Dampak</div>
