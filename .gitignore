@@ -1,6 +1,8 @@
 # ── Database ──────────────────────────────────────────────────────────
 *.sqlite3
 *.db
+db.sqlite
+db.sqlite3.bak
 
 # ── Media (foto, tanda tangan, upload user) ───────────────────────────
 media/
