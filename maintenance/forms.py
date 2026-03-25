@@ -25,23 +25,34 @@ class MaintenanceForm(forms.ModelForm):
         widget=forms.HiddenInput(attrs={'id': 'id_pelaksana_input'})
     )
 
+    # Lock maintenance_type ke Preventive
+    maintenance_type = forms.ChoiceField(
+        choices=[('Preventive', 'Preventive')],
+        initial='Preventive',
+        widget=forms.Select(attrs={'class': 'form-select', 'disabled': 'disabled'}),
+    )
+
     class Meta:
         model  = Maintenance
         fields = '__all__'
         exclude = ['device', 'created_at', 'technicians']
         widgets = {
-            'maintenance_type': forms.Select(attrs={'class': 'form-select'}),
-            'description':      forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
-            'status':           forms.Select(attrs={'class': 'form-select'}),
-            'photo':            forms.FileInput(attrs={'class': 'form-control'}),
-            'pelaksana_names':  forms.HiddenInput(attrs={'id': 'id_pelaksana_names'}),
+            'description':     forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'status':          forms.Select(attrs={'class': 'form-select'}),
+            'photo':           forms.FileInput(attrs={'class': 'form-control'}),
+            'pelaksana_names': forms.HiddenInput(attrs={'id': 'id_pelaksana_names'}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Pastikan selalu Preventive
+        self.fields['maintenance_type'].initial = 'Preventive'
+        if 'maintenance_type' not in (self.data or {}):
+            self.initial['maintenance_type'] = 'Preventive'
         for name, field in self.fields.items():
             if not isinstance(field.widget, (forms.RadioSelect, forms.DateTimeInput, forms.HiddenInput)):
                 if not field.widget.attrs.get('class'):
+                    field.widget.attrs['class'] = 'form-control'
                     field.widget.attrs['class'] = 'form-control'
 
 
