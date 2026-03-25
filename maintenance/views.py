@@ -363,6 +363,9 @@ def maintenance_detail(request, pk):
 @login_required
 def maintenance_edit(request, pk):
     maintenance = get_object_or_404(Maintenance, pk=pk)
+    # Corrective punya form & flow sendiri — jangan campur dengan preventive
+    if maintenance.maintenance_type == 'Corrective':
+        return redirect('corrective_edit', pk=pk)
     device      = maintenance.device
     detail_form_class, template = _get_detail_form_config(device)
 
@@ -890,9 +893,15 @@ def profile_view(request):
             profile.save()
             messages.success(request, 'Tanda tangan berhasil disimpan.')
         elif 'save_display_name' in request.POST:
-            profile.display_name = request.POST.get('display_name', '').strip()
+            nama_lengkap = request.POST.get('display_name', '').strip()
+            profile.display_name = nama_lengkap
             profile.save(update_fields=['display_name'])
-            messages.success(request, 'Nama tampilan berhasil disimpan.')
+            # Sync ke User.first_name / last_name agar get_full_name() ikut terupdate
+            parts = nama_lengkap.split(' ', 1)
+            request.user.first_name = parts[0]
+            request.user.last_name  = parts[1] if len(parts) > 1 else ''
+            request.user.save(update_fields=['first_name', 'last_name'])
+            messages.success(request, f'Nama lengkap berhasil disimpan sebagai "{nama_lengkap}".')
         return redirect('profile_view')
     return render(request, 'maintenance/profile.html', {'profile': profile})
 
@@ -1049,4 +1058,108 @@ def corrective_add(request, device_id=None, gangguan_id=None):
         'today_date':     _date.today().strftime('%Y-%m-%dT%H:%M'),
         'from_gangguan':  gangguan_id is not None,
         'from_device':    device_id is not None,
+    })
+
+
+@login_required
+@require_can_edit
+def corrective_edit(request, pk):
+    """Edit corrective maintenance yang sudah ada."""
+    from maintenance.models import MaintenanceCorrective
+    from gangguan.models import Gangguan
+
+    maintenance = get_object_or_404(Maintenance, pk=pk)
+    if maintenance.maintenance_type != 'Corrective':
+        return redirect('maintenance_edit', pk=pk)
+
+    device = maintenance.device
+    try:
+        corr = maintenance.corrective_detail
+    except Exception:
+        corr = None
+
+    if request.method == 'POST':
+        tanggal           = request.POST.get('tanggal', '')
+        pelaksana_names   = request.POST.get('pelaksana_names', '').strip()
+        jenis_kerusakan   = request.POST.get('jenis_kerusakan', '')
+        deskripsi_masalah = request.POST.get('deskripsi_masalah', '').strip()
+        tindakan          = request.POST.get('tindakan', '').strip()
+        komponen_diganti  = request.POST.get('komponen_diganti') == 'on'
+        nama_komponen     = request.POST.get('nama_komponen', '').strip()
+        kondisi_sebelum   = request.POST.get('kondisi_sebelum', '').strip()
+        kondisi_sesudah   = request.POST.get('kondisi_sesudah', '').strip()
+        durasi_jam        = request.POST.get('durasi_jam', '') or None
+        durasi_menit      = request.POST.get('durasi_menit', '') or None
+        status_perbaikan  = request.POST.get('status_perbaikan', 'selesai')
+        gangguan_pk       = request.POST.get('gangguan_id', '') or None
+        update_gangguan   = request.POST.get('update_gangguan', '')
+        status_gangguan   = request.POST.get('status_gangguan', '')
+        foto_sebelum      = request.FILES.get('foto_sebelum')
+        foto_sesudah      = request.FILES.get('foto_sesudah')
+
+        if tanggal and deskripsi_masalah and tindakan:
+            m_status = 'Done' if status_perbaikan == 'selesai' else 'Open'
+            maintenance.date        = tanggal
+            maintenance.description = deskripsi_masalah
+            maintenance.status      = m_status
+            maintenance.pelaksana_names = [n.strip() for n in pelaksana_names.split(',') if n.strip()]
+            maintenance.save()
+
+            gangguan_obj = Gangguan.objects.filter(pk=gangguan_pk).first() if gangguan_pk else (corr.gangguan if corr else None)
+            if corr is None:
+                corr = MaintenanceCorrective(maintenance=maintenance)
+            corr.gangguan          = gangguan_obj
+            corr.jenis_kerusakan   = jenis_kerusakan
+            corr.deskripsi_masalah = deskripsi_masalah
+            corr.tindakan          = tindakan
+            corr.komponen_diganti  = komponen_diganti
+            corr.nama_komponen     = nama_komponen
+            corr.kondisi_sebelum   = kondisi_sebelum
+            corr.kondisi_sesudah   = kondisi_sesudah
+            corr.durasi_jam        = int(durasi_jam) if durasi_jam else None
+            corr.durasi_menit      = int(durasi_menit) if durasi_menit else None
+            corr.status_perbaikan  = status_perbaikan
+            if foto_sebelum: corr.foto_sebelum = foto_sebelum
+            if foto_sesudah: corr.foto_sesudah = foto_sesudah
+            corr.save()
+
+            if gangguan_obj and update_gangguan and status_gangguan:
+                gangguan_obj.status = status_gangguan
+                if status_gangguan in ('resolved', 'closed') and not gangguan_obj.tanggal_resolved:
+                    from django.utils import timezone
+                    gangguan_obj.tanggal_resolved = timezone.now()
+                gangguan_obj.save()
+
+            return redirect('maintenance_view', pk=pk)
+
+    # Nilai awal untuk pre-fill form
+    tanggal_init = ''
+    if maintenance.date:
+        try:
+            import pytz
+            from django.conf import settings as dj_settings
+            tz = pytz.timezone(dj_settings.TIME_ZONE)
+            local_dt = maintenance.date.astimezone(tz) if maintenance.date.tzinfo else maintenance.date
+            tanggal_init = local_dt.strftime('%Y-%m-%dT%H:%M')
+        except Exception:
+            tanggal_init = str(maintenance.date)[:16].replace(' ', 'T')
+
+    pelaksana_init = ', '.join(maintenance.pelaksana_names or [])
+    gangguan_init  = corr.gangguan if corr else None
+
+    gangguan_aktif = Gangguan.objects.filter(
+        status__in=['open', 'in_progress']
+    ).order_by('-tanggal_gangguan')
+
+    return render(request, 'maintenance/corrective_form.html', {
+        'is_edit':        True,
+        'maintenance':    maintenance,
+        'corr':           corr,
+        'device_init':    device,
+        'gangguan_init':  gangguan_init,
+        'gangguan_aktif': gangguan_aktif,
+        'today_date':     tanggal_init,
+        'pelaksana_init': pelaksana_init,
+        'from_gangguan':  False,
+        'from_device':    False,
     })

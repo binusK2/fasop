@@ -23,8 +23,11 @@
                     <i class="bi bi-person-fill" style="font-size:28px;color:white;"></i>
                 </div>
                 <h5 style="font-size:16px;font-weight:700;color:#0f172a;margin-bottom:4px;">
-                    {{ request.user.get_full_name|default:request.user.username }}
+                    {{ user_display_name }}
                 </h5>
+                <p style="font-size:12px;color:#94a3b8;margin-bottom:2px;font-family:'JetBrains Mono',monospace;">
+                    @{{ request.user.username }}
+                </p>
                 <p style="font-size:13px;color:#64748b;margin-bottom:12px;">{{ request.user.email|default:"—" }}</p>
 
                 <table style="width:100%;border-collapse:collapse;">
@@ -53,27 +56,27 @@
 
     <!-- Tanda Tangan -->
     <div class="col-md-8">
-        <!-- Nama Tampilan (Alias) -->
+        <!-- Nama Lengkap -->
         <div class="card mb-3">
             <div class="card-body px-4 py-4">
                 <div class="d-flex align-items-center gap-2 mb-3">
                     <span style="width:5px;height:18px;background:#8b5cf6;border-radius:3px;display:inline-block;"></span>
-                    <h6 class="mb-0" style="font-size:13px;font-weight:700;color:#0f172a;">Nama Tampilan di PDF</h6>
+                    <h6 class="mb-0" style="font-size:13px;font-weight:700;color:#0f172a;">Nama Lengkap</h6>
                 </div>
                 <form method="post">
                     {% csrf_token %}
                     <div class="mb-3">
                         <label style="font-size:12px;font-weight:700;color:#475569;margin-bottom:6px;display:block;">
-                            Alias / Nama Lengkap
+                            Nama Lengkap
                         </label>
                         <input type="text" name="display_name" value="{{ profile.display_name }}"
-                               class="form-control" style="font-size:13px;">
-                        <div style="font-size:11.5px;color:#94a3b8;margin-top:6px;">
+                               class="form-control" style="font-size:13px;"
+                               placeholder="contoh: Ahmad Fauzan">
+                        <div style="font-size:11.5px;color:#94a3b8;margin-top:6px;line-height:1.6;">
                             <i class="bi bi-info-circle me-1"></i>
-                            Nama ini akan muncul di PDF laporan bagian
-                            {% if profile.role == 'asisten_manager' %}<strong>Asisten Manager</strong>{% else %}<strong>Pelaksana</strong>{% endif %}.
-                            Jika kosong, otomatis pakai nama akun
-                            <strong>{{ request.user.get_full_name|default:request.user.username }}</strong>.
+                            Nama ini akan muncul di <strong>sidebar</strong>, <strong>PDF laporan</strong>, dan seluruh tampilan sistem.
+                            Login tetap pakai username <code style="background:#f1f5f9;padding:1px 6px;border-radius:4px;font-size:11px;">{{ request.user.username }}</code>.
+                            Jika dikosongkan, sistem tampilkan username.
                         </div>
                     </div>
                     <button type="submit" name="save_display_name" class="btn btn-sm"

@@ -84,15 +84,25 @@
         <div class="row g-3">
             <div class="col-md-6">
                 <label class="field-label">Site / Lokasi Gangguan <span class="req">*</span></label>
-                <select name="site" id="id_site" class="form-control" required>
-                    <option value="">— Pilih Lokasi —</option>
-                    {% for lok in master_lokasi_list %}
-                    <option value="{{ lok }}"
-                        {% if form.site.value == lok %}selected{% endif %}>
-                        {{ lok }}
-                    </option>
-                    {% endfor %}
-                </select>
+                <!-- Hidden input yang dikirim ke server -->
+                <input type="hidden" name="site" id="id_site" value="{{ form.site.value|default:'' }}" required>
+                <!-- Search input yang terlihat user -->
+                <div style="position:relative;">
+                    <i class="bi bi-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:13px;pointer-events:none;z-index:1;"></i>
+                    <input type="text" id="site-search-input" autocomplete="off"
+                           class="form-control" style="padding-left:32px;"
+                           placeholder="Ketik nama lokasi..."
+                           value="{{ form.site.value|default:'' }}">
+                    <div id="site-dropdown"
+                         style="display:none;position:absolute;top:100%;left:0;right:0;z-index:100;
+                                background:white;border:1px solid #e2e8f0;border-radius:8px;
+                                box-shadow:0 4px 12px rgba(0,0,0,0.08);max-height:220px;overflow-y:auto;margin-top:2px;">
+                        <div id="site-list"></div>
+                        <div id="site-empty" style="display:none;padding:10px 14px;font-size:12.5px;color:#94a3b8;text-align:center;">
+                            <i class="bi bi-search me-1"></i>Lokasi tidak ditemukan
+                        </div>
+                    </div>
+                </div>
                 {% if form.site.errors %}<div class="text-danger" style="font-size:11.5px;margin-top:4px;">{{ form.site.errors.0 }}</div>{% endif %}
                 <div class="field-hint">Lokasi yang mengalami gangguan</div>
             </div>
@@ -190,14 +200,19 @@
     <div class="card-body px-4 py-3">
         <div class="section-bar">
             <span class="bar" style="background:#10b981;"></span>
-            <span>Status & Penutupan</span>
+            <span>{% if is_edit %}Status & Penutupan{% else %}Catatan Tambahan{% endif %}</span>
         </div>
+        {% if not is_edit %}<input type="hidden" name="status" value="open">{% endif %}
         <div class="row g-3">
+            {% if is_edit %}
             <div class="col-md-4">
                 <label class="field-label">Status Gangguan <span class="req">*</span></label>
                 {{ form.status }}
             </div>
             <div class="col-md-8">
+            {% else %}
+            <div class="col-12">
+            {% endif %}
                 <label class="field-label">Catatan Penutupan</label>
                 {{ form.catatan_penutupan }}
                 <div class="field-hint">Diisi saat gangguan dinyatakan Resolved / Closed</div>
@@ -365,5 +380,66 @@ if (initId) {
     const found = ALL_DEVICES.find(d => d.id === initId);
     if (found) selectPeralatan(found);
 }
+
+// ── Site / Lokasi Autocomplete ────────────────────────────────
+const SITE_LIST = [{% for lok in master_lokasi_list %}"{{ lok }}",{% endfor %}];
+const siteInput    = document.getElementById('site-search-input');
+const siteHidden   = document.getElementById('id_site');
+const siteDropdown = document.getElementById('site-dropdown');
+const siteListEl   = document.getElementById('site-list');
+const siteEmptyEl  = document.getElementById('site-empty');
+
+function renderSiteList(query) {
+    const q = query.trim().toLowerCase();
+    const filtered = q ? SITE_LIST.filter(s => s.toLowerCase().includes(q)) : SITE_LIST;
+    siteListEl.innerHTML = '';
+    if (filtered.length === 0) {
+        siteEmptyEl.style.display = 'block';
+    } else {
+        siteEmptyEl.style.display = 'none';
+        filtered.forEach(function(s) {
+            const item = document.createElement('div');
+            item.style.cssText = 'padding:9px 14px;cursor:pointer;font-size:13px;color:#0f172a;border-bottom:1px solid #f1f5f9;transition:background 0.1s;';
+            // Highlight matching text
+            if (q) {
+                const idx = s.toLowerCase().indexOf(q);
+                item.innerHTML = s.slice(0, idx)
+                    + '<strong style="color:#3b82f6;">' + s.slice(idx, idx + q.length) + '</strong>'
+                    + s.slice(idx + q.length);
+            } else {
+                item.textContent = s;
+            }
+            item.onmouseenter = () => item.style.background = '#f8fafc';
+            item.onmouseleave = () => item.style.background = '';
+            item.onmousedown  = function(e) {
+                e.preventDefault(); // cegah blur sebelum click
+                siteHidden.value = s;
+                siteInput.value  = s;
+                siteDropdown.style.display = 'none';
+            };
+            siteListEl.appendChild(item);
+        });
+    }
+}
+
+siteInput.addEventListener('focus', function() {
+    renderSiteList(this.value);
+    siteDropdown.style.display = 'block';
+});
+siteInput.addEventListener('input', function() {
+    siteHidden.value = this.value; // boleh ketik manual juga
+    renderSiteList(this.value);
+    siteDropdown.style.display = 'block';
+});
+siteInput.addEventListener('blur', function() {
+    setTimeout(() => { siteDropdown.style.display = 'none'; }, 150);
+});
+
+// Tutup site dropdown kalau klik di luar
+document.addEventListener('click', function(e) {
+    if (!siteDropdown.contains(e.target) && e.target !== siteInput) {
+        siteDropdown.style.display = 'none';
+    }
+});
 </script>
 {% endblock %}

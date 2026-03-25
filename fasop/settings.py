@@ -72,6 +72,7 @@ TEMPLATES = [
                 'devices.context_processors.lokasi_list',
                 'devices.context_processors.notifikasi_count',
                 'devices.context_processors.user_permissions',
+                'devices.context_processors.user_display_name',
             ],
         },
     },

@@ -79,6 +79,20 @@ def notifikasi_count(request):
         count = 0
     return {'notif_unread_count': count}
 
+def user_display_name(request):
+    """
+    Inject nama tampilan user ke semua template.
+    Prioritas: display_name (UserProfile) > first_name+last_name > username
+    """
+    if not request.user.is_authenticated:
+        return {'user_display_name': ''}
+    try:
+        name = request.user.profile.get_display_name()
+    except Exception:
+        name = request.user.get_full_name() or request.user.username
+    return {'user_display_name': name}
+
+
 def user_permissions(request):
     """
     Inject permission flags ke semua template.
