@@ -201,6 +201,19 @@
                         {{ gangguan.created_by.get_full_name|default:gangguan.created_by.username|default:"—" }}
                     </div>
                 </div>
+                {% if gangguan.pelaksana_names %}
+                <div>
+                    <div style="font-size:11px;font-weight:600;color:#94a3b8;margin-bottom:4px;">Pelaksana / PIC</div>
+                    <div style="display:flex;flex-wrap:wrap;gap:5px;">
+                        {% for nama in gangguan.pelaksana_names %}
+                        <span style="display:inline-flex;align-items:center;gap:4px;background:#dbeafe;color:#1d4ed8;
+                                     border-radius:20px;padding:3px 10px;font-size:12px;font-weight:500;">
+                            <i class="bi bi-person" style="font-size:11px;"></i>{{ nama }}
+                        </span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>

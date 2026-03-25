@@ -104,6 +104,12 @@ class Gangguan(models.Model):
     tindak_lanjut       = models.TextField(blank=True, verbose_name='Tindak Lanjut', help_text='[Tidak digunakan lagi — gunakan Log Tindak Lanjut]')
     catatan_penutupan   = models.TextField(blank=True, verbose_name='Catatan Penutupan', help_text='Diisi saat gangguan dinyatakan selesai / closed')
 
+    # ── Pelaksana / PIC ──────────────────────────────────────────
+    pelaksana_names = models.JSONField(
+        default=list, blank=True,
+        verbose_name='Nama Pelaksana / PIC',
+    )
+
     # ── Foto Eviden ──────────────────────────────────────────────
     foto_eviden1    = models.ImageField(upload_to=eviden1_upload, blank=True, null=True, verbose_name='Foto Eviden 1')
     foto_eviden2    = models.ImageField(upload_to=eviden2_upload, blank=True, null=True, verbose_name='Foto Eviden 2')

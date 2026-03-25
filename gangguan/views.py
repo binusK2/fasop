@@ -103,6 +103,13 @@ def gangguan_create(request):
         if form.is_valid():
             gangguan = form.save(commit=False)
             gangguan.created_by = request.user
+            # Simpan pelaksana dari tag-input JS
+            import json as _json
+            names_raw = request.POST.get('pelaksana_names_input', '[]')
+            try:
+                gangguan.pelaksana_names = _json.loads(names_raw)
+            except Exception:
+                gangguan.pelaksana_names = []
             gangguan.save()
             # Notif ke AM — gangguan baru
             try:
@@ -184,7 +191,14 @@ def gangguan_update(request, pk):
     if request.method == 'POST':
         form = GangguanForm(request.POST, request.FILES, instance=gangguan)
         if form.is_valid():
-            form.save()
+            import json as _json
+            updated = form.save(commit=False)
+            names_raw = request.POST.get('pelaksana_names_input', '[]')
+            try:
+                updated.pelaksana_names = _json.loads(names_raw)
+            except Exception:
+                updated.pelaksana_names = []
+            updated.save()
             return redirect('gangguan_detail', pk=gangguan.pk)
     else:
         form = GangguanForm(instance=gangguan)

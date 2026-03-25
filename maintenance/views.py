@@ -934,7 +934,13 @@ def corrective_add(request, device_id=None, gangguan_id=None):
         # ── Ambil data form ──
         device_pk         = request.POST.get('device_id')
         tanggal           = request.POST.get('tanggal', '')
-        pelaksana_names   = request.POST.get('pelaksana_names', '').strip()
+        # Pelaksana dari tag-input JS (JSON array)
+        import json as _json
+        _raw_pel = request.POST.get('pelaksana_names_input', '[]')
+        try:
+            pelaksana_list = _json.loads(_raw_pel)
+        except Exception:
+            pelaksana_list = [n.strip() for n in request.POST.get('pelaksana_names', '').split(',') if n.strip()]
         jenis_kerusakan   = request.POST.get('jenis_kerusakan', '')
         deskripsi_masalah = request.POST.get('deskripsi_masalah', '').strip()
         tindakan          = request.POST.get('tindakan', '').strip()
@@ -956,7 +962,6 @@ def corrective_add(request, device_id=None, gangguan_id=None):
             device = device_init
 
         if device and tanggal and deskripsi_masalah and tindakan:
-            import json as _json
             from datetime import datetime
             # Buat Maintenance record
             m_status = 'Done' if status_perbaikan == 'selesai' else 'Open'
@@ -966,7 +971,7 @@ def corrective_add(request, device_id=None, gangguan_id=None):
                 date             = tanggal,
                 description      = deskripsi_masalah,
                 status           = m_status,
-                pelaksana_names  = [n.strip() for n in pelaksana_names.split(',') if n.strip()],
+                pelaksana_names  = pelaksana_list,
             )
 
             # Buat detail corrective
@@ -1080,7 +1085,12 @@ def corrective_edit(request, pk):
 
     if request.method == 'POST':
         tanggal           = request.POST.get('tanggal', '')
-        pelaksana_names   = request.POST.get('pelaksana_names', '').strip()
+        import json as _jn
+        _raw2 = request.POST.get('pelaksana_names_input', '[]')
+        try:
+            pelaksana_list = _jn.loads(_raw2)
+        except Exception:
+            pelaksana_list = [n.strip() for n in request.POST.get('pelaksana_names', '').split(',') if n.strip()]
         jenis_kerusakan   = request.POST.get('jenis_kerusakan', '')
         deskripsi_masalah = request.POST.get('deskripsi_masalah', '').strip()
         tindakan          = request.POST.get('tindakan', '').strip()
@@ -1102,7 +1112,7 @@ def corrective_edit(request, pk):
             maintenance.date        = tanggal
             maintenance.description = deskripsi_masalah
             maintenance.status      = m_status
-            maintenance.pelaksana_names = [n.strip() for n in pelaksana_names.split(',') if n.strip()]
+            maintenance.pelaksana_names = pelaksana_list
             maintenance.save()
 
             gangguan_obj = Gangguan.objects.filter(pk=gangguan_pk).first() if gangguan_pk else (corr.gangguan if corr else None)
@@ -1152,14 +1162,15 @@ def corrective_edit(request, pk):
     ).order_by('-tanggal_gangguan')
 
     return render(request, 'maintenance/corrective_form.html', {
-        'is_edit':        True,
-        'maintenance':    maintenance,
-        'corr':           corr,
-        'device_init':    device,
-        'gangguan_init':  gangguan_init,
-        'gangguan_aktif': gangguan_aktif,
-        'today_date':     tanggal_init,
-        'pelaksana_init': pelaksana_init,
-        'from_gangguan':  False,
-        'from_device':    False,
+        'is_edit':            True,
+        'maintenance':        maintenance,
+        'corr':               corr,
+        'device_init':        device,
+        'gangguan_init':      gangguan_init,
+        'gangguan_aktif':     gangguan_aktif,
+        'today_date':         tanggal_init,
+        'pelaksana_init':     pelaksana_init,
+        'pelaksana_init_json': __import__('json').dumps(maintenance.pelaksana_names or []),
+        'from_gangguan':      False,
+        'from_device':        False,
     })

@@ -169,6 +169,21 @@
         </div>
         <div class="row g-3">
             <div class="col-12">
+                <label class="field-label">Pelaksana / PIC</label>
+                <input type="hidden" id="id_pelaksana_gangguan" name="pelaksana_names_input" value="[]">
+                <div id="pelaksana-tag-box-gng"
+                     style="min-height:44px;border:1px solid #e2e8f0;border-radius:8px;
+                            padding:6px 10px;background:#f8fafc;cursor:text;display:flex;flex-wrap:wrap;align-items:center;gap:5px;"
+                     onclick="document.getElementById('pelaksana-text-gng').focus();">
+                    <div id="pelaksana-tags-gng" style="display:contents;"></div>
+                    <input id="pelaksana-text-gng" type="text"
+                           placeholder="Ketik nama pelaksana, tekan Enter…"
+                           autocomplete="off"
+                           style="border:none;outline:none;background:transparent;font-size:13px;min-width:160px;flex:1;">
+                </div>
+                <div class="field-hint">Teknisi atau PIC yang menangani gangguan ini</div>
+            </div>
+            <div class="col-12">
                 <label class="field-label">Executive Summary <span class="req">*</span></label>
                 {{ form.executive_summary }}
                 <div class="field-hint">Ringkasan singkat kondisi gangguan untuk pelaporan cepat</div>
@@ -380,6 +395,46 @@ if (initId) {
     const found = ALL_DEVICES.find(d => d.id === initId);
     if (found) selectPeralatan(found);
 }
+
+// ── Tag-input Pelaksana (Gangguan) ───────────────────────────
+(function() {
+    var initial = [];
+    {% if is_edit and gangguan.pelaksana_names %}
+    try { initial = JSON.parse('{{ gangguan.pelaksana_names|default:"[]"|escapejs }}'); } catch(e){}
+    {% endif %}
+    var names      = initial.slice();
+    var tagsEl     = document.getElementById('pelaksana-tags-gng');
+    var textInput  = document.getElementById('pelaksana-text-gng');
+    var hiddenInput= document.getElementById('id_pelaksana_gangguan');
+
+    function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    function sync() { hiddenInput.value = JSON.stringify(names); }
+    function render() {
+        tagsEl.innerHTML = '';
+        names.forEach(function(n, i) {
+            var span = document.createElement('span');
+            span.style.cssText = 'display:inline-flex;align-items:center;gap:4px;background:#dbeafe;color:#1d4ed8;border-radius:20px;padding:3px 10px;font-size:12px;font-weight:500;white-space:nowrap;';
+            span.innerHTML = '<i class="bi bi-person" style="font-size:11px;"></i><span>' + esc(n) + '</span>'
+                + '<span data-idx="' + i + '" style="cursor:pointer;font-size:14px;color:#93c5fd;margin-left:2px;" title="Hapus">&times;</span>';
+            span.querySelector('[data-idx]').addEventListener('click', function() {
+                names.splice(parseInt(this.dataset.idx), 1); render(); sync();
+            });
+            tagsEl.appendChild(span);
+        });
+        sync();
+    }
+    textInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            var val = textInput.value.trim();
+            if (val) { names.push(val); textInput.value = ''; render(); }
+        }
+        if (e.key === 'Backspace' && textInput.value === '' && names.length) {
+            names.pop(); render();
+        }
+    });
+    render();
+})();
 
 // ── Site / Lokasi Autocomplete ────────────────────────────────
 const SITE_LIST = [{% for lok in master_lokasi_list %}"{{ lok }}",{% endfor %}];
