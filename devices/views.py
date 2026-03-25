@@ -606,11 +606,18 @@ def icon_delete(request, pk):
 @login_required
 def device_qr(request, pk):
     device = get_object_or_404(Device, pk=pk)
-    # Gunakan public page URL — bisa dibuka tanpa login
+    from django.urls import reverse
     if device.public_token:
-        public_url = request.build_absolute_uri(f'/public/{device.public_token}/')
+        public_url = request.build_absolute_uri(
+            reverse('device_public', args=[device.public_token])
+        )
     else:
-        public_url = request.build_absolute_uri(f'/view/{pk}/')
+        import secrets
+        device.public_token = secrets.token_urlsafe(20)
+        device.save(update_fields=['public_token'])
+        public_url = request.build_absolute_uri(
+            reverse('device_public', args=[device.public_token])
+        )
     return render(request, 'devices/device_qr.html', {
         'device':     device,
         'detail_url': public_url,
