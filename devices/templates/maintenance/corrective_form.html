@@ -1,0 +1,284 @@
+{% extends 'base.html' %}
+{% block title %}Corrective Maintenance — FASOP{% endblock %}
+{% block page_title %}Corrective Maintenance{% endblock %}
+
+{% block content %}
+<style>
+    .cf-card { background:white; border:1px solid var(--border-color); border-radius:12px; margin-bottom:16px; overflow:hidden; }
+    .cf-head { padding:12px 20px; background:#f8fafc; border-bottom:1px solid var(--border-color);
+               font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:#475569;
+               display:flex; align-items:center; gap:8px; }
+    .cf-body { padding:20px; }
+    .cf-label { font-size:12px; font-weight:600; color:#475569; display:block; margin-bottom:5px; }
+    .req { color:#ef4444; }
+</style>
+
+<div class="d-flex align-items-center gap-2 mb-4">
+    {% if from_gangguan and gangguan_init %}
+    <a href="{% url 'gangguan_detail' gangguan_init.pk %}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Kembali ke Gangguan
+    </a>
+    {% elif from_device and device_init %}
+    <a href="{% url 'device_view' device_init.pk %}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Kembali ke Perangkat
+    </a>
+    {% else %}
+    <a href="{% url 'maintenance_list' %}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Kembali
+    </a>
+    {% endif %}
+</div>
+
+{# Notifikasi dari gangguan #}
+{% if gangguan_init %}
+<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;
+            padding:12px 18px;margin-bottom:16px;display:flex;align-items:center;gap:10px;font-size:13px;">
+    <i class="bi bi-exclamation-triangle-fill" style="color:#f59e0b;font-size:16px;flex-shrink:0;"></i>
+    <div>
+        Corrective maintenance ini terkait tiket
+        <strong style="color:#3b82f6;">{{ gangguan_init.nomor_gangguan }}</strong>
+        — {{ gangguan_init.site }}
+        <span style="font-size:11.5px;color:#94a3b8;margin-left:6px;">{{ gangguan_init.get_status_display }}</span>
+    </div>
+</div>
+{% endif %}
+
+<form method="post" enctype="multipart/form-data">
+{% csrf_token %}
+{% if gangguan_init %}<input type="hidden" name="gangguan_id" value="{{ gangguan_init.pk }}">{% endif %}
+{% if device_init %}<input type="hidden" name="device_id" value="{{ device_init.pk }}">{% endif %}
+
+<div class="row g-3">
+<div class="col-lg-8">
+
+    {# ── 1. Device + Waktu ── #}
+    <div class="cf-card">
+        <div class="cf-head"><i class="bi bi-cpu" style="color:#3b82f6;"></i>Perangkat & Waktu</div>
+        <div class="cf-body">
+            <div class="row g-3">
+                <div class="col-md-8">
+                    <label class="cf-label">Perangkat yang Diperbaiki <span class="req">*</span></label>
+                    {% if device_init %}
+                    <input type="hidden" name="device_id" value="{{ device_init.pk }}">
+                    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 14px;
+                                font-size:13px;font-weight:600;color:#1e293b;">
+                        <i class="bi bi-cpu me-2" style="color:#3b82f6;"></i>{{ device_init.nama }}
+                        <span style="font-size:11px;color:#94a3b8;margin-left:6px;">{{ device_init.lokasi }}</span>
+                    </div>
+                    {% else %}
+                    <select name="device_id" class="form-select" required>
+                        <option value="">— Pilih Perangkat —</option>
+                        {% regroup devices by lokasi as devices_by_lokasi %}
+                        {% for group in devices_by_lokasi %}
+                        <optgroup label="{{ group.grouper }}">
+                            {% for d in group.list %}
+                            <option value="{{ d.pk }}">{{ d.nama }} ({{ d.jenis }})</option>
+                            {% endfor %}
+                        </optgroup>
+                        {% endfor %}
+                    </select>
+                    {% endif %}
+                </div>
+                <div class="col-md-4">
+                    <label class="cf-label">Tanggal & Waktu <span class="req">*</span></label>
+                    <input type="datetime-local" name="tanggal" class="form-control"
+                           value="{{ today_date }}" required>
+                </div>
+                <div class="col-12">
+                    <label class="cf-label">Pelaksana</label>
+                    <input type="text" name="pelaksana_names" class="form-control"
+                           placeholder="Nama pelaksana, pisahkan dengan koma">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ── 2. Kerusakan & Tindakan ── #}
+    <div class="cf-card">
+        <div class="cf-head"><i class="bi bi-tools" style="color:#ef4444;"></i>Kerusakan & Tindakan</div>
+        <div class="cf-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="cf-label">Jenis Kerusakan</label>
+                    <select name="jenis_kerusakan" class="form-select">
+                        <option value="">— Pilih —</option>
+                        <option value="hardware">🔧 Hardware / Fisik</option>
+                        <option value="software">💻 Software / Konfigurasi</option>
+                        <option value="power">⚡ Power / Catu Daya</option>
+                        <option value="komunikasi">📡 Komunikasi / Jaringan</option>
+                        <option value="mekanik">🔩 Mekanik / Konektor</option>
+                        <option value="lainnya">📋 Lainnya</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="cf-label">Status Perbaikan <span class="req">*</span></label>
+                    <select name="status_perbaikan" class="form-select" required>
+                        <option value="selesai">✅ Selesai</option>
+                        <option value="perlu_tindaklanjut">⚠️ Perlu Tindak Lanjut</option>
+                    </select>
+                </div>
+                <div class="col-12">
+                    <label class="cf-label">Deskripsi Masalah / Kerusakan <span class="req">*</span></label>
+                    <textarea name="deskripsi_masalah" class="form-control" rows="3" required
+                              placeholder="Jelaskan kondisi kerusakan yang ditemukan..."></textarea>
+                </div>
+                <div class="col-12">
+                    <label class="cf-label">Tindakan yang Dilakukan <span class="req">*</span></label>
+                    <textarea name="tindakan" class="form-control" rows="3" required
+                              placeholder="Jelaskan langkah perbaikan yang dilakukan..."></textarea>
+                </div>
+                <div class="col-md-4">
+                    <label class="cf-label">Durasi Perbaikan</label>
+                    <div class="input-group">
+                        <input type="number" name="durasi_jam" class="form-control" placeholder="0" min="0">
+                        <span class="input-group-text">jam</span>
+                        <input type="number" name="durasi_menit" class="form-control" placeholder="0" min="0" max="59">
+                        <span class="input-group-text">menit</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ── 3. Komponen Diganti ── #}
+    <div class="cf-card">
+        <div class="cf-head"><i class="bi bi-arrow-repeat" style="color:#8b5cf6;"></i>Penggantian Komponen</div>
+        <div class="cf-body">
+            <div class="form-check form-switch mb-3">
+                <input class="form-check-input" type="checkbox" name="komponen_diganti"
+                       id="switchKomponen" onchange="toggleKomponen(this)"
+                       style="width:40px;height:22px;cursor:pointer;">
+                <label class="form-check-label ms-2" for="switchKomponen"
+                       style="font-size:13px;font-weight:600;color:#475569;">
+                    Ada komponen yang diganti
+                </label>
+            </div>
+            <div id="fieldKomponen" style="display:none;">
+                <div style="background:#f5f3ff;border-radius:10px;padding:16px;border:1px solid #ddd6fe;">
+                    <div style="font-size:11px;color:#7c3aed;font-weight:600;margin-bottom:12px;">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Data ini akan otomatis tercatat di Riwayat Kejadian perangkat.
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="cf-label">Nama Komponen</label>
+                            <input type="text" name="nama_komponen" class="form-control"
+                                   placeholder="Contoh: PSU, Modul CPU, Battery, Kabel...">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="cf-label">Kondisi Sebelum</label>
+                            <input type="text" name="kondisi_sebelum" class="form-control"
+                                   placeholder="Merk/tipe lama, kondisi rusak...">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="cf-label">Kondisi Sesudah</label>
+                            <input type="text" name="kondisi_sesudah" class="form-control"
+                                   placeholder="Merk/tipe baru, kondisi baik...">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ── 4. Foto ── #}
+    <div class="cf-card">
+        <div class="cf-head"><i class="bi bi-camera" style="color:#06b6d4;"></i>Foto Bukti (opsional)</div>
+        <div class="cf-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="cf-label">Foto Sebelum</label>
+                    <input type="file" name="foto_sebelum" class="form-control" accept="image/*">
+                </div>
+                <div class="col-md-6">
+                    <label class="cf-label">Foto Sesudah</label>
+                    <input type="file" name="foto_sesudah" class="form-control" accept="image/*">
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+<div class="col-lg-4">
+
+    {# ── Terhubung Gangguan ── #}
+    <div class="cf-card">
+        <div class="cf-head"><i class="bi bi-ticket-perforated" style="color:#f59e0b;"></i>Terkait Gangguan</div>
+        <div class="cf-body">
+            {% if not gangguan_init %}
+            <label class="cf-label">Pilih Tiket Gangguan (opsional)</label>
+            <select name="gangguan_id" id="selectGangguan" class="form-select form-select-sm mb-3"
+                    onchange="toggleUpdateGangguan()">
+                <option value="">— Tidak Terkait —</option>
+                {% for g in gangguan_aktif %}
+                <option value="{{ g.pk }}">{{ g.nomor_gangguan }} — {{ g.site }}</option>
+                {% endfor %}
+            </select>
+            {% endif %}
+
+            <div id="updateGangguanSection"
+                 style="display:{% if gangguan_init %}block{% else %}none{% endif %};">
+                <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:12px 14px;margin-bottom:10px;">
+                    <div style="font-size:12px;font-weight:700;color:#92400e;margin-bottom:8px;">
+                        <i class="bi bi-lightning-charge-fill me-1" style="color:#f59e0b;"></i>
+                        Update Status Gangguan
+                    </div>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" name="update_gangguan"
+                               id="checkUpdateGangguan" value="1" onchange="toggleStatusGangguan(this)">
+                        <label class="form-check-label" for="checkUpdateGangguan"
+                               style="font-size:12.5px;color:#475569;">
+                            Update status tiket setelah simpan
+                        </label>
+                    </div>
+                    <div id="fieldStatusGangguan" style="display:none;">
+                        <select name="status_gangguan" class="form-select form-select-sm">
+                            <option value="in_progress">In Progress</option>
+                            <option value="resolved" selected>Resolved</option>
+                            <option value="closed">Closed</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ── Simpan ── #}
+    <div class="cf-card">
+        <div class="cf-body">
+            <button type="submit" class="btn btn-primary w-100 mb-2">
+                <i class="bi bi-check-lg me-1"></i>Simpan Corrective
+            </button>
+            {% if gangguan_init %}
+            <a href="{% url 'gangguan_detail' gangguan_init.pk %}"
+               class="btn btn-outline-secondary w-100">Batal</a>
+            {% elif device_init %}
+            <a href="{% url 'device_view' device_init.pk %}"
+               class="btn btn-outline-secondary w-100">Batal</a>
+            {% else %}
+            <a href="{% url 'maintenance_list' %}"
+               class="btn btn-outline-secondary w-100">Batal</a>
+            {% endif %}
+        </div>
+    </div>
+
+</div>
+</div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleKomponen(el) {
+    document.getElementById('fieldKomponen').style.display = el.checked ? 'block' : 'none';
+}
+function toggleUpdateGangguan() {
+    const sel = document.getElementById('selectGangguan');
+    document.getElementById('updateGangguanSection').style.display =
+        sel && sel.value ? 'block' : 'none';
+}
+function toggleStatusGangguan(el) {
+    document.getElementById('fieldStatusGangguan').style.display = el.checked ? 'block' : 'none';
+}
+</script>
+{% endblock %}

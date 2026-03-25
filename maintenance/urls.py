@@ -16,4 +16,8 @@ urlpatterns = [
     path('sign/<int:pk>/', views.maintenance_sign, name='maintenance_sign'),
     path('catatan-am/<int:pk>/', views.maintenance_catatan_am_edit, name='maintenance_catatan_am_edit'),
     path('profile/', views.profile_view, name='profile_view'),
+    # Corrective Maintenance
+    path('corrective/add/',                       views.corrective_add,                              name='corrective_add'),
+    path('corrective/device/<int:device_id>/',    lambda r, device_id: views.corrective_add(r, device_id=device_id),    name='corrective_add_device'),
+    path('corrective/gangguan/<int:gangguan_id>/', lambda r, gangguan_id: views.corrective_add(r, gangguan_id=gangguan_id), name='corrective_add_gangguan'),
 ]

@@ -388,3 +388,85 @@ class MaintenanceRectifier(models.Model):
 
     class Meta:
         verbose_name = 'Maintenance Rectifier & Battery'
+
+# ─────────────────────────────────────────────────────────────
+# CORRECTIVE MAINTENANCE (ringkas, terrelasi)
+# ─────────────────────────────────────────────────────────────
+
+def corrective_foto_upload(instance, filename):
+    import os, re
+    from django.utils import timezone
+    ext  = os.path.splitext(filename)[1].lower() or '.jpg'
+    nama = re.sub(r'[^\w]', '_', str(instance.maintenance.device.nama if instance.maintenance else 'DEV'))[:30]
+    tgl  = timezone.localtime(timezone.now()).strftime('%Y%m%d_%H%M%S')
+    return f'corrective_photos/{nama}_{tgl}{ext}'
+
+
+class MaintenanceCorrective(models.Model):
+    """
+    Detail Corrective Maintenance — ringkas & terrelasi.
+    FK ke Maintenance (type=Corrective) dan opsional ke Gangguan.
+    """
+    JENIS_KERUSAKAN = (
+        ('hardware',   'Hardware / Fisik'),
+        ('software',   'Software / Konfigurasi'),
+        ('power',      'Power / Catu Daya'),
+        ('komunikasi', 'Komunikasi / Jaringan'),
+        ('mekanik',    'Mekanik / Konektor'),
+        ('lainnya',    'Lainnya'),
+    )
+
+    STATUS_CHOICES = (
+        ('selesai',          'Selesai'),
+        ('perlu_tindaklanjut', 'Perlu Tindak Lanjut'),
+    )
+
+    maintenance         = models.OneToOneField(
+        Maintenance, on_delete=models.CASCADE,
+        related_name='corrective_detail'
+    )
+    gangguan            = models.ForeignKey(
+        'gangguan.Gangguan',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='corrective_maintenances',
+        verbose_name='Terkait Gangguan',
+    )
+    jenis_kerusakan     = models.CharField(
+        max_length=20, choices=JENIS_KERUSAKAN,
+        blank=True, verbose_name='Jenis Kerusakan'
+    )
+    deskripsi_masalah   = models.TextField(verbose_name='Deskripsi Masalah / Kerusakan')
+    tindakan            = models.TextField(verbose_name='Tindakan yang Dilakukan')
+    komponen_diganti    = models.BooleanField(default=False, verbose_name='Ada Komponen Diganti?')
+    nama_komponen       = models.CharField(max_length=150, blank=True, verbose_name='Nama Komponen')
+    kondisi_sebelum     = models.CharField(max_length=200, blank=True, verbose_name='Kondisi Sebelum')
+    kondisi_sesudah     = models.CharField(max_length=200, blank=True, verbose_name='Kondisi Sesudah')
+    durasi_jam          = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name='Durasi (jam)')
+    durasi_menit        = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name='Durasi (menit)')
+    status_perbaikan    = models.CharField(
+        max_length=25, choices=STATUS_CHOICES,
+        default='selesai', verbose_name='Status Perbaikan'
+    )
+    foto_sebelum        = models.ImageField(
+        upload_to=corrective_foto_upload, blank=True, null=True,
+        verbose_name='Foto Sebelum'
+    )
+    foto_sesudah        = models.ImageField(
+        upload_to=corrective_foto_upload, blank=True, null=True,
+        verbose_name='Foto Sesudah'
+    )
+
+    class Meta:
+        verbose_name        = 'Detail Corrective Maintenance'
+        verbose_name_plural = 'Detail Corrective Maintenance'
+
+    def __str__(self):
+        return f'Corrective — {self.maintenance.device.nama}'
+
+    @property
+    def durasi_display(self):
+        parts = []
+        if self.durasi_jam:   parts.append(f'{self.durasi_jam}j')
+        if self.durasi_menit: parts.append(f'{self.durasi_menit}m')
+        return ' '.join(parts) if parts else '—'

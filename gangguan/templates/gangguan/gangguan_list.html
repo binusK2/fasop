@@ -73,9 +73,11 @@
         <h2 class="mb-0" style="font-size:20px;font-weight:700;">History Gangguan</h2>
         <p class="text-muted mb-0" style="font-size:13px;">{{ gangguan_list|length }} tiket ditemukan</p>
     </div>
+    {% if user_can_edit %}
     <a href="{% url 'gangguan_create' %}" class="btn btn-danger">
         <i class="bi bi-exclamation-triangle me-1"></i>Deklarasi Gangguan
     </a>
+    {% endif %}
 </div>
 
 <!-- ── Statistik ──────────────────────────────────────────── -->

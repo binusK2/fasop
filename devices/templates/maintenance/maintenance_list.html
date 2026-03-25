@@ -14,6 +14,9 @@
         <a href="{% url 'maintenance_report' %}" class="btn btn-outline-primary btn-sm">
             <i class="bi bi-file-bar-graph me-1"></i>Laporan Bulanan
         </a>
+        <a href="{% url 'corrective_add' %}" class="btn btn-warning btn-sm">
+            <i class="bi bi-tools me-1"></i>+ Corrective
+        </a>
     </div>
 </div>
 
@@ -197,10 +200,12 @@
                             </button>
                         </form>
                         {% endif %}
+                        {% if user_can_delete %}
                         <button class="btn btn-sm btn-outline-danger" title="Hapus" style="border-radius:8px;padding:4px 10px;"
                                 onclick="confirmDelete('{% url 'maintenance_delete' m.id %}', '{{ m.device }} — {{ m.date|date:'d M Y' }}')">
                             <i class="bi bi-trash"></i>
                         </button>
+                        {% endif %}
                     </div>
                 </td>
             </tr>

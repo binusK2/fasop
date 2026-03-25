@@ -1,8 +1,10 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
+from devices.permissions import require_can_edit, require_can_delete, is_viewer_only
 from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier
 from .forms import MaintenanceForm, MaintenancePLCForm, MaintenanceRouterForm, MaintenanceRadioForm, MaintenanceVoIPForm, MaintenanceMuxForm, MaintenanceRectifierForm
 from devices.models import Device, DeviceType
+from gangguan.models import Gangguan
 from django.db.models import Q, Count
 from django.db.models.functions import Trim
 from django.http import HttpResponse
@@ -143,8 +145,28 @@ def maintenance_create(request, device_id):
 def maintenance_update_status(request, pk):
     maintenance = get_object_or_404(Maintenance, pk=pk)
     if request.method == 'POST':
+        old_status = maintenance.status
         maintenance.status = request.POST.get('status')
         maintenance.save()
+        # Notif ke AM kalau baru selesai (Done) dan perlu TTD
+        if old_status != 'Done' and maintenance.status == 'Done':
+            try:
+                from notifikasi.views import notif_ke_am
+                notif_ke_am(
+                    tipe   = 'maintenance_ttd',
+                    judul  = f'Maintenance selesai — {maintenance.device.nama}',
+                    pesan  = (
+                        f'Maintenance {maintenance.maintenance_type} pada '
+                        f'{maintenance.device.nama} ({maintenance.device.lokasi}) '
+                        f'tanggal {maintenance.date.strftime("%d %b %Y")} '
+                        f'telah selesai dan memerlukan pengesahan.'
+                    ),
+                    level  = 'info',
+                    url    = f'/maintenance/{maintenance.pk}/',
+                    device = maintenance.device,
+                )
+            except Exception:
+                pass
     return redirect('maintenance_list')
 
 
@@ -407,6 +429,7 @@ def maintenance_edit(request, pk):
 # DELETE
 # ─────────────────────────────────────────────────────────────────────
 @login_required
+@require_can_delete
 def maintenance_delete(request, pk):
     maintenance = get_object_or_404(Maintenance, pk=pk)
     maintenance.delete()
@@ -872,3 +895,158 @@ def profile_view(request):
             messages.success(request, 'Nama tampilan berhasil disimpan.')
         return redirect('profile_view')
     return render(request, 'maintenance/profile.html', {'profile': profile})
+
+# ─────────────────────────────────────────────────────────────
+# CORRECTIVE MAINTENANCE VIEWS
+# ─────────────────────────────────────────────────────────────
+
+@login_required
+@require_can_edit
+def corrective_add(request, device_id=None, gangguan_id=None):
+    """
+    Form corrective maintenance ringkas.
+    Bisa diakses dari:
+      - Menu maintenance umum (GET /maintenance/corrective/add/)
+      - Device detail (GET /maintenance/corrective/device/<id>/)
+      - Gangguan detail (GET /maintenance/corrective/gangguan/<id>/)
+    """
+    from maintenance.models import MaintenanceCorrective
+    from devices.models import Device
+    from gangguan.models import Gangguan
+
+    # Pre-fill device & gangguan jika dari context tertentu
+    device_init   = Device.objects.filter(pk=device_id, is_deleted=False).first() if device_id else None
+    gangguan_init = Gangguan.objects.filter(pk=gangguan_id).first() if gangguan_id else None
+    # Kalau dari gangguan, device dari gangguan.peralatan
+    if gangguan_init and not device_init and gangguan_init.peralatan:
+        device_init = gangguan_init.peralatan
+
+    if request.method == 'POST':
+        # ── Ambil data form ──
+        device_pk         = request.POST.get('device_id')
+        tanggal           = request.POST.get('tanggal', '')
+        pelaksana_names   = request.POST.get('pelaksana_names', '').strip()
+        jenis_kerusakan   = request.POST.get('jenis_kerusakan', '')
+        deskripsi_masalah = request.POST.get('deskripsi_masalah', '').strip()
+        tindakan          = request.POST.get('tindakan', '').strip()
+        komponen_diganti  = request.POST.get('komponen_diganti') == 'on'
+        nama_komponen     = request.POST.get('nama_komponen', '').strip()
+        kondisi_sebelum   = request.POST.get('kondisi_sebelum', '').strip()
+        kondisi_sesudah   = request.POST.get('kondisi_sesudah', '').strip()
+        durasi_jam        = request.POST.get('durasi_jam', '') or None
+        durasi_menit      = request.POST.get('durasi_menit', '') or None
+        status_perbaikan  = request.POST.get('status_perbaikan', 'selesai')
+        gangguan_pk       = request.POST.get('gangguan_id', '') or None
+        update_gangguan   = request.POST.get('update_gangguan', '')
+        status_gangguan   = request.POST.get('status_gangguan', '')
+        foto_sebelum      = request.FILES.get('foto_sebelum')
+        foto_sesudah      = request.FILES.get('foto_sesudah')
+
+        device = Device.objects.filter(pk=device_pk, is_deleted=False).first()
+        if not device:
+            device = device_init
+
+        if device and tanggal and deskripsi_masalah and tindakan:
+            import json as _json
+            from datetime import datetime
+            # Buat Maintenance record
+            m_status = 'Done' if status_perbaikan == 'selesai' else 'Open'
+            maint = Maintenance.objects.create(
+                device           = device,
+                maintenance_type = 'Corrective',
+                date             = tanggal,
+                description      = deskripsi_masalah,
+                status           = m_status,
+                pelaksana_names  = [n.strip() for n in pelaksana_names.split(',') if n.strip()],
+            )
+
+            # Buat detail corrective
+            gangguan_obj = Gangguan.objects.filter(pk=gangguan_pk).first() if gangguan_pk else gangguan_init
+            corr = MaintenanceCorrective(
+                maintenance       = maint,
+                gangguan          = gangguan_obj,
+                jenis_kerusakan   = jenis_kerusakan,
+                deskripsi_masalah = deskripsi_masalah,
+                tindakan          = tindakan,
+                komponen_diganti  = komponen_diganti,
+                nama_komponen     = nama_komponen,
+                kondisi_sebelum   = kondisi_sebelum,
+                kondisi_sesudah   = kondisi_sesudah,
+                durasi_jam        = int(durasi_jam) if durasi_jam else None,
+                durasi_menit      = int(durasi_menit) if durasi_menit else None,
+                status_perbaikan  = status_perbaikan,
+            )
+            if foto_sebelum: corr.foto_sebelum = foto_sebelum
+            if foto_sesudah: corr.foto_sesudah = foto_sesudah
+            corr.save()
+
+            # Auto DeviceEvent kalau ada komponen diganti
+            if komponen_diganti and nama_komponen:
+                from devices.models import DeviceEvent
+                from datetime import date as _date
+                DeviceEvent.objects.create(
+                    device         = device,
+                    tipe           = 'penggantian',
+                    tanggal        = tanggal[:10] if tanggal else _date.today(),
+                    komponen       = nama_komponen,
+                    nilai_lama     = kondisi_sebelum,
+                    nilai_baru     = kondisi_sesudah,
+                    catatan        = f'Dari corrective maintenance — {deskripsi_masalah[:100]}',
+                    dilakukan_oleh = request.user,
+                    gangguan       = gangguan_obj,
+                )
+
+            # Update status gangguan jika diminta
+            if gangguan_obj and update_gangguan and status_gangguan:
+                gangguan_obj.status = status_gangguan
+                if status_gangguan in ('resolved', 'closed') and not gangguan_obj.tanggal_resolved:
+                    from django.utils import timezone
+                    gangguan_obj.tanggal_resolved = timezone.now()
+                gangguan_obj.save()
+
+            # Notif ke AM — corrective selesai
+            if status_perbaikan == 'selesai':
+                try:
+                    from notifikasi.views import notif_ke_am
+                    g_info = f' (Tiket {gangguan_obj.nomor_gangguan})' if gangguan_obj else ''
+                    notif_ke_am(
+                        tipe   = 'corrective_selesai',
+                        judul  = f'Corrective selesai — {device.nama}',
+                        pesan  = (
+                            f'Tindakan perbaikan pada {device.nama} ({device.lokasi})'
+                            f'{g_info} telah selesai. Tindakan: {tindakan[:100]}'
+                        ),
+                        level  = 'success',
+                        url    = f'/maintenance/{maint.pk}/',
+                        device = device,
+                    )
+                except Exception:
+                    pass
+
+            # Redirect sesuai konteks
+            if gangguan_obj and update_gangguan:
+                return redirect('gangguan_detail', pk=gangguan_obj.pk)
+            if gangguan_id:
+                return redirect('gangguan_detail', pk=gangguan_id)
+            if device_id:
+                return redirect('device_view', pk=device_id)
+            return redirect('maintenance_list')
+
+    # Daftar gangguan aktif untuk dropdown
+    from gangguan.models import Gangguan
+    gangguan_aktif = Gangguan.objects.filter(
+        status__in=['open', 'in_progress']
+    ).order_by('-tanggal_gangguan')
+
+    devices = Device.objects.filter(is_deleted=False).select_related('jenis').order_by('lokasi', 'nama')
+
+    from datetime import date as _date
+    return render(request, 'maintenance/corrective_form.html', {
+        'device_init':    device_init,
+        'gangguan_init':  gangguan_init,
+        'gangguan_aktif': gangguan_aktif,
+        'devices':        devices,
+        'today_date':     _date.today().strftime('%Y-%m-%dT%H:%M'),
+        'from_gangguan':  gangguan_id is not None,
+        'from_device':    device_id is not None,
+    })

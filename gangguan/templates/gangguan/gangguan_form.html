@@ -84,14 +84,17 @@
         <div class="row g-3">
             <div class="col-md-6">
                 <label class="field-label">Site / Lokasi Gangguan <span class="req">*</span></label>
-                <input list="site-options" name="site" id="id_site"
-                       value="{% if form.site.value %}{{ form.site.value }}{% endif %}"
-                       class="form-control" placeholder="Ketik atau pilih site…" required>
-                <datalist id="site-options">
-                    {% for s in site_list %}<option value="{{ s }}">{% endfor %}
-                </datalist>
+                <select name="site" id="id_site" class="form-control" required>
+                    <option value="">— Pilih Lokasi —</option>
+                    {% for lok in master_lokasi_list %}
+                    <option value="{{ lok }}"
+                        {% if form.site.value == lok %}selected{% endif %}>
+                        {{ lok }}
+                    </option>
+                    {% endfor %}
+                </select>
                 {% if form.site.errors %}<div class="text-danger" style="font-size:11.5px;margin-top:4px;">{{ form.site.errors.0 }}</div>{% endif %}
-                <div class="field-hint">Nama site yang mengalami gangguan</div>
+                <div class="field-hint">Lokasi yang mengalami gangguan</div>
             </div>
             <div class="col-md-6">
                 <label class="field-label">Peralatan Terdampak</label>

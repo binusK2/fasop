@@ -1,6 +1,10 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
-from .models import Device, Icon, DeviceType, SiteLocation
+from devices.permissions import (
+    require_can_delete, require_can_edit, require_can_manage_lokasi,
+    can_delete, can_edit, can_manage_lokasi, is_viewer_only
+)
+from .models import Device, DeviceType, Icon, SiteLocation, DeviceLog, DeviceEvent
 from .forms import DeviceForm, IconForm
 from django.db.models import Count, Q
 from django.db.models.functions import TruncMonth, Lower, Trim
@@ -81,6 +85,7 @@ def device_list(request):
 
 
 @login_required
+@require_can_edit
 def device_create(request):
     if request.method == 'POST':
         form = DeviceForm(request.POST, request.FILES)
@@ -93,6 +98,9 @@ def device_create(request):
                 device.spesifikasi = {}
             device.created_by = request.user
             device.save()
+            # Audit log
+            from devices.device_audit import log_create
+            log_create(device, request.user)
             return redirect('device_list')
     else:
         form = DeviceForm()
@@ -104,9 +112,15 @@ def device_create(request):
 
 
 @login_required
+@require_can_edit
 def device_update(request, pk):
     device = get_object_or_404(Device, pk=pk)
     if request.method == 'POST':
+        # Snapshot sebelum perubahan
+        from devices.device_audit import log_edit, TRACKED_FIELDS
+        import copy
+        device_before = copy.copy(device)
+
         form = DeviceForm(request.POST, request.FILES, instance=device)
         if form.is_valid():
             dev = form.save(commit=False)
@@ -116,6 +130,8 @@ def device_update(request, pk):
             except (json.JSONDecodeError, ValueError):
                 dev.spesifikasi = {}
             dev.save()
+            # Audit log — bandingkan sebelum vs sesudah
+            log_edit(device_before, dev, request.user)
             return redirect('device_view', pk=device.pk)
     else:
         form = DeviceForm(instance=device)
@@ -129,8 +145,11 @@ def device_update(request, pk):
 
 
 @login_required
+@require_can_delete
 def device_delete(request, pk):
     device = get_object_or_404(Device, pk=pk)
+    from devices.device_audit import log_delete
+    log_delete(device, request.user)
     device.is_deleted = True
     device.deleted_by = request.user
     device.save()
@@ -356,15 +375,25 @@ def device_detail(request, pk):
     from health_index.calculator import calculate_hi
     health_index = calculate_hi(device)
 
+    # Audit log
+    from devices.models import DeviceLog, DeviceEvent
+    device_logs     = DeviceLog.objects.filter(device=device).order_by('-created_at')
+    last_update_log = device_logs.first()
+    device_events   = DeviceEvent.objects.filter(device=device).order_by('-tanggal', '-created_at')
+
     return render(request, 'devices/device_detail.html', {
-        'device': device,
+        'device':             device,
         'maintenance_history': maintenance_history,
-        'maintenance_total': maintenance_total,
-        'maintenance_done': maintenance_done,
-        'maintenance_open': maintenance_open,
+        'maintenance_total':  maintenance_total,
+        'maintenance_done':   maintenance_done,
+        'maintenance_open':   maintenance_open,
         'spesifikasi_display': spesifikasi_display,
-        'umur_peralatan': umur_peralatan,
-        'health_index': health_index,
+        'umur_peralatan':     umur_peralatan,
+        'health_index':       health_index,
+        'device_logs':        device_logs,
+        'last_update_log':    last_update_log,
+        'device_events':      device_events,
+        'today_date':         date_type.today().strftime('%Y-%m-%d'),
     })
 
 
@@ -527,6 +556,7 @@ def layanan_icon(request):
 
 
 @login_required
+@require_can_edit
 def icon_create(request):
     if request.method == 'POST':
         form = IconForm(request.POST, request.FILES)
@@ -543,6 +573,7 @@ def icon_create(request):
 
 
 @login_required
+@require_can_edit
 def icon_update(request, pk):
     icon = get_object_or_404(Icon, pk=pk)
     if request.method == 'POST':
@@ -561,6 +592,7 @@ def icon_update(request, pk):
 
 
 @login_required
+@require_can_delete
 def icon_delete(request, pk):
     icon = get_object_or_404(Icon, pk=pk)
     if request.method == 'POST':
@@ -574,10 +606,15 @@ def icon_delete(request, pk):
 @login_required
 def device_qr(request, pk):
     device = get_object_or_404(Device, pk=pk)
-    detail_url = request.build_absolute_uri(f'/view/{pk}/')
+    # Gunakan public page URL — bisa dibuka tanpa login
+    if device.public_token:
+        public_url = request.build_absolute_uri(f'/public/{device.public_token}/')
+    else:
+        public_url = request.build_absolute_uri(f'/view/{pk}/')
     return render(request, 'devices/device_qr.html', {
-        'device': device,
-        'detail_url': detail_url,
+        'device':     device,
+        'detail_url': public_url,
+        'public_url': public_url,
     })
 
 
@@ -806,3 +843,182 @@ def export_icon_excel(request):
     )
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     return response
+
+# ── Device Event Views ──────────────────────────────────────────────────────
+
+@login_required
+@require_can_edit
+def device_event_add(request, pk):
+    """Tambah event kejadian fisik peralatan."""
+    device = get_object_or_404(Device, pk=pk)
+
+    if request.method == 'POST':
+        from devices.models import DeviceEvent
+        tipe          = request.POST.get('tipe', '').strip()
+        tanggal       = request.POST.get('tanggal', '')
+        komponen      = request.POST.get('komponen', '').strip()
+        nilai_lama    = request.POST.get('nilai_lama', '').strip()
+        nilai_baru    = request.POST.get('nilai_baru', '').strip()
+        lokasi_asal   = request.POST.get('lokasi_asal', '').strip()
+        lokasi_tujuan = request.POST.get('lokasi_tujuan', '').strip()
+        catatan       = request.POST.get('catatan', '').strip()
+        foto          = request.FILES.get('foto')
+
+        if tipe and tanggal:
+            event = DeviceEvent(
+                device        = device,
+                tipe          = tipe,
+                tanggal       = tanggal,
+                komponen      = komponen,
+                nilai_lama    = nilai_lama,
+                nilai_baru    = nilai_baru,
+                lokasi_asal   = lokasi_asal,
+                lokasi_tujuan = lokasi_tujuan,
+                catatan       = catatan,
+                dilakukan_oleh = request.user,
+            )
+            if foto:
+                event.foto = foto
+            event.save()
+
+            # Auto-update lokasi device jika relokasi
+            if tipe == 'relokasi' and lokasi_tujuan:
+                old_lokasi = device.lokasi
+                device.lokasi = lokasi_tujuan.upper()
+                device.save(update_fields=['lokasi'])
+                # Catat di audit log
+                from devices.device_audit import log_edit
+                import copy
+                d_before = copy.copy(device)
+                d_before.lokasi = old_lokasi
+                device_copy = copy.copy(device)
+                log_edit(d_before, device_copy, request.user)
+
+    return redirect('device_view', pk=pk)
+
+
+@login_required
+@require_can_delete
+def device_event_delete(request, pk, event_pk):
+    """Hapus event kejadian fisik."""
+    if request.method == 'POST':
+        from devices.models import DeviceEvent
+        event = get_object_or_404(DeviceEvent, pk=event_pk, device_id=pk)
+        event.delete()
+    return redirect('device_view', pk=pk)
+
+
+# ── Manajemen Lokasi (Admin only) ─────────────────────────────────────────────
+
+@login_required
+@require_can_manage_lokasi
+def lokasi_admin(request):
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        pk     = request.POST.get('pk')
+
+        if action == 'add':
+            nama = request.POST.get('nama', '').strip().upper()
+            lat  = request.POST.get('latitude', '').strip()
+            lng  = request.POST.get('longitude', '').strip()
+            ket  = request.POST.get('keterangan', '').strip()
+            if nama:
+                SiteLocation.objects.get_or_create(
+                    nama=nama,
+                    defaults={
+                        'latitude':    float(lat) if lat else None,
+                        'longitude':   float(lng) if lng else None,
+                        'keterangan':  ket,
+                    }
+                )
+
+        elif action == 'edit' and pk:
+            site = get_object_or_404(SiteLocation, pk=pk)
+            nama = request.POST.get('nama', '').strip().upper()
+            lat  = request.POST.get('latitude', '').strip()
+            lng  = request.POST.get('longitude', '').strip()
+            ket  = request.POST.get('keterangan', '').strip()
+            if nama:
+                site.nama       = nama
+                site.latitude   = float(lat) if lat else None
+                site.longitude  = float(lng) if lng else None
+                site.keterangan = ket
+                site.save()
+
+        elif action == 'delete' and pk:
+            SiteLocation.objects.filter(pk=pk).delete()
+
+        return redirect('lokasi_admin')
+
+    sites = SiteLocation.objects.all()
+    # Hitung berapa device per lokasi
+    device_count = {}
+    for d in Device.objects.filter(is_deleted=False).values('lokasi'):
+        loc = (d['lokasi'] or '').strip().upper()
+        device_count[loc] = device_count.get(loc, 0) + 1
+
+    sites_data = []
+    for s in sites:
+        sites_data.append({
+            'site':         s,
+            'device_count': device_count.get(s.nama.upper(), 0),
+        })
+
+    return render(request, 'devices/lokasi_admin.html', {
+        'sites_data': sites_data,
+    })
+
+
+def api_lokasi_list(request):
+    """API: kembalikan daftar lokasi sebagai JSON untuk validasi form."""
+    from devices.models import SiteLocation
+    locs = list(SiteLocation.objects.values_list('nama', flat=True).order_by('nama'))
+    return JsonResponse({'lokasi': locs})
+
+
+# ── Public Device Page (QR Code) ─────────────────────────────────────────────
+
+def device_public(request, token):
+    """Halaman publik perangkat via QR Code — tidak perlu login."""
+    device = get_object_or_404(Device, public_token=token, is_deleted=False)
+
+    # Maintenance history ringkas (10 terakhir)
+    from maintenance.models import Maintenance
+    maintenance_history = (
+        Maintenance.objects
+        .filter(device=device)
+        .order_by('-date')[:10]
+    )
+
+    # Gangguan — aktif + 5 terakhir selesai
+    from gangguan.models import Gangguan
+    gangguan_aktif = Gangguan.objects.filter(
+        peralatan=device, status__in=['open', 'in_progress']
+    ).order_by('-tanggal_gangguan')
+    gangguan_selesai = Gangguan.objects.filter(
+        peralatan=device, status__in=['resolved', 'closed']
+    ).order_by('-tanggal_gangguan')[:5]
+
+    # Health Index
+    try:
+        from health_index.calculator import calculate_hi
+        health_index = calculate_hi(device, save_snapshot=False)
+    except Exception:
+        health_index = None
+
+    # Umur peralatan
+    from datetime import date as date_type
+    umur = None
+    if device.tahun_operasi:
+        umur = date_type.today().year - device.tahun_operasi
+
+    return render(request, 'devices/device_public.html', {
+        'device':            device,
+        'maintenance_history': maintenance_history,
+        'gangguan_aktif':    gangguan_aktif,
+        'gangguan_selesai':  gangguan_selesai,
+        'health_index':      health_index,
+        'umur':              umur,
+        'now':               date_type.today(),
+    })

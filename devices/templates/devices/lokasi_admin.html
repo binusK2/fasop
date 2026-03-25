@@ -1,0 +1,242 @@
+{% extends 'base.html' %}
+{% block title %}Manajemen Lokasi — FASOP{% endblock %}
+{% block page_title %}Manajemen Lokasi{% endblock %}
+
+{% block content %}
+
+<div class="d-flex align-items-center gap-2 mb-4">
+    <a href="{% url 'lokasi_list' %}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Kembali
+    </a>
+    <button type="button" class="btn btn-sm btn-primary ms-auto"
+            data-bs-toggle="modal" data-bs-target="#modalTambah">
+        <i class="bi bi-plus-lg me-1"></i>Tambah Lokasi
+    </button>
+</div>
+
+{# ── Info ── #}
+<div class="card mb-3" style="border:1.5px solid #bfdbfe;background:#eff6ff;border-radius:12px;">
+    <div class="card-body py-2 px-4" style="font-size:12.5px;color:#1d4ed8;">
+        <i class="bi bi-info-circle me-1"></i>
+        Daftar lokasi ini digunakan sebagai master data di semua form input lokasi.
+        Hanya <strong>Admin / Asisten Manager</strong> yang bisa menambah atau menghapus lokasi.
+    </div>
+</div>
+
+{# ── Tabel ── #}
+<div class="table-card">
+    <div class="table-responsive">
+        <table class="table mb-0">
+            <thead>
+                <tr style="background:#f8fafc;">
+                    <th style="font-size:11px;color:#64748b;padding:10px 20px;">NAMA LOKASI / SITE</th>
+                    <th style="font-size:11px;color:#64748b;padding:10px 16px;text-align:center;">PERANGKAT</th>
+                    <th style="font-size:11px;color:#64748b;padding:10px 16px;text-align:center;">KOORDINAT</th>
+                    <th style="font-size:11px;color:#64748b;padding:10px 16px;">KETERANGAN</th>
+                    <th style="font-size:11px;color:#64748b;padding:10px 16px;text-align:center;">AKSI</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in sites_data %}
+                {% with s=item.site %}
+                <tr style="border-top:1px solid #f1f5f9;transition:background 0.12s;"
+                    onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
+                    <td style="padding:12px 20px;">
+                        <div style="font-size:13px;font-weight:600;color:#1e293b;">{{ s.nama }}</div>
+                    </td>
+                    <td style="padding:12px 16px;text-align:center;">
+                        {% if item.device_count > 0 %}
+                        <a href="{% url 'device_list' %}?lokasi={{ s.nama }}"
+                           style="font-size:13px;font-weight:600;color:#3b82f6;text-decoration:none;">
+                            {{ item.device_count }}
+                        </a>
+                        {% else %}
+                        <span style="color:#cbd5e1;font-size:12px;">0</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding:12px 16px;text-align:center;">
+                        {% if s.has_coords %}
+                        <span style="font-size:11px;background:#dcfce7;color:#065f46;
+                                     padding:2px 8px;border-radius:20px;font-weight:600;">
+                            <i class="bi bi-geo-alt-fill me-1" style="font-size:10px;"></i>Ada
+                        </span>
+                        {% else %}
+                        <span style="font-size:11px;color:#94a3b8;">—</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding:12px 16px;font-size:12px;color:#64748b;">
+                        {{ s.keterangan|default:"—"|truncatechars:50 }}
+                    </td>
+                    <td style="padding:12px 16px;text-align:center;">
+                        <div class="d-flex gap-1 justify-content-center">
+                            <button type="button" class="btn btn-sm btn-outline-warning"
+                                    style="border-radius:7px;padding:3px 8px;"
+                                    onclick="editLokasi({{ s.pk }}, '{{ s.nama|escapejs }}',
+                                             '{{ s.latitude|default:'' }}', '{{ s.longitude|default:'' }}',
+                                             '{{ s.keterangan|default:''|escapejs }}')">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            {% if item.device_count == 0 %}
+                            <form method="post" style="display:inline;"
+                                  onsubmit="return confirm('Hapus lokasi {{ s.nama }}?');">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="delete">
+                                <input type="hidden" name="pk" value="{{ s.pk }}">
+                                <button type="submit" class="btn btn-sm btn-outline-danger"
+                                        style="border-radius:7px;padding:3px 8px;">
+                                    <i class="bi bi-trash3"></i>
+                                </button>
+                            </form>
+                            {% else %}
+                            <button class="btn btn-sm btn-outline-secondary disabled"
+                                    style="border-radius:7px;padding:3px 8px;opacity:0.4;"
+                                    title="Tidak bisa dihapus — masih ada {{ item.device_count }} perangkat">
+                                <i class="bi bi-trash3"></i>
+                            </button>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endwith %}
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="text-center text-muted py-5">
+                        <i class="bi bi-geo-alt fs-2 d-block mb-2"></i>
+                        Belum ada lokasi terdaftar.
+                        <div class="mt-2">
+                            <button type="button" class="btn btn-sm btn-primary"
+                                    data-bs-toggle="modal" data-bs-target="#modalTambah">
+                                <i class="bi bi-plus-lg me-1"></i>Tambah Pertama
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{# ── Modal Tambah ── #}
+<div class="modal fade" id="modalTambah" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:460px;">
+        <div class="modal-content" style="border-radius:14px;">
+            <div class="modal-header" style="border-bottom:1px solid #f1f5f9;padding:16px 20px;">
+                <h6 class="modal-title" style="font-weight:700;">
+                    <i class="bi bi-geo-alt me-2" style="color:#3b82f6;"></i>Tambah Lokasi
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="add">
+                <div class="modal-body" style="padding:20px;">
+                    <div class="mb-3">
+                        <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:5px;">
+                            Nama Lokasi / Site <span style="color:red;">*</span>
+                        </label>
+                        <input type="text" name="nama" class="form-control" required
+                               placeholder="Contoh: GI PANGKEP"
+                               style="text-transform:uppercase;"
+                               oninput="this.value=this.value.toUpperCase()">
+                        <div style="font-size:11px;color:#94a3b8;margin-top:4px;">
+                            Akan otomatis diubah ke huruf kapital.
+                        </div>
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-6">
+                            <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:5px;">
+                                Latitude <span style="font-size:10px;color:#94a3b8;">(opsional)</span>
+                            </label>
+                            <input type="number" name="latitude" class="form-control" step="any"
+                                   placeholder="-5.1234">
+                        </div>
+                        <div class="col-6">
+                            <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:5px;">
+                                Longitude <span style="font-size:10px;color:#94a3b8;">(opsional)</span>
+                            </label>
+                            <input type="number" name="longitude" class="form-control" step="any"
+                                   placeholder="119.4321">
+                        </div>
+                    </div>
+                    <div class="mb-1">
+                        <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:5px;">
+                            Keterangan
+                        </label>
+                        <input type="text" name="keterangan" class="form-control"
+                               placeholder="Misal: Gardu Induk 150kV Pangkep">
+                    </div>
+                </div>
+                <div class="modal-footer" style="border-top:1px solid #f1f5f9;padding:12px 20px;">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-sm btn-primary">
+                        <i class="bi bi-check-lg me-1"></i>Simpan
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{# ── Modal Edit ── #}
+<div class="modal fade" id="modalEdit" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:460px;">
+        <div class="modal-content" style="border-radius:14px;">
+            <div class="modal-header" style="border-bottom:1px solid #f1f5f9;padding:16px 20px;">
+                <h6 class="modal-title" style="font-weight:700;">
+                    <i class="bi bi-pencil me-2" style="color:#f59e0b;"></i>Edit Lokasi
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="edit">
+                <input type="hidden" name="pk" id="editPk">
+                <div class="modal-body" style="padding:20px;">
+                    <div class="mb-3">
+                        <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:5px;">
+                            Nama Lokasi <span style="color:red;">*</span>
+                        </label>
+                        <input type="text" name="nama" id="editNama" class="form-control" required
+                               oninput="this.value=this.value.toUpperCase()">
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-6">
+                            <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:5px;">Latitude</label>
+                            <input type="number" name="latitude" id="editLat" class="form-control" step="any">
+                        </div>
+                        <div class="col-6">
+                            <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:5px;">Longitude</label>
+                            <input type="number" name="longitude" id="editLng" class="form-control" step="any">
+                        </div>
+                    </div>
+                    <div class="mb-1">
+                        <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:5px;">Keterangan</label>
+                        <input type="text" name="keterangan" id="editKet" class="form-control">
+                    </div>
+                </div>
+                <div class="modal-footer" style="border-top:1px solid #f1f5f9;padding:12px 20px;">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-sm btn-warning">
+                        <i class="bi bi-check-lg me-1"></i>Simpan Perubahan
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function editLokasi(pk, nama, lat, lng, ket) {
+    document.getElementById('editPk').value  = pk;
+    document.getElementById('editNama').value = nama;
+    document.getElementById('editLat').value  = lat;
+    document.getElementById('editLng').value  = lng;
+    document.getElementById('editKet').value  = ket;
+    new bootstrap.Modal(document.getElementById('modalEdit')).show();
+}
+</script>
+{% endblock %}

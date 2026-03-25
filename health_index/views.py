@@ -1,5 +1,6 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
+from devices.permissions import require_can_manage_lokasi
 from devices.models import Device
 from .calculator import calculate_hi, get_kategori
 from datetime import date as date_type
@@ -83,6 +84,7 @@ def hi_list(request):
 
 
 @login_required
+@require_can_manage_lokasi
 def hi_settings(request):
     """Halaman konfigurasi bobot faktor Health Index."""
     from health_index.models import KonfigurasiHI

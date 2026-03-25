@@ -1,5 +1,6 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
+from devices.permissions import require_can_edit, require_can_delete
 from django.http import JsonResponse
 from django.db.models import Q, Avg
 from django.utils import timezone
@@ -138,6 +139,7 @@ def jadwal_list(request):
 
 
 @login_required
+@require_can_edit
 def jadwal_create(request):
     """Buat jadwal kunjungan baru."""
     if request.method == 'POST':
@@ -216,6 +218,7 @@ def jadwal_done(request, pk):
 
 
 @login_required
+@require_can_delete
 def jadwal_delete(request, pk):
     """Hapus jadwal."""
     if request.method == 'POST':

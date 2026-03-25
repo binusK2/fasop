@@ -14,15 +14,22 @@
         <i class="bi bi-arrow-left me-1"></i>Kembali
     </a>
     {% endif %}
+    {% if user_can_edit %}
     <a href="{% url 'device_edit' device.id %}" class="btn btn-sm btn-outline-warning">
         <i class="bi bi-pencil me-1"></i>Edit
     </a>
+    {% endif %}
     <a href="{% url 'device_qr' device.id %}" class="btn btn-sm btn-outline-dark" target="_blank">
         <i class="bi bi-qr-code me-1"></i>QR Code
     </a>
+    {% if user_can_edit %}
     <a href="{% url 'maintenance_add_device' device.id %}" class="btn btn-sm btn-primary ms-auto">
-        <i class="bi bi-plus-lg me-1"></i>Tambah Maintenance
+        <i class="bi bi-plus-lg me-1"></i>Tambah Preventive
     </a>
+    <a href="{% url 'corrective_add_device' device.id %}" class="btn btn-sm btn-warning">
+        <i class="bi bi-tools me-1"></i>Catat Corrective
+    </a>
+    {% endif %}
 </div>
 
 <div class="row g-3 mb-3">
@@ -204,6 +211,19 @@
                             {% endif %}
                         </td>
                     </tr>
+                    {% if last_update_log and last_update_log.aksi == 'edit' %}
+                    <tr>
+                        <td style="font-size:12px; color:#64748b; font-weight:600; padding:10px 16px;">Terakhir diupdate</td>
+                        <td style="font-size:12px; padding:10px 16px;">
+                            <span style="display:inline-flex;align-items:center;gap:5px;">
+                                <i class="bi bi-pencil-fill" style="color:#f59e0b;font-size:10px;"></i>
+                                {{ last_update_log.user_display }}
+                                <span style="color:#94a3b8;">·</span>
+                                {{ last_update_log.created_at|date:"d M Y H:i" }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endif %}
                 </table>
             </div>
         </div>
@@ -423,6 +443,309 @@
     </div>
 </div>
 
+{# ── Riwayat Kejadian Peralatan ──────────────────────────────── #}
+<div class="table-card mt-3">
+    <div class="table-header" style="display:flex;align-items:center;justify-content:space-between;">
+        <h6 class="mb-0">
+            <i class="bi bi-journal-bookmark me-1" style="color:#8b5cf6;"></i>
+            Riwayat Kejadian Peralatan
+        </h6>
+        {% if user_can_edit %}
+        <button type="button" class="btn btn-sm btn-primary"
+                data-bs-toggle="modal" data-bs-target="#modalTambahEvent">
+            <i class="bi bi-plus-lg me-1"></i>Catat Kejadian
+        </button>
+        {% endif %}
+    </div>
+
+    {% if device_events %}
+    <div style="padding:8px 0;">
+        {% for ev in device_events %}
+        <div style="padding:14px 20px;border-bottom:1px solid #f1f5f9;
+                    display:flex;align-items:flex-start;gap:14px;position:relative;">
+            {# Ikon tipe #}
+            <div style="width:36px;height:36px;border-radius:10px;flex-shrink:0;
+                        background:{{ ev.tipe_bg }};
+                        display:flex;align-items:center;justify-content:center;">
+                <i class="bi {{ ev.tipe_icon }}" style="color:{{ ev.tipe_color }};font-size:15px;"></i>
+            </div>
+
+            {# Konten #}
+            <div style="flex:1;min-width:0;">
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px;">
+                    <span style="font-size:12.5px;font-weight:700;color:#1e293b;">{{ ev.get_tipe_display }}</span>
+                    <span style="font-size:11px;color:#94a3b8;">
+                        <i class="bi bi-calendar3 me-1"></i>{{ ev.tanggal|date:"d M Y" }}
+                    </span>
+                    <span style="font-size:11px;color:#94a3b8;">
+                        <i class="bi bi-person me-1"></i>{{ ev.user_display }}
+                    </span>
+                </div>
+
+                {# Detail per tipe #}
+                {% if ev.tipe == 'relokasi' %}
+                <div style="font-size:12.5px;color:#475569;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                    <span style="background:#fee2e2;color:#991b1b;padding:2px 9px;border-radius:5px;font-size:12px;">
+                        {{ ev.lokasi_asal|default:"—" }}
+                    </span>
+                    <i class="bi bi-arrow-right" style="color:#94a3b8;"></i>
+                    <span style="background:#dcfce7;color:#065f46;padding:2px 9px;border-radius:5px;font-size:12px;">
+                        {{ ev.lokasi_tujuan|default:"—" }}
+                    </span>
+                </div>
+                {% elif ev.komponen %}
+                <div style="font-size:12.5px;color:#475569;margin-bottom:3px;">
+                    <span style="font-weight:600;">Komponen:</span> {{ ev.komponen }}
+                </div>
+                {% if ev.nilai_lama or ev.nilai_baru %}
+                <div style="font-size:12px;color:#475569;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                    {% if ev.nilai_lama %}
+                    <span style="background:#fee2e2;color:#991b1b;padding:2px 9px;border-radius:5px;
+                                 text-decoration:line-through;font-size:11.5px;">{{ ev.nilai_lama }}</span>
+                    {% endif %}
+                    {% if ev.nilai_baru %}
+                    <i class="bi bi-arrow-right" style="color:#94a3b8;font-size:11px;"></i>
+                    <span style="background:#dcfce7;color:#065f46;padding:2px 9px;border-radius:5px;
+                                 font-size:11.5px;">{{ ev.nilai_baru }}</span>
+                    {% endif %}
+                </div>
+                {% endif %}
+                {% endif %}
+
+                {% if ev.catatan %}
+                <div style="font-size:12px;color:#64748b;margin-top:5px;
+                            background:#f8fafc;border-radius:6px;padding:6px 10px;
+                            border-left:3px solid #e2e8f0;">
+                    {{ ev.catatan }}
+                </div>
+                {% endif %}
+
+                {% if ev.foto %}
+                <div style="margin-top:8px;">
+                    <img src="{{ ev.foto.url }}" style="height:80px;border-radius:7px;
+                         border:1px solid #e2e8f0;cursor:pointer;object-fit:cover;"
+                         onclick="openLightbox('{{ ev.foto.url }}')">
+                </div>
+                {% endif %}
+            </div>
+
+            {# Tombol hapus #}
+            {% if user_can_delete %}
+            <form method="post" action="{% url 'device_event_delete' device.id ev.pk %}"
+                  style="flex-shrink:0;" onsubmit="return confirm('Hapus kejadian ini?');">
+                {% csrf_token %}
+                <button type="submit"
+                        style="background:none;border:none;color:#fca5a5;cursor:pointer;padding:2px;"
+                        onmouseover="this.style.color='#ef4444'"
+                        onmouseout="this.style.color='#fca5a5'">
+                    <i class="bi bi-trash3" style="font-size:13px;"></i>
+                </button>
+            </form>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center text-muted py-4">
+        <i class="bi bi-journal-plus fs-2 d-block mb-2"></i>
+        Belum ada riwayat kejadian.
+        <div class="mt-2">
+            <button type="button" class="btn btn-sm btn-primary"
+                    data-bs-toggle="modal" data-bs-target="#modalTambahEvent">
+                <i class="bi bi-plus-lg me-1"></i>Catat Kejadian Pertama
+            </button>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{# ── Modal Tambah Event ── #}
+<div class="modal fade" id="modalTambahEvent" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:540px;">
+        <div class="modal-content" style="border-radius:14px;">
+            <div class="modal-header" style="border-bottom:1px solid #f1f5f9;padding:16px 20px;">
+                <h6 class="modal-title" style="font-weight:700;">
+                    <i class="bi bi-journal-plus me-2" style="color:#8b5cf6;"></i>Catat Kejadian Peralatan
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'device_event_add' device.id %}" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="modal-body" style="padding:20px;">
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:5px;">Tipe Kejadian <span style="color:red;">*</span></label>
+                            <select name="tipe" id="evTipe" class="form-select form-select-sm" required onchange="toggleEventFields()">
+                                <option value="">— Pilih —</option>
+                                <option value="relokasi">🗺️ Relokasi / Pindah Lokasi</option>
+                                <option value="penggantian">🔧 Penggantian Komponen</option>
+                                <option value="pembongkaran">📦 Pembongkaran</option>
+                                <option value="pemasangan">🔩 Pemasangan Kembali</option>
+                                <option value="penambahan">➕ Penambahan Komponen</option>
+                                <option value="modifikasi">⚙️ Modifikasi Konfigurasi</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:5px;">Tanggal <span style="color:red;">*</span></label>
+                            <input type="date" name="tanggal" class="form-control form-control-sm" required
+                                   value="{{ today_date }}">
+                        </div>
+
+                        {# Field Relokasi #}
+                        <div id="fieldRelokasi" style="display:none;" class="col-12">
+                            <div class="row g-3">
+                                <div class="col-6">
+                                    <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:5px;">Lokasi Asal</label>
+                                    <select name="lokasi_asal" class="form-select form-select-sm">
+                                        <option value="">— Pilih —</option>
+                                        {% for lok in master_lokasi_list %}
+                                        <option value="{{ lok }}" {% if device.lokasi == lok %}selected{% endif %}>{{ lok }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-6">
+                                    <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:5px;">Lokasi Tujuan <span style="color:red;">*</span></label>
+                                    <select name="lokasi_tujuan" class="form-select form-select-sm">
+                                        <option value="">— Pilih —</option>
+                                        {% for lok in master_lokasi_list %}
+                                        <option value="{{ lok }}">{{ lok }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-12">
+                                    <div style="background:#dbeafe;border-radius:8px;padding:8px 12px;font-size:11.5px;color:#1d4ed8;">
+                                        <i class="bi bi-info-circle me-1"></i>
+                                        Lokasi di data perangkat akan otomatis diupdate ke Lokasi Tujuan.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {# Field Komponen #}
+                        <div id="fieldKomponen" style="display:none;" class="col-12">
+                            <div class="row g-3">
+                                <div class="col-12">
+                                    <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:5px;">Nama Komponen</label>
+                                    <input type="text" name="komponen" class="form-control form-control-sm"
+                                           placeholder="Contoh: PSU, Modul CPU, Battery Bank, Kabel Coaxial">
+                                </div>
+                                <div class="col-6">
+                                    <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:5px;">Kondisi / Nilai Sebelumnya</label>
+                                    <textarea name="nilai_lama" class="form-control form-control-sm" rows="2"
+                                              placeholder="Misal: ABC 48V/50A, rusak"></textarea>
+                                </div>
+                                <div class="col-6">
+                                    <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:5px;">Kondisi / Nilai Sesudahnya</label>
+                                    <textarea name="nilai_baru" class="form-control form-control-sm" rows="2"
+                                              placeholder="Misal: XYZ 48V/50A, baru"></textarea>
+                                </div>
+                            </div>
+                        </div>
+
+                        {# Catatan & Foto — selalu tampil #}
+                        <div class="col-12">
+                            <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:5px;">Catatan Tambahan</label>
+                            <textarea name="catatan" class="form-control form-control-sm" rows="2"
+                                      placeholder="Detail tambahan, alasan, kondisi lapangan..."></textarea>
+                        </div>
+                        <div class="col-12">
+                            <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:5px;">
+                                <i class="bi bi-camera me-1"></i>Foto Bukti (opsional)
+                            </label>
+                            <input type="file" name="foto" class="form-control form-control-sm"
+                                   accept="image/*">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer" style="border-top:1px solid #f1f5f9;padding:12px 20px;">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-sm btn-primary">
+                        <i class="bi bi-check-lg me-1"></i>Simpan Kejadian
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{# ── Log Perubahan — hanya admin ──────────────────────────────── #}
+{% if request.user.is_superuser or request.user.profile.is_asisten_manager %}
+{% if device_logs %}
+<div class="table-card mt-3">
+    <div class="table-header" style="display:flex;align-items:center;justify-content:space-between;">
+        <h6 class="mb-0">
+            <i class="bi bi-clock-history me-1" style="color:#8b5cf6;"></i>
+            Log Perubahan
+            <span style="font-size:11px;font-weight:500;color:#94a3b8;margin-left:6px;">
+                — hanya terlihat oleh admin
+            </span>
+        </h6>
+        <span style="font-size:11px;background:#f5f3ff;color:#7c3aed;padding:3px 10px;border-radius:20px;font-weight:600;">
+            {{ device_logs|length }} entri
+        </span>
+    </div>
+    <div style="padding:4px 0;">
+        {% for log in device_logs %}
+        <div style="padding:12px 20px;border-bottom:1px solid #f1f5f9;display:flex;align-items:flex-start;gap:12px;">
+
+            {# Icon aksi #}
+            <div style="width:32px;height:32px;border-radius:8px;flex-shrink:0;
+                        display:flex;align-items:center;justify-content:center;
+                        {% if log.aksi == 'create' %}background:#dcfce7;
+                        {% elif log.aksi == 'delete' %}background:#fee2e2;
+                        {% else %}background:#fef3c7;{% endif %}">
+                <i class="bi {% if log.aksi == 'create' %}bi-plus-lg{% elif log.aksi == 'delete' %}bi-trash3{% else %}bi-pencil{% endif %}"
+                   style="font-size:13px;
+                          {% if log.aksi == 'create' %}color:#10b981;
+                          {% elif log.aksi == 'delete' %}color:#ef4444;
+                          {% else %}color:#f59e0b;{% endif %}"></i>
+            </div>
+
+            {# Konten #}
+            <div style="flex:1;min-width:0;">
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
+                    <span style="font-size:12.5px;font-weight:700;color:#1e293b;">{{ log.user_display }}</span>
+                    <span style="font-size:11px;font-weight:600;
+                                 {% if log.aksi == 'create' %}color:#10b981;background:#dcfce7;
+                                 {% elif log.aksi == 'delete' %}color:#ef4444;background:#fee2e2;
+                                 {% else %}color:#92400e;background:#fef3c7;{% endif %}
+                                 padding:2px 8px;border-radius:20px;">
+                        {{ log.get_aksi_display }}
+                    </span>
+                    <span style="font-size:11px;color:#94a3b8;">
+                        <i class="bi bi-clock me-1"></i>{{ log.created_at|date:"d M Y, H:i" }}
+                    </span>
+                </div>
+
+                {# Detail perubahan #}
+                {% if log.perubahan %}
+                <div style="display:flex;flex-direction:column;gap:3px;">
+                    {% for p in log.perubahan %}
+                    <div style="font-size:12px;color:#475569;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                        <span style="font-weight:600;color:#64748b;min-width:120px;">{{ p.label }}</span>
+                        <span style="background:#fee2e2;color:#991b1b;padding:1px 7px;border-radius:4px;
+                                     font-size:11px;text-decoration:line-through;">{{ p.dari }}</span>
+                        <i class="bi bi-arrow-right" style="color:#94a3b8;font-size:10px;"></i>
+                        <span style="background:#dcfce7;color:#065f46;padding:1px 7px;border-radius:4px;
+                                     font-size:11px;">{{ p.ke }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% elif log.aksi == 'create' %}
+                <div style="font-size:12px;color:#94a3b8;">Perangkat baru ditambahkan ke sistem.</div>
+                {% elif log.aksi == 'delete' %}
+                <div style="font-size:12px;color:#94a3b8;">Perangkat ditandai sebagai dihapus.</div>
+                {% endif %}
+            </div>
+
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+{% endif %}
+
 {# ── Lightbox Modal ──────────────────────────────────────────────── #}
 <div id="lightbox" onclick="closeLightbox()"
      style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:9999;align-items:center;justify-content:center;">
@@ -436,6 +759,16 @@
 <!-- QR Code Generator (qrcodejs - browser compatible) -->
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <script>
+// ── Toggle field form event ───────────────────────────────────────────────
+function toggleEventFields() {
+    const tipe        = document.getElementById('evTipe').value;
+    const isRelokasi  = tipe === 'relokasi';
+    const isKomponen  = ['penggantian','penambahan','pembongkaran','pemasangan','modifikasi'].includes(tipe);
+
+    document.getElementById('fieldRelokasi').style.display  = isRelokasi ? 'block' : 'none';
+    document.getElementById('fieldKomponen').style.display  = isKomponen ? 'block' : 'none';
+}
+
     const qrContainer = document.getElementById('qr-container');
     if (qrContainer) {
         new QRCode(qrContainer, {

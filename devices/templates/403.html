@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% block title %}Akses Ditolak — FASOP{% endblock %}
+{% block page_title %}Akses Ditolak{% endblock %}
+
+{% block content %}
+<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;
+            min-height:60vh;text-align:center;padding:40px 20px;">
+
+    <div style="width:80px;height:80px;background:#fee2e2;border-radius:50%;
+                display:flex;align-items:center;justify-content:center;margin-bottom:20px;">
+        <i class="bi bi-shield-x" style="font-size:36px;color:#ef4444;"></i>
+    </div>
+
+    <h4 style="font-weight:800;color:#1e293b;margin-bottom:8px;">Akses Ditolak</h4>
+
+    <p style="color:#64748b;font-size:14px;max-width:400px;line-height:1.7;margin-bottom:24px;">
+        {{ message|default:"Anda tidak memiliki izin untuk mengakses halaman ini." }}
+    </p>
+
+    <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">
+        <a href="javascript:history.back()"
+           class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left me-1"></i>Kembali
+        </a>
+        <a href="{% url 'dashboard' %}" class="btn btn-primary btn-sm">
+            <i class="bi bi-house me-1"></i>Dashboard
+        </a>
+    </div>
+
+    <div style="margin-top:32px;font-size:11.5px;color:#94a3b8;">
+        Role Anda: <strong>{{ request.user.profile.get_role_display }}</strong>
+        — Hubungi Admin jika membutuhkan akses lebih.
+    </div>
+
+</div>
+{% endblock %}

@@ -176,13 +176,17 @@
                             <a href="{% url 'device_view' d.id %}?next={{ request.get_full_path|urlencode }}" class="btn btn-sm btn-outline-primary" title="Detail">
                                 <i class="bi bi-eye"></i>
                             </a>
+                            {% if user_can_edit %}
                             <a href="{% url 'device_edit' d.id %}" class="btn btn-sm btn-outline-warning" title="Edit">
                                 <i class="bi bi-pencil"></i>
                             </a>
+                            {% endif %}
+                            {% if user_can_delete %}
                             <button class="btn btn-sm btn-outline-danger" title="Hapus"
                                     onclick="confirmDelete('{% url 'device_delete' d.id %}', '{{ d.nama }}')">
                                 <i class="bi bi-trash"></i>
                             </button>
+                            {% endif %}
                         </div>
                     </td>
                 </tr>

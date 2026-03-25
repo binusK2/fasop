@@ -103,6 +103,7 @@
         <a href="{% url 'gangguan_list' %}" class="btn btn-sm btn-outline-secondary">
             <i class="bi bi-arrow-left me-1"></i>Kembali
         </a>
+        {% if user_can_edit %}
         {% if gangguan.status != 'closed' %}
         <a href="{% url 'gangguan_edit' gangguan.pk %}" class="btn btn-sm btn-outline-warning">
             <i class="bi bi-pencil me-1"></i>Edit
@@ -112,6 +113,7 @@
             <i class="bi bi-lock me-1"></i>Edit
         </span>
         {% endif %}
+        {% endif %}{# user_can_edit #}
     </div>
     <div class="d-flex align-items-center gap-2 flex-wrap">
         <span class="g-pill pill-{{ gangguan.status }}">
@@ -235,6 +237,66 @@
         </div>
     </div>
 
+    <!-- Corrective Maintenance -->
+    <div class="g-card" style="border:1px solid #fde68a;">
+        <div class="g-card-head" style="background:#fffbeb;border-bottom:1px solid #fde68a;color:#92400e;
+                                        display:flex;align-items:center;justify-content:space-between;">
+            <span style="display:flex;align-items:center;gap:8px;">
+                <i class="bi bi-tools" style="color:#f59e0b;font-size:13px;"></i>
+                Corrective Maintenance
+                {% with corr_count=gangguan.corrective_maintenances.count %}
+                {% if corr_count %}
+                <span style="background:#fef3c7;color:#92400e;font-size:11px;
+                             padding:2px 8px;border-radius:20px;font-weight:600;">
+                    {{ corr_count }}
+                </span>
+                {% endif %}
+                {% endwith %}
+            </span>
+            {% if gangguan.status != 'closed' %}
+            <a href="{% url 'corrective_add_gangguan' gangguan.pk %}"
+               style="font-size:11.5px;background:#f59e0b;color:white;border:none;
+                      padding:4px 10px;border-radius:7px;text-decoration:none;font-weight:600;">
+                <i class="bi bi-plus-lg me-1"></i>Catat
+            </a>
+            {% endif %}
+        </div>
+        <div class="g-card-body" style="padding:{% with c=gangguan.corrective_maintenances.all %}{% if c %}0{% else %}14px 16px{% endif %}{% endwith %};">
+            {% with corr_list=gangguan.corrective_maintenances.all %}
+            {% if corr_list %}
+            <div style="margin-bottom:10px;">
+                {% for c in corr_list %}
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;
+                            padding:8px 12px;margin-bottom:6px;font-size:12px;">
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                        <span style="font-weight:700;color:#1e293b;">{{ c.maintenance.device.nama }}</span>
+                        <span style="font-size:11px;color:#94a3b8;">{{ c.maintenance.date|date:"d M Y" }}</span>
+                        <span style="font-size:11px;padding:1px 8px;border-radius:20px;font-weight:600;
+                                     {% if c.status_perbaikan == 'selesai' %}background:#dcfce7;color:#065f46;
+                                     {% else %}background:#fef3c7;color:#92400e;{% endif %}">
+                            {{ c.get_status_perbaikan_display }}
+                        </span>
+                        {% if c.komponen_diganti %}
+                        <span style="font-size:11px;background:#f5f3ff;color:#7c3aed;
+                                     padding:1px 8px;border-radius:20px;">
+                            <i class="bi bi-arrow-repeat me-1"></i>{{ c.nama_komponen }}
+                        </span>
+                        {% endif %}
+                    </div>
+                    <div style="color:#64748b;margin-top:3px;">{{ c.tindakan|truncatechars:80 }}</div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div style="text-align:center;padding:16px 0;color:#94a3b8;font-size:12.5px;">
+                <i class="bi bi-tools d-block mb-1" style="font-size:20px;opacity:.4;"></i>
+                Belum ada corrective maintenance.
+            </div>
+            {% endif %}
+            {% endwith %}
+        </div>
+    </div>
+
     <!-- Log Tindak Lanjut -->
     <div class="g-card">
         <div class="g-card-head">
@@ -247,8 +309,8 @@
         </div>
         <div class="g-card-body" style="padding:16px 20px;">
 
-            <!-- Form tambah (hanya jika belum closed) -->
-            {% if gangguan.status != 'closed' %}
+            <!-- Form tambah (hanya jika belum closed dan punya akses) -->
+            {% if gangguan.status != 'closed' and user_can_edit %}
             <form method="post" action="{% url 'gangguan_add_log' gangguan.pk %}"
                   style="background:#f8fafc;border:1px dashed #d1fae5;border-radius:10px;
                          padding:14px;margin-bottom:{% if log_entries %}18px{% else %}0{% endif %};">
@@ -294,7 +356,7 @@
                                     <i class="bi bi-person me-1"></i>{{ log.dibuat_oleh.username }}
                                 </span>
                                 {% endif %}
-                                {% if gangguan.status != 'closed' %}
+                                {% if gangguan.status != 'closed' and user_can_delete %}
                                 <form method="post" action="{% url 'gangguan_delete_log' gangguan.pk log.pk %}"
                                       onsubmit="return confirm('Hapus entri ini?');" style="display:inline;margin:0;">
                                     {% csrf_token %}
@@ -321,6 +383,249 @@
             </div>
             {% endif %}
 
+        </div>
+    </div>
+
+    <!-- Perubahan Fisik Peralatan -->
+    <div class="g-card">
+        <div class="g-card-head" style="display:flex;align-items:center;justify-content:space-between;">
+            <span style="display:flex;align-items:center;gap:8px;">
+                <i class="bi bi-tools" style="color:#8b5cf6;font-size:13px;"></i>
+                Perubahan Fisik Peralatan
+                {% if perubahan_fisik %}
+                <span style="background:#f5f3ff;color:#7c3aed;font-size:11px;
+                             padding:2px 8px;border-radius:20px;font-weight:600;text-transform:none;letter-spacing:0;">
+                    {{ perubahan_fisik|length }} perubahan
+                </span>
+                {% endif %}
+            </span>
+            {% if gangguan.status != 'closed' %}
+            <button type="button" class="btn btn-sm btn-outline-primary"
+                    data-bs-toggle="modal" data-bs-target="#modalCatatPerubahan"
+                    style="font-size:11.5px;padding:4px 10px;">
+                <i class="bi bi-plus-lg me-1"></i>Catat Perubahan
+            </button>
+            {% endif %}
+        </div>
+        <div class="g-card-body" style="padding:{% if perubahan_fisik %}0{% else %}16px{% endif %};">
+            {% if perubahan_fisik %}
+            {% for ev in perubahan_fisik %}
+            <div style="padding:14px 18px;border-bottom:1px solid #f1f5f9;
+                        display:flex;align-items:flex-start;gap:12px;">
+                {# Icon tipe #}
+                <div style="width:34px;height:34px;border-radius:8px;flex-shrink:0;
+                            background:{{ ev.tipe_bg }};
+                            display:flex;align-items:center;justify-content:center;">
+                    <i class="bi {{ ev.tipe_icon }}" style="color:{{ ev.tipe_color }};font-size:14px;"></i>
+                </div>
+                <div style="flex:1;min-width:0;">
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px;">
+                        <span style="font-size:12.5px;font-weight:700;color:#1e293b;">{{ ev.get_tipe_display }}</span>
+                        <a href="{% url 'device_view' ev.device.pk %}"
+                           style="font-size:11.5px;color:#3b82f6;font-weight:600;text-decoration:none;">
+                            <i class="bi bi-cpu me-1"></i>{{ ev.device.nama }}
+                        </a>
+                        <span style="font-size:11px;color:#94a3b8;">
+                            <i class="bi bi-calendar3 me-1"></i>{{ ev.tanggal|date:"d M Y" }}
+                        </span>
+                        <span style="font-size:11px;color:#94a3b8;">
+                            <i class="bi bi-person me-1"></i>{{ ev.user_display }}
+                        </span>
+                    </div>
+
+                    {% if ev.tipe == 'relokasi' %}
+                    <div style="font-size:12.5px;color:#475569;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                        <span style="background:#fee2e2;color:#991b1b;padding:2px 9px;border-radius:5px;font-size:12px;">
+                            {{ ev.lokasi_asal|default:"—" }}
+                        </span>
+                        <i class="bi bi-arrow-right" style="color:#94a3b8;"></i>
+                        <span style="background:#dcfce7;color:#065f46;padding:2px 9px;border-radius:5px;font-size:12px;">
+                            {{ ev.lokasi_tujuan|default:"—" }}
+                        </span>
+                    </div>
+                    {% elif ev.komponen %}
+                    <div style="font-size:12.5px;color:#475569;margin-bottom:3px;">
+                        <span style="font-weight:600;">Komponen:</span> {{ ev.komponen }}
+                    </div>
+                    {% if ev.nilai_lama or ev.nilai_baru %}
+                    <div style="font-size:12px;color:#475569;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                        {% if ev.nilai_lama %}
+                        <span style="background:#fee2e2;color:#991b1b;padding:2px 9px;border-radius:5px;
+                                     text-decoration:line-through;font-size:11.5px;">{{ ev.nilai_lama }}</span>
+                        {% endif %}
+                        {% if ev.nilai_baru %}
+                        <i class="bi bi-arrow-right" style="color:#94a3b8;font-size:11px;"></i>
+                        <span style="background:#dcfce7;color:#065f46;padding:2px 9px;border-radius:5px;
+                                     font-size:11.5px;">{{ ev.nilai_baru }}</span>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    {% endif %}
+
+                    {% if ev.catatan %}
+                    <div style="font-size:12px;color:#64748b;margin-top:5px;
+                                background:#f8fafc;border-radius:6px;padding:6px 10px;
+                                border-left:3px solid #e2e8f0;">{{ ev.catatan }}</div>
+                    {% endif %}
+                    {% if ev.foto %}
+                    <div style="margin-top:8px;">
+                        <img src="{{ ev.foto.url }}"
+                             style="height:72px;border-radius:7px;border:1px solid #e2e8f0;
+                                    cursor:pointer;object-fit:cover;"
+                             onclick="openLightbox('{{ ev.foto.url }}')">
+                    </div>
+                    {% endif %}
+                </div>
+
+                {% if gangguan.status != 'closed' %}
+                <form method="post"
+                      action="{% url 'gangguan_hapus_perubahan' gangguan.pk ev.pk %}"
+                      onsubmit="return confirm('Hapus perubahan ini?');"
+                      style="flex-shrink:0;">
+                    {% csrf_token %}
+                    <button type="submit"
+                            style="background:none;border:none;color:#fca5a5;cursor:pointer;padding:2px;"
+                            onmouseover="this.style.color='#ef4444'"
+                            onmouseout="this.style.color='#fca5a5'">
+                        <i class="bi bi-trash3" style="font-size:12px;"></i>
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+            {% endfor %}
+            {% else %}
+            <div style="text-align:center;padding:20px 0;color:#94a3b8;font-size:13px;">
+                <i class="bi bi-tools d-block mb-2" style="font-size:22px;opacity:.4;"></i>
+                Belum ada perubahan fisik tercatat.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Modal Catat Perubahan Fisik -->
+    <div class="modal fade" id="modalCatatPerubahan" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered" style="max-width:520px;">
+            <div class="modal-content" style="border-radius:14px;">
+                <div class="modal-header" style="border-bottom:1px solid #f1f5f9;padding:16px 20px;">
+                    <h6 class="modal-title" style="font-weight:700;">
+                        <i class="bi bi-tools me-2" style="color:#8b5cf6;"></i>Catat Perubahan Fisik
+                        <small style="font-size:11px;color:#94a3b8;font-weight:400;margin-left:4px;">
+                            — {{ gangguan.nomor_gangguan }}
+                        </small>
+                    </h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="post" action="{% url 'gangguan_catat_perubahan' gangguan.pk %}"
+                      enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div class="modal-body" style="padding:20px;">
+                        <div class="row g-3">
+
+                            {# Device — pre-fill dari gangguan, bisa ganti #}
+                            <div class="col-12">
+                                <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:5px;">
+                                    Peralatan <span style="color:red;">*</span>
+                                </label>
+                                <select name="device_id" class="form-select form-select-sm" required>
+                                    <option value="">— Pilih Peralatan —</option>
+                                    {% for d in devices_list %}
+                                    <option value="{{ d.pk }}"
+                                        {% if gangguan.peralatan and d.pk == gangguan.peralatan.pk %}selected{% endif %}>
+                                        {{ d.nama }} — {{ d.lokasi }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:5px;">
+                                    Tipe Perubahan <span style="color:red;">*</span>
+                                </label>
+                                <select name="tipe" id="evTipeGangguan" class="form-select form-select-sm"
+                                        required onchange="toggleGangguanFields()">
+                                    <option value="">— Pilih —</option>
+                                    <option value="penggantian">🔧 Penggantian Komponen</option>
+                                    <option value="penambahan">➕ Penambahan Komponen</option>
+                                    <option value="relokasi">🗺️ Relokasi</option>
+                                    <option value="pembongkaran">📦 Pembongkaran</option>
+                                    <option value="pemasangan">🔩 Pemasangan Kembali</option>
+                                    <option value="modifikasi">⚙️ Modifikasi</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:5px;">
+                                    Tanggal <span style="color:red;">*</span>
+                                </label>
+                                <input type="date" name="tanggal" class="form-control form-control-sm"
+                                       required value="{{ today_date }}">
+                            </div>
+
+                            {# Field Relokasi #}
+                            <div id="gFieldRelokasi" style="display:none;" class="col-12">
+                                <div class="row g-2">
+                                    <div class="col-6">
+                                        <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px;">Lokasi Asal</label>
+                                        <select name="lokasi_asal" class="form-select form-select-sm">
+                                            <option value="">— Pilih —</option>
+                                            {% for lok in master_lokasi_list %}
+                                            <option value="{{ lok }}">{{ lok }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-6">
+                                        <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px;">Lokasi Tujuan</label>
+                                        <select name="lokasi_tujuan" class="form-select form-select-sm">
+                                            <option value="">— Pilih —</option>
+                                            {% for lok in master_lokasi_list %}
+                                            <option value="{{ lok }}">{{ lok }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {# Field Komponen #}
+                            <div id="gFieldKomponen" style="display:none;" class="col-12">
+                                <div class="row g-2">
+                                    <div class="col-12">
+                                        <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px;">Nama Komponen</label>
+                                        <input type="text" name="komponen" class="form-control form-control-sm"
+                                               placeholder="PSU, Modul, Battery, Kabel...">
+                                    </div>
+                                    <div class="col-6">
+                                        <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px;">Sebelumnya</label>
+                                        <input type="text" name="nilai_lama" class="form-control form-control-sm"
+                                               placeholder="Kondisi / merk lama">
+                                    </div>
+                                    <div class="col-6">
+                                        <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px;">Sesudahnya</label>
+                                        <input type="text" name="nilai_baru" class="form-control form-control-sm"
+                                               placeholder="Kondisi / merk baru">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-12">
+                                <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:5px;">Catatan</label>
+                                <textarea name="catatan" class="form-control form-control-sm" rows="2"
+                                          placeholder="Detail, alasan, kondisi lapangan..."></textarea>
+                            </div>
+                            <div class="col-12">
+                                <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:5px;">
+                                    <i class="bi bi-camera me-1"></i>Foto Bukti (opsional)
+                                </label>
+                                <input type="file" name="foto" class="form-control form-control-sm" accept="image/*">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer" style="border-top:1px solid #f1f5f9;padding:12px 20px;">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-sm btn-primary">
+                            <i class="bi bi-check-lg me-1"></i>Simpan
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 
@@ -366,8 +671,8 @@
 <!-- ═══ KOLOM KANAN ══════════════════════════════════════════ -->
 <div class="col-lg-4">
 
-    <!-- Quick update status (hanya jika belum closed) -->
-    {% if gangguan.status != 'closed' %}
+    <!-- Quick update status (hanya jika belum closed dan punya akses) -->
+    {% if gangguan.status != 'closed' and user_can_edit %}
     <div class="g-card" style="border:1px solid #fde68a;">
         <div class="g-card-head" style="background:#fffbeb;border-bottom:1px solid #fde68a;color:#92400e;">
             <i class="bi bi-lightning-fill" style="color:#f59e0b;font-size:13px;"></i>
@@ -609,6 +914,15 @@ function closeLightbox() {
     document.body.style.overflow = '';
 }
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
+
+
+function toggleGangguanFields() {
+    const tipe = document.getElementById("evTipeGangguan").value;
+    const isRelokasi = tipe === "relokasi";
+    const isKomponen = ["penggantian","penambahan","pembongkaran","pemasangan","modifikasi"].includes(tipe);
+    document.getElementById("gFieldRelokasi").style.display = isRelokasi ? "block" : "none";
+    document.getElementById("gFieldKomponen").style.display = isKomponen ? "block" : "none";
+}
 
 function copyPublicUrl() {
     const el  = document.getElementById('publicUrl');

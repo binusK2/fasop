@@ -80,16 +80,26 @@ class Device(models.Model):
         related_name='deleted_devices'
     )
     is_deleted = models.BooleanField(default=False)
-    spesifikasi = models.JSONField(blank=True, null=True, default=dict)  # ← tambahan
+    spesifikasi = models.JSONField(blank=True, null=True, default=dict)
     tahun_operasi = models.IntegerField(
-        blank=True,
-        null=True,
+        blank=True, null=True,
         verbose_name='Tahun Operasi',
         help_text='Tahun peralatan mulai beroperasi (contoh: 2019)'
+    )
+    public_token = models.CharField(
+        max_length=40, blank=True, null=True, unique=True,
+        verbose_name='Token Publik QR',
+        help_text='Token unik untuk halaman publik QR Code'
     )
 
     def __str__(self):
         return self.nama
+
+    def save(self, *args, **kwargs):
+        if not self.public_token:
+            import secrets
+            self.public_token = secrets.token_urlsafe(20)
+        super().save(*args, **kwargs)
 
 
 class Icon(models.Model):
@@ -134,7 +144,8 @@ class SiteLocation(models.Model):
 
 class UserProfile(models.Model):
     ROLE_CHOICES = (
-        ('technician',       'Teknisi / Pelaksana'),
+        ('viewer',           'Viewer (Hanya Lihat)'),
+        ('technician',       'Teknisi / Engineer'),
         ('asisten_manager',  'Asisten Manager Operasi'),
     )
     user         = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
@@ -149,10 +160,176 @@ class UserProfile(models.Model):
     def __str__(self):
         return f"{self.user.get_full_name() or self.user.username} ({self.get_role_display()})"
 
+    # ── Role checks ───────────────────────────────────────────────
     @property
     def is_asisten_manager(self):
         return self.role == 'asisten_manager'
 
+    @property
+    def is_technician(self):
+        return self.role == 'technician'
+
+    @property
+    def is_viewer(self):
+        return self.role == 'viewer'
+
+    # ── Permission shortcuts ──────────────────────────────────────
+    @property
+    def can_delete(self):
+        """Hanya superuser yang bisa hapus."""
+        return self.user.is_superuser
+
+    @property
+    def can_edit(self):
+        """Technician dan AM bisa edit, viewer tidak."""
+        return self.role in ('technician', 'asisten_manager') or self.user.is_superuser
+
+    @property
+    def can_manage_lokasi(self):
+        """Kelola master lokasi & konfigurasi HI: AM ke atas."""
+        return self.role == 'asisten_manager' or self.user.is_superuser
+
+    @property
+    def can_view_admin_log(self):
+        """Log perubahan device: AM ke atas."""
+        return self.role == 'asisten_manager' or self.user.is_superuser
+
     def get_display_name(self):
         """Nama yang ditampilkan di PDF: alias > full_name > username."""
         return self.display_name.strip() or self.user.get_full_name() or self.user.username
+
+class DeviceLog(models.Model):
+    """
+    Audit trail perubahan data Device.
+    Setiap kali device diedit, dibuat, atau dihapus,
+    satu record log dibuat dengan detail field yang berubah.
+    """
+    AKSI_CHOICES = (
+        ('create', 'Dibuat'),
+        ('edit',   'Diedit'),
+        ('delete', 'Dihapus'),
+    )
+
+    device     = models.ForeignKey(
+        'Device', on_delete=models.CASCADE, related_name='logs',
+    )
+    user       = models.ForeignKey(
+        User, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='device_logs',
+    )
+    aksi       = models.CharField(max_length=10, choices=AKSI_CHOICES)
+    perubahan  = models.JSONField(default=list)  # [{field, label, dari, ke}]
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name        = 'Log Perubahan Device'
+        verbose_name_plural = 'Log Perubahan Device'
+        ordering            = ['-created_at']
+
+    def __str__(self):
+        u = self.user.username if self.user else 'System'
+        return f'{self.device.nama} — {self.get_aksi_display()} oleh {u}'
+
+    @property
+    def user_display(self):
+        if not self.user:
+            return 'System'
+        return self.user.get_full_name() or self.user.username
+
+
+def device_event_foto_upload(instance, filename):
+    ext  = os.path.splitext(filename)[1].lower() or '.jpg'
+    nama = slugify_simple(instance.device.nama if instance.device else 'PERANGKAT')
+    tgl  = timezone.localtime(timezone.now()).strftime('%Y%m%d_%H%M%S')
+    return f'device_events/{nama}_{tgl}{ext}'
+
+
+class DeviceEvent(models.Model):
+    """
+    Riwayat kejadian fisik peralatan:
+    relokasi, penggantian komponen, pembongkaran, pemasangan, penambahan, modifikasi.
+    """
+    TIPE_CHOICES = (
+        ('relokasi',     'Relokasi / Pindah Lokasi'),
+        ('penggantian',  'Penggantian Komponen'),
+        ('pembongkaran', 'Pembongkaran'),
+        ('pemasangan',   'Pemasangan Kembali'),
+        ('penambahan',   'Penambahan Komponen'),
+        ('modifikasi',   'Modifikasi Konfigurasi'),
+    )
+
+    device          = models.ForeignKey(
+        'Device', on_delete=models.CASCADE, related_name='events'
+    )
+    tipe            = models.CharField(max_length=20, choices=TIPE_CHOICES, verbose_name='Tipe Kejadian')
+    tanggal         = models.DateField(verbose_name='Tanggal Kejadian')
+    komponen        = models.CharField(max_length=150, blank=True, verbose_name='Komponen',
+                                       help_text='Contoh: PSU, Modul CPU, Battery Bank')
+    nilai_lama      = models.TextField(blank=True, verbose_name='Kondisi / Nilai Sebelumnya')
+    nilai_baru      = models.TextField(blank=True, verbose_name='Kondisi / Nilai Sesudahnya')
+    lokasi_asal     = models.CharField(max_length=150, blank=True, verbose_name='Lokasi Asal')
+    lokasi_tujuan   = models.CharField(max_length=150, blank=True, verbose_name='Lokasi Tujuan')
+    catatan         = models.TextField(blank=True, verbose_name='Catatan Tambahan')
+    foto            = models.ImageField(
+        upload_to=device_event_foto_upload, blank=True, null=True, verbose_name='Foto Bukti'
+    )
+    dilakukan_oleh  = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='device_events', verbose_name='Dicatat oleh'
+    )
+    gangguan        = models.ForeignKey(
+        'gangguan.Gangguan',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='perubahan_fisik',
+        verbose_name='Terkait Gangguan',
+        help_text='Opsional — hubungkan ke tiket gangguan terkait'
+    )
+    created_at      = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name        = 'Riwayat Kejadian Peralatan'
+        verbose_name_plural = 'Riwayat Kejadian Peralatan'
+        ordering            = ['-tanggal', '-created_at']
+
+    def __str__(self):
+        return f'{self.device.nama} — {self.get_tipe_display()} ({self.tanggal})'
+
+    @property
+    def tipe_icon(self):
+        return {
+            'relokasi':     'bi-geo-alt',
+            'penggantian':  'bi-arrow-repeat',
+            'pembongkaran': 'bi-box-arrow-down',
+            'pemasangan':   'bi-box-arrow-in-up',
+            'penambahan':   'bi-plus-circle',
+            'modifikasi':   'bi-sliders',
+        }.get(self.tipe, 'bi-circle')
+
+    @property
+    def tipe_color(self):
+        return {
+            'relokasi':     '#3b82f6',
+            'penggantian':  '#f59e0b',
+            'pembongkaran': '#ef4444',
+            'pemasangan':   '#10b981',
+            'penambahan':   '#8b5cf6',
+            'modifikasi':   '#06b6d4',
+        }.get(self.tipe, '#94a3b8')
+
+    @property
+    def tipe_bg(self):
+        return {
+            'relokasi':     '#dbeafe',
+            'penggantian':  '#fef3c7',
+            'pembongkaran': '#fee2e2',
+            'pemasangan':   '#dcfce7',
+            'penambahan':   '#f5f3ff',
+            'modifikasi':   '#cffafe',
+        }.get(self.tipe, '#f1f5f9')
+
+    @property
+    def user_display(self):
+        if not self.dilakukan_oleh:
+            return '—'
+        return self.dilakukan_oleh.get_full_name() or self.dilakukan_oleh.username

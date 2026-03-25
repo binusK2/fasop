@@ -120,7 +120,16 @@
                     <label class="field-label">Lokasi</label>
                     <div class="input-group">
                         <span class="input-group-text field-addon"><i class="bi bi-geo-alt"></i></span>
-                        {{ form.lokasi }}
+                        <select name="lokasi" class="form-control" required
+                                style="{% if form.instance.pk %}{% endif %}">
+                            <option value="">— Pilih Lokasi —</option>
+                            {% for lok in master_lokasi_list %}
+                            <option value="{{ lok }}"
+                                {% if form.instance.lokasi == lok %}selected{% endif %}>
+                                {{ lok }}
+                            </option>
+                            {% endfor %}
+                        </select>
                     </div>
                     {% if form.lokasi.errors %}<div class="field-error">{{ form.lokasi.errors.0 }}</div>{% endif %}
                 </div>

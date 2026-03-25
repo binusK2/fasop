@@ -619,6 +619,13 @@
             <span class="si-icon"><i class="bi bi-geo-alt"></i></span>
             Daftar Site
         </a>
+        {% if request.user.is_superuser or request.user.profile.is_asisten_manager %}
+        <a href="{% url 'lokasi_admin' %}"
+           class="sidebar-link {% if request.resolver_match.url_name == 'lokasi_admin' %}active{% endif %}">
+            <span class="si-icon"><i class="bi bi-geo-alt-fill"></i></span>
+            Kelola Lokasi
+        </a>
+        {% endif %}
     </div>
 
     <div class="sidebar-section">
@@ -628,11 +635,13 @@
             <span class="si-icon"><i class="bi bi-heart-pulse"></i></span>
             Health Index
         </a>
+        {% if user_can_manage_lokasi %}
         <a href="{% url 'hi_settings' %}"
            class="sidebar-link {% if request.resolver_match.url_name == 'hi_settings' %}active{% endif %}">
             <span class="si-icon"><i class="bi bi-sliders"></i></span>
             Konfigurasi HI
         </a>
+        {% endif %}
     </div>
 
     <div class="sidebar-section">
@@ -657,8 +666,19 @@
         <a href="{% url 'profile_view' %}" style="text-decoration:none;display:flex;align-items:center;gap:8px;flex:1;min-width:0;" title="Profil & Tanda Tangan">
             <div class="user-avatar">{{ user.username|first|upper }}</div>
             <div class="user-info">
-                <div class="user-name">{{ user.username }}</div>
-                <div class="user-role">{% if user.is_superuser %}Administrator{% elif user.profile.role == "asisten_manager" %}Asisten Manager{% else %}Teknisi{% endif %}</div>
+                <div class="user-name">{{ user.get_full_name|default:user.username }}</div>
+                <div class="user-role" style="display:flex;align-items:center;gap:4px;">
+                    {% if user.is_superuser %}
+                    <span style="background:#fee2e2;color:#991b1b;font-size:9.5px;padding:1px 6px;border-radius:10px;font-weight:700;">ADMIN</span>
+                    {% elif user.profile.role == 'asisten_manager' %}
+                    <span style="background:#dbeafe;color:#1d4ed8;font-size:9.5px;padding:1px 6px;border-radius:10px;font-weight:700;">AM</span>
+                    {% elif user.profile.role == 'viewer' %}
+                    <span style="background:#f1f5f9;color:#64748b;font-size:9.5px;padding:1px 6px;border-radius:10px;font-weight:700;">VIEW ONLY</span>
+                    {% else %}
+                    <span style="background:#dcfce7;color:#166534;font-size:9.5px;padding:1px 6px;border-radius:10px;font-weight:700;">ENGINEER</span>
+                    {% endif %}
+                    {{ user.profile.get_role_display }}
+                </div>
             </div>
         </a>
         <form action="{% url 'logout' %}" method="post" style="flex-shrink:0;">
@@ -682,6 +702,9 @@
         </button>
         <span class="topbar-title">{% block page_title %}{% endblock %}</span>
         <div class="topbar-right">
+            {% if user_is_viewer %}
+            <span style="background:#f1f5f9;border:1px solid #e2e8f0;color:#475569;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;display:flex;align-items:center;gap:5px;"><i class="bi bi-eye" style="font-size:11px;"></i>VIEW ONLY</span>
+            {% endif %}
             {# ── Bell Notifikasi ── #}
             <a href="{% url 'notifikasi_list' %}" class="text-decoration-none"
                style="position:relative;display:inline-flex;align-items:center;justify-content:center;

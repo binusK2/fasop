@@ -20,4 +20,12 @@ urlpatterns = [
     path('qr/<int:pk>/', views.device_qr, name='device_qr'),
     path('export/devices/', views.export_devices_excel, name='export_devices_excel'),
     path('export/icon/', views.export_icon_excel, name='export_icon_excel'),
+    # Device Events
+    path('view/<int:pk>/event/add/', views.device_event_add, name='device_event_add'),
+    path('view/<int:pk>/event/<int:event_pk>/delete/', views.device_event_delete, name='device_event_delete'),
+    # Manajemen Lokasi
+    path('lokasi-admin/', views.lokasi_admin, name='lokasi_admin'),
+    path('api/lokasi-list/', views.api_lokasi_list, name='api_lokasi_list'),
+    # Public page (QR Code — tanpa login)
+    path('public/<str:token>/', views.device_public, name='device_public'),
 ]
