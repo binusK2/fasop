@@ -1,0 +1,33 @@
+{% extends 'maintenance/pdf/_base.html' %}
+{% block content %}
+<div class="sec">II.&nbsp;&nbsp;KONDISI LINGKUNGAN</div>
+<table>
+    <tr><td class="lbl" style="width:20%;">Suhu Ruangan</td><td style="width:30%;">{% if rect.suhu_ruangan %}{{ rect.suhu_ruangan }} °C{% else %}-{% endif %}</td><td class="lbl" style="width:20%;">Exhaust Fan</td><td>{{ rect.exhaust_fan|default:"-" }}</td></tr>
+    <tr><td class="lbl">Kebersihan</td><td>{{ rect.kebersihan|default:"-" }}</td><td class="lbl">Lampu Penerangan</td><td>{{ rect.lampu_penerangan|default:"-" }}</td></tr>
+</table>
+
+<div class="sec">III.&nbsp;&nbsp;RECTIFIER</div>
+<table>
+    <tr><td class="lbl">Merk</td><td>{{ rect.rect1_merk|default:"-" }}</td><td class="lbl">Tipe</td><td>{{ rect.rect1_tipe|default:"-" }}</td><td class="lbl">Kondisi</td><td class="{% if rect.rect1_kondisi == 'OK' %}ok{% elif rect.rect1_kondisi == 'NOK' %}nok{% else %}vg{% endif %}">{{ rect.rect1_kondisi|default:"-" }}</td><td class="lbl">Kapasitas</td><td>{{ rect.rect1_kapasitas|default:"-" }}</td></tr>
+</table>
+<table>
+    {% for row in rect_measurements %}
+    <tr>{% for cell in row %}<td{% if cell.is_label %} class="lbl" style="width:12%;"{% elif cell.is_value %} class="vb"{% endif %}>{{ cell.text }}</td>{% endfor %}</tr>
+    {% endfor %}
+</table>
+
+<div class="sec">IV.&nbsp;&nbsp;BATTERY BANK 1</div>
+<table>
+    <tr><td class="lbl">Merk</td><td>{{ rect.bat1_merk|default:"-" }}</td><td class="lbl">Tipe</td><td>{{ rect.bat1_tipe|default:"-" }}</td><td class="lbl">Kondisi</td><td class="{% if rect.bat1_kondisi == 'OK' %}ok{% elif rect.bat1_kondisi == 'NOK' %}nok{% else %}vg{% endif %}">{{ rect.bat1_kondisi|default:"-" }}</td><td class="lbl">Kapasitas</td><td>{{ rect.bat1_kapasitas|default:"-" }}</td></tr>
+</table>
+<table>
+    {% for row in bat_measurements %}
+    <tr>{% for cell in row %}<td{% if cell.is_label %} class="lbl"{% elif cell.is_value %} class="vb"{% elif cell.is_status %} class="{% if cell.text == 'OK' %}ok{% elif cell.text == 'NOK' %}nok{% else %}vg{% endif %}"{% endif %}>{{ cell.text }}</td>{% endfor %}</tr>
+    {% endfor %}
+</table>
+
+{% if catatan %}
+<div class="sec">V.&nbsp;&nbsp;CATATAN</div>
+<table><tr><td style="min-height:8mm;">{{ catatan }}</td></tr></table>
+{% endif %}
+{% endblock %}

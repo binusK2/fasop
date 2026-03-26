@@ -1,0 +1,29 @@
+{% extends 'maintenance/pdf/_base.html' %}
+{% block content %}
+<div class="two-col">
+    <div>
+        <div class="sec">II.&nbsp;&nbsp;PEMERIKSAAN FISIK</div>
+        <table>
+            {% for i in fisik_items %}<tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %}><td style="width:70%;">{{ i.label }}</td><td class="{% if i.value == 'OK' %}ok{% elif i.value == 'NOK' %}nok{% else %}vg{% endif %}">{{ i.value|default:"-" }}</td></tr>{% endfor %}
+        </table>
+    </div>
+    <div>
+        <div class="sec">III.&nbsp;&nbsp;NILAI PENGUKURAN</div>
+        <table>
+            {% for i in pengukuran_items %}<tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %}><td style="width:50%;">{{ i.label }}</td><td class="vb">{{ i.value|default:"-" }}</td><td class="vg">{{ i.standar }}</td></tr>{% endfor %}
+        </table>
+    </div>
+</div>
+<div class="sec">IV.&nbsp;&nbsp;STATUS PORT & INTERFACE</div>
+<table>
+    <tr class="lbl"><th style="width:15%;">Port Aktif/Total</th><th style="width:12%;">Routing</th><th style="width:40%;">Detail Port</th><th>Catatan</th></tr>
+    <tr><td class="vb">{{ port.jumlah_port_aktif|default:"-" }} / {{ port.jumlah_port_total|default:"-" }}</td><td class="{% if port.status_routing == 'OK' %}ok{% elif port.status_routing == 'NOK' %}nok{% else %}vg{% endif %}">{{ port.status_routing|default:"-" }}</td><td>{{ port.detail_port|default:"-" }}</td><td style="color:#64748B;">{{ catatan_tambahan|default:"-" }}</td></tr>
+</table>
+{% if sfp_ports %}
+<div class="sec">V.&nbsp;&nbsp;DATA SFP PORT&nbsp;&nbsp;({{ sfp_ports|length }} port)</div>
+<table>
+    <tr class="lbl"><th style="width:8%;">Port</th><th>Tx (dBm)</th><th>Rx (dBm)</th><th>Lambda</th><th>BW</th><th>Merk / Tipe</th><th style="width:10%;">Status</th></tr>
+    {% for s in sfp_ports %}<tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %}><td class="vb">SFP {{ forloop.counter }}</td><td class="vg">{{ s.tx|default:"-" }}</td><td class="vg">{{ s.rx|default:"-" }}</td><td class="vg">{{ s.lambda|default:"-" }}</td><td class="vg">{{ s.bandwidth|default:"-" }}</td><td>{{ s.merk|default:"-" }}</td><td class="{% if s.status == 'OK' %}ok{% elif s.status == 'NOK' %}nok{% else %}vg{% endif %}">{{ s.status|default:"-" }}</td></tr>{% endfor %}
+</table>
+{% endif %}
+{% endblock %}

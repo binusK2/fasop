@@ -1,0 +1,7 @@
+{% extends 'maintenance/pdf/_base.html' %}
+{% block content %}
+{% if info.description %}
+<div class="sec">II.&nbsp;&nbsp;DESKRIPSI PEMELIHARAAN</div>
+<table><tr><td style="min-height:15mm;">{{ info.description }}</td></tr></table>
+{% endif %}
+{% endblock %}

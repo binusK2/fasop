@@ -1,0 +1,34 @@
+{% extends 'maintenance/pdf/_base.html' %}
+{% block content %}
+<div class="sec">II.&nbsp;&nbsp;INFORMASI MULTIPLEXER</div>
+<table>
+    <tr><td class="lbl" style="width:17%;">Brand</td><td style="width:33%;">{{ mux.brand|default:"-" }}</td><td class="lbl" style="width:17%;">Firmware</td><td>{{ mux.firmware|default:"-" }}</td></tr>
+    <tr><td class="lbl">Sync Source 1</td><td>{{ mux.sync_source_1|default:"-" }}</td><td class="lbl">Sync Source 2</td><td>{{ mux.sync_source_2|default:"-" }}</td></tr>
+    <tr><td class="lbl">Suhu Ruangan</td><td>{% if mux.suhu_ruangan %}{{ mux.suhu_ruangan }} °C{% else %}-{% endif %}</td><td class="lbl">Kebersihan</td><td>{{ mux.kebersihan|default:"-" }}</td></tr>
+</table>
+
+<div class="sec">III.&nbsp;&nbsp;DATA HS OPTIKAL</div>
+<table>
+    <tr class="lbl"><th style="width:8%;">Port</th><th>TX Bias (mA)</th><th>Jarak (km)</th><th>TX (dBm)</th><th>Lambda (nm)</th><th>Merk</th><th>BW</th></tr>
+    {% for hs in hs_data %}<tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %}><td class="vb">HS {{ forloop.counter }}</td><td class="vg">{{ hs.tx_bias|default:"-" }}</td><td class="vg">{{ hs.jarak|default:"-" }}</td><td class="vg">{{ hs.tx|default:"-" }}</td><td class="vg">{{ hs.lamda|default:"-" }}</td><td>{{ hs.merk|default:"-" }}</td><td class="vg">{{ hs.bandwidth|default:"-" }}</td></tr>{% endfor %}
+</table>
+
+<div class="sec">IV.&nbsp;&nbsp;STATUS PSU & FAN</div>
+<table>
+    <tr class="lbl"><th>Unit</th><th>Status</th><th>Temp Sensor (°C)</th></tr>
+    {% for p in psu_data %}<tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %}><td class="vb">{{ p.label }}</td><td class="{% if p.status == 'OK' %}ok{% elif p.status == 'NOK' %}nok{% else %}vg{% endif %}">{{ p.status|default:"-" }}</td><td class="vg">{{ p.temps|default:"-" }}</td></tr>{% endfor %}
+</table>
+
+{% if slots %}
+<div class="sec">V.&nbsp;&nbsp;MODUL SLOT ({{ slots|length }} slot terisi)</div>
+<table>
+    <tr class="lbl"><th style="width:8%;">Slot</th><th style="width:20%;">Modul</th><th>Isian / Keterangan</th></tr>
+    {% for s in slots %}<tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %}><td class="vb">{{ s.letter }}</td><td>{{ s.modul|default:"-" }}</td><td style="color:#64748B;">{{ s.isian|default:"-" }}</td></tr>{% endfor %}
+</table>
+{% endif %}
+
+{% if catatan %}
+<div class="sec">VI.&nbsp;&nbsp;CATATAN</div>
+<table><tr><td style="min-height:8mm;">{{ catatan }}</td></tr></table>
+{% endif %}
+{% endblock %}

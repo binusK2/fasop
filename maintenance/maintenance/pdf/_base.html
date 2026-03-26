@@ -1,0 +1,135 @@
+{# maintenance/templates/maintenance/pdf/_base.html #}
+{# Base template PDF — di-extend oleh semua jenis perangkat #}
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+    @page {
+        size: A4;
+        margin: 14mm 15mm 15mm 15mm;
+        @bottom-left {
+            content: "Jl. Letjen Hertasning Blok B, Pandang, Panakkukang, Makassar 90222  |  www.pln.co.id  |  T 0411 440066";
+            font-size: 5.5pt; color: #64748B;
+        }
+        @bottom-right {
+            content: "Dicetak: {{ print_by }} — {{ print_date }}";
+            font-size: 5.5pt; color: #64748B;
+        }
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Helvetica, Arial, sans-serif; font-size: 7.5pt; color: #0F172A; line-height: 1.35; }
+
+    /* ── HEADER ── */
+    .header { border-top: 0.6pt solid #0F172A; border-bottom: 1pt solid #DC2626; padding: 3mm 0; margin-bottom: 2mm; position: relative; min-height: 14mm; }
+    .header-logo-left { position: absolute; left: 0; top: 50%; transform: translateY(-50%); }
+    .header-logo-left img { height: 6mm; }
+    .header-title { text-align: center; font-weight: bold; font-size: 9pt; line-height: 14mm; }
+    .header-right { position: absolute; right: 0; top: 2mm; text-align: right; font-size: 6.5pt; font-weight: bold; color: #1A3A5C; }
+    .header-right img { height: 11mm; margin-top: 0.5mm; }
+
+    /* ── SECTION ── */
+    .sec { background: #1A3A5C; color: white; font-weight: bold; font-size: 7.5pt; padding: 3pt 6pt; margin-top: 2mm; }
+
+    /* ── TABLE ── */
+    table { width: 100%; border-collapse: collapse; font-size: 7.5pt; }
+    td, th { border: 0.3pt solid #CBD5E1; padding: 2pt 4pt; vertical-align: middle; }
+    .lbl { background: #F1F5F9; font-weight: bold; }
+    .lbl-blue { background: #E0F2FE; font-weight: bold; }
+
+    /* ── STATUS ── */
+    .ok  { background: #DCFCE7; color: #166534; font-weight: bold; text-align: center; }
+    .nok { background: #FEE2E2; color: #991B1B; font-weight: bold; text-align: center; }
+    .na  { background: #FEF9C3; color: #854D0E; text-align: center; }
+    .vb  { color: #2563EB; font-weight: bold; text-align: center; }
+    .vg  { color: #64748B; font-size: 6.5pt; text-align: center; }
+    .alt { background: #F8FAFC; }
+
+    /* ── LAYOUT ── */
+    .two-col { display: flex; gap: 2mm; }
+    .two-col > div { flex: 1; }
+    .two-col > .w60 { flex: 1.5; }
+    .two-col > .w40 { flex: 1; }
+
+    /* ── PENGESAHAN ── */
+    .peng { margin-top: 8mm; page-break-inside: avoid; }
+    .peng-hdr { display: flex; }
+    .peng-hdr > div { flex: 1; background: #1A3A5C; color: white; font-weight: bold; font-size: 7pt; text-align: center; padding: 4pt; border: 0.3pt solid #CBD5E1; }
+    .peng-sub { display: flex; }
+    .peng-sub > div { flex: 1; text-align: center; font-size: 7pt; font-weight: bold; color: #64748B; padding: 4pt; border: 0.3pt solid #CBD5E1; border-top: none; }
+    .ttd { display: flex; min-height: 28mm; }
+    .ttd > div { flex: 1; border: 0.3pt solid #CBD5E1; border-top: none; padding: 3mm; }
+    .ttd .sig { text-align: center; color: #CBD5E1; font-size: 6.5pt; padding-top: 8mm; }
+    .ttd .sig img { max-width: 32mm; max-height: 18mm; }
+    .ttd .names { font-size: 7pt; color: #64748B; font-weight: bold; }
+    .ttd .names div { font-size: 7.5pt; color: #0F172A; font-weight: normal; margin-top: 1pt; }
+    .peng-bot { display: flex; }
+    .peng-bot > div { flex: 1; text-align: center; font-size: 7.5pt; padding: 4pt; border: 0.3pt solid #CBD5E1; border-top: none; background: #F1F5F9; }
+
+    {% block extra_css %}{% endblock %}
+</style>
+</head>
+<body>
+
+{# ── HEADER ── #}
+<div class="header">
+    <div class="header-logo-left">
+        {% if logo_danantara %}<img src="{{ logo_danantara }}" alt="">{% endif %}
+    </div>
+    <div class="header-title">{{ title }}</div>
+    <div class="header-right">
+        <div>UIP3B SULAWESI</div>
+        <div>UP2B SISTEM MAKASSAR</div>
+        {% if logo_pln %}<img src="{{ logo_pln }}" alt="">{% endif %}
+    </div>
+</div>
+
+{# ── I. INFORMASI PEMELIHARAAN ── #}
+<div class="sec">I.&nbsp;&nbsp;INFORMASI PEMELIHARAAN</div>
+<table>
+    <tr>
+        <td class="lbl" style="width:18%;">Nama Perangkat</td>
+        <td style="width:32%;">{{ info.device_name }}</td>
+        <td class="lbl" style="width:18%;">Jenis / Merk</td>
+        <td style="width:32%;">{{ info.device_type }} / {{ info.merk }}</td>
+    </tr>
+    <tr>
+        <td class="lbl">Lokasi</td><td>{{ info.lokasi }}</td>
+        <td class="lbl">Type</td><td>{{ info.type }}</td>
+    </tr>
+    <tr>
+        <td class="lbl">No. Seri</td><td>{{ info.serial_number }}</td>
+        <td class="lbl">IP Address</td><td>{{ info.ip_address }}</td>
+    </tr>
+    <tr>
+        <td class="lbl">Jenis Kegiatan</td><td>{{ info.maintenance_type }}</td>
+        <td class="lbl">Tgl. Pemeliharaan</td><td>{{ info.date }}</td>
+    </tr>
+    <tr>
+        <td class="lbl">Status Perangkat</td><td>{{ info.status }}</td>
+        <td class="lbl">Pelaksana</td><td>{{ info.technician }}</td>
+    </tr>
+</table>
+{% if info.description %}
+<table><tr><td class="lbl" style="width:18%;">Deskripsi / Keluhan</td><td>{{ info.description }}</td></tr></table>
+{% endif %}
+{% if info.catatan_am %}
+<table><tr><td class="lbl-blue" style="width:18%;">Catatan Asisten Manager</td><td>{{ info.catatan_am }}</td></tr></table>
+{% endif %}
+
+{# ── KONTEN KHUSUS PER JENIS ── #}
+{% block content %}{% endblock %}
+
+{# ── PENGESAHAN ── #}
+<div class="peng">
+    <div class="peng-hdr"><div>Mengetahui,</div><div>Pelaksana Pemeliharaan</div></div>
+    <div class="peng-sub"><div>Asisten Manager Fasilitas Operasi</div><div></div></div>
+    <div class="ttd">
+        <div>{% if sig_am %}<div class="sig"><img src="{{ sig_am }}"></div>{% else %}<div class="sig">Tanda Tangan</div>{% endif %}</div>
+        <div>{% if technicians_list %}<div class="names">Nama Pelaksana:</div>{% for n in technicians_list %}<div class="names"><div>{{ forloop.counter }}.&nbsp;&nbsp;{{ n }}</div></div>{% endfor %}{% endif %}</div>
+    </div>
+    <div class="peng-bot"><div>{% if signed_by %}( {{ signed_by }} ){% else %}( ................................................ ){% endif %}</div><div></div></div>
+</div>
+
+</body>
+</html>

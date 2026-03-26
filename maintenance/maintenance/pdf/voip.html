@@ -1,0 +1,25 @@
+{% extends 'maintenance/pdf/_base.html' %}
+{% block content %}
+<div class="sec">II.&nbsp;&nbsp;INFORMASI PERANGKAT VoIP</div>
+<table>
+    <tr><td class="lbl" style="width:18%;">IP Address</td><td style="width:32%;">{{ voip.ip_address|default:"-" }}</td><td class="lbl" style="width:18%;">Extension Number</td><td>{{ voip.extension_number|default:"-" }}</td></tr>
+    <tr><td class="lbl">SIP Server 1</td><td>{{ voip.sip_server_1|default:"-" }}</td><td class="lbl">SIP Server 2</td><td>{{ voip.sip_server_2|default:"-" }}</td></tr>
+    <tr><td class="lbl">Suhu Ruangan</td><td>{% if voip.suhu_ruangan %}{{ voip.suhu_ruangan }} °C{% else %}-{% endif %}</td><td class="lbl">Merk PSU</td><td>{{ voip.ps_merk|default:"-" }}</td></tr>
+</table>
+<div class="two-col">
+    <div>
+        <div class="sec">III.&nbsp;&nbsp;CHECKLIST STATUS (1/2)</div>
+        <table>{% for i in checks_left %}<tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %}><td style="width:70%;">{{ i.label }}</td><td class="{% if i.value == 'OK' %}ok{% elif i.value == 'NOK' %}nok{% else %}vg{% endif %}">{{ i.value|default:"-" }}</td></tr>{% endfor %}</table>
+    </div>
+    <div>
+        <div class="sec">CHECKLIST STATUS (2/2)</div>
+        <table>{% for i in checks_right %}<tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %}><td style="width:70%;">{{ i.label }}</td><td class="{% if i.value == 'OK' %}ok{% elif i.value == 'NOK' %}nok{% else %}vg{% endif %}">{{ i.value|default:"-" }}</td></tr>{% endfor %}</table>
+    </div>
+</div>
+<div class="sec">IV.&nbsp;&nbsp;TEGANGAN INPUT PSU</div>
+<table><tr class="lbl"><td style="width:55%;">Tegangan Input PSU</td><td class="vb">{{ voip.ps_tegangan_input|default:"-" }}</td><td class="vg">210-240 V</td></tr></table>
+{% if catatan %}
+<div class="sec">V.&nbsp;&nbsp;CATATAN</div>
+<table><tr><td style="min-height:8mm;">{{ catatan }}</td></tr></table>
+{% endif %}
+{% endblock %}

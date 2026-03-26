@@ -585,7 +585,11 @@ def export_maintenance_excel(request):
 # ─────────────────────────────────────────────────────────────────────
 @login_required
 def export_maintenance_pdf(request, pk):
-    from .pdf_export import build_pdf
+    # Coba WeasyPrint dulu, fallback ke ReportLab jika tidak tersedia
+    try:
+        from .pdf_weasy import build_pdf_weasy as build_pdf
+    except (ImportError, OSError):
+        from .pdf_export import build_pdf
 
     maintenance = get_object_or_404(Maintenance, pk=pk)
     device      = maintenance.device
