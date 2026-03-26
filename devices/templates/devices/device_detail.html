@@ -133,6 +133,18 @@
                         <td style="font-size:13px; padding:10px 16px;">{{ device.lokasi }}</td>
                     </tr>
                     <tr>
+                        <td style="font-size:12px; color:#64748b; font-weight:600; padding:10px 16px;">Tahun Operasi</td>
+                        <td style="padding:10px 16px;">
+                            {% if device.tahun_operasi %}
+                            <span style="font-size:13px; font-weight:600; color:#1e293b;">
+                                {{ device.tahun_operasi }}
+                            </span>
+                            {% else %}
+                            <span style="color:#94a3b8;">—</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
                         <td style="font-size:12px; color:#64748b; font-weight:600; padding:10px 16px;">Status Operasi</td>
                         <td style="padding:10px 16px;">
                             {% if device.status_operasi == 'operasi' %}
@@ -149,18 +161,6 @@
                                              box-shadow:0 0 0 3px rgba(239,68,68,0.25);display:inline-block;"></span>
                                 Tidak Operasi
                             </span>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="font-size:12px; color:#64748b; font-weight:600; padding:10px 16px;">Tahun Operasi</td>
-                        <td style="padding:10px 16px;">
-                            {% if device.tahun_operasi %}
-                            <span style="font-size:13px; font-weight:600; color:#1e293b;">
-                                {{ device.tahun_operasi }}
-                            </span>
-                            {% else %}
-                            <span style="color:#94a3b8;">—</span>
                             {% endif %}
                         </td>
                     </tr>
