@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from . import views_komponen
 
 urlpatterns = [
     path('', views.dashboard, name='dashboard'),
@@ -23,9 +24,18 @@ urlpatterns = [
     # Device Events
     path('view/<int:pk>/event/add/', views.device_event_add, name='device_event_add'),
     path('view/<int:pk>/event/<int:event_pk>/delete/', views.device_event_delete, name='device_event_delete'),
+
+    # ✅ BARU: Komponen Perangkat
+    path('view/<int:device_pk>/komponen/add/', views_komponen.komponen_add, name='komponen_add'),
+    path('view/<int:device_pk>/komponen/<int:komponen_pk>/edit/', views_komponen.komponen_edit, name='komponen_edit'),
+    path('view/<int:device_pk>/komponen/<int:komponen_pk>/delete/', views_komponen.komponen_delete, name='komponen_delete'),
+
     # Manajemen Lokasi
     path('lokasi-admin/', views.lokasi_admin, name='lokasi_admin'),
     path('api/lokasi-list/', views.api_lokasi_list, name='api_lokasi_list'),
     # Public page (QR Code — tanpa login)
     path('public/<str:token>/', views.device_public, name='device_public'),
+
+    # ✅ BARU: API untuk komponen berdasarkan device (digunakan di form gangguan)
+    path('api/device/<int:device_pk>/komponen/', views_komponen.api_komponen_by_device, name='api_komponen_by_device'),
 ]

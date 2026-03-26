@@ -161,6 +161,13 @@
                             <i class="bi bi-hdd-rack me-1"></i>{{ gangguan.peralatan.nama }}
                         </a>
                         {% endif %}
+                        {% if gangguan.komponen_rusak %}
+                        <span style="color:#cbd5e1;">·</span>
+                        <span style="font-size:12px;background:#fee2e2;color:#991b1b;padding:3px 10px;border-radius:20px;font-weight:600;">
+                            <i class="bi bi-cpu me-1" style="font-size:11px;"></i>{{ gangguan.komponen_rusak.nama }}
+                            {% if gangguan.komponen_rusak.posisi %}[{{ gangguan.komponen_rusak.posisi }}]{% endif %}
+                        </span>
+                        {% endif %}
                     </div>
                 </div>
                 <div class="text-end flex-shrink-0">

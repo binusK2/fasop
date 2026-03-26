@@ -440,6 +440,14 @@ class MaintenanceCorrective(models.Model):
     tindakan            = models.TextField(verbose_name='Tindakan yang Dilakukan')
     komponen_diganti    = models.BooleanField(default=False, verbose_name='Ada Komponen Diganti?')
     nama_komponen       = models.CharField(max_length=150, blank=True, verbose_name='Nama Komponen')
+    komponen_terkait    = models.ForeignKey(
+        'devices.DeviceComponent',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='corrective_maintenances',
+        verbose_name='Komponen Terkait',
+        help_text='Pilih komponen spesifik yang diperbaiki/diganti',
+    )
     kondisi_sebelum     = models.CharField(max_length=200, blank=True, verbose_name='Kondisi Sebelum')
     kondisi_sesudah     = models.CharField(max_length=200, blank=True, verbose_name='Kondisi Sesudah')
     durasi_jam          = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name='Durasi (jam)')

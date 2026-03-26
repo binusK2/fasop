@@ -105,6 +105,7 @@ def maintenance_create(request, device_id):
         if mform.is_valid() and (dform is None or dform.is_valid()):
             maintenance = mform.save(commit=False)
             maintenance.device = device
+            maintenance.maintenance_type = 'Preventive'  # FIX: disabled widget tidak dikirim browser
             maintenance.status = 'Open'  # selalu Open saat baru dibuat
             # Simpan nama pelaksana manual (JSON array dari tag-input)
             names_raw = request.POST.get('pelaksana_names', '[]')
@@ -397,6 +398,7 @@ def maintenance_edit(request, pk):
 
         if mform.is_valid() and (dform is None or dform.is_valid()):
             m = mform.save(commit=False)
+            m.maintenance_type = 'Preventive'  # FIX: pastikan tidak hilang
             names_raw = request.POST.get('pelaksana_names', '[]')
             try:
                 m.pelaksana_names = json.loads(names_raw)

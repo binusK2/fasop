@@ -98,16 +98,43 @@ def device_create(request):
                 device.spesifikasi = {}
             device.created_by = request.user
             device.save()
+
+            # ── Simpan komponen dari form ──────────────────────────
+            komponen_json = request.POST.get('komponen_json', '[]')
+            try:
+                komponen_list = json.loads(komponen_json)
+            except (json.JSONDecodeError, ValueError):
+                komponen_list = []
+
+            from devices.models_komponen import DeviceComponent
+            from devices.views_komponen import _resolve_tipe
+            for k in komponen_list:
+                if not k.get('nama'):
+                    continue
+                DeviceComponent.objects.create(
+                    device=device,
+                    nama=k.get('nama', '').strip(),
+                    tipe_komponen=_resolve_tipe(k.get('tipe_komponen')),
+                    posisi=k.get('posisi', '').strip(),
+                    merk=k.get('merk', '').strip(),
+                    serial_number=k.get('serial_number', '').strip(),
+                    status=k.get('status', 'terpasang'),
+                    keterangan=k.get('keterangan', '').strip(),
+                    created_by=request.user,
+                )
+
             # Audit log
             from devices.device_audit import log_create
             log_create(device, request.user)
-            return redirect('device_list')
+            return redirect('device_view', pk=device.pk)
     else:
         form = DeviceForm()
+    from devices.views_komponen import get_tipe_grouped_json
     return render(request, 'devices/device_form.html', {
         'form': form,
         'is_edit': False,
         'device_schema_json': json.dumps(DEVICE_SCHEMA),
+        'tipe_komponen_json': get_tipe_grouped_json(),
     })
 
 
@@ -130,17 +157,44 @@ def device_update(request, pk):
             except (json.JSONDecodeError, ValueError):
                 dev.spesifikasi = {}
             dev.save()
+
+            # ── Simpan komponen baru dari form ────────────────────
+            komponen_json = request.POST.get('komponen_json', '[]')
+            try:
+                komponen_list = json.loads(komponen_json)
+            except (json.JSONDecodeError, ValueError):
+                komponen_list = []
+
+            from devices.models_komponen import DeviceComponent
+            from devices.views_komponen import _resolve_tipe
+            for k in komponen_list:
+                if not k.get('nama'):
+                    continue
+                DeviceComponent.objects.create(
+                    device=device,
+                    nama=k.get('nama', '').strip(),
+                    tipe_komponen=_resolve_tipe(k.get('tipe_komponen')),
+                    posisi=k.get('posisi', '').strip(),
+                    merk=k.get('merk', '').strip(),
+                    serial_number=k.get('serial_number', '').strip(),
+                    status=k.get('status', 'terpasang'),
+                    keterangan=k.get('keterangan', '').strip(),
+                    created_by=request.user,
+                )
+
             # Audit log — bandingkan sebelum vs sesudah
             log_edit(device_before, dev, request.user)
             return redirect('device_view', pk=device.pk)
     else:
         form = DeviceForm(instance=device)
+    from devices.views_komponen import get_tipe_grouped_json
     return render(request, 'devices/device_form.html', {
         'form': form,
         'is_edit': True,
         'device': device,
         'device_schema_json': json.dumps(DEVICE_SCHEMA),
         'existing_spesifikasi': json.dumps(device.spesifikasi or {}),
+        'tipe_komponen_json': get_tipe_grouped_json(),
     })
 
 
@@ -381,6 +435,11 @@ def device_detail(request, pk):
     last_update_log = device_logs.first()
     device_events   = DeviceEvent.objects.filter(device=device).order_by('-tanggal', '-created_at')
 
+    # Komponen perangkat
+    from devices.views_komponen import get_komponen_for_device, _get_tipe_grouped
+    komponen_list = get_komponen_for_device(device)
+    tipe_grouped = _get_tipe_grouped()
+
     return render(request, 'devices/device_detail.html', {
         'device':             device,
         'maintenance_history': maintenance_history,
@@ -393,6 +452,8 @@ def device_detail(request, pk):
         'device_logs':        device_logs,
         'last_update_log':    last_update_log,
         'device_events':      device_events,
+        'komponen_list':      komponen_list,
+        'tipe_grouped':       tipe_grouped,
         'today_date':         date_type.today().strftime('%Y-%m-%d'),
     })
 

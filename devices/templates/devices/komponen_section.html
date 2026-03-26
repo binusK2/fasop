@@ -1,0 +1,260 @@
+{# ── Daftar Komponen Perangkat ──────────────────────────────── #}
+<div class="table-card mt-3" id="section-komponen">
+    <div class="table-header" style="display:flex;align-items:center;justify-content:space-between;">
+        <h6 class="mb-0">
+            <i class="bi bi-cpu me-1" style="color:#8b5cf6;"></i>
+            Komponen Perangkat
+            {% if komponen_list %}
+            <span style="font-size:11px;font-weight:500;background:#f5f3ff;color:#7c3aed;padding:3px 10px;border-radius:20px;margin-left:6px;">
+                {{ komponen_list|length }} komponen
+            </span>
+            {% endif %}
+        </h6>
+        {% if user_can_edit %}
+        <button type="button" class="btn btn-sm btn-primary"
+                data-bs-toggle="modal" data-bs-target="#modalTambahKomponen">
+            <i class="bi bi-plus-lg me-1"></i>Tambah Komponen
+        </button>
+        {% endif %}
+    </div>
+
+    {% if komponen_list %}
+    <div style="padding:0;">
+        {% for k in komponen_list %}
+        <div style="padding:14px 20px;border-bottom:1px solid #f1f5f9;
+                    display:flex;align-items:flex-start;gap:14px;" id="komponen-{{ k.id }}">
+
+            {# Status indicator #}
+            <div style="width:36px;height:36px;border-radius:10px;flex-shrink:0;
+                        background:{% if k.status == 'terpasang' %}#dcfce7{% elif k.status == 'rusak' %}#fee2e2{% elif k.status == 'diganti' %}#fef3c7{% else %}#f1f5f9{% endif %};
+                        display:flex;align-items:center;justify-content:center;">
+                <i class="bi {% if k.status == 'terpasang' %}bi-check-circle-fill{% elif k.status == 'rusak' %}bi-x-circle-fill{% elif k.status == 'diganti' %}bi-arrow-repeat{% else %}bi-dash-circle{% endif %}"
+                   style="color:{{ k.status_color }};font-size:15px;"></i>
+            </div>
+
+            {# Konten #}
+            <div style="flex:1;min-width:0;">
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
+                    <span style="font-size:13px;font-weight:700;color:#1e293b;">{{ k.nama }}</span>
+                    {% if k.posisi %}
+                    <span style="font-size:11px;background:#eff6ff;color:#2563eb;padding:2px 8px;border-radius:12px;font-weight:600;">
+                        {{ k.posisi }}
+                    </span>
+                    {% endif %}
+                    <span style="font-size:11px;background:#f8fafc;color:#64748b;padding:2px 8px;border-radius:12px;font-weight:500;">
+                        {{ k.tipe_display }}
+                    </span>
+                    <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:12px;
+                                 background:{% if k.status == 'terpasang' %}#dcfce7{% elif k.status == 'rusak' %}#fee2e2{% elif k.status == 'diganti' %}#fef3c7{% else %}#f1f5f9{% endif %};
+                                 color:{% if k.status == 'terpasang' %}#065f46{% elif k.status == 'rusak' %}#991b1b{% elif k.status == 'diganti' %}#92400e{% else %}#64748b{% endif %};">
+                        {{ k.get_status_display }}
+                    </span>
+                </div>
+
+                {# Detail info #}
+                <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:#64748b;">
+                    {% if k.merk %}
+                    <span><i class="bi bi-tag me-1" style="font-size:10px;"></i>{{ k.merk }} {{ k.model }}</span>
+                    {% endif %}
+                    {% if k.serial_number %}
+                    <span><i class="bi bi-upc-scan me-1" style="font-size:10px;"></i>{{ k.serial_number }}</span>
+                    {% endif %}
+                    {% if k.tanggal_pasang %}
+                    <span><i class="bi bi-calendar3 me-1" style="font-size:10px;"></i>Pasang: {{ k.tanggal_pasang|date:"d M Y" }}</span>
+                    {% endif %}
+                    {% if k.tanggal_ganti %}
+                    <span><i class="bi bi-arrow-repeat me-1" style="font-size:10px;"></i>Ganti: {{ k.tanggal_ganti|date:"d M Y" }}</span>
+                    {% endif %}
+                </div>
+
+                {# Spesifikasi detail jika ada #}
+                {% with spec=k.spec %}
+                {% if spec %}
+                <div style="margin-top:8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;">
+                    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;margin-bottom:4px;">
+                        Spesifikasi
+                    </div>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                        {% for field in spec.display_fields %}
+                        <div style="font-size:12px;">
+                            <span style="color:#64748b;">{{ field.label }}:</span>
+                            <span style="font-weight:600;color:#1e293b;">{{ field.value }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+                {% endwith %}
+
+                {# Sub-komponen #}
+                {% if k.sub_komponen.all %}
+                <div style="margin-top:8px;padding-left:20px;border-left:2px solid #e2e8f0;">
+                    {% for sub in k.sub_komponen.all %}
+                    <div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px;">
+                        <i class="bi bi-arrow-return-right" style="color:#94a3b8;font-size:10px;"></i>
+                        <span style="font-weight:600;color:#475569;">{{ sub.nama }}</span>
+                        {% if sub.posisi %}
+                        <span style="font-size:10px;background:#f1f5f9;color:#64748b;padding:1px 6px;border-radius:8px;">{{ sub.posisi }}</span>
+                        {% endif %}
+                        <span style="font-size:10px;font-weight:600;padding:1px 6px;border-radius:8px;
+                                     background:{% if sub.status == 'terpasang' %}#dcfce7;color:#065f46{% elif sub.status == 'rusak' %}#fee2e2;color:#991b1b{% else %}#f1f5f9;color:#64748b{% endif %};">
+                            {{ sub.get_status_display }}
+                        </span>
+                        {% if sub.serial_number %}
+                        <span style="font-size:10px;color:#94a3b8;">SN: {{ sub.serial_number }}</span>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                {# Keterangan #}
+                {% if k.keterangan %}
+                <div style="font-size:12px;color:#64748b;margin-top:6px;
+                            background:#fefce8;border-radius:6px;padding:5px 10px;
+                            border-left:3px solid #fde68a;">
+                    {{ k.keterangan }}
+                </div>
+                {% endif %}
+            </div>
+
+            {# Tombol aksi #}
+            {% if user_can_edit %}
+            <div style="flex-shrink:0;display:flex;gap:4px;">
+                <a href="{% url 'komponen_edit' device.id k.id %}"
+                   style="color:#93c5fd;font-size:13px;padding:4px;"
+                   title="Edit Komponen"
+                   onmouseover="this.style.color='#3b82f6'"
+                   onmouseout="this.style.color='#93c5fd'">
+                    <i class="bi bi-pencil"></i>
+                </a>
+                {% if user_can_delete %}
+                <form method="post" action="{% url 'komponen_delete' device.id k.id %}"
+                      style="display:inline;" onsubmit="return confirm('Hapus komponen {{ k.nama }}?');">
+                    {% csrf_token %}
+                    <button type="submit"
+                            style="background:none;border:none;color:#fca5a5;cursor:pointer;padding:4px;font-size:13px;"
+                            onmouseover="this.style.color='#ef4444'"
+                            onmouseout="this.style.color='#fca5a5'">
+                        <i class="bi bi-trash3"></i>
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+            {% endif %}
+
+        </div>
+        {% endfor %}
+    </div>
+
+    {% else %}
+    <div class="text-center text-muted py-4">
+        <i class="bi bi-cpu fs-2 d-block mb-2"></i>
+        Belum ada komponen tercatat
+        {% if user_can_edit %}
+        <div class="mt-2">
+            <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalTambahKomponen">
+                <i class="bi bi-plus-lg me-1"></i>Tambah Komponen Pertama
+            </button>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+{# ── Modal Tambah Komponen ──────────────────────────────────── #}
+{% if user_can_edit %}
+<div class="modal fade" id="modalTambahKomponen" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="post" action="{% url 'komponen_add' device.id %}">
+                {% csrf_token %}
+                <div class="modal-header" style="border-bottom:2px solid #8b5cf6;">
+                    <h5 class="modal-title" style="font-weight:700;">
+                        <i class="bi bi-cpu me-2" style="color:#8b5cf6;"></i>Tambah Komponen
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold" style="font-size:12px;">Nama Komponen *</label>
+                            <input type="text" name="nama" class="form-control" required
+                                   placeholder="e.g. CPU 1, Slot A, PSU 1, Battery Bank 1">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold" style="font-size:12px;">Tipe Komponen *</label>
+                            <select name="tipe_komponen" class="form-select" required>
+                                <option value="">— Pilih Tipe —</option>
+                                {% for g in tipe_grouped %}
+                                <optgroup label="{{ g.grup }}">
+                                    {% for t in g.tipes %}
+                                    <option value="{{ t.pk }}">{{ t.nama }}</option>
+                                    {% endfor %}
+                                </optgroup>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold" style="font-size:12px;">Posisi / Slot</label>
+                            <input type="text" name="posisi" class="form-control"
+                                   placeholder="e.g. Slot A, Bay 1">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold" style="font-size:12px;">Merk</label>
+                            <input type="text" name="merk" class="form-control"
+                                   placeholder="e.g. Huawei, ZTE">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold" style="font-size:12px;">Model / Tipe</label>
+                            <input type="text" name="model" class="form-control"
+                                   placeholder="e.g. OptiX OSN 1500">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold" style="font-size:12px;">Serial Number</label>
+                            <input type="text" name="serial_number" class="form-control">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold" style="font-size:12px;">Status</label>
+                            <select name="status" class="form-select">
+                                <option value="terpasang" selected>Terpasang & Normal</option>
+                                <option value="rusak">Rusak</option>
+                                <option value="diganti">Sudah Diganti</option>
+                                <option value="tidak_ada">Tidak Terpasang</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold" style="font-size:12px;">Komponen Induk</label>
+                            <select name="parent" class="form-select">
+                                <option value="">— Tidak ada (level atas) —</option>
+                                {% for k in komponen_list %}
+                                <option value="{{ k.id }}">{{ k.nama }}{% if k.posisi %} [{{ k.posisi }}]{% endif %}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold" style="font-size:12px;">Tanggal Pemasangan</label>
+                            <input type="date" name="tanggal_pasang" class="form-control">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold" style="font-size:12px;">Tanggal Penggantian Terakhir</label>
+                            <input type="date" name="tanggal_ganti" class="form-control">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-bold" style="font-size:12px;">Keterangan</label>
+                            <textarea name="keterangan" class="form-control" rows="2"
+                                      placeholder="Catatan tambahan..."></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-plus-lg me-1"></i>Simpan Komponen
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}

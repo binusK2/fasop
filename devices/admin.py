@@ -1,8 +1,132 @@
 from django.contrib import admin
 from .models import Device, DeviceType, SiteLocation
+from .models_komponen import (
+    GrupTipeKomponen, TipeKomponen,
+    DeviceComponent,
+    SpecRouterPort, SpecMuxSlot, SpecPSU,
+    SpecRectifierModul, SpecBattery, SpecBatteryCell,
+    SpecRadioModul, SpecPLCModul,
+)
 
-admin.site.register(Device)
+@admin.register(Device)
+class DeviceAdmin(admin.ModelAdmin):
+    list_display = ['nama', 'jenis', 'merk', 'lokasi', 'status_operasi']
+    search_fields = ['nama', 'merk', 'serial_number', 'lokasi']
+    list_filter = ['jenis', 'status_operasi']
+
 admin.site.register(DeviceType)
+
+
+# ── Tipe Komponen (dikelola via Admin) ───────────────────────
+class TipeKomponenInline(admin.TabularInline):
+    model = TipeKomponen
+    extra = 1
+    fields = ['kode', 'nama', 'urutan']
+
+@admin.register(GrupTipeKomponen)
+class GrupTipeKomponenAdmin(admin.ModelAdmin):
+    list_display = ['nama', 'urutan', 'jumlah_tipe']
+    list_editable = ['urutan']
+    inlines = [TipeKomponenInline]
+
+    def jumlah_tipe(self, obj):
+        return obj.tipe_komponen.count()
+    jumlah_tipe.short_description = 'Jumlah Tipe'
+
+@admin.register(TipeKomponen)
+class TipeKomponenAdmin(admin.ModelAdmin):
+    list_display = ['kode', 'nama', 'grup', 'urutan']
+    list_filter = ['grup']
+    list_editable = ['nama', 'grup', 'urutan']
+    search_fields = ['kode', 'nama']
+
+
+# ── Inline Spec Models ──────────────────────────────────────
+class SpecRouterPortInline(admin.StackedInline):
+    model = SpecRouterPort
+    extra = 0
+    max_num = 1
+
+class SpecMuxSlotInline(admin.StackedInline):
+    model = SpecMuxSlot
+    extra = 0
+    max_num = 1
+
+class SpecPSUInline(admin.StackedInline):
+    model = SpecPSU
+    extra = 0
+    max_num = 1
+
+class SpecRectifierModulInline(admin.StackedInline):
+    model = SpecRectifierModul
+    extra = 0
+    max_num = 1
+
+class SpecBatteryInline(admin.StackedInline):
+    model = SpecBattery
+    extra = 0
+    max_num = 1
+
+class SpecBatteryCellInline(admin.StackedInline):
+    model = SpecBatteryCell
+    extra = 0
+    max_num = 1
+
+class SpecRadioModulInline(admin.StackedInline):
+    model = SpecRadioModul
+    extra = 0
+    max_num = 1
+
+class SpecPLCModulInline(admin.StackedInline):
+    model = SpecPLCModul
+    extra = 0
+    max_num = 1
+
+
+class SubKomponenInline(admin.TabularInline):
+    """Inline untuk sub-komponen (child components)."""
+    model = DeviceComponent
+    fk_name = 'parent'
+    extra = 0
+    fields = ['nama', 'tipe_komponen', 'posisi', 'status', 'serial_number']
+    verbose_name = 'Sub-Komponen'
+    verbose_name_plural = 'Sub-Komponen'
+
+
+@admin.register(DeviceComponent)
+class DeviceComponentAdmin(admin.ModelAdmin):
+    list_display = [
+        'nama', 'device', 'tipe_komponen', 'posisi',
+        'status', 'merk', 'serial_number',
+    ]
+    list_filter = ['tipe_komponen', 'status', 'device__jenis']
+    search_fields = ['nama', 'serial_number', 'device__nama', 'merk']
+    autocomplete_fields = ['device', 'parent']
+    list_editable = ['status']
+
+    inlines = [
+        SubKomponenInline,
+        SpecRouterPortInline,
+        SpecMuxSlotInline,
+        SpecPSUInline,
+        SpecRectifierModulInline,
+        SpecBatteryInline,
+        SpecBatteryCellInline,
+        SpecRadioModulInline,
+        SpecPLCModulInline,
+    ]
+
+    fieldsets = (
+        ('Relasi', {
+            'fields': ('device', 'parent'),
+        }),
+        ('Identitas Komponen', {
+            'fields': ('nama', 'tipe_komponen', 'posisi', 'merk', 'model', 'serial_number'),
+        }),
+        ('Status & Riwayat', {
+            'fields': ('status', 'keterangan', 'tanggal_pasang', 'tanggal_ganti'),
+        }),
+    )
 
 @admin.register(SiteLocation)
 class SiteLocationAdmin(admin.ModelAdmin):

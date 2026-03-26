@@ -333,3 +333,13 @@ class DeviceEvent(models.Model):
         if not self.dilakukan_oleh:
             return '—'
         return self.dilakukan_oleh.get_full_name() or self.dilakukan_oleh.username
+
+
+# ── Import model komponen agar ikut migrasi ──────────────────
+from devices.models_komponen import (  # noqa: E402, F401
+    GrupTipeKomponen, TipeKomponen,
+    DeviceComponent,
+    SpecRouterPort, SpecMuxSlot, SpecPSU,
+    SpecRectifierModul, SpecBattery, SpecBatteryCell,
+    SpecRadioModul, SpecPLCModul,
+)

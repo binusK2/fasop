@@ -26,10 +26,11 @@ class MaintenanceForm(forms.ModelForm):
     )
 
     # Lock maintenance_type ke Preventive
-    maintenance_type = forms.ChoiceField(
-        choices=[('Preventive', 'Preventive')],
+    # PENTING: Jangan pakai disabled, karena browser tidak kirim field disabled.
+    # Pakai HiddenInput agar value selalu terkirim di POST.
+    maintenance_type = forms.CharField(
         initial='Preventive',
-        widget=forms.Select(attrs={'class': 'form-select', 'disabled': 'disabled'}),
+        widget=forms.HiddenInput(),
     )
 
     class Meta:

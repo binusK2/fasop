@@ -1,0 +1,111 @@
+{% extends 'base.html' %}
+{% block title %}Edit Komponen — {{ komponen.nama }}{% endblock %}
+{% block page_title %}Edit Komponen{% endblock %}
+
+{% block content %}
+
+<div class="d-flex align-items-center gap-2 mb-3">
+    <a href="{% url 'device_view' device.id %}#section-komponen" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Kembali ke {{ device.nama }}
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-header" style="background:#f5f3ff;border-bottom:2px solid #8b5cf6;">
+        <h5 class="mb-0" style="font-weight:700;font-size:15px;">
+            <i class="bi bi-cpu me-2" style="color:#8b5cf6;"></i>
+            Edit: {{ komponen.nama }}
+            <span style="font-size:12px;font-weight:500;color:#64748b;margin-left:8px;">
+                pada {{ device.nama }}
+            </span>
+        </h5>
+    </div>
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label fw-bold" style="font-size:12px;">Nama Komponen *</label>
+                    <input type="text" name="nama" class="form-control" required
+                           value="{{ komponen.nama }}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-bold" style="font-size:12px;">Tipe Komponen *</label>
+                    <select name="tipe_komponen" class="form-select" required>
+                        <option value="">— Pilih Tipe —</option>
+                        {% for g in tipe_grouped %}
+                        <optgroup label="{{ g.grup }}">
+                            {% for t in g.tipes %}
+                            <option value="{{ t.pk }}" {% if komponen.tipe_komponen_id == t.pk %}selected{% endif %}>{{ t.nama }}</option>
+                            {% endfor %}
+                        </optgroup>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-bold" style="font-size:12px;">Posisi / Slot</label>
+                    <input type="text" name="posisi" class="form-control"
+                           value="{{ komponen.posisi }}" placeholder="e.g. Slot A, Bay 1">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-bold" style="font-size:12px;">Merk</label>
+                    <input type="text" name="merk" class="form-control"
+                           value="{{ komponen.merk }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-bold" style="font-size:12px;">Model / Tipe</label>
+                    <input type="text" name="model" class="form-control"
+                           value="{{ komponen.model }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-bold" style="font-size:12px;">Serial Number</label>
+                    <input type="text" name="serial_number" class="form-control"
+                           value="{{ komponen.serial_number }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-bold" style="font-size:12px;">Status</label>
+                    <select name="status" class="form-select">
+                        <option value="terpasang" {% if komponen.status == 'terpasang' %}selected{% endif %}>Terpasang & Normal</option>
+                        <option value="rusak" {% if komponen.status == 'rusak' %}selected{% endif %}>Rusak</option>
+                        <option value="diganti" {% if komponen.status == 'diganti' %}selected{% endif %}>Sudah Diganti</option>
+                        <option value="tidak_ada" {% if komponen.status == 'tidak_ada' %}selected{% endif %}>Tidak Terpasang</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-bold" style="font-size:12px;">Komponen Induk</label>
+                    <select name="parent" class="form-select">
+                        <option value="">— Tidak ada (level atas) —</option>
+                        {% for k in komponen_siblings %}
+                        <option value="{{ k.id }}" {% if komponen.parent_id == k.id %}selected{% endif %}>
+                            {{ k.nama }}{% if k.posisi %} [{{ k.posisi }}]{% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-bold" style="font-size:12px;">Tanggal Pemasangan</label>
+                    <input type="date" name="tanggal_pasang" class="form-control"
+                           value="{{ komponen.tanggal_pasang|date:'Y-m-d' }}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-bold" style="font-size:12px;">Tanggal Penggantian Terakhir</label>
+                    <input type="date" name="tanggal_ganti" class="form-control"
+                           value="{{ komponen.tanggal_ganti|date:'Y-m-d' }}">
+                </div>
+                <div class="col-12">
+                    <label class="form-label fw-bold" style="font-size:12px;">Keterangan</label>
+                    <textarea name="keterangan" class="form-control" rows="2">{{ komponen.keterangan }}</textarea>
+                </div>
+            </div>
+
+            <div class="mt-4 d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-lg me-1"></i>Simpan Perubahan
+                </button>
+                <a href="{% url 'device_view' device.id %}#section-komponen" class="btn btn-secondary">Batal</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}

@@ -156,6 +156,18 @@
 
                 <div class="field-hint">Opsional — pilih jenis lalu cari nama perangkat</div>
             </div>
+
+            {# ── Komponen Rusak (diisi via AJAX) ── #}
+            <div class="col-md-12" id="komponen-rusak-wrapper" style="display:none;">
+                <label class="field-label">
+                    <i class="bi bi-cpu me-1" style="color:#8b5cf6;"></i>
+                    Komponen Rusak
+                </label>
+                <select name="komponen_rusak" id="id_komponen_rusak" class="form-select">
+                    <option value="">— Pilih komponen (opsional) —</option>
+                </select>
+                <div class="field-hint">Opsional — pilih komponen spesifik yang rusak pada perangkat ini</div>
+            </div>
         </div>
     </div>
 </div>
@@ -371,12 +383,50 @@ function selectPeralatan(d) {
     document.getElementById('peralatan-dropdown').style.display = 'none';
     document.getElementById('search-peralatan').value = '';
     searchVal = '';
+
+    // ── Load komponen via AJAX ──────────────────────────────
+    loadKomponenByDevice(d.id);
 }
 
 function clearPeralatan() {
     document.getElementById('id_peralatan').value = '';
     document.getElementById('peralatan-selected').style.display = 'none';
     document.getElementById('peralatan-selected-nama').textContent = '—';
+    // Clear komponen
+    document.getElementById('komponen-rusak-wrapper').style.display = 'none';
+    document.getElementById('id_komponen_rusak').innerHTML = '<option value="">— Pilih komponen (opsional) —</option>';
+}
+
+function loadKomponenByDevice(deviceId) {
+    const wrapper = document.getElementById('komponen-rusak-wrapper');
+    const select  = document.getElementById('id_komponen_rusak');
+
+    if (!deviceId) {
+        wrapper.style.display = 'none';
+        return;
+    }
+
+    fetch(`/api/device/${deviceId}/komponen/`)
+        .then(r => r.json())
+        .then(data => {
+            select.innerHTML = '<option value="">— Pilih komponen (opsional) —</option>';
+            if (data.length > 0) {
+                data.forEach(k => {
+                    const opt = document.createElement('option');
+                    opt.value = k.id;
+                    let label = k.label;
+                    if (k.status === 'rusak') label += ' ⚠️ RUSAK';
+                    opt.textContent = label;
+                    select.appendChild(opt);
+                });
+                wrapper.style.display = 'block';
+            } else {
+                wrapper.style.display = 'none';
+            }
+        })
+        .catch(() => {
+            wrapper.style.display = 'none';
+        });
 }
 
 // ── Tutup dropdown kalau klik di luar ────────────────────────
@@ -393,7 +443,17 @@ document.addEventListener('click', function(e) {
 const initId = parseInt('{{ selected_peralatan_id }}') || 0;
 if (initId) {
     const found = ALL_DEVICES.find(d => d.id === initId);
-    if (found) selectPeralatan(found);
+    if (found) {
+        selectPeralatan(found);
+        // Restore komponen_rusak jika ada
+        const initKomponenId = '{{ gangguan.komponen_rusak_id|default:"" }}';
+        if (initKomponenId) {
+            setTimeout(function() {
+                const sel = document.getElementById('id_komponen_rusak');
+                if (sel) sel.value = initKomponenId;
+            }, 500);
+        }
+    }
 }
 
 // ── Tag-input Pelaksana (Gangguan) ───────────────────────────
