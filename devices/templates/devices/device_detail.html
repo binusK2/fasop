@@ -117,6 +117,10 @@
                         <td style="font-size:13px; padding:10px 16px;">{{ device.type|default:"-" }}</td>
                     </tr>
                     <tr>
+                        <td style="font-size:12px; color:#64748b; font-weight:600; padding:10px 16px;">Serial Number</td>
+                        <td style="font-size:13px; padding:10px 16px;">{{ device.serial_number|default:"-" }}</td>
+                    </tr>
+                    <tr>
                         <td style="font-size:12px; color:#64748b; font-weight:600; padding:10px 16px;">Status Operasi</td>
                         <td style="padding:10px 16px;">
                             {% if device.status_operasi == 'operasi' %}
