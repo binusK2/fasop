@@ -1,5 +1,4 @@
 {# maintenance/templates/maintenance/pdf/_base.html #}
-{# Base template PDF — di-extend oleh semua jenis perangkat #}
 <!DOCTYPE html>
 <html>
 <head>
@@ -7,26 +6,38 @@
 <style>
     @page {
         size: A4;
-        margin: 14mm 15mm 15mm 15mm;
-        @bottom-left {
-            content: "Jl. Letjen Hertasning Blok B, Pandang, Panakkukang, Makassar 90222  |  www.pln.co.id  |  T 0411 440066";
-            font-size: 5.5pt; color: #64748B;
-        }
-        @bottom-right {
-            content: "Dicetak: {{ print_by }} — {{ print_date }}";
-            font-size: 5.5pt; color: #64748B;
-        }
+        margin: 12mm 15mm 18mm 15mm;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: Helvetica, Arial, sans-serif; font-size: 7.5pt; color: #0F172A; line-height: 1.35; }
 
     /* ── HEADER ── */
-    .header { border-top: 0.6pt solid #0F172A; border-bottom: 1pt solid #DC2626; padding: 3mm 0; margin-bottom: 2mm; position: relative; min-height: 14mm; }
-    .header-logo-left { position: absolute; left: 0; top: 50%; transform: translateY(-50%); }
-    .header-logo-left img { height: 6mm; }
-    .header-title { text-align: center; font-weight: bold; font-size: 9pt; line-height: 14mm; }
-    .header-right { position: absolute; right: 0; top: 2mm; text-align: right; font-size: 6.5pt; font-weight: bold; color: #1A3A5C; }
-    .header-right img { height: 11mm; margin-top: 0.5mm; }
+    .header-top-line { border-top: 0.8pt solid #0F172A; }
+    .header-wrap {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1.5mm 0;
+    }
+    .header-left img { height: 5.5mm; display: block; }
+    .header-center { text-align: center; font-weight: bold; font-size: 9pt; flex: 1; padding: 0 3mm; }
+    .header-right {
+        display: flex;
+        align-items: center;
+        gap: 0;
+        flex-shrink: 0;
+    }
+    .header-right-text {
+        text-align: right;
+        font-size: 6pt;
+        font-weight: bold;
+        color: #1A3A5C;
+        line-height: 1.4;
+        white-space: nowrap;
+        
+    }
+    .header-right img { height: 9mm; display: block; margin-left: 1.5mm; }
+    .header-red-line { border-top: 1.2pt solid #DC2626; margin-bottom: 2mm; }
 
     /* ── SECTION ── */
     .sec { background: #1A3A5C; color: white; font-weight: bold; font-size: 7.5pt; padding: 3pt 6pt; margin-top: 2mm; }
@@ -48,8 +59,6 @@
     /* ── LAYOUT ── */
     .two-col { display: flex; gap: 2mm; }
     .two-col > div { flex: 1; }
-    .two-col > .w60 { flex: 1.5; }
-    .two-col > .w40 { flex: 1; }
 
     /* ── PENGESAHAN ── */
     .peng { margin-top: 8mm; page-break-inside: avoid; }
@@ -66,23 +75,44 @@
     .peng-bot { display: flex; }
     .peng-bot > div { flex: 1; text-align: center; font-size: 7.5pt; padding: 4pt; border: 0.3pt solid #CBD5E1; border-top: none; background: #F1F5F9; }
 
+    /* ── FOOTER ── */
+    .footer-line {
+        border-top: 0.5pt solid #94A3B8;
+        margin-top: 6mm;
+        padding-top: 1.5mm;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+    }
+    .footer-content {
+        display: flex;
+        justify-content: space-between;
+        font-size: 5.5pt;
+        color: #94A3B8;
+    }
+
     {% block extra_css %}{% endblock %}
 </style>
 </head>
 <body>
 
 {# ── HEADER ── #}
-<div class="header">
-    <div class="header-logo-left">
+<div class="header-top-line"></div>
+<div class="header-wrap">
+    <div class="header-left">
         {% if logo_danantara %}<img src="{{ logo_danantara }}" alt="">{% endif %}
     </div>
-    <div class="header-title">{{ title }}</div>
+    <div class="header-center">{{ title }}</div>
     <div class="header-right">
-        <div>UIP3B SULAWESI</div>
-        <div>UP2B SISTEM MAKASSAR</div>
+        <div class="header-right-text">
+            UIP3B SULAWESI<br>
+            UP2B SISTEM MAKASSAR
+        </div>
         {% if logo_pln %}<img src="{{ logo_pln }}" alt="">{% endif %}
     </div>
 </div>
+<div class="header-red-line"></div>
 
 {# ── I. INFORMASI PEMELIHARAAN ── #}
 <div class="sec">I.&nbsp;&nbsp;INFORMASI PEMELIHARAAN</div>
@@ -129,6 +159,14 @@
         <div>{% if technicians_list %}<div class="names">Nama Pelaksana:</div>{% for n in technicians_list %}<div class="names"><div>{{ forloop.counter }}.&nbsp;&nbsp;{{ n }}</div></div>{% endfor %}{% endif %}</div>
     </div>
     <div class="peng-bot"><div>{% if signed_by %}( {{ signed_by }} ){% else %}( ................................................ ){% endif %}</div><div></div></div>
+</div>
+
+{# ── FOOTER ── #}
+<div class="footer-line">
+    <div class="footer-content">
+        <span>Jl. Letjen Hertasning Blok B, Pandang, Panakkukang, Makassar 90222 &nbsp;|&nbsp; www.pln.co.id &nbsp;|&nbsp; T 0411 440066</span>
+        <span>Dicetak: {{ print_by }} — {{ print_date }}</span>
+    </div>
 </div>
 
 </body>
