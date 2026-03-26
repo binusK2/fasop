@@ -48,7 +48,7 @@ class Device(models.Model):
     type = models.CharField(max_length=100, blank=True, null=True)
     serial_number = models.CharField(max_length=100, blank=True, null=True)
     firmware_version = models.CharField(max_length=100, blank=True, null=True)
-    ip_address = models.GenericIPAddressField(blank=True, null=True)
+    ip_address = models.GenericIPAddressField(blank=True, null=True, unique=True)
     lokasi = models.CharField(max_length=150)
     STATUS_CHOICES = (
         ('operasi', 'Operasi'),
