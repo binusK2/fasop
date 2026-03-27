@@ -120,8 +120,20 @@
             </div>
             <div class="col-md-4">
                 <label class="field-label">Panjang (km)</label>
-                <input type="number" name="panjang_km" class="form-control" step="0.01" min="0"
-                       placeholder="Misal: 42.5" value="{{ fo.panjang_km|default:'' }}">
+                <div class="input-group">
+                    <input type="number" id="input-panjang" class="form-control"
+                        step="0.001" min="0"
+                        placeholder="Misal: 42.500"
+                        value="{{ fo.panjang_km|default:'' }}">
+                    <input type="hidden" name="panjang_km" id="hidden-panjang"
+                        value="{{ fo.panjang_km|default:'' }}">
+                    <button type="button" class="btn btn-outline-secondary"
+                            id="btn-satuan" onclick="toggleSatuan()"
+                            style="min-width:54px;font-weight:600;font-size:13px;">km</button>
+                </div>
+                <div class="field-hint" id="hint-panjang">
+                    Masukkan panjang dalam km — klik tombol untuk ganti ke meter
+                </div>
             </div>
             <div class="col-md-4">
                 <label class="field-label">Tahun Pemasangan</label>
@@ -205,6 +217,47 @@ function makeLokasiAC(inputId, hiddenId, ddId, listId, emptyId) {
         if (!dd.contains(e.target) && e.target !== inp) dd.style.display = 'none';
     });
 }
+
+let satuanAktif = 'km';
+
+function toggleSatuan() {
+    const inp    = document.getElementById('input-panjang');
+    const hidden = document.getElementById('hidden-panjang');
+    const btn    = document.getElementById('btn-satuan');
+    const hint   = document.getElementById('hint-panjang');
+    const val    = parseFloat(inp.value) || 0;
+
+    if (satuanAktif === 'km') {
+        // Ganti ke meter — kalikan 1000
+        satuanAktif = 'm';
+        inp.value    = val ? (val * 1000).toFixed(0) : '';
+        inp.step     = '1';
+        inp.placeholder = 'Misal: 42500';
+        btn.textContent = 'm';
+        btn.classList.replace('btn-outline-secondary', 'btn-outline-primary');
+        hint.textContent = 'Masukkan panjang dalam meter — sistem simpan otomatis dalam km';
+    } else {
+        // Ganti ke km — bagi 1000
+        satuanAktif = 'km';
+        inp.value    = val ? (val / 1000).toFixed(3) : '';
+        inp.step     = '0.001';
+        inp.placeholder = 'Misal: 42.500';
+        btn.textContent = 'km';
+        btn.classList.replace('btn-outline-primary', 'btn-outline-secondary');
+        hint.textContent = 'Masukkan panjang dalam km — klik tombol untuk ganti ke meter';
+    }
+    syncHidden();
+}
+
+function syncHidden() {
+    const inp    = document.getElementById('input-panjang');
+    const hidden = document.getElementById('hidden-panjang');
+    const val    = parseFloat(inp.value) || 0;
+    // Selalu simpan dalam km
+    hidden.value = satuanAktif === 'm' ? (val / 1000).toFixed(3) : val.toFixed(3);
+}
+
+document.getElementById('input-panjang').addEventListener('input', syncHidden);
 
 makeLokasiAC('input-lokasi-a','hidden-lokasi-a','dd-lokasi-a','list-lokasi-a','empty-lokasi-a');
 makeLokasiAC('input-lokasi-b','hidden-lokasi-b','dd-lokasi-b','list-lokasi-b','empty-lokasi-b');
