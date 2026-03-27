@@ -634,6 +634,212 @@ def layanan_icon(request):
         'total_gangguan_aktif': total_gangguan_aktif,
     })
 
+
+# ══════════════════════════════════════════════════════════════
+# FIBER OPTIC VIEWS
+# ══════════════════════════════════════════════════════════════
+
+@login_required
+def fiber_optic_list(request):
+    from .models import FiberOptic
+    from gangguan.models import Gangguan
+
+    qs = FiberOptic.objects.all()
+
+    search       = request.GET.get('q', '').strip()
+    status_f     = request.GET.get('status', '').strip()
+    sort_by      = request.GET.get('sort', 'nama')
+    sort_dir     = request.GET.get('dir', 'asc')
+
+    if search:
+        qs = qs.filter(
+            Q(nama__icontains=search) |
+            Q(lokasi_a__icontains=search) |
+            Q(lokasi_b__icontains=search) |
+            Q(keterangan__icontains=search)
+        )
+    if status_f:
+        qs = qs.filter(status=status_f)
+
+    SORT_MAP = {
+        'nama': 'nama', 'lokasi_a': 'lokasi_a', 'lokasi_b': 'lokasi_b',
+        'panjang': 'panjang_km', 'status': 'status',
+    }
+    order_field = SORT_MAP.get(sort_by, 'nama')
+    if sort_dir == 'desc':
+        order_field = '-' + order_field
+    qs = qs.order_by(order_field)
+
+    fo_list = list(qs)
+
+    # Hitung jumlah gangguan per segmen FO
+    gangguan_counts = dict(
+        Gangguan.objects.filter(fiber_optic__isnull=False)
+        .values('fiber_optic_id')
+        .annotate(total=Count('id'))
+        .values_list('fiber_optic_id', 'total')
+    )
+    for fo in fo_list:
+        fo.jumlah_gangguan = gangguan_counts.get(fo.id, 0)
+
+    # Summary
+    total_fo        = len(fo_list)
+    total_baik      = sum(1 for f in fo_list if f.status == 'baik')
+    total_gangguan  = sum(1 for f in fo_list if f.status == 'gangguan')
+    total_perbaikan = sum(1 for f in fo_list if f.status == 'dalam_perbaikan')
+
+    total_aktif = Gangguan.objects.filter(
+        fiber_optic__isnull=False,
+        status__in=('open', 'in_progress')
+    ).count()
+
+    return render(request, 'devices/fiber_optic_list.html', {
+        'fo_list':           fo_list,
+        'search':            search,
+        'status_filter':     status_f,
+        'sort_by':           sort_by,
+        'sort_dir':          sort_dir,
+        'total_fo':          total_fo,
+        'total_baik':        total_baik,
+        'total_gangguan':    total_gangguan,
+        'total_perbaikan':   total_perbaikan,
+        'total_aktif':       total_aktif,
+        'STATUS_CHOICES':    FiberOptic.STATUS_CHOICES,
+    })
+
+
+@login_required
+@require_can_edit
+def fiber_optic_create(request):
+    from .models import FiberOptic, FiberOpticCore, SiteLocation
+    lokasi_list = list(SiteLocation.objects.values_list('nama', flat=True).order_by('nama'))
+    if request.method == 'POST':
+        jumlah_core = int(request.POST['jumlah_core']) if request.POST.get('jumlah_core') else None
+        fo = FiberOptic(
+            nama          = request.POST.get('nama', '').strip(),
+            lokasi_a      = request.POST.get('lokasi_a', '').strip(),
+            lokasi_b      = request.POST.get('lokasi_b', '').strip(),
+            tipe_kabel    = request.POST.get('tipe_kabel') or None,
+            tipe_konektor = request.POST.get('tipe_konektor') or None,
+            jumlah_core   = jumlah_core,
+            panjang_km    = request.POST.get('panjang_km') or None,
+            tahun_pasang  = int(request.POST['tahun_pasang']) if request.POST.get('tahun_pasang') else None,
+            status        = request.POST.get('status', 'baik'),
+            keterangan    = request.POST.get('keterangan', '').strip() or None,
+            created_by    = request.user,
+        )
+        fo.save()
+        # Buat record core otomatis sesuai jumlah_core
+        if jumlah_core:
+            for n in range(1, jumlah_core + 1):
+                FiberOpticCore.objects.get_or_create(fiber_optic=fo, nomor_core=n)
+        return redirect('fiber_optic_detail', pk=fo.pk)
+    return render(request, 'devices/fiber_optic_form.html', {
+        'is_edit':        False,
+        'TIPE_KABEL':     FiberOptic.TIPE_KABEL_CHOICES,
+        'TIPE_KONEKTOR':  FiberOptic.TIPE_KONEKTOR_CHOICES,
+        'STATUS_CHOICES': FiberOptic.STATUS_CHOICES,
+        'lokasi_list':    lokasi_list,
+    })
+
+
+@login_required
+@require_can_edit
+def fiber_optic_update(request, pk):
+    from .models import FiberOptic, FiberOpticCore, SiteLocation
+    fo = get_object_or_404(FiberOptic, pk=pk)
+    lokasi_list = list(SiteLocation.objects.values_list('nama', flat=True).order_by('nama'))
+    if request.method == 'POST':
+        jumlah_core_baru = int(request.POST['jumlah_core']) if request.POST.get('jumlah_core') else None
+        fo.nama          = request.POST.get('nama', '').strip()
+        fo.lokasi_a      = request.POST.get('lokasi_a', '').strip()
+        fo.lokasi_b      = request.POST.get('lokasi_b', '').strip()
+        fo.tipe_kabel    = request.POST.get('tipe_kabel') or None
+        fo.tipe_konektor = request.POST.get('tipe_konektor') or None
+        fo.jumlah_core   = jumlah_core_baru
+        fo.panjang_km    = request.POST.get('panjang_km') or None
+        fo.tahun_pasang  = int(request.POST['tahun_pasang']) if request.POST.get('tahun_pasang') else None
+        fo.status        = request.POST.get('status', 'baik')
+        fo.keterangan    = request.POST.get('keterangan', '').strip() or None
+        fo.save()
+        # Tambah core baru jika jumlah_core bertambah
+        if jumlah_core_baru:
+            existing = set(fo.cores.values_list('nomor_core', flat=True))
+            for n in range(1, jumlah_core_baru + 1):
+                if n not in existing:
+                    FiberOpticCore.objects.create(fiber_optic=fo, nomor_core=n)
+        return redirect('fiber_optic_detail', pk=fo.pk)
+    return render(request, 'devices/fiber_optic_form.html', {
+        'is_edit':        True,
+        'fo':             fo,
+        'TIPE_KABEL':     FiberOptic.TIPE_KABEL_CHOICES,
+        'TIPE_KONEKTOR':  FiberOptic.TIPE_KONEKTOR_CHOICES,
+        'STATUS_CHOICES': FiberOptic.STATUS_CHOICES,
+        'lokasi_list':    lokasi_list,
+    })
+
+
+@login_required
+def fiber_optic_detail(request, pk):
+    from .models import FiberOptic, FiberOpticCore
+    fo = get_object_or_404(FiberOptic, pk=pk)
+    cores = fo.cores.order_by('nomor_core')
+    from gangguan.models import Gangguan
+    gangguan_list = Gangguan.objects.filter(fiber_optic=fo).order_by('-tanggal_gangguan')
+    return render(request, 'devices/fiber_optic_detail.html', {
+        'fo':            fo,
+        'cores':         cores,
+        'gangguan_list': gangguan_list,
+        'STATUS_CORE':   FiberOpticCore.STATUS_CORE_CHOICES,
+    })
+
+
+@login_required
+@require_can_edit
+def fiber_optic_core_update(request, fo_pk, core_pk):
+    """Update satu baris core via POST (AJAX-friendly)."""
+    from .models import FiberOpticCore
+    core = get_object_or_404(FiberOpticCore, pk=core_pk, fiber_optic_id=fo_pk)
+    if request.method == 'POST':
+        core.fungsi              = request.POST.get('fungsi', '').strip() or None
+        core.status              = request.POST.get('status', 'spare')
+        core.otdr_jarak_km       = request.POST.get('otdr_jarak_km') or None
+        core.otdr_redaman_db     = request.POST.get('otdr_redaman_db') or None
+        core.otdr_redaman_per_km = request.POST.get('otdr_redaman_per_km') or None
+        core.otdr_tanggal        = request.POST.get('otdr_tanggal') or None
+        core.otdr_catatan        = request.POST.get('otdr_catatan', '').strip() or None
+        core.keterangan          = request.POST.get('keterangan', '').strip() or None
+        core.save()
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'ok': True})
+    return redirect('fiber_optic_detail', pk=fo_pk)
+
+
+@login_required
+@require_can_delete
+def fiber_optic_delete(request, pk):
+    from .models import FiberOptic
+    fo = get_object_or_404(FiberOptic, pk=pk)
+    if request.method == 'POST':
+        fo.delete()
+    return redirect('fiber_optic_list')
+
+
+def api_fiber_optic_json(request):
+    """API: semua segmen FO sebagai JSON untuk JS autocomplete di form gangguan."""
+    from .models import FiberOptic
+    data = list(
+        FiberOptic.objects.all().order_by('nama').values(
+            'id', 'nama', 'lokasi_a', 'lokasi_b',
+            'tipe_kabel', 'tipe_konektor', 'jumlah_core',
+            'panjang_km', 'status',
+        )
+    )
+    for d in data:
+        if d['panjang_km']:
+            d['panjang_km'] = str(d['panjang_km'])
+    return JsonResponse({'fiber_optic': data})
+
 @login_required
 @require_can_edit
 def icon_create(request):

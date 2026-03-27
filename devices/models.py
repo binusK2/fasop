@@ -347,6 +347,173 @@ class DeviceEvent(models.Model):
         return self.dilakukan_oleh.get_full_name() or self.dilakukan_oleh.username
 
 
+
+class FiberOptic(models.Model):
+    """Inventaris segmen kabel fiber optic."""
+
+    TIPE_KABEL_CHOICES = (
+        ('ADSS',  'ADSS (All-Dielectric Self-Supporting)'),
+        ('OPGW',  'OPGW (Optical Ground Wire)'),
+        ('DROP',  'Drop Cable'),
+    )
+
+    TIPE_KONEKTOR_CHOICES = (
+        ('SC',     'SC (subscriber Connector)'),
+        ('LC',     'LC (Lucent Connector)'),
+        ('FC',     'FC (Ferrule Connector)'),
+        ('lainnya','Lainnya'),
+    )
+
+    STATUS_CHOICES = (
+        ('baik',           'Baik'),
+        ('gangguan',       'Gangguan'),
+        ('dalam_perbaikan','Dalam Perbaikan'),
+        ('tidak_aktif',    'Tidak Aktif'),
+    )
+
+    # ── Identitas ────────────────────────────────────────────────
+    nama         = models.CharField(max_length=200, verbose_name='Nama Segmen',
+                                    help_text='Misal: Link FO GI Tello – GI Barru')
+    lokasi_a     = models.CharField(max_length=150, verbose_name='Titik A (Asal)')
+    lokasi_b     = models.CharField(max_length=150, verbose_name='Titik B (Tujuan)')
+
+    # ── Spesifikasi kabel ────────────────────────────────────────
+    tipe_kabel      = models.CharField(max_length=20, choices=TIPE_KABEL_CHOICES,
+                                       blank=True, null=True, verbose_name='Tipe Kabel')
+    tipe_konektor   = models.CharField(max_length=20, choices=TIPE_KONEKTOR_CHOICES,
+                                       blank=True, null=True, verbose_name='Tipe Konektor')
+    jumlah_core     = models.PositiveIntegerField(blank=True, null=True,
+                                                   verbose_name='Jumlah Core')
+    panjang_km      = models.DecimalField(max_digits=8, decimal_places=2,
+                                          blank=True, null=True, verbose_name='Panjang (km)')
+
+    # ── Info operasional ─────────────────────────────────────────
+    tahun_pasang    = models.PositiveIntegerField(blank=True, null=True,
+                                                   verbose_name='Tahun Pemasangan')
+    status          = models.CharField(max_length=20, choices=STATUS_CHOICES,
+                                       default='baik', verbose_name='Status')
+    keterangan      = models.TextField(blank=True, null=True, verbose_name='Keterangan')
+
+    # ── Metadata ─────────────────────────────────────────────────
+    created_at   = models.DateTimeField(auto_now_add=True)
+    updated_at   = models.DateTimeField(auto_now=True)
+    created_by   = models.ForeignKey(
+        'auth.User', on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='fiber_dibuat',
+        verbose_name='Dibuat Oleh',
+    )
+
+    class Meta:
+        verbose_name        = 'Fiber Optic'
+        verbose_name_plural = 'Fiber Optic'
+        ordering            = ['nama']
+
+    def __str__(self):
+        return f'{self.nama} ({self.lokasi_a} ↔ {self.lokasi_b})'
+
+    @property
+    def status_color(self):
+        return {
+            'baik':           '#10b981',
+            'gangguan':       '#ef4444',
+            'dalam_perbaikan':'#f59e0b',
+            'tidak_aktif':    '#94a3b8',
+        }.get(self.status, '#94a3b8')
+
+    @property
+    def status_bg(self):
+        return {
+            'baik':           '#dcfce7',
+            'gangguan':       '#fee2e2',
+            'dalam_perbaikan':'#fef3c7',
+            'tidak_aktif':    '#f1f5f9',
+        }.get(self.status, '#f1f5f9')
+
+class FiberOpticCore(models.Model):
+    """Detail per-core dari satu segmen fiber optic."""
+
+    STATUS_CORE_CHOICES = (
+        ('aktif',     'Aktif / Digunakan'),
+        ('spare',     'Spare / Cadangan'),
+        ('rusak',     'Rusak / Putus'),
+        ('tidak_aktif','Tidak Aktif'),
+    )
+
+    fiber_optic  = models.ForeignKey(
+        FiberOptic, on_delete=models.CASCADE,
+        related_name='cores', verbose_name='Segmen FO',
+    )
+    nomor_core   = models.PositiveIntegerField(verbose_name='Nomor Core')
+    fungsi       = models.CharField(
+        max_length=200, blank=True, null=True,
+        verbose_name='Fungsi / Digunakan Untuk',
+        help_text='Misal: Link SCADA GI Tello–Barru, VoIP Kantor, Spare',
+    )
+    status       = models.CharField(
+        max_length=20, choices=STATUS_CORE_CHOICES,
+        default='spare', verbose_name='Status Core',
+    )
+
+    # ── Hasil OTDR ───────────────────────────────────────────────
+    otdr_jarak_km    = models.DecimalField(
+        max_digits=8, decimal_places=3,
+        blank=True, null=True,
+        verbose_name='OTDR Jarak (km)',
+        help_text='Jarak total atau jarak ke titik gangguan',
+    )
+    otdr_redaman_db  = models.DecimalField(
+        max_digits=6, decimal_places=3,
+        blank=True, null=True,
+        verbose_name='OTDR Redaman (dB)',
+        help_text='Total redaman kabel',
+    )
+    otdr_redaman_per_km = models.DecimalField(
+        max_digits=5, decimal_places=3,
+        blank=True, null=True,
+        verbose_name='Redaman per km (dB/km)',
+    )
+    otdr_tanggal     = models.DateField(
+        blank=True, null=True,
+        verbose_name='Tanggal Pengukuran OTDR',
+    )
+    otdr_catatan     = models.TextField(
+        blank=True, null=True,
+        verbose_name='Catatan OTDR',
+        help_text='Temuan, anomali, atau catatan hasil pengukuran',
+    )
+
+    keterangan   = models.TextField(blank=True, null=True, verbose_name='Keterangan')
+    updated_at   = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name        = 'Core Fiber Optic'
+        verbose_name_plural = 'Core Fiber Optic'
+        ordering            = ['fiber_optic', 'nomor_core']
+        unique_together     = [('fiber_optic', 'nomor_core')]
+
+    def __str__(self):
+        return f'Core {self.nomor_core} — {self.fiber_optic.nama}'
+
+    @property
+    def status_color(self):
+        return {
+            'aktif':      '#10b981',
+            'spare':      '#3b82f6',
+            'rusak':      '#ef4444',
+            'tidak_aktif':'#94a3b8',
+        }.get(self.status, '#94a3b8')
+
+    @property
+    def status_bg(self):
+        return {
+            'aktif':      '#dcfce7',
+            'spare':      '#eff6ff',
+            'rusak':      '#fee2e2',
+            'tidak_aktif':'#f1f5f9',
+        }.get(self.status, '#f1f5f9')
+
+
 # ── Import model komponen agar ikut migrasi ──────────────────
 from devices.models_komponen import (  # noqa: E402, F401
     GrupTipeKomponen, TipeKomponen,

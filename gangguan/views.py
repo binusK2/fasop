@@ -118,6 +118,24 @@ def _get_icon_json():
     ])
 
 
+def _get_fo_json():
+    """Semua segmen FO sebagai JSON untuk JS autocomplete."""
+    import json
+    from devices.models import FiberOptic
+    fo_list = FiberOptic.objects.all().order_by('nama').values(
+        'id', 'nama', 'lokasi_a', 'lokasi_b',
+        'tipe_kabel', 'tipe_konektor', 'jumlah_core',
+        'panjang_km', 'status',
+    )
+    data = []
+    for f in fo_list:
+        d = dict(f)
+        if d['panjang_km']:
+            d['panjang_km'] = str(d['panjang_km'])
+        data.append(d)
+    return json.dumps(data)
+
+
 @login_required
 @require_can_edit
 def gangguan_create(request):
@@ -173,6 +191,21 @@ def gangguan_create(request):
             except (Icon.DoesNotExist, ValueError):
                 prefill_icon = None
 
+        # Prefill dari ?fo_id= (dari halaman fiber optic)
+        prefill_fo = None
+        fo_id_param = request.GET.get('fo_id', '').strip()
+        if fo_id_param:
+            try:
+                from devices.models import FiberOptic
+                prefill_fo = FiberOptic.objects.get(pk=int(fo_id_param))
+                if prefill_fo.lokasi_a:
+                    initial['site'] = prefill_fo.lokasi_a
+                initial['lokasi_b']    = prefill_fo.lokasi_b
+                initial['fiber_optic'] = prefill_fo.pk
+                initial['tipe_gangguan'] = 'link'
+            except (FiberOptic.DoesNotExist, ValueError):
+                prefill_fo = None
+
         form = GangguanForm(initial=initial)
 
     site_list = list(
@@ -202,8 +235,10 @@ def gangguan_create(request):
         'device_json':           device_json,
         'type_json':             type_json,
         'icon_json':             _get_icon_json(),
+        'fo_json':               _get_fo_json(),
         'prefill_icon':          prefill_icon if 'prefill_icon' in dir() else None,
         'prefill_icon_id':       prefill_icon.pk if 'prefill_icon' in dir() and prefill_icon else '',
+        'prefill_fo_id':         prefill_fo.pk if 'prefill_fo' in dir() and prefill_fo else '',
         'selected_peralatan_id': '',
     })
 
@@ -286,8 +321,10 @@ def gangguan_update(request, pk):
         'device_json':           device_json,
         'type_json':             type_json,
         'icon_json':             _get_icon_json(),
+        'fo_json':               _get_fo_json(),
         'prefill_icon':          None,
         'prefill_icon_id':       '',
+        'prefill_fo_id':         '',
         'selected_peralatan_id': gangguan.peralatan_id or '',
     })
 

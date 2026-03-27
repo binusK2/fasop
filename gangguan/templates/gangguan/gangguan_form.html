@@ -48,6 +48,30 @@
 <form method="post" enctype="multipart/form-data" autocomplete="off">
 {% csrf_token %}
 
+
+<!-- ── TIPE GANGGUAN TOGGLE ──────────────────────────────── -->
+<div class="card mb-3" style="border-color:#e2e8f0;">
+    <div class="card-body px-4 py-3">
+        <div class="section-bar">
+            <span class="bar" style="background:#6366f1;"></span>
+            <span>Tipe Gangguan</span>
+        </div>
+        <div class="d-flex gap-2 flex-wrap" id="tipe-gangguan-btns">
+            <button type="button" id="btn-tipe-device" onclick="setTipeGangguan('device')"
+                class="btn btn-sm" style="padding:8px 20px;font-size:13px;font-weight:600;border-radius:8px;border:2px solid #3b82f6;background:#eff6ff;color:#1d4ed8;">
+                <i class="bi bi-cpu me-2"></i>Gangguan Device / Perangkat
+            </button>
+            <button type="button" id="btn-tipe-link" onclick="setTipeGangguan('link')"
+                class="btn btn-sm" style="padding:8px 20px;font-size:13px;font-weight:600;border-radius:8px;border:2px solid #e2e8f0;background:transparent;color:#64748b;">
+                <i class="bi bi-diagram-2 me-2"></i>Gangguan Link / Fiber Optic
+            </button>
+        </div>
+        <input type="hidden" name="tipe_gangguan" id="id_tipe_gangguan" value="{{ form.tipe_gangguan.value|default:'device' }}">
+        <div class="field-hint mt-2" id="tipe-hint-device">Gangguan pada perangkat aktif: router, switch, MUX, rectifier, dsb.</div>
+        <div class="field-hint mt-2" id="tipe-hint-link" style="display:none;">Gangguan pada link/koneksi antar dua titik: fiber optic putus, link down, dsb.</div>
+    </div>
+</div>
+
 <!-- ── 1. IDENTITAS GANGGUAN ──────────────────────────────── -->
 <div class="card mb-3">
     <div class="card-body px-4 py-3">
@@ -74,8 +98,8 @@
     </div>
 </div>
 
-<!-- ── 2. LOKASI & PERALATAN ─────────────────────────────── -->
-<div class="card mb-3">
+<!-- ── 2. LOKASI & PERALATAN (device) ─────────────────────── -->
+<div class="card mb-3" id="section-device">
     <div class="card-body px-4 py-3">
         <div class="section-bar">
             <span class="bar" style="background:#3b82f6;"></span>
@@ -84,9 +108,7 @@
         <div class="row g-3">
             <div class="col-md-6">
                 <label class="field-label">Site / Lokasi Gangguan <span class="req">*</span></label>
-                <!-- Hidden input yang dikirim ke server -->
-                <input type="hidden" name="site" id="id_site" value="{{ form.site.value|default:'' }}" required>
-                <!-- Search input yang terlihat user -->
+                <input type="hidden" name="site" id="id_site" value="{{ form.site.value|default:'' }}">
                 <div style="position:relative;">
                     <i class="bi bi-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:13px;pointer-events:none;z-index:1;"></i>
                     <input type="text" id="site-search-input" autocomplete="off"
@@ -108,83 +130,158 @@
             </div>
             <div class="col-md-6">
                 <label class="field-label">Peralatan Terdampak</label>
-
-                <!-- Filter jenis -->
                 <div class="d-flex gap-2 mb-2">
-                    <select id="filter-jenis" class="form-select form-select-sm"
-                            style="flex:0 0 auto;width:160px;">
+                    <select id="filter-jenis" class="form-select form-select-sm" style="flex:0 0 auto;width:160px;">
                         <option value="">Semua Jenis</option>
                     </select>
                     <div style="position:relative;flex:1;">
-                        <i class="bi bi-search" style="position:absolute;left:9px;top:50%;
-                           transform:translateY(-50%);color:#94a3b8;font-size:12px;pointer-events:none;"></i>
-                        <input type="text" id="search-peralatan"
-                               class="form-control form-control-sm"
-                               style="padding-left:28px;"
-                               placeholder="Cari nama perangkat…">
+                        <i class="bi bi-search" style="position:absolute;left:9px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:12px;pointer-events:none;"></i>
+                        <input type="text" id="search-peralatan" class="form-control form-control-sm"
+                               style="padding-left:28px;" placeholder="Cari nama perangkat…">
                     </div>
                 </div>
-
-                <!-- Dropdown peralatan (hidden input sesungguhnya) -->
-                <input type="hidden" name="peralatan" id="id_peralatan"
-                       value="{{ selected_peralatan_id }}">
-
+                <input type="hidden" name="peralatan" id="id_peralatan" value="{{ selected_peralatan_id }}">
                 <div id="peralatan-selected"
-                     style="display:none;background:#eff6ff;border:1px solid #bfdbfe;
-                            border-radius:8px;padding:8px 12px;margin-bottom:6px;
-                            display:flex;align-items:center;justify-content:space-between;">
+                     style="display:none;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;
+                            padding:8px 12px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;">
                     <div>
                         <div style="font-size:13px;font-weight:600;color:#1d4ed8;" id="peralatan-selected-nama">—</div>
                         <div style="font-size:11px;color:#64748b;" id="peralatan-selected-info"></div>
                     </div>
-                    <button type="button" onclick="clearPeralatan()"
-                            style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:14px;padding:0;">
+                    <button type="button" onclick="clearPeralatan()" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:14px;padding:0;">
                         <i class="bi bi-x-lg"></i>
                     </button>
                 </div>
-
-                <div id="peralatan-dropdown"
-                     style="border:1px solid #e2e8f0;border-radius:8px;max-height:200px;
-                            overflow-y:auto;background:white;display:none;">
+                <div id="peralatan-dropdown" style="border:1px solid #e2e8f0;border-radius:8px;max-height:200px;overflow-y:auto;background:white;display:none;">
                     <div id="peralatan-list"></div>
-                    <div id="peralatan-empty"
-                         style="display:none;padding:12px 14px;text-align:center;
-                                font-size:12.5px;color:#94a3b8;">
+                    <div id="peralatan-empty" style="display:none;padding:12px 14px;text-align:center;font-size:12.5px;color:#94a3b8;">
                         <i class="bi bi-search me-1"></i>Tidak ada perangkat ditemukan
                     </div>
                 </div>
-
                 <div class="field-hint">Opsional — pilih jenis lalu cari nama perangkat</div>
             </div>
-
-            {# ── Komponen Rusak (diisi via AJAX) ── #}
             <div class="col-md-12" id="komponen-rusak-wrapper" style="display:none;">
-                <label class="field-label">
-                    <i class="bi bi-cpu me-1" style="color:#8b5cf6;"></i>
-                    Komponen Rusak
-                </label>
+                <label class="field-label"><i class="bi bi-cpu me-1" style="color:#8b5cf6;"></i>Komponen Rusak</label>
                 <select name="komponen_rusak" id="id_komponen_rusak" class="form-select">
                     <option value="">— Pilih komponen (opsional) —</option>
                 </select>
-                <div class="field-hint">Opsional — pilih komponen spesifik yang rusak pada perangkat ini</div>
+                <div class="field-hint">Opsional — pilih komponen spesifik yang rusak</div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- ── 2B. LAYANAN ICON+ TERDAMPAK ───────────────────────── -->
-<div class="card mb-3" style="border-color:#bae6fd;">
+<!-- ── 2B. LINK / FIBER OPTIC ─────────────────────────────── -->
+<div class="card mb-3" id="section-link" style="display:none;border-color:#fed7aa;">
+    <div class="card-body px-4 py-3">
+        <div class="section-bar">
+            <span class="bar" style="background:#f97316;"></span>
+            <span style="color:#9a3412;">Link & Fiber Optic</span>
+        </div>
+
+        {# Cari segmen FO #}
+        <label class="field-label">Segmen Fiber Optic</label>
+        <input type="hidden" name="fiber_optic" id="id_fiber_optic"
+               value="{% if is_edit and gangguan.fiber_optic_id %}{{ gangguan.fiber_optic_id }}{% else %}{{ prefill_fo_id|default:'' }}{% endif %}">
+        <div style="position:relative;max-width:600px;margin-bottom:8px;">
+            <i class="bi bi-diagram-2" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#f97316;font-size:13px;pointer-events:none;z-index:1;"></i>
+            <input type="text" id="fo-search-input" autocomplete="off"
+                   class="form-control" style="padding-left:32px;"
+                   placeholder="Ketik nama segmen, lokasi A atau B...">
+            <div id="fo-dropdown"
+                 style="display:none;position:absolute;top:100%;left:0;right:0;z-index:200;
+                        background:white;border:1px solid #fed7aa;border-radius:10px;
+                        box-shadow:0 6px 20px rgba(249,115,22,0.12);
+                        max-height:260px;overflow-y:auto;margin-top:4px;">
+                <div id="fo-list"></div>
+                <div id="fo-empty" style="display:none;padding:14px;font-size:12.5px;color:#94a3b8;text-align:center;">
+                    <i class="bi bi-diagram-2 me-1"></i>Segmen tidak ditemukan
+                </div>
+            </div>
+        </div>
+
+        {# Card FO terpilih #}
+        <div id="fo-selected-card"
+             style="display:none;margin-bottom:12px;background:linear-gradient(135deg,#fff7ed,#ffedd5);
+                    border:1.5px solid #fdba74;border-radius:12px;padding:12px 16px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <div style="width:36px;height:36px;border-radius:10px;background:#f97316;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                        <i class="bi bi-diagram-2" style="color:white;font-size:16px;"></i>
+                    </div>
+                    <div>
+                        <div style="font-weight:700;font-size:13.5px;color:#7c2d12;" id="fo-sel-nama">—</div>
+                        <div style="font-size:11.5px;color:#9a3412;margin-top:2px;" id="fo-sel-rute">—</div>
+                    </div>
+                </div>
+                <button type="button" onclick="clearFO()"
+                        style="background:rgba(249,115,22,0.1);border:none;color:#f97316;cursor:pointer;border-radius:8px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;">
+                    <i class="bi bi-x-lg" style="font-size:12px;"></i>
+                </button>
+            </div>
+            <div style="margin-top:10px;padding-top:10px;border-top:1px solid #fdba74;display:flex;gap:20px;flex-wrap:wrap;">
+                <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#fdba74;margin-bottom:2px;">Tipe Kabel</div>
+                     <div style="font-size:12px;font-weight:600;color:#7c2d12;" id="fo-sel-kabel">—</div></div>
+                <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#fdba74;margin-bottom:2px;">Konektor</div>
+                     <div style="font-size:12px;font-weight:600;color:#7c2d12;" id="fo-sel-konektor">—</div></div>
+                <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#fdba74;margin-bottom:2px;">Jumlah Core</div>
+                     <div style="font-size:12px;font-weight:600;color:#7c2d12;" id="fo-sel-core">—</div></div>
+                <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#fdba74;margin-bottom:2px;">Panjang</div>
+                     <div style="font-size:12px;font-weight:600;color:#7c2d12;" id="fo-sel-panjang">—</div></div>
+            </div>
+        </div>
+
+        <div class="row g-3 mt-1">
+            <div class="col-md-6">
+                <label class="field-label">Lokasi A (Titik Asal) <span class="req">*</span></label>
+                <input type="hidden" name="site" id="id_site_link" value="{{ form.site.value|default:'' }}">
+                <input type="text" id="site-link-display" class="form-control"
+                       placeholder="Otomatis terisi dari segmen FO, atau ketik manual"
+                       value="{{ form.site.value|default:'' }}"
+                       oninput="document.getElementById('id_site_link').value=this.value;">
+                <div class="field-hint">Titik asal / lokasi terdekat dengan gangguan</div>
+            </div>
+            <div class="col-md-6">
+                <label class="field-label">Lokasi B (Titik Tujuan)</label>
+                <input type="text" name="lokasi_b" class="form-control"
+                       placeholder="Otomatis terisi dari segmen FO, atau ketik manual"
+                       id="id_lokasi_b"
+                       value="{{ form.lokasi_b.value|default:'' }}">
+            </div>
+            <div class="col-md-6">
+                <label class="field-label">Core yang Putus</label>
+                <input type="text" name="core_putus" class="form-control"
+                       placeholder="Misal: Core 1-2, Core 5, Semua core"
+                       value="{{ form.core_putus.value|default:'' }}">
+                <div class="field-hint">Opsional — isi jika diketahui core spesifik yang terputus</div>
+            </div>
+            <div class="col-md-6">
+                <label class="field-label">Layanan ICON+ Terdampak</label>
+                <input type="hidden" name="layanan_icon" id="id_layanan_icon_link" value="{% if is_edit and gangguan.layanan_icon_id %}{{ gangguan.layanan_icon_id }}{% endif %}">
+                <div style="position:relative;">
+                    <i class="bi bi-wifi" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#0ea5e9;font-size:13px;pointer-events:none;z-index:1;"></i>
+                    <input type="text" id="icon-link-search" autocomplete="off" class="form-control" style="padding-left:32px;"
+                           placeholder="Ketik nama layanan ICON+ terdampak...">
+                </div>
+                <div id="icon-link-selected" style="display:none;margin-top:6px;background:#f0f9ff;border:1px solid #7dd3fc;border-radius:8px;padding:8px 12px;display:flex;align-items:center;justify-content:space-between;">
+                    <div style="font-size:13px;font-weight:600;color:#0c4a6e;" id="icon-link-sel-name">—</div>
+                    <button type="button" onclick="clearIconLink()" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:14px;padding:0;"><i class="bi bi-x-lg"></i></button>
+                </div>
+                <div class="field-hint">Opsional — layanan yang lewat kabel ini</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── 2C. LAYANAN ICON+ (device mode) ───────────────────── -->
+<div class="card mb-3" id="section-icon-device" style="border-color:#bae6fd;">
     <div class="card-body px-4 py-3">
         <div class="section-bar">
             <span class="bar" style="background:#0ea5e9;"></span>
             <span style="color:#0369a1;">Layanan ICON+ Terdampak</span>
         </div>
-
-        {# Hidden field layanan_icon yang dikirim ke server #}
         <input type="hidden" name="layanan_icon" id="id_layanan_icon"
-               value="{% if is_edit and gangguan.layanan_icon_id %}{{ gangguan.layanan_icon_id }}{% else %}{{ prefill_icon_id }}{% endif %}">
-
-        {# Search box #}
+               value="{% if is_edit and gangguan.layanan_icon_id %}{{ gangguan.layanan_icon_id }}{% else %}{{ prefill_icon_id|default:'' }}{% endif %}">
         <div style="position:relative;max-width:560px;">
             <i class="bi bi-wifi" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#0ea5e9;font-size:13px;pointer-events:none;z-index:1;"></i>
             <input type="text" id="icon-search-input" autocomplete="off"
@@ -193,24 +290,18 @@
             <div id="icon-dropdown"
                  style="display:none;position:absolute;top:100%;left:0;right:0;z-index:200;
                         background:white;border:1px solid #e0f2fe;border-radius:10px;
-                        box-shadow:0 6px 20px rgba(14,165,233,0.12);
-                        max-height:260px;overflow-y:auto;margin-top:4px;">
+                        box-shadow:0 6px 20px rgba(14,165,233,0.12);max-height:260px;overflow-y:auto;margin-top:4px;">
                 <div id="icon-list"></div>
-                <div id="icon-empty"
-                     style="display:none;padding:14px;font-size:12.5px;color:#94a3b8;text-align:center;">
+                <div id="icon-empty" style="display:none;padding:14px;font-size:12.5px;color:#94a3b8;text-align:center;">
                     <i class="bi bi-wifi-off me-1"></i>Layanan tidak ditemukan
                 </div>
             </div>
         </div>
-
-        {# Card layanan yang dipilih #}
         <div id="icon-selected-card"
-             style="display:none;margin-top:10px;background:linear-gradient(135deg,#f0f9ff,#e0f2fe);
-                    border:1.5px solid #7dd3fc;border-radius:12px;padding:12px 16px;">
+             style="display:none;margin-top:10px;background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border:1.5px solid #7dd3fc;border-radius:12px;padding:12px 16px;">
             <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
                 <div style="display:flex;align-items:center;gap:10px;">
-                    <div style="width:36px;height:36px;border-radius:10px;background:#0ea5e9;
-                                display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                    <div style="width:36px;height:36px;border-radius:10px;background:#0ea5e9;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
                         <i class="bi bi-wifi" style="color:white;font-size:16px;"></i>
                     </div>
                     <div>
@@ -219,48 +310,24 @@
                     </div>
                 </div>
                 <div style="display:flex;align-items:center;gap:8px;">
-                    <span id="icon-sel-kondisi-badge"
-                          style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;
-                                 background:#fee2e2;color:#991b1b;white-space:nowrap;display:none;"></span>
-                    <button type="button" onclick="clearIconLayanan()"
-                            style="background:rgba(14,165,233,0.1);border:none;color:#0ea5e9;
-                                   cursor:pointer;border-radius:8px;width:28px;height:28px;
-                                   display:flex;align-items:center;justify-content:center;">
+                    <span id="icon-sel-kondisi-badge" style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;background:#fee2e2;color:#991b1b;white-space:nowrap;display:none;"></span>
+                    <button type="button" onclick="clearIconLayanan()" style="background:rgba(14,165,233,0.1);border:none;color:#0ea5e9;cursor:pointer;border-radius:8px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;">
                         <i class="bi bi-x-lg" style="font-size:12px;"></i>
                     </button>
                 </div>
             </div>
-            <div style="margin-top:10px;padding-top:10px;border-top:1px solid #bae6fd;
-                        display:flex;gap:20px;flex-wrap:wrap;">
-                <div>
-                    <div style="font-size:10px;font-weight:700;text-transform:uppercase;
-                                letter-spacing:0.5px;color:#7dd3fc;margin-bottom:2px;">SID 1</div>
-                    <div style="font-size:12px;font-weight:600;color:#0c4a6e;
-                                font-family:'JetBrains Mono',monospace;" id="icon-sel-sid1">—</div>
-                </div>
-                <div>
-                    <div style="font-size:10px;font-weight:700;text-transform:uppercase;
-                                letter-spacing:0.5px;color:#7dd3fc;margin-bottom:2px;">SID 2</div>
-                    <div style="font-size:12px;font-weight:600;color:#0c4a6e;
-                                font-family:'JetBrains Mono',monospace;" id="icon-sel-sid2">—</div>
-                </div>
-                <div>
-                    <div style="font-size:10px;font-weight:700;text-transform:uppercase;
-                                letter-spacing:0.5px;color:#7dd3fc;margin-bottom:2px;">Bandwidth</div>
-                    <div style="font-size:12px;font-weight:600;color:#0c4a6e;" id="icon-sel-bw">—</div>
-                </div>
-                <div>
-                    <div style="font-size:10px;font-weight:700;text-transform:uppercase;
-                                letter-spacing:0.5px;color:#7dd3fc;margin-bottom:2px;">Lokasi</div>
-                    <div style="font-size:12px;font-weight:600;color:#0c4a6e;" id="icon-sel-lok">—</div>
-                </div>
+            <div style="margin-top:10px;padding-top:10px;border-top:1px solid #bae6fd;display:flex;gap:20px;flex-wrap:wrap;">
+                <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#7dd3fc;margin-bottom:2px;">SID 1</div>
+                     <div style="font-size:12px;font-weight:600;color:#0c4a6e;font-family:'JetBrains Mono',monospace;" id="icon-sel-sid1">—</div></div>
+                <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#7dd3fc;margin-bottom:2px;">SID 2</div>
+                     <div style="font-size:12px;font-weight:600;color:#0c4a6e;font-family:'JetBrains Mono',monospace;" id="icon-sel-sid2">—</div></div>
+                <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#7dd3fc;margin-bottom:2px;">Bandwidth</div>
+                     <div style="font-size:12px;font-weight:600;color:#0c4a6e;" id="icon-sel-bw">—</div></div>
+                <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#7dd3fc;margin-bottom:2px;">Lokasi</div>
+                     <div style="font-size:12px;font-weight:600;color:#0c4a6e;" id="icon-sel-lok">—</div></div>
             </div>
         </div>
-
-        <div class="field-hint mt-2">
-            <i class="bi bi-info-circle me-1"></i>
-            Opsional — pilih layanan ICON+ yang terdampak. Jumlah gangguan akan otomatis terhitung di halaman Layanan ICON+.
-        </div>
+        <div class="field-hint mt-2"><i class="bi bi-info-circle me-1"></i>Opsional — pilih layanan ICON+ yang terdampak.</div>
     </div>
 </div>
 
@@ -771,6 +838,230 @@ if (initIconId) {
     var currentSite = siteInput.value.trim();
     if (currentSite) {
         siteHidden.value = currentSite;
+    }
+})();
+
+// ── Fiber Optic data & autocomplete ──────────────────────────
+const ALL_FO = {{ fo_json|safe }};
+
+const foSearchInput  = document.getElementById('fo-search-input');
+const foDropdown     = document.getElementById('fo-dropdown');
+const foListEl       = document.getElementById('fo-list');
+const foEmptyEl      = document.getElementById('fo-empty');
+const foHidden       = document.getElementById('id_fiber_optic');
+const foSelectedCard = document.getElementById('fo-selected-card');
+
+function renderFOList(query) {
+    const q = query.trim().toLowerCase();
+    const filtered = q
+        ? ALL_FO.filter(f =>
+            (f.nama    || '').toLowerCase().includes(q) ||
+            (f.lokasi_a|| '').toLowerCase().includes(q) ||
+            (f.lokasi_b|| '').toLowerCase().includes(q))
+        : ALL_FO;
+    foListEl.innerHTML = '';
+    if (filtered.length === 0) {
+        foEmptyEl.style.display = 'block';
+    } else {
+        foEmptyEl.style.display = 'none';
+        filtered.slice(0, 30).forEach(function(f) {
+            const item = document.createElement('div');
+            item.style.cssText = 'padding:10px 14px;cursor:pointer;border-bottom:1px solid #fff7ed;transition:background 0.1s;';
+            const statusColor = f.status === 'baik' ? '#065f46' : f.status === 'gangguan' ? '#991b1b' : '#92400e';
+            const statusBg    = f.status === 'baik' ? '#dcfce7' : f.status === 'gangguan' ? '#fee2e2' : '#fef3c7';
+            item.innerHTML = `
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                    <div>
+                        <div style="font-size:13px;font-weight:600;color:#7c2d12;">${f.nama}</div>
+                        <div style="font-size:11px;color:#64748b;margin-top:1px;">
+                            <span style="background:#eff6ff;color:#1d4ed8;padding:1px 6px;border-radius:4px;font-size:10.5px;">${f.lokasi_a}</span>
+                            <i class="bi bi-arrow-left-right" style="font-size:9px;margin:0 4px;color:#94a3b8;"></i>
+                            <span style="background:#f0fdf4;color:#065f46;padding:1px 6px;border-radius:4px;font-size:10.5px;">${f.lokasi_b}</span>
+                            ${f.panjang_km ? ' · ' + f.panjang_km + ' km' : ''}
+                        </div>
+                    </div>
+                    <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:${statusBg};color:${statusColor};white-space:nowrap;flex-shrink:0;">${f.status}</span>
+                </div>`;
+            item.onmouseenter = () => item.style.background = '#fff7ed';
+            item.onmouseleave = () => item.style.background = '';
+            item.onmousedown = function(e) { e.preventDefault(); selectFO(f); };
+            foListEl.appendChild(item);
+        });
+    }
+}
+
+function selectFO(f) {
+    foHidden.value = f.id;
+    foSearchInput.value = '';
+    foDropdown.style.display = 'none';
+
+    document.getElementById('fo-sel-nama').textContent    = f.nama;
+    document.getElementById('fo-sel-rute').textContent    = f.lokasi_a + ' ↔ ' + f.lokasi_b;
+    document.getElementById('fo-sel-kabel').textContent   = f.tipe_kabel || '—';
+    document.getElementById('fo-sel-konektor').textContent= f.tipe_konektor || '—';
+    document.getElementById('fo-sel-core').textContent    = f.jumlah_core ? f.jumlah_core + ' core' : '—';
+    document.getElementById('fo-sel-panjang').textContent = f.panjang_km ? f.panjang_km + ' km' : '—';
+    foSelectedCard.style.display = 'block';
+
+    // Auto-isi Lokasi A dan Lokasi B
+    const siteLinkEl = document.getElementById('site-link-display');
+    const siteHiddenLink = document.getElementById('id_site_link');
+    const lokBEl = document.getElementById('id_lokasi_b');
+    if (siteLinkEl && !siteLinkEl.value) {
+        siteLinkEl.value = f.lokasi_a;
+        if (siteHiddenLink) siteHiddenLink.value = f.lokasi_a;
+    }
+    if (lokBEl && !lokBEl.value) lokBEl.value = f.lokasi_b;
+}
+
+function clearFO() {
+    foHidden.value = '';
+    foSelectedCard.style.display = 'none';
+    foSearchInput.value = '';
+}
+
+if (foSearchInput) {
+    foSearchInput.addEventListener('focus', function() { renderFOList(this.value); foDropdown.style.display = 'block'; });
+    foSearchInput.addEventListener('input', function() { renderFOList(this.value); foDropdown.style.display = 'block'; });
+    foSearchInput.addEventListener('blur', function() { setTimeout(() => { foDropdown.style.display = 'none'; }, 160); });
+}
+document.addEventListener('click', function(e) {
+    if (foDropdown && !foDropdown.contains(e.target) && e.target !== foSearchInput) foDropdown.style.display = 'none';
+});
+
+// ── ICON search di section link ───────────────────────────────
+const iconLinkSearch   = document.getElementById('icon-link-search');
+const iconLinkHidden   = document.getElementById('id_layanan_icon_link');
+const iconLinkSelected = document.getElementById('icon-link-selected');
+const iconLinkSelName  = document.getElementById('icon-link-sel-name');
+
+if (iconLinkSearch) {
+    let iconLinkDropdown = null;
+    iconLinkSearch.addEventListener('focus', function() {
+        if (!iconLinkDropdown) {
+            iconLinkDropdown = document.createElement('div');
+            iconLinkDropdown.style.cssText = 'position:absolute;top:100%;left:0;right:0;z-index:200;background:white;border:1px solid #e0f2fe;border-radius:10px;box-shadow:0 6px 20px rgba(14,165,233,0.12);max-height:220px;overflow-y:auto;margin-top:4px;';
+            this.parentElement.style.position = 'relative';
+            this.parentElement.appendChild(iconLinkDropdown);
+        }
+        renderIconLinkList('');
+        iconLinkDropdown.style.display = 'block';
+    });
+    iconLinkSearch.addEventListener('input', function() {
+        if (iconLinkDropdown) { renderIconLinkList(this.value); iconLinkDropdown.style.display = 'block'; }
+    });
+    iconLinkSearch.addEventListener('blur', function() {
+        setTimeout(() => { if (iconLinkDropdown) iconLinkDropdown.style.display = 'none'; }, 160);
+    });
+
+    function renderIconLinkList(q) {
+        if (!iconLinkDropdown) return;
+        const filtered = q.trim()
+            ? ALL_ICONS.filter(ic => (ic.name||'').toLowerCase().includes(q.toLowerCase()) || (ic.SID1||'').toLowerCase().includes(q.toLowerCase()))
+            : ALL_ICONS;
+        iconLinkDropdown.innerHTML = '';
+        filtered.slice(0, 20).forEach(ic => {
+            const item = document.createElement('div');
+            item.style.cssText = 'padding:9px 12px;cursor:pointer;border-bottom:1px solid #f0f9ff;font-size:12.5px;font-weight:500;color:#0c4a6e;';
+            item.textContent = ic.name;
+            item.onmouseenter = () => item.style.background = '#f0f9ff';
+            item.onmouseleave = () => item.style.background = '';
+            item.onmousedown = function(e) {
+                e.preventDefault();
+                iconLinkHidden.value = ic.id;
+                iconLinkSearch.value = '';
+                iconLinkSelName.textContent = ic.name;
+                iconLinkSelected.style.display = 'flex';
+                iconLinkDropdown.style.display = 'none';
+            };
+            iconLinkDropdown.appendChild(item);
+        });
+    }
+}
+
+function clearIconLink() {
+    if (iconLinkHidden) iconLinkHidden.value = '';
+    if (iconLinkSelected) iconLinkSelected.style.display = 'none';
+    if (iconLinkSearch) iconLinkSearch.value = '';
+}
+
+// ── Tipe Gangguan Toggle ──────────────────────────────────────
+function setTipeGangguan(tipe) {
+    document.getElementById('id_tipe_gangguan').value = tipe;
+
+    const btnDevice = document.getElementById('btn-tipe-device');
+    const btnLink   = document.getElementById('btn-tipe-link');
+    const secDevice = document.getElementById('section-device');
+    const secLink   = document.getElementById('section-link');
+    const secIconDevice = document.getElementById('section-icon-device');
+
+    // Field site — swap antara hidden input device vs link
+    // Saat device: id_site yang dipakai; saat link: id_site_link
+    const siteInputDevice = document.getElementById('id_site');
+    const siteInputLink   = document.getElementById('id_site_link');
+
+    if (tipe === 'device') {
+        btnDevice.style.cssText = 'padding:8px 20px;font-size:13px;font-weight:600;border-radius:8px;border:2px solid #3b82f6;background:#eff6ff;color:#1d4ed8;';
+        btnLink.style.cssText   = 'padding:8px 20px;font-size:13px;font-weight:600;border-radius:8px;border:2px solid #e2e8f0;background:transparent;color:#64748b;';
+        secDevice.style.display  = 'block';
+        secLink.style.display    = 'none';
+        secIconDevice.style.display = 'block';
+        document.getElementById('tipe-hint-device').style.display = 'block';
+        document.getElementById('tipe-hint-link').style.display   = 'none';
+        // Aktifkan hidden input site device, nonaktifkan site_link
+        if (siteInputDevice) siteInputDevice.setAttribute('name', 'site');
+        if (siteInputLink)   siteInputLink.removeAttribute('name');
+        // Nonaktifkan fiber_optic, lokasi_b, core_putus dari submission
+        document.getElementById('id_fiber_optic').removeAttribute('name');
+        document.getElementById('id_lokasi_b') && document.getElementById('id_lokasi_b').removeAttribute('name');
+    } else {
+        btnLink.style.cssText   = 'padding:8px 20px;font-size:13px;font-weight:600;border-radius:8px;border:2px solid #f97316;background:#fff7ed;color:#9a3412;';
+        btnDevice.style.cssText = 'padding:8px 20px;font-size:13px;font-weight:600;border-radius:8px;border:2px solid #e2e8f0;background:transparent;color:#64748b;';
+        secDevice.style.display  = 'none';
+        secLink.style.display    = 'block';
+        secIconDevice.style.display = 'none';
+        document.getElementById('tipe-hint-device').style.display = 'none';
+        document.getElementById('tipe-hint-link').style.display   = 'block';
+        // Aktifkan site_link, nonaktifkan site device
+        if (siteInputLink)   siteInputLink.setAttribute('name', 'site');
+        if (siteInputDevice) siteInputDevice.removeAttribute('name');
+        document.getElementById('id_fiber_optic').setAttribute('name', 'fiber_optic');
+        const lokBEl = document.getElementById('id_lokasi_b');
+        if (lokBEl) lokBEl.setAttribute('name', 'lokasi_b');
+    }
+}
+
+// ── Init tipe gangguan saat halaman load ──────────────────────
+(function() {
+    const initTipe = '{{ form.tipe_gangguan.value|default:"device" }}';
+
+    // Prefill dari URL ?tipe=link atau ?fo_id=
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlTipe   = urlParams.get('tipe');
+    const urlFoId   = urlParams.get('fo_id');
+
+    const tipe = urlTipe || initTipe || 'device';
+    setTipeGangguan(tipe);
+
+    // Restore FO yang dipilih
+    const initFoId = parseInt('{{ prefill_fo_id|default:"0" }}') || 0;
+    if (initFoId || urlFoId) {
+        const foId = initFoId || parseInt(urlFoId) || 0;
+        if (foId) {
+            const found = ALL_FO.find(f => f.id === foId);
+            if (found) selectFO(found);
+        }
+    }
+
+    // Restore ICON+ di mode edit (link)
+    const initIconLinkId = parseInt('{% if is_edit and gangguan.layanan_icon_id %}{{ gangguan.layanan_icon_id }}{% else %}0{% endif %}') || 0;
+    if (initIconLinkId && tipe === 'link') {
+        const foundIc = ALL_ICONS.find(ic => ic.id === initIconLinkId);
+        if (foundIc && iconLinkHidden && iconLinkSelected && iconLinkSelName) {
+            iconLinkHidden.value = foundIc.id;
+            iconLinkSelName.textContent = foundIc.name;
+            iconLinkSelected.style.display = 'flex';
+        }
     }
 })();
 </script>

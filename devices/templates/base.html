@@ -664,11 +664,16 @@
     </div>
 
     <div class="sidebar-section">
-        <div class="sidebar-section-label">Layanan</div>
+        <div class="sidebar-section-label">Layanan & Infrastruktur</div>
         <a href="{% url 'layanan_icon' %}"
            class="sidebar-link {% if request.resolver_match.url_name == 'layanan_icon' %}active{% endif %}">
             <span class="si-icon"><i class="bi bi-diagram-3"></i></span>
             Layanan Icon+
+        </a>
+        <a href="{% url 'fiber_optic_list' %}"
+           class="sidebar-link {% if 'fiber_optic' in request.resolver_match.url_name %}active{% endif %}">
+            <span class="si-icon"><i class="bi bi-diagram-2"></i></span>
+            Fiber Optic
         </a>
     </div>
 

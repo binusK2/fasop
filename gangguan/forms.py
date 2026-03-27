@@ -9,7 +9,10 @@ class GangguanForm(forms.ModelForm):
     class Meta:
         model  = Gangguan
         fields = [
-            'tanggal_gangguan', 'site', 'peralatan', 'komponen_rusak',
+            'tipe_gangguan',
+            'tanggal_gangguan', 'site', 'lokasi_b',
+            'peralatan', 'komponen_rusak',
+            'fiber_optic', 'core_putus',
             'layanan_icon',
             'kategori', 'tingkat_keparahan', 'status',
             'executive_summary', 'indikasi_gangguan',
@@ -18,33 +21,39 @@ class GangguanForm(forms.ModelForm):
             'foto_eviden1', 'foto_eviden2', 'foto_eviden3',
         ]
         widgets = {
+            'tipe_gangguan':    forms.RadioSelect(attrs={'class': 'tipe-gangguan-radio'}),
             'tanggal_gangguan': forms.DateTimeInput(
                 attrs={'type': 'datetime-local', 'class': 'form-control'},
                 format='%Y-%m-%dT%H:%M'
             ),
-            'site':               forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. GI Tello, PLTU Barru'}),
-            'peralatan':          forms.Select(attrs={'class': 'form-select', 'id': 'id_peralatan'}),
-            'komponen_rusak':     forms.Select(attrs={'class': 'form-select', 'id': 'id_komponen_rusak'}),
-            'layanan_icon':       forms.Select(attrs={'class': 'form-select', 'id': 'id_layanan_icon_django'}),
-            'kategori':           forms.Select(attrs={'class': 'form-select'}),
-            'tingkat_keparahan':  forms.Select(attrs={'class': 'form-select'}),
-            'status':             forms.Select(attrs={'class': 'form-select'}),
-            'executive_summary':  forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Ringkasan singkat kondisi gangguan…'}),
-            'indikasi_gangguan':  forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Gejala atau indikasi yang terdeteksi…'}),
-            'penyebab_gangguan':  forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Root cause (isi jika sudah diketahui)…'}),
-            'dampak_gangguan':    forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Dampak terhadap layanan / sistem…'}),
-            'catatan_penutupan':  forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Diisi saat gangguan dinyatakan selesai…'}),
-            'foto_eviden1':       forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
-            'foto_eviden2':       forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
-            'foto_eviden3':       forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
+            'site':             forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. GI Tello, PLTU Barru'}),
+            'lokasi_b':         forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Titik ujung — e.g. GI Barru'}),
+            'peralatan':        forms.Select(attrs={'class': 'form-select', 'id': 'id_peralatan'}),
+            'komponen_rusak':   forms.Select(attrs={'class': 'form-select', 'id': 'id_komponen_rusak'}),
+            'fiber_optic':      forms.Select(attrs={'class': 'form-select', 'id': 'id_fiber_optic_django'}),
+            'core_putus':       forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Misal: Core 1-2, Core 5, Semua core'}),
+            'layanan_icon':     forms.Select(attrs={'class': 'form-select', 'id': 'id_layanan_icon_django'}),
+            'kategori':         forms.Select(attrs={'class': 'form-select'}),
+            'tingkat_keparahan':forms.Select(attrs={'class': 'form-select'}),
+            'status':           forms.Select(attrs={'class': 'form-select'}),
+            'executive_summary':forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Ringkasan singkat kondisi gangguan...'}),
+            'indikasi_gangguan':forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Gejala atau indikasi yang terdeteksi...'}),
+            'penyebab_gangguan':forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Root cause (isi jika sudah diketahui)...'}),
+            'dampak_gangguan':  forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Dampak terhadap layanan / sistem...'}),
+            'catatan_penutupan':forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Diisi saat gangguan dinyatakan selesai...'}),
+            'foto_eviden1':     forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
+            'foto_eviden2':     forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
+            'foto_eviden3':     forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['tanggal_gangguan'].input_formats = ['%Y-%m-%dT%H:%M', '%Y-%m-%d %H:%M']
+
         self.fields['peralatan'].queryset = Device.objects.filter(is_deleted=False).order_by('lokasi', 'nama')
         self.fields['peralatan'].empty_label = '— Pilih peralatan (opsional) —'
-        # Komponen rusak — mulai kosong, diisi via AJAX saat peralatan dipilih
+        self.fields['peralatan'].required = False
+
         from devices.models_komponen import DeviceComponent
         if self.instance and self.instance.pk and self.instance.peralatan_id:
             self.fields['komponen_rusak'].queryset = DeviceComponent.objects.filter(
@@ -53,12 +62,21 @@ class GangguanForm(forms.ModelForm):
         else:
             self.fields['komponen_rusak'].queryset = DeviceComponent.objects.none()
         self.fields['komponen_rusak'].empty_label = '— Pilih komponen (opsional) —'
-        # Layanan ICON+ — queryset semua icon
+        self.fields['komponen_rusak'].required = False
+
+        from devices.models import FiberOptic
+        self.fields['fiber_optic'].queryset = FiberOptic.objects.all().order_by('nama')
+        self.fields['fiber_optic'].empty_label = '— Pilih segmen FO (opsional) —'
+        self.fields['fiber_optic'].required = False
+
         from devices.models import Icon
         self.fields['layanan_icon'].queryset = Icon.objects.all().order_by('name')
         self.fields['layanan_icon'].empty_label = '— Pilih layanan ICON+ (opsional) —'
         self.fields['layanan_icon'].required = False
-        # Gunakan localtime saat edit agar tidak offset
+
+        self.fields['lokasi_b'].required = False
+        self.fields['core_putus'].required = False
+
         if self.instance and self.instance.pk and self.instance.tanggal_gangguan:
             local_dt = timezone.localtime(self.instance.tanggal_gangguan)
             self.initial['tanggal_gangguan'] = local_dt.strftime('%Y-%m-%dT%H:%M')
@@ -76,7 +94,7 @@ class GangguanLogForm(forms.ModelForm):
             'keterangan':  forms.Textarea(attrs={
                 'class': 'form-control form-control-sm',
                 'rows': 2,
-                'placeholder': 'Uraikan tindakan yang dilakukan pada jam ini…'
+                'placeholder': 'Uraikan tindakan yang dilakukan pada jam ini...'
             }),
         }
 
