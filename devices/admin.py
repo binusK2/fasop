@@ -147,8 +147,8 @@ from django.contrib.auth.models import User
 
 @admin.register(UserProfile)
 class UserProfileAdmin(admin.ModelAdmin):
-    list_display = ['user', 'role', 'has_signature']
-    list_editable = ['role']
+    list_display = ['user', 'role', 'force_password_change', 'has_signature']
+    list_editable = ['role', 'force_password_change']
     def has_signature(self, obj): return bool(obj.signature)
     has_signature.boolean = True
 

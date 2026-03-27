@@ -632,10 +632,22 @@
                         {# Field Komponen #}
                         <div id="fieldKomponen" style="display:none;" class="col-12">
                             <div class="row g-3">
+                                {# Dropdown komponen dari database #}
+                                <div class="col-12" id="dev-komponen-terkait-wrapper" style="display:none;">
+                                    <label style="font-size:12px;font-weight:600;color:#7c3aed;display:block;margin-bottom:5px;">
+                                        <i class="bi bi-diagram-3 me-1"></i>Pilih Komponen dari Database
+                                    </label>
+                                    <select name="komponen_terkait_id" id="dev_komponen_terkait" class="form-select form-select-sm">
+                                        <option value="">— Pilih komponen (opsional) —</option>
+                                    </select>
+                                    <div style="font-size:10px;color:#7c3aed;margin-top:3px;">
+                                        Status komponen akan otomatis diupdate sesuai tipe perubahan.
+                                    </div>
+                                </div>
                                 <div class="col-12">
                                     <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:5px;">Nama Komponen</label>
-                                    <input type="text" name="komponen" class="form-control form-control-sm"
-                                           placeholder="Contoh: PSU, Modul CPU, Battery Bank, Kabel Coaxial">
+                                    <input type="text" name="komponen" id="dev_nama_komponen" class="form-control form-control-sm"
+                                           placeholder="Otomatis terisi dari dropdown, atau ketik manual...">
                                 </div>
                                 <div class="col-6">
                                     <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:5px;">Kondisi / Nilai Sebelumnya</label>
@@ -774,7 +786,54 @@ function toggleEventFields() {
 
     document.getElementById('fieldRelokasi').style.display  = isRelokasi ? 'block' : 'none';
     document.getElementById('fieldKomponen').style.display  = isKomponen ? 'block' : 'none';
+
+    if (isKomponen) { loadDevKomponen(); }
 }
+
+// ── AJAX: Load komponen untuk device detail event form ──────
+function loadDevKomponen() {
+    var deviceId = '{{ device.pk }}';
+    var wrapper = document.getElementById('dev-komponen-terkait-wrapper');
+    var select  = document.getElementById('dev_komponen_terkait');
+    if (!wrapper || !select) return;
+
+    fetch('/api/device/' + deviceId + '/komponen/')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            select.innerHTML = '<option value="">— Pilih komponen (opsional) —</option>';
+            if (data.length > 0) {
+                data.forEach(function(k) {
+                    var opt = document.createElement('option');
+                    opt.value = k.id;
+                    var label = k.label;
+                    if (k.tipe && k.tipe !== '—') label += ' (' + k.tipe + ')';
+                    if (k.status === 'rusak') label += ' ⚠️ RUSAK';
+                    if (k.status === 'diganti') label += ' 🔄 DIGANTI';
+                    opt.textContent = label;
+                    opt.dataset.nama = k.label;
+                    select.appendChild(opt);
+                });
+                wrapper.style.display = 'block';
+            } else {
+                wrapper.style.display = 'none';
+            }
+        })
+        .catch(function() { wrapper.style.display = 'none'; });
+}
+
+// Auto-fill nama_komponen saat dropdown berubah
+(function() {
+    var sel = document.getElementById('dev_komponen_terkait');
+    if (sel) {
+        sel.addEventListener('change', function() {
+            var selected = this.options[this.selectedIndex];
+            var namaInput = document.getElementById('dev_nama_komponen');
+            if (namaInput && this.value && selected.dataset.nama) {
+                namaInput.value = selected.dataset.nama;
+            }
+        });
+    }
+})();
 
     const qrContainer = document.getElementById('qr-container');
     if (qrContainer) {

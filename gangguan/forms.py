@@ -10,6 +10,7 @@ class GangguanForm(forms.ModelForm):
         model  = Gangguan
         fields = [
             'tanggal_gangguan', 'site', 'peralatan', 'komponen_rusak',
+            'layanan_icon',
             'kategori', 'tingkat_keparahan', 'status',
             'executive_summary', 'indikasi_gangguan',
             'penyebab_gangguan', 'dampak_gangguan',
@@ -24,6 +25,7 @@ class GangguanForm(forms.ModelForm):
             'site':               forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. GI Tello, PLTU Barru'}),
             'peralatan':          forms.Select(attrs={'class': 'form-select', 'id': 'id_peralatan'}),
             'komponen_rusak':     forms.Select(attrs={'class': 'form-select', 'id': 'id_komponen_rusak'}),
+            'layanan_icon':       forms.Select(attrs={'class': 'form-select', 'id': 'id_layanan_icon_django'}),
             'kategori':           forms.Select(attrs={'class': 'form-select'}),
             'tingkat_keparahan':  forms.Select(attrs={'class': 'form-select'}),
             'status':             forms.Select(attrs={'class': 'form-select'}),
@@ -51,6 +53,11 @@ class GangguanForm(forms.ModelForm):
         else:
             self.fields['komponen_rusak'].queryset = DeviceComponent.objects.none()
         self.fields['komponen_rusak'].empty_label = '— Pilih komponen (opsional) —'
+        # Layanan ICON+ — queryset semua icon
+        from devices.models import Icon
+        self.fields['layanan_icon'].queryset = Icon.objects.all().order_by('name')
+        self.fields['layanan_icon'].empty_label = '— Pilih layanan ICON+ (opsional) —'
+        self.fields['layanan_icon'].required = False
         # Gunakan localtime saat edit agar tidak offset
         if self.instance and self.instance.pk and self.instance.tanggal_gangguan:
             local_dt = timezone.localtime(self.instance.tanggal_gangguan)

@@ -21,4 +21,7 @@ urlpatterns = [
     path('corrective/device/<int:device_id>/',    lambda r, device_id: views.corrective_add(r, device_id=device_id),    name='corrective_add_device'),
     path('corrective/gangguan/<int:gangguan_id>/', lambda r, gangguan_id: views.corrective_add(r, gangguan_id=gangguan_id), name='corrective_add_gangguan'),
     path('corrective/edit/<int:pk>/',             views.corrective_edit, name='corrective_edit'),
+    # Offline Form (download template & upload)
+    path('offline/download/', views.offline_form_download, name='offline_form_download'),
+    path('offline/upload/',   views.offline_form_upload,   name='offline_form_upload'),
 ]

@@ -94,6 +94,30 @@ def _get_device_json():
     return json.dumps(device_list), json.dumps(type_list)
 
 
+def _get_icon_json():
+    """Semua layanan ICON+ sebagai JSON untuk JS autocomplete di form gangguan."""
+    import json
+    from devices.models import Icon
+    icons = Icon.objects.all().order_by('name').values(
+        'id', 'name', 'nama_layanan', 'lokasi_layanan',
+        'bandwidth', 'SID1', 'SID2', 'kontrak', 'kondisi_operasional',
+    )
+    return json.dumps([
+        {
+            'id':          ic['id'],
+            'name':        ic['name'],
+            'nama_layanan':ic['nama_layanan'] or '',
+            'lokasi':      ic['lokasi_layanan'] or '',
+            'bandwidth':   ic['bandwidth'] or '',
+            'SID1':        ic['SID1'] or '',
+            'SID2':        ic['SID2'] or '',
+            'kontrak':     ic['kontrak'] or '',
+            'kondisi':     ic['kondisi_operasional'] or '',
+        }
+        for ic in icons
+    ])
+
+
 @login_required
 @require_can_edit
 def gangguan_create(request):
@@ -131,7 +155,25 @@ def gangguan_create(request):
                 pass
             return redirect('gangguan_detail', pk=gangguan.pk)
     else:
-        form = GangguanForm(initial={'tanggal_gangguan': timezone.localtime(timezone.now()).strftime('%Y-%m-%dT%H:%M')})
+        # Nilai default
+        initial = {
+            'tanggal_gangguan': timezone.localtime(timezone.now()).strftime('%Y-%m-%dT%H:%M'),
+        }
+
+        # Prefill dari layanan ICON+ jika datang dari tombol "Laporkan Gangguan"
+        prefill_icon = None
+        icon_id_param = request.GET.get('icon_id', '').strip()
+        if icon_id_param:
+            try:
+                from devices.models import Icon
+                prefill_icon = Icon.objects.get(pk=int(icon_id_param))
+                if prefill_icon.lokasi_layanan:
+                    initial['site'] = prefill_icon.lokasi_layanan
+                initial['layanan_icon'] = prefill_icon.pk
+            except (Icon.DoesNotExist, ValueError):
+                prefill_icon = None
+
+        form = GangguanForm(initial=initial)
 
     site_list = list(
         Device.objects.filter(is_deleted=False)
@@ -141,13 +183,28 @@ def gangguan_create(request):
     )
     device_json, type_json = _get_device_json()
 
+    # master_lokasi_list — gabungan lokasi device + lokasi_layanan icon
+    # agar lokasi layanan ICON+ juga muncul di autocomplete site
+    from devices.models import Icon as _Icon
+    icon_lokasi = list(
+        _Icon.objects.exclude(lokasi_layanan__isnull=True)
+        .exclude(lokasi_layanan__exact='')
+        .values_list('lokasi_layanan', flat=True)
+        .distinct()
+    )
+    master_lokasi_list = sorted(set(site_list) | set(icon_lokasi))
+
     return render(request, 'gangguan/gangguan_form.html', {
-        'form':        form,
-        'is_edit':     False,
-        'site_list':   site_list,
-        'device_json': device_json,
-        'type_json':   type_json,
-        'selected_peralatan_id': None,
+        'form':                  form,
+        'is_edit':               False,
+        'site_list':             site_list,
+        'master_lokasi_list':    master_lokasi_list,
+        'device_json':           device_json,
+        'type_json':             type_json,
+        'icon_json':             _get_icon_json(),
+        'prefill_icon':          prefill_icon if 'prefill_icon' in dir() else None,
+        'prefill_icon_id':       prefill_icon.pk if 'prefill_icon' in dir() and prefill_icon else '',
+        'selected_peralatan_id': '',
     })
 
 
@@ -211,13 +268,26 @@ def gangguan_update(request, pk):
     )
     device_json, type_json = _get_device_json()
 
+    from devices.models import Icon as _Icon
+    icon_lokasi = list(
+        _Icon.objects.exclude(lokasi_layanan__isnull=True)
+        .exclude(lokasi_layanan__exact='')
+        .values_list('lokasi_layanan', flat=True)
+        .distinct()
+    )
+    master_lokasi_list = sorted(set(site_list) | set(icon_lokasi))
+
     return render(request, 'gangguan/gangguan_form.html', {
-        'form':        form,
-        'gangguan':    gangguan,
-        'is_edit':     True,
-        'site_list':   site_list,
-        'device_json': device_json,
-        'type_json':   type_json,
+        'form':                  form,
+        'gangguan':              gangguan,
+        'is_edit':               True,
+        'site_list':             site_list,
+        'master_lokasi_list':    master_lokasi_list,
+        'device_json':           device_json,
+        'type_json':             type_json,
+        'icon_json':             _get_icon_json(),
+        'prefill_icon':          None,
+        'prefill_icon_id':       '',
         'selected_peralatan_id': gangguan.peralatan_id or '',
     })
 
@@ -289,11 +359,13 @@ def gangguan_catat_perubahan(request, pk):
 
     if request.method == 'POST':
         from devices.models import Device, DeviceEvent
+        from devices.models_komponen import DeviceComponent
 
         device_id     = request.POST.get('device_id')
         tipe          = request.POST.get('tipe', '').strip()
         tanggal       = request.POST.get('tanggal', '')
         komponen      = request.POST.get('komponen', '').strip()
+        komponen_terkait_pk = request.POST.get('komponen_terkait_id', '') or None
         nilai_lama    = request.POST.get('nilai_lama', '').strip()
         nilai_baru    = request.POST.get('nilai_baru', '').strip()
         lokasi_asal   = request.POST.get('lokasi_asal', '').strip()
@@ -308,12 +380,18 @@ def gangguan_catat_perubahan(request, pk):
         if not device and gangguan.peralatan:
             device = gangguan.peralatan
 
+        # Resolve komponen_terkait
+        komponen_terkait_obj = None
+        if komponen_terkait_pk:
+            komponen_terkait_obj = DeviceComponent.objects.filter(pk=komponen_terkait_pk).first()
+
         if device and tipe and tanggal:
             event = DeviceEvent(
                 device         = device,
                 tipe           = tipe,
                 tanggal        = tanggal,
                 komponen       = komponen,
+                komponen_terkait = komponen_terkait_obj,
                 nilai_lama     = nilai_lama,
                 nilai_baru     = nilai_baru,
                 lokasi_asal    = lokasi_asal,
@@ -330,6 +408,21 @@ def gangguan_catat_perubahan(request, pk):
             if tipe == 'relokasi' and lokasi_tujuan:
                 device.lokasi = lokasi_tujuan.upper()
                 device.save(update_fields=['lokasi'])
+
+            # Auto-update status DeviceComponent berdasarkan tipe perubahan
+            if komponen_terkait_obj:
+                from django.utils import timezone as _tz
+                if tipe == 'penggantian':
+                    komponen_terkait_obj.status = 'diganti'
+                    komponen_terkait_obj.tanggal_ganti = _tz.localdate()
+                    komponen_terkait_obj.save(update_fields=['status', 'tanggal_ganti', 'updated_at'])
+                elif tipe == 'pembongkaran':
+                    komponen_terkait_obj.status = 'tidak_ada'
+                    komponen_terkait_obj.save(update_fields=['status', 'updated_at'])
+                elif tipe in ('pemasangan', 'penambahan'):
+                    komponen_terkait_obj.status = 'terpasang'
+                    komponen_terkait_obj.tanggal_pasang = _tz.localdate()
+                    komponen_terkait_obj.save(update_fields=['status', 'tanggal_pasang', 'updated_at'])
 
     return redirect('gangguan_detail', pk=pk)
 

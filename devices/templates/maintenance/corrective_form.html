@@ -179,14 +179,38 @@
                 <div style="background:#f5f3ff;border-radius:10px;padding:16px;border:1px solid #ddd6fe;">
                     <div style="font-size:11px;color:#7c3aed;font-weight:600;margin-bottom:12px;">
                         <i class="bi bi-info-circle me-1"></i>
-                        Data ini akan otomatis tercatat di Riwayat Kejadian perangkat.
+                        Data ini akan otomatis tercatat di Riwayat Kejadian perangkat dan mengupdate status komponen.
                     </div>
                     <div class="row g-3">
+                        {# Dropdown komponen dari database DeviceComponent #}
+                        <div class="col-12" id="komponen-terkait-wrapper"
+                             style="display:{% if corr.komponen_terkait_id %}block{% else %}none{% endif %};">
+                            <label class="cf-label">
+                                <i class="bi bi-diagram-3 me-1" style="color:#7c3aed;"></i>
+                                Pilih Komponen dari Database
+                            </label>
+                            <select name="komponen_terkait" id="id_komponen_terkait" class="form-select">
+                                <option value="">— Pilih komponen (opsional) —</option>
+                                {% if corr.komponen_terkait %}
+                                <option value="{{ corr.komponen_terkait.pk }}" selected>
+                                    {{ corr.komponen_terkait.nama }}
+                                    {% if corr.komponen_terkait.posisi %}[{{ corr.komponen_terkait.posisi }}]{% endif %}
+                                </option>
+                                {% endif %}
+                            </select>
+                            <div class="form-text" style="font-size:11px;color:#7c3aed;">
+                                Komponen yang dipilih akan otomatis diupdate statusnya menjadi "Sudah Diganti".
+                            </div>
+                        </div>
+
                         <div class="col-12">
                             <label class="cf-label">Nama Komponen</label>
-                            <input type="text" name="nama_komponen" class="form-control"
+                            <input type="text" name="nama_komponen" id="id_nama_komponen" class="form-control"
                                    placeholder="Contoh: PSU, Modul CPU, Battery, Kabel..."
                                    value="{{ corr.nama_komponen }}">
+                            <div class="form-text" style="font-size:10.5px;color:#94a3b8;">
+                                Otomatis terisi jika memilih dari dropdown di atas. Bisa juga diisi manual.
+                            </div>
                         </div>
                         <div class="col-md-6">
                             <label class="cf-label">Kondisi Sebelum</label>
@@ -321,6 +345,83 @@ function toggleUpdateGangguan() {
 function toggleStatusGangguan(el) {
     document.getElementById('fieldStatusGangguan').style.display = el.checked ? 'block' : 'none';
 }
+
+// ── AJAX: Load komponen berdasarkan device ──────────────────
+function loadKomponenForCorrective(deviceId) {
+    var wrapper = document.getElementById('komponen-terkait-wrapper');
+    var select  = document.getElementById('id_komponen_terkait');
+
+    if (!deviceId) {
+        wrapper.style.display = 'none';
+        select.innerHTML = '<option value="">— Pilih komponen (opsional) —</option>';
+        return;
+    }
+
+    fetch('/api/device/' + deviceId + '/komponen/')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            select.innerHTML = '<option value="">— Pilih komponen (opsional) —</option>';
+            if (data.length > 0) {
+                data.forEach(function(k) {
+                    var opt = document.createElement('option');
+                    opt.value = k.id;
+                    var label = k.label;
+                    if (k.tipe && k.tipe !== '—') label += ' (' + k.tipe + ')';
+                    if (k.status === 'rusak') label += ' ⚠️ RUSAK';
+                    if (k.status === 'diganti') label += ' 🔄 SUDAH DIGANTI';
+                    opt.textContent = label;
+                    opt.dataset.nama = k.label;
+                    select.appendChild(opt);
+                });
+                wrapper.style.display = 'block';
+            } else {
+                wrapper.style.display = 'none';
+            }
+        })
+        .catch(function() {
+            wrapper.style.display = 'none';
+        });
+}
+
+// Auto-fill nama_komponen saat komponen dipilih dari dropdown
+document.getElementById('id_komponen_terkait').addEventListener('change', function() {
+    var selected = this.options[this.selectedIndex];
+    var namaInput = document.getElementById('id_nama_komponen');
+    if (this.value && selected.dataset.nama) {
+        namaInput.value = selected.dataset.nama;
+    }
+});
+
+// ── Inisialisasi: load komponen saat halaman dibuka ─────────
+(function() {
+    var deviceId = null;
+
+    {% if device_init %}
+    // Device sudah fixed (dari context)
+    deviceId = '{{ device_init.pk }}';
+    {% else %}
+    // Device dari dropdown select
+    var deviceSelect = document.querySelector('select[name="device_id"]');
+    if (deviceSelect) {
+        deviceId = deviceSelect.value;
+        deviceSelect.addEventListener('change', function() {
+            loadKomponenForCorrective(this.value);
+        });
+    }
+    {% endif %}
+
+    if (deviceId) {
+        loadKomponenForCorrective(deviceId);
+        // Restore pilihan komponen_terkait jika sedang edit
+        var initKomponenId = '{{ corr.komponen_terkait_id|default:"" }}';
+        if (initKomponenId) {
+            setTimeout(function() {
+                var sel = document.getElementById('id_komponen_terkait');
+                if (sel) sel.value = initKomponenId;
+            }, 500);
+        }
+    }
+})();
 
 // ── Tag-input Pelaksana (Corrective) ─────────────────────────
 (function() {

@@ -153,6 +153,10 @@ class UserProfile(models.Model):
     display_name = models.CharField(max_length=150, blank=True, default='', verbose_name='Nama Tampilan / Alias',
                                     help_text='Nama lengkap yang akan muncul di PDF (opsional). Jika kosong, pakai nama akun.')
     signature    = models.ImageField(upload_to='signatures/', blank=True, null=True, verbose_name='Tanda Tangan')
+    force_password_change = models.BooleanField(
+        default=True, verbose_name='Wajib Ganti Password',
+        help_text='Jika aktif, user akan diarahkan ke halaman ganti password saat login berikutnya.'
+    )
 
     class Meta:
         verbose_name = 'Profil Pengguna'
@@ -284,6 +288,14 @@ class DeviceEvent(models.Model):
         related_name='perubahan_fisik',
         verbose_name='Terkait Gangguan',
         help_text='Opsional — hubungkan ke tiket gangguan terkait'
+    )
+    komponen_terkait = models.ForeignKey(
+        'devices.DeviceComponent',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='device_events',
+        verbose_name='Komponen Terkait',
+        help_text='Opsional — pilih komponen spesifik dari database'
     )
     created_at      = models.DateTimeField(auto_now_add=True)
 

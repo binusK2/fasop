@@ -952,6 +952,7 @@ def corrective_add(request, device_id=None, gangguan_id=None):
         tindakan          = request.POST.get('tindakan', '').strip()
         komponen_diganti  = request.POST.get('komponen_diganti') == 'on'
         nama_komponen     = request.POST.get('nama_komponen', '').strip()
+        komponen_terkait_pk = request.POST.get('komponen_terkait', '') or None
         kondisi_sebelum   = request.POST.get('kondisi_sebelum', '').strip()
         kondisi_sesudah   = request.POST.get('kondisi_sesudah', '').strip()
         durasi_jam        = request.POST.get('durasi_jam', '') or None
@@ -966,6 +967,12 @@ def corrective_add(request, device_id=None, gangguan_id=None):
         device = Device.objects.filter(pk=device_pk, is_deleted=False).first()
         if not device:
             device = device_init
+
+        # Resolve komponen_terkait dari DeviceComponent
+        from devices.models_komponen import DeviceComponent
+        komponen_terkait_obj = None
+        if komponen_terkait_pk:
+            komponen_terkait_obj = DeviceComponent.objects.filter(pk=komponen_terkait_pk).first()
 
         if device and tanggal and deskripsi_masalah and tindakan:
             from datetime import datetime
@@ -990,6 +997,7 @@ def corrective_add(request, device_id=None, gangguan_id=None):
                 tindakan          = tindakan,
                 komponen_diganti  = komponen_diganti,
                 nama_komponen     = nama_komponen,
+                komponen_terkait  = komponen_terkait_obj,
                 kondisi_sebelum   = kondisi_sebelum,
                 kondisi_sesudah   = kondisi_sesudah,
                 durasi_jam        = int(durasi_jam) if durasi_jam else None,
@@ -1015,6 +1023,13 @@ def corrective_add(request, device_id=None, gangguan_id=None):
                     dilakukan_oleh = request.user,
                     gangguan       = gangguan_obj,
                 )
+
+                # Auto-update status DeviceComponent jika komponen_terkait dipilih
+                if komponen_terkait_obj:
+                    from django.utils import timezone as _tz
+                    komponen_terkait_obj.status = 'diganti'
+                    komponen_terkait_obj.tanggal_ganti = _tz.localdate()
+                    komponen_terkait_obj.save(update_fields=['status', 'tanggal_ganti', 'updated_at'])
 
             # Update status gangguan jika diminta
             if gangguan_obj and update_gangguan and status_gangguan:
@@ -1102,6 +1117,7 @@ def corrective_edit(request, pk):
         tindakan          = request.POST.get('tindakan', '').strip()
         komponen_diganti  = request.POST.get('komponen_diganti') == 'on'
         nama_komponen     = request.POST.get('nama_komponen', '').strip()
+        komponen_terkait_pk = request.POST.get('komponen_terkait', '') or None
         kondisi_sebelum   = request.POST.get('kondisi_sebelum', '').strip()
         kondisi_sesudah   = request.POST.get('kondisi_sesudah', '').strip()
         durasi_jam        = request.POST.get('durasi_jam', '') or None
@@ -1112,6 +1128,12 @@ def corrective_edit(request, pk):
         status_gangguan   = request.POST.get('status_gangguan', '')
         foto_sebelum      = request.FILES.get('foto_sebelum')
         foto_sesudah      = request.FILES.get('foto_sesudah')
+
+        # Resolve komponen_terkait dari DeviceComponent
+        from devices.models_komponen import DeviceComponent
+        komponen_terkait_obj = None
+        if komponen_terkait_pk:
+            komponen_terkait_obj = DeviceComponent.objects.filter(pk=komponen_terkait_pk).first()
 
         if tanggal and deskripsi_masalah and tindakan:
             m_status = 'Done' if status_perbaikan == 'selesai' else 'Open'
@@ -1130,6 +1152,7 @@ def corrective_edit(request, pk):
             corr.tindakan          = tindakan
             corr.komponen_diganti  = komponen_diganti
             corr.nama_komponen     = nama_komponen
+            corr.komponen_terkait  = komponen_terkait_obj
             corr.kondisi_sebelum   = kondisi_sebelum
             corr.kondisi_sesudah   = kondisi_sesudah
             corr.durasi_jam        = int(durasi_jam) if durasi_jam else None
@@ -1138,6 +1161,13 @@ def corrective_edit(request, pk):
             if foto_sebelum: corr.foto_sebelum = foto_sebelum
             if foto_sesudah: corr.foto_sesudah = foto_sesudah
             corr.save()
+
+            # Auto-update status DeviceComponent jika komponen diganti
+            if komponen_diganti and komponen_terkait_obj:
+                from django.utils import timezone as _tz
+                komponen_terkait_obj.status = 'diganti'
+                komponen_terkait_obj.tanggal_ganti = _tz.localdate()
+                komponen_terkait_obj.save(update_fields=['status', 'tanggal_ganti', 'updated_at'])
 
             if gangguan_obj and update_gangguan and status_gangguan:
                 gangguan_obj.status = status_gangguan
@@ -1180,3 +1210,336 @@ def corrective_edit(request, pk):
         'from_gangguan':      False,
         'from_device':        False,
     })
+
+
+# ─────────────────────────────────────────────────────────────
+# OFFLINE FORM: Download Template & Import Excel
+# ─────────────────────────────────────────────────────────────
+
+@login_required
+def offline_form_download(request):
+    """Download template Excel untuk isi data maintenance secara offline."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side, numbers
+    from openpyxl.utils import get_column_letter
+    from openpyxl.worksheet.datavalidation import DataValidation
+
+    wb = Workbook()
+
+    # ── Sheet 1: Corrective Maintenance ──
+    ws = wb.active
+    ws.title = 'Corrective'
+    ws.sheet_properties.tabColor = 'EF4444'
+
+    header_font = Font(bold=True, color='FFFFFF', size=11, name='Arial')
+    header_fill = PatternFill('solid', fgColor='2563EB')
+    info_fill   = PatternFill('solid', fgColor='DBEAFE')
+    info_font   = Font(italic=True, color='1E40AF', size=10, name='Arial')
+    border      = Border(
+        left=Side(style='thin'), right=Side(style='thin'),
+        top=Side(style='thin'), bottom=Side(style='thin')
+    )
+    wrap_align  = Alignment(wrap_text=True, vertical='top')
+
+    # Instruksi row
+    ws.merge_cells('A1:I1')
+    ws['A1'] = '📋 TEMPLATE CORRECTIVE MAINTENANCE — Isi data di bawah ini lalu upload ke FASOP saat online'
+    ws['A1'].font = Font(bold=True, size=12, name='Arial', color='1E40AF')
+    ws['A1'].fill = PatternFill('solid', fgColor='EFF6FF')
+    ws['A1'].alignment = Alignment(horizontal='center', vertical='center')
+    ws.row_dimensions[1].height = 30
+
+    # Info row
+    ws.merge_cells('A2:I2')
+    ws['A2'] = '⚠️ Kolom bertanda (*) wajib diisi. Nama perangkat harus PERSIS sama dengan yang ada di sistem FASOP.'
+    ws['A2'].font = info_font
+    ws['A2'].fill = info_fill
+
+    # Headers
+    headers_corr = [
+        ('A', 'Nama Perangkat *', 25),
+        ('B', 'Tanggal (YYYY-MM-DD HH:MM) *', 24),
+        ('C', 'Pelaksana (pisah koma)', 22),
+        ('D', 'Jenis Kerusakan', 20),
+        ('E', 'Deskripsi Masalah *', 35),
+        ('F', 'Tindakan *', 35),
+        ('G', 'Komponen Diganti (ya/tidak)', 18),
+        ('H', 'Nama Komponen', 22),
+        ('I', 'Kondisi Sebelum', 22),
+        ('J', 'Kondisi Sesudah', 22),
+        ('K', 'Status (selesai/perlu_tindaklanjut)', 20),
+    ]
+
+    for col_letter, title, width in headers_corr:
+        cell = ws[f'{col_letter}3']
+        cell.value = title
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center', wrap_text=True)
+        cell.border = border
+        ws.column_dimensions[col_letter].width = width
+
+    # Data validation: Jenis Kerusakan
+    dv_jenis = DataValidation(
+        type='list',
+        formula1='"hardware,software,power,komunikasi,mekanik,lainnya"',
+        allow_blank=True
+    )
+    dv_jenis.error = 'Pilih dari daftar'
+    dv_jenis.errorTitle = 'Jenis tidak valid'
+    ws.add_data_validation(dv_jenis)
+    dv_jenis.add(f'D4:D100')
+
+    # Data validation: ya/tidak
+    dv_yn = DataValidation(type='list', formula1='"ya,tidak"', allow_blank=True)
+    ws.add_data_validation(dv_yn)
+    dv_yn.add(f'G4:G100')
+
+    # Data validation: status
+    dv_status = DataValidation(type='list', formula1='"selesai,perlu_tindaklanjut"', allow_blank=True)
+    ws.add_data_validation(dv_status)
+    dv_status.add(f'K4:K100')
+
+    # Pre-fill beberapa baris kosong dengan border
+    for row in range(4, 24):
+        for col_letter, _, _ in headers_corr:
+            cell = ws[f'{col_letter}{row}']
+            cell.border = border
+            cell.alignment = wrap_align
+
+    # ── Sheet 2: Daftar Perangkat (referensi) ──
+    ws_ref = wb.create_sheet('Daftar Perangkat')
+    ws_ref.sheet_properties.tabColor = '10B981'
+
+    ws_ref['A1'] = 'Nama Perangkat'
+    ws_ref['B1'] = 'Jenis'
+    ws_ref['C1'] = 'Lokasi'
+    ws_ref['A1'].font = header_font
+    ws_ref['A1'].fill = PatternFill('solid', fgColor='10B981')
+    ws_ref['B1'].font = header_font
+    ws_ref['B1'].fill = PatternFill('solid', fgColor='10B981')
+    ws_ref['C1'].font = header_font
+    ws_ref['C1'].fill = PatternFill('solid', fgColor='10B981')
+    ws_ref.column_dimensions['A'].width = 30
+    ws_ref.column_dimensions['B'].width = 20
+    ws_ref.column_dimensions['C'].width = 25
+
+    devices = Device.objects.filter(is_deleted=False).select_related('jenis').order_by('lokasi', 'nama')
+    for i, d in enumerate(devices, start=2):
+        ws_ref[f'A{i}'] = d.nama
+        ws_ref[f'B{i}'] = d.jenis.name if d.jenis else '—'
+        ws_ref[f'C{i}'] = d.lokasi or '—'
+
+    # ── Sheet 3: Preventive (opsional, format sederhana) ──
+    ws_prev = wb.create_sheet('Preventive')
+    ws_prev.sheet_properties.tabColor = '3B82F6'
+    ws_prev.merge_cells('A1:G1')
+    ws_prev['A1'] = '📋 TEMPLATE PREVENTIVE MAINTENANCE — Isi data di bawah ini'
+    ws_prev['A1'].font = Font(bold=True, size=12, name='Arial', color='1E40AF')
+    ws_prev['A1'].fill = PatternFill('solid', fgColor='EFF6FF')
+
+    headers_prev = [
+        ('A', 'Nama Perangkat *', 25),
+        ('B', 'Tanggal (YYYY-MM-DD HH:MM) *', 24),
+        ('C', 'Pelaksana (pisah koma)', 22),
+        ('D', 'Deskripsi / Catatan', 40),
+        ('E', 'Status (Open/Done)', 18),
+    ]
+    for col_letter, title, width in headers_prev:
+        cell = ws_prev[f'{col_letter}2']
+        cell.value = title
+        cell.font = header_font
+        cell.fill = PatternFill('solid', fgColor='3B82F6')
+        cell.alignment = Alignment(horizontal='center', wrap_text=True)
+        cell.border = border
+        ws_prev.column_dimensions[col_letter].width = width
+
+    dv_status_prev = DataValidation(type='list', formula1='"Open,Done"', allow_blank=True)
+    ws_prev.add_data_validation(dv_status_prev)
+    dv_status_prev.add(f'E3:E100')
+
+    for row in range(3, 23):
+        for col_letter, _, _ in headers_prev:
+            cell = ws_prev[f'{col_letter}{row}']
+            cell.border = border
+            cell.alignment = wrap_align
+
+    # Freeze panes
+    ws.freeze_panes = 'A4'
+    ws_ref.freeze_panes = 'A2'
+    ws_prev.freeze_panes = 'A3'
+
+    # Response
+    buffer = BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+
+    response = HttpResponse(
+        buffer.getvalue(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    tgl = dj_timezone.localdate().strftime('%Y%m%d')
+    response['Content-Disposition'] = f'attachment; filename="Template_Maintenance_Offline_{tgl}.xlsx"'
+    return response
+
+
+@login_required
+@require_can_edit
+def offline_form_upload(request):
+    """Upload Excel template yang sudah diisi offline untuk import ke database."""
+    from maintenance.models import MaintenanceCorrective
+    from django.contrib import messages
+
+    results = None
+
+    if request.method == 'POST' and request.FILES.get('file'):
+        import openpyxl
+        f = request.FILES['file']
+        try:
+            wb = openpyxl.load_workbook(f, data_only=True)
+        except Exception as e:
+            messages.error(request, f'Gagal membaca file: {e}')
+            return render(request, 'maintenance/offline_upload.html', {'results': None})
+
+        imported = []
+        errors = []
+        row_num = 0
+
+        # ── Import Corrective ──
+        if 'Corrective' in wb.sheetnames:
+            ws = wb['Corrective']
+            for row in ws.iter_rows(min_row=4, max_col=11, values_only=False):
+                row_num += 1
+                vals = [c.value for c in row]
+                nama_device = str(vals[0] or '').strip()
+                tanggal_raw = vals[1]
+                pelaksana_raw = str(vals[2] or '').strip()
+                jenis = str(vals[3] or '').strip()
+                deskripsi = str(vals[4] or '').strip()
+                tindakan = str(vals[5] or '').strip()
+                komponen_yn = str(vals[6] or '').strip().lower()
+                nama_komp = str(vals[7] or '').strip()
+                kondisi_sblm = str(vals[8] or '').strip()
+                kondisi_ssdh = str(vals[9] or '').strip()
+                status_raw = str(vals[10] or 'selesai').strip()
+
+                if not nama_device or not deskripsi or not tindakan:
+                    if nama_device:  # skip truly empty rows
+                        errors.append(f'Baris {row_num + 3}: Data wajib tidak lengkap (perangkat/deskripsi/tindakan)')
+                    continue
+
+                device = Device.objects.filter(nama__iexact=nama_device, is_deleted=False).first()
+                if not device:
+                    errors.append(f'Baris {row_num + 3}: Perangkat "{nama_device}" tidak ditemukan')
+                    continue
+
+                # Parse tanggal
+                try:
+                    if isinstance(tanggal_raw, str):
+                        from datetime import datetime
+                        tanggal = datetime.strptime(tanggal_raw.strip(), '%Y-%m-%d %H:%M')
+                    else:
+                        tanggal = tanggal_raw
+                    if not tanggal:
+                        raise ValueError('Tanggal kosong')
+                except Exception:
+                    errors.append(f'Baris {row_num + 3}: Format tanggal tidak valid — gunakan YYYY-MM-DD HH:MM')
+                    continue
+
+                pelaksana_list = [n.strip() for n in pelaksana_raw.split(',') if n.strip()] if pelaksana_raw else []
+                m_status = 'Done' if status_raw == 'selesai' else 'Open'
+                komponen_diganti = komponen_yn in ('ya', 'yes', '1', 'true')
+
+                maint = Maintenance.objects.create(
+                    device=device,
+                    maintenance_type='Corrective',
+                    date=tanggal,
+                    description=deskripsi,
+                    status=m_status,
+                    pelaksana_names=pelaksana_list,
+                )
+                MaintenanceCorrective.objects.create(
+                    maintenance=maint,
+                    jenis_kerusakan=jenis if jenis in ('hardware','software','power','komunikasi','mekanik','lainnya') else '',
+                    deskripsi_masalah=deskripsi,
+                    tindakan=tindakan,
+                    komponen_diganti=komponen_diganti,
+                    nama_komponen=nama_komp,
+                    kondisi_sebelum=kondisi_sblm,
+                    kondisi_sesudah=kondisi_ssdh,
+                    status_perbaikan=status_raw if status_raw in ('selesai','perlu_tindaklanjut') else 'selesai',
+                )
+
+                if komponen_diganti and nama_komp:
+                    from devices.models import DeviceEvent
+                    tgl_str = str(tanggal)[:10] if tanggal else str(dj_timezone.localdate())
+                    DeviceEvent.objects.create(
+                        device=device,
+                        tipe='penggantian',
+                        tanggal=tgl_str,
+                        komponen=nama_komp,
+                        nilai_lama=kondisi_sblm,
+                        nilai_baru=kondisi_ssdh,
+                        catatan=f'Import offline — {deskripsi[:80]}',
+                        dilakukan_oleh=request.user,
+                    )
+
+                imported.append(f'{device.nama} — {deskripsi[:50]}')
+
+        # ── Import Preventive ──
+        if 'Preventive' in wb.sheetnames:
+            ws_prev = wb['Preventive']
+            for row in ws_prev.iter_rows(min_row=3, max_col=5, values_only=False):
+                row_num += 1
+                vals = [c.value for c in row]
+                nama_device = str(vals[0] or '').strip()
+                tanggal_raw = vals[1]
+                pelaksana_raw = str(vals[2] or '').strip()
+                deskripsi = str(vals[3] or '').strip()
+                status_raw = str(vals[4] or 'Open').strip()
+
+                if not nama_device:
+                    continue
+
+                device = Device.objects.filter(nama__iexact=nama_device, is_deleted=False).first()
+                if not device:
+                    errors.append(f'Preventive baris {row_num + 2}: Perangkat "{nama_device}" tidak ditemukan')
+                    continue
+
+                try:
+                    if isinstance(tanggal_raw, str):
+                        from datetime import datetime
+                        tanggal = datetime.strptime(tanggal_raw.strip(), '%Y-%m-%d %H:%M')
+                    else:
+                        tanggal = tanggal_raw
+                    if not tanggal:
+                        raise ValueError('Tanggal kosong')
+                except Exception:
+                    errors.append(f'Preventive baris {row_num + 2}: Format tanggal tidak valid')
+                    continue
+
+                pelaksana_list = [n.strip() for n in pelaksana_raw.split(',') if n.strip()] if pelaksana_raw else []
+
+                Maintenance.objects.create(
+                    device=device,
+                    maintenance_type='Preventive',
+                    date=tanggal,
+                    description=deskripsi,
+                    status=status_raw if status_raw in ('Open','Done') else 'Open',
+                    pelaksana_names=pelaksana_list,
+                )
+                imported.append(f'[Preventive] {device.nama} — {deskripsi[:50]}')
+
+        results = {
+            'imported': imported,
+            'errors': errors,
+            'total_imported': len(imported),
+            'total_errors': len(errors),
+        }
+
+        if imported:
+            messages.success(request, f'Berhasil mengimport {len(imported)} data maintenance.')
+        if errors:
+            messages.warning(request, f'Ada {len(errors)} baris yang gagal diimport.')
+
+    return render(request, 'maintenance/offline_upload.html', {'results': results})

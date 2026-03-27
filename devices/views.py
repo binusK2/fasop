@@ -540,6 +540,7 @@ def api_lokasi_devices(request, lokasi_nama):
 
 
 @login_required
+@login_required
 def layanan_icon(request):
     icons = Icon.objects.all()
 
@@ -576,6 +577,17 @@ def layanan_icon(request):
 
     icons = list(icons)
 
+    # Hitung jumlah gangguan per icon (berdasarkan FK layanan_icon di model Gangguan)
+    from gangguan.models import Gangguan
+    gangguan_counts = dict(
+        Gangguan.objects.filter(layanan_icon__isnull=False)
+        .values('layanan_icon_id')
+        .annotate(total=Count('id'))
+        .values_list('layanan_icon_id', 'total')
+    )
+    for icon in icons:
+        icon.jumlah_gangguan = gangguan_counts.get(icon.id, 0)
+
     # Summary counters
     operasi_baik = sum(
         1 for i in icons
@@ -597,6 +609,12 @@ def layanan_icon(request):
         'Tidak Operasi' in i.kondisi_operasional
     )
 
+    # Total tiket gangguan aktif yang terkait layanan ICON+
+    total_gangguan_aktif = Gangguan.objects.filter(
+        layanan_icon__isnull=False,
+        status__in=('open', 'in_progress')
+    ).count()
+
     # Distinct kondisi values for filter dropdown
     kondisi_list = sorted(set(
         i.kondisi_operasional for i in Icon.objects.all()
@@ -604,17 +622,17 @@ def layanan_icon(request):
     ))
 
     return render(request, 'devices/layanan_icon.html', {
-        'icons':            icons,
-        'search':           search,
-        'selected_kondisi': selected_kondisi,
-        'kondisi_list':     kondisi_list,
-        'operasi_baik':     operasi_baik,
-        'gangguan':         operasi_gangguan,
-        'lainnya':          operasi_lain,
-        'sort_by':          sort_by,
-        'sort_dir':         sort_dir,
+        'icons':                icons,
+        'search':               search,
+        'selected_kondisi':     selected_kondisi,
+        'kondisi_list':         kondisi_list,
+        'operasi_baik':         operasi_baik,
+        'gangguan':             operasi_gangguan,
+        'lainnya':              operasi_lain,
+        'sort_by':              sort_by,
+        'sort_dir':             sort_dir,
+        'total_gangguan_aktif': total_gangguan_aktif,
     })
-
 
 @login_required
 @require_can_edit
@@ -922,9 +940,11 @@ def device_event_add(request, pk):
 
     if request.method == 'POST':
         from devices.models import DeviceEvent
+        from devices.models_komponen import DeviceComponent
         tipe          = request.POST.get('tipe', '').strip()
         tanggal       = request.POST.get('tanggal', '')
         komponen      = request.POST.get('komponen', '').strip()
+        komponen_terkait_pk = request.POST.get('komponen_terkait_id', '') or None
         nilai_lama    = request.POST.get('nilai_lama', '').strip()
         nilai_baru    = request.POST.get('nilai_baru', '').strip()
         lokasi_asal   = request.POST.get('lokasi_asal', '').strip()
@@ -932,12 +952,17 @@ def device_event_add(request, pk):
         catatan       = request.POST.get('catatan', '').strip()
         foto          = request.FILES.get('foto')
 
+        komponen_terkait_obj = None
+        if komponen_terkait_pk:
+            komponen_terkait_obj = DeviceComponent.objects.filter(pk=komponen_terkait_pk).first()
+
         if tipe and tanggal:
             event = DeviceEvent(
                 device        = device,
                 tipe          = tipe,
                 tanggal       = tanggal,
                 komponen      = komponen,
+                komponen_terkait = komponen_terkait_obj,
                 nilai_lama    = nilai_lama,
                 nilai_baru    = nilai_baru,
                 lokasi_asal   = lokasi_asal,
@@ -961,6 +986,21 @@ def device_event_add(request, pk):
                 d_before.lokasi = old_lokasi
                 device_copy = copy.copy(device)
                 log_edit(d_before, device_copy, request.user)
+
+            # Auto-update status DeviceComponent
+            if komponen_terkait_obj:
+                from django.utils import timezone as _tz
+                if tipe == 'penggantian':
+                    komponen_terkait_obj.status = 'diganti'
+                    komponen_terkait_obj.tanggal_ganti = _tz.localdate()
+                    komponen_terkait_obj.save(update_fields=['status', 'tanggal_ganti', 'updated_at'])
+                elif tipe == 'pembongkaran':
+                    komponen_terkait_obj.status = 'tidak_ada'
+                    komponen_terkait_obj.save(update_fields=['status', 'updated_at'])
+                elif tipe in ('pemasangan', 'penambahan'):
+                    komponen_terkait_obj.status = 'terpasang'
+                    komponen_terkait_obj.tanggal_pasang = _tz.localdate()
+                    komponen_terkait_obj.save(update_fields=['status', 'tanggal_pasang', 'updated_at'])
 
     return redirect('device_view', pk=pk)
 

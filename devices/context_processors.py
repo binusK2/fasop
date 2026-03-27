@@ -1,42 +1,111 @@
 from .models import DeviceType, Device
 from django.db.models.functions import Trim
 
-# Urutan custom sidebar peralatan
-DEVICE_TYPE_ORDER = [
-    "Router",
-    "Switch",
-    "Radio",
-    "VoIP",
-    "Multiplexer",
-    "PLC",
-    "Teleproteksi",
-    "RoIP",
-    "Catu Daya",
-    "RTU",
-    "SAS",
-    "SERVER",
-    "UPS",
-    "Workstation PC",
-    "GPS",
-    "GENSET",
-    "DFR",
-    "RELE DEFENSE SCHEME",
+# ── Grouping jenis peralatan untuk sidebar ──────────────────
+DEVICE_GROUP_CONFIG = {
+    'telkom': {
+        'label': 'Telekomunikasi',
+        'icon': 'bi-broadcast-pin',
+        'color': '#3b82f6',
+        'types': [
+            'router', 'switch', 'teleproteksi', 'roip',
+            'voip', 'multiplexer', 'plc', 'radio', 'server telkom',
+        ],
+    },
+    'scada': {
+        'label': 'SCADA',
+        'icon': 'bi-diagram-3',
+        'color': '#10b981',
+        'types': [
+            'rtu', 'sas', 'ups', 'server scada',
+        ],
+    },
+    'prosis': {
+        'label': 'Proteksi Sistem',
+        'icon': 'bi-shield-check',
+        'color': '#f59e0b',
+        'types': [
+            'defense scheme', 'rele defense scheme', 'dfr', 'server prosis',
+        ],
+    },
+}
+
+# Urutan dalam group
+DEVICE_TYPE_ORDER_IN_GROUP = [
+    "ROUTER", "SWITCH", "RADIO", "VOIP", "MULTIPLEXER", 
+    "PLC", "TELEPROTEKSI", "ROIP", "SERVER TELKOM",
+    "RTU", "SAS", "SERVER SCADA", "UPS",
+    "RELE DEFENSE SCHEME", "DFR", "SERVER PROSIS", 
+    "Catu Daya", "Workstation PC", "GPS", "GENSET",
 ]
+
+
+def _get_group_key(name):
+    """Return group key (telkom/scada/prosis) or None for ungrouped."""
+    name_lower = name.strip().lower()
+    for key, cfg in DEVICE_GROUP_CONFIG.items():
+        for t in cfg['types']:
+            if t == name_lower:
+                return key
+    return None
+
+
+def _sort_key(dt):
+    name_lower = dt.name.strip().lower()
+    for i, ordered_name in enumerate(DEVICE_TYPE_ORDER_IN_GROUP):
+        if ordered_name.lower() == name_lower:
+            return i
+    return len(DEVICE_TYPE_ORDER_IN_GROUP)
+
 
 def device_types(request):
     all_types = list(DeviceType.objects.all())
+    all_types.sort(key=_sort_key)
 
-    def sort_key(dt):
-        name_lower = dt.name.strip().lower()
-        for i, ordered_name in enumerate(DEVICE_TYPE_ORDER):
-            if ordered_name.lower() == name_lower:
-                return i
-        return len(DEVICE_TYPE_ORDER)
+    # Build grouped structure
+    groups = {}
+    ungrouped = []
 
-    all_types.sort(key=sort_key)
+    for dt in all_types:
+        group_key = _get_group_key(dt.name)
+        if group_key:
+            if group_key not in groups:
+                cfg = DEVICE_GROUP_CONFIG[group_key]
+                groups[group_key] = {
+                    'key': group_key,
+                    'label': cfg['label'],
+                    'icon': cfg['icon'],
+                    'color': cfg['color'],
+                    'types': [],
+                }
+            groups[group_key]['types'].append(dt)
+        else:
+            ungrouped.append(dt)
+
+    # Preserve order: telkom, scada, prosis
+    ordered_groups = []
+    for key in ['telkom', 'scada', 'prosis']:
+        if key in groups:
+            ordered_groups.append(groups[key])
+
+    # Detect active device jenis for sidebar highlighting on device_view
+    active_device_jenis_id = None
+    try:
+        resolver = request.resolver_match
+        if resolver and resolver.url_name == 'device_view':
+            pk = resolver.kwargs.get('pk')
+            if pk:
+                d = Device.objects.filter(pk=pk, is_deleted=False).select_related('jenis').first()
+                if d and d.jenis_id:
+                    active_device_jenis_id = d.jenis_id
+    except Exception:
+        pass
 
     return {
-        'navbar_device_types': all_types
+        'navbar_device_types': all_types,  # backward compat
+        'device_groups': ordered_groups,
+        'device_ungrouped': ungrouped,
+        'active_device_jenis_id': active_device_jenis_id,
     }
 
 def lokasi_list(request):

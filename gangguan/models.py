@@ -103,6 +103,14 @@ class Gangguan(models.Model):
         verbose_name='Komponen Rusak',
         help_text='Opsional — pilih komponen spesifik yang rusak (misal: Modul CPU Slot A)',
     )
+    layanan_icon    = models.ForeignKey(
+        'devices.Icon',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='gangguan_terkait',
+        verbose_name='Layanan ICON+',
+        help_text='Opsional — pilih layanan ICON+ yang terdampak gangguan ini',
+    )
 
     # ── Isi laporan gangguan ─────────────────────────────────────
     executive_summary   = models.TextField(verbose_name='Executive Summary', help_text='Ringkasan singkat kondisi gangguan')

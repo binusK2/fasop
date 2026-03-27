@@ -10,7 +10,10 @@
         <h2 class="mb-0" style="font-size:20px;font-weight:700;">Layanan ICON+</h2>
         <p class="text-muted mb-0" style="font-size:13px;">{{ icons|length }} layanan terdaftar</p>
     </div>
-    <div class="d-flex gap-2">
+    <div class="d-flex gap-2 flex-wrap">
+        <a href="{% url 'gangguan_create' %}?from=icon" class="btn btn-danger btn-sm">
+            <i class="bi bi-exclamation-triangle-fill me-1"></i>Laporkan Gangguan
+        </a>
         <a href="{% url 'icon_add' %}" class="btn btn-primary btn-sm">
             <i class="bi bi-plus-lg me-1"></i>Tambah Layanan
         </a>
@@ -50,28 +53,33 @@
 
 <!-- STATS SUMMARY -->
 <div class="row g-3 mb-3">
-    <div class="col-md-3">
+    <div class="col-6 col-md-3">
         <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:14px 18px;">
             <div style="font-size:11px;font-weight:700;color:#065f46;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Total Layanan</div>
             <div style="font-size:26px;font-weight:800;color:#065f46;">{{ icons|length }}</div>
         </div>
     </div>
-    <div class="col-md-3">
+    <div class="col-6 col-md-3">
         <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:14px 18px;">
             <div style="font-size:11px;font-weight:700;color:#1e40af;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Operasi Baik</div>
             <div style="font-size:26px;font-weight:800;color:#1e40af;">{{ operasi_baik }}</div>
         </div>
     </div>
-    <div class="col-md-3">
+    <div class="col-6 col-md-3">
         <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:14px 18px;">
-            <div style="font-size:11px;font-weight:700;color:#991b1b;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Gangguan</div>
+            <div style="font-size:11px;font-weight:700;color:#991b1b;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Gangguan Kondisi</div>
             <div style="font-size:26px;font-weight:800;color:#991b1b;">{{ gangguan }}</div>
         </div>
     </div>
-    <div class="col-md-3">
-        <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:14px 18px;">
-            <div style="font-size:11px;font-weight:700;color:#9a3412;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Lainnya</div>
-            <div style="font-size:26px;font-weight:800;color:#9a3412;">{{ lainnya }}</div>
+    <div class="col-6 col-md-3">
+        <div style="background:#fdf4ff;border:1.5px solid #e9d5ff;border-radius:12px;padding:14px 18px;position:relative;overflow:hidden;">
+            <div style="font-size:11px;font-weight:700;color:#6b21a8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">
+                <i class="bi bi-ticket-detailed me-1"></i>Tiket Gangguan Aktif
+            </div>
+            <div style="font-size:26px;font-weight:800;color:#6b21a8;">{{ total_gangguan_aktif }}</div>
+            {% if total_gangguan_aktif > 0 %}
+            <div style="position:absolute;top:8px;right:10px;width:10px;height:10px;border-radius:50%;background:#9333ea;animation:pulse-dot 1.5s infinite;"></div>
+            {% endif %}
         </div>
     </div>
 </div>
@@ -170,13 +178,21 @@
                     </th>
                     {% endwith %}
 
+                    {# ── KOLOM BARU: Gangguan ──────────────────────────────── #}
+                    <th style="text-align:center;">
+                        <span style="display:inline-flex;align-items:center;gap:4px;">
+                            <i class="bi bi-ticket-detailed" style="color:#9333ea;"></i>
+                            Gangguan
+                        </span>
+                    </th>
+
                     <th>Keterangan</th>
                     <th style="width:100px;">Aksi</th>
                 </tr>
             </thead>
             <tbody>
                 {% for d in icons %}
-                <tr>
+                <tr class="{% if d.jumlah_gangguan > 0 %}row-has-gangguan{% endif %}">
                     <td class="text-muted" style="font-size:12px;">{{ forloop.counter }}</td>
                     <td>
                         <div style="font-weight:600;font-size:13.5px;color:#1e293b;">{{ d.name }}</div>
@@ -193,7 +209,7 @@
                         {% endif %}
                     </td>
                     <td style="text-align: center;"><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#334155;">{{ d.SID1|default:"—" }}</span></td>
-                    <td style="text-align: center;"><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#334155; ">{{ d.SID2|default:"—" }}</span></td>
+                    <td style="text-align: center;"><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#334155;">{{ d.SID2|default:"—" }}</span></td>
                     <td style="font-size:12.5px;color:#475569; text-align: center;">{{ d.kontrak|default:"—" }}</td>
                     <td style="text-align: center;">
                         {% if d.kondisi_operasional %}
@@ -214,9 +230,31 @@
                         <span style="color:#94a3b8;font-size:13px;">—</span>
                         {% endif %}
                     </td>
-                    <td style="font-size:12px;color:#64748b;max-width:250px;">{{ d.keterangan|default:"—" }}</td>
+
+                    {# ── KOLOM BARU: Jumlah Gangguan ──────────────────────── #}
+                    <td style="text-align:center;">
+                        {% if d.jumlah_gangguan > 0 %}
+                        <a href="{% url 'gangguan_list' %}?icon={{ d.id }}"
+                           style="text-decoration:none;display:inline-flex;align-items:center;gap:5px;">
+                            <span class="gangguan-badge-count">
+                                <i class="bi bi-ticket-detailed" style="font-size:10px;"></i>
+                                {{ d.jumlah_gangguan }}
+                            </span>
+                        </a>
+                        {% else %}
+                        <span style="color:#cbd5e1;font-size:13px;">—</span>
+                        {% endif %}
+                    </td>
+
+                    <td style="font-size:12px;color:#64748b;max-width:200px;">{{ d.keterangan|default:"—" }}</td>
                     <td>
-                        <div class="d-flex gap-1">
+                        <div class="d-flex gap-1 justify-content-center">
+                            {# Tombol Laporkan Gangguan cepat #}
+                            <a href="{% url 'gangguan_create' %}?icon_id={{ d.id }}"
+                               class="btn btn-sm btn-outline-danger" style="padding:3px 7px;font-size:11px;"
+                               title="Laporkan gangguan untuk layanan ini">
+                                <i class="bi bi-exclamation-triangle"></i>
+                            </a>
                             <a href="{% url 'icon_edit' d.id %}" class="btn btn-sm btn-outline-warning" style="padding:3px 8px;font-size:12px;">
                                 <i class="bi bi-pencil"></i>
                             </a>
@@ -232,7 +270,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="10" class="text-center py-5">
+                    <td colspan="11" class="text-center py-5">
                         <i class="bi bi-wifi-off fs-2 d-block mb-2 text-muted"></i>
                         <div style="color:#64748b;font-size:13px;">Belum ada data layanan ICON+</div>
                         <a href="{% url 'icon_add' %}" class="btn btn-primary btn-sm mt-2">
@@ -258,5 +296,40 @@
 .table tbody tr:hover { background:#f8fafc; }
 .table tbody td { padding:10px 14px;vertical-align:middle;border:none; }
 .table tbody tr:last-child { border-bottom:none; }
+
+/* Row dengan gangguan aktif — subtle left accent */
+.row-has-gangguan {
+    border-left: 3px solid #e9d5ff !important;
+}
+.row-has-gangguan:hover {
+    background: #fdf4ff !important;
+}
+
+/* Badge jumlah gangguan */
+.gangguan-badge-count {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #f3e8ff;
+    color: #7c3aed;
+    border: 1px solid #ddd6fe;
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-size: 12px;
+    font-weight: 700;
+    transition: background 0.15s, color 0.15s, transform 0.15s;
+}
+.gangguan-badge-count:hover {
+    background: #7c3aed;
+    color: white;
+    transform: scale(1.05);
+    border-color: #7c3aed;
+}
+
+@keyframes pulse-dot {
+    0%   { box-shadow: 0 0 0 0 rgba(147,51,234,0.5); }
+    70%  { box-shadow: 0 0 0 8px rgba(147,51,234,0); }
+    100% { box-shadow: 0 0 0 0 rgba(147,51,234,0); }
+}
 </style>
 {% endblock %}

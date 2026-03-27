@@ -520,38 +520,45 @@
         {% comment %}Deteksi apakah sedang di halaman peralatan{% endcomment %}
         {% with url_name=request.resolver_match.url_name jenis_param=request.GET.jenis %}
 
-        {# Tombol toggle grup Peralatan #}
+        {# ── Sub-group: Telkom, SCADA, Prosis ── #}
+        {% for group in device_groups %}
         <button class="sidebar-link sidebar-group-toggle w-100 text-start border-0
-            {% if 'device' in url_name %}active open{% endif %}"
-            data-target="submenu-peralatan" type="button">
-            <span class="si-icon"><i class="bi bi-hdd-rack"></i></span>
-            Semua Peralatan
+            {% for dt in group.types %}{% with jid=dt.id|stringformat:"s" %}{% if jenis_param == jid or url_name == 'device_view' and active_device_jenis_id == dt.id %}active open{% endif %}{% endwith %}{% endfor %}"
+            data-target="submenu-peralatan-{{ group.key }}" type="button">
+            <span class="si-icon"><i class="bi {{ group.icon }}" style="color:{{ group.color }};"></i></span>
+            {{ group.label }}
             <i class="bi bi-chevron-right sidebar-toggle-btn ms-auto"></i>
         </button>
 
-        <div class="sidebar-submenu {% if 'device' in url_name %}open{% endif %}"
-             id="submenu-peralatan">
-
-            <a href="{% url 'device_list' %}"
-               class="sidebar-link {% if url_name == 'device_list' and not jenis_param %}active{% endif %}">
-                <span class="si-icon"><i class="bi bi-list-ul"></i></span>
-                Semua
-            </a>
-
-            {% for jenis in navbar_device_types %}
-            {% with jenis_id_str=jenis.id|stringformat:"s" %}
-            <a href="{% url 'device_list' %}?jenis={{ jenis.id }}"
+        <div class="sidebar-submenu
+            {% for dt in group.types %}{% with jid=dt.id|stringformat:"s" %}{% if jenis_param == jid or url_name == 'device_view' and active_device_jenis_id == dt.id %}open{% endif %}{% endwith %}{% endfor %}"
+             id="submenu-peralatan-{{ group.key }}">
+            {% for dt in group.types %}
+            {% with jid=dt.id|stringformat:"s" %}
+            <a href="{% url 'device_list' %}?jenis={{ dt.id }}"
                class="sidebar-link
-               {% if url_name == 'device_list' and jenis_param == jenis_id_str %}active{% endif %}
-               {% if url_name == 'device_view' and active_device_jenis_id == jenis.id %}active{% endif %}">
-                <span class="si-icon"><i class="bi bi-tag"></i></span>
-                {{ jenis.name }}
+               {% if url_name == 'device_list' and jenis_param == jid %}active{% endif %}
+               {% if url_name == 'device_view' and active_device_jenis_id == dt.id %}active{% endif %}">
+                <span class="si-icon"><i class="bi bi-tag" style="font-size:11px;"></i></span>
+                {{ dt.name }}
             </a>
             {% endwith %}
             {% endfor %}
-
-            
         </div>
+        {% endfor %}
+
+        {# ── Ungrouped: item di luar grouping ── #}
+        {% for dt in device_ungrouped %}
+        {% with jid=dt.id|stringformat:"s" %}
+        <a href="{% url 'device_list' %}?jenis={{ dt.id }}"
+           class="sidebar-link
+           {% if url_name == 'device_list' and jenis_param == jid %}active{% endif %}
+           {% if url_name == 'device_view' and active_device_jenis_id == dt.id %}active{% endif %}">
+            <span class="si-icon"><i class="bi bi-tag"></i></span>
+            {{ dt.name }}
+        </a>
+        {% endwith %}
+        {% endfor %}
 
         {% endwith %}
     </div>
@@ -563,14 +570,14 @@
 
         {% with url_name=request.resolver_match.url_name %}
         <button class="sidebar-link sidebar-group-toggle w-100 text-start border-0
-            {% if 'maintenance' in url_name %}active open{% endif %}"
+            {% if 'maintenance' in url_name or 'offline_form' in url_name %}active open{% endif %}"
             data-target="submenu-pemeliharaan" type="button">
             <span class="si-icon"><i class="bi bi-tools"></i></span>
             Pemeliharaan
             <i class="bi bi-chevron-right sidebar-toggle-btn ms-auto"></i>
         </button>
 
-        <div class="sidebar-submenu {% if 'maintenance' in url_name or 'jadwal' in url_name %}open{% endif %}"
+        <div class="sidebar-submenu {% if 'maintenance' in url_name or 'jadwal' in url_name or 'offline_form' in url_name %}open{% endif %}"
              id="submenu-pemeliharaan">
             <a href="{% url 'maintenance_list' %}"
                class="sidebar-link {% if url_name == 'maintenance_list' or url_name == 'maintenance_view' or url_name == 'maintenance_edit' %}active{% endif %}">
@@ -586,6 +593,11 @@
                class="sidebar-link {% if url_name == 'maintenance_report' %}active{% endif %}">
                 <span class="si-icon"><i class="bi bi-file-earmark-bar-graph"></i></span>
                 Laporan Pemeliharaan
+            </a>
+            <a href="{% url 'offline_form_upload' %}"
+               class="sidebar-link {% if url_name == 'offline_form_upload' or url_name == 'offline_form_download' %}active{% endif %}">
+                <span class="si-icon"><i class="bi bi-cloud-arrow-up"></i></span>
+                Form Offline
             </a>
         </div>
         {% endwith %}
@@ -788,12 +800,22 @@
             if (!submenu) return;
 
             const isOpen = submenu.classList.contains('open');
+            const isPeralatanSub = targetId.startsWith('submenu-peralatan-');
 
-            // Tutup semua submenu lain dulu (accordion style)
+            // Tutup submenu lain yang sejenis (accordion style)
             document.querySelectorAll('.sidebar-submenu.open').forEach(sm => {
-                if (sm.id !== targetId) {
+                if (sm.id === targetId) return;
+                const smIsPeralatanSub = sm.id.startsWith('submenu-peralatan-');
+
+                // Peralatan sub-groups hanya tutup sesama peralatan sub-group
+                // Main sections hanya tutup sesama main section
+                if (isPeralatanSub && smIsPeralatanSub) {
                     sm.classList.remove('open');
-                    const relBtn = document.querySelector(`[data-target="${sm.id}"]`);
+                    const relBtn = document.querySelector('[data-target="' + sm.id + '"]');
+                    if (relBtn) relBtn.classList.remove('open');
+                } else if (!isPeralatanSub && !smIsPeralatanSub) {
+                    sm.classList.remove('open');
+                    const relBtn = document.querySelector('[data-target="' + sm.id + '"]');
                     if (relBtn) relBtn.classList.remove('open');
                 }
             });
