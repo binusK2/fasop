@@ -11,9 +11,22 @@ class JadwalKunjungan(models.Model):
         ('done',        'Selesai'),
     )
 
+    MINGGU_CHOICES = (
+        (0, '— Semua Minggu —'),
+        (1, 'Minggu 1 (tgl 1-7)'),
+        (2, 'Minggu 2 (tgl 8-14)'),
+        (3, 'Minggu 3 (tgl 15-21)'),
+        (4, 'Minggu 4 (tgl 22-31)'),
+    )
+
     lokasi          = models.CharField(max_length=150, verbose_name='Lokasi / Site')
-    bulan_rencana   = models.PositiveSmallIntegerField(verbose_name='Bulan Rencana')   # 1–12
+    bulan_rencana   = models.PositiveSmallIntegerField(verbose_name='Bulan Rencana')
     tahun_rencana   = models.PositiveSmallIntegerField(verbose_name='Tahun Rencana')
+    minggu_rencana  = models.PositiveSmallIntegerField(
+        verbose_name='Minggu Rencana',
+        choices=[(0,'Semua Minggu'),(1,'Minggu 1'),(2,'Minggu 2'),(3,'Minggu 3'),(4,'Minggu 4')],
+        default=0,
+    )
     status          = models.CharField(max_length=20, choices=STATUS_CHOICES, default='planned')
     catatan         = models.TextField(blank=True, verbose_name='Catatan')
     created_by      = models.ForeignKey(
@@ -26,18 +39,26 @@ class JadwalKunjungan(models.Model):
     class Meta:
         verbose_name        = 'Jadwal Kunjungan'
         verbose_name_plural = 'Jadwal Kunjungan'
-        ordering            = ['tahun_rencana', 'bulan_rencana', 'lokasi']
-        unique_together     = ('lokasi', 'bulan_rencana', 'tahun_rencana')
+        ordering            = ['tahun_rencana', 'bulan_rencana', 'minggu_rencana', 'lokasi']
+        unique_together     = ('lokasi', 'bulan_rencana', 'tahun_rencana', 'minggu_rencana')
 
     def __str__(self):
         import calendar
         bln = calendar.month_abbr[self.bulan_rencana]
-        return f'{self.lokasi} — {bln} {self.tahun_rencana}'
+        minggu_str = f' Minggu {self.minggu_rencana}' if self.minggu_rencana else ''
+        return f'{self.lokasi} — {bln} {self.tahun_rencana}{minggu_str}'
+
+    @property
+    def label_minggu(self):
+        labels = {0:'Semua Minggu',1:'Minggu 1',2:'Minggu 2',3:'Minggu 3',4:'Minggu 4'}
+        return labels.get(self.minggu_rencana, '—')
 
     @property
     def label_periode(self):
         import calendar
-        return f"{calendar.month_name[self.bulan_rencana]} {self.tahun_rencana}"
+        bln = calendar.month_name[self.bulan_rencana]
+        minggu_str = f' — Minggu {self.minggu_rencana}' if self.minggu_rencana else ''
+        return f"{bln} {self.tahun_rencana}{minggu_str}"
 
     @property
     def periode_str(self):
