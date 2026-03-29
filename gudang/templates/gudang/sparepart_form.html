@@ -1,0 +1,106 @@
+{% extends 'base.html' %}
+{% block title %}{% if mode == 'edit' %}Edit{% else %}Tambah{% endif %} Spare Part — FASOP{% endblock %}
+{% block page_title %}{% if mode == 'edit' %}Edit{% else %}Tambah{% endif %} Spare Part{% endblock %}
+
+{% block content %}
+
+<div class="mb-3">
+    <a href="{% url 'gudang:sparepart_list' %}" class="text-muted text-decoration-none" style="font-size:13px;">
+        <i class="bi bi-arrow-left me-1"></i>Kembali ke Daftar Spare Part
+    </a>
+</div>
+
+<div class="table-card" style="max-width:720px;">
+    <div class="table-header">
+        <h6 class="mb-0">
+            <i class="bi bi-archive me-1"></i>
+            {% if mode == 'edit' %}Edit: {{ sp.nama }}{% else %}Tambah Spare Part Baru{% endif %}
+        </h6>
+    </div>
+    <div class="p-4">
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="row g-3" style="font-size:13px;">
+
+                <div class="col-md-8">
+                    <label class="form-label fw-600">Nama Spare Part <span class="text-danger">*</span></label>
+                    <input type="text" name="nama" class="form-control form-control-sm"
+                           value="{{ sp.nama|default:'' }}" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-600">Satuan <span class="text-danger">*</span></label>
+                    <select name="satuan" class="form-select form-select-sm" required>
+                        {% for val, label in satuan_choices %}
+                        <option value="{{ val }}" {% if sp.satuan == val %}selected{% elif not sp and val == 'pcs' %}selected{% endif %}>
+                            {{ label }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label fw-600">Kategori <span class="text-danger">*</span></label>
+                    <input type="text" name="kategori" class="form-control form-control-sm"
+                           value="{{ sp.kategori|default:'' }}"
+                           placeholder="SFP, Kabel, Baterai, Power Supply, ..." required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-600">Lokasi di Gudang <span class="text-danger">*</span></label>
+                    <input type="text" name="lokasi_penyimpanan" class="form-control form-control-sm"
+                           value="{{ sp.lokasi_penyimpanan|default:'' }}"
+                           placeholder="Rak B3, Laci 2 Lemari Komponen, ..." required>
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label fw-600">Merk</label>
+                    <input type="text" name="merk" class="form-control form-control-sm"
+                           value="{{ sp.merk|default:'' }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-600">Part Number</label>
+                    <input type="text" name="part_number" class="form-control form-control-sm"
+                           value="{{ sp.part_number|default:'' }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-600">Stok Minimum</label>
+                    <input type="number" name="stok_minimum" class="form-control form-control-sm"
+                           min="0" value="{{ sp.stok_minimum|default:'0' }}">
+                    <div class="form-text">Alert jika stok ≤ nilai ini</div>
+                </div>
+
+                {% if mode == 'create' %}
+                <div class="col-md-4">
+                    <label class="form-label fw-600">Stok Awal</label>
+                    <input type="number" name="stok_awal" class="form-control form-control-sm" min="0" value="0">
+                    <div class="form-text">Opsional — dicatat sebagai mutasi masuk pertama</div>
+                </div>
+                {% endif %}
+
+                <div class="col-12">
+                    <label class="form-label fw-600">Keterangan</label>
+                    <textarea name="keterangan" class="form-control form-control-sm" rows="3">{{ sp.keterangan|default:'' }}</textarea>
+                </div>
+
+                <div class="col-12">
+                    <label class="form-label fw-600">Foto</label>
+                    {% if sp.foto %}
+                    <div class="mb-2">
+                        <img src="{{ sp.foto.url }}" style="height:80px;border-radius:6px;" alt="foto">
+                        <span class="text-muted ms-2" style="font-size:12px;">Foto saat ini</span>
+                    </div>
+                    {% endif %}
+                    <input type="file" name="foto" class="form-control form-control-sm" accept="image/*">
+                </div>
+
+                <div class="col-12 d-flex gap-2 pt-2">
+                    <button type="submit" class="btn btn-primary btn-sm">
+                        <i class="bi bi-check-lg me-1"></i>Simpan
+                    </button>
+                    <a href="{% url 'gudang:sparepart_list' %}" class="btn btn-outline-secondary btn-sm">Batal</a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}

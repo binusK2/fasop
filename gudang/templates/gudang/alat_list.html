@@ -1,0 +1,155 @@
+{% extends 'base.html' %}
+{% block title %}Alat Uji — FASOP{% endblock %}
+{% block page_title %}Alat Uji & Tools{% endblock %}
+
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+    <div>
+        <h2 class="mb-0" style="font-size:20px;font-weight:700;">Alat Uji & Tools</h2>
+        <p class="text-muted mb-0" style="font-size:13px;">{{ alat_list|length }} alat ditemukan</p>
+    </div>
+    {% if can_manage %}
+    <a href="{% url 'gudang:alat_create' %}" class="btn btn-primary btn-sm">
+        <i class="bi bi-plus-lg me-1"></i>Tambah Alat
+    </a>
+    {% endif %}
+</div>
+
+<!-- SUMMARY CARDS -->
+<div class="row g-3 mb-3">
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon" style="background:#eff6ff;color:#3b82f6;"><i class="bi bi-tools"></i></div>
+            <div class="stat-value">{{ total }}</div>
+            <div class="stat-label">Total Alat</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon" style="background:#f0fdf4;color:#22c55e;"><i class="bi bi-check-circle"></i></div>
+            <div class="stat-value">{{ baik }}</div>
+            <div class="stat-label">Kondisi Baik</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon" style="background:#fefce8;color:#eab308;"><i class="bi bi-clock-history"></i></div>
+            <div class="stat-value">{{ kalibrasi }}</div>
+            <div class="stat-label">Perlu Kalibrasi</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon" style="background:#fef2f2;color:#ef4444;"><i class="bi bi-wrench-adjustable"></i></div>
+            <div class="stat-value">{{ rusak }}</div>
+            <div class="stat-label">Rusak / Perbaikan</div>
+        </div>
+    </div>
+</div>
+
+{% if overdue_count %}
+<div class="alert alert-warning d-flex align-items-center gap-2 py-2 mb-3" style="font-size:13px;">
+    <i class="bi bi-exclamation-triangle-fill"></i>
+    <span><strong>{{ overdue_count }} alat</strong> melewati jadwal kalibrasi. Segera lakukan kalibrasi.</span>
+</div>
+{% endif %}
+
+<!-- FILTER -->
+<div class="card mb-3">
+    <div class="card-body py-2 px-3">
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-md-5">
+                <label class="form-label">Cari</label>
+                <input type="text" name="q" class="form-control form-control-sm"
+                       placeholder="Nama, kategori, merk, nomor seri..." value="{{ q }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Kondisi</label>
+                <select name="kondisi" class="form-select form-select-sm">
+                    <option value="">Semua Kondisi</option>
+                    {% for val, label in kondisi_choices %}
+                    <option value="{{ val }}" {% if kondisi_filter == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-auto d-flex gap-2">
+                <button class="btn btn-primary btn-sm"><i class="bi bi-funnel me-1"></i>Filter</button>
+                <a href="{% url 'gudang:alat_list' %}" class="btn btn-outline-secondary btn-sm">Reset</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- TABLE -->
+<div class="table-card">
+    <div class="table-header">
+        <h6 class="mb-0"><i class="bi bi-list-ul me-1"></i>Daftar Alat Uji</h6>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0" style="font-size:13px;">
+            <thead>
+                <tr>
+                    <th>Nama Alat</th>
+                    <th>Kategori</th>
+                    <th>Merk / Model</th>
+                    <th>No. Seri</th>
+                    <th>Kondisi</th>
+                    <th>Lokasi Simpan</th>
+                    <th>Kalibrasi Berikut</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for alat in alat_list %}
+            <tr>
+                <td>
+                    <a href="{% url 'gudang:alat_detail' alat.pk %}" class="fw-600 text-decoration-none">
+                        {{ alat.nama }}
+                    </a>
+                </td>
+                <td><span class="badge bg-light text-dark border">{{ alat.kategori }}</span></td>
+                <td>
+                    {% if alat.merk %}{{ alat.merk }}{% endif %}
+                    {% if alat.model %}<span class="text-muted"> / {{ alat.model }}</span>{% endif %}
+                </td>
+                <td>{{ alat.nomor_seri|default:"—" }}</td>
+                <td>
+                    <span class="badge bg-{{ alat.kondisi_color }}-subtle text-{{ alat.kondisi_color }}
+                                 border border-{{ alat.kondisi_color }}-subtle">
+                        {{ alat.kondisi_label }}
+                    </span>
+                </td>
+                <td>{{ alat.lokasi_penyimpanan }}</td>
+                <td>
+                    {% if alat.jadwal_kalibrasi_berikut %}
+                        {% if alat.kalibrasi_overdue %}
+                        <span class="text-danger fw-600">
+                            <i class="bi bi-exclamation-circle me-1"></i>{{ alat.jadwal_kalibrasi_berikut|date:"d M Y" }}
+                        </span>
+                        {% else %}
+                        {{ alat.jadwal_kalibrasi_berikut|date:"d M Y" }}
+                        {% endif %}
+                    {% else %}
+                        <span class="text-muted">—</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="{% url 'gudang:alat_detail' alat.pk %}"
+                       class="btn btn-outline-primary btn-sm py-0 px-2">Detail</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="8" class="text-center text-muted py-4">
+                    <i class="bi bi-inbox fs-3 d-block mb-2"></i>
+                    Belum ada alat uji yang terdaftar.
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

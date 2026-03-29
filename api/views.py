@@ -1,20 +1,17 @@
 import json
 import secrets
+import copy
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.db import IntegrityError
 
 from devices.models import Device, DeviceType
+from devices.device_audit import log_create, log_edit
 from .auth import require_api_key
 
 
-# ---------------------------------------------------------------------------
-# Helper
-# ---------------------------------------------------------------------------
-
 def _parse_json_body(request):
-    """Parse JSON body, kembalikan (data, error_response)."""
     try:
         data = json.loads(request.body)
         return data, None
@@ -25,9 +22,34 @@ def _parse_json_body(request):
         )
 
 
-# ---------------------------------------------------------------------------
-# POST /api/v1/devices/
-# ---------------------------------------------------------------------------
+def _resolve_fields(data):
+    ip_address    = data.get('ip_address',    '').strip() or None
+    serial_number = data.get('serial_number', '').strip() or None
+
+    status_operasi = data.get('status_operasi', 'operasi').strip().lower()
+    if status_operasi not in ('operasi', 'tidak_operasi'):
+        status_operasi = 'operasi'
+
+    tahun_operasi = data.get('tahun_operasi', None)
+    if tahun_operasi is not None:
+        try:
+            tahun_operasi = int(tahun_operasi)
+        except (ValueError, TypeError):
+            tahun_operasi = None
+
+    return {
+        'nama':             data.get('nama', '').strip(),
+        'merk':             data.get('merk', '').strip(),
+        'type':             data.get('type', '').strip() or None,
+        'serial_number':    serial_number,
+        'firmware_version': data.get('firmware_version', '').strip() or None,
+        'ip_address':       ip_address,
+        'lokasi':           data.get('lokasi', '').strip(),
+        'status_operasi':   status_operasi,
+        'keterangan':       data.get('keterangan', '').strip() or None,
+        'tahun_operasi':    tahun_operasi,
+    }
+
 
 @csrf_exempt
 @require_api_key
@@ -35,26 +57,14 @@ def _parse_json_body(request):
 def devices_endpoint(request):
     if request.method == 'GET':
         return _list_devices(request)
-    return _create_device(request)
+    return _upsert_device(request)
 
 
-def _create_device(request):
-    """
-    Buat perangkat baru dari payload JSON.
-
-    Field wajib : nama, jenis, merk, lokasi
-    Field opsional: type, serial_number, firmware_version, ip_address,
-                    status_operasi, keterangan, tahun_operasi
-
-    Logika jenis  : case-insensitive match ke DeviceType.name.
-                    Kalau tidak ditemukan → error 400.
-    Logika duplikat: ip_address / serial_number sudah ada → error 409.
-    """
+def _upsert_device(request):
     data, err = _parse_json_body(request)
     if err:
         return err
 
-    # --- Validasi field wajib ---
     required = ['nama', 'jenis', 'merk', 'lokasi']
     missing = [f for f in required if not data.get(f, '').strip()]
     if missing:
@@ -63,12 +73,10 @@ def _create_device(request):
             status=400
         )
 
-    # --- Resolusi DeviceType (case-insensitive) ---
     jenis_input = data['jenis'].strip()
     try:
         device_type = DeviceType.objects.get(name__iexact=jenis_input)
     except DeviceType.DoesNotExist:
-        # Kirim daftar jenis yang tersedia agar n8n bisa log dengan jelas
         tersedia = list(DeviceType.objects.values_list('name', flat=True).order_by('name'))
         return JsonResponse(
             {
@@ -79,62 +87,74 @@ def _create_device(request):
             status=400
         )
 
-    # --- Cek duplikat IP address ---
-    ip_address = data.get('ip_address', '').strip() or None
-    if ip_address and Device.objects.filter(ip_address=ip_address, is_deleted=False).exists():
-        return JsonResponse(
-            {
-                'status': 'error',
-                'message': f'IP address "{ip_address}" sudah terdaftar di sistem.',
-                'field': 'ip_address',
-            },
-            status=409
-        )
+    fields = _resolve_fields(data)
 
-    # --- Cek duplikat serial number ---
-    serial_number = data.get('serial_number', '').strip() or None
-    if serial_number and Device.objects.filter(serial_number=serial_number, is_deleted=False).exists():
-        return JsonResponse(
-            {
-                'status': 'error',
-                'message': f'Serial number "{serial_number}" sudah terdaftar di sistem.',
-                'field': 'serial_number',
-            },
-            status=409
-        )
+    # Cari device existing by IP atau serial number
+    existing = None
+    if fields['ip_address']:
+        existing = Device.objects.filter(
+            ip_address=fields['ip_address'], is_deleted=False
+        ).first()
+    if not existing and fields['serial_number']:
+        existing = Device.objects.filter(
+            serial_number=fields['serial_number'], is_deleted=False
+        ).first()
 
-    # --- Validasi status_operasi ---
-    status_operasi = data.get('status_operasi', 'operasi').strip().lower()
-    if status_operasi not in ('operasi', 'tidak_operasi'):
-        status_operasi = 'operasi'
-
-    # --- Tahun operasi ---
-    tahun_operasi = data.get('tahun_operasi', None)
-    if tahun_operasi is not None:
+    # UPDATE jika sudah ada
+    if existing:
+        device_before = copy.copy(existing)
+        existing.nama             = fields['nama']
+        existing.jenis            = device_type
+        existing.merk             = fields['merk']
+        existing.type             = fields['type']
+        existing.serial_number    = fields['serial_number']
+        existing.firmware_version = fields['firmware_version']
+        existing.ip_address       = fields['ip_address']
+        existing.lokasi           = fields['lokasi']
+        existing.status_operasi   = fields['status_operasi']
+        existing.keterangan       = fields['keterangan']
+        if fields['tahun_operasi']:
+            existing.tahun_operasi = fields['tahun_operasi']
         try:
-            tahun_operasi = int(tahun_operasi)
-        except (ValueError, TypeError):
-            tahun_operasi = None
+            existing.save()
+            log_edit(device_before, existing, user=None)
+        except IntegrityError as e:
+            return JsonResponse(
+                {'status': 'error', 'message': f'Gagal update: {str(e)}'},
+                status=409
+            )
+        return JsonResponse(
+            {
+                'status': 'ok',
+                'aksi': 'diperbarui',
+                'message': f'Perangkat "{existing.nama}" diperbarui.',
+                'id': existing.pk,
+                'nama': existing.nama,
+                'jenis': device_type.name,
+                'lokasi': existing.lokasi,
+                'ip_address': existing.ip_address,
+            },
+            status=200
+        )
 
-    # --- Buat Device ---
+    # CREATE jika belum ada
     try:
         device = Device.objects.create(
-            nama=data['nama'].strip(),
-            jenis=device_type,
-            merk=data['merk'].strip(),
-            type=data.get('type', '').strip() or None,
-            serial_number=serial_number,
-            firmware_version=data.get('firmware_version', '').strip() or None,
-            ip_address=ip_address,
-            lokasi=data['lokasi'].strip(),
-            status_operasi=status_operasi,
-            keterangan=data.get('keterangan', '').strip() or None,
-            tahun_operasi=tahun_operasi,
-            public_token=secrets.token_urlsafe(16),
-            # created_by dibiarkan null karena request dari n8n (bukan user login)
+            nama             = fields['nama'],
+            jenis            = device_type,
+            merk             = fields['merk'],
+            type             = fields['type'],
+            serial_number    = fields['serial_number'],
+            firmware_version = fields['firmware_version'],
+            ip_address       = fields['ip_address'],
+            lokasi           = fields['lokasi'],
+            status_operasi   = fields['status_operasi'],
+            keterangan       = fields['keterangan'],
+            tahun_operasi    = fields['tahun_operasi'],
+            public_token     = secrets.token_urlsafe(16),
         )
+        log_create(device, user=None)
     except IntegrityError as e:
-        # Tangkap constraint error lain (misal ip_address unique dari DB level)
         return JsonResponse(
             {'status': 'error', 'message': f'Gagal menyimpan data: {str(e)}'},
             status=409
@@ -143,6 +163,7 @@ def _create_device(request):
     return JsonResponse(
         {
             'status': 'ok',
+            'aksi': 'ditambahkan',
             'message': 'Perangkat berhasil ditambahkan.',
             'id': device.pk,
             'nama': device.nama,
@@ -155,11 +176,6 @@ def _create_device(request):
 
 
 def _list_devices(request):
-    """
-    GET /api/v1/devices/
-    List perangkat aktif (is_deleted=False).
-    Query params: jenis=Router, lokasi=GI+Tello
-    """
     qs = Device.objects.filter(is_deleted=False).select_related('jenis').order_by('nama')
 
     jenis_filter = request.GET.get('jenis', '').strip()
@@ -185,13 +201,8 @@ def _list_devices(request):
         }
         for d in qs
     ]
-
     return JsonResponse({'status': 'ok', 'count': len(devices), 'devices': devices})
 
-
-# ---------------------------------------------------------------------------
-# GET /api/v1/device-types/   — untuk n8n bisa cek jenis yang tersedia
-# ---------------------------------------------------------------------------
 
 @csrf_exempt
 @require_api_key
@@ -200,10 +211,6 @@ def device_types_endpoint(request):
     types = list(DeviceType.objects.values('id', 'name').order_by('name'))
     return JsonResponse({'status': 'ok', 'count': len(types), 'device_types': types})
 
-
-# ---------------------------------------------------------------------------
-# GET /api/v1/ping/   — health check tanpa API key (untuk monitor uptime)
-# ---------------------------------------------------------------------------
 
 def ping(request):
     return JsonResponse({'status': 'ok', 'message': 'FASOP API aktif.'})

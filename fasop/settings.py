@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'health_index',
     'notifikasi',
     'jadwal',
+    'gudang',
 ]
 
 MIDDLEWARE = [

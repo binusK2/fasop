@@ -664,6 +664,20 @@
     </div>
 
     <div class="sidebar-section">
+        <div class="sidebar-section-label">Gudang</div>
+        <a href="{% url 'gudang:alat_list' %}"
+           class="sidebar-link {% if 'alat' in request.resolver_match.url_name %}active{% endif %}">
+            <span class="si-icon"><i class="bi bi-tools"></i></span>
+            Alat Uji & Tools
+        </a>
+        <a href="{% url 'gudang:sparepart_list' %}"
+           class="sidebar-link {% if 'sparepart' in request.resolver_match.url_name or 'mutasi' in request.resolver_match.url_name %}active{% endif %}">
+            <span class="si-icon"><i class="bi bi-archive"></i></span>
+            Spare Part
+        </a>
+    </div>
+
+    <div class="sidebar-section">
         <div class="sidebar-section-label">Layanan & Infrastruktur</div>
         <a href="{% url 'layanan_icon' %}"
            class="sidebar-link {% if request.resolver_match.url_name == 'layanan_icon' %}active{% endif %}">
