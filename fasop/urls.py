@@ -29,6 +29,9 @@ urlpatterns = [
     path('notifikasi/', include('notifikasi.urls')),
     path('jadwal/', include('jadwal.urls')),
 
+    # REST API — untuk integrasi n8n / Google Sheets
+    path('api/v1/', include('api.urls')),
+
     path('login/', auth_views.LoginView.as_view(template_name='registration/login.html'), name='login'),
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
     path('ganti-password/', include('devices.urls_auth')),

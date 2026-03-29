@@ -144,4 +144,10 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 SESSION_COOKIE_AGE = 28800
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 
+# -------------------------------------------------------------------
+# API Key untuk integrasi eksternal (n8n, Google Sheets, dsb.)
+# Set di .env:  API_KEY=isi-dengan-string-acak-yang-kuat
+# -------------------------------------------------------------------
+API_KEY = config('API_KEY', default='')
+
 
