@@ -17,7 +17,7 @@ DEVICE_GROUP_CONFIG = {
         'icon': 'bi-diagram-3',
         'color': '#10b981',
         'types': [
-            'rtu', 'sas', 'ups', 'server scada',
+            'rtu', 'sas', 'ups', 'server scada', 'ied bcu', 'clock server', 'serial server','router sas', 'switch sas', 'inverter sas',
         ],
     },
     'prosis': {
@@ -35,6 +35,8 @@ DEVICE_TYPE_ORDER_IN_GROUP = [
     "ROUTER", "SWITCH", "RADIO", "VOIP", "MULTIPLEXER", 
     "PLC", "TELEPROTEKSI", "ROIP", "SERVER TELKOM",
     "RTU", "SAS", "SERVER SCADA", "UPS",
+    "IED BCU", "CLOCK SERVER", "SERIAL SERVER", "ROUTER SAS", "SWITCH SAS", "INVERTER SAS",
+
     "RELE DEFENSE SCHEME", "DFR", "SERVER PROSIS", 
     "Catu Daya", "Workstation PC", "GPS", "GENSET",
 ]
