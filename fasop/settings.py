@@ -57,6 +57,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'devices.middleware.ForcePasswordChangeMiddleware',
+    'devices.middleware.SingleSessionMiddleware',
 ]
 
 ROOT_URLCONF = 'fasop.urls'

@@ -264,6 +264,22 @@
             gap: 8px;
         }
 
+        /* ── Session expired warning ── */
+        .warn-msg {
+            background: rgba(234,179,8,0.1);
+            border: 1px solid rgba(234,179,8,0.3);
+            color: #fde68a;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 12.5px;
+            margin-bottom: 18px;
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            line-height: 1.45;
+        }
+        .warn-msg i { margin-top: 1px; flex-shrink: 0; }
+
         /* ── Footer tag ── */
         .card-footer {
             margin-top: 28px;
@@ -300,6 +316,13 @@
     </div>
 
     <div class="divider"></div>
+
+    {% if request.GET.session_expired %}
+    <div class="warn-msg">
+        <i class="bi bi-shield-exclamation"></i>
+        <span>Akun Anda masuk dari perangkat lain. Sesi sebelumnya telah diakhiri secara otomatis.</span>
+    </div>
+    {% endif %}
 
     <form method="post">
         {% csrf_token %}

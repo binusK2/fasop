@@ -157,6 +157,10 @@ class UserProfile(models.Model):
         default=True, verbose_name='Wajib Ganti Password',
         help_text='Jika aktif, user akan diarahkan ke halaman ganti password saat login berikutnya.'
     )
+    active_session_key = models.CharField(
+        max_length=40, blank=True, default='', verbose_name='Session Key Aktif',
+        help_text='Session key dari sesi login terakhir. Otomatis diperbarui saat login.'
+    )
 
     class Meta:
         verbose_name = 'Profil Pengguna'
