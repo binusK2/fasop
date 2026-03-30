@@ -407,9 +407,10 @@ function makeMarkerIcon(color, score, isActive) {
 // ── Init Leaflet ──────────────────────────────────────────────────────────────
 function initMap() {
     map = L.map('jaringan-map', { zoomControl: true }).setView([-5.15, 119.43], 9);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© <a href="https://openstreetmap.org/copyright">OpenStreetMap</a>',
-        maxZoom: 18,
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/">CARTO</a>',
+        subdomains: 'abcd',
+        maxZoom: 19,
     }).addTo(map);
 }
 
