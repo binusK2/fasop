@@ -633,6 +633,11 @@
 
     <div class="sidebar-section">
         <div class="sidebar-section-label">Site peralatan</div>
+        <a href="{% url 'peta_jaringan' %}"
+            class="sidebar-link {% if request.resolver_match.url_name == 'peta_jaringan' %}active{% endif %}">
+            <span class="si-icon"><i class="bi bi-map-fill"></i></span>
+            Peta Jaringan
+        </a>
         <a href="{% url 'lokasi_list' %}"
             class="sidebar-link {% if request.resolver_match.url_name == 'lokasi_list' %}active{% endif %}">
             <span class="si-icon"><i class="bi bi-geo-alt"></i></span>

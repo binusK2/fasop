@@ -46,6 +46,10 @@ urlpatterns = [
     path('lokasi-admin/', views.lokasi_admin, name='lokasi_admin'),
     path('api/lokasi-list/', views.api_lokasi_list, name='api_lokasi_list'),
 
+    # Peta Jaringan
+    path('peta-jaringan/', views.peta_jaringan, name='peta_jaringan'),
+    path('api/peta-jaringan/', views.api_peta_jaringan, name='api_peta_jaringan'),
+
     # Public page (QR Code — tanpa login)
     path('public/<str:token>/', views.device_public, name='device_public'),
 

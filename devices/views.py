@@ -1336,3 +1336,114 @@ def device_public(request, token):
         'umur':              umur,
         'now':               date_type.today(),
     })
+
+
+# ── Peta Jaringan ─────────────────────────────────────────────────────────────
+
+@login_required
+def peta_jaringan(request):
+    """Halaman peta jaringan — marker per site diwarnai berdasarkan HI rata-rata."""
+    site_locations = SiteLocation.objects.filter(
+        latitude__isnull=False, longitude__isnull=False
+    ).order_by('nama')
+
+    all_lokasi = (
+        Device.objects
+        .filter(is_deleted=False)
+        .exclude(lokasi__isnull=True).exclude(lokasi__exact='')
+        .values_list('lokasi', flat=True)
+        .distinct()
+    )
+    total_lokasi    = all_lokasi.count()
+    total_berkoord  = site_locations.count()
+    total_tanpa     = total_lokasi - total_berkoord
+
+    return render(request, 'devices/peta_jaringan.html', {
+        'total_lokasi':   total_lokasi,
+        'total_berkoord': total_berkoord,
+        'total_tanpa':    total_tanpa,
+    })
+
+
+@login_required
+def api_peta_jaringan(request):
+    """
+    API JSON untuk peta jaringan.
+    Kembalikan semua site yang punya koordinat beserta:
+    - Daftar device + skor HI masing-masing
+    - Skor HI rata-rata site (untuk warna marker)
+    - Jumlah gangguan aktif dan maintenance open
+    """
+    from health_index.calculator import calculate_hi, get_kategori
+    from gangguan.models import Gangguan
+    from maintenance.models import Maintenance
+
+    site_locations = SiteLocation.objects.filter(
+        latitude__isnull=False, longitude__isnull=False
+    ).order_by('nama')
+
+    gangguan_per_lokasi = {}
+    for g in Gangguan.objects.filter(status__in=['open', 'in_progress']).select_related('peralatan'):
+        if g.peralatan:
+            lok = (g.peralatan.lokasi or '').strip()
+            gangguan_per_lokasi[lok] = gangguan_per_lokasi.get(lok, 0) + 1
+
+    maint_per_lokasi = {}
+    for m in Maintenance.objects.filter(status='Open').select_related('device'):
+        lok = (m.device.lokasi or '').strip()
+        maint_per_lokasi[lok] = maint_per_lokasi.get(lok, 0) + 1
+
+    result = []
+    for sl in site_locations:
+        devices = Device.objects.filter(
+            is_deleted=False, lokasi__iexact=sl.nama
+        ).select_related('jenis').order_by('jenis__name', 'nama')
+
+        device_list = []
+        scores = []
+        for dev in devices:
+            try:
+                hi = calculate_hi(dev, save_snapshot=False)
+                score = hi['score']
+                kat   = hi['kategori']
+            except Exception:
+                score = None
+                kat   = None
+
+            scores.append(score)
+            device_list.append({
+                'id':        dev.pk,
+                'nama':      dev.nama,
+                'jenis':     dev.jenis.name if dev.jenis else '\u2014',
+                'merk':      dev.merk or '',
+                'type':      dev.type or '',
+                'ip':        str(dev.ip_address) if dev.ip_address else '',
+                'status':    dev.status_operasi,
+                'hi_score':  score,
+                'hi_label':  kat['label']  if kat else '\u2014',
+                'hi_accent': kat['accent'] if kat else '#94a3b8',
+                'hi_icon':   kat['icon']   if kat else 'bi-circle',
+                'url':       f'/view/{dev.pk}/',
+                'hi_url':    f'/health-index/{dev.pk}/',
+            })
+
+        valid_scores = [s for s in scores if s is not None]
+        avg_score = round(sum(valid_scores) / len(valid_scores)) if valid_scores else None
+        site_kat  = get_kategori(avg_score) if avg_score is not None else None
+
+        result.append({
+            'nama':           sl.nama,
+            'lat':            sl.latitude,
+            'lng':            sl.longitude,
+            'keterangan':     sl.keterangan or '',
+            'total_device':   len(device_list),
+            'hi_avg':         avg_score,
+            'hi_label':       site_kat['label']  if site_kat else '\u2014',
+            'hi_accent':      site_kat['accent'] if site_kat else '#94a3b8',
+            'hi_bg':          site_kat['bg']     if site_kat else '#f1f5f9',
+            'gangguan_aktif': gangguan_per_lokasi.get(sl.nama, 0),
+            'maint_open':     maint_per_lokasi.get(sl.nama, 0),
+            'devices':        device_list,
+        })
+
+    return JsonResponse({'sites': result})
