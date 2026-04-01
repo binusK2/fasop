@@ -1,0 +1,381 @@
+
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}{% if is_edit %}Edit{% else %}Form{% endif %} Maintenance Genset — {{ device.nama }}{% endblock %}
+{% block page_title %}{% if is_edit %}Edit{% else %}Form{% endif %} Maintenance Genset{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center gap-2 mb-3">
+    {% if is_edit %}
+    <a href="{% url 'maintenance_view' maintenance.id %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Kembali ke Detail</a>
+    {% else %}
+    <a href="{% url 'device_view' device.id %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Kembali ke Perangkat</a>
+    {% endif %}
+</div>
+
+<!-- BANNER -->
+<div class="card mb-4" style="background:linear-gradient(135deg,#0f172a 0%,#14532d 100%);border:none;">
+    <div class="card-body py-3 px-4">
+        <div class="d-flex align-items-center gap-4 flex-wrap">
+            <div style="width:42px;height:42px;background:rgba(74,222,128,0.2);border-radius:10px;display:flex;align-items:center;justify-content:center;">
+                <i class="bi bi-lightning-charge-fill" style="font-size:20px;color:#86efac;"></i>
+            </div>
+            <div>
+                <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;">Perangkat</div>
+                <div style="font-size:16px;font-weight:700;color:#f1f5f9;">{{ device.nama }}</div>
+            </div>
+            <div class="vr" style="background:rgba(255,255,255,0.1);width:1px;align-self:stretch;"></div>
+            <div><div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;">Lokasi</div>
+            <div style="font-size:13px;color:#cbd5e1;">{{ device.lokasi|default:"—" }}</div></div>
+        </div>
+    </div>
+</div>
+
+<form method="post" enctype="multipart/form-data" id="genset-form"
+    {% if is_edit %}action="{% url 'maintenance_edit' maintenance.id %}"{% endif %}>
+{% csrf_token %}
+
+<!-- ══ 1. INFORMASI MAINTENANCE ══════════════════════════════ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="stb"><span class="stb-bar" style="background:#3b82f6;"></span><span>Informasi Maintenance</span></div>
+        <div class="row g-3 align-items-start">
+            <div class="col-md-2">
+                <label class="form-label fw-semibold">Jenis Maintenance</label>
+                <div style="display:flex;align-items:center;gap:6px;background:#eff6ff;color:#1d4ed8;border:1.5px solid #bfdbfe;border-radius:8px;padding:8px 12px;font-size:13px;font-weight:700;">
+                    <i class="bi bi-shield-check"></i> Preventive
+                </div>
+                <input type="hidden" name="maintenance_type" value="Preventive">
+            </div>
+            <div class="col-md-3"><label class="form-label fw-semibold">Tanggal</label>{{ maintenance_form.date }}</div>
+            {% include 'maintenance/_pelaksana_tag_input.html' %}
+        </div>
+        <div class="row g-3 mt-1">
+            <div class="col-md-8"><label class="form-label fw-semibold">Deskripsi / Catatan</label>{{ maintenance_form.description }}</div>
+            <div class="col-md-4"><label class="form-label fw-semibold">Foto</label>{{ maintenance_form.photo }}<div class="form-text">JPG, PNG. Maks 10MB.</div></div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ 2. PERANGKAT PENDUKUNG ════════════════════════════════ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="stb"><span class="stb-bar" style="background:#f59e0b;"></span><span>Perangkat Pendukung</span></div>
+        <table class="gtable w-100 mb-3">
+            <thead><tr><th style="width:28%;">Item</th><th>Pengukuran</th><th style="width:16%;">Satuan</th></tr></thead>
+            <tbody>
+                <tr class="gsub"><td colspan="3"><i class="bi bi-battery-charging me-1"></i>1. Batere</td></tr>
+                <tr><td>Air Accu</td><td>{{ detail_form.air_accu }}</td><td>%</td></tr>
+                <tr><td>Tegangan Batere</td><td>{{ detail_form.tegangan_batere }}</td><td>VDC</td></tr>
+                <tr><td>Arus Pengisian</td><td>{{ detail_form.arus_pengisian }}</td><td>A</td></tr>
+                <tr class="gsub"><td colspan="3"><i class="bi bi-plug me-1"></i>2. Charger</td></tr>
+                <tr><td>Tegangan Charger</td><td>{{ detail_form.tegangan_charger }}</td><td>VDC</td></tr>
+                <tr><td>Arus Beban</td><td>{{ detail_form.arus_beban_charger }}</td><td>A</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ══ 3. PERANGKAT UTAMA ════════════════════════════════════ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="stb"><span class="stb-bar" style="background:#10b981;"></span><span>Perangkat Utama (Genset)</span></div>
+        <table class="gtable w-100">
+            <thead><tr><th style="width:28%;">Item</th><th>Pengukuran</th><th style="width:16%;">Satuan</th></tr></thead>
+            <tbody>
+                <tr><td>Air Radiator</td><td>{{ detail_form.radiator }}</td><td>%</td></tr>
+                <tr>
+                    <td>Kapasitas Tangki</td>
+                    <td>{{ detail_form.kapasitas_tangki }}</td>
+                    <td>liter</td>
+                </tr>
+                <tr>
+                    <td>Tangki BBM Sebelum</td>
+                    <td>{{ detail_form.tangki_bbm_sebelum }}</td>
+                    <td>%</td>
+                </tr>
+                <tr>
+                    <td>Tangki BBM Sesudah</td>
+                    <td>
+                        {{ detail_form.tangki_bbm_sesudah }}
+                        <div id="bbm-pct-wrap" style="display:none;margin-top:4px;">
+                            <div style="height:4px;background:#e2e8f0;border-radius:2px;overflow:hidden;">
+                                <div id="bbm-pct-bar" style="height:100%;border-radius:2px;transition:width .3s;"></div>
+                            </div>
+                            <div id="bbm-pct-label" style="font-size:10px;color:#64748b;margin-top:2px;"></div>
+                        </div>
+                    </td>
+                    <td>%</td>
+                </tr>
+                <tr><td>MCB</td><td>{{ detail_form.mcb }}</td><td></td></tr>
+                <tr><td>Pelumas</td><td>{{ detail_form.pelumas }}</td><td></td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ══ 4. PENGUJIAN / PENGUKURAN ════════════════════════════ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="stb"><span class="stb-bar" style="background:#6366f1;"></span><span>Pengujian</span></div>
+
+        <!-- Transisi -->
+        <table class="gtable w-100 mb-3">
+            <thead><tr><th style="width:28%;">Item</th><th colspan="2">Supply PLN</th><th colspan="2">Supply Genset</th></tr></thead>
+            <tbody>
+                <tr>
+                    <td>Genset "ON" Transisi</td>
+                    <td>{{ detail_form.waktu_transisi }}</td>
+                    <td style="color:#64748b;font-size:11px;">detik</td>
+                    <td></td><td></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <!-- Pengukuran utama -->
+        <table class="gtable w-100">
+            <thead>
+                <tr>
+                    <th style="width:18%;">Pengujian</th>
+                    <th style="width:14%;">Sub</th>
+                    <th style="width:16%;background:#dbeafe;color:#1d4ed8;">Supply PLN</th>
+                    <th style="width:10%;background:#dbeafe;color:#1d4ed8;">Ref</th>
+                    <th style="width:16%;background:#dcfce7;color:#166534;">Supply Genset</th>
+                    <th style="width:10%;background:#dcfce7;color:#166534;">Ref</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Frekuensi -->
+                <tr>
+                    <td rowspan="3" style="background:#f8fafc;font-weight:600;vertical-align:middle;">Frekuensi</td>
+                    <td>R-N</td>
+                    <td>{{ detail_form.pln_f_r }}</td><td class="ref">Hz</td>
+                    <td>{{ detail_form.gen_f_r }}</td><td class="ref">Hz</td>
+                </tr>
+                <tr>
+                    <td>S-N</td>
+                    <td>{{ detail_form.pln_f_s }}</td><td class="ref">Hz</td>
+                    <td>{{ detail_form.gen_f_s }}</td><td class="ref">Hz</td>
+                </tr>
+                <tr>
+                    <td>T-N</td>
+                    <td>{{ detail_form.pln_f_t }}</td><td class="ref">Hz</td>
+                    <td>{{ detail_form.gen_f_t }}</td><td class="ref">Hz</td>
+                </tr>
+                <!-- Teg 1Ph -->
+                <tr>
+                    <td rowspan="3" style="background:#f8fafc;font-weight:600;vertical-align:middle;">Teg. 1Ph</td>
+                    <td>R-N</td>
+                    <td>{{ detail_form.pln_v_rn }}</td><td class="ref">220 VAC</td>
+                    <td>{{ detail_form.gen_v_rn }}</td><td class="ref">220 VAC</td>
+                </tr>
+                <tr>
+                    <td>S-N</td>
+                    <td>{{ detail_form.pln_v_sn }}</td><td class="ref">220 VAC</td>
+                    <td>{{ detail_form.gen_v_sn }}</td><td class="ref">220 VAC</td>
+                </tr>
+                <tr>
+                    <td>T-N</td>
+                    <td>{{ detail_form.pln_v_tn }}</td><td class="ref">220 VAC</td>
+                    <td>{{ detail_form.gen_v_tn }}</td><td class="ref">220 VAC</td>
+                </tr>
+                <!-- Teg 3Ph -->
+                <tr>
+                    <td rowspan="3" style="background:#f8fafc;font-weight:600;vertical-align:middle;">Teg. 3Ph</td>
+                    <td>R-S</td>
+                    <td>{{ detail_form.pln_v_rs }}</td><td class="ref">380 VAC</td>
+                    <td>{{ detail_form.gen_v_rs }}</td><td class="ref">380 VAC</td>
+                </tr>
+                <tr>
+                    <td>S-T</td>
+                    <td>{{ detail_form.pln_v_st }}</td><td class="ref">380 VAC</td>
+                    <td>{{ detail_form.gen_v_st }}</td><td class="ref">380 VAC</td>
+                </tr>
+                <tr>
+                    <td>T-R</td>
+                    <td>{{ detail_form.pln_v_tr }}</td><td class="ref">380 VAC</td>
+                    <td>{{ detail_form.gen_v_tr }}</td><td class="ref">380 VAC</td>
+                </tr>
+                <!-- Arus -->
+                <tr>
+                    <td rowspan="3" style="background:#f8fafc;font-weight:600;vertical-align:middle;">Arus Beban</td>
+                    <td>R</td>
+                    <td>{{ detail_form.pln_i_r }}</td><td class="ref">Ampere</td>
+                    <td>{{ detail_form.gen_i_r }}</td><td class="ref">Ampere</td>
+                </tr>
+                <tr>
+                    <td>S</td>
+                    <td>{{ detail_form.pln_i_s }}</td><td class="ref">Ampere</td>
+                    <td>{{ detail_form.gen_i_s }}</td><td class="ref">Ampere</td>
+                </tr>
+                <tr>
+                    <td>T</td>
+                    <td>{{ detail_form.pln_i_t }}</td><td class="ref">Ampere</td>
+                    <td>{{ detail_form.gen_i_t }}</td><td class="ref">Ampere</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ══ 5. MDF CUBICLE ════════════════════════════════════════ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="stb"><span class="stb-bar" style="background:#ef4444;"></span><span>MDF Cubicle</span></div>
+        <table class="gtable w-100">
+            <thead><tr><th style="width:28%;">Item</th><th>Pengukuran</th><th style="width:16%;">Satuan</th></tr></thead>
+            <tbody>
+                <tr><td>Tekanan Oli</td><td>{{ detail_form.oil_pressure }}</td><td>kPa</td></tr>
+                <tr><td>Temperatur Mesin</td><td>{{ detail_form.engine_temperature }}</td><td>°C</td></tr>
+                <tr><td>Kondisi Batere</td><td>{{ detail_form.batere_condition }}</td><td>VDC</td></tr>
+                <tr><td>RPM</td><td>{{ detail_form.rpm }}</td><td>rpm</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ══ 6. COUNTER ANALOG ════════════════════════════════════ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="stb"><span class="stb-bar" style="background:#8b5cf6;"></span><span>Counter Analog</span></div>
+        <table class="gtable w-100">
+            <thead><tr><th style="width:28%;">Item</th><th>Nilai</th><th style="width:16%;">Selisih</th></tr></thead>
+            <tbody>
+                <tr>
+                    <td>Counter Hour</td>
+                    <td>{{ detail_form.counter_sebelum }}</td>
+                    <td rowspan="2" style="text-align:center;vertical-align:middle;">
+                        <div id="selisih-counter" style="font-size:16px;font-weight:700;color:#8b5cf6;">—</div>
+                        <div style="font-size:10px;color:#94a3b8;">jam</div>
+                    </td>
+                </tr>
+                <tr>
+                    <td>Counter Hour</td>
+                    <td>{{ detail_form.counter_sesudah }}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ══ 7. JAM OPERASI ════════════════════════════════════════ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="stb"><span class="stb-bar" style="background:#f97316;"></span>
+            <span>Jam Operasi</span>
+            <span style="font-size:11px;color:#94a3b8;margin-left:4px;">— Wajib diisi</span>
+        </div>
+        <table class="gtable w-100">
+            <thead><tr><th style="width:28%;">Item</th><th>Waktu (WITA)</th><th style="width:16%;">Durasi</th></tr></thead>
+            <tbody>
+                <tr>
+                    <td>Waktu Start <span style="color:#ef4444;">*</span></td>
+                    <td>{{ detail_form.waktu_start }}</td>
+                    <td rowspan="2" style="text-align:center;vertical-align:middle;">
+                        <div id="durasi-display" style="font-size:20px;font-weight:700;color:#ea580c;">—</div>
+                        <div style="font-size:10px;color:#94a3b8;">Menit</div>
+                    </td>
+                </tr>
+                <tr>
+                    <td>Waktu Stop <span style="color:#ef4444;">*</span></td>
+                    <td>{{ detail_form.waktu_stop }}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ══ 8. CATATAN ════════════════════════════════════════════ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="stb"><span class="stb-bar" style="background:#64748b;"></span><span>Catatan</span></div>
+        {{ detail_form.catatan }}
+    </div>
+</div>
+
+{% if maintenance_form.errors or detail_form.errors %}
+<div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-2"></i><strong>Mohon perbaiki error:</strong> {{ maintenance_form.errors }}{{ detail_form.errors }}</div>
+{% endif %}
+
+<div class="d-flex gap-2 justify-content-end pb-4">
+    {% if is_edit %}
+    <a href="{% url 'maintenance_view' maintenance.id %}" class="btn btn-outline-secondary"><i class="bi bi-x me-1"></i>Batal</a>
+    {% else %}
+    <a href="{% url 'device_view' device.id %}" class="btn btn-outline-secondary"><i class="bi bi-x me-1"></i>Batal</a>
+    {% endif %}
+    <button type="submit" class="btn btn-primary px-4" id="btn-submit">
+        <i class="bi bi-floppy me-1"></i>{% if is_edit %}Simpan Perubahan{% else %}Simpan Maintenance{% endif %}
+    </button>
+</div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<style>
+/* Section title bar */
+.stb{display:flex;align-items:center;gap:8px;margin-bottom:12px;}
+.stb-bar{width:5px;height:18px;border-radius:3px;flex-shrink:0;}
+.stb>span:nth-child(2){font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#475569;}
+
+/* Tabel genset */
+.gtable{border-collapse:collapse;font-size:12.5px;}
+.gtable th{background:#1e293b;color:#fff;padding:7px 10px;font-size:11px;font-weight:700;text-align:left;border:1px solid #334155;}
+.gtable td{padding:5px 8px;border:1px solid #e2e8f0;vertical-align:middle;}
+.gtable tr:nth-child(even) td{background:#f8fafc;}
+.gtable .gsub td{background:#fef9c3;color:#92400e;font-weight:700;font-size:11px;padding:5px 10px;}
+.gtable .ref{font-size:10.5px;color:#94a3b8;text-align:center;white-space:nowrap;}
+.gtable input[type=number]{border:1px solid #e2e8f0;border-radius:5px;padding:3px 6px;width:100%;font-size:12px;min-width:70px;}
+.gtable input[type=number]:focus{outline:none;border-color:#6366f1;box-shadow:0 0 0 2px rgba(99,102,241,.15);}
+.gtable select.form-select{font-size:12px;padding:3px 24px 3px 8px;height:auto;}
+.gtable input[type=text]{border:1px solid #e2e8f0;border-radius:5px;padding:3px 6px;width:100%;font-size:12px;}
+</style>
+<script>
+function updateBBM(){
+    const ses=parseFloat(document.querySelector('[name=tangki_bbm_sesudah]')?.value);
+    const wrap=document.getElementById('bbm-pct-wrap');
+    const bar=document.getElementById('bbm-pct-bar');
+    const lbl=document.getElementById('bbm-pct-label');
+    if(!wrap)return;
+    if(!isNaN(ses)&&ses>=0&&ses<=100){
+        const pct=ses;
+        wrap.style.display='block';
+        bar.style.width=pct+'%';
+        if(pct<=20){bar.style.background='#ef4444';lbl.textContent=`Kritis: ${pct.toFixed(1)}%`;}
+        else if(pct<=50){bar.style.background='#f59e0b';lbl.textContent=`Sedang: ${pct.toFixed(1)}%`;}
+        else{bar.style.background='#10b981';lbl.textContent=`Aman: ${pct.toFixed(1)}%`;}
+    }else{wrap.style.display='none';}
+}
+function updateCounter(){
+    const a=parseFloat(document.querySelector('[name=counter_sebelum]')?.value);
+    const b=parseFloat(document.querySelector('[name=counter_sesudah]')?.value);
+    const el=document.getElementById('selisih-counter');
+    if(el) el.textContent=(!isNaN(a)&&!isNaN(b))?(b-a).toFixed(2):'—';
+}
+function updateDurasi(){
+    const s=document.querySelector('[name=waktu_start]')?.value;
+    const e=document.querySelector('[name=waktu_stop]')?.value;
+    const el=document.getElementById('durasi-display');
+    if(!el)return;
+    if(s&&e){
+        const[sh,sm]=s.split(':').map(Number);
+        let[eh,em]=e.split(':').map(Number);
+        let st=sh*60+sm,en=eh*60+em;
+        if(en<st)en+=1440;
+        el.textContent=en-st;
+    }else{el.textContent='—';}
+}
+document.getElementById('genset-form')?.addEventListener('submit',function(e){
+    if(!document.querySelector('[name=waktu_start]')?.value||!document.querySelector('[name=waktu_stop]')?.value){
+        e.preventDefault();alert('Waktu Start dan Waktu Stop wajib diisi!');
+    }
+});
+document.addEventListener('DOMContentLoaded',()=>{
+    document.querySelector('[name=tangki_bbm_sesudah]')?.addEventListener('input',updateBBM);
+    document.querySelector('[name=counter_sebelum]')?.addEventListener('input',updateCounter);
+    document.querySelector('[name=counter_sesudah]')?.addEventListener('input',updateCounter);
+    document.querySelector('[name=waktu_start]')?.addEventListener('change',updateDurasi);
+    document.querySelector('[name=waktu_stop]')?.addEventListener('change',updateDurasi);
+    updateBBM();updateCounter();updateDurasi();
+});
+</script>
+{% endblock %}

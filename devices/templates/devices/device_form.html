@@ -98,7 +98,7 @@
 </div>
 
 <!-- ══ 2. JARINGAN & LOKASI ══════════════════════════════════ -->
-<div class="card mb-3">
+<div class="card mb-3" id="jaringan-section">
     <div class="card-body px-4 py-3">
         <div class="section-title-bar">
             <span class="bar" style="background:#10b981;"></span>
@@ -567,13 +567,38 @@ document.addEventListener('DOMContentLoaded', () => {
   // Trigger on jenis change
   jenisSelect?.addEventListener('change', () => {
     renderFields(getSelectedJenisName());
+    updateFieldVisibility(getSelectedJenisName());
   });
 
   // On page load: render if jenis already selected (edit mode)
   document.addEventListener('DOMContentLoaded', () => {
     const jenisName = getSelectedJenisName();
     if (jenisName) renderFields(jenisName);
+    updateFieldVisibility(jenisName);
   });
+
+  // ── Hide/show field berdasarkan jenis ─────────────────────
+  function updateFieldVisibility(jenisName) {
+    const nama = jenisName.trim().toUpperCase();
+
+    // Field yang tidak relevan untuk Genset & perangkat non-jaringan
+    const NON_NETWORK = ['GENSET', 'UPS'];
+    const isNonNetwork = NON_NETWORK.includes(nama);
+
+    // IP Address — sembunyikan untuk non-network
+    const ipWrap = document.querySelector('[name="ip_address"]')?.closest('.field-card')?.closest('.col-md-6');
+    if (ipWrap) ipWrap.style.display = isNonNetwork ? 'none' : '';
+
+    // Firmware Version — sembunyikan untuk non-network
+    const fwWrap = document.querySelector('[name="firmware_version"]')?.closest('.field-card')?.closest('.col-md-6');
+    if (fwWrap) fwWrap.style.display = isNonNetwork ? 'none' : '';
+
+    // Ubah judul section Jaringan & Lokasi
+    const jaringanTitle = document.querySelector('#jaringan-section .section-title-bar span:nth-child(2)');
+    if (jaringanTitle) {
+      jaringanTitle.textContent = isNonNetwork ? 'Lokasi & Status' : 'Jaringan & Lokasi';
+    }
+  }
 })();
 
 // ══════════════════════════════════════════════════════════════

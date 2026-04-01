@@ -31,6 +31,7 @@ _TEMPLATE_MAP = {
     'CATUDAYA':            'maintenance/pdf/rectifier.html',
     'RECTIFIER & BATTERY': 'maintenance/pdf/rectifier.html',
     'TELEPROTEKSI':        'maintenance/pdf/teleproteksi.html',
+    'GENSET':              'maintenance/pdf/genset.html',
 }
 
 _TITLES = {
@@ -42,7 +43,6 @@ _TITLES = {
     'MULTIPLEXER': 'Formulir Pemeliharaan Peralatan Multiplexer',
     'RECTIFIER':   'Formulir Pemeliharaan Peralatan Rectifier dan Battery',
     'CATU DAYA':   'Formulir Pemeliharaan Peralatan Rectifier dan Battery',
-    'TELEPROTEKSI': 'Formulir Pemeliharaan Peralatan Teleproteksi',
 }
 
 _v = lambda x: x if x not in (None, '') else '-'
@@ -272,6 +272,41 @@ _CTX_BUILDERS = {
     'CATUDAYA': _ctx_rectifier, 'RECTIFIER & BATTERY': _ctx_rectifier,
     'TELEPROTEKSI': _ctx_teleproteksi,
 }
+
+
+def _ctx_genset(data, ctx):
+    g = data.get('genset', {})
+
+    def row(item, sub, pln_key, gen_key, ref, rowspan=None):
+        return {
+            'item': item, 'sub': sub, 'ref': ref,
+            'pln': g.get(pln_key), 'gen': g.get(gen_key),
+            'rowspan': rowspan,
+        }
+
+    genset_rows = [
+        row('Frekuensi', 'R-N', 'pln_f_r', 'gen_f_r', 'Hz', rowspan=3),
+        row(None,        'S-N', 'pln_f_s', 'gen_f_s', 'Hz'),
+        row(None,        'T-N', 'pln_f_t', 'gen_f_t', 'Hz'),
+        row('Teg. 1Ph',  'R-N', 'pln_v_rn','gen_v_rn','220 VAC', rowspan=3),
+        row(None,        'S-N', 'pln_v_sn','gen_v_sn','220 VAC'),
+        row(None,        'T-N', 'pln_v_tn','gen_v_tn','220 VAC'),
+        row('Teg. 3Ph',  'R-S', 'pln_v_rs','gen_v_rs','380 VAC', rowspan=3),
+        row(None,        'S-T', 'pln_v_st','gen_v_st','380 VAC'),
+        row(None,        'T-R', 'pln_v_tr','gen_v_tr','380 VAC'),
+        row('Arus Beban','R',   'pln_i_r', 'gen_i_r', 'Ampere', rowspan=3),
+        row(None,        'S',   'pln_i_s', 'gen_i_s', 'Ampere'),
+        row(None,        'T',   'pln_i_t', 'gen_i_t', 'Ampere'),
+    ]
+
+    ctx.update({
+        'genset':      g,
+        'genset_rows': genset_rows,
+        'catatan':     g.get('catatan', ''),
+    })
+
+
+_CTX_BUILDERS['GENSET'] = _ctx_genset
 
 
 def build_pdf_weasy(data: dict, output):

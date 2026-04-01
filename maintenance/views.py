@@ -1,8 +1,8 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from devices.permissions import require_can_edit, require_can_delete, is_viewer_only
-from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi
-from .forms import MaintenanceForm, MaintenancePLCForm, MaintenanceRouterForm, MaintenanceRadioForm, MaintenanceVoIPForm, MaintenanceMuxForm, MaintenanceRectifierForm, MaintenanceTeleproteksiForm
+from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset
+from .forms import MaintenanceForm, MaintenancePLCForm, MaintenanceRouterForm, MaintenanceRadioForm, MaintenanceVoIPForm, MaintenanceMuxForm, MaintenanceRectifierForm, MaintenanceTeleproteksiForm, MaintenanceGensetForm
 from devices.models import Device, DeviceType
 from gangguan.models import Gangguan
 from django.db.models import Q, Count
@@ -34,6 +34,7 @@ DEVICE_FORM_MAP = {
     'CATUDAYA':     (MaintenanceRectifierForm,   'maintenance/rectifier_form.html'),
     'RECTIFIER & BATTERY': (MaintenanceRectifierForm, 'maintenance/rectifier_form.html'),
     'TELEPROTEKSI':        (MaintenanceTeleproteksiForm, 'maintenance/teleproteksi_form.html'),
+    'GENSET':              (MaintenanceGensetForm,       'maintenance/genset_form.html'),
 }
 
 DEFAULT_TEMPLATE = 'maintenance/maintenance_form.html'
@@ -188,6 +189,7 @@ def maintenance_detail(request, pk):
     mux_detail    = None
     rect_detail   = None
     tp_detail     = None
+    genset_detail = None
 
     if device_type == 'PLC':
         try:
@@ -229,6 +231,12 @@ def maintenance_detail(request, pk):
         try:
             tp_detail = maintenance.maintenanceteleproteksi
         except MaintenanceTeleproteksi.DoesNotExist:
+            pass
+
+    elif device_type == 'GENSET':
+        try:
+            genset_detail = maintenance.maintenancegenset
+        except MaintenanceGenset.DoesNotExist:
             pass
 
     # Checklist peralatan terpasang untuk template radio
@@ -384,6 +392,22 @@ def maintenance_detail(request, pk):
             ('Send Command 4',    tp_detail.skema_4_send_result    if tp_detail else ''),
             ('Receive Command 4', tp_detail.skema_4_receive_result if tp_detail else ''),
         ] if tp_detail else [],
+        'genset_detail': genset_detail,
+        'batere_list': [
+            ('Air Accu',       genset_detail.air_accu        if genset_detail else None, 'mm'),
+            ('Teg. Batere',    genset_detail.tegangan_batere if genset_detail else None, 'VDC'),
+            ('Arus Pengisian', genset_detail.arus_pengisian  if genset_detail else None, 'A'),
+        ] if genset_detail else [],
+        'charger_list': [
+            ('Teg. Charger', genset_detail.tegangan_charger   if genset_detail else None, 'VDC'),
+            ('Arus Beban',   genset_detail.arus_beban_charger if genset_detail else None, 'A'),
+        ] if genset_detail else [],
+        'mdf_list': [
+            ('Oil Pressure',      genset_detail.oil_pressure       if genset_detail else None, 'Kpa'),
+            ('Engine Temp',       genset_detail.engine_temperature  if genset_detail else None, '°C'),
+            ('Batere Condition',  genset_detail.batere_condition    if genset_detail else None, 'VDC'),
+            ('RPM',               genset_detail.rpm                 if genset_detail else None, 'rpm'),
+        ] if genset_detail else [],
     })
 
 
@@ -419,6 +443,8 @@ def maintenance_edit(request, pk):
                 detail_instance = maintenance.maintenancerectifier
             elif detail_form_class.__name__ == 'MaintenanceTeleproteksiForm':
                 detail_instance = maintenance.maintenanceteleproteksi
+            elif detail_form_class.__name__ == 'MaintenanceGensetForm':
+                detail_instance = maintenance.maintenancegenset
         except Exception:
             pass
 
@@ -630,7 +656,7 @@ def export_maintenance_pdf(request, pk):
 
     # ── Ambil detail sesuai jenis ──────────────────────────────────
     router_detail = plc_detail = radio_detail = None
-    voip_detail = mux_detail = rect_detail = tp_detail = None
+    voip_detail = mux_detail = rect_detail = tp_detail = genset_detail = None
 
     def _try(fn):
         try: return fn()
@@ -650,6 +676,8 @@ def export_maintenance_pdf(request, pk):
         rect_detail = _try(lambda: maintenance.maintenancerectifier)
     elif device_kind == 'TELEPROTEKSI':
         tp_detail = _try(lambda: maintenance.maintenanceteleproteksi)
+    elif device_kind == 'GENSET':
+        genset_detail = _try(lambda: maintenance.maintenancegenset)
 
     # SFP JSON
     sfp_ports = []
@@ -897,6 +925,42 @@ def export_maintenance_pdf(request, pk):
             'loop_test':          _g(tp_detail, 'loop_test'),
             'catatan':            _g(tp_detail, 'catatan', ''),
         } if tp_detail else {},
+
+        'genset': {
+            'air_accu':           _g(genset_detail, 'air_accu'),
+            'tegangan_batere':    _g(genset_detail, 'tegangan_batere'),
+            'arus_pengisian':     _g(genset_detail, 'arus_pengisian'),
+            'tegangan_charger':   _g(genset_detail, 'tegangan_charger'),
+            'arus_beban_charger': _g(genset_detail, 'arus_beban_charger'),
+            'radiator':           _g(genset_detail, 'radiator'),
+            'kapasitas_tangki':   _g(genset_detail, 'kapasitas_tangki'),
+            'tangki_bbm_sebelum': _g(genset_detail, 'tangki_bbm_sebelum'),
+            'tangki_bbm_sesudah': _g(genset_detail, 'tangki_bbm_sesudah'),
+            'bbm_terpakai':       genset_detail.bbm_terpakai if genset_detail else None,
+            'persen_bbm_sesudah': genset_detail.persen_bbm_sesudah if genset_detail else None,
+            'mcb':                _g(genset_detail, 'mcb', ''),
+            'pelumas':            _g(genset_detail, 'pelumas', ''),
+            'waktu_transisi':     _g(genset_detail, 'waktu_transisi'),
+            'pln_f_r':  _g(genset_detail,'pln_f_r'),  'pln_f_s':  _g(genset_detail,'pln_f_s'),  'pln_f_t':  _g(genset_detail,'pln_f_t'),
+            'pln_v_rn': _g(genset_detail,'pln_v_rn'), 'pln_v_sn': _g(genset_detail,'pln_v_sn'), 'pln_v_tn': _g(genset_detail,'pln_v_tn'),
+            'pln_v_rs': _g(genset_detail,'pln_v_rs'), 'pln_v_st': _g(genset_detail,'pln_v_st'), 'pln_v_tr': _g(genset_detail,'pln_v_tr'),
+            'pln_i_r':  _g(genset_detail,'pln_i_r'),  'pln_i_s':  _g(genset_detail,'pln_i_s'),  'pln_i_t':  _g(genset_detail,'pln_i_t'),
+            'gen_f_r':  _g(genset_detail,'gen_f_r'),  'gen_f_s':  _g(genset_detail,'gen_f_s'),  'gen_f_t':  _g(genset_detail,'gen_f_t'),
+            'gen_v_rn': _g(genset_detail,'gen_v_rn'), 'gen_v_sn': _g(genset_detail,'gen_v_sn'), 'gen_v_tn': _g(genset_detail,'gen_v_tn'),
+            'gen_v_rs': _g(genset_detail,'gen_v_rs'), 'gen_v_st': _g(genset_detail,'gen_v_st'), 'gen_v_tr': _g(genset_detail,'gen_v_tr'),
+            'gen_i_r':  _g(genset_detail,'gen_i_r'),  'gen_i_s':  _g(genset_detail,'gen_i_s'),  'gen_i_t':  _g(genset_detail,'gen_i_t'),
+            'oil_pressure':       _g(genset_detail, 'oil_pressure'),
+            'engine_temperature': _g(genset_detail, 'engine_temperature'),
+            'batere_condition':   _g(genset_detail, 'batere_condition'),
+            'rpm':                _g(genset_detail, 'rpm'),
+            'counter_sebelum':    _g(genset_detail, 'counter_sebelum'),
+            'counter_sesudah':    _g(genset_detail, 'counter_sesudah'),
+            'selisih_counter':    genset_detail.selisih_counter if genset_detail else None,
+            'waktu_start':        str(genset_detail.waktu_start) if genset_detail and genset_detail.waktu_start else '-',
+            'waktu_stop':         str(genset_detail.waktu_stop)  if genset_detail and genset_detail.waktu_stop  else '-',
+            'durasi_menit':       genset_detail.durasi_menit if genset_detail else None,
+            'catatan':            _g(genset_detail, 'catatan', ''),
+        } if genset_detail else {},
     }
 
     # ── Generate & stream ──────────────────────────────────────────

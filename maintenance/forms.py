@@ -1,5 +1,5 @@
 from django import forms
-from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi
+from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset
 
 
 # ─── Widget helpers ───────────────────────────────────────────────────
@@ -404,3 +404,71 @@ class MaintenanceTeleproteksiForm(forms.ModelForm):
             # Catatan
             'catatan':   forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }
+
+
+# ─────────────────────────────────────────────────────────────────────
+# FORM DETAIL GENSET
+# ─────────────────────────────────────────────────────────────────────
+class MaintenanceGensetForm(forms.ModelForm):
+
+    class Meta:
+        model   = MaintenanceGenset
+        exclude = ['maintenance']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        fc   = 'form-control'
+        fcsm = 'form-control form-control-sm'
+        fs   = 'form-select'
+        num  = {'step': 'any'}
+
+        # Batere & Charger
+        for f, ph in [
+            ('air_accu','e.g. 90'), ('tegangan_batere','e.g. 24.0'),
+            ('arus_pengisian','e.g. 5.5'), ('tegangan_charger','e.g. 27.6'),
+            ('arus_beban_charger','e.g. 2.0'),
+        ]:
+            self.fields[f].widget = forms.NumberInput(attrs={'class': fc, **num, 'placeholder': ph})
+
+        # Genset utama
+        for f, ph in [
+            ('radiator','e.g. 85'), ('kapasitas_tangki','e.g. 500'),
+            ('tangki_bbm_sebelum','e.g. 70'), ('tangki_bbm_sesudah','e.g. 60'),
+            ('waktu_transisi','e.g. 5'),
+        ]:
+            self.fields[f].widget = forms.NumberInput(attrs={'class': fc, **num, 'placeholder': ph})
+
+        self.fields['mcb'].widget    = forms.Select(choices=[('','—'),('ON','ON'),('OFF','OFF')], attrs={'class': fs})
+        self.fields['pelumas'].widget = forms.TextInput(attrs={'class': fc, 'placeholder': 'e.g. Strip On Stick'})
+
+        # Pengukuran PLN & Genset — input kecil
+        meas_fields = [
+            'pln_f_r','pln_f_s','pln_f_t',
+            'pln_v_rn','pln_v_sn','pln_v_tn',
+            'pln_v_rs','pln_v_st','pln_v_tr',
+            'pln_i_r','pln_i_s','pln_i_t',
+            'gen_f_r','gen_f_s','gen_f_t',
+            'gen_v_rn','gen_v_sn','gen_v_tn',
+            'gen_v_rs','gen_v_st','gen_v_tr',
+            'gen_i_r','gen_i_s','gen_i_t',
+        ]
+        for f in meas_fields:
+            self.fields[f].widget = forms.NumberInput(attrs={'class': fcsm, **num})
+
+        # MDF Cubicle
+        for f, ph in [
+            ('oil_pressure','e.g. 270'), ('engine_temperature','e.g. 71'),
+            ('batere_condition','e.g. 27.0'), ('rpm','e.g. 1500'),
+        ]:
+            self.fields[f].widget = forms.NumberInput(attrs={'class': fc, **num, 'placeholder': ph})
+
+        # Counter
+        for f in ['counter_sebelum','counter_sesudah']:
+            self.fields[f].widget = forms.NumberInput(attrs={'class': fc, **num, 'placeholder': 'e.g. 575.57'})
+
+        # Jam Operasi
+        self.fields['waktu_start'].widget = forms.TimeInput(attrs={'class': fc, 'type': 'time'})
+        self.fields['waktu_stop'].widget  = forms.TimeInput(attrs={'class': fc, 'type': 'time'})
+
+        # Catatan
+        self.fields['catatan'].widget = forms.Textarea(attrs={'class': fc, 'rows': 3})

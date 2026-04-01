@@ -1,0 +1,208 @@
+{% comment %}GENSET DETAIL SECTION — include dari maintenance_detail{% endcomment %}
+{% load static %}
+
+{% if genset_detail %}
+{% with g=genset_detail %}
+
+<style>
+.gdt{border-collapse:collapse;width:100%;font-size:12.5px;}
+.gdt th{background:#1e293b;color:#fff;padding:6px 10px;font-size:11px;font-weight:700;border:1px solid #334155;}
+.gdt td{padding:6px 10px;border:1px solid #e2e8f0;vertical-align:middle;}
+.gdt tr:nth-child(even) td{background:#f8fafc;}
+.gdt .gsub td{background:#fef9c3;color:#92400e;font-weight:700;font-size:11px;}
+.gdt .vval{font-family:'JetBrains Mono',monospace;font-weight:700;color:#0f172a;}
+.gdt .vunit{font-size:10.5px;color:#94a3b8;}
+.gdt .hpln{background:#dbeafe;color:#1d4ed8;font-weight:700;}
+.gdt .hgen{background:#dcfce7;color:#166534;font-weight:700;}
+</style>
+
+<!-- Perangkat Pendukung -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="d-flex align-items-center gap-2 mb-3">
+            <span style="width:5px;height:18px;background:#f59e0b;border-radius:3px;display:inline-block;"></span>
+            <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#64748b;">Perangkat Pendukung</h6>
+        </div>
+        <table class="gdt">
+            <thead><tr><th style="width:30%;">Item</th><th style="width:35%;">Pengukuran</th><th>Satuan</th></tr></thead>
+            <tbody>
+                <tr class="gsub"><td colspan="3"><i class="bi bi-battery-charging me-1"></i>Batere</td></tr>
+                <tr><td>Air Accu</td><td class="vval">{{ g.air_accu|default:"—" }}</td><td class="vunit">mm</td></tr>
+                <tr><td>Tegangan Batere</td><td class="vval">{{ g.tegangan_batere|default:"—" }}</td><td class="vunit">VDC</td></tr>
+                <tr><td>Arus Pengisian</td><td class="vval">{{ g.arus_pengisian|default:"—" }}</td><td class="vunit">A</td></tr>
+                <tr class="gsub"><td colspan="3"><i class="bi bi-plug me-1"></i>Charger</td></tr>
+                <tr><td>Tegangan Charger</td><td class="vval">{{ g.tegangan_charger|default:"—" }}</td><td class="vunit">VDC</td></tr>
+                <tr><td>Arus Beban</td><td class="vval">{{ g.arus_beban_charger|default:"—" }}</td><td class="vunit">A</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Perangkat Utama -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="d-flex align-items-center gap-2 mb-3">
+            <span style="width:5px;height:18px;background:#10b981;border-radius:3px;display:inline-block;"></span>
+            <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#64748b;">Perangkat Utama Genset</h6>
+        </div>
+        <table class="gdt">
+            <thead><tr><th style="width:30%;">Item</th><th style="width:35%;">Nilai</th><th>Satuan</th></tr></thead>
+            <tbody>
+                <tr><td>Radiator Genset</td>
+                    <td class="vval" style="{% if g.radiator and g.radiator > 95 %}color:#ef4444;{% elif g.radiator and g.radiator > 85 %}color:#f59e0b;{% endif %}">{{ g.radiator|default:"—" }}</td>
+                    <td class="vunit">°C</td></tr>
+                <tr><td>MCB</td>
+                    <td><span style="padding:2px 12px;border-radius:20px;font-size:12px;font-weight:700;
+                        {% if g.mcb == 'ON' %}background:#dcfce7;color:#166534;{% elif g.mcb == 'OFF' %}background:#fee2e2;color:#991b1b;{% endif %}">
+                        {{ g.mcb|default:"—" }}</span></td><td></td></tr>
+                <tr><td>Pelumas</td><td class="vval">{{ g.pelumas|default:"—" }}</td><td></td></tr>
+                <tr><td>Tangki BBM Sebelum</td><td class="vval">{{ g.tangki_bbm_sebelum|default:"—" }}</td><td class="vunit">%</td></tr>
+                <tr><td>Tangki BBM Sesudah</td>
+                    <td>
+                        <span class="vval">{{ g.tangki_bbm_sesudah|default:"—" }}</span>
+                        {% if g.persen_bbm_sesudah is not None %}
+                        <div style="margin-top:4px;height:4px;background:#e2e8f0;border-radius:2px;overflow:hidden;">
+                            <div style="height:100%;width:{% widthratio g.persen_bbm_sesudah 100 100 %}%;border-radius:2px;
+                                {% if g.persen_bbm_sesudah <= 20 %}background:#ef4444;{% elif g.persen_bbm_sesudah <= 50 %}background:#f59e0b;{% else %}background:#10b981;{% endif %}"></div>
+                        </div>
+                        <div style="font-size:10px;color:#64748b;margin-top:1px;">Sisa: {{ g.persen_bbm_sesudah }}%</div>
+                        {% endif %}
+                    </td>
+                    <td class="vunit">%</td></tr>
+                {% if g.bbm_terpakai is not None %}
+                <tr><td>BBM Terpakai</td><td class="vval" style="color:#b45309;">{{ g.bbm_terpakai }}</td><td class="vunit">%</td></tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Pengujian -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="d-flex align-items-center gap-2 mb-3">
+            <span style="width:5px;height:18px;background:#6366f1;border-radius:3px;display:inline-block;"></span>
+            <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#64748b;">Pengujian</h6>
+        </div>
+        <table class="gdt mb-2">
+            <thead><tr><th style="width:25%;">Item</th><th>Supply PLN</th><th style="width:15%;">Ref</th><th>Supply Genset</th><th style="width:15%;">Ref</th></tr></thead>
+            <tbody>
+                <tr><td>Genset "ON" Transisi</td>
+                    <td class="vval">{{ g.waktu_transisi|default:"—" }}</td>
+                    <td class="vunit">detik</td><td></td><td></td></tr>
+            </tbody>
+        </table>
+        <table class="gdt">
+            <thead>
+                <tr>
+                    <th style="width:16%;">Pengujian</th>
+                    <th style="width:10%;">Sub</th>
+                    <th class="hpln">Supply PLN</th>
+                    <th class="hpln" style="width:10%;">Ref</th>
+                    <th class="hgen">Supply Genset</th>
+                    <th class="hgen" style="width:10%;">Ref</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td rowspan="3" style="background:#f8fafc;font-weight:600;vertical-align:middle;">Frekuensi</td>
+                    <td>R-N</td><td class="vval">{{ g.pln_f_r|default:"—" }}</td><td class="vunit">Hz</td>
+                    <td class="vval">{{ g.gen_f_r|default:"—" }}</td><td class="vunit">Hz</td>
+                </tr>
+                <tr>
+                    <td>S-N</td><td class="vval">{{ g.pln_f_s|default:"—" }}</td><td class="vunit">Hz</td>
+                    <td class="vval">{{ g.gen_f_s|default:"—" }}</td><td class="vunit">Hz</td>
+                </tr>
+                <tr>
+                    <td>T-N</td><td class="vval">{{ g.pln_f_t|default:"—" }}</td><td class="vunit">Hz</td>
+                    <td class="vval">{{ g.gen_f_t|default:"—" }}</td><td class="vunit">Hz</td>
+                </tr>
+                <tr>
+                    <td rowspan="3" style="background:#f8fafc;font-weight:600;vertical-align:middle;">Teg. 1Ph</td>
+                    <td>R-N</td><td class="vval">{{ g.pln_v_rn|default:"—" }}</td><td class="vunit">220 VAC</td>
+                    <td class="vval">{{ g.gen_v_rn|default:"—" }}</td><td class="vunit">220 VAC</td>
+                </tr>
+                <tr>
+                    <td>S-N</td><td class="vval">{{ g.pln_v_sn|default:"—" }}</td><td class="vunit">220 VAC</td>
+                    <td class="vval">{{ g.gen_v_sn|default:"—" }}</td><td class="vunit">220 VAC</td>
+                </tr>
+                <tr>
+                    <td>T-N</td><td class="vval">{{ g.pln_v_tn|default:"—" }}</td><td class="vunit">220 VAC</td>
+                    <td class="vval">{{ g.gen_v_tn|default:"—" }}</td><td class="vunit">220 VAC</td>
+                </tr>
+                <tr>
+                    <td rowspan="3" style="background:#f8fafc;font-weight:600;vertical-align:middle;">Teg. 3Ph</td>
+                    <td>R-S</td><td class="vval">{{ g.pln_v_rs|default:"—" }}</td><td class="vunit">380 VAC</td>
+                    <td class="vval">{{ g.gen_v_rs|default:"—" }}</td><td class="vunit">380 VAC</td>
+                </tr>
+                <tr>
+                    <td>S-T</td><td class="vval">{{ g.pln_v_st|default:"—" }}</td><td class="vunit">380 VAC</td>
+                    <td class="vval">{{ g.gen_v_st|default:"—" }}</td><td class="vunit">380 VAC</td>
+                </tr>
+                <tr>
+                    <td>T-R</td><td class="vval">{{ g.pln_v_tr|default:"—" }}</td><td class="vunit">380 VAC</td>
+                    <td class="vval">{{ g.gen_v_tr|default:"—" }}</td><td class="vunit">380 VAC</td>
+                </tr>
+                <tr>
+                    <td rowspan="3" style="background:#f8fafc;font-weight:600;vertical-align:middle;">Arus Beban</td>
+                    <td>R</td><td class="vval">{{ g.pln_i_r|default:"—" }}</td><td class="vunit">Ampere</td>
+                    <td class="vval">{{ g.gen_i_r|default:"—" }}</td><td class="vunit">Ampere</td>
+                </tr>
+                <tr>
+                    <td>S</td><td class="vval">{{ g.pln_i_s|default:"—" }}</td><td class="vunit">Ampere</td>
+                    <td class="vval">{{ g.gen_i_s|default:"—" }}</td><td class="vunit">Ampere</td>
+                </tr>
+                <tr>
+                    <td>T</td><td class="vval">{{ g.pln_i_t|default:"—" }}</td><td class="vunit">Ampere</td>
+                    <td class="vval">{{ g.gen_i_t|default:"—" }}</td><td class="vunit">Ampere</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- MDF Cubicle + Counter + Jam Operasi -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="d-flex align-items-center gap-2 mb-3">
+            <span style="width:5px;height:18px;background:#ef4444;border-radius:3px;display:inline-block;"></span>
+            <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#64748b;">MDF Cubicle / Counter / Jam Operasi</h6>
+        </div>
+        <table class="gdt">
+            <thead><tr><th style="width:25%;">Item</th><th style="width:35%;">Nilai</th><th>Satuan</th></tr></thead>
+            <tbody>
+                <tr class="gsub"><td colspan="3">MDF Cubicle</td></tr>
+                <tr><td>Tekanan Oli</td><td class="vval">{{ g.oil_pressure|default:"—" }}</td><td class="vunit">kPa</td></tr>
+                <tr><td>Temperatur Mesin</td><td class="vval">{{ g.engine_temperature|default:"—" }}</td><td class="vunit">°C</td></tr>
+                <tr><td>Kondisi Batere</td><td class="vval">{{ g.batere_condition|default:"—" }}</td><td class="vunit">VDC</td></tr>
+                <tr><td>RPM</td><td class="vval">{{ g.rpm|default:"—" }}</td><td class="vunit">rpm</td></tr>
+                <tr class="gsub"><td colspan="3">Counter Analog</td></tr>
+                <tr><td>Counter Hour (Start)</td><td class="vval">{{ g.counter_sebelum|default:"—" }}</td><td class="vunit">jam</td></tr>
+                <tr><td>Counter Hour (Stop)</td><td class="vval">{{ g.counter_sesudah|default:"—" }}</td><td class="vunit">jam</td></tr>
+                {% if g.selisih_counter is not None %}
+                <tr><td>Selisih Counter</td><td class="vval" style="color:#8b5cf6;">{{ g.selisih_counter }}</td><td class="vunit">jam</td></tr>
+                {% endif %}
+                <tr class="gsub"><td colspan="3">Jam Operasi</td></tr>
+                <tr><td>Waktu Start</td><td class="vval">{{ g.waktu_start|default:"—" }}</td><td class="vunit">WITA</td></tr>
+                <tr><td>Waktu Stop</td><td class="vval">{{ g.waktu_stop|default:"—" }}</td><td class="vunit">WITA</td></tr>
+                {% if g.durasi_menit is not None %}
+                <tr><td>Durasi Operasi</td>
+                    <td class="vval" style="color:#ea580c;font-size:16px;">{{ g.durasi_menit }}</td>
+                    <td class="vunit">Menit</td></tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% if g.catatan %}
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;">Catatan</div>
+        <p style="font-size:13.5px;color:#334155;margin:0;white-space:pre-wrap;">{{ g.catatan }}</p>
+    </div>
+</div>
+{% endif %}
+
+{% endwith %}
+{% endif %}

@@ -800,8 +800,12 @@
         {% include 'maintenance/teleproteksi_detail_section.html' %}
         {% endif %}
 
+        {% if genset_detail %}
+        {% include 'maintenance/genset_detail_section.html' %}
+        {% endif %}
+
         <!-- Tidak ada detail khusus -->
-        {% if not plc_detail and not router_detail and not radio_detail and not voip_detail and not mux_detail and not rect_detail and not tp_detail %}
+        {% if not plc_detail and not router_detail and not radio_detail and not voip_detail and not mux_detail and not rect_detail and not tp_detail and not genset_detail %}
             {% if maintenance.maintenance_type == 'Corrective' and maintenance.corrective_detail %}
             {# Detail Corrective ditampilkan di sini, di dalam panel kanan #}
             {% with cd=maintenance.corrective_detail %}
