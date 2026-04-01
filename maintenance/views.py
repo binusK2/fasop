@@ -1299,158 +1299,383 @@ def corrective_edit(request, pk):
 
 @login_required
 def offline_form_download(request):
-    """Download template Excel untuk isi data maintenance secara offline."""
+    """Download template Excel maintenance per lokasi, sheet per jenis perangkat."""
     from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side, numbers
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
     from openpyxl.utils import get_column_letter
     from openpyxl.worksheet.datavalidation import DataValidation
 
+    # ── Ambil parameter lokasi ──────────────────────────────────────
+    selected_lokasi = request.GET.get('lokasi', '').strip()
+
     wb = Workbook()
+    wb.remove(wb.active)  # hapus sheet default
 
-    # ── Sheet 1: Corrective Maintenance ──
-    ws = wb.active
-    ws.title = 'Corrective'
-    ws.sheet_properties.tabColor = 'EF4444'
-
-    header_font = Font(bold=True, color='FFFFFF', size=11, name='Arial')
-    header_fill = PatternFill('solid', fgColor='2563EB')
-    info_fill   = PatternFill('solid', fgColor='DBEAFE')
-    info_font   = Font(italic=True, color='1E40AF', size=10, name='Arial')
-    border      = Border(
+    # ── Style helpers ───────────────────────────────────────────────
+    def hfont(color='FFFFFF'): return Font(bold=True, color=color, size=10, name='Arial')
+    def hfill(hex_): return PatternFill('solid', fgColor=hex_)
+    border = Border(
         left=Side(style='thin'), right=Side(style='thin'),
         top=Side(style='thin'), bottom=Side(style='thin')
     )
-    wrap_align  = Alignment(wrap_text=True, vertical='top')
+    wrap = Alignment(wrap_text=True, vertical='top')
+    center = Alignment(horizontal='center', vertical='center', wrap_text=True)
 
-    # Instruksi row
-    ws.merge_cells('A1:I1')
-    ws['A1'] = '📋 TEMPLATE CORRECTIVE MAINTENANCE — Isi data di bawah ini lalu upload ke FASOP saat online'
-    ws['A1'].font = Font(bold=True, size=12, name='Arial', color='1E40AF')
-    ws['A1'].fill = PatternFill('solid', fgColor='EFF6FF')
-    ws['A1'].alignment = Alignment(horizontal='center', vertical='center')
-    ws.row_dimensions[1].height = 30
+    def style_header(ws, row, cols_cfg, fill_hex):
+        """cols_cfg: list of (col_letter, title, width)"""
+        for col_letter, title, width in cols_cfg:
+            c = ws[f'{col_letter}{row}']
+            c.value = title
+            c.font = hfont()
+            c.fill = hfill(fill_hex)
+            c.alignment = center
+            c.border = border
+            ws.column_dimensions[col_letter].width = width
 
-    # Info row
-    ws.merge_cells('A2:I2')
-    ws['A2'] = '⚠️ Kolom bertanda (*) wajib diisi. Nama perangkat harus PERSIS sama dengan yang ada di sistem FASOP.'
-    ws['A2'].font = info_font
-    ws['A2'].fill = info_fill
+    def add_border_rows(ws, start_row, end_row, cols_cfg):
+        for row in range(start_row, end_row + 1):
+            for col_letter, _, _ in cols_cfg:
+                c = ws[f'{col_letter}{row}']
+                c.border = border
+                c.alignment = wrap
 
-    # Headers
-    headers_corr = [
-        ('A', 'Nama Perangkat *', 25),
-        ('B', 'Tanggal (YYYY-MM-DD HH:MM) *', 24),
-        ('C', 'Pelaksana (pisah koma)', 22),
-        ('D', 'Jenis Kerusakan', 20),
-        ('E', 'Deskripsi Masalah *', 35),
-        ('F', 'Tindakan *', 35),
-        ('G', 'Komponen Diganti (ya/tidak)', 18),
-        ('H', 'Nama Komponen', 22),
-        ('I', 'Kondisi Sebelum', 22),
-        ('J', 'Kondisi Sesudah', 22),
-        ('K', 'Status (selesai/perlu_tindaklanjut)', 20),
-    ]
+    def dv(ws, type_, formula, cell_range, blank=True):
+        d = DataValidation(type=type_, formula1=formula, allow_blank=blank)
+        ws.add_data_validation(d)
+        d.add(cell_range)
+        return d
 
-    for col_letter, title, width in headers_corr:
-        cell = ws[f'{col_letter}3']
-        cell.value = title
-        cell.font = header_font
-        cell.fill = header_fill
-        cell.alignment = Alignment(horizontal='center', wrap_text=True)
-        cell.border = border
-        ws.column_dimensions[col_letter].width = width
+    def info_row(ws, row, text, ncols):
+        last = get_column_letter(ncols)
+        ws.merge_cells(f'A{row}:{last}{row}')
+        c = ws[f'A{row}']
+        c.value = text
+        c.font = Font(italic=True, color='1E40AF', size=9, name='Arial')
+        c.fill = hfill('DBEAFE')
+        c.alignment = Alignment(horizontal='left', vertical='center', wrap_text=True)
+        ws.row_dimensions[row].height = 28
 
-    # Data validation: Jenis Kerusakan
-    dv_jenis = DataValidation(
-        type='list',
-        formula1='"hardware,software,power,komunikasi,mekanik,lainnya"',
-        allow_blank=True
-    )
-    dv_jenis.error = 'Pilih dari daftar'
-    dv_jenis.errorTitle = 'Jenis tidak valid'
-    ws.add_data_validation(dv_jenis)
-    dv_jenis.add(f'D4:D100')
+    def title_row(ws, row, text, ncols, fill='EFF6FF', fcolor='1E40AF'):
+        last = get_column_letter(ncols)
+        ws.merge_cells(f'A{row}:{last}{row}')
+        c = ws[f'A{row}']
+        c.value = text
+        c.font = Font(bold=True, size=11, name='Arial', color=fcolor)
+        c.fill = hfill(fill)
+        c.alignment = center
+        ws.row_dimensions[row].height = 28
 
-    # Data validation: ya/tidak
-    dv_yn = DataValidation(type='list', formula1='"ya,tidak"', allow_blank=True)
-    ws.add_data_validation(dv_yn)
-    dv_yn.add(f'G4:G100')
+    # ── Query perangkat ──────────────────────────────────────────────
+    qs = Device.objects.filter(is_deleted=False).select_related('jenis').order_by('nama')
+    if selected_lokasi:
+        qs = qs.filter(lokasi=selected_lokasi)
 
-    # Data validation: status
-    dv_status = DataValidation(type='list', formula1='"selesai,perlu_tindaklanjut"', allow_blank=True)
-    ws.add_data_validation(dv_status)
-    dv_status.add(f'K4:K100')
+    # Kelompokkan per jenis
+    from collections import defaultdict
+    by_jenis = defaultdict(list)
+    for d in qs:
+        jenis_name = d.jenis.name.strip().upper() if d.jenis else 'LAINNYA'
+        by_jenis[jenis_name].append(d)
 
-    # Pre-fill beberapa baris kosong dengan border
-    for row in range(4, 24):
-        for col_letter, _, _ in headers_corr:
-            cell = ws[f'{col_letter}{row}']
-            cell.border = border
-            cell.alignment = wrap_align
+    # ── Helper: buat sheet per jenis ────────────────────────────────
+    OK_NOK = '"OK,NOK"'
+    BERSIH_KOTOR = '"Bersih,Kotor"'
 
-    # ── Sheet 2: Daftar Perangkat (referensi) ──
-    ws_ref = wb.create_sheet('Daftar Perangkat')
-    ws_ref.sheet_properties.tabColor = '10B981'
+    def make_sheet_router(devices):
+        ws = wb.create_sheet('Router & Switch')
+        ws.sheet_properties.tabColor = '3B82F6'
+        cols = [
+            ('A','Nama Perangkat',22),('B','Tanggal (YYYY-MM-DD HH:MM)',22),
+            ('C','Pelaksana (pisah koma)',22),('D','Deskripsi',30),
+            ('E','Kondisi Fisik Unit',15),('F','Indikator LED',15),('G','Kondisi Kabel',15),
+            ('H','Teg Input (V)',13),('I','Suhu Perangkat (°C)',14),
+            ('J','CPU Load (%)',12),('K','Memory Usage (%)',14),
+            ('L','Port Aktif',10),('M','Port Total',10),
+            ('N','IP/Routing Status',15),('O','Catatan Tambahan',30),
+        ]
+        title_row(ws,1,'TEMPLATE PREVENTIVE — ROUTER & SWITCH',len(cols),'EFF6FF','1E40AF')
+        info_row(ws,2,'Kolom bertanda (*) wajib diisi. Nama perangkat sudah pre-filled sesuai lokasi.',len(cols))
+        style_header(ws,3,cols,'3B82F6')
+        ws.freeze_panes='A4'
+        for i,d in enumerate(devices,start=4):
+            ws[f'A{i}'] = d.nama
+            ws[f'A{i}'].font = Font(bold=True,name='Arial',size=9)
+        add_border_rows(ws,4,4+max(len(devices),20)-1,cols)
+        for col,formula in [('E',OK_NOK),('F',OK_NOK),('G',OK_NOK),('N',OK_NOK)]:
+            dv(ws,'list',formula,f'{col}4:{col}{4+len(devices)+5}')
 
-    ws_ref['A1'] = 'Nama Perangkat'
-    ws_ref['B1'] = 'Jenis'
-    ws_ref['C1'] = 'Lokasi'
-    ws_ref['A1'].font = header_font
-    ws_ref['A1'].fill = PatternFill('solid', fgColor='10B981')
-    ws_ref['B1'].font = header_font
-    ws_ref['B1'].fill = PatternFill('solid', fgColor='10B981')
-    ws_ref['C1'].font = header_font
-    ws_ref['C1'].fill = PatternFill('solid', fgColor='10B981')
-    ws_ref.column_dimensions['A'].width = 30
-    ws_ref.column_dimensions['B'].width = 20
-    ws_ref.column_dimensions['C'].width = 25
+    def make_sheet_plc(devices):
+        ws = wb.create_sheet('PLC')
+        ws.sheet_properties.tabColor = '8B5CF6'
+        cols = [
+            ('A','Nama Perangkat',22),('B','Tanggal (YYYY-MM-DD HH:MM)',22),
+            ('C','Pelaksana (pisah koma)',22),('D','Deskripsi',30),
+            ('E','Akses PLC',12),('F','Remote Akses PLC',15),
+            ('G','Transmission Line (dBm)',18),('H','RX Pilot Level (dBm)',18),
+            ('I','Freq TX (MHz)',13),('J','BW TX (MHz)',12),
+            ('K','Freq RX (MHz)',13),('L','BW RX (MHz)',12),
+            ('M','Time Sync',12),('N','Wave Trap',12),('O','IMU',10),
+            ('P','Kabel Coaxial',14),
+        ]
+        title_row(ws,1,'TEMPLATE PREVENTIVE — PLC',len(cols),'F5F3FF','4C1D95')
+        info_row(ws,2,'Kolom OK/NOK gunakan dropdown.',len(cols))
+        style_header(ws,3,cols,'8B5CF6')
+        ws.freeze_panes='A4'
+        for i,d in enumerate(devices,start=4):
+            ws[f'A{i}'] = d.nama
+            ws[f'A{i}'].font = Font(bold=True,name='Arial',size=9)
+        add_border_rows(ws,4,4+max(len(devices),15)-1,cols)
+        for col in ['E','F','M','N','O','P']:
+            dv(ws,'list',OK_NOK,f'{col}4:{col}{4+len(devices)+5}')
 
-    devices = Device.objects.filter(is_deleted=False).select_related('jenis').order_by('lokasi', 'nama')
-    for i, d in enumerate(devices, start=2):
+    def make_sheet_radio(devices):
+        ws = wb.create_sheet('Radio')
+        ws.sheet_properties.tabColor = 'F59E0B'
+        cols = [
+            ('A','Nama Perangkat',22),('B','Tanggal (YYYY-MM-DD HH:MM)',22),
+            ('C','Pelaksana (pisah koma)',22),('D','Deskripsi',30),
+            ('E','Suhu Ruangan (°C)',15),('F','Kebersihan',13),('G','Lampu Penerangan',16),
+            ('H','Ada Radio',12),('I','Ada Battery',12),('J','Merk Battery',18),
+            ('K','Ada Power Supply',15),('L','Merk PSU',18),
+            ('M','Jenis Antena',15),('N','SWR',10),
+            ('O','Power TX (W)',12),('P','Teg Battery (V)',14),
+            ('Q','Teg PSU (V)',12),('R','Frek TX (MHz)',13),('S','Frek RX (MHz)',13),
+            ('T','Catatan',30),
+        ]
+        title_row(ws,1,'TEMPLATE PREVENTIVE — RADIO',len(cols),'FFFBEB','92400E')
+        info_row(ws,2,'Gunakan dropdown untuk kolom pilihan.',len(cols))
+        style_header(ws,3,cols,'F59E0B')
+        ws.freeze_panes='A4'
+        for i,d in enumerate(devices,start=4):
+            ws[f'A{i}'] = d.nama
+            ws[f'A{i}'].font = Font(bold=True,name='Arial',size=9)
+        add_border_rows(ws,4,4+max(len(devices),15)-1,cols)
+        for col in ['H','I','K']:
+            dv(ws,'list',OK_NOK,f'{col}4:{col}{4+len(devices)+5}')
+        dv(ws,'list',BERSIH_KOTOR,f'F4:F{4+len(devices)+5}')
+        dv(ws,'list','"Menyala,Tidak Menyala,Redup,Tidak Ada"',f'G4:G{4+len(devices)+5}')
+        dv(ws,'list','"Directional,Bidirectional"',f'M4:M{4+len(devices)+5}')
+        dv(ws,'list','"<1.5,>1.5"',f'N4:N{4+len(devices)+5}')
+
+    def make_sheet_voip(devices):
+        ws = wb.create_sheet('VoIP')
+        ws.sheet_properties.tabColor = '8B5CF6'
+        cols = [
+            ('A','Nama Perangkat',22),('B','Tanggal (YYYY-MM-DD HH:MM)',22),
+            ('C','Pelaksana (pisah koma)',22),('D','Deskripsi',30),
+            ('E','IP Address',18),('F','Extension Number',16),
+            ('G','SIP Server 1',20),('H','SIP Server 2',20),
+            ('I','Suhu Ruangan (°C)',15),
+            ('J','Kondisi Fisik',14),('K','NTP Server',12),('L','Web Config',12),
+            ('M','Merk PSU',18),('N','Teg Input PSU (V)',15),('O','Status PSU',12),
+            ('P','Catatan',30),
+        ]
+        title_row(ws,1,'TEMPLATE PREVENTIVE — VoIP',len(cols),'F5F3FF','5B21B6')
+        info_row(ws,2,'Gunakan dropdown untuk kolom OK/NOK.',len(cols))
+        style_header(ws,3,cols,'8B5CF6')
+        ws.freeze_panes='A4'
+        for i,d in enumerate(devices,start=4):
+            ws[f'A{i}'] = d.nama
+            ws[f'A{i}'].font = Font(bold=True,name='Arial',size=9)
+        add_border_rows(ws,4,4+max(len(devices),15)-1,cols)
+        for col in ['J','K','L','O']:
+            dv(ws,'list',OK_NOK,f'{col}4:{col}{4+len(devices)+5}')
+
+    def make_sheet_mux(devices):
+        ws = wb.create_sheet('Multiplexer')
+        ws.sheet_properties.tabColor = '10B981'
+        cols = [
+            ('A','Nama Perangkat',22),('B','Tanggal (YYYY-MM-DD HH:MM)',22),
+            ('C','Pelaksana (pisah koma)',22),('D','Deskripsi',30),
+            ('E','Suhu Ruangan (°C)',15),('F','Kebersihan',13),('G','Lampu',14),
+            ('H','Brand',18),('I','Firmware',18),
+            ('J','Sync Source 1',18),('K','Sync Source 2',18),
+            ('L','HS1 TX (dBm)',13),('M','HS1 RX (dBm)',13),('N','HS1 Jarak (km)',14),
+            ('O','HS2 TX (dBm)',13),('P','HS2 RX (dBm)',13),('Q','HS2 Jarak (km)',14),
+            ('R','PSU1 Status',13),('S','PSU2 Status',13),('T','FAN Status',12),
+            ('U','Catatan',30),
+        ]
+        title_row(ws,1,'TEMPLATE PREVENTIVE — MULTIPLEXER',len(cols),'ECFDF5','065F46')
+        info_row(ws,2,'Gunakan dropdown untuk kolom pilihan.',len(cols))
+        style_header(ws,3,cols,'10B981')
+        ws.freeze_panes='A4'
+        for i,d in enumerate(devices,start=4):
+            ws[f'A{i}'] = d.nama
+            ws[f'A{i}'].font = Font(bold=True,name='Arial',size=9)
+        add_border_rows(ws,4,4+max(len(devices),15)-1,cols)
+        for col in ['R','S','T']:
+            dv(ws,'list',OK_NOK,f'{col}4:{col}{4+len(devices)+5}')
+        dv(ws,'list',BERSIH_KOTOR,f'F4:F{4+len(devices)+5}')
+        dv(ws,'list','"Menyala,Tidak Menyala,Redup"',f'G4:G{4+len(devices)+5}')
+
+    def make_sheet_rectifier(devices):
+        ws = wb.create_sheet('Catu Daya & Rectifier')
+        ws.sheet_properties.tabColor = 'F97316'
+        cols = [
+            ('A','Nama Perangkat',22),('B','Tanggal (YYYY-MM-DD HH:MM)',22),
+            ('C','Pelaksana (pisah koma)',22),('D','Deskripsi',30),
+            ('E','Suhu Ruangan (°C)',15),('F','Exhaust Fan',18),
+            ('G','Kebersihan',13),('H','Lampu',13),
+            ('I','Rect Merk',18),('J','Rect Tipe',18),('K','Rect Kondisi',14),
+            ('L','V Rectifier (V)',15),('M','V Battery (V)',14),
+            ('N','Teg(+) GND (V)',14),('O','Teg(-) GND (V)',14),
+            ('P','V Dropper (V)',13),('Q','A Rectifier (A)',14),
+            ('R','A Battery (A)',13),('S','A Load (A)',12),
+            ('T','Bat Merk',18),('U','Bat Tipe',18),('V','Bat Kondisi',14),
+            ('W','Jumlah Cell',12),('X','V Total Bank (V)',15),
+            ('Y','Catatan',30),
+        ]
+        title_row(ws,1,'TEMPLATE PREVENTIVE — CATU DAYA & RECTIFIER',len(cols),'FFF7ED','9A3412')
+        info_row(ws,2,'Gunakan dropdown untuk kolom pilihan.',len(cols))
+        style_header(ws,3,cols,'F97316')
+        ws.freeze_panes='A4'
+        for i,d in enumerate(devices,start=4):
+            ws[f'A{i}'] = d.nama
+            ws[f'A{i}'].font = Font(bold=True,name='Arial',size=9)
+        add_border_rows(ws,4,4+max(len(devices),15)-1,cols)
+        for col in ['K','V']:
+            dv(ws,'list',OK_NOK,f'{col}4:{col}{4+len(devices)+5}')
+        dv(ws,'list',BERSIH_KOTOR,f'G4:G{4+len(devices)+5}')
+        dv(ws,'list','"Menyala,Tidak Menyala,Redup"',f'H4:H{4+len(devices)+5}')
+        dv(ws,'list','"Terpasang,Tidak Terpasang,Rusak"',f'F4:F{4+len(devices)+5}')
+
+    def make_sheet_teleproteksi(devices):
+        ws = wb.create_sheet('Teleproteksi')
+        ws.sheet_properties.tabColor = '6366F1'
+        cols = [
+            ('A','Nama Perangkat',22),('B','Tanggal (YYYY-MM-DD HH:MM)',22),
+            ('C','Pelaksana (pisah koma)',22),('D','Deskripsi',30),
+            ('E','Suhu Ruangan (°C)',15),('F','Kebersihan Perangkat',18),
+            ('G','Kebersihan Panel',16),('H','Lampu',12),
+            ('I','Link (Terhubung ke)',25),('J','Tipe TP',13),
+            ('K','Port Comm',12),('L','Versi Program',16),('M','Address TP',14),
+            ('N','Akses TP',12),('O','Remote Akses TP',16),
+            ('P','Jml Skema',11),
+            ('Q','Skema 1 Command',18),('R','S1 Send(-)',12),('S','S1 Send(+)',12),
+            ('T','S1 Recv(-)',12),('U','S1 Recv(+)',12),
+            ('V','Skema 2 Command',18),('W','S2 Send(-)',12),('X','S2 Send(+)',12),
+            ('Y','S2 Recv(-)',12),('Z','S2 Recv(+)',12),
+            ('AA','Skema 3 Command',18),('AB','S3 Send(-)',12),('AC','S3 Send(+)',12),
+            ('AD','S3 Recv(-)',12),('AE','S3 Recv(+)',12),
+            ('AF','Skema 4 Command',18),('AG','S4 Send(-)',12),('AH','S4 Send(+)',12),
+            ('AI','S4 Recv(-)',12),('AJ','S4 Recv(+)',12),
+            ('AK','Uji Send 1',12),('AL','Uji Recv 1',12),
+            ('AM','Uji Send 2',12),('AN','Uji Recv 2',12),
+            ('AO','Uji Send 3',12),('AP','Uji Recv 3',12),
+            ('AQ','Uji Send 4',12),('AR','Uji Recv 4',12),
+            ('AS','Time Sync',12),('AT','Loop Test (ms)',14),
+            ('AU','Catatan',30),
+        ]
+        title_row(ws,1,'TEMPLATE PREVENTIVE — TELEPROTEKSI',len(cols),'EEF2FF','3730A3')
+        info_row(ws,2,'Gunakan dropdown untuk kolom pilihan. Address TP hanya untuk tipe Digital.',len(cols))
+        style_header(ws,3,cols,'6366F1')
+        ws.freeze_panes='A4'
+        for i,d in enumerate(devices,start=4):
+            ws[f'A{i}'] = d.nama
+            ws[f'A{i}'].font = Font(bold=True,name='Arial',size=9)
+        add_border_rows(ws,4,4+max(len(devices),15)-1,cols)
+        for col in ['N','O','AK','AL','AM','AN','AO','AP','AQ','AR','AS']:
+            dv(ws,'list',OK_NOK,f'{col}4:{col}{4+len(devices)+5}')
+        dv(ws,'list',BERSIH_KOTOR,f'F4:F{4+len(devices)+5}')
+        dv(ws,'list',BERSIH_KOTOR,f'G4:G{4+len(devices)+5}')
+        dv(ws,'list',OK_NOK,f'H4:H{4+len(devices)+5}')
+        dv(ws,'list','"Digital,Analog"',f'J4:J{4+len(devices)+5}')
+        dv(ws,'list','"E1,G64,E&M,PLC"',f'K4:K{4+len(devices)+5}')
+        SKEMA_CMD = '"Distance,DEF,DTT,Tidak Terpakai"'
+        for col in ['Q','V','AA','AF']:
+            dv(ws,'list',SKEMA_CMD,f'{col}4:{col}{4+len(devices)+5}')
+
+    def make_sheet_corrective(devices):
+        ws = wb.create_sheet('Corrective')
+        ws.sheet_properties.tabColor = 'EF4444'
+        cols = [
+            ('A','Nama Perangkat *',22),('B','Tanggal (YYYY-MM-DD HH:MM) *',22),
+            ('C','Pelaksana (pisah koma)',22),('D','Jenis Kerusakan',18),
+            ('E','Deskripsi Masalah',35),('F','Tindakan',35),
+            ('G','Komponen Diganti (ya/tidak)',18),('H','Nama Komponen',22),
+            ('I','Kondisi Sebelum',22),('J','Kondisi Sesudah',22),
+            ('K','Status (selesai/perlu_tindaklanjut)',20),
+        ]
+        title_row(ws,1,'TEMPLATE CORRECTIVE MAINTENANCE',len(cols),'FEF2F2','991B1B')
+        info_row(ws,2,'Kolom (*) wajib diisi. Nama perangkat harus PERSIS sama dengan di sistem.',len(cols))
+        style_header(ws,3,cols,'EF4444')
+        ws.freeze_panes='A4'
+        # Pre-fill nama perangkat
+        for i,d in enumerate(devices,start=4):
+            ws[f'A{i}'] = d.nama
+            ws[f'A{i}'].font = Font(bold=True,name='Arial',size=9)
+        add_border_rows(ws,4,4+max(len(devices),20)-1,cols)
+        dv(ws,'list','"hardware,software,power,komunikasi,mekanik,lainnya"',f'D4:D{4+len(devices)+10}')
+        dv(ws,'list','"ya,tidak"',f'G4:G{4+len(devices)+10}')
+        dv(ws,'list','"selesai,perlu_tindaklanjut"',f'K4:K{4+len(devices)+10}')
+
+    # ── Buat sheet per jenis ─────────────────────────────────────────
+    JENIS_SHEET_MAP = {
+        'ROUTER':              make_sheet_router,
+        'SWITCH':              make_sheet_router,
+        'PLC':                 make_sheet_plc,
+        'RADIO':               make_sheet_radio,
+        'VOIP':                make_sheet_voip,
+        'MULTIPLEXER':         make_sheet_mux,
+        'RECTIFIER':           make_sheet_rectifier,
+        'CATU DAYA':           make_sheet_rectifier,
+        'CATUDAYA':            make_sheet_rectifier,
+        'RECTIFIER & BATTERY': make_sheet_rectifier,
+        'TELEPROTEKSI':        make_sheet_teleproteksi,
+    }
+
+    # Track sheet yang sudah dibuat (Router & Switch jadi satu)
+    created_sheets = set()
+    all_devices = list(qs)
+
+    for jenis_key, func in JENIS_SHEET_MAP.items():
+        devices_jenis = by_jenis.get(jenis_key, [])
+        if not devices_jenis:
+            continue
+        sheet_name = {
+            'SWITCH': 'Router & Switch',
+            'ROUTER': 'Router & Switch',
+            'CATU DAYA': 'Catu Daya & Rectifier',
+            'CATUDAYA': 'Catu Daya & Rectifier',
+            'RECTIFIER & BATTERY': 'Catu Daya & Rectifier',
+            'RECTIFIER': 'Catu Daya & Rectifier',
+        }.get(jenis_key, jenis_key.title())
+        if sheet_name in created_sheets:
+            # Tambah perangkat ke sheet yang sudah ada
+            ws = wb[sheet_name]
+            start_row = ws.max_row + 1
+            for d in devices_jenis:
+                ws[f'A{start_row}'] = d.nama
+                ws[f'A{start_row}'].font = Font(bold=True,name='Arial',size=9)
+                start_row += 1
+        else:
+            # Gabung devices Router + Switch
+            if jenis_key in ('ROUTER', 'SWITCH'):
+                devices_jenis = by_jenis.get('ROUTER',[]) + by_jenis.get('SWITCH',[])
+            elif jenis_key in ('RECTIFIER','CATU DAYA','CATUDAYA','RECTIFIER & BATTERY'):
+                devices_jenis = (by_jenis.get('RECTIFIER',[]) +
+                                 by_jenis.get('CATU DAYA',[]) +
+                                 by_jenis.get('CATUDAYA',[]) +
+                                 by_jenis.get('RECTIFIER & BATTERY',[]))
+            func(devices_jenis)
+            created_sheets.add(sheet_name)
+
+    # Sheet Corrective — semua perangkat di lokasi ini
+    make_sheet_corrective(all_devices)
+
+    # Sheet Referensi
+    ws_ref = wb.create_sheet('Referensi Perangkat')
+    ws_ref.sheet_properties.tabColor = '64748B'
+    ref_cols = [('A','Nama Perangkat',30),('B','Jenis',20),('C','Lokasi',25),('D','IP Address',18)]
+    style_header(ws_ref,1,ref_cols,'475569')
+    ws_ref.freeze_panes='A2'
+    for i,d in enumerate(all_devices,start=2):
         ws_ref[f'A{i}'] = d.nama
         ws_ref[f'B{i}'] = d.jenis.name if d.jenis else '—'
         ws_ref[f'C{i}'] = d.lokasi or '—'
+        ws_ref[f'D{i}'] = d.ip_address or '—'
 
-    # ── Sheet 3: Preventive (opsional, format sederhana) ──
-    ws_prev = wb.create_sheet('Preventive')
-    ws_prev.sheet_properties.tabColor = '3B82F6'
-    ws_prev.merge_cells('A1:G1')
-    ws_prev['A1'] = '📋 TEMPLATE PREVENTIVE MAINTENANCE — Isi data di bawah ini'
-    ws_prev['A1'].font = Font(bold=True, size=12, name='Arial', color='1E40AF')
-    ws_prev['A1'].fill = PatternFill('solid', fgColor='EFF6FF')
-
-    headers_prev = [
-        ('A', 'Nama Perangkat *', 25),
-        ('B', 'Tanggal (YYYY-MM-DD HH:MM) *', 24),
-        ('C', 'Pelaksana (pisah koma)', 22),
-        ('D', 'Deskripsi / Catatan', 40),
-        ('E', 'Status (Open/Done)', 18),
-    ]
-    for col_letter, title, width in headers_prev:
-        cell = ws_prev[f'{col_letter}2']
-        cell.value = title
-        cell.font = header_font
-        cell.fill = PatternFill('solid', fgColor='3B82F6')
-        cell.alignment = Alignment(horizontal='center', wrap_text=True)
-        cell.border = border
-        ws_prev.column_dimensions[col_letter].width = width
-
-    dv_status_prev = DataValidation(type='list', formula1='"Open,Done"', allow_blank=True)
-    ws_prev.add_data_validation(dv_status_prev)
-    dv_status_prev.add(f'E3:E100')
-
-    for row in range(3, 23):
-        for col_letter, _, _ in headers_prev:
-            cell = ws_prev[f'{col_letter}{row}']
-            cell.border = border
-            cell.alignment = wrap_align
-
-    # Freeze panes
-    ws.freeze_panes = 'A4'
-    ws_ref.freeze_panes = 'A2'
-    ws_prev.freeze_panes = 'A3'
-
-    # Response
+    # ── Response ─────────────────────────────────────────────────────
     buffer = BytesIO()
     wb.save(buffer)
     buffer.seek(0)
@@ -1460,7 +1685,8 @@ def offline_form_download(request):
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
     tgl = dj_timezone.localdate().strftime('%Y%m%d')
-    response['Content-Disposition'] = f'attachment; filename="Template_Maintenance_Offline_{tgl}.xlsx"'
+    lokasi_slug = selected_lokasi.replace(' ','_').upper() if selected_lokasi else 'SEMUA'
+    response['Content-Disposition'] = f'attachment; filename="Template_Maintenance_{lokasi_slug}_{tgl}.xlsx"'
     return response
 
 
@@ -1504,9 +1730,7 @@ def offline_form_upload(request):
                 kondisi_ssdh = str(vals[9] or '').strip()
                 status_raw = str(vals[10] or 'selesai').strip()
 
-                if not nama_device or not deskripsi or not tindakan:
-                    if nama_device:  # skip truly empty rows
-                        errors.append(f'Baris {row_num + 3}: Data wajib tidak lengkap (perangkat/deskripsi/tindakan)')
+                if not nama_device:
                     continue
 
                 device = Device.objects.filter(nama__iexact=nama_device, is_deleted=False).first()
@@ -1567,49 +1791,237 @@ def offline_form_upload(request):
 
                 imported.append(f'{device.nama} — {deskripsi[:50]}')
 
-        # ── Import Preventive ──
-        if 'Preventive' in wb.sheetnames:
-            ws_prev = wb['Preventive']
-            for row in ws_prev.iter_rows(min_row=3, max_col=5, values_only=False):
-                row_num += 1
+        # ── Helper parse tanggal ──────────────────────────────────────
+        def parse_tanggal(raw):
+            from datetime import datetime
+            if isinstance(raw, str):
+                for fmt in ('%Y-%m-%d %H:%M', '%Y-%m-%d %H:%M:%S', '%d/%m/%Y %H:%M', '%Y-%m-%d'):
+                    try:
+                        return datetime.strptime(raw.strip(), fmt)
+                    except ValueError:
+                        continue
+                raise ValueError(f'Format tidak dikenali: {raw}')
+            if raw is None:
+                raise ValueError('Tanggal kosong')
+            return raw
+
+        def import_preventive_sheet(ws, sheet_name, min_row, col_count, save_detail_fn=None):
+            for row in ws.iter_rows(min_row=min_row, max_col=col_count, values_only=False):
                 vals = [c.value for c in row]
                 nama_device = str(vals[0] or '').strip()
                 tanggal_raw = vals[1]
-                pelaksana_raw = str(vals[2] or '').strip()
-                deskripsi = str(vals[3] or '').strip()
-                status_raw = str(vals[4] or 'Open').strip()
+                pelaksana_raw = str(vals[2] or '').strip() if len(vals) > 2 else ''
+                deskripsi = str(vals[3] or '').strip() if len(vals) > 3 else ''
 
                 if not nama_device:
                     continue
 
                 device = Device.objects.filter(nama__iexact=nama_device, is_deleted=False).first()
                 if not device:
-                    errors.append(f'Preventive baris {row_num + 2}: Perangkat "{nama_device}" tidak ditemukan')
+                    errors.append(f'[{sheet_name}] Perangkat "{nama_device}" tidak ditemukan')
+                    continue
+
+                if not tanggal_raw:
+                    errors.append(f'[{sheet_name}] {nama_device}: Tanggal wajib diisi')
                     continue
 
                 try:
-                    if isinstance(tanggal_raw, str):
-                        from datetime import datetime
-                        tanggal = datetime.strptime(tanggal_raw.strip(), '%Y-%m-%d %H:%M')
-                    else:
-                        tanggal = tanggal_raw
-                    if not tanggal:
-                        raise ValueError('Tanggal kosong')
+                    tanggal = parse_tanggal(tanggal_raw)
                 except Exception:
-                    errors.append(f'Preventive baris {row_num + 2}: Format tanggal tidak valid')
+                    errors.append(f'[{sheet_name}] {nama_device}: Format tanggal tidak valid — gunakan YYYY-MM-DD HH:MM')
                     continue
 
                 pelaksana_list = [n.strip() for n in pelaksana_raw.split(',') if n.strip()] if pelaksana_raw else []
 
-                Maintenance.objects.create(
+                maint = Maintenance.objects.create(
                     device=device,
                     maintenance_type='Preventive',
                     date=tanggal,
                     description=deskripsi,
-                    status=status_raw if status_raw in ('Open','Done') else 'Open',
+                    status='Open',
                     pelaksana_names=pelaksana_list,
                 )
-                imported.append(f'[Preventive] {device.nama} — {deskripsi[:50]}')
+
+                if save_detail_fn:
+                    try:
+                        save_detail_fn(maint, vals)
+                    except Exception as e:
+                        errors.append(f'[{sheet_name}] {nama_device}: Gagal simpan detail — {e}')
+
+                imported.append(f'[{sheet_name}] {nama_device}')
+
+        def _g(vals, idx, default=''):
+            try:
+                v = vals[idx]
+                return v if v is not None else default
+            except IndexError:
+                return default
+
+        def _gf(vals, idx):
+            try:
+                v = vals[idx]
+                return float(v) if v not in (None, '') else None
+            except (IndexError, ValueError, TypeError):
+                return None
+
+        def _gi(vals, idx):
+            try:
+                v = vals[idx]
+                return int(v) if v not in (None, '') else None
+            except (IndexError, ValueError, TypeError):
+                return None
+
+        if 'Router & Switch' in wb.sheetnames:
+            def save_router(maint, vals):
+                from maintenance.models import MaintenanceRouter
+                MaintenanceRouter.objects.create(
+                    maintenance=maint,
+                    kondisi_fisik=str(_g(vals,4))[:3] or '',
+                    led_link=str(_g(vals,5))[:3] or '',
+                    kondisi_kabel=str(_g(vals,6))[:3] or '',
+                    tegangan_input=_gf(vals,7), suhu_perangkat=_gf(vals,8),
+                    cpu_load=_gf(vals,9), memory_usage=_gf(vals,10),
+                    jumlah_port_aktif=_gi(vals,11), jumlah_port_total=_gi(vals,12),
+                    status_routing=str(_g(vals,13))[:3] or '',
+                    catatan_tambahan=str(_g(vals,14)),
+                )
+            import_preventive_sheet(wb['Router & Switch'], 'Router & Switch', 4, 15, save_router)
+
+        if 'PLC' in wb.sheetnames:
+            def save_plc(maint, vals):
+                from maintenance.models import MaintenancePLC
+                MaintenancePLC.objects.create(
+                    maintenance=maint,
+                    akses_plc=str(_g(vals,4))[:3] or '',
+                    remote_akses_plc=str(_g(vals,5))[:3] or '',
+                    transmission_line=_gf(vals,6), rx_pilot_level=_gf(vals,7),
+                    freq_tx=_gf(vals,8), bandwidth_tx=_gf(vals,9),
+                    freq_rx=_gf(vals,10), bandwidth_rx=_gf(vals,11),
+                    time_sync=str(_g(vals,12))[:3] or '',
+                    wave_trap=str(_g(vals,13))[:3] or '',
+                    imu=str(_g(vals,14))[:3] or '',
+                    kabel_coaxial=str(_g(vals,15))[:3] or '',
+                )
+            import_preventive_sheet(wb['PLC'], 'PLC', 4, 16, save_plc)
+
+        if 'Radio' in wb.sheetnames:
+            def save_radio(maint, vals):
+                from maintenance.models import MaintenanceRadio
+                MaintenanceRadio.objects.create(
+                    maintenance=maint,
+                    suhu_ruangan=_gf(vals,4),
+                    kebersihan=str(_g(vals,5))[:10] or '',
+                    lampu_penerangan=str(_g(vals,6))[:15] or '',
+                    ada_radio=str(_g(vals,7))[:3] or '',
+                    ada_battery=str(_g(vals,8))[:3] or '',
+                    merk_battery=str(_g(vals,9)),
+                    ada_power_supply=str(_g(vals,10))[:3] or '',
+                    merk_power_supply=str(_g(vals,11)),
+                    jenis_antena=str(_g(vals,12))[:15] or '',
+                    swr=str(_g(vals,13))[:5] or '',
+                    power_tx=_gf(vals,14), tegangan_battery=_gf(vals,15),
+                    tegangan_psu=_gf(vals,16), frekuensi_tx=_gf(vals,17),
+                    frekuensi_rx=_gf(vals,18), catatan=str(_g(vals,19)),
+                )
+            import_preventive_sheet(wb['Radio'], 'Radio', 4, 20, save_radio)
+
+        if 'VoIP' in wb.sheetnames:
+            def save_voip(maint, vals):
+                from maintenance.models import MaintenanceVoIP
+                MaintenanceVoIP.objects.create(
+                    maintenance=maint,
+                    ip_address=str(_g(vals,4)), extension_number=str(_g(vals,5)),
+                    sip_server_1=str(_g(vals,6)), sip_server_2=str(_g(vals,7)),
+                    suhu_ruangan=_gf(vals,8),
+                    kondisi_fisik=str(_g(vals,9))[:3] or '',
+                    ntp_server=str(_g(vals,10))[:3] or '',
+                    webconfig=str(_g(vals,11))[:3] or '',
+                    ps_merk=str(_g(vals,12)), ps_tegangan_input=_gf(vals,13),
+                    ps_status=str(_g(vals,14))[:3] or '',
+                    catatan=str(_g(vals,15)),
+                )
+            import_preventive_sheet(wb['VoIP'], 'VoIP', 4, 16, save_voip)
+
+        if 'Multiplexer' in wb.sheetnames:
+            def save_mux(maint, vals):
+                from maintenance.models import MaintenanceMux
+                MaintenanceMux.objects.create(
+                    maintenance=maint,
+                    suhu_ruangan=_gf(vals,4),
+                    kebersihan=str(_g(vals,5))[:10] or '',
+                    lampu_penerangan=str(_g(vals,6))[:15] or '',
+                    brand=str(_g(vals,7)), firmware=str(_g(vals,8)),
+                    sync_source_1=str(_g(vals,9)), sync_source_2=str(_g(vals,10)),
+                    hs1_tx=_gf(vals,11), hs1_rx=_gf(vals,12), hs1_jarak=_gf(vals,13),
+                    hs2_tx=_gf(vals,14), hs2_rx=_gf(vals,15), hs2_jarak=_gf(vals,16),
+                    psu1_status=str(_g(vals,17))[:3] or '',
+                    psu2_status=str(_g(vals,18))[:3] or '',
+                    fan_status=str(_g(vals,19))[:3] or '',
+                    catatan=str(_g(vals,20)),
+                )
+            import_preventive_sheet(wb['Multiplexer'], 'Multiplexer', 4, 21, save_mux)
+
+        if 'Catu Daya & Rectifier' in wb.sheetnames:
+            def save_rect(maint, vals):
+                from maintenance.models import MaintenanceRectifier
+                MaintenanceRectifier.objects.create(
+                    maintenance=maint,
+                    suhu_ruangan=_gf(vals,4),
+                    exhaust_fan=str(_g(vals,5))[:20] or '',
+                    kebersihan=str(_g(vals,6))[:10] or '',
+                    lampu_penerangan=str(_g(vals,7))[:15] or '',
+                    rect1_merk=str(_g(vals,8)), rect1_tipe=str(_g(vals,9)),
+                    rect1_kondisi=str(_g(vals,10))[:3] or '',
+                    rect1_v_rectifier=_gf(vals,11), rect1_v_battery=_gf(vals,12),
+                    rect1_teg_pos_ground=_gf(vals,13), rect1_teg_neg_ground=_gf(vals,14),
+                    rect1_v_dropper=_gf(vals,15), rect1_a_rectifier=_gf(vals,16),
+                    rect1_a_battery=_gf(vals,17), rect1_a_load=_gf(vals,18),
+                    bat1_merk=str(_g(vals,19)), bat1_tipe=str(_g(vals,20)),
+                    bat1_kondisi=str(_g(vals,21))[:3] or '',
+                    bat1_jumlah=_gi(vals,22), bat1_v_total=_gf(vals,23),
+                    catatan=str(_g(vals,24)),
+                )
+            import_preventive_sheet(wb['Catu Daya & Rectifier'], 'Catu Daya & Rectifier', 4, 25, save_rect)
+
+        if 'Teleproteksi' in wb.sheetnames:
+            def save_tp(maint, vals):
+                from maintenance.models import MaintenanceTeleproteksi
+                MaintenanceTeleproteksi.objects.create(
+                    maintenance=maint,
+                    suhu_ruangan=_gf(vals,4),
+                    kebersihan_perangkat=str(_g(vals,5))[:10] or '',
+                    kebersihan_panel=str(_g(vals,6))[:10] or '',
+                    lampu=str(_g(vals,7))[:3] or '',
+                    link=str(_g(vals,8)), tipe_tp=str(_g(vals,9))[:10] or '',
+                    port_comm=str(_g(vals,10))[:10] or '',
+                    versi_program=str(_g(vals,11)), address_tp=str(_g(vals,12)),
+                    akses_tp=str(_g(vals,13))[:3] or '',
+                    remote_akses_tp=str(_g(vals,14))[:3] or '',
+                    jumlah_skema=_gi(vals,15),
+                    skema_1_command=str(_g(vals,16))[:20] or '',
+                    skema_1_send_minus=_gf(vals,17), skema_1_send_plus=_gf(vals,18),
+                    skema_1_receive_minus=_gf(vals,19), skema_1_receive_plus=_gf(vals,20),
+                    skema_2_command=str(_g(vals,21))[:20] or '',
+                    skema_2_send_minus=_gf(vals,22), skema_2_send_plus=_gf(vals,23),
+                    skema_2_receive_minus=_gf(vals,24), skema_2_receive_plus=_gf(vals,25),
+                    skema_3_command=str(_g(vals,26))[:20] or '',
+                    skema_3_send_minus=_gf(vals,27), skema_3_send_plus=_gf(vals,28),
+                    skema_3_receive_minus=_gf(vals,29), skema_3_receive_plus=_gf(vals,30),
+                    skema_4_command=str(_g(vals,31))[:20] or '',
+                    skema_4_send_minus=_gf(vals,32), skema_4_send_plus=_gf(vals,33),
+                    skema_4_receive_minus=_gf(vals,34), skema_4_receive_plus=_gf(vals,35),
+                    skema_1_send_result=str(_g(vals,36))[:3] or '',
+                    skema_1_receive_result=str(_g(vals,37))[:3] or '',
+                    skema_2_send_result=str(_g(vals,38))[:3] or '',
+                    skema_2_receive_result=str(_g(vals,39))[:3] or '',
+                    skema_3_send_result=str(_g(vals,40))[:3] or '',
+                    skema_3_receive_result=str(_g(vals,41))[:3] or '',
+                    skema_4_send_result=str(_g(vals,42))[:3] or '',
+                    skema_4_receive_result=str(_g(vals,43))[:3] or '',
+                    time_sync=str(_g(vals,44))[:3] or '',
+                    loop_test=_gf(vals,45), catatan=str(_g(vals,46)),
+                )
+            import_preventive_sheet(wb['Teleproteksi'], 'Teleproteksi', 4, 47, save_tp)
 
         results = {
             'imported': imported,
@@ -1623,4 +2035,11 @@ def offline_form_upload(request):
         if errors:
             messages.warning(request, f'Ada {len(errors)} baris yang gagal diimport.')
 
-    return render(request, 'maintenance/offline_upload.html', {'results': results})
+    lokasi_list = Device.objects.filter(is_deleted=False).exclude(
+        lokasi__isnull=True).exclude(lokasi='').values_list(
+        'lokasi', flat=True).distinct().order_by('lokasi')
+
+    return render(request, 'maintenance/offline_upload.html', {
+        'results': results,
+        'lokasi_list': lokasi_list,
+    })

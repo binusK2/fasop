@@ -30,21 +30,29 @@
                     <div style="width:72px;height:72px;background:#eff6ff;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-bottom:16px;">
                         <i class="bi bi-file-earmark-spreadsheet" style="font-size:32px;color:#3b82f6;"></i>
                     </div>
-                    <p style="font-size:14px;color:#1e293b;font-weight:600;margin-bottom:6px;">Template Excel Maintenance</p>
+                    <p style="font-size:14px;color:#1e293b;font-weight:600;margin-bottom:6px;">Template Excel Maintenance per Lokasi</p>
                     <p style="font-size:12px;color:#94a3b8;margin-bottom:20px;line-height:1.5;">
-                        Download file Excel ini, isi data pemeliharaan saat offline,<br>
-                        lalu upload kembali saat sudah online.
+                        Pilih lokasi, lalu download template. Setiap jenis perangkat<br>
+                        mendapat sheet sendiri dengan nama perangkat sudah terisi.
                     </p>
-                    <a href="{% url 'offline_form_download' %}" class="btn btn-primary">
-                        <i class="bi bi-download me-2"></i>Download Template (.xlsx)
-                    </a>
+                    <form method="get" action="{% url 'offline_form_download' %}" class="d-flex flex-column align-items-center gap-2">
+                        <select name="lokasi" class="form-select" style="max-width:280px;font-size:13px;">
+                            <option value="">— Semua Lokasi —</option>
+                            {% for lok in lokasi_list %}
+                            <option value="{{ lok }}">{{ lok }}</option>
+                            {% endfor %}
+                        </select>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-download me-2"></i>Download Template (.xlsx)
+                        </button>
+                    </form>
                 </div>
                 <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:12px;margin-top:12px;">
                     <div style="font-size:11.5px;color:#92400e;line-height:1.6;">
                         <strong><i class="bi bi-lightbulb me-1"></i>Tips:</strong><br>
-                        &bull; Template berisi 3 sheet: <strong>Corrective</strong>, <strong>Daftar Perangkat</strong> (referensi), dan <strong>Preventive</strong><br>
-                        &bull; Nama perangkat harus <strong>persis sama</strong> dengan yang ada di sistem<br>
-                        &bull; Gunakan sheet "Daftar Perangkat" sebagai referensi nama<br>
+                        &bull; Template berisi sheet per jenis perangkat + sheet <strong>Corrective</strong> dan <strong>Referensi Perangkat</strong><br>
+                        &bull; Nama perangkat sudah <strong>pre-filled</strong> sesuai lokasi yang dipilih<br>
+                        &bull; Gunakan sheet "Referensi Perangkat" untuk cek IP dan lokasi<br>
                         &bull; Format tanggal: <code>2025-01-15 08:30</code>
                     </div>
                 </div>
