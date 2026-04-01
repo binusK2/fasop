@@ -1,5 +1,5 @@
 from django import forms
-from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier
+from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi
 
 
 # ─── Widget helpers ───────────────────────────────────────────────────
@@ -338,4 +338,69 @@ class MaintenanceRectifierForm(forms.ModelForm):
             'bat1_cells':            forms.HiddenInput(),
             # Catatan
             'catatan': forms.Textarea(attrs={'class':'form-control','rows':3}),
+        }
+
+
+# ─────────────────────────────────────────────────────────────────────
+# FORM DETAIL TELEPROTEKSI
+# ─────────────────────────────────────────────────────────────────────
+class MaintenanceTeleproteksiForm(forms.ModelForm):
+
+    class Meta:
+        model   = MaintenanceTeleproteksi
+        exclude = ['maintenance']
+        widgets = {
+            # Informasi Umum
+            'suhu_ruangan':         forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. 28.5'}),
+            'kebersihan_perangkat': forms.Select(choices=[('', '—'), ('Bersih', 'Bersih'), ('Kotor', 'Kotor')], attrs={'class': 'form-select'}),
+            'kebersihan_panel':     forms.Select(choices=[('', '—'), ('Bersih', 'Bersih'), ('Kotor', 'Kotor')], attrs={'class': 'form-select'}),
+            'lampu':                forms.Select(choices=[('', '—'), ('OK', 'OK'), ('NOK', 'NOK')], attrs={'class': 'form-select'}),
+            # Informasi Perangkat
+            'link':             forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. GI Tello 150 — GI Soppeng'}),
+            'tipe_tp':          forms.Select(attrs={'class': 'form-select', 'id': 'id_tipe_tp'}),
+            'versi_program':    forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. v3.2.1'}),
+            'address_tp':       forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. 01'}),
+            'port_comm':        forms.Select(attrs={'class': 'form-select'}),
+            'akses_tp':         forms.Select(choices=[('', '—'), ('OK', 'OK'), ('NOK', 'NOK')], attrs={'class': 'form-select'}),
+            'remote_akses_tp':  forms.Select(choices=[('', '—'), ('OK', 'OK'), ('NOK', 'NOK')], attrs={'class': 'form-select'}),
+            # Kondisi
+            'jumlah_skema': forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'max': '4'}),
+            # Skema 1
+            'skema_1_command':       forms.Select(attrs={'class': 'form-select'}),
+            'skema_1_send_minus':    forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. -48.5'}),
+            'skema_1_send_plus':     forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. 48.5'}),
+            'skema_1_receive_minus': forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. -48.5'}),
+            'skema_1_receive_plus':  forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. 48.5'}),
+            # Skema 2
+            'skema_2_command':       forms.Select(attrs={'class': 'form-select'}),
+            'skema_2_send_minus':    forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. -48.5'}),
+            'skema_2_send_plus':     forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. 48.5'}),
+            'skema_2_receive_minus': forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. -48.5'}),
+            'skema_2_receive_plus':  forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. 48.5'}),
+            # Skema 3
+            'skema_3_command':       forms.Select(attrs={'class': 'form-select'}),
+            'skema_3_send_minus':    forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. -48.5'}),
+            'skema_3_send_plus':     forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. 48.5'}),
+            'skema_3_receive_minus': forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. -48.5'}),
+            'skema_3_receive_plus':  forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. 48.5'}),
+            # Skema 4
+            'skema_4_command':       forms.Select(attrs={'class': 'form-select'}),
+            'skema_4_send_minus':    forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. -48.5'}),
+            'skema_4_send_plus':     forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. 48.5'}),
+            'skema_4_receive_minus': forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. -48.5'}),
+            'skema_4_receive_plus':  forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. 48.5'}),
+            # Hasil pengujian
+            'skema_1_send_result':    forms.Select(choices=[('', '—'), ('OK', 'OK'), ('NOK', 'NOK')], attrs={'class': 'form-select'}),
+            'skema_1_receive_result': forms.Select(choices=[('', '—'), ('OK', 'OK'), ('NOK', 'NOK')], attrs={'class': 'form-select'}),
+            'skema_2_send_result':    forms.Select(choices=[('', '—'), ('OK', 'OK'), ('NOK', 'NOK')], attrs={'class': 'form-select'}),
+            'skema_2_receive_result': forms.Select(choices=[('', '—'), ('OK', 'OK'), ('NOK', 'NOK')], attrs={'class': 'form-select'}),
+            'skema_3_send_result':    forms.Select(choices=[('', '—'), ('OK', 'OK'), ('NOK', 'NOK')], attrs={'class': 'form-select'}),
+            'skema_3_receive_result': forms.Select(choices=[('', '—'), ('OK', 'OK'), ('NOK', 'NOK')], attrs={'class': 'form-select'}),
+            'skema_4_send_result':    forms.Select(choices=[('', '—'), ('OK', 'OK'), ('NOK', 'NOK')], attrs={'class': 'form-select'}),
+            'skema_4_receive_result': forms.Select(choices=[('', '—'), ('OK', 'OK'), ('NOK', 'NOK')], attrs={'class': 'form-select'}),
+            # Pengujian umum
+            'time_sync': forms.Select(choices=[('', '—'), ('OK', 'OK'), ('NOK', 'NOK')], attrs={'class': 'form-select'}),
+            'loop_test': forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. 12.5'}),
+            # Catatan
+            'catatan':   forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }

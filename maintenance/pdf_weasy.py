@@ -30,6 +30,7 @@ _TEMPLATE_MAP = {
     'CATU DAYA':           'maintenance/pdf/rectifier.html',
     'CATUDAYA':            'maintenance/pdf/rectifier.html',
     'RECTIFIER & BATTERY': 'maintenance/pdf/rectifier.html',
+    'TELEPROTEKSI':        'maintenance/pdf/teleproteksi.html',
 }
 
 _TITLES = {
@@ -41,6 +42,7 @@ _TITLES = {
     'MULTIPLEXER': 'Formulir Pemeliharaan Peralatan Multiplexer',
     'RECTIFIER':   'Formulir Pemeliharaan Peralatan Rectifier dan Battery',
     'CATU DAYA':   'Formulir Pemeliharaan Peralatan Rectifier dan Battery',
+    'TELEPROTEKSI': 'Formulir Pemeliharaan Peralatan Teleproteksi',
 }
 
 _v = lambda x: x if x not in (None, '') else '-'
@@ -241,12 +243,34 @@ def _ctx_rectifier(data, ctx):
     })
 
 
+def _ctx_teleproteksi(data, ctx):
+    tp = data.get('tp', {})
+    skema_list = []
+    for n in range(1, 5):
+        skema_list.append({
+            'n': n,
+            'command':       tp.get(f'skema_{n}_command', ''),
+            'send_minus':    tp.get(f'skema_{n}_send_minus'),
+            'send_plus':     tp.get(f'skema_{n}_send_plus'),
+            'receive_minus': tp.get(f'skema_{n}_receive_minus'),
+            'receive_plus':  tp.get(f'skema_{n}_receive_plus'),
+            'send_result':   tp.get(f'skema_{n}_send_result', ''),
+            'receive_result':tp.get(f'skema_{n}_receive_result', ''),
+        })
+    ctx.update({
+        'tp':         tp,
+        'tp_skema':   skema_list,
+        'catatan':    tp.get('catatan', ''),
+    })
+
+
 _CTX_BUILDERS = {
     'ROUTER': _ctx_router, 'SWITCH': _ctx_router,
     'PLC': _ctx_plc, 'RADIO': _ctx_radio, 'VOIP': _ctx_voip,
     'MULTIPLEXER': _ctx_multiplexer,
     'RECTIFIER': _ctx_rectifier, 'CATU DAYA': _ctx_rectifier,
     'CATUDAYA': _ctx_rectifier, 'RECTIFIER & BATTERY': _ctx_rectifier,
+    'TELEPROTEKSI': _ctx_teleproteksi,
 }
 
 

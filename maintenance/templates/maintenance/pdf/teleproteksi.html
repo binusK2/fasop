@@ -1,0 +1,99 @@
+{% extends 'maintenance/pdf/_base.html' %}
+{% block content %}
+
+<div class="sec">II.&nbsp;&nbsp;INFORMASI UMUM &amp; PERANGKAT</div>
+<table>
+    <tr>
+        <td class="lbl" style="width:18%;">Suhu Ruangan</td>
+        <td style="width:15%;">{% if tp.suhu_ruangan %}{{ tp.suhu_ruangan }} °C{% else %}-{% endif %}</td>
+        <td class="lbl" style="width:18%;">Kebersihan Perangkat</td>
+        <td style="width:15%;">{{ tp.kebersihan_perangkat|default:"-" }}</td>
+    </tr>
+    <tr>
+        <td class="lbl">Lampu</td>
+        <td class="{% if tp.lampu == 'OK' %}ok{% elif tp.lampu == 'NOK' %}nok{% else %}vg{% endif %}">{{ tp.lampu|default:"-" }}</td>
+        <td class="lbl">Kebersihan Panel</td>
+        <td>{{ tp.kebersihan_panel|default:"-" }}</td>
+    </tr>
+    <tr>
+        <td class="lbl">Tipe Teleproteksi</td>
+        <td>{{ tp.tipe_tp|default:"-" }}</td>
+        <td class="lbl">Port Komunikasi</td>
+        <td>{{ tp.port_comm|default:"-" }}</td>
+    </tr>
+    {% if tp.tipe_tp == 'Digital' %}
+    <tr>
+        <td class="lbl">Remote Teleproteksi</td>
+        <td colspan="3">{{ tp.link|default:"-" }}</td>
+    </tr>
+    {% endif %}
+</table>
+
+<div class="sec">III.&nbsp;&nbsp;STATUS AKSES</div>
+<table>
+    <tr>
+        <td class="lbl" style="width:18%;">Akses Teleproteksi</td>
+        <td class="{% if tp.akses_tp == 'OK' %}ok{% elif tp.akses_tp == 'NOK' %}nok{% else %}vg{% endif %}" style="width:15%;">{{ tp.akses_tp|default:"-" }}</td>
+        <td class="lbl" style="width:18%;">Remote Akses Teleproteksi</td>
+        <td class="{% if tp.remote_akses_tp == 'OK' %}ok{% elif tp.remote_akses_tp == 'NOK' %}nok{% else %}vg{% endif %}" style="width:15%;">{{ tp.remote_akses_tp|default:"-" }}</td>
+    </tr>
+    <tr>
+        <td class="lbl">Address Teleproteksi</td>
+        <td>{{ tp.address_tp|default:"-" }}</td>
+        <td class="lbl">Versi Program</td>
+        <td>{{ tp.versi_program|default:"-" }}</td>
+    </tr>
+</table>
+
+<div class="sec">IV.&nbsp;&nbsp;KONDISI PERALATAN — SKEMA (Jumlah Skema: {{ tp.jumlah_skema|default:"-" }})</div>
+<table>
+    <tr class="lbl">
+        <td style="width:16%;">Skema</td>
+        <td style="width:18%;">Command</td>
+        <td style="width:16%;">Send (−) V</td>
+        <td style="width:16%;">Send (+) V</td>
+        <td style="width:17%;">Receive (−) V</td>
+        <td style="width:17%;">Receive (+) V</td>
+    </tr>
+    {% for s in tp_skema %}
+    <tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %}>
+        <td class="lbl">Command {{ s.n }}</td>
+        <td>{{ s.command|default:"-" }}</td>
+        <td class="vb">{{ s.send_minus|default:"-" }}</td>
+        <td class="vb">{{ s.send_plus|default:"-" }}</td>
+        <td class="vb">{{ s.receive_minus|default:"-" }}</td>
+        <td class="vb">{{ s.receive_plus|default:"-" }}</td>
+    </tr>
+    {% endfor %}
+</table>
+
+<div class="sec">V.&nbsp;&nbsp;PENGUJIAN</div>
+<table>
+    <tr class="lbl">
+        <td style="width:30%;">Pengujian</td>
+        <td style="width:10%;">Hasil</td>
+        <td style="width:30%;">Pengujian</td>
+        <td style="width:10%;">Hasil</td>
+        <td style="width:10%;">Time Sync</td>
+        <td style="width:10%;">Loop Test</td>
+    </tr>
+    {% for s in tp_skema %}
+    <tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %}>
+        <td>Send Command {{ s.n }}</td>
+        <td class="{% if s.send_result == 'OK' %}ok{% elif s.send_result == 'NOK' %}nok{% else %}vg{% endif %}">{{ s.send_result|default:"-" }}</td>
+        <td>Receive Command {{ s.n }}</td>
+        <td class="{% if s.receive_result == 'OK' %}ok{% elif s.receive_result == 'NOK' %}nok{% else %}vg{% endif %}">{{ s.receive_result|default:"-" }}</td>
+        {% if forloop.first %}
+        <td class="{% if tp.time_sync == 'OK' %}ok{% elif tp.time_sync == 'NOK' %}nok{% else %}vg{% endif %}" rowspan="4">{{ tp.time_sync|default:"-" }}</td>
+        <td class="vb" rowspan="4">{% if tp.loop_test %}{{ tp.loop_test }} ms{% else %}-{% endif %}</td>
+        {% endif %}
+    </tr>
+    {% endfor %}
+</table>
+
+{% if catatan %}
+<div class="sec">VI.&nbsp;&nbsp;CATATAN</div>
+<table><tr><td style="min-height:8mm;">{{ catatan }}</td></tr></table>
+{% endif %}
+
+{% endblock %}

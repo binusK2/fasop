@@ -1,8 +1,8 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from devices.permissions import require_can_edit, require_can_delete, is_viewer_only
-from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier
-from .forms import MaintenanceForm, MaintenancePLCForm, MaintenanceRouterForm, MaintenanceRadioForm, MaintenanceVoIPForm, MaintenanceMuxForm, MaintenanceRectifierForm
+from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi
+from .forms import MaintenanceForm, MaintenancePLCForm, MaintenanceRouterForm, MaintenanceRadioForm, MaintenanceVoIPForm, MaintenanceMuxForm, MaintenanceRectifierForm, MaintenanceTeleproteksiForm
 from devices.models import Device, DeviceType
 from gangguan.models import Gangguan
 from django.db.models import Q, Count
@@ -33,6 +33,7 @@ DEVICE_FORM_MAP = {
     'CATU DAYA':    (MaintenanceRectifierForm,   'maintenance/rectifier_form.html'),
     'CATUDAYA':     (MaintenanceRectifierForm,   'maintenance/rectifier_form.html'),
     'RECTIFIER & BATTERY': (MaintenanceRectifierForm, 'maintenance/rectifier_form.html'),
+    'TELEPROTEKSI':        (MaintenanceTeleproteksiForm, 'maintenance/teleproteksi_form.html'),
 }
 
 DEFAULT_TEMPLATE = 'maintenance/maintenance_form.html'
@@ -186,6 +187,7 @@ def maintenance_detail(request, pk):
     voip_detail   = None
     mux_detail    = None
     rect_detail   = None
+    tp_detail     = None
 
     if device_type == 'PLC':
         try:
@@ -221,6 +223,12 @@ def maintenance_detail(request, pk):
         try:
             rect_detail = maintenance.maintenancerectifier
         except MaintenanceRectifier.DoesNotExist:
+            pass
+
+    elif device_type == 'TELEPROTEKSI':
+        try:
+            tp_detail = maintenance.maintenanceteleproteksi
+        except MaintenanceTeleproteksi.DoesNotExist:
             pass
 
     # Checklist peralatan terpasang untuk template radio
@@ -353,6 +361,29 @@ def maintenance_detail(request, pk):
         'radio_checklist':  radio_checklist,
         'router_checklist': router_checklist,
         'switch_checklist': switch_checklist,
+        'tp_detail':        tp_detail,
+        'tp_akses_list':    [
+            ('Akses TP',        tp_detail.akses_tp        if tp_detail else ''),
+            ('Remote Akses TP', tp_detail.remote_akses_tp if tp_detail else ''),
+        ] if tp_detail else [],
+        'tp_skema_list': [
+            {'n': n, 'command': getattr(tp_detail, f'skema_{n}_command', ''),
+             'send_minus': getattr(tp_detail, f'skema_{n}_send_minus', None),
+             'send_plus':  getattr(tp_detail, f'skema_{n}_send_plus',  None),
+             'receive_minus': getattr(tp_detail, f'skema_{n}_receive_minus', None),
+             'receive_plus':  getattr(tp_detail, f'skema_{n}_receive_plus',  None),
+            } for n in range(1, 5)
+        ] if tp_detail else [],
+        'tp_uji_list': [
+            ('Send Command 1',    tp_detail.skema_1_send_result    if tp_detail else ''),
+            ('Receive Command 1', tp_detail.skema_1_receive_result if tp_detail else ''),
+            ('Send Command 2',    tp_detail.skema_2_send_result    if tp_detail else ''),
+            ('Receive Command 2', tp_detail.skema_2_receive_result if tp_detail else ''),
+            ('Send Command 3',    tp_detail.skema_3_send_result    if tp_detail else ''),
+            ('Receive Command 3', tp_detail.skema_3_receive_result if tp_detail else ''),
+            ('Send Command 4',    tp_detail.skema_4_send_result    if tp_detail else ''),
+            ('Receive Command 4', tp_detail.skema_4_receive_result if tp_detail else ''),
+        ] if tp_detail else [],
     })
 
 
@@ -386,6 +417,8 @@ def maintenance_edit(request, pk):
                 detail_instance = maintenance.maintenancemux
             elif detail_form_class.__name__ == 'MaintenanceRectifierForm':
                 detail_instance = maintenance.maintenancerectifier
+            elif detail_form_class.__name__ == 'MaintenanceTeleproteksiForm':
+                detail_instance = maintenance.maintenanceteleproteksi
         except Exception:
             pass
 
@@ -597,7 +630,7 @@ def export_maintenance_pdf(request, pk):
 
     # ── Ambil detail sesuai jenis ──────────────────────────────────
     router_detail = plc_detail = radio_detail = None
-    voip_detail = mux_detail = rect_detail = None
+    voip_detail = mux_detail = rect_detail = tp_detail = None
 
     def _try(fn):
         try: return fn()
@@ -615,6 +648,8 @@ def export_maintenance_pdf(request, pk):
         mux_detail = _try(lambda: maintenance.maintenancemux)
     elif device_kind in ('RECTIFIER', 'CATU DAYA', 'CATUDAYA', 'RECTIFIER & BATTERY'):
         rect_detail = _try(lambda: maintenance.maintenancerectifier)
+    elif device_kind == 'TELEPROTEKSI':
+        tp_detail = _try(lambda: maintenance.maintenanceteleproteksi)
 
     # SFP JSON
     sfp_ports = []
@@ -816,6 +851,52 @@ def export_maintenance_pdf(request, pk):
             'bat1_cells':          _g(rect_detail, 'bat1_cells', []),
             'catatan':             _g(rect_detail, 'catatan', ''),
         } if rect_detail else {},
+
+        'tp': {
+            'suhu_ruangan':       _g(tp_detail, 'suhu_ruangan'),
+            'kebersihan_perangkat': _g(tp_detail, 'kebersihan_perangkat', ''),
+            'kebersihan_panel':   _g(tp_detail, 'kebersihan_panel', ''),
+            'lampu':              _g(tp_detail, 'lampu', ''),
+            'link':               _g(tp_detail, 'link', ''),
+            'tipe_tp':            _g(tp_detail, 'tipe_tp', ''),
+            'versi_program':      _g(tp_detail, 'versi_program', ''),
+            'address_tp':         _g(tp_detail, 'address_tp', ''),
+            'port_comm':          _g(tp_detail, 'port_comm', ''),
+            'akses_tp':           _g(tp_detail, 'akses_tp', ''),
+            'remote_akses_tp':    _g(tp_detail, 'remote_akses_tp', ''),
+            'jumlah_skema':       _g(tp_detail, 'jumlah_skema'),
+            'skema_1_command':    _g(tp_detail, 'skema_1_command', ''),
+            'skema_1_send_minus': _g(tp_detail, 'skema_1_send_minus'),
+            'skema_1_send_plus':  _g(tp_detail, 'skema_1_send_plus'),
+            'skema_1_receive_minus': _g(tp_detail, 'skema_1_receive_minus'),
+            'skema_1_receive_plus':  _g(tp_detail, 'skema_1_receive_plus'),
+            'skema_2_command':    _g(tp_detail, 'skema_2_command', ''),
+            'skema_2_send_minus': _g(tp_detail, 'skema_2_send_minus'),
+            'skema_2_send_plus':  _g(tp_detail, 'skema_2_send_plus'),
+            'skema_2_receive_minus': _g(tp_detail, 'skema_2_receive_minus'),
+            'skema_2_receive_plus':  _g(tp_detail, 'skema_2_receive_plus'),
+            'skema_3_command':    _g(tp_detail, 'skema_3_command', ''),
+            'skema_3_send_minus': _g(tp_detail, 'skema_3_send_minus'),
+            'skema_3_send_plus':  _g(tp_detail, 'skema_3_send_plus'),
+            'skema_3_receive_minus': _g(tp_detail, 'skema_3_receive_minus'),
+            'skema_3_receive_plus':  _g(tp_detail, 'skema_3_receive_plus'),
+            'skema_4_command':    _g(tp_detail, 'skema_4_command', ''),
+            'skema_4_send_minus': _g(tp_detail, 'skema_4_send_minus'),
+            'skema_4_send_plus':  _g(tp_detail, 'skema_4_send_plus'),
+            'skema_4_receive_minus': _g(tp_detail, 'skema_4_receive_minus'),
+            'skema_4_receive_plus':  _g(tp_detail, 'skema_4_receive_plus'),
+            'skema_1_send_result':    _g(tp_detail, 'skema_1_send_result', ''),
+            'skema_1_receive_result': _g(tp_detail, 'skema_1_receive_result', ''),
+            'skema_2_send_result':    _g(tp_detail, 'skema_2_send_result', ''),
+            'skema_2_receive_result': _g(tp_detail, 'skema_2_receive_result', ''),
+            'skema_3_send_result':    _g(tp_detail, 'skema_3_send_result', ''),
+            'skema_3_receive_result': _g(tp_detail, 'skema_3_receive_result', ''),
+            'skema_4_send_result':    _g(tp_detail, 'skema_4_send_result', ''),
+            'skema_4_receive_result': _g(tp_detail, 'skema_4_receive_result', ''),
+            'time_sync':          _g(tp_detail, 'time_sync', ''),
+            'loop_test':          _g(tp_detail, 'loop_test'),
+            'catatan':            _g(tp_detail, 'catatan', ''),
+        } if tp_detail else {},
     }
 
     # ── Generate & stream ──────────────────────────────────────────

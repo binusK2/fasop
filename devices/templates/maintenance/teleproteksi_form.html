@@ -1,0 +1,437 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}{% if is_edit %}Edit{% else %}Form{% endif %} Maintenance Teleproteksi — {{ device.nama }}{% endblock %}
+{% block page_title %}{% if is_edit %}Edit{% else %}Form{% endif %} Maintenance Teleproteksi{% endblock %}
+
+{% block content %}
+
+<div class="d-flex align-items-center gap-2 mb-3">
+    {% if is_edit %}
+    <a href="{% url 'maintenance_view' maintenance.id %}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Kembali ke Detail
+    </a>
+    {% else %}
+    <a href="{% url 'device_view' device.id %}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Kembali ke Perangkat
+    </a>
+    {% endif %}
+</div>
+
+<!-- DEVICE INFO BANNER -->
+<div class="card mb-4" style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);border:none;">
+    <div class="card-body py-3 px-4">
+        <div class="d-flex align-items-center gap-4 flex-wrap">
+            <div style="width:42px;height:42px;background:rgba(96,165,250,0.2);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <i class="bi bi-shield-shaded" style="font-size:20px;color:#93c5fd;"></i>
+            </div>
+            <div>
+                <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Perangkat</div>
+                <div style="font-size:16px;font-weight:700;color:#f1f5f9;">{{ device.nama }}</div>
+            </div>
+            <div class="vr" style="background:rgba(255,255,255,0.1);width:1px;align-self:stretch;"></div>
+            <div>
+                <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Jenis</div>
+                <div style="font-size:13px;color:#cbd5e1;">{{ device.jenis }}</div>
+            </div>
+            <div>
+                <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Lokasi</div>
+                <div style="font-size:13px;color:#cbd5e1;">{{ device.lokasi|default:"—" }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<form method="post" enctype="multipart/form-data" id="tp-form"
+    {% if is_edit %}action="{% url 'maintenance_edit' maintenance.id %}"{% endif %}>
+{% csrf_token %}
+
+<!-- ══ 1. INFORMASI MAINTENANCE ══════════════════════════════ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-title-bar">
+            <span class="bar" style="background:#3b82f6;"></span>
+            <span>Informasi Maintenance</span>
+        </div>
+        <div class="row g-3 align-items-start">
+            <div class="col-md-2">
+                <label class="form-label fw-semibold">Jenis Maintenance</label>
+                <div style="display:flex;align-items:center;gap:6px;background:#eff6ff;color:#1d4ed8;border:1.5px solid #bfdbfe;border-radius:8px;padding:8px 12px;font-size:13px;font-weight:700;white-space:nowrap;">
+                    <i class="bi bi-shield-check" style="font-size:14px;"></i> Preventive
+                </div>
+                <input type="hidden" name="maintenance_type" value="Preventive">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-semibold">Tanggal</label>
+                {{ maintenance_form.date }}
+            </div>
+            {% include 'maintenance/_pelaksana_tag_input.html' %}
+        </div>
+        <div class="row g-3 mt-1">
+            <div class="col-md-8">
+                <label class="form-label fw-semibold">Deskripsi / Keluhan</label>
+                {{ maintenance_form.description }}
+            </div>
+            <div class="col-md-4">
+                <label class="form-label fw-semibold">Foto Dokumentasi</label>
+                {{ maintenance_form.photo }}
+                <div class="form-text">Format: JPG, PNG. Maks 10MB.</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ 2. INFORMASI UMUM ══════════════════════════════════════ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-title-bar">
+            <span class="bar" style="background:#f59e0b;"></span>
+            <span>Informasi Umum</span>
+        </div>
+        <div class="row g-3 mb-3">
+            <div class="col-md-3">
+                <div class="measure-card">
+                    <div class="measure-label">Suhu Ruangan</div>
+                    <div class="input-group">
+                        {{ detail_form.suhu_ruangan }}
+                        <span class="input-group-text measure-unit">°C</span>
+                    </div>
+                    <div id="suhu-bar-wrap" style="margin-top:8px;display:none;">
+                        <div style="height:5px;background:#e2e8f0;border-radius:3px;overflow:hidden;">
+                            <div id="suhu-bar" style="height:100%;border-radius:3px;transition:width 0.3s;"></div>
+                        </div>
+                        <div id="suhu-label" style="font-size:10.5px;color:#94a3b8;margin-top:3px;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row g-2" id="umum-checklist-container"></div>
+        <!-- Hidden selects -->
+        <div style="display:none;">
+            <div id="field-kebersihan_perangkat">{{ detail_form.kebersihan_perangkat }}</div>
+            <div id="field-kebersihan_panel">{{ detail_form.kebersihan_panel }}</div>
+            <div id="field-lampu">{{ detail_form.lampu }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ 3. INFORMASI PERANGKAT ════════════════════════════════ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-title-bar">
+            <span class="bar" style="background:#6366f1;"></span>
+            <span>Informasi Perangkat</span>
+        </div>
+        <div class="row g-3">
+            <div class="col-md-6">
+                <div class="measure-card">
+                    <div class="measure-label">Link (Terhubung ke)</div>
+                    {{ detail_form.link }}
+                    <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Nama GI / perangkat TP di ujung lainnya</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="measure-card">
+                    <div class="measure-label">Tipe Teleproteksi</div>
+                    {{ detail_form.tipe_tp }}
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="measure-card">
+                    <div class="measure-label">Port Comm TP</div>
+                    {{ detail_form.port_comm }}
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="measure-card">
+                    <div class="measure-label">Versi Program</div>
+                    {{ detail_form.versi_program }}
+                </div>
+            </div>
+            <div class="col-md-3" id="wrap-address-tp">
+                <div class="measure-card">
+                    <div class="measure-label">Address TP <span style="font-size:10px;color:#6366f1;">(Digital)</span></div>
+                    {{ detail_form.address_tp }}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ 4. STATUS AKSES ═══════════════════════════════════════ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-title-bar">
+            <span class="bar" style="background:#10b981;"></span>
+            <span>Status Akses</span>
+            <span style="font-size:11px;color:#94a3b8;margin-left:4px;">— Pilih OK / NOK</span>
+        </div>
+        <div class="row g-2" id="akses-checklist-container"></div>
+        <div style="display:none;">
+            <div id="field-akses_tp">{{ detail_form.akses_tp }}</div>
+            <div id="field-remote_akses_tp">{{ detail_form.remote_akses_tp }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ 5. KONDISI PERALATAN — SKEMA ══════════════════════════ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-title-bar">
+            <span class="bar" style="background:#f59e0b;"></span>
+            <span>Kondisi Peralatan</span>
+        </div>
+        <div class="row g-3 mb-3">
+            <div class="col-md-2">
+                <div class="measure-card">
+                    <div class="measure-label">Jumlah Skema Aktif</div>
+                    {{ detail_form.jumlah_skema }}
+                </div>
+            </div>
+        </div>
+
+        {% for n in "1234" %}
+        {% with cmd=detail_form|dictsort:n %}
+        <div class="skema-block mb-3">
+            <div class="skema-header"><i class="bi bi-lightning-charge-fill me-1"></i> Skema Command {{ n }}</div>
+            <div class="row g-2">
+                <div class="col-md-3">
+                    <div class="measure-card">
+                        <div class="measure-label">Tipe Command</div>
+                        {% if n == "1" %}{{ detail_form.skema_1_command }}
+                        {% elif n == "2" %}{{ detail_form.skema_2_command }}
+                        {% elif n == "3" %}{{ detail_form.skema_3_command }}
+                        {% else %}{{ detail_form.skema_4_command }}{% endif %}
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="measure-card">
+                        <div class="measure-label">Send Standby (−) V</div>
+                        <div class="input-group">
+                            {% if n == "1" %}{{ detail_form.skema_1_send_minus }}
+                            {% elif n == "2" %}{{ detail_form.skema_2_send_minus }}
+                            {% elif n == "3" %}{{ detail_form.skema_3_send_minus }}
+                            {% else %}{{ detail_form.skema_4_send_minus }}{% endif %}
+                            <span class="input-group-text measure-unit">V</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="measure-card">
+                        <div class="measure-label">Send Standby (+) V</div>
+                        <div class="input-group">
+                            {% if n == "1" %}{{ detail_form.skema_1_send_plus }}
+                            {% elif n == "2" %}{{ detail_form.skema_2_send_plus }}
+                            {% elif n == "3" %}{{ detail_form.skema_3_send_plus }}
+                            {% else %}{{ detail_form.skema_4_send_plus }}{% endif %}
+                            <span class="input-group-text measure-unit">V</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row g-2 mt-1">
+                <div class="col-md-3 offset-md-3">
+                    <div class="measure-card">
+                        <div class="measure-label">Receive Standby (−) V</div>
+                        <div class="input-group">
+                            {% if n == "1" %}{{ detail_form.skema_1_receive_minus }}
+                            {% elif n == "2" %}{{ detail_form.skema_2_receive_minus }}
+                            {% elif n == "3" %}{{ detail_form.skema_3_receive_minus }}
+                            {% else %}{{ detail_form.skema_4_receive_minus }}{% endif %}
+                            <span class="input-group-text measure-unit">V</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="measure-card">
+                        <div class="measure-label">Receive Standby (+) V</div>
+                        <div class="input-group">
+                            {% if n == "1" %}{{ detail_form.skema_1_receive_plus }}
+                            {% elif n == "2" %}{{ detail_form.skema_2_receive_plus }}
+                            {% elif n == "3" %}{{ detail_form.skema_3_receive_plus }}
+                            {% else %}{{ detail_form.skema_4_receive_plus }}{% endif %}
+                            <span class="input-group-text measure-unit">V</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endwith %}
+        {% endfor %}
+    </div>
+</div>
+
+<!-- ══ 6. PENGUJIAN ══════════════════════════════════════════ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-title-bar">
+            <span class="bar" style="background:#8b5cf6;"></span>
+            <span>Pengujian</span>
+            <span style="font-size:11px;color:#94a3b8;margin-left:4px;">— Pilih OK / NOK</span>
+        </div>
+        <div class="row g-2 mb-3" id="uji-checklist-container"></div>
+        <div style="display:none;">
+            <div id="field-skema_1_send_result">{{ detail_form.skema_1_send_result }}</div>
+            <div id="field-skema_1_receive_result">{{ detail_form.skema_1_receive_result }}</div>
+            <div id="field-skema_2_send_result">{{ detail_form.skema_2_send_result }}</div>
+            <div id="field-skema_2_receive_result">{{ detail_form.skema_2_receive_result }}</div>
+            <div id="field-skema_3_send_result">{{ detail_form.skema_3_send_result }}</div>
+            <div id="field-skema_3_receive_result">{{ detail_form.skema_3_receive_result }}</div>
+            <div id="field-skema_4_send_result">{{ detail_form.skema_4_send_result }}</div>
+            <div id="field-skema_4_receive_result">{{ detail_form.skema_4_receive_result }}</div>
+        </div>
+        <div class="row g-2 mt-2" id="uji-umum-container"></div>
+        <div style="display:none;">
+            <div id="field-time_sync">{{ detail_form.time_sync }}</div>
+        </div>
+        <div class="row g-3 mt-2">
+            <div class="col-md-3">
+                <div class="measure-card">
+                    <div class="measure-label">Loop Test</div>
+                    <div class="input-group">
+                        {{ detail_form.loop_test }}
+                        <span class="input-group-text measure-unit">ms</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ 7. CATATAN ════════════════════════════════════════════ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-title-bar">
+            <span class="bar" style="background:#64748b;"></span>
+            <span>Catatan</span>
+        </div>
+        {{ detail_form.catatan }}
+    </div>
+</div>
+
+{% if maintenance_form.errors or detail_form.errors %}
+<div class="alert alert-danger">
+    <i class="bi bi-exclamation-triangle me-2"></i>
+    <strong>Mohon perbaiki error berikut:</strong>
+    {{ maintenance_form.errors }}{{ detail_form.errors }}
+</div>
+{% endif %}
+
+<div class="d-flex gap-2 justify-content-end pb-4">
+    {% if is_edit %}
+    <a href="{% url 'maintenance_view' maintenance.id %}" class="btn btn-outline-secondary">
+        <i class="bi bi-x me-1"></i>Batal
+    </a>
+    {% else %}
+    <a href="{% url 'device_view' device.id %}" class="btn btn-outline-secondary">
+        <i class="bi bi-x me-1"></i>Batal
+    </a>
+    {% endif %}
+    <button type="submit" class="btn btn-primary px-4">
+        <i class="bi bi-floppy me-1"></i>
+        {% if is_edit %}Simpan Perubahan{% else %}Simpan Maintenance{% endif %}
+    </button>
+</div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<style>
+.section-title-bar{display:flex;align-items:center;gap:8px;margin-bottom:14px;}
+.section-title-bar .bar{width:5px;height:18px;border-radius:3px;flex-shrink:0;}
+.section-title-bar>span:nth-child(2){font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#475569;}
+.measure-card{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;}
+.measure-label{font-size:11.5px;font-weight:700;color:#64748b;margin-bottom:7px;text-transform:uppercase;letter-spacing:0.4px;}
+.measure-unit{background:#e2e8f0;border-color:#e2e8f0 !important;font-size:12px;font-weight:700;color:#475569;min-width:48px;justify-content:center;}
+.checklist-card{background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:11px 13px;transition:border-color .15s,background .15s;height:100%;}
+.checklist-card.status-ok{border-color:#10b981;background:#f0fdf4;}
+.checklist-card.status-nok{border-color:#ef4444;background:#fef2f2;}
+.checklist-label{font-size:12.5px;font-weight:600;color:#334155;margin-bottom:4px;}
+.checklist-sublabel{font-size:11px;color:#94a3b8;margin-bottom:9px;}
+.checklist-toggle{display:flex;gap:6px;}
+.toggle-btn{flex:1;padding:5px 0;border-radius:6px;font-size:12px;font-weight:700;border:1.5px solid transparent;cursor:pointer;transition:all .12s;}
+.toggle-btn.ok{background:#fff;border-color:#d1fae5;color:#9ca3af;}
+.toggle-btn.nok{background:#fff;border-color:#fee2e2;color:#9ca3af;}
+.toggle-btn.ok:hover{background:#d1fae5;color:#065f46;border-color:#6ee7b7;}
+.toggle-btn.nok:hover{background:#fee2e2;color:#991b1b;border-color:#fca5a5;}
+.toggle-btn.ok.selected{background:#10b981;border-color:#10b981;color:#fff;}
+.toggle-btn.nok.selected{background:#ef4444;border-color:#ef4444;color:#fff;}
+.skema-block{background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:14px;}
+.skema-header{font-size:12px;font-weight:700;color:#b45309;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;}
+</style>
+<script>
+function toggleAddressTP(){
+    const t=document.getElementById('id_tipe_tp'),w=document.getElementById('wrap-address-tp');
+    if(t&&w) w.style.display=t.value==='Digital'?'':'none';
+}
+function setStatus(id,val){
+    const card=document.getElementById('card-'+id);
+    if(card){
+        card.classList.toggle('status-ok',val==='OK'||val==='Bersih');
+        card.classList.toggle('status-nok',val==='NOK'||val==='Kotor');
+        card.querySelectorAll('.toggle-btn').forEach(b=>{
+            b.classList.toggle('selected',
+                (b.classList.contains('ok')&&(val==='OK'||val==='Bersih'))||
+                (b.classList.contains('nok')&&(val==='NOK'||val==='Kotor'))
+            );
+        });
+    }
+    const w=document.getElementById('field-'+id);
+    if(w){const s=w.querySelector('select');if(s)s.value=val;}
+}
+function getVal(id){const w=document.getElementById('field-'+id);if(!w)return'';const s=w.querySelector('select');return s?s.value:'';}
+function renderList(cid,items){
+    const c=document.getElementById(cid);if(!c)return;c.innerHTML='';
+    items.forEach(({id,label,sub,ok,nok})=>{
+        const d=document.createElement('div');d.className='col-md-3 col-sm-6';
+        const okLabel=ok||'✓ OK',nokLabel=nok||'✗ NOK';
+        const okVal=ok?ok.replace('✓ ',''):'OK',nokVal=nok?nok.replace('✗ ',''):'NOK';
+        d.innerHTML=`<div class="checklist-card" id="card-${id}">
+            <div class="checklist-label">${label}</div>
+            <div class="checklist-sublabel">${sub||''}</div>
+            <div class="checklist-toggle">
+                <button type="button" class="toggle-btn ok" onclick="setStatus('${id}','${okVal}')">${okLabel}</button>
+                <button type="button" class="toggle-btn nok" onclick="setStatus('${id}','${nokVal}')">${nokLabel}</button>
+            </div></div>`;
+        c.appendChild(d);
+        const v=getVal(id);if(v)setStatus(id,v);
+    });
+}
+function updateSuhuBar(){
+    const i=document.querySelector('[name="suhu_ruangan"]');if(!i)return;
+    const run=()=>{
+        const v=parseFloat(i.value),w=document.getElementById('suhu-bar-wrap'),b=document.getElementById('suhu-bar'),l=document.getElementById('suhu-label');
+        if(!isNaN(v)&&v>0){
+            w.style.display='block';b.style.width=Math.min(100,Math.max(0,((v-15)/30)*100))+'%';
+            if(v<=25){b.style.background='#10b981';l.textContent='Normal ('+v+'°C)';}
+            else if(v<=32){b.style.background='#f59e0b';l.textContent='Hangat ('+v+'°C)';}
+            else{b.style.background='#ef4444';l.textContent='Panas! ('+v+'°C)';}
+        }else{w.style.display='none';}
+    };i.addEventListener('input',run);run();
+}
+document.addEventListener('DOMContentLoaded',()=>{
+    renderList('umum-checklist-container',[
+        {id:'kebersihan_perangkat',label:'Kebersihan Perangkat',sub:'Kondisi kebersihan unit TP',ok:'✓ Bersih',nok:'✗ Kotor'},
+        {id:'kebersihan_panel',label:'Kebersihan Panel',sub:'Kondisi kebersihan panel/rack',ok:'✓ Bersih',nok:'✗ Kotor'},
+        {id:'lampu',label:'Lampu',sub:'Lampu penerangan ruangan'},
+    ]);
+    renderList('akses-checklist-container',[
+        {id:'akses_tp',label:'Akses TP',sub:'Akses lokal ke perangkat'},
+        {id:'remote_akses_tp',label:'Remote Akses TP',sub:'Akses remote via jaringan'},
+    ]);
+    renderList('uji-checklist-container',[
+        {id:'skema_1_send_result',label:'Send Command 1',sub:'Pengujian kirim skema 1'},
+        {id:'skema_1_receive_result',label:'Receive Command 1',sub:'Pengujian terima skema 1'},
+        {id:'skema_2_send_result',label:'Send Command 2',sub:'Pengujian kirim skema 2'},
+        {id:'skema_2_receive_result',label:'Receive Command 2',sub:'Pengujian terima skema 2'},
+        {id:'skema_3_send_result',label:'Send Command 3',sub:'Pengujian kirim skema 3'},
+        {id:'skema_3_receive_result',label:'Receive Command 3',sub:'Pengujian terima skema 3'},
+        {id:'skema_4_send_result',label:'Send Command 4',sub:'Pengujian kirim skema 4'},
+        {id:'skema_4_receive_result',label:'Receive Command 4',sub:'Pengujian terima skema 4'},
+    ]);
+    renderList('uji-umum-container',[{id:'time_sync',label:'Time Sync',sub:'Waktu tersinkronisasi'}]);
+    updateSuhuBar();
+    const t=document.getElementById('id_tipe_tp');
+    if(t){toggleAddressTP();t.addEventListener('change',toggleAddressTP);}
+});
+</script>
+{% endblock %}

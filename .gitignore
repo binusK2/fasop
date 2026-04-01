@@ -55,3 +55,4 @@ htmlcov/
 dist/
 build/
 *.egg-info/
+/bin/

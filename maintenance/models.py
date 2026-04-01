@@ -478,3 +478,104 @@ class MaintenanceCorrective(models.Model):
         if self.durasi_jam:   parts.append(f'{self.durasi_jam}j')
         if self.durasi_menit: parts.append(f'{self.durasi_menit}m')
         return ' '.join(parts) if parts else '—'
+
+
+# ─────────────────────────────────────────────────────────────────────
+# DETAIL TELEPROTEKSI
+# ─────────────────────────────────────────────────────────────────────
+class MaintenanceTeleproteksi(models.Model):
+
+    STATUS_CHECK = (('OK', 'OK'), ('NOK', 'NOK'),)
+
+    TIPE_TP = (
+        ('Digital', 'Digital'),
+        ('Analog',  'Analog'),
+    )
+
+    PORT_COMM = (
+        ('E1',  'E1'),
+        ('G64', 'G64'),
+        ('E&M', 'E&M'),
+        ('PLC', 'PLC'),
+    )
+
+    SKEMA_COMMAND = (
+        ('',               '— Pilih —'),
+        ('Distance',       'Distance'),
+        ('DEF',            'DEF'),
+        ('DTT',            'DTT'),
+        ('Tidak Terpakai', 'Tidak Terpakai'),
+    )
+
+    KEBERSIHAN = (
+        ('Bersih', 'Bersih'),
+        ('Kotor',  'Kotor'),
+    )
+
+    maintenance = models.OneToOneField(Maintenance, on_delete=models.CASCADE)
+
+    # ── Informasi Umum ───────────────────────────────────────────────
+    suhu_ruangan        = models.FloatField(null=True, blank=True, verbose_name='Suhu Ruangan (°C)')
+    kebersihan_perangkat = models.CharField(max_length=10, choices=KEBERSIHAN, blank=True, verbose_name='Kebersihan Perangkat')
+    kebersihan_panel    = models.CharField(max_length=10, choices=KEBERSIHAN, blank=True, verbose_name='Kebersihan Panel')
+    lampu               = models.CharField(max_length=3, choices=STATUS_CHECK, blank=True, verbose_name='Lampu')
+
+    # ── Informasi Perangkat ──────────────────────────────────────────
+    link            = models.CharField(max_length=200, blank=True, verbose_name='Link (terhubung ke)')
+    tipe_tp         = models.CharField(max_length=10, choices=TIPE_TP, blank=True, verbose_name='Tipe Teleproteksi')
+    versi_program   = models.CharField(max_length=100, blank=True, verbose_name='Versi Program')
+    address_tp      = models.CharField(max_length=100, blank=True, verbose_name='Address TP (Digital)')
+    port_comm       = models.CharField(max_length=10, choices=PORT_COMM, blank=True, verbose_name='Port Comm TP')
+    akses_tp        = models.CharField(max_length=3, choices=STATUS_CHECK, blank=True, verbose_name='Akses TP')
+    remote_akses_tp = models.CharField(max_length=3, choices=STATUS_CHECK, blank=True, verbose_name='Remote Akses TP')
+
+    # ── Kondisi Peralatan ────────────────────────────────────────────
+    jumlah_skema = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name='Jumlah Skema')
+
+    # Skema 1
+    skema_1_command          = models.CharField(max_length=20, choices=SKEMA_COMMAND, blank=True, verbose_name='Skema 1 Command')
+    skema_1_send_minus       = models.FloatField(null=True, blank=True, verbose_name='Skema 1 Teg Standby Send (-) V')
+    skema_1_send_plus        = models.FloatField(null=True, blank=True, verbose_name='Skema 1 Teg Standby Send (+) V')
+    skema_1_receive_minus    = models.FloatField(null=True, blank=True, verbose_name='Skema 1 Teg Standby Receive (-) V')
+    skema_1_receive_plus     = models.FloatField(null=True, blank=True, verbose_name='Skema 1 Teg Standby Receive (+) V')
+
+    # Skema 2
+    skema_2_command          = models.CharField(max_length=20, choices=SKEMA_COMMAND, blank=True, verbose_name='Skema 2 Command')
+    skema_2_send_minus       = models.FloatField(null=True, blank=True, verbose_name='Skema 2 Teg Standby Send (-) V')
+    skema_2_send_plus        = models.FloatField(null=True, blank=True, verbose_name='Skema 2 Teg Standby Send (+) V')
+    skema_2_receive_minus    = models.FloatField(null=True, blank=True, verbose_name='Skema 2 Teg Standby Receive (-) V')
+    skema_2_receive_plus     = models.FloatField(null=True, blank=True, verbose_name='Skema 2 Teg Standby Receive (+) V')
+
+    # Skema 3
+    skema_3_command          = models.CharField(max_length=20, choices=SKEMA_COMMAND, blank=True, verbose_name='Skema 3 Command')
+    skema_3_send_minus       = models.FloatField(null=True, blank=True, verbose_name='Skema 3 Teg Standby Send (-) V')
+    skema_3_send_plus        = models.FloatField(null=True, blank=True, verbose_name='Skema 3 Teg Standby Send (+) V')
+    skema_3_receive_minus    = models.FloatField(null=True, blank=True, verbose_name='Skema 3 Teg Standby Receive (-) V')
+    skema_3_receive_plus     = models.FloatField(null=True, blank=True, verbose_name='Skema 3 Teg Standby Receive (+) V')
+
+    # Skema 4
+    skema_4_command          = models.CharField(max_length=20, choices=SKEMA_COMMAND, blank=True, verbose_name='Skema 4 Command')
+    skema_4_send_minus       = models.FloatField(null=True, blank=True, verbose_name='Skema 4 Teg Standby Send (-) V')
+    skema_4_send_plus        = models.FloatField(null=True, blank=True, verbose_name='Skema 4 Teg Standby Send (+) V')
+    skema_4_receive_minus    = models.FloatField(null=True, blank=True, verbose_name='Skema 4 Teg Standby Receive (-) V')
+    skema_4_receive_plus     = models.FloatField(null=True, blank=True, verbose_name='Skema 4 Teg Standby Receive (+) V')
+
+    # ── Pengujian per Skema ──────────────────────────────────────────
+    skema_1_send_result     = models.CharField(max_length=3, choices=STATUS_CHECK, blank=True, verbose_name='Pengujian Send Command 1')
+    skema_1_receive_result  = models.CharField(max_length=3, choices=STATUS_CHECK, blank=True, verbose_name='Pengujian Receive Command 1')
+    skema_2_send_result     = models.CharField(max_length=3, choices=STATUS_CHECK, blank=True, verbose_name='Pengujian Send Command 2')
+    skema_2_receive_result  = models.CharField(max_length=3, choices=STATUS_CHECK, blank=True, verbose_name='Pengujian Receive Command 2')
+    skema_3_send_result     = models.CharField(max_length=3, choices=STATUS_CHECK, blank=True, verbose_name='Pengujian Send Command 3')
+    skema_3_receive_result  = models.CharField(max_length=3, choices=STATUS_CHECK, blank=True, verbose_name='Pengujian Receive Command 3')
+    skema_4_send_result     = models.CharField(max_length=3, choices=STATUS_CHECK, blank=True, verbose_name='Pengujian Send Command 4')
+    skema_4_receive_result  = models.CharField(max_length=3, choices=STATUS_CHECK, blank=True, verbose_name='Pengujian Receive Command 4')
+
+    # ── Pengujian Umum ───────────────────────────────────────────────
+    time_sync   = models.CharField(max_length=3, choices=STATUS_CHECK, blank=True, verbose_name='Time Sync')
+    loop_test   = models.FloatField(null=True, blank=True, verbose_name='Loop Test (ms)')
+
+    # ── Catatan ──────────────────────────────────────────────────────
+    catatan     = models.TextField(blank=True, verbose_name='Catatan')
+
+    class Meta:
+        verbose_name = 'Maintenance Teleproteksi'
