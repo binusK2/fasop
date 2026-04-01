@@ -164,7 +164,7 @@ def maintenance_update_status(request, pk):
                         f'telah selesai dan memerlukan pengesahan.'
                     ),
                     level  = 'info',
-                    url    = f'/maintenance/maintenance/{maintenance.pk}/',
+                    url    = f'/maintenance/view/{maintenance.pk}/',
                     device = maintenance.device,
                 )
             except Exception:
@@ -1133,7 +1133,7 @@ def corrective_add(request, device_id=None, gangguan_id=None):
                             f'{g_info} telah selesai. Tindakan: {tindakan[:100]}'
                         ),
                         level  = 'success',
-                        url    = f'/maintenance/maintenance/{maint.pk}/',
+                        url    = f'/maintenance/view/{maint.pk}/',
                         device = device,
                     )
                 except Exception:
