@@ -850,10 +850,11 @@ def export_maintenance_excel(request):
 # ─────────────────────────────────────────────────────────────────────
 @login_required
 def berita_acara_excel(request):
-    """Generate Berita Acara Asesmen dalam format Excel siap print A4."""
+    """Generate Berita Acara Asesmen — landscape A4, siap print 1 halaman."""
     import os
     from django.conf import settings
     from openpyxl.drawing.image import Image as XLImage
+    from openpyxl.utils import get_column_letter
 
     today = date.today()
     BULAN_ID = ['Januari','Februari','Maret','April','Mei','Juni',
@@ -871,8 +872,10 @@ def berita_acara_excel(request):
         devs    = Device.objects.filter(is_deleted=False, jenis__name__in=jenis_list)
         total   = devs.count()
         normal  = devs.filter(status_operasi='operasi').count()
-        tdk_nrm = devs.exclude(status_operasi='operasi').exclude(status_operasi__isnull=True).exclude(status_operasi='').count()
-        insp    = Maintenance.objects.filter(device__in=devs).values_list('device_id', flat=True).distinct()
+        tdk_nrm = devs.exclude(status_operasi='operasi').exclude(
+            status_operasi__isnull=True).exclude(status_operasi='').count()
+        insp    = Maintenance.objects.filter(
+            device__in=devs).values_list('device_id', flat=True).distinct()
         belum   = devs.exclude(pk__in=insp).count()
         return total, normal, tdk_nrm, belum
 
@@ -881,183 +884,206 @@ def berita_acara_excel(request):
         t, n, tn, b = hitung_grup(jenis_list)
         rekap.append({'grup': grup, 'total': t, 'normal': n, 'tidak_normal': tn, 'belum': b})
 
-    # ── Workbook setup ───────────────────────────────────────────────
-    wb  = openpyxl.Workbook()
-    ws  = wb.active
+    # ── Workbook ─────────────────────────────────────────────────────
+    wb = openpyxl.Workbook()
+    ws = wb.active
     ws.title = 'Berita Acara'
+
+    # Landscape A4, fit to 1 page
     ws.page_setup.paperSize   = ws.PAPERSIZE_A4
-    ws.page_setup.orientation = 'portrait'
+    ws.page_setup.orientation = 'landscape'
     ws.page_setup.fitToPage   = True
     ws.page_setup.fitToWidth  = 1
-    ws.page_setup.fitToHeight = 0
-    ws.page_margins.left   = 0.7
-    ws.page_margins.right  = 0.7
-    ws.page_margins.top    = 0.6
-    ws.page_margins.bottom = 0.6
+    ws.page_setup.fitToHeight = 1
+    ws.page_margins.left   = 0.4
+    ws.page_margins.right  = 0.4
+    ws.page_margins.top    = 0.4
+    ws.page_margins.bottom = 0.4
+    ws.page_margins.header = 0
+    ws.page_margins.footer = 0
     ws.sheet_view.showGridLines = False
 
-    # Layout kolom: A=margin, B=no/label, C=grup(lebar), D=total, E=normal, F=tidak normal, G=belum, H=margin
-    #               1       2           3                 4       5         6                7          8
-    col_widths = [0.5, 4, 38, 14, 14, 14, 18, 0.5]
-    for i, w in enumerate(col_widths, 1):
-        ws.column_dimensions[get_column_letter(i)].width = w
+    # ── Kolom layout (landscape A4 = ~27.9cm printable)
+    # A=margin, B=no, C=grup, D=total, E=normal, F=tidak normal, G=belum, H=margin
+    # Gunakan unit karakter Excel (1 unit ≈ 0.18cm)
+    col_cfg = [
+        ('A', 1.5),   # margin kiri
+        ('B', 6),     # nomor / label kecil
+        ('C', 42),    # GRUP — lebar utama
+        ('D', 16),    # TOTAL PERALATAN
+        ('E', 14),    # NORMAL
+        ('F', 16),    # TIDAK NORMAL
+        ('G', 20),    # BELUM TERINSPEKSI
+        ('H', 1.5),   # margin kanan
+    ]
+    for col_letter, width in col_cfg:
+        ws.column_dimensions[col_letter].width = width
 
-    for r in range(1, 70):
+    # Row heights default
+    for r in range(1, 40):
         ws.row_dimensions[r].height = 14
 
+    # ── Styles ───────────────────────────────────────────────────────
     thin   = Side(style='thin')
     medium = Side(style='medium')
+    TNR    = 'Times New Roman'
 
-    def B(left=None, right=None, top=None, bottom=None):
+    def brd(l=None, r=None, t=None, b=None, all_thin=False):
+        s = thin if all_thin else None
         return Border(
-            left=left or Side(style=None),
-            right=right or Side(style=None),
-            top=top or Side(style=None),
-            bottom=bottom or Side(style=None),
+            left=l or s or Side(style=None),
+            right=r or s or Side(style=None),
+            top=t or s or Side(style=None),
+            bottom=b or s or Side(style=None),
         )
-    box   = B(thin, thin, thin, thin)
-    box_m = Border(left=medium, right=medium, top=medium, bottom=medium)
+    box = brd(all_thin=True)
 
-    TNR = 'Times New Roman'
-
-    def C(row, col, val='', bold=False, sz=10, color='000000', ha='left', va='center',
-          wrap=False, bg=None, brd=None, italic=False):
+    def C(row, col, val='', bold=False, sz=10, color='000000',
+          ha='left', va='center', wrap=False, bg=None, border=None, italic=False):
         c = ws.cell(row=row, column=col, value=val)
         c.font      = Font(name=TNR, bold=bold, size=sz, color=color, italic=italic)
         c.alignment = Alignment(horizontal=ha, vertical=va, wrap_text=wrap)
-        if bg:  c.fill   = PatternFill('solid', fgColor=bg)
-        if brd: c.border = brd
+        if bg:     c.fill   = PatternFill('solid', fgColor=bg)
+        if border: c.border = border
         return c
 
     def MG(r1, c1, r2, c2):
         ws.merge_cells(start_row=r1, start_column=c1, end_row=r2, end_column=c2)
 
+    # Col indices
+    cB, cC, cD, cE, cF, cG = 2, 3, 4, 5, 6, 7
+
     # ── Logo PLN ─────────────────────────────────────────────────────
     logo_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'pln_logo_conv.png')
     if os.path.exists(logo_path):
-        img = XLImage(logo_path)
-        img.width  = 60; img.height = 60
+        img        = XLImage(logo_path)
+        img.width  = 65
+        img.height = 65
         img.anchor = 'F2'
         ws.add_image(img)
 
     # ── Judul ─────────────────────────────────────────────────────────
     r = 2
-    ws.row_dimensions[r].height = 18
-    MG(r, 2, r, 7)
-    C(r, 2, '', ha='center')
+    ws.row_dimensions[r].height = 10
 
     r = 3
-    ws.row_dimensions[r].height = 20
-    MG(r, 2, r, 7)
-    C(r, 2, 'BERITA ACARA', bold=True, sz=13, ha='center', va='center')
+    ws.row_dimensions[r].height = 22
+    MG(r, cB, r, cF)
+    C(r, cB, 'BERITA ACARA', bold=True, sz=14, ha='center', va='center')
 
     r = 4
     ws.row_dimensions[r].height = 18
-    MG(r, 2, r, 7)
-    C(r, 2, 'Penyampaian Data Hasil Asesmen Peralatan Fasilitas Operasi',
-      bold=True, sz=11, ha='center', va='center')
+    MG(r, cB, r, cF)
+    C(r, cB, 'Penyampaian Data Hasil Asesmen Peralatan Fasilitas Operasi',
+      bold=True, sz=12, ha='center', va='center')
+
+    r = 5
+    ws.row_dimensions[r].height = 16
+    MG(r, cB, r, cF)
+    C(r, cB, f'Bulan Januari s.d. {bulan_str} {tahun_str}',
+      sz=11, ha='center', va='center')
 
     r = 6
     ws.row_dimensions[r].height = 8
 
     # ── Teks pembuka ──────────────────────────────────────────────────
     r = 7
-    ws.row_dimensions[r].height = 36
-    MG(r, 2, r, 7)
-    C(r, 2,
+    ws.row_dimensions[r].height = 28
+    MG(r, cB, r, cG)
+    C(r, cB,
       'Berikut disampaikan tabel rekap hasil asesmen peralatan Fasilitas Operasi '
       'UP2B Sistem Makassar sebagai berikut :',
       sz=10, va='center', wrap=True)
 
     r = 8
-    ws.row_dimensions[r].height = 6
+    ws.row_dimensions[r].height = 4
 
-    # ── Header Tabel ──────────────────────────────────────────────────
+    # ── Tabel header ──────────────────────────────────────────────────
+    HBG = 'BFBFBF'
     r = 9
     ws.row_dimensions[r].height   = 14
-    ws.row_dimensions[r+1].height = 22
+    ws.row_dimensions[r+1].height = 20
 
-    HBG = 'BFBFBF'
-    # Row 9+10 merge per kolom
-    MG(r, 2, r+1, 2); C(r, 2, 'GRUP', bold=True, sz=10, ha='center', va='center', bg=HBG, brd=box)
-    ws.cell(r+1, 2).border = box
+    # Merge 2 baris per kolom header
+    for col in [cC, cD, cE, cF, cG]:
+        MG(r, col, r+1, col)
+    labels = {
+        cC: 'GRUP',
+        cD: 'TOTAL\nPERALATAN',
+        cE: 'NORMAL',
+        cF: 'TIDAK\nNORMAL',
+        cG: 'BELUM\nTERINSPEKSI',
+    }
+    for col, lbl in labels.items():
+        C(r, col, lbl, bold=True, sz=10, ha='center', va='center',
+          bg=HBG, border=box, wrap=True)
+        ws.cell(r+1, col).border = box
 
-    MG(r, 3, r+1, 3); C(r, 3, 'TOTAL PERALATAN', bold=True, sz=10, ha='center', va='center', bg=HBG, brd=box, wrap=True)
-    ws.cell(r+1, 3).border = box
-
-    MG(r, 4, r+1, 4); C(r, 4, 'NORMAL', bold=True, sz=10, ha='center', va='center', bg=HBG, brd=box)
-    ws.cell(r+1, 4).border = box
-
-    MG(r, 5, r+1, 5); C(r, 5, 'TIDAK NORMAL', bold=True, sz=10, ha='center', va='center', bg=HBG, brd=box, wrap=True)
-    ws.cell(r+1, 5).border = box
-
-    MG(r, 6, r+1, 6); C(r, 6, 'BELUM TERINSPEKSI', bold=True, sz=10, ha='center', va='center', bg=HBG, brd=box, wrap=True)
-    ws.cell(r+1, 6).border = box
-
-    # ── Data Rekap ────────────────────────────────────────────────────
+    # ── Data rekap ────────────────────────────────────────────────────
     r = 11
     for i, row in enumerate(rekap):
         ws.row_dimensions[r+i].height = 18
         alt = 'F2F2F2' if i % 2 == 1 else None
-        C(r+i, 2, row['grup'],        sz=10, ha='center', va='center', bg=alt, brd=box)
-        C(r+i, 3, row['total'],       sz=10, ha='center', va='center', bg=alt, brd=box)
-        C(r+i, 4, row['normal'],      sz=10, ha='center', va='center', bg=alt, brd=box)
-        cn = C(r+i, 5, row['tidak_normal'], sz=10, ha='center', va='center', bg=alt, brd=box)
+        C(r+i, cC, row['grup'],        sz=10, ha='center', va='center', bg=alt, border=box)
+        C(r+i, cD, row['total'],       sz=10, ha='center', va='center', bg=alt, border=box)
+        C(r+i, cE, row['normal'],      sz=10, ha='center', va='center', bg=alt, border=box)
+        cn = C(r+i, cF, row['tidak_normal'], sz=10, ha='center', va='center', bg=alt, border=box)
         if row['tidak_normal'] > 0:
             cn.font = Font(name=TNR, bold=True, size=10, color='C00000')
-        C(r+i, 6, row['belum'],       sz=10, ha='center', va='center', bg=alt, brd=box)
+        C(r+i, cG, row['belum'],       sz=10, ha='center', va='center', bg=alt, border=box)
 
     r = r + len(rekap) + 1
 
     # ── Teks penutup ──────────────────────────────────────────────────
-    ws.row_dimensions[r].height = 30
-    MG(r, 2, r, 7)
-    C(r, 2,
+    ws.row_dimensions[r].height = 26
+    MG(r, cB, r, cG)
+    C(r, cB,
       'Berdasarkan rekap data di atas, dilampirkan detail informasi aset untuk hasil ABNORMAL.',
       sz=10, va='center', wrap=True)
 
     r += 2
     # ── Tanggal ───────────────────────────────────────────────────────
     ws.row_dimensions[r].height = 16
-    MG(r, 5, r, 7)
-    C(r, 5, f'Makassar,    {bulan_str} {tahun_str}', sz=10, ha='center')
+    MG(r, cE, r, cG)
+    C(r, cE, f'Makassar,     {bulan_str} {tahun_str}', sz=10, ha='center')
 
     r += 2
     # ── Tanda Tangan ─────────────────────────────────────────────────
     ws.row_dimensions[r].height = 16
-    MG(r, 2, r, 3)
-    C(r, 2, 'Disahkan Oleh :', sz=10, ha='center',
-      brd=B(thin, thin, thin, None))
-    MG(r, 5, r, 7)
-    C(r, 5, 'Disusun Oleh :', sz=10, ha='center',
-      brd=B(thin, thin, thin, None))
+    MG(r, cB, r, cD-1)
+    C(r, cB, 'Disahkan Oleh :', sz=10, ha='center',
+      border=brd(l=thin, r=thin, t=thin))
+    MG(r, cE, r, cG)
+    C(r, cE, 'Disusun Oleh :', sz=10, ha='center',
+      border=brd(l=thin, r=thin, t=thin))
 
     r += 1
     ws.row_dimensions[r].height = 16
-    MG(r, 2, r, 3)
-    C(r, 2, 'MUP2B SISTEM MAKASSAR', bold=True, sz=10, ha='center',
-      brd=B(thin, thin, None, None))
-    MG(r, 5, r, 7)
-    C(r, 5, 'ASMAN FASOP UP2B SISTEM MAKASSAR', bold=True, sz=10, ha='center',
-      brd=B(thin, thin, None, None))
+    MG(r, cB, r, cD-1)
+    C(r, cB, 'MUP2B SISTEM MAKASSAR', bold=True, sz=10, ha='center',
+      border=brd(l=thin, r=thin))
+    MG(r, cE, r, cG)
+    C(r, cE, 'ASMAN FASOP UP2B SISTEM MAKASSAR', bold=True, sz=10, ha='center',
+      border=brd(l=thin, r=thin))
 
     for ttd_r in range(r+1, r+5):
         ws.row_dimensions[ttd_r].height = 18
-        MG(ttd_r, 2, ttd_r, 3)
-        C(ttd_r, 2, '', brd=B(thin, thin, None, None))
-        MG(ttd_r, 5, ttd_r, 7)
-        C(ttd_r, 5, '', brd=B(thin, thin, None, None))
+        MG(ttd_r, cB, ttd_r, cD-1)
+        ws.cell(ttd_r, cB).border = brd(l=thin, r=thin)
+        MG(ttd_r, cE, ttd_r, cG)
+        ws.cell(ttd_r, cE).border = brd(l=thin, r=thin)
 
     name_r = r + 5
     ws.row_dimensions[name_r].height = 16
-    MG(name_r, 2, name_r, 3)
-    C(name_r, 2, '(                                        )', sz=10, ha='center',
-      brd=B(thin, thin, None, thin))
-    MG(name_r, 5, name_r, 7)
-    C(name_r, 5, '(                                        )', sz=10, ha='center',
-      brd=B(thin, thin, None, thin))
+    MG(name_r, cB, name_r, cD-1)
+    C(name_r, cB, '(                                             )',
+      sz=10, ha='center', border=brd(l=thin, r=thin, b=thin))
+    MG(name_r, cE, name_r, cG)
+    C(name_r, cE, '(                                             )',
+      sz=10, ha='center', border=brd(l=thin, r=thin, b=thin))
 
-    ws.print_area = f'A1:{get_column_letter(8)}{name_r + 2}'
+    # Print area
+    ws.print_area = f'A1:{get_column_letter(8)}{name_r + 1}'
 
     # ── Response ──────────────────────────────────────────────────────
     resp = HttpResponse(
