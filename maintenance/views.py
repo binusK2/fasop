@@ -846,6 +846,291 @@ def export_maintenance_excel(request):
     return response
 
 # ─────────────────────────────────────────────────────────────────────
+# BERITA ACARA ASESMEN PERALATAN
+# ─────────────────────────────────────────────────────────────────────
+@login_required
+def berita_acara_excel(request):
+    """Generate Berita Acara Asesmen dalam format Excel siap print A4."""
+    import os
+    from django.conf import settings
+    from openpyxl.drawing.image import Image as XLImage
+
+    today = date.today()
+    BULAN_ID = ['Januari','Februari','Maret','April','Mei','Juni',
+                'Juli','Agustus','September','Oktober','November','Desember']
+    bulan_str = BULAN_ID[today.month - 1]
+    tahun_str = str(today.year)
+
+    GRUP_MAP = {
+        'TELEKOMUNIKASI': ['Router','Switch','Radio','VoIP','Multiplexer','PLC','Teleproteksi','RoIP'],
+        'SCADA':          ['RTU','SAS','SERVER','UPS'],
+        'PROSIS':         ['RELE DEFENSE SCHEME','DFR','GENSET','Catu Daya','Workstation PC'],
+    }
+
+    def hitung_grup(jenis_list):
+        devs    = Device.objects.filter(is_deleted=False, jenis__name__in=jenis_list)
+        total   = devs.count()
+        normal  = devs.filter(status_operasi='operasi').count()
+        tdk_nrm = devs.exclude(status_operasi='operasi').exclude(status_operasi__isnull=True).exclude(status_operasi='').count()
+        insp    = Maintenance.objects.filter(device__in=devs).values_list('device_id', flat=True).distinct()
+        belum   = devs.exclude(pk__in=insp).count()
+        return total, normal, tdk_nrm, belum
+
+    rekap = []
+    for grup, jenis_list in GRUP_MAP.items():
+        t, n, tn, b = hitung_grup(jenis_list)
+        rekap.append({'grup': grup, 'total': t, 'normal': n, 'tidak_normal': tn, 'belum': b})
+
+    # ── Workbook setup ───────────────────────────────────────────────
+    wb  = openpyxl.Workbook()
+    ws  = wb.active
+    ws.title = 'Berita Acara'
+    ws.page_setup.paperSize   = ws.PAPERSIZE_A4
+    ws.page_setup.orientation = 'portrait'
+    ws.page_setup.fitToPage   = True
+    ws.page_setup.fitToWidth  = 1
+    ws.page_setup.fitToHeight = 0
+    ws.page_margins.left   = 0.7
+    ws.page_margins.right  = 0.7
+    ws.page_margins.top    = 0.6
+    ws.page_margins.bottom = 0.6
+    ws.sheet_view.showGridLines = False
+
+    # Layout kolom: A=margin, B=no/label, C=grup(lebar), D=total, E=normal, F=tidak normal, G=belum, H=margin
+    #               1       2           3                 4       5         6                7          8
+    col_widths = [0.5, 4, 38, 14, 14, 14, 18, 0.5]
+    for i, w in enumerate(col_widths, 1):
+        ws.column_dimensions[get_column_letter(i)].width = w
+
+    for r in range(1, 70):
+        ws.row_dimensions[r].height = 14
+
+    thin   = Side(style='thin')
+    medium = Side(style='medium')
+
+    def B(left=None, right=None, top=None, bottom=None):
+        return Border(
+            left=left or Side(style=None),
+            right=right or Side(style=None),
+            top=top or Side(style=None),
+            bottom=bottom or Side(style=None),
+        )
+    box   = B(thin, thin, thin, thin)
+    box_m = Border(left=medium, right=medium, top=medium, bottom=medium)
+
+    TNR = 'Times New Roman'
+
+    def C(row, col, val='', bold=False, sz=10, color='000000', ha='left', va='center',
+          wrap=False, bg=None, brd=None, italic=False):
+        c = ws.cell(row=row, column=col, value=val)
+        c.font      = Font(name=TNR, bold=bold, size=sz, color=color, italic=italic)
+        c.alignment = Alignment(horizontal=ha, vertical=va, wrap_text=wrap)
+        if bg:  c.fill   = PatternFill('solid', fgColor=bg)
+        if brd: c.border = brd
+        return c
+
+    def MG(r1, c1, r2, c2):
+        ws.merge_cells(start_row=r1, start_column=c1, end_row=r2, end_column=c2)
+
+    # ── Logo PLN ─────────────────────────────────────────────────────
+    logo_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'pln_logo_conv.png')
+    if os.path.exists(logo_path):
+        img = XLImage(logo_path)
+        img.width  = 60; img.height = 60
+        img.anchor = 'F2'
+        ws.add_image(img)
+
+    # ── Judul ─────────────────────────────────────────────────────────
+    r = 2
+    ws.row_dimensions[r].height = 18
+    MG(r, 2, r, 7)
+    C(r, 2, '', ha='center')
+
+    r = 3
+    ws.row_dimensions[r].height = 20
+    MG(r, 2, r, 7)
+    C(r, 2, 'BERITA ACARA', bold=True, sz=13, ha='center', va='center')
+
+    r = 4
+    ws.row_dimensions[r].height = 18
+    MG(r, 2, r, 7)
+    C(r, 2, 'Penyampaian Data Hasil Asesmen Peralatan Fasilitas Operasi',
+      bold=True, sz=11, ha='center', va='center')
+
+    r = 6
+    ws.row_dimensions[r].height = 8
+
+    # ── Teks pembuka ──────────────────────────────────────────────────
+    r = 7
+    ws.row_dimensions[r].height = 36
+    MG(r, 2, r, 7)
+    C(r, 2,
+      'Berikut disampaikan tabel rekap hasil asesmen peralatan Fasilitas Operasi '
+      'UP2B Sistem Makassar sebagai berikut :',
+      sz=10, va='center', wrap=True)
+
+    r = 8
+    ws.row_dimensions[r].height = 6
+
+    # ── Header Tabel ──────────────────────────────────────────────────
+    r = 9
+    ws.row_dimensions[r].height   = 14
+    ws.row_dimensions[r+1].height = 22
+
+    HBG = 'BFBFBF'
+    # Row 9+10 merge per kolom
+    MG(r, 2, r+1, 2); C(r, 2, 'GRUP', bold=True, sz=10, ha='center', va='center', bg=HBG, brd=box)
+    ws.cell(r+1, 2).border = box
+
+    MG(r, 3, r+1, 3); C(r, 3, 'TOTAL PERALATAN', bold=True, sz=10, ha='center', va='center', bg=HBG, brd=box, wrap=True)
+    ws.cell(r+1, 3).border = box
+
+    MG(r, 4, r+1, 4); C(r, 4, 'NORMAL', bold=True, sz=10, ha='center', va='center', bg=HBG, brd=box)
+    ws.cell(r+1, 4).border = box
+
+    MG(r, 5, r+1, 5); C(r, 5, 'TIDAK NORMAL', bold=True, sz=10, ha='center', va='center', bg=HBG, brd=box, wrap=True)
+    ws.cell(r+1, 5).border = box
+
+    MG(r, 6, r+1, 6); C(r, 6, 'BELUM TERINSPEKSI', bold=True, sz=10, ha='center', va='center', bg=HBG, brd=box, wrap=True)
+    ws.cell(r+1, 6).border = box
+
+    # ── Data Rekap ────────────────────────────────────────────────────
+    r = 11
+    for i, row in enumerate(rekap):
+        ws.row_dimensions[r+i].height = 18
+        alt = 'F2F2F2' if i % 2 == 1 else None
+        C(r+i, 2, row['grup'],        sz=10, ha='center', va='center', bg=alt, brd=box)
+        C(r+i, 3, row['total'],       sz=10, ha='center', va='center', bg=alt, brd=box)
+        C(r+i, 4, row['normal'],      sz=10, ha='center', va='center', bg=alt, brd=box)
+        cn = C(r+i, 5, row['tidak_normal'], sz=10, ha='center', va='center', bg=alt, brd=box)
+        if row['tidak_normal'] > 0:
+            cn.font = Font(name=TNR, bold=True, size=10, color='C00000')
+        C(r+i, 6, row['belum'],       sz=10, ha='center', va='center', bg=alt, brd=box)
+
+    r = r + len(rekap) + 1
+
+    # ── Teks penutup ──────────────────────────────────────────────────
+    ws.row_dimensions[r].height = 30
+    MG(r, 2, r, 7)
+    C(r, 2,
+      'Berdasarkan rekap data di atas, dilampirkan detail informasi aset untuk hasil ABNORMAL.',
+      sz=10, va='center', wrap=True)
+
+    r += 2
+    # ── Tanggal ───────────────────────────────────────────────────────
+    ws.row_dimensions[r].height = 16
+    MG(r, 5, r, 7)
+    C(r, 5, f'Makassar,    {bulan_str} {tahun_str}', sz=10, ha='center')
+
+    r += 2
+    # ── Tanda Tangan ─────────────────────────────────────────────────
+    ws.row_dimensions[r].height = 16
+    MG(r, 2, r, 3)
+    C(r, 2, 'Disahkan Oleh :', sz=10, ha='center',
+      brd=B(thin, thin, thin, None))
+    MG(r, 5, r, 7)
+    C(r, 5, 'Disusun Oleh :', sz=10, ha='center',
+      brd=B(thin, thin, thin, None))
+
+    r += 1
+    ws.row_dimensions[r].height = 16
+    MG(r, 2, r, 3)
+    C(r, 2, 'MUP2B SISTEM MAKASSAR', bold=True, sz=10, ha='center',
+      brd=B(thin, thin, None, None))
+    MG(r, 5, r, 7)
+    C(r, 5, 'ASMAN FASOP UP2B SISTEM MAKASSAR', bold=True, sz=10, ha='center',
+      brd=B(thin, thin, None, None))
+
+    for ttd_r in range(r+1, r+5):
+        ws.row_dimensions[ttd_r].height = 18
+        MG(ttd_r, 2, ttd_r, 3)
+        C(ttd_r, 2, '', brd=B(thin, thin, None, None))
+        MG(ttd_r, 5, ttd_r, 7)
+        C(ttd_r, 5, '', brd=B(thin, thin, None, None))
+
+    name_r = r + 5
+    ws.row_dimensions[name_r].height = 16
+    MG(name_r, 2, name_r, 3)
+    C(name_r, 2, '(                                        )', sz=10, ha='center',
+      brd=B(thin, thin, None, thin))
+    MG(name_r, 5, name_r, 7)
+    C(name_r, 5, '(                                        )', sz=10, ha='center',
+      brd=B(thin, thin, None, thin))
+
+    ws.print_area = f'A1:{get_column_letter(8)}{name_r + 2}'
+
+    # ── Response ──────────────────────────────────────────────────────
+    resp = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    fname = f'Berita_Acara_Asesmen_{bulan_str}_{tahun_str}.xlsx'
+    resp['Content-Disposition'] = f'attachment; filename="{fname}"'
+    wb.save(resp)
+    return resp
+
+
+@login_required
+def berita_acara_pdf(request):
+    """Generate Berita Acara Asesmen dalam format PDF via WeasyPrint."""
+    import os
+    from django.conf import settings
+    from django.template.loader import render_to_string
+
+    today = date.today()
+    BULAN_ID = ['Januari','Februari','Maret','April','Mei','Juni',
+                'Juli','Agustus','September','Oktober','November','Desember']
+    bulan_str = BULAN_ID[today.month - 1]
+    tahun_str = str(today.year)
+
+    GRUP_MAP = {
+        'TELEKOMUNIKASI': ['Router','Switch','Radio','VoIP','Multiplexer','PLC','Teleproteksi','RoIP'],
+        'SCADA':          ['RTU','SAS','SERVER','UPS'],
+        'PROSIS':         ['RELE DEFENSE SCHEME','DFR','GENSET','Catu Daya','Workstation PC'],
+    }
+
+    def hitung_grup(jenis_list):
+        devs    = Device.objects.filter(is_deleted=False, jenis__name__in=jenis_list)
+        total   = devs.count()
+        normal  = devs.filter(status_operasi='operasi').count()
+        tdk_nrm = devs.exclude(status_operasi='operasi').exclude(status_operasi__isnull=True).exclude(status_operasi='').count()
+        insp    = Maintenance.objects.filter(device__in=devs).values_list('device_id', flat=True).distinct()
+        belum   = devs.exclude(pk__in=insp).count()
+        return total, normal, tdk_nrm, belum
+
+    rekap = []
+    for grup, jenis_list in GRUP_MAP.items():
+        t, n, tn, b = hitung_grup(jenis_list)
+        rekap.append({'grup': grup, 'total': t, 'normal': n, 'tidak_normal': tn, 'belum': b})
+
+    # Logo sebagai base64
+    logo_b64 = ''
+    logo_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'pln_logo_conv.png')
+    if os.path.exists(logo_path):
+        import base64
+        with open(logo_path, 'rb') as f:
+            logo_b64 = base64.b64encode(f.read()).decode()
+
+    ctx = {
+        'rekap':     rekap,
+        'bulan_str': bulan_str,
+        'tahun_str': tahun_str,
+        'logo_b64':  logo_b64,
+    }
+
+    try:
+        import weasyprint
+        html_string = render_to_string('maintenance/pdf/berita_acara.html', ctx)
+        html = weasyprint.HTML(string=html_string)
+        pdf_bytes = html.write_pdf()
+        resp = HttpResponse(pdf_bytes, content_type='application/pdf')
+        fname = f'Berita_Acara_Asesmen_{bulan_str}_{tahun_str}.pdf'
+        resp['Content-Disposition'] = f'attachment; filename="{fname}"'
+        return resp
+    except ImportError:
+        return HttpResponse('WeasyPrint tidak tersedia di server ini.', status=500)
+
+
+# ─────────────────────────────────────────────────────────────────────
 # EXPORT PDF LAPORAN PEMELIHARAAN
 # ─────────────────────────────────────────────────────────────────────
 @login_required
