@@ -66,8 +66,6 @@
                 <input type="text" name="catatan_rectifier" class="form-control" placeholder="Keterangan...">
             </div>
         </div>
-
-        <!-- Alarm row -->
         <div class="row g-3 mt-1">
             <div class="col-md-4">
                 <label class="form-label fw-semibold" style="font-size:12px;">Alarm Ground Fault</label>
@@ -93,10 +91,6 @@
                 </div>
                 <input type="hidden" name="alarm_recti_fault" id="alarm_recti_fault">
             </div>
-        </div>
-
-        <!-- Kebersihan ruangan rectifier -->
-        <div class="row g-3 mt-1">
             <div class="col-md-4">
                 <label class="form-label fw-semibold" style="font-size:12px;">Kebersihan Ruangan</label>
                 <div class="d-flex gap-2">
@@ -196,64 +190,95 @@
     </div>
 </div>
 
-{% elif jenis_key == 'defense_scheme' %}
-<!-- ══ RELE DEFENSE SCHEME ═══════════════════════════════════ -->
+{% elif jenis_key == 'defense_scheme' or jenis_key == 'master_trip' or jenis_key == 'ufls' %}
+<!-- ══ RELAY FORM (Defense Scheme / Master Trip / UFLS) ══════════ -->
 
-<!-- Kondisi Relay -->
+<!-- Suhu & Kebersihan Panel -->
 <div class="card mb-3">
     <div class="card-body px-4 py-3">
-        <div class="stb"><span class="stb-bar" style="background:#8b5cf6;"></span><span>Kondisi Relay</span></div>
+        <div class="stb"><span class="stb-bar" style="background:#64748b;"></span><span>Kondisi Panel</span></div>
         <div class="row g-3">
-            <div class="col-md-4">
-                <label class="form-label fw-semibold">Status Relay</label>
+            <div class="col-md-3">
+                <div class="mcard">
+                    <div class="mlabel">Suhu Ruangan</div>
+                    <div class="input-group">
+                        <input type="number" step="any" name="suhu_ruangan" class="form-control" placeholder="e.g. 25">
+                        <span class="input-group-text munit">°C</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-semibold" style="font-size:12px;">Kebersihan Panel</label>
                 <div class="d-flex gap-2">
-                    <button type="button" class="toggle-opt flex-fill" onclick="setToggle('kondisi_relay','normal')">
-                        <i class="bi bi-check-circle me-1"></i>Normal
-                    </button>
-                    <button type="button" class="toggle-opt toggle-alarm flex-fill" onclick="setToggle('kondisi_relay','alarm')">
-                        <i class="bi bi-exclamation-triangle me-1"></i>Alarm
-                    </button>
+                    <button type="button" class="toggle-opt flex-fill" onclick="setToggle('kebersihan_panel','bersih')"><i class="bi bi-check-circle me-1"></i>Bersih</button>
+                    <button type="button" class="toggle-opt toggle-warn flex-fill" onclick="setToggle('kebersihan_panel','kotor')"><i class="bi bi-exclamation me-1"></i>Kotor</button>
+                </div>
+                <input type="hidden" name="kebersihan_panel" id="kebersihan_panel">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-semibold" style="font-size:12px;">Lampu Panel</label>
+                <div class="d-flex gap-2">
+                    <button type="button" class="toggle-opt flex-fill" onclick="setToggle('lampu_panel','nyala')"><i class="bi bi-lightbulb-fill me-1"></i>Nyala</button>
+                    <button type="button" class="toggle-opt toggle-alarm flex-fill" onclick="setToggle('lampu_panel','mati')"><i class="bi bi-lightbulb-off me-1"></i>Mati</button>
+                </div>
+                <input type="hidden" name="lampu_panel" id="lampu_panel">
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Kondisi Rele -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="stb"><span class="stb-bar" style="background:#8b5cf6;"></span><span>Kondisi Rele</span></div>
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label fw-semibold" style="font-size:12px;">Kondisi Rele</label>
+                <div class="d-flex gap-2">
+                    <button type="button" class="toggle-opt flex-fill" onclick="setToggle('kondisi_relay','normal')"><i class="bi bi-check-circle me-1"></i>Normal</button>
+                    <button type="button" class="toggle-opt toggle-alarm flex-fill" onclick="setToggle('kondisi_relay','faulty')"><i class="bi bi-x-circle me-1"></i>Faulty</button>
                 </div>
                 <input type="hidden" name="kondisi_relay" id="kondisi_relay">
             </div>
-            <div class="col-md-8">
-                <label class="form-label fw-semibold">Catatan Relay</label>
-                <input type="text" name="catatan_relay" class="form-control" placeholder="Keterangan kondisi relay...">
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Indikator LED/Alarm -->
-<div class="card mb-3">
-    <div class="card-body px-4 py-3">
-        <div class="stb"><span class="stb-bar" style="background:#10b981;"></span><span>Indikator LED / Alarm</span></div>
-        <div class="row g-3">
-            <div class="col-md-4">
-                <label class="form-label fw-semibold">Status Indikator</label>
+            <div class="col-md-3">
+                <label class="form-label fw-semibold" style="font-size:12px;">Relay Healthy</label>
                 <div class="d-flex gap-2">
-                    <button type="button" class="toggle-opt flex-fill" onclick="setToggle('indikator_led','normal')">
-                        <i class="bi bi-lightbulb me-1"></i>Normal
-                    </button>
-                    <button type="button" class="toggle-opt toggle-alarm flex-fill" onclick="setToggle('indikator_led','tidak_normal')">
-                        <i class="bi bi-lightbulb-off me-1"></i>Tidak Normal
-                    </button>
+                    <button type="button" class="toggle-opt flex-fill" onclick="setToggle('relay_healthy','normal')"><i class="bi bi-heart-pulse me-1"></i>Normal</button>
+                    <button type="button" class="toggle-opt toggle-alarm flex-fill" onclick="setToggle('relay_healthy','faulty')"><i class="bi bi-x-circle me-1"></i>Faulty</button>
+                </div>
+                <input type="hidden" name="relay_healthy" id="relay_healthy">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-semibold" style="font-size:12px;">Indikasi LED</label>
+                <div class="d-flex gap-2">
+                    <button type="button" class="toggle-opt flex-fill" onclick="setToggle('indikator_led','normal')"><i class="bi bi-lightbulb me-1"></i>Normal</button>
+                    <button type="button" class="toggle-opt toggle-alarm flex-fill" onclick="setToggle('indikator_led','faulty')"><i class="bi bi-lightbulb-off me-1"></i>Faulty</button>
                 </div>
                 <input type="hidden" name="indikator_led" id="indikator_led">
             </div>
-            <div class="col-md-8">
-                <label class="form-label fw-semibold">Catatan LED/Alarm</label>
-                <input type="text" name="catatan_led" class="form-control" placeholder="Keterangan indikator LED/alarm...">
+            <div class="col-md-3">
+                <label class="form-label fw-semibold" style="font-size:12px;">Catatan Relay</label>
+                <input type="text" name="catatan_relay" class="form-control" placeholder="Keterangan kondisi relay...">
             </div>
         </div>
-    </div>
-</div>
-
-<!-- Sumber DC -->
-<div class="card mb-3">
-    <div class="card-body px-4 py-3">
-        <div class="stb"><span class="stb-bar" style="background:#6366f1;"></span><span>Pengukuran</span></div>
-        <div class="row g-3">
+        <div class="row g-3 mt-1">
+            <div class="col-md-4">
+                <label class="form-label fw-semibold" style="font-size:12px;">Posisi Selektor Target</label>
+                <div class="d-flex gap-2">
+                    <button type="button" class="toggle-opt flex-fill" onclick="setToggle('posisi_selektor','on_aktif')"><i class="bi bi-toggle-on me-1"></i>ON / Aktif</button>
+                    <button type="button" class="toggle-opt toggle-warn flex-fill" onclick="setToggle('posisi_selektor','off_nonaktif')"><i class="bi bi-toggle-off me-1"></i>OFF / Nonaktif</button>
+                </div>
+                <input type="hidden" name="posisi_selektor" id="posisi_selektor">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label fw-semibold" style="font-size:12px;">Kondisi Kabel LAN</label>
+                <div class="d-flex gap-1 flex-wrap">
+                    <button type="button" class="toggle-opt" onclick="setToggle('kondisi_kabel_lan','terpasang')">Terpasang</button>
+                    <button type="button" class="toggle-opt toggle-alarm" onclick="setToggle('kondisi_kabel_lan','terlepas')">Terlepas</button>
+                    <button type="button" class="toggle-opt" style="opacity:0.7;" onclick="setToggle('kondisi_kabel_lan','tidak_tersedia')">Tdk Tersedia</button>
+                </div>
+                <input type="hidden" name="kondisi_kabel_lan" id="kondisi_kabel_lan">
+            </div>
             <div class="col-md-3">
                 <div class="mcard">
                     <div class="mlabel">Sumber DC</div>
@@ -268,7 +293,6 @@
 </div>
 
 {% endif %}
-
 <!-- FOTO & CATATAN -->
 <div class="card mb-3">
     <div class="card-body px-4 py-3">
@@ -344,6 +368,13 @@ document.getElementById('insp-form').addEventListener('submit', function(e) {
     {% elif jenis_key == 'defense_scheme' %}
     const relay = document.getElementById('kondisi_relay')?.value;
     if (!relay) {
+        e.preventDefault();
+        alert('Kondisi Relay wajib dipilih (Normal/Alarm).');
+        return;
+    }
+    {% elif jenis_key in 'master_trip ufls' %}
+    const relayVal = document.getElementById('kondisi_relay')?.value;
+    if (!relayVal) {
         e.preventDefault();
         alert('Kondisi Relay wajib dipilih (Normal/Alarm).');
         return;

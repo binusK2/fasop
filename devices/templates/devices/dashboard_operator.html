@@ -1,0 +1,314 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard Operator — FASOP{% endblock %}
+{% block page_title %}Dashboard Operator{% endblock %}
+
+{% block content %}
+
+<!-- SELAMAT DATANG -->
+<div class="card mb-4" style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);border:none;">
+    <div class="card-body py-3 px-4">
+        <div class="d-flex align-items-center gap-3 flex-wrap">
+            <div style="width:48px;height:48px;background:rgba(59,130,246,0.2);border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <i class="bi bi-clipboard2-check-fill" style="font-size:22px;color:#93c5fd;"></i>
+            </div>
+            <div class="flex-grow-1">
+                <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Selamat datang,</div>
+                <div style="font-size:18px;font-weight:700;color:#f1f5f9;">{{ user_display_name }}</div>
+                <div style="font-size:12px;color:#94a3b8;">
+                    <i class="bi bi-calendar3 me-1"></i>{{ today|date:"l, d F Y" }}
+                    {% if ultg %}
+                    &nbsp;·&nbsp;<i class="bi bi-building me-1"></i>{{ ultg.nama }}
+                    {% endif %}
+                </div>
+            </div>
+            <a href="{% url 'inspection_lokasi' %}" class="btn btn-primary btn-sm px-4">
+                <i class="bi bi-clipboard2-plus me-1"></i>Mulai Inspeksi
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- STAT CARDS -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon" style="background:#eff6ff;color:#3b82f6;">
+                <i class="bi bi-clipboard2-check"></i>
+            </div>
+            <div>
+                <div class="stat-value">{{ insp_hari_ini }}</div>
+                <div class="stat-label">Inspeksi Hari Ini</div>
+                {% if insp_hari_ini_u > 0 %}
+                <div style="font-size:10.5px;color:#3b82f6;margin-top:2px;">{{ insp_hari_ini_u }} oleh kamu</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon" style="background:#f0fdf4;color:#10b981;">
+                <i class="bi bi-calendar-check"></i>
+            </div>
+            <div>
+                <div class="stat-value">{{ insp_bulan_ini }}</div>
+                <div class="stat-label">Inspeksi Bulan Ini</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon" style="background:{% if alarm_count > 0 %}#fef2f2;color:#ef4444;{% else %}#f0fdf4;color:#10b981;{% endif %}">
+                <i class="bi bi-{% if alarm_count > 0 %}exclamation-triangle-fill{% else %}shield-check{% endif %}"></i>
+            </div>
+            <div>
+                <div class="stat-value" {% if alarm_count > 0 %}style="color:#ef4444;"{% endif %}>{{ alarm_count }}</div>
+                <div class="stat-label">Alarm Hari Ini</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon" style="background:#fdf4ff;color:#a855f7;">
+                <i class="bi bi-archive"></i>
+            </div>
+            <div>
+                <div class="stat-value">{{ insp_total }}</div>
+                <div class="stat-label">Total Inspeksi</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- PROGRESS INSPEKSI BULAN INI + TREND 7 HARI -->
+<div class="row g-3 mb-4">
+
+    <!-- Progress per jenis -->
+    <div class="col-md-5">
+        <div class="card h-100">
+            <div class="card-body px-4 py-3">
+                <h6 style="font-size:13px;font-weight:700;margin-bottom:16px;">
+                    <i class="bi bi-bar-chart-fill me-2 text-primary"></i>Progress Inspeksi Bulan Ini
+                </h6>
+                {% for s in device_stats %}
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span style="font-size:12px;font-weight:600;color:#334155;">{{ s.jenis }}</span>
+                        <span style="font-size:11px;color:#64748b;">{{ s.sudah }}/{{ s.total }} ({{ s.pct }}%)</span>
+                    </div>
+                    <div style="height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden;">
+                        <div style="height:100%;width:{{ s.pct }}%;border-radius:4px;transition:width .4s;
+                            {% if s.pct == 100 %}background:#10b981;
+                            {% elif s.pct >= 60 %}background:#3b82f6;
+                            {% elif s.pct >= 30 %}background:#f59e0b;
+                            {% else %}background:#ef4444;{% endif %}"></div>
+                    </div>
+                    <div style="font-size:10.5px;color:#94a3b8;margin-top:2px;">
+                        {{ s.belum }} perangkat belum diinspeksi
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-muted text-center py-3" style="font-size:12px;">Belum ada data inspeksi</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Trend 7 hari -->
+    <div class="col-md-7">
+        <div class="card h-100">
+            <div class="card-body px-4 py-3">
+                <h6 style="font-size:13px;font-weight:700;margin-bottom:16px;">
+                    <i class="bi bi-graph-up me-2 text-success"></i>Trend Inspeksi 7 Hari Terakhir
+                </h6>
+                <canvas id="trendChart" style="max-height:180px;"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- PIE PER JENIS + TABEL BELUM DIINSPEKSI -->
+<div class="row g-3 mb-4">
+
+    <!-- Pie per jenis 30 hari -->
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body px-4 py-3">
+                <h6 style="font-size:13px;font-weight:700;margin-bottom:16px;">
+                    <i class="bi bi-pie-chart-fill me-2" style="color:#f59e0b;"></i>Inspeksi per Jenis (30 Hari)
+                </h6>
+                {% if insp_by_jenis %}
+                <canvas id="jenisChart" style="max-height:200px;"></canvas>
+                {% else %}
+                <div class="text-muted text-center py-4" style="font-size:12px;">Belum ada data</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Belum diinspeksi bulan ini -->
+    <div class="col-md-8">
+        <div class="card h-100">
+            <div class="card-body px-0 py-0">
+                <div style="padding:16px 20px 8px;border-bottom:1px solid #f1f5f9;">
+                    <h6 style="font-size:13px;font-weight:700;margin:0;">
+                        <i class="bi bi-clock-history me-2 text-warning"></i>Belum Diinspeksi Bulan Ini
+                        <span style="background:#fef9c3;color:#92400e;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700;margin-left:6px;">{{ belum_insp|length }}</span>
+                    </h6>
+                </div>
+                <div style="max-height:240px;overflow-y:auto;">
+                    <table class="table table-sm mb-0" style="font-size:12px;">
+                        <thead style="position:sticky;top:0;background:#f8fafc;z-index:1;">
+                            <tr><th>Perangkat</th><th>Jenis</th><th>Lokasi</th><th></th></tr>
+                        </thead>
+                        <tbody>
+                            {% for dev in belum_insp %}
+                            <tr>
+                                <td style="font-weight:600;color:#0f172a;">{{ dev.nama }}</td>
+                                <td>
+                                    <span style="font-size:10.5px;padding:2px 8px;border-radius:20px;font-weight:600;
+                                        {% if dev.jenis.name == 'Catu Daya' %}background:#fff7ed;color:#c2410c;
+                                        {% else %}background:#fdf4ff;color:#7e22ce;{% endif %}">
+                                        {{ dev.jenis.name }}
+                                    </span>
+                                </td>
+                                <td style="color:#64748b;">{{ dev.lokasi|default:"—" }}</td>
+                                <td>
+                                    <a href="{% url 'inspection_form' dev.pk %}" class="btn btn-xs btn-primary"
+                                       style="font-size:10.5px;padding:2px 10px;">
+                                        <i class="bi bi-clipboard2-plus me-1"></i>Inspeksi
+                                    </a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="4" class="text-center text-muted py-3">
+                                <i class="bi bi-check-circle-fill text-success me-1"></i>Semua perangkat sudah diinspeksi bulan ini!
+                            </td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- INSPEKSI TERBARU -->
+<div class="card mb-3">
+    <div class="card-body px-0 py-0">
+        <div style="padding:16px 20px 8px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;">
+            <h6 style="font-size:13px;font-weight:700;margin:0;">
+                <i class="bi bi-clock me-2 text-primary"></i>Inspeksi Terbaru
+            </h6>
+            <a href="{% url 'inspection_lokasi' %}" style="font-size:12px;color:#3b82f6;text-decoration:none;">
+                Lihat Semua <i class="bi bi-arrow-right ms-1"></i>
+            </a>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm mb-0" style="font-size:12.5px;">
+                <thead style="background:#f8fafc;">
+                    <tr><th>#</th><th>Waktu</th><th>Perangkat</th><th>Lokasi</th><th>Jenis</th><th>Operator</th><th>Status</th><th></th></tr>
+                </thead>
+                <tbody>
+                    {% for insp in recent_list %}
+                    <tr>
+                        <td style="color:#94a3b8;font-size:11px;">{{ forloop.counter }}</td>
+                        <td style="white-space:nowrap;">{{ insp.tanggal|date:"d M H:i" }}</td>
+                        <td style="font-weight:600;color:#0f172a;">{{ insp.device.nama }}</td>
+                        <td style="color:#64748b;">{{ insp.device.lokasi|default:"—" }}</td>
+                        <td>
+                            <span style="font-size:11px;padding:2px 8px;border-radius:20px;font-weight:600;
+                                {% if insp.jenis == 'catu_daya' %}background:#fff7ed;color:#c2410c;
+                                {% elif insp.jenis == 'defense_scheme' %}background:#fdf4ff;color:#7e22ce;
+                                {% elif insp.jenis == 'master_trip' %}background:#eff6ff;color:#1d4ed8;
+                                {% else %}background:#f0fdf4;color:#166534;{% endif %}">
+                                {{ insp.get_jenis_display }}
+                            </span>
+                        </td>
+                        <td style="color:#64748b;">{{ insp.operator.get_full_name|default:insp.operator.username|default:"—" }}</td>
+                        <td>
+                            {% if insp.status_kondisi == 'alarm' %}
+                            <span style="background:#fee2e2;color:#991b1b;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700;">⚠ Alarm</span>
+                            {% else %}
+                            <span style="background:#dcfce7;color:#166534;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700;">✓ Normal</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{% url 'inspection_riwayat' insp.pk %}" class="btn btn-xs btn-outline-secondary"
+                               style="font-size:10.5px;padding:2px 8px;">Detail</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="8" class="text-center text-muted py-4">
+                        <i class="bi bi-inbox fs-3 d-block mb-2"></i>Belum ada riwayat inspeksi
+                    </td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Trend 7 hari
+new Chart(document.getElementById('trendChart'), {
+    type: 'bar',
+    data: {
+        labels: [{% for t in trend_7 %}"{{ t.label }}"{% if not forloop.last %},{% endif %}{% endfor %}],
+        datasets: [{
+            label: 'Jumlah Inspeksi',
+            data: [{% for t in trend_7 %}{{ t.count }}{% if not forloop.last %},{% endif %}{% endfor %}],
+            backgroundColor: [{% for t in trend_7 %}{% if t.is_today %}'rgba(59,130,246,0.9)'{% else %}'rgba(99,102,241,0.5)'{% endif %}{% if not forloop.last %},{% endif %}{% endfor %}],
+            borderRadius: 6,
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+            x: { grid: { display: false } },
+            y: { beginAtZero: true, ticks: { precision: 0 } }
+        }
+    }
+});
+
+{% if insp_by_jenis %}
+// Pie per jenis
+const JENIS_COLORS = {
+    'catu_daya':      '#f97316',
+    'defense_scheme': '#8b5cf6',
+    'master_trip':    '#3b82f6',
+    'ufls':           '#10b981',
+};
+const jenisLabels = [{% for j in insp_by_jenis %}"{{ j.jenis }}"{% if not forloop.last %},{% endif %}{% endfor %}];
+const jenisData   = [{% for j in insp_by_jenis %}{{ j.total }}{% if not forloop.last %},{% endif %}{% endfor %}];
+const jenisBg     = jenisLabels.map(k => JENIS_COLORS[k] || '#94a3b8');
+
+new Chart(document.getElementById('jenisChart'), {
+    type: 'doughnut',
+    data: {
+        labels: jenisLabels.map(k => ({
+            catu_daya:'Catu Daya', defense_scheme:'Defense Scheme',
+            master_trip:'Master Trip', ufls:'UFLS'
+        }[k] || k)),
+        datasets: [{
+            data: jenisData,
+            backgroundColor: jenisBg,
+            borderWidth: 2,
+            borderColor: '#fff',
+        }]
+    },
+    options: {
+        responsive: true,
+        cutout: '60%',
+        plugins: {
+            legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 10 } }
+        }
+    }
+});
+{% endif %}
+</script>
+{% endblock %}

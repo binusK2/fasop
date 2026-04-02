@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Device, DeviceType, SiteLocation
+from .models import Device, DeviceType, SiteLocation, ULTG
 from .models_komponen import (
     GrupTipeKomponen, TipeKomponen,
     DeviceComponent,
@@ -128,6 +128,21 @@ class DeviceComponentAdmin(admin.ModelAdmin):
         }),
     )
 
+@admin.register(ULTG)
+class ULTGAdmin(admin.ModelAdmin):
+    list_display   = ('nama', 'jumlah_lokasi', 'jumlah_operator')
+    search_fields  = ('nama',)
+    filter_horizontal = ('lokasi',)
+
+    def jumlah_lokasi(self, obj):
+        return obj.lokasi.count()
+    jumlah_lokasi.short_description = 'Jumlah Lokasi/GI'
+
+    def jumlah_operator(self, obj):
+        return obj.operators.count()
+    jumlah_operator.short_description = 'Jumlah Operator'
+
+
 @admin.register(SiteLocation)
 class SiteLocationAdmin(admin.ModelAdmin):
     list_display  = ['nama', 'latitude', 'longitude', 'has_coords', 'keterangan']
@@ -147,8 +162,12 @@ from django.contrib.auth.models import User
 
 @admin.register(UserProfile)
 class UserProfileAdmin(admin.ModelAdmin):
-    list_display = ['user', 'role', 'force_password_change', 'has_signature']
+    list_display  = ['user', 'role', 'ultg', 'force_password_change', 'has_signature']
     list_editable = ['role', 'force_password_change']
+    list_filter   = ['role', 'ultg']
+    search_fields = ['user__username', 'user__first_name', 'user__last_name']
+    autocomplete_fields = []
+
     def has_signature(self, obj): return bool(obj.signature)
     has_signature.boolean = True
 

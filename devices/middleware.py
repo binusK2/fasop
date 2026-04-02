@@ -89,16 +89,8 @@ class OperatorAccessMiddleware:
 
 class SingleSessionMiddleware:
     """
-    Middleware yang memastikan setiap user hanya bisa login dari satu perangkat
-    dalam satu waktu (single active session).
-
-    Cara kerja:
-    - Saat user login (ditangani oleh signal user_logged_in di signals.py),
-      session key aktif disimpan ke UserProfile.active_session_key.
-    - Setiap request dari user yang sudah login, middleware membandingkan
-      session key request saat ini dengan yang tersimpan di profil.
-    - Jika tidak cocok (user sudah login di perangkat lain), session ini
-      di-logout paksa dan diarahkan ke halaman login dengan pesan peringatan.
+    Middleware single active session per user.
+    Dikecualikan untuk role Operator — operator ULTG dipakai bersama.
     """
 
     def __init__(self, get_response):
@@ -107,26 +99,27 @@ class SingleSessionMiddleware:
     def __call__(self, request):
         if request.user.is_authenticated:
             path = request.path
-            # Lewati static/media
             if path.startswith('/static/') or path.startswith('/media/'):
                 return self.get_response(request)
 
             try:
                 logout_url = reverse('logout')
-                login_url = reverse('login')
+                login_url  = reverse('login')
             except Exception:
                 logout_url = '/logout/'
-                login_url = '/login/'
+                login_url  = '/login/'
 
-            # Lewati halaman logout/login agar tidak loop
             if path not in (logout_url, login_url):
                 try:
                     profile = request.user.profile
+                    # ── Operator ULTG dikecualikan dari single-session ──
+                    if profile.role == 'operator':
+                        return self.get_response(request)
+
                     current_key = request.session.session_key or ''
-                    stored_key = profile.active_session_key or ''
+                    stored_key  = profile.active_session_key or ''
 
                     if stored_key and current_key and stored_key != current_key:
-                        # Session tidak cocok → logout paksa
                         logout(request)
                         return redirect(f"{login_url}?session_expired=1")
                 except Exception:

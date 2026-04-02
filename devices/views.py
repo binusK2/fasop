@@ -212,6 +212,16 @@ def device_delete(request, pk):
 
 @login_required
 def dashboard(request):
+    # ── Fork ke dashboard operator ───────────────────────────────
+    if not request.user.is_superuser:
+        try:
+            role = request.user.profile.role
+        except Exception:
+            role = ''
+        if role == 'operator':
+            return _dashboard_operator(request)
+
+    # ── Dashboard normal (teknisi / AM / superuser) ──────────────
     total_devices  = Device.objects.filter(is_deleted=False).count()
     dev_operasi    = Device.objects.filter(is_deleted=False, status_operasi='operasi').count()
     dev_tdk_operasi= Device.objects.filter(is_deleted=False, status_operasi='tidak_operasi').count()
@@ -382,6 +392,153 @@ def dashboard(request):
         'jadwal_terdekat':   jadwal_terdekat,
         'notif_terbaru':     notif_terbaru,
         'notif_unread_total': notif_unread_total,
+    })
+
+
+def _dashboard_operator(request):
+    """Dashboard khusus role Operator — fokus Inservice Inspection."""
+    from inspection.models import Inspection, InspectionCatuDaya, InspectionDefenseScheme
+    from inspection.models import InspectionMasterTrip, InspectionUFLS
+    from datetime import date as date_type, timedelta
+    from django.db.models import Count
+    from django.db.models.functions import TruncDate, TruncMonth
+
+    today   = date_type.today()
+    user    = request.user
+
+    INSPECTABLE = ['Catu Daya', 'RELE DEFENSE SCHEME', 'MASTER TRIP', 'UFLS']
+
+    # ── Filter berdasarkan ULTG user ──────────────────────────────
+    ultg         = None
+    ultg_lokasi  = None  # None = semua lokasi
+    try:
+        profile = request.user.profile
+        if profile.role == 'operator' and profile.ultg:
+            ultg       = profile.ultg
+            ultg_lokasi = ultg.get_lokasi_names()
+    except Exception:
+        pass
+
+    def filter_by_ultg(qs):
+        if ultg_lokasi is not None:
+            return qs.filter(device__lokasi__in=ultg_lokasi)
+        return qs
+
+    def filter_device_by_ultg(qs):
+        if ultg_lokasi is not None:
+            return qs.filter(lokasi__in=ultg_lokasi)
+        return qs
+
+    # ── Statistik harian ─────────────────────────────────────────
+    insp_base       = filter_by_ultg(Inspection.objects.all())
+    insp_hari_ini   = insp_base.filter(tanggal__date=today).count()
+    insp_hari_ini_u = insp_base.filter(tanggal__date=today, operator=user).count()
+    insp_bulan_ini  = insp_base.filter(tanggal__year=today.year, tanggal__month=today.month).count()
+    insp_total      = insp_base.count()
+
+    # ── Alarm hari ini ────────────────────────────────────────────
+    alarm_count = 0
+    for insp in insp_base.filter(tanggal__date=today).select_related('device'):
+        try:
+            if insp.jenis == 'catu_daya':
+                d = insp.detail_catu_daya
+                if d.kondisi_rectifier == 'alarm': alarm_count += 1
+            elif insp.jenis == 'defense_scheme':
+                d = insp.detail_defense_scheme
+                if d.kondisi_relay == 'faulty' or d.indikator_led == 'faulty': alarm_count += 1
+            elif insp.jenis == 'master_trip':
+                d = insp.detail_master_trip
+                if d.kondisi_relay == 'faulty' or d.indikator_led == 'faulty': alarm_count += 1
+            elif insp.jenis == 'ufls':
+                d = insp.detail_ufls
+                if d.kondisi_relay == 'faulty' or d.indikator_led == 'faulty': alarm_count += 1
+        except Exception:
+            pass
+
+    # ── Total device per jenis inspectable ───────────────────────
+    device_stats = []
+    for jenis_name in INSPECTABLE:
+        devs = filter_device_by_ultg(
+            Device.objects.filter(is_deleted=False, jenis__name=jenis_name)
+        )
+        total = devs.count()
+        if total == 0:
+            continue
+        inspected_ids = filter_by_ultg(Inspection.objects.filter(
+            device__in=devs,
+            tanggal__year=today.year, tanggal__month=today.month
+        )).values_list('device_id', flat=True).distinct()
+        sudah = len(set(inspected_ids))
+        belum = total - sudah
+        pct   = round(sudah / total * 100) if total else 0
+        device_stats.append({
+            'jenis': jenis_name, 'total': total,
+            'sudah': sudah, 'belum': belum, 'pct': pct,
+        })
+
+    # ── Trend inspeksi 7 hari terakhir ───────────────────────────
+    trend_7 = []
+    for i in range(6, -1, -1):
+        d = today - timedelta(days=i)
+        count = insp_base.filter(tanggal__date=d).count()
+        trend_7.append({'label': d.strftime('%d %b'), 'count': count, 'is_today': d == today})
+
+    # ── Trend inspeksi per jenis 30 hari ─────────────────────────
+    insp_by_jenis = (
+        insp_base
+        .filter(tanggal__date__gte=today - timedelta(days=30))
+        .values('jenis')
+        .annotate(total=Count('id'))
+        .order_by('-total')
+    )
+
+    # ── Inspeksi terbaru ──────────────────────────────────────────
+    recent_inspections = (
+        insp_base
+        .select_related('device', 'device__jenis', 'operator')
+        .order_by('-tanggal')[:10]
+    )
+    # Tambah status kondisi
+    recent_list = []
+    for insp in recent_inspections:
+        status = 'normal'
+        try:
+            if insp.jenis == 'catu_daya':
+                d = insp.detail_catu_daya
+                if d.kondisi_rectifier == 'alarm': status = 'alarm'
+            elif insp.jenis in ('defense_scheme', 'master_trip', 'ufls'):
+                if insp.jenis == 'defense_scheme': d = insp.detail_defense_scheme
+                elif insp.jenis == 'master_trip':  d = insp.detail_master_trip
+                else:                              d = insp.detail_ufls
+                if d.kondisi_relay == 'faulty' or d.indikator_led == 'faulty':
+                    status = 'alarm'
+        except Exception:
+            pass
+        insp.status_kondisi = status
+        recent_list.append(insp)
+
+    # ── Device belum diinspeksi bulan ini ─────────────────────────
+    all_inspectable = filter_device_by_ultg(
+        Device.objects.filter(is_deleted=False, jenis__name__in=INSPECTABLE)
+    ).select_related('jenis')
+    insp_ids_bulan = insp_base.filter(
+        tanggal__year=today.year, tanggal__month=today.month
+    ).values_list('device_id', flat=True).distinct()
+    belum_insp = all_inspectable.exclude(pk__in=insp_ids_bulan).order_by('jenis__name','lokasi','nama')[:15]
+
+    return render(request, 'devices/dashboard_operator.html', {
+        'today':              today,
+        'insp_hari_ini':      insp_hari_ini,
+        'insp_hari_ini_u':    insp_hari_ini_u,
+        'insp_bulan_ini':     insp_bulan_ini,
+        'insp_total':         insp_total,
+        'alarm_count':        alarm_count,
+        'device_stats':       device_stats,
+        'trend_7':            trend_7,
+        'insp_by_jenis':      list(insp_by_jenis),
+        'recent_list':        recent_list,
+        'belum_insp':         belum_insp,
+        'ultg':               ultg,
     })
 
 

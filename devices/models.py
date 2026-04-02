@@ -117,6 +117,29 @@ class Icon(models.Model):
         return self.name
 
 
+class ULTG(models.Model):
+    """Unit Layanan Transmisi dan Gardu Induk — membawahi beberapa SiteLocation."""
+    nama     = models.CharField(max_length=100, unique=True, verbose_name='Nama ULTG',
+                                help_text='Contoh: ULTG Makassar, ULTG Pare-Pare')
+    lokasi   = models.ManyToManyField(
+        'SiteLocation', blank=True,
+        verbose_name='Lokasi / GI yang dibawahi',
+        help_text='Pilih semua Gardu Induk yang berada di bawah ULTG ini'
+    )
+    keterangan = models.TextField(blank=True, verbose_name='Keterangan')
+
+    class Meta:
+        verbose_name      = 'ULTG'
+        verbose_name_plural = 'ULTG'
+        ordering          = ['nama']
+
+    def __str__(self):
+        return self.nama
+
+    def get_lokasi_names(self):
+        return list(self.lokasi.values_list('nama', flat=True))
+
+
 class SiteLocation(models.Model):
     """Menyimpan koordinat GPS untuk setiap site/lokasi peralatan."""
     nama = models.CharField(
@@ -161,6 +184,11 @@ class UserProfile(models.Model):
     active_session_key = models.CharField(
         max_length=40, blank=True, default='', verbose_name='Session Key Aktif',
         help_text='Session key dari sesi login terakhir. Otomatis diperbarui saat login.'
+    )
+    ultg = models.ForeignKey(
+        'ULTG', on_delete=models.SET_NULL, null=True, blank=True,
+        verbose_name='ULTG', related_name='operators',
+        help_text='Untuk role Operator — ULTG yang dilayani. Inspeksi hanya menampilkan lokasi ULTG ini.'
     )
 
     class Meta:

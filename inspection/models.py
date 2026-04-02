@@ -22,6 +22,8 @@ class Inspection(models.Model):
     JENIS_CHOICES = (
         ('catu_daya',      'Catu Daya'),
         ('defense_scheme', 'Rele Defense Scheme'),
+        ('master_trip',    'Master Trip'),
+        ('ufls',           'UFLS'),
     )
 
     device      = models.ForeignKey(Device, on_delete=models.CASCADE,
@@ -151,13 +153,30 @@ class InspectionCatuDaya(models.Model):
 # ─────────────────────────────────────────────────────────────────────
 class InspectionDefenseScheme(models.Model):
 
-    KONDISI_CHOICES = (
-        ('normal',      'Normal'),
-        ('alarm',       'Alarm'),
+    KONDISI_RELAY_CHOICES = (
+        ('normal', 'Normal'),
+        ('faulty', 'Faulty'),
     )
-    INDIKATOR_CHOICES = (
-        ('normal',      'Normal'),
-        ('tidak_normal','Tidak Normal'),
+    LED_CHOICES = (
+        ('normal', 'Normal'),
+        ('faulty', 'Faulty'),
+    )
+    KEBERSIHAN_CHOICES = (
+        ('bersih', 'Bersih'),
+        ('kotor',  'Kotor'),
+    )
+    LAMPU_CHOICES = (
+        ('nyala', 'Nyala'),
+        ('mati',  'Mati'),
+    )
+    SELEKTOR_CHOICES = (
+        ('on_aktif',    'ON / Aktif'),
+        ('off_nonaktif','OFF / Nonaktif'),
+    )
+    KABEL_LAN_CHOICES = (
+        ('terpasang',      'Terpasang'),
+        ('terlepas',       'Terlepas'),
+        ('tidak_tersedia', 'Tidak Tersedia'),
     )
 
     inspection = models.OneToOneField(
@@ -165,24 +184,138 @@ class InspectionDefenseScheme(models.Model):
         related_name='detail_defense_scheme'
     )
 
-    # Kondisi Relay
-    kondisi_relay            = models.CharField(max_length=15, choices=KONDISI_CHOICES,
-                                                blank=True, verbose_name='Kondisi Relay')
-    catatan_relay            = models.CharField(max_length=300, blank=True,
-                                                verbose_name='Catatan Relay')
-
-    # Indikator LED/Alarm
-    indikator_led            = models.CharField(max_length=15, choices=INDIKATOR_CHOICES,
-                                                blank=True, verbose_name='Indikator LED/Alarm')
-    catatan_led              = models.CharField(max_length=300, blank=True,
-                                                verbose_name='Catatan LED/Alarm')
-
-    # Sumber DC
-    sumber_dc                = models.FloatField(null=True, blank=True,
-                                                 verbose_name='Sumber DC (V)')
+    # Panel
+    suhu_ruangan      = models.FloatField(null=True, blank=True, verbose_name='Suhu Ruangan (°C)')
+    kebersihan_panel  = models.CharField(max_length=10, blank=True, choices=KEBERSIHAN_CHOICES, verbose_name='Kebersihan Panel')
+    lampu_panel       = models.CharField(max_length=10, blank=True, choices=LAMPU_CHOICES, verbose_name='Lampu Panel')
+    # Kondisi Rele
+    kondisi_relay     = models.CharField(max_length=15, blank=True, choices=KONDISI_RELAY_CHOICES, verbose_name='Kondisi Rele')
+    relay_healthy     = models.CharField(max_length=15, blank=True, choices=KONDISI_RELAY_CHOICES, verbose_name='Relay Healthy')
+    indikator_led     = models.CharField(max_length=15, blank=True, choices=LED_CHOICES, verbose_name='Indikasi LED')
+    catatan_relay     = models.CharField(max_length=300, blank=True, verbose_name='Catatan Relay')
+    # Selektor & Kabel
+    posisi_selektor   = models.CharField(max_length=15, blank=True, choices=SELEKTOR_CHOICES, verbose_name='Posisi Selektor Target')
+    kondisi_kabel_lan = models.CharField(max_length=20, blank=True, choices=KABEL_LAN_CHOICES, verbose_name='Kondisi Kabel LAN')
+    # Pengukuran
+    sumber_dc         = models.FloatField(null=True, blank=True, verbose_name='Sumber DC (V)')
 
     class Meta:
         verbose_name = 'Detail Inspeksi Defense Scheme'
 
     def __str__(self):
         return f'Defense Scheme — {self.inspection}'
+    
+
+# ─────────────────────────────────────────────────────────────────────
+# DETAIL MASTER TRIP
+# ─────────────────────────────────────────────────────────────────────
+class InspectionMasterTrip(models.Model):
+
+    KONDISI_RELAY_CHOICES = (
+        ('normal', 'Normal'),
+        ('faulty', 'Faulty'),
+    )
+    LED_CHOICES = (
+        ('normal', 'Normal'),
+        ('faulty', 'Faulty'),
+    )
+    KEBERSIHAN_CHOICES = (
+        ('bersih', 'Bersih'),
+        ('kotor',  'Kotor'),
+    )
+    LAMPU_CHOICES = (
+        ('nyala', 'Nyala'),
+        ('mati',  'Mati'),
+    )
+    SELEKTOR_CHOICES = (
+        ('on_aktif',    'ON / Aktif'),
+        ('off_nonaktif','OFF / Nonaktif'),
+    )
+    KABEL_LAN_CHOICES = (
+        ('terpasang',      'Terpasang'),
+        ('terlepas',       'Terlepas'),
+        ('tidak_tersedia', 'Tidak Tersedia'),
+    )
+
+    inspection = models.OneToOneField(
+        Inspection, on_delete=models.CASCADE,
+        related_name='detail_master_trip'
+    )
+
+    # Panel
+    suhu_ruangan      = models.FloatField(null=True, blank=True, verbose_name='Suhu Ruangan (°C)')
+    kebersihan_panel  = models.CharField(max_length=10, blank=True, choices=KEBERSIHAN_CHOICES, verbose_name='Kebersihan Panel')
+    lampu_panel       = models.CharField(max_length=10, blank=True, choices=LAMPU_CHOICES, verbose_name='Lampu Panel')
+    # Kondisi Rele
+    kondisi_relay     = models.CharField(max_length=15, blank=True, choices=KONDISI_RELAY_CHOICES, verbose_name='Kondisi Rele')
+    relay_healthy     = models.CharField(max_length=15, blank=True, choices=KONDISI_RELAY_CHOICES, verbose_name='Relay Healthy')
+    indikator_led     = models.CharField(max_length=15, blank=True, choices=LED_CHOICES, verbose_name='Indikasi LED')
+    catatan_relay     = models.CharField(max_length=300, blank=True, verbose_name='Catatan Relay')
+    # Selektor & Kabel
+    posisi_selektor   = models.CharField(max_length=15, blank=True, choices=SELEKTOR_CHOICES, verbose_name='Posisi Selektor Target')
+    kondisi_kabel_lan = models.CharField(max_length=20, blank=True, choices=KABEL_LAN_CHOICES, verbose_name='Kondisi Kabel LAN')
+    # Pengukuran
+    sumber_dc         = models.FloatField(null=True, blank=True, verbose_name='Sumber DC (V)')
+
+    class Meta:
+        verbose_name = 'Detail Inspeksi Master Trip'
+
+    def __str__(self):
+        return f'Master Trip — {self.inspection}'
+
+# ─────────────────────────────────────────────────────────────────────
+# DETAIL UFLS
+# ─────────────────────────────────────────────────────────────────────
+class InspectionUFLS(models.Model):
+
+    KONDISI_RELAY_CHOICES = (
+        ('normal', 'Normal'),
+        ('faulty', 'Faulty'),
+    )
+    LED_CHOICES = (
+        ('normal', 'Normal'),
+        ('faulty', 'Faulty'),
+    )
+    KEBERSIHAN_CHOICES = (
+        ('bersih', 'Bersih'),
+        ('kotor',  'Kotor'),
+    )
+    LAMPU_CHOICES = (
+        ('nyala', 'Nyala'),
+        ('mati',  'Mati'),
+    )
+    SELEKTOR_CHOICES = (
+        ('on_aktif',    'ON / Aktif'),
+        ('off_nonaktif','OFF / Nonaktif'),
+    )
+    KABEL_LAN_CHOICES = (
+        ('terpasang',      'Terpasang'),
+        ('terlepas',       'Terlepas'),
+        ('tidak_tersedia', 'Tidak Tersedia'),
+    )
+
+    inspection = models.OneToOneField(
+        Inspection, on_delete=models.CASCADE,
+        related_name='detail_ufls'
+    )
+
+    # Panel
+    suhu_ruangan      = models.FloatField(null=True, blank=True, verbose_name='Suhu Ruangan (°C)')
+    kebersihan_panel  = models.CharField(max_length=10, blank=True, choices=KEBERSIHAN_CHOICES, verbose_name='Kebersihan Panel')
+    lampu_panel       = models.CharField(max_length=10, blank=True, choices=LAMPU_CHOICES, verbose_name='Lampu Panel')
+    # Kondisi Rele
+    kondisi_relay     = models.CharField(max_length=15, blank=True, choices=KONDISI_RELAY_CHOICES, verbose_name='Kondisi Rele')
+    relay_healthy     = models.CharField(max_length=15, blank=True, choices=KONDISI_RELAY_CHOICES, verbose_name='Relay Healthy')
+    indikator_led     = models.CharField(max_length=15, blank=True, choices=LED_CHOICES, verbose_name='Indikasi LED')
+    catatan_relay     = models.CharField(max_length=300, blank=True, verbose_name='Catatan Relay')
+    # Selektor & Kabel
+    posisi_selektor   = models.CharField(max_length=15, blank=True, choices=SELEKTOR_CHOICES, verbose_name='Posisi Selektor Target')
+    kondisi_kabel_lan = models.CharField(max_length=20, blank=True, choices=KABEL_LAN_CHOICES, verbose_name='Kondisi Kabel LAN')
+    # Pengukuran
+    sumber_dc         = models.FloatField(null=True, blank=True, verbose_name='Sumber DC (V)')
+
+    class Meta:
+        verbose_name = 'Detail Inspeksi UFLS'
+
+    def __str__(self):
+        return f'UFLS — {self.inspection}'
