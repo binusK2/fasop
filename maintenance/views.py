@@ -506,18 +506,47 @@ def maintenance_delete(request, pk):
 @login_required
 def maintenance_report(request):
     today          = date.today()
+    mode           = request.GET.get('mode', 'monthly')  # 'monthly' atau 'ytd'
     selected_month = int(request.GET.get('month') or today.month)
     selected_year  = int(request.GET.get('year')  or today.year)
 
-    maintenances = (
-        Maintenance.objects
-        .filter(date__year=selected_year, date__month=selected_month)
-        .select_related('device', 'device__jenis', 'signed_by')
-        .order_by('date')
-    )
+    month_names = [
+        'Januari','Februari','Maret','April','Mei','Juni',
+        'Juli','Agustus','September','Oktober','November','Desember'
+    ]
 
-    total     = maintenances.count()
-    done      = maintenances.filter(status='Done').count()
+    if mode == 'ytd':
+        # Bulan berjalan: Januari s/d bulan sekarang di tahun selected_year
+        current_month = today.month if selected_year == today.year else 12
+        maintenances = (
+            Maintenance.objects
+            .filter(date__year=selected_year, date__month__lte=current_month)
+            .select_related('device', 'device__jenis', 'signed_by')
+            .order_by('date')
+        )
+        period_label = f"Januari — {month_names[current_month-1]} {selected_year}"
+        # Ringkasan per bulan untuk YTD
+        monthly_summary = []
+        for m in range(1, current_month + 1):
+            m_qs = maintenances.filter(date__month=m)
+            monthly_summary.append({
+                'month_name': month_names[m-1],
+                'total': m_qs.count(),
+                'done':  m_qs.filter(status='Done').count(),
+                'open':  m_qs.filter(status='Open').count(),
+            })
+    else:
+        maintenances = (
+            Maintenance.objects
+            .filter(date__year=selected_year, date__month=selected_month)
+            .select_related('device', 'device__jenis', 'signed_by')
+            .order_by('date')
+        )
+        period_label   = f"{month_names[selected_month-1]} {selected_year}"
+        monthly_summary = []
+
+    total      = maintenances.count()
+    done       = maintenances.filter(status='Done').count()
     open_count = maintenances.filter(status='Open').count()
     preventive = maintenances.filter(maintenance_type='Preventive').count()
 
@@ -533,10 +562,6 @@ def maintenance_report(request):
         open_c = maintenances.filter(device__jenis__name=jenis_name, status='Open').count()
         by_type.append({**row, 'done': done_c, 'open': open_c})
 
-    month_names = [
-        'Januari','Februari','Maret','April','Mei','Juni',
-        'Juli','Agustus','September','Oktober','November','Desember'
-    ]
     month_choices = [{'value': i+1, 'label': n} for i, n in enumerate(month_names)]
     first_year = (
         Maintenance.objects.order_by('date').first().date.year
@@ -552,7 +577,9 @@ def maintenance_report(request):
         'selected_year':   selected_year,
         'month_choices':   month_choices,
         'year_choices':    year_choices,
-        'period_label':    f"{month_names[selected_month-1]} {selected_year}",
+        'period_label':    period_label,
+        'mode':            mode,
+        'monthly_summary': monthly_summary,
     })
 
 
@@ -566,78 +593,257 @@ def export_maintenance_excel(request):
     jenis_id  = request.GET.get('jenis') or ''
     date_from = request.GET.get('date_from') or ''
     date_to   = request.GET.get('date_to') or ''
-    year      = request.GET.get('year') or ''
+    year      = int(request.GET.get('year') or date.today().year)
     month     = request.GET.get('month') or ''
+    mode      = request.GET.get('mode', 'monthly')
 
-    qs = Maintenance.objects.select_related('device','device__jenis','signed_by').prefetch_related('technicians').order_by('-date')
+    month_names = [
+        'Januari','Februari','Maret','April','Mei','Juni',
+        'Juli','Agustus','September','Oktober','November','Desember'
+    ]
 
-    if status:    qs = qs.filter(status=status)
-    if lokasi:    qs = qs.filter(device__lokasi__iexact=lokasi)
-    if jenis_id:  qs = qs.filter(device__jenis_id=jenis_id)
-    if date_from: qs = qs.filter(date__gte=date_from)
-    if date_to:   qs = qs.filter(date__lte=date_to)
-    if year and month:
-        qs = qs.filter(date__year=int(year), date__month=int(month))
+    qs = Maintenance.objects.select_related(
+        'device','device__jenis','signed_by'
+    ).prefetch_related('technicians').order_by('date')
+
+    if mode == 'ytd':
+        current_month = date.today().month if year == date.today().year else 12
+        qs = qs.filter(date__year=year, date__month__lte=current_month)
+        filename = f"pemeliharaan_YTD_{year}_Jan-{month_names[current_month-1]}.xlsx"
+        title    = f"LAPORAN PEMELIHARAAN {year} (Januari — {month_names[current_month-1]})"
+    else:
+        if status:    qs = qs.filter(status=status)
+        if lokasi:    qs = qs.filter(device__lokasi__iexact=lokasi)
+        if jenis_id:  qs = qs.filter(device__jenis_id=jenis_id)
+        if date_from: qs = qs.filter(date__gte=date_from)
+        if date_to:   qs = qs.filter(date__lte=date_to)
+        if year and month:
+            qs = qs.filter(date__year=int(year), date__month=int(month))
+            filename = f"pemeliharaan_{year}_{month_names[int(month)-1]}.xlsx"
+            title    = f"DATA PEMELIHARAAN {month_names[int(month)-1]} {year}"
+        else:
+            filename = "pemeliharaan_fasop.xlsx"
+            title    = "DATA PEMELIHARAAN PERALATAN FASOP UP2B"
+
+    # ── Style helpers ────────────────────────────────────────────────
+    hdr_fill  = PatternFill("solid", fgColor="0F172A")
+    hdr_font  = Font(bold=True, color="FFFFFF", size=10)
+    hdr_align = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    c_align   = Alignment(horizontal="center", vertical="center")
+    l_align   = Alignment(vertical="center", wrap_text=True)
+    thin      = Border(left=Side(style='thin'), right=Side(style='thin'),
+                       top=Side(style='thin'),  bottom=Side(style='thin'))
+    done_fill = PatternFill("solid", fgColor="D1FAE5")
+    open_fill = PatternFill("solid", fgColor="FEF3C7")
+    alt_fill  = PatternFill("solid", fgColor="F8FAFC")
+    norm_fill = PatternFill("solid", fgColor="DCFCE7")
+    abnorm_fill = PatternFill("solid", fgColor="FEE2E2")
+
+    def write_header(ws, title_text, headers, col_widths, color="0F172A"):
+        ncols = len(headers)
+        last  = get_column_letter(ncols)
+        ws.merge_cells(f"A1:{last}1")
+        ws["A1"].value     = title_text
+        ws["A1"].font      = Font(bold=True, size=12)
+        ws["A1"].alignment = Alignment(horizontal="center", vertical="center")
+        ws["A1"].fill      = PatternFill("solid", fgColor="EFF6FF")
+        ws.row_dimensions[1].height = 28
+        ws.merge_cells(f"A2:{last}2")
+        ws["A2"].value     = f"Dicetak: {date.today().strftime('%d %B %Y')}"
+        ws["A2"].alignment = Alignment(horizontal="center")
+        ws["A2"].font      = Font(size=10, italic=True, color="64748B")
+        ws.row_dimensions[3].height = 6
+        hf = PatternFill("solid", fgColor=color)
+        for ci, (h, w) in enumerate(zip(headers, col_widths), 1):
+            cell = ws.cell(row=4, column=ci, value=h)
+            cell.font      = hdr_font
+            cell.fill      = hf
+            cell.alignment = hdr_align
+            cell.border    = thin
+            ws.column_dimensions[get_column_letter(ci)].width = w
+        ws.row_dimensions[4].height = 22
+        ws.freeze_panes = "A5"
+
+    def write_rows_maintenance(ws, rows_qs, start_row=5):
+        """Sheet mode maintenance biasa."""
+        for ri, m in enumerate(rows_qs, 1):
+            wr = ri + start_row - 1
+            techs = ", ".join(
+                t.get_full_name() or t.username for t in m.technicians.all()
+            ) or (", ".join(m.pelaksana_names) if m.pelaksana_names else "-")
+            row_data = [
+                ri,
+                m.date.strftime("%d/%m/%Y"),
+                m.date.strftime("%B"),
+                str(m.device),
+                m.device.lokasi or "-",
+                m.maintenance_type,
+                techs,
+                m.description or "-",
+                m.status,
+            ]
+            for ci, val in enumerate(row_data, 1):
+                cell = ws.cell(row=wr, column=ci, value=val)
+                cell.border    = thin
+                cell.alignment = c_align if ci in [1,2,3,6,9] else l_align
+                if ci == 9:
+                    cell.fill = done_fill if val == "Done" else open_fill
+                    cell.font = Font(bold=True, color="065F46" if val == "Done" else "92400E")
+                elif ri % 2 == 0:
+                    cell.fill = alt_fill
+            ws.row_dimensions[wr].height = 18
+
+    def write_rows_assessment(ws, devices_qs, maint_map, start_row=5):
+        """Sheet per jenis — format asesmen."""
+        for ri, dev in enumerate(devices_qs, 1):
+            wr = ri + start_row - 1
+            # Ambil maintenance terakhir di periode YTD
+            last_maint = maint_map.get(dev.pk)
+            tgl_assesmen = last_maint.date.strftime("%d/%m/%Y") if last_maint else "—"
+            # Hasil asesmen dari status_operasi device
+            status_op = (dev.status_operasi or "").lower()
+            if status_op == "operasi":
+                hasil   = "Normal"
+                h_fill  = norm_fill
+                h_color = "166534"
+            else:
+                hasil   = "Tidak Normal"
+                h_fill  = abnorm_fill
+                h_color = "991B1B"
+            row_data = [
+                ri,
+                "UP2B MAKASSAR",
+                dev.lokasi or "—",
+                dev.merk or "—",
+                dev.type or "—",
+                hasil,
+                tgl_assesmen,
+                dev.keterangan or "—",
+            ]
+            for ci, val in enumerate(row_data, 1):
+                cell = ws.cell(row=wr, column=ci, value=val)
+                cell.border    = thin
+                cell.alignment = c_align if ci in [1,2,7] else l_align
+                if ci == 6:
+                    cell.fill = h_fill
+                    cell.font = Font(bold=True, color=h_color)
+                elif ri % 2 == 0:
+                    cell.fill = alt_fill
+            ws.row_dimensions[wr].height = 18
 
     wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Data Pemeliharaan"
+    wb.remove(wb.active)
 
-    hdr_fill   = PatternFill("solid", fgColor="0F172A")
-    hdr_font   = Font(bold=True, color="FFFFFF", size=11)
-    hdr_align  = Alignment(horizontal="center", vertical="center", wrap_text=True)
-    c_align    = Alignment(horizontal="center", vertical="center")
-    thin       = Border(left=Side(style='thin'), right=Side(style='thin'),
-                        top=Side(style='thin'),  bottom=Side(style='thin'))
-    done_fill  = PatternFill("solid", fgColor="D1FAE5")
-    open_fill  = PatternFill("solid", fgColor="FEF3C7")
-    alt_fill   = PatternFill("solid", fgColor="F8FAFC")
+    if mode == "ytd":
+        # ── Sheet Ringkasan YTD ──────────────────────────────────────
+        ws_sum = wb.create_sheet("Ringkasan")
+        ws_sum.sheet_properties.tabColor = "0F172A"
+        ws_sum.merge_cells("A1:G1")
+        ws_sum["A1"].value     = title
+        ws_sum["A1"].font      = Font(bold=True, size=12)
+        ws_sum["A1"].alignment = Alignment(horizontal="center", vertical="center")
+        ws_sum["A1"].fill      = PatternFill("solid", fgColor="EFF6FF")
+        ws_sum.row_dimensions[1].height = 28
 
-    ws.merge_cells('A1:H1')
-    ws['A1'].value = "DATA PEMELIHARAAN PERALATAN FASOP UP2B"
-    ws['A1'].font  = Font(bold=True, size=13)
-    ws['A1'].alignment = Alignment(horizontal="center", vertical="center")
-    ws['A1'].fill  = PatternFill("solid", fgColor="EFF6FF")
-    ws.row_dimensions[1].height = 28
+        sum_headers = ["Bulan", "Total", "Preventive", "Corrective", "Done", "Open"]
+        sum_widths  = [18, 10, 14, 14, 10, 10]
+        for ci, (h, w) in enumerate(zip(sum_headers, sum_widths), 1):
+            cell = ws_sum.cell(row=3, column=ci, value=h)
+            cell.font = hdr_font; cell.fill = hdr_fill
+            cell.alignment = hdr_align; cell.border = thin
+            ws_sum.column_dimensions[get_column_letter(ci)].width = w
+        ws_sum.row_dimensions[3].height = 20
 
-    ws.merge_cells('A2:H2')
-    ws['A2'].value = f"Dicetak: {date.today().strftime('%d %B %Y')}"
-    ws['A2'].alignment = Alignment(horizontal="center")
-    ws['A2'].font  = Font(size=10, italic=True, color="64748B")
-    ws.row_dimensions[3].height = 6
+        for ri, m_name in enumerate(month_names[:current_month], 1):
+            m_qs = qs.filter(date__month=ri)
+            row_data = [
+                m_name, m_qs.count(),
+                m_qs.filter(maintenance_type="Preventive").count(),
+                m_qs.filter(maintenance_type="Corrective").count(),
+                m_qs.filter(status="Done").count(),
+                m_qs.filter(status="Open").count(),
+            ]
+            for ci, val in enumerate(row_data, 1):
+                cell = ws_sum.cell(row=ri+3, column=ci, value=val)
+                cell.border    = thin
+                cell.alignment = c_align if ci > 1 else Alignment(vertical="center")
+                if ri % 2 == 0: cell.fill = alt_fill
+            ws_sum.row_dimensions[ri+3].height = 18
 
-    headers    = ['No','Tanggal','Perangkat','Lokasi','Jenis','Pelaksana','Deskripsi','Status']
-    col_widths = [5, 14, 25, 20, 18, 18, 35, 12]
-
-    for ci, (h, w) in enumerate(zip(headers, col_widths), 1):
-        cell = ws.cell(row=4, column=ci, value=h)
-        cell.font = hdr_font; cell.fill = hdr_fill
-        cell.alignment = hdr_align; cell.border = thin
-        ws.column_dimensions[get_column_letter(ci)].width = w
-    ws.row_dimensions[4].height = 22
-
-    for ri, m in enumerate(qs, 1):
-        wr = ri + 4
-        row_data = [ri, m.date.strftime('%d/%m/%Y'), str(m.device), m.device.lokasi,
-                    m.maintenance_type, ', '.join(t.get_full_name() or t.username for t in m.technicians.all()) or '-',
-                    m.description or '-', m.status]
-        for ci, val in enumerate(row_data, 1):
-            cell = ws.cell(row=wr, column=ci, value=val)
+        # Total row
+        tr = current_month + 4
+        total_row = ["TOTAL", qs.count(),
+                     qs.filter(maintenance_type="Preventive").count(),
+                     qs.filter(maintenance_type="Corrective").count(),
+                     qs.filter(status="Done").count(),
+                     qs.filter(status="Open").count()]
+        for ci, val in enumerate(total_row, 1):
+            cell = ws_sum.cell(row=tr, column=ci, value=val)
+            cell.font   = Font(bold=True)
+            cell.fill   = PatternFill("solid", fgColor="DBEAFE")
             cell.border = thin
-            cell.alignment = c_align if ci in [1,2,5,8] else Alignment(vertical="center", wrap_text=True)
-            if ci == 8:
-                cell.fill = done_fill if val == 'Done' else open_fill
-                cell.font = Font(bold=True, color="065F46" if val == 'Done' else "92400E")
-            elif ri % 2 == 0:
-                cell.fill = alt_fill
-        ws.row_dimensions[wr].height = 18
+            cell.alignment = c_align if ci > 1 else Alignment(vertical="center")
 
-    ws.freeze_panes = 'A5'
-    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = 'attachment; filename="pemeliharaan_fasop.xlsx"'
+        # ── Buat maint_map: device_pk → maintenance terakhir di YTD ─
+        from django.db.models import Max
+        # Ambil pk maintenance terbaru per device dalam periode YTD
+        latest_ids = (
+            qs.values("device_id")
+              .annotate(latest=Max("date"))
+        )
+        maint_map = {}
+        for row in latest_ids:
+            m = qs.filter(device_id=row["device_id"], date=row["latest"]).first()
+            if m:
+                maint_map[row["device_id"]] = m
+
+        # ── Sheet per jenis perangkat ────────────────────────────────
+        JENIS_COLORS = {
+            "Router": "2563EB", "Switch": "7C3AED", "PLC": "0891B2",
+            "Radio": "D97706", "VoIP": "9333EA", "Multiplexer": "0D9488",
+            "Catu Daya": "EA580C", "Rectifier": "DC2626",
+            "Teleproteksi": "4F46E5", "Genset": "16A34A",
+        }
+        from devices.models import DeviceType
+        asmt_headers = ["No", "UP2B", "Lokasi", "Merk", "Type",
+                        "Hasil Asesmen (Status Aset)", "Tanggal Asesmen", "Keterangan"]
+        asmt_widths  = [5, 18, 22, 20, 20, 28, 18, 30]
+
+        all_jenis = DeviceType.objects.order_by("name")
+        for jenis in all_jenis:
+            devs = Device.objects.filter(
+                jenis=jenis, is_deleted=False
+            ).order_by("lokasi", "nama")
+            if not devs.exists():
+                continue
+            sheet_name = jenis.name[:31]
+            color = JENIS_COLORS.get(jenis.name, "334155")
+            ws_j  = wb.create_sheet(sheet_name)
+            ws_j.sheet_properties.tabColor = color
+            write_header(ws_j, f"{jenis.name.upper()} — {title}", asmt_headers, asmt_widths, color)
+            write_rows_assessment(ws_j, devs, maint_map)
+
+        # ── Sheet semua data maintenance ─────────────────────────────
+        ws_all = wb.create_sheet("Semua Data Maintenance")
+        ws_all.sheet_properties.tabColor = "64748B"
+        maint_headers = ["No","Tanggal","Bulan","Perangkat","Lokasi","Jenis Maint.","Pelaksana","Deskripsi","Status"]
+        maint_widths  = [5, 12, 12, 25, 20, 14, 20, 35, 10]
+        write_header(ws_all, title, maint_headers, maint_widths)
+        write_rows_maintenance(ws_all, qs)
+
+    else:
+        ws = wb.create_sheet("Data Pemeliharaan")
+        headers    = ["No","Tanggal","Bulan","Perangkat","Lokasi","Jenis Maint.","Pelaksana","Deskripsi","Status"]
+        col_widths = [5, 12, 12, 25, 20, 14, 20, 35, 10]
+        write_header(ws, title, headers, col_widths)
+        write_rows_maintenance(ws, qs)
+
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
     wb.save(response)
     return response
-
 
 # ─────────────────────────────────────────────────────────────────────
 # EXPORT PDF LAPORAN PEMELIHARAAN
