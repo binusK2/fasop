@@ -177,10 +177,11 @@ def user_permissions(request):
             'user_is_viewer':         False,
         }
 
-    from devices.permissions import can_edit, can_delete, can_manage_lokasi, is_viewer_only
+    from devices.permissions import can_edit, can_delete, can_manage_lokasi, is_viewer_only, is_operator
     return {
         'user_can_edit':          can_edit(request.user),
         'user_can_delete':        can_delete(request.user),
         'user_can_manage_lokasi': can_manage_lokasi(request.user),
         'user_is_viewer':         is_viewer_only(request.user),
+        'user_is_operator':       is_operator(request.user),
     }

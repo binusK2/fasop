@@ -145,6 +145,7 @@ class SiteLocation(models.Model):
 class UserProfile(models.Model):
     ROLE_CHOICES = (
         ('viewer',           'Viewer (Hanya Lihat)'),
+        ('operator',         'Operator'),
         ('technician',       'Teknisi / Engineer'),
         ('asisten_manager',  'Asisten Manager Operasi'),
     )
@@ -180,6 +181,10 @@ class UserProfile(models.Model):
     @property
     def is_viewer(self):
         return self.role == 'viewer'
+
+    @property
+    def is_operator(self):
+        return self.role == 'operator'
 
     # ── Permission shortcuts ──────────────────────────────────────
     @property

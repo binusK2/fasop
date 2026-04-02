@@ -42,6 +42,51 @@ class ForcePasswordChangeMiddleware:
         return self.get_response(request)
 
 
+class OperatorAccessMiddleware:
+    """
+    Middleware untuk role Operator — hanya bisa akses:
+    - Dashboard (/)
+    - Inspection (/inspection/...)
+    - Logout, login, password change, static, media
+    Semua URL lain → redirect ke inspection_lokasi.
+    """
+
+    # Prefix URL yang boleh diakses operator
+    ALLOWED_PREFIXES = (
+        '/inspection/',
+        '/static/',
+        '/media/',
+        '/logout/',
+        '/login/',
+        '/ganti-password/',
+        '/notifikasi/',
+    )
+
+    # Exact URL yang boleh (dashboard)
+    ALLOWED_EXACT = ('/',)
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if request.user.is_authenticated and not request.user.is_superuser:
+            try:
+                role = request.user.profile.role
+            except Exception:
+                role = ''
+
+            if role == 'operator':
+                path = request.path
+                allowed = (
+                    any(path.startswith(p) for p in self.ALLOWED_PREFIXES)
+                    or path in self.ALLOWED_EXACT
+                )
+                if not allowed:
+                    return redirect('inspection_lokasi')
+
+        return self.get_response(request)
+
+
 class SingleSessionMiddleware:
     """
     Middleware yang memastikan setiap user hanya bisa login dari satu perangkat

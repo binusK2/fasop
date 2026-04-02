@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'notifikasi',
     'jadwal',
     'gudang',
+    'inspection',
 ]
 
 MIDDLEWARE = [
@@ -57,6 +58,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'devices.middleware.ForcePasswordChangeMiddleware',
+    'devices.middleware.OperatorAccessMiddleware',
     'devices.middleware.SingleSessionMiddleware',
 ]
 

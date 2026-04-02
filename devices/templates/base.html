@@ -682,6 +682,18 @@
         </a>
     </div>
 
+    <!-- INSERVICE INSPECTION — tampil untuk operator, technician, AM, superuser -->
+    {% if user_is_operator or user_can_edit or request.user.is_superuser %}
+    <div class="sidebar-section">
+        <div class="sidebar-section-label">Inspeksi</div>
+        <a href="{% url 'inspection_lokasi' %}"
+           class="sidebar-link {% if 'inspection' in request.resolver_match.url_name %}active{% endif %}">
+            <span class="si-icon"><i class="bi bi-clipboard2-check-fill"></i></span>
+            Inservice Inspection
+        </a>
+    </div>
+    {% endif %}
+
     <div class="sidebar-section">
         <div class="sidebar-section-label">Layanan & Infrastruktur</div>
         <a href="{% url 'layanan_icon' %}"

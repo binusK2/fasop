@@ -35,6 +35,9 @@ urlpatterns = [
     # Gudang — alat uji & spare part
     path('gudang/', include('gudang.urls')),
 
+    # Inservice Inspection — role Operator
+    path('inspection/', include('inspection.urls')),
+
     path('login/', auth_views.LoginView.as_view(template_name='registration/login.html'), name='login'),
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
     path('ganti-password/', include('devices.urls_auth')),

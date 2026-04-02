@@ -1,0 +1,192 @@
+{% extends 'base.html' %}
+{% block title %}Riwayat Inspeksi — {{ insp.device.nama }}{% endblock %}
+{% block page_title %}Detail Inspeksi{% endblock %}
+
+{% block content %}
+
+<div class="d-flex align-items-center gap-2 mb-3">
+    <a href="{% url 'inspection_riwayat_device' insp.device.pk %}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Kembali ke Riwayat
+    </a>
+</div>
+
+<!-- HEADER -->
+<div class="card mb-4" style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);border:none;">
+    <div class="card-body py-3 px-4">
+        <div class="d-flex align-items-center gap-4 flex-wrap">
+            <div>
+                <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;">Perangkat</div>
+                <div style="font-size:16px;font-weight:700;color:#f1f5f9;">{{ insp.device.nama }}</div>
+            </div>
+            <div class="vr" style="background:rgba(255,255,255,0.1);width:1px;align-self:stretch;"></div>
+            <div><div style="font-size:11px;color:#94a3b8;text-transform:uppercase;font-weight:600;">Jenis</div>
+                <div style="font-size:13px;color:#cbd5e1;">{{ insp.get_jenis_display }}</div></div>
+            <div><div style="font-size:11px;color:#94a3b8;text-transform:uppercase;font-weight:600;">Tanggal</div>
+                <div style="font-size:13px;color:#cbd5e1;">{{ insp.tanggal|date:"d M Y H:i" }}</div></div>
+            <div><div style="font-size:11px;color:#94a3b8;text-transform:uppercase;font-weight:600;">Operator</div>
+                <div style="font-size:13px;color:#cbd5e1;">{{ insp.operator.get_full_name|default:insp.operator.username|default:"—" }}</div></div>
+        </div>
+    </div>
+</div>
+
+{% if detail %}
+
+{% if insp.jenis == 'catu_daya' %}
+<!-- CATU DAYA DETAIL -->
+<!-- Rectifier -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="d-flex align-items-center gap-2 mb-3">
+            <span style="width:5px;height:18px;background:#f97316;border-radius:3px;display:inline-block;"></span>
+            <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;color:#64748b;">Rectifier</h6>
+        </div>
+        <div class="row g-3">
+            {% for row in rectifier_rows %}
+            <div class="col-md-3 col-6">
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;">
+                    <div style="font-size:10.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;">{{ row.label }}</div>
+                    {% if row.val %}
+                        {% if row.ok %}
+                        <span style="background:#dcfce7;color:#166534;padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;">✓ {{ row.display }}</span>
+                        {% else %}
+                        <span style="background:{{ row.bg }};color:{{ row.fg }};padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;">{{ row.display }}</span>
+                        {% endif %}
+                    {% else %}
+                    <span style="color:#94a3b8;font-size:12px;">—</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% if detail.catatan_rectifier %}<div class="mt-2" style="font-size:12px;color:#64748b;"><i class="bi bi-chat-text me-1"></i>{{ detail.catatan_rectifier }}</div>{% endif %}
+    </div>
+</div>
+
+<!-- Bank Baterai -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="d-flex align-items-center gap-2 mb-3">
+            <span style="width:5px;height:18px;background:#10b981;border-radius:3px;display:inline-block;"></span>
+            <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;color:#64748b;">Bank Baterai</h6>
+        </div>
+        <div class="row g-3">
+            {% for row in bank_rows %}
+            <div class="col-md-3 col-6">
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;">
+                    <div style="font-size:10.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;">{{ row.label }}</div>
+                    {% if row.val %}
+                        {% if row.ok %}
+                        <span style="background:#dcfce7;color:#166534;padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;">✓ {{ row.display }}</span>
+                        {% else %}
+                        <span style="background:{{ row.bg }};color:{{ row.fg }};padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;">{{ row.display }}</span>
+                        {% endif %}
+                    {% else %}
+                    <span style="color:#94a3b8;font-size:12px;">—</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% if detail.catatan_baterai %}<div class="mt-2" style="font-size:12px;color:#64748b;"><i class="bi bi-chat-text me-1"></i>{{ detail.catatan_baterai }}</div>{% endif %}
+    </div>
+</div>
+
+<!-- Kondisi Keseluruhan -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="d-flex align-items-center gap-2 mb-2">
+            <span style="width:5px;height:18px;background:#f59e0b;border-radius:3px;display:inline-block;"></span>
+            <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;color:#64748b;">Kondisi Keseluruhan</h6>
+        </div>
+        {% if detail.kondisi_keseluruhan == 'bersih' %}
+        <span style="background:#dcfce7;color:#166534;padding:4px 14px;border-radius:20px;font-size:12px;font-weight:700;">✓ Bersih</span>
+        {% elif detail.kondisi_keseluruhan == 'kotor' %}
+        <span style="background:#fef9c3;color:#854d0e;padding:4px 14px;border-radius:20px;font-size:12px;font-weight:700;">Kotor</span>
+        {% else %}<span style="color:#94a3b8;">—</span>{% endif %}
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="d-flex align-items-center gap-2 mb-3">
+            <span style="width:5px;height:18px;background:#6366f1;border-radius:3px;display:inline-block;"></span>
+            <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;color:#64748b;">Hasil Pengukuran</h6>
+        </div>
+        <div class="row g-3">
+            {% for label,val,unit in detail_rows %}
+            <div class="col-md-2">
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px;text-align:center;">
+                    <div style="font-size:10.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:5px;">{{ label }}</div>
+                    <div style="font-size:20px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;">{{ val|default:"—" }}</div>
+                    {% if val %}<div style="font-size:10px;color:#94a3b8;">{{ unit }}</div>{% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+{% elif insp.jenis == 'defense_scheme' %}
+<!-- DEFENSE SCHEME DETAIL -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="d-flex align-items-center gap-2 mb-3">
+            <span style="width:5px;height:18px;background:#8b5cf6;border-radius:3px;display:inline-block;"></span>
+            <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;color:#64748b;">Kondisi Rele Defense Scheme</h6>
+        </div>
+        <div class="row g-3">
+            <div class="col-md-3">
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px;">
+                    <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;">Kondisi Relay</div>
+                    {% if detail.kondisi_relay == 'alarm' %}
+                    <span style="background:#fee2e2;color:#991b1b;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;">⚠ Alarm</span>
+                    {% else %}
+                    <span style="background:#dcfce7;color:#166534;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;">✓ Normal</span>
+                    {% endif %}
+                    {% if detail.catatan_relay %}<div style="font-size:11px;color:#64748b;margin-top:6px;">{{ detail.catatan_relay }}</div>{% endif %}
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px;">
+                    <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;">Indikator LED/Alarm</div>
+                    {% if detail.indikator_led == 'tidak_normal' %}
+                    <span style="background:#fee2e2;color:#991b1b;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;">⚠ Tidak Normal</span>
+                    {% else %}
+                    <span style="background:#dcfce7;color:#166534;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;">✓ Normal</span>
+                    {% endif %}
+                    {% if detail.catatan_led %}<div style="font-size:11px;color:#64748b;margin-top:6px;">{{ detail.catatan_led }}</div>{% endif %}
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px;text-align:center;">
+                    <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:5px;">Sumber DC</div>
+                    <div style="font-size:22px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;">{{ detail.sumber_dc|default:"—" }}</div>
+                    {% if detail.sumber_dc %}<div style="font-size:10px;color:#94a3b8;">V</div>{% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endif %}
+
+{% if insp.foto %}
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:10px;">Foto Dokumentasi</div>
+        <img src="{{ insp.foto.url }}" alt="Foto" style="max-width:400px;border-radius:10px;border:1px solid #e2e8f0;">
+    </div>
+</div>
+{% endif %}
+
+{% if insp.catatan %}
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;">Catatan</div>
+        <p style="font-size:13.5px;color:#334155;margin:0;">{{ insp.catatan }}</p>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
