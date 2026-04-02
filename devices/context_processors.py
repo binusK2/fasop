@@ -25,7 +25,7 @@ DEVICE_GROUP_CONFIG = {
         'icon': 'bi-shield-check',
         'color': '#f59e0b',
         'types': [
-            'defense scheme', 'rele defense scheme', 'dfr', 'server prosis',
+            'defense scheme', 'rele defense scheme', 'dfr', 'master trip', 'ufls', 'server prosis',
         ],
     },
 }
@@ -37,7 +37,7 @@ DEVICE_TYPE_ORDER_IN_GROUP = [
     "RTU", "SAS", "SERVER SCADA", "UPS",
     "IED BCU", "CLOCK SERVER", "SERIAL SERVER", "ROUTER SAS", "SWITCH SAS", "INVERTER SAS",
 
-    "RELE DEFENSE SCHEME", "DFR", "SERVER PROSIS", 
+    "RELE DEFENSE SCHEME", "MASTER TRIP", "UFLS", "DFR", "SERVER PROSIS", 
     "Catu Daya", "Workstation PC", "GPS", "GENSET",
 ]
 
