@@ -42,6 +42,16 @@ class Inspection(models.Model):
     catatan     = models.TextField(blank=True, verbose_name='Catatan Umum')
     created_at  = models.DateTimeField(auto_now_add=True)
 
+    # ── Flag oleh Engineer / AM ───────────────────────────────────
+    is_flagged   = models.BooleanField(default=False, verbose_name='Diflag')
+    flag_catatan = models.TextField(blank=True, verbose_name='Catatan Flag')
+    flagged_by   = models.ForeignKey(User, on_delete=models.SET_NULL,
+                                     null=True, blank=True,
+                                     related_name='flagged_inspections',
+                                     verbose_name='Diflag oleh')
+    flagged_at   = models.DateTimeField(null=True, blank=True,
+                                        verbose_name='Waktu Flag')
+
     class Meta:
         ordering = ['-tanggal']
         verbose_name = 'Inspeksi Inservice'

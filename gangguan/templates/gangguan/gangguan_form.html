@@ -159,6 +159,14 @@
                     </div>
                 </div>
                 <div class="field-hint">Opsional — pilih jenis lalu cari nama perangkat</div>
+                <!-- Warning inspeksi terakhir -->
+                <div id="insp-warning-box" style="display:none;margin-top:8px;padding:10px 14px;background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;">
+                    <div style="font-size:12px;font-weight:700;color:#991b1b;margin-bottom:4px;">
+                        <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                        <span id="insp-warning-text"></span>
+                    </div>
+                    <div id="insp-warning-detail" style="font-size:11.5px;color:#64748b;"></div>
+                </div>
             </div>
             <div class="col-md-12" id="komponen-rusak-wrapper" style="display:none;">
                 <label class="field-label"><i class="bi bi-cpu me-1" style="color:#8b5cf6;"></i>Komponen Rusak</label>
@@ -546,12 +554,35 @@ function selectPeralatan(d) {
 
     // ── Load komponen via AJAX ──────────────────────────────
     loadKomponenByDevice(d.id);
+
+    // ── Cek inspeksi terakhir perangkat ─────────────────────
+    fetchInspeksiWarning(d.id);
+}
+
+function fetchInspeksiWarning(deviceId) {
+    const box  = document.getElementById('insp-warning-box');
+    const txt  = document.getElementById('insp-warning-text');
+    const dtl  = document.getElementById('insp-warning-detail');
+    if (!box) return;
+    box.style.display = 'none';
+
+    fetch(`/inspection/api/last/?device=${deviceId}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+            if (!data || !data.has_alarm) return;
+            txt.textContent = data.warning;
+            dtl.innerHTML   = data.detail || '';
+            box.style.display = 'block';
+        })
+        .catch(() => {});
 }
 
 function clearPeralatan() {
     document.getElementById('id_peralatan').value = '';
     document.getElementById('peralatan-selected').style.display = 'none';
     document.getElementById('peralatan-selected-nama').textContent = '—';
+    const box = document.getElementById('insp-warning-box');
+    if (box) box.style.display = 'none';
     // Clear komponen
     document.getElementById('komponen-rusak-wrapper').style.display = 'none';
     document.getElementById('id_komponen_rusak').innerHTML = '<option value="">— Pilih komponen (opsional) —</option>';

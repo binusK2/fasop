@@ -19,6 +19,41 @@
             <a href="{% url 'inspection_export' %}" class="btn btn-sm btn-outline-success">
                 <i class="bi bi-file-earmark-excel me-1"></i>Export
             </a>
+            <div class="dropdown">
+                <button class="btn btn-sm btn-success dropdown-toggle" data-bs-toggle="dropdown">
+                    <i class="bi bi-file-earmark-excel-fill me-1"></i>Export per ULTG
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end" style="min-width:280px;padding:12px;">
+                    <li><h6 class="dropdown-header" style="font-size:11px;">Pilih ULTG & Bulan</h6></li>
+                    <li>
+                        <form action="{% url 'inspection_export_ultg' %}" method="get" class="px-2">
+                            <div class="mb-2">
+                                <select name="ultg" class="form-select form-select-sm">
+                                    <option value="">— Semua ULTG —</option>
+                                    {% for ultg_item in all_ultg %}
+                                    <option value="{{ ultg_item.pk }}">{{ ultg_item.nama }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="d-flex gap-1 mb-2">
+                                <select name="month" class="form-select form-select-sm">
+                                    {% for m in month_choices %}
+                                    <option value="{{ m.val }}" {% if m.val == today.month %}selected{% endif %}>{{ m.label }}</option>
+                                    {% endfor %}
+                                </select>
+                                <select name="year" class="form-select form-select-sm" style="width:90px;">
+                                    {% for y in year_choices %}
+                                    <option value="{{ y }}" {% if y == today.year %}selected{% endif %}>{{ y }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-sm btn-success w-100">
+                                <i class="bi bi-download me-1"></i>Download Excel
+                            </button>
+                        </form>
+                    </li>
+                </ul>
+            </div>
         </div>
     </div>
 </div>
@@ -144,7 +179,41 @@
     </div>
 </div>
 
-<!-- ALARM TERBARU + INSPEKSI TERBARU -->
+<!-- FLAGGED + ALARM TERBARU + INSPEKSI TERBARU -->
+<!-- FLAGGED + ALARM TERBARU + INSPEKSI TERBARU -->
+
+{% if flagged_list %}
+<div class="card mb-3" style="border:1.5px solid #fde68a;">
+    <div class="card-body px-0 py-0">
+        <div style="padding:12px 18px 8px;background:#fef9c3;border-bottom:1px solid #fde68a;border-radius:8px 8px 0 0;">
+            <h6 style="font-size:13px;font-weight:700;margin:0;color:#92400e;">
+                <i class="bi bi-flag-fill me-2"></i>Inspeksi Diflag — Perlu Tindak Lanjut
+                <span style="background:#f59e0b;color:#fff;padding:1px 8px;border-radius:20px;font-size:11px;margin-left:4px;">{{ flagged_list|length }}</span>
+            </h6>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm mb-0" style="font-size:12px;">
+                <thead style="background:#fffbeb;">
+                    <tr><th>Tanggal</th><th>Perangkat</th><th>Lokasi</th><th>Diflag oleh</th><th>Catatan Flag</th><th></th></tr>
+                </thead>
+                <tbody>
+                    {% for insp in flagged_list %}
+                    <tr>
+                        <td style="color:#64748b;white-space:nowrap;">{{ insp.tanggal|date:"d/m/Y H:i" }}</td>
+                        <td style="font-weight:600;">{{ insp.device.nama }}</td>
+                        <td style="color:#64748b;">{{ insp.device.lokasi|default:"—" }}</td>
+                        <td style="color:#92400e;">{{ insp.flagged_by.get_full_name|default:insp.flagged_by.username|default:"—" }}</td>
+                        <td style="color:#64748b;max-width:200px;">{{ insp.flag_catatan|truncatechars:60|default:"—" }}</td>
+                        <td><a href="{% url 'inspection_riwayat' insp.pk %}" class="btn btn-xs btn-warning" style="font-size:10px;padding:1px 8px;">Detail</a></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <div class="row g-3 mb-3">
 
     <!-- Alarm terbaru -->

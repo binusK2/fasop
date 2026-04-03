@@ -7,6 +7,10 @@ urlpatterns = [
     path('lokasi/<str:lokasi>/',          views.inspection_device_list,  name='inspection_device_list'),
     path('form/<int:device_pk>/',         views.inspection_form,         name='inspection_form'),
     path('riwayat/<int:pk>/',             views.inspection_riwayat,      name='inspection_riwayat'),
+    path('riwayat/<int:pk>/flag/',        views.inspection_flag,         name='inspection_flag'),
+    path('riwayat/<int:pk>/unflag/',      views.inspection_unflag,       name='inspection_unflag'),
     path('riwayat/device/<int:device_pk>/', views.inspection_riwayat_device, name='inspection_riwayat_device'),
     path('export/',                       views.inspection_export,       name='inspection_export'),
+    path('export/ultg/',                  views.inspection_export_ultg,  name='inspection_export_ultg'),
+    path('api/last/',                     views.inspection_api_last,     name='inspection_api_last'),
 ]

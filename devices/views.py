@@ -1484,14 +1484,39 @@ def device_public(request, token):
     if device.tahun_operasi:
         umur = date_type.today().year - device.tahun_operasi
 
+    # ── Inspeksi terakhir ─────────────────────────────────────────
+    last_inspection  = None
+    can_inspect      = False
+    inspection_url   = None
+    INSPECTABLE = ['Catu Daya', 'RELE DEFENSE SCHEME', 'MASTER TRIP', 'UFLS']
+
+    jenis_name = device.jenis.name if device.jenis else ''
+    if jenis_name in INSPECTABLE:
+        can_inspect = True
+        inspection_url = f'/inspection/form/{device.pk}/'
+        try:
+            from inspection.models import Inspection
+            last_inspection = (
+                Inspection.objects
+                .filter(device=device)
+                .select_related('operator')
+                .order_by('-tanggal')
+                .first()
+            )
+        except Exception:
+            pass
+
     return render(request, 'devices/device_public.html', {
-        'device':            device,
+        'device':             device,
         'maintenance_history': maintenance_history,
-        'gangguan_aktif':    gangguan_aktif,
-        'gangguan_selesai':  gangguan_selesai,
-        'health_index':      health_index,
-        'umur':              umur,
-        'now':               date_type.today(),
+        'gangguan_aktif':     gangguan_aktif,
+        'gangguan_selesai':   gangguan_selesai,
+        'health_index':       health_index,
+        'umur':               umur,
+        'now':                date_type.today(),
+        'last_inspection':    last_inspection,
+        'can_inspect':        can_inspect,
+        'inspection_url':     inspection_url,
     })
 
 

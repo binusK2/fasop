@@ -154,6 +154,80 @@
         </div>
     </div>
 
+    {# ── Tombol Inspeksi (jika device inspectable) ── #}
+    {% if can_inspect %}
+    <div style="margin-bottom:16px;">
+        {% if request.user.is_authenticated %}
+            {% with role=request.user.profile.role %}
+            {% if role == 'operator' or request.user.is_superuser or role in 'technician asisten_manager' %}
+            <a href="{{ inspection_url }}"
+               style="display:flex;align-items:center;justify-content:center;gap:10px;
+                      background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;
+                      border-radius:12px;padding:14px 20px;text-decoration:none;
+                      font-size:14px;font-weight:700;box-shadow:0 4px 12px rgba(99,102,241,0.3);">
+                <i class="bi bi-clipboard2-plus-fill" style="font-size:20px;"></i>
+                Lakukan Inservice Inspection
+            </a>
+            {% else %}
+            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px 20px;text-align:center;color:#64748b;font-size:13px;">
+                <i class="bi bi-info-circle me-1"></i>Role Anda tidak memiliki akses untuk melakukan inspeksi.
+            </div>
+            {% endif %}
+            {% endwith %}
+        {% else %}
+        <a href="/login/?next={{ inspection_url }}"
+           style="display:flex;align-items:center;justify-content:center;gap:10px;
+                  background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;
+                  border-radius:12px;padding:14px 20px;text-decoration:none;
+                  font-size:14px;font-weight:700;box-shadow:0 4px 12px rgba(99,102,241,0.3);">
+            <i class="bi bi-clipboard2-plus-fill" style="font-size:20px;"></i>
+            Lakukan Inservice Inspection
+        </a>
+        <div style="text-align:center;font-size:11px;color:#94a3b8;margin-top:6px;">
+            Anda akan diminta login terlebih dahulu
+        </div>
+        {% endif %}
+    </div>
+
+    {# Card inspeksi terakhir #}
+    {% if last_inspection %}
+    <div class="pub-card" style="margin-bottom:16px;">
+        <div class="pub-card-head">
+            <i class="bi bi-clipboard2-check-fill" style="color:#6366f1;"></i>
+            Inspeksi Terakhir
+        </div>
+        <div class="pub-card-body">
+            <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:13px;">
+                <div>
+                    <div style="font-size:10.5px;color:#94a3b8;font-weight:700;text-transform:uppercase;margin-bottom:3px;">Tanggal</div>
+                    <div style="color:#0f172a;font-weight:600;">{{ last_inspection.tanggal|date:"d M Y H:i" }}</div>
+                </div>
+                <div>
+                    <div style="font-size:10.5px;color:#94a3b8;font-weight:700;text-transform:uppercase;margin-bottom:3px;">Jenis</div>
+                    <div style="color:#0f172a;">{{ last_inspection.get_jenis_display }}</div>
+                </div>
+                <div>
+                    <div style="font-size:10.5px;color:#94a3b8;font-weight:700;text-transform:uppercase;margin-bottom:3px;">Operator</div>
+                    <div style="color:#0f172a;">{{ last_inspection.operator.get_full_name|default:last_inspection.operator.username|default:"—" }}</div>
+                </div>
+                <div>
+                    <div style="font-size:10.5px;color:#94a3b8;font-weight:700;text-transform:uppercase;margin-bottom:3px;">Status</div>
+                    {% if last_inspection.is_flagged %}
+                    <span style="background:#fef9c3;color:#92400e;padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;">
+                        <i class="bi bi-flag-fill me-1"></i>Diflag
+                    </span>
+                    {% else %}
+                    <span style="background:#dcfce7;color:#166534;padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;">
+                        ✓ Selesai
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    {% endif %}
+
     {# ── Login CTA ── #}
     <div class="login-cta">
         <div class="login-cta-text" style="flex:1;min-width:0;">

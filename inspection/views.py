@@ -398,40 +398,505 @@ def inspection_riwayat(request, pk):
 @login_required
 @require_operator
 def inspection_riwayat_device(request, device_pk):
-    """Riwayat semua inspeksi untuk satu device."""
+    """Riwayat semua inspeksi untuk satu device + trend kondisi."""
+    import json as _json
+    from datetime import timedelta
     device = get_object_or_404(Device, pk=device_pk, is_deleted=False)
     inspeksi_qs = Inspection.objects.filter(device=device).order_by('-tanggal')
 
-    # Tambah status_kondisi ke tiap inspeksi untuk template
     inspeksi_list = []
     for insp in inspeksi_qs:
         status = 'normal'
         try:
             if insp.jenis == 'catu_daya':
                 d = insp.detail_catu_daya
-                if d.kondisi_rectifier == 'alarm':
-                    status = 'alarm'
+                if d.kondisi_rectifier == 'alarm': status = 'alarm'
             elif insp.jenis in ('defense_scheme', 'master_trip', 'ufls'):
-                if insp.jenis == 'defense_scheme':
-                    d = insp.detail_defense_scheme
-                elif insp.jenis == 'master_trip':
-                    d = insp.detail_master_trip
-                else:
-                    d = insp.detail_ufls
-                if d.kondisi_relay == 'alarm' or d.indikator_led == 'tidak_normal':
+                if insp.jenis == 'defense_scheme': d = insp.detail_defense_scheme
+                elif insp.jenis == 'master_trip':  d = insp.detail_master_trip
+                else:                              d = insp.detail_ufls
+                if d.kondisi_relay == 'faulty' or d.indikator_led == 'faulty':
                     status = 'alarm'
         except Exception:
             pass
         insp.status_kondisi = status
         inspeksi_list.append(insp)
 
+    # ── Trend 30 hari ─────────────────────────────────────────────
+    today = date.today()
+    trend_labels  = []
+    trend_kondisi = []
+    trend_vload   = []
+    trend_vbat    = []
+    trend_sdc     = []
+
+    for i in range(29, -1, -1):
+        d = today - timedelta(days=i)
+        trend_labels.append(d.strftime('%d/%m'))
+        insp_day = next((x for x in inspeksi_list if x.tanggal.date() == d), None)
+        if insp_day:
+            trend_kondisi.append(0 if insp_day.status_kondisi == 'alarm' else 1)
+            try:
+                if insp_day.jenis == 'catu_daya':
+                    det = insp_day.detail_catu_daya
+                    trend_vload.append(float(det.tegangan_load_dc) if det.tegangan_load_dc else None)
+                    trend_vbat.append(float(det.tegangan_baterai_dc) if det.tegangan_baterai_dc else None)
+                    trend_sdc.append(None)
+                else:
+                    attr = 'detail_defense_scheme' if insp_day.jenis == 'defense_scheme' else f'detail_{insp_day.jenis}'
+                    det = getattr(insp_day, attr)
+                    trend_sdc.append(float(det.sumber_dc) if det.sumber_dc else None)
+                    trend_vload.append(None); trend_vbat.append(None)
+            except Exception:
+                trend_vload.append(None); trend_vbat.append(None); trend_sdc.append(None)
+        else:
+            trend_kondisi.append(None)
+            trend_vload.append(None); trend_vbat.append(None); trend_sdc.append(None)
+
+    total   = len(inspeksi_list)
+    alarm_c = sum(1 for x in inspeksi_list if x.status_kondisi == 'alarm')
+    flag_c  = sum(1 for x in inspeksi_list if x.is_flagged)
+
     return render(request, 'inspection/riwayat_device.html', {
-        'device':        device,
-        'inspeksi_list': inspeksi_list,
+        'device':         device,
+        'inspeksi_list':  inspeksi_list,
+        'total':          total,
+        'alarm_count':    alarm_c,
+        'flag_count':     flag_c,
+        'trend_labels':   _json.dumps(trend_labels),
+        'trend_kondisi':  _json.dumps(trend_kondisi),
+        'trend_vload':    _json.dumps(trend_vload),
+        'trend_vbat':     _json.dumps(trend_vbat),
+        'trend_sdc':      _json.dumps(trend_sdc),
+        'jenis_device':   device.jenis.name if device.jenis else '',
     })
 
 
 # ─────────────────────────────────────────────────────────────────────
+# API — LAST INSPECTION (untuk form gangguan)
+# ─────────────────────────────────────────────────────────────────────
+@login_required
+def inspection_api_last(request):
+    """JSON: inspeksi terakhir sebuah device — dipakai form gangguan."""
+    from django.http import JsonResponse
+    device_id = request.GET.get('device')
+    if not device_id:
+        return JsonResponse({'has_alarm': False})
+
+    insp = (
+        Inspection.objects
+        .filter(device_id=device_id)
+        .order_by('-tanggal')
+        .first()
+    )
+    if not insp:
+        return JsonResponse({'has_alarm': False})
+
+    has_alarm = False
+    warning   = ''
+    detail    = f'Tanggal: {insp.tanggal.strftime("%d %b %Y %H:%M")} · Jenis: {insp.get_jenis_display()}'
+    try:
+        if insp.jenis == 'catu_daya':
+            d = insp.detail_catu_daya
+            if d.kondisi_rectifier == 'alarm':
+                has_alarm = True
+                warning   = f'Inspeksi terakhir ({insp.tanggal.strftime("%d %b %Y")}) — Rectifier ALARM'
+        elif insp.jenis in ('defense_scheme', 'master_trip', 'ufls'):
+            attr = 'detail_defense_scheme' if insp.jenis == 'defense_scheme' else f'detail_{insp.jenis}'
+            d = getattr(insp, attr)
+            if d.kondisi_relay == 'faulty':
+                has_alarm = True
+                warning   = f'Inspeksi terakhir ({insp.tanggal.strftime("%d %b %Y")}) — Kondisi Relay FAULTY'
+            elif d.indikator_led == 'faulty':
+                has_alarm = True
+                warning   = f'Inspeksi terakhir ({insp.tanggal.strftime("%d %b %Y")}) — Indikasi LED FAULTY'
+    except Exception:
+        pass
+
+    if insp.is_flagged:
+        has_alarm = True
+        warning   = warning or f'Inspeksi terakhir ({insp.tanggal.strftime("%d %b %Y")}) DIFLAG'
+        detail   += f' · Diflag: {insp.flag_catatan or "-"}'
+
+    return JsonResponse({
+        'has_alarm': has_alarm,
+        'warning':   warning,
+        'detail':    detail,
+        'insp_pk':   insp.pk,
+    })
+
+
+# FLAG / UNFLAG INSPECTION
+# ─────────────────────────────────────────────────────────────────────
+@login_required
+def inspection_flag(request, pk):
+    """Flag inspection — hanya Engineer/AM/Superuser."""
+    from devices.permissions import can_edit
+    if not (request.user.is_superuser or can_edit(request.user)):
+        from django.http import JsonResponse
+        return JsonResponse({'error': 'Tidak punya akses'}, status=403)
+
+    insp = get_object_or_404(Inspection, pk=pk)
+
+    if request.method == 'POST':
+        catatan = request.POST.get('catatan', '').strip()
+        from django.utils import timezone as tz
+        insp.is_flagged   = True
+        insp.flag_catatan = catatan
+        insp.flagged_by   = request.user
+        insp.flagged_at   = tz.now()
+        insp.save(update_fields=['is_flagged','flag_catatan','flagged_by','flagged_at'])
+
+        # Notifikasi ke operator
+        try:
+            from notifikasi.views import notif_ke_am
+            if insp.operator:
+                from notifikasi.models import Notifikasi
+                Notifikasi.objects.create(
+                    user    = insp.operator,
+                    tipe    = 'inspection_flag',
+                    judul   = f'Inspeksi Diflag — {insp.device.nama}',
+                    pesan   = (
+                        f'Inspeksi {insp.device.nama} ({insp.device.lokasi}) '
+                        f'tanggal {insp.tanggal.strftime("%d %b %Y %H:%M")} '
+                        f'diflag oleh {request.user.get_full_name() or request.user.username}.'
+                        + (f' Catatan: {catatan}' if catatan else '')
+                    ),
+                    level   = 'warning',
+                    url     = f'/inspection/riwayat/{insp.pk}/',
+                    device  = insp.device,
+                )
+        except Exception:
+            pass
+
+        from django.contrib import messages
+        messages.warning(request, f'Inspeksi berhasil diflag.')
+    return redirect('inspection_riwayat', pk=pk)
+
+
+@login_required
+def inspection_unflag(request, pk):
+    """Hapus flag inspection."""
+    from devices.permissions import can_edit
+    if not (request.user.is_superuser or can_edit(request.user)):
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden()
+
+    insp = get_object_or_404(Inspection, pk=pk)
+    if request.method == 'POST':
+        insp.is_flagged   = False
+        insp.flag_catatan = ''
+        insp.flagged_by   = None
+        insp.flagged_at   = None
+        insp.save(update_fields=['is_flagged','flag_catatan','flagged_by','flagged_at'])
+        from django.contrib import messages
+        messages.success(request, 'Flag berhasil dihapus.')
+    return redirect('inspection_riwayat', pk=pk)
+
+
+# EXPORT LAPORAN PER ULTG
+# ─────────────────────────────────────────────────────────────────────
+@login_required
+def inspection_export_ultg(request):
+    """Export laporan inspeksi per ULTG — sheet terpisah per jenis perangkat."""
+    from devices.models import ULTG
+    from devices.permissions import can_edit
+
+    if not (request.user.is_superuser or can_edit(request.user)):
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden()
+
+    ultg_id   = request.GET.get('ultg', '')
+    month     = int(request.GET.get('month', date.today().month))
+    year      = int(request.GET.get('year', date.today().year))
+
+    BULAN_ID = ['Januari','Februari','Maret','April','Mei','Juni',
+                'Juli','Agustus','September','Oktober','November','Desember']
+    bulan_str = BULAN_ID[month - 1]
+
+    # Ambil ULTG
+    if ultg_id:
+        ultg = get_object_or_404(ULTG, pk=ultg_id)
+        lokasi_names = ultg.get_lokasi_names()
+        ultg_label   = ultg.nama
+    else:
+        ultg         = None
+        lokasi_names = None
+        ultg_label   = 'Semua ULTG'
+
+    INSPECTABLE = {
+        'Catu Daya':           'catu_daya',
+        'RELE DEFENSE SCHEME': 'defense_scheme',
+        'MASTER TRIP':         'master_trip',
+        'UFLS':                'ufls',
+    }
+
+    # ── Style helpers ────────────────────────────────────────────
+    thin     = Side(style='thin')
+    brd      = Border(left=thin, right=thin, top=thin, bottom=thin)
+    hdr_font = Font(bold=True, color='FFFFFF', size=9)
+    hdr_aln  = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    c_aln    = Alignment(horizontal='center', vertical='center')
+    l_aln    = Alignment(vertical='center', wrap_text=True)
+    alt_fill = PatternFill('solid', fgColor='F8FAFC')
+    alarm_fill = PatternFill('solid', fgColor='FEE2E2')
+    flag_fill  = PatternFill('solid', fgColor='FEF9C3')
+
+    wb = openpyxl.Workbook()
+    wb.remove(wb.active)
+
+    title_main = f'LAPORAN INSERVICE INSPECTION — {ultg_label.upper()} — {bulan_str} {year}'
+
+    # ─────────────────────────────────────────────────────────────
+    # SHEET RINGKASAN
+    # ─────────────────────────────────────────────────────────────
+    ws_sum = wb.create_sheet('Ringkasan')
+    ws_sum.sheet_properties.tabColor = '0F172A'
+    ws_sum.column_dimensions['A'].width = 3
+    ws_sum.column_dimensions['B'].width = 30
+    ws_sum.column_dimensions['C'].width = 12
+    ws_sum.column_dimensions['D'].width = 14
+    ws_sum.column_dimensions['E'].width = 12
+    ws_sum.column_dimensions['F'].width = 12
+    ws_sum.column_dimensions['G'].width = 16
+
+    ws_sum.merge_cells('B1:G1')
+    ws_sum['B1'].value     = title_main
+    ws_sum['B1'].font      = Font(bold=True, size=12)
+    ws_sum['B1'].alignment = Alignment(horizontal='center', vertical='center')
+    ws_sum['B1'].fill      = PatternFill('solid', fgColor='EFF6FF')
+    ws_sum.row_dimensions[1].height = 28
+
+    ws_sum.merge_cells('B2:G2')
+    ws_sum['B2'].value     = f"Dicetak: {date.today().strftime('%d %B %Y')}"
+    ws_sum['B2'].font      = Font(size=10, italic=True, color='64748B')
+    ws_sum['B2'].alignment = Alignment(horizontal='center')
+
+    sum_heads = ['Jenis Perangkat','Total Terdaftar','Terinspeksi','Belum Inspeksi','Normal','Alarm/Flag']
+    sum_widths_col = ['B','C','D','E','F','G']
+    hdr_fill_dark = PatternFill('solid', fgColor='1E293B')
+    for ci, (col, h) in enumerate(zip(sum_widths_col, sum_heads)):
+        cell = ws_sum[f'{col}4']
+        cell.value     = h
+        cell.font      = hdr_font
+        cell.fill      = hdr_fill_dark
+        cell.alignment = hdr_aln
+        cell.border    = brd
+    ws_sum.row_dimensions[4].height = 22
+
+    row_sum = 5
+    JENIS_COLORS = {
+        'Catu Daya':'EA580C', 'RELE DEFENSE SCHEME':'7C3AED',
+        'MASTER TRIP':'2563EB', 'UFLS':'059669',
+    }
+
+    for jenis_name, jenis_key in INSPECTABLE.items():
+        devs_qs = Device.objects.filter(is_deleted=False, jenis__name=jenis_name)
+        if lokasi_names:
+            devs_qs = devs_qs.filter(lokasi__in=lokasi_names)
+        total = devs_qs.count()
+        if total == 0:
+            continue
+
+        insp_qs = Inspection.objects.filter(
+            device__in=devs_qs,
+            tanggal__year=year, tanggal__month=month
+        )
+        insp_ids = set(insp_qs.values_list('device_id', flat=True).distinct())
+        terinspeksi = len(insp_ids)
+        belum       = total - terinspeksi
+
+        # Hitung alarm
+        alarm = 0
+        for insp in insp_qs.select_related('device'):
+            try:
+                if jenis_key == 'catu_daya':
+                    if insp.detail_catu_daya.kondisi_rectifier == 'alarm': alarm += 1
+                else:
+                    attr = 'detail_defense_scheme' if jenis_key == 'defense_scheme' else f'detail_{jenis_key}'
+                    d = getattr(insp, attr)
+                    if d.kondisi_relay == 'faulty' or d.indikator_led == 'faulty': alarm += 1
+            except Exception:
+                pass
+        flag_n = insp_qs.filter(is_flagged=True).count()
+        abnormal = alarm + flag_n
+
+        color = JENIS_COLORS.get(jenis_name, '334155')
+        row_fill = PatternFill('solid', fgColor=color + '22' if len(color) == 6 else 'F8FAFC')
+        vals = [jenis_name, total, terinspeksi, belum, terinspeksi - abnormal, abnormal]
+        for ci, (col, val) in enumerate(zip(sum_widths_col, vals)):
+            cell = ws_sum[f'{col}{row_sum}']
+            cell.value     = val
+            cell.border    = brd
+            cell.alignment = c_aln if ci > 0 else Alignment(vertical='center')
+            if ci == 5 and val > 0:
+                cell.font = Font(bold=True, color='991B1B')
+                cell.fill = PatternFill('solid', fgColor='FEE2E2')
+        ws_sum.row_dimensions[row_sum].height = 18
+        row_sum += 1
+
+    ws_sum.freeze_panes = 'B5'
+
+    # ─────────────────────────────────────────────────────────────
+    # SHEET PER JENIS PERANGKAT
+    # ─────────────────────────────────────────────────────────────
+    for jenis_name, jenis_key in INSPECTABLE.items():
+        devs_qs = Device.objects.filter(
+            is_deleted=False, jenis__name=jenis_name
+        ).select_related('jenis').order_by('lokasi', 'nama')
+        if lokasi_names:
+            devs_qs = devs_qs.filter(lokasi__in=lokasi_names)
+        if not devs_qs.exists():
+            continue
+
+        # Inspeksi bulan ini per device (ambil yang terbaru)
+        insp_map = {}
+        for insp in Inspection.objects.filter(
+            device__in=devs_qs,
+            tanggal__year=year, tanggal__month=month,
+            jenis=jenis_key
+        ).select_related('device', 'operator').order_by('device_id', '-tanggal'):
+            if insp.device_id not in insp_map:
+                insp_map[insp.device_id] = insp
+
+        color  = JENIS_COLORS.get(jenis_name, '334155')
+        ws     = wb.create_sheet(jenis_name[:31])
+        ws.sheet_properties.tabColor = color
+
+        # Header
+        if jenis_key == 'catu_daya':
+            headers = ['No','Nama Perangkat','Lokasi','Tgl Inspeksi','Operator',
+                       'Kond. Rectifier','Mode Recti','Alarm GF','Alarm AC','Alarm Recti',
+                       'Kebersihan Ruangan','Level Air Bank','Exhaust Fan',
+                       'Teg Load DC (V)','Teg Baterai DC (V)','Arus Load DC (A)','Status']
+            col_w  = [4,28,22,14,16,16,14,12,12,12,18,16,12,16,18,16,12]
+        else:
+            headers = ['No','Nama Perangkat','Lokasi','Tgl Inspeksi','Operator',
+                       'Suhu Ruangan (°C)','Kebersihan Panel','Lampu Panel',
+                       'Kondisi Rele','Relay Healthy','Indikasi LED',
+                       'Posisi Selektor','Kabel LAN','Sumber DC (V)','Status']
+            col_w  = [4,28,22,14,16,14,16,14,14,14,14,16,14,14,12]
+
+        ncols = len(headers)
+        last_col = get_column_letter(ncols + 1)
+
+        # Title sheet
+        ws.merge_cells(f'B1:{last_col}1')
+        ws['B1'].value     = f'{jenis_name.upper()} — {title_main}'
+        ws['B1'].font      = Font(bold=True, size=11)
+        ws['B1'].alignment = Alignment(horizontal='center', vertical='center')
+        ws['B1'].fill      = PatternFill('solid', fgColor='EFF6FF')
+        ws.row_dimensions[1].height = 26
+
+        ws.merge_cells(f'B2:{last_col}2')
+        ws['B2'].value     = f"Dicetak: {date.today().strftime('%d %B %Y')} | {terinspeksi if (devs_qs.count() > 0) else '?'} dari {devs_qs.count()} perangkat terinspeksi"
+        ws['B2'].font      = Font(size=10, italic=True, color='64748B')
+        ws['B2'].alignment = Alignment(horizontal='center')
+
+        ws.column_dimensions['A'].width = 2
+        hdr_fill_j = PatternFill('solid', fgColor=color)
+        for ci, (h, w) in enumerate(zip(headers, col_w), 2):
+            cell = ws.cell(row=4, column=ci, value=h)
+            cell.font      = hdr_font
+            cell.fill      = hdr_fill_j
+            cell.alignment = hdr_aln
+            cell.border    = brd
+            ws.column_dimensions[get_column_letter(ci)].width = w
+        ws.row_dimensions[4].height = 22
+        ws.freeze_panes = f'B5'
+
+        # Data rows
+        for ri, dev in enumerate(devs_qs, 1):
+            wr   = ri + 4
+            insp = insp_map.get(dev.pk)
+
+            if insp:
+                tgl_str  = insp.tanggal.strftime('%d/%m/%Y %H:%M')
+                op_str   = insp.operator.get_full_name() or insp.operator.username if insp.operator else '—'
+                is_alarm = False
+                is_flag  = insp.is_flagged
+
+                if jenis_key == 'catu_daya':
+                    try:
+                        d = insp.detail_catu_daya
+                        is_alarm = d.kondisi_rectifier == 'alarm'
+                        row_vals = [
+                            ri, dev.nama, dev.lokasi or '—', tgl_str, op_str,
+                            d.get_kondisi_rectifier_display() if d.kondisi_rectifier else '—',
+                            d.get_mode_recti_display() if d.mode_recti else '—',
+                            d.get_alarm_ground_fault_display() if d.alarm_ground_fault else '—',
+                            d.get_alarm_min_ac_fault_display() if d.alarm_min_ac_fault else '—',
+                            d.get_alarm_recti_fault_display() if d.alarm_recti_fault else '—',
+                            d.get_kebersihan_ruangan_display() if d.kebersihan_ruangan else '—',
+                            d.get_level_air_bank_display() if d.level_air_bank else '—',
+                            d.get_exhaust_fan_display() if d.exhaust_fan else '—',
+                            d.tegangan_load_dc or '—',
+                            d.tegangan_baterai_dc or '—',
+                            d.arus_load_dc or '—',
+                            '⚠ ALARM' if is_alarm else ('🚩 Flag' if is_flag else '✓ Normal'),
+                        ]
+                    except Exception:
+                        row_vals = [ri, dev.nama, dev.lokasi or '—', tgl_str, op_str] + ['—'] * (len(headers) - 5)
+                else:
+                    try:
+                        attr = 'detail_defense_scheme' if jenis_key == 'defense_scheme' else f'detail_{jenis_key}'
+                        d = getattr(insp, attr)
+                        is_alarm = d.kondisi_relay == 'faulty' or d.indikator_led == 'faulty'
+                        row_vals = [
+                            ri, dev.nama, dev.lokasi or '—', tgl_str, op_str,
+                            d.suhu_ruangan if d.suhu_ruangan is not None else '—',
+                            d.get_kebersihan_panel_display() if d.kebersihan_panel else '—',
+                            d.get_lampu_panel_display() if d.lampu_panel else '—',
+                            d.get_kondisi_relay_display() if d.kondisi_relay else '—',
+                            d.get_relay_healthy_display() if d.relay_healthy else '—',
+                            d.get_indikator_led_display() if d.indikator_led else '—',
+                            d.get_posisi_selektor_display() if d.posisi_selektor else '—',
+                            d.get_kondisi_kabel_lan_display() if d.kondisi_kabel_lan else '—',
+                            d.sumber_dc if d.sumber_dc is not None else '—',
+                            '⚠ Faulty' if is_alarm else ('🚩 Flag' if is_flag else '✓ Normal'),
+                        ]
+                    except Exception:
+                        row_vals = [ri, dev.nama, dev.lokasi or '—', tgl_str, op_str] + ['—'] * (len(headers) - 5)
+            else:
+                # Belum diinspeksi
+                is_alarm = False
+                is_flag  = False
+                row_vals = [ri, dev.nama, dev.lokasi or '—', '—', '—'] + ['—'] * (len(headers) - 5)
+                row_vals[-1] = 'Belum Diinspeksi'
+
+            status_val = row_vals[-1]
+            for ci, val in enumerate(row_vals, 2):
+                cell = ws.cell(row=wr, column=ci, value=val)
+                cell.border    = brd
+                cell.alignment = c_aln if ci in [2, 4] else l_aln
+                # Warna status
+                if ci == len(headers) + 1:
+                    if '⚠' in str(status_val) or 'Faulty' in str(status_val):
+                        cell.fill = alarm_fill
+                        cell.font = Font(bold=True, color='991B1B', size=9)
+                    elif '🚩' in str(status_val):
+                        cell.fill = flag_fill
+                        cell.font = Font(bold=True, color='92400E', size=9)
+                    elif 'Belum' in str(status_val):
+                        cell.fill = PatternFill('solid', fgColor='F1F5F9')
+                        cell.font = Font(color='64748B', size=9)
+                    else:
+                        cell.fill = PatternFill('solid', fgColor='DCFCE7')
+                        cell.font = Font(bold=True, color='166534', size=9)
+                elif ri % 2 == 0 and ci != len(headers) + 1:
+                    cell.fill = alt_fill
+            ws.row_dimensions[wr].height = 18
+
+    # Response
+    resp = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    fname = f'Inspeksi_{ultg_label.replace(" ","_")}_{bulan_str}_{year}.xlsx'
+    resp['Content-Disposition'] = f'attachment; filename="{fname}"'
+    wb.save(resp)
+    return resp
+
+
 # DASHBOARD INSPECTION (Engineer / AM)
 # ─────────────────────────────────────────────────────────────────────
 @login_required
@@ -563,8 +1028,21 @@ def inspection_dashboard(request):
             if len(alarm_list) >= 10:
                 break
 
+    # ── Inspeksi diflag ───────────────────────────────────────────
+    flagged_list = Inspection.objects.filter(
+        is_flagged=True
+    ).select_related('device', 'flagged_by', 'operator').order_by('-flagged_at')[:20]
+
     # ── Inspeksi terbaru ─────────────────────────────────────────
     recent = Inspection.objects.select_related('device','device__jenis','operator').order_by('-tanggal')[:15]
+
+    from devices.models import ULTG as ULTGModel
+    all_ultg = ULTGModel.objects.order_by('nama')
+    BULAN_ID = ['Januari','Februari','Maret','April','Mei','Juni',
+                'Juli','Agustus','September','Oktober','November','Desember']
+    month_choices = [{'val': i+1, 'label': n} for i,n in enumerate(BULAN_ID)]
+    first_year = Inspection.objects.order_by('tanggal').values_list('tanggal__year', flat=True).first() or today.year
+    year_choices = list(range(first_year, today.year + 1))
 
     return render(request, 'inspection/dashboard.html', {
         'today':                   today,
@@ -579,7 +1057,11 @@ def inspection_dashboard(request):
         'jenis_stats':             jenis_stats,
         'trend_30':                trend_30,
         'alarm_list':              alarm_list,
+        'flagged_list':            flagged_list,
         'recent':                  recent,
+        'all_ultg':                all_ultg,
+        'month_choices':           month_choices,
+        'year_choices':            year_choices,
     })
 
 

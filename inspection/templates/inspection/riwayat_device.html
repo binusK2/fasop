@@ -27,9 +27,41 @@
     </div>
 </div>
 
+<!-- STAT MINI -->
+<div class="row g-3 mb-3">
+    <div class="col-4">
+        <div class="stat-card" style="padding:12px 16px;">
+            <div class="stat-icon" style="width:34px;height:34px;background:#eff6ff;color:#3b82f6;font-size:14px;"><i class="bi bi-clipboard2-check"></i></div>
+            <div><div class="stat-value" style="font-size:20px;">{{ total }}</div><div class="stat-label">Total</div></div>
+        </div>
+    </div>
+    <div class="col-4">
+        <div class="stat-card" style="padding:12px 16px;">
+            <div class="stat-icon" style="width:34px;height:34px;{% if alarm_count > 0 %}background:#fef2f2;color:#ef4444;{% else %}background:#f0fdf4;color:#10b981;{% endif %}font-size:14px;"><i class="bi bi-exclamation-triangle{% if alarm_count > 0 %}-fill{% endif %}"></i></div>
+            <div><div class="stat-value" style="font-size:20px;{% if alarm_count > 0 %}color:#ef4444;{% endif %}">{{ alarm_count }}</div><div class="stat-label">Alarm</div></div>
+        </div>
+    </div>
+    <div class="col-4">
+        <div class="stat-card" style="padding:12px 16px;">
+            <div class="stat-icon" style="width:34px;height:34px;{% if flag_count > 0 %}background:#fef9c3;color:#f59e0b;{% else %}background:#f8fafc;color:#94a3b8;{% endif %}font-size:14px;"><i class="bi bi-flag{% if flag_count > 0 %}-fill{% endif %}"></i></div>
+            <div><div class="stat-value" style="font-size:20px;">{{ flag_count }}</div><div class="stat-label">Diflag</div></div>
+        </div>
+    </div>
+</div>
+
+<!-- TREND CHART -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <h6 style="font-size:12px;font-weight:700;text-transform:uppercase;color:#64748b;margin-bottom:12px;">
+            <i class="bi bi-graph-up me-1 text-primary"></i>Trend Kondisi 30 Hari Terakhir
+        </h6>
+        <canvas id="trendKondisiChart" style="max-height:140px;"></canvas>
+    </div>
+</div>
+
 <div class="table-card">
     <div class="table-header">
-        <h6>{{ inspeksi_list|length }} Riwayat Inspeksi</h6>
+        <h6>{{ total }} Riwayat Inspeksi</h6>
     </div>
     <div class="table-responsive">
         <table class="table">
@@ -72,9 +104,14 @@
                     </td>
                     <td style="font-size:12px;color:#64748b;max-width:200px;">{{ insp.catatan|truncatechars:60|default:"—" }}</td>
                     <td>
-                        <a href="{% url 'inspection_riwayat' insp.pk %}" class="btn btn-xs btn-outline-primary" style="font-size:11px;padding:2px 8px;">
-                            <i class="bi bi-eye me-1"></i>Detail
-                        </a>
+    <div class="d-flex gap-1 align-items-center">
+                            {% if insp.is_flagged %}
+                            <span style="background:#fef9c3;color:#92400e;padding:1px 7px;border-radius:20px;font-size:10px;font-weight:700;"><i class="bi bi-flag-fill me-1"></i>Flag</span>
+                            {% endif %}
+                            <a href="{% url 'inspection_riwayat' insp.pk %}" class="btn btn-xs btn-outline-primary" style="font-size:11px;padding:2px 8px;">
+                                <i class="bi bi-eye me-1"></i>Detail
+                            </a>
+                        </div>
                     </td>
                 </tr>
                 {% empty %}
@@ -89,4 +126,82 @@
     </div>
 </div>
 
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const labels    = {{ trend_labels|safe }};
+const kondisi   = {{ trend_kondisi|safe }};
+const vload     = {{ trend_vload|safe }};
+const vbat      = {{ trend_vbat|safe }};
+const sdc       = {{ trend_sdc|safe }};
+const jenis     = "{{ jenis_device }}";
+
+const datasets = [{
+    label: 'Kondisi (1=Normal, 0=Alarm)',
+    data: kondisi,
+    borderColor: kondisi.map(v => v === 0 ? '#ef4444' : v === 1 ? '#10b981' : '#e2e8f0'),
+    backgroundColor: kondisi.map(v => v === 0 ? 'rgba(239,68,68,0.15)' : v === 1 ? 'rgba(16,185,129,0.15)' : 'transparent'),
+    pointBackgroundColor: kondisi.map(v => v === 0 ? '#ef4444' : v === 1 ? '#10b981' : '#e2e8f0'),
+    pointRadius: kondisi.map(v => v !== null ? 5 : 0),
+    tension: 0.3, fill: false, yAxisID: 'y',
+    segment: { borderColor: ctx => ctx.p1.parsed.y === 0 ? '#ef4444' : '#10b981' }
+}];
+
+if (jenis === 'Catu Daya') {
+    if (vload.some(v => v !== null)) datasets.push({
+        label: 'Teg. Load DC (V)', data: vload,
+        borderColor: '#6366f1', pointRadius: 3, tension: 0.3,
+        fill: false, yAxisID: 'y2', borderDash: [4,2],
+    });
+    if (vbat.some(v => v !== null)) datasets.push({
+        label: 'Teg. Baterai DC (V)', data: vbat,
+        borderColor: '#f59e0b', pointRadius: 3, tension: 0.3,
+        fill: false, yAxisID: 'y2', borderDash: [2,2],
+    });
+} else {
+    if (sdc.some(v => v !== null)) datasets.push({
+        label: 'Sumber DC (V)', data: sdc,
+        borderColor: '#6366f1', pointRadius: 3, tension: 0.3,
+        fill: false, yAxisID: 'y2', borderDash: [4,2],
+    });
+}
+
+new Chart(document.getElementById('trendKondisiChart'), {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+        responsive: true,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+            legend: { position: 'top', labels: { font: { size: 10 }, padding: 8 } },
+            tooltip: {
+                callbacks: {
+                    label: ctx => {
+                        if (ctx.datasetIndex === 0) {
+                            const v = ctx.raw;
+                            return v === null ? 'Tidak ada data' : v === 1 ? 'Normal' : 'ALARM';
+                        }
+                        return `${ctx.dataset.label}: ${ctx.raw ?? '-'}`;
+                    }
+                }
+            }
+        },
+        scales: {
+            x: { grid: { display: false }, ticks: { maxTicksLimit: 10, font: { size: 9 } } },
+            y: {
+                position: 'left', min: -0.1, max: 1.1,
+                ticks: { callback: v => v === 1 ? 'Normal' : v === 0 ? 'Alarm' : '', font: { size: 9 } },
+                grid: { color: 'rgba(0,0,0,0.05)' }
+            },
+            y2: {
+                position: 'right', beginAtZero: false,
+                ticks: { font: { size: 9 } },
+                grid: { display: false }
+            }
+        }
+    }
+});
+</script>
 {% endblock %}

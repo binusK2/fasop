@@ -261,14 +261,49 @@ def gangguan_detail(request, pk):
     # Daftar device untuk dropdown (prioritaskan device di tiket)
     devices_list = Device.objects.filter(is_deleted=False).select_related('jenis').order_by('lokasi', 'nama')
 
+    # ── Inspection terkait perangkat gangguan ────────────────────
+    inspeksi_terkait = []
+    insp_warning     = None  # warning jika inspection terakhir ada alarm
+    try:
+        from inspection.models import Inspection
+        if gangguan.peralatan:
+            qs = (
+                Inspection.objects
+                .filter(device=gangguan.peralatan)
+                .select_related('operator')
+                .order_by('-tanggal')[:5]
+            )
+            inspeksi_terkait = list(qs)
+            # Cek apakah inspection terakhir ada kondisi alarm
+            if inspeksi_terkait:
+                last = inspeksi_terkait[0]
+                try:
+                    if last.jenis == 'catu_daya':
+                        d = last.detail_catu_daya
+                        if d.kondisi_rectifier == 'alarm':
+                            insp_warning = f'Inspeksi terakhir ({last.tanggal.strftime("%d %b %Y")}) mendeteksi Rectifier ALARM'
+                    elif last.jenis in ('defense_scheme', 'master_trip', 'ufls'):
+                        attr = 'detail_defense_scheme' if last.jenis == 'defense_scheme' else f'detail_{last.jenis}'
+                        d = getattr(last, attr)
+                        if d.kondisi_relay == 'faulty':
+                            insp_warning = f'Inspeksi terakhir ({last.tanggal.strftime("%d %b %Y")}) mendeteksi Kondisi Relay FAULTY'
+                        elif d.indikator_led == 'faulty':
+                            insp_warning = f'Inspeksi terakhir ({last.tanggal.strftime("%d %b %Y")}) mendeteksi Indikasi LED FAULTY'
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
     from datetime import date as date_type
     return render(request, 'gangguan/gangguan_detail.html', {
-        'gangguan':       gangguan,
-        'log_entries':    log_entries,
-        'log_form':       log_form,
-        'perubahan_fisik': perubahan_fisik,
-        'devices_list':   devices_list,
-        'today_date':     date_type.today().strftime('%Y-%m-%d'),
+        'gangguan':          gangguan,
+        'log_entries':       log_entries,
+        'log_form':          log_form,
+        'perubahan_fisik':   perubahan_fisik,
+        'devices_list':      devices_list,
+        'today_date':        date_type.today().strftime('%Y-%m-%d'),
+        'inspeksi_terkait':  inspeksi_terkait,
+        'insp_warning':      insp_warning,
     })
 
 
