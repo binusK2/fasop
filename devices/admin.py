@@ -142,6 +142,18 @@ class ULTGAdmin(admin.ModelAdmin):
         return obj.operators.count()
     jumlah_operator.short_description = 'Jumlah Operator'
 
+    def formfield_for_manytomany(self, db_field, request, **kwargs):
+        if db_field.name == 'lokasi':
+            obj_id = request.resolver_match.kwargs.get('object_id')
+            # Sembunyikan lokasi yang sudah di-assign ke ULTG lain
+            assigned_to_other = SiteLocation.objects.filter(ultg__isnull=False)
+            if obj_id:
+                assigned_to_other = assigned_to_other.exclude(ultg__id=obj_id)
+            kwargs['queryset'] = SiteLocation.objects.exclude(
+                pk__in=assigned_to_other.values('pk')
+            ).order_by('nama')
+        return super().formfield_for_manytomany(db_field, request, **kwargs)
+
 
 @admin.register(SiteLocation)
 class SiteLocationAdmin(admin.ModelAdmin):
