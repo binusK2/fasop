@@ -241,6 +241,23 @@ def dashboard(request):
         pct = round((d['total'] / total_devices * 100)) if total_devices else 0
         device_by_type.append({**d, 'pct': pct})
 
+    # Status operasi per jenis → untuk pie chart di dashboard
+    import json as _json
+    _status_qs = (
+        Device.objects
+        .filter(is_deleted=False)
+        .values('jenis__name', 'status_operasi')
+        .annotate(total=Count('id'))
+        .order_by('jenis__name')
+    )
+    _status_map = {}
+    for row in _status_qs:
+        jenis = row['jenis__name'] or 'Lainnya'
+        if jenis not in _status_map:
+            _status_map[jenis] = {'operasi': 0, 'tidak_operasi': 0}
+        _status_map[jenis][row['status_operasi']] = row['total']
+    device_status_by_type_json = _json.dumps(_status_map)
+
     total_maintenance = Maintenance.objects.count()
     maintenance_open = Maintenance.objects.filter(status='Open').count()
     maintenance_done = Maintenance.objects.filter(status='Done').count()
@@ -368,7 +385,8 @@ def dashboard(request):
         'total_devices':    total_devices,
         'dev_operasi':      dev_operasi,
         'dev_tdk_operasi':  dev_tdk_operasi,
-        'device_by_type':   device_by_type,
+        'device_by_type':              device_by_type,
+        'device_status_by_type_json':  device_status_by_type_json,
         'total_maintenance':    total_maintenance,
         'maintenance_open':     maintenance_open,
         'maintenance_done':     maintenance_done,

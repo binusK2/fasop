@@ -391,22 +391,12 @@
 </div>
 
 <!-- ════════════════════════════════════════════════════════════
-     BARIS 3 — CHART
+     BARIS 3 — CHART TREND
 ═════════════════════════════════════════════════════════════ -->
 <div class="row g-3 mb-4">
 
-    <!-- Distribusi jenis perangkat -->
-    <div class="col-md-4">
-        <div class="card h-100">
-            <div class="card-body">
-                <div class="section-title"><i class="bi bi-bar-chart" style="color:#8b5cf6;"></i> Distribusi Jenis</div>
-                <canvas id="deviceBarChart" style="max-height:200px;"></canvas>
-            </div>
-        </div>
-    </div>
-
     <!-- Trend maintenance 6 bulan -->
-    <div class="col-md-4">
+    <div class="col-md-6">
         <div class="card h-100">
             <div class="card-body">
                 <div class="section-title"><i class="bi bi-wrench" style="color:#3b82f6;"></i> Trend Pemeliharaan</div>
@@ -416,7 +406,7 @@
     </div>
 
     <!-- Trend gangguan 6 bulan -->
-    <div class="col-md-4">
+    <div class="col-md-6">
         <div class="card h-100">
             <div class="card-body">
                 <div class="section-title"><i class="bi bi-exclamation-triangle" style="color:#ef4444;"></i> Trend Gangguan</div>
@@ -425,6 +415,40 @@
         </div>
     </div>
 
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     BARIS 3b — PIE CHART STATUS PER JENIS
+═════════════════════════════════════════════════════════════ -->
+<div class="row g-3 mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <!-- Header -->
+                <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+                    <div class="section-title mb-0" style="margin-bottom:0!important;">
+                        <i class="bi bi-pie-chart-fill" style="color:#8b5cf6;"></i> Distribusi Status per Jenis Perangkat
+                    </div>
+                    <select id="jenisSelect" class="form-select form-select-sm"
+                            style="max-width:220px;font-size:12px;border-radius:8px;">
+                    </select>
+                </div>
+                <!-- Body: pie + legend -->
+                <div class="d-flex justify-content-center align-items-center gap-5 flex-wrap py-2">
+                    <!-- Canvas doughnut -->
+                    <div style="position:relative;width:210px;height:210px;flex-shrink:0;">
+                        <canvas id="statusPieChart" width="210" height="210"></canvas>
+                        <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;">
+                            <div id="pieCenterTotal" style="font-size:26px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;line-height:1;"></div>
+                            <div style="font-size:10px;color:#94a3b8;margin-top:2px;">perangkat</div>
+                        </div>
+                    </div>
+                    <!-- Legend / stats -->
+                    <div id="pieLegend" style="display:flex;flex-direction:column;gap:16px;min-width:180px;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- ════════════════════════════════════════════════════════════
@@ -613,35 +637,6 @@
 <script>
 Chart.defaults.font.family = "'DM Sans', sans-serif";
 
-const COLORS = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec4899','#84cc16','#f97316','#64748b'];
-
-// ── Distribusi jenis perangkat (horizontal bar) ───────────────
-new Chart(document.getElementById('deviceBarChart'), {
-    type: 'bar',
-    data: {
-        labels: [{% for d in device_by_type %}"{{ d.jenis__name|default:'Lainnya' }}"{% if not forloop.last %},{% endif %}{% endfor %}],
-        datasets: [{
-            data: [{% for d in device_by_type %}{{ d.total }}{% if not forloop.last %},{% endif %}{% endfor %}],
-            backgroundColor: COLORS.map(c => c + 'cc'),
-            borderColor: COLORS,
-            borderWidth: 1.5, borderRadius: 6, borderSkipped: false,
-        }]
-    },
-    options: {
-        indexAxis: 'y', responsive: true,
-        plugins: {
-            legend: { display: false },
-            tooltip: { backgroundColor: '#0f172a', padding: 10, cornerRadius: 8,
-                callbacks: { label: ctx => `  ${ctx.parsed.x} perangkat` } }
-        },
-        scales: {
-            x: { beginAtZero: true, ticks: { stepSize:1, precision:0, font:{size:11}, color:'#94a3b8' },
-                 grid: { color:'#f1f5f9' }, border: { display:false } },
-            y: { ticks: { font:{size:11}, color:'#334155' }, grid: { display:false }, border: { display:false } }
-        }
-    }
-});
-
 // ── Trend pemeliharaan 6 bulan ────────────────────────────────
 const mLabels = [{% for m in maintenance_by_month %}"{{ m.month_label }}"{% if not forloop.last %},{% endif %}{% endfor %}];
 const mData   = [{% for m in maintenance_by_month %}{{ m.total }}{% if not forloop.last %},{% endif %}{% endfor %}];
@@ -704,5 +699,92 @@ new Chart(document.getElementById('gangguanLine'), {
         }
     }
 });
+
+// ── Pie chart status per jenis perangkat ──────────────────────
+const statusByType = {{ device_status_by_type_json|safe }};
+const jenisNames   = Object.keys(statusByType);
+const jenisSelect  = document.getElementById('jenisSelect');
+
+jenisNames.forEach(name => {
+    const opt = document.createElement('option');
+    opt.value = name;
+    opt.textContent = name;
+    jenisSelect.appendChild(opt);
+});
+
+let pieChart = null;
+
+function updatePie(jenis) {
+    const d       = statusByType[jenis] || {};
+    const operasi = d.operasi       || 0;
+    const tidak   = d.tidak_operasi || 0;
+    const total   = operasi + tidak;
+
+    document.getElementById('pieCenterTotal').textContent = total;
+
+    const pctOp  = total > 0 ? Math.round(operasi / total * 100) : 0;
+    const pctTdk = total > 0 ? Math.round(tidak   / total * 100) : 0;
+
+    document.getElementById('pieLegend').innerHTML = `
+        <div style="display:flex;align-items:center;gap:12px;">
+            <div style="width:14px;height:14px;border-radius:4px;background:#10b981;flex-shrink:0;"></div>
+            <div>
+                <div style="font-size:20px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;line-height:1.1;">${operasi}</div>
+                <div style="font-size:11px;color:#64748b;margin-top:2px;">Operasi &mdash; <strong>${pctOp}%</strong></div>
+            </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;">
+            <div style="width:14px;height:14px;border-radius:4px;background:#ef4444;flex-shrink:0;"></div>
+            <div>
+                <div style="font-size:20px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;line-height:1.1;">${tidak}</div>
+                <div style="font-size:11px;color:#64748b;margin-top:2px;">Tidak Operasi &mdash; <strong>${pctTdk}%</strong></div>
+            </div>
+        </div>
+    `;
+
+    if (pieChart) {
+        pieChart.data.datasets[0].data = [operasi, tidak];
+        pieChart.data.datasets[0].backgroundColor = [
+            operasi > 0 ? '#10b981' : '#e2e8f0',
+            tidak   > 0 ? '#ef4444' : '#e2e8f0',
+        ];
+        pieChart.update();
+    } else {
+        pieChart = new Chart(document.getElementById('statusPieChart'), {
+            type: 'doughnut',
+            data: {
+                labels: ['Operasi', 'Tidak Operasi'],
+                datasets: [{
+                    data: [operasi, tidak],
+                    backgroundColor: ['#10b981', '#ef4444'],
+                    borderColor: ['#fff', '#fff'],
+                    borderWidth: 3,
+                    hoverOffset: 8,
+                }]
+            },
+            options: {
+                responsive: false,
+                cutout: '68%',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#0f172a', padding: 10, cornerRadius: 8,
+                        callbacks: {
+                            label: ctx => {
+                                const pct = total > 0 ? Math.round(ctx.parsed / total * 100) : 0;
+                                return `  ${ctx.parsed} perangkat (${pct}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+}
+
+if (jenisNames.length > 0) {
+    updatePie(jenisNames[0]);
+}
+jenisSelect.addEventListener('change', () => updatePie(jenisSelect.value));
 </script>
 {% endblock %}
