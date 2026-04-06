@@ -1552,7 +1552,7 @@ def maintenance_catatan_am_edit(request, pk):
 # ─────────────────────────────────────────────────────────────────────
 @login_required
 def profile_view(request):
-    from devices.models import UserProfile
+    from devices.models import UserProfile, UserLoginLog
     from django.contrib import messages
     profile, _ = UserProfile.objects.get_or_create(user=request.user)
     if request.method == 'POST':
@@ -1571,7 +1571,44 @@ def profile_view(request):
             request.user.save(update_fields=['first_name', 'last_name'])
             messages.success(request, f'Nama lengkap berhasil disimpan sebagai "{nama_lengkap}".')
         return redirect('profile_view')
-    return render(request, 'maintenance/profile.html', {'profile': profile})
+
+    ctx = {'profile': profile}
+
+    # ── Data eksklusif superuser ──────────────────────────────────
+    if request.user.is_superuser:
+        from django.contrib.auth.models import User as AuthUser
+        from django.contrib.sessions.models import Session
+        from django.utils import timezone
+
+        # Pengguna yang sedang aktif (session valid + active_session_key cocok)
+        now = timezone.now()
+        valid_sessions = Session.objects.filter(expire_date__gt=now)
+        active_user_ids = set()
+        for s in valid_sessions:
+            data = s.get_decoded()
+            uid  = data.get('_auth_user_id')
+            if uid:
+                active_user_ids.add(int(uid))
+
+        active_profiles = (
+            UserProfile.objects
+            .filter(user_id__in=active_user_ids)
+            .exclude(active_session_key='')
+            .select_related('user')
+            .order_by('user__username')
+        )
+
+        # Log login/logout terbaru (100 record)
+        login_logs = (
+            UserLoginLog.objects
+            .select_related('user')
+            .order_by('-timestamp')[:100]
+        )
+
+        ctx['active_profiles'] = active_profiles
+        ctx['login_logs']      = login_logs
+
+    return render(request, 'maintenance/profile.html', ctx)
 
 # ─────────────────────────────────────────────────────────────
 # CORRECTIVE MAINTENANCE VIEWS
