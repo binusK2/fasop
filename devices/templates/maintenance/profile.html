@@ -148,4 +148,131 @@
     </div>
 </div>
 
+{% if request.user.is_superuser %}
+
+<!-- ════ SECTION SUPERUSER: PENGGUNA AKTIF + LOG ════ -->
+<div class="row g-4 mt-1">
+
+    <!-- Pengguna Aktif -->
+    <div class="col-md-5">
+        <div class="card h-100">
+            <div class="card-body px-4 py-4">
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <span style="width:5px;height:18px;background:#10b981;border-radius:3px;display:inline-block;"></span>
+                    <h6 class="mb-0" style="font-size:13px;font-weight:700;color:#0f172a;">
+                        Pengguna Sedang Aktif
+                    </h6>
+                    <span style="margin-left:auto;font-size:11px;font-weight:700;background:#dcfce7;color:#065f46;padding:2px 9px;border-radius:20px;">
+                        {{ active_profiles|length }} online
+                    </span>
+                </div>
+
+                {% if active_profiles %}
+                <div style="display:flex;flex-direction:column;gap:8px;">
+                    {% for ap in active_profiles %}
+                    <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;">
+                        <div style="width:34px;height:34px;background:linear-gradient(135deg,#1e3a5f,#3b82f6);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                            <i class="bi bi-person-fill" style="font-size:14px;color:white;"></i>
+                        </div>
+                        <div style="flex:1;min-width:0;">
+                            <div style="font-size:13px;font-weight:600;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                {{ ap.get_display_name }}
+                            </div>
+                            <div style="font-size:11px;color:#94a3b8;font-family:'JetBrains Mono',monospace;">
+                                @{{ ap.user.username }}
+                            </div>
+                        </div>
+                        <div style="text-align:right;flex-shrink:0;">
+                            {% if ap.role == 'asisten_manager' %}
+                            <span style="font-size:10px;font-weight:700;background:#dbeafe;color:#1d4ed8;padding:2px 8px;border-radius:20px;">AM</span>
+                            {% elif ap.role == 'operator' %}
+                            <span style="font-size:10px;font-weight:700;background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:20px;">Operator</span>
+                            {% elif ap.role == 'technician' %}
+                            <span style="font-size:10px;font-weight:700;background:#dcfce7;color:#065f46;padding:2px 8px;border-radius:20px;">Teknisi</span>
+                            {% else %}
+                            <span style="font-size:10px;font-weight:700;background:#f1f5f9;color:#475569;padding:2px 8px;border-radius:20px;">{{ ap.get_role_display }}</span>
+                            {% endif %}
+                            <div style="width:8px;height:8px;background:#10b981;border-radius:50%;display:inline-block;margin-left:6px;"></div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-4" style="color:#94a3b8;">
+                    <i class="bi bi-person-slash" style="font-size:28px;display:block;margin-bottom:8px;color:#cbd5e1;"></i>
+                    <div style="font-size:13px;">Tidak ada pengguna aktif</div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Log Login / Logout -->
+    <div class="col-md-7">
+        <div class="card h-100">
+            <div class="card-body px-4 py-4">
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <span style="width:5px;height:18px;background:#3b82f6;border-radius:3px;display:inline-block;"></span>
+                    <h6 class="mb-0" style="font-size:13px;font-weight:700;color:#0f172a;">Log Login / Logout</h6>
+                    <span style="margin-left:auto;font-size:11px;color:#94a3b8;">100 terbaru</span>
+                </div>
+
+                {% if login_logs %}
+                <div style="max-height:420px;overflow-y:auto;">
+                    <table style="width:100%;border-collapse:collapse;">
+                        <thead>
+                            <tr style="background:#f8fafc;position:sticky;top:0;z-index:1;">
+                                <th style="font-size:10.5px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;padding:8px 10px;">Waktu</th>
+                                <th style="font-size:10.5px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;padding:8px 10px;">Pengguna</th>
+                                <th style="font-size:10.5px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;padding:8px 10px;">Aksi</th>
+                                <th style="font-size:10.5px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;padding:8px 10px;">IP</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for log in login_logs %}
+                            <tr style="border-top:1px solid #f1f5f9;">
+                                <td style="padding:8px 10px;white-space:nowrap;">
+                                    <div style="font-size:12px;font-weight:600;color:#334155;">{{ log.timestamp|date:"d M Y" }}</div>
+                                    <div style="font-size:11px;color:#94a3b8;font-family:'JetBrains Mono',monospace;">{{ log.timestamp|date:"H:i:s" }}</div>
+                                </td>
+                                <td style="padding:8px 10px;">
+                                    <div style="font-size:12.5px;font-weight:600;color:#0f172a;">
+                                        {{ log.user.get_full_name|default:log.user.username }}
+                                    </div>
+                                    <div style="font-size:11px;color:#94a3b8;font-family:'JetBrains Mono',monospace;">@{{ log.user.username }}</div>
+                                </td>
+                                <td style="padding:8px 10px;">
+                                    {% if log.action == 'login' %}
+                                    <span style="font-size:11px;font-weight:700;background:#dcfce7;color:#065f46;padding:3px 9px;border-radius:20px;">
+                                        <i class="bi bi-box-arrow-in-right me-1"></i>Login
+                                    </span>
+                                    {% else %}
+                                    <span style="font-size:11px;font-weight:700;background:#fee2e2;color:#991b1b;padding:3px 9px;border-radius:20px;">
+                                        <i class="bi bi-box-arrow-right me-1"></i>Logout
+                                    </span>
+                                    {% endif %}
+                                </td>
+                                <td style="padding:8px 10px;">
+                                    <span style="font-size:11px;color:#64748b;font-family:'JetBrains Mono',monospace;">
+                                        {{ log.ip_address|default:"—" }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-4" style="color:#94a3b8;">
+                    <i class="bi bi-journal-x" style="font-size:28px;display:block;margin-bottom:8px;color:#cbd5e1;"></i>
+                    <div style="font-size:13px;">Belum ada riwayat login</div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endif %}
+
 {% endblock %}
