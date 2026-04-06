@@ -413,6 +413,55 @@ def dashboard(request):
     })
 
 
+@login_required
+def distribusi_jenis(request):
+    """Halaman distribusi status operasi per jenis perangkat — semua jenis tampil dengan chart masing-masing."""
+    PALETTE = [
+        '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6',
+        '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#64748b',
+    ]
+
+    jenis_qs = (
+        Device.objects
+        .filter(is_deleted=False)
+        .values('jenis__id', 'jenis__name', 'status_operasi')
+        .annotate(jumlah=Count('id'))
+        .order_by('jenis__name')
+    )
+
+    # Kumpulkan per jenis
+    jenis_map = {}
+    for row in jenis_qs:
+        jid   = row['jenis__id']
+        jname = row['jenis__name'] or 'Lainnya'
+        if jid not in jenis_map:
+            jenis_map[jid] = {'id': jid, 'name': jname, 'operasi': 0, 'tidak_operasi': 0}
+        jenis_map[jid][row['status_operasi']] = row['jumlah']
+
+    jenis_data = []
+    for i, (jid, d) in enumerate(sorted(jenis_map.items(), key=lambda x: x[1]['name'])):
+        total = d['operasi'] + d['tidak_operasi']
+        jenis_data.append({
+            'id':            d['id'],
+            'name':          d['name'],
+            'operasi':       d['operasi'],
+            'tidak_operasi': d['tidak_operasi'],
+            'total':         total,
+            'pct_operasi':   round(d['operasi'] / total * 100) if total else 0,
+            'color':         PALETTE[i % len(PALETTE)],
+        })
+
+    jenis_json = json.dumps([
+        {'name': d['name'], 'operasi': d['operasi'], 'tidak_operasi': d['tidak_operasi']}
+        for d in jenis_data
+    ])
+
+    return render(request, 'devices/distribusi_jenis.html', {
+        'jenis_data': jenis_data,
+        'jenis_json': jenis_json,
+    })
+
+
 def _dashboard_operator(request):
     """Dashboard khusus role Operator — fokus Inservice Inspection."""
     from inspection.models import Inspection, InspectionCatuDaya, InspectionDefenseScheme

@@ -429,9 +429,16 @@
                     <div class="section-title mb-0" style="margin-bottom:0!important;">
                         <i class="bi bi-pie-chart-fill" style="color:#8b5cf6;"></i> Distribusi Status per Jenis Perangkat
                     </div>
-                    <select id="jenisSelect" class="form-select form-select-sm"
-                            style="max-width:220px;font-size:12px;border-radius:8px;">
-                    </select>
+                    <div class="d-flex align-items-center gap-2">
+                        <select id="jenisSelect" class="form-select form-select-sm"
+                                style="max-width:220px;font-size:12px;border-radius:8px;">
+                        </select>
+                        <a href="{% url 'distribusi_jenis' %}"
+                           class="btn btn-sm btn-outline-secondary text-nowrap"
+                           style="font-size:12px;">
+                            <i class="bi bi-grid me-1"></i>Lihat Semua
+                        </a>
+                    </div>
                 </div>
                 <!-- Body: pie + legend -->
                 <div class="d-flex justify-content-center align-items-center gap-5 flex-wrap py-2">
