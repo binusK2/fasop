@@ -1,0 +1,180 @@
+{% extends 'base.html' %}
+{% block title %}Distribusi Status per Jenis — FASOP UP2B{% endblock %}
+{% block page_title %}Distribusi Perangkat{% endblock %}
+
+{% block content %}
+<style>
+    .jenis-card {
+        background: #fff;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 14px;
+        padding: 20px;
+        height: 100%;
+        transition: box-shadow 0.15s, transform 0.15s;
+    }
+    .jenis-card:hover {
+        box-shadow: 0 6px 24px rgba(0,0,0,0.08);
+        transform: translateY(-2px);
+    }
+    .jenis-badge {
+        display: inline-block;
+        font-size: 10px;
+        font-weight: 700;
+        padding: 2px 10px;
+        border-radius: 20px;
+        letter-spacing: 0.3px;
+        margin-bottom: 12px;
+    }
+    .stat-pill {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 12px;
+    }
+    .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+</style>
+
+<!-- Header -->
+<div class="d-flex align-items-center gap-3 mb-4 flex-wrap">
+    <a href="{% url 'dashboard' %}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Dashboard
+    </a>
+    <div>
+        <h5 class="mb-0" style="font-size:16px;font-weight:700;color:#0f172a;">
+            Distribusi Status per Jenis Perangkat
+        </h5>
+        <div style="font-size:12px;color:#94a3b8;margin-top:2px;">
+            {{ jenis_data|length }} jenis perangkat &mdash; operasi vs tidak operasi
+        </div>
+    </div>
+    <a href="{% url 'device_list' %}" class="btn btn-sm btn-outline-primary ms-auto">
+        <i class="bi bi-hdd-rack me-1"></i>Semua Perangkat
+    </a>
+</div>
+
+<!-- Grid kartu per jenis -->
+<div class="row g-3">
+    {% for d in jenis_data %}
+    <div class="col-sm-6 col-md-4 col-xl-3">
+        <div class="jenis-card">
+
+            <!-- Badge jenis dengan warna accent -->
+            <div class="d-flex align-items-start justify-content-between mb-1">
+                <span class="jenis-badge"
+                      style="background:{{ d.color }}22;color:{{ d.color }};">
+                    {{ d.name }}
+                </span>
+                <a href="{% url 'device_list' %}?jenis={{ d.id }}"
+                   style="font-size:11px;color:#94a3b8;text-decoration:none;"
+                   title="Lihat daftar perangkat">
+                    <i class="bi bi-arrow-up-right-square"></i>
+                </a>
+            </div>
+
+            <!-- Total besar di tengah atas chart -->
+            <div style="font-size:28px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;line-height:1;margin-bottom:4px;">
+                {{ d.total }}
+            </div>
+            <div style="font-size:11px;color:#94a3b8;margin-bottom:14px;">total perangkat</div>
+
+            <!-- Doughnut chart -->
+            <div style="position:relative;width:120px;height:120px;margin:0 auto 14px;">
+                <canvas id="chart_{{ forloop.counter0 }}" width="120" height="120"></canvas>
+                <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;">
+                    <div style="font-size:15px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;line-height:1;">
+                        {{ d.pct_operasi }}%
+                    </div>
+                    <div style="font-size:9px;color:#94a3b8;margin-top:1px;">operasi</div>
+                </div>
+            </div>
+
+            <!-- Legend -->
+            <div style="display:flex;flex-direction:column;gap:6px;">
+                <div class="stat-pill">
+                    <div class="dot" style="background:#10b981;"></div>
+                    <span style="color:#64748b;">Operasi</span>
+                    <span style="margin-left:auto;font-weight:700;color:#065f46;font-family:'JetBrains Mono',monospace;">{{ d.operasi }}</span>
+                </div>
+                <div class="stat-pill">
+                    <div class="dot" style="background:#ef4444;"></div>
+                    <span style="color:#64748b;">Tidak Operasi</span>
+                    <span style="margin-left:auto;font-weight:700;color:#991b1b;font-family:'JetBrains Mono',monospace;">{{ d.tidak_operasi }}</span>
+                </div>
+            </div>
+
+            <!-- Progress bar operasi -->
+            <div style="margin-top:12px;">
+                <div style="height:5px;background:#f1f5f9;border-radius:3px;overflow:hidden;">
+                    <div style="height:100%;background:#10b981;border-radius:3px;width:{{ d.pct_operasi }}%;transition:width 0.6s ease;"></div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12 text-center py-5 text-muted">
+        <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+        Belum ada data perangkat.
+    </div>
+    {% endfor %}
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+Chart.defaults.font.family = "'DM Sans', sans-serif";
+
+const jenisData = {{ jenis_json|safe }};
+
+jenisData.forEach((d, i) => {
+    const ctx = document.getElementById('chart_' + i);
+    if (!ctx) return;
+
+    const operasi = d.operasi  || 0;
+    const tidak   = d.tidak_operasi || 0;
+    const total   = operasi + tidak;
+
+    // Jika semua operasi, tidak perlu segmen merah
+    const bgColors = operasi > 0 && tidak > 0
+        ? ['#10b981', '#ef4444']
+        : operasi > 0
+            ? ['#10b981', 'transparent']
+            : ['#e2e8f0', '#ef4444'];
+
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Operasi', 'Tidak Operasi'],
+            datasets: [{
+                data: [operasi, tidak || (operasi === 0 ? 1 : 0)],
+                backgroundColor: bgColors,
+                borderColor: ['#fff', '#fff'],
+                borderWidth: 2,
+                hoverOffset: 5,
+            }]
+        },
+        options: {
+            responsive: false,
+            cutout: '68%',
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#0f172a',
+                    padding: 8,
+                    cornerRadius: 8,
+                    callbacks: {
+                        label: ctx => {
+                            if (total === 0) return '';
+                            const pct = Math.round(ctx.parsed / total * 100);
+                            return `  ${ctx.parsed} perangkat (${pct}%)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}
