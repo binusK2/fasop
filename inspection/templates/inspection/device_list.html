@@ -39,11 +39,20 @@
                         {% else %}background:#fdf4ff;color:#7e22ce;{% endif %}">
                         {{ item.device.jenis.name }}
                     </span>
-                    <span style="font-size:10px;padding:2px 8px;border-radius:20px;
-                        {% if item.device.status_operasi == 'operasi' %}background:#f0fdf4;color:#166534;
-                        {% else %}background:#fef2f2;color:#991b1b;{% endif %}font-weight:600;">
-                        {{ item.device.status_operasi|default:"—" }}
-                    </span>
+                    <div class="d-flex flex-column align-items-end gap-1">
+                        <span style="font-size:10px;padding:2px 8px;border-radius:20px;
+                            {% if item.device.status_operasi == 'operasi' %}background:#f0fdf4;color:#166534;
+                            {% else %}background:#fef2f2;color:#991b1b;{% endif %}font-weight:600;">
+                            {{ item.device.status_operasi|default:"—" }}
+                        </span>
+                        {% if item.device.foto %}
+                        <img src="{{ item.device.foto.url }}"
+                             alt="Foto {{ item.device.nama }}"
+                             style="width:58px;height:58px;object-fit:cover;border-radius:8px;border:1.5px solid #e2e8f0;cursor:pointer;"
+                             data-bs-toggle="tooltip" title="{{ item.device.nama }}"
+                             onclick="showFotoModal('{{ item.device.foto.url }}','{{ item.device.nama|escapejs }}')">
+                        {% endif %}
+                    </div>
                 </div>
                 <!-- Nama device -->
                 <div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:6px;">{{ item.device.nama }}</div>
@@ -82,5 +91,33 @@
     </div>
     {% endfor %}
 </div>
+
+<!-- Modal preview foto -->
+<div class="modal fade" id="fotoModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius:12px;overflow:hidden;">
+            <div class="modal-header py-2 px-3 border-0" style="background:#0f172a;">
+                <span id="fotoModalLabel" class="text-white fw-semibold" style="font-size:13px;"></span>
+                <button type="button" class="btn-close btn-close-white btn-sm ms-auto" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                <img id="fotoModalImg" src="" alt="" style="width:100%;max-height:70vh;object-fit:contain;background:#f8fafc;">
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function showFotoModal(url, nama) {
+    document.getElementById('fotoModalImg').src = url;
+    document.getElementById('fotoModalLabel').textContent = nama;
+    new bootstrap.Modal(document.getElementById('fotoModal')).show();
+}
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function(el){
+        new bootstrap.Tooltip(el);
+    });
+});
+</script>
 
 {% endblock %}
