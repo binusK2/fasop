@@ -1,0 +1,655 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard Catu Daya — FASOP UP2B{% endblock %}
+{% block page_title %}Dashboard Catu Daya{% endblock %}
+
+{% block content %}
+<style>
+/* ── Layout ────────────────────────────────────────────────── */
+.cd-page-header { margin-bottom: 24px; }
+.cd-page-header h2 { font-size: 22px; font-weight: 700; color: #0f172a; margin: 0; }
+.cd-page-header p  { font-size: 13px; color: #64748b; margin: 4px 0 0; }
+
+/* ── Summary cards ─────────────────────────────────────────── */
+.cd-stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin-bottom: 24px; }
+.cd-stat-card {
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
+    padding: 15px 17px; display: flex; align-items: flex-start; gap: 12px;
+}
+.cd-stat-icon { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 17px; flex-shrink: 0; }
+.cd-stat-val  { font-size: 25px; font-weight: 700; line-height: 1; font-family: 'JetBrains Mono', monospace; }
+.cd-stat-lbl  { font-size: 11px; color: #64748b; margin-top: 3px; }
+
+/* ── Shared card ───────────────────────────────────────────── */
+.cd-card {
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+    overflow: hidden; margin-bottom: 22px;
+}
+.cd-card-head {
+    padding: 14px 18px; border-bottom: 1px solid #f1f5f9;
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+}
+.cd-card-head h5 { font-size: 13.5px; font-weight: 700; margin: 0; color: #0f172a; }
+.cd-card-body  { padding: 18px 20px; }
+
+/* ── Device selector ───────────────────────────────────────── */
+.cd-select {
+    font-size: 13px; padding: 6px 12px; border: 1px solid #e2e8f0;
+    border-radius: 8px; background: #f8fafc; color: #0f172a; outline: none; min-width: 230px;
+}
+.cd-select:focus { border-color: #3b82f6; }
+
+/* ── Chart wrap ────────────────────────────────────────────── */
+.cd-chart-wrap { position: relative; }
+.cd-chart-h340 { height: 340px; }
+.cd-chart-h240 { height: 240px; }
+
+/* ── Metric cards (4 inspection values) ───────────────────── */
+.cd-metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; padding: 16px 18px; border-top: 1px solid #f1f5f9; }
+.cd-metric {
+    background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px;
+    padding: 12px 14px; text-align: center;
+}
+.cd-metric-label { font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
+.cd-metric-val   { font-size: 20px; font-weight: 700; font-family: 'JetBrains Mono', monospace; color: #0f172a; }
+.cd-metric-unit  { font-size: 11px; color: #64748b; margin-top: 2px; }
+
+/* ── Info row ──────────────────────────────────────────────── */
+.cd-info-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 10px; padding: 14px 18px; border-top: 1px solid #f1f5f9; }
+.cd-info-label { font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: .5px; }
+.cd-info-val   { font-size: 13.5px; font-weight: 600; color: #0f172a; font-family: 'JetBrains Mono', monospace; }
+
+/* ── Alert ─────────────────────────────────────────────────── */
+.cd-alert { display: flex; align-items: flex-start; gap: 10px; padding: 11px 16px; border-radius: 10px; margin: 0 18px 14px; font-size: 13px; }
+.cd-alert-warn   { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }
+.cd-alert-danger { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
+.cd-alert-ok     { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
+
+/* ── Legend ────────────────────────────────────────────────── */
+.cd-legend { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+.cd-legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #475569; }
+.cd-legend-line { width: 24px; height: 3px; border-radius: 2px; }
+.cd-legend-dash { width: 24px; border-top: 2px dashed; }
+
+/* ── 2-col grid for trend charts ───────────────────────────── */
+.cd-trend-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 22px; }
+@media (max-width: 768px) { .cd-trend-grid { grid-template-columns: 1fr; } }
+
+/* ── Status badge ──────────────────────────────────────────── */
+.cd-badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 20px; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+.cd-badge-ok     { background: #f0fdf4; color: #16a34a; }
+.cd-badge-warn   { background: #fffbeb; color: #d97706; }
+.cd-badge-danger { background: #fef2f2; color: #dc2626; }
+
+/* ── Table ─────────────────────────────────────────────────── */
+.cd-table-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; }
+.cd-tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.cd-tbl th { padding: 8px 12px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; color: #94a3b8; background: #f8fafc; border-bottom: 1px solid #e2e8f0; white-space: nowrap; }
+.cd-tbl td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+.cd-tbl tr:last-child td { border-bottom: none; }
+.cd-tbl tr:hover td { background: #f8fafc; cursor: pointer; }
+
+/* ── Empty ─────────────────────────────────────────────────── */
+.cd-empty { text-align: center; padding: 60px 20px; color: #94a3b8; font-size: 13px; }
+.cd-empty i { font-size: 42px; display: block; margin-bottom: 12px; opacity: .4; }
+
+/* ── Export buttons ────────────────────────────────────────── */
+.cd-export-group { display: flex; gap: 5px; align-items: center; }
+.cd-export-btn {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 4px 10px; border-radius: 7px; font-size: 11.5px; font-weight: 600;
+    cursor: pointer; border: 1px solid #e2e8f0; background: #f8fafc; color: #475569;
+    transition: background .15s, border-color .15s;
+    white-space: nowrap;
+}
+.cd-export-btn:hover { background: #f1f5f9; border-color: #cbd5e1; color: #0f172a; }
+.cd-export-btn.cd-copy-ok { background: #f0fdf4; border-color: #86efac; color: #16a34a; }
+.cd-export-btn i { font-size: 12px; }
+
+/* ── Section divider ───────────────────────────────────────── */
+.cd-section-title {
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px;
+    color: #64748b; margin: 0 0 14px; display: flex; align-items: center; gap: 8px;
+}
+.cd-section-title::after { content:''; flex:1; height:1px; background:#e2e8f0; }
+</style>
+
+<!-- Page header -->
+<div class="cd-page-header">
+    <h2><i class="bi bi-battery-charging me-2" style="color:#3b82f6;"></i>Dashboard Catu Daya</h2>
+    <p>Monitoring tegangan, arus & prediksi discharge baterai. Batas aman: <strong>{{ threshold }} VDC</strong></p>
+</div>
+
+{% if devices_data %}
+
+<!-- ══ 1. Summary Stats ══════════════════════════════════════ -->
+<div class="cd-stat-grid">
+    <div class="cd-stat-card">
+        <div class="cd-stat-icon" style="background:#eff6ff;color:#3b82f6;"><i class="bi bi-hdd-rack"></i></div>
+        <div><div class="cd-stat-val">{{ devices_data|length }}</div><div class="cd-stat-lbl">Total Perangkat</div></div>
+    </div>
+    <div class="cd-stat-card">
+        <div class="cd-stat-icon" style="background:#f0fdf4;color:#16a34a;"><i class="bi bi-check-circle"></i></div>
+        <div><div class="cd-stat-val" id="stat-ok" style="color:#16a34a;">—</div><div class="cd-stat-lbl">Aman</div></div>
+    </div>
+    <div class="cd-stat-card">
+        <div class="cd-stat-icon" style="background:#fffbeb;color:#d97706;"><i class="bi bi-exclamation-triangle"></i></div>
+        <div><div class="cd-stat-val" id="stat-warn" style="color:#d97706;">—</div><div class="cd-stat-lbl">Perlu Perhatian</div></div>
+    </div>
+    <div class="cd-stat-card">
+        <div class="cd-stat-icon" style="background:#fef2f2;color:#dc2626;"><i class="bi bi-exclamation-circle"></i></div>
+        <div><div class="cd-stat-val" id="stat-danger" style="color:#dc2626;">—</div><div class="cd-stat-lbl">Di Bawah Threshold</div></div>
+    </div>
+</div>
+
+<!-- ══ Device selector (global) ═════════════════════════════ -->
+<div class="cd-card" style="margin-bottom:22px;">
+    <div class="cd-card-head">
+        <h5><i class="bi bi-hdd-rack me-2" style="color:#3b82f6;"></i>Pilih Perangkat</h5>
+        <select class="cd-select" id="device-select" onchange="switchDevice(parseInt(this.value))">
+            {% for d in devices_data %}
+            <option value="{{ d.device_id }}" {% if d.device_id == selected_id %}selected{% endif %}>
+                {{ d.device_name }} — {{ d.lokasi }}
+            </option>
+            {% endfor %}
+        </select>
+    </div>
+</div>
+
+<!-- ══ 2. Metric Cards — Nilai Terbaru Inspeksi ══════════════ -->
+<p class="cd-section-title"><i class="bi bi-clipboard-data me-1"></i>Nilai Terbaru Hasil Inspeksi</p>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:22px;" id="metric-grid">
+    <div class="cd-metric">
+        <div class="cd-metric-label">V Battery</div>
+        <div class="cd-metric-val" id="m-vbatt" style="color:#3b82f6;">—</div>
+        <div class="cd-metric-unit">Volt DC</div>
+    </div>
+    <div class="cd-metric">
+        <div class="cd-metric-label">V Load</div>
+        <div class="cd-metric-val" id="m-vload" style="color:#0891b2;">—</div>
+        <div class="cd-metric-unit">Volt DC</div>
+    </div>
+    <div class="cd-metric">
+        <div class="cd-metric-label">A Load</div>
+        <div class="cd-metric-val" id="m-aload" style="color:#d97706;">—</div>
+        <div class="cd-metric-unit">Ampere</div>
+    </div>
+    <div class="cd-metric">
+        <div class="cd-metric-label">A Battery</div>
+        <div class="cd-metric-val" id="m-abatt" style="color:#7c3aed;">—</div>
+        <div class="cd-metric-unit">Ampere</div>
+    </div>
+    <div class="cd-metric">
+        <div class="cd-metric-label">V Rectifier</div>
+        <div class="cd-metric-val" id="m-vrect" style="color:#059669;">—</div>
+        <div class="cd-metric-unit">Volt DC</div>
+    </div>
+    <div class="cd-metric">
+        <div class="cd-metric-label">V Total Bank</div>
+        <div class="cd-metric-val" id="m-vtotal" style="color:#0f172a;">—</div>
+        <div class="cd-metric-unit">Volt DC</div>
+    </div>
+</div>
+
+<!-- ══ 3. Trend Charts — History Inspeksi ═══════════════════ -->
+<p class="cd-section-title"><i class="bi bi-graph-up me-1"></i>Tren Historis Hasil Inspeksi</p>
+<div class="cd-trend-grid">
+    <!-- V Trend -->
+    <div class="cd-card" style="margin-bottom:0;">
+        <div class="cd-card-head">
+            <h5><i class="bi bi-lightning me-2" style="color:#3b82f6;"></i>Tegangan (V)</h5>
+            <div class="cd-export-group">
+                <button class="cd-export-btn" onclick="downloadChart('vTrendChart','tren-tegangan')"><i class="bi bi-download"></i> PNG</button>
+                <button class="cd-export-btn" id="copy-vtrend" onclick="copyChart('vTrendChart','copy-vtrend')"><i class="bi bi-clipboard"></i> Copy</button>
+            </div>
+        </div>
+        <div class="cd-card-body">
+            <div class="cd-legend">
+                <div class="cd-legend-item"><div class="cd-legend-line" style="background:#3b82f6;"></div><span>V Battery</span></div>
+                <div class="cd-legend-item"><div class="cd-legend-line" style="background:#0891b2;"></div><span>V Load</span></div>
+                <div class="cd-legend-item"><div class="cd-legend-line" style="background:#059669;"></div><span>V Rectifier</span></div>
+            </div>
+            <div class="cd-chart-wrap cd-chart-h240"><canvas id="vTrendChart"></canvas></div>
+        </div>
+    </div>
+    <!-- A Trend -->
+    <div class="cd-card" style="margin-bottom:0;">
+        <div class="cd-card-head">
+            <h5><i class="bi bi-activity me-2" style="color:#d97706;"></i>Arus (A)</h5>
+            <div class="cd-export-group">
+                <button class="cd-export-btn" onclick="downloadChart('aTrendChart','tren-arus')"><i class="bi bi-download"></i> PNG</button>
+                <button class="cd-export-btn" id="copy-atrend" onclick="copyChart('aTrendChart','copy-atrend')"><i class="bi bi-clipboard"></i> Copy</button>
+            </div>
+        </div>
+        <div class="cd-card-body">
+            <div class="cd-legend">
+                <div class="cd-legend-item"><div class="cd-legend-line" style="background:#d97706;"></div><span>A Load</span></div>
+                <div class="cd-legend-item"><div class="cd-legend-line" style="background:#7c3aed;"></div><span>A Battery</span></div>
+            </div>
+            <div class="cd-chart-wrap cd-chart-h240"><canvas id="aTrendChart"></canvas></div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ 4. Discharge + Prediksi ══════════════════════════════ -->
+<p class="cd-section-title" style="margin-top:4px;"><i class="bi bi-graph-down-arrow me-1"></i>Kurva Discharge & Prediksi 10 Jam</p>
+<div class="cd-card">
+    <div class="cd-card-head">
+        <h5><i class="bi bi-battery-half me-2" style="color:#3b82f6;"></i>Discharge Baterai — Data Terbaru</h5>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <span id="discharge-device-label" class="text-muted" style="font-size:12px;"></span>
+            <div class="cd-export-group">
+                <button class="cd-export-btn" onclick="downloadChart('dischargeChart','discharge-prediksi')"><i class="bi bi-download"></i> PNG</button>
+                <button class="cd-export-btn" id="copy-discharge" onclick="copyChart('dischargeChart','copy-discharge')"><i class="bi bi-clipboard"></i> Copy</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="cd-alert-box" class="d-none"></div>
+
+    <div class="cd-card-body">
+        <div class="cd-legend">
+            <div class="cd-legend-item"><div class="cd-legend-line" style="background:#3b82f6;"></div><span>Data Aktual</span></div>
+            <div class="cd-legend-item"><div class="cd-legend-dash" style="border-color:#f59e0b;"></div><span>Prediksi (Linear)</span></div>
+            <div class="cd-legend-item"><div class="cd-legend-line" style="background:#ef4444;"></div><span>Batas 38 VDC</span></div>
+        </div>
+        <div class="cd-chart-wrap cd-chart-h340"><canvas id="dischargeChart"></canvas></div>
+    </div>
+
+    <div class="cd-info-row">
+        <div><div class="cd-info-label">Perangkat</div><div class="cd-info-val" id="info-nama">—</div></div>
+        <div><div class="cd-info-label">Lokasi</div><div class="cd-info-val" id="info-lokasi">—</div></div>
+        <div><div class="cd-info-label">Tgl Pemeliharaan</div><div class="cd-info-val" id="info-tanggal">—</div></div>
+        <div><div class="cd-info-label">V Float Total</div><div class="cd-info-val" id="info-vfloat">—</div></div>
+        <div><div class="cd-info-label">Laju Penurunan</div><div class="cd-info-val" id="info-slope">—</div></div>
+        <div><div class="cd-info-label">Est. Capai 38V</div><div class="cd-info-val" id="info-thr">—</div></div>
+        <div><div class="cd-info-label">Merk / Tipe</div><div class="cd-info-val" id="info-bat">—</div></div>
+        <div><div class="cd-info-label">Kapasitas</div><div class="cd-info-val" id="info-kap">—</div></div>
+    </div>
+</div>
+
+<!-- ══ 5. Device List Table ══════════════════════════════════ -->
+<p class="cd-section-title"><i class="bi bi-list-ul me-1"></i>Daftar Semua Perangkat Catu Daya</p>
+<div class="cd-table-card">
+    <table class="cd-tbl">
+        <thead>
+            <tr>
+                <th>Perangkat</th>
+                <th>Lokasi</th>
+                <th>Tgl Maint</th>
+                <th>V Battery</th>
+                <th>V Load</th>
+                <th>A Load</th>
+                <th>A Battery</th>
+                <th>VD 2 Jam</th>
+                <th>Est. @38V</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody id="device-table-body"></tbody>
+    </table>
+</div>
+
+{% else %}
+<div class="cd-empty">
+    <i class="bi bi-battery-half"></i>
+    <strong>Belum ada data Catu Daya</strong>
+    <p>Pastikan perangkat bertipe "Catu Daya" atau "Rectifier" sudah memiliki data pemeliharaan.</p>
+</div>
+{% endif %}
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+
+<script>
+const DEVICES   = {{ devices_data_json|safe }};
+const THRESHOLD = {{ threshold }};
+
+let chartDischarge = null;
+let chartVTrend    = null;
+let chartATrend    = null;
+
+/* ── Shared chart defaults ─────────────────────────────── */
+const FONT_FAMILY = "'JetBrains Mono', 'DM Sans', sans-serif";
+Chart.defaults.font.family = FONT_FAMILY;
+
+/* ── Helpers ───────────────────────────────────────────── */
+function fmtV(v) { return v != null ? v.toFixed(2) + ' V' : '—'; }
+function fmtA(v) { return v != null ? v.toFixed(2) + ' A' : '—'; }
+
+function destroyChart(inst) { if (inst) inst.destroy(); return null; }
+
+/* ── Stats ─────────────────────────────────────────────── */
+function renderStats() {
+    let ok = 0, warn = 0, danger = 0;
+    DEVICES.forEach(d => {
+        if (d.status === 'ok') ok++;
+        else if (d.status === 'warning') warn++;
+        else danger++;
+    });
+    document.getElementById('stat-ok').textContent     = ok;
+    document.getElementById('stat-warn').textContent   = warn;
+    document.getElementById('stat-danger').textContent = danger;
+}
+
+/* ── Device table ──────────────────────────────────────── */
+function renderTable() {
+    const tbody = document.getElementById('device-table-body');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    DEVICES.forEach(d => {
+        const vd2   = d.actual.find(p => p.t === 2);
+        const thr   = d.threshold_time != null
+            ? d.threshold_time + ' jam'
+            : (d.status === 'danger' ? 'Sudah di bawah' : '> 10 jam');
+        let badge;
+        if (d.status === 'ok')
+            badge = `<span class="cd-badge cd-badge-ok"><i class="bi bi-check-circle-fill"></i> Aman</span>`;
+        else if (d.status === 'warning')
+            badge = `<span class="cd-badge cd-badge-warn"><i class="bi bi-exclamation-triangle-fill"></i> Perhatian</span>`;
+        else
+            badge = `<span class="cd-badge cd-badge-danger"><i class="bi bi-x-circle-fill"></i> Bahaya</span>`;
+
+        const tr = document.createElement('tr');
+        tr.onclick = () => {
+            document.getElementById('device-select').value = d.device_id;
+            switchDevice(d.device_id);
+            document.getElementById('metric-grid').scrollIntoView({behavior:'smooth', block:'start'});
+        };
+        tr.innerHTML = `
+            <td><strong>${d.device_name}</strong></td>
+            <td>${d.lokasi}</td>
+            <td>${d.tanggal}</td>
+            <td>${fmtV(d.v_battery)}</td>
+            <td>${fmtV(d.v_load)}</td>
+            <td>${fmtA(d.a_load)}</td>
+            <td>${fmtA(d.a_battery)}</td>
+            <td>${vd2 ? vd2.v + ' V' : '—'}</td>
+            <td style="font-family:monospace;">${thr}</td>
+            <td>${badge}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+/* ── Update metric cards ───────────────────────────────── */
+function renderMetrics(dev) {
+    document.getElementById('m-vbatt').textContent  = dev.v_battery  != null ? dev.v_battery  + ' V' : '—';
+    document.getElementById('m-vload').textContent  = dev.v_load     != null ? dev.v_load     + ' V' : '—';
+    document.getElementById('m-aload').textContent  = dev.a_load     != null ? dev.a_load     + ' A' : '—';
+    document.getElementById('m-abatt').textContent  = dev.a_battery  != null ? dev.a_battery  + ' A' : '—';
+    document.getElementById('m-vrect').textContent  = dev.v_rectifier!= null ? dev.v_rectifier+ ' V' : '—';
+    document.getElementById('m-vtotal').textContent = dev.v_total_field!=null ? dev.v_total_field+' V': '—';
+}
+
+/* ── Voltage trend chart ───────────────────────────────── */
+function renderVTrend(dev) {
+    chartVTrend = destroyChart(chartVTrend);
+    const hist   = dev.history || [];
+    const labels = hist.map(h => h.date);
+    const ctx    = document.getElementById('vTrendChart').getContext('2d');
+
+    chartVTrend = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [
+                {
+                    label: 'V Battery',
+                    data: hist.map(h => h.v_battery),
+                    borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.06)',
+                    borderWidth: 2, pointRadius: 4, tension: 0.3, fill: true, spanGaps: true,
+                },
+                {
+                    label: 'V Load',
+                    data: hist.map(h => h.v_load),
+                    borderColor: '#0891b2', backgroundColor: 'transparent',
+                    borderWidth: 2, pointRadius: 4, tension: 0.3, spanGaps: true,
+                },
+                {
+                    label: 'V Rectifier',
+                    data: hist.map(h => h.v_rectifier),
+                    borderColor: '#059669', backgroundColor: 'transparent',
+                    borderWidth: 1.5, pointRadius: 3, tension: 0.3, borderDash: [5,3], spanGaps: true,
+                },
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { display: false },
+                tooltip: { callbacks: { label: c => c.parsed.y != null ? `${c.dataset.label}: ${c.parsed.y.toFixed(2)} V` : null } }
+            },
+            scales: {
+                x: { ticks: { color:'#64748b', font:{size:10}, maxRotation:45 }, grid: { color:'#f1f5f9' } },
+                y: {
+                    ticks: { color:'#64748b', font:{size:10}, callback: v => v.toFixed(1)+' V' },
+                    grid: { color:'#f1f5f9' },
+                    title: { display: true, text: 'Volt (V)', color:'#94a3b8', font:{size:11} },
+                }
+            }
+        }
+    });
+}
+
+/* ── Current trend chart ───────────────────────────────── */
+function renderATrend(dev) {
+    chartATrend = destroyChart(chartATrend);
+    const hist   = dev.history || [];
+    const labels = hist.map(h => h.date);
+    const ctx    = document.getElementById('aTrendChart').getContext('2d');
+
+    chartATrend = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [
+                {
+                    label: 'A Load',
+                    data: hist.map(h => h.a_load),
+                    borderColor: '#d97706', backgroundColor: 'rgba(217,119,6,0.07)',
+                    borderWidth: 2, pointRadius: 4, tension: 0.3, fill: true, spanGaps: true,
+                },
+                {
+                    label: 'A Battery',
+                    data: hist.map(h => h.a_battery),
+                    borderColor: '#7c3aed', backgroundColor: 'transparent',
+                    borderWidth: 2, pointRadius: 4, tension: 0.3, spanGaps: true,
+                },
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { display: false },
+                tooltip: { callbacks: { label: c => c.parsed.y != null ? `${c.dataset.label}: ${c.parsed.y.toFixed(2)} A` : null } }
+            },
+            scales: {
+                x: { ticks: { color:'#64748b', font:{size:10}, maxRotation:45 }, grid: { color:'#f1f5f9' } },
+                y: {
+                    ticks: { color:'#64748b', font:{size:10}, callback: v => v.toFixed(1)+' A' },
+                    grid: { color:'#f1f5f9' },
+                    title: { display: true, text: 'Ampere (A)', color:'#94a3b8', font:{size:11} },
+                }
+            }
+        }
+    });
+}
+
+/* ── Discharge + prediction chart ─────────────────────── */
+function renderDischarge(dev) {
+    /* Info row */
+    document.getElementById('info-nama').textContent    = dev.device_name;
+    document.getElementById('info-lokasi').textContent  = dev.lokasi;
+    document.getElementById('info-tanggal').textContent = dev.tanggal;
+    document.getElementById('info-vfloat').textContent  = dev.v_float_total != null ? dev.v_float_total + ' V' : '—';
+    document.getElementById('info-slope').textContent   = dev.slope != null ? dev.slope + ' V/jam' : '—';
+    document.getElementById('info-bat').textContent     = dev.bat_merk + ' / ' + dev.bat_tipe;
+    document.getElementById('info-kap').textContent     = dev.bat_kapasitas || '—';
+    document.getElementById('discharge-device-label').textContent = dev.device_name + ' · ' + dev.lokasi;
+
+    if (dev.threshold_time != null) {
+        if (dev.threshold_time <= 10)
+            document.getElementById('info-thr').innerHTML = `<span style="color:#dc2626;font-weight:700;">${dev.threshold_time} jam ⚠</span>`;
+        else
+            document.getElementById('info-thr').textContent = dev.threshold_time + ' jam';
+    } else if (dev.status === 'danger') {
+        document.getElementById('info-thr').innerHTML = `<span style="color:#dc2626;font-weight:700;">Sudah ≤ 38V!</span>`;
+    } else {
+        document.getElementById('info-thr').textContent = '> 10 jam';
+    }
+
+    /* Alert box */
+    const alertBox = document.getElementById('cd-alert-box');
+    alertBox.className = 'cd-alert';
+    if (dev.status === 'danger') {
+        alertBox.innerHTML = `<i class="bi bi-x-circle-fill fs-5"></i><div><strong>Tegangan di bawah threshold!</strong> Tegangan sudah di bawah 38 VDC. Segera lakukan tindakan.</div>`;
+        alertBox.classList.add('cd-alert-danger');
+    } else if (dev.status === 'warning') {
+        alertBox.innerHTML = `<i class="bi bi-exclamation-triangle-fill fs-5"></i><div><strong>Perhatian:</strong> Prediksi tegangan akan mencapai 38 VDC dalam <strong>${dev.threshold_time} jam</strong> ke depan.</div>`;
+        alertBox.classList.add('cd-alert-warn');
+    } else {
+        alertBox.innerHTML = `<i class="bi bi-check-circle-fill fs-5"></i><div><strong>Tegangan aman.</strong> Tidak diprediksi mencapai batas 38 VDC dalam 10 jam ke depan.</div>`;
+        alertBox.classList.add('cd-alert-ok');
+    }
+
+    /* Build datasets */
+    const allTimes = new Set([...dev.actual.map(p=>p.t), ...dev.prediction.map(p=>p.t)]);
+    const timeAxis = Array.from(allTimes).sort((a,b)=>a-b);
+
+    const actualMap = {}; dev.actual.forEach(p => actualMap[p.t] = p.v);
+    const predMap   = {}; dev.prediction.forEach(p => predMap[p.t] = p.v);
+    const lastT     = dev.actual.length ? dev.actual[dev.actual.length-1].t : null;
+    const lastV     = dev.actual.length ? dev.actual[dev.actual.length-1].v : null;
+
+    const actualData = timeAxis.map(t => actualMap.hasOwnProperty(t) ? actualMap[t] : null);
+    const predData   = timeAxis.map(t => {
+        if (predMap.hasOwnProperty(t)) return predMap[t];
+        if (t === lastT) return lastV;
+        return null;
+    });
+    const thrData    = timeAxis.map(() => THRESHOLD);
+    const crossData  = timeAxis.map(t => {
+        if (dev.threshold_time != null && Math.abs(t - dev.threshold_time) < 0.3) return THRESHOLD;
+        return null;
+    });
+
+    chartDischarge = destroyChart(chartDischarge);
+    const ctx = document.getElementById('dischargeChart').getContext('2d');
+    chartDischarge = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: timeAxis.map(t => t + ' jam'),
+            datasets: [
+                { label:'Data Aktual',         data:actualData, borderColor:'#3b82f6', backgroundColor:'rgba(59,130,246,0.07)', borderWidth:2.5, pointRadius:5, tension:0.3, fill:true,  spanGaps:false },
+                { label:'Prediksi (Linear)',    data:predData,   borderColor:'#f59e0b', backgroundColor:'transparent',           borderWidth:2,   pointRadius:3, tension:0.2, fill:false, spanGaps:false, borderDash:[7,4] },
+                { label:'Batas Aman 38 VDC',   data:thrData,    borderColor:'#ef4444', backgroundColor:'rgba(239,68,68,0.04)',   borderWidth:1.5, pointRadius:0, tension:0,   fill:false, spanGaps:true,  borderDash:[4,3] },
+                { label:'Titik Threshold',      data:crossData,  borderColor:'transparent', backgroundColor:'#ef4444', pointRadius:8, pointStyle:'triangle', showLine:false, spanGaps:false },
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            interaction: { mode:'index', intersect:false },
+            plugins: {
+                legend: { display:false },
+                tooltip: { callbacks: {
+                    label: c => {
+                        if (c.parsed.y === null) return null;
+                        if (c.datasetIndex === 3) return '⚠ Mencapai threshold 38 VDC';
+                        return `${c.dataset.label}: ${c.parsed.y.toFixed(2)} V`;
+                    },
+                    title: lbl => `Waktu: ${lbl[0]?.label}`
+                }}
+            },
+            scales: {
+                x: { title:{display:true,text:'Waktu Discharge (jam)',color:'#64748b',font:{size:11}}, grid:{color:'#f1f5f9'}, ticks:{color:'#64748b',font:{size:10}} },
+                y: { title:{display:true,text:'Tegangan Total (V)',color:'#64748b',font:{size:11}}, grid:{color:'#f1f5f9'}, ticks:{color:'#64748b',font:{size:10},callback:v=>v.toFixed(1)+' V'}, suggestedMin:34 }
+            }
+        }
+    });
+}
+
+/* ── Main switch — re-render all panels for device ──── */
+function switchDevice(deviceId) {
+    const dev = DEVICES.find(d => d.device_id === deviceId);
+    if (!dev) return;
+    renderMetrics(dev);
+    renderVTrend(dev);
+    renderATrend(dev);
+    renderDischarge(dev);
+}
+
+/* ── Export helpers ─────────────────────────────────── */
+/**
+ * Render canvas ke offscreen canvas dengan background putih,
+ * lalu download sebagai PNG.
+ */
+function downloadChart(canvasId, filename) {
+    const src = document.getElementById(canvasId);
+    const tmp = document.createElement('canvas');
+    tmp.width  = src.width;
+    tmp.height = src.height;
+    const ctx = tmp.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, tmp.width, tmp.height);
+    ctx.drawImage(src, 0, 0);
+    const link = document.createElement('a');
+    link.download = filename + '.png';
+    link.href = tmp.toDataURL('image/png');
+    link.click();
+}
+
+/**
+ * Copy chart ke clipboard sebagai image/png.
+ * Menampilkan feedback sementara pada tombol.
+ */
+function copyChart(canvasId, btnId) {
+    const src = document.getElementById(canvasId);
+    const tmp = document.createElement('canvas');
+    tmp.width  = src.width;
+    tmp.height = src.height;
+    const ctx = tmp.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, tmp.width, tmp.height);
+    ctx.drawImage(src, 0, 0);
+
+    tmp.toBlob(async blob => {
+        const btn = document.getElementById(btnId);
+        try {
+            await navigator.clipboard.write([new ClipboardItem({'image/png': blob})]);
+            if (btn) {
+                btn.innerHTML = '<i class="bi bi-clipboard-check"></i> Tersalin!';
+                btn.classList.add('cd-copy-ok');
+                setTimeout(() => {
+                    btn.innerHTML = '<i class="bi bi-clipboard"></i> Copy';
+                    btn.classList.remove('cd-copy-ok');
+                }, 2000);
+            }
+        } catch (e) {
+            /* Fallback: buka gambar di tab baru agar user bisa save manual */
+            const url = tmp.toDataURL('image/png');
+            const win = window.open();
+            if (win) {
+                win.document.write(`<img src="${url}" style="max-width:100%;">`);
+                win.document.title = 'Chart Export';
+            }
+            if (btn) {
+                btn.innerHTML = '<i class="bi bi-box-arrow-up-right"></i> Buka';
+                setTimeout(() => { btn.innerHTML = '<i class="bi bi-clipboard"></i> Copy'; }, 2500);
+            }
+        }
+    }, 'image/png');
+}
+
+/* ── Init ───────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', () => {
+    renderStats();
+    renderTable();
+    const initId = {{ selected_id|default:"null" }};
+    if (DEVICES.length > 0) {
+        switchDevice(initId !== null ? initId : DEVICES[0].device_id);
+    }
+});
+</script>
+{% endblock %}

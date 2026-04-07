@@ -18,6 +18,9 @@ urlpatterns = [
     path('sign/<int:pk>/', views.maintenance_sign, name='maintenance_sign'),
     path('catatan-am/<int:pk>/', views.maintenance_catatan_am_edit, name='maintenance_catatan_am_edit'),
     path('profile/', views.profile_view, name='profile_view'),
+    # Dashboard Catu Daya
+    path('catu-daya/', views.catu_daya_dashboard, name='catu_daya_dashboard'),
+
     # Corrective Maintenance
     path('corrective/add/',                       views.corrective_add,                              name='corrective_add'),
     path('corrective/device/<int:device_id>/',    lambda r, device_id: views.corrective_add(r, device_id=device_id),    name='corrective_add_device'),
