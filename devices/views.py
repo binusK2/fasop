@@ -345,6 +345,82 @@ def dashboard(request):
             hi_summary['kritis'] += 1
             hi_kritis_list.append({'device': dev, 'hi': hi})
     hi_kritis_list = hi_kritis_list[:5]  # tampilkan max 5
+    hi_summary_json = _json.dumps(hi_summary)
+
+    # ── Gangguan breakdown by kategori & severity ─────────────────
+    gangguan_by_kategori_qs = (
+        Gangguan.objects
+        .values('kategori')
+        .annotate(total=Count('id'))
+        .order_by('-total')
+    )
+    _kat_labels = {
+        'perangkat': 'Perangkat/HW', 'jaringan': 'Jaringan',
+        'daya': 'Daya/Power', 'software': 'Software',
+        'eksternal': 'Eksternal', 'lainnya': 'Lainnya',
+    }
+    gangguan_kategori_json = _json.dumps([
+        {'label': _kat_labels.get(g['kategori'], g['kategori']), 'total': g['total']}
+        for g in gangguan_by_kategori_qs
+    ])
+
+    gangguan_by_severity_qs = (
+        Gangguan.objects
+        .values('tingkat_keparahan')
+        .annotate(total=Count('id'))
+        .order_by('-total')
+    )
+    _sev_order = ['kritis', 'tinggi', 'sedang', 'rendah']
+    _sev_labels = {'kritis': 'Kritis', 'tinggi': 'Tinggi', 'sedang': 'Sedang', 'rendah': 'Rendah'}
+    _sev_map = {g['tingkat_keparahan']: g['total'] for g in gangguan_by_severity_qs}
+    gangguan_severity_json = _json.dumps([
+        {'label': _sev_labels[s], 'total': _sev_map.get(s, 0)}
+        for s in _sev_order
+    ])
+
+    # Gangguan open per severity (untuk card badges)
+    gangguan_open_kritis = Gangguan.objects.filter(status__in=['open', 'in_progress'], tingkat_keparahan='kritis').count()
+
+    # ── Maintenance stacked (preventive vs corrective per bulan) ──
+    _maint_type_qs = (
+        Maintenance.objects
+        .annotate(month=TruncMonth('date'))
+        .values('month', 'maintenance_type')
+        .annotate(total=Count('id'))
+    )
+    _maint_type_map = {}
+    for _m in _maint_type_qs:
+        _mo = _m['month'].date().replace(day=1)
+        _t = _m['maintenance_type'] or 'Lainnya'
+        if _mo not in _maint_type_map:
+            _maint_type_map[_mo] = {}
+        _maint_type_map[_mo][_t] = _m['total']
+    maintenance_stacked_json = _json.dumps({
+        'labels': [m.strftime('%b %Y') for m in months_6],
+        'preventive': [_maint_type_map.get(m, {}).get('Preventive', 0) for m in months_6],
+        'corrective':  [_maint_type_map.get(m, {}).get('Corrective', 0) for m in months_6],
+    })
+
+    # ── Device per lokasi top 10 ──────────────────────────────────
+    _dev_lokasi_qs = (
+        Device.objects
+        .filter(is_deleted=False)
+        .exclude(lokasi__isnull=True).exclude(lokasi__exact='')
+        .values('lokasi')
+        .annotate(
+            total=Count('id'),
+            operasi=Count('id', filter=Q(status_operasi='operasi')),
+            tidak_operasi=Count('id', filter=Q(status_operasi='tidak_operasi')),
+        )
+        .order_by('-total')[:10]
+    )
+    device_by_lokasi_json = _json.dumps([
+        {
+            'lokasi': r['lokasi'], 'total': r['total'],
+            'operasi': r['operasi'], 'tidak_operasi': r['tidak_operasi'],
+        }
+        for r in _dev_lokasi_qs
+    ])
 
     # ── Jadwal kunjungan terdekat ─────────────────────────────────
     try:
@@ -410,6 +486,13 @@ def dashboard(request):
         'jadwal_terdekat':   jadwal_terdekat,
         'notif_terbaru':     notif_terbaru,
         'notif_unread_total': notif_unread_total,
+        # analytics extras
+        'hi_summary_json':          hi_summary_json,
+        'gangguan_kategori_json':   gangguan_kategori_json,
+        'gangguan_severity_json':   gangguan_severity_json,
+        'gangguan_open_kritis':     gangguan_open_kritis,
+        'maintenance_stacked_json': maintenance_stacked_json,
+        'device_by_lokasi_json':    device_by_lokasi_json,
     })
 
 
