@@ -40,7 +40,15 @@
         padding: 1mm 0 1.5mm 0;
     }
     .header-row2 img.logo-danantara { height: 6mm; display: block; }
-    .header-row2 img.logo-pln { height: 9mm; display: block; }
+    .header-row2 img.logo-pln { height: 12mm; display: block; }
+    .header-unit {
+        text-align: right;
+        font-size: 6.5pt;
+        font-weight: bold;
+        color: #1A3A5C;
+        line-height: 1.4;
+        margin-right: 2mm;
+    }
     .header-title {
         text-align: center;
         font-weight: bold;
@@ -118,10 +126,13 @@
         </div>
         {% if doc_code %}<div class="header-doc-code">{{ doc_code }}</div>{% endif %}
     </div>
-    {# Baris 2: logo Danantara (kiri) + logo PLN (kanan) #}
+    {# Baris 2: logo Danantara (kiri) + teks unit + logo PLN (kanan) #}
     <div class="header-row2">
         <div>{% if logo_danantara %}<img src="{{ logo_danantara }}" class="logo-danantara" alt="Danantara">{% endif %}</div>
-        <div>{% if logo_pln %}<img src="{{ logo_pln }}" class="logo-pln" alt="PLN">{% endif %}</div>
+        <div style="display:flex; align-items:center;">
+            <div class="header-unit">UIP3B Sulawesi<br>UP2B Sistem Makassar</div>
+            {% if logo_pln %}<img src="{{ logo_pln }}" class="logo-pln" alt="PLN">{% endif %}
+        </div>
     </div>
 </div>
 <div class="header-title">{{ title }}</div>
