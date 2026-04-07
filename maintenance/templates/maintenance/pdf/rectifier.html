@@ -7,20 +7,40 @@
 </table>
 
 <div class="sec">III.&nbsp;&nbsp;RECTIFIER</div>
+{# Satu tabel gabungan agar kolom sejajar #}
 <table>
-    <tr><td class="lbl">Merk</td><td>{{ rect.rect1_merk|default:"-" }}</td><td class="lbl">Tipe</td><td>{{ rect.rect1_tipe|default:"-" }}</td><td class="lbl">Kondisi</td><td class="{% if rect.rect1_kondisi == 'OK' %}ok{% elif rect.rect1_kondisi == 'NOK' %}nok{% else %}vg{% endif %}">{{ rect.rect1_kondisi|default:"-" }}</td><td class="lbl">Kapasitas</td><td>{{ rect.rect1_kapasitas|default:"-" }}</td></tr>
-</table>
-<table>
+    <colgroup>
+        <col style="width:11%"><col style="width:14%">
+        <col style="width:11%"><col style="width:14%">
+        <col style="width:11%"><col style="width:14%">
+        <col style="width:11%"><col style="width:14%">
+    </colgroup>
+    <tr>
+        <td class="lbl">Merk</td><td>{{ rect.rect1_merk|default:"-" }}</td>
+        <td class="lbl">Tipe</td><td>{{ rect.rect1_tipe|default:"-" }}</td>
+        <td class="lbl">Kondisi</td><td class="{% if rect.rect1_kondisi == 'OK' %}ok{% elif rect.rect1_kondisi == 'NOK' %}nok{% else %}vg{% endif %}">{{ rect.rect1_kondisi|default:"-" }}</td>
+        <td class="lbl">Kapasitas</td><td>{{ rect.rect1_kapasitas|default:"-" }}</td>
+    </tr>
     {% for row in rect_measurements %}
-    <tr>{% for cell in row %}<td{% if cell.is_label %} class="lbl" style="width:12%;"{% elif cell.is_value %} class="vb"{% endif %}>{{ cell.text }}</td>{% endfor %}</tr>
+    <tr>{% for cell in row %}<td{% if cell.is_label %} class="lbl"{% elif cell.is_value %} class="vb"{% endif %}>{{ cell.text }}</td>{% endfor %}</tr>
     {% endfor %}
 </table>
 
 <div class="sec">IV.&nbsp;&nbsp;BATTERY BANK 1</div>
+{# Satu tabel gabungan agar kolom sejajar #}
 <table>
-    <tr><td class="lbl">Merk</td><td>{{ rect.bat1_merk|default:"-" }}</td><td class="lbl">Tipe</td><td>{{ rect.bat1_tipe|default:"-" }}</td><td class="lbl">Kondisi</td><td class="{% if rect.bat1_kondisi == 'OK' %}ok{% elif rect.bat1_kondisi == 'NOK' %}nok{% else %}vg{% endif %}">{{ rect.bat1_kondisi|default:"-" }}</td><td class="lbl">Kapasitas</td><td>{{ rect.bat1_kapasitas|default:"-" }}</td></tr>
-</table>
-<table>
+    <colgroup>
+        <col style="width:11%"><col style="width:14%">
+        <col style="width:11%"><col style="width:14%">
+        <col style="width:11%"><col style="width:14%">
+        <col style="width:11%"><col style="width:14%">
+    </colgroup>
+    <tr>
+        <td class="lbl">Merk</td><td>{{ rect.bat1_merk|default:"-" }}</td>
+        <td class="lbl">Tipe</td><td>{{ rect.bat1_tipe|default:"-" }}</td>
+        <td class="lbl">Kondisi</td><td class="{% if rect.bat1_kondisi == 'OK' %}ok{% elif rect.bat1_kondisi == 'NOK' %}nok{% else %}vg{% endif %}">{{ rect.bat1_kondisi|default:"-" }}</td>
+        <td class="lbl">Kapasitas</td><td>{{ rect.bat1_kapasitas|default:"-" }}</td>
+    </tr>
     {% for row in bat_measurements %}
     <tr>{% for cell in row %}<td{% if cell.is_label %} class="lbl"{% elif cell.is_value %} class="vb"{% elif cell.is_status %} class="{% if cell.text == 'OK' %}ok{% elif cell.text == 'NOK' %}nok{% else %}vg{% endif %}"{% endif %}>{{ cell.text }}</td>{% endfor %}</tr>
     {% endfor %}
@@ -32,18 +52,18 @@
 .ctbl{width:100%;border-collapse:collapse;font-size:5.8pt;}
 .ctbl th{padding:1.5pt 2pt;text-align:center;border:0.3pt solid #CBD5E1;font-weight:bold;}
 .ctbl td{padding:1.5pt 2pt;text-align:center;border:0.3pt solid #e2e8f0;}
-.ctbl .cn{font-weight:bold;color:#10b981;background:#f0fdf4;width:12pt;}
+.ctbl .cn{font-weight:bold;color:#10b981;background:#f0fdf4;}
 .ctbl .th-n{background:#1A3A5C;color:#fff;width:12pt;}
 .ctbl .th-f{background:#d1fae5;}
 .ctbl .th-d{background:#fef3c7;}
 .ctbl .th-fa{background:#f3e8ff;}
 .ctbl .th-b{background:#dbeafe;}
 .ctbl .alt{background:#f8fafc;}
-.ctbl .sr-tot td{background:#1e40af;color:#fff;font-weight:bold;}
-.ctbl .sr-load td{background:#2563eb;color:#fff;font-weight:bold;}
+.ctbl .sr-tot td{background:#1e3a8a;color:#fff;font-weight:bold;}
+.ctbl .sr-load td{background:#1d4ed8;color:#fff;font-weight:bold;}
 </style>
+{# Dua kolom berdampingan — V Total di tfoot kiri, V Load di tfoot kanan #}
 <div class="two-col" style="margin-top:1mm;align-items:flex-start;">
-    {# Kolom kiri #}
     <div style="flex:1;min-width:0;">
         <table class="ctbl">
             <thead><tr>
@@ -62,9 +82,14 @@
                 </tr>
                 {% endfor %}
             </tbody>
+            <tfoot>
+                <tr class="sr-tot">
+                    <td>V Total</td>
+                    {% for val in fmt_vtotal_vals %}<td>{{ val }}</td>{% endfor %}
+                </tr>
+            </tfoot>
         </table>
     </div>
-    {# Kolom kanan #}
     <div style="flex:1;min-width:0;">
         <table class="ctbl">
             <thead><tr>
@@ -83,20 +108,15 @@
                 </tr>
                 {% endfor %}
             </tbody>
+            <tfoot>
+                <tr class="sr-load">
+                    <td>V Load</td>
+                    {% for val in fmt_vload_vals %}<td>{{ val }}</td>{% endfor %}
+                </tr>
+            </tfoot>
         </table>
     </div>
 </div>
-{# Baris V Total dan V Load — full width #}
-<table class="ctbl" style="margin-top:1mm;">
-    <tr class="sr-tot">
-        <td style="font-weight:bold;text-align:center;width:12pt;">V Total</td>
-        {% for val in fmt_vtotal_vals %}<td>{{ val }}</td>{% endfor %}
-    </tr>
-    <tr class="sr-load">
-        <td style="font-weight:bold;text-align:center;">V Load</td>
-        {% for val in fmt_vload_vals %}<td>{{ val }}</td>{% endfor %}
-    </tr>
-</table>
 {% endif %}
 
 {% if catatan %}
