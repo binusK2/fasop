@@ -15,7 +15,7 @@
 
 <div class="d-flex align-items-center gap-2 mb-4">
     {% if is_edit %}
-    <a href="{% url 'maintenance_view' maintenance.id %}" class="btn btn-sm btn-outline-secondary">
+    <a href="{% url 'maintenance_view' corr.maintenance.id %}" class="btn btn-sm btn-outline-secondary">
         <i class="bi bi-arrow-left me-1"></i>Kembali ke Detail
     </a>
     {% elif from_gangguan and gangguan_init %}
@@ -48,7 +48,7 @@
 {% endif %}
 
 <form method="post" enctype="multipart/form-data"
-    {% if is_edit %}action="{% url 'corrective_edit' maintenance.id %}"{% endif %}>
+    {% if is_edit %}action="{% url 'corrective_edit' corr.maintenance.pk %}"{% endif %}>
 {% csrf_token %}
 {% if not is_edit %}
 {% if gangguan_init %}<input type="hidden" name="gangguan_id" value="{{ gangguan_init.pk }}">{% endif %}
@@ -312,7 +312,7 @@
                 {% if is_edit %}Simpan Perubahan{% else %}Simpan Corrective{% endif %}
             </button>
             {% if is_edit %}
-            <a href="{% url 'maintenance_view' maintenance.id %}"
+            <a href="{% url 'maintenance_view' corr.maintenance.id %}"
                class="btn btn-outline-secondary w-100">Batal</a>
             {% elif gangguan_init %}
             <a href="{% url 'gangguan_detail' gangguan_init.pk %}"
