@@ -120,7 +120,7 @@
             <div class="col-md-3">
                 <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-radius:10px;background:#f8fafc;border:1.5px solid #e2e8f0;">
                     <span style="font-size:12px;font-weight:600;color:#334155;">Air Battery</span>
-                    <span style="font-size:13px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#0f172a;">{{ air|default:"—" }}{% if air %}<span style="font-size:10px;font-weight:400;color:#94a3b8;margin-left:2px;">V</span>{% endif %}</span>
+                    <span style="font-size:13px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#0f172a;">{{ air|default:"—" }}{% if air %}<span style="font-size:10px;font-weight:400;color:#94a3b8;margin-left:2px;">%</span>{% endif %}</span>
                 </div>
             </div>
         </div>
@@ -142,27 +142,27 @@
                 </colgroup>
                 <thead>
                     <tr>
-                        <th style="padding:6px 8px;font-size:10.5px;font-weight:700;color:#065f46;background:#f0fdf4;text-align:center;">Cell</th>
-                        <th style="padding:6px 8px;font-size:10.5px;font-weight:700;color:#334155;text-align:center;background:#f0fdf4;">V Float</th>
-                        <th style="padding:6px 8px;font-size:10.5px;font-weight:700;color:#92400e;text-align:center;background:#fffbeb;">VD 0 Jam</th>
-                        <th style="padding:6px 8px;font-size:10.5px;font-weight:700;color:#92400e;text-align:center;background:#fffbeb;">VD ½ Jam</th>
-                        <th style="padding:6px 8px;font-size:10.5px;font-weight:700;color:#92400e;text-align:center;background:#fffbeb;">VD 1 Jam</th>
-                        <th style="padding:6px 8px;font-size:10.5px;font-weight:700;color:#92400e;text-align:center;background:#fffbeb;">VD 2 Jam</th>
-                        <th style="padding:6px 8px;font-size:10.5px;font-weight:700;color:#6b21a8;text-align:center;background:#faf5ff;">V Float ↓</th>
-                        <th style="padding:6px 8px;font-size:10.5px;font-weight:700;color:#1d4ed8;text-align:center;background:#eff6ff;">V Boost</th>
+                        <th style="width:50px;padding:6px 10px;font-size:11px;color:#065f46;background:#f0fdf4;">Cell</th>
+                        <th style="padding:6px 10px;font-size:11px;color:#334155;text-align:center;background:#f0fdf4;">V Float</th>
+                        <th style="padding:6px 10px;font-size:11px;color:#92400e;text-align:center;background:#fffbeb;">VD 0 Jam</th>
+                        <th style="padding:6px 10px;font-size:11px;color:#92400e;text-align:center;background:#fffbeb;">VD ½ Jam</th>
+                        <th style="padding:6px 10px;font-size:11px;color:#92400e;text-align:center;background:#fffbeb;">VD 1 Jam</th>
+                        <th style="padding:6px 10px;font-size:11px;color:#92400e;text-align:center;background:#fffbeb;">VD 2 Jam</th>
+                        <th style="padding:6px 10px;font-size:11px;color:#2563eb;text-align:center;background:#eff6ff;">V Float</th>
+                        <th style="padding:6px 10px;font-size:11px;color:#1d4ed8;text-align:center;background:#eff6ff;">V Boost</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for row in cells %}{% if row.cell != 'vtotal' and row.cell != 'vload' %}
-                    <tr style="{% cycle 'background:#ffffff;' 'background:#f8fafc;' %}border-bottom:1px solid #f1f5f9;">
-                        <td style="padding:5px 8px;text-align:center;"><span style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;color:#10b981;">{{ row.cell|stringformat:"02d" }}</span></td>
-                        <td style="padding:5px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:600;color:#0f172a;">{{ row.v_float|default:"—" }}</td>
-                        <td style="padding:5px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:#78350f;">{{ row.vd_0|default:"—" }}</td>
-                        <td style="padding:5px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:#78350f;">{{ row.vd_half|default:"—" }}</td>
-                        <td style="padding:5px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:#78350f;">{{ row.vd_1|default:"—" }}</td>
-                        <td style="padding:5px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:#78350f;">{{ row.vd_2|default:"—" }}</td>
-                        <td style="padding:5px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:#7e22ce;font-weight:600;">{{ row.vf_after|default:"—" }}</td>
-                        <td style="padding:5px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:#1d4ed8;font-weight:600;">{{ row.v_boost|default:"—" }}</td>
+                    <tr style="{% cycle 'background:#fff;' 'background:#f8fafc;' %}">
+                        <td style="padding:5px 10px;"><span style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;color:#10b981;">{{ row.cell|stringformat:"02d" }}</span></td>
+                        <td style="padding:5px 10px;text-align:center;font-family:'JetBrains Mono',monospace;font-weight:600;">{{ row.v_float|default:"—" }}</td>
+                        <td style="padding:5px 10px;text-align:center;font-family:'JetBrains Mono',monospace;">{{ row.vd_0|default:"—" }}</td>
+                        <td style="padding:5px 10px;text-align:center;font-family:'JetBrains Mono',monospace;">{{ row.vd_half|default:"—" }}</td>
+                        <td style="padding:5px 10px;text-align:center;font-family:'JetBrains Mono',monospace;">{{ row.vd_1|default:"—" }}</td>
+                        <td style="padding:5px 10px;text-align:center;font-family:'JetBrains Mono',monospace;">{{ row.vd_2|default:"—" }}</td>
+                        <td style="padding:5px 10px;text-align:center;font-family:'JetBrains Mono',monospace;color:#7e22ce;">{{ row.vf_after|default:"—" }}</td>
+                        <td style="padding:5px 10px;text-align:center;font-family:'JetBrains Mono',monospace;font-weight:600;color:#2563eb;">{{ row.v_boost|default:"—" }}</td>
                     </tr>
                     {% endif %}{% endfor %}
                 </tbody>
