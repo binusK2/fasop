@@ -1926,3 +1926,112 @@ def catu_daya_dashboard(request):
         'selected_id':       selected_id,
         'threshold':         THRESHOLD,
     })
+
+
+# ─────────────────────────────────────────────────────────────────────
+# CORRECTIVE MAINTENANCE — EDIT
+# ─────────────────────────────────────────────────────────────────────
+@login_required
+@require_can_edit
+def corrective_edit(request, pk):
+    """
+    Edit corrective maintenance. pk = Maintenance.pk
+    (maintenance_edit() meredirect ke sini untuk tipe Corrective).
+    """
+    from maintenance.models import MaintenanceCorrective
+    from datetime import date as _date
+
+    maint = get_object_or_404(Maintenance, pk=pk)
+    corr  = get_object_or_404(MaintenanceCorrective, maintenance=maint)
+    device = maint.device
+
+    if request.method == 'POST':
+        tanggal           = request.POST.get('tanggal', '').strip()
+        pelaksana_raw     = request.POST.get('pelaksana_names_input') or request.POST.get('pelaksana_names', '')
+        jenis_kerusakan   = request.POST.get('jenis_kerusakan', '')
+        deskripsi_masalah = request.POST.get('deskripsi_masalah', '').strip()
+        tindakan          = request.POST.get('tindakan', '').strip()
+        komponen_diganti  = request.POST.get('komponen_diganti') == 'on'
+        nama_komponen     = request.POST.get('nama_komponen', '').strip()
+        kondisi_sebelum   = request.POST.get('kondisi_sebelum', '').strip()
+        kondisi_sesudah   = request.POST.get('kondisi_sesudah', '').strip()
+        durasi_jam        = request.POST.get('durasi_jam', '') or None
+        durasi_menit      = request.POST.get('durasi_menit', '') or None
+        status_perbaikan  = request.POST.get('status_perbaikan', 'selesai')
+        foto_sebelum      = request.FILES.get('foto_sebelum')
+        foto_sesudah      = request.FILES.get('foto_sesudah')
+
+        if tanggal and deskripsi_masalah and tindakan:
+            # Parse pelaksana (JSON array atau comma-separated)
+            try:
+                pelaksana_list = json.loads(pelaksana_raw) if pelaksana_raw.startswith('[') else \
+                                 [n.strip() for n in pelaksana_raw.split(',') if n.strip()]
+            except (json.JSONDecodeError, ValueError):
+                pelaksana_list = [n.strip() for n in pelaksana_raw.split(',') if n.strip()]
+
+            maint.date             = tanggal
+            maint.description      = deskripsi_masalah
+            maint.status           = 'Done' if status_perbaikan == 'selesai' else 'Open'
+            maint.pelaksana_names  = pelaksana_list
+            maint.save()
+
+            corr.jenis_kerusakan   = jenis_kerusakan
+            corr.deskripsi_masalah = deskripsi_masalah
+            corr.tindakan          = tindakan
+            corr.komponen_diganti  = komponen_diganti
+            corr.nama_komponen     = nama_komponen
+            corr.kondisi_sebelum   = kondisi_sebelum
+            corr.kondisi_sesudah   = kondisi_sesudah
+            corr.durasi_jam        = int(durasi_jam)   if durasi_jam   else None
+            corr.durasi_menit      = int(durasi_menit) if durasi_menit else None
+            corr.status_perbaikan  = status_perbaikan
+            if foto_sebelum: corr.foto_sebelum = foto_sebelum
+            if foto_sesudah: corr.foto_sesudah = foto_sesudah
+            corr.save()
+
+            return redirect('maintenance_view', pk=maint.pk)
+
+    # Pre-fill context
+    try:
+        tanggal_str = maint.date.strftime('%Y-%m-%dT%H:%M')
+    except Exception:
+        tanggal_str = str(maint.date) if maint.date else ''
+
+    pelaksana_json = json.dumps(maint.pelaksana_names or [])
+
+    gangguan_aktif = Gangguan.objects.filter(
+        status__in=['open', 'in_progress']
+    ).order_by('-tanggal_gangguan')
+
+    devices = Device.objects.filter(is_deleted=False).select_related('jenis').order_by('lokasi', 'nama')
+
+    from datetime import date as _date
+    return render(request, 'maintenance/corrective_form.html', {
+        'device_init':          device,
+        'gangguan_init':        corr.gangguan,
+        'gangguan_aktif':       gangguan_aktif,
+        'devices':              devices,
+        'corr':                 corr,
+        'is_edit':              True,
+        'from_gangguan':        corr.gangguan is not None,
+        'from_device':          True,
+        'today_date':           tanggal_str,
+        'pelaksana_init_json':  pelaksana_json,
+    })
+
+
+# ─────────────────────────────────────────────────────────────────────
+# OFFLINE FORM — Download template & Upload hasil
+# ─────────────────────────────────────────────────────────────────────
+@login_required
+def offline_form_download(request):
+    """Placeholder — download template form offline (Excel/PDF)."""
+    from django.http import HttpResponse
+    return HttpResponse("Fitur offline form download belum tersedia.", status=501)
+
+
+@login_required
+def offline_form_upload(request):
+    """Placeholder — upload hasil form offline."""
+    from django.http import HttpResponse
+    return HttpResponse("Fitur offline form upload belum tersedia.", status=501)
