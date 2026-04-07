@@ -106,6 +106,7 @@
 
         <!-- Kondisi Fisik + Air Battery dalam satu baris -->
         <div class="row g-2 mb-3">
+            <div class="col-md-3"><div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;text-align:center;"><div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:4px;">Air Battery</div><div style="font-size:18px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#0f172a;">{{ air|default:"—" }}</div>{% if air %}<div style="font-size:10px;color:#94a3b8;">%</div>{% endif %}</div></div>
             {% for label, val in bat_kondisi_list %}
             <div class="col-md-3">
                 <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-radius:10px;{% if val == 'OK' %}background:#f0fdf4;border:1.5px solid #6ee7b7;{% elif val == 'NOK' %}background:#fef2f2;border:1.5px solid #fca5a5;{% else %}background:#f8fafc;border:1.5px solid #e2e8f0;{% endif %}">
@@ -126,6 +127,9 @@
         </div>
 
         <!-- Cell table + V Total / V Load di bawah -->
+            </div>
+
+        <!-- Cell table -->
         {% if cells %}
         <div style="font-size:10.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Data Pengukuran Cell</div>
         <div class="table-responsive">
@@ -139,6 +143,7 @@
                         <th style="padding:6px 10px;font-size:11px;color:#92400e;text-align:center;background:#fffbeb;">VD 1 Jam</th>
                         <th style="padding:6px 10px;font-size:11px;color:#92400e;text-align:center;background:#fffbeb;">VD 2 Jam</th>
                         <th style="padding:6px 10px;font-size:11px;color:#6b21a8;text-align:center;background:#faf5ff;">V Float ↓</th>
+                        <th style="padding:6px 10px;font-size:11px;color:#2563eb;text-align:center;background:#eff6ff;">V Float</th>
                         <th style="padding:6px 10px;font-size:11px;color:#1d4ed8;text-align:center;background:#eff6ff;">V Boost</th>
                     </tr>
                 </thead>
@@ -153,6 +158,14 @@
                         <td style="padding:5px 10px;text-align:center;font-family:'JetBrains Mono',monospace;">{{ row.vd_2|default:"—" }}</td>
                         <td style="padding:5px 10px;text-align:center;font-family:'JetBrains Mono',monospace;color:#7e22ce;">{{ row.vf_after|default:"—" }}</td>
                         <td style="padding:5px 10px;text-align:center;font-family:'JetBrains Mono',monospace;font-weight:600;color:#2563eb;">{{ row.v_boost|default:"—" }}</td>
+                        <td style="padding:6px 10px;"><span style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;color:#10b981;">{{ row.cell|stringformat:"02d" }}</span></td>
+                        <td style="padding:6px 10px;text-align:center;font-family:'JetBrains Mono',monospace;font-weight:600;">{{ row.v_float|default:"—" }}</td>
+                        <td style="padding:6px 10px;text-align:center;font-family:'JetBrains Mono',monospace;">{{ row.vd_0|default:"—" }}</td>
+                        <td style="padding:6px 10px;text-align:center;font-family:'JetBrains Mono',monospace;">{{ row.vd_half|default:"—" }}</td>
+                        <td style="padding:6px 10px;text-align:center;font-family:'JetBrains Mono',monospace;">{{ row.vd_1|default:"—" }}</td>
+                        <td style="padding:6px 10px;text-align:center;font-family:'JetBrains Mono',monospace;">{{ row.vd_2|default:"—" }}</td>
+                        <td style="padding:6px 10px;text-align:center;font-family:'JetBrains Mono',monospace;font-weight:600;color:#2563eb;">{{ row.vf_down|default:"—" }}</td>
+                        <td style="padding:6px 10px;text-align:center;font-family:'JetBrains Mono',monospace;font-weight:600;color:#1d4ed8;">{{ row.v_boost|default:"—" }}</td>
                     </tr>
                     {% endif %}{% endfor %}
                 </tbody>

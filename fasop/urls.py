@@ -19,6 +19,9 @@ from django.contrib import admin
 from django.urls import path, include
 from django.contrib.auth import views as auth_views
 from django.conf.urls.static import static
+from django.views.defaults import page_not_found
+
+handler404 = 'django.views.defaults.page_not_found'
 
 urlpatterns = [
     path('secure-panel/', admin.site.urls),

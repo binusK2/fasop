@@ -35,13 +35,39 @@
 <!-- 1. INFORMASI MAINTENANCE -->
 <div class="card mb-3">
     <div class="card-body px-4 py-3">
-        <div class="rc-sec" style="--c:#3b82f6;">Informasi Maintenance</div>
-        <div class="row g-3">
-            <div class="col-md-3"><div class="rc-card"><div class="rc-lbl">Jenis Maintenance</div>{{ maintenance_form.maintenance_type }}</div></div>
-            <div class="col-md-3"><div class="rc-card"><div class="rc-lbl">Tanggal</div>{{ maintenance_form.date }}</div></div>
+        <div class="section-title-bar">
+            <span class="bar" style="background:#3b82f6;"></span>
+            <span>Informasi Maintenance</span>
+        </div>
+        <!-- Baris 1: Jenis, Tanggal, Pelaksana -->
+        <div class="row g-3 align-items-start">
+            <div class="col-md-2">
+                <label class="form-label fw-semibold">Jenis Maintenance</label>
+                <div style="display:flex;align-items:center;gap:6px;background:#eff6ff;
+                            color:#1d4ed8;border:1.5px solid #bfdbfe;border-radius:8px;
+                            padding:8px 12px;font-size:13px;font-weight:700;white-space:nowrap;">
+                    <i class="bi bi-shield-check" style="font-size:14px;"></i> Preventive
+                </div>
+                <!-- hidden untuk submit tetap terkirim meski select disabled -->
+                <input type="hidden" name="maintenance_type" value="Preventive">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-semibold">Tanggal</label>
+                {{ maintenance_form.date }}
+            </div>
             {% include 'maintenance/_pelaksana_tag_input.html' %}
-            <div class="col-md-8"><div class="rc-card"><div class="rc-lbl">Deskripsi / Keluhan</div>{{ maintenance_form.description }}</div></div>
-            <div class="col-md-4"><div class="rc-card"><div class="rc-lbl">Foto Dokumentasi</div>{{ maintenance_form.photo }}<div class="form-text mt-1">Format: JPG, PNG. Maks 10MB.</div></div></div>
+        </div>
+        <!-- Baris 2: Deskripsi & Foto -->
+        <div class="row g-3 mt-1">
+            <div class="col-md-8">
+                <label class="form-label fw-semibold">Deskripsi / Keluhan</label>
+                {{ maintenance_form.description }}
+            </div>
+            <div class="col-md-4">
+                <label class="form-label fw-semibold">Foto Dokumentasi</label>
+                {{ maintenance_form.photo }}
+                <div class="form-text">Format: JPG, PNG. Maks 10MB.</div>
+            </div>
         </div>
     </div>
 </div>
@@ -150,9 +176,9 @@
         </div>
         {{ detail_form.bat1_cells }}
         <!-- Ringkasan Tegangan -->
-        <div class="rc-sub">Ringkasan Tegangan</div>
+        <div class="rc-sub">Kondisi Battery</div>
         <div class="row g-3">
-            <div class="col-md-4"><div class="rc-card"><div class="rc-lbl">Air Battery</div><div class="input-group">{{ detail_form.bat1_air_battery }}<span class="input-group-text rc-unit">V</span></div></div></div>
+            <div class="col-md-4"><div class="rc-card"><div class="rc-lbl">Air Battery</div><div class="input-group">{{ detail_form.bat1_air_battery }}<span class="input-group-text rc-unit">%</span></div></div></div>
         </div>
     </div>
 </div>

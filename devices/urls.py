@@ -46,6 +46,9 @@ urlpatterns = [
     path('lokasi-admin/', views.lokasi_admin, name='lokasi_admin'),
     path('api/lokasi-list/', views.api_lokasi_list, name='api_lokasi_list'),
 
+    # Distribusi Status per Jenis
+    path('distribusi-jenis/', views.distribusi_jenis, name='distribusi_jenis'),
+
     # Peta Jaringan
     path('peta-jaringan/', views.peta_jaringan, name='peta_jaringan'),
     path('api/peta-jaringan/', views.api_peta_jaringan, name='api_peta_jaringan'),
