@@ -8,7 +8,7 @@
 
 <div class="sec">III.&nbsp;&nbsp;RECTIFIER</div>
 <table>
-    <tr><td class="lbl">Merk</td><td>{{ rect.rect1_merk|default:"-" }}</td><td class="lbl">Tipe</td><td>{{ rect.rect1_tipe|default:"-" }}</td><td class="lbl">Kondisi</td><td class="{% if rect.rect1_kondisi == 'OK' %}ok{% elif rect.rect1_kondisi == 'NOK' %}nok{% else %}vg{% endif %}">{{ rect.rect1_kondisi|default:"-" }}</td><td class="lbl">Kapasitas</td><td>{{ rect.rect1_kapasitas|default:"-" }}</td></tr>
+    <tr><td class="lbl" style="width:12%;">Merk</td><td>{{ rect.rect1_merk|default:"-" }} </td><td class="lbl" style="width:12%;">Tipe</td><td>{{ rect.rect1_tipe|default:"-" }}</td><td class="lbl" style="width:12%;">Kondisi</td><td class="{% if rect.rect1_kondisi == 'OK' %}ok{% elif rect.rect1_kondisi == 'NOK' %}nok{% else %}vg{% endif %}">{{ rect.rect1_kondisi|default:"-" }}</td><td class="lbl" style="width:12%;">Kapasitas</td><td>{{ rect.rect1_kapasitas|default:"-" }}</td></tr>
 </table>
 <table>
     {% for row in rect_measurements %}

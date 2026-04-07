@@ -265,4 +265,14 @@ DEVICE_SCHEMA = {
         {"key": "jadwal_service",   "label": "Interval Service (jam HM)", "type": "number",
          "placeholder": "cth: 250"},
     ],
+
+    "UFLS": [
+        {"key": "Penyulang"          , "label": "Penyulang",            "type": "text"},
+        {"key": "tahapan_selector" , "label": "Tahapan Selector",     "type": "select",
+         "options": ["1", "2", "3", "4", "5", "6", "7"]},
+        {"key": "tahapan_setting"  , "label": "Tahapan Setting", "type": "text",},
+        {"key": "frekuensi_setting" , "label": "Frekuensi Setting (Hz)", "type": "text",},
+        {"key": "waktu_setting" , "label": "Waktu Setting (detik)", "type": "text",},
+    ],
+
 }
