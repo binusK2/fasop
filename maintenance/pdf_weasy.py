@@ -48,6 +48,22 @@ _TITLES = {
 _v = lambda x: x if x not in (None, '') else '-'
 
 
+_DOC_CODES = {
+    'RECTIFIER':           'UP2B_FML_04_2012',
+    'CATU DAYA':           'UP2B_FML_04_2012',
+    'CATUDAYA':            'UP2B_FML_04_2012',
+    'RECTIFIER & BATTERY': 'UP2B_FML_04_2012',
+    'MULTIPLEXER':         'UP2B_FML_04_2007',
+    'PLC':                 '',
+    'RADIO':               'UP2B_FML_04_2001',
+    'ROUTER':              'UP2B_FML_04',
+    'SWITCH':              'UP2B_FML_04',
+    'TELEPROTEKSI':        'UP2B_FML_04_2008',
+    'VOIP':                '',
+    'GENSET':              '',
+}
+
+
 def _base_context(data):
     """Context dasar yang dipakai semua template."""
     info = data.get('info', {})
@@ -63,6 +79,8 @@ def _base_context(data):
         'info':             info,
         'logo_pln':         _img_uri(os.path.join(static_root, 'img', 'pln_logo_conv.png')),
         'logo_danantara':   _img_uri(os.path.join(static_root, 'img', 'danantara_logo.png')),
+        'header_pln':       _img_uri(os.path.join(static_root, 'img', 'header_pln.png')),
+        'doc_code':         _DOC_CODES.get(kind, ''),
         'sig_am':           _img_uri(sigs.get('asisten_manager', '')),
         'technicians_list': techs_list,
         'signed_by':        info.get('signed_by', ''),
