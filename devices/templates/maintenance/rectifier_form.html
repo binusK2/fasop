@@ -24,6 +24,8 @@
             </div>
             <div class="vr" style="background:rgba(255,255,255,0.1);width:1px;align-self:stretch;"></div>
             <div><div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;">Jenis</div><div style="font-size:13px;color:#cbd5e1;">{{ device.jenis }}</div></div>
+            <div><div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;">Merk</div><div style="font-size:13px;color:#cbd5e1;">{{ device.merk|default:"—" }}</div></div>
+            <div><div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;">Type</div><div style="font-size:13px;color:#cbd5e1;">{{ device.type|default:"—" }}</div></div>
             <div><div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;">Lokasi</div><div style="font-size:13px;color:#cbd5e1;">{{ device.lokasi|default:"—" }}</div></div>
         </div>
     </div>
@@ -90,8 +92,8 @@
     <div class="card-body px-4 py-3">
         <div class="rc-sec" style="--c:#8b5cf6;">Rectifier</div>
         <div class="row g-3 mb-3">
-            <div class="col-md-3"><div class="rc-card"><div class="rc-lbl">Merk</div>{{ detail_form.rect1_merk }}</div></div>
-            <div class="col-md-3"><div class="rc-card"><div class="rc-lbl">Tipe</div>{{ detail_form.rect1_tipe }}</div></div>
+            <div class="col-md-3"><div class="rc-card"><div class="rc-lbl">Merk</div>{{ device.merk|default:"—" }}</div></div>
+            <div class="col-md-3"><div class="rc-card"><div class="rc-lbl">Tipe</div>{{ device.type|default:"—" }}</div></div>
             <div class="col-md-3"><div class="rc-card"><div class="rc-lbl">Kapasitas</div>{{ detail_form.rect1_kapasitas }}</div></div>
             <div class="col-md-3"><div class="rc-card"><div class="rc-lbl">Kondisi</div>
                 <div id="field-rect1_kondisi" style="display:none;">{{ detail_form.rect1_kondisi }}</div>
