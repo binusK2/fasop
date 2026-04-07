@@ -236,21 +236,25 @@
             </div>
         </div>
         <script>
-        (function(){
-            if(typeof Chart==='undefined'||!window['_batCellData_{{ bn }}']) return;
+        /* Chart.js dimuat di extra_js (bawah halaman) — tunggu window.load agar pasti tersedia */
+        window.addEventListener('load', function(){
             var d = window['_batCellData_{{ bn }}'];
-            var ctx = document.getElementById('batChart-{{ bn }}').getContext('2d');
-            var datasets = [
-                {label:'V Float',   data:d.vFloat,  borderColor:'#10b981',backgroundColor:'rgba(16,185,129,0.08)', borderWidth:2, pointRadius:3, tension:0.3, spanGaps:true},
-                {label:'VD 0 Jam',  data:d.vd0,     borderColor:'#f97316',backgroundColor:'rgba(249,115,22,0.08)',  borderWidth:2, pointRadius:3, tension:0.3, spanGaps:true},
-                {label:'VD ½ Jam',  data:d.vdHalf,  borderColor:'#f59e0b',backgroundColor:'rgba(245,158,11,0.08)',  borderWidth:2, pointRadius:3, tension:0.3, spanGaps:true},
-                {label:'VD 1 Jam',  data:d.vd1,     borderColor:'#ef4444',backgroundColor:'rgba(239,68,68,0.08)',   borderWidth:2, pointRadius:3, tension:0.3, spanGaps:true},
-                {label:'VD 2 Jam',  data:d.vd2,     borderColor:'#dc2626',backgroundColor:'rgba(220,38,38,0.08)',   borderWidth:2, pointRadius:3, tension:0.3, spanGaps:true},
-                {label:'V Float ↓', data:d.vfAfter, borderColor:'#8b5cf6',backgroundColor:'rgba(139,92,246,0.08)', borderWidth:2, pointRadius:3, tension:0.3, spanGaps:true},
-            ];
-            var chart = new Chart(ctx, {
+            if(!d || typeof Chart==='undefined') return;
+            var ctx = document.getElementById('batChart-{{ bn }}');
+            if(!ctx) return;
+            var chart = new Chart(ctx.getContext('2d'), {
                 type:'line',
-                data:{labels:d.labels, datasets:datasets},
+                data:{
+                    labels:d.labels,
+                    datasets:[
+                        {label:'V Float',   data:d.vFloat,  borderColor:'#10b981',backgroundColor:'rgba(16,185,129,0.08)', borderWidth:2, pointRadius:3, tension:0.3, spanGaps:true},
+                        {label:'VD 0 Jam',  data:d.vd0,     borderColor:'#f97316',backgroundColor:'rgba(249,115,22,0.08)',  borderWidth:2, pointRadius:3, tension:0.3, spanGaps:true},
+                        {label:'VD ½ Jam',  data:d.vdHalf,  borderColor:'#f59e0b',backgroundColor:'rgba(245,158,11,0.08)',  borderWidth:2, pointRadius:3, tension:0.3, spanGaps:true},
+                        {label:'VD 1 Jam',  data:d.vd1,     borderColor:'#ef4444',backgroundColor:'rgba(239,68,68,0.08)',   borderWidth:2, pointRadius:3, tension:0.3, spanGaps:true},
+                        {label:'VD 2 Jam',  data:d.vd2,     borderColor:'#dc2626',backgroundColor:'rgba(220,38,38,0.08)',   borderWidth:2, pointRadius:3, tension:0.3, spanGaps:true},
+                        {label:'V Float ↓', data:d.vfAfter, borderColor:'#8b5cf6',backgroundColor:'rgba(139,92,246,0.08)', borderWidth:2, pointRadius:3, tension:0.3, spanGaps:true},
+                    ]
+                },
                 options:{
                     responsive:true, maintainAspectRatio:false,
                     interaction:{mode:'index', intersect:false},
@@ -261,23 +265,18 @@
                             titleColor:'#94a3b8', bodyColor:'#e2e8f0',
                             padding:10, cornerRadius:8,
                             callbacks:{
-                                label:function(ctx){
-                                    var v=ctx.raw;
-                                    return ' '+ctx.dataset.label+': '+(v!==null?v.toFixed(3)+' V':'—');
+                                label:function(c){
+                                    var v=c.raw;
+                                    return ' '+c.dataset.label+': '+(v!==null?v.toFixed(3)+' V':'—');
                                 }
                             }
                         }
                     },
                     scales:{
-                        x:{
-                            grid:{color:'rgba(226,232,240,0.6)'},
-                            ticks:{font:{size:9}, maxRotation:45, color:'#64748b'}
-                        },
+                        x:{grid:{color:'rgba(226,232,240,0.6)'}, ticks:{font:{size:9}, maxRotation:45, color:'#64748b'}},
                         y:{
                             grid:{color:'rgba(226,232,240,0.6)'},
-                            ticks:{font:{size:10}, color:'#64748b',
-                                callback:function(v){return v.toFixed(2)+'V';}
-                            },
+                            ticks:{font:{size:10}, color:'#64748b', callback:function(v){return v.toFixed(2)+'V';}},
                             title:{display:true, text:'Tegangan (V)', color:'#94a3b8', font:{size:10}}
                         }
                     }
@@ -293,42 +292,39 @@
                     chart.update();
                 });
             });
-            /* Render mini bar penurunan tegangan */
+            /* Mini bar penurunan tegangan (V Float - VD 2 Jam) */
             var container = document.getElementById('bat-drop-{{ bn }}');
             if(container){
                 var drops=[], maxDrop=0;
                 for(var i=0;i<d.labels.length;i++){
-                    var drop = (d.vFloat[i]!==null && d.vd2[i]!==null) ? +(d.vFloat[i]-d.vd2[i]).toFixed(3) : null;
+                    var drop=(d.vFloat[i]!==null&&d.vd2[i]!==null)?+(d.vFloat[i]-d.vd2[i]).toFixed(3):null;
                     drops.push(drop);
-                    if(drop!==null && drop>maxDrop) maxDrop=drop;
+                    if(drop!==null&&drop>maxDrop) maxDrop=drop;
                 }
-                var avgDrop = 0, cnt=0;
+                var avgDrop=0, cnt=0;
                 drops.forEach(function(dr){if(dr!==null){avgDrop+=dr;cnt++;}});
-                avgDrop = cnt>0 ? avgDrop/cnt : 0;
-                drops.forEach(function(drop, i){
-                    var wrapper = document.createElement('div');
-                    wrapper.style.cssText='display:flex;flex-direction:column;align-items:center;min-width:22px;';
-                    var bar = document.createElement('div');
-                    var pct = maxDrop>0 && drop!==null ? Math.round((drop/maxDrop)*52) : 2;
-                    var isHigh = drop!==null && drop > avgDrop*1.2;
-                    bar.style.cssText='width:16px;border-radius:3px 3px 0 0;transition:height 0.3s;';
-                    bar.style.height = pct+'px';
-                    bar.style.background = drop===null?'#e2e8f0':isHigh?'#ef4444':'#3b82f6';
-                    bar.title = d.labels[i]+': '+(drop!==null?drop.toFixed(3)+' V':'—');
-                    var lbl = document.createElement('div');
+                avgDrop=cnt>0?avgDrop/cnt:0;
+                drops.forEach(function(drop,i){
+                    var w=document.createElement('div');
+                    w.style.cssText='display:flex;flex-direction:column;align-items:center;min-width:22px;';
+                    var bar=document.createElement('div');
+                    var pct=maxDrop>0&&drop!==null?Math.max(2,Math.round((drop/maxDrop)*52)):2;
+                    var isHigh=drop!==null&&drop>avgDrop*1.2;
+                    bar.style.cssText='width:16px;border-radius:3px 3px 0 0;';
+                    bar.style.height=pct+'px';
+                    bar.style.background=drop===null?'#e2e8f0':isHigh?'#ef4444':'#3b82f6';
+                    bar.title=d.labels[i]+': '+(drop!==null?drop.toFixed(3)+' V':'—');
+                    var lbl=document.createElement('div');
                     lbl.style.cssText='font-size:8px;color:#64748b;margin-top:2px;writing-mode:vertical-rl;transform:rotate(180deg);height:28px;overflow:hidden;';
-                    lbl.textContent = d.labels[i];
-                    wrapper.appendChild(bar);
-                    wrapper.appendChild(lbl);
-                    container.appendChild(wrapper);
+                    lbl.textContent=d.labels[i];
+                    w.appendChild(bar); w.appendChild(lbl); container.appendChild(w);
                 });
-                /* Legend drop */
-                var leg = document.createElement('div');
+                var leg=document.createElement('div');
                 leg.style.cssText='width:100%;margin-top:8px;font-size:10px;color:#64748b;display:flex;gap:12px;';
                 leg.innerHTML='<span style="color:#ef4444;">■</span> Di atas rata-rata &nbsp;<span style="color:#3b82f6;">■</span> Normal';
                 container.parentNode.appendChild(leg);
             }
-        })();
+        });
         </script>
         {% endif %}
 
