@@ -120,9 +120,7 @@
 
         <!-- Summary measurements -->
         <div class="row g-2 mb-3">
-            <div class="col-md-2"><div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;text-align:center;"><div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:4px;">Air Battery</div><div style="font-size:18px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#0f172a;">{{ air|default:"—" }}</div>{% if air %}<div style="font-size:10px;color:#94a3b8;">V</div>{% endif %}</div></div>
-            <div class="col-md-2"><div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;text-align:center;"><div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:4px;">V Total</div><div style="font-size:18px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#0f172a;">{{ v_total|default:"—" }}</div>{% if v_total %}<div style="font-size:10px;color:#94a3b8;">V</div>{% endif %}</div></div>
-            <div class="col-md-2"><div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;text-align:center;"><div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:4px;">V Load</div><div style="font-size:18px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#0f172a;">{{ v_load|default:"—" }}</div>{% if v_load %}<div style="font-size:10px;color:#94a3b8;">V</div>{% endif %}</div></div>
+            <div class="col-md-2"><div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;text-align:center;"><div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:4px;">Air Battery</div><div style="font-size:18px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#0f172a;">{{ air|default:"—" }}</div>{% if air %}<div style="font-size:10px;color:#94a3b8;">%</div>{% endif %}</div></div>
         </div>
 
         <!-- Cell table -->
