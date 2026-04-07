@@ -585,6 +585,17 @@
     </div>
 
     <div class="sidebar-section">
+        <div class="sidebar-section-label">Catu Daya</div>
+        {% with url_name=request.resolver_match.url_name %}
+        <a href="{% url 'catu_daya_dashboard' %}"
+           class="sidebar-link {% if url_name == 'catu_daya_dashboard' %}active{% endif %}">
+            <span class="si-icon"><i class="bi bi-battery-charging"></i></span>
+            Dashboard Catu Daya
+        </a>
+        {% endwith %}
+    </div>
+
+    <div class="sidebar-section">
         <div class="sidebar-section-label">Gangguan</div>
 
         {% with url_name=request.resolver_match.url_name %}
