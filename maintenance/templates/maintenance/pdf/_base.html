@@ -49,12 +49,7 @@
         line-height: 1.4;
         margin-right: 2mm;
     }
-    .header-title {
-        text-align: center;
-        font-weight: bold;
-        font-size: 8.5pt;
-        color: #0F172A;
-        padding: 1.5mm 0 1mm 0;
+    .header-title-line {
         border-bottom: 1.2pt solid #DC2626;
         margin-bottom: 2mm;
     }
@@ -126,16 +121,17 @@
         </div>
         {% if doc_code %}<div class="header-doc-code">{{ doc_code }}</div>{% endif %}
     </div>
-    {# Baris 2: logo Danantara (kiri) + teks unit + logo PLN (kanan) #}
+    {# Baris 2: logo Danantara (kiri) + judul (tengah) + teks unit + logo PLN (kanan) #}
     <div class="header-row2">
-        <div>{% if logo_danantara %}<img src="{{ logo_danantara }}" class="logo-danantara" alt="Danantara">{% endif %}</div>
-        <div style="display:flex; align-items:center;">
+        <div style="flex:0 0 auto;">{% if logo_danantara %}<img src="{{ logo_danantara }}" class="logo-danantara" alt="Danantara">{% endif %}</div>
+        <div style="flex:1; text-align:center; font-weight:bold; font-size:8.5pt; color:#0F172A; padding:0 4mm;">{{ title }}</div>
+        <div style="flex:0 0 auto; display:flex; align-items:center;">
             <div class="header-unit">UIP3B Sulawesi<br>UP2B Sistem Makassar</div>
             {% if logo_pln %}<img src="{{ logo_pln }}" class="logo-pln" alt="PLN">{% endif %}
         </div>
     </div>
 </div>
-<div class="header-title">{{ title }}</div>
+<div class="header-title-line"></div>
 
 {# ── I. INFORMASI PEMELIHARAAN ── #}
 <div class="sec">I.&nbsp;&nbsp;INFORMASI PEMELIHARAAN</div>
