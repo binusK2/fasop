@@ -118,8 +118,6 @@ def render(c, y, data):
         ('Mur & Baut',     r.get('bat1_kondisi_mur_baut',''),'status'),
         ('Sel & Rak',      r.get('bat1_kondisi_sel_rak',''), 'status'),
         ('Air Battery',    _val(r.get('bat1_air_battery')),  'V'),
-        ('V Total Bank',   _val(r.get('bat1_v_total')),      'V'),
-        ('V Load',         _val(r.get('bat1_v_load')),       'V'),
     ]
     BC_COLS = int(CW/(CW/3)); bc_rows=[]
     ncol2=3; BCW=CW/ncol2
@@ -143,10 +141,67 @@ def render(c, y, data):
     bct.setStyle(_grid(bct_ex))
     y = _draw(c, bct, ML, y)
 
+    # Tabel per-cell pengukuran baterai
+    all_cells = r.get('bat1_cells') or []
+    raw_cells  = [x for x in all_cells if isinstance(x.get('cell'), int)]
+    vtotal_raw = next((x for x in all_cells if x.get('cell') == 'vtotal'), {})
+    vload_raw  = next((x for x in all_cells if x.get('cell') == 'vload'),  {})
+
+    if raw_cells:
+        y -= 2*mm
+        y = _draw(c, _sec('VI.  PENGUKURAN TEGANGAN PER CELL'), ML, y)
+        y -= 0.5*mm
+
+        HDR  = ['#', 'V Float', 'VD 0 Jam', 'VD ½ Jam', 'VD 1 Jam', 'VD 2 Jam', 'V Float ↓', 'V Boost']
+        CKEYS = ['v_float', 'vd_0', 'vd_half', 'vd_1', 'vd_2', 'vf_after', 'v_boost']
+        NW  = 9*mm
+        DCW = (CW - NW) / len(CKEYS)
+
+        def _cv(v):
+            if v is None or v == '': return '-'
+            try: return f'{float(v):.3f}'
+            except: return str(v)
+
+        cell_head = [_p(h, 6.5, True, C_GRAY_TXT, TA_CENTER) for h in HDR]
+        cell_rows = [cell_head]
+        for row in raw_cells:
+            r_cells = [_p(str(row.get('cell','')).zfill(2), 7, True, C_BLUE_MID, TA_CENTER)]
+            for k in CKEYS:
+                r_cells.append(_p(_cv(row.get(k)), 7, False, C_BLACK, TA_CENTER))
+            cell_rows.append(r_cells)
+
+        # Baris V Total dan V Load — per kolom dari JSON
+        def _sum_row(label, raw):
+            row = [_p(label, 7, True, C_WHITE, TA_CENTER)]
+            for k in CKEYS:
+                row.append(_p(_cv(raw.get(k)), 7, True, C_WHITE, TA_CENTER))
+            return row
+
+        cell_rows.append(_sum_row('V Total', vtotal_raw))
+        cell_rows.append(_sum_row('V Load',  vload_raw))
+
+        cw_list = [NW] + [DCW] * len(CKEYS)
+        ct2 = Table(cell_rows, colWidths=cw_list)
+
+        ndata = len(cell_rows)
+        ct2_style = [
+            ('BACKGROUND', (0, 0), (-1, 0), C_GRAY_HEAD),
+            ('FONTNAME',   (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('BACKGROUND', (0, ndata - 2), (-1, ndata - 2), C_BLUE_MID),
+            ('BACKGROUND', (0, ndata - 1), (-1, ndata - 1), C_BLUE_MID),
+            ('FONTNAME',   (0, ndata - 2), (-1, -1), 'Helvetica-Bold'),
+            ('TEXTCOLOR',  (0, ndata - 2), (-1, -1), C_WHITE),
+        ]
+        for ri in range(1, ndata - 2):
+            ct2_style.append(('BACKGROUND', (0, ri), (-1, ri),
+                               C_WHITE if ri % 2 == 1 else C_GREEN_BG))
+        ct2.setStyle(_grid(ct2_style))
+        y = _draw(c, ct2, ML, y)
+
     cat = r.get('catatan','')
     if cat:
         y -= 2*mm
-        y = _draw(c, _sec('V.  CATATAN'), ML, y)
+        y = _draw(c, _sec('VII.  CATATAN'), ML, y)
         y -= 0.5*mm
         ct = Table([[_p(_val(cat),7.5)]], colWidths=[CW])
         ct.setStyle(_grid([('MINROWHEIGHT',(0,0),(-1,-1),8*mm)]))

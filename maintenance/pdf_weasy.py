@@ -226,8 +226,6 @@ def _ctx_rectifier(data, ctx):
         ('Mur & Baut',    r.get('bat1_kondisi_mur_baut', ''),True),
         ('Sel & Rak',     r.get('bat1_kondisi_sel_rak', ''), True),
         ('Air Battery',   _v(r.get('bat1_air_battery')),     False),
-        ('V Total Bank',  _v(r.get('bat1_v_total')),         False),
-        ('V Load',        _v(r.get('bat1_v_load')),          False),
     ]
     bat_rows = []
     for i in range(0, len(BMES), 3):
@@ -237,9 +235,34 @@ def _ctx_rectifier(data, ctx):
             row.append({'text': str(val), 'is_value': not is_status, 'is_status': is_status})
         bat_rows.append(row)
 
+    # Per-cell data — format di Python agar template tinggal tampilkan
+    CELL_KEYS = ['v_float', 'vd_0', 'vd_half', 'vd_1', 'vd_2', 'vf_after', 'v_boost']
+    COL_HEADS = ['V Float', 'VD 0 Jam', 'VD ½ Jam', 'VD 1 Jam', 'VD 2 Jam', 'V Float ↓', 'V Boost']
+
+    def _cv(v):
+        if v is None or v == '': return '-'
+        try:    return f'{float(v):.3f}'
+        except: return str(v)
+
+    all_cells  = r.get('bat1_cells') or []
+    raw_cells  = [c for c in all_cells if isinstance(c.get('cell'), int)]
+    vtotal_raw = next((c for c in all_cells if c.get('cell') == 'vtotal'), {})
+    vload_raw  = next((c for c in all_cells if c.get('cell') == 'vload'),  {})
+
+    fmt_cells = [
+        {'num': str(c.get('cell', '')).zfill(2), 'vals': [_cv(c.get(k)) for k in CELL_KEYS]}
+        for c in raw_cells
+    ]
+    fmt_vtotal_vals = [_cv(vtotal_raw.get(k)) for k in CELL_KEYS]
+    fmt_vload_vals  = [_cv(vload_raw.get(k))  for k in CELL_KEYS]
+
     ctx.update({
         'rect': r, 'rect_measurements': rect_rows, 'bat_measurements': bat_rows,
-        'catatan': r.get('catatan', ''),
+        'catatan':        r.get('catatan', ''),
+        'fmt_cells':      fmt_cells,
+        'fmt_vtotal_vals': fmt_vtotal_vals,
+        'fmt_vload_vals':  fmt_vload_vals,
+        'col_heads':      COL_HEADS,
     })
 
 
