@@ -127,17 +127,18 @@
 
         <!-- Cell table + Chart + V Total / V Load di bawah -->
         {% if cells %}
-        <div style="font-size:10.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Data Pengukuran Cell</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <div style="font-size:10.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;">Data Pengukuran Cell</div>
+        </div>
         <div class="table-responsive">
-            <table class="table table-sm mb-0" style="font-size:11.5px;table-layout:fixed;min-width:620px;">
+            <table class="table table-sm mb-0" style="font-size:11.5px;table-layout:fixed;min-width:560px;">
                 <colgroup>
                     <col style="width:52px;">
-                    <col style="width:11%;">
-                    <col style="width:11%;">
-                    <col style="width:11%;">
-                    <col style="width:11%;">
-                    <col style="width:11%;">
-                    <col style="width:11%;">
+                    <col style="width:13%;">
+                    <col style="width:13%;">
+                    <col style="width:13%;">
+                    <col style="width:13%;">
+                    <col style="width:13%;">
                     <col>
                 </colgroup>
                 <thead>
@@ -148,8 +149,10 @@
                         <th style="padding:6px 10px;font-size:11px;color:#92400e;text-align:center;background:#fffbeb;">VD ½ Jam</th>
                         <th style="padding:6px 10px;font-size:11px;color:#92400e;text-align:center;background:#fffbeb;">VD 1 Jam</th>
                         <th style="padding:6px 10px;font-size:11px;color:#92400e;text-align:center;background:#fffbeb;">VD 2 Jam</th>
-                        <th style="padding:6px 10px;font-size:11px;color:#2563eb;text-align:center;background:#eff6ff;">V Float</th>
-                        <th style="padding:6px 10px;font-size:11px;color:#1d4ed8;text-align:center;background:#eff6ff;">V Boost</th>
+                        <th id="detail-vb-th" style="padding:6px 10px;font-size:11px;color:#1d4ed8;text-align:center;background:#eff6ff;cursor:pointer;user-select:none;" title="Klik untuk ganti kolom">
+                            <span id="detail-vb-lbl">V Boost</span>
+                            <span style="font-size:8px;opacity:0.55;margin-left:2px;">/ VF↓</span>
+                        </th>
                     </tr>
                 </thead>
                 <tbody>
@@ -161,39 +164,54 @@
                         <td style="padding:5px 10px;text-align:center;font-family:'JetBrains Mono',monospace;">{{ row.vd_half|default:"—" }}</td>
                         <td style="padding:5px 10px;text-align:center;font-family:'JetBrains Mono',monospace;">{{ row.vd_1|default:"—" }}</td>
                         <td style="padding:5px 10px;text-align:center;font-family:'JetBrains Mono',monospace;">{{ row.vd_2|default:"—" }}</td>
-                        <td style="padding:5px 10px;text-align:center;font-family:'JetBrains Mono',monospace;color:#7e22ce;">{{ row.vf_after|default:"—" }}</td>
-                        <td style="padding:5px 10px;text-align:center;font-family:'JetBrains Mono',monospace;font-weight:600;color:#2563eb;">{{ row.v_boost|default:"—" }}</td>
+                        <td class="td-vb" data-vboost="{{ row.v_boost|default:'' }}" data-vfa="{{ row.vf_after|default:'' }}" style="padding:5px 10px;text-align:center;font-family:'JetBrains Mono',monospace;font-weight:600;color:#2563eb;">{{ row.v_boost|default:"—" }}</td>
                     </tr>
                     {% endif %}{% endfor %}
                 </tbody>
                 <tfoot>
                     {% for row in cells %}{% if row.cell == 'vtotal' %}
-                    <tr style="background:#1e3a8a;border-top:2px solid #000000;">
-                        <td style="padding:6px 8px;font-size:10.5px;font-weight:700;color:#000000;text-align:center;letter-spacing:0.4px;">V Total</td>
-                        <td style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#000000;">{{ row.v_float|default:"—" }}</td>
-                        <td style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#000000;">{{ row.vd_0|default:"—" }}</td>
-                        <td style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#000000;">{{ row.vd_half|default:"—" }}</td>
-                        <td style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#000000;">{{ row.vd_1|default:"—" }}</td>
-                        <td style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#000000;">{{ row.vd_2|default:"—" }}</td>
-                        <td style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#000000;">{{ row.vf_after|default:"—" }}</td>
-                        <td style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#000000;">{{ row.v_boost|default:"—" }}</td>
+                    <tr style="background:#1e3a8a;border-top:2px solid #1e40af;">
+                        <td style="padding:6px 8px;font-size:10.5px;font-weight:700;color:#93c5fd;text-align:center;letter-spacing:0.4px;">V Total</td>
+                        <td style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#ffffff;">{{ row.v_float|default:"—" }}</td>
+                        <td style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#ffffff;">{{ row.vd_0|default:"—" }}</td>
+                        <td style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#ffffff;">{{ row.vd_half|default:"—" }}</td>
+                        <td style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#ffffff;">{{ row.vd_1|default:"—" }}</td>
+                        <td style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#ffffff;">{{ row.vd_2|default:"—" }}</td>
+                        <td class="td-vb" data-vboost="{{ row.v_boost|default:'' }}" data-vfa="{{ row.vf_after|default:'' }}" style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#ffffff;">{{ row.v_boost|default:"—" }}</td>
                     </tr>
                     {% endif %}{% endfor %}
                     {% for row in cells %}{% if row.cell == 'vload' %}
-                    <tr style="background:#1d4ed8;border-top:1px solid #000000;">
-                        <td style="padding:6px 8px;font-size:10.5px;font-weight:700;color:#000000;text-align:center;letter-spacing:0.4px;">V Load</td>
-                        <td style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#000000;">{{ row.v_float|default:"—" }}</td>
-                        <td style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#000000;">{{ row.vd_0|default:"—" }}</td>
-                        <td style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#000000;">{{ row.vd_half|default:"—" }}</td>
-                        <td style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#000000;">{{ row.vd_1|default:"—" }}</td>
-                        <td style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#000000;">{{ row.vd_2|default:"—" }}</td>
-                        <td style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#000000;">{{ row.vf_after|default:"—" }}</td>
-                        <td style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#000000;">{{ row.v_boost|default:"—" }}</td>
+                    <tr style="background:#1d4ed8;border-top:1px solid #3b82f6;">
+                        <td style="padding:6px 8px;font-size:10.5px;font-weight:700;color:#93c5fd;text-align:center;letter-spacing:0.4px;">V Load</td>
+                        <td style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#ffffff;">{{ row.v_float|default:"—" }}</td>
+                        <td style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#ffffff;">{{ row.vd_0|default:"—" }}</td>
+                        <td style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#ffffff;">{{ row.vd_half|default:"—" }}</td>
+                        <td style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#ffffff;">{{ row.vd_1|default:"—" }}</td>
+                        <td style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#ffffff;">{{ row.vd_2|default:"—" }}</td>
+                        <td class="td-vb" data-vboost="{{ row.v_boost|default:'' }}" data-vfa="{{ row.vf_after|default:'' }}" style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#ffffff;">{{ row.v_boost|default:"—" }}</td>
                     </tr>
                     {% endif %}{% endfor %}
                 </tfoot>
             </table>
         </div>
+        <script>
+        (function(){
+            const th=document.getElementById('detail-vb-th');
+            if(!th) return;
+            let showVfa=false;
+            th.addEventListener('click',function(){
+                showVfa=!showVfa;
+                document.getElementById('detail-vb-lbl').textContent=showVfa?'V Float ↓':'V Boost';
+                th.style.background=showVfa?'#faf5ff':'#eff6ff';
+                th.style.color=showVfa?'#6b21a8':'#1d4ed8';
+                document.querySelectorAll('.td-vb').forEach(function(td){
+                    var v=showVfa?td.dataset.vfa:td.dataset.vboost;
+                    td.textContent=v||'—';
+                    if(!td.closest('tfoot')) td.style.color=showVfa?'#7e22ce':'#2563eb';
+                });
+            });
+        })();
+        </script>
 
         <!-- ── DISCHARGE ANALYSIS CHART ── -->
         {% if cells %}
