@@ -13,30 +13,34 @@
 
     /* ── HEADER ── */
     .header-wrap {
-        border-top: 0.8pt solid #0F172A;
-        padding: 1.5mm 0 0 0;
+        padding: 0;
         margin-bottom: 0;
     }
-    .header-bar {
+    .header-row1 {
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         gap: 2mm;
     }
-    .header-danantara { flex-shrink: 0; }
-    .header-danantara img { height: 7mm; display: block; }
-    .header-stripe { flex: 1; line-height: 0; }
-    .header-stripe img { height: 10mm; width: auto; display: block; margin: 0 auto; }
-    .header-pln { flex-shrink: 0; text-align: right; }
-    .header-pln img { height: 9mm; display: block; margin-left: auto; }
+    .header-row1-img { flex: 1; line-height: 0; }
+    .header-row1-img img { width: 100%; display: block; }
     .header-doc-code {
+        flex-shrink: 0;
         font-size: 6.5pt;
         font-weight: bold;
         color: #1A3A5C;
         letter-spacing: 0.3px;
         text-align: right;
-        margin-bottom: 1mm;
         white-space: nowrap;
+        padding-top: 1mm;
     }
+    .header-row2 {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1mm 0 1.5mm 0;
+    }
+    .header-row2 img.logo-danantara { height: 6mm; display: block; }
+    .header-row2 img.logo-pln { height: 9mm; display: block; }
     .header-title {
         text-align: center;
         font-weight: bold;
@@ -107,20 +111,17 @@
 
 {# ── HEADER ── #}
 <div class="header-wrap">
-    <div class="header-bar">
-        {# Kiri: Danantara logo #}
-        <div class="header-danantara">
-            {% if logo_danantara %}<img src="{{ logo_danantara }}" alt="Danantara">{% endif %}
-        </div>
-        {# Tengah: Header stripe image #}
-        <div class="header-stripe">
+    {# Baris 1: header_pln.png (full width) + kode dokumen di kanan #}
+    <div class="header-row1">
+        <div class="header-row1-img">
             {% if header_pln %}<img src="{{ header_pln }}" alt="">{% endif %}
         </div>
-        {# Kanan: kode berkas (atas) + PLN logo (bawah) #}
-        <div class="header-pln">
-            {% if doc_code %}<div class="header-doc-code">{{ doc_code }}</div>{% endif %}
-            {% if logo_pln %}<img src="{{ logo_pln }}" alt="PLN">{% endif %}
-        </div>
+        {% if doc_code %}<div class="header-doc-code">{{ doc_code }}</div>{% endif %}
+    </div>
+    {# Baris 2: logo Danantara (kiri) + logo PLN (kanan) #}
+    <div class="header-row2">
+        <div>{% if logo_danantara %}<img src="{{ logo_danantara }}" class="logo-danantara" alt="Danantara">{% endif %}</div>
+        <div>{% if logo_pln %}<img src="{{ logo_pln }}" class="logo-pln" alt="PLN">{% endif %}</div>
     </div>
 </div>
 <div class="header-title">{{ title }}</div>
