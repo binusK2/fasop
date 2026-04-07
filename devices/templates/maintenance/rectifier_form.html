@@ -99,8 +99,8 @@
             <div class="col-md-3"><div class="rc-card"><div class="rc-lbl">Tipe</div>{{ detail_form.bat1_tipe }}</div></div>
             <div class="col-md-3"><div class="rc-card"><div class="rc-lbl">Kapasitas</div>{{ detail_form.bat1_kapasitas }}</div></div>
             <div class="col-md-3"><div class="rc-card"><div class="rc-lbl">Jumlah Cell</div>
-                <div style="display:none;">{{ detail_form.bat1_jumlah }}</div>
-                <div style="font-size:15px;font-weight:700;color:#10b981;padding:5px 0;">40 Cell</div>
+                <div class="input-group">{{ detail_form.bat1_jumlah }}<span class="input-group-text rc-unit">cell</span></div>
+                <div style="font-size:10px;color:#94a3b8;margin-top:4px;">Maks. 40 · Ubah → tabel menyesuaikan</div>
             </div></div>
         </div>
         <!-- Kondisi Fisik — 4 kolom 1 baris -->
@@ -125,7 +125,7 @@
         </div>
         <!-- Tabel 40 Cell -->
         <div class="d-flex align-items-center justify-content-between mb-2">
-            <div class="rc-sub" style="margin:0;">Pengukuran Per Cell <span style="color:#10b981;font-weight:700;">(40 Cell)</span></div>
+            <div class="rc-sub" style="margin:0;">Pengukuran Per Cell <span id="cell-count-badge" style="color:#10b981;font-weight:700;">(40 Cell)</span></div>
             <span style="font-size:11px;background:#f0fdf4;color:#065f46;padding:3px 12px;border-radius:20px;border:1px solid #a7f3d0;white-space:nowrap;">
                 <i class="bi bi-keyboard me-1"></i>Ketik <strong>3 digit</strong> mis. <code>985</code> → <strong>1.985 V</strong> · <kbd>Enter</kbd> lanjut bawah
             </span>
@@ -140,10 +140,12 @@
                         <th class="ct-d">VD ½ Jam</th>
                         <th class="ct-d">VD 1 Jam</th>
                         <th class="ct-d">VD 2 Jam</th>
+                        <th class="ct-fa">V Float ↓</th>
                         <th class="ct-b">V Boost</th>
                     </tr>
                 </thead>
                 <tbody id="cell-tbody"></tbody>
+                <tfoot id="cell-tfoot"></tfoot>
             </table>
         </div>
         {{ detail_form.bat1_cells }}
@@ -151,8 +153,6 @@
         <div class="rc-sub">Ringkasan Tegangan</div>
         <div class="row g-3">
             <div class="col-md-4"><div class="rc-card"><div class="rc-lbl">Air Battery</div><div class="input-group">{{ detail_form.bat1_air_battery }}<span class="input-group-text rc-unit">V</span></div></div></div>
-            <div class="col-md-4"><div class="rc-card" style="background:#eff6ff;border-color:#bfdbfe;"><div class="rc-lbl" style="color:#1d4ed8;">V Total Bank</div><div class="input-group">{{ detail_form.bat1_v_total }}<span class="input-group-text rc-unit" style="background:#dbeafe;color:#1d4ed8;border-color:#bfdbfe;">V</span></div></div></div>
-            <div class="col-md-4"><div class="rc-card" style="background:#eff6ff;border-color:#bfdbfe;"><div class="rc-lbl" style="color:#1d4ed8;">V Load</div><div class="input-group">{{ detail_form.bat1_v_load }}<span class="input-group-text rc-unit" style="background:#dbeafe;color:#1d4ed8;border-color:#bfdbfe;">V</span></div></div></div>
         </div>
     </div>
 </div>
@@ -199,6 +199,7 @@
 .ct-n{width:46px;background:#f0fdf4;color:#065f46;}
 .ct-f{background:#f0fdf4;color:#334155;min-width:95px;}
 .ct-d{background:#fffbeb;color:#92400e;min-width:90px;}
+.ct-fa{background:#faf5ff;color:#6b21a8;min-width:95px;}
 .ct-b{background:#eff6ff;color:#1d4ed8;min-width:90px;}
 .rc-ctbl tbody tr:nth-child(odd){background:#fff;}
 .rc-ctbl tbody tr:nth-child(even){background:#f8fafc;}
@@ -209,6 +210,10 @@
 .ci:focus{border-color:#10b981!important;box-shadow:0 0 0 2px rgba(16,185,129,.15)!important;}
 .ci.v-ok{border-color:#6ee7b7!important;background:#d1fae5!important;color:#065f46!important;font-weight:700!important;}
 .ci.v-low{border-color:#fbbf24!important;background:#fef9c3!important;color:#92400e!important;font-weight:700!important;}
+/* Baris summary tfoot */
+.ct-summary-row td{background:#eff6ff;border-top:2px solid #bfdbfe;padding:4px 5px;vertical-align:middle;text-align:center;}
+.ct-summary-lbl{font-size:11px;font-weight:700;color:#1d4ed8;text-align:center;white-space:nowrap;min-width:46px;}
+.ci-sum{border-color:#bfdbfe!important;background:#dbeafe!important;color:#1d4ed8!important;font-weight:700!important;}
 </style>
 <script>
 /* Toggle OK/NOK */
@@ -223,10 +228,19 @@ document.addEventListener('click',e=>{
     if(w) w.querySelectorAll('.rc-tog').forEach(x=>x.classList.toggle('on',x.dataset.v===b.dataset.v));
 });
 
-/* 40 Cell table */
-const COLS=['v_float','vd_0','vd_half','vd_1','vd_2','v_boost'];
-const NC=40;
+/* Cell table */
+const COLS=['v_float','vd_0','vd_half','vd_1','vd_2','vf_after','v_boost'];
 
+function getNC(){
+    const ji=document.querySelector('input[name="bat1_jumlah"]');
+    const n=parseInt(ji?.value)||40;
+    return Math.max(1,Math.min(40,n));
+}
+function updateBadge(){
+    const nc=getNC();
+    const b=document.getElementById('cell-count-badge');
+    if(b) b.textContent=`(${nc} Cell)`;
+}
 function pv(s){
     s=(s||'').trim();
     if(!s) return null;
@@ -248,7 +262,51 @@ function sync(){
     const h=document.querySelector('input[name="bat1_cells"]');
     if(h) h.value=JSON.stringify(Object.values(rows));
 }
+function buildTfoot(ex){
+    const tf=document.getElementById('cell-tfoot');
+    tf.innerHTML='';
+    const SUMMARY=[
+        {key:'vtotal',label:'V Total'},
+        {key:'vload', label:'V Load'},
+    ];
+    SUMMARY.forEach(({key,label})=>{
+        const existing=(ex||[]).find(r=>r.cell===key)||{};
+        const tr=document.createElement('tr');
+        tr.className='ct-summary-row';
+        const tdLbl=document.createElement('td');
+        tdLbl.className='ct-summary-lbl';
+        tdLbl.textContent=label;
+        tr.appendChild(tdLbl);
+        COLS.forEach(k=>{
+            const td=document.createElement('td');
+            const inp=document.createElement('input');
+            inp.type='text';inp.inputMode='decimal';
+            inp.className='ci ci-sum';inp.placeholder='—';
+            inp.dataset.cell=key;inp.dataset.col=k;
+            const sv=existing[k];
+            if(sv!==undefined&&sv!==null){inp.value=sv;}
+            inp.addEventListener('blur',()=>{const v=pv(inp.value);if(v!==null)inp.value=v;sync();});
+            inp.addEventListener('input',()=>{});
+            inp.addEventListener('keydown',e2=>{
+                if(e2.key!=='Enter') return;
+                e2.preventDefault();
+                const v=pv(inp.value);if(v!==null)inp.value=v;sync();
+                const keys=['vtotal','vload'];
+                const idx=keys.indexOf(key);
+                if(idx<keys.length-1){
+                    const nx=document.querySelector(`.ci[data-cell="${keys[idx+1]}"][data-col="${k}"]`);
+                    if(nx) nx.focus();
+                }
+            });
+            td.appendChild(inp);tr.appendChild(td);
+        });
+        tf.appendChild(tr);
+    });
+}
+
 function build(ex){
+    const NC=getNC();
+    updateBadge();
     const tb=document.getElementById('cell-tbody');
     tb.innerHTML='';
     for(let i=1;i<=NC;i++){
@@ -278,6 +336,7 @@ function build(ex){
         });
         tb.appendChild(tr);
     }
+    buildTfoot(ex);
     sync();
 }
 
@@ -291,10 +350,19 @@ document.addEventListener('DOMContentLoaded',()=>{
         const w=f.nextElementSibling;
         if(w) w.querySelectorAll('.rc-tog').forEach(b=>b.classList.toggle('on',b.dataset.v===s.value));
     });
-    /* Jumlah cell = 40 */
+    /* Jumlah cell — set default 40 jika kosong */
     const ji=document.querySelector('input[name="bat1_jumlah"]');
-    if(ji) ji.value=40;
-    /* Build tabel */
+    if(ji&&!ji.value) ji.value=40;
+    /* Rebuild tabel saat jumlah berubah */
+    if(ji){
+        ji.addEventListener('change',()=>{
+            let ex=[];
+            try{const h=document.querySelector('input[name="bat1_cells"]');ex=JSON.parse(h?.value||'[]');}catch(e){}
+            build(ex);
+        });
+        ji.addEventListener('input',updateBadge);
+    }
+    /* Build tabel awal */
     let ex=[];
     try{const h=document.querySelector('input[name="bat1_cells"]');ex=JSON.parse(h?.value||'[]');}catch(e){}
     build(ex);

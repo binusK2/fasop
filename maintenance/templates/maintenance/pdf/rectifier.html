@@ -26,8 +26,44 @@
     {% endfor %}
 </table>
 
+{% if fmt_cells %}
+<div class="sec">V.&nbsp;&nbsp;PENGUKURAN TEGANGAN PER CELL</div>
+<table style="font-size:6.5pt;border-collapse:collapse;width:100%;margin-top:1mm;">
+    <thead>
+        <tr>
+            <th style="background:#1A3A5C;color:#fff;padding:2pt 3pt;text-align:center;width:20pt;">#</th>
+            {% for h in col_heads %}
+            <th style="padding:2pt 3pt;text-align:center;
+                {% if forloop.counter == 1 %}background:#d1fae5;
+                {% elif forloop.counter <= 5 %}background:#fef3c7;
+                {% elif forloop.counter == 6 %}background:#f3e8ff;
+                {% else %}background:#dbeafe;{% endif %}">{{ h }}</th>
+            {% endfor %}
+        </tr>
+    </thead>
+    <tbody>
+        {% for c in fmt_cells %}
+        <tr style="background:{% if forloop.counter|divisibleby:2 %}#f8fafc{% else %}#ffffff{% endif %};">
+            <td style="text-align:center;font-weight:bold;color:#10b981;background:#f0fdf4;">{{ c.num }}</td>
+            {% for val in c.vals %}<td style="text-align:center;">{{ val }}</td>{% endfor %}
+        </tr>
+        {% endfor %}
+    </tbody>
+    <tfoot>
+        <tr style="background:#1e40af;font-weight:bold;">
+            <td style="text-align:center;padding:3pt;color:#fff;">V Total</td>
+            {% for val in fmt_vtotal_vals %}<td style="text-align:center;color:#fff;">{{ val }}</td>{% endfor %}
+        </tr>
+        <tr style="background:#2563eb;font-weight:bold;">
+            <td style="text-align:center;padding:3pt;color:#fff;">V Load</td>
+            {% for val in fmt_vload_vals %}<td style="text-align:center;color:#fff;">{{ val }}</td>{% endfor %}
+        </tr>
+    </tfoot>
+</table>
+{% endif %}
+
 {% if catatan %}
-<div class="sec">V.&nbsp;&nbsp;CATATAN</div>
+<div class="sec">VI.&nbsp;&nbsp;CATATAN</div>
 <table><tr><td style="min-height:8mm;">{{ catatan }}</td></tr></table>
 {% endif %}
 {% endblock %}
