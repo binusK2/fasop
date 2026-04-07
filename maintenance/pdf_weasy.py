@@ -257,8 +257,8 @@ def _ctx_rectifier(data, ctx):
         bat_rows.append(row)
 
     # Per-cell data — format di Python agar template tinggal tampilkan
-    CELL_KEYS = ['v_float', 'vd_0', 'vd_half', 'vd_1', 'vd_2', 'vf_after', 'v_boost']
-    COL_HEADS = ['V Float', 'VD 0 Jam', 'VD ½ Jam', 'VD 1 Jam', 'VD 2 Jam', 'V Float ↓', 'V Boost']
+    CELL_KEYS = ['v_float', 'vd_0', 'vd_half', 'vd_1', 'vd_2', 'v_boost']
+    COL_HEADS = ['V Float', 'VD 0 Jam', 'VD ½ Jam', 'VD 1 Jam', 'VD 2 Jam', 'V Boost']
 
     def _cv(v):
         if v is None or v == '': return '-'

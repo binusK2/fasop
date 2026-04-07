@@ -168,8 +168,10 @@
                         <th class="ct-d">VD ½ Jam</th>
                         <th class="ct-d">VD 1 Jam</th>
                         <th class="ct-d">VD 2 Jam</th>
-                        <th class="ct-fa">V Float ↓</th>
-                        <th class="ct-b">V Boost</th>
+                        <th class="ct-b" id="vb-th" style="cursor:pointer;user-select:none;" title="Klik untuk ganti kolom">
+                            <span id="vb-lbl">V Boost</span>
+                            <span style="font-size:8px;opacity:0.55;margin-left:2px;">/ VF↓</span>
+                        </th>
                     </tr>
                 </thead>
                 <tbody id="cell-tbody"></tbody>
@@ -227,8 +229,8 @@
 .ct-n{width:46px;background:#f0fdf4;color:#065f46;}
 .ct-f{background:#f0fdf4;color:#334155;min-width:95px;}
 .ct-d{background:#fffbeb;color:#92400e;min-width:90px;}
-.ct-fa{background:#faf5ff;color:#6b21a8;min-width:95px;}
 .ct-b{background:#eff6ff;color:#1d4ed8;min-width:90px;}
+.ct-b.vfa-mode{background:#faf5ff!important;color:#6b21a8!important;}
 .rc-ctbl tbody tr:nth-child(odd){background:#fff;}
 .rc-ctbl tbody tr:nth-child(even){background:#f8fafc;}
 .rc-ctbl tbody td{padding:3px 5px;vertical-align:middle;text-align:center;border-bottom:1px solid #f1f5f9;}
@@ -257,7 +259,8 @@ document.addEventListener('click',e=>{
 });
 
 /* Cell table */
-const COLS=['v_float','vd_0','vd_half','vd_1','vd_2','vf_after','v_boost'];
+const COLS=['v_float','vd_0','vd_half','vd_1','vd_2','v_boost'];
+let vbMode='v_boost'; // toggle: 'v_boost' | 'vf_after'
 
 function getNC(){
     const ji=document.querySelector('input[name="bat1_jumlah"]');
@@ -310,27 +313,33 @@ function buildTfoot(ex){
         tr.appendChild(tdLbl);
         COLS.forEach(k=>{
             const td=document.createElement('td');
-            const inp=document.createElement('input');
-            inp.type='text';inp.inputMode='decimal';
-            inp.className='ci ci-sum';inp.placeholder='—';
-            inp.dataset.cell=key;inp.dataset.col=k;
-            const sv=existing[k];
-            if(sv!==undefined&&sv!==null){inp.value=sv;}
-            const blurSum=()=>{const s=inp.value.trim();if(s){const v=parseFloat(s);if(!isNaN(v))inp.value=v;}sync();};
-            inp.addEventListener('blur',blurSum);
-            inp.addEventListener('input',()=>{});
-            inp.addEventListener('keydown',e2=>{
-                if(e2.key!=='Enter') return;
-                e2.preventDefault();
-                blurSum();
-                const keys=['vtotal','vload'];
-                const idx=keys.indexOf(key);
-                if(idx<keys.length-1){
-                    const nx=document.querySelector(`.ci[data-cell="${keys[idx+1]}"][data-col="${k}"]`);
-                    if(nx) nx.focus();
-                }
-            });
-            td.appendChild(inp);tr.appendChild(td);
+            function mkSumInp(colKey,hidden){
+                const inp=document.createElement('input');
+                inp.type='text';inp.inputMode='decimal';
+                inp.className='ci ci-sum';inp.placeholder='—';
+                inp.dataset.cell=key;inp.dataset.col=colKey;
+                if(hidden) inp.style.display='none';
+                const sv=existing[colKey];
+                if(sv!==undefined&&sv!==null){inp.value=sv;}
+                const blurSum=()=>{const s=inp.value.trim();if(s){const v=parseFloat(s);if(!isNaN(v))inp.value=v;}sync();};
+                inp.addEventListener('blur',blurSum);
+                inp.addEventListener('input',()=>{});
+                inp.addEventListener('keydown',e2=>{
+                    if(e2.key!=='Enter') return;
+                    e2.preventDefault();
+                    blurSum();
+                    const keys=['vtotal','vload'];
+                    const idx=keys.indexOf(key);
+                    if(idx<keys.length-1){
+                        const nx=document.querySelector(`.ci[data-cell="${keys[idx+1]}"][data-col="${inp.dataset.col}"]`);
+                        if(nx) nx.focus();
+                    }
+                });
+                return inp;
+            }
+            td.appendChild(mkSumInp(k, false));
+            if(k==='v_boost') td.appendChild(mkSumInp('vf_after', true));
+            tr.appendChild(td);
         });
         tf.appendChild(tr);
     });
@@ -349,22 +358,28 @@ function build(ex){
         tr.appendChild(tn);
         COLS.forEach(k=>{
             const td=document.createElement('td');
-            const inp=document.createElement('input');
-            inp.type='text';inp.inputMode='decimal';
-            inp.className='ci';inp.placeholder='—';
-            inp.dataset.cell=i;inp.dataset.col=k;
-            const sv=e[k];
-            if(sv!==undefined&&sv!==null){inp.value=sv;col(inp,sv);}
-            inp.addEventListener('blur',()=>{const v=pv(inp.value);if(v!==null)inp.value=v;col(inp,v);sync();});
-            inp.addEventListener('input',()=>inp.classList.remove('v-ok','v-low'));
-            inp.addEventListener('keydown',e2=>{
-                if(e2.key!=='Enter') return;
-                e2.preventDefault();
-                const v=pv(inp.value);if(v!==null)inp.value=v;col(inp,v);sync();
-                const nx=document.querySelector(`.ci[data-cell="${i+1}"][data-col="${k}"]`);
-                if(nx) nx.focus();
-            });
-            td.appendChild(inp);tr.appendChild(td);
+            function mkInp(colKey,hidden){
+                const inp=document.createElement('input');
+                inp.type='text';inp.inputMode='decimal';
+                inp.className='ci';inp.placeholder='—';
+                inp.dataset.cell=i;inp.dataset.col=colKey;
+                if(hidden) inp.style.display='none';
+                const sv=e[colKey];
+                if(sv!==undefined&&sv!==null){inp.value=sv;if(!hidden)col(inp,sv);}
+                inp.addEventListener('blur',()=>{const v=pv(inp.value);if(v!==null)inp.value=v;if(!inp.style.display||inp.style.display==='')col(inp,v);sync();});
+                inp.addEventListener('input',()=>inp.classList.remove('v-ok','v-low'));
+                inp.addEventListener('keydown',e2=>{
+                    if(e2.key!=='Enter') return;
+                    e2.preventDefault();
+                    const v=pv(inp.value);if(v!==null)inp.value=v;col(inp,v);sync();
+                    const nx=document.querySelector(`.ci[data-cell="${i+1}"][data-col="${inp.dataset.col}"]`);
+                    if(nx) nx.focus();
+                });
+                return inp;
+            }
+            td.appendChild(mkInp(k, false));
+            if(k==='v_boost') td.appendChild(mkInp('vf_after', true));
+            tr.appendChild(td);
         });
         tb.appendChild(tr);
     }
@@ -394,6 +409,18 @@ document.addEventListener('DOMContentLoaded',()=>{
         });
         ji.addEventListener('input',updateBadge);
     }
+    /* Toggle V Boost / VF↓ */
+    const vbTh=document.getElementById('vb-th');
+    if(vbTh) vbTh.addEventListener('click',()=>{
+        vbMode = vbMode==='v_boost'?'vf_after':'v_boost';
+        const isVfa = vbMode==='vf_after';
+        document.getElementById('vb-lbl').textContent = isVfa?'V Float ↓':'V Boost';
+        vbTh.classList.toggle('vfa-mode', isVfa);
+        document.querySelectorAll('.ci[data-col="v_boost"],.ci[data-col="vf_after"]').forEach(inp=>{
+            if(inp.dataset.col==='v_boost') inp.style.display = isVfa?'none':'';
+            else inp.style.display = isVfa?'':'none';
+        });
+    });
     /* Build tabel awal */
     let ex=[];
     try{const h=document.querySelector('input[name="bat1_cells"]');ex=JSON.parse(h?.value||'[]');}catch(e){}
