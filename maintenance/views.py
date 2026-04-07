@@ -1053,12 +1053,11 @@ def corrective_add(request, device_id=None, gangguan_id=None):
 
 
 # ─────────────────────────────────────────────────────────────────────
-# DASHBOARD CATU DAYA — Monitoring tegangan & prediksi discharge
+# DASHBOARD CATU DAYA — Discharge prediction + Inspection history
 # ─────────────────────────────────────────────────────────────────────
 @login_required
 def catu_daya_dashboard(request):
     THRESHOLD = 38.0
-    RECTIFIER_KEYS = ['catu daya', 'catudaya', 'rectifier', 'rectifier & battery']
 
     devices = Device.objects.filter(
         is_deleted=False,
@@ -1084,27 +1083,31 @@ def catu_daya_dashboard(request):
         intercept = (sy - slope * sx) / n
         return slope, intercept
 
+    def _fv(v):
+        """Float value or None."""
+        return round(float(v), 3) if v is not None else None
+
     devices_data = []
     for dev in devices:
-        latest = (
+        # Semua record inspection untuk device ini (urut terlama → terbaru)
+        all_records = (
             MaintenanceRectifier.objects
             .filter(maintenance__device=dev)
             .select_related('maintenance')
-            .order_by('-maintenance__date')
-            .first()
+            .order_by('maintenance__date')
         )
-        if not latest:
+        if not all_records.exists():
             continue
 
+        latest = all_records.last()
+
+        # ── Discharge curve dari inspeksi terbaru ───────────────────
         cells = latest.bat1_cells or []
-
-        v_float_total = _sum_field(cells, 'v_float')
-        vd_0   = _sum_field(cells, 'vd_0')
+        vd_0    = _sum_field(cells, 'vd_0')
         vd_half = _sum_field(cells, 'vd_half')
-        vd_1   = _sum_field(cells, 'vd_1')
-        vd_2   = _sum_field(cells, 'vd_2')
+        vd_1    = _sum_field(cells, 'vd_1')
+        vd_2    = _sum_field(cells, 'vd_2')
 
-        # Titik data discharge aktual  (x=jam, y=Volt)
         actual = []
         for t, v in [(0, vd_0), (0.5, vd_half), (1, vd_1), (2, vd_2)]:
             if v is not None:
@@ -1113,25 +1116,19 @@ def catu_daya_dashboard(request):
         prediction = []
         threshold_time = None
         slope = None
-
         if len(actual) >= 2:
             xs = [p['t'] for p in actual]
             ys = [p['v'] for p in actual]
             sl, intercept = _linreg(xs, ys)
             if sl is not None:
                 slope = sl
-                # Prediksi t=2.5 s/d 10 jam (setiap 0.5)
-                for t in [x / 2 for x in range(5, 21)]:   # 2.5, 3, … 10
-                    v_pred = sl * t + intercept
-                    prediction.append({'t': t, 'v': round(v_pred, 3)})
-
-                # Kapan mencapai threshold?
+                for t in [x / 2 for x in range(5, 21)]:
+                    prediction.append({'t': t, 'v': round(sl * t + intercept, 3)})
                 if sl < 0:
                     t_thr = (THRESHOLD - intercept) / sl
                     if t_thr > 0:
                         threshold_time = round(t_thr, 2)
 
-        # Status singkat
         latest_v = actual[-1]['v'] if actual else (latest.bat1_v_total or 0)
         if latest_v <= THRESHOLD:
             status = 'danger'
@@ -1140,21 +1137,43 @@ def catu_daya_dashboard(request):
         else:
             status = 'ok'
 
+        # ── History semua inspeksi: V Batt, V Load, A Load, A Batt ──
+        history = []
+        for rec in all_records:
+            history.append({
+                'date':        str(rec.maintenance.date),
+                'v_battery':   _fv(rec.rect1_v_battery),
+                'v_load':      _fv(rec.bat1_v_load),
+                'a_load':      _fv(rec.rect1_a_load),
+                'a_battery':   _fv(rec.rect1_a_battery),
+                'v_rectifier': _fv(rec.rect1_v_rectifier),
+                'v_total':     _fv(rec.bat1_v_total),
+            })
+
         devices_data.append({
-            'device_id':       dev.id,
-            'device_name':     dev.nama,
-            'lokasi':          dev.lokasi or '-',
-            'tanggal':         str(latest.maintenance.date),
-            'v_float_total':   v_float_total,
-            'v_total_field':   latest.bat1_v_total,
-            'actual':          actual,
-            'prediction':      prediction,
-            'threshold_time':  threshold_time,
-            'status':          status,
-            'slope':           round(slope, 4) if slope else None,
-            'bat_merk':        latest.bat1_merk or '-',
-            'bat_tipe':        latest.bat1_tipe or '-',
-            'bat_kapasitas':   latest.bat1_kapasitas or '-',
+            'device_id':      dev.id,
+            'device_name':    dev.nama,
+            'lokasi':         dev.lokasi or '-',
+            'tanggal':        str(latest.maintenance.date),
+            'v_float_total':  _sum_field(cells, 'v_float'),
+            'v_total_field':  latest.bat1_v_total,
+            # latest inspection metrics
+            'v_battery':      latest.rect1_v_battery,
+            'v_load':         latest.bat1_v_load,
+            'a_load':         latest.rect1_a_load,
+            'a_battery':      latest.rect1_a_battery,
+            'v_rectifier':    latest.rect1_v_rectifier,
+            # discharge
+            'actual':         actual,
+            'prediction':     prediction,
+            'threshold_time': threshold_time,
+            'status':         status,
+            'slope':          round(slope, 4) if slope else None,
+            'bat_merk':       latest.bat1_merk or '-',
+            'bat_tipe':       latest.bat1_tipe or '-',
+            'bat_kapasitas':  latest.bat1_kapasitas or '-',
+            # historical series
+            'history':        history,
         })
 
     selected_id = request.GET.get('device')
@@ -1165,7 +1184,6 @@ def catu_daya_dashboard(request):
             selected_id = None
 
     if not selected_id and devices_data:
-        # Default: device pertama yang punya data
         selected_id = devices_data[0]['device_id']
 
     return render(request, 'maintenance/catu_daya_dashboard.html', {
