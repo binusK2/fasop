@@ -10,7 +10,7 @@
 {#==============Rectifier==========================#}
 
 <div class="sec">III.&nbsp;&nbsp;RECTIFIER</div>
-{# Satu tabel gabungan agar kolom sejajar #}
+{# Satu tabel gabungan agar header sejajar dengan measurement rows #}
 <table>
     <colgroup>
         <col style="width:15%"><col style="width:11%">
@@ -19,14 +19,11 @@
         <col style="width:15%"><col style="width:14%">
     </colgroup>
     <tr>
-        <td class="lbl">Merk</td><td>{{ rect.rect1_merk|default:"-" }}</td>
-        <td class="lbl">Tipe</td><td>{{ rect.rect1_tipe|default:"-" }}</td>
+        <td class="lbl">Merk</td><td>{{ info.merk|default:"-" }}</td>
+        <td class="lbl">Tipe</td><td>{{ info.type|default:"-" }}</td>
         <td class="lbl">Kondisi</td><td class="{% if rect.rect1_kondisi == 'OK' %}ok{% elif rect.rect1_kondisi == 'NOK' %}nok{% else %}vg{% endif %}">{{ rect.rect1_kondisi|default:"-" }}</td>
         <td class="lbl">Kapasitas</td><td>{{ rect.rect1_kapasitas|default:"-" }}</td>
     </tr>
-    
-</table>
-<table>
     {% for row in rect_measurements %}
     <tr>{% for cell in row %}<td{% if cell.is_label %} class="lbl"{% elif cell.is_value %} class="vb"{% endif %}>{{ cell.text }}</td>{% endfor %}</tr>
     {% endfor %}
@@ -80,31 +77,11 @@
                 <th class="th-f">V Float</th>
                 <th class="th-d">VD 0</th><th class="th-d">VD ½</th>
                 <th class="th-d">VD 1</th><th class="th-d">VD 2</th>
-                <th class="th-fa">V Float</th>
+                <th class="th-fa">VF ↓</th>
                 <th class="th-b">V Boost</th>
             </tr></thead>
             <tbody>
                 {% for c in fmt_cells_left %}
-                <tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %}>
-                    <td class="cn">{{ c.num }}</td>
-                    {% for val in c.vals %}<td>{{ val }}</td>{% endfor %}
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    <div style="flex:1;min-width:0;">
-        <table class="ctbl">
-            <thead><tr>
-                <th class="th-n">#</th>
-                <th class="th-f">V Float</th>
-                <th class="th-d">VD 0</th><th class="th-d">VD ½</th>
-                <th class="th-d">VD 1</th><th class="th-d">VD 2</th>
-                <th class="th-fa">V Float</th>
-                <th class="th-b">V Boost</th>
-            </tr></thead>
-            <tbody>
-                {% for c in fmt_cells_right %}
                 <tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %}>
                     <td class="cn">{{ c.num }}</td>
                     {% for val in c.vals %}<td>{{ val }}</td>{% endfor %}
@@ -116,10 +93,32 @@
                     <td>V Total</td>
                     {% for val in fmt_vtotal_vals %}<td>{{ val }}</td>{% endfor %}
                 </tr>
+            </tfoot>
+        </table>
+    </div>
+    <div style="flex:1;min-width:0;">
+        <table class="ctbl">
+            <thead><tr>
+                <th class="th-n">#</th>
+                <th class="th-f">V Float</th>
+                <th class="th-d">VD 0</th><th class="th-d">VD ½</th>
+                <th class="th-d">VD 1</th><th class="th-d">VD 2</th>
+                <th class="th-fa">VF ↓</th>
+                <th class="th-b">V Boost</th>
+            </tr></thead>
+            <tbody>
+                {% for c in fmt_cells_right %}
+                <tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %}>
+                    <td class="cn">{{ c.num }}</td>
+                    {% for val in c.vals %}<td>{{ val }}</td>{% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
                 <tr class="sr-load">
                     <td>V Load</td>
                     {% for val in fmt_vload_vals %}<td>{{ val }}</td>{% endfor %}
-                </tr>  
+                </tr>
             </tfoot>
         </table>
     </div>
