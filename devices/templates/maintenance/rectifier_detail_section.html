@@ -168,27 +168,27 @@
                 </tbody>
                 <tfoot>
                     {% for row in cells %}{% if row.cell == 'vtotal' %}
-                    <tr style="background:#1e3a8a;border-top:2px solid #1e40af;">
-                        <td style="padding:6px 8px;font-size:10.5px;font-weight:700;color:#93c5fd;text-align:center;letter-spacing:0.4px;">V Total</td>
-                        <td style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#ffffff;">{{ row.v_float|default:"—" }}</td>
-                        <td style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#ffffff;">{{ row.vd_0|default:"—" }}</td>
-                        <td style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#ffffff;">{{ row.vd_half|default:"—" }}</td>
-                        <td style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#ffffff;">{{ row.vd_1|default:"—" }}</td>
-                        <td style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#ffffff;">{{ row.vd_2|default:"—" }}</td>
-                        <td style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#ffffff;">{{ row.vf_after|default:"—" }}</td>
-                        <td style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#ffffff;">{{ row.v_boost|default:"—" }}</td>
+                    <tr style="background:#1e3a8a;border-top:2px solid #000000;">
+                        <td style="padding:6px 8px;font-size:10.5px;font-weight:700;color:#000000;text-align:center;letter-spacing:0.4px;">V Total</td>
+                        <td style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#000000;">{{ row.v_float|default:"—" }}</td>
+                        <td style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#000000;">{{ row.vd_0|default:"—" }}</td>
+                        <td style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#000000;">{{ row.vd_half|default:"—" }}</td>
+                        <td style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#000000;">{{ row.vd_1|default:"—" }}</td>
+                        <td style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#000000;">{{ row.vd_2|default:"—" }}</td>
+                        <td style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#000000;">{{ row.vf_after|default:"—" }}</td>
+                        <td style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#000000;">{{ row.v_boost|default:"—" }}</td>
                     </tr>
                     {% endif %}{% endfor %}
                     {% for row in cells %}{% if row.cell == 'vload' %}
-                    <tr style="background:#1d4ed8;border-top:1px solid #3b82f6;">
-                        <td style="padding:6px 8px;font-size:10.5px;font-weight:700;color:#93c5fd;text-align:center;letter-spacing:0.4px;">V Load</td>
-                        <td style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#ffffff;">{{ row.v_float|default:"—" }}</td>
-                        <td style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#ffffff;">{{ row.vd_0|default:"—" }}</td>
-                        <td style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#ffffff;">{{ row.vd_half|default:"—" }}</td>
-                        <td style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#ffffff;">{{ row.vd_1|default:"—" }}</td>
-                        <td style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#ffffff;">{{ row.vd_2|default:"—" }}</td>
-                        <td style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#ffffff;">{{ row.vf_after|default:"—" }}</td>
-                        <td style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#ffffff;">{{ row.v_boost|default:"—" }}</td>
+                    <tr style="background:#1d4ed8;border-top:1px solid #000000;">
+                        <td style="padding:6px 8px;font-size:10.5px;font-weight:700;color:#000000;text-align:center;letter-spacing:0.4px;">V Load</td>
+                        <td style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#000000;">{{ row.v_float|default:"—" }}</td>
+                        <td style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#000000;">{{ row.vd_0|default:"—" }}</td>
+                        <td style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#000000;">{{ row.vd_half|default:"—" }}</td>
+                        <td style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#000000;">{{ row.vd_1|default:"—" }}</td>
+                        <td style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#000000;">{{ row.vd_2|default:"—" }}</td>
+                        <td style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#000000;">{{ row.vf_after|default:"—" }}</td>
+                        <td style="padding:6px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#000000;">{{ row.v_boost|default:"—" }}</td>
                     </tr>
                     {% endif %}{% endfor %}
                 </tfoot>
