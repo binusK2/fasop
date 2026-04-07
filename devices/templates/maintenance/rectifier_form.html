@@ -281,7 +281,10 @@ function sync(){
     const rows={};
     document.querySelectorAll('.ci').forEach(i=>{
         const c=i.dataset.cell,k=i.dataset.col;
-        if(!rows[c]) rows[c]={cell:parseInt(c)};
+        if(!rows[c]){
+            const n=parseInt(c);
+            rows[c]={cell:isNaN(n)?c:n};  // string untuk vtotal/vload, int untuk nomor cell
+        }
         const v=parseFloat(i.value);
         rows[c][k]=isNaN(v)?null:v;
     });
@@ -311,12 +314,13 @@ function buildTfoot(ex){
             inp.dataset.cell=key;inp.dataset.col=k;
             const sv=existing[k];
             if(sv!==undefined&&sv!==null){inp.value=sv;}
-            inp.addEventListener('blur',()=>{const v=pv(inp.value);if(v!==null)inp.value=v;sync();});
+            const blurSum=()=>{const s=inp.value.trim();if(s){const v=parseFloat(s);if(!isNaN(v))inp.value=v;}sync();};
+            inp.addEventListener('blur',blurSum);
             inp.addEventListener('input',()=>{});
             inp.addEventListener('keydown',e2=>{
                 if(e2.key!=='Enter') return;
                 e2.preventDefault();
-                const v=pv(inp.value);if(v!==null)inp.value=v;sync();
+                blurSum();
                 const keys=['vtotal','vload'];
                 const idx=keys.indexOf(key);
                 if(idx<keys.length-1){

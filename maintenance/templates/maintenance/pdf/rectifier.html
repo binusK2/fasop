@@ -28,37 +28,74 @@
 
 {% if fmt_cells %}
 <div class="sec">V.&nbsp;&nbsp;PENGUKURAN TEGANGAN PER CELL</div>
-<table style="font-size:6.5pt;border-collapse:collapse;width:100%;margin-top:1mm;">
-    <thead>
-        <tr>
-            <th style="background:#1A3A5C;color:#fff;padding:2pt 3pt;text-align:center;width:20pt;">#</th>
-            {% for h in col_heads %}
-            <th style="padding:2pt 3pt;text-align:center;
-                {% if forloop.counter == 1 %}background:#d1fae5;
-                {% elif forloop.counter <= 5 %}background:#fef3c7;
-                {% elif forloop.counter == 6 %}background:#f3e8ff;
-                {% else %}background:#dbeafe;{% endif %}">{{ h }}</th>
-            {% endfor %}
-        </tr>
-    </thead>
-    <tbody>
-        {% for c in fmt_cells %}
-        <tr style="background:{% if forloop.counter|divisibleby:2 %}#f8fafc{% else %}#ffffff{% endif %};">
-            <td style="text-align:center;font-weight:bold;color:#10b981;background:#f0fdf4;">{{ c.num }}</td>
-            {% for val in c.vals %}<td style="text-align:center;">{{ val }}</td>{% endfor %}
-        </tr>
-        {% endfor %}
-    </tbody>
-    <tfoot>
-        <tr style="background:#1e40af;font-weight:bold;">
-            <td style="text-align:center;padding:3pt;color:#fff;">V Total</td>
-            {% for val in fmt_vtotal_vals %}<td style="text-align:center;color:#fff;">{{ val }}</td>{% endfor %}
-        </tr>
-        <tr style="background:#2563eb;font-weight:bold;">
-            <td style="text-align:center;padding:3pt;color:#fff;">V Load</td>
-            {% for val in fmt_vload_vals %}<td style="text-align:center;color:#fff;">{{ val }}</td>{% endfor %}
-        </tr>
-    </tfoot>
+<style>
+.ctbl{width:100%;border-collapse:collapse;font-size:5.8pt;}
+.ctbl th{padding:1.5pt 2pt;text-align:center;border:0.3pt solid #CBD5E1;font-weight:bold;}
+.ctbl td{padding:1.5pt 2pt;text-align:center;border:0.3pt solid #e2e8f0;}
+.ctbl .cn{font-weight:bold;color:#10b981;background:#f0fdf4;width:12pt;}
+.ctbl .th-n{background:#1A3A5C;color:#fff;width:12pt;}
+.ctbl .th-f{background:#d1fae5;}
+.ctbl .th-d{background:#fef3c7;}
+.ctbl .th-fa{background:#f3e8ff;}
+.ctbl .th-b{background:#dbeafe;}
+.ctbl .alt{background:#f8fafc;}
+.ctbl .sr-tot td{background:#1e40af;color:#fff;font-weight:bold;}
+.ctbl .sr-load td{background:#2563eb;color:#fff;font-weight:bold;}
+</style>
+<div class="two-col" style="margin-top:1mm;align-items:flex-start;">
+    {# Kolom kiri #}
+    <div style="flex:1;min-width:0;">
+        <table class="ctbl">
+            <thead><tr>
+                <th class="th-n">#</th>
+                <th class="th-f">V Float</th>
+                <th class="th-d">VD 0</th><th class="th-d">VD ½</th>
+                <th class="th-d">VD 1</th><th class="th-d">VD 2</th>
+                <th class="th-fa">VF ↓</th>
+                <th class="th-b">V Boost</th>
+            </tr></thead>
+            <tbody>
+                {% for c in fmt_cells_left %}
+                <tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %}>
+                    <td class="cn">{{ c.num }}</td>
+                    {% for val in c.vals %}<td>{{ val }}</td>{% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {# Kolom kanan #}
+    <div style="flex:1;min-width:0;">
+        <table class="ctbl">
+            <thead><tr>
+                <th class="th-n">#</th>
+                <th class="th-f">V Float</th>
+                <th class="th-d">VD 0</th><th class="th-d">VD ½</th>
+                <th class="th-d">VD 1</th><th class="th-d">VD 2</th>
+                <th class="th-fa">VF ↓</th>
+                <th class="th-b">V Boost</th>
+            </tr></thead>
+            <tbody>
+                {% for c in fmt_cells_right %}
+                <tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %}>
+                    <td class="cn">{{ c.num }}</td>
+                    {% for val in c.vals %}<td>{{ val }}</td>{% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{# Baris V Total dan V Load — full width #}
+<table class="ctbl" style="margin-top:1mm;">
+    <tr class="sr-tot">
+        <td style="font-weight:bold;text-align:center;width:12pt;">V Total</td>
+        {% for val in fmt_vtotal_vals %}<td>{{ val }}</td>{% endfor %}
+    </tr>
+    <tr class="sr-load">
+        <td style="font-weight:bold;text-align:center;">V Load</td>
+        {% for val in fmt_vload_vals %}<td>{{ val }}</td>{% endfor %}
+    </tr>
 </table>
 {% endif %}
 
