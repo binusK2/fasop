@@ -219,20 +219,23 @@ def _ctx_rectifier(data, ctx):
             row.append({'text': f"{val} {unit}" if val else '-', 'is_value': True})
         rect_rows.append(row)
 
-    # Battery measurements
+    # Battery measurements — group by 4 agar setiap baris punya 8 sel, sejajar colgroup
     BMES = [
-        ('Jumlah Cell',  _v(r.get('bat1_jumlah')),           False),
-        ('Kondisi Kabel', r.get('bat1_kondisi_kabel', ''),   True),
-        ('Mur & Baut',    r.get('bat1_kondisi_mur_baut', ''),True),
-        ('Sel & Rak',     r.get('bat1_kondisi_sel_rak', ''), True),
-        ('Air Battery',   _v(r.get('bat1_air_battery')),     False),
+        ('Jumlah Cell',   _v(r.get('bat1_jumlah')),              False),
+        ('Kondisi Kabel', r.get('bat1_kondisi_kabel', ''),        True),
+        ('Mur & Baut',    r.get('bat1_kondisi_mur_baut', ''),     True),
+        ('Sel & Rak',     r.get('bat1_kondisi_sel_rak', ''),      True),
+        ('Air Battery',   _v(r.get('bat1_air_battery')),          False),
     ]
+    # Pad ke kelipatan 4 agar setiap baris tepat 8 sel
+    while len(BMES) % 4 != 0:
+        BMES.append(('', '', False))
     bat_rows = []
-    for i in range(0, len(BMES), 3):
+    for i in range(0, len(BMES), 4):
         row = []
-        for lbl, val, is_status in BMES[i:i+3]:
-            row.append({'text': lbl, 'is_label': True})
-            row.append({'text': str(val), 'is_value': not is_status, 'is_status': is_status})
+        for lbl, val, is_status in BMES[i:i+4]:
+            row.append({'text': lbl, 'is_label': bool(lbl)})
+            row.append({'text': str(val) if val else '', 'is_value': bool(lbl) and not is_status, 'is_status': bool(lbl) and is_status})
         bat_rows.append(row)
 
     # Per-cell data — format di Python agar template tinggal tampilkan
