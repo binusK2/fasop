@@ -117,24 +117,8 @@
                         <td style="font-size:13px; padding:10px 16px;">{{ device.type|default:"-" }}</td>
                     </tr>
                     <tr>
-                        <td style="font-size:12px; color:#64748b; font-weight:600; padding:10px 16px;">Status Operasi</td>
-                        <td style="padding:10px 16px;">
-                            {% if device.status_operasi == 'operasi' %}
-                            <span style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;
-                                         color:#065f46;background:#dcfce7;padding:4px 12px;border-radius:20px;border:1px solid #a7f3d0;">
-                                <span style="width:8px;height:8px;border-radius:50%;background:#10b981;
-                                             box-shadow:0 0 0 3px rgba(16,185,129,0.25);display:inline-block;"></span>
-                                Operasi
-                            </span>
-                            {% else %}
-                            <span style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;
-                                         color:#991b1b;background:#fee2e2;padding:4px 12px;border-radius:20px;border:1px solid #fca5a5;">
-                                <span style="width:8px;height:8px;border-radius:50%;background:#ef4444;
-                                             box-shadow:0 0 0 3px rgba(239,68,68,0.25);display:inline-block;"></span>
-                                Tidak Operasi
-                            </span>
-                            {% endif %}
-                        </td>
+                        <td style="font-size:12px; color:#64748b; font-weight:600; padding:10px 16px;">Serial Number</td>
+                        <td style="font-size:13px; padding:10px 16px;">{{ device.serial_number|default:"-" }}</td>
                     </tr>
                     <tr>
                         <td style="font-size:12px; color:#64748b; font-weight:600; padding:10px 16px;">Firmware</td>
@@ -157,6 +141,26 @@
                             </span>
                             {% else %}
                             <span style="color:#94a3b8;">—</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="font-size:12px; color:#64748b; font-weight:600; padding:10px 16px;">Status Operasi</td>
+                        <td style="padding:10px 16px;">
+                            {% if device.status_operasi == 'operasi' %}
+                            <span style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;
+                                         color:#065f46;background:#dcfce7;padding:4px 12px;border-radius:20px;border:1px solid #a7f3d0;">
+                                <span style="width:8px;height:8px;border-radius:50%;background:#10b981;
+                                             box-shadow:0 0 0 3px rgba(16,185,129,0.25);display:inline-block;"></span>
+                                Operasi
+                            </span>
+                            {% else %}
+                            <span style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;
+                                         color:#991b1b;background:#fee2e2;padding:4px 12px;border-radius:20px;border:1px solid #fca5a5;">
+                                <span style="width:8px;height:8px;border-radius:50%;background:#ef4444;
+                                             box-shadow:0 0 0 3px rgba(239,68,68,0.25);display:inline-block;"></span>
+                                Tidak Operasi
+                            </span>
                             {% endif %}
                         </td>
                     </tr>
@@ -342,6 +346,9 @@
     </div>
 </div>
 {% endif %}
+
+{# ── Komponen Perangkat ──────────────────────────────────── #}
+{% include 'devices/komponen_section.html' %}
 
 <!-- RIWAYAT MAINTENANCE -->
 <div class="table-card mt-3">
@@ -625,10 +632,22 @@
                         {# Field Komponen #}
                         <div id="fieldKomponen" style="display:none;" class="col-12">
                             <div class="row g-3">
+                                {# Dropdown komponen dari database #}
+                                <div class="col-12" id="dev-komponen-terkait-wrapper" style="display:none;">
+                                    <label style="font-size:12px;font-weight:600;color:#7c3aed;display:block;margin-bottom:5px;">
+                                        <i class="bi bi-diagram-3 me-1"></i>Pilih Komponen dari Database
+                                    </label>
+                                    <select name="komponen_terkait_id" id="dev_komponen_terkait" class="form-select form-select-sm">
+                                        <option value="">— Pilih komponen (opsional) —</option>
+                                    </select>
+                                    <div style="font-size:10px;color:#7c3aed;margin-top:3px;">
+                                        Status komponen akan otomatis diupdate sesuai tipe perubahan.
+                                    </div>
+                                </div>
                                 <div class="col-12">
                                     <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:5px;">Nama Komponen</label>
-                                    <input type="text" name="komponen" class="form-control form-control-sm"
-                                           placeholder="Contoh: PSU, Modul CPU, Battery Bank, Kabel Coaxial">
+                                    <input type="text" name="komponen" id="dev_nama_komponen" class="form-control form-control-sm"
+                                           placeholder="Otomatis terisi dari dropdown, atau ketik manual...">
                                 </div>
                                 <div class="col-6">
                                     <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:5px;">Kondisi / Nilai Sebelumnya</label>
@@ -767,7 +786,54 @@ function toggleEventFields() {
 
     document.getElementById('fieldRelokasi').style.display  = isRelokasi ? 'block' : 'none';
     document.getElementById('fieldKomponen').style.display  = isKomponen ? 'block' : 'none';
+
+    if (isKomponen) { loadDevKomponen(); }
 }
+
+// ── AJAX: Load komponen untuk device detail event form ──────
+function loadDevKomponen() {
+    var deviceId = '{{ device.pk }}';
+    var wrapper = document.getElementById('dev-komponen-terkait-wrapper');
+    var select  = document.getElementById('dev_komponen_terkait');
+    if (!wrapper || !select) return;
+
+    fetch('/api/device/' + deviceId + '/komponen/')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            select.innerHTML = '<option value="">— Pilih komponen (opsional) —</option>';
+            if (data.length > 0) {
+                data.forEach(function(k) {
+                    var opt = document.createElement('option');
+                    opt.value = k.id;
+                    var label = k.label;
+                    if (k.tipe && k.tipe !== '—') label += ' (' + k.tipe + ')';
+                    if (k.status === 'rusak') label += ' ⚠️ RUSAK';
+                    if (k.status === 'diganti') label += ' 🔄 DIGANTI';
+                    opt.textContent = label;
+                    opt.dataset.nama = k.label;
+                    select.appendChild(opt);
+                });
+                wrapper.style.display = 'block';
+            } else {
+                wrapper.style.display = 'none';
+            }
+        })
+        .catch(function() { wrapper.style.display = 'none'; });
+}
+
+// Auto-fill nama_komponen saat dropdown berubah
+(function() {
+    var sel = document.getElementById('dev_komponen_terkait');
+    if (sel) {
+        sel.addEventListener('change', function() {
+            var selected = this.options[this.selectedIndex];
+            var namaInput = document.getElementById('dev_nama_komponen');
+            if (namaInput && this.value && selected.dataset.nama) {
+                namaInput.value = selected.dataset.nama;
+            }
+        });
+    }
+})();
 
     const qrContainer = document.getElementById('qr-container');
     if (qrContainer) {

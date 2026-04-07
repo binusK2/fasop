@@ -61,10 +61,10 @@
      BARIS 1 — STAT PERANGKAT
 ═════════════════════════════════════════════════════════════ -->
 <div class="section-title"><i class="bi bi-hdd-rack" style="color:#3b82f6;"></i> Status Perangkat</div>
-<div class="row g-3 mb-4">
+<div class="row g-4 mb-4">
 
     <!-- Total perangkat -->
-    <div class="col-6 col-md-3">
+    <div class="col-6 col-md-4">
         <div class="stat-card">
             <div class="stat-icon" style="background:#eff6ff;color:#3b82f6;"><i class="bi bi-hdd-rack"></i></div>
             <div>
@@ -80,7 +80,7 @@
     </div>
 
     <!-- Operasi -->
-    <div class="col-6 col-md-3">
+    <div class="col-6 col-md-4">
         <div class="stat-card" style="border-left:3px solid #10b981;">
             <div class="stat-icon" style="background:#f0fdf4;color:#10b981;"><i class="bi bi-check-circle-fill"></i></div>
             <div>
@@ -104,7 +104,7 @@
     </div>
 
     <!-- Tidak operasi -->
-    <div class="col-6 col-md-3">
+    <div class="col-6 col-md-4">
         <div class="stat-card" style="border-left:3px solid #ef4444;">
             <div class="stat-icon" style="background:#fee2e2;color:#ef4444;"><i class="bi bi-x-circle-fill"></i></div>
             <div>
@@ -273,6 +273,118 @@
 </div>
 
 <!-- ════════════════════════════════════════════════════════════
+     BARIS HI CHART + KRITIS LIST
+═════════════════════════════════════════════════════════════ -->
+<div class="row g-3 mb-4">
+
+    <!-- Donut distribusi Health Index -->
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body d-flex flex-column">
+                <div class="section-title mb-2"><i class="bi bi-pie-chart-fill" style="color:#8b5cf6;"></i> Distribusi HI</div>
+                <div class="d-flex justify-content-center align-items-center gap-3 flex-wrap" style="flex:1;">
+                    <div style="position:relative;width:150px;height:150px;flex-shrink:0;">
+                        <canvas id="hiDonut" width="150" height="150"></canvas>
+                        <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;">
+                            <div id="hiDonutTotal" style="font-size:22px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;line-height:1;"></div>
+                            <div style="font-size:9px;color:#94a3b8;margin-top:2px;">perangkat</div>
+                        </div>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:8px;font-size:12px;">
+                        <div class="d-flex align-items-center gap-2">
+                            <div style="width:10px;height:10px;border-radius:3px;background:#10b981;flex-shrink:0;"></div>
+                            <span style="color:#374151;">Sangat Baik</span>
+                            <strong class="ms-auto" style="font-family:monospace;">{{ hi_summary.sangat_baik }}</strong>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <div style="width:10px;height:10px;border-radius:3px;background:#3b82f6;flex-shrink:0;"></div>
+                            <span style="color:#374151;">Baik</span>
+                            <strong class="ms-auto" style="font-family:monospace;">{{ hi_summary.baik }}</strong>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <div style="width:10px;height:10px;border-radius:3px;background:#f59e0b;flex-shrink:0;"></div>
+                            <span style="color:#374151;">Cukup</span>
+                            <strong class="ms-auto" style="font-family:monospace;">{{ hi_summary.cukup }}</strong>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <div style="width:10px;height:10px;border-radius:3px;background:#f97316;flex-shrink:0;"></div>
+                            <span style="color:#374151;">Buruk</span>
+                            <strong class="ms-auto" style="font-family:monospace;">{{ hi_summary.buruk }}</strong>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <div style="width:10px;height:10px;border-radius:3px;background:#ef4444;flex-shrink:0;"></div>
+                            <span style="color:#374151;">Kritis</span>
+                            <strong class="ms-auto" style="font-family:monospace;">{{ hi_summary.kritis }}</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabel perangkat HI kritis -->
+    <div class="col-md-8">
+        <div class="tbl-card h-100">
+            <div class="tbl-head">
+                <h6><i class="bi bi-exclamation-triangle-fill me-1" style="color:#ef4444;"></i>Perangkat Health Index Kritis / Buruk</h6>
+                <a href="{% url 'hi_list' %}?kategori=Kritis" class="btn btn-sm btn-outline-danger">Lihat Semua</a>
+            </div>
+            {% if hi_kritis_list %}
+            <table class="table mb-0">
+                <thead>
+                    <tr style="background:#f8fafc;">
+                        <th style="font-size:11px;color:#64748b;padding:9px 16px;">PERANGKAT</th>
+                        <th style="font-size:11px;color:#64748b;padding:9px 12px;">LOKASI</th>
+                        <th style="font-size:11px;color:#64748b;padding:9px 12px;text-align:center;">SKOR HI</th>
+                        <th style="font-size:11px;color:#64748b;padding:9px 12px;">KONDISI</th>
+                        <th style="padding:9px 8px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in hi_kritis_list %}
+                    <tr style="border-top:1px solid #f1f5f9;vertical-align:middle;">
+                        <td style="padding:9px 16px;">
+                            <div style="font-size:13px;font-weight:600;color:#0f172a;">{{ item.device.nama }}</div>
+                            <div style="font-size:11px;color:#94a3b8;">{{ item.device.jenis }}</div>
+                        </td>
+                        <td style="padding:9px 12px;font-size:12px;color:#475569;">{{ item.device.lokasi }}</td>
+                        <td style="padding:9px 12px;text-align:center;">
+                            <span style="font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:700;
+                                {% if item.hi.score < 25 %}color:#dc2626;{% else %}color:#ea580c;{% endif %}">
+                                {{ item.hi.score }}
+                            </span>
+                        </td>
+                        <td style="padding:9px 12px;">
+                            <div style="height:6px;background:#f1f5f9;border-radius:3px;overflow:hidden;width:80px;">
+                                <div style="height:100%;border-radius:3px;
+                                    {% if item.hi.score < 25 %}background:#ef4444;{% else %}background:#f97316;{% endif %}
+                                    width:{{ item.hi.score }}%;"></div>
+                            </div>
+                            <div style="font-size:10px;color:#94a3b8;margin-top:2px;">
+                                {% if item.hi.score < 25 %}Kritis{% else %}Buruk{% endif %}
+                            </div>
+                        </td>
+                        <td style="padding:9px 8px;">
+                            <a href="{% url 'device_detail' item.device.pk %}" class="btn btn-sm btn-outline-secondary" style="padding:3px 8px;">
+                                <i class="bi bi-arrow-right"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="text-center py-4" style="color:#94a3b8;">
+                <i class="bi bi-shield-check fs-3 d-block mb-2" style="color:#10b981;"></i>
+                <div style="font-size:13px;">Tidak ada perangkat dengan HI kritis</div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
      BARIS JADWAL + NOTIFIKASI
 ═════════════════════════════════════════════════════════════ -->
 <div class="row g-3 mb-4">
@@ -391,36 +503,142 @@
 </div>
 
 <!-- ════════════════════════════════════════════════════════════
-     BARIS 3 — CHART
+     BARIS 3 — CHART TREND
 ═════════════════════════════════════════════════════════════ -->
 <div class="row g-3 mb-4">
 
-    <!-- Distribusi jenis perangkat -->
-    <div class="col-md-4">
+    <!-- Trend maintenance 6 bulan — stacked bar preventive vs corrective -->
+    <div class="col-md-6">
         <div class="card h-100">
             <div class="card-body">
-                <div class="section-title"><i class="bi bi-bar-chart" style="color:#8b5cf6;"></i> Distribusi Jenis</div>
-                <canvas id="deviceBarChart" style="max-height:200px;"></canvas>
+                <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
+                    <div class="section-title mb-0" style="margin-bottom:0!important;">
+                        <i class="bi bi-wrench" style="color:#3b82f6;"></i> Trend Pemeliharaan (6 Bulan)
+                    </div>
+                    <div class="d-flex gap-3" style="font-size:11px;">
+                        <span style="display:flex;align-items:center;gap:5px;">
+                            <span style="width:10px;height:10px;border-radius:2px;background:#3b82f6;display:inline-block;"></span>Preventive
+                        </span>
+                        <span style="display:flex;align-items:center;gap:5px;">
+                            <span style="width:10px;height:10px;border-radius:2px;background:#f97316;display:inline-block;"></span>Corrective
+                        </span>
+                    </div>
+                </div>
+                <div class="d-flex gap-3 mb-2" style="font-size:11px;color:#64748b;">
+                    <span>Total: <strong style="color:#0f172a;">{{ total_maintenance }}</strong></span>
+                    <span>Open: <strong style="color:#f59e0b;">{{ maintenance_open }}</strong></span>
+                    <span>Done: <strong style="color:#10b981;">{{ maintenance_done }}</strong></span>
+                    <span>Belum TTD: <strong style="color:#ef4444;">{{ belum_ttd }}</strong></span>
+                </div>
+                <canvas id="maintenanceLine" style="max-height:190px;"></canvas>
             </div>
         </div>
     </div>
 
-    <!-- Trend maintenance 6 bulan -->
-    <div class="col-md-4">
+    <!-- Trend gangguan 6 bulan dengan highlight severity -->
+    <div class="col-md-6">
         <div class="card h-100">
             <div class="card-body">
-                <div class="section-title"><i class="bi bi-wrench" style="color:#3b82f6;"></i> Trend Pemeliharaan</div>
-                <canvas id="maintenanceLine" style="max-height:200px;"></canvas>
+                <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
+                    <div class="section-title mb-0" style="margin-bottom:0!important;">
+                        <i class="bi bi-exclamation-triangle" style="color:#ef4444;"></i> Trend Gangguan (6 Bulan)
+                    </div>
+                </div>
+                <div class="d-flex gap-3 mb-2" style="font-size:11px;color:#64748b;">
+                    <span>Total: <strong style="color:#0f172a;">{{ gangguan_total }}</strong></span>
+                    <span>Open: <strong style="color:#ef4444;">{{ gangguan_open }}</strong></span>
+                    <span>In Progress: <strong style="color:#f59e0b;">{{ gangguan_progress }}</strong></span>
+                    <span>Resolved: <strong style="color:#10b981;">{{ gangguan_resolved }}</strong></span>
+                </div>
+                <canvas id="gangguanLine" style="max-height:190px;"></canvas>
             </div>
         </div>
     </div>
 
-    <!-- Trend gangguan 6 bulan -->
-    <div class="col-md-4">
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     BARIS 3b — PIE CHART STATUS PER JENIS
+═════════════════════════════════════════════════════════════ -->
+<div class="row g-3 mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <!-- Header -->
+                <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+                    <div class="section-title mb-0" style="margin-bottom:0!important;">
+                        <i class="bi bi-pie-chart-fill" style="color:#8b5cf6;"></i> Distribusi Status per Jenis Perangkat
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <select id="jenisSelect" class="form-select form-select-sm"
+                                style="max-width:220px;font-size:12px;border-radius:8px;">
+                        </select>
+                        <a href="{% url 'distribusi_jenis' %}"
+                           class="btn btn-sm btn-outline-secondary text-nowrap"
+                           style="font-size:12px;">
+                            <i class="bi bi-grid me-1"></i>Lihat Semua
+                        </a>
+                    </div>
+                </div>
+                <!-- Body: pie + legend -->
+                <div class="d-flex justify-content-center align-items-center gap-5 flex-wrap py-2">
+                    <!-- Canvas doughnut -->
+                    <div style="position:relative;width:210px;height:210px;flex-shrink:0;">
+                        <canvas id="statusPieChart" width="210" height="210"></canvas>
+                        <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;">
+                            <div id="pieCenterTotal" style="font-size:26px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;line-height:1;"></div>
+                            <div style="font-size:10px;color:#94a3b8;margin-top:2px;">perangkat</div>
+                        </div>
+                    </div>
+                    <!-- Legend / stats -->
+                    <div id="pieLegend" style="display:flex;flex-direction:column;gap:16px;min-width:180px;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     BARIS ANALITIK GANGGUAN — KATEGORI + SEVERITY
+═════════════════════════════════════════════════════════════ -->
+<div class="row g-3 mb-4">
+
+    <!-- Gangguan by Kategori -->
+    <div class="col-md-6">
         <div class="card h-100">
             <div class="card-body">
-                <div class="section-title"><i class="bi bi-exclamation-triangle" style="color:#ef4444;"></i> Trend Gangguan</div>
-                <canvas id="gangguanLine" style="max-height:200px;"></canvas>
+                <div class="section-title mb-3">
+                    <i class="bi bi-tags-fill" style="color:#8b5cf6;"></i> Gangguan per Kategori
+                </div>
+                <canvas id="gangguanKategoriChart" style="max-height:220px;"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gangguan by Severity -->
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="section-title mb-3">
+                    <i class="bi bi-thermometer-half" style="color:#ef4444;"></i> Gangguan per Tingkat Keparahan
+                    {% if gangguan_open_kritis %}
+                    <span style="font-size:10px;font-weight:700;background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:20px;margin-left:6px;">
+                        {{ gangguan_open_kritis }} kritis aktif
+                    </span>
+                    {% endif %}
+                </div>
+                <div class="row g-0 align-items-center">
+                    <div class="col-5 d-flex justify-content-center">
+                        <div style="position:relative;width:140px;height:140px;">
+                            <canvas id="gangguanSeverityDonut" width="140" height="140"></canvas>
+                            <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;">
+                                <div style="font-size:20px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;line-height:1;">{{ gangguan_total }}</div>
+                                <div style="font-size:9px;color:#94a3b8;margin-top:2px;">total</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-7" id="severityLegend" style="padding-left:12px;display:flex;flex-direction:column;gap:10px;"></div>
+                </div>
             </div>
         </div>
     </div>
@@ -545,6 +763,32 @@
 </div>
 
 <!-- ════════════════════════════════════════════════════════════
+     BARIS 5b — DEVICE PER LOKASI (Horizontal Bar)
+═════════════════════════════════════════════════════════════ -->
+<div class="row g-3 mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+                    <div class="section-title mb-0" style="margin-bottom:0!important;">
+                        <i class="bi bi-geo-alt-fill" style="color:#3b82f6;"></i> Distribusi Perangkat per Lokasi (Top 10)
+                    </div>
+                    <div class="d-flex gap-3" style="font-size:11px;">
+                        <span style="display:flex;align-items:center;gap:5px;">
+                            <span style="width:10px;height:10px;border-radius:2px;background:#10b981;display:inline-block;"></span>Operasi
+                        </span>
+                        <span style="display:flex;align-items:center;gap:5px;">
+                            <span style="width:10px;height:10px;border-radius:2px;background:#ef4444;display:inline-block;"></span>Tidak Operasi
+                        </span>
+                    </div>
+                </div>
+                <canvas id="deviceLokasiBar" style="max-height:280px;"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
      BARIS 5 — MAINTENANCE PER LOKASI
 ═════════════════════════════════════════════════════════════ -->
 <div class="row g-3">
@@ -613,63 +857,51 @@
 <script>
 Chart.defaults.font.family = "'DM Sans', sans-serif";
 
-const COLORS = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec4899','#84cc16','#f97316','#64748b'];
-
-// ── Distribusi jenis perangkat (horizontal bar) ───────────────
-new Chart(document.getElementById('deviceBarChart'), {
+// ── Trend pemeliharaan 6 bulan — STACKED BAR (Preventive vs Corrective) ──
+const maintStacked = {{ maintenance_stacked_json|safe }};
+new Chart(document.getElementById('maintenanceLine'), {
     type: 'bar',
     data: {
-        labels: [{% for d in device_by_type %}"{{ d.jenis__name|default:'Lainnya' }}"{% if not forloop.last %},{% endif %}{% endfor %}],
-        datasets: [{
-            data: [{% for d in device_by_type %}{{ d.total }}{% if not forloop.last %},{% endif %}{% endfor %}],
-            backgroundColor: COLORS.map(c => c + 'cc'),
-            borderColor: COLORS,
-            borderWidth: 1.5, borderRadius: 6, borderSkipped: false,
-        }]
-    },
-    options: {
-        indexAxis: 'y', responsive: true,
-        plugins: {
-            legend: { display: false },
-            tooltip: { backgroundColor: '#0f172a', padding: 10, cornerRadius: 8,
-                callbacks: { label: ctx => `  ${ctx.parsed.x} perangkat` } }
-        },
-        scales: {
-            x: { beginAtZero: true, ticks: { stepSize:1, precision:0, font:{size:11}, color:'#94a3b8' },
-                 grid: { color:'#f1f5f9' }, border: { display:false } },
-            y: { ticks: { font:{size:11}, color:'#334155' }, grid: { display:false }, border: { display:false } }
-        }
-    }
-});
-
-// ── Trend pemeliharaan 6 bulan ────────────────────────────────
-const mLabels = [{% for m in maintenance_by_month %}"{{ m.month_label }}"{% if not forloop.last %},{% endif %}{% endfor %}];
-const mData   = [{% for m in maintenance_by_month %}{{ m.total }}{% if not forloop.last %},{% endif %}{% endfor %}];
-
-new Chart(document.getElementById('maintenanceLine'), {
-    type: 'line',
-    data: {
-        labels: mLabels,
-        datasets: [{
-            label: 'Maintenance',
-            data: mData,
-            borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.08)',
-            borderWidth: 2.5, fill: true, tension: 0.4,
-            pointBackgroundColor: '#fff', pointBorderColor: '#3b82f6',
-            pointBorderWidth: 2, pointRadius: 5, pointHoverRadius: 7
-        }]
+        labels: maintStacked.labels,
+        datasets: [
+            {
+                label: 'Preventive',
+                data: maintStacked.preventive,
+                backgroundColor: 'rgba(59,130,246,0.75)',
+                borderColor: '#3b82f6',
+                borderWidth: 1, borderRadius: { topLeft:5, topRight:5 }, borderSkipped: false,
+                stack: 'maintenance',
+            },
+            {
+                label: 'Corrective',
+                data: maintStacked.corrective,
+                backgroundColor: 'rgba(249,115,22,0.75)',
+                borderColor: '#f97316',
+                borderWidth: 1, borderRadius: { topLeft:5, topRight:5 }, borderSkipped: false,
+                stack: 'maintenance',
+            }
+        ]
     },
     options: {
         responsive: true,
         plugins: {
             legend: { display: false },
-            tooltip: { backgroundColor: '#0f172a', padding: 10, cornerRadius: 8,
-                callbacks: { label: ctx => `  ${ctx.parsed.y} maintenance` } }
+            tooltip: {
+                backgroundColor: '#0f172a', padding: 10, cornerRadius: 8,
+                callbacks: {
+                    afterBody: (items) => {
+                        const total = items.reduce((s, i) => s + i.parsed.y, 0);
+                        return [`Total: ${total}`];
+                    }
+                }
+            }
         },
         scales: {
-            y: { beginAtZero: true, ticks: { stepSize:1, precision:0, font:{size:11}, color:'#94a3b8' },
+            y: { beginAtZero: true, stacked: true,
+                 ticks: { stepSize:1, precision:0, font:{size:11}, color:'#94a3b8' },
                  grid: { color:'#f1f5f9' }, border: { display:false } },
-            x: { ticks: { font:{size:11}, color:'#94a3b8' }, grid: { display:false }, border: { display:false } }
+            x: { stacked: true, ticks: { font:{size:11}, color:'#94a3b8' },
+                 grid: { display:false }, border: { display:false } }
         }
     }
 });
@@ -704,5 +936,243 @@ new Chart(document.getElementById('gangguanLine'), {
         }
     }
 });
+
+// ── HI Donut ──────────────────────────────────────────────────
+const hiData = {{ hi_summary_json|safe }};
+const hiTotal = hiData.sangat_baik + hiData.baik + hiData.cukup + hiData.buruk + hiData.kritis;
+document.getElementById('hiDonutTotal').textContent = hiTotal;
+new Chart(document.getElementById('hiDonut'), {
+    type: 'doughnut',
+    data: {
+        labels: ['Sangat Baik', 'Baik', 'Cukup', 'Buruk', 'Kritis'],
+        datasets: [{
+            data: [hiData.sangat_baik, hiData.baik, hiData.cukup, hiData.buruk, hiData.kritis],
+            backgroundColor: ['#10b981','#3b82f6','#f59e0b','#f97316','#ef4444'],
+            borderColor: '#fff', borderWidth: 3, hoverOffset: 6,
+        }]
+    },
+    options: {
+        responsive: false, cutout: '65%',
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                backgroundColor: '#0f172a', padding: 10, cornerRadius: 8,
+                callbacks: {
+                    label: ctx => {
+                        const pct = hiTotal > 0 ? Math.round(ctx.parsed / hiTotal * 100) : 0;
+                        return `  ${ctx.parsed} perangkat (${pct}%)`;
+                    }
+                }
+            }
+        }
+    }
+});
+
+// ── Gangguan per Kategori (Horizontal Bar) ────────────────────
+const gKatData = {{ gangguan_kategori_json|safe }};
+new Chart(document.getElementById('gangguanKategoriChart'), {
+    type: 'bar',
+    data: {
+        labels: gKatData.map(d => d.label),
+        datasets: [{
+            label: 'Gangguan',
+            data: gKatData.map(d => d.total),
+            backgroundColor: [
+                'rgba(139,92,246,0.75)','rgba(59,130,246,0.75)','rgba(249,115,22,0.75)',
+                'rgba(16,185,129,0.75)','rgba(239,68,68,0.75)','rgba(148,163,184,0.75)'
+            ],
+            borderColor: ['#8b5cf6','#3b82f6','#f97316','#10b981','#ef4444','#94a3b8'],
+            borderWidth: 1.5, borderRadius: 5, borderSkipped: false,
+        }]
+    },
+    options: {
+        indexAxis: 'y',
+        responsive: true,
+        plugins: {
+            legend: { display: false },
+            tooltip: { backgroundColor: '#0f172a', padding: 10, cornerRadius: 8,
+                callbacks: { label: ctx => `  ${ctx.parsed.x} gangguan` } }
+        },
+        scales: {
+            x: { beginAtZero: true, ticks: { stepSize:1, precision:0, font:{size:11}, color:'#94a3b8' },
+                 grid: { color:'#f1f5f9' }, border: { display:false } },
+            y: { ticks: { font:{size:11}, color:'#374151' }, grid: { display:false }, border: { display:false } }
+        }
+    }
+});
+
+// ── Gangguan per Severity (Donut) ─────────────────────────────
+const gSevData = {{ gangguan_severity_json|safe }};
+const sevColors = ['#ef4444','#f97316','#f59e0b','#10b981'];
+new Chart(document.getElementById('gangguanSeverityDonut'), {
+    type: 'doughnut',
+    data: {
+        labels: gSevData.map(d => d.label),
+        datasets: [{
+            data: gSevData.map(d => d.total),
+            backgroundColor: sevColors,
+            borderColor: '#fff', borderWidth: 3, hoverOffset: 6,
+        }]
+    },
+    options: {
+        responsive: false, cutout: '62%',
+        plugins: {
+            legend: { display: false },
+            tooltip: { backgroundColor: '#0f172a', padding: 10, cornerRadius: 8,
+                callbacks: { label: ctx => `  ${ctx.parsed} gangguan` } }
+        }
+    }
+});
+// Legend severity
+const sevLegendEl = document.getElementById('severityLegend');
+const gSevTotal = gSevData.reduce((s,d) => s + d.total, 0);
+gSevData.forEach((d, i) => {
+    const pct = gSevTotal > 0 ? Math.round(d.total / gSevTotal * 100) : 0;
+    sevLegendEl.innerHTML += `
+        <div style="display:flex;align-items:center;gap:8px;">
+            <div style="width:10px;height:10px;border-radius:3px;background:${sevColors[i]};flex-shrink:0;"></div>
+            <div style="flex:1;">
+                <div style="font-size:12px;font-weight:600;color:#0f172a;">${d.label}</div>
+                <div style="font-size:10px;color:#94a3b8;">${d.total} tiket &mdash; ${pct}%</div>
+            </div>
+        </div>`;
+});
+
+// ── Device per Lokasi (Horizontal Stacked Bar) ────────────────
+const devLokData = {{ device_by_lokasi_json|safe }};
+new Chart(document.getElementById('deviceLokasiBar'), {
+    type: 'bar',
+    data: {
+        labels: devLokData.map(d => d.lokasi),
+        datasets: [
+            {
+                label: 'Operasi',
+                data: devLokData.map(d => d.operasi),
+                backgroundColor: 'rgba(16,185,129,0.78)',
+                borderColor: '#10b981', borderWidth: 1,
+                borderRadius: { topLeft:0, topRight:4, bottomRight:4, bottomLeft:0 },
+                borderSkipped: false, stack: 'lokasi',
+            },
+            {
+                label: 'Tidak Operasi',
+                data: devLokData.map(d => d.tidak_operasi),
+                backgroundColor: 'rgba(239,68,68,0.65)',
+                borderColor: '#ef4444', borderWidth: 1,
+                borderRadius: { topLeft:0, topRight:4, bottomRight:4, bottomLeft:0 },
+                borderSkipped: false, stack: 'lokasi',
+            }
+        ]
+    },
+    options: {
+        indexAxis: 'y',
+        responsive: true,
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                backgroundColor: '#0f172a', padding: 10, cornerRadius: 8,
+                callbacks: {
+                    afterBody: (items) => {
+                        const total = items.reduce((s,i) => s + i.parsed.x, 0);
+                        return [`Total: ${total} perangkat`];
+                    }
+                }
+            }
+        },
+        scales: {
+            x: { beginAtZero: true, stacked: true,
+                 ticks: { stepSize:1, precision:0, font:{size:11}, color:'#94a3b8' },
+                 grid: { color:'#f1f5f9' }, border: { display:false } },
+            y: { stacked: true, ticks: { font:{size:11}, color:'#374151' },
+                 grid: { display:false }, border: { display:false } }
+        }
+    }
+});
+
+// ── Pie chart status per jenis perangkat ──────────────────────
+const statusByType = {{ device_status_by_type_json|safe }};
+const jenisNames   = Object.keys(statusByType);
+const jenisSelect  = document.getElementById('jenisSelect');
+
+jenisNames.forEach(name => {
+    const opt = document.createElement('option');
+    opt.value = name;
+    opt.textContent = name;
+    jenisSelect.appendChild(opt);
+});
+
+let pieChart = null;
+
+function updatePie(jenis) {
+    const d       = statusByType[jenis] || {};
+    const operasi = d.operasi       || 0;
+    const tidak   = d.tidak_operasi || 0;
+    const total   = operasi + tidak;
+
+    document.getElementById('pieCenterTotal').textContent = total;
+
+    const pctOp  = total > 0 ? Math.round(operasi / total * 100) : 0;
+    const pctTdk = total > 0 ? Math.round(tidak   / total * 100) : 0;
+
+    document.getElementById('pieLegend').innerHTML = `
+        <div style="display:flex;align-items:center;gap:12px;">
+            <div style="width:14px;height:14px;border-radius:4px;background:#10b981;flex-shrink:0;"></div>
+            <div>
+                <div style="font-size:20px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;line-height:1.1;">${operasi}</div>
+                <div style="font-size:11px;color:#64748b;margin-top:2px;">Operasi &mdash; <strong>${pctOp}%</strong></div>
+            </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;">
+            <div style="width:14px;height:14px;border-radius:4px;background:#ef4444;flex-shrink:0;"></div>
+            <div>
+                <div style="font-size:20px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;line-height:1.1;">${tidak}</div>
+                <div style="font-size:11px;color:#64748b;margin-top:2px;">Tidak Operasi &mdash; <strong>${pctTdk}%</strong></div>
+            </div>
+        </div>
+    `;
+
+    if (pieChart) {
+        pieChart.data.datasets[0].data = [operasi, tidak];
+        pieChart.data.datasets[0].backgroundColor = [
+            operasi > 0 ? '#10b981' : '#e2e8f0',
+            tidak   > 0 ? '#ef4444' : '#e2e8f0',
+        ];
+        pieChart.update();
+    } else {
+        pieChart = new Chart(document.getElementById('statusPieChart'), {
+            type: 'doughnut',
+            data: {
+                labels: ['Operasi', 'Tidak Operasi'],
+                datasets: [{
+                    data: [operasi, tidak],
+                    backgroundColor: ['#10b981', '#ef4444'],
+                    borderColor: ['#fff', '#fff'],
+                    borderWidth: 3,
+                    hoverOffset: 8,
+                }]
+            },
+            options: {
+                responsive: false,
+                cutout: '68%',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#0f172a', padding: 10, cornerRadius: 8,
+                        callbacks: {
+                            label: ctx => {
+                                const pct = total > 0 ? Math.round(ctx.parsed / total * 100) : 0;
+                                return `  ${ctx.parsed} perangkat (${pct}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+}
+
+if (jenisNames.length > 0) {
+    updatePie(jenisNames[0]);
+}
+jenisSelect.addEventListener('change', () => updatePie(jenisSelect.value));
 </script>
 {% endblock %}

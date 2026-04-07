@@ -1,0 +1,124 @@
+{% extends 'base.html' %}
+{% block title %}Inspeksi — {{ lokasi }}{% endblock %}
+{% block page_title %}Inservice Inspection{% endblock %}
+
+{% block content %}
+
+<div class="d-flex align-items-center gap-2 mb-3">
+    <a href="{% url 'inspection_lokasi' %}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Pilih Lokasi
+    </a>
+</div>
+
+<!-- HEADER -->
+<div class="card mb-4" style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);border:none;">
+    <div class="card-body py-3 px-4">
+        <div class="d-flex align-items-center gap-3">
+            <div style="width:42px;height:42px;background:rgba(59,130,246,0.2);border-radius:10px;display:flex;align-items:center;justify-content:center;">
+                <i class="bi bi-lightning-charge-fill" style="font-size:20px;color:#93c5fd;"></i>
+            </div>
+            <div>
+                <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;">Lokasi</div>
+                <div style="font-size:18px;font-weight:700;color:#f1f5f9;">{{ lokasi }}</div>
+                <div style="font-size:12px;color:#94a3b8;">{{ devices|length }} perangkat tersedia untuk inspeksi</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- DAFTAR PERANGKAT -->
+<div class="row g-3">
+    {% for item in device_items %}
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100" style="border:1.5px solid #e2e8f0;border-radius:12px;">
+            <div class="card-body p-3">
+                <!-- Jenis badge + status -->
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span style="font-size:10.5px;padding:3px 10px;border-radius:20px;font-weight:700;
+                        {% if item.device.jenis.name == 'Catu Daya' %}background:#fff7ed;color:#c2410c;
+                        {% else %}background:#fdf4ff;color:#7e22ce;{% endif %}">
+                        {{ item.device.jenis.name }}
+                    </span>
+                    <span style="font-size:10px;padding:2px 8px;border-radius:20px;
+                        {% if item.device.status_operasi == 'operasi' %}background:#f0fdf4;color:#166534;
+                        {% else %}background:#fef2f2;color:#991b1b;{% endif %}font-weight:600;">
+                        {{ item.device.status_operasi|default:"—" }}
+                    </span>
+                </div>
+                <!-- Nama device + foto sejajar -->
+                <div class="d-flex align-items-start gap-2 mb-2">
+                    <div class="flex-grow-1">
+                        <div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:4px;">{{ item.device.nama }}</div>
+                        <div style="font-size:12px;color:#64748b;">
+                            <i class="bi bi-hdd me-1"></i>{{ item.device.merk|default:"—" }} {{ item.device.type|default:"" }}
+                        </div>
+                    </div>
+                    {% if item.device.foto %}
+                    <img src="{{ item.device.foto.url }}"
+                         alt="Foto {{ item.device.nama }}"
+                         style="width:58px;height:58px;flex-shrink:0;object-fit:cover;border-radius:8px;border:1.5px solid #e2e8f0;cursor:pointer;"
+                         onclick="showFotoModal('{{ item.device.foto.url }}','{{ item.device.nama|escapejs }}')">
+                    {% endif %}
+                </div>
+                <!-- Inspeksi terakhir -->
+                <div style="font-size:11px;color:#94a3b8;margin-bottom:12px;">
+                    {% if item.last_insp %}
+                    <i class="bi bi-clock-history me-1"></i>
+                    Terakhir: {{ item.last_insp.tanggal|date:"d M Y H:i" }}
+                    {% if item.last_insp.operator %}
+                    <br><i class="bi bi-person me-1"></i>{{ item.last_insp.operator.get_full_name|default:item.last_insp.operator.username }}
+                    {% endif %}
+                    {% else %}
+                    <i class="bi bi-exclamation-circle me-1" style="color:#f59e0b;"></i>Belum pernah diinspeksi
+                    {% endif %}
+                </div>
+                <!-- Tombol aksi -->
+                <div class="d-flex gap-2">
+                    <a href="{% url 'inspection_form' item.device.pk %}"
+                       class="btn btn-primary btn-sm flex-fill">
+                        <i class="bi bi-clipboard2-plus me-1"></i>Inspeksi
+                    </a>
+                    <a href="{% url 'inspection_riwayat_device' item.device.pk %}"
+                       class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-clock-history"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12 text-center py-5 text-muted">
+        <i class="bi bi-inbox fs-1 d-block mb-2"></i>Tidak ada perangkat di lokasi ini.
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Modal preview foto -->
+<div class="modal fade" id="fotoModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius:12px;overflow:hidden;">
+            <div class="modal-header py-2 px-3 border-0" style="background:#0f172a;">
+                <span id="fotoModalLabel" class="text-white fw-semibold" style="font-size:13px;"></span>
+                <button type="button" class="btn-close btn-close-white btn-sm ms-auto" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                <img id="fotoModalImg" src="" alt="" style="width:100%;max-height:70vh;object-fit:contain;background:#f8fafc;">
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function showFotoModal(url, nama) {
+    document.getElementById('fotoModalImg').src = url;
+    document.getElementById('fotoModalLabel').textContent = nama;
+    new bootstrap.Modal(document.getElementById('fotoModal')).show();
+}
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function(el){
+        new bootstrap.Tooltip(el);
+    });
+});
+</script>
+
+{% endblock %}

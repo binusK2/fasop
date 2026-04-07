@@ -440,6 +440,14 @@ class MaintenanceCorrective(models.Model):
     tindakan            = models.TextField(verbose_name='Tindakan yang Dilakukan')
     komponen_diganti    = models.BooleanField(default=False, verbose_name='Ada Komponen Diganti?')
     nama_komponen       = models.CharField(max_length=150, blank=True, verbose_name='Nama Komponen')
+    komponen_terkait    = models.ForeignKey(
+        'devices.DeviceComponent',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='corrective_maintenances',
+        verbose_name='Komponen Terkait',
+        help_text='Pilih komponen spesifik yang diperbaiki/diganti',
+    )
     kondisi_sebelum     = models.CharField(max_length=200, blank=True, verbose_name='Kondisi Sebelum')
     kondisi_sesudah     = models.CharField(max_length=200, blank=True, verbose_name='Kondisi Sesudah')
     durasi_jam          = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name='Durasi (jam)')
@@ -470,3 +478,211 @@ class MaintenanceCorrective(models.Model):
         if self.durasi_jam:   parts.append(f'{self.durasi_jam}j')
         if self.durasi_menit: parts.append(f'{self.durasi_menit}m')
         return ' '.join(parts) if parts else '—'
+
+
+# ─────────────────────────────────────────────────────────────────────
+# DETAIL TELEPROTEKSI
+# ─────────────────────────────────────────────────────────────────────
+class MaintenanceTeleproteksi(models.Model):
+
+    STATUS_CHECK = (('OK', 'OK'), ('NOK', 'NOK'),)
+
+    TIPE_TP = (
+        ('Digital', 'Digital'),
+        ('Analog',  'Analog'),
+    )
+
+    PORT_COMM = (
+        ('E1',  'E1'),
+        ('G64', 'G64'),
+        ('E&M', 'E&M'),
+        ('PLC', 'PLC'),
+    )
+
+    SKEMA_COMMAND = (
+        ('',               '— Pilih —'),
+        ('Distance',       'Distance'),
+        ('DEF',            'DEF'),
+        ('DTT',            'DTT'),
+        ('Tidak Terpakai', 'Tidak Terpakai'),
+    )
+
+    KEBERSIHAN = (
+        ('Bersih', 'Bersih'),
+        ('Kotor',  'Kotor'),
+    )
+
+    maintenance = models.OneToOneField(Maintenance, on_delete=models.CASCADE)
+
+    # ── Informasi Umum ───────────────────────────────────────────────
+    suhu_ruangan        = models.FloatField(null=True, blank=True, verbose_name='Suhu Ruangan (°C)')
+    kebersihan_perangkat = models.CharField(max_length=10, choices=KEBERSIHAN, blank=True, verbose_name='Kebersihan Perangkat')
+    kebersihan_panel    = models.CharField(max_length=10, choices=KEBERSIHAN, blank=True, verbose_name='Kebersihan Panel')
+    lampu               = models.CharField(max_length=3, choices=STATUS_CHECK, blank=True, verbose_name='Lampu')
+
+    # ── Informasi Perangkat ──────────────────────────────────────────
+    link            = models.CharField(max_length=200, blank=True, verbose_name='Link (terhubung ke)')
+    tipe_tp         = models.CharField(max_length=10, choices=TIPE_TP, blank=True, verbose_name='Tipe Teleproteksi')
+    versi_program   = models.CharField(max_length=100, blank=True, verbose_name='Versi Program')
+    address_tp      = models.CharField(max_length=100, blank=True, verbose_name='Address TP (Digital)')
+    port_comm       = models.CharField(max_length=10, choices=PORT_COMM, blank=True, verbose_name='Port Comm TP')
+    akses_tp        = models.CharField(max_length=3, choices=STATUS_CHECK, blank=True, verbose_name='Akses TP')
+    remote_akses_tp = models.CharField(max_length=3, choices=STATUS_CHECK, blank=True, verbose_name='Remote Akses TP')
+
+    # ── Kondisi Peralatan ────────────────────────────────────────────
+    jumlah_skema = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name='Jumlah Skema')
+
+    # Skema 1
+    skema_1_command          = models.CharField(max_length=20, choices=SKEMA_COMMAND, blank=True, verbose_name='Skema 1 Command')
+    skema_1_send_minus       = models.FloatField(null=True, blank=True, verbose_name='Skema 1 Teg Standby Send (-) V')
+    skema_1_send_plus        = models.FloatField(null=True, blank=True, verbose_name='Skema 1 Teg Standby Send (+) V')
+    skema_1_receive_minus    = models.FloatField(null=True, blank=True, verbose_name='Skema 1 Teg Standby Receive (-) V')
+    skema_1_receive_plus     = models.FloatField(null=True, blank=True, verbose_name='Skema 1 Teg Standby Receive (+) V')
+
+    # Skema 2
+    skema_2_command          = models.CharField(max_length=20, choices=SKEMA_COMMAND, blank=True, verbose_name='Skema 2 Command')
+    skema_2_send_minus       = models.FloatField(null=True, blank=True, verbose_name='Skema 2 Teg Standby Send (-) V')
+    skema_2_send_plus        = models.FloatField(null=True, blank=True, verbose_name='Skema 2 Teg Standby Send (+) V')
+    skema_2_receive_minus    = models.FloatField(null=True, blank=True, verbose_name='Skema 2 Teg Standby Receive (-) V')
+    skema_2_receive_plus     = models.FloatField(null=True, blank=True, verbose_name='Skema 2 Teg Standby Receive (+) V')
+
+    # Skema 3
+    skema_3_command          = models.CharField(max_length=20, choices=SKEMA_COMMAND, blank=True, verbose_name='Skema 3 Command')
+    skema_3_send_minus       = models.FloatField(null=True, blank=True, verbose_name='Skema 3 Teg Standby Send (-) V')
+    skema_3_send_plus        = models.FloatField(null=True, blank=True, verbose_name='Skema 3 Teg Standby Send (+) V')
+    skema_3_receive_minus    = models.FloatField(null=True, blank=True, verbose_name='Skema 3 Teg Standby Receive (-) V')
+    skema_3_receive_plus     = models.FloatField(null=True, blank=True, verbose_name='Skema 3 Teg Standby Receive (+) V')
+
+    # Skema 4
+    skema_4_command          = models.CharField(max_length=20, choices=SKEMA_COMMAND, blank=True, verbose_name='Skema 4 Command')
+    skema_4_send_minus       = models.FloatField(null=True, blank=True, verbose_name='Skema 4 Teg Standby Send (-) V')
+    skema_4_send_plus        = models.FloatField(null=True, blank=True, verbose_name='Skema 4 Teg Standby Send (+) V')
+    skema_4_receive_minus    = models.FloatField(null=True, blank=True, verbose_name='Skema 4 Teg Standby Receive (-) V')
+    skema_4_receive_plus     = models.FloatField(null=True, blank=True, verbose_name='Skema 4 Teg Standby Receive (+) V')
+
+    # ── Pengujian per Skema ──────────────────────────────────────────
+    skema_1_send_result     = models.CharField(max_length=3, choices=STATUS_CHECK, blank=True, verbose_name='Pengujian Send Command 1')
+    skema_1_receive_result  = models.CharField(max_length=3, choices=STATUS_CHECK, blank=True, verbose_name='Pengujian Receive Command 1')
+    skema_2_send_result     = models.CharField(max_length=3, choices=STATUS_CHECK, blank=True, verbose_name='Pengujian Send Command 2')
+    skema_2_receive_result  = models.CharField(max_length=3, choices=STATUS_CHECK, blank=True, verbose_name='Pengujian Receive Command 2')
+    skema_3_send_result     = models.CharField(max_length=3, choices=STATUS_CHECK, blank=True, verbose_name='Pengujian Send Command 3')
+    skema_3_receive_result  = models.CharField(max_length=3, choices=STATUS_CHECK, blank=True, verbose_name='Pengujian Receive Command 3')
+    skema_4_send_result     = models.CharField(max_length=3, choices=STATUS_CHECK, blank=True, verbose_name='Pengujian Send Command 4')
+    skema_4_receive_result  = models.CharField(max_length=3, choices=STATUS_CHECK, blank=True, verbose_name='Pengujian Receive Command 4')
+
+    # ── Pengujian Umum ───────────────────────────────────────────────
+    time_sync   = models.CharField(max_length=3, choices=STATUS_CHECK, blank=True, verbose_name='Time Sync')
+    loop_test   = models.FloatField(null=True, blank=True, verbose_name='Loop Test (ms)')
+
+    # ── Catatan ──────────────────────────────────────────────────────
+    catatan     = models.TextField(blank=True, verbose_name='Catatan')
+
+    class Meta:
+        verbose_name = 'Maintenance Teleproteksi'
+
+
+# ─────────────────────────────────────────────────────────────────────
+# DETAIL GENSET
+# ─────────────────────────────────────────────────────────────────────
+class MaintenanceGenset(models.Model):
+
+    MCB_CHOICES = (('ON', 'ON'), ('OFF', 'OFF'),)
+
+    maintenance = models.OneToOneField(Maintenance, on_delete=models.CASCADE)
+
+    # ── Perangkat Pendukung: Batere ──────────────────────────────────
+    air_accu            = models.FloatField(null=True, blank=True, verbose_name='Air Accu (mm)')
+    tegangan_batere     = models.FloatField(null=True, blank=True, verbose_name='Tegangan Batere (VDC)')
+    arus_pengisian      = models.FloatField(null=True, blank=True, verbose_name='Arus Pengisian (A)')
+
+    # ── Perangkat Pendukung: Charger ─────────────────────────────────
+    tegangan_charger    = models.FloatField(null=True, blank=True, verbose_name='Tegangan Charger (VDC)')
+    arus_beban_charger  = models.FloatField(null=True, blank=True, verbose_name='Arus Beban Charger (A)')
+
+    # ── Perangkat Utama Genset ───────────────────────────────────────
+    radiator            = models.FloatField(null=True, blank=True, verbose_name='Radiator (°C)')
+    kapasitas_tangki    = models.FloatField(null=True, blank=True, verbose_name='Kapasitas Tangki (liter)')
+    tangki_bbm_sebelum  = models.FloatField(null=True, blank=True, verbose_name='Tangki BBM Sebelum (%)')
+    tangki_bbm_sesudah  = models.FloatField(null=True, blank=True, verbose_name='Tangki BBM Sesudah (%)')
+    mcb                 = models.CharField(max_length=3, choices=MCB_CHOICES, blank=True, verbose_name='MCB')
+    pelumas             = models.CharField(max_length=100, blank=True, verbose_name='Pelumas')
+
+    # ── Waktu Transisi ───────────────────────────────────────────────
+    waktu_transisi      = models.FloatField(null=True, blank=True, verbose_name='Waktu Transisi (detik)')
+
+    # ── Pengukuran Supply PLN ────────────────────────────────────────
+    pln_f_r             = models.FloatField(null=True, blank=True, verbose_name='PLN Frekuensi R-N (Hz)')
+    pln_f_s             = models.FloatField(null=True, blank=True, verbose_name='PLN Frekuensi S-N (Hz)')
+    pln_f_t             = models.FloatField(null=True, blank=True, verbose_name='PLN Frekuensi T-N (Hz)')
+    pln_v_rn            = models.FloatField(null=True, blank=True, verbose_name='PLN Teg 1Ph R-N (V)')
+    pln_v_sn            = models.FloatField(null=True, blank=True, verbose_name='PLN Teg 1Ph S-N (V)')
+    pln_v_tn            = models.FloatField(null=True, blank=True, verbose_name='PLN Teg 1Ph T-N (V)')
+    pln_v_rs            = models.FloatField(null=True, blank=True, verbose_name='PLN Teg 3Ph R-S (V)')
+    pln_v_st            = models.FloatField(null=True, blank=True, verbose_name='PLN Teg 3Ph S-T (V)')
+    pln_v_tr            = models.FloatField(null=True, blank=True, verbose_name='PLN Teg 3Ph T-R (V)')
+    pln_i_r             = models.FloatField(null=True, blank=True, verbose_name='PLN Arus R (A)')
+    pln_i_s             = models.FloatField(null=True, blank=True, verbose_name='PLN Arus S (A)')
+    pln_i_t             = models.FloatField(null=True, blank=True, verbose_name='PLN Arus T (A)')
+
+    # ── Pengukuran Supply Genset ─────────────────────────────────────
+    gen_f_r             = models.FloatField(null=True, blank=True, verbose_name='Genset Frekuensi R-N (Hz)')
+    gen_f_s             = models.FloatField(null=True, blank=True, verbose_name='Genset Frekuensi S-N (Hz)')
+    gen_f_t             = models.FloatField(null=True, blank=True, verbose_name='Genset Frekuensi T-N (Hz)')
+    gen_v_rn            = models.FloatField(null=True, blank=True, verbose_name='Genset Teg 1Ph R-N (V)')
+    gen_v_sn            = models.FloatField(null=True, blank=True, verbose_name='Genset Teg 1Ph S-N (V)')
+    gen_v_tn            = models.FloatField(null=True, blank=True, verbose_name='Genset Teg 1Ph T-N (V)')
+    gen_v_rs            = models.FloatField(null=True, blank=True, verbose_name='Genset Teg 3Ph R-S (V)')
+    gen_v_st            = models.FloatField(null=True, blank=True, verbose_name='Genset Teg 3Ph S-T (V)')
+    gen_v_tr            = models.FloatField(null=True, blank=True, verbose_name='Genset Teg 3Ph T-R (V)')
+    gen_i_r             = models.FloatField(null=True, blank=True, verbose_name='Genset Arus R (A)')
+    gen_i_s             = models.FloatField(null=True, blank=True, verbose_name='Genset Arus S (A)')
+    gen_i_t             = models.FloatField(null=True, blank=True, verbose_name='Genset Arus T (A)')
+
+    # ── MDF Cubicle ──────────────────────────────────────────────────
+    oil_pressure        = models.FloatField(null=True, blank=True, verbose_name='Oil Pressure (Kpa)')
+    engine_temperature  = models.FloatField(null=True, blank=True, verbose_name='Engine Temperature (°C)')
+    batere_condition    = models.FloatField(null=True, blank=True, verbose_name='Batere Condition (VDC)')
+    rpm                 = models.FloatField(null=True, blank=True, verbose_name='RPM')
+
+    # ── Counter Analog ───────────────────────────────────────────────
+    counter_sebelum     = models.FloatField(null=True, blank=True, verbose_name='Counter Sebelum (jam)')
+    counter_sesudah     = models.FloatField(null=True, blank=True, verbose_name='Counter Sesudah (jam)')
+
+    # ── Jam Operasi ──────────────────────────────────────────────────
+    waktu_start         = models.TimeField(null=True, blank=True, verbose_name='Waktu Start')
+    waktu_stop          = models.TimeField(null=True, blank=True, verbose_name='Waktu Stop')
+
+    # ── Catatan ──────────────────────────────────────────────────────
+    catatan             = models.TextField(blank=True, verbose_name='Catatan')
+
+    class Meta:
+        verbose_name = 'Maintenance Genset'
+
+    @property
+    def durasi_menit(self):
+        if self.waktu_start and self.waktu_stop:
+            from datetime import datetime, date, timedelta
+            start = datetime.combine(date.today(), self.waktu_start)
+            stop  = datetime.combine(date.today(), self.waktu_stop)
+            if stop < start:
+                stop += timedelta(days=1)
+            return int((stop - start).total_seconds() / 60)
+        return None
+
+    @property
+    def bbm_terpakai(self):
+        """Selisih % BBM (sebelum - sesudah)."""
+        if self.tangki_bbm_sebelum is not None and self.tangki_bbm_sesudah is not None:
+            return round(self.tangki_bbm_sebelum - self.tangki_bbm_sesudah, 1)
+        return None
+
+    @property
+    def persen_bbm_sesudah(self):
+        """Nilai % BBM sesudah (langsung dari field)."""
+        return self.tangki_bbm_sesudah
+
+    @property
+    def selisih_counter(self):
+        if self.counter_sebelum is not None and self.counter_sesudah is not None:
+            return round(self.counter_sesudah - self.counter_sebelum, 2)
+        return None

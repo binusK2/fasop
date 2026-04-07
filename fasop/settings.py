@@ -27,6 +27,7 @@ SECRET_KEY = config('SECRET_KEY')
 DEBUG = config('DEBUG', default=False, cast=bool)
 
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='').split(',')
+CSRF_TRUSTED_ORIGINS = config('CSRF_TRUSTED_ORIGINS', default='').split(',')
 
 
 # Application definition
@@ -44,6 +45,8 @@ INSTALLED_APPS = [
     'health_index',
     'notifikasi',
     'jadwal',
+    'gudang',
+    'inspection',
 ]
 
 MIDDLEWARE = [
@@ -54,6 +57,9 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'devices.middleware.ForcePasswordChangeMiddleware',
+    'devices.middleware.OperatorAccessMiddleware',
+    'devices.middleware.SingleSessionMiddleware',
 ]
 
 ROOT_URLCONF = 'fasop.urls'
@@ -72,6 +78,7 @@ TEMPLATES = [
                 'devices.context_processors.lokasi_list',
                 'devices.context_processors.notifikasi_count',
                 'devices.context_processors.user_permissions',
+                'devices.context_processors.user_display_name',
             ],
         },
     },
@@ -129,6 +136,8 @@ DATE_INPUT_FORMATS = ['%d-%m-%Y']
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+STATICFILES_DIRS = [BASE_DIR / 'static']
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/'
@@ -139,5 +148,11 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 SESSION_COOKIE_AGE = 28800
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+
+# -------------------------------------------------------------------
+# API Key untuk integrasi eksternal (n8n, Google Sheets, dsb.)
+# Set di .env:  API_KEY=isi-dengan-string-acak-yang-kuat
+# -------------------------------------------------------------------
+API_KEY = config('API_KEY', default='')
 
 

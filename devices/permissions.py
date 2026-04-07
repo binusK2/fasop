@@ -44,6 +44,13 @@ def is_viewer_only(user):
     return p.is_viewer if p else False
 
 
+def is_operator(user):
+    if user.is_superuser:
+        return False
+    p = get_profile(user)
+    return p.is_operator if p else False
+
+
 def require_can_edit(view_func):
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):

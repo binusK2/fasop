@@ -98,16 +98,43 @@ def device_create(request):
                 device.spesifikasi = {}
             device.created_by = request.user
             device.save()
+
+            # ── Simpan komponen dari form ──────────────────────────
+            komponen_json = request.POST.get('komponen_json', '[]')
+            try:
+                komponen_list = json.loads(komponen_json)
+            except (json.JSONDecodeError, ValueError):
+                komponen_list = []
+
+            from devices.models_komponen import DeviceComponent
+            from devices.views_komponen import _resolve_tipe
+            for k in komponen_list:
+                if not k.get('nama'):
+                    continue
+                DeviceComponent.objects.create(
+                    device=device,
+                    nama=k.get('nama', '').strip(),
+                    tipe_komponen=_resolve_tipe(k.get('tipe_komponen')),
+                    posisi=k.get('posisi', '').strip(),
+                    merk=k.get('merk', '').strip(),
+                    serial_number=k.get('serial_number', '').strip(),
+                    status=k.get('status', 'terpasang'),
+                    keterangan=k.get('keterangan', '').strip(),
+                    created_by=request.user,
+                )
+
             # Audit log
             from devices.device_audit import log_create
             log_create(device, request.user)
-            return redirect('device_list')
+            return redirect('device_view', pk=device.pk)
     else:
         form = DeviceForm()
+    from devices.views_komponen import get_tipe_grouped_json
     return render(request, 'devices/device_form.html', {
         'form': form,
         'is_edit': False,
         'device_schema_json': json.dumps(DEVICE_SCHEMA),
+        'tipe_komponen_json': get_tipe_grouped_json(),
     })
 
 
@@ -130,17 +157,44 @@ def device_update(request, pk):
             except (json.JSONDecodeError, ValueError):
                 dev.spesifikasi = {}
             dev.save()
+
+            # ── Simpan komponen baru dari form ────────────────────
+            komponen_json = request.POST.get('komponen_json', '[]')
+            try:
+                komponen_list = json.loads(komponen_json)
+            except (json.JSONDecodeError, ValueError):
+                komponen_list = []
+
+            from devices.models_komponen import DeviceComponent
+            from devices.views_komponen import _resolve_tipe
+            for k in komponen_list:
+                if not k.get('nama'):
+                    continue
+                DeviceComponent.objects.create(
+                    device=device,
+                    nama=k.get('nama', '').strip(),
+                    tipe_komponen=_resolve_tipe(k.get('tipe_komponen')),
+                    posisi=k.get('posisi', '').strip(),
+                    merk=k.get('merk', '').strip(),
+                    serial_number=k.get('serial_number', '').strip(),
+                    status=k.get('status', 'terpasang'),
+                    keterangan=k.get('keterangan', '').strip(),
+                    created_by=request.user,
+                )
+
             # Audit log — bandingkan sebelum vs sesudah
             log_edit(device_before, dev, request.user)
             return redirect('device_view', pk=device.pk)
     else:
         form = DeviceForm(instance=device)
+    from devices.views_komponen import get_tipe_grouped_json
     return render(request, 'devices/device_form.html', {
         'form': form,
         'is_edit': True,
         'device': device,
         'device_schema_json': json.dumps(DEVICE_SCHEMA),
         'existing_spesifikasi': json.dumps(device.spesifikasi or {}),
+        'tipe_komponen_json': get_tipe_grouped_json(),
     })
 
 
@@ -158,6 +212,16 @@ def device_delete(request, pk):
 
 @login_required
 def dashboard(request):
+    # ── Fork ke dashboard operator ───────────────────────────────
+    if not request.user.is_superuser:
+        try:
+            role = request.user.profile.role
+        except Exception:
+            role = ''
+        if role == 'operator':
+            return _dashboard_operator(request)
+
+    # ── Dashboard normal (teknisi / AM / superuser) ──────────────
     total_devices  = Device.objects.filter(is_deleted=False).count()
     dev_operasi    = Device.objects.filter(is_deleted=False, status_operasi='operasi').count()
     dev_tdk_operasi= Device.objects.filter(is_deleted=False, status_operasi='tidak_operasi').count()
@@ -176,6 +240,23 @@ def dashboard(request):
     for d in device_by_type_qs:
         pct = round((d['total'] / total_devices * 100)) if total_devices else 0
         device_by_type.append({**d, 'pct': pct})
+
+    # Status operasi per jenis → untuk pie chart di dashboard
+    import json as _json
+    _status_qs = (
+        Device.objects
+        .filter(is_deleted=False)
+        .values('jenis__name', 'status_operasi')
+        .annotate(total=Count('id'))
+        .order_by('jenis__name')
+    )
+    _status_map = {}
+    for row in _status_qs:
+        jenis = row['jenis__name'] or 'Lainnya'
+        if jenis not in _status_map:
+            _status_map[jenis] = {'operasi': 0, 'tidak_operasi': 0}
+        _status_map[jenis][row['status_operasi']] = row['total']
+    device_status_by_type_json = _json.dumps(_status_map)
 
     total_maintenance = Maintenance.objects.count()
     maintenance_open = Maintenance.objects.filter(status='Open').count()
@@ -264,6 +345,82 @@ def dashboard(request):
             hi_summary['kritis'] += 1
             hi_kritis_list.append({'device': dev, 'hi': hi})
     hi_kritis_list = hi_kritis_list[:5]  # tampilkan max 5
+    hi_summary_json = _json.dumps(hi_summary)
+
+    # ── Gangguan breakdown by kategori & severity ─────────────────
+    gangguan_by_kategori_qs = (
+        Gangguan.objects
+        .values('kategori')
+        .annotate(total=Count('id'))
+        .order_by('-total')
+    )
+    _kat_labels = {
+        'perangkat': 'Perangkat/HW', 'jaringan': 'Jaringan',
+        'daya': 'Daya/Power', 'software': 'Software',
+        'eksternal': 'Eksternal', 'lainnya': 'Lainnya',
+    }
+    gangguan_kategori_json = _json.dumps([
+        {'label': _kat_labels.get(g['kategori'], g['kategori']), 'total': g['total']}
+        for g in gangguan_by_kategori_qs
+    ])
+
+    gangguan_by_severity_qs = (
+        Gangguan.objects
+        .values('tingkat_keparahan')
+        .annotate(total=Count('id'))
+        .order_by('-total')
+    )
+    _sev_order = ['kritis', 'tinggi', 'sedang', 'rendah']
+    _sev_labels = {'kritis': 'Kritis', 'tinggi': 'Tinggi', 'sedang': 'Sedang', 'rendah': 'Rendah'}
+    _sev_map = {g['tingkat_keparahan']: g['total'] for g in gangguan_by_severity_qs}
+    gangguan_severity_json = _json.dumps([
+        {'label': _sev_labels[s], 'total': _sev_map.get(s, 0)}
+        for s in _sev_order
+    ])
+
+    # Gangguan open per severity (untuk card badges)
+    gangguan_open_kritis = Gangguan.objects.filter(status__in=['open', 'in_progress'], tingkat_keparahan='kritis').count()
+
+    # ── Maintenance stacked (preventive vs corrective per bulan) ──
+    _maint_type_qs = (
+        Maintenance.objects
+        .annotate(month=TruncMonth('date'))
+        .values('month', 'maintenance_type')
+        .annotate(total=Count('id'))
+    )
+    _maint_type_map = {}
+    for _m in _maint_type_qs:
+        _mo = _m['month'].date().replace(day=1)
+        _t = _m['maintenance_type'] or 'Lainnya'
+        if _mo not in _maint_type_map:
+            _maint_type_map[_mo] = {}
+        _maint_type_map[_mo][_t] = _m['total']
+    maintenance_stacked_json = _json.dumps({
+        'labels': [m.strftime('%b %Y') for m in months_6],
+        'preventive': [_maint_type_map.get(m, {}).get('Preventive', 0) for m in months_6],
+        'corrective':  [_maint_type_map.get(m, {}).get('Corrective', 0) for m in months_6],
+    })
+
+    # ── Device per lokasi top 10 ──────────────────────────────────
+    _dev_lokasi_qs = (
+        Device.objects
+        .filter(is_deleted=False)
+        .exclude(lokasi__isnull=True).exclude(lokasi__exact='')
+        .values('lokasi')
+        .annotate(
+            total=Count('id'),
+            operasi=Count('id', filter=Q(status_operasi='operasi')),
+            tidak_operasi=Count('id', filter=Q(status_operasi='tidak_operasi')),
+        )
+        .order_by('-total')[:10]
+    )
+    device_by_lokasi_json = _json.dumps([
+        {
+            'lokasi': r['lokasi'], 'total': r['total'],
+            'operasi': r['operasi'], 'tidak_operasi': r['tidak_operasi'],
+        }
+        for r in _dev_lokasi_qs
+    ])
 
     # ── Jadwal kunjungan terdekat ─────────────────────────────────
     try:
@@ -304,7 +461,8 @@ def dashboard(request):
         'total_devices':    total_devices,
         'dev_operasi':      dev_operasi,
         'dev_tdk_operasi':  dev_tdk_operasi,
-        'device_by_type':   device_by_type,
+        'device_by_type':              device_by_type,
+        'device_status_by_type_json':  device_status_by_type_json,
         'total_maintenance':    total_maintenance,
         'maintenance_open':     maintenance_open,
         'maintenance_done':     maintenance_done,
@@ -328,6 +486,209 @@ def dashboard(request):
         'jadwal_terdekat':   jadwal_terdekat,
         'notif_terbaru':     notif_terbaru,
         'notif_unread_total': notif_unread_total,
+        # analytics extras
+        'hi_summary_json':          hi_summary_json,
+        'gangguan_kategori_json':   gangguan_kategori_json,
+        'gangguan_severity_json':   gangguan_severity_json,
+        'gangguan_open_kritis':     gangguan_open_kritis,
+        'maintenance_stacked_json': maintenance_stacked_json,
+        'device_by_lokasi_json':    device_by_lokasi_json,
+    })
+
+
+@login_required
+def distribusi_jenis(request):
+    """Halaman distribusi status operasi per jenis perangkat — semua jenis tampil dengan chart masing-masing."""
+    PALETTE = [
+        '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6',
+        '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#64748b',
+    ]
+
+    jenis_qs = (
+        Device.objects
+        .filter(is_deleted=False)
+        .values('jenis__id', 'jenis__name', 'status_operasi')
+        .annotate(jumlah=Count('id'))
+        .order_by('jenis__name')
+    )
+
+    # Kumpulkan per jenis
+    jenis_map = {}
+    for row in jenis_qs:
+        jid   = row['jenis__id']
+        jname = row['jenis__name'] or 'Lainnya'
+        if jid not in jenis_map:
+            jenis_map[jid] = {'id': jid, 'name': jname, 'operasi': 0, 'tidak_operasi': 0}
+        jenis_map[jid][row['status_operasi']] = row['jumlah']
+
+    jenis_data = []
+    for i, (jid, d) in enumerate(sorted(jenis_map.items(), key=lambda x: x[1]['name'])):
+        total = d['operasi'] + d['tidak_operasi']
+        jenis_data.append({
+            'id':            d['id'],
+            'name':          d['name'],
+            'operasi':       d['operasi'],
+            'tidak_operasi': d['tidak_operasi'],
+            'total':         total,
+            'pct_operasi':   round(d['operasi'] / total * 100) if total else 0,
+            'color':         PALETTE[i % len(PALETTE)],
+        })
+
+    jenis_json = json.dumps([
+        {'name': d['name'], 'operasi': d['operasi'], 'tidak_operasi': d['tidak_operasi']}
+        for d in jenis_data
+    ])
+
+    return render(request, 'devices/distribusi_jenis.html', {
+        'jenis_data': jenis_data,
+        'jenis_json': jenis_json,
+    })
+
+
+def _dashboard_operator(request):
+    """Dashboard khusus role Operator — fokus Inservice Inspection."""
+    from inspection.models import Inspection, InspectionCatuDaya, InspectionDefenseScheme
+    from inspection.models import InspectionMasterTrip, InspectionUFLS
+    from datetime import date as date_type, timedelta
+    from django.db.models import Count
+    from django.db.models.functions import TruncDate, TruncMonth
+
+    today   = date_type.today()
+    user    = request.user
+
+    INSPECTABLE = ['Catu Daya', 'RELE DEFENSE SCHEME', 'MASTER TRIP', 'UFLS']
+
+    # ── Filter berdasarkan ULTG user ──────────────────────────────
+    ultg         = None
+    ultg_lokasi  = None  # None = semua lokasi
+    try:
+        profile = request.user.profile
+        if profile.role == 'operator' and profile.ultg:
+            ultg       = profile.ultg
+            ultg_lokasi = ultg.get_lokasi_names()
+    except Exception:
+        pass
+
+    def filter_by_ultg(qs):
+        if ultg_lokasi is not None:
+            return qs.filter(device__lokasi__in=ultg_lokasi)
+        return qs
+
+    def filter_device_by_ultg(qs):
+        if ultg_lokasi is not None:
+            return qs.filter(lokasi__in=ultg_lokasi)
+        return qs
+
+    # ── Statistik harian ─────────────────────────────────────────
+    insp_base       = filter_by_ultg(Inspection.objects.all())
+    insp_hari_ini   = insp_base.filter(tanggal__date=today).count()
+    insp_hari_ini_u = insp_base.filter(tanggal__date=today, operator=user).count()
+    insp_bulan_ini  = insp_base.filter(tanggal__year=today.year, tanggal__month=today.month).count()
+    insp_total      = insp_base.count()
+
+    # ── Alarm hari ini ────────────────────────────────────────────
+    alarm_count = 0
+    for insp in insp_base.filter(tanggal__date=today).select_related('device'):
+        try:
+            if insp.jenis == 'catu_daya':
+                d = insp.detail_catu_daya
+                if d.kondisi_rectifier == 'alarm': alarm_count += 1
+            elif insp.jenis == 'defense_scheme':
+                d = insp.detail_defense_scheme
+                if d.kondisi_relay == 'faulty' or d.indikator_led == 'faulty': alarm_count += 1
+            elif insp.jenis == 'master_trip':
+                d = insp.detail_master_trip
+                if d.kondisi_relay == 'faulty' or d.indikator_led == 'faulty': alarm_count += 1
+            elif insp.jenis == 'ufls':
+                d = insp.detail_ufls
+                if d.kondisi_relay == 'faulty' or d.indikator_led == 'faulty': alarm_count += 1
+        except Exception:
+            pass
+
+    # ── Total device per jenis inspectable ───────────────────────
+    device_stats = []
+    for jenis_name in INSPECTABLE:
+        devs = filter_device_by_ultg(
+            Device.objects.filter(is_deleted=False, jenis__name=jenis_name)
+        )
+        total = devs.count()
+        if total == 0:
+            continue
+        inspected_ids = filter_by_ultg(Inspection.objects.filter(
+            device__in=devs,
+            tanggal__year=today.year, tanggal__month=today.month
+        )).values_list('device_id', flat=True).distinct()
+        sudah = len(set(inspected_ids))
+        belum = total - sudah
+        pct   = round(sudah / total * 100) if total else 0
+        device_stats.append({
+            'jenis': jenis_name, 'total': total,
+            'sudah': sudah, 'belum': belum, 'pct': pct,
+        })
+
+    # ── Trend inspeksi 7 hari terakhir ───────────────────────────
+    trend_7 = []
+    for i in range(6, -1, -1):
+        d = today - timedelta(days=i)
+        count = insp_base.filter(tanggal__date=d).count()
+        trend_7.append({'label': d.strftime('%d %b'), 'count': count, 'is_today': d == today})
+
+    # ── Trend inspeksi per jenis 30 hari ─────────────────────────
+    insp_by_jenis = (
+        insp_base
+        .filter(tanggal__date__gte=today - timedelta(days=30))
+        .values('jenis')
+        .annotate(total=Count('id'))
+        .order_by('-total')
+    )
+
+    # ── Inspeksi terbaru ──────────────────────────────────────────
+    recent_inspections = (
+        insp_base
+        .select_related('device', 'device__jenis', 'operator')
+        .order_by('-tanggal')[:10]
+    )
+    # Tambah status kondisi
+    recent_list = []
+    for insp in recent_inspections:
+        status = 'normal'
+        try:
+            if insp.jenis == 'catu_daya':
+                d = insp.detail_catu_daya
+                if d.kondisi_rectifier == 'alarm': status = 'alarm'
+            elif insp.jenis in ('defense_scheme', 'master_trip', 'ufls'):
+                if insp.jenis == 'defense_scheme': d = insp.detail_defense_scheme
+                elif insp.jenis == 'master_trip':  d = insp.detail_master_trip
+                else:                              d = insp.detail_ufls
+                if d.kondisi_relay == 'faulty' or d.indikator_led == 'faulty':
+                    status = 'alarm'
+        except Exception:
+            pass
+        insp.status_kondisi = status
+        recent_list.append(insp)
+
+    # ── Device belum diinspeksi bulan ini ─────────────────────────
+    all_inspectable = filter_device_by_ultg(
+        Device.objects.filter(is_deleted=False, jenis__name__in=INSPECTABLE)
+    ).select_related('jenis')
+    insp_ids_bulan = insp_base.filter(
+        tanggal__year=today.year, tanggal__month=today.month
+    ).values_list('device_id', flat=True).distinct()
+    belum_insp = all_inspectable.exclude(pk__in=insp_ids_bulan).order_by('jenis__name','lokasi','nama')[:15]
+
+    return render(request, 'devices/dashboard_operator.html', {
+        'today':              today,
+        'insp_hari_ini':      insp_hari_ini,
+        'insp_hari_ini_u':    insp_hari_ini_u,
+        'insp_bulan_ini':     insp_bulan_ini,
+        'insp_total':         insp_total,
+        'alarm_count':        alarm_count,
+        'device_stats':       device_stats,
+        'trend_7':            trend_7,
+        'insp_by_jenis':      list(insp_by_jenis),
+        'recent_list':        recent_list,
+        'belum_insp':         belum_insp,
+        'ultg':               ultg,
     })
 
 
@@ -381,6 +742,11 @@ def device_detail(request, pk):
     last_update_log = device_logs.first()
     device_events   = DeviceEvent.objects.filter(device=device).order_by('-tanggal', '-created_at')
 
+    # Komponen perangkat
+    from devices.views_komponen import get_komponen_for_device, _get_tipe_grouped
+    komponen_list = get_komponen_for_device(device)
+    tipe_grouped = _get_tipe_grouped()
+
     return render(request, 'devices/device_detail.html', {
         'device':             device,
         'maintenance_history': maintenance_history,
@@ -393,6 +759,8 @@ def device_detail(request, pk):
         'device_logs':        device_logs,
         'last_update_log':    last_update_log,
         'device_events':      device_events,
+        'komponen_list':      komponen_list,
+        'tipe_grouped':       tipe_grouped,
         'today_date':         date_type.today().strftime('%Y-%m-%d'),
     })
 
@@ -479,6 +847,7 @@ def api_lokasi_devices(request, lokasi_nama):
 
 
 @login_required
+@login_required
 def layanan_icon(request):
     icons = Icon.objects.all()
 
@@ -515,6 +884,17 @@ def layanan_icon(request):
 
     icons = list(icons)
 
+    # Hitung jumlah gangguan per icon (berdasarkan FK layanan_icon di model Gangguan)
+    from gangguan.models import Gangguan
+    gangguan_counts = dict(
+        Gangguan.objects.filter(layanan_icon__isnull=False)
+        .values('layanan_icon_id')
+        .annotate(total=Count('id'))
+        .values_list('layanan_icon_id', 'total')
+    )
+    for icon in icons:
+        icon.jumlah_gangguan = gangguan_counts.get(icon.id, 0)
+
     # Summary counters
     operasi_baik = sum(
         1 for i in icons
@@ -536,6 +916,12 @@ def layanan_icon(request):
         'Tidak Operasi' in i.kondisi_operasional
     )
 
+    # Total tiket gangguan aktif yang terkait layanan ICON+
+    total_gangguan_aktif = Gangguan.objects.filter(
+        layanan_icon__isnull=False,
+        status__in=('open', 'in_progress')
+    ).count()
+
     # Distinct kondisi values for filter dropdown
     kondisi_list = sorted(set(
         i.kondisi_operasional for i in Icon.objects.all()
@@ -543,17 +929,223 @@ def layanan_icon(request):
     ))
 
     return render(request, 'devices/layanan_icon.html', {
-        'icons':            icons,
-        'search':           search,
-        'selected_kondisi': selected_kondisi,
-        'kondisi_list':     kondisi_list,
-        'operasi_baik':     operasi_baik,
-        'gangguan':         operasi_gangguan,
-        'lainnya':          operasi_lain,
-        'sort_by':          sort_by,
-        'sort_dir':         sort_dir,
+        'icons':                icons,
+        'search':               search,
+        'selected_kondisi':     selected_kondisi,
+        'kondisi_list':         kondisi_list,
+        'operasi_baik':         operasi_baik,
+        'gangguan':             operasi_gangguan,
+        'lainnya':              operasi_lain,
+        'sort_by':              sort_by,
+        'sort_dir':             sort_dir,
+        'total_gangguan_aktif': total_gangguan_aktif,
     })
 
+
+# ══════════════════════════════════════════════════════════════
+# FIBER OPTIC VIEWS
+# ══════════════════════════════════════════════════════════════
+
+@login_required
+def fiber_optic_list(request):
+    from .models import FiberOptic
+    from gangguan.models import Gangguan
+
+    qs = FiberOptic.objects.all()
+
+    search       = request.GET.get('q', '').strip()
+    status_f     = request.GET.get('status', '').strip()
+    sort_by      = request.GET.get('sort', 'nama')
+    sort_dir     = request.GET.get('dir', 'asc')
+
+    if search:
+        qs = qs.filter(
+            Q(nama__icontains=search) |
+            Q(lokasi_a__icontains=search) |
+            Q(lokasi_b__icontains=search) |
+            Q(keterangan__icontains=search)
+        )
+    if status_f:
+        qs = qs.filter(status=status_f)
+
+    SORT_MAP = {
+        'nama': 'nama', 'lokasi_a': 'lokasi_a', 'lokasi_b': 'lokasi_b',
+        'panjang': 'panjang_km', 'status': 'status',
+    }
+    order_field = SORT_MAP.get(sort_by, 'nama')
+    if sort_dir == 'desc':
+        order_field = '-' + order_field
+    qs = qs.order_by(order_field)
+
+    fo_list = list(qs)
+
+    # Hitung jumlah gangguan per segmen FO
+    gangguan_counts = dict(
+        Gangguan.objects.filter(fiber_optic__isnull=False)
+        .values('fiber_optic_id')
+        .annotate(total=Count('id'))
+        .values_list('fiber_optic_id', 'total')
+    )
+    for fo in fo_list:
+        fo.jumlah_gangguan = gangguan_counts.get(fo.id, 0)
+
+    # Summary
+    total_fo        = len(fo_list)
+    total_baik      = sum(1 for f in fo_list if f.status == 'baik')
+    total_gangguan  = sum(1 for f in fo_list if f.status == 'gangguan')
+    total_perbaikan = sum(1 for f in fo_list if f.status == 'dalam_perbaikan')
+
+    total_aktif = Gangguan.objects.filter(
+        fiber_optic__isnull=False,
+        status__in=('open', 'in_progress')
+    ).count()
+
+    return render(request, 'devices/fiber_optic_list.html', {
+        'fo_list':           fo_list,
+        'search':            search,
+        'status_filter':     status_f,
+        'sort_by':           sort_by,
+        'sort_dir':          sort_dir,
+        'total_fo':          total_fo,
+        'total_baik':        total_baik,
+        'total_gangguan':    total_gangguan,
+        'total_perbaikan':   total_perbaikan,
+        'total_aktif':       total_aktif,
+        'STATUS_CHOICES':    FiberOptic.STATUS_CHOICES,
+    })
+
+
+@login_required
+@require_can_edit
+def fiber_optic_create(request):
+    from .models import FiberOptic, FiberOpticCore, SiteLocation
+    lokasi_list = list(SiteLocation.objects.values_list('nama', flat=True).order_by('nama'))
+    if request.method == 'POST':
+        jumlah_core = int(request.POST['jumlah_core']) if request.POST.get('jumlah_core') else None
+        fo = FiberOptic(
+            nama          = request.POST.get('nama', '').strip(),
+            lokasi_a      = request.POST.get('lokasi_a', '').strip(),
+            lokasi_b      = request.POST.get('lokasi_b', '').strip(),
+            tipe_kabel    = request.POST.get('tipe_kabel') or None,
+            tipe_konektor = request.POST.get('tipe_konektor') or None,
+            jumlah_core   = jumlah_core,
+            panjang_km    = request.POST.get('panjang_km') or None,
+            tahun_pasang  = int(request.POST['tahun_pasang']) if request.POST.get('tahun_pasang') else None,
+            status        = request.POST.get('status', 'baik'),
+            keterangan    = request.POST.get('keterangan', '').strip() or None,
+            created_by    = request.user,
+        )
+        fo.save()
+        # Buat record core otomatis sesuai jumlah_core
+        if jumlah_core:
+            for n in range(1, jumlah_core + 1):
+                FiberOpticCore.objects.get_or_create(fiber_optic=fo, nomor_core=n)
+        return redirect('fiber_optic_detail', pk=fo.pk)
+    return render(request, 'devices/fiber_optic_form.html', {
+        'is_edit':        False,
+        'TIPE_KABEL':     FiberOptic.TIPE_KABEL_CHOICES,
+        'TIPE_KONEKTOR':  FiberOptic.TIPE_KONEKTOR_CHOICES,
+        'STATUS_CHOICES': FiberOptic.STATUS_CHOICES,
+        'lokasi_list':    lokasi_list,
+    })
+
+
+@login_required
+@require_can_edit
+def fiber_optic_update(request, pk):
+    from .models import FiberOptic, FiberOpticCore, SiteLocation
+    fo = get_object_or_404(FiberOptic, pk=pk)
+    lokasi_list = list(SiteLocation.objects.values_list('nama', flat=True).order_by('nama'))
+    if request.method == 'POST':
+        jumlah_core_baru = int(request.POST['jumlah_core']) if request.POST.get('jumlah_core') else None
+        fo.nama          = request.POST.get('nama', '').strip()
+        fo.lokasi_a      = request.POST.get('lokasi_a', '').strip()
+        fo.lokasi_b      = request.POST.get('lokasi_b', '').strip()
+        fo.tipe_kabel    = request.POST.get('tipe_kabel') or None
+        fo.tipe_konektor = request.POST.get('tipe_konektor') or None
+        fo.jumlah_core   = jumlah_core_baru
+        fo.panjang_km    = request.POST.get('panjang_km') or None
+        fo.tahun_pasang  = int(request.POST['tahun_pasang']) if request.POST.get('tahun_pasang') else None
+        fo.status        = request.POST.get('status', 'baik')
+        fo.keterangan    = request.POST.get('keterangan', '').strip() or None
+        fo.save()
+        # Tambah core baru jika jumlah_core bertambah
+        if jumlah_core_baru:
+            existing = set(fo.cores.values_list('nomor_core', flat=True))
+            for n in range(1, jumlah_core_baru + 1):
+                if n not in existing:
+                    FiberOpticCore.objects.create(fiber_optic=fo, nomor_core=n)
+        return redirect('fiber_optic_detail', pk=fo.pk)
+    return render(request, 'devices/fiber_optic_form.html', {
+        'is_edit':        True,
+        'fo':             fo,
+        'TIPE_KABEL':     FiberOptic.TIPE_KABEL_CHOICES,
+        'TIPE_KONEKTOR':  FiberOptic.TIPE_KONEKTOR_CHOICES,
+        'STATUS_CHOICES': FiberOptic.STATUS_CHOICES,
+        'lokasi_list':    lokasi_list,
+    })
+
+
+@login_required
+def fiber_optic_detail(request, pk):
+    from .models import FiberOptic, FiberOpticCore
+    fo = get_object_or_404(FiberOptic, pk=pk)
+    cores = fo.cores.order_by('nomor_core')
+    from gangguan.models import Gangguan
+    gangguan_list = Gangguan.objects.filter(fiber_optic=fo).order_by('-tanggal_gangguan')
+    return render(request, 'devices/fiber_optic_detail.html', {
+        'fo':            fo,
+        'cores':         cores,
+        'gangguan_list': gangguan_list,
+        'STATUS_CORE':   FiberOpticCore.STATUS_CORE_CHOICES,
+    })
+
+
+@login_required
+@require_can_edit
+def fiber_optic_core_update(request, fo_pk, core_pk):
+    """Update satu baris core via POST (AJAX-friendly)."""
+    from .models import FiberOpticCore
+    core = get_object_or_404(FiberOpticCore, pk=core_pk, fiber_optic_id=fo_pk)
+    if request.method == 'POST':
+        core.fungsi              = request.POST.get('fungsi', '').strip() or None
+        core.status              = request.POST.get('status', 'spare')
+        core.otdr_jarak_km       = request.POST.get('otdr_jarak_km') or None
+        core.otdr_redaman_db     = request.POST.get('otdr_redaman_db') or None
+        core.otdr_redaman_per_km = request.POST.get('otdr_redaman_per_km') or None
+        core.otdr_tanggal        = request.POST.get('otdr_tanggal') or None
+        core.otdr_catatan        = request.POST.get('otdr_catatan', '').strip() or None
+        core.keterangan          = request.POST.get('keterangan', '').strip() or None
+        core.save()
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'ok': True})
+    return redirect('fiber_optic_detail', pk=fo_pk)
+
+
+@login_required
+@require_can_delete
+def fiber_optic_delete(request, pk):
+    from .models import FiberOptic
+    fo = get_object_or_404(FiberOptic, pk=pk)
+    if request.method == 'POST':
+        fo.delete()
+    return redirect('fiber_optic_list')
+
+
+def api_fiber_optic_json(request):
+    """API: semua segmen FO sebagai JSON untuk JS autocomplete di form gangguan."""
+    from .models import FiberOptic
+    data = list(
+        FiberOptic.objects.all().order_by('nama').values(
+            'id', 'nama', 'lokasi_a', 'lokasi_b',
+            'tipe_kabel', 'tipe_konektor', 'jumlah_core',
+            'panjang_km', 'status',
+        )
+    )
+    for d in data:
+        if d['panjang_km']:
+            d['panjang_km'] = str(d['panjang_km'])
+    return JsonResponse({'fiber_optic': data})
 
 @login_required
 @require_can_edit
@@ -606,11 +1198,18 @@ def icon_delete(request, pk):
 @login_required
 def device_qr(request, pk):
     device = get_object_or_404(Device, pk=pk)
-    # Gunakan public page URL — bisa dibuka tanpa login
+    from django.urls import reverse
     if device.public_token:
-        public_url = request.build_absolute_uri(f'/public/{device.public_token}/')
+        public_url = request.build_absolute_uri(
+            reverse('device_public', args=[device.public_token])
+        )
     else:
-        public_url = request.build_absolute_uri(f'/view/{pk}/')
+        import secrets
+        device.public_token = secrets.token_urlsafe(20)
+        device.save(update_fields=['public_token'])
+        public_url = request.build_absolute_uri(
+            reverse('device_public', args=[device.public_token])
+        )
     return render(request, 'devices/device_qr.html', {
         'device':     device,
         'detail_url': public_url,
@@ -854,9 +1453,11 @@ def device_event_add(request, pk):
 
     if request.method == 'POST':
         from devices.models import DeviceEvent
+        from devices.models_komponen import DeviceComponent
         tipe          = request.POST.get('tipe', '').strip()
         tanggal       = request.POST.get('tanggal', '')
         komponen      = request.POST.get('komponen', '').strip()
+        komponen_terkait_pk = request.POST.get('komponen_terkait_id', '') or None
         nilai_lama    = request.POST.get('nilai_lama', '').strip()
         nilai_baru    = request.POST.get('nilai_baru', '').strip()
         lokasi_asal   = request.POST.get('lokasi_asal', '').strip()
@@ -864,12 +1465,17 @@ def device_event_add(request, pk):
         catatan       = request.POST.get('catatan', '').strip()
         foto          = request.FILES.get('foto')
 
+        komponen_terkait_obj = None
+        if komponen_terkait_pk:
+            komponen_terkait_obj = DeviceComponent.objects.filter(pk=komponen_terkait_pk).first()
+
         if tipe and tanggal:
             event = DeviceEvent(
                 device        = device,
                 tipe          = tipe,
                 tanggal       = tanggal,
                 komponen      = komponen,
+                komponen_terkait = komponen_terkait_obj,
                 nilai_lama    = nilai_lama,
                 nilai_baru    = nilai_baru,
                 lokasi_asal   = lokasi_asal,
@@ -893,6 +1499,21 @@ def device_event_add(request, pk):
                 d_before.lokasi = old_lokasi
                 device_copy = copy.copy(device)
                 log_edit(d_before, device_copy, request.user)
+
+            # Auto-update status DeviceComponent
+            if komponen_terkait_obj:
+                from django.utils import timezone as _tz
+                if tipe == 'penggantian':
+                    komponen_terkait_obj.status = 'diganti'
+                    komponen_terkait_obj.tanggal_ganti = _tz.localdate()
+                    komponen_terkait_obj.save(update_fields=['status', 'tanggal_ganti', 'updated_at'])
+                elif tipe == 'pembongkaran':
+                    komponen_terkait_obj.status = 'tidak_ada'
+                    komponen_terkait_obj.save(update_fields=['status', 'updated_at'])
+                elif tipe in ('pemasangan', 'penambahan'):
+                    komponen_terkait_obj.status = 'terpasang'
+                    komponen_terkait_obj.tanggal_pasang = _tz.localdate()
+                    komponen_terkait_obj.save(update_fields=['status', 'tanggal_pasang', 'updated_at'])
 
     return redirect('device_view', pk=pk)
 
@@ -1013,12 +1634,148 @@ def device_public(request, token):
     if device.tahun_operasi:
         umur = date_type.today().year - device.tahun_operasi
 
+    # ── Inspeksi terakhir ─────────────────────────────────────────
+    last_inspection  = None
+    can_inspect      = False
+    inspection_url   = None
+    INSPECTABLE = ['Catu Daya', 'RELE DEFENSE SCHEME', 'MASTER TRIP', 'UFLS']
+
+    jenis_name = device.jenis.name if device.jenis else ''
+    if jenis_name in INSPECTABLE:
+        can_inspect = True
+        inspection_url = f'/inspection/form/{device.pk}/'
+        try:
+            from inspection.models import Inspection
+            last_inspection = (
+                Inspection.objects
+                .filter(device=device)
+                .select_related('operator')
+                .order_by('-tanggal')
+                .first()
+            )
+        except Exception:
+            pass
+
     return render(request, 'devices/device_public.html', {
-        'device':            device,
+        'device':             device,
         'maintenance_history': maintenance_history,
-        'gangguan_aktif':    gangguan_aktif,
-        'gangguan_selesai':  gangguan_selesai,
-        'health_index':      health_index,
-        'umur':              umur,
-        'now':               date_type.today(),
+        'gangguan_aktif':     gangguan_aktif,
+        'gangguan_selesai':   gangguan_selesai,
+        'health_index':       health_index,
+        'umur':               umur,
+        'now':                date_type.today(),
+        'last_inspection':    last_inspection,
+        'can_inspect':        can_inspect,
+        'inspection_url':     inspection_url,
     })
+
+
+# ── Peta Jaringan ─────────────────────────────────────────────────────────────
+
+@login_required
+def peta_jaringan(request):
+    """Halaman peta jaringan — marker per site diwarnai berdasarkan HI rata-rata."""
+    site_locations = SiteLocation.objects.filter(
+        latitude__isnull=False, longitude__isnull=False
+    ).order_by('nama')
+
+    all_lokasi = (
+        Device.objects
+        .filter(is_deleted=False)
+        .exclude(lokasi__isnull=True).exclude(lokasi__exact='')
+        .values_list('lokasi', flat=True)
+        .distinct()
+    )
+    total_lokasi    = all_lokasi.count()
+    total_berkoord  = site_locations.count()
+    total_tanpa     = total_lokasi - total_berkoord
+
+    return render(request, 'devices/peta_jaringan.html', {
+        'total_lokasi':   total_lokasi,
+        'total_berkoord': total_berkoord,
+        'total_tanpa':    total_tanpa,
+    })
+
+
+@login_required
+def api_peta_jaringan(request):
+    """
+    API JSON untuk peta jaringan.
+    Kembalikan semua site yang punya koordinat beserta:
+    - Daftar device + skor HI masing-masing
+    - Skor HI rata-rata site (untuk warna marker)
+    - Jumlah gangguan aktif dan maintenance open
+    """
+    from health_index.calculator import calculate_hi, get_kategori
+    from gangguan.models import Gangguan
+    from maintenance.models import Maintenance
+
+    site_locations = SiteLocation.objects.filter(
+        latitude__isnull=False, longitude__isnull=False
+    ).order_by('nama')
+
+    gangguan_per_lokasi = {}
+    for g in Gangguan.objects.filter(status__in=['open', 'in_progress']).select_related('peralatan'):
+        if g.peralatan:
+            lok = (g.peralatan.lokasi or '').strip()
+            gangguan_per_lokasi[lok] = gangguan_per_lokasi.get(lok, 0) + 1
+
+    maint_per_lokasi = {}
+    for m in Maintenance.objects.filter(status='Open').select_related('device'):
+        lok = (m.device.lokasi or '').strip()
+        maint_per_lokasi[lok] = maint_per_lokasi.get(lok, 0) + 1
+
+    result = []
+    for sl in site_locations:
+        devices = Device.objects.filter(
+            is_deleted=False, lokasi__iexact=sl.nama
+        ).select_related('jenis').order_by('jenis__name', 'nama')
+
+        device_list = []
+        scores = []
+        for dev in devices:
+            try:
+                hi = calculate_hi(dev, save_snapshot=False)
+                score = hi['score']
+                kat   = hi['kategori']
+            except Exception:
+                score = None
+                kat   = None
+
+            scores.append(score)
+            device_list.append({
+                'id':        dev.pk,
+                'nama':      dev.nama,
+                'jenis':     dev.jenis.name if dev.jenis else '\u2014',
+                'merk':      dev.merk or '',
+                'type':      dev.type or '',
+                'ip':        str(dev.ip_address) if dev.ip_address else '',
+                'status':    dev.status_operasi,
+                'hi_score':  score,
+                'hi_label':  kat['label']  if kat else '\u2014',
+                'hi_accent': kat['accent'] if kat else '#94a3b8',
+                'hi_icon':   kat['icon']   if kat else 'bi-circle',
+                'url':       f'/view/{dev.pk}/',
+                'hi_url':    f'/health-index/{dev.pk}/',
+            })
+
+        valid_scores = [s for s in scores if s is not None]
+        avg_score = round(sum(valid_scores) / len(valid_scores)) if valid_scores else None
+        site_kat  = get_kategori(avg_score) if avg_score is not None else None
+
+        result.append({
+            'nama':           sl.nama,
+            'lat':            sl.latitude,
+            'lng':            sl.longitude,
+            'keterangan':     sl.keterangan or '',
+            'total_device':   len(device_list),
+            'hi_avg':         avg_score,
+            'hi_label':       site_kat['label']  if site_kat else '\u2014',
+            'hi_accent':      site_kat['accent'] if site_kat else '#94a3b8',
+            'hi_bg':          site_kat['bg']     if site_kat else '#f1f5f9',
+            'gangguan_aktif': gangguan_per_lokasi.get(sl.nama, 0),
+            'maint_open':     maint_per_lokasi.get(sl.nama, 0),
+            'devices':        device_list,
+        })
+
+    return JsonResponse({'sites': result})

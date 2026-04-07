@@ -123,7 +123,8 @@ def jadwal_list(request):
 
     # Daftar tahun untuk filter
     tahun_list = list(range(date_type.today().year - 2, date_type.today().year + 3))
-    bulan_list = [(i, calendar.month_name[i]) for i in range(1, 13)]
+    bulan_list  = [(i, calendar.month_name[i]) for i in range(1, 13)]
+    minggu_list = [(0, 'Semua Minggu'), (1, 'Minggu 1'), (2, 'Minggu 2'), (3, 'Minggu 3'), (4, 'Minggu 4')]
 
     return render(request, 'jadwal/jadwal_list.html', {
         'jadwal_data':    jadwal_data,
@@ -135,24 +136,37 @@ def jadwal_list(request):
         'tahun_list':     tahun_list,
         'lokasi_list':    _get_lokasi_list(),
         'bulan_list':     bulan_list,
+        'minggu_list':    minggu_list,
+        'today_year':     date_type.today().year,
+        'today_month':    date_type.today().month,
     })
 
 
 @login_required
 @require_can_edit
 def jadwal_create(request):
-    """Buat jadwal kunjungan baru."""
+    """Buat jadwal kunjungan baru — tidak bisa backdate."""
+    from django.contrib import messages
     if request.method == 'POST':
-        lokasi       = request.POST.get('lokasi', '').strip()
-        bulan        = int(request.POST.get('bulan_rencana', 0))
-        tahun        = int(request.POST.get('tahun_rencana', 0))
-        catatan      = request.POST.get('catatan', '').strip()
+        lokasi  = request.POST.get('lokasi', '').strip()
+        bulan   = int(request.POST.get('bulan_rencana', 0))
+        tahun   = int(request.POST.get('tahun_rencana', 0))
+        minggu  = int(request.POST.get('minggu_rencana', 0))
+        catatan = request.POST.get('catatan', '').strip()
 
         if lokasi and bulan and tahun:
+            today = date_type.today()
+
+            # Validasi backdate: tidak boleh bulan/tahun yang sudah lewat
+            if (tahun < today.year) or (tahun == today.year and bulan < today.month):
+                messages.error(request, 'Tidak dapat membuat jadwal untuk bulan yang sudah lewat.')
+                return redirect('jadwal_list')
+
             jadwal, created = JadwalKunjungan.objects.get_or_create(
                 lokasi=lokasi.upper(),
                 bulan_rencana=bulan,
                 tahun_rencana=tahun,
+                minggu_rencana=minggu,
                 defaults={'catatan': catatan, 'created_by': request.user}
             )
             return redirect('jadwal_detail', pk=jadwal.pk)

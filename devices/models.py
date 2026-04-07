@@ -48,7 +48,7 @@ class Device(models.Model):
     type = models.CharField(max_length=100, blank=True, null=True)
     serial_number = models.CharField(max_length=100, blank=True, null=True)
     firmware_version = models.CharField(max_length=100, blank=True, null=True)
-    ip_address = models.GenericIPAddressField(blank=True, null=True)
+    ip_address = models.GenericIPAddressField(blank=True, null=True, unique=True)
     lokasi = models.CharField(max_length=150)
     STATUS_CHOICES = (
         ('operasi', 'Operasi'),
@@ -117,6 +117,29 @@ class Icon(models.Model):
         return self.name
 
 
+class ULTG(models.Model):
+    """Unit Layanan Transmisi dan Gardu Induk — membawahi beberapa SiteLocation."""
+    nama     = models.CharField(max_length=100, unique=True, verbose_name='Nama ULTG',
+                                help_text='Contoh: ULTG Makassar, ULTG Pare-Pare')
+    lokasi   = models.ManyToManyField(
+        'SiteLocation', blank=True,
+        verbose_name='Lokasi / GI yang dibawahi',
+        help_text='Pilih semua Gardu Induk yang berada di bawah ULTG ini'
+    )
+    keterangan = models.TextField(blank=True, verbose_name='Keterangan')
+
+    class Meta:
+        verbose_name      = 'ULTG'
+        verbose_name_plural = 'ULTG'
+        ordering          = ['nama']
+
+    def __str__(self):
+        return self.nama
+
+    def get_lokasi_names(self):
+        return list(self.lokasi.values_list('nama', flat=True))
+
+
 class SiteLocation(models.Model):
     """Menyimpan koordinat GPS untuk setiap site/lokasi peralatan."""
     nama = models.CharField(
@@ -145,6 +168,7 @@ class SiteLocation(models.Model):
 class UserProfile(models.Model):
     ROLE_CHOICES = (
         ('viewer',           'Viewer (Hanya Lihat)'),
+        ('operator',         'Operator'),
         ('technician',       'Teknisi / Engineer'),
         ('asisten_manager',  'Asisten Manager Operasi'),
     )
@@ -153,6 +177,19 @@ class UserProfile(models.Model):
     display_name = models.CharField(max_length=150, blank=True, default='', verbose_name='Nama Tampilan / Alias',
                                     help_text='Nama lengkap yang akan muncul di PDF (opsional). Jika kosong, pakai nama akun.')
     signature    = models.ImageField(upload_to='signatures/', blank=True, null=True, verbose_name='Tanda Tangan')
+    force_password_change = models.BooleanField(
+        default=True, verbose_name='Wajib Ganti Password',
+        help_text='Jika aktif, user akan diarahkan ke halaman ganti password saat login berikutnya.'
+    )
+    active_session_key = models.CharField(
+        max_length=40, blank=True, default='', verbose_name='Session Key Aktif',
+        help_text='Session key dari sesi login terakhir. Otomatis diperbarui saat login.'
+    )
+    ultg = models.ForeignKey(
+        'ULTG', on_delete=models.SET_NULL, null=True, blank=True,
+        verbose_name='ULTG', related_name='operators',
+        help_text='Untuk role Operator — ULTG yang dilayani. Inspeksi hanya menampilkan lokasi ULTG ini.'
+    )
 
     class Meta:
         verbose_name = 'Profil Pengguna'
@@ -172,6 +209,10 @@ class UserProfile(models.Model):
     @property
     def is_viewer(self):
         return self.role == 'viewer'
+
+    @property
+    def is_operator(self):
+        return self.role == 'operator'
 
     # ── Permission shortcuts ──────────────────────────────────────
     @property
@@ -197,6 +238,27 @@ class UserProfile(models.Model):
     def get_display_name(self):
         """Nama yang ditampilkan di PDF: alias > full_name > username."""
         return self.display_name.strip() or self.user.get_full_name() or self.user.username
+
+class UserLoginLog(models.Model):
+    """Mencatat riwayat login dan logout setiap pengguna."""
+    ACTION_CHOICES = (
+        ('login',  'Login'),
+        ('logout', 'Logout'),
+    )
+    user       = models.ForeignKey(User, on_delete=models.CASCADE, related_name='login_logs')
+    action     = models.CharField(max_length=10, choices=ACTION_CHOICES)
+    timestamp  = models.DateTimeField(auto_now_add=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.CharField(max_length=300, blank=True, default='')
+
+    class Meta:
+        ordering = ['-timestamp']
+        verbose_name = 'Log Login'
+        verbose_name_plural = 'Log Login'
+
+    def __str__(self):
+        return f"{self.user.username} — {self.action} @ {self.timestamp:%Y-%m-%d %H:%M}"
+
 
 class DeviceLog(models.Model):
     """
@@ -285,6 +347,14 @@ class DeviceEvent(models.Model):
         verbose_name='Terkait Gangguan',
         help_text='Opsional — hubungkan ke tiket gangguan terkait'
     )
+    komponen_terkait = models.ForeignKey(
+        'devices.DeviceComponent',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='device_events',
+        verbose_name='Komponen Terkait',
+        help_text='Opsional — pilih komponen spesifik dari database'
+    )
     created_at      = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -333,3 +403,180 @@ class DeviceEvent(models.Model):
         if not self.dilakukan_oleh:
             return '—'
         return self.dilakukan_oleh.get_full_name() or self.dilakukan_oleh.username
+
+
+
+class FiberOptic(models.Model):
+    """Inventaris segmen kabel fiber optic."""
+
+    TIPE_KABEL_CHOICES = (
+        ('ADSS',  'ADSS (All-Dielectric Self-Supporting)'),
+        ('OPGW',  'OPGW (Optical Ground Wire)'),
+        ('DROP',  'Drop Cable'),
+    )
+
+    TIPE_KONEKTOR_CHOICES = (
+        ('SC',     'SC (subscriber Connector)'),
+        ('LC',     'LC (Lucent Connector)'),
+        ('FC',     'FC (Ferrule Connector)'),
+        ('lainnya','Lainnya'),
+    )
+
+    STATUS_CHOICES = (
+        ('baik',           'Baik'),
+        ('gangguan',       'Gangguan'),
+        ('dalam_perbaikan','Dalam Perbaikan'),
+        ('tidak_aktif',    'Tidak Aktif'),
+    )
+
+    # ── Identitas ────────────────────────────────────────────────
+    nama         = models.CharField(max_length=200, verbose_name='Nama Segmen',
+                                    help_text='Misal: Link FO GI Tello – GI Barru')
+    lokasi_a     = models.CharField(max_length=150, verbose_name='Titik A (Asal)')
+    lokasi_b     = models.CharField(max_length=150, verbose_name='Titik B (Tujuan)')
+
+    # ── Spesifikasi kabel ────────────────────────────────────────
+    tipe_kabel      = models.CharField(max_length=20, choices=TIPE_KABEL_CHOICES,
+                                       blank=True, null=True, verbose_name='Tipe Kabel')
+    tipe_konektor   = models.CharField(max_length=20, choices=TIPE_KONEKTOR_CHOICES,
+                                       blank=True, null=True, verbose_name='Tipe Konektor')
+    jumlah_core     = models.PositiveIntegerField(blank=True, null=True,
+                                                   verbose_name='Jumlah Core')
+    panjang_km      = models.DecimalField(max_digits=8, decimal_places=2,
+                                          blank=True, null=True, verbose_name='Panjang (km)')
+
+    # ── Info operasional ─────────────────────────────────────────
+    tahun_pasang    = models.PositiveIntegerField(blank=True, null=True,
+                                                   verbose_name='Tahun Pemasangan')
+    status          = models.CharField(max_length=20, choices=STATUS_CHOICES,
+                                       default='baik', verbose_name='Status')
+    keterangan      = models.TextField(blank=True, null=True, verbose_name='Keterangan')
+
+    # ── Metadata ─────────────────────────────────────────────────
+    created_at   = models.DateTimeField(auto_now_add=True)
+    updated_at   = models.DateTimeField(auto_now=True)
+    created_by   = models.ForeignKey(
+        'auth.User', on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='fiber_dibuat',
+        verbose_name='Dibuat Oleh',
+    )
+
+    class Meta:
+        verbose_name        = 'Fiber Optic'
+        verbose_name_plural = 'Fiber Optic'
+        ordering            = ['nama']
+
+    def __str__(self):
+        return f'{self.nama} ({self.lokasi_a} ↔ {self.lokasi_b})'
+
+    @property
+    def status_color(self):
+        return {
+            'baik':           '#10b981',
+            'gangguan':       '#ef4444',
+            'dalam_perbaikan':'#f59e0b',
+            'tidak_aktif':    '#94a3b8',
+        }.get(self.status, '#94a3b8')
+
+    @property
+    def status_bg(self):
+        return {
+            'baik':           '#dcfce7',
+            'gangguan':       '#fee2e2',
+            'dalam_perbaikan':'#fef3c7',
+            'tidak_aktif':    '#f1f5f9',
+        }.get(self.status, '#f1f5f9')
+
+class FiberOpticCore(models.Model):
+    """Detail per-core dari satu segmen fiber optic."""
+
+    STATUS_CORE_CHOICES = (
+        ('aktif',     'Aktif / Digunakan'),
+        ('spare',     'Spare / Cadangan'),
+        ('rusak',     'Rusak / Putus'),
+        ('tidak_aktif','Tidak Aktif'),
+    )
+
+    fiber_optic  = models.ForeignKey(
+        FiberOptic, on_delete=models.CASCADE,
+        related_name='cores', verbose_name='Segmen FO',
+    )
+    nomor_core   = models.PositiveIntegerField(verbose_name='Nomor Core')
+    fungsi       = models.CharField(
+        max_length=200, blank=True, null=True,
+        verbose_name='Fungsi / Digunakan Untuk',
+        help_text='Misal: Link SCADA GI Tello–Barru, VoIP Kantor, Spare',
+    )
+    status       = models.CharField(
+        max_length=20, choices=STATUS_CORE_CHOICES,
+        default='spare', verbose_name='Status Core',
+    )
+
+    # ── Hasil OTDR ───────────────────────────────────────────────
+    otdr_jarak_km    = models.DecimalField(
+        max_digits=8, decimal_places=3,
+        blank=True, null=True,
+        verbose_name='OTDR Jarak (km)',
+        help_text='Jarak total atau jarak ke titik gangguan',
+    )
+    otdr_redaman_db  = models.DecimalField(
+        max_digits=6, decimal_places=3,
+        blank=True, null=True,
+        verbose_name='OTDR Redaman (dB)',
+        help_text='Total redaman kabel',
+    )
+    otdr_redaman_per_km = models.DecimalField(
+        max_digits=5, decimal_places=3,
+        blank=True, null=True,
+        verbose_name='Redaman per km (dB/km)',
+    )
+    otdr_tanggal     = models.DateField(
+        blank=True, null=True,
+        verbose_name='Tanggal Pengukuran OTDR',
+    )
+    otdr_catatan     = models.TextField(
+        blank=True, null=True,
+        verbose_name='Catatan OTDR',
+        help_text='Temuan, anomali, atau catatan hasil pengukuran',
+    )
+
+    keterangan   = models.TextField(blank=True, null=True, verbose_name='Keterangan')
+    updated_at   = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name        = 'Core Fiber Optic'
+        verbose_name_plural = 'Core Fiber Optic'
+        ordering            = ['fiber_optic', 'nomor_core']
+        unique_together     = [('fiber_optic', 'nomor_core')]
+
+    def __str__(self):
+        return f'Core {self.nomor_core} — {self.fiber_optic.nama}'
+
+    @property
+    def status_color(self):
+        return {
+            'aktif':      '#10b981',
+            'spare':      '#3b82f6',
+            'rusak':      '#ef4444',
+            'tidak_aktif':'#94a3b8',
+        }.get(self.status, '#94a3b8')
+
+    @property
+    def status_bg(self):
+        return {
+            'aktif':      '#dcfce7',
+            'spare':      '#eff6ff',
+            'rusak':      '#fee2e2',
+            'tidak_aktif':'#f1f5f9',
+        }.get(self.status, '#f1f5f9')
+
+
+# ── Import model komponen agar ikut migrasi ──────────────────
+from devices.models_komponen import (  # noqa: E402, F401
+    GrupTipeKomponen, TipeKomponen,
+    DeviceComponent,
+    SpecRouterPort, SpecMuxSlot, SpecPSU,
+    SpecRectifierModul, SpecBattery, SpecBatteryCell,
+    SpecRadioModul, SpecPLCModul,
+)

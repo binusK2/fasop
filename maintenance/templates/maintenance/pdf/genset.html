@@ -1,0 +1,93 @@
+{% extends 'maintenance/pdf/_base.html' %}
+{% block content %}
+
+<div class="sec">II.&nbsp;&nbsp;PERANGKAT PENDUKUNG</div>
+<table>
+    <tr>
+        <td class="lbl" style="width:22%;">Air Accu</td>
+        <td style="width:12%;">{% if genset.air_accu %}{{ genset.air_accu }} %{% else %}-{% endif %}</td>
+        <td class="lbl" style="width:22%;">Tegangan Batere</td>
+        <td style="width:12%;">{% if genset.tegangan_batere %}{{ genset.tegangan_batere }} VDC{% else %}-{% endif %}</td>
+        <td class="lbl" style="width:16%;">Arus Pengisian</td>
+        <td>{% if genset.arus_pengisian %}{{ genset.arus_pengisian }} A{% else %}-{% endif %}</td>
+    </tr>
+    <tr>
+        <td class="lbl">Tegangan Charger</td>
+        <td>{% if genset.tegangan_charger %}{{ genset.tegangan_charger }} VDC{% else %}-{% endif %}</td>
+        <td class="lbl">Arus Beban Charger</td>
+        <td>{% if genset.arus_beban_charger %}{{ genset.arus_beban_charger }} A{% else %}-{% endif %}</td>
+        <td></td><td></td>
+    </tr>
+</table>
+
+<div class="sec">III.&nbsp;&nbsp;PERANGKAT UTAMA GENSET</div>
+<table>
+    <tr>
+        <td class="lbl" style="width:22%;">Air Radiator</td>
+        <td style="width:12%;">{% if genset.radiator %}{{ genset.radiator }} %{% else %}-{% endif %}</td>
+        <td class="lbl" style="width:22%;">MCB</td>
+        <td style="width:12%;">{{ genset.mcb|default:"-" }}</td>
+        <td class="lbl" style="width:16%;">Pelumas</td>
+        <td>{{ genset.pelumas|default:"-" }}</td>
+    </tr>
+    <tr>
+        <td class="lbl">Tangki BBM Sebelum</td>
+        <td>{% if genset.tangki_bbm_sebelum %}{{ genset.tangki_bbm_sebelum }} %{% else %}-{% endif %}</td>
+        <td class="lbl">Tangki BBM Sesudah</td>
+        <td>{% if genset.tangki_bbm_sesudah %}{{ genset.tangki_bbm_sesudah }} %{% else %}-{% endif %}</td>
+        <td class="lbl">BBM Terpakai</td>
+        <td>{% if genset.bbm_terpakai is not None %}{{ genset.bbm_terpakai }} %{% else %}-{% endif %}</td>
+    </tr>
+</table>
+
+<div class="sec">IV.&nbsp;&nbsp;PENGUJIAN (Transisi: {% if genset.waktu_transisi %}{{ genset.waktu_transisi }} detik{% else %}-{% endif %})</div>
+<table>
+    <tr>
+        <th class="lbl" style="width:16%;">Pengujian</th>
+        <th class="lbl" style="width:10%;">Sub</th>
+        <th style="width:16%;background:#DBEAFE;text-align:center;font-weight:bold;">Supply PLN</th>
+        <th style="width:8%;background:#DBEAFE;text-align:center;font-size:6pt;color:#1d4ed8;">Ref</th>
+        <th style="width:16%;background:#DCFCE7;text-align:center;font-weight:bold;">Supply Genset</th>
+        <th style="width:8%;background:#DCFCE7;text-align:center;font-size:6pt;color:#166534;">Ref</th>
+    </tr>
+    {% for row in genset_rows %}
+    <tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %}>
+        {% if row.rowspan %}<td class="lbl" rowspan="{{ row.rowspan }}" style="vertical-align:middle;">{{ row.item }}</td>{% endif %}
+        <td>{{ row.sub }}</td>
+        <td class="vb">{{ row.pln|default:"-" }}</td>
+        <td class="vg">{{ row.ref }}</td>
+        <td class="vb">{{ row.gen|default:"-" }}</td>
+        <td class="vg">{{ row.ref }}</td>
+    </tr>
+    {% endfor %}
+</table>
+
+<div class="two-col">
+    <div>
+        <div class="sec">V.&nbsp;&nbsp;MDF CUBICLE</div>
+        <table>
+            <tr><td class="lbl" style="width:60%;">Tekanan Oli</td><td class="vb">{% if genset.oil_pressure %}{{ genset.oil_pressure }} kPa{% else %}-{% endif %}</td></tr>
+            <tr class="alt"><td class="lbl">Temperatur Mesin</td><td class="vb">{% if genset.engine_temperature %}{{ genset.engine_temperature }} °C{% else %}-{% endif %}</td></tr>
+            <tr><td class="lbl">Kondisi Batere</td><td class="vb">{% if genset.batere_condition %}{{ genset.batere_condition }} VDC{% else %}-{% endif %}</td></tr>
+            <tr class="alt"><td class="lbl">RPM</td><td class="vb">{{ genset.rpm|default:"-" }}</td></tr>
+        </table>
+    </div>
+    <div>
+        <div class="sec">VI.&nbsp;&nbsp;COUNTER &amp; JAM OPERASI</div>
+        <table>
+            <tr><td class="lbl" style="width:60%;">Counter Hour (Saat Start)</td><td class="vb">{{ genset.counter_sebelum|default:"-" }}</td></tr>
+            <tr class="alt"><td class="lbl">Counter Hour (Saat Stop)</td><td class="vb">{{ genset.counter_sesudah|default:"-" }}</td></tr>
+            <tr><td class="lbl">Selisih Counter</td><td class="vb">{% if genset.selisih_counter is not None %}{{ genset.selisih_counter }} jam{% else %}-{% endif %}</td></tr>
+            <tr class="alt"><td class="lbl">Waktu Start</td><td class="vb">{{ genset.waktu_start|default:"-" }} WITA</td></tr>
+            <tr><td class="lbl">Waktu Stop</td><td class="vb">{{ genset.waktu_stop|default:"-" }} WITA</td></tr>
+            <tr class="alt"><td class="lbl">Durasi Operasi</td><td class="vb">{% if genset.durasi_menit is not None %}{{ genset.durasi_menit }} Menit{% else %}-{% endif %}</td></tr>
+        </table>
+    </div>
+</div>
+
+{% if catatan %}
+<div class="sec">VII.&nbsp;&nbsp;CATATAN</div>
+<table><tr><td style="min-height:8mm;">{{ catatan }}</td></tr></table>
+{% endif %}
+
+{% endblock %}

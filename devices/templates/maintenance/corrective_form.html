@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
-{% block title %}Corrective Maintenance — FASOP{% endblock %}
-{% block page_title %}Corrective Maintenance{% endblock %}
+{% block title %}{% if is_edit %}Edit{% else %}Tambah{% endif %} Corrective Maintenance — FASOP{% endblock %}
+{% block page_title %}{% if is_edit %}Edit{% else %}Tambah{% endif %} Corrective Maintenance{% endblock %}
 
 {% block content %}
 <style>
@@ -14,7 +14,11 @@
 </style>
 
 <div class="d-flex align-items-center gap-2 mb-4">
-    {% if from_gangguan and gangguan_init %}
+    {% if is_edit %}
+    <a href="{% url 'maintenance_view' maintenance.id %}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Kembali ke Detail
+    </a>
+    {% elif from_gangguan and gangguan_init %}
     <a href="{% url 'gangguan_detail' gangguan_init.pk %}" class="btn btn-sm btn-outline-secondary">
         <i class="bi bi-arrow-left me-1"></i>Kembali ke Gangguan
     </a>
@@ -43,10 +47,13 @@
 </div>
 {% endif %}
 
-<form method="post" enctype="multipart/form-data">
+<form method="post" enctype="multipart/form-data"
+    {% if is_edit %}action="{% url 'corrective_edit' maintenance.id %}"{% endif %}>
 {% csrf_token %}
+{% if not is_edit %}
 {% if gangguan_init %}<input type="hidden" name="gangguan_id" value="{{ gangguan_init.pk }}">{% endif %}
 {% if device_init %}<input type="hidden" name="device_id" value="{{ device_init.pk }}">{% endif %}
+{% endif %}
 
 <div class="row g-3">
 <div class="col-lg-8">
@@ -85,9 +92,21 @@
                            value="{{ today_date }}" required>
                 </div>
                 <div class="col-12">
-                    <label class="cf-label">Pelaksana</label>
-                    <input type="text" name="pelaksana_names" class="form-control"
-                           placeholder="Nama pelaksana, pisahkan dengan koma">
+                    <label class="cf-label">Pelaksana / PIC</label>
+                    {# Hidden JSON yang dikirim ke server #}
+                    <input type="hidden" id="id_pelaksana_corrective" name="pelaksana_names_input"
+                           value="{{ pelaksana_init_json|default:'[]' }}">
+                    <div id="pelaksana-tag-box-corr"
+                         style="min-height:44px;border:1px solid #e2e8f0;border-radius:8px;
+                                padding:6px 10px;background:#f8fafc;cursor:text;display:flex;flex-wrap:wrap;align-items:center;gap:5px;"
+                         onclick="document.getElementById('pelaksana-text-corr').focus();">
+                        <div id="pelaksana-tags-corr" style="display:contents;"></div>
+                        <input id="pelaksana-text-corr" type="text"
+                               placeholder="Ketik nama, tekan Enter…"
+                               autocomplete="off"
+                               style="border:none;outline:none;background:transparent;font-size:13px;min-width:140px;flex:1;">
+                    </div>
+                    <div class="form-text">Ketik nama lalu tekan <kbd>Enter</kbd> untuk menambahkan.</div>
                 </div>
             </div>
         </div>
@@ -102,37 +121,39 @@
                     <label class="cf-label">Jenis Kerusakan</label>
                     <select name="jenis_kerusakan" class="form-select">
                         <option value="">— Pilih —</option>
-                        <option value="hardware">🔧 Hardware / Fisik</option>
-                        <option value="software">💻 Software / Konfigurasi</option>
-                        <option value="power">⚡ Power / Catu Daya</option>
-                        <option value="komunikasi">📡 Komunikasi / Jaringan</option>
-                        <option value="mekanik">🔩 Mekanik / Konektor</option>
-                        <option value="lainnya">📋 Lainnya</option>
+                        <option value="hardware" {% if corr.jenis_kerusakan == 'hardware' %}selected{% endif %}>🔧 Hardware / Fisik</option>
+                        <option value="software" {% if corr.jenis_kerusakan == 'software' %}selected{% endif %}>💻 Software / Konfigurasi</option>
+                        <option value="power" {% if corr.jenis_kerusakan == 'power' %}selected{% endif %}>⚡ Power / Catu Daya</option>
+                        <option value="komunikasi" {% if corr.jenis_kerusakan == 'komunikasi' %}selected{% endif %}>📡 Komunikasi / Jaringan</option>
+                        <option value="mekanik" {% if corr.jenis_kerusakan == 'mekanik' %}selected{% endif %}>🔩 Mekanik / Konektor</option>
+                        <option value="lainnya" {% if corr.jenis_kerusakan == 'lainnya' %}selected{% endif %}>📋 Lainnya</option>
                     </select>
                 </div>
                 <div class="col-md-6">
                     <label class="cf-label">Status Perbaikan <span class="req">*</span></label>
                     <select name="status_perbaikan" class="form-select" required>
-                        <option value="selesai">✅ Selesai</option>
-                        <option value="perlu_tindaklanjut">⚠️ Perlu Tindak Lanjut</option>
+                        <option value="selesai" {% if not corr or corr.status_perbaikan == 'selesai' %}selected{% endif %}>✅ Selesai</option>
+                        <option value="perlu_tindaklanjut" {% if corr.status_perbaikan == 'perlu_tindaklanjut' %}selected{% endif %}>⚠️ Perlu Tindak Lanjut</option>
                     </select>
                 </div>
                 <div class="col-12">
                     <label class="cf-label">Deskripsi Masalah / Kerusakan <span class="req">*</span></label>
                     <textarea name="deskripsi_masalah" class="form-control" rows="3" required
-                              placeholder="Jelaskan kondisi kerusakan yang ditemukan..."></textarea>
+                              placeholder="Jelaskan kondisi kerusakan yang ditemukan...">{{ corr.deskripsi_masalah }}</textarea>
                 </div>
                 <div class="col-12">
                     <label class="cf-label">Tindakan yang Dilakukan <span class="req">*</span></label>
                     <textarea name="tindakan" class="form-control" rows="3" required
-                              placeholder="Jelaskan langkah perbaikan yang dilakukan..."></textarea>
+                              placeholder="Jelaskan langkah perbaikan yang dilakukan...">{{ corr.tindakan }}</textarea>
                 </div>
                 <div class="col-md-4">
                     <label class="cf-label">Durasi Perbaikan</label>
                     <div class="input-group">
-                        <input type="number" name="durasi_jam" class="form-control" placeholder="0" min="0">
+                        <input type="number" name="durasi_jam" class="form-control" placeholder="0" min="0"
+                               value="{{ corr.durasi_jam|default:'' }}">
                         <span class="input-group-text">jam</span>
-                        <input type="number" name="durasi_menit" class="form-control" placeholder="0" min="0" max="59">
+                        <input type="number" name="durasi_menit" class="form-control" placeholder="0" min="0" max="59"
+                               value="{{ corr.durasi_menit|default:'' }}">
                         <span class="input-group-text">menit</span>
                     </div>
                 </div>
@@ -147,33 +168,61 @@
             <div class="form-check form-switch mb-3">
                 <input class="form-check-input" type="checkbox" name="komponen_diganti"
                        id="switchKomponen" onchange="toggleKomponen(this)"
-                       style="width:40px;height:22px;cursor:pointer;">
+                       style="width:40px;height:22px;cursor:pointer;"
+                       {% if corr.komponen_diganti %}checked{% endif %}>
                 <label class="form-check-label ms-2" for="switchKomponen"
                        style="font-size:13px;font-weight:600;color:#475569;">
                     Ada komponen yang diganti
                 </label>
             </div>
-            <div id="fieldKomponen" style="display:none;">
+            <div id="fieldKomponen" style="display:{% if corr.komponen_diganti %}block{% else %}none{% endif %};">
                 <div style="background:#f5f3ff;border-radius:10px;padding:16px;border:1px solid #ddd6fe;">
                     <div style="font-size:11px;color:#7c3aed;font-weight:600;margin-bottom:12px;">
                         <i class="bi bi-info-circle me-1"></i>
-                        Data ini akan otomatis tercatat di Riwayat Kejadian perangkat.
+                        Data ini akan otomatis tercatat di Riwayat Kejadian perangkat dan mengupdate status komponen.
                     </div>
                     <div class="row g-3">
+                        {# Dropdown komponen dari database DeviceComponent #}
+                        <div class="col-12" id="komponen-terkait-wrapper"
+                             style="display:{% if corr.komponen_terkait_id %}block{% else %}none{% endif %};">
+                            <label class="cf-label">
+                                <i class="bi bi-diagram-3 me-1" style="color:#7c3aed;"></i>
+                                Pilih Komponen dari Database
+                            </label>
+                            <select name="komponen_terkait" id="id_komponen_terkait" class="form-select">
+                                <option value="">— Pilih komponen (opsional) —</option>
+                                {% if corr.komponen_terkait %}
+                                <option value="{{ corr.komponen_terkait.pk }}" selected>
+                                    {{ corr.komponen_terkait.nama }}
+                                    {% if corr.komponen_terkait.posisi %}[{{ corr.komponen_terkait.posisi }}]{% endif %}
+                                </option>
+                                {% endif %}
+                            </select>
+                            <div class="form-text" style="font-size:11px;color:#7c3aed;">
+                                Komponen yang dipilih akan otomatis diupdate statusnya menjadi "Sudah Diganti".
+                            </div>
+                        </div>
+
                         <div class="col-12">
                             <label class="cf-label">Nama Komponen</label>
-                            <input type="text" name="nama_komponen" class="form-control"
-                                   placeholder="Contoh: PSU, Modul CPU, Battery, Kabel...">
+                            <input type="text" name="nama_komponen" id="id_nama_komponen" class="form-control"
+                                   placeholder="Contoh: PSU, Modul CPU, Battery, Kabel..."
+                                   value="{{ corr.nama_komponen }}">
+                            <div class="form-text" style="font-size:10.5px;color:#94a3b8;">
+                                Otomatis terisi jika memilih dari dropdown di atas. Bisa juga diisi manual.
+                            </div>
                         </div>
                         <div class="col-md-6">
                             <label class="cf-label">Kondisi Sebelum</label>
                             <input type="text" name="kondisi_sebelum" class="form-control"
-                                   placeholder="Merk/tipe lama, kondisi rusak...">
+                                   placeholder="Merk/tipe lama, kondisi rusak..."
+                                   value="{{ corr.kondisi_sebelum }}">
                         </div>
                         <div class="col-md-6">
                             <label class="cf-label">Kondisi Sesudah</label>
                             <input type="text" name="kondisi_sesudah" class="form-control"
-                                   placeholder="Merk/tipe baru, kondisi baik...">
+                                   placeholder="Merk/tipe baru, kondisi baik..."
+                                   value="{{ corr.kondisi_sesudah }}">
                         </div>
                     </div>
                 </div>
@@ -188,10 +237,22 @@
             <div class="row g-3">
                 <div class="col-md-6">
                     <label class="cf-label">Foto Sebelum</label>
+                    {% if corr.foto_sebelum %}
+                    <div class="mb-2">
+                        <img src="{{ corr.foto_sebelum.url }}" style="width:100%;height:120px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0;">
+                        <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Upload baru untuk ganti foto</div>
+                    </div>
+                    {% endif %}
                     <input type="file" name="foto_sebelum" class="form-control" accept="image/*">
                 </div>
                 <div class="col-md-6">
                     <label class="cf-label">Foto Sesudah</label>
+                    {% if corr.foto_sesudah %}
+                    <div class="mb-2">
+                        <img src="{{ corr.foto_sesudah.url }}" style="width:100%;height:120px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0;">
+                        <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Upload baru untuk ganti foto</div>
+                    </div>
+                    {% endif %}
                     <input type="file" name="foto_sesudah" class="form-control" accept="image/*">
                 </div>
             </div>
@@ -211,7 +272,7 @@
                     onchange="toggleUpdateGangguan()">
                 <option value="">— Tidak Terkait —</option>
                 {% for g in gangguan_aktif %}
-                <option value="{{ g.pk }}">{{ g.nomor_gangguan }} — {{ g.site }}</option>
+                <option value="{{ g.pk }}" {% if corr.gangguan.pk == g.pk %}selected{% endif %}>{{ g.nomor_gangguan }} — {{ g.site }}</option>
                 {% endfor %}
             </select>
             {% endif %}
@@ -247,9 +308,13 @@
     <div class="cf-card">
         <div class="cf-body">
             <button type="submit" class="btn btn-primary w-100 mb-2">
-                <i class="bi bi-check-lg me-1"></i>Simpan Corrective
+                <i class="bi bi-{% if is_edit %}floppy{% else %}check-lg{% endif %} me-1"></i>
+                {% if is_edit %}Simpan Perubahan{% else %}Simpan Corrective{% endif %}
             </button>
-            {% if gangguan_init %}
+            {% if is_edit %}
+            <a href="{% url 'maintenance_view' maintenance.id %}"
+               class="btn btn-outline-secondary w-100">Batal</a>
+            {% elif gangguan_init %}
             <a href="{% url 'gangguan_detail' gangguan_init.pk %}"
                class="btn btn-outline-secondary w-100">Batal</a>
             {% elif device_init %}
@@ -280,5 +345,120 @@ function toggleUpdateGangguan() {
 function toggleStatusGangguan(el) {
     document.getElementById('fieldStatusGangguan').style.display = el.checked ? 'block' : 'none';
 }
+
+// ── AJAX: Load komponen berdasarkan device ──────────────────
+function loadKomponenForCorrective(deviceId) {
+    var wrapper = document.getElementById('komponen-terkait-wrapper');
+    var select  = document.getElementById('id_komponen_terkait');
+
+    if (!deviceId) {
+        wrapper.style.display = 'none';
+        select.innerHTML = '<option value="">— Pilih komponen (opsional) —</option>';
+        return;
+    }
+
+    fetch('/api/device/' + deviceId + '/komponen/')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            select.innerHTML = '<option value="">— Pilih komponen (opsional) —</option>';
+            if (data.length > 0) {
+                data.forEach(function(k) {
+                    var opt = document.createElement('option');
+                    opt.value = k.id;
+                    var label = k.label;
+                    if (k.tipe && k.tipe !== '—') label += ' (' + k.tipe + ')';
+                    if (k.status === 'rusak') label += ' ⚠️ RUSAK';
+                    if (k.status === 'diganti') label += ' 🔄 SUDAH DIGANTI';
+                    opt.textContent = label;
+                    opt.dataset.nama = k.label;
+                    select.appendChild(opt);
+                });
+                wrapper.style.display = 'block';
+            } else {
+                wrapper.style.display = 'none';
+            }
+        })
+        .catch(function() {
+            wrapper.style.display = 'none';
+        });
+}
+
+// Auto-fill nama_komponen saat komponen dipilih dari dropdown
+document.getElementById('id_komponen_terkait').addEventListener('change', function() {
+    var selected = this.options[this.selectedIndex];
+    var namaInput = document.getElementById('id_nama_komponen');
+    if (this.value && selected.dataset.nama) {
+        namaInput.value = selected.dataset.nama;
+    }
+});
+
+// ── Inisialisasi: load komponen saat halaman dibuka ─────────
+(function() {
+    var deviceId = null;
+
+    {% if device_init %}
+    // Device sudah fixed (dari context)
+    deviceId = '{{ device_init.pk }}';
+    {% else %}
+    // Device dari dropdown select
+    var deviceSelect = document.querySelector('select[name="device_id"]');
+    if (deviceSelect) {
+        deviceId = deviceSelect.value;
+        deviceSelect.addEventListener('change', function() {
+            loadKomponenForCorrective(this.value);
+        });
+    }
+    {% endif %}
+
+    if (deviceId) {
+        loadKomponenForCorrective(deviceId);
+        // Restore pilihan komponen_terkait jika sedang edit
+        var initKomponenId = '{{ corr.komponen_terkait_id|default:"" }}';
+        if (initKomponenId) {
+            setTimeout(function() {
+                var sel = document.getElementById('id_komponen_terkait');
+                if (sel) sel.value = initKomponenId;
+            }, 500);
+        }
+    }
+})();
+
+// ── Tag-input Pelaksana (Corrective) ─────────────────────────
+(function() {
+    var initial = [];
+    try { initial = JSON.parse('{{ pelaksana_init_json|default:"[]"|escapejs }}'); } catch(e){}
+    var names      = initial.slice();
+    var tagsEl     = document.getElementById('pelaksana-tags-corr');
+    var textInput  = document.getElementById('pelaksana-text-corr');
+    var hiddenInput= document.getElementById('id_pelaksana_corrective');
+
+    function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    function sync() { hiddenInput.value = JSON.stringify(names); }
+    function render() {
+        tagsEl.innerHTML = '';
+        names.forEach(function(n, i) {
+            var span = document.createElement('span');
+            span.style.cssText = 'display:inline-flex;align-items:center;gap:4px;background:#dbeafe;color:#1d4ed8;border-radius:20px;padding:3px 10px;font-size:12px;font-weight:500;white-space:nowrap;';
+            span.innerHTML = '<i class="bi bi-person" style="font-size:11px;"></i><span>' + esc(n) + '</span>'
+                + '<span data-idx="' + i + '" style="cursor:pointer;font-size:14px;color:#93c5fd;margin-left:2px;" title="Hapus">&times;</span>';
+            span.querySelector('[data-idx]').addEventListener('click', function() {
+                names.splice(parseInt(this.dataset.idx), 1); render(); sync();
+            });
+            tagsEl.appendChild(span);
+        });
+        sync();
+    }
+    textInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            var val = textInput.value.trim();
+            if (val) { names.push(val); textInput.value = ''; render(); }
+        }
+        if (e.key === 'Backspace' && textInput.value === '' && names.length) {
+            names.pop(); render();
+        }
+    });
+    render();
+})();
 </script>
 {% endblock %}

@@ -55,22 +55,32 @@
             <span class="bar" style="background:#3b82f6;"></span>
             <span>Informasi Maintenance</span>
         </div>
-        <div class="row g-3">
-            <div class="col-md-3">
-                <label class="form-label">Jenis Maintenance</label>
-                {{ maintenance_form.maintenance_type }}
+        <!-- Baris 1: Jenis, Tanggal, Pelaksana -->
+        <div class="row g-3 align-items-start">
+            <div class="col-md-2">
+                <label class="form-label fw-semibold">Jenis Maintenance</label>
+                <div style="display:flex;align-items:center;gap:6px;background:#eff6ff;
+                            color:#1d4ed8;border:1.5px solid #bfdbfe;border-radius:8px;
+                            padding:8px 12px;font-size:13px;font-weight:700;white-space:nowrap;">
+                    <i class="bi bi-shield-check" style="font-size:14px;"></i> Preventive
+                </div>
+                <!-- hidden untuk submit tetap terkirim meski select disabled -->
+                <input type="hidden" name="maintenance_type" value="Preventive">
             </div>
             <div class="col-md-3">
-                <label class="form-label">Tanggal</label>
+                <label class="form-label fw-semibold">Tanggal</label>
                 {{ maintenance_form.date }}
             </div>
             {% include 'maintenance/_pelaksana_tag_input.html' %}
+        </div>
+        <!-- Baris 2: Deskripsi & Foto -->
+        <div class="row g-3 mt-1">
             <div class="col-md-8">
-                <label class="form-label">Deskripsi / Keluhan</label>
+                <label class="form-label fw-semibold">Deskripsi / Keluhan</label>
                 {{ maintenance_form.description }}
             </div>
             <div class="col-md-4">
-                <label class="form-label">Foto Dokumentasi</label>
+                <label class="form-label fw-semibold">Foto Dokumentasi</label>
                 {{ maintenance_form.photo }}
                 <div class="form-text">Format: JPG, PNG. Maks 10MB.</div>
             </div>

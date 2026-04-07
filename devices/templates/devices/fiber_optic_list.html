@@ -1,0 +1,264 @@
+{% extends 'base.html' %}
+{% block title %}Fiber Optic — FASOP{% endblock %}
+{% block page_title %}Fiber Optic{% endblock %}
+
+{% block content %}
+
+<!-- HEADER -->
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+    <div>
+        <h2 class="mb-0" style="font-size:20px;font-weight:700;">Inventaris Fiber Optic</h2>
+        <p class="text-muted mb-0" style="font-size:13px;">{{ total_fo }} segmen terdaftar</p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        <a href="{% url 'gangguan_create' %}?tipe=link" class="btn btn-danger btn-sm">
+            <i class="bi bi-exclamation-triangle-fill me-1"></i>Laporkan Gangguan FO
+        </a>
+        {% if user_can_edit %}
+        <a href="{% url 'fiber_optic_add' %}" class="btn btn-primary btn-sm">
+            <i class="bi bi-plus-lg me-1"></i>Tambah Segmen
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- SEARCH & FILTER -->
+<div class="card mb-3">
+    <div class="card-body py-2 px-3">
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-md-5">
+                <label class="form-label" style="font-size:12px;font-weight:600;color:#64748b;">Cari</label>
+                <input type="text" name="q" class="form-control form-control-sm"
+                    placeholder="Nama segmen / Lokasi A / Lokasi B..." value="{{ search|default:'' }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label" style="font-size:12px;font-weight:600;color:#64748b;">Status</label>
+                <select name="status" class="form-select form-select-sm">
+                    <option value="">Semua Status</option>
+                    {% for val, label in STATUS_CHOICES %}
+                    <option value="{{ val }}" {% if val == status_filter %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-auto d-flex gap-2">
+                <button class="btn btn-primary btn-sm"><i class="bi bi-funnel me-1"></i>Filter</button>
+                {% if search or status_filter %}
+                <a href="{% url 'fiber_optic_list' %}" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-x-lg me-1"></i>Reset
+                </a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- STATS -->
+<div class="row g-3 mb-3">
+    <div class="col-6 col-md-3">
+        <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:14px 18px;">
+            <div style="font-size:11px;font-weight:700;color:#065f46;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Total Segmen</div>
+            <div style="font-size:26px;font-weight:800;color:#065f46;">{{ total_fo }}</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:14px 18px;">
+            <div style="font-size:11px;font-weight:700;color:#1e40af;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Kondisi Baik</div>
+            <div style="font-size:26px;font-weight:800;color:#1e40af;">{{ total_baik }}</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:14px 18px;">
+            <div style="font-size:11px;font-weight:700;color:#991b1b;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Gangguan</div>
+            <div style="font-size:26px;font-weight:800;color:#991b1b;">{{ total_gangguan }}</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div style="background:#fdf4ff;border:1.5px solid #e9d5ff;border-radius:12px;padding:14px 18px;position:relative;overflow:hidden;">
+            {% if total_aktif > 0 %}
+            <div style="position:absolute;top:8px;right:10px;width:9px;height:9px;border-radius:50%;background:#9333ea;animation:pulse-dot 1.8s infinite;"></div>
+            {% endif %}
+            <div style="font-size:11px;font-weight:700;color:#6b21a8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;"><i class="bi bi-ticket-detailed me-1"></i>Tiket Aktif</div>
+            <div style="font-size:26px;font-weight:800;color:#6b21a8;">{{ total_aktif }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- TABLE -->
+<div class="table-card">
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th style="width:36px;">#</th>
+
+                    {% with col="nama" label="Nama Segmen" %}
+                    <th>
+                        <a href="?q={{ search }}&status={{ status_filter }}&sort={{ col }}&dir={% if sort_by == col and sort_dir == 'asc' %}desc{% else %}asc{% endif %}"
+                           style="text-decoration:none;color:inherit;display:inline-flex;align-items:center;gap:4px;">
+                            {{ label }}
+                            {% if sort_by == col %}<i class="bi bi-arrow-{% if sort_dir == 'asc' %}up{% else %}down{% endif %}-short" style="color:#3b82f6;"></i>
+                            {% else %}<i class="bi bi-arrow-down-up" style="color:#cbd5e1;font-size:10px;"></i>{% endif %}
+                        </a>
+                    </th>
+                    {% endwith %}
+
+                    {% with col="lokasi_a" label="Titik A" %}
+                    <th style="text-align:center;">
+                        <a href="?q={{ search }}&status={{ status_filter }}&sort={{ col }}&dir={% if sort_by == col and sort_dir == 'asc' %}desc{% else %}asc{% endif %}"
+                           style="text-decoration:none;color:inherit;display:inline-flex;align-items:center;gap:4px;">
+                            {{ label }}
+                            {% if sort_by == col %}<i class="bi bi-arrow-{% if sort_dir == 'asc' %}up{% else %}down{% endif %}-short" style="color:#3b82f6;"></i>
+                            {% else %}<i class="bi bi-arrow-down-up" style="color:#cbd5e1;font-size:10px;"></i>{% endif %}
+                        </a>
+                    </th>
+                    {% endwith %}
+
+                    {% with col="lokasi_b" label="Titik B" %}
+                    <th style="text-align:center;">
+                        <a href="?q={{ search }}&status={{ status_filter }}&sort={{ col }}&dir={% if sort_by == col and sort_dir == 'asc' %}desc{% else %}asc{% endif %}"
+                           style="text-decoration:none;color:inherit;display:inline-flex;align-items:center;gap:4px;">
+                            {{ label }}
+                            {% if sort_by == col %}<i class="bi bi-arrow-{% if sort_dir == 'asc' %}up{% else %}down{% endif %}-short" style="color:#3b82f6;"></i>
+                            {% else %}<i class="bi bi-arrow-down-up" style="color:#cbd5e1;font-size:10px;"></i>{% endif %}
+                        </a>
+                    </th>
+                    {% endwith %}
+
+                    <th style="text-align:center;">Tipe Kabel</th>
+                    <th style="text-align:center;">Konektor</th>
+                    <th style="text-align:center;">Core</th>
+
+                    {% with col="panjang" label="Panjang (km)" %}
+                    <th style="text-align:center;">
+                        <a href="?q={{ search }}&status={{ status_filter }}&sort={{ col }}&dir={% if sort_by == col and sort_dir == 'asc' %}desc{% else %}asc{% endif %}"
+                           style="text-decoration:none;color:inherit;display:inline-flex;align-items:center;gap:4px;">
+                            {{ label }}
+                            {% if sort_by == col %}<i class="bi bi-arrow-{% if sort_dir == 'asc' %}up{% else %}down{% endif %}-short" style="color:#3b82f6;"></i>
+                            {% else %}<i class="bi bi-arrow-down-up" style="color:#cbd5e1;font-size:10px;"></i>{% endif %}
+                        </a>
+                    </th>
+                    {% endwith %}
+
+                    {% with col="status" label="Status" %}
+                    <th style="text-align:center;">
+                        <a href="?q={{ search }}&status={{ status_filter }}&sort={{ col }}&dir={% if sort_by == col and sort_dir == 'asc' %}desc{% else %}asc{% endif %}"
+                           style="text-decoration:none;color:inherit;display:inline-flex;align-items:center;gap:4px;">
+                            {{ label }}
+                            {% if sort_by == col %}<i class="bi bi-arrow-{% if sort_dir == 'asc' %}up{% else %}down{% endif %}-short" style="color:#3b82f6;"></i>
+                            {% else %}<i class="bi bi-arrow-down-up" style="color:#cbd5e1;font-size:10px;"></i>{% endif %}
+                        </a>
+                    </th>
+                    {% endwith %}
+
+                    <th style="text-align:center;"><i class="bi bi-ticket-detailed" style="color:#9333ea;"></i> Gangguan</th>
+                    <th style="width:90px;">Aksi</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for fo in fo_list %}
+                <tr class="{% if fo.jumlah_gangguan > 0 %}row-has-gng{% endif %}">
+                    <td class="text-muted" style="font-size:12px;">{{ forloop.counter }}</td>
+                    <td>
+                        <div style="font-weight:600;font-size:13px;color:#1e293b;">{{ fo.nama }}</div>
+                        {% if fo.keterangan %}
+                        <div style="font-size:11px;color:#94a3b8;margin-top:1px;">{{ fo.keterangan|truncatechars:60 }}</div>
+                        {% endif %}
+                    </td>
+                    <td style="text-align:center;">
+                        <span style="font-size:12px;background:#eff6ff;color:#1d4ed8;padding:2px 8px;border-radius:6px;font-weight:500;">{{ fo.lokasi_a }}</span>
+                    </td>
+                    <td style="text-align:center;">
+                        <span style="font-size:12px;background:#f0fdf4;color:#065f46;padding:2px 8px;border-radius:6px;font-weight:500;">{{ fo.lokasi_b }}</span>
+                    </td>
+                    <td style="text-align:center;font-size:12px;color:#475569;">{{ fo.get_tipe_kabel_display|default:"—" }}</td>
+                    <td style="text-align:center;font-size:12px;color:#475569;">{{ fo.get_tipe_konektor_display|default:"—" }}</td>
+                    <td style="text-align:center;">
+                        {% if fo.jumlah_core %}
+                        <span style="font-size:12px;font-weight:700;background:#f5f3ff;color:#6d28d9;padding:2px 8px;border-radius:20px;">{{ fo.jumlah_core }} core</span>
+                        {% else %}<span style="color:#94a3b8;font-size:12px;">—</span>{% endif %}
+                    </td>
+                    <td style="text-align:center;font-size:12px;color:#475569;">
+                        {% if fo.panjang_km %}{{ fo.panjang_km }} km{% else %}—{% endif %}
+                    </td>
+                    <td style="text-align:center;">
+                        <span style="font-size:11.5px;font-weight:600;padding:3px 10px;border-radius:20px;white-space:nowrap;
+                            background:{{ fo.status_bg }};color:{{ fo.status_color }};">
+                            {% if fo.status == 'baik' %}<i class="bi bi-check-circle-fill me-1"></i>
+                            {% elif fo.status == 'gangguan' %}<i class="bi bi-exclamation-circle-fill me-1"></i>
+                            {% elif fo.status == 'dalam_perbaikan' %}<i class="bi bi-wrench me-1"></i>
+                            {% else %}<i class="bi bi-dash-circle me-1"></i>{% endif %}
+                            {{ fo.get_status_display }}
+                        </span>
+                    </td>
+                    <td style="text-align:center;">
+                        {% if fo.jumlah_gangguan > 0 %}
+                        <a href="{% url 'gangguan_list' %}?fo={{ fo.id }}"
+                           style="text-decoration:none;">
+                            <span class="gng-badge"><i class="bi bi-ticket-detailed" style="font-size:10px;"></i> {{ fo.jumlah_gangguan }}</span>
+                        </a>
+                        {% else %}
+                        <span style="color:#cbd5e1;font-size:12px;">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="d-flex gap-1 justify-content-center">
+                            <a href="{% url 'gangguan_create' %}?tipe=link&fo_id={{ fo.id }}"
+                               class="btn btn-sm btn-outline-danger" style="padding:3px 7px;font-size:11px;"
+                               title="Laporkan gangguan FO ini">
+                                <i class="bi bi-exclamation-triangle"></i>
+                            </a>
+                            {% if user_can_edit %}
+                            <a href="{% url 'fiber_optic_edit' fo.id %}"
+                               class="btn btn-sm btn-outline-warning" style="padding:3px 8px;font-size:12px;">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            {% endif %}
+                            {% if user_can_delete %}
+                            <form method="post" action="{% url 'fiber_optic_delete' fo.id %}" style="display:inline;">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-outline-danger" style="padding:3px 8px;font-size:12px;"
+                                    onclick="return confirm('Hapus segmen {{ fo.nama }}? Semua data gangguan terkait tidak akan terhapus.')">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="11" class="text-center py-5">
+                        <i class="bi bi-diagram-2 fs-2 d-block mb-2 text-muted"></i>
+                        <div style="color:#64748b;font-size:13px;">Belum ada data segmen fiber optic</div>
+                        {% if user_can_edit %}
+                        <a href="{% url 'fiber_optic_add' %}" class="btn btn-primary btn-sm mt-2">
+                            <i class="bi bi-plus-lg me-1"></i>Tambah Segmen
+                        </a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<style>
+.table-card { background:#fff;border-radius:12px;border:1px solid #e2e8f0;overflow:hidden; }
+.table { margin-bottom:0; }
+.table thead tr { background:#f8fafc; }
+.table thead th { font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#64748b;border-bottom:2px solid #e2e8f0;padding:10px 12px;white-space:nowrap; }
+.table tbody tr { border-bottom:1px solid #f1f5f9;transition:background 0.1s; }
+.table tbody tr:hover { background:#f8fafc; }
+.table tbody td { padding:9px 12px;vertical-align:middle;border:none; }
+.table tbody tr:last-child { border-bottom:none; }
+.row-has-gng { border-left:3px solid #e9d5ff !important; }
+.row-has-gng:hover { background:#fdf4ff !important; }
+.gng-badge { display:inline-flex;align-items:center;gap:4px;background:#f3e8ff;color:#7c3aed;border:0.5px solid #ddd6fe;border-radius:20px;padding:2px 9px;font-size:11px;font-weight:700;transition:all 0.15s; }
+.gng-badge:hover { background:#7c3aed;color:white;border-color:#7c3aed;transform:scale(1.05); }
+@keyframes pulse-dot { 0%,100%{box-shadow:0 0 0 0 rgba(147,51,234,.5)} 70%{box-shadow:0 0 0 7px rgba(147,51,234,0)} }
+</style>
+{% endblock %}

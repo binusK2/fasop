@@ -12,6 +12,8 @@ urlpatterns = [
     # ✅ BARU: Laporan bulanan & Export
     path('report/', views.maintenance_report, name='maintenance_report'),
     path('export/', views.export_maintenance_excel, name='export_maintenance_excel'),
+    path('berita-acara/', views.berita_acara_excel, name='berita_acara_excel'),
+    path('berita-acara/pdf/', views.berita_acara_pdf, name='berita_acara_pdf'),
     path('export-pdf/<int:pk>/', views.export_maintenance_pdf, name='export_maintenance_pdf'),
     path('sign/<int:pk>/', views.maintenance_sign, name='maintenance_sign'),
     path('catatan-am/<int:pk>/', views.maintenance_catatan_am_edit, name='maintenance_catatan_am_edit'),
@@ -23,4 +25,8 @@ urlpatterns = [
     path('corrective/add/',                       views.corrective_add,                              name='corrective_add'),
     path('corrective/device/<int:device_id>/',    lambda r, device_id: views.corrective_add(r, device_id=device_id),    name='corrective_add_device'),
     path('corrective/gangguan/<int:gangguan_id>/', lambda r, gangguan_id: views.corrective_add(r, gangguan_id=gangguan_id), name='corrective_add_gangguan'),
+    path('corrective/edit/<int:pk>/',             views.corrective_edit, name='corrective_edit'),
+    # Offline Form (download template & upload)
+    path('offline/download/', views.offline_form_download, name='offline_form_download'),
+    path('offline/upload/',   views.offline_form_upload,   name='offline_form_upload'),
 ]

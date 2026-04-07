@@ -24,6 +24,8 @@
             </div>
             <div class="vr" style="background:rgba(255,255,255,0.1);width:1px;align-self:stretch;"></div>
             <div><div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;">Jenis</div><div style="font-size:13px;color:#cbd5e1;">{{ device.jenis }}</div></div>
+            <div><div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;">Merk</div><div style="font-size:13px;color:#cbd5e1;">{{ device.merk|default:"—" }}</div></div>
+            <div><div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;">Type</div><div style="font-size:13px;color:#cbd5e1;">{{ device.type|default:"—" }}</div></div>
             <div><div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;">Lokasi</div><div style="font-size:13px;color:#cbd5e1;">{{ device.lokasi|default:"—" }}</div></div>
         </div>
     </div>
@@ -35,13 +37,39 @@
 <!-- 1. INFORMASI MAINTENANCE -->
 <div class="card mb-3">
     <div class="card-body px-4 py-3">
-        <div class="rc-sec" style="--c:#3b82f6;">Informasi Maintenance</div>
-        <div class="row g-3">
-            <div class="col-md-3"><div class="rc-card"><div class="rc-lbl">Jenis Maintenance</div>{{ maintenance_form.maintenance_type }}</div></div>
-            <div class="col-md-3"><div class="rc-card"><div class="rc-lbl">Tanggal</div>{{ maintenance_form.date }}</div></div>
+        <div class="section-title-bar">
+            <span class="bar" style="background:#3b82f6;"></span>
+            <span>Informasi Maintenance</span>
+        </div>
+        <!-- Baris 1: Jenis, Tanggal, Pelaksana -->
+        <div class="row g-3 align-items-start">
+            <div class="col-md-2">
+                <label class="form-label fw-semibold">Jenis Maintenance</label>
+                <div style="display:flex;align-items:center;gap:6px;background:#eff6ff;
+                            color:#1d4ed8;border:1.5px solid #bfdbfe;border-radius:8px;
+                            padding:8px 12px;font-size:13px;font-weight:700;white-space:nowrap;">
+                    <i class="bi bi-shield-check" style="font-size:14px;"></i> Preventive
+                </div>
+                <!-- hidden untuk submit tetap terkirim meski select disabled -->
+                <input type="hidden" name="maintenance_type" value="Preventive">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-semibold">Tanggal</label>
+                {{ maintenance_form.date }}
+            </div>
             {% include 'maintenance/_pelaksana_tag_input.html' %}
-            <div class="col-md-8"><div class="rc-card"><div class="rc-lbl">Deskripsi / Keluhan</div>{{ maintenance_form.description }}</div></div>
-            <div class="col-md-4"><div class="rc-card"><div class="rc-lbl">Foto Dokumentasi</div>{{ maintenance_form.photo }}<div class="form-text mt-1">Format: JPG, PNG. Maks 10MB.</div></div></div>
+        </div>
+        <!-- Baris 2: Deskripsi & Foto -->
+        <div class="row g-3 mt-1">
+            <div class="col-md-8">
+                <label class="form-label fw-semibold">Deskripsi / Keluhan</label>
+                {{ maintenance_form.description }}
+            </div>
+            <div class="col-md-4">
+                <label class="form-label fw-semibold">Foto Dokumentasi</label>
+                {{ maintenance_form.photo }}
+                <div class="form-text">Format: JPG, PNG. Maks 10MB.</div>
+            </div>
         </div>
     </div>
 </div>
@@ -64,8 +92,8 @@
     <div class="card-body px-4 py-3">
         <div class="rc-sec" style="--c:#8b5cf6;">Rectifier</div>
         <div class="row g-3 mb-3">
-            <div class="col-md-3"><div class="rc-card"><div class="rc-lbl">Merk</div>{{ detail_form.rect1_merk }}</div></div>
-            <div class="col-md-3"><div class="rc-card"><div class="rc-lbl">Tipe</div>{{ detail_form.rect1_tipe }}</div></div>
+            <div class="col-md-3"><div class="rc-card"><div class="rc-lbl">Merk</div>{{ device.merk|default:"—" }}</div></div>
+            <div class="col-md-3"><div class="rc-card"><div class="rc-lbl">Tipe</div>{{ device.type|default:"—" }}</div></div>
             <div class="col-md-3"><div class="rc-card"><div class="rc-lbl">Kapasitas</div>{{ detail_form.rect1_kapasitas }}</div></div>
             <div class="col-md-3"><div class="rc-card"><div class="rc-lbl">Kondisi</div>
                 <div id="field-rect1_kondisi" style="display:none;">{{ detail_form.rect1_kondisi }}</div>
@@ -99,8 +127,8 @@
             <div class="col-md-3"><div class="rc-card"><div class="rc-lbl">Tipe</div>{{ detail_form.bat1_tipe }}</div></div>
             <div class="col-md-3"><div class="rc-card"><div class="rc-lbl">Kapasitas</div>{{ detail_form.bat1_kapasitas }}</div></div>
             <div class="col-md-3"><div class="rc-card"><div class="rc-lbl">Jumlah Cell</div>
-                <div style="display:none;">{{ detail_form.bat1_jumlah }}</div>
-                <div style="font-size:15px;font-weight:700;color:#10b981;padding:5px 0;">40 Cell</div>
+                <div class="input-group">{{ detail_form.bat1_jumlah }}<span class="input-group-text rc-unit">cell</span></div>
+                <div style="font-size:10px;color:#94a3b8;margin-top:4px;">Maks. 40 · Ubah → tabel menyesuaikan</div>
             </div></div>
         </div>
         <!-- Kondisi Fisik — 4 kolom 1 baris -->
@@ -125,7 +153,7 @@
         </div>
         <!-- Tabel 40 Cell -->
         <div class="d-flex align-items-center justify-content-between mb-2">
-            <div class="rc-sub" style="margin:0;">Pengukuran Per Cell <span style="color:#10b981;font-weight:700;">(40 Cell)</span></div>
+            <div class="rc-sub" style="margin:0;">Pengukuran Per Cell <span id="cell-count-badge" style="color:#10b981;font-weight:700;">(40 Cell)</span></div>
             <span style="font-size:11px;background:#f0fdf4;color:#065f46;padding:3px 12px;border-radius:20px;border:1px solid #a7f3d0;white-space:nowrap;">
                 <i class="bi bi-keyboard me-1"></i>Ketik <strong>3 digit</strong> mis. <code>985</code> → <strong>1.985 V</strong> · <kbd>Enter</kbd> lanjut bawah
             </span>
@@ -140,19 +168,21 @@
                         <th class="ct-d">VD ½ Jam</th>
                         <th class="ct-d">VD 1 Jam</th>
                         <th class="ct-d">VD 2 Jam</th>
-                        <th class="ct-b">V Boost</th>
+                        <th class="ct-b" id="vb-th" style="cursor:pointer;user-select:none;" title="Klik untuk ganti kolom">
+                            <span id="vb-lbl">V Boost</span>
+                            <span style="font-size:8px;opacity:0.55;margin-left:2px;">/ VF↓</span>
+                        </th>
                     </tr>
                 </thead>
                 <tbody id="cell-tbody"></tbody>
+                <tfoot id="cell-tfoot"></tfoot>
             </table>
         </div>
         {{ detail_form.bat1_cells }}
         <!-- Ringkasan Tegangan -->
-        <div class="rc-sub">Ringkasan Tegangan</div>
+        <div class="rc-sub">Kondisi Battery</div>
         <div class="row g-3">
-            <div class="col-md-4"><div class="rc-card"><div class="rc-lbl">Air Battery</div><div class="input-group">{{ detail_form.bat1_air_battery }}<span class="input-group-text rc-unit">V</span></div></div></div>
-            <div class="col-md-4"><div class="rc-card" style="background:#eff6ff;border-color:#bfdbfe;"><div class="rc-lbl" style="color:#1d4ed8;">V Total Bank</div><div class="input-group">{{ detail_form.bat1_v_total }}<span class="input-group-text rc-unit" style="background:#dbeafe;color:#1d4ed8;border-color:#bfdbfe;">V</span></div></div></div>
-            <div class="col-md-4"><div class="rc-card" style="background:#eff6ff;border-color:#bfdbfe;"><div class="rc-lbl" style="color:#1d4ed8;">V Load</div><div class="input-group">{{ detail_form.bat1_v_load }}<span class="input-group-text rc-unit" style="background:#dbeafe;color:#1d4ed8;border-color:#bfdbfe;">V</span></div></div></div>
+            <div class="col-md-4"><div class="rc-card"><div class="rc-lbl">Air Battery</div><div class="input-group">{{ detail_form.bat1_air_battery }}<span class="input-group-text rc-unit">%</span></div></div></div>
         </div>
     </div>
 </div>
@@ -200,6 +230,7 @@
 .ct-f{background:#f0fdf4;color:#334155;min-width:95px;}
 .ct-d{background:#fffbeb;color:#92400e;min-width:90px;}
 .ct-b{background:#eff6ff;color:#1d4ed8;min-width:90px;}
+.ct-b.vfa-mode{background:#faf5ff!important;color:#6b21a8!important;}
 .rc-ctbl tbody tr:nth-child(odd){background:#fff;}
 .rc-ctbl tbody tr:nth-child(even){background:#f8fafc;}
 .rc-ctbl tbody td{padding:3px 5px;vertical-align:middle;text-align:center;border-bottom:1px solid #f1f5f9;}
@@ -209,6 +240,10 @@
 .ci:focus{border-color:#10b981!important;box-shadow:0 0 0 2px rgba(16,185,129,.15)!important;}
 .ci.v-ok{border-color:#6ee7b7!important;background:#d1fae5!important;color:#065f46!important;font-weight:700!important;}
 .ci.v-low{border-color:#fbbf24!important;background:#fef9c3!important;color:#92400e!important;font-weight:700!important;}
+/* Baris summary tfoot */
+.ct-summary-row td{background:#eff6ff;border-top:2px solid #bfdbfe;padding:4px 5px;vertical-align:middle;text-align:center;}
+.ct-summary-lbl{font-size:11px;font-weight:700;color:#1d4ed8;text-align:center;white-space:nowrap;min-width:46px;}
+.ci-sum{border-color:#bfdbfe!important;background:#dbeafe!important;color:#1d4ed8!important;font-weight:700!important;}
 </style>
 <script>
 /* Toggle OK/NOK */
@@ -223,10 +258,20 @@ document.addEventListener('click',e=>{
     if(w) w.querySelectorAll('.rc-tog').forEach(x=>x.classList.toggle('on',x.dataset.v===b.dataset.v));
 });
 
-/* 40 Cell table */
+/* Cell table */
 const COLS=['v_float','vd_0','vd_half','vd_1','vd_2','v_boost'];
-const NC=40;
+let vbMode='v_boost'; // toggle: 'v_boost' | 'vf_after'
 
+function getNC(){
+    const ji=document.querySelector('input[name="bat1_jumlah"]');
+    const n=parseInt(ji?.value)||40;
+    return Math.max(1,Math.min(40,n));
+}
+function updateBadge(){
+    const nc=getNC();
+    const b=document.getElementById('cell-count-badge');
+    if(b) b.textContent=`(${nc} Cell)`;
+}
 function pv(s){
     s=(s||'').trim();
     if(!s) return null;
@@ -241,14 +286,68 @@ function sync(){
     const rows={};
     document.querySelectorAll('.ci').forEach(i=>{
         const c=i.dataset.cell,k=i.dataset.col;
-        if(!rows[c]) rows[c]={cell:parseInt(c)};
+        if(!rows[c]){
+            const n=parseInt(c);
+            rows[c]={cell:isNaN(n)?c:n};  // string untuk vtotal/vload, int untuk nomor cell
+        }
         const v=parseFloat(i.value);
         rows[c][k]=isNaN(v)?null:v;
     });
     const h=document.querySelector('input[name="bat1_cells"]');
     if(h) h.value=JSON.stringify(Object.values(rows));
 }
+function buildTfoot(ex){
+    const tf=document.getElementById('cell-tfoot');
+    tf.innerHTML='';
+    const SUMMARY=[
+        {key:'vtotal',label:'V Total'},
+        {key:'vload', label:'V Load'},
+    ];
+    SUMMARY.forEach(({key,label})=>{
+        const existing=(ex||[]).find(r=>r.cell===key)||{};
+        const tr=document.createElement('tr');
+        tr.className='ct-summary-row';
+        const tdLbl=document.createElement('td');
+        tdLbl.className='ct-summary-lbl';
+        tdLbl.textContent=label;
+        tr.appendChild(tdLbl);
+        COLS.forEach(k=>{
+            const td=document.createElement('td');
+            function mkSumInp(colKey,hidden){
+                const inp=document.createElement('input');
+                inp.type='text';inp.inputMode='decimal';
+                inp.className='ci ci-sum';inp.placeholder='—';
+                inp.dataset.cell=key;inp.dataset.col=colKey;
+                if(hidden) inp.style.display='none';
+                const sv=existing[colKey];
+                if(sv!==undefined&&sv!==null){inp.value=sv;}
+                const blurSum=()=>{const s=inp.value.trim();if(s){const v=parseFloat(s);if(!isNaN(v))inp.value=v;}sync();};
+                inp.addEventListener('blur',blurSum);
+                inp.addEventListener('input',()=>{});
+                inp.addEventListener('keydown',e2=>{
+                    if(e2.key!=='Enter') return;
+                    e2.preventDefault();
+                    blurSum();
+                    const keys=['vtotal','vload'];
+                    const idx=keys.indexOf(key);
+                    if(idx<keys.length-1){
+                        const nx=document.querySelector(`.ci[data-cell="${keys[idx+1]}"][data-col="${inp.dataset.col}"]`);
+                        if(nx) nx.focus();
+                    }
+                });
+                return inp;
+            }
+            td.appendChild(mkSumInp(k, false));
+            if(k==='v_boost') td.appendChild(mkSumInp('vf_after', true));
+            tr.appendChild(td);
+        });
+        tf.appendChild(tr);
+    });
+}
+
 function build(ex){
+    const NC=getNC();
+    updateBadge();
     const tb=document.getElementById('cell-tbody');
     tb.innerHTML='';
     for(let i=1;i<=NC;i++){
@@ -259,25 +358,32 @@ function build(ex){
         tr.appendChild(tn);
         COLS.forEach(k=>{
             const td=document.createElement('td');
-            const inp=document.createElement('input');
-            inp.type='text';inp.inputMode='decimal';
-            inp.className='ci';inp.placeholder='—';
-            inp.dataset.cell=i;inp.dataset.col=k;
-            const sv=e[k];
-            if(sv!==undefined&&sv!==null){inp.value=sv;col(inp,sv);}
-            inp.addEventListener('blur',()=>{const v=pv(inp.value);if(v!==null)inp.value=v;col(inp,v);sync();});
-            inp.addEventListener('input',()=>inp.classList.remove('v-ok','v-low'));
-            inp.addEventListener('keydown',e2=>{
-                if(e2.key!=='Enter') return;
-                e2.preventDefault();
-                const v=pv(inp.value);if(v!==null)inp.value=v;col(inp,v);sync();
-                const nx=document.querySelector(`.ci[data-cell="${i+1}"][data-col="${k}"]`);
-                if(nx) nx.focus();
-            });
-            td.appendChild(inp);tr.appendChild(td);
+            function mkInp(colKey,hidden){
+                const inp=document.createElement('input');
+                inp.type='text';inp.inputMode='decimal';
+                inp.className='ci';inp.placeholder='—';
+                inp.dataset.cell=i;inp.dataset.col=colKey;
+                if(hidden) inp.style.display='none';
+                const sv=e[colKey];
+                if(sv!==undefined&&sv!==null){inp.value=sv;if(!hidden)col(inp,sv);}
+                inp.addEventListener('blur',()=>{const v=pv(inp.value);if(v!==null)inp.value=v;if(!inp.style.display||inp.style.display==='')col(inp,v);sync();});
+                inp.addEventListener('input',()=>inp.classList.remove('v-ok','v-low'));
+                inp.addEventListener('keydown',e2=>{
+                    if(e2.key!=='Enter') return;
+                    e2.preventDefault();
+                    const v=pv(inp.value);if(v!==null)inp.value=v;col(inp,v);sync();
+                    const nx=document.querySelector(`.ci[data-cell="${i+1}"][data-col="${inp.dataset.col}"]`);
+                    if(nx) nx.focus();
+                });
+                return inp;
+            }
+            td.appendChild(mkInp(k, false));
+            if(k==='v_boost') td.appendChild(mkInp('vf_after', true));
+            tr.appendChild(td);
         });
         tb.appendChild(tr);
     }
+    buildTfoot(ex);
     sync();
 }
 
@@ -291,10 +397,31 @@ document.addEventListener('DOMContentLoaded',()=>{
         const w=f.nextElementSibling;
         if(w) w.querySelectorAll('.rc-tog').forEach(b=>b.classList.toggle('on',b.dataset.v===s.value));
     });
-    /* Jumlah cell = 40 */
+    /* Jumlah cell — set default 40 jika kosong */
     const ji=document.querySelector('input[name="bat1_jumlah"]');
-    if(ji) ji.value=40;
-    /* Build tabel */
+    if(ji&&!ji.value) ji.value=40;
+    /* Rebuild tabel saat jumlah berubah */
+    if(ji){
+        ji.addEventListener('change',()=>{
+            let ex=[];
+            try{const h=document.querySelector('input[name="bat1_cells"]');ex=JSON.parse(h?.value||'[]');}catch(e){}
+            build(ex);
+        });
+        ji.addEventListener('input',updateBadge);
+    }
+    /* Toggle V Boost / VF↓ */
+    const vbTh=document.getElementById('vb-th');
+    if(vbTh) vbTh.addEventListener('click',()=>{
+        vbMode = vbMode==='v_boost'?'vf_after':'v_boost';
+        const isVfa = vbMode==='vf_after';
+        document.getElementById('vb-lbl').textContent = isVfa?'V Float ↓':'V Boost';
+        vbTh.classList.toggle('vfa-mode', isVfa);
+        document.querySelectorAll('.ci[data-col="v_boost"],.ci[data-col="vf_after"]').forEach(inp=>{
+            if(inp.dataset.col==='v_boost') inp.style.display = isVfa?'none':'';
+            else inp.style.display = isVfa?'':'none';
+        });
+    });
+    /* Build tabel awal */
     let ex=[];
     try{const h=document.querySelector('input[name="bat1_cells"]');ex=JSON.parse(h?.value||'[]');}catch(e){}
     build(ex);

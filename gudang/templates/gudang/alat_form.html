@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+{% block title %}{% if mode == 'edit' %}Edit{% else %}Tambah{% endif %} Alat Uji — FASOP{% endblock %}
+{% block page_title %}{% if mode == 'edit' %}Edit{% else %}Tambah{% endif %} Alat Uji{% endblock %}
+
+{% block content %}
+
+<div class="mb-3">
+    <a href="{% url 'gudang:alat_list' %}" class="text-muted text-decoration-none" style="font-size:13px;">
+        <i class="bi bi-arrow-left me-1"></i>Kembali ke Daftar Alat
+    </a>
+</div>
+
+<div class="table-card" style="max-width:720px;">
+    <div class="table-header">
+        <h6 class="mb-0">
+            <i class="bi bi-tools me-1"></i>
+            {% if mode == 'edit' %}Edit Alat: {{ alat.nama }}{% else %}Tambah Alat Uji Baru{% endif %}
+        </h6>
+    </div>
+    <div class="p-4">
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="row g-3" style="font-size:13px;">
+
+                <div class="col-md-8">
+                    <label class="form-label fw-600">Nama Alat <span class="text-danger">*</span></label>
+                    <input type="text" name="nama" class="form-control form-control-sm"
+                           value="{{ alat.nama|default:'' }}" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-600">Kondisi <span class="text-danger">*</span></label>
+                    <select name="kondisi" class="form-select form-select-sm" required>
+                        {% for val, label in kondisi_choices %}
+                        <option value="{{ val }}"
+                            {% if alat.kondisi == val %}selected{% elif not alat and val == 'baik' %}selected{% endif %}>
+                            {{ label }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label fw-600">Kategori <span class="text-danger">*</span></label>
+                    <input type="text" name="kategori" class="form-control form-control-sm"
+                           value="{{ alat.kategori|default:'' }}"
+                           placeholder="OTDR, Power Meter, Multimeter, Laptop, ..." required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-600">Lokasi Penyimpanan <span class="text-danger">*</span></label>
+                    <input type="text" name="lokasi_penyimpanan" class="form-control form-control-sm"
+                           value="{{ alat.lokasi_penyimpanan|default:'' }}"
+                           placeholder="Lemari A Ruang Teknik, Gudang Lt.1, ..." required>
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label fw-600">Merk / Brand</label>
+                    <input type="text" name="merk" class="form-control form-control-sm"
+                           value="{{ alat.merk|default:'' }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-600">Model / Type</label>
+                    <input type="text" name="model" class="form-control form-control-sm"
+                           value="{{ alat.model|default:'' }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-600">Nomor Seri</label>
+                    <input type="text" name="nomor_seri" class="form-control form-control-sm"
+                           value="{{ alat.nomor_seri|default:'' }}">
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label fw-600">Tanggal Kalibrasi Terakhir</label>
+                    <input type="date" name="tanggal_kalibrasi" class="form-control form-control-sm"
+                           value="{{ alat.tanggal_kalibrasi|date:'Y-m-d'|default:'' }}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-600">Jadwal Kalibrasi Berikutnya</label>
+                    <input type="date" name="jadwal_kalibrasi_berikut" class="form-control form-control-sm"
+                           value="{{ alat.jadwal_kalibrasi_berikut|date:'Y-m-d'|default:'' }}">
+                </div>
+
+                <div class="col-12">
+                    <label class="form-label fw-600">Keterangan</label>
+                    <textarea name="keterangan" class="form-control form-control-sm" rows="3">{{ alat.keterangan|default:'' }}</textarea>
+                </div>
+
+                <div class="col-12">
+                    <label class="form-label fw-600">Foto Alat</label>
+                    {% if alat.foto %}
+                    <div class="mb-2">
+                        <img src="{{ alat.foto.url }}" style="height:80px;border-radius:6px;" alt="foto">
+                        <span class="text-muted ms-2" style="font-size:12px;">Foto saat ini</span>
+                    </div>
+                    {% endif %}
+                    <input type="file" name="foto" class="form-control form-control-sm" accept="image/*">
+                </div>
+
+                <div class="col-12 d-flex gap-2 pt-2">
+                    <button type="submit" class="btn btn-primary btn-sm">
+                        <i class="bi bi-check-lg me-1"></i>Simpan
+                    </button>
+                    <a href="{% url 'gudang:alat_list' %}" class="btn btn-outline-secondary btn-sm">Batal</a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}

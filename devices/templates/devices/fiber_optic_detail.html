@@ -1,0 +1,393 @@
+{% extends 'base.html' %}
+{% block title %}{{ fo.nama }} — FASOP{% endblock %}
+{% block page_title %}Detail Fiber Optic{% endblock %}
+
+{% block content %}
+<style>
+    .section-bar{display:flex;align-items:center;gap:8px;margin-bottom:14px;}
+    .section-bar .bar{width:4px;height:18px;border-radius:3px;flex-shrink:0;}
+    .section-bar span:last-child{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#475569;}
+    .info-label{font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:3px;}
+    .info-val{font-size:13.5px;font-weight:600;color:#1e293b;}
+
+    /* Core table */
+    .core-table{width:100%;border-collapse:collapse;}
+    .core-table thead th{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#64748b;background:#f8fafc;padding:8px 10px;border-bottom:2px solid #e2e8f0;white-space:nowrap;}
+    .core-table tbody tr{border-bottom:1px solid #f1f5f9;transition:background 0.1s;}
+    .core-table tbody tr:hover{background:#fafafa;}
+    .core-table tbody td{padding:8px 10px;vertical-align:middle;font-size:12.5px;}
+    .core-table tbody tr:last-child{border-bottom:none;}
+
+    /* Core number badge */
+    .core-num{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;font-size:12px;font-weight:700;background:#f1f5f9;color:#475569;}
+
+    /* Status badge */
+    .status-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap;}
+
+    /* Inline edit row */
+    .edit-row{display:none;background:#f0f9ff;}
+    .edit-row.open{display:table-row;}
+    .edit-row td{padding:12px 10px;}
+    .edit-row input,.edit-row select,.edit-row textarea{font-size:12.5px;}
+
+    /* OTDR values */
+    .otdr-val{font-family:'JetBrains Mono',monospace;font-size:12px;color:#1d4ed8;}
+
+    .btn-edit-core{background:none;border:1px solid #e2e8f0;border-radius:6px;padding:3px 8px;font-size:11px;color:#64748b;cursor:pointer;transition:all 0.12s;}
+    .btn-edit-core:hover{background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8;}
+    .btn-edit-core.active{background:#eff6ff;border-color:#3b82f6;color:#1d4ed8;}
+
+    /* Gangguan history mini */
+    .gng-item{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid #f1f5f9;}
+    .gng-item:last-child{border-bottom:none;}
+</style>
+
+<!-- HEADER -->
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+    <div class="d-flex align-items-center gap-2">
+        <a href="{% url 'fiber_optic_list' %}" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>Kembali
+        </a>
+        <div>
+            <h2 class="mb-0" style="font-size:18px;font-weight:700;">{{ fo.nama }}</h2>
+            <p class="text-muted mb-0" style="font-size:12px;">
+                <i class="bi bi-geo-alt me-1"></i>{{ fo.lokasi_a }}
+                <i class="bi bi-arrow-right mx-1" style="font-size:10px;"></i>
+                {{ fo.lokasi_b }}
+            </p>
+        </div>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'gangguan_create' %}?tipe=link&fo_id={{ fo.pk }}" class="btn btn-danger btn-sm">
+            <i class="bi bi-exclamation-triangle-fill me-1"></i>Laporkan Gangguan
+        </a>
+        {% if user_can_edit %}
+        <a href="{% url 'fiber_optic_edit' fo.pk %}" class="btn btn-outline-warning btn-sm">
+            <i class="bi bi-pencil me-1"></i>Edit
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- INFO UMUM -->
+<div class="row g-3 mb-3">
+    <div class="col-md-8">
+        <div class="card h-100">
+            <div class="card-body px-4 py-3">
+                <div class="section-bar"><span class="bar" style="background:#f97316;"></span><span>Informasi Segmen</span></div>
+                <div class="row g-3">
+                    <div class="col-6 col-md-3">
+                        <div class="info-label">Tipe Kabel</div>
+                        <div class="info-val">{{ fo.get_tipe_kabel_display|default:"—" }}</div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="info-label">Tipe Konektor</div>
+                        <div class="info-val">{{ fo.get_tipe_konektor_display|default:"—" }}</div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="info-label">Jumlah Core</div>
+                        <div class="info-val">{{ fo.jumlah_core|default:"—" }}{% if fo.jumlah_core %} core{% endif %}</div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="info-label">Panjang</div>
+                        <div class="info-val">{{ fo.panjang_km|default:"—" }}{% if fo.panjang_km %} km{% endif %}</div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="info-label">Tahun Pasang</div>
+                        <div class="info-val">{{ fo.tahun_pasang|default:"—" }}</div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="info-label">Status</div>
+                        <div>
+                            <span class="status-badge" style="background:{{ fo.status_bg }};color:{{ fo.status_color }};">
+                                {{ fo.get_status_display }}
+                            </span>
+                        </div>
+                    </div>
+                    {% if fo.keterangan %}
+                    <div class="col-12">
+                        <div class="info-label">Keterangan</div>
+                        <div style="font-size:13px;color:#475569;">{{ fo.keterangan }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body px-4 py-3">
+                <div class="section-bar"><span class="bar" style="background:#9333ea;"></span><span>Riwayat Gangguan</span></div>
+                {% if gangguan_list %}
+                {% for g in gangguan_list|slice:":5" %}
+                <div class="gng-item">
+                    <div style="flex-shrink:0;margin-top:2px;">
+                        <span style="width:8px;height:8px;border-radius:50%;display:inline-block;background:{% if g.status == 'open' %}#ef4444{% elif g.status == 'in_progress' %}#f59e0b{% else %}#10b981{% endif %};"></span>
+                    </div>
+                    <div>
+                        <div style="font-size:12px;font-weight:600;color:#1e293b;">
+                            <a href="{% url 'gangguan_detail' g.pk %}" style="color:inherit;text-decoration:none;">{{ g.nomor_gangguan }}</a>
+                        </div>
+                        <div style="font-size:11px;color:#94a3b8;">{{ g.tanggal_gangguan|date:"d M Y" }} · {{ g.get_status_display }}</div>
+                        {% if g.core_putus %}
+                        <div style="font-size:11px;color:#f97316;margin-top:2px;"><i class="bi bi-scissors me-1"></i>{{ g.core_putus }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+                {% if gangguan_list.count > 5 %}
+                <div style="text-align:center;padding-top:8px;">
+                    <a href="{% url 'gangguan_list' %}?fo={{ fo.pk }}" style="font-size:12px;color:#3b82f6;">
+                        Lihat semua {{ gangguan_list.count }} gangguan →
+                    </a>
+                </div>
+                {% endif %}
+                {% else %}
+                <div class="text-center py-3" style="color:#94a3b8;font-size:13px;">
+                    <i class="bi bi-check-circle d-block mb-1" style="font-size:20px;color:#10b981;"></i>
+                    Belum ada riwayat gangguan
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- TABEL CORE -->
+{% if cores %}
+<div class="card">
+    <div class="card-body px-4 py-3">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <div class="section-bar mb-0">
+                <span class="bar" style="background:#f59e0b;"></span>
+                <span>Detail Core ({{ cores.count }} core)</span>
+            </div>
+            <div class="d-flex gap-2 align-items-center">
+                <!-- Filter status core -->
+                <select id="filter-status-core" class="form-select form-select-sm" style="width:140px;" onchange="filterCores(this.value)">
+                    <option value="">Semua Status</option>
+                    {% for val, label in STATUS_CORE %}
+                    <option value="{{ val }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+                <input type="text" id="search-core" class="form-control form-control-sm"
+                       style="width:180px;" placeholder="Cari fungsi..."
+                       oninput="filterCores()">
+            </div>
+        </div>
+
+        <!-- Stats core -->
+        <div class="d-flex gap-2 flex-wrap mb-3" id="core-stats">
+            <span style="font-size:11.5px;background:#dcfce7;color:#065f46;padding:3px 10px;border-radius:20px;font-weight:600;">
+                <i class="bi bi-circle-fill me-1" style="font-size:8px;"></i>Aktif: {{ cores|dictsort:"status"|dictsortreversed:"status"|length }}
+            </span>
+        </div>
+
+        <div class="table-responsive">
+            <table class="core-table" id="core-table">
+                <thead>
+                    <tr>
+                        <th style="width:50px;">Core</th>
+                        <th>Fungsi / Digunakan Untuk</th>
+                        <th style="width:130px;text-align:center;">Status</th>
+                        <th style="text-align:center;">OTDR Jarak (km)</th>
+                        <th style="text-align:center;">OTDR Redaman (dB)</th>
+                        <th style="text-align:center;">dB/km</th>
+                        <th style="text-align:center;">Tgl Ukur</th>
+                        <th style="width:70px;text-align:center;">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for core in cores %}
+                {# Baris data #}
+                <tr class="core-data-row" data-core="{{ core.pk }}"
+                    data-status="{{ core.status }}"
+                    data-fungsi="{{ core.fungsi|default:''|lower }}">
+                    <td>
+                        <span class="core-num"
+                              style="background:{{ core.status_bg }};color:{{ core.status_color }};">
+                            {{ core.nomor_core }}
+                        </span>
+                    </td>
+                    <td>
+                        <div style="font-weight:500;color:#1e293b;">{{ core.fungsi|default:"—" }}</div>
+                        {% if core.otdr_catatan %}
+                        <div style="font-size:11px;color:#94a3b8;margin-top:2px;">{{ core.otdr_catatan|truncatechars:60 }}</div>
+                        {% endif %}
+                    </td>
+                    <td style="text-align:center;">
+                        <span class="status-badge" style="background:{{ core.status_bg }};color:{{ core.status_color }};">
+                            {{ core.get_status_display }}
+                        </span>
+                    </td>
+                    <td style="text-align:center;">
+                        {% if core.otdr_jarak_km %}
+                        <span class="otdr-val">{{ core.otdr_jarak_km }}</span>
+                        {% else %}<span style="color:#cbd5e1;">—</span>{% endif %}
+                    </td>
+                    <td style="text-align:center;">
+                        {% if core.otdr_redaman_db %}
+                        <span class="otdr-val">{{ core.otdr_redaman_db }}</span>
+                        {% else %}<span style="color:#cbd5e1;">—</span>{% endif %}
+                    </td>
+                    <td style="text-align:center;">
+                        {% if core.otdr_redaman_per_km %}
+                        <span class="otdr-val">{{ core.otdr_redaman_per_km }}</span>
+                        {% else %}<span style="color:#cbd5e1;">—</span>{% endif %}
+                    </td>
+                    <td style="text-align:center;font-size:11.5px;color:#64748b;">
+                        {{ core.otdr_tanggal|date:"d/m/Y"|default:"—" }}
+                    </td>
+                    <td style="text-align:center;">
+                        {% if user_can_edit %}
+                        <button class="btn-edit-core" onclick="toggleEditCore({{ core.pk }})" id="btn-{{ core.pk }}">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        {% endif %}
+                    </td>
+                </tr>
+
+                {# Baris edit inline #}
+                <tr class="edit-row" id="edit-{{ core.pk }}">
+                    <td colspan="8">
+                        <form method="post" action="{% url 'fiber_optic_core_update' fo.pk core.pk %}"
+                              id="form-core-{{ core.pk }}">
+                            {% csrf_token %}
+                            <div class="row g-2">
+                                <div class="col-md-4">
+                                    <label style="font-size:11px;font-weight:600;color:#64748b;">Fungsi / Digunakan Untuk</label>
+                                    <input type="text" name="fungsi" class="form-control form-control-sm"
+                                           placeholder="Misal: Link SCADA GI Tello-Barru"
+                                           value="{{ core.fungsi|default:'' }}">
+                                </div>
+                                <div class="col-md-2">
+                                    <label style="font-size:11px;font-weight:600;color:#64748b;">Status Core</label>
+                                    <select name="status" class="form-select form-select-sm">
+                                        {% for val, label in STATUS_CORE %}
+                                        <option value="{{ val }}" {% if core.status == val %}selected{% endif %}>{{ label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label style="font-size:11px;font-weight:700;color:#1d4ed8;"><i class="bi bi-graph-up me-1"></i>Hasil OTDR</label>
+                                    <div class="row g-1">
+                                        <div class="col-4">
+                                            <input type="number" name="otdr_jarak_km" step="0.001" class="form-control form-control-sm"
+                                                   placeholder="Jarak (km)" value="{{ core.otdr_jarak_km|default:'' }}">
+                                        </div>
+                                        <div class="col-4">
+                                            <input type="number" name="otdr_redaman_db" step="0.001" class="form-control form-control-sm"
+                                                   placeholder="Redaman (dB)" value="{{ core.otdr_redaman_db|default:'' }}">
+                                        </div>
+                                        <div class="col-4">
+                                            <input type="number" name="otdr_redaman_per_km" step="0.001" class="form-control form-control-sm"
+                                                   placeholder="dB/km" value="{{ core.otdr_redaman_per_km|default:'' }}">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-2">
+                                    <label style="font-size:11px;font-weight:600;color:#64748b;">Tanggal Ukur</label>
+                                    <input type="date" name="otdr_tanggal" class="form-control form-control-sm"
+                                           value="{{ core.otdr_tanggal|date:'Y-m-d'|default:'' }}">
+                                </div>
+                                <div class="col-md-4">
+                                    <label style="font-size:11px;font-weight:600;color:#64748b;">Catatan OTDR</label>
+                                    <input type="text" name="otdr_catatan" class="form-control form-control-sm"
+                                           placeholder="Temuan, anomali, catatan pengukuran..."
+                                           value="{{ core.otdr_catatan|default:'' }}">
+                                </div>
+                                <div class="col-md-4">
+                                    <label style="font-size:11px;font-weight:600;color:#64748b;">Keterangan</label>
+                                    <input type="text" name="keterangan" class="form-control form-control-sm"
+                                           placeholder="Keterangan tambahan..."
+                                           value="{{ core.keterangan|default:'' }}">
+                                </div>
+                                <div class="col-md-2 d-flex align-items-end gap-1">
+                                    <button type="submit" class="btn btn-primary btn-sm w-100">
+                                        <i class="bi bi-floppy me-1"></i>Simpan
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm"
+                                            onclick="toggleEditCore({{ core.pk }})">
+                                        <i class="bi bi-x"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="card">
+    <div class="card-body text-center py-5" style="color:#94a3b8;">
+        <i class="bi bi-grid-3x3-gap fs-2 d-block mb-2"></i>
+        <div style="font-size:13px;">Belum ada data core.</div>
+        {% if user_can_edit %}
+        <div style="font-size:12px;margin-top:4px;">Edit segmen ini dan isi Jumlah Core untuk membuat data core otomatis.</div>
+        <a href="{% url 'fiber_optic_edit' fo.pk %}" class="btn btn-outline-primary btn-sm mt-3">
+            <i class="bi bi-pencil me-1"></i>Edit & Isi Jumlah Core
+        </a>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleEditCore(coreId) {
+    const editRow = document.getElementById('edit-' + coreId);
+    const btn     = document.getElementById('btn-' + coreId);
+    const isOpen  = editRow.classList.contains('open');
+    // Tutup semua edit row dulu
+    document.querySelectorAll('.edit-row.open').forEach(r => r.classList.remove('open'));
+    document.querySelectorAll('.btn-edit-core.active').forEach(b => b.classList.remove('active'));
+    if (!isOpen) {
+        editRow.classList.add('open');
+        btn.classList.add('active');
+        editRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+}
+
+function filterCores() {
+    const statusVal = document.getElementById('filter-status-core').value;
+    const searchVal = document.getElementById('search-core').value.trim().toLowerCase();
+    document.querySelectorAll('.core-data-row').forEach(function(row) {
+        const rowStatus = row.dataset.status;
+        const rowFungsi = row.dataset.fungsi;
+        const matchStatus = !statusVal || rowStatus === statusVal;
+        const matchSearch = !searchVal || rowFungsi.includes(searchVal);
+        const editRow = document.getElementById('edit-' + row.dataset.core);
+        row.style.display = (matchStatus && matchSearch) ? '' : 'none';
+        if (editRow) editRow.style.display = 'none';
+    });
+}
+
+// Hitung stats core
+(function() {
+    const counts = {};
+    document.querySelectorAll('.core-data-row').forEach(function(r) {
+        const s = r.dataset.status;
+        counts[s] = (counts[s] || 0) + 1;
+    });
+    const colors = { aktif: '#065f46', spare: '#1e40af', rusak: '#991b1b', tidak_aktif: '#475569' };
+    const bgs    = { aktif: '#dcfce7', spare: '#eff6ff', rusak: '#fee2e2', tidak_aktif: '#f1f5f9' };
+    const labels = { aktif: 'Aktif', spare: 'Spare', rusak: 'Rusak', tidak_aktif: 'Tidak Aktif' };
+    const statsEl = document.getElementById('core-stats');
+    if (statsEl) {
+        statsEl.innerHTML = '';
+        Object.entries(counts).forEach(([s, n]) => {
+            const span = document.createElement('span');
+            span.style.cssText = `font-size:11.5px;background:${bgs[s]||'#f1f5f9'};color:${colors[s]||'#475569'};padding:3px 10px;border-radius:20px;font-weight:600;`;
+            span.innerHTML = `<i class="bi bi-circle-fill me-1" style="font-size:8px;"></i>${labels[s]||s}: ${n}`;
+            statsEl.appendChild(span);
+        });
+    }
+})();
+</script>
+{% endblock %}

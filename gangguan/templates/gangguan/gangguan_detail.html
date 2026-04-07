@@ -161,6 +161,13 @@
                             <i class="bi bi-hdd-rack me-1"></i>{{ gangguan.peralatan.nama }}
                         </a>
                         {% endif %}
+                        {% if gangguan.komponen_rusak %}
+                        <span style="color:#cbd5e1;">·</span>
+                        <span style="font-size:12px;background:#fee2e2;color:#991b1b;padding:3px 10px;border-radius:20px;font-weight:600;">
+                            <i class="bi bi-cpu me-1" style="font-size:11px;"></i>{{ gangguan.komponen_rusak.nama }}
+                            {% if gangguan.komponen_rusak.posisi %}[{{ gangguan.komponen_rusak.posisi }}]{% endif %}
+                        </span>
+                        {% endif %}
                     </div>
                 </div>
                 <div class="text-end flex-shrink-0">
@@ -201,6 +208,19 @@
                         {{ gangguan.created_by.get_full_name|default:gangguan.created_by.username|default:"—" }}
                     </div>
                 </div>
+                {% if gangguan.pelaksana_names %}
+                <div>
+                    <div style="font-size:11px;font-weight:600;color:#94a3b8;margin-bottom:4px;">Pelaksana / PIC</div>
+                    <div style="display:flex;flex-wrap:wrap;gap:5px;">
+                        {% for nama in gangguan.pelaksana_names %}
+                        <span style="display:inline-flex;align-items:center;gap:4px;background:#dbeafe;color:#1d4ed8;
+                                     border-radius:20px;padding:3px 10px;font-size:12px;font-weight:500;">
+                            <i class="bi bi-person" style="font-size:11px;"></i>{{ nama }}
+                        </span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -385,6 +405,71 @@
 
         </div>
     </div>
+
+    <!-- Inservice Inspection Terkait -->
+    {% if inspeksi_terkait or insp_warning %}
+    <div class="g-card" style="{% if insp_warning %}border:1.5px solid #fca5a5;{% endif %}">
+        <div class="g-card-head">
+            <span style="display:flex;align-items:center;gap:8px;">
+                <i class="bi bi-clipboard2-check-fill" style="color:#6366f1;"></i>
+                <span>Inservice Inspection Terakhir</span>
+                {% if inspeksi_terkait %}
+                <span style="background:#ede9fe;color:#5b21b6;font-size:11px;padding:1px 8px;border-radius:20px;font-weight:700;">{{ inspeksi_terkait|length }} record</span>
+                {% endif %}
+            </span>
+        </div>
+        <div class="g-card-body" style="padding:{% if inspeksi_terkait %}0{% else %}16px{% endif %};">
+            {% if insp_warning %}
+            <div style="padding:10px 16px;background:#fef2f2;border-bottom:1px solid #fca5a5;display:flex;align-items:center;gap:8px;">
+                <i class="bi bi-exclamation-triangle-fill" style="color:#ef4444;"></i>
+                <span style="font-size:12.5px;font-weight:600;color:#991b1b;">{{ insp_warning }}</span>
+            </div>
+            {% endif %}
+            {% if inspeksi_terkait %}
+            <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
+                <thead>
+                    <tr style="background:#f8fafc;border-bottom:1px solid #e2e8f0;">
+                        <th style="padding:8px 14px;font-weight:700;color:#64748b;font-size:11px;text-transform:uppercase;">Tanggal</th>
+                        <th style="padding:8px 14px;font-weight:700;color:#64748b;font-size:11px;text-transform:uppercase;">Jenis</th>
+                        <th style="padding:8px 14px;font-weight:700;color:#64748b;font-size:11px;text-transform:uppercase;">Operator</th>
+                        <th style="padding:8px 14px;font-weight:700;color:#64748b;font-size:11px;text-transform:uppercase;">Status</th>
+                        <th style="padding:8px 14px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for insp in inspeksi_terkait %}
+                    <tr style="border-bottom:1px solid #f1f5f9;{% if forloop.last %}border-bottom:none;{% endif %}">
+                        <td style="padding:9px 14px;color:#475569;">{{ insp.tanggal|date:"d M Y H:i" }}</td>
+                        <td style="padding:9px 14px;">
+                            <span style="font-size:11px;padding:2px 8px;border-radius:20px;font-weight:600;
+                                {% if insp.jenis == 'catu_daya' %}background:#fff7ed;color:#c2410c;
+                                {% else %}background:#fdf4ff;color:#7e22ce;{% endif %}">
+                                {{ insp.get_jenis_display }}
+                            </span>
+                        </td>
+                        <td style="padding:9px 14px;color:#64748b;">{{ insp.operator.get_full_name|default:insp.operator.username|default:"—" }}</td>
+                        <td style="padding:9px 14px;">
+                            {% if insp.is_flagged %}
+                            <span style="background:#fef9c3;color:#92400e;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;"><i class="bi bi-flag-fill me-1"></i>Flag</span>
+                            {% else %}
+                            <span style="background:#dcfce7;color:#166534;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;">✓ Normal</span>
+                            {% endif %}
+                        </td>
+                        <td style="padding:9px 14px;">
+                            <a href="{% url 'inspection_riwayat' insp.pk %}" style="font-size:11.5px;color:#6366f1;text-decoration:none;">
+                                <i class="bi bi-box-arrow-up-right me-1"></i>Detail
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div style="color:#94a3b8;font-size:13px;padding:8px 0;">Belum ada riwayat inspeksi untuk perangkat ini.</div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
 
     <!-- Perubahan Fisik Peralatan -->
     <div class="g-card">
@@ -587,10 +672,23 @@
                             {# Field Komponen #}
                             <div id="gFieldKomponen" style="display:none;" class="col-12">
                                 <div class="row g-2">
+                                    {# Dropdown komponen dari database DeviceComponent #}
+                                    <div class="col-12" id="ev-komponen-terkait-wrapper" style="display:none;">
+                                        <label style="font-size:12px;font-weight:600;color:#7c3aed;display:block;margin-bottom:4px;">
+                                            <i class="bi bi-diagram-3 me-1"></i>Pilih Komponen dari Database
+                                        </label>
+                                        <select name="komponen_terkait_id" id="ev_komponen_terkait" class="form-select form-select-sm">
+                                            <option value="">— Pilih komponen (opsional) —</option>
+                                        </select>
+                                        <div style="font-size:10px;color:#7c3aed;margin-top:3px;">
+                                            Status komponen akan otomatis diupdate sesuai tipe perubahan.
+                                        </div>
+                                    </div>
+
                                     <div class="col-12">
                                         <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px;">Nama Komponen</label>
-                                        <input type="text" name="komponen" class="form-control form-control-sm"
-                                               placeholder="PSU, Modul, Battery, Kabel...">
+                                        <input type="text" name="komponen" id="ev_nama_komponen" class="form-control form-control-sm"
+                                               placeholder="Otomatis terisi dari dropdown, atau ketik manual...">
                                     </div>
                                     <div class="col-6">
                                         <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px;">Sebelumnya</label>
@@ -922,7 +1020,85 @@ function toggleGangguanFields() {
     const isKomponen = ["penggantian","penambahan","pembongkaran","pemasangan","modifikasi"].includes(tipe);
     document.getElementById("gFieldRelokasi").style.display = isRelokasi ? "block" : "none";
     document.getElementById("gFieldKomponen").style.display = isKomponen ? "block" : "none";
+
+    // Load komponen via AJAX saat field komponen ditampilkan
+    if (isKomponen) {
+        loadEvKomponenByDevice();
+    }
 }
+
+// ── AJAX: Load komponen untuk modal Catat Perubahan Fisik ──────
+function loadEvKomponenByDevice() {
+    var deviceSelect = document.querySelector('#modalCatatPerubahan select[name="device_id"]');
+    var wrapper = document.getElementById('ev-komponen-terkait-wrapper');
+    var select  = document.getElementById('ev_komponen_terkait');
+    var deviceId = deviceSelect ? deviceSelect.value : '';
+
+    if (!deviceId) {
+        wrapper.style.display = 'none';
+        select.innerHTML = '<option value="">— Pilih komponen (opsional) —</option>';
+        return;
+    }
+
+    fetch('/api/device/' + deviceId + '/komponen/')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            select.innerHTML = '<option value="">— Pilih komponen (opsional) —</option>';
+            if (data.length > 0) {
+                data.forEach(function(k) {
+                    var opt = document.createElement('option');
+                    opt.value = k.id;
+                    var label = k.label;
+                    if (k.tipe && k.tipe !== '—') label += ' (' + k.tipe + ')';
+                    if (k.status === 'rusak') label += ' ⚠️ RUSAK';
+                    if (k.status === 'diganti') label += ' 🔄 DIGANTI';
+                    opt.textContent = label;
+                    opt.dataset.nama = k.label;
+                    select.appendChild(opt);
+                });
+                wrapper.style.display = 'block';
+
+                // Auto-select komponen_rusak dari gangguan jika ada
+                var initKomponenId = '{{ gangguan.komponen_rusak_id|default:"" }}';
+                if (initKomponenId) {
+                    select.value = initKomponenId;
+                    // Trigger auto-fill nama
+                    var selected = select.options[select.selectedIndex];
+                    if (selected && selected.dataset.nama) {
+                        document.getElementById('ev_nama_komponen').value = selected.dataset.nama;
+                    }
+                }
+            } else {
+                wrapper.style.display = 'none';
+            }
+        })
+        .catch(function() {
+            wrapper.style.display = 'none';
+        });
+}
+
+// Auto-fill nama_komponen saat dropdown berubah
+document.getElementById('ev_komponen_terkait').addEventListener('change', function() {
+    var selected = this.options[this.selectedIndex];
+    var namaInput = document.getElementById('ev_nama_komponen');
+    if (this.value && selected.dataset.nama) {
+        namaInput.value = selected.dataset.nama;
+    }
+});
+
+// Reload komponen saat device berubah di modal
+(function() {
+    var deviceSelect = document.querySelector('#modalCatatPerubahan select[name="device_id"]');
+    if (deviceSelect) {
+        deviceSelect.addEventListener('change', function() {
+            var tipe = document.getElementById("evTipeGangguan").value;
+            var isKomponen = ["penggantian","penambahan","pembongkaran","pemasangan","modifikasi"].includes(tipe);
+            if (isKomponen) {
+                loadEvKomponenByDevice();
+            }
+        });
+    }
+})();
 
 function copyPublicUrl() {
     const el  = document.getElementById('publicUrl');

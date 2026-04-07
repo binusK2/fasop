@@ -1,0 +1,24 @@
+{% extends 'maintenance/pdf/_base.html' %}
+{% block content %}
+<div class="two-col">
+    <div>
+        <div class="sec">II.&nbsp;&nbsp;KONDISI LINGKUNGAN</div>
+        <table>{% for i in env_items %}<tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %}><td style="width:65%;">{{ i.label }}</td><td class="vb">{{ i.value|default:"-" }}</td></tr>{% endfor %}</table>
+    </div>
+    <div>
+        <div class="sec">PERALATAN TERPASANG</div>
+        <table>
+            {% for i in equip_items %}<tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %}><td style="width:65%;">{{ i.label }}</td><td class="{% if i.value == 'OK' %}ok{% elif i.value == 'NOK' %}nok{% else %}vg{% endif %}">{{ i.value|default:"-" }}</td></tr>{% endfor %}
+            {% for i in merk_items %}<tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %}><td>{{ i.label }}</td><td class="vg">{{ i.value|default:"-" }}</td></tr>{% endfor %}
+        </table>
+    </div>
+</div>
+<div class="sec">III.&nbsp;&nbsp;NILAI PENGUKURAN</div>
+<table>
+    {% for i in pengukuran_items %}<tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %}><td style="width:55%;">{{ i.label }}</td><td class="vb">{{ i.value|default:"-" }}</td><td class="vg">{{ i.standar }}</td></tr>{% endfor %}
+</table>
+{% if catatan %}
+<div class="sec">IV.&nbsp;&nbsp;CATATAN</div>
+<table><tr><td style="min-height:8mm;">{{ catatan }}</td></tr></table>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,21 @@
+{% extends 'maintenance/pdf/_base.html' %}
+{% block content %}
+<div class="two-col">
+    <div>
+        <div class="sec">II.&nbsp;&nbsp;CHECKLIST PLC (1/2)</div>
+        <table>{% for i in checklist_left %}<tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %}><td style="width:70%;">{{ i.label }}</td><td class="{% if i.value == 'OK' %}ok{% elif i.value == 'NOK' %}nok{% else %}vg{% endif %}">{{ i.value|default:"-" }}</td></tr>{% endfor %}</table>
+    </div>
+    <div>
+        <div class="sec">CHECKLIST PLC (2/2)</div>
+        <table>{% for i in checklist_right %}<tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %}><td style="width:70%;">{{ i.label }}</td><td class="{% if i.value == 'OK' %}ok{% elif i.value == 'NOK' %}nok{% else %}vg{% endif %}">{{ i.value|default:"-" }}</td></tr>{% endfor %}</table>
+    </div>
+</div>
+<div class="sec">III.&nbsp;&nbsp;NILAI PENGUKURAN PLC</div>
+<table>
+    {% for i in pengukuran_items %}<tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %}><td style="width:55%;">{{ i.label }}</td><td class="vb">{{ i.value|default:"-" }}</td><td class="vg">{{ i.unit }}</td></tr>{% endfor %}
+</table>
+{% if catatan %}
+<div class="sec">IV.&nbsp;&nbsp;CATATAN TAMBAHAN</div>
+<table><tr><td style="min-height:10mm;">{{ catatan|default:"-" }}</td></tr></table>
+{% endif %}
+{% endblock %}

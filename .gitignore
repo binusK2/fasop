@@ -55,3 +55,10 @@ htmlcov/
 dist/
 build/
 *.egg-info/
+/bin/
+
+#claude code
+.mcp.json
+.claude/
+.claude-*/
+.claude/worktrees/

@@ -95,6 +95,50 @@ class Gangguan(models.Model):
         verbose_name='Peralatan Terdampak',
         help_text='Opsional — pilih peralatan spesifik jika gangguan terkait satu perangkat'
     )
+    komponen_rusak  = models.ForeignKey(
+        'devices.DeviceComponent',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='gangguan_terkait',
+        verbose_name='Komponen Rusak',
+        help_text='Opsional — pilih komponen spesifik yang rusak (misal: Modul CPU Slot A)',
+    )
+    layanan_icon    = models.ForeignKey(
+        'devices.Icon',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='gangguan_terkait',
+        verbose_name='Layanan ICON+',
+        help_text='Opsional — pilih layanan ICON+ yang terdampak gangguan ini',
+    )
+
+    # ── Tipe gangguan & link/fiber ───────────────────────────────
+    TIPE_GANGGUAN_CHOICES = (
+        ('device', 'Gangguan Device / Perangkat'),
+        ('link',   'Gangguan Link / Fiber Optic'),
+    )
+    tipe_gangguan   = models.CharField(
+        max_length=10, choices=TIPE_GANGGUAN_CHOICES, default='device',
+        verbose_name='Tipe Gangguan',
+    )
+    lokasi_b        = models.CharField(
+        max_length=150, blank=True, null=True,
+        verbose_name='Lokasi B (Titik Ujung)',
+        help_text='Titik ujung kedua — diisi untuk gangguan link/fiber optic',
+    )
+    fiber_optic     = models.ForeignKey(
+        'devices.FiberOptic',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='gangguan_terkait',
+        verbose_name='Segmen Fiber Optic',
+        help_text='Opsional — pilih segmen FO yang mengalami gangguan',
+    )
+    core_putus      = models.CharField(
+        max_length=100, blank=True, null=True,
+        verbose_name='Core yang Putus',
+        help_text='Misal: Core 1-2, Core 5, Semua core',
+    )
 
     # ── Isi laporan gangguan ─────────────────────────────────────
     executive_summary   = models.TextField(verbose_name='Executive Summary', help_text='Ringkasan singkat kondisi gangguan')
@@ -103,6 +147,12 @@ class Gangguan(models.Model):
     dampak_gangguan     = models.TextField(verbose_name='Dampak Gangguan', help_text='Dampak yang ditimbulkan terhadap layanan/sistem')
     tindak_lanjut       = models.TextField(blank=True, verbose_name='Tindak Lanjut', help_text='[Tidak digunakan lagi — gunakan Log Tindak Lanjut]')
     catatan_penutupan   = models.TextField(blank=True, verbose_name='Catatan Penutupan', help_text='Diisi saat gangguan dinyatakan selesai / closed')
+
+    # ── Pelaksana / PIC ──────────────────────────────────────────
+    pelaksana_names = models.JSONField(
+        default=list, blank=True,
+        verbose_name='Nama Pelaksana / PIC',
+    )
 
     # ── Foto Eviden ──────────────────────────────────────────────
     foto_eviden1    = models.ImageField(upload_to=eviden1_upload, blank=True, null=True, verbose_name='Foto Eviden 1')

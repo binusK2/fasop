@@ -98,7 +98,7 @@
 </div>
 
 <!-- ══ 2. JARINGAN & LOKASI ══════════════════════════════════ -->
-<div class="card mb-3">
+<div class="card mb-3" id="jaringan-section">
     <div class="card-body px-4 py-3">
         <div class="section-title-bar">
             <span class="bar" style="background:#10b981;"></span>
@@ -254,6 +254,29 @@
 
 <!-- Hidden input: spesifikasi dikirim sebagai JSON string -->
 <input type="hidden" name="spesifikasi_json" id="spesifikasi_json" value="{}">
+
+<!-- ══ 5. KOMPONEN PERANGKAT (repeatable rows) ════════════════ -->
+<div class="card mb-3" id="komponen-section">
+    <div class="card-body px-4 py-3">
+        <div class="section-title-bar">
+            <span class="bar" style="background:#8b5cf6;"></span>
+            <span>Komponen Perangkat</span>
+        </div>
+        <div style="font-size:12px;color:#64748b;margin-bottom:14px;">
+            Tambahkan komponen fisik yang terpasang di perangkat ini (PSU, modul, SFP, battery, dll).
+            <span style="color:#94a3b8;">Bisa ditambahkan nanti juga lewat halaman detail.</span>
+        </div>
+
+        <div id="komponen-rows">
+            <!-- Baris komponen akan di-render via JS -->
+        </div>
+
+        <button type="button" onclick="addKomponenRow()" class="btn btn-sm btn-outline-primary mt-2">
+            <i class="bi bi-plus-lg me-1"></i>Tambah Komponen
+        </button>
+    </div>
+</div>
+<input type="hidden" name="komponen_json" id="komponen_json" value="[]">
 
 {% if form.non_field_errors %}
 <div class="alert alert-danger mb-3">
@@ -544,13 +567,140 @@ document.addEventListener('DOMContentLoaded', () => {
   // Trigger on jenis change
   jenisSelect?.addEventListener('change', () => {
     renderFields(getSelectedJenisName());
+    updateFieldVisibility(getSelectedJenisName());
   });
 
   // On page load: render if jenis already selected (edit mode)
   document.addEventListener('DOMContentLoaded', () => {
     const jenisName = getSelectedJenisName();
     if (jenisName) renderFields(jenisName);
+    updateFieldVisibility(jenisName);
   });
+
+  // ── Hide/show field berdasarkan jenis ─────────────────────
+  function updateFieldVisibility(jenisName) {
+    const nama = jenisName.trim().toUpperCase();
+
+    // Field yang tidak relevan untuk Genset & perangkat non-jaringan
+    const NON_NETWORK = ['GENSET', 'UPS'];
+    const isNonNetwork = NON_NETWORK.includes(nama);
+
+    // IP Address — sembunyikan untuk non-network
+    const ipWrap = document.querySelector('[name="ip_address"]')?.closest('.field-card')?.closest('.col-md-6');
+    if (ipWrap) ipWrap.style.display = isNonNetwork ? 'none' : '';
+
+    // Firmware Version — sembunyikan untuk non-network
+    const fwWrap = document.querySelector('[name="firmware_version"]')?.closest('.field-card')?.closest('.col-md-6');
+    if (fwWrap) fwWrap.style.display = isNonNetwork ? 'none' : '';
+
+    // Ubah judul section Jaringan & Lokasi
+    const jaringanTitle = document.querySelector('#jaringan-section .section-title-bar span:nth-child(2)');
+    if (jaringanTitle) {
+      jaringanTitle.textContent = isNonNetwork ? 'Lokasi & Status' : 'Jaringan & Lokasi';
+    }
+  }
+})();
+
+// ══════════════════════════════════════════════════════════════
+// KOMPONEN PERANGKAT — repeatable rows
+// ══════════════════════════════════════════════════════════════
+(function() {
+  let komponenCounter = 0;
+
+  const TIPE_OPTIONS = {{ tipe_komponen_json|safe }};
+
+  function buildTipeSelect() {
+    let html = '<option value="">— Pilih Tipe —</option>';
+    TIPE_OPTIONS.forEach(g => {
+      html += `<optgroup label="${g.group}">`;
+      g.items.forEach(i => { html += `<option value="${i.id}">${i.nama}</option>`; });
+      html += '</optgroup>';
+    });
+    return html;
+  }
+
+  window.addKomponenRow = function(data) {
+    data = data || {};
+    const idx = komponenCounter++;
+    const container = document.getElementById('komponen-rows');
+
+    const row = document.createElement('div');
+    row.className = 'komponen-row';
+    row.id = `komponen-row-${idx}`;
+    row.style.cssText = 'background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px;margin-bottom:10px;position:relative;';
+
+    row.innerHTML = `
+      <button type="button" onclick="removeKomponenRow(${idx})"
+              style="position:absolute;top:8px;right:10px;background:none;border:none;color:#fca5a5;cursor:pointer;font-size:16px;padding:2px 6px;"
+              onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#fca5a5'"
+              title="Hapus komponen ini">
+          <i class="bi bi-x-lg"></i>
+      </button>
+      <div class="row g-2">
+        <div class="col-md-3">
+          <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px;">Nama Komponen *</label>
+          <input type="text" class="form-control form-control-sm komp-field" data-field="nama"
+                 placeholder="e.g. CPU 1, PSU 1, Slot A" value="${data.nama || ''}">
+        </div>
+        <div class="col-md-3">
+          <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px;">Tipe Komponen *</label>
+          <select class="form-select form-select-sm komp-field" data-field="tipe_komponen">
+            ${buildTipeSelect()}
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px;">Posisi / Slot</label>
+          <input type="text" class="form-control form-control-sm komp-field" data-field="posisi"
+                 placeholder="e.g. Slot A" value="${data.posisi || ''}">
+        </div>
+        <div class="col-md-2">
+          <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px;">Merk</label>
+          <input type="text" class="form-control form-control-sm komp-field" data-field="merk"
+                 placeholder="e.g. Huawei" value="${data.merk || ''}">
+        </div>
+        <div class="col-md-2">
+          <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:4px;">Keterangan</label>
+          <input type="text" class="form-control form-control-sm komp-field" data-field="keterangan"
+                 value="${data.keterangan || ''}">
+        </div>
+      </div>
+    `;
+
+    container.appendChild(row);
+
+    // Set tipe_komponen if provided
+    if (data.tipe_komponen) {
+      row.querySelector('[data-field="tipe_komponen"]').value = data.tipe_komponen;
+    }
+
+    // Attach change listeners
+    row.querySelectorAll('.komp-field').forEach(el => {
+      el.addEventListener('change', collectKomponen);
+      el.addEventListener('input', collectKomponen);
+    });
+
+    collectKomponen();
+  };
+
+  window.removeKomponenRow = function(idx) {
+    const row = document.getElementById(`komponen-row-${idx}`);
+    if (row) row.remove();
+    collectKomponen();
+  };
+
+  function collectKomponen() {
+    const rows = document.querySelectorAll('.komponen-row');
+    const data = [];
+    rows.forEach(row => {
+      const obj = {};
+      row.querySelectorAll('.komp-field').forEach(el => {
+        obj[el.dataset.field] = el.value;
+      });
+      obj.status = 'terpasang';
+      if (obj.nama) data.push(obj);
+    });
+    document.getElementById('komponen_json').value = JSON.stringify(data);
+  }
 })();
 </script>
 {% endblock %}

@@ -1,0 +1,145 @@
+{% extends 'base.html' %}
+{% block title %}Import Data Offline — FASOP{% endblock %}
+{% block page_title %}Import Data Maintenance Offline{% endblock %}
+
+{% block content %}
+<style>
+    .off-card { background:white; border:1px solid var(--border-color); border-radius:12px; margin-bottom:16px; overflow:hidden; }
+    .off-head { padding:12px 20px; background:#f8fafc; border-bottom:1px solid var(--border-color);
+                font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:#475569;
+                display:flex; align-items:center; gap:8px; }
+    .off-body { padding:20px; }
+</style>
+
+<div class="d-flex align-items-center gap-2 mb-4">
+    <a href="{% url 'maintenance_list' %}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Kembali
+    </a>
+</div>
+
+<div class="row g-4">
+    {# ── Kolom Kiri: Download Template ── #}
+    <div class="col-lg-5">
+        <div class="off-card">
+            <div class="off-head">
+                <i class="bi bi-cloud-download" style="color:#3b82f6;font-size:14px;"></i>
+                Step 1: Download Template
+            </div>
+            <div class="off-body">
+                <div style="text-align:center;padding:20px 0;">
+                    <div style="width:72px;height:72px;background:#eff6ff;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-bottom:16px;">
+                        <i class="bi bi-file-earmark-spreadsheet" style="font-size:32px;color:#3b82f6;"></i>
+                    </div>
+                    <p style="font-size:14px;color:#1e293b;font-weight:600;margin-bottom:6px;">Template Excel Maintenance per Lokasi</p>
+                    <p style="font-size:12px;color:#94a3b8;margin-bottom:20px;line-height:1.5;">
+                        Pilih lokasi, lalu download template. Setiap jenis perangkat<br>
+                        mendapat sheet sendiri dengan nama perangkat sudah terisi.
+                    </p>
+                    <form method="get" action="{% url 'offline_form_download' %}" class="d-flex flex-column align-items-center gap-2">
+                        <select name="lokasi" class="form-select" style="max-width:280px;font-size:13px;">
+                            <option value="">— Semua Lokasi —</option>
+                            {% for lok in lokasi_list %}
+                            <option value="{{ lok }}">{{ lok }}</option>
+                            {% endfor %}
+                        </select>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-download me-2"></i>Download Template (.xlsx)
+                        </button>
+                    </form>
+                </div>
+                <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:12px;margin-top:12px;">
+                    <div style="font-size:11.5px;color:#92400e;line-height:1.6;">
+                        <strong><i class="bi bi-lightbulb me-1"></i>Tips:</strong><br>
+                        &bull; Template berisi sheet per jenis perangkat + sheet <strong>Corrective</strong> dan <strong>Referensi Perangkat</strong><br>
+                        &bull; Nama perangkat sudah <strong>pre-filled</strong> sesuai lokasi yang dipilih<br>
+                        &bull; Gunakan sheet "Referensi Perangkat" untuk cek IP dan lokasi<br>
+                        &bull; Format tanggal: <code>2025-01-15 08:30</code>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ── Kolom Kanan: Upload ── #}
+    <div class="col-lg-7">
+        <div class="off-card">
+            <div class="off-head">
+                <i class="bi bi-cloud-upload" style="color:#10b981;font-size:14px;"></i>
+                Step 2: Upload Data
+            </div>
+            <div class="off-body">
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div id="dropzone"
+                         style="border:2px dashed #cbd5e1;border-radius:12px;padding:40px 20px;text-align:center;
+                                cursor:pointer;transition:all 0.2s;background:#fafbfc;"
+                         ondragover="event.preventDefault();this.style.borderColor='#3b82f6';this.style.background='#eff6ff';"
+                         ondragleave="this.style.borderColor='#cbd5e1';this.style.background='#fafbfc';"
+                         ondrop="event.preventDefault();this.style.borderColor='#cbd5e1';document.getElementById('file_input').files=event.dataTransfer.files;showFileName();"
+                         onclick="document.getElementById('file_input').click();">
+                        <i class="bi bi-file-earmark-arrow-up" style="font-size:36px;color:#94a3b8;"></i>
+                        <p id="file_label" style="font-size:13px;color:#64748b;margin-top:10px;">
+                            Drag & drop file Excel di sini, atau <strong style="color:#3b82f6;">klik untuk pilih file</strong>
+                        </p>
+                        <input type="file" name="file" id="file_input" accept=".xlsx,.xls"
+                               style="display:none;" onchange="showFileName();">
+                    </div>
+                    <button type="submit" class="btn btn-success w-100 mt-3" id="btn_upload" disabled>
+                        <i class="bi bi-upload me-2"></i>Import Data ke FASOP
+                    </button>
+                </form>
+
+                {% if results %}
+                <div style="margin-top:20px;">
+                    {# ── Ringkasan ── #}
+                    <div class="d-flex gap-3 mb-3">
+                        <div style="flex:1;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px;text-align:center;">
+                            <div style="font-size:24px;font-weight:700;color:#16a34a;">{{ results.total_imported }}</div>
+                            <div style="font-size:11px;color:#166534;">Berhasil Import</div>
+                        </div>
+                        <div style="flex:1;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px;text-align:center;">
+                            <div style="font-size:24px;font-weight:700;color:#dc2626;">{{ results.total_errors }}</div>
+                            <div style="font-size:11px;color:#991b1b;">Error</div>
+                        </div>
+                    </div>
+
+                    {% if results.imported %}
+                    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px;margin-bottom:10px;">
+                        <div style="font-size:11.5px;font-weight:600;color:#166534;margin-bottom:6px;">
+                            <i class="bi bi-check-circle-fill me-1"></i>Data Berhasil Diimport:
+                        </div>
+                        {% for item in results.imported %}
+                        <div style="font-size:12px;color:#15803d;padding:2px 0;">• {{ item }}</div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    {% if results.errors %}
+                    <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px;">
+                        <div style="font-size:11.5px;font-weight:600;color:#991b1b;margin-bottom:6px;">
+                            <i class="bi bi-exclamation-triangle-fill me-1"></i>Error:
+                        </div>
+                        {% for err in results.errors %}
+                        <div style="font-size:12px;color:#dc2626;padding:2px 0;">• {{ err }}</div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function showFileName() {
+    var input = document.getElementById('file_input');
+    var label = document.getElementById('file_label');
+    var btn   = document.getElementById('btn_upload');
+    if (input.files.length > 0) {
+        label.innerHTML = '<i class="bi bi-file-earmark-check" style="color:#10b981;"></i> <strong>' + input.files[0].name + '</strong>';
+        btn.disabled = false;
+    }
+}
+</script>
+{% endblock %}

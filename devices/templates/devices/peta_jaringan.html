@@ -1,0 +1,652 @@
+
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Peta Jaringan — FASOP{% endblock %}
+{% block page_title %}Peta Jaringan{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+<style>
+/* ── Layout utama ─────────────────────────────────── */
+.peta-wrap {
+    display: flex;
+    gap: 0;
+    height: calc(100vh - 130px);
+    min-height: 520px;
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    overflow: hidden;
+    background: #fff;
+}
+
+/* ── Panel kiri ───────────────────────────────────── */
+.peta-panel {
+    width: 320px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border-color);
+    background: #fff;
+    overflow: hidden;
+}
+.peta-panel-head {
+    padding: 16px 18px 12px;
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+.peta-panel-head h6 {
+    font-size: 13.5px;
+    font-weight: 700;
+    margin: 0 0 10px;
+    color: #0f172a;
+}
+
+/* Search site */
+.site-search-wrap {
+    position: relative;
+}
+.site-search-wrap input {
+    width: 100%;
+    padding: 8px 12px 8px 34px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 13px;
+    outline: none;
+    transition: border-color .15s;
+    background: #f8fafc;
+}
+.site-search-wrap input:focus { border-color: #93c5fd; background: #fff; }
+.site-search-wrap .search-ico {
+    position: absolute; left: 11px; top: 50%; transform: translateY(-50%);
+    color: #94a3b8; font-size: 13px; pointer-events: none;
+}
+
+/* Filter legenda */
+.legend-bar {
+    display: flex; gap: 5px; flex-wrap: wrap;
+    padding: 10px 18px 0;
+    flex-shrink: 0;
+}
+.legend-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 10px; border-radius: 20px;
+    font-size: 11px; font-weight: 600;
+    border: 1.5px solid transparent;
+    cursor: pointer; transition: all .15s;
+    background: #f1f5f9; color: #64748b;
+}
+.legend-btn .dot {
+    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
+.legend-btn.active { border-color: currentColor; background: #fff; }
+.legend-btn:hover { filter: brightness(.95); }
+
+/* Daftar site */
+.site-list-wrap {
+    flex: 1; overflow-y: auto; padding: 10px 10px;
+}
+.site-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 10px; border-radius: 10px;
+    cursor: pointer; transition: background .12s;
+    margin-bottom: 2px;
+}
+.site-item:hover { background: #f0f9ff; }
+.site-item.active { background: #eff6ff; }
+.site-marker-dot {
+    width: 34px; height: 34px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; font-size: 13px; font-weight: 700;
+    border: 2.5px solid white;
+    box-shadow: 0 1px 4px rgba(0,0,0,.18);
+    color: white;
+}
+.site-item-info { flex: 1; min-width: 0; }
+.site-item-name {
+    font-size: 13px; font-weight: 600; color: #0f172a;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.site-item-sub {
+    font-size: 11px; color: #94a3b8; margin-top: 1px;
+    display: flex; gap: 6px; align-items: center;
+}
+.site-item-hi {
+    font-size: 11px; font-weight: 700; padding: 1px 7px;
+    border-radius: 20px; white-space: nowrap; flex-shrink: 0;
+}
+.no-site-msg {
+    text-align: center; padding: 30px 20px;
+    color: #94a3b8; font-size: 13px;
+}
+
+/* Panel kosong (belum pilih) */
+.peta-panel-empty {
+    padding: 8px 18px 14px; font-size: 11.5px; color: #94a3b8;
+    border-top: 1px solid #f1f5f9; flex-shrink: 0;
+}
+
+/* ── Peta ─────────────────────────────────────────── */
+.peta-map-wrap { flex: 1; position: relative; }
+#jaringan-map { width: 100%; height: 100%; }
+
+/* Loader overlay */
+#map-loader {
+    position: absolute; inset: 0; z-index: 9999;
+    background: rgba(255,255,255,.82);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 12px;
+}
+#map-loader .spinner {
+    width: 36px; height: 36px; border-radius: 50%;
+    border: 3px solid #e2e8f0; border-top-color: #3b82f6;
+    animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+#map-loader p { font-size: 13px; color: #64748b; margin: 0; }
+
+/* Overlay info site (detail panel bawah peta) */
+#site-detail-overlay {
+    position: absolute; bottom: 0; left: 0; right: 0; z-index: 800;
+    background: white;
+    border-top: 1px solid var(--border-color);
+    max-height: 42%;
+    overflow-y: auto;
+    display: none;
+    padding: 0;
+}
+.sdo-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 18px 10px;
+    border-bottom: 1px solid #f1f5f9;
+    position: sticky; top: 0; background: white; z-index: 1;
+}
+.sdo-head h6 { margin: 0; font-size: 14px; font-weight: 700; flex: 1; }
+.sdo-head .close-btn {
+    background: none; border: none; cursor: pointer;
+    font-size: 16px; color: #94a3b8; padding: 2px 4px;
+    line-height: 1;
+}
+.sdo-head .close-btn:hover { color: #ef4444; }
+.sdo-stats {
+    display: flex; gap: 10px; padding: 10px 18px 8px;
+    border-bottom: 1px solid #f1f5f9; flex-wrap: wrap;
+}
+.sdo-stat {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 12px; color: #64748b;
+}
+.sdo-stat i { font-size: 13px; }
+
+/* Device table dalam overlay */
+.device-table {
+    width: 100%; border-collapse: collapse;
+    font-size: 12.5px;
+}
+.device-table th {
+    background: #f8fafc; padding: 7px 14px;
+    text-align: left; font-size: 11px; font-weight: 600;
+    color: #94a3b8; text-transform: uppercase; letter-spacing: .4px;
+    border-bottom: 1px solid #f1f5f9;
+    position: sticky; top: 0;
+}
+.device-table td {
+    padding: 9px 14px; border-bottom: 1px solid #f8fafc;
+    vertical-align: middle; color: #0f172a;
+}
+.device-table tr:hover td { background: #fafafa; }
+.device-table tr:last-child td { border-bottom: none; }
+.hi-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 2px 8px; border-radius: 20px;
+    font-size: 11px; font-weight: 700;
+}
+.status-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    display: inline-block; margin-right: 5px;
+}
+.ip-text { font-family: monospace; font-size: 11.5px; color: #64748b; }
+
+/* Info bar tidak punya koordinat */
+#no-coord-bar {
+    display: none;
+    position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+    z-index: 800; background: #fffbeb; border: 1px solid #fcd34d;
+    border-radius: 8px; padding: 7px 14px;
+    font-size: 12px; color: #92400e; white-space: nowrap;
+    box-shadow: 0 2px 8px rgba(0,0,0,.1);
+}
+
+/* Stat bar atas */
+.stat-bar {
+    display: flex; gap: 0; margin-bottom: 16px;
+    border: 1px solid var(--border-color); border-radius: 10px; overflow: hidden;
+}
+.stat-bar-item {
+    flex: 1; padding: 10px 16px; text-align: center;
+    border-right: 1px solid var(--border-color);
+}
+.stat-bar-item:last-child { border-right: none; }
+.stat-bar-num { font-size: 20px; font-weight: 800; color: #0f172a; line-height: 1; }
+.stat-bar-lbl { font-size: 11px; color: #94a3b8; margin-top: 3px; }
+
+@media (max-width: 768px) {
+    .peta-wrap { flex-direction: column; height: auto; }
+    .peta-panel { width: 100%; height: 280px; border-right: none; border-bottom: 1px solid var(--border-color); }
+    .peta-map-wrap { height: 400px; }
+}
+</style>
+
+<!-- ── Header ──────────────────────────────────────── -->
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <div>
+        <p class="text-muted mb-0" style="font-size:13px;">
+            Visualisasi kondisi jaringan berdasarkan Health Index peralatan
+        </p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'lokasi_admin' %}" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-geo-alt-fill me-1"></i>Kelola Koordinat
+        </a>
+        <button class="btn btn-sm btn-outline-primary" onclick="refreshMap()">
+            <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+        </button>
+    </div>
+</div>
+
+<!-- ── Stat bar ─────────────────────────────────────── -->
+<div class="stat-bar mb-3">
+    <div class="stat-bar-item">
+        <div class="stat-bar-num" id="sb-total">—</div>
+        <div class="stat-bar-lbl">Total site</div>
+    </div>
+    <div class="stat-bar-item">
+        <div class="stat-bar-num" style="color:#10b981;" id="sb-berkoord">{{ total_berkoord }}</div>
+        <div class="stat-bar-lbl">Ada di peta</div>
+    </div>
+    <div class="stat-bar-item">
+        <div class="stat-bar-num" style="color:#f59e0b;" id="sb-tanpa">{{ total_tanpa }}</div>
+        <div class="stat-bar-lbl">Belum ada koordinat</div>
+    </div>
+    <div class="stat-bar-item">
+        <div class="stat-bar-num" style="color:#ef4444;" id="sb-gangguan">—</div>
+        <div class="stat-bar-lbl">Site ada gangguan</div>
+    </div>
+</div>
+
+<!-- ── Peta + Panel ─────────────────────────────────── -->
+<div class="peta-wrap">
+
+    <!-- Panel kiri -->
+    <div class="peta-panel">
+        <div class="peta-panel-head">
+            <h6><i class="bi bi-geo-alt-fill me-2" style="color:#3b82f6;"></i>Daftar Site</h6>
+            <div class="site-search-wrap">
+                <i class="bi bi-search search-ico"></i>
+                <input type="text" id="site-search" placeholder="Cari site…" oninput="filterSiteList()">
+            </div>
+        </div>
+
+        <!-- Filter HI -->
+        <div class="legend-bar" id="legend-bar">
+            <button class="legend-btn active" data-filter="all" onclick="setFilter('all', this)">
+                <span class="dot" style="background:#64748b;"></span> Semua
+            </button>
+            <button class="legend-btn" data-filter="Sangat Baik" onclick="setFilter('Sangat Baik', this)">
+                <span class="dot" style="background:#10b981;"></span> Sangat Baik
+            </button>
+            <button class="legend-btn" data-filter="Baik" onclick="setFilter('Baik', this)">
+                <span class="dot" style="background:#3b82f6;"></span> Baik
+            </button>
+            <button class="legend-btn" data-filter="Cukup" onclick="setFilter('Cukup', this)">
+                <span class="dot" style="background:#f59e0b;"></span> Cukup
+            </button>
+            <button class="legend-btn" data-filter="Buruk" onclick="setFilter('Buruk', this)">
+                <span class="dot" style="background:#f97316;"></span> Buruk
+            </button>
+            <button class="legend-btn" data-filter="Kritis" onclick="setFilter('Kritis', this)">
+                <span class="dot" style="background:#ef4444;"></span> Kritis
+            </button>
+        </div>
+
+        <div class="site-list-wrap" id="site-list">
+            <div class="no-site-msg">
+                <i class="bi bi-arrow-repeat" style="font-size:22px;display:block;margin-bottom:6px;"></i>
+                Memuat data…
+            </div>
+        </div>
+
+        <div class="peta-panel-empty" id="panel-footer">
+            Klik site untuk melihat detail peralatan
+        </div>
+    </div>
+
+    <!-- Peta -->
+    <div class="peta-map-wrap">
+        <div id="map-loader">
+            <div class="spinner"></div>
+            <p>Memuat data peta…</p>
+        </div>
+        <div id="jaringan-map"></div>
+
+        <!-- Info site tanpa koordinat -->
+        <div id="no-coord-bar"></div>
+
+        <!-- Overlay detail site -->
+        <div id="site-detail-overlay">
+            <div class="sdo-head">
+                <div class="site-marker-dot" id="sdo-dot" style="background:#94a3b8;">
+                    <i class="bi bi-geo-alt-fill"></i>
+                </div>
+                <h6 id="sdo-title">—</h6>
+                <button class="close-btn" onclick="closeSiteDetail()">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <div class="sdo-stats" id="sdo-stats"></div>
+            <table class="device-table">
+                <thead>
+                    <tr>
+                        <th>Peralatan</th>
+                        <th>Jenis</th>
+                        <th>IP Address</th>
+                        <th>Status</th>
+                        <th>Health Index</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="sdo-tbody"></tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ── State global ──────────────────────────────────────────────────────────────
+let map, allSites = [], activeFilter = 'all', activeMarker = null;
+const markers = {};
+
+// ── Warna HI → marker color ───────────────────────────────────────────────────
+function hiColor(label) {
+    return {
+        'Sangat Baik': '#10b981',
+        'Baik':        '#3b82f6',
+        'Cukup':       '#f59e0b',
+        'Buruk':       '#f97316',
+        'Kritis':      '#ef4444',
+    }[label] || '#94a3b8';
+}
+
+// ── Buat SVG marker ───────────────────────────────────────────────────────────
+function makeMarkerIcon(color, score, isActive) {
+    const ring   = isActive ? `stroke="white" stroke-width="3"` : `stroke="white" stroke-width="2"`;
+    const shadow = isActive ? 'filter:drop-shadow(0 4px 12px rgba(0,0,0,.4))' : 'filter:drop-shadow(0 2px 6px rgba(0,0,0,.28))';
+    const scale  = isActive ? 'transform:scale(1.18);transform-origin:50% 100%' : '';
+    const lbl    = score !== null ? score : '?';
+    const fs     = score !== null && score >= 100 ? '9' : '10';
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="38" height="52" viewBox="0 0 38 52">
+      <path d="M19 2C10.2 2 3 9.2 3 18C3 29.5 19 50 19 50C19 50 35 29.5 35 18C35 9.2 27.8 2 19 2Z"
+            fill="${color}" ${ring}/>
+      <circle cx="19" cy="18" r="8" fill="white" opacity="0.92"/>
+      <text x="19" y="22" text-anchor="middle" font-size="${fs}" font-weight="700"
+            font-family="system-ui,sans-serif" fill="${color}">${lbl}</text>
+    </svg>`;
+    return L.divIcon({
+        html:        `<div style="${shadow};${scale}">${svg}</div>`,
+        iconSize:    [38, 52],
+        iconAnchor:  [19, 52],
+        popupAnchor: [0, -54],
+        className:   '',
+    });
+}
+
+// ── Init Leaflet ──────────────────────────────────────────────────────────────
+function initMap() {
+    map = L.map('jaringan-map', { zoomControl: true }).setView([-5.15, 119.43], 9);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/">CARTO</a>',
+        subdomains: 'abcd',
+        maxZoom: 19,
+    }).addTo(map);
+}
+
+// ── Load data dari API ────────────────────────────────────────────────────────
+function loadData() {
+    fetch("{% url 'api_peta_jaringan' %}")
+        .then(r => r.json())
+        .then(data => {
+            allSites = data.sites || [];
+            renderAll();
+            document.getElementById('map-loader').style.display = 'none';
+
+            // Update stat bar
+            const totalSite = {{ total_lokasi }};
+            document.getElementById('sb-total').textContent     = totalSite;
+            const cAdaGangguan = allSites.filter(s => s.gangguan_aktif > 0).length;
+            document.getElementById('sb-gangguan').textContent  = cAdaGangguan;
+        })
+        .catch(() => {
+            document.getElementById('map-loader').innerHTML =
+                '<p style="color:#ef4444;"><i class="bi bi-exclamation-triangle me-1"></i>Gagal memuat data</p>';
+        });
+}
+
+// ── Render marker + list (ulang saat filter berubah) ─────────────────────────
+function renderAll() {
+    // Hapus marker lama
+    Object.values(markers).forEach(m => map.removeLayer(m));
+    for (const k in markers) delete markers[k];
+
+    const search = document.getElementById('site-search').value.trim().toLowerCase();
+    const filtered = allSites.filter(s => {
+        const matchFilter = activeFilter === 'all' || s.hi_label === activeFilter;
+        const matchSearch = !search || s.nama.toLowerCase().includes(search);
+        return matchFilter && matchSearch;
+    });
+
+    // Pasang marker
+    filtered.forEach(site => {
+        const color  = hiColor(site.hi_label);
+        const icon   = makeMarkerIcon(color, site.hi_avg, false);
+        const marker = L.marker([site.lat, site.lng], { icon, title: site.nama }).addTo(map);
+        marker.on('click', () => selectSite(site, marker));
+        markers[site.nama] = { marker, site };
+    });
+
+    // Fit bounds
+    if (filtered.length === 1) {
+        map.setView([filtered[0].lat, filtered[0].lng], 13);
+    } else if (filtered.length > 1) {
+        const pts = filtered.map(s => [s.lat, s.lng]);
+        map.fitBounds(L.latLngBounds(pts).pad(0.25));
+    }
+
+    renderSiteList(filtered);
+    showNoCoordsBar();
+}
+
+// ── Render list panel kiri ────────────────────────────────────────────────────
+function renderSiteList(sites) {
+    const list = document.getElementById('site-list');
+    if (sites.length === 0) {
+        list.innerHTML = '<div class="no-site-msg"><i class="bi bi-search" style="font-size:22px;display:block;margin-bottom:6px;"></i>Tidak ada site</div>';
+        return;
+    }
+    list.innerHTML = sites.map(s => {
+        const color = hiColor(s.hi_label);
+        const score = s.hi_avg !== null ? s.hi_avg : '?';
+        const flagHtml = s.gangguan_aktif > 0
+            ? `<span style="color:#ef4444;"><i class="bi bi-exclamation-triangle-fill" style="font-size:10px;"></i> ${s.gangguan_aktif} gangguan</span>`
+            : (s.maint_open > 0
+                ? `<span style="color:#f59e0b;"><i class="bi bi-wrench" style="font-size:10px;"></i> ${s.maint_open} maint open</span>`
+                : `<span style="color:#10b981;"><i class="bi bi-check-circle" style="font-size:10px;"></i> Normal</span>`);
+        return `<div class="site-item" data-nama="${s.nama}" onclick="selectSiteByName('${s.nama.replace(/'/g,"\\'")}')">
+            <div class="site-marker-dot" style="background:${color};">${score}</div>
+            <div class="site-item-info">
+                <div class="site-item-name">${s.nama}</div>
+                <div class="site-item-sub">
+                    <span>${s.total_device} perangkat</span>
+                    <span>·</span>
+                    ${flagHtml}
+                </div>
+            </div>
+            <div class="site-item-hi" style="background:${color}22;color:${color};">${s.hi_label}</div>
+        </div>`;
+    }).join('');
+}
+
+// ── Pilih site ────────────────────────────────────────────────────────────────
+function selectSiteByName(nama) {
+    const entry = markers[nama];
+    if (!entry) return;
+    selectSite(entry.site, entry.marker);
+}
+
+function selectSite(site, marker) {
+    // Reset marker aktif sebelumnya
+    if (activeMarker && activeMarker.nama !== site.nama) {
+        const prev = markers[activeMarker.nama];
+        if (prev) {
+            const col = hiColor(prev.site.hi_label);
+            prev.marker.setIcon(makeMarkerIcon(col, prev.site.hi_avg, false));
+        }
+    }
+
+    // Aktifkan marker baru
+    const color = hiColor(site.hi_label);
+    marker.setIcon(makeMarkerIcon(color, site.hi_avg, true));
+    activeMarker = { nama: site.nama };
+
+    // Highlight item di list
+    document.querySelectorAll('.site-item').forEach(el => {
+        el.classList.toggle('active', el.dataset.nama === site.nama);
+    });
+
+    // Fly ke lokasi
+    map.flyTo([site.lat, site.lng], Math.max(map.getZoom(), 13), { duration: 0.7 });
+
+    // Tampilkan detail overlay
+    showSiteDetail(site);
+}
+
+// ── Detail overlay di bawah peta ─────────────────────────────────────────────
+function showSiteDetail(site) {
+    const overlay = document.getElementById('site-detail-overlay');
+    const color   = hiColor(site.hi_label);
+
+    // Dot header
+    document.getElementById('sdo-dot').style.background = color;
+    document.getElementById('sdo-dot').innerHTML = `<i class="bi bi-geo-alt-fill"></i>`;
+    document.getElementById('sdo-title').textContent = site.nama;
+
+    // Stats
+    const ganggHtml = site.gangguan_aktif > 0
+        ? `<span class="sdo-stat" style="color:#ef4444;"><i class="bi bi-exclamation-triangle-fill"></i> ${site.gangguan_aktif} gangguan aktif</span>`
+        : `<span class="sdo-stat" style="color:#10b981;"><i class="bi bi-check-circle-fill"></i> Tidak ada gangguan</span>`;
+    const maintHtml = site.maint_open > 0
+        ? `<span class="sdo-stat" style="color:#f59e0b;"><i class="bi bi-wrench-adjustable"></i> ${site.maint_open} maintenance open</span>`
+        : `<span class="sdo-stat" style="color:#10b981;"><i class="bi bi-check-circle"></i> Semua maintenance selesai</span>`;
+
+    document.getElementById('sdo-stats').innerHTML = `
+        <span class="sdo-stat"><i class="bi bi-hdd-rack-fill"></i> ${site.total_device} perangkat</span>
+        <span class="sdo-stat" style="color:${color};font-weight:600;"><i class="bi bi-shield-fill"></i> HI rata-rata: ${site.hi_avg !== null ? site.hi_avg : '—'} (${site.hi_label})</span>
+        ${ganggHtml}
+        ${maintHtml}
+        ${site.keterangan ? `<span class="sdo-stat"><i class="bi bi-info-circle"></i> ${site.keterangan}</span>` : ''}
+    `;
+
+    // Device rows
+    const tbody = document.getElementById('sdo-tbody');
+    if (site.devices.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-3" style="font-size:13px;">Tidak ada perangkat di site ini</td></tr>`;
+    } else {
+        tbody.innerHTML = site.devices.map(d => {
+            const hiColor_d  = d.hi_accent || '#94a3b8';
+            const hiBg       = d.hi_score !== null ? hiColor_d + '22' : '#f1f5f9';
+            const statusDot  = d.status === 'operasi' ? '#10b981' : '#ef4444';
+            const statusLbl  = d.status === 'operasi' ? 'Operasi' : 'Tdk Operasi';
+            const hiDisp     = d.hi_score !== null
+                ? `<span class="hi-badge" style="background:${hiBg};color:${hiColor_d};">
+                     <i class="bi ${d.hi_icon}" style="font-size:10px;"></i> ${d.hi_score}
+                   </span>`
+                : `<span class="hi-badge" style="background:#f1f5f9;color:#94a3b8;">—</span>`;
+            const ipDisp = d.ip ? `<span class="ip-text">${d.ip}</span>` : `<span style="color:#e2e8f0;">—</span>`;
+            const jenisDisp = d.jenis + (d.type ? ` · <span style="color:#94a3b8;">${d.type}</span>` : '');
+            return `<tr>
+                <td><a href="${d.url}" style="font-weight:600;color:#0f172a;text-decoration:none;">${d.nama}</a>
+                    ${d.merk ? `<br><span style="font-size:11px;color:#94a3b8;">${d.merk}</span>` : ''}</td>
+                <td style="font-size:12px;">${jenisDisp}</td>
+                <td>${ipDisp}</td>
+                <td><span class="status-dot" style="background:${statusDot};"></span>${statusLbl}</td>
+                <td>${hiDisp}</td>
+                <td style="white-space:nowrap;">
+                    <a href="${d.url}" class="btn btn-sm btn-outline-secondary py-0 px-2 me-1" style="font-size:11px;" title="Detail">
+                        <i class="bi bi-eye"></i>
+                    </a>
+                    <a href="${d.hi_url}" class="btn btn-sm btn-outline-primary py-0 px-2" style="font-size:11px;" title="Health Index">
+                        <i class="bi bi-shield-fill"></i>
+                    </a>
+                </td>
+            </tr>`;
+        }).join('');
+    }
+
+    overlay.style.display = 'block';
+}
+
+function closeSiteDetail() {
+    document.getElementById('site-detail-overlay').style.display = 'none';
+    // Reset marker aktif
+    if (activeMarker) {
+        const entry = markers[activeMarker.nama];
+        if (entry) {
+            const col = hiColor(entry.site.hi_label);
+            entry.marker.setIcon(makeMarkerIcon(col, entry.site.hi_avg, false));
+        }
+        activeMarker = null;
+    }
+    document.querySelectorAll('.site-item').forEach(el => el.classList.remove('active'));
+}
+
+// ── Filter & search ───────────────────────────────────────────────────────────
+function setFilter(val, btn) {
+    activeFilter = val;
+    document.querySelectorAll('.legend-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    closeSiteDetail();
+    renderAll();
+}
+
+function filterSiteList() {
+    closeSiteDetail();
+    renderAll();
+}
+
+// ── Info site tanpa koordinat ─────────────────────────────────────────────────
+function showNoCoordsBar() {
+    const bar   = document.getElementById('no-coord-bar');
+    const tanpa = {{ total_tanpa }};
+    if (tanpa > 0) {
+        bar.textContent = `ℹ️ ${tanpa} site belum memiliki koordinat GPS`;
+        bar.style.display = 'block';
+        setTimeout(() => { bar.style.display = 'none'; }, 6000);
+    }
+}
+
+// ── Refresh ───────────────────────────────────────────────────────────────────
+function refreshMap() {
+    document.getElementById('map-loader').style.display = 'flex';
+    closeSiteDetail();
+    allSites = [];
+    loadData();
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+initMap();
+loadData();
+</script>
+{% endblock %}

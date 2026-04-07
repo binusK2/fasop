@@ -19,6 +19,9 @@ from django.contrib import admin
 from django.urls import path, include
 from django.contrib.auth import views as auth_views
 from django.conf.urls.static import static
+from django.views.defaults import page_not_found
+
+handler404 = 'django.views.defaults.page_not_found'
 
 urlpatterns = [
     path('secure-panel/', admin.site.urls),
@@ -29,8 +32,18 @@ urlpatterns = [
     path('notifikasi/', include('notifikasi.urls')),
     path('jadwal/', include('jadwal.urls')),
 
+    # REST API — untuk integrasi n8n / Google Sheets
+    path('api/v1/', include('api.urls')),
+
+    # Gudang — alat uji & spare part
+    path('gudang/', include('gudang.urls')),
+
+    # Inservice Inspection — role Operator
+    path('inspection/', include('inspection.urls')),
+
     path('login/', auth_views.LoginView.as_view(template_name='registration/login.html'), name='login'),
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
+    path('ganti-password/', include('devices.urls_auth')),
 
     
 

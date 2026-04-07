@@ -259,9 +259,9 @@
                             <label style="font-size:12px;font-weight:600;color:#475569;margin-bottom:6px;display:block;">
                                 Bulan Rencana
                             </label>
-                            <select name="bulan_rencana" class="form-select" required>
+                            <select name="bulan_rencana" id="modalBulan" class="form-select" required>
                                 {% for num, nama in bulan_list %}
-                                <option value="{{ num }}">{{ nama }}</option>
+                                <option value="{{ num }}" data-num="{{ num }}">{{ nama }}</option>
                                 {% endfor %}
                             </select>
                         </div>
@@ -269,12 +269,26 @@
                             <label style="font-size:12px;font-weight:600;color:#475569;margin-bottom:6px;display:block;">
                                 Tahun Rencana
                             </label>
-                            <select name="tahun_rencana" class="form-select" required>
+                            <select name="tahun_rencana" id="modalTahun" class="form-select" required>
                                 {% for t in tahun_list %}
                                 <option value="{{ t }}" {% if t|stringformat:"s" == filter_tahun %}selected{% endif %}>{{ t }}</option>
                                 {% endfor %}
                             </select>
                         </div>
+                    </div>
+                    <div class="mt-3">
+                        <label style="font-size:12px;font-weight:600;color:#475569;margin-bottom:6px;display:block;">
+                            Minggu Rencana <span style="font-weight:400;color:#94a3b8;">(opsional)</span>
+                        </label>
+                        <select name="minggu_rencana" class="form-select">
+                            {% for num, nama in minggu_list %}
+                            <option value="{{ num }}">{{ nama }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div id="backdateAlert" class="alert alert-danger py-2 mt-2 d-none" style="font-size:12px;">
+                        <i class="bi bi-exclamation-triangle me-1"></i>
+                        Tidak dapat membuat jadwal untuk bulan yang sudah lewat.
                     </div>
                     <div class="mt-3">
                         <label style="font-size:12px;font-weight:600;color:#475569;margin-bottom:6px;display:block;">
@@ -286,7 +300,7 @@
                 </div>
                 <div class="modal-footer" style="border-top:1px solid #f1f5f9;padding:12px 20px;">
                     <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
-                    <button type="submit" class="btn btn-sm btn-primary">
+                    <button type="submit" id="btnSimpanJadwal" class="btn btn-sm btn-primary">
                         <i class="bi bi-check-lg me-1"></i>Simpan Jadwal
                     </button>
                 </div>
@@ -299,8 +313,62 @@
 
 {% block extra_js %}
 <script>
+// Tanggal hari ini dari server
+const TODAY_YEAR  = {{ today_year }};
+const TODAY_MONTH = {{ today_month }};
+
+function validateBackdate() {
+    const bulan = parseInt(document.getElementById('modalBulan').value);
+    const tahun = parseInt(document.getElementById('modalTahun').value);
+    const alert = document.getElementById('backdateAlert');
+    const btn   = document.getElementById('btnSimpanJadwal');
+
+    const isBackdate = (tahun < TODAY_YEAR) || (tahun === TODAY_YEAR && bulan < TODAY_MONTH);
+
+    if (isBackdate) {
+        alert.classList.remove('d-none');
+        btn.disabled = true;
+    } else {
+        alert.classList.add('d-none');
+        btn.disabled = false;
+    }
+}
+
+function filterBulanOptions() {
+    const tahun  = parseInt(document.getElementById('modalTahun').value);
+    const select = document.getElementById('modalBulan');
+
+    Array.from(select.options).forEach(function(opt) {
+        const num = parseInt(opt.dataset.num);
+        // Grey out bulan yang sudah lewat
+        if (tahun === TODAY_YEAR && num < TODAY_MONTH) {
+            opt.style.color = '#cbd5e1';
+            opt.disabled = false; // tetap bisa dipilih tapi akan diblok via validasi
+        } else {
+            opt.style.color = '';
+            opt.disabled = false;
+        }
+    });
+
+    // Kalau tahun ini dan bulan terpilih sudah lewat, set ke bulan ini
+    if (tahun === TODAY_YEAR) {
+        const currentVal = parseInt(select.value);
+        if (currentVal < TODAY_MONTH) {
+            select.value = TODAY_MONTH;
+        }
+    }
+
+    validateBackdate();
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('modalBulan').addEventListener('change', validateBackdate);
+    document.getElementById('modalTahun').addEventListener('change', filterBulanOptions);
+});
+
 function prefillModal(lokasi) {
     document.getElementById('modalLokasi').value = lokasi;
+    filterBulanOptions(); // pastikan bulan sudah difilter
     new bootstrap.Modal(document.getElementById('modalTambah')).show();
 }
 </script>

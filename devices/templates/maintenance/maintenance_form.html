@@ -55,11 +55,13 @@
             <span class="bar" style="background:#3b82f6;"></span>
             <span>Informasi Maintenance</span>
         </div>
+        <div style="display:inline-flex;align-items:center;gap:6px;background:#eff6ff;
+                    color:#1d4ed8;border:1px solid #bfdbfe;border-radius:20px;
+                    padding:3px 12px;font-size:12px;font-weight:700;margin-bottom:14px;">
+            <i class="bi bi-shield-check"></i> Preventive Maintenance
+        </div>
         <div class="row g-3">
-            <div class="col-md-3">
-                <label class="form-label">Jenis Maintenance</label>
-                {{ maintenance_form.maintenance_type }}
-            </div>
+            <input type="hidden" name="maintenance_type" value="Preventive">
             <div class="col-md-3">
                 <label class="form-label">Tanggal</label>
                 {{ maintenance_form.date }}
@@ -1369,6 +1371,7 @@
 .section-title-bar { display:flex;align-items:center;gap:8px;margin-bottom:14px; }
 .section-title-bar .bar { width:5px;height:18px;border-radius:3px;flex-shrink:0; }
 .section-title-bar > span:nth-child(2) { font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#475569; }
+.section-title-bar > span:nth-child(3) { text-transform:none !important;letter-spacing:0 !important;font-size:12px !important; }
 .measure-card { background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px; }
 .measure-label { font-size:11.5px;font-weight:700;color:#64748b;margin-bottom:7px;text-transform:uppercase;letter-spacing:0.4px; }
 .measure-unit { background:#e2e8f0;border-color:#e2e8f0 !important;font-size:12px;font-weight:700;color:#475569;min-width:48px;justify-content:center; }

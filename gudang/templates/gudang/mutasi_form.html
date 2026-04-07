@@ -1,0 +1,113 @@
+{% extends 'base.html' %}
+{% block title %}Catat Mutasi — {{ sp.nama }} — FASOP{% endblock %}
+{% block page_title %}Catat Mutasi Spare Part{% endblock %}
+
+{% block content %}
+
+<div class="mb-3">
+    <a href="{% url 'gudang:sparepart_detail' sp.pk %}" class="text-muted text-decoration-none" style="font-size:13px;">
+        <i class="bi bi-arrow-left me-1"></i>Kembali ke {{ sp.nama }}
+    </a>
+</div>
+
+<div class="row g-3">
+    <div class="col-md-7">
+        <div class="table-card">
+            <div class="table-header">
+                <h6 class="mb-0"><i class="bi bi-arrow-left-right me-1"></i>Catat Mutasi: {{ sp.nama }}</h6>
+            </div>
+            <div class="p-4">
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="row g-3" style="font-size:13px;">
+
+                        <div class="col-12">
+                            <label class="form-label fw-600">Tipe Mutasi <span class="text-danger">*</span></label>
+                            <div class="d-flex gap-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="tipe" id="tipe_masuk"
+                                           value="masuk" checked>
+                                    <label class="form-check-label text-success fw-600" for="tipe_masuk">
+                                        <i class="bi bi-arrow-down-circle me-1"></i>Masuk
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="tipe" id="tipe_keluar"
+                                           value="keluar">
+                                    <label class="form-check-label text-danger fw-600" for="tipe_keluar">
+                                        <i class="bi bi-arrow-up-circle me-1"></i>Keluar
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-600">Jumlah <span class="text-danger">*</span></label>
+                            <div class="input-group input-group-sm">
+                                <input type="number" name="jumlah" class="form-control" min="1" value="1" required>
+                                <span class="input-group-text">{{ sp.satuan }}</span>
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label fw-600">Keperluan / Keterangan <span class="text-danger">*</span></label>
+                            <input type="text" name="keperluan" class="form-control form-control-sm"
+                                   placeholder="Contoh: Penggantian SFP switch GI Tello, Pengadaan stok baru, ..."
+                                   required>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label fw-600">Terkait Gangguan <span class="text-muted fw-normal">(opsional)</span></label>
+                            <select name="terkait_gangguan" class="form-select form-select-sm">
+                                <option value="">— Tidak terkait gangguan —</option>
+                                {% for g in gangguan_list %}
+                                <option value="{{ g.pk }}">#{{ g.pk }} — {{ g.nama_pelapor|default:g.lokasi_gangguan }} ({{ g.tanggal_gangguan|date:"d M Y" }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label fw-600">Terkait Maintenance <span class="text-muted fw-normal">(opsional)</span></label>
+                            <select name="terkait_maintenance" class="form-select form-select-sm">
+                                <option value="">— Tidak terkait maintenance —</option>
+                                {% for m in maintenance_list %}
+                                <option value="{{ m.pk }}">#{{ m.pk }} — {{ m.device.nama }} ({{ m.date|date:"d M Y" }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-12 d-flex gap-2 pt-2">
+                            <button type="submit" class="btn btn-success btn-sm">
+                                <i class="bi bi-check-lg me-1"></i>Simpan Mutasi
+                            </button>
+                            <a href="{% url 'gudang:sparepart_detail' sp.pk %}"
+                               class="btn btn-outline-secondary btn-sm">Batal</a>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Info stok -->
+    <div class="col-md-5">
+        <div class="table-card">
+            <div class="table-header"><h6 class="mb-0"><i class="bi bi-boxes me-1"></i>Info Stok</h6></div>
+            <div class="p-4 text-center">
+                <div class="text-muted mb-1" style="font-size:13px;">Stok Saat Ini</div>
+                <div style="font-size:48px;font-weight:800;
+                    color:{% if stok <= 0 %}#ef4444{% elif sp.stok_kritis %}#f59e0b{% else %}#22c55e{% endif %};">
+                    {{ stok }}
+                </div>
+                <div class="text-muted">{{ sp.satuan }}</div>
+                <hr>
+                <div style="font-size:12px;color:#64748b;">
+                    <div>Lokasi: <strong>{{ sp.lokasi_penyimpanan }}</strong></div>
+                    <div class="mt-1">Minimum stok: <strong>{{ sp.stok_minimum }} {{ sp.satuan }}</strong></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

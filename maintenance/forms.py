@@ -1,5 +1,5 @@
 from django import forms
-from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier
+from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset
 
 
 # ─── Widget helpers ───────────────────────────────────────────────────
@@ -25,23 +25,35 @@ class MaintenanceForm(forms.ModelForm):
         widget=forms.HiddenInput(attrs={'id': 'id_pelaksana_input'})
     )
 
+    # Lock maintenance_type ke Preventive
+    # PENTING: Jangan pakai disabled, karena browser tidak kirim field disabled.
+    # Pakai HiddenInput agar value selalu terkirim di POST.
+    maintenance_type = forms.CharField(
+        initial='Preventive',
+        widget=forms.HiddenInput(),
+    )
+
     class Meta:
         model  = Maintenance
         fields = '__all__'
         exclude = ['device', 'created_at', 'technicians']
         widgets = {
-            'maintenance_type': forms.Select(attrs={'class': 'form-select'}),
-            'description':      forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
-            'status':           forms.Select(attrs={'class': 'form-select'}),
-            'photo':            forms.FileInput(attrs={'class': 'form-control'}),
-            'pelaksana_names':  forms.HiddenInput(attrs={'id': 'id_pelaksana_names'}),
+            'description':     forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'status':          forms.Select(attrs={'class': 'form-select'}),
+            'photo':           forms.FileInput(attrs={'class': 'form-control'}),
+            'pelaksana_names': forms.HiddenInput(attrs={'id': 'id_pelaksana_names'}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Pastikan selalu Preventive
+        self.fields['maintenance_type'].initial = 'Preventive'
+        if 'maintenance_type' not in (self.data or {}):
+            self.initial['maintenance_type'] = 'Preventive'
         for name, field in self.fields.items():
             if not isinstance(field.widget, (forms.RadioSelect, forms.DateTimeInput, forms.HiddenInput)):
                 if not field.widget.attrs.get('class'):
+                    field.widget.attrs['class'] = 'form-control'
                     field.widget.attrs['class'] = 'form-control'
 
 
@@ -327,3 +339,136 @@ class MaintenanceRectifierForm(forms.ModelForm):
             # Catatan
             'catatan': forms.Textarea(attrs={'class':'form-control','rows':3}),
         }
+
+
+# ─────────────────────────────────────────────────────────────────────
+# FORM DETAIL TELEPROTEKSI
+# ─────────────────────────────────────────────────────────────────────
+class MaintenanceTeleproteksiForm(forms.ModelForm):
+
+    class Meta:
+        model   = MaintenanceTeleproteksi
+        exclude = ['maintenance']
+        widgets = {
+            # Informasi Umum
+            'suhu_ruangan':         forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. 28.5'}),
+            'kebersihan_perangkat': forms.Select(choices=[('', '—'), ('Bersih', 'Bersih'), ('Kotor', 'Kotor')], attrs={'class': 'form-select'}),
+            'kebersihan_panel':     forms.Select(choices=[('', '—'), ('Bersih', 'Bersih'), ('Kotor', 'Kotor')], attrs={'class': 'form-select'}),
+            'lampu':                forms.Select(choices=[('', '—'), ('OK', 'OK'), ('NOK', 'NOK')], attrs={'class': 'form-select'}),
+            # Informasi Perangkat
+            'link':             forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. GI Tello 150 — GI Soppeng'}),
+            'tipe_tp':          forms.Select(attrs={'class': 'form-select', 'id': 'id_tipe_tp'}),
+            'versi_program':    forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. v3.2.1'}),
+            'address_tp':       forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. 01'}),
+            'port_comm':        forms.Select(attrs={'class': 'form-select'}),
+            'akses_tp':         forms.Select(choices=[('', '—'), ('OK', 'OK'), ('NOK', 'NOK')], attrs={'class': 'form-select'}),
+            'remote_akses_tp':  forms.Select(choices=[('', '—'), ('OK', 'OK'), ('NOK', 'NOK')], attrs={'class': 'form-select'}),
+            # Kondisi
+            'jumlah_skema': forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'max': '4'}),
+            # Skema 1
+            'skema_1_command':       forms.Select(attrs={'class': 'form-select'}),
+            'skema_1_send_minus':    forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. -48.5'}),
+            'skema_1_send_plus':     forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. 48.5'}),
+            'skema_1_receive_minus': forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. -48.5'}),
+            'skema_1_receive_plus':  forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. 48.5'}),
+            # Skema 2
+            'skema_2_command':       forms.Select(attrs={'class': 'form-select'}),
+            'skema_2_send_minus':    forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. -48.5'}),
+            'skema_2_send_plus':     forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. 48.5'}),
+            'skema_2_receive_minus': forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. -48.5'}),
+            'skema_2_receive_plus':  forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. 48.5'}),
+            # Skema 3
+            'skema_3_command':       forms.Select(attrs={'class': 'form-select'}),
+            'skema_3_send_minus':    forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. -48.5'}),
+            'skema_3_send_plus':     forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. 48.5'}),
+            'skema_3_receive_minus': forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. -48.5'}),
+            'skema_3_receive_plus':  forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. 48.5'}),
+            # Skema 4
+            'skema_4_command':       forms.Select(attrs={'class': 'form-select'}),
+            'skema_4_send_minus':    forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. -48.5'}),
+            'skema_4_send_plus':     forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. 48.5'}),
+            'skema_4_receive_minus': forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. -48.5'}),
+            'skema_4_receive_plus':  forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. 48.5'}),
+            # Hasil pengujian
+            'skema_1_send_result':    forms.Select(choices=[('', '—'), ('OK', 'OK'), ('NOK', 'NOK')], attrs={'class': 'form-select'}),
+            'skema_1_receive_result': forms.Select(choices=[('', '—'), ('OK', 'OK'), ('NOK', 'NOK')], attrs={'class': 'form-select'}),
+            'skema_2_send_result':    forms.Select(choices=[('', '—'), ('OK', 'OK'), ('NOK', 'NOK')], attrs={'class': 'form-select'}),
+            'skema_2_receive_result': forms.Select(choices=[('', '—'), ('OK', 'OK'), ('NOK', 'NOK')], attrs={'class': 'form-select'}),
+            'skema_3_send_result':    forms.Select(choices=[('', '—'), ('OK', 'OK'), ('NOK', 'NOK')], attrs={'class': 'form-select'}),
+            'skema_3_receive_result': forms.Select(choices=[('', '—'), ('OK', 'OK'), ('NOK', 'NOK')], attrs={'class': 'form-select'}),
+            'skema_4_send_result':    forms.Select(choices=[('', '—'), ('OK', 'OK'), ('NOK', 'NOK')], attrs={'class': 'form-select'}),
+            'skema_4_receive_result': forms.Select(choices=[('', '—'), ('OK', 'OK'), ('NOK', 'NOK')], attrs={'class': 'form-select'}),
+            # Pengujian umum
+            'time_sync': forms.Select(choices=[('', '—'), ('OK', 'OK'), ('NOK', 'NOK')], attrs={'class': 'form-select'}),
+            'loop_test': forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. 12.5'}),
+            # Catatan
+            'catatan':   forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        }
+
+
+# ─────────────────────────────────────────────────────────────────────
+# FORM DETAIL GENSET
+# ─────────────────────────────────────────────────────────────────────
+class MaintenanceGensetForm(forms.ModelForm):
+
+    class Meta:
+        model   = MaintenanceGenset
+        exclude = ['maintenance']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        fc   = 'form-control'
+        fcsm = 'form-control form-control-sm'
+        fs   = 'form-select'
+        num  = {'step': 'any'}
+
+        # Batere & Charger
+        for f, ph in [
+            ('air_accu','e.g. 90'), ('tegangan_batere','e.g. 24.0'),
+            ('arus_pengisian','e.g. 5.5'), ('tegangan_charger','e.g. 27.6'),
+            ('arus_beban_charger','e.g. 2.0'),
+        ]:
+            self.fields[f].widget = forms.NumberInput(attrs={'class': fc, **num, 'placeholder': ph})
+
+        # Genset utama
+        for f, ph in [
+            ('radiator','e.g. 85'), ('kapasitas_tangki','e.g. 500'),
+            ('tangki_bbm_sebelum','e.g. 70'), ('tangki_bbm_sesudah','e.g. 60'),
+            ('waktu_transisi','e.g. 5'),
+        ]:
+            self.fields[f].widget = forms.NumberInput(attrs={'class': fc, **num, 'placeholder': ph})
+
+        self.fields['mcb'].widget    = forms.Select(choices=[('','—'),('ON','ON'),('OFF','OFF')], attrs={'class': fs})
+        self.fields['pelumas'].widget = forms.TextInput(attrs={'class': fc, 'placeholder': 'e.g. Strip On Stick'})
+
+        # Pengukuran PLN & Genset — input kecil
+        meas_fields = [
+            'pln_f_r','pln_f_s','pln_f_t',
+            'pln_v_rn','pln_v_sn','pln_v_tn',
+            'pln_v_rs','pln_v_st','pln_v_tr',
+            'pln_i_r','pln_i_s','pln_i_t',
+            'gen_f_r','gen_f_s','gen_f_t',
+            'gen_v_rn','gen_v_sn','gen_v_tn',
+            'gen_v_rs','gen_v_st','gen_v_tr',
+            'gen_i_r','gen_i_s','gen_i_t',
+        ]
+        for f in meas_fields:
+            self.fields[f].widget = forms.NumberInput(attrs={'class': fcsm, **num})
+
+        # MDF Cubicle
+        for f, ph in [
+            ('oil_pressure','e.g. 270'), ('engine_temperature','e.g. 71'),
+            ('batere_condition','e.g. 27.0'), ('rpm','e.g. 1500'),
+        ]:
+            self.fields[f].widget = forms.NumberInput(attrs={'class': fc, **num, 'placeholder': ph})
+
+        # Counter
+        for f in ['counter_sebelum','counter_sesudah']:
+            self.fields[f].widget = forms.NumberInput(attrs={'class': fc, **num, 'placeholder': 'e.g. 575.57'})
+
+        # Jam Operasi
+        self.fields['waktu_start'].widget = forms.TimeInput(attrs={'class': fc, 'type': 'time'})
+        self.fields['waktu_stop'].widget  = forms.TimeInput(attrs={'class': fc, 'type': 'time'})
+
+        # Catatan
+        self.fields['catatan'].widget = forms.Textarea(attrs={'class': fc, 'rows': 3})
