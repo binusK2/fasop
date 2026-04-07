@@ -253,16 +253,23 @@ def _ctx_rectifier(data, ctx):
         {'num': str(c.get('cell', '')).zfill(2), 'vals': [_cv(c.get(k)) for k in CELL_KEYS]}
         for c in raw_cells
     ]
+    # Bagi dua kolom agar muat 1 halaman
+    half = (len(fmt_cells) + 1) // 2
+    fmt_cells_left  = fmt_cells[:half]
+    fmt_cells_right = fmt_cells[half:]
+
     fmt_vtotal_vals = [_cv(vtotal_raw.get(k)) for k in CELL_KEYS]
     fmt_vload_vals  = [_cv(vload_raw.get(k))  for k in CELL_KEYS]
 
     ctx.update({
         'rect': r, 'rect_measurements': rect_rows, 'bat_measurements': bat_rows,
-        'catatan':        r.get('catatan', ''),
-        'fmt_cells':      fmt_cells,
-        'fmt_vtotal_vals': fmt_vtotal_vals,
-        'fmt_vload_vals':  fmt_vload_vals,
-        'col_heads':      COL_HEADS,
+        'catatan':          r.get('catatan', ''),
+        'fmt_cells':        fmt_cells,
+        'fmt_cells_left':   fmt_cells_left,
+        'fmt_cells_right':  fmt_cells_right,
+        'fmt_vtotal_vals':  fmt_vtotal_vals,
+        'fmt_vload_vals':   fmt_vload_vals,
+        'col_heads':        COL_HEADS,
     })
 
 
