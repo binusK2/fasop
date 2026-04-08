@@ -151,7 +151,7 @@
                     {% endwith %}
 
                     <th style="text-align:center;"><i class="bi bi-ticket-detailed" style="color:#9333ea;"></i> Gangguan</th>
-                    <th style="width:90px;">Aksi</th>
+                    <th style="width:60px;">Aksi</th>
                 </tr>
             </thead>
             <tbody>
@@ -159,7 +159,9 @@
                 <tr class="{% if fo.jumlah_gangguan > 0 %}row-has-gng{% endif %}">
                     <td class="text-muted" style="font-size:12px;">{{ forloop.counter }}</td>
                     <td>
-                        <div style="font-weight:600;font-size:13px;color:#1e293b;">{{ fo.nama }}</div>
+                        <a href="{% url 'fiber_optic_detail' fo.id %}" style="text-decoration:none;">
+                            <div style="font-weight:600;font-size:13px;color:#1e293b;">{{ fo.nama }}</div>
+                        </a>
                         {% if fo.keterangan %}
                         <div style="font-size:11px;color:#94a3b8;margin-top:1px;">{{ fo.keterangan|truncatechars:60 }}</div>
                         {% endif %}
@@ -200,28 +202,44 @@
                         <span style="color:#cbd5e1;font-size:12px;">—</span>
                         {% endif %}
                     </td>
-                    <td>
-                        <div class="d-flex gap-1 justify-content-center">
-                            <a href="{% url 'gangguan_create' %}?tipe=link&fo_id={{ fo.id }}"
-                               class="btn btn-sm btn-outline-danger" style="padding:3px 7px;font-size:11px;"
-                               title="Laporkan gangguan FO ini">
-                                <i class="bi bi-exclamation-triangle"></i>
-                            </a>
-                            {% if user_can_edit %}
-                            <a href="{% url 'fiber_optic_edit' fo.id %}"
-                               class="btn btn-sm btn-outline-warning" style="padding:3px 8px;font-size:12px;">
-                                <i class="bi bi-pencil"></i>
-                            </a>
-                            {% endif %}
-                            {% if user_can_delete %}
-                            <form method="post" action="{% url 'fiber_optic_delete' fo.id %}" style="display:inline;">
-                                {% csrf_token %}
-                                <button type="submit" class="btn btn-sm btn-outline-danger" style="padding:3px 8px;font-size:12px;"
-                                    onclick="return confirm('Hapus segmen {{ fo.nama }}? Semua data gangguan terkait tidak akan terhapus.')">
-                                    <i class="bi bi-trash"></i>
-                                </button>
-                            </form>
-                            {% endif %}
+                    <td style="text-align:center;">
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle"
+                                    style="padding:3px 8px;font-size:12px;border-radius:6px;"
+                                    data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="bi bi-three-dots-vertical"></i>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end" style="font-size:13px;min-width:180px;">
+                                <li>
+                                    <a class="dropdown-item" href="{% url 'fiber_optic_detail' fo.id %}">
+                                        <i class="bi bi-eye me-2 text-primary"></i>Detail
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="{% url 'gangguan_create' %}?tipe=link&fo_id={{ fo.id }}">
+                                        <i class="bi bi-exclamation-triangle me-2 text-danger"></i>Laporkan Gangguan
+                                    </a>
+                                </li>
+                                {% if user_can_edit %}
+                                <li>
+                                    <a class="dropdown-item" href="{% url 'fiber_optic_edit' fo.id %}">
+                                        <i class="bi bi-pencil me-2 text-warning"></i>Edit
+                                    </a>
+                                </li>
+                                {% endif %}
+                                {% if user_can_delete %}
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <form method="post" action="{% url 'fiber_optic_delete' fo.id %}">
+                                        {% csrf_token %}
+                                        <button type="submit" class="dropdown-item text-danger"
+                                                onclick="return confirm('Hapus segmen {{ fo.nama }}? Semua data gangguan terkait tidak akan terhapus.')">
+                                            <i class="bi bi-trash me-2"></i>Hapus
+                                        </button>
+                                    </form>
+                                </li>
+                                {% endif %}
+                            </ul>
                         </div>
                     </td>
                 </tr>
