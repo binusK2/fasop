@@ -1,0 +1,77 @@
+{% extends 'maintenance/pdf/_base.html' %}
+{% block content %}
+
+{# ── II. DETAIL KERUSAKAN ── #}
+<div class="sec">II.&nbsp;&nbsp;DETAIL KERUSAKAN</div>
+<table>
+    <tr>
+        <td class="lbl" style="width:22%;">Jenis Kerusakan</td>
+        <td colspan="3">{{ corrective.jenis_kerusakan|default:"—" }}</td>
+    </tr>
+    <tr>
+        <td class="lbl">Kondisi Sebelum</td>
+        <td style="width:28%;">{{ corrective.kondisi_sebelum|default:"—" }}</td>
+        <td class="lbl" style="width:22%;">Kondisi Sesudah</td>
+        <td>{{ corrective.kondisi_sesudah|default:"—" }}</td>
+    </tr>
+    <tr>
+        <td class="lbl">Komponen Diganti</td>
+        <td>{% if corrective.komponen_diganti %}Ya{% if corrective.nama_komponen %} — {{ corrective.nama_komponen }}{% endif %}{% if corrective.komponen_terkait %} ({{ corrective.komponen_terkait }}){% endif %}{% else %}Tidak{% endif %}</td>
+        <td class="lbl">Durasi Perbaikan</td>
+        <td>{{ corrective.durasi_display|default:"—" }}</td>
+    </tr>
+    <tr>
+        <td class="lbl">Status Perbaikan</td>
+        <td colspan="3" style="font-weight:700;">{{ corrective.status_perbaikan|default:"—" }}</td>
+    </tr>
+</table>
+
+{# ── III. DESKRIPSI MASALAH ── #}
+<div class="sec">III.&nbsp;&nbsp;DESKRIPSI MASALAH / KERUSAKAN</div>
+<table>
+    <tr><td style="min-height:18mm;white-space:pre-wrap;">{{ corrective.deskripsi_masalah|default:"—" }}</td></tr>
+</table>
+
+{# ── IV. TINDAKAN YANG DILAKUKAN ── #}
+<div class="sec">IV.&nbsp;&nbsp;TINDAKAN YANG DILAKUKAN</div>
+<table>
+    <tr><td style="min-height:18mm;white-space:pre-wrap;">{{ corrective.tindakan|default:"—" }}</td></tr>
+</table>
+
+{# ── V. TERKAIT GANGGUAN ── #}
+{% if corrective.gangguan_nomor %}
+<div class="sec">V.&nbsp;&nbsp;TERKAIT GANGGUAN</div>
+<table>
+    <tr>
+        <td class="lbl" style="width:22%;">Nomor Gangguan</td>
+        <td style="width:28%;font-weight:700;font-family:monospace;">{{ corrective.gangguan_nomor }}</td>
+        <td class="lbl" style="width:22%;">Ringkasan</td>
+        <td>{{ corrective.gangguan_summary|default:"—" }}</td>
+    </tr>
+</table>
+{% endif %}
+
+{# ── FOTO SEBELUM & SESUDAH ── #}
+{% if foto_sebelum or foto_sesudah %}
+<div class="sec">{% if corrective.gangguan_nomor %}VI.{% else %}V.{% endif %}&nbsp;&nbsp;DOKUMENTASI FOTO</div>
+<table>
+    <tr>
+        {% if foto_sebelum %}
+        <td style="width:50%;text-align:center;padding:4mm;">
+            <div style="font-size:7pt;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:2mm;">Foto Sebelum</div>
+            <img src="{{ foto_sebelum }}" style="max-width:100%;max-height:60mm;border-radius:3px;border:0.5px solid #e2e8f0;">
+        </td>
+        {% endif %}
+        {% if foto_sesudah %}
+        <td style="width:50%;text-align:center;padding:4mm;">
+            <div style="font-size:7pt;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:2mm;">Foto Sesudah</div>
+            <img src="{{ foto_sesudah }}" style="max-width:100%;max-height:60mm;border-radius:3px;border:0.5px solid #e2e8f0;">
+        </td>
+        {% endif %}
+        {% if foto_sebelum and not foto_sesudah %}<td style="width:50%;"></td>{% endif %}
+        {% if foto_sesudah and not foto_sebelum %}<td style="width:50%;"></td>{% endif %}
+    </tr>
+</table>
+{% endif %}
+
+{% endblock %}
