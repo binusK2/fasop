@@ -347,6 +347,172 @@
 </div>
 {% endif %}
 
+{# ── Eviden Tambahan ─────────────────────────────────────── #}
+<div class="card mb-3" id="section-eviden">
+    <div class="card-body px-4 py-3">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <div class="d-flex align-items-center gap-2">
+                <span style="width:5px;height:18px;border-radius:3px;background:#06b6d4;flex-shrink:0;display:inline-block;"></span>
+                <span style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#475569;">
+                    Eviden Tambahan
+                </span>
+                {% if eviden_list %}
+                <span style="background:#e0f2fe;color:#0284c7;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;">
+                    {{ eviden_list|length }} foto
+                </span>
+                {% endif %}
+            </div>
+            {% if user_can_edit %}
+            <button type="button" onclick="toggleEvidenForm()"
+                    style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;
+                           border-radius:8px;border:1px solid #e2e8f0;background:#f8fafc;
+                           font-size:12px;font-weight:600;color:#475569;cursor:pointer;">
+                <i class="bi bi-plus-circle" id="eviden-btn-icon"></i>
+                <span id="eviden-btn-label">Upload Foto</span>
+            </button>
+            {% endif %}
+        </div>
+
+        {# ── Form upload (tersembunyi awalnya) ── #}
+        {% if user_can_edit %}
+        <div id="eviden-upload-form" style="display:none;margin-bottom:16px;">
+            <form method="post" enctype="multipart/form-data"
+                  action="{% url 'device_eviden_add' device.pk %}">
+                {% csrf_token %}
+                <div style="background:#f0f9ff;border:1px dashed #7dd3fc;border-radius:10px;padding:16px;">
+                    <div id="eviden-file-list">
+                        <div class="eviden-row d-flex gap-2 mb-2" data-idx="0">
+                            <input type="file" name="eviden_foto" accept="image/*" required
+                                   class="form-control form-control-sm" style="flex:1;"
+                                   onchange="previewEviden(this, 0)">
+                            <input type="text" name="eviden_keterangan" placeholder="Keterangan (opsional)"
+                                   class="form-control form-control-sm" style="flex:1;max-width:260px;">
+                            <div id="thumb-0" style="display:none;width:40px;height:40px;flex-shrink:0;">
+                                <img style="width:40px;height:40px;object-fit:cover;border-radius:6px;border:1px solid #e2e8f0;">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2 mt-2">
+                        <button type="button" onclick="addEvidenRow()"
+                                style="font-size:12px;padding:4px 12px;border-radius:7px;border:1px solid #7dd3fc;
+                                       background:#e0f2fe;color:#0284c7;font-weight:600;cursor:pointer;">
+                            <i class="bi bi-plus me-1"></i>Tambah Foto Lagi
+                        </button>
+                        <button type="submit"
+                                style="font-size:12px;padding:4px 16px;border-radius:7px;border:none;
+                                       background:#0284c7;color:#fff;font-weight:600;cursor:pointer;">
+                            <i class="bi bi-cloud-upload me-1"></i>Upload
+                        </button>
+                        <button type="button" onclick="toggleEvidenForm()"
+                                style="font-size:12px;padding:4px 12px;border-radius:7px;border:1px solid #e2e8f0;
+                                       background:#f8fafc;color:#64748b;font-weight:600;cursor:pointer;">
+                            Batal
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+        {% endif %}
+
+        {# ── Grid foto eviden ── #}
+        {% if eviden_list %}
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;">
+            {% for ev in eviden_list %}
+            <div style="position:relative;border-radius:10px;overflow:hidden;border:1px solid #e2e8f0;background:#f8fafc;">
+                <img src="{{ ev.foto.url }}"
+                     style="width:100%;height:130px;object-fit:cover;cursor:pointer;display:block;"
+                     onclick="openLightbox('{{ ev.foto.url }}')"
+                     loading="lazy">
+                {% if ev.keterangan %}
+                <div style="padding:5px 8px;font-size:11px;color:#475569;line-height:1.3;
+                            background:#fff;border-top:1px solid #f1f5f9;">
+                    {{ ev.keterangan }}
+                </div>
+                {% endif %}
+                {% if ev.uploaded_by or ev.uploaded_at %}
+                <div style="padding:3px 8px 5px;font-size:10px;color:#94a3b8;background:#fff;">
+                    {% if ev.uploaded_by %}{{ ev.uploaded_by.get_full_name|default:ev.uploaded_by.username }}{% endif %}
+                    · {{ ev.uploaded_at|date:"d/m/y" }}
+                </div>
+                {% endif %}
+                {% if user_can_delete %}
+                <form method="post" action="{% url 'device_eviden_delete' device.pk ev.pk %}"
+                      style="position:absolute;top:5px;right:5px;"
+                      onsubmit="return confirm('Hapus foto ini?')">
+                    {% csrf_token %}
+                    <button type="submit"
+                            style="background:rgba(239,68,68,0.85);border:none;border-radius:6px;
+                                   padding:3px 7px;cursor:pointer;line-height:1;">
+                        <i class="bi bi-trash3-fill" style="color:#fff;font-size:11px;"></i>
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div style="text-align:center;padding:28px 16px;color:#cbd5e1;font-size:13px;">
+            <i class="bi bi-images" style="font-size:28px;display:block;margin-bottom:6px;opacity:.5;"></i>
+            Belum ada foto eviden
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+/* ── Eviden upload helpers ─────────────────────────────── */
+let _evidenIdx = 0;
+
+function toggleEvidenForm() {
+    const form = document.getElementById('eviden-upload-form');
+    const icon  = document.getElementById('eviden-btn-icon');
+    const label = document.getElementById('eviden-btn-label');
+    const open  = form.style.display === 'none';
+    form.style.display = open ? 'block' : 'none';
+    icon.className  = open ? 'bi bi-x-circle' : 'bi bi-plus-circle';
+    label.textContent = open ? 'Tutup' : 'Upload Foto';
+}
+
+function previewEviden(input, idx) {
+    const thumb = document.getElementById('thumb-' + idx);
+    if (!thumb) return;
+    const file = input.files[0];
+    if (!file) { thumb.style.display = 'none'; return; }
+    const reader = new FileReader();
+    reader.onload = e => {
+        thumb.querySelector('img').src = e.target.result;
+        thumb.style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+}
+
+function addEvidenRow() {
+    _evidenIdx++;
+    const idx = _evidenIdx;
+    const list = document.getElementById('eviden-file-list');
+    const row = document.createElement('div');
+    row.className = 'eviden-row d-flex gap-2 mb-2';
+    row.dataset.idx = idx;
+    row.innerHTML = `
+        <input type="file" name="eviden_foto" accept="image/*"
+               class="form-control form-control-sm" style="flex:1;"
+               onchange="previewEviden(this, ${idx})">
+        <input type="text" name="eviden_keterangan" placeholder="Keterangan (opsional)"
+               class="form-control form-control-sm" style="flex:1;max-width:260px;">
+        <div id="thumb-${idx}" style="display:none;width:40px;height:40px;flex-shrink:0;">
+            <img style="width:40px;height:40px;object-fit:cover;border-radius:6px;border:1px solid #e2e8f0;">
+        </div>
+        <button type="button" onclick="this.closest('.eviden-row').remove()"
+                style="padding:2px 8px;border-radius:6px;border:1px solid #fecaca;
+                       background:#fee2e2;color:#dc2626;font-size:12px;cursor:pointer;flex-shrink:0;">
+            <i class="bi bi-x"></i>
+        </button>
+    `;
+    list.appendChild(row);
+    row.querySelector('input[type=file]').focus();
+}
+</script>
+
 {# ── Komponen Perangkat ──────────────────────────────────── #}
 {% include 'devices/komponen_section.html' %}
 
