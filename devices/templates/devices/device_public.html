@@ -3,331 +3,274 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ device.nama }} — FASOP UP2B</title>
+    <title>{{ device.nama }} — FASOP</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
     <style>
-        * { box-sizing:border-box; }
-        body { background:#f1f5f9; font-family:'Segoe UI',system-ui,sans-serif; margin:0; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: #f0f4f8; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
 
-        .top-bar { background:#0f172a; padding:11px 0; text-align:center; }
-        .top-bar .brand { color:#fff; font-size:13px; font-weight:700; }
-        .top-bar .sub { color:#64748b; font-size:11px; margin-top:2px; }
+        /* ── Status Header ── */
+        .status-header {
+            padding: 16px 20px 22px;
+            color: white;
+            position: relative;
+        }
+        .status-header.operasi   { background: linear-gradient(135deg, #059669 0%, #10b981 100%); }
+        .status-header.tidak     { background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%); }
+        .status-header.standby   { background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%); }
 
-        .page-wrap { max-width:720px; margin:24px auto; padding:0 14px 52px; }
+        .brand-row {
+            font-size: 11px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.8px; opacity: 0.8; margin-bottom: 14px;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .device-type-lbl {
+            font-size: 12px; font-weight: 600; opacity: 0.75;
+            text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .device-main-name {
+            font-size: 26px; font-weight: 800; line-height: 1.15; margin: 4px 0 8px;
+        }
+        .device-loc {
+            font-size: 13px; opacity: 0.85;
+            display: flex; align-items: center; gap: 5px; margin-bottom: 12px;
+        }
+        .status-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+        .status-chip {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700;
+            background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.35);
+        }
 
-        /* ── Cards ── */
-        .pub-card { background:white; border-radius:16px; overflow:hidden;
-                    box-shadow:0 1px 8px rgba(0,0,0,.07); margin-bottom:14px; }
-        .pub-card-head { padding:12px 20px; border-bottom:1px solid #f1f5f9;
-                         font-size:11px; font-weight:700; text-transform:uppercase;
-                         letter-spacing:.6px; color:#64748b;
-                         display:flex; align-items:center; gap:7px; }
-        .pub-card-body { padding:18px 20px; }
+        /* ── Content ── */
+        .content-wrap { max-width: 720px; margin: 0 auto; padding: 14px 12px 60px; }
 
-        /* ── Hero ── */
-        .hero-stripe { height:5px; }
-        .device-label { font-size:11.5px; font-weight:600; color:#94a3b8;
-                        text-transform:uppercase; letter-spacing:.4px; }
-        .device-name { font-size:22px; font-weight:800; color:#0f172a; margin:4px 0 6px; }
+        /* ── Card ── */
+        .sec-card {
+            background: white; border-radius: 16px; overflow: hidden;
+            box-shadow: 0 1px 6px rgba(0,0,0,.06); margin-bottom: 12px;
+        }
+        .sec-head {
+            padding: 10px 16px; border-bottom: 1px solid #f1f5f9;
+            font-size: 11px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: .6px; color: #64748b;
+            display: flex; align-items: center; gap: 7px;
+        }
+        .sec-head .ml-auto { margin-left: auto; font-weight: 400; text-transform: none; letter-spacing: 0; font-size: 10px; color: #94a3b8; }
+        .sec-body { padding: 16px; }
 
-        /* ── Foto ── */
-        .foto-wrap { display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; }
-        .foto-item { border-radius:10px; overflow:hidden; border:1px solid #e2e8f0;
-                     cursor:pointer; flex:1; min-width:140px; max-height:180px; }
-        .foto-item img { width:100%; height:100%; object-fit:cover; display:block; }
+        /* ── Alert Gangguan ── */
+        .alert-gng {
+            background: #fef2f2; border: 1.5px solid #fca5a5;
+            border-radius: 14px; padding: 13px 15px; margin-bottom: 12px;
+            display: flex; align-items: flex-start; gap: 12px;
+        }
+        .alert-gng-icon {
+            width: 38px; height: 38px; background: #ef4444; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            color: white; font-size: 17px; flex-shrink: 0; margin-top: 1px;
+        }
 
-        /* ── Pills ── */
-        .pill { display:inline-flex; align-items:center; gap:5px; padding:4px 12px;
-                border-radius:20px; font-size:12px; font-weight:700; border:1px solid; }
-        .pill-operasi   { background:#dcfce7;color:#065f46;border-color:#86efac; }
-        .pill-tidak     { background:#fee2e2;color:#991b1b;border-color:#fca5a5; }
-        .pill-standby   { background:#fef3c7;color:#92400e;border-color:#fde68a; }
-
-        /* ── Info rows ── */
-        .info-row { display:grid; grid-template-columns:140px 1fr; gap:8px;
-                    padding:8px 0; border-bottom:1px solid #f8fafc; align-items:start; }
-        .info-row:last-child { border-bottom:none; }
-        .info-lbl { font-size:11.5px; font-weight:600; color:#94a3b8;
-                    text-transform:uppercase; letter-spacing:.3px; }
-        .info-val { font-size:13px; color:#1e293b; word-break:break-word; }
-        .info-val.mono { font-family:'Courier New',monospace; font-size:12.5px; }
+        /* ── Photo Grid ── */
+        .photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+        .photo-item { border-radius: 10px; overflow: hidden; aspect-ratio: 4/3; cursor: zoom-in; }
+        .photo-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
         /* ── HI ── */
-        .hi-wrap { display:flex; align-items:center; gap:16px;
-                   background:#f8fafc; border-radius:12px; padding:14px 18px; }
-        .hi-score-num { font-size:38px; font-weight:900; line-height:1; }
-        .hi-bar-bg  { flex:1; background:#e2e8f0; border-radius:8px; height:10px; overflow:hidden; }
-        .hi-bar-fill { height:100%; border-radius:8px; }
+        .hi-wrap { display: flex; align-items: center; gap: 20px; }
+        .hi-ring {
+            width: 90px; height: 90px; border-radius: 50%; flex-shrink: 0;
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; border: 7px solid;
+        }
+        .hi-num  { font-size: 28px; font-weight: 900; line-height: 1; }
+        .hi-lbl  { font-size: 10px; font-weight: 700; color: #94a3b8; margin-top: 1px; }
+        .hi-bar-bg   { background: #f1f5f9; border-radius: 8px; height: 8px; overflow: hidden; margin-bottom: 10px; }
+        .hi-bar-fill { height: 100%; border-radius: 8px; }
+        .hi-factor { display: flex; justify-content: space-between; font-size: 12px; padding: 2px 0; }
+
+        /* ── Info Grid ── */
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+        .info-cell { background: #f8fafc; border-radius: 10px; padding: 10px 12px; }
+        .info-cell.full { grid-column: span 2; }
+        .info-lbl { font-size: 10.5px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: .3px; margin-bottom: 3px; }
+        .info-val { font-size: 13px; font-weight: 600; color: #1e293b; word-break: break-word; }
+        .info-val.mono { font-family: 'Courier New', monospace; font-size: 12px; }
+        .info-val.normal { font-weight: 400; color: #475569; }
+
+        /* ── Action buttons ── */
+        .action-row { display: flex; gap: 10px; flex-wrap: wrap; }
+        .btn-act {
+            flex: 1; min-width: 140px;
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            padding: 13px 16px; border-radius: 12px;
+            font-size: 13px; font-weight: 700; text-decoration: none; border: none; cursor: pointer;
+            text-align: left;
+        }
+        .btn-act i { font-size: 20px; flex-shrink: 0; }
+        .btn-act-sub { font-size: 10px; font-weight: 400; opacity: .75; margin-top: 1px; }
+        .btn-login   { background: #0f172a; color: white; }
+        .btn-login:hover { background: #1e293b; color: white; }
+        .btn-inspect { background: linear-gradient(135deg,#4f46e5,#7c3aed); color: white; box-shadow: 0 4px 14px rgba(99,102,241,.3); }
+        .btn-inspect:hover { color: white; opacity: .9; }
 
         /* ── Maintenance rows ── */
-        .m-row { padding:9px 0; border-bottom:1px solid #f8fafc;
-                 display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-        .m-row:last-child { border-bottom:none; }
+        .m-row { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px solid #f8fafc; align-items: flex-start; }
+        .m-row:last-child { border-bottom: none; }
+        .m-date { font-size: 11.5px; color: #94a3b8; min-width: 80px; padding-top: 3px; flex-shrink: 0; }
+        .badge-sm { font-size: 11px; padding: 2px 9px; border-radius: 20px; font-weight: 600; white-space: nowrap; }
 
         /* ── Gangguan rows ── */
-        .g-row { padding:10px 0; border-bottom:1px solid #f8fafc; }
-        .g-row:last-child { border-bottom:none; }
-
-        /* ── Spesifikasi ── */
-        .spec-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:8px; }
-        .spec-item { background:#f8fafc; border-radius:8px; padding:8px 12px; }
-        .spec-key { font-size:11px; font-weight:600; color:#94a3b8; margin-bottom:2px; }
-        .spec-val { font-size:13px; color:#1e293b; }
-
-        /* ── Login CTA ── */
-        .login-cta { background:linear-gradient(135deg,#1e293b 0%,#0f172a 100%);
-                     border-radius:16px; padding:22px 24px; margin-bottom:14px;
-                     display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
-        .login-cta-text h6 { color:white; font-weight:700; font-size:15px; margin:0 0 4px; }
-        .login-cta-text p  { color:#94a3b8; font-size:12.5px; margin:0; }
-        .login-cta-btns { display:flex; gap:8px; flex-wrap:wrap; flex-shrink:0; }
-        .btn-login-main { background:#3b82f6;color:white;border:none;border-radius:9px;
-                          padding:9px 18px;font-size:13px;font-weight:700;
-                          text-decoration:none;display:inline-flex;align-items:center;gap:6px;
-                          white-space:nowrap; }
-        .btn-login-main:hover { background:#2563eb;color:white; }
+        .g-row { padding: 8px 0; border-bottom: 1px solid #f8fafc; }
+        .g-row:last-child { border-bottom: none; }
 
         /* ── Lightbox ── */
-        #lightbox { display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);
-                    z-index:9999;align-items:center;justify-content:center;cursor:zoom-out; }
-        #lightbox img { max-width:92vw;max-height:88vh;border-radius:10px;box-shadow:0 4px 40px rgba(0,0,0,.5); }
+        #lightbox { display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:9999;align-items:center;justify-content:center;cursor:zoom-out; }
+        #lightbox img { max-width:93vw;max-height:88vh;border-radius:10px;box-shadow:0 4px 40px rgba(0,0,0,.5); }
         #lightbox.active { display:flex; }
 
-        .refresh-btn { display:inline-flex;align-items:center;gap:5px;background:#f8fafc;
-                       border:1px solid #e2e8f0;border-radius:8px;padding:7px 16px;
-                       font-size:12px;font-weight:600;color:#475569;text-decoration:none;margin-top:10px; }
-        .refresh-btn:hover { background:#f1f5f9; }
+        /* ── Footer ── */
+        .page-footer { text-align: center; padding: 20px 0 10px; font-size: 11.5px; color: #94a3b8; }
+        .refresh-btn { display: inline-flex; align-items: center; gap: 5px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 7px 16px; font-size: 12px; font-weight: 600; color: #475569; text-decoration: none; margin-top: 10px; }
+        .refresh-btn:hover { background: #f1f5f9; color: #475569; }
+
+        @media (max-width: 400px) {
+            .device-main-name { font-size: 21px; }
+            .info-grid { grid-template-columns: 1fr; }
+            .info-cell.full { grid-column: span 1; }
+        }
     </style>
 </head>
 <body>
 
-<div class="top-bar">
-    <div class="brand"><i class="bi bi-lightning-charge-fill me-1" style="color:#f59e0b;"></i>FASOP UP2B Sistem Makassar</div>
-    <div class="sub">Informasi Peralatan — Publik</div>
+{# ── Status Header ── #}
+<div class="status-header {% if device.status_operasi == 'operasi' %}operasi{% elif device.status_operasi == 'tidak_operasi' %}tidak{% else %}standby{% endif %}">
+    <div class="brand-row">
+        <i class="bi bi-lightning-charge-fill"></i>FASOP UP2B Sistem Makassar
+    </div>
+    <div class="device-type-lbl">{{ device.jenis.name|default:"Peralatan" }}</div>
+    <div class="device-main-name">{{ device.nama }}</div>
+    <div class="device-loc">
+        <i class="bi bi-geo-alt-fill"></i>{{ device.lokasi }}
+    </div>
+    <div class="status-chips">
+        <span class="status-chip">
+            <i class="bi bi-circle-fill" style="font-size:7px;"></i>
+            {{ device.get_status_operasi_display }}
+        </span>
+        {% if device.merk %}
+        <span class="status-chip">
+            <i class="bi bi-cpu" style="font-size:10px;"></i>
+            {{ device.merk }}{% if device.type %} · {{ device.type }}{% endif %}
+        </span>
+        {% endif %}
+        {% if umur %}
+        <span class="status-chip">
+            <i class="bi bi-calendar3" style="font-size:10px;"></i>{{ umur }} tahun
+        </span>
+        {% endif %}
+    </div>
 </div>
 
-<div class="page-wrap">
+<div class="content-wrap">
 
-    {# ── Hero ── #}
-    <div class="pub-card">
-        <div class="hero-stripe" style="background:
-            {% if device.status_operasi == 'operasi' %}#10b981
-            {% elif device.status_operasi == 'tidak_operasi' %}#ef4444
-            {% else %}#f59e0b{% endif %};"></div>
-        <div class="pub-card-body">
-            <div class="device-label">{{ device.jenis.name|default:"Peralatan" }} &middot; {{ device.lokasi }}</div>
-            <div class="device-name">{{ device.nama }}</div>
-
-            <div class="d-flex flex-wrap gap-2">
-                <span class="pill {% if device.status_operasi == 'operasi' %}pill-operasi{% elif device.status_operasi == 'tidak_operasi' %}pill-tidak{% else %}pill-standby{% endif %}">
-                    <i class="bi bi-circle-fill" style="font-size:6px;"></i>
-                    {{ device.get_status_operasi_display }}
-                </span>
-                {% if device.merk %}
-                <span class="pill" style="background:#f8fafc;color:#475569;border-color:#e2e8f0;">
-                    <i class="bi bi-cpu" style="font-size:10px;"></i>{{ device.merk }}{% if device.type %} · {{ device.type }}{% endif %}
-                </span>
-                {% endif %}
-                {% if umur %}
-                <span class="pill" style="background:#f8fafc;color:#475569;border-color:#e2e8f0;">
-                    <i class="bi bi-calendar3" style="font-size:10px;"></i>{{ umur }} tahun
-                </span>
-                {% endif %}
+    {# ── Alert Gangguan Aktif ── #}
+    {% if gangguan_aktif %}
+    <div class="alert-gng">
+        <div class="alert-gng-icon">
+            <i class="bi bi-exclamation-triangle-fill"></i>
+        </div>
+        <div>
+            <div style="font-size:13px;font-weight:700;color:#991b1b;margin-bottom:2px;">
+                {{ gangguan_aktif|length }} Gangguan Aktif
             </div>
+            <div style="font-size:12px;color:#dc2626;">
+                {{ gangguan_aktif.0.get_tingkat_keparahan_display }} —
+                {{ gangguan_aktif.0.executive_summary|truncatechars:80 }}
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
-            {# Foto perangkat #}
-            {% if device.foto or device.foto2 %}
-            <div class="foto-wrap">
+    {# ── Foto Perangkat ── #}
+    {% if device.foto or device.foto2 %}
+    <div class="sec-card">
+        <div class="sec-body">
+            <div class="photo-grid">
                 {% if device.foto %}
-                <div class="foto-item" onclick="openLightbox('{{ device.foto.url }}')">
+                <div class="photo-item" onclick="openLightbox('{{ device.foto.url }}')">
                     <img src="{{ device.foto.url }}" alt="Foto {{ device.nama }}">
                 </div>
                 {% endif %}
                 {% if device.foto2 %}
-                <div class="foto-item" onclick="openLightbox('{{ device.foto2.url }}')">
+                <div class="photo-item" onclick="openLightbox('{{ device.foto2.url }}')">
                     <img src="{{ device.foto2.url }}" alt="Foto 2 {{ device.nama }}">
                 </div>
                 {% endif %}
             </div>
-            {% endif %}
-        </div>
-    </div>
-
-    {# ── Tombol Inspeksi (jika device inspectable) ── #}
-    {% if can_inspect %}
-    <div style="margin-bottom:16px;">
-        {% if request.user.is_authenticated %}
-            {% with role=request.user.profile.role %}
-            {% if role == 'operator' or request.user.is_superuser or role in 'technician asisten_manager' %}
-            <a href="{{ inspection_url }}"
-               style="display:flex;align-items:center;justify-content:center;gap:10px;
-                      background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;
-                      border-radius:12px;padding:14px 20px;text-decoration:none;
-                      font-size:14px;font-weight:700;box-shadow:0 4px 12px rgba(99,102,241,0.3);">
-                <i class="bi bi-clipboard2-plus-fill" style="font-size:20px;"></i>
-                Lakukan Inservice Inspection
-            </a>
-            {% else %}
-            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px 20px;text-align:center;color:#64748b;font-size:13px;">
-                <i class="bi bi-info-circle me-1"></i>Role Anda tidak memiliki akses untuk melakukan inspeksi.
-            </div>
-            {% endif %}
-            {% endwith %}
-        {% else %}
-        <a href="/login/?next={{ inspection_url }}"
-           style="display:flex;align-items:center;justify-content:center;gap:10px;
-                  background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;
-                  border-radius:12px;padding:14px 20px;text-decoration:none;
-                  font-size:14px;font-weight:700;box-shadow:0 4px 12px rgba(99,102,241,0.3);">
-            <i class="bi bi-clipboard2-plus-fill" style="font-size:20px;"></i>
-            Lakukan Inservice Inspection
-        </a>
-        <div style="text-align:center;font-size:11px;color:#94a3b8;margin-top:6px;">
-            Anda akan diminta login terlebih dahulu
-        </div>
-        {% endif %}
-    </div>
-
-    {# Card inspeksi terakhir #}
-    {% if last_inspection %}
-    <div class="pub-card" style="margin-bottom:16px;">
-        <div class="pub-card-head">
-            <i class="bi bi-clipboard2-check-fill" style="color:#6366f1;"></i>
-            Inspeksi Terakhir
-        </div>
-        <div class="pub-card-body">
-            <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:13px;">
-                <div>
-                    <div style="font-size:10.5px;color:#94a3b8;font-weight:700;text-transform:uppercase;margin-bottom:3px;">Tanggal</div>
-                    <div style="color:#0f172a;font-weight:600;">{{ last_inspection.tanggal|date:"d M Y H:i" }}</div>
-                </div>
-                <div>
-                    <div style="font-size:10.5px;color:#94a3b8;font-weight:700;text-transform:uppercase;margin-bottom:3px;">Jenis</div>
-                    <div style="color:#0f172a;">{{ last_inspection.get_jenis_display }}</div>
-                </div>
-                <div>
-                    <div style="font-size:10.5px;color:#94a3b8;font-weight:700;text-transform:uppercase;margin-bottom:3px;">Operator</div>
-                    <div style="color:#0f172a;">{{ last_inspection.operator.get_full_name|default:last_inspection.operator.username|default:"—" }}</div>
-                </div>
-                <div>
-                    <div style="font-size:10.5px;color:#94a3b8;font-weight:700;text-transform:uppercase;margin-bottom:3px;">Status</div>
-                    {% if last_inspection.is_flagged %}
-                    <span style="background:#fef9c3;color:#92400e;padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;">
-                        <i class="bi bi-flag-fill me-1"></i>Diflag
-                    </span>
-                    {% else %}
-                    <span style="background:#dcfce7;color:#166534;padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;">
-                        ✓ Selesai
-                    </span>
-                    {% endif %}
-                </div>
-            </div>
         </div>
     </div>
     {% endif %}
-    {% endif %}
 
-    {# ── Login CTA ── #}
-    <div class="login-cta">
-        <div class="login-cta-text" style="flex:1;min-width:0;">
-            <h6><i class="bi bi-shield-lock me-1"></i>Butuh akses lebih?</h6>
-            <p>Login untuk edit data, tambah maintenance, atau catat gangguan peralatan ini.</p>
+    {# ── Informasi Perangkat ── #}
+    <div class="sec-card">
+        <div class="sec-head">
+            <i class="bi bi-cpu" style="color:#3b82f6;"></i>Informasi Perangkat
         </div>
-        <div class="login-cta-btns">
-            <a href="/login/?next=/view/{{ device.pk }}/" class="btn-login-main">
-                <i class="bi bi-box-arrow-in-right"></i>Login
-            </a>
-        </div>
-    </div>
-
-    {# ── Health Index ── #}
-    {% if health_index %}
-    {% with hi=health_index %}
-    <div class="pub-card">
-        <div class="pub-card-head">
-            <i class="bi bi-heart-pulse" style="color:#ef4444;"></i>Health Index
-        </div>
-        <div class="pub-card-body">
-            <div class="hi-wrap">
-                <div style="text-align:center;">
-                    <div class="hi-score-num" style="color:{{ hi.kategori.color }};">{{ hi.score }}</div>
-                    <div style="font-size:12px;font-weight:700;color:{{ hi.kategori.color }};">{{ hi.kategori.label }}</div>
-                    <div style="font-size:11px;color:#94a3b8;margin-top:2px;">dari 100</div>
+        <div class="sec-body">
+            <div class="info-grid">
+                {% if device.ip_address %}
+                <div class="info-cell">
+                    <div class="info-lbl">IP Address</div>
+                    <div class="info-val mono">{{ device.ip_address }}</div>
                 </div>
-                <div style="flex:1;">
-                    <div class="hi-bar-bg">
-                        <div class="hi-bar-fill" style="width:{{ hi.score }}%;background:{{ hi.kategori.color }};"></div>
-                    </div>
-                    {% if hi.breakdown %}
-                    <div style="margin-top:12px;display:flex;flex-direction:column;gap:5px;">
-                        {% for f in hi.breakdown %}
-                        <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;">
-                            <span style="color:#475569;">{{ f.faktor }}</span>
-                            <span style="font-weight:600;color:{% if f.deduksi < -5 %}#ef4444{% elif f.deduksi < 0 %}#f59e0b{% else %}#10b981{% endif %};">
-                                {{ f.deduksi }}
-                            </span>
-                        </div>
-                        {% endfor %}
-                    </div>
-                    {% endif %}
+                {% endif %}
+                {% if device.serial_number %}
+                <div class="info-cell">
+                    <div class="info-lbl">Serial Number</div>
+                    <div class="info-val mono">{{ device.serial_number }}</div>
                 </div>
+                {% endif %}
+                {% if device.firmware_version %}
+                <div class="info-cell">
+                    <div class="info-lbl">Firmware</div>
+                    <div class="info-val mono">{{ device.firmware_version }}</div>
+                </div>
+                {% endif %}
+                {% if device.tahun_operasi %}
+                <div class="info-cell">
+                    <div class="info-lbl">Tahun Operasi</div>
+                    <div class="info-val">{{ device.tahun_operasi }}{% if umur %} <span style="color:#94a3b8;font-size:11px;">({{ umur }} thn)</span>{% endif %}</div>
+                </div>
+                {% endif %}
+                <div class="info-cell">
+                    <div class="info-lbl">Lokasi</div>
+                    <div class="info-val">{{ device.lokasi }}</div>
+                </div>
+                {% if device.merk %}
+                <div class="info-cell">
+                    <div class="info-lbl">Merk / Type</div>
+                    <div class="info-val">{{ device.merk }}{% if device.type %} / {{ device.type }}{% endif %}</div>
+                </div>
+                {% endif %}
+                {% if device.keterangan %}
+                <div class="info-cell full">
+                    <div class="info-lbl">Keterangan</div>
+                    <div class="info-val normal" style="white-space:pre-wrap;">{{ device.keterangan }}</div>
+                </div>
+                {% endif %}
             </div>
-        </div>
-    </div>
-    {% endwith %}
-    {% endif %}
 
-    {# ── Info Detail ── #}
-    <div class="pub-card">
-        <div class="pub-card-head"><i class="bi bi-info-circle" style="color:#3b82f6;"></i>Informasi Perangkat</div>
-        <div class="pub-card-body">
-            {% if device.ip_address %}
-            <div class="info-row">
-                <div class="info-lbl">IP Address</div>
-                <div class="info-val mono">{{ device.ip_address }}</div>
-            </div>
-            {% endif %}
-            {% if device.serial_number %}
-            <div class="info-row">
-                <div class="info-lbl">Serial Number</div>
-                <div class="info-val mono">{{ device.serial_number }}</div>
-            </div>
-            {% endif %}
-            {% if device.firmware_version %}
-            <div class="info-row">
-                <div class="info-lbl">Firmware</div>
-                <div class="info-val mono">{{ device.firmware_version }}</div>
-            </div>
-            {% endif %}
-            {% if device.tahun_operasi %}
-            <div class="info-row">
-                <div class="info-lbl">Tahun Operasi</div>
-                <div class="info-val">{{ device.tahun_operasi }}{% if umur %} <span style="color:#94a3b8;font-size:12px;">({{ umur }} tahun)</span>{% endif %}</div>
-            </div>
-            {% endif %}
-            <div class="info-row">
-                <div class="info-lbl">Lokasi</div>
-                <div class="info-val">{{ device.lokasi }}</div>
-            </div>
-            {% if device.keterangan %}
-            <div class="info-row">
-                <div class="info-lbl">Keterangan</div>
-                <div class="info-val" style="white-space:pre-wrap;color:#475569;">{{ device.keterangan }}</div>
-            </div>
-            {% endif %}
-
-            {# Spesifikasi tambahan #}
             {% if device.spesifikasi %}
-            <div style="margin-top:12px;">
-                <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;
-                            letter-spacing:.5px;margin-bottom:8px;">Spesifikasi</div>
-                <div class="spec-grid">
+            <div style="margin-top:14px;border-top:1px solid #f1f5f9;padding-top:14px;">
+                <div style="font-size:10.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.4px;margin-bottom:9px;">Spesifikasi</div>
+                <div class="info-grid">
                     {% for key, val in device.spesifikasi.items %}
                     {% if val %}
-                    <div class="spec-item">
-                        <div class="spec-key">{{ key|title }}</div>
-                        <div class="spec-val">{{ val }}</div>
+                    <div class="info-cell">
+                        <div class="info-lbl">{{ key|title }}</div>
+                        <div class="info-val normal">{{ val }}</div>
                     </div>
                     {% endif %}
                     {% endfor %}
@@ -337,30 +280,101 @@
         </div>
     </div>
 
-    {# ── Gangguan Aktif ── #}
+    {# ── Tombol Aksi ── #}
+    <div class="sec-card">
+        <div class="sec-body">
+            <div class="action-row">
+                {% if not request.user.is_authenticated %}
+                <a href="/login/?next=/view/{{ device.pk }}/" class="btn-act btn-login">
+                    <i class="bi bi-box-arrow-in-right"></i>
+                    <div>
+                        <div>Login FASOP</div>
+                        <div class="btn-act-sub">Edit data & tambah maintenance</div>
+                    </div>
+                </a>
+                {% endif %}
+
+                {% if can_inspect %}
+                {% if request.user.is_authenticated %}
+                    {% with role=request.user.profile.role %}
+                    {% if role == 'operator' or request.user.is_superuser or role in 'technician asisten_manager' %}
+                    <a href="{{ inspection_url }}" class="btn-act btn-inspect">
+                        <i class="bi bi-clipboard2-plus-fill"></i>
+                        <div>
+                            <div>Inservice Inspection</div>
+                            <div class="btn-act-sub">Mulai inspeksi perangkat</div>
+                        </div>
+                    </a>
+                    {% endif %}
+                    {% endwith %}
+                {% else %}
+                <a href="/login/?next={{ inspection_url }}" class="btn-act btn-inspect">
+                    <i class="bi bi-clipboard2-plus-fill"></i>
+                    <div>
+                        <div>Inservice Inspection</div>
+                        <div class="btn-act-sub">Login untuk inspeksi</div>
+                    </div>
+                </a>
+                {% endif %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    {# ── Inspeksi Terakhir ── #}
+    {% if can_inspect and last_inspection %}
+    <div class="sec-card">
+        <div class="sec-head">
+            <i class="bi bi-clipboard2-check-fill" style="color:#6366f1;"></i>Inspeksi Terakhir
+        </div>
+        <div class="sec-body">
+            <div class="info-grid">
+                <div class="info-cell">
+                    <div class="info-lbl">Tanggal</div>
+                    <div class="info-val">{{ last_inspection.tanggal|date:"d M Y" }}</div>
+                </div>
+                <div class="info-cell">
+                    <div class="info-lbl">Jenis</div>
+                    <div class="info-val">{{ last_inspection.get_jenis_display }}</div>
+                </div>
+                <div class="info-cell">
+                    <div class="info-lbl">Operator</div>
+                    <div class="info-val">{{ last_inspection.operator.get_full_name|default:last_inspection.operator.username|default:"—" }}</div>
+                </div>
+                <div class="info-cell">
+                    <div class="info-lbl">Status</div>
+                    <div class="info-val">
+                        {% if last_inspection.is_flagged %}
+                        <span style="color:#92400e;">⚑ Diflag</span>
+                        {% else %}
+                        <span style="color:#166534;">✓ Selesai</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {# ── Gangguan Aktif Detail ── #}
     {% if gangguan_aktif %}
-    <div class="pub-card" style="border:1.5px solid #fca5a5;">
-        <div class="pub-card-head" style="background:#fef2f2;">
-            <i class="bi bi-exclamation-triangle-fill" style="color:#ef4444;"></i>
-            Gangguan Aktif
+    <div class="sec-card" style="border:1.5px solid #fca5a5;">
+        <div class="sec-head" style="background:#fef2f2;">
+            <i class="bi bi-exclamation-triangle-fill" style="color:#ef4444;"></i>Gangguan Aktif
             <span style="background:#fee2e2;color:#991b1b;font-size:10px;padding:1px 8px;border-radius:20px;font-weight:600;text-transform:none;letter-spacing:0;margin-left:auto;">
                 {{ gangguan_aktif|length }}
             </span>
         </div>
-        <div class="pub-card-body" style="padding:12px 20px;">
+        <div class="sec-body" style="padding:10px 16px;">
             {% for g in gangguan_aktif %}
             <div class="g-row">
-                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:3px;">
+                <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px;">
                     <span style="font-family:monospace;font-size:11.5px;font-weight:700;color:#3b82f6;">{{ g.nomor_gangguan }}</span>
-                    <span class="pill" style="background:#fee2e2;color:#991b1b;border-color:#fca5a5;font-size:11px;padding:2px 8px;">
-                        {{ g.get_status_display }}
-                    </span>
-                    <span class="pill" style="background:#fff7ed;color:#c2410c;border-color:#fed7aa;font-size:11px;padding:2px 8px;">
-                        {{ g.get_tingkat_keparahan_display }}
-                    </span>
+                    <span class="badge-sm" style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;">{{ g.get_status_display }}</span>
+                    <span class="badge-sm" style="background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;">{{ g.get_tingkat_keparahan_display }}</span>
                     <span style="font-size:11px;color:#94a3b8;">{{ g.tanggal_gangguan|date:"d M Y" }}</span>
                 </div>
-                <div style="font-size:13px;color:#1e293b;margin-bottom:4px;">{{ g.executive_summary }}</div>
+                <div style="font-size:13px;color:#1e293b;margin-bottom:5px;">{{ g.executive_summary }}</div>
                 {% if g.public_token %}
                 <a href="/gangguan/status/{{ g.nomor_gangguan }}/{{ g.public_token }}/"
                    style="font-size:12px;color:#3b82f6;text-decoration:none;" target="_blank">
@@ -374,37 +388,32 @@
     {% endif %}
 
     {# ── Riwayat Pemeliharaan ── #}
-    <div class="pub-card">
-        <div class="pub-card-head">
-            <i class="bi bi-wrench-adjustable" style="color:#10b981;"></i>
-            Riwayat Pemeliharaan
-            <span style="font-size:10px;color:#94a3b8;font-weight:400;text-transform:none;letter-spacing:0;margin-left:4px;">10 terakhir</span>
+    <div class="sec-card">
+        <div class="sec-head">
+            <i class="bi bi-wrench-adjustable" style="color:#10b981;"></i>Riwayat Pemeliharaan
+            <span class="ml-auto">10 terakhir</span>
         </div>
-        <div class="pub-card-body" style="padding:{% if maintenance_history %}8px 20px{% else %}18px 20px{% endif %};">
+        <div class="sec-body" style="padding:{% if maintenance_history %}8px 16px{% else %}16px{% endif %};">
             {% if maintenance_history %}
             {% for m in maintenance_history %}
             <div class="m-row">
-                <span style="font-size:12px;color:#64748b;min-width:82px;">{{ m.date|date:"d M Y" }}</span>
-                <span style="font-size:11px;padding:2px 9px;border-radius:20px;font-weight:600;
-                             {% if m.maintenance_type == 'Preventive' %}background:#eff6ff;color:#1d4ed8;
-                             {% else %}background:#fff7ed;color:#c2410c;{% endif %}">
-                    {{ m.maintenance_type }}
-                </span>
-                <span style="font-size:11px;padding:2px 9px;border-radius:20px;font-weight:600;
-                             {% if m.status == 'Done' %}background:#dcfce7;color:#166534;
-                             {% else %}background:#fef3c7;color:#92400e;{% endif %}">
-                    {{ m.status }}
-                </span>
-                {% if m.description %}
-                <span style="font-size:12px;color:#64748b;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-                    {{ m.description|truncatechars:60 }}
-                </span>
-                {% endif %}
+                <div class="m-date">{{ m.date|date:"d M Y" }}</div>
+                <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+                    <span class="badge-sm" style="{% if m.maintenance_type == 'Preventive' %}background:#eff6ff;color:#1d4ed8;{% else %}background:#fff7ed;color:#c2410c;{% endif %}">
+                        {{ m.maintenance_type }}
+                    </span>
+                    <span class="badge-sm" style="{% if m.status == 'Done' %}background:#dcfce7;color:#166534;{% else %}background:#fef3c7;color:#92400e;{% endif %}">
+                        {{ m.status }}
+                    </span>
+                    {% if m.description %}
+                    <span style="font-size:11.5px;color:#64748b;">{{ m.description|truncatechars:50 }}</span>
+                    {% endif %}
+                </div>
             </div>
             {% endfor %}
             {% else %}
-            <div style="text-align:center;padding:16px 0;color:#94a3b8;">
-                <i class="bi bi-wrench d-block mb-1" style="font-size:22px;opacity:.4;"></i>
+            <div style="text-align:center;padding:20px 0;color:#94a3b8;">
+                <i class="bi bi-wrench d-block mb-2" style="font-size:26px;opacity:.3;"></i>
                 Belum ada riwayat pemeliharaan.
             </div>
             {% endif %}
@@ -413,18 +422,16 @@
 
     {# ── Riwayat Gangguan Selesai ── #}
     {% if gangguan_selesai %}
-    <div class="pub-card">
-        <div class="pub-card-head">
+    <div class="sec-card">
+        <div class="sec-head">
             <i class="bi bi-journal-check" style="color:#64748b;"></i>Riwayat Gangguan
         </div>
-        <div class="pub-card-body" style="padding:8px 20px;">
+        <div class="sec-body" style="padding:8px 16px;">
             {% for g in gangguan_selesai %}
             <div class="g-row">
-                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:2px;">
-                    <span style="font-family:monospace;font-size:11.5px;color:#64748b;">{{ g.nomor_gangguan }}</span>
-                    <span class="pill" style="font-size:11px;padding:2px 8px;
-                        {% if g.status == 'resolved' %}background:#dcfce7;color:#065f46;border-color:#86efac;
-                        {% else %}background:#f1f5f9;color:#475569;border-color:#cbd5e1;{% endif %}">
+                <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px;">
+                    <span style="font-family:monospace;font-size:11px;color:#94a3b8;">{{ g.nomor_gangguan }}</span>
+                    <span class="badge-sm" style="{% if g.status == 'resolved' %}background:#dcfce7;color:#065f46;{% else %}background:#f1f5f9;color:#475569;{% endif %}">
                         {{ g.get_status_display }}
                     </span>
                     <span style="font-size:11px;color:#94a3b8;">{{ g.tanggal_gangguan|date:"d M Y" }}</span>
@@ -437,9 +444,9 @@
     {% endif %}
 
     {# ── Footer ── #}
-    <div style="text-align:center;padding-top:20px;font-size:11.5px;color:#94a3b8;">
-        <div>Informasi per <strong>{{ now|date:"d M Y" }}</strong></div>
-        <div style="margin-top:3px;">FASOP UP2B Sistem Makassar</div>
+    <div class="page-footer">
+        <div>Diperbarui: <strong>{{ now|date:"d M Y, H:i" }}</strong></div>
+        <div style="margin-top:2px;">FASOP UP2B Sistem Makassar</div>
         <a href="javascript:location.reload()" class="refresh-btn">
             <i class="bi bi-arrow-clockwise"></i>Refresh
         </a>
