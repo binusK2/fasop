@@ -37,6 +37,10 @@ urlpatterns = [
     path('view/<int:pk>/event/add/', views.device_event_add, name='device_event_add'),
     path('view/<int:pk>/event/<int:event_pk>/delete/', views.device_event_delete, name='device_event_delete'),
 
+    # Eviden Tambahan
+    path('view/<int:pk>/eviden/add/', views.device_eviden_add, name='device_eviden_add'),
+    path('view/<int:pk>/eviden/<int:eviden_pk>/delete/', views.device_eviden_delete, name='device_eviden_delete'),
+
     # Komponen Perangkat
     path('view/<int:device_pk>/komponen/add/', views_komponen.komponen_add, name='komponen_add'),
     path('view/<int:device_pk>/komponen/<int:komponen_pk>/edit/', views_komponen.komponen_edit, name='komponen_edit'),

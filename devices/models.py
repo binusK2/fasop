@@ -580,3 +580,33 @@ from devices.models_komponen import (  # noqa: E402, F401
     SpecRectifierModul, SpecBattery, SpecBatteryCell,
     SpecRadioModul, SpecPLCModul,
 )
+
+
+# ─────────────────────────────────────────────────────────────
+# EVIDEN TAMBAHAN PERANGKAT
+# ─────────────────────────────────────────────────────────────
+def device_eviden_upload(instance, filename):
+    ext  = os.path.splitext(filename)[1].lower() or '.jpg'
+    nama = slugify_simple(instance.device.nama if instance.device else 'PERANGKAT')
+    tgl  = timezone.localtime(timezone.now()).strftime('%Y%m%d_%H%M%S')
+    return f'device_eviden/{nama}_{tgl}{ext}'
+
+
+class DeviceEviden(models.Model):
+    """Foto eviden tambahan untuk suatu perangkat (bisa banyak)."""
+    device      = models.ForeignKey(
+        Device, on_delete=models.CASCADE, related_name='eviden_list'
+    )
+    foto        = models.ImageField(upload_to=device_eviden_upload)
+    keterangan  = models.CharField(max_length=200, blank=True, default='')
+    uploaded_by = models.ForeignKey(
+        'auth.User', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='+'
+    )
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['uploaded_at']
+
+    def __str__(self):
+        return f'Eviden {self.pk} — {self.device.nama}'

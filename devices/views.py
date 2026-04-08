@@ -747,6 +747,10 @@ def device_detail(request, pk):
     komponen_list = get_komponen_for_device(device)
     tipe_grouped = _get_tipe_grouped()
 
+    # Eviden tambahan
+    from devices.models import DeviceEviden
+    eviden_list = DeviceEviden.objects.filter(device=device).order_by('uploaded_at')
+
     return render(request, 'devices/device_detail.html', {
         'device':             device,
         'maintenance_history': maintenance_history,
@@ -761,6 +765,7 @@ def device_detail(request, pk):
         'device_events':      device_events,
         'komponen_list':      komponen_list,
         'tipe_grouped':       tipe_grouped,
+        'eviden_list':        eviden_list,
         'today_date':         date_type.today().strftime('%Y-%m-%d'),
     })
 
@@ -1779,3 +1784,47 @@ def api_peta_jaringan(request):
         })
 
     return JsonResponse({'sites': result})
+
+
+# ─────────────────────────────────────────────────────────────────────
+# EVIDEN TAMBAHAN PERANGKAT
+# ─────────────────────────────────────────────────────────────────────
+@login_required
+@require_can_edit
+def device_eviden_add(request, pk):
+    """Upload satu atau lebih foto eviden untuk perangkat."""
+    device = get_object_or_404(Device, pk=pk)
+    if request.method == 'POST':
+        from devices.models import DeviceEviden
+        fotos = request.FILES.getlist('eviden_foto')
+        keterangans = request.POST.getlist('eviden_keterangan')
+        for i, foto in enumerate(fotos):
+            if not foto:
+                continue
+            ket = keterangans[i] if i < len(keterangans) else ''
+            DeviceEviden.objects.create(
+                device      = device,
+                foto        = foto,
+                keterangan  = ket.strip(),
+                uploaded_by = request.user,
+            )
+    return redirect('device_view', pk=pk)
+
+
+@login_required
+@require_can_delete
+def device_eviden_delete(request, pk, eviden_pk):
+    """Hapus satu eviden."""
+    device = get_object_or_404(Device, pk=pk)
+    from devices.models import DeviceEviden
+    eviden = get_object_or_404(DeviceEviden, pk=eviden_pk, device=device)
+    # Hapus file fisik
+    if eviden.foto:
+        try:
+            import os
+            if os.path.isfile(eviden.foto.path):
+                os.remove(eviden.foto.path)
+        except Exception:
+            pass
+    eviden.delete()
+    return redirect('device_view', pk=pk)

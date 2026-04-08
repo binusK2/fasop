@@ -1802,8 +1802,18 @@ def catu_daya_dashboard(request):
     ).select_related('jenis').order_by('lokasi', 'nama')
 
     def _sum_field(cells, field):
-        vals = [float(c[field]) for c in cells if c.get(field) not in (None, '', 0)]
+        # Hanya jumlahkan sel INTEGER (bukan summary row vtotal/vload)
+        vals = [float(c[field]) for c in cells
+                if isinstance(c.get('cell'), int) and c.get(field) not in (None, '', 0)]
         return round(sum(vals), 3) if vals else None
+
+    def _vtotal_row_val(cells, field):
+        """Ambil nilai dari baris summary vtotal di bat1_cells."""
+        row = next((c for c in cells if str(c.get('cell', '')) == 'vtotal'), None)
+        if row:
+            v = row.get(field)
+            return round(float(v), 3) if v not in (None, '', 0) else None
+        return None
 
     def _linreg(xs, ys):
         n = len(xs)
@@ -1837,12 +1847,25 @@ def catu_daya_dashboard(request):
 
         # ── Discharge curve dari inspeksi terbaru ───────────────────
         cells = latest.bat1_cells or []
-        vd_0    = _sum_field(cells, 'vd_0')
-        vd_half = _sum_field(cells, 'vd_half')
-        vd_1    = _sum_field(cells, 'vd_1')
-        vd_2    = _sum_field(cells, 'vd_2')
+
+        # Prioritas: ambil dari baris summary "vtotal" di bat1_cells
+        # (diisi user saat input form — nilai total bank tegangan per waktu discharge)
+        # Fallback: jumlah sel individual (hanya sel integer, bukan summary row)
+        def _vd(field):
+            v = _vtotal_row_val(cells, field)
+            return v if v is not None else _sum_field(cells, field)
+
+        vd_0    = _vd('vd_0')
+        vd_half = _vd('vd_half')
+        vd_1    = _vd('vd_1')
+        vd_2    = _vd('vd_2')
+
+        # V Float sebagai titik referensi sebelum discharge (t = -0.5, tampil terpisah)
+        v_float_discharge = _vtotal_row_val(cells, 'v_float') or _sum_field(cells, 'v_float') or latest.bat1_v_total
 
         actual = []
+        if v_float_discharge:
+            actual.append({'t': -0.5, 'v': round(float(v_float_discharge), 3), 'label': 'V Float'})
         for t, v in [(0, vd_0), (0.5, vd_half), (1, vd_1), (2, vd_2)]:
             if v is not None:
                 actual.append({'t': t, 'v': v})
@@ -1850,9 +1873,11 @@ def catu_daya_dashboard(request):
         prediction = []
         threshold_time = None
         slope = None
-        if len(actual) >= 2:
-            xs = [p['t'] for p in actual]
-            ys = [p['v'] for p in actual]
+        # Regresi hanya dari titik VD (t >= 0), bukan V Float
+        discharge_pts = [p for p in actual if p['t'] >= 0]
+        if len(discharge_pts) >= 2:
+            xs = [p['t'] for p in discharge_pts]
+            ys = [p['v'] for p in discharge_pts]
             sl, intercept = _linreg(xs, ys)
             if sl is not None:
                 slope = sl
@@ -1863,7 +1888,7 @@ def catu_daya_dashboard(request):
                     if t_thr > 0:
                         threshold_time = round(t_thr, 2)
 
-        latest_v = actual[-1]['v'] if actual else (latest.bat1_v_total or 0)
+        latest_v = discharge_pts[-1]['v'] if discharge_pts else (latest.bat1_v_total or 0)
         if latest_v <= THRESHOLD:
             status = 'danger'
         elif threshold_time is not None and threshold_time <= 10:
@@ -1889,7 +1914,7 @@ def catu_daya_dashboard(request):
             'device_name':    dev.nama,
             'lokasi':         dev.lokasi or '-',
             'tanggal':        str(latest.maintenance.date),
-            'v_float_total':  _sum_field(cells, 'v_float'),
+            'v_float_total':  _vtotal_row_val(cells, 'v_float') or _sum_field(cells, 'v_float') or latest.bat1_v_total,
             'v_total_field':  latest.bat1_v_total,
             # latest inspection metrics
             'v_battery':      latest.rect1_v_battery,

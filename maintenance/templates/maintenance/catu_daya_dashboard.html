@@ -248,7 +248,8 @@
 
     <div class="cd-card-body">
         <div class="cd-legend">
-            <div class="cd-legend-item"><div class="cd-legend-line" style="background:#3b82f6;"></div><span>Data Aktual</span></div>
+            <div class="cd-legend-item"><div style="width:12px;height:12px;background:#059669;transform:rotate(45deg);flex-shrink:0;"></div><span>V Float</span></div>
+            <div class="cd-legend-item"><div class="cd-legend-line" style="background:#3b82f6;"></div><span>Discharge Aktual</span></div>
             <div class="cd-legend-item"><div class="cd-legend-dash" style="border-color:#f59e0b;"></div><span>Prediksi (Linear)</span></div>
             <div class="cd-legend-item"><div class="cd-legend-line" style="background:#ef4444;"></div><span>Batas 38 VDC</span></div>
         </div>
@@ -515,20 +516,35 @@ function renderDischarge(dev) {
     }
 
     /* Build datasets */
-    const allTimes = new Set([...dev.actual.map(p=>p.t), ...dev.prediction.map(p=>p.t)]);
+    // Pisahkan titik V Float (t<0) dari titik discharge (t>=0)
+    const vfloatPt  = dev.actual.find(p => p.t < 0);   // {t:-0.5, v:55}
+    const dischargeActual = dev.actual.filter(p => p.t >= 0);
+
+    const allTimes = new Set([
+        ...(vfloatPt ? [vfloatPt.t] : []),
+        ...dischargeActual.map(p=>p.t),
+        ...dev.prediction.map(p=>p.t)
+    ]);
     const timeAxis = Array.from(allTimes).sort((a,b)=>a-b);
 
-    const actualMap = {}; dev.actual.forEach(p => actualMap[p.t] = p.v);
-    const predMap   = {}; dev.prediction.forEach(p => predMap[p.t] = p.v);
-    const lastT     = dev.actual.length ? dev.actual[dev.actual.length-1].t : null;
-    const lastV     = dev.actual.length ? dev.actual[dev.actual.length-1].v : null;
+    // Label: t=-0.5 → "V Float", t=0 → "0 jam", dll
+    const timeLabels = timeAxis.map(t => t < 0 ? 'V Float' : t + ' jam');
 
+    const actualMap = {}; dischargeActual.forEach(p => actualMap[p.t] = p.v);
+    const predMap   = {}; dev.prediction.forEach(p => predMap[p.t] = p.v);
+    const lastDischargeT = dischargeActual.length ? dischargeActual[dischargeActual.length-1].t : null;
+    const lastDischargeV = dischargeActual.length ? dischargeActual[dischargeActual.length-1].v : null;
+
+    // Dataset 1: Discharge aktual (t>=0)
     const actualData = timeAxis.map(t => actualMap.hasOwnProperty(t) ? actualMap[t] : null);
+    // Dataset 2: Prediksi (dashed, mulai dari titik terakhir discharge)
     const predData   = timeAxis.map(t => {
         if (predMap.hasOwnProperty(t)) return predMap[t];
-        if (t === lastT) return lastV;
+        if (t === lastDischargeT) return lastDischargeV;
         return null;
     });
+    // Dataset 3: V Float sebagai titik referensi tersendiri
+    const vfloatData = timeAxis.map(t => (vfloatPt && t === vfloatPt.t) ? vfloatPt.v : null);
     const thrData    = timeAxis.map(() => THRESHOLD);
     const crossData  = timeAxis.map(t => {
         if (dev.threshold_time != null && Math.abs(t - dev.threshold_time) < 0.3) return THRESHOLD;
@@ -540,9 +556,15 @@ function renderDischarge(dev) {
     chartDischarge = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: timeAxis.map(t => t + ' jam'),
+            labels: timeLabels,
             datasets: [
-                { label:'Data Aktual',         data:actualData, borderColor:'#3b82f6', backgroundColor:'rgba(59,130,246,0.07)', borderWidth:2.5, pointRadius:5, tension:0.3, fill:true,  spanGaps:false },
+                {
+                    label:'V Float (Referensi)',
+                    data: vfloatData,
+                    borderColor:'transparent', backgroundColor:'#059669',
+                    pointRadius:8, pointStyle:'rectRot', showLine:false, spanGaps:false,
+                },
+                { label:'Discharge Aktual',    data:actualData, borderColor:'#3b82f6', backgroundColor:'rgba(59,130,246,0.07)', borderWidth:2.5, pointRadius:5, tension:0.3, fill:true,  spanGaps:false },
                 { label:'Prediksi (Linear)',    data:predData,   borderColor:'#f59e0b', backgroundColor:'transparent',           borderWidth:2,   pointRadius:3, tension:0.2, fill:false, spanGaps:false, borderDash:[7,4] },
                 { label:'Batas Aman 38 VDC',   data:thrData,    borderColor:'#ef4444', backgroundColor:'rgba(239,68,68,0.04)',   borderWidth:1.5, pointRadius:0, tension:0,   fill:false, spanGaps:true,  borderDash:[4,3] },
                 { label:'Titik Threshold',      data:crossData,  borderColor:'transparent', backgroundColor:'#ef4444', pointRadius:8, pointStyle:'triangle', showLine:false, spanGaps:false },
