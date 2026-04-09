@@ -1668,7 +1668,7 @@ def device_public(request, token):
         'gangguan_selesai':   gangguan_selesai,
         'health_index':       health_index,
         'umur':               umur,
-        'now':                dj_timezone.now(),
+        'now':                now(),
         'last_inspection':    last_inspection,
         'can_inspect':        can_inspect,
         'inspection_url':     inspection_url,
