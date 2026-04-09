@@ -250,6 +250,8 @@
                             <th style="font-size:11.5px;color:#64748b;">Lambda <span class="text-muted fw-normal">(nm)</span></th>
                             <th style="font-size:11.5px;color:#64748b;">Bandwidth</th>
                             <th style="font-size:11.5px;color:#64748b;">Merk / Tipe SFP</th>
+                            <th style="font-size:11.5px;color:#64748b;">Suhu <span class="text-muted fw-normal">(°C)</span></th>
+                            <th style="font-size:11.5px;color:#64748b;">Link To</th>
                             <th style="font-size:11.5px;color:#64748b;">Status</th>
                         </tr>
                     </thead>
@@ -454,11 +456,13 @@ function renderSFPRows(count, existing) {
         const row = document.createElement('tr');
         row.innerHTML = `
             <td><span style="font-family:'JetBrains Mono',monospace;font-weight:600;font-size:12.5px;color:#8b5cf6;">SFP ${i+1}</span></td>
-            <td><input type="number" step="0.01" class="form-control form-control-sm sfp-f" data-port="${i}" data-field="tx" placeholder="-3.5" value="${d.tx??''}"></td>
-            <td><input type="number" step="0.01" class="form-control form-control-sm sfp-f" data-port="${i}" data-field="rx" placeholder="-5.2" value="${d.rx??''}"></td>
-            <td><input type="number" class="form-control form-control-sm sfp-f" data-port="${i}" data-field="lambda" placeholder="1310" value="${d.lambda??''}"></td>
-            <td><input type="text" class="form-control form-control-sm sfp-f" data-port="${i}" data-field="bandwidth" placeholder="1G / 10G" value="${d.bandwidth??''}"></td>
-            <td><input type="text" class="form-control form-control-sm sfp-f" data-port="${i}" data-field="merk" placeholder="Cisco SFP-10G-SR" value="${d.merk??''}"></td>
+            <td><input type="number" step="0.01" class="form-control form-control-sm sfp-f" data-port="${i}" data-field="tx" value="${d.tx??''}"></td>
+            <td><input type="number" step="0.01" class="form-control form-control-sm sfp-f" data-port="${i}" data-field="rx" value="${d.rx??''}"></td>
+            <td><input type="number" class="form-control form-control-sm sfp-f" data-port="${i}" data-field="lambda" value="${d.lambda??''}"></td>
+            <td><input type="text" class="form-control form-control-sm sfp-f" data-port="${i}" data-field="bandwidth" value="${d.bandwidth??''}"></td>
+            <td><input type="text" class="form-control form-control-sm sfp-f" data-port="${i}" data-field="merk" value="${d.merk??''}"></td>
+            <td><input type="number" step="0.1" class="form-control form-control-sm sfp-f" data-port="${i}" data-field="suhu" value="${d.suhu??''}"></td>
+            <td><input type="text" class="form-control form-control-sm sfp-f" data-port="${i}" data-field="link_to" value="${d.link_to??''}"></td>
             <td>
                 <select class="form-select form-select-sm sfp-f" data-port="${i}" data-field="status">
                     ${['','UP','DOWN','N/A'].map(s=>`<option value="${s}" ${d.status===s?'selected':''}>${s||'— pilih —'}</option>`).join('')}

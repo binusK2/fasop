@@ -247,7 +247,7 @@
                         <label style="font-size:12px;font-weight:600;color:#475569;margin-bottom:6px;display:block;">
                             Lokasi / Site
                         </label>
-                        <select name="lokasi" id="modalLokasi" class="form-select" required>
+                        <select name="lokasi" id="modalLokasi" class="form-select select-lokasi" required data-placeholder="— Pilih Lokasi —">
                             <option value="">— Pilih Lokasi —</option>
                             {% for lok in master_lokasi_list %}
                             <option value="{{ lok }}">{{ lok }}</option>

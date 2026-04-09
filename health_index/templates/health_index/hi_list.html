@@ -90,7 +90,7 @@
                 </select>
             </div>
             <div class="col-md-3">
-                <select name="lokasi" class="form-select form-select-sm">
+                <select name="lokasi" class="form-select form-select-sm select-lokasi" data-placeholder="— Semua Lokasi —">
                     <option value="">— Semua Lokasi —</option>
                     {% for lok in lokasi_list %}
                     <option value="{{ lok }}" {% if lok == filter_lokasi %}selected{% endif %}>{{ lok }}</option>

@@ -1,4 +1,4 @@
-from django.db import migrations, models
+from django.db import migrations
 
 
 class Migration(migrations.Migration):
@@ -8,14 +8,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddField(
-            model_name='maintenancevoip',
-            name='sip_server_1',
-            field=models.CharField(blank=True, max_length=100, verbose_name='SIP Server 1'),
-        ),
-        migrations.AddField(
-            model_name='maintenancevoip',
-            name='sip_server_2',
-            field=models.CharField(blank=True, max_length=100, verbose_name='SIP Server 2'),
-        ),
+        # sip_server_1 dan sip_server_2 sudah dibuat di 0010_maintenancevoip
     ]

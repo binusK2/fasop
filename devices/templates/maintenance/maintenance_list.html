@@ -34,7 +34,7 @@
             </div>
             <div class="col-md-2">
                 <label class="form-label">Lokasi</label>
-                <select name="lokasi" class="form-select form-select-sm">
+                <select name="lokasi" class="form-select form-select-sm select-lokasi" data-placeholder="Semua Lokasi">
                     <option value="">Semua Lokasi</option>
                     {% for l in lokasi_list %}
                     <option value="{{ l }}" {% if selected_lokasi == l %}selected{% endif %}>{{ l }}</option>

@@ -1210,6 +1210,11 @@ def export_maintenance_pdf(request, pk):
     elif device_kind == 'RTU':
         rtu_detail = _try(lambda: maintenance.maintenancertu)
 
+    # Corrective detail
+    corrective_detail = None
+    if maintenance.maintenance_type == 'Corrective':
+        corrective_detail = _try(lambda: maintenance.corrective_detail)
+
     # SFP JSON
     sfp_ports = []
     if router_detail and router_detail.sfp_port_data:
@@ -1514,6 +1519,26 @@ def export_maintenance_pdf(request, pk):
             'ps110_arus_supply':_g(rtu_detail, 'ps110_arus_supply'),
         } if rtu_detail else {},
     }
+
+    # ── Corrective detail dict ─────────────────────────────────────
+    data['maintenance_type'] = maintenance.maintenance_type
+    if corrective_detail:
+        data['corrective'] = {
+            'jenis_kerusakan':         corrective_detail.get_jenis_kerusakan_display() if corrective_detail.jenis_kerusakan else '-',
+            'deskripsi_masalah':       _g(corrective_detail, 'deskripsi_masalah', '-'),
+            'tindakan':                _g(corrective_detail, 'tindakan', '-'),
+            'komponen_diganti':        corrective_detail.komponen_diganti,
+            'nama_komponen':           _g(corrective_detail, 'nama_komponen', ''),
+            'komponen_terkait':        str(corrective_detail.komponen_terkait) if corrective_detail.komponen_terkait else '',
+            'kondisi_sebelum':         _g(corrective_detail, 'kondisi_sebelum', ''),
+            'kondisi_sesudah':         _g(corrective_detail, 'kondisi_sesudah', ''),
+            'durasi_display':          corrective_detail.durasi_display,
+            'status_perbaikan':        corrective_detail.get_status_perbaikan_display(),
+            'gangguan_nomor':          corrective_detail.gangguan.nomor_gangguan if corrective_detail.gangguan else '',
+            'gangguan_summary':        corrective_detail.gangguan.executive_summary if corrective_detail.gangguan else '',
+            'foto_sebelum_path':       corrective_detail.foto_sebelum.path if corrective_detail.foto_sebelum else '',
+            'foto_sesudah_path':       corrective_detail.foto_sesudah.path if corrective_detail.foto_sesudah else '',
+        }
 
     # ── Generate & stream ──────────────────────────────────────────
     buffer = BytesIO()
