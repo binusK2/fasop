@@ -1,0 +1,197 @@
+{% extends 'maintenance/pdf/_base.html' %}
+{% block extra_css %}
+.ind-tbl { width:100%; border-collapse:collapse; font-size:7pt; }
+.ind-tbl th { background:#1A3A5C; color:white; font-weight:bold; font-size:6.5pt; padding:2pt 4pt; border:0.3pt solid #CBD5E1; text-align:center; }
+.ind-tbl td { border:0.3pt solid #CBD5E1; padding:2pt 4pt; vertical-align:middle; }
+.ind-tbl td.num { text-align:center; color:#94A3B8; width:16pt; }
+.ind-tbl td.ind-lbl { font-weight:600; }
+.ind-tbl td.chk { text-align:center; width:26pt; }
+.chk-y { color:#166534; font-weight:bold; font-size:9pt; }
+.chk-n { color:#CBD5E1; }
+.mod-badge { display:inline-block; background:#EFF6FF; color:#1D4ED8; border:0.5pt solid #BFDBFE;
+             border-radius:3pt; padding:1pt 5pt; font-size:6.5pt; font-weight:bold; }
+.grn-badge { background:#F0FDF4; color:#166534; border:0.5pt solid #BBF7D0; }
+.yel-badge { background:#FEFCE8; color:#854D0E; border:0.5pt solid #FDE68A; }
+.pur-badge { background:#FDF4FF; color:#6B21A8; border:0.5pt solid #E9D5FF; }
+.ps-tbl td.ps-lbl { background:#F1F5F9; font-weight:bold; width:35%; }
+.ps-tbl td.ps-val { color:#1D4ED8; font-weight:bold; text-align:center; }
+{% endblock %}
+
+{% block content %}
+
+{# ── II. INDIKASI MODUL ── #}
+<div class="sec">II.&nbsp;&nbsp;INDIKASI MODUL</div>
+
+<div style="display:flex;gap:2mm;margin-top:1mm;">
+
+  {# Kolom kiri: CP-2016 + CP-2019 #}
+  <div style="flex:1;">
+
+    {# CP-2016 #}
+    <div style="margin-bottom:1.5mm;">
+      <div style="margin-bottom:0.5mm;">
+        <span class="mod-badge">CP-2016</span>
+        {% if rtu.cp2016_jumlah %}<span style="font-size:6.5pt;color:#64748B;margin-left:3pt;">Jumlah: <b>{{ rtu.cp2016_jumlah }}</b></span>{% endif %}
+      </div>
+      <table class="ind-tbl">
+        <thead><tr><th style="width:14pt;">#</th><th style="text-align:left;">Indikasi</th><th>Sebelum</th><th>Sesudah</th></tr></thead>
+        <tbody>
+          {% for row in cp2016_rows %}
+          <tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %}>
+            <td class="num">{{ forloop.counter }}</td>
+            <td class="ind-lbl">{{ row.name }}</td>
+            <td class="chk">{% if row.sb %}<span class="chk-y">&#10003;</span>{% else %}<span class="chk-n">—</span>{% endif %}</td>
+            <td class="chk">{% if row.sd %}<span class="chk-y">&#10003;</span>{% else %}<span class="chk-n">—</span>{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {# CP-2019 #}
+    <div>
+      <div style="margin-bottom:0.5mm;">
+        <span class="mod-badge">CP-2019</span>
+        {% if rtu.cp2019_jumlah %}<span style="font-size:6.5pt;color:#64748B;margin-left:3pt;">Jumlah: <b>{{ rtu.cp2019_jumlah }}</b></span>{% endif %}
+      </div>
+      <table class="ind-tbl">
+        <thead><tr><th style="width:14pt;">#</th><th style="text-align:left;">Indikasi</th><th>Sebelum</th><th>Sesudah</th></tr></thead>
+        <tbody>
+          {% for row in cp2019_rows %}
+          <tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %}>
+            <td class="num">{{ forloop.counter }}</td>
+            <td class="ind-lbl">{{ row.name }}</td>
+            <td class="chk">{% if row.sb %}<span class="chk-y">&#10003;</span>{% else %}<span class="chk-n">—</span>{% endif %}</td>
+            <td class="chk">{% if row.sd %}<span class="chk-y">&#10003;</span>{% else %}<span class="chk-n">—</span>{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+  </div>{# /kiri #}
+
+  {# Kolom kanan: DI / DO / AI / IED #}
+  <div style="flex:1;">
+
+    {# DI-2112/2113 #}
+    <div style="margin-bottom:1.5mm;">
+      <div style="margin-bottom:0.5mm;">
+        <span class="mod-badge grn-badge">DI-2112/2113</span>
+        {% if rtu.di2112_jumlah %}<span style="font-size:6.5pt;color:#64748B;margin-left:3pt;">Jumlah: <b>{{ rtu.di2112_jumlah }}</b></span>{% endif %}
+      </div>
+      <table class="ind-tbl">
+        <thead><tr><th style="width:14pt;">#</th><th style="text-align:left;">Indikasi</th><th>Sebelum</th><th>Sesudah</th></tr></thead>
+        <tbody>
+          {% for row in di2112_rows %}
+          <tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %}>
+            <td class="num">{{ forloop.counter }}</td>
+            <td class="ind-lbl">{{ row.name }}</td>
+            <td class="chk">{% if row.sb %}<span class="chk-y">&#10003;</span>{% else %}<span class="chk-n">—</span>{% endif %}</td>
+            <td class="chk">{% if row.sd %}<span class="chk-y">&#10003;</span>{% else %}<span class="chk-n">—</span>{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {# DO-2210/2211 #}
+    <div style="margin-bottom:1.5mm;">
+      <div style="margin-bottom:0.5mm;">
+        <span class="mod-badge grn-badge">DO-2210/2211</span>
+        {% if rtu.do2210_jumlah %}<span style="font-size:6.5pt;color:#64748B;margin-left:3pt;">Jumlah: <b>{{ rtu.do2210_jumlah }}</b></span>{% endif %}
+      </div>
+      <table class="ind-tbl">
+        <thead><tr><th style="width:14pt;">#</th><th style="text-align:left;">Indikasi</th><th>Sebelum</th><th>Sesudah</th></tr></thead>
+        <tbody>
+          {% for row in do2210_rows %}
+          <tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %}>
+            <td class="num">{{ forloop.counter }}</td>
+            <td class="ind-lbl">{{ row.name }}</td>
+            <td class="chk">{% if row.sb %}<span class="chk-y">&#10003;</span>{% else %}<span class="chk-n">—</span>{% endif %}</td>
+            <td class="chk">{% if row.sd %}<span class="chk-y">&#10003;</span>{% else %}<span class="chk-n">—</span>{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {# AI-2300 #}
+    <div style="margin-bottom:1.5mm;">
+      <div style="margin-bottom:0.5mm;">
+        <span class="mod-badge yel-badge">AI-2300</span>
+      </div>
+      <table class="ind-tbl">
+        <thead><tr><th style="width:14pt;">#</th><th style="text-align:left;">Indikasi</th><th>Sebelum</th><th>Sesudah</th></tr></thead>
+        <tbody>
+          {% for row in ai2300_rows %}
+          <tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %}>
+            <td class="num">{{ forloop.counter }}</td>
+            <td class="ind-lbl">{{ row.name }}</td>
+            <td class="chk">{% if row.sb %}<span class="chk-y">&#10003;</span>{% else %}<span class="chk-n">—</span>{% endif %}</td>
+            <td class="chk">{% if row.sd %}<span class="chk-y">&#10003;</span>{% else %}<span class="chk-n">—</span>{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {# IED #}
+    <div>
+      <div style="margin-bottom:0.5mm;">
+        <span class="mod-badge pur-badge">IED</span>
+      </div>
+      <table class="ind-tbl">
+        <thead><tr><th style="width:14pt;">#</th><th style="text-align:left;">Peralatan</th><th>Jumlah</th></tr></thead>
+        <tbody>
+          {% for row in ied_rows %}
+          <tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %}>
+            <td class="num">{{ forloop.counter }}</td>
+            <td class="ind-lbl">{{ row.name }}</td>
+            <td style="text-align:center;font-weight:bold;color:#6B21A8;">{{ row.jumlah|default:"0" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+  </div>{# /kanan #}
+
+</div>{# /flex row #}
+
+{# ── III. POWER SUPPLY ── #}
+<div class="sec" style="margin-top:3mm;">III.&nbsp;&nbsp;POWER SUPPLY</div>
+<div style="display:flex;gap:2mm;margin-top:1mm;">
+
+  {# 48V #}
+  <div style="flex:1;">
+    <div style="font-size:7pt;font-weight:bold;color:#1D4ED8;background:#EFF6FF;padding:2pt 5pt;border:0.5pt solid #BFDBFE;border-radius:3pt;margin-bottom:1mm;">48V Power Supply</div>
+    <table class="ps-tbl" style="width:100%;border-collapse:collapse;font-size:7.5pt;">
+      {% for lbl, val, unit in ps48 %}
+      <tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %}>
+        <td class="ps-lbl" style="border:0.3pt solid #CBD5E1;padding:2pt 4pt;background:#F1F5F9;font-weight:bold;">{{ lbl }}</td>
+        <td class="ps-val" style="border:0.3pt solid #CBD5E1;padding:2pt 4pt;color:#1D4ED8;font-weight:bold;text-align:center;">
+          {% if val %}{{ val }} {{ unit }}{% else %}—{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+
+  {# 110V #}
+  <div style="flex:1;">
+    <div style="font-size:7pt;font-weight:bold;color:#166534;background:#F0FDF4;padding:2pt 5pt;border:0.5pt solid #BBF7D0;border-radius:3pt;margin-bottom:1mm;">110V Power Supply</div>
+    <table class="ps-tbl" style="width:100%;border-collapse:collapse;font-size:7.5pt;">
+      {% for lbl, val, unit in ps110 %}
+      <tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %}>
+        <td class="ps-lbl" style="border:0.3pt solid #CBD5E1;padding:2pt 4pt;background:#F1F5F9;font-weight:bold;">{{ lbl }}</td>
+        <td class="ps-val" style="border:0.3pt solid #CBD5E1;padding:2pt 4pt;color:#166534;font-weight:bold;text-align:center;">
+          {% if val %}{{ val }} {{ unit }}{% else %}—{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+
+</div>
+{% endblock %}
