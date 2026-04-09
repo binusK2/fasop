@@ -498,9 +498,10 @@ class MaintenanceRTUForm(forms.ModelForm):
             'ai2300_data': forms.HiddenInput(attrs={'id': 'id_ai2300_data'}),
             'ied_data':    forms.HiddenInput(attrs={'id': 'id_ied_data'}),
             # Power Supply 48V
-            'ps48_teg_beban':  forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': 'V'}),
-            'ps48_arus_beban': forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': 'A'}),
-            'ps48_teg_supply': forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': 'V'}),
+            'ps48_teg_beban':   forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': 'V'}),
+            'ps48_arus_beban':  forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': 'A'}),
+            'ps48_teg_supply':  forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': 'V'}),
+            'ps48_arus_supply': forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': 'A'}),
             # Power Supply 110V
             'ps110_teg_beban':  forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': 'V'}),
             'ps110_arus_beban': forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': 'A'}),

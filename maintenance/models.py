@@ -722,9 +722,10 @@ class MaintenanceRTU(models.Model):
     ied_data      = models.JSONField(default=dict, blank=True, verbose_name='Indikasi IED')
 
     # ── Power Supply 48 VDC ──────────────────────────────────────────
-    ps48_teg_beban  = models.FloatField(null=True, blank=True, verbose_name='48V Tegangan Beban (V)')
-    ps48_arus_beban = models.FloatField(null=True, blank=True, verbose_name='48V Arus Beban (A)')
-    ps48_teg_supply = models.FloatField(null=True, blank=True, verbose_name='48V Tegangan Supply (V)')
+    ps48_teg_beban   = models.FloatField(null=True, blank=True, verbose_name='48V Tegangan Beban (V)')
+    ps48_arus_beban  = models.FloatField(null=True, blank=True, verbose_name='48V Arus Beban (A)')
+    ps48_teg_supply  = models.FloatField(null=True, blank=True, verbose_name='48V Tegangan Supply (V)')
+    ps48_arus_supply = models.FloatField(null=True, blank=True, verbose_name='48V Arus Supply (A)')
 
     # ── Power Supply 110 VDC ─────────────────────────────────────────
     ps110_teg_beban   = models.FloatField(null=True, blank=True, verbose_name='110V Tegangan Beban (V)')

@@ -987,7 +987,7 @@
                 </div>
                 {% endif %}
 
-                <!-- IED -->
+                <!-- IED — hanya jumlah per peralatan -->
                 {% if rtu_detail.ied_data %}
                 <div class="mb-4">
                     <div class="d-flex align-items-center gap-2 mb-2">
@@ -999,8 +999,7 @@
                                 <tr>
                                     <th style="color:#475569;width:40px;">#</th>
                                     <th style="color:#475569;">Peralatan</th>
-                                    <th style="color:#475569;text-align:center;width:90px;">Sebelum</th>
-                                    <th style="color:#475569;text-align:center;width:90px;">Sesudah</th>
+                                    <th style="color:#475569;text-align:center;width:80px;">Jumlah</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -1008,8 +1007,9 @@
                                 <tr>
                                     <td style="color:#94a3b8;text-align:center;">{{ forloop.counter }}</td>
                                     <td style="font-weight:600;color:#334155;">{{ key }}</td>
-                                    <td style="text-align:center;">{% if val.sb %}<span style="color:#6366f1;font-size:16px;">&#10003;</span>{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}</td>
-                                    <td style="text-align:center;">{% if val.sd %}<span style="color:#10b981;font-size:16px;">&#10003;</span>{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}</td>
+                                    <td style="text-align:center;font-weight:700;color:#6b21a8;">
+                                        {% if val|add:0 == val %}{{ val|default:"—" }}{% else %}—{% endif %}
+                                    </td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -1025,22 +1025,28 @@
                         <div class="p-3 rounded" style="background:#eff6ff;border:1px solid #bfdbfe;">
                             <div style="font-size:12px;font-weight:700;color:#1e40af;margin-bottom:10px;">48V Power Supply</div>
                             <div class="row g-2 text-center">
-                                <div class="col-4">
+                                <div class="col-6">
                                     <div style="font-size:10px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;">Teg. Beban</div>
-                                    <div style="font-size:16px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;">
+                                    <div style="font-size:15px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;">
                                         {{ rtu_detail.ps48_teg_beban|default:"—" }}{% if rtu_detail.ps48_teg_beban %}<span style="font-size:10px;font-weight:500;color:#64748b;"> V</span>{% endif %}
                                     </div>
                                 </div>
-                                <div class="col-4">
+                                <div class="col-6">
                                     <div style="font-size:10px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;">Arus Beban</div>
-                                    <div style="font-size:16px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;">
+                                    <div style="font-size:15px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;">
                                         {{ rtu_detail.ps48_arus_beban|default:"—" }}{% if rtu_detail.ps48_arus_beban %}<span style="font-size:10px;font-weight:500;color:#64748b;"> A</span>{% endif %}
                                     </div>
                                 </div>
-                                <div class="col-4">
+                                <div class="col-6">
                                     <div style="font-size:10px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;">Teg. Supply</div>
-                                    <div style="font-size:16px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;">
+                                    <div style="font-size:15px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;">
                                         {{ rtu_detail.ps48_teg_supply|default:"—" }}{% if rtu_detail.ps48_teg_supply %}<span style="font-size:10px;font-weight:500;color:#64748b;"> V</span>{% endif %}
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div style="font-size:10px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;">Arus Supply</div>
+                                    <div style="font-size:15px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;">
+                                        {{ rtu_detail.ps48_arus_supply|default:"—" }}{% if rtu_detail.ps48_arus_supply %}<span style="font-size:10px;font-weight:500;color:#64748b;"> A</span>{% endif %}
                                     </div>
                                 </div>
                             </div>

@@ -17,29 +17,20 @@
 </div>
 
 <!-- DEVICE INFO BANNER -->
-<div class="card mb-4" style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);border:none;">
+<div class="card mb-3" style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);border:none;">
     <div class="card-body py-3 px-4">
         <div class="d-flex align-items-center gap-4 flex-wrap">
-            <div style="width:42px;height:42px;background:rgba(59,130,246,0.2);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                <i class="bi bi-cpu" style="font-size:20px;color:#93c5fd;"></i>
+            <div style="width:38px;height:38px;background:rgba(59,130,246,0.2);border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <i class="bi bi-cpu" style="font-size:18px;color:#93c5fd;"></i>
             </div>
             <div>
                 <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Perangkat</div>
-                <div style="font-size:16px;font-weight:700;color:#f1f5f9;">{{ device.nama }}</div>
+                <div style="font-size:15px;font-weight:700;color:#f1f5f9;">{{ device.nama }}</div>
             </div>
             <div class="vr" style="background:rgba(255,255,255,0.1);width:1px;align-self:stretch;"></div>
-            <div>
-                <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Jenis</div>
-                <div style="font-size:13px;color:#cbd5e1;">{{ device.jenis }}</div>
-            </div>
-            <div>
-                <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">IP Address</div>
-                <div class="mono" style="color:#7dd3fc;">{{ device.ip_address|default:"—" }}</div>
-            </div>
-            <div>
-                <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Lokasi</div>
-                <div style="font-size:13px;color:#cbd5e1;">{{ device.lokasi|default:"—" }}</div>
-            </div>
+            <div><div style="font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;">Jenis</div><div style="font-size:12px;color:#cbd5e1;">{{ device.jenis }}</div></div>
+            <div><div style="font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;">IP</div><div style="font-size:12px;color:#7dd3fc;font-family:monospace;">{{ device.ip_address|default:"—" }}</div></div>
+            <div><div style="font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;">Lokasi</div><div style="font-size:12px;color:#cbd5e1;">{{ device.lokasi|default:"—" }}</div></div>
         </div>
     </div>
 </div>
@@ -48,40 +39,7 @@
     {% if is_edit %}action="{% url 'maintenance_edit' maintenance.id %}"{% endif %}>
 {% csrf_token %}
 
-<!-- ══════════════════════════════════════════
-     FORM MAINTENANCE UMUM
-═══════════════════════════════════════════ -->
-<div class="card mb-4">
-    <div class="card-header py-2 px-4" style="background:#f8fafc;border-bottom:1px solid #e2e8f0;">
-        <span style="font-size:13px;font-weight:700;color:#334155;">Informasi Maintenance</span>
-    </div>
-    <div class="card-body px-4 py-3">
-        <div class="row g-3">
-            <div class="col-md-6">
-                <label class="form-label fw-semibold" style="font-size:12px;">Tanggal & Waktu</label>
-                {{ maintenance_form.date }}
-            </div>
-            <div class="col-md-6">
-                <label class="form-label fw-semibold" style="font-size:12px;">Status</label>
-                {{ maintenance_form.status }}
-            </div>
-            <div class="col-12">
-                <label class="form-label fw-semibold" style="font-size:12px;">Deskripsi / Keterangan</label>
-                {{ maintenance_form.description }}
-            </div>
-            <div class="col-12">
-                <label class="form-label fw-semibold" style="font-size:12px;">Foto Dokumentasi</label>
-                {{ maintenance_form.photo }}
-            </div>
-            {% include 'maintenance/_pelaksana_tag_input.html' %}
-        </div>
-        {{ maintenance_form.maintenance_type }}
-    </div>
-</div>
-
-<!-- ══════════════════════════════════════════
-     HIDDEN JSON INPUTS
-═══════════════════════════════════════════ -->
+<!-- Hidden JSON inputs -->
 {{ detail_form.cp2016_data }}
 {{ detail_form.cp2019_data }}
 {{ detail_form.di2112_data }}
@@ -89,212 +47,222 @@
 {{ detail_form.ai2300_data }}
 {{ detail_form.ied_data }}
 
-<!-- ══════════════════════════════════════════
-     CP-2016
-═══════════════════════════════════════════ -->
-<div class="card mb-4">
-    <div class="card-header py-2 px-4" style="background:#eff6ff;border-bottom:1px solid #bfdbfe;">
-        <div class="d-flex align-items-center justify-content-between">
-            <span style="font-size:13px;font-weight:700;color:#1e40af;">CP-2016</span>
-            <div class="d-flex align-items-center gap-2">
-                <label style="font-size:12px;font-weight:600;color:#334155;">Jumlah modul:</label>
-                {{ detail_form.cp2016_jumlah }}
+<!-- ══════════════════════════════════════════════════════════
+     MAIN TWO-COLUMN LAYOUT
+     Left  (col-lg-4): form info
+     Right (col-lg-8): indicator tables
+══════════════════════════════════════════════════════════ -->
+<div class="row g-3 mb-3">
+
+    <!-- ── LEFT: Form Info ── -->
+    <div class="col-lg-4">
+        <div class="card h-100">
+            <div class="card-header py-2 px-3" style="background:#f8fafc;border-bottom:1px solid #e2e8f0;">
+                <span style="font-size:12px;font-weight:700;color:#334155;">Informasi Maintenance</span>
+            </div>
+            <div class="card-body px-3 py-3">
+                <div class="row g-2">
+                    <div class="col-12">
+                        <label class="form-label fw-semibold" style="font-size:11px;margin-bottom:3px;">Tanggal & Waktu</label>
+                        {{ maintenance_form.date }}
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label fw-semibold" style="font-size:11px;margin-bottom:3px;">Status</label>
+                        {{ maintenance_form.status }}
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label fw-semibold" style="font-size:11px;margin-bottom:3px;">Deskripsi / Keterangan</label>
+                        {{ maintenance_form.description }}
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label fw-semibold" style="font-size:11px;margin-bottom:3px;">Foto Dokumentasi</label>
+                        {{ maintenance_form.photo }}
+                    </div>
+                    {% include 'maintenance/_pelaksana_tag_input.html' %}
+                </div>
+                {{ maintenance_form.maintenance_type }}
             </div>
         </div>
     </div>
-    <div class="card-body px-3 py-3">
-        <div class="table-responsive">
-            <table class="table table-bordered table-sm mb-0 rtu-indikasi-table" id="tbl_cp2016" data-field="cp2016_data">
-                <thead style="background:#f1f5f9;">
-                    <tr>
-                        <th style="font-size:11px;font-weight:700;color:#475569;width:40px;">#</th>
-                        <th style="font-size:11px;font-weight:700;color:#475569;">Indikasi</th>
-                        <th style="font-size:11px;font-weight:700;color:#475569;text-align:center;width:90px;">Sebelum</th>
-                        <th style="font-size:11px;font-weight:700;color:#475569;text-align:center;width:90px;">Sesudah</th>
-                    </tr>
-                </thead>
-                <tbody id="tbody_cp2016">
-                    <!-- Filled by JS -->
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
 
-<!-- ══════════════════════════════════════════
-     CP-2019
-═══════════════════════════════════════════ -->
-<div class="card mb-4">
-    <div class="card-header py-2 px-4" style="background:#eff6ff;border-bottom:1px solid #bfdbfe;">
-        <div class="d-flex align-items-center justify-content-between">
-            <span style="font-size:13px;font-weight:700;color:#1e40af;">CP-2019</span>
-            <div class="d-flex align-items-center gap-2">
-                <label style="font-size:12px;font-weight:600;color:#334155;">Jumlah modul:</label>
-                {{ detail_form.cp2019_jumlah }}
+    <!-- ── RIGHT: Indicator Tables ── -->
+    <div class="col-lg-8">
+        <div class="card h-100">
+            <div class="card-header py-2 px-3" style="background:#f8fafc;border-bottom:1px solid #e2e8f0;">
+                <span style="font-size:12px;font-weight:700;color:#334155;">Indikasi Modul</span>
+                <span style="font-size:11px;color:#94a3b8;margin-left:6px;">
+                    <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#6366f1;"></span> Sebelum
+                    <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#10b981;margin-left:6px;"></span> Sesudah
+                </span>
+            </div>
+            <div class="card-body px-3 py-2" style="overflow-y:auto;max-height:720px;">
+
+                <!-- CP-2016 -->
+                <div class="mb-3">
+                    <div class="d-flex align-items-center justify-content-between mb-1 px-1">
+                        <span style="font-size:11px;font-weight:700;color:#1e40af;background:#dbeafe;padding:1px 8px;border-radius:20px;">CP-2016</span>
+                        <div class="d-flex align-items-center gap-1">
+                            <span style="font-size:10px;color:#64748b;">Jumlah modul:</span>
+                            <input type="number" name="cp2016_jumlah" id="id_cp2016_jumlah" min="0"
+                                style="width:56px;padding:2px 6px;font-size:11px;border:1px solid #cbd5e1;border-radius:5px;"
+                                value="{{ detail_form.cp2016_jumlah.value|default:'' }}">
+                        </div>
+                    </div>
+                    <table class="table table-bordered table-sm mb-0" id="tbl_cp2016" style="font-size:11.5px;">
+                        <thead style="background:#f1f5f9;">
+                            <tr>
+                                <th style="width:28px;color:#94a3b8;text-align:center;padding:3px 4px;">#</th>
+                                <th style="color:#475569;padding:3px 6px;">Indikasi</th>
+                                <th style="width:70px;text-align:center;color:#6366f1;padding:3px 4px;">Sebelum</th>
+                                <th style="width:70px;text-align:center;color:#10b981;padding:3px 4px;">Sesudah</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody_cp2016"></tbody>
+                    </table>
+                </div>
+
+                <!-- CP-2019 -->
+                <div class="mb-3">
+                    <div class="d-flex align-items-center justify-content-between mb-1 px-1">
+                        <span style="font-size:11px;font-weight:700;color:#1e40af;background:#dbeafe;padding:1px 8px;border-radius:20px;">CP-2019</span>
+                        <div class="d-flex align-items-center gap-1">
+                            <span style="font-size:10px;color:#64748b;">Jumlah modul:</span>
+                            <input type="number" name="cp2019_jumlah" id="id_cp2019_jumlah" min="0"
+                                style="width:56px;padding:2px 6px;font-size:11px;border:1px solid #cbd5e1;border-radius:5px;"
+                                value="{{ detail_form.cp2019_jumlah.value|default:'' }}">
+                        </div>
+                    </div>
+                    <table class="table table-bordered table-sm mb-0" id="tbl_cp2019" style="font-size:11.5px;">
+                        <thead style="background:#f1f5f9;">
+                            <tr>
+                                <th style="width:28px;color:#94a3b8;text-align:center;padding:3px 4px;">#</th>
+                                <th style="color:#475569;padding:3px 6px;">Indikasi</th>
+                                <th style="width:70px;text-align:center;color:#6366f1;padding:3px 4px;">Sebelum</th>
+                                <th style="width:70px;text-align:center;color:#10b981;padding:3px 4px;">Sesudah</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody_cp2019"></tbody>
+                    </table>
+                </div>
+
+                <!-- DI-2112/2113 -->
+                <div class="mb-3">
+                    <div class="d-flex align-items-center justify-content-between mb-1 px-1">
+                        <span style="font-size:11px;font-weight:700;color:#166534;background:#dcfce7;padding:1px 8px;border-radius:20px;">DI-2112/2113</span>
+                        <div class="d-flex align-items-center gap-1">
+                            <span style="font-size:10px;color:#64748b;">Jumlah modul:</span>
+                            <input type="number" name="di2112_jumlah" id="id_di2112_jumlah" min="0"
+                                style="width:56px;padding:2px 6px;font-size:11px;border:1px solid #cbd5e1;border-radius:5px;"
+                                value="{{ detail_form.di2112_jumlah.value|default:'' }}">
+                        </div>
+                    </div>
+                    <table class="table table-bordered table-sm mb-0" id="tbl_di2112" style="font-size:11.5px;">
+                        <thead style="background:#f1f5f9;">
+                            <tr>
+                                <th style="width:28px;color:#94a3b8;text-align:center;padding:3px 4px;">#</th>
+                                <th style="color:#475569;padding:3px 6px;">Indikasi</th>
+                                <th style="width:70px;text-align:center;color:#6366f1;padding:3px 4px;">Sebelum</th>
+                                <th style="width:70px;text-align:center;color:#10b981;padding:3px 4px;">Sesudah</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody_di2112"></tbody>
+                    </table>
+                </div>
+
+                <!-- DO-2210/2211 -->
+                <div class="mb-3">
+                    <div class="d-flex align-items-center justify-content-between mb-1 px-1">
+                        <span style="font-size:11px;font-weight:700;color:#166534;background:#dcfce7;padding:1px 8px;border-radius:20px;">DO-2210/2211</span>
+                        <div class="d-flex align-items-center gap-1">
+                            <span style="font-size:10px;color:#64748b;">Jumlah modul:</span>
+                            <input type="number" name="do2210_jumlah" id="id_do2210_jumlah" min="0"
+                                style="width:56px;padding:2px 6px;font-size:11px;border:1px solid #cbd5e1;border-radius:5px;"
+                                value="{{ detail_form.do2210_jumlah.value|default:'' }}">
+                        </div>
+                    </div>
+                    <table class="table table-bordered table-sm mb-0" id="tbl_do2210" style="font-size:11.5px;">
+                        <thead style="background:#f1f5f9;">
+                            <tr>
+                                <th style="width:28px;color:#94a3b8;text-align:center;padding:3px 4px;">#</th>
+                                <th style="color:#475569;padding:3px 6px;">Indikasi</th>
+                                <th style="width:70px;text-align:center;color:#6366f1;padding:3px 4px;">Sebelum</th>
+                                <th style="width:70px;text-align:center;color:#10b981;padding:3px 4px;">Sesudah</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody_do2210"></tbody>
+                    </table>
+                </div>
+
+                <!-- AI-2300 -->
+                <div class="mb-3">
+                    <div class="mb-1 px-1">
+                        <span style="font-size:11px;font-weight:700;color:#92400e;background:#fef9c3;padding:1px 8px;border-radius:20px;">AI-2300</span>
+                    </div>
+                    <table class="table table-bordered table-sm mb-0" id="tbl_ai2300" style="font-size:11.5px;">
+                        <thead style="background:#f1f5f9;">
+                            <tr>
+                                <th style="width:28px;color:#94a3b8;text-align:center;padding:3px 4px;">#</th>
+                                <th style="color:#475569;padding:3px 6px;">Indikasi</th>
+                                <th style="width:70px;text-align:center;color:#6366f1;padding:3px 4px;">Sebelum</th>
+                                <th style="width:70px;text-align:center;color:#10b981;padding:3px 4px;">Sesudah</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody_ai2300"></tbody>
+                    </table>
+                </div>
+
+                <!-- IED — hanya jumlah, tidak ada sebelum/sesudah -->
+                <div class="mb-1">
+                    <div class="mb-1 px-1">
+                        <span style="font-size:11px;font-weight:700;color:#6b21a8;background:#f3e8ff;padding:1px 8px;border-radius:20px;">IED</span>
+                    </div>
+                    <table class="table table-bordered table-sm mb-0" style="font-size:11.5px;">
+                        <thead style="background:#f1f5f9;">
+                            <tr>
+                                <th style="width:28px;color:#94a3b8;text-align:center;padding:3px 4px;">#</th>
+                                <th style="color:#475569;padding:3px 6px;">Peralatan</th>
+                                <th style="width:90px;text-align:center;color:#6b21a8;padding:3px 6px;">Jumlah</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody_ied"></tbody>
+                    </table>
+                </div>
+
             </div>
         </div>
     </div>
-    <div class="card-body px-3 py-3">
-        <div class="table-responsive">
-            <table class="table table-bordered table-sm mb-0 rtu-indikasi-table" id="tbl_cp2019" data-field="cp2019_data">
-                <thead style="background:#f1f5f9;">
-                    <tr>
-                        <th style="font-size:11px;font-weight:700;color:#475569;width:40px;">#</th>
-                        <th style="font-size:11px;font-weight:700;color:#475569;">Indikasi</th>
-                        <th style="font-size:11px;font-weight:700;color:#475569;text-align:center;width:90px;">Sebelum</th>
-                        <th style="font-size:11px;font-weight:700;color:#475569;text-align:center;width:90px;">Sesudah</th>
-                    </tr>
-                </thead>
-                <tbody id="tbody_cp2019">
-                    <!-- Filled by JS -->
-                </tbody>
-            </table>
-        </div>
-    </div>
 </div>
 
-<!-- ══════════════════════════════════════════
-     DI-2112/2113
-═══════════════════════════════════════════ -->
+<!-- ══════════════════════════════════════════════════════════
+     POWER SUPPLY — full width
+══════════════════════════════════════════════════════════ -->
 <div class="card mb-4">
-    <div class="card-header py-2 px-4" style="background:#f0fdf4;border-bottom:1px solid #bbf7d0;">
-        <div class="d-flex align-items-center justify-content-between">
-            <span style="font-size:13px;font-weight:700;color:#166534;">DI-2112/2113</span>
-            <div class="d-flex align-items-center gap-2">
-                <label style="font-size:12px;font-weight:600;color:#334155;">Jumlah modul:</label>
-                {{ detail_form.di2112_jumlah }}
-            </div>
-        </div>
+    <div class="card-header py-2 px-3" style="background:#f8fafc;border-bottom:1px solid #e2e8f0;">
+        <span style="font-size:12px;font-weight:700;color:#334155;">Power Supply</span>
     </div>
     <div class="card-body px-3 py-3">
-        <div class="table-responsive">
-            <table class="table table-bordered table-sm mb-0 rtu-indikasi-table" id="tbl_di2112" data-field="di2112_data">
-                <thead style="background:#f1f5f9;">
-                    <tr>
-                        <th style="font-size:11px;font-weight:700;color:#475569;width:40px;">#</th>
-                        <th style="font-size:11px;font-weight:700;color:#475569;">Indikasi</th>
-                        <th style="font-size:11px;font-weight:700;color:#475569;text-align:center;width:90px;">Sebelum</th>
-                        <th style="font-size:11px;font-weight:700;color:#475569;text-align:center;width:90px;">Sesudah</th>
-                    </tr>
-                </thead>
-                <tbody id="tbody_di2112">
-                    <!-- Filled by JS -->
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
-<!-- ══════════════════════════════════════════
-     DO-2210/2211
-═══════════════════════════════════════════ -->
-<div class="card mb-4">
-    <div class="card-header py-2 px-4" style="background:#f0fdf4;border-bottom:1px solid #bbf7d0;">
-        <div class="d-flex align-items-center justify-content-between">
-            <span style="font-size:13px;font-weight:700;color:#166534;">DO-2210/2211</span>
-            <div class="d-flex align-items-center gap-2">
-                <label style="font-size:12px;font-weight:600;color:#334155;">Jumlah modul:</label>
-                {{ detail_form.do2210_jumlah }}
-            </div>
-        </div>
-    </div>
-    <div class="card-body px-3 py-3">
-        <div class="table-responsive">
-            <table class="table table-bordered table-sm mb-0 rtu-indikasi-table" id="tbl_do2210" data-field="do2210_data">
-                <thead style="background:#f1f5f9;">
-                    <tr>
-                        <th style="font-size:11px;font-weight:700;color:#475569;width:40px;">#</th>
-                        <th style="font-size:11px;font-weight:700;color:#475569;">Indikasi</th>
-                        <th style="font-size:11px;font-weight:700;color:#475569;text-align:center;width:90px;">Sebelum</th>
-                        <th style="font-size:11px;font-weight:700;color:#475569;text-align:center;width:90px;">Sesudah</th>
-                    </tr>
-                </thead>
-                <tbody id="tbody_do2210">
-                    <!-- Filled by JS -->
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
-<!-- ══════════════════════════════════════════
-     AI-2300
-═══════════════════════════════════════════ -->
-<div class="card mb-4">
-    <div class="card-header py-2 px-4" style="background:#fefce8;border-bottom:1px solid #fde68a;">
-        <span style="font-size:13px;font-weight:700;color:#92400e;">AI-2300</span>
-    </div>
-    <div class="card-body px-3 py-3">
-        <div class="table-responsive">
-            <table class="table table-bordered table-sm mb-0 rtu-indikasi-table" id="tbl_ai2300" data-field="ai2300_data">
-                <thead style="background:#f1f5f9;">
-                    <tr>
-                        <th style="font-size:11px;font-weight:700;color:#475569;width:40px;">#</th>
-                        <th style="font-size:11px;font-weight:700;color:#475569;">Indikasi</th>
-                        <th style="font-size:11px;font-weight:700;color:#475569;text-align:center;width:90px;">Sebelum</th>
-                        <th style="font-size:11px;font-weight:700;color:#475569;text-align:center;width:90px;">Sesudah</th>
-                    </tr>
-                </thead>
-                <tbody id="tbody_ai2300">
-                    <!-- Filled by JS -->
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
-<!-- ══════════════════════════════════════════
-     IED
-═══════════════════════════════════════════ -->
-<div class="card mb-4">
-    <div class="card-header py-2 px-4" style="background:#fdf4ff;border-bottom:1px solid #e9d5ff;">
-        <span style="font-size:13px;font-weight:700;color:#6b21a8;">IED</span>
-    </div>
-    <div class="card-body px-3 py-3">
-        <div class="table-responsive">
-            <table class="table table-bordered table-sm mb-0 rtu-indikasi-table" id="tbl_ied" data-field="ied_data">
-                <thead style="background:#f1f5f9;">
-                    <tr>
-                        <th style="font-size:11px;font-weight:700;color:#475569;width:40px;">#</th>
-                        <th style="font-size:11px;font-weight:700;color:#475569;">Peralatan</th>
-                        <th style="font-size:11px;font-weight:700;color:#475569;text-align:center;width:90px;">Sebelum</th>
-                        <th style="font-size:11px;font-weight:700;color:#475569;text-align:center;width:90px;">Sesudah</th>
-                    </tr>
-                </thead>
-                <tbody id="tbody_ied">
-                    <!-- Filled by JS -->
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
-<!-- ══════════════════════════════════════════
-     POWER SUPPLY
-═══════════════════════════════════════════ -->
-<div class="card mb-4">
-    <div class="card-header py-2 px-4" style="background:#f8fafc;border-bottom:1px solid #e2e8f0;">
-        <span style="font-size:13px;font-weight:700;color:#334155;">Power Supply</span>
-    </div>
-    <div class="card-body px-4 py-3">
-        <div class="row g-4">
+        <div class="row g-3">
 
             <!-- 48V -->
             <div class="col-md-6">
                 <div class="p-3 rounded" style="background:#eff6ff;border:1px solid #bfdbfe;">
-                    <div style="font-size:12px;font-weight:700;color:#1e40af;margin-bottom:12px;">48V Power Supply</div>
+                    <div style="font-size:11px;font-weight:700;color:#1e40af;margin-bottom:10px;">48V Power Supply</div>
                     <div class="row g-2">
-                        <div class="col-4">
-                            <label style="font-size:11px;font-weight:600;color:#475569;" class="form-label">Teg. Beban (V)</label>
+                        <div class="col-6">
+                            <label style="font-size:10px;font-weight:600;color:#475569;" class="form-label mb-1">Teg. Beban (V)</label>
                             {{ detail_form.ps48_teg_beban }}
                         </div>
-                        <div class="col-4">
-                            <label style="font-size:11px;font-weight:600;color:#475569;" class="form-label">Arus Beban (A)</label>
+                        <div class="col-6">
+                            <label style="font-size:10px;font-weight:600;color:#475569;" class="form-label mb-1">Arus Beban (A)</label>
                             {{ detail_form.ps48_arus_beban }}
                         </div>
-                        <div class="col-4">
-                            <label style="font-size:11px;font-weight:600;color:#475569;" class="form-label">Teg. Supply (V)</label>
+                        <div class="col-6">
+                            <label style="font-size:10px;font-weight:600;color:#475569;" class="form-label mb-1">Teg. Supply (V)</label>
                             {{ detail_form.ps48_teg_supply }}
+                        </div>
+                        <div class="col-6">
+                            <label style="font-size:10px;font-weight:600;color:#475569;" class="form-label mb-1">Arus Supply (A)</label>
+                            {{ detail_form.ps48_arus_supply }}
                         </div>
                     </div>
                 </div>
@@ -303,22 +271,22 @@
             <!-- 110V -->
             <div class="col-md-6">
                 <div class="p-3 rounded" style="background:#f0fdf4;border:1px solid #bbf7d0;">
-                    <div style="font-size:12px;font-weight:700;color:#166534;margin-bottom:12px;">110V Power Supply</div>
+                    <div style="font-size:11px;font-weight:700;color:#166534;margin-bottom:10px;">110V Power Supply</div>
                     <div class="row g-2">
                         <div class="col-6">
-                            <label style="font-size:11px;font-weight:600;color:#475569;" class="form-label">Teg. Beban (V)</label>
+                            <label style="font-size:10px;font-weight:600;color:#475569;" class="form-label mb-1">Teg. Beban (V)</label>
                             {{ detail_form.ps110_teg_beban }}
                         </div>
                         <div class="col-6">
-                            <label style="font-size:11px;font-weight:600;color:#475569;" class="form-label">Arus Beban (A)</label>
+                            <label style="font-size:10px;font-weight:600;color:#475569;" class="form-label mb-1">Arus Beban (A)</label>
                             {{ detail_form.ps110_arus_beban }}
                         </div>
                         <div class="col-6">
-                            <label style="font-size:11px;font-weight:600;color:#475569;" class="form-label">Teg. Supply (V)</label>
+                            <label style="font-size:10px;font-weight:600;color:#475569;" class="form-label mb-1">Teg. Supply (V)</label>
                             {{ detail_form.ps110_teg_supply }}
                         </div>
                         <div class="col-6">
-                            <label style="font-size:11px;font-weight:600;color:#475569;" class="form-label">Arus Supply (A)</label>
+                            <label style="font-size:10px;font-weight:600;color:#475569;" class="form-label mb-1">Arus Supply (A)</label>
                             {{ detail_form.ps110_arus_supply }}
                         </div>
                     </div>
@@ -332,11 +300,11 @@
 <!-- SUBMIT -->
 <div class="d-flex gap-2 justify-content-end mb-5">
     {% if is_edit %}
-    <a href="{% url 'maintenance_view' maintenance.id %}" class="btn btn-outline-secondary">Batal</a>
+    <a href="{% url 'maintenance_view' maintenance.id %}" class="btn btn-outline-secondary btn-sm">Batal</a>
     {% else %}
-    <a href="{% url 'device_view' device.id %}" class="btn btn-outline-secondary">Batal</a>
+    <a href="{% url 'device_view' device.id %}" class="btn btn-outline-secondary btn-sm">Batal</a>
     {% endif %}
-    <button type="submit" class="btn btn-primary px-4">
+    <button type="submit" class="btn btn-primary btn-sm px-4">
         <i class="bi bi-check2-circle me-1"></i>
         {% if is_edit %}Simpan Perubahan{% else %}Simpan Maintenance{% endif %}
     </button>
@@ -344,123 +312,130 @@
 
 </form>
 
-<!-- ══════════════════════════════════════════
+<!-- ══════════════════════════════════════════════════════════
      JAVASCRIPT
-═══════════════════════════════════════════ -->
+══════════════════════════════════════════════════════════ -->
 <style>
-.rtu-cb { width:18px; height:18px; cursor:pointer; accent-color:#3b82f6; }
-.rtu-cb:checked { accent-color:#10b981; }
+.rtu-cb { width:15px; height:15px; cursor:pointer; }
 .cb-sb { accent-color:#6366f1; }
-.cb-sb:checked { accent-color:#6366f1; }
 .cb-sd { accent-color:#10b981; }
-.cb-sd:checked { accent-color:#10b981; }
+.ied-num { width:60px; padding:2px 5px; font-size:11px; text-align:center;
+           border:1px solid #d1d5db; border-radius:4px; }
+.ied-num:focus { outline:none; border-color:#8b5cf6; box-shadow:0 0 0 2px rgba(139,92,246,0.15); }
 </style>
 
 <script>
-// ─── Data Definitions ───────────────────────────────────────────────
-const CP_INDICATORS = [
-    'RY','ER','W','BBD','INT','EXT','ACT','HLT',
-    'LK X0','ACT 0','ERR 0',
-    'LK X1','ACT 1','ERR 1',
-    'OH X2','ACT 2','ERR 2',
-    'OH X3','ACT 3','ERR 3'
-];
+const CP_INDICATORS    = ['RY','ER','W','BBD','INT','EXT','ACT','HLT','LK X0','ACT 0','ERR 0','LK X1','ACT 1','ERR 1','OH X2','ACT 2','ERR 2','OH X3','ACT 3','ERR 3'];
 const DI_DO_INDICATORS = ['RY','ER'];
 const AI_INDICATORS    = ['RY','ER'];
 const IED_ITEMS        = ['BUSBAR','OHL','TRAFO','GEN.','CAP/REAC','TRF. GEN'];
 
-// Map: tableId → indicators list
-const TABLE_MAP = {
-    'tbl_cp2016': CP_INDICATORS,
-    'tbl_cp2019': CP_INDICATORS,
-    'tbl_di2112': DI_DO_INDICATORS,
-    'tbl_do2210': DI_DO_INDICATORS,
-    'tbl_ai2300': AI_INDICATORS,
-    'tbl_ied':    IED_ITEMS,
+// Map tableId → indicators (only for checkbox tables)
+const CB_TABLE_MAP = {
+    'tbl_cp2016': { inds: CP_INDICATORS,    field: 'cp2016_data' },
+    'tbl_cp2019': { inds: CP_INDICATORS,    field: 'cp2019_data' },
+    'tbl_di2112': { inds: DI_DO_INDICATORS, field: 'di2112_data' },
+    'tbl_do2210': { inds: DI_DO_INDICATORS, field: 'do2210_data' },
+    'tbl_ai2300': { inds: AI_INDICATORS,    field: 'ai2300_data' },
 };
 
-// Load existing data from hidden fields (for edit mode)
-function loadExistingData(fieldId) {
+function loadJSON(fieldId) {
     const el = document.getElementById('id_' + fieldId);
     if (!el || !el.value || el.value === '{}') return {};
     try { return JSON.parse(el.value); } catch(e) { return {}; }
 }
 
-// Serialize current checkbox state → JSON → hidden input
-function serializeTable(tableId, fieldName) {
-    const table      = document.getElementById(tableId);
-    const indicators = TABLE_MAP[tableId];
-    const result     = {};
-    indicators.forEach(ind => {
-        const safeName = ind.replace(/\s+/g,'_').replace(/\./g,'').replace(/\//g,'_');
-        const cbSb = table.querySelector(`[data-ind="${safeName}"][data-col="sb"]`);
-        const cbSd = table.querySelector(`[data-ind="${safeName}"][data-col="sd"]`);
-        result[ind] = {
-            sb: cbSb ? cbSb.checked : false,
-            sd: cbSd ? cbSd.checked : false,
-        };
+// ── Serialize checkbox table → hidden JSON ────────────────────
+function serializeCB(tableId) {
+    const cfg   = CB_TABLE_MAP[tableId];
+    const table = document.getElementById(tableId);
+    const result = {};
+    cfg.inds.forEach(ind => {
+        const safe = ind.replace(/[\s\.\/]+/g, '_');
+        const cbSb = table.querySelector(`[data-ind="${safe}"][data-col="sb"]`);
+        const cbSd = table.querySelector(`[data-ind="${safe}"][data-col="sd"]`);
+        result[ind] = { sb: cbSb ? cbSb.checked : false, sd: cbSd ? cbSd.checked : false };
     });
-    const hiddenId = 'id_' + fieldName;
-    document.getElementById(hiddenId).value = JSON.stringify(result);
+    document.getElementById('id_' + cfg.field).value = JSON.stringify(result);
 }
 
-// Build table rows
-function buildTable(tableId, fieldName) {
-    const indicators = TABLE_MAP[tableId];
-    const tbody = document.getElementById('tbody_' + tableId.replace('tbl_',''));
-    const existing = loadExistingData(fieldName);
-
+// ── Build checkbox table ──────────────────────────────────────
+function buildCBTable(tableId) {
+    const cfg      = CB_TABLE_MAP[tableId];
+    const existing = loadJSON(cfg.field);
+    const tbody    = document.getElementById('tbody_' + tableId.replace('tbl_', ''));
     tbody.innerHTML = '';
-    indicators.forEach((ind, i) => {
-        const safeName = ind.replace(/\s+/g,'_').replace(/\./g,'').replace(/\//g,'_');
-        const exInd  = existing[ind] || {};
-        const sbVal  = exInd.sb || false;
-        const sdVal  = exInd.sd || false;
-
+    cfg.inds.forEach((ind, i) => {
+        const safe  = ind.replace(/[\s\.\/]+/g, '_');
+        const exInd = existing[ind] || {};
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td style="font-size:12px;color:#94a3b8;text-align:center;vertical-align:middle;">${i+1}</td>
-            <td style="font-size:12.5px;font-weight:600;color:#334155;vertical-align:middle;">${ind}</td>
-            <td style="text-align:center;vertical-align:middle;">
+            <td style="text-align:center;padding:3px 2px;color:#94a3b8;">${i+1}</td>
+            <td style="padding:3px 6px;font-weight:600;color:#334155;">${ind}</td>
+            <td style="text-align:center;padding:3px 2px;">
                 <input type="checkbox" class="rtu-cb cb-sb"
-                    data-table="${tableId}" data-field="${fieldName}"
-                    data-ind="${safeName}" data-col="sb"
-                    ${sbVal ? 'checked' : ''}>
+                    data-table="${tableId}" data-ind="${safe}" data-col="sb"
+                    ${exInd.sb ? 'checked' : ''}>
             </td>
-            <td style="text-align:center;vertical-align:middle;">
+            <td style="text-align:center;padding:3px 2px;">
                 <input type="checkbox" class="rtu-cb cb-sd"
-                    data-table="${tableId}" data-field="${fieldName}"
-                    data-ind="${safeName}" data-col="sd"
-                    ${sdVal ? 'checked' : ''}>
-            </td>
-        `;
+                    data-table="${tableId}" data-ind="${safe}" data-col="sd"
+                    ${exInd.sd ? 'checked' : ''}>
+            </td>`;
         tbody.appendChild(tr);
     });
-
-    // Attach change listeners
     tbody.querySelectorAll('input[type="checkbox"]').forEach(cb => {
-        cb.addEventListener('change', () => serializeTable(cb.dataset.table, cb.dataset.field));
+        cb.addEventListener('change', () => serializeCB(cb.dataset.table));
     });
-
-    // Initial serialize
-    serializeTable(tableId, fieldName);
+    serializeCB(tableId);
 }
 
-// ─── Init all tables ────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-    buildTable('tbl_cp2016', 'cp2016_data');
-    buildTable('tbl_cp2019', 'cp2019_data');
-    buildTable('tbl_di2112', 'di2112_data');
-    buildTable('tbl_do2210', 'do2210_data');
-    buildTable('tbl_ai2300', 'ai2300_data');
-    buildTable('tbl_ied',    'ied_data');
+// ── Serialize IED → hidden JSON ───────────────────────────────
+function serializeIED() {
+    const result = {};
+    IED_ITEMS.forEach(item => {
+        const safe = item.replace(/[\s\.\/]+/g, '_');
+        const inp  = document.querySelector(`[data-ied="${safe}"]`);
+        result[item] = inp ? (parseInt(inp.value) || 0) : 0;
+    });
+    document.getElementById('id_ied_data').value = JSON.stringify(result);
+}
 
-    // Serialize before submit
+// ── Build IED table (jumlah only) ─────────────────────────────
+function buildIEDTable() {
+    const existing = loadJSON('ied_data');
+    const tbody    = document.getElementById('tbody_ied');
+    tbody.innerHTML = '';
+    IED_ITEMS.forEach((item, i) => {
+        const safe    = item.replace(/[\s\.\/]+/g, '_');
+        // Support both old {sb,sd} format and new plain number format
+        const rawVal  = existing[item];
+        const numVal  = (typeof rawVal === 'object') ? 0 : (rawVal || 0);
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td style="text-align:center;padding:3px 2px;color:#94a3b8;">${i+1}</td>
+            <td style="padding:3px 6px;font-weight:600;color:#334155;">${item}</td>
+            <td style="text-align:center;padding:3px 4px;">
+                <input type="number" min="0" class="ied-num"
+                    data-ied="${safe}" value="${numVal}">
+            </td>`;
+        tbody.appendChild(tr);
+    });
+    tbody.querySelectorAll('input[type="number"]').forEach(inp => {
+        inp.addEventListener('input', serializeIED);
+    });
+    serializeIED();
+}
+
+// ── Init ──────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    Object.keys(CB_TABLE_MAP).forEach(buildCBTable);
+    buildIEDTable();
+
+    // Serialize all before submit
     document.querySelector('form').addEventListener('submit', () => {
-        Object.entries(TABLE_MAP).forEach(([tableId, _]) => {
-            const fieldName = tableId.replace('tbl_','') + '_data';
-            serializeTable(tableId, fieldName);
-        });
+        Object.keys(CB_TABLE_MAP).forEach(serializeCB);
+        serializeIED();
     });
 });
 </script>
