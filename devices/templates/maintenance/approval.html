@@ -1,0 +1,146 @@
+{% extends 'base.html' %}
+{% block title %}Approval Pemeliharaan — FASOP{% endblock %}
+{% block page_title %}Approval Pemeliharaan{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+    <h2 class="mb-0" style="font-size:20px;font-weight:700;">Approval Pemeliharaan</h2>
+</div>
+
+<!-- Tab Buttons -->
+<ul class="nav nav-tabs mb-3">
+    <li class="nav-item">
+        <a class="nav-link {% if tab == 'pending' %}active{% endif %}"
+           href="?tab=pending">
+            Menunggu Approval
+            <span class="badge {% if tab == 'pending' %}bg-danger{% else %}bg-secondary{% endif %} ms-1">
+                {{ pending_list|length }}
+            </span>
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if tab == 'approved' %}active{% endif %}"
+           href="?tab=approved">
+            Sudah Disetujui
+        </a>
+    </li>
+</ul>
+
+{% if tab == 'pending' %}
+<!-- PENDING TABLE -->
+<div class="card">
+    <div class="card-body p-0">
+        {% if pending_list %}
+        <div class="table-responsive">
+            <table class="table table-hover table-sm mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Tanggal</th>
+                        <th>Perangkat</th>
+                        <th>Lokasi</th>
+                        <th>Jenis</th>
+                        <th>Pelaksana</th>
+                        <th>Status</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for m in pending_list %}
+                    <tr>
+                        <td>{{ m.date|date:"d M Y" }}</td>
+                        <td>{{ m.device.nama }}</td>
+                        <td>{{ m.device.lokasi }}</td>
+                        <td>{{ m.device.jenis.name|default:"-" }}</td>
+                        <td>
+                            {% if m.pelaksana_names %}
+                                {% for nama in m.pelaksana_names %}
+                                    <span class="badge bg-secondary">{{ nama }}</span>
+                                {% endfor %}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge bg-success">{{ m.status }}</span>
+                        </td>
+                        <td>
+                            <a href="{% url 'maintenance_view' m.pk %}"
+                               class="btn btn-sm btn-success">
+                                <i class="bi bi-pen me-1"></i>Tanda Tangani
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center text-muted py-4">
+            <i class="bi bi-check2-circle" style="font-size:2rem;"></i>
+            <p class="mt-2 mb-0">Tidak ada pemeliharaan yang menunggu approval.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% else %}
+<!-- APPROVED TABLE -->
+<div class="card">
+    <div class="card-body p-0">
+        {% if approved_list %}
+        <div class="table-responsive">
+            <table class="table table-hover table-sm mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Tanggal</th>
+                        <th>Perangkat</th>
+                        <th>Lokasi</th>
+                        <th>Jenis</th>
+                        <th>Disetujui Oleh</th>
+                        <th>Waktu TTD</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for m in approved_list %}
+                    <tr>
+                        <td>{{ m.date|date:"d M Y" }}</td>
+                        <td>{{ m.device.nama }}</td>
+                        <td>{{ m.device.lokasi }}</td>
+                        <td>{{ m.device.jenis.name|default:"-" }}</td>
+                        <td>
+                            {% if m.signed_by.get_full_name %}
+                                {{ m.signed_by.get_full_name }}
+                            {% else %}
+                                {{ m.signed_by.username }}
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if m.signed_at %}
+                                {{ m.signed_at|date:"d M Y H:i" }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{% url 'maintenance_view' m.pk %}"
+                               class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-eye me-1"></i>Lihat
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center text-muted py-4">
+            <i class="bi bi-clipboard-x" style="font-size:2rem;"></i>
+            <p class="mt-2 mb-0">Belum ada pemeliharaan yang disetujui.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

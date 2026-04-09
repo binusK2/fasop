@@ -18,6 +18,10 @@ urlpatterns = [
     path('sign/<int:pk>/', views.maintenance_sign, name='maintenance_sign'),
     path('catatan-am/<int:pk>/', views.maintenance_catatan_am_edit, name='maintenance_catatan_am_edit'),
     path('profile/', views.profile_view, name='profile_view'),
+    # Approval & Coverage
+    path('approval/', views.maintenance_approval, name='maintenance_approval'),
+    path('coverage/', views.maintenance_coverage, name='maintenance_coverage'),
+
     # Dashboard Catu Daya
     path('catu-daya/', views.catu_daya_dashboard, name='catu_daya_dashboard'),
 

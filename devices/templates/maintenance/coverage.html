@@ -1,0 +1,141 @@
+{% extends 'base.html' %}
+{% block title %}Cakupan Pemeliharaan per Lokasi — FASOP{% endblock %}
+{% block page_title %}Cakupan Pemeliharaan per Lokasi{% endblock %}
+
+{% block content %}
+
+<!-- Header + year filter -->
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+    <h2 class="mb-0" style="font-size:20px;font-weight:700;">
+        Cakupan Pemeliharaan per Lokasi
+        {% if detail_view %} — {{ selected_lokasi }}{% endif %}
+    </h2>
+    <form method="get" class="d-flex align-items-center gap-2">
+        {% if detail_view %}
+        <input type="hidden" name="lokasi" value="{{ selected_lokasi }}">
+        {% endif %}
+        <label class="form-label mb-0 me-1" style="white-space:nowrap;">Tahun:</label>
+        <input type="number" name="tahun" class="form-control form-control-sm" style="width:90px;"
+               value="{{ year }}" min="2000" max="2099">
+        <button class="btn btn-primary btn-sm">
+            <i class="bi bi-funnel me-1"></i>Tampilkan
+        </button>
+        {% if detail_view %}
+        <a href="{% url 'maintenance_coverage' %}?tahun={{ year }}"
+           class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left me-1"></i>Kembali
+        </a>
+        {% endif %}
+    </form>
+</div>
+
+{% if detail_view %}
+<!-- ───────────── DETAIL per Lokasi ───────────── -->
+<div class="card">
+    <div class="card-header py-2 px-3">
+        <strong>{{ selected_lokasi }}</strong>
+        — Tahun {{ year }}
+    </div>
+    <div class="card-body p-0">
+        {% if device_rows %}
+        <div class="table-responsive">
+            <table class="table table-hover table-sm mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Nama Perangkat</th>
+                        <th>Jenis</th>
+                        <th>Status Har</th>
+                        <th>Tanggal Terakhir</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in device_rows %}
+                    <tr>
+                        <td>{{ row.device.nama }}</td>
+                        <td>{{ row.device.jenis.name|default:"-" }}</td>
+                        <td>
+                            {% if row.has_maintenance %}
+                            <span class="badge bg-success"><i class="bi bi-check-lg me-1"></i>Sudah</span>
+                            {% else %}
+                            <span class="badge bg-danger"><i class="bi bi-x-lg me-1"></i>Belum</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if row.last_date %}
+                                {{ row.last_date|date:"d M Y" }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{% url 'maintenance_list' %}?lokasi={{ row.device.lokasi }}"
+                               class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-list-ul me-1"></i>Lihat Har
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center text-muted py-4">
+            <i class="bi bi-inbox" style="font-size:2rem;"></i>
+            <p class="mt-2 mb-0">Tidak ada perangkat ditemukan untuk lokasi ini.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% else %}
+<!-- ───────────── SUMMARY per Lokasi ───────────── -->
+{% if lokasi_list %}
+<div class="row g-3">
+    {% for item in lokasi_list %}
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h6 class="card-title fw-bold mb-1">
+                    <i class="bi bi-geo-alt me-1 text-primary"></i>{{ item.lokasi }}
+                </h6>
+                <p class="text-muted mb-2" style="font-size:13px;">
+                    {{ item.sudah }} dari {{ item.total }} perangkat terpelihara
+                </p>
+
+                <!-- Progress Bar -->
+                <div class="progress mb-2" style="height:10px;">
+                    <div class="progress-bar {% if item.persen >= 80 %}bg-success{% elif item.persen >= 50 %}bg-warning{% else %}bg-danger{% endif %}"
+                         role="progressbar"
+                         style="width:{{ item.persen }}%"
+                         aria-valuenow="{{ item.persen }}" aria-valuemin="0" aria-valuemax="100">
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center">
+                    <span style="font-size:13px;">
+                        <span class="text-success fw-semibold">{{ item.sudah }} sudah</span>
+                        &nbsp;/&nbsp;
+                        <span class="text-danger fw-semibold">{{ item.belum }} belum</span>
+                        &nbsp;&mdash;&nbsp;
+                        <strong>{{ item.persen }}%</strong>
+                    </span>
+                    <a href="?lokasi={{ item.lokasi|urlencode }}&tahun={{ year }}"
+                       class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-search me-1"></i>Lihat Detail
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="text-center text-muted py-5">
+    <i class="bi bi-inbox" style="font-size:3rem;"></i>
+    <p class="mt-3 mb-0">Tidak ada data perangkat aktif dengan lokasi tercatat.</p>
+</div>
+{% endif %}
+{% endif %}
+
+{% endblock %}
