@@ -735,3 +735,76 @@ class MaintenanceRTU(models.Model):
 
     class Meta:
         verbose_name = 'Maintenance RTU'
+
+
+# ─────────────────────────────────────────────────────────────
+# DETAIL SAS (SERVER / GATEWAY SAS)
+# ─────────────────────────────────────────────────────────────
+class MaintenanceSAS(models.Model):
+
+    BERSIH_CHOICES = (('BERSIH', 'Bersih'), ('TIDAK BERSIH', 'Tidak Bersih'),)
+    OK_ALARM       = (('OK', 'OK'), ('ALARM', 'Alarm'),)
+    ADA_CHOICES    = (('ADA', 'Ada'), ('TIDAK ADA', 'Tidak Ada'),)
+    OK_NOK         = (('OK', 'OK'), ('NOK', 'NOK'),)
+    FAN_CHOICES    = (
+        ('ADA, BERFUNGSI',     'Ada, Berfungsi'),
+        ('ADA, TIDAK BERFUNGSI', 'Ada, Tidak Berfungsi'),
+        ('TIDAK ADA',          'Tidak Ada'),
+    )
+
+    maintenance = models.OneToOneField(
+        Maintenance, on_delete=models.CASCADE,
+        related_name='maintenancesas'
+    )
+
+    # ── Spesifikasi ──────────────────────────────────────────
+    spek_merk           = models.CharField(max_length=100, blank=True, default='', verbose_name='Merk')
+    spek_type           = models.CharField(max_length=100, blank=True, default='', verbose_name='Type')
+    spek_cpu            = models.CharField(max_length=100, blank=True, default='', verbose_name='CPU')
+    spek_ram            = models.CharField(max_length=100, blank=True, default='', verbose_name='RAM')
+    spek_gpu            = models.CharField(max_length=100, blank=True, default='', verbose_name='GPU')
+    spek_storage        = models.CharField(max_length=100, blank=True, default='', verbose_name='Storage Memory')
+    spek_firmware       = models.CharField(max_length=100, blank=True, default='', verbose_name='Firmware Version')
+    spek_config_ver     = models.CharField(max_length=100, blank=True, default='', verbose_name='Configuration Version')
+    spek_ip             = models.CharField(max_length=50,  blank=True, default='', verbose_name='Maintenance IP')
+    modul_io            = models.TextField(blank=True, default='', verbose_name='Modul I/O / Card / Terminal Terpasang')
+
+    # ── Kondisi Peralatan ────────────────────────────────────
+    kondisi_server      = models.CharField(max_length=20, blank=True, default='', choices=BERSIH_CHOICES, verbose_name='Kondisi Server/Gateway')
+    kondisi_panel       = models.CharField(max_length=20, blank=True, default='', choices=BERSIH_CHOICES, verbose_name='Kondisi Panel')
+    temp_ruangan        = models.FloatField(null=True, blank=True, verbose_name='Temperatur Ruangan (°C)')
+    temp_peralatan      = models.FloatField(null=True, blank=True, verbose_name='Temperatur Peralatan (°C)')
+    exhaust_fan         = models.CharField(max_length=30, blank=True, default='', choices=FAN_CHOICES, verbose_name='Exhaust Fan')
+
+    # ── Peripheral Pendukung ─────────────────────────────────
+    peri_eth_switch     = models.CharField(max_length=10, blank=True, default='', choices=OK_ALARM, verbose_name='Ethernet Switch')
+    peri_gps            = models.CharField(max_length=10, blank=True, default='', choices=OK_ALARM, verbose_name='GPS')
+    peri_eth_serial     = models.CharField(max_length=10, blank=True, default='', choices=OK_ALARM, verbose_name='Ethernet to Serial')
+    peri_router         = models.CharField(max_length=10, blank=True, default='', choices=OK_ALARM, verbose_name='Router')
+    jumlah_bay          = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name='Jumlah Bay')
+    peri_keterangan     = models.TextField(blank=True, default='', verbose_name='Keterangan Peripheral')
+
+    # ── Performa Peralatan ───────────────────────────────────
+    perf_cpu            = models.CharField(max_length=20, blank=True, default='', verbose_name='CPU Terpakai')
+    perf_ram            = models.CharField(max_length=20, blank=True, default='', verbose_name='RAM Terpakai')
+    perf_storage        = models.CharField(max_length=20, blank=True, default='', verbose_name='Storage Terpakai')
+    indikasi_alarm      = models.CharField(max_length=15, blank=True, default='', choices=ADA_CHOICES, verbose_name='Indikasi Alarm/Error')
+    komm_master         = models.CharField(max_length=10, blank=True, default='', choices=OK_ALARM, verbose_name='Komunikasi ke Master Station')
+    komm_ied            = models.CharField(max_length=10, blank=True, default='', choices=OK_ALARM, verbose_name='Komunikasi ke IED')
+    time_sync           = models.CharField(max_length=10, blank=True, default='', choices=OK_NOK,   verbose_name='Time Synchronization')
+
+    # ── Power Supply — Inverter ──────────────────────────────
+    inv_kondisi         = models.CharField(max_length=10, blank=True, default='', choices=OK_ALARM, verbose_name='Inverter Kondisi')
+    inv_teg_input       = models.FloatField(null=True, blank=True, verbose_name='Inverter Tegangan Input (V)')
+    inv_arus_input      = models.FloatField(null=True, blank=True, verbose_name='Inverter Arus Input (A)')
+    inv_teg_output      = models.FloatField(null=True, blank=True, verbose_name='Inverter Tegangan Output (V)')
+    inv_arus_output     = models.FloatField(null=True, blank=True, verbose_name='Inverter Arus Output (A)')
+
+    # ── Power Supply — 110 VDC / 48 VDC ─────────────────────
+    ps_teg_input        = models.FloatField(null=True, blank=True, verbose_name='PS Tegangan Input (V)')
+    ps_arus_input       = models.FloatField(null=True, blank=True, verbose_name='PS Arus Input (A)')
+    ps_teg_output       = models.FloatField(null=True, blank=True, verbose_name='PS Tegangan Output (V)')
+    ps_arus_output      = models.FloatField(null=True, blank=True, verbose_name='PS Arus Output (A)')
+
+    class Meta:
+        verbose_name = 'Maintenance SAS'

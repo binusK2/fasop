@@ -1,5 +1,5 @@
 from django import forms
-from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset, MaintenanceRTU
+from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset, MaintenanceRTU, MaintenanceSAS
 
 
 # ─── Widget helpers ───────────────────────────────────────────────────
@@ -507,4 +507,60 @@ class MaintenanceRTUForm(forms.ModelForm):
             'ps110_arus_beban': forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': 'A'}),
             'ps110_teg_supply': forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': 'V'}),
             'ps110_arus_supply':forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': 'A'}),
+        }
+
+# ─────────────────────────────────────────────────────────────────────
+# FORM DETAIL SAS (SERVER / GATEWAY SAS)
+# ─────────────────────────────────────────────────────────────────────
+class MaintenanceSASForm(forms.ModelForm):
+
+    RADIO_WIDGET = lambda choices: forms.RadioSelect(attrs={'class': 'd-flex gap-3'})
+
+    class Meta:
+        model   = MaintenanceSAS
+        exclude = ['maintenance']
+        widgets = {
+            # Spesifikasi
+            'spek_merk':       forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
+            'spek_type':       forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
+            'spek_cpu':        forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
+            'spek_ram':        forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
+            'spek_gpu':        forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
+            'spek_storage':    forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
+            'spek_firmware':   forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
+            'spek_config_ver': forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
+            'spek_ip':         forms.TextInput(attrs={'class': 'form-control form-control-sm', 'placeholder': '192.168.x.x/24'}),
+            'modul_io':        forms.Textarea(attrs={'class': 'form-control form-control-sm', 'rows': 8, 'placeholder': 'Daftar modul/card/terminal yang terpasang...'}),
+            # Kondisi
+            'kondisi_server':  forms.RadioSelect(attrs={'class': 'd-flex gap-3'}),
+            'kondisi_panel':   forms.RadioSelect(attrs={'class': 'd-flex gap-3'}),
+            'temp_ruangan':    forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': '°C'}),
+            'temp_peralatan':  forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': '°C'}),
+            'exhaust_fan':     forms.RadioSelect(attrs={'class': 'd-flex gap-3 flex-wrap'}),
+            # Peripheral
+            'peri_eth_switch': forms.RadioSelect(attrs={'class': 'd-flex gap-3'}),
+            'peri_gps':        forms.RadioSelect(attrs={'class': 'd-flex gap-3'}),
+            'peri_eth_serial': forms.RadioSelect(attrs={'class': 'd-flex gap-3'}),
+            'peri_router':     forms.RadioSelect(attrs={'class': 'd-flex gap-3'}),
+            'jumlah_bay':      forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'min': '0', 'placeholder': 'Bay'}),
+            'peri_keterangan': forms.Textarea(attrs={'class': 'form-control form-control-sm', 'rows': 3}),
+            # Performa
+            'perf_cpu':        forms.TextInput(attrs={'class': 'form-control form-control-sm', 'placeholder': 'misal 45%'}),
+            'perf_ram':        forms.TextInput(attrs={'class': 'form-control form-control-sm', 'placeholder': 'misal 60%'}),
+            'perf_storage':    forms.TextInput(attrs={'class': 'form-control form-control-sm', 'placeholder': 'misal 30%'}),
+            'indikasi_alarm':  forms.RadioSelect(attrs={'class': 'd-flex gap-3'}),
+            'komm_master':     forms.RadioSelect(attrs={'class': 'd-flex gap-3'}),
+            'komm_ied':        forms.RadioSelect(attrs={'class': 'd-flex gap-3'}),
+            'time_sync':       forms.RadioSelect(attrs={'class': 'd-flex gap-3'}),
+            # Power Supply — Inverter
+            'inv_kondisi':     forms.RadioSelect(attrs={'class': 'd-flex gap-3'}),
+            'inv_teg_input':   forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': 'V'}),
+            'inv_arus_input':  forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': 'A'}),
+            'inv_teg_output':  forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': 'V'}),
+            'inv_arus_output': forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': 'A'}),
+            # Power Supply — 110VDC/48VDC
+            'ps_teg_input':    forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': 'V'}),
+            'ps_arus_input':   forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': 'A'}),
+            'ps_teg_output':   forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': 'V'}),
+            'ps_arus_output':  forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': 'A'}),
         }
