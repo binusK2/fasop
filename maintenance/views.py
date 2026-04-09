@@ -1185,7 +1185,7 @@ def export_maintenance_pdf(request, pk):
 
     # ── Ambil detail sesuai jenis ──────────────────────────────────
     router_detail = plc_detail = radio_detail = None
-    voip_detail = mux_detail = rect_detail = tp_detail = genset_detail = None
+    voip_detail = mux_detail = rect_detail = tp_detail = genset_detail = rtu_detail = None
 
     def _try(fn):
         try: return fn()
@@ -1207,6 +1207,8 @@ def export_maintenance_pdf(request, pk):
         tp_detail = _try(lambda: maintenance.maintenanceteleproteksi)
     elif device_kind == 'GENSET':
         genset_detail = _try(lambda: maintenance.maintenancegenset)
+    elif device_kind == 'RTU':
+        rtu_detail = _try(lambda: maintenance.maintenancertu)
 
     # Corrective detail
     corrective_detail = None
@@ -1495,6 +1497,27 @@ def export_maintenance_pdf(request, pk):
             'durasi_menit':       genset_detail.durasi_menit if genset_detail else None,
             'catatan':            _g(genset_detail, 'catatan', ''),
         } if genset_detail else {},
+
+        'rtu': {
+            'cp2016_jumlah': _g(rtu_detail, 'cp2016_jumlah'),
+            'cp2016_data':   _g(rtu_detail, 'cp2016_data', {}),
+            'cp2019_jumlah': _g(rtu_detail, 'cp2019_jumlah'),
+            'cp2019_data':   _g(rtu_detail, 'cp2019_data', {}),
+            'di2112_jumlah': _g(rtu_detail, 'di2112_jumlah'),
+            'di2112_data':   _g(rtu_detail, 'di2112_data', {}),
+            'do2210_jumlah': _g(rtu_detail, 'do2210_jumlah'),
+            'do2210_data':   _g(rtu_detail, 'do2210_data', {}),
+            'ai2300_data':   _g(rtu_detail, 'ai2300_data', {}),
+            'ied_data':      _g(rtu_detail, 'ied_data', {}),
+            'ps48_teg_beban':   _g(rtu_detail, 'ps48_teg_beban'),
+            'ps48_arus_beban':  _g(rtu_detail, 'ps48_arus_beban'),
+            'ps48_teg_supply':  _g(rtu_detail, 'ps48_teg_supply'),
+            'ps48_arus_supply': _g(rtu_detail, 'ps48_arus_supply'),
+            'ps110_teg_beban':  _g(rtu_detail, 'ps110_teg_beban'),
+            'ps110_arus_beban': _g(rtu_detail, 'ps110_arus_beban'),
+            'ps110_teg_supply': _g(rtu_detail, 'ps110_teg_supply'),
+            'ps110_arus_supply':_g(rtu_detail, 'ps110_arus_supply'),
+        } if rtu_detail else {},
     }
 
     # ── Corrective detail dict ─────────────────────────────────────

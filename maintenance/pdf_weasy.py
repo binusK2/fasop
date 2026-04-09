@@ -32,6 +32,7 @@ _TEMPLATE_MAP = {
     'RECTIFIER & BATTERY': 'maintenance/pdf/rectifier.html',
     'TELEPROTEKSI':        'maintenance/pdf/teleproteksi.html',
     'GENSET':              'maintenance/pdf/genset.html',
+    'RTU':                 'maintenance/pdf/rtu.html',
 }
 
 _CORRECTIVE_TEMPLATE = 'maintenance/pdf/corrective.html'
@@ -45,6 +46,7 @@ _TITLES = {
     'MULTIPLEXER': 'Formulir Pemeliharaan Peralatan Multiplexer',
     'RECTIFIER':   'Formulir Pemeliharaan Peralatan Rectifier dan Battery',
     'CATU DAYA':   'Formulir Pemeliharaan Peralatan Rectifier dan Battery',
+    'RTU':         'Formulir Pemeliharaan Peralatan RTU AK3',
 }
 
 _CORRECTIVE_TITLE = 'Laporan Corrective Maintenance'
@@ -65,6 +67,7 @@ _DOC_CODES = {
     'TELEPROTEKSI':        'UP2B_FML_04_2008',
     'VOIP':                '',
     'GENSET':              '',
+    'RTU':                 '',
 }
 
 
@@ -362,6 +365,59 @@ def _ctx_genset(data, ctx):
 
 
 _CTX_BUILDERS['GENSET'] = _ctx_genset
+
+
+def _ctx_rtu(data, ctx):
+    r = data.get('rtu', {})
+
+    CP_INDS    = ['RY','ER','W','BBD','INT','EXT','ACT','HLT',
+                  'LK X0','ACT 0','ERR 0','LK X1','ACT 1','ERR 1',
+                  'OH X2','ACT 2','ERR 2','OH X3','ACT 3','ERR 3']
+    DI_DO_INDS = ['RY','ER']
+    AI_INDS    = ['RY','ER']
+    IED_ITEMS  = ['BUSBAR','OHL','TRAFO','GEN.','CAP/REAC','TRF. GEN']
+
+    def _ind_rows(data_dict, inds):
+        rows = []
+        for ind in inds:
+            val = data_dict.get(ind, {})
+            if isinstance(val, dict):
+                rows.append({'name': ind, 'sb': val.get('sb', False), 'sd': val.get('sd', False)})
+            else:
+                rows.append({'name': ind, 'sb': False, 'sd': False})
+        return rows
+
+    def _ied_rows(data_dict):
+        rows = []
+        for item in IED_ITEMS:
+            val = data_dict.get(item, 0)
+            rows.append({'name': item, 'jumlah': val if not isinstance(val, dict) else 0})
+        return rows
+
+    ctx.update({
+        'rtu': r,
+        'cp2016_rows': _ind_rows(r.get('cp2016_data') or {}, CP_INDS),
+        'cp2019_rows': _ind_rows(r.get('cp2019_data') or {}, CP_INDS),
+        'di2112_rows': _ind_rows(r.get('di2112_data') or {}, DI_DO_INDS),
+        'do2210_rows': _ind_rows(r.get('do2210_data') or {}, DI_DO_INDS),
+        'ai2300_rows': _ind_rows(r.get('ai2300_data') or {}, AI_INDS),
+        'ied_rows':    _ied_rows(r.get('ied_data') or {}),
+        'ps48': [
+            ('Teg. Beban',  r.get('ps48_teg_beban'),  'V'),
+            ('Arus Beban',  r.get('ps48_arus_beban'),  'A'),
+            ('Teg. Supply', r.get('ps48_teg_supply'),  'V'),
+            ('Arus Supply', r.get('ps48_arus_supply'), 'A'),
+        ],
+        'ps110': [
+            ('Teg. Beban',  r.get('ps110_teg_beban'),   'V'),
+            ('Arus Beban',  r.get('ps110_arus_beban'),   'A'),
+            ('Teg. Supply', r.get('ps110_teg_supply'),   'V'),
+            ('Arus Supply', r.get('ps110_arus_supply'),  'A'),
+        ],
+    })
+
+
+_CTX_BUILDERS['RTU'] = _ctx_rtu
 
 
 def _ctx_corrective(data, ctx):
