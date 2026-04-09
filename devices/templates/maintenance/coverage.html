@@ -8,13 +8,13 @@
 <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
     <h2 class="mb-0" style="font-size:20px;font-weight:700;">
         Cakupan Pemeliharaan per Lokasi
-        {% if detail_view %} — {{ selected_lokasi }}{% endif %}
+        {% if detail_view %}<span style="color:#64748b;font-weight:400;"> — {{ selected_lokasi }}</span>{% endif %}
     </h2>
     <form method="get" class="d-flex align-items-center gap-2">
         {% if detail_view %}
         <input type="hidden" name="lokasi" value="{{ selected_lokasi }}">
         {% endif %}
-        <label class="form-label mb-0 me-1" style="white-space:nowrap;">Tahun:</label>
+        <label class="form-label mb-0 me-1 text-muted" style="white-space:nowrap;font-size:13px;">Tahun:</label>
         <input type="number" name="tahun" class="form-control form-control-sm" style="width:90px;"
                value="{{ year }}" min="2000" max="2099">
         <button class="btn btn-primary btn-sm">
@@ -31,105 +31,140 @@
 
 {% if detail_view %}
 <!-- ───────────── DETAIL per Lokasi ───────────── -->
-<div class="card">
-    <div class="card-header py-2 px-3">
-        <strong>{{ selected_lokasi }}</strong>
-        — Tahun {{ year }}
+<div class="table-card">
+    <div class="table-header" style="display:flex;align-items:center;justify-content:space-between;">
+        <h6 class="mb-0">
+            <i class="bi bi-geo-alt me-1" style="color:#3b82f6;"></i>
+            {{ selected_lokasi }}
+            <span style="font-size:12px;color:#94a3b8;font-weight:400;margin-left:6px;">Tahun {{ year }}</span>
+        </h6>
     </div>
-    <div class="card-body p-0">
-        {% if device_rows %}
-        <div class="table-responsive">
-            <table class="table table-hover table-sm mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th>Nama Perangkat</th>
-                        <th>Jenis</th>
-                        <th>Status Har</th>
-                        <th>Tanggal Terakhir</th>
-                        <th>Aksi</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for row in device_rows %}
-                    <tr>
-                        <td>{{ row.device.nama }}</td>
-                        <td>{{ row.device.jenis.name|default:"-" }}</td>
-                        <td>
-                            {% if row.has_maintenance %}
-                            <span class="badge bg-success"><i class="bi bi-check-lg me-1"></i>Sudah</span>
-                            {% else %}
-                            <span class="badge bg-danger"><i class="bi bi-x-lg me-1"></i>Belum</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if row.last_date %}
-                                {{ row.last_date|date:"d M Y" }}
-                            {% else %}
-                                -
-                            {% endif %}
-                        </td>
-                        <td>
-                            <a href="{% url 'maintenance_list' %}?lokasi={{ row.device.lokasi }}"
-                               class="btn btn-sm btn-outline-primary">
-                                <i class="bi bi-list-ul me-1"></i>Lihat Har
-                            </a>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        {% else %}
-        <div class="text-center text-muted py-4">
-            <i class="bi bi-inbox" style="font-size:2rem;"></i>
-            <p class="mt-2 mb-0">Tidak ada perangkat ditemukan untuk lokasi ini.</p>
-        </div>
-        {% endif %}
+    <div class="table-responsive">
+        <table class="table mb-0" style="border-collapse:separate;border-spacing:0;">
+            <thead>
+                <tr style="background:#f8fafc;">
+                    <th style="text-align:center;width:46px;font-size:11px;color:#94a3b8;padding:10px 8px;">#</th>
+                    <th style="font-size:11px;color:#64748b;padding:10px 12px;">NAMA PERANGKAT</th>
+                    <th style="font-size:11px;color:#64748b;padding:10px 12px;">JENIS</th>
+                    <th style="text-align:center;font-size:11px;color:#64748b;padding:10px 12px;">STATUS HAR</th>
+                    <th style="font-size:11px;color:#64748b;padding:10px 12px;">TANGGAL TERAKHIR</th>
+                    <th style="text-align:center;font-size:11px;color:#64748b;padding:10px 12px;">AKSI</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for row in device_rows %}
+            <tr style="border-top:1px solid #f1f5f9;transition:background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
+                <td style="text-align:center;font-size:12px;color:#cbd5e1;font-weight:600;padding:14px 8px;">{{ forloop.counter }}</td>
+
+                <td style="padding:14px 12px;">
+                    <div style="font-size:13px;font-weight:700;color:#0f172a;">{{ row.device.nama }}</div>
+                </td>
+
+                <td style="padding:14px 12px;">
+                    <span style="font-size:12px;color:#475569;">{{ row.device.jenis.name|default:"—" }}</span>
+                </td>
+
+                <td style="text-align:center;padding:14px 12px;">
+                    {% if row.has_maintenance %}
+                    <span style="font-size:11.5px;font-weight:700;color:#065f46;background:#dcfce7;padding:4px 12px;border-radius:20px;border:1px solid #a7f3d0;display:inline-flex;align-items:center;gap:4px;">
+                        <i class="bi bi-check-circle-fill" style="font-size:11px;"></i> Sudah
+                    </span>
+                    {% else %}
+                    <span style="font-size:11.5px;font-weight:700;color:#991b1b;background:#fee2e2;padding:4px 12px;border-radius:20px;border:1px solid #fca5a5;display:inline-flex;align-items:center;gap:4px;">
+                        <i class="bi bi-x-circle-fill" style="font-size:11px;"></i> Belum
+                    </span>
+                    {% endif %}
+                </td>
+
+                <td style="padding:14px 12px;white-space:nowrap;">
+                    {% if row.last_date %}
+                    <div style="font-size:13px;color:#475569;">{{ row.last_date|date:"d M Y" }}</div>
+                    {% else %}
+                    <span style="color:#cbd5e1;font-size:13px;">—</span>
+                    {% endif %}
+                </td>
+
+                <td style="text-align:center;padding:14px 12px;">
+                    <a href="{% url 'maintenance_list' %}?lokasi={{ row.device.lokasi }}"
+                       class="btn btn-sm btn-outline-primary" style="border-radius:8px;padding:4px 10px;font-size:12px;">
+                        <i class="bi bi-list-ul me-1"></i>Lihat Har
+                    </a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" class="text-center text-muted py-5">
+                    <i class="bi bi-inbox fs-2 d-block mb-2"></i>
+                    Tidak ada perangkat ditemukan untuk lokasi ini.
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
     </div>
 </div>
 
 {% else %}
-<!-- ───────────── SUMMARY per Lokasi ───────────── -->
+<!-- ───────────── SUMMARY CARDS per Lokasi ───────────── -->
 {% if lokasi_list %}
-<div class="row g-3">
+
+<!-- Ringkasan total -->
+{% with total_all=lokasi_list|length %}
+<div class="d-flex gap-3 mb-3 flex-wrap">
+    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:8px 16px;display:flex;align-items:center;gap:8px;">
+        <i class="bi bi-geo-alt-fill" style="color:#16a34a;"></i>
+        <span style="font-size:13px;color:#15803d;font-weight:600;">{{ lokasi_list|length }} Lokasi</span>
+    </div>
+    <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:8px 16px;display:flex;align-items:center;gap:8px;">
+        <i class="bi bi-calendar-check" style="color:#2563eb;"></i>
+        <span style="font-size:13px;color:#1d4ed8;font-weight:600;">Tahun {{ year }}</span>
+    </div>
+</div>
+{% endwith %}
+
+<div class="row g-2">
     {% for item in lokasi_list %}
-    <div class="col-md-6 col-lg-4">
-        <div class="card h-100">
-            <div class="card-body">
-                <h6 class="card-title fw-bold mb-1">
-                    <i class="bi bi-geo-alt me-1 text-primary"></i>{{ item.lokasi }}
-                </h6>
-                <p class="text-muted mb-2" style="font-size:13px;">
-                    {{ item.sudah }} dari {{ item.total }} perangkat terpelihara
-                </p>
+    <div class="col-6 col-md-4 col-lg-3">
+        <div class="card" style="border-radius:10px;border:1px solid #e2e8f0;">
+            <div class="card-body" style="padding:10px 12px;">
+
+                <!-- Lokasi name + persen -->
+                <div class="d-flex align-items-start justify-content-between mb-1">
+                    <div style="font-size:12px;font-weight:700;color:#0f172a;line-height:1.3;flex:1;margin-right:6px;">
+                        <i class="bi bi-geo-alt" style="color:#3b82f6;font-size:11px;"></i>
+                        {{ item.lokasi }}
+                    </div>
+                    <span style="font-size:13px;font-weight:800;
+                        {% if item.persen >= 80 %}color:#16a34a;{% elif item.persen >= 50 %}color:#d97706;{% else %}color:#dc2626;{% endif %}
+                        white-space:nowrap;">{{ item.persen }}%</span>
+                </div>
 
                 <!-- Progress Bar -->
-                <div class="progress mb-2" style="height:10px;">
-                    <div class="progress-bar {% if item.persen >= 80 %}bg-success{% elif item.persen >= 50 %}bg-warning{% else %}bg-danger{% endif %}"
-                         role="progressbar"
-                         style="width:{{ item.persen }}%"
-                         aria-valuenow="{{ item.persen }}" aria-valuemin="0" aria-valuemax="100">
+                <div style="background:#f1f5f9;border-radius:4px;height:5px;margin-bottom:6px;overflow:hidden;">
+                    <div style="height:100%;border-radius:4px;width:{{ item.persen }}%;
+                        {% if item.persen >= 80 %}background:#22c55e;{% elif item.persen >= 50 %}background:#f59e0b;{% else %}background:#ef4444;{% endif %}">
                     </div>
                 </div>
 
-                <div class="d-flex justify-content-between align-items-center">
-                    <span style="font-size:13px;">
-                        <span class="text-success fw-semibold">{{ item.sudah }} sudah</span>
-                        &nbsp;/&nbsp;
-                        <span class="text-danger fw-semibold">{{ item.belum }} belum</span>
-                        &nbsp;&mdash;&nbsp;
-                        <strong>{{ item.persen }}%</strong>
-                    </span>
+                <!-- Stats + Button -->
+                <div class="d-flex align-items-center justify-content-between">
+                    <div style="font-size:11px;color:#64748b;">
+                        <span style="color:#16a34a;font-weight:600;">{{ item.sudah }}</span>
+                        <span style="color:#94a3b8;">/{{ item.total }}</span>
+                        <span style="color:#dc2626;font-weight:600;margin-left:4px;">{{ item.belum }} belum</span>
+                    </div>
                     <a href="?lokasi={{ item.lokasi|urlencode }}&tahun={{ year }}"
-                       class="btn btn-sm btn-outline-primary">
-                        <i class="bi bi-search me-1"></i>Lihat Detail
+                       style="font-size:11px;color:#2563eb;text-decoration:none;white-space:nowrap;">
+                        Detail <i class="bi bi-arrow-right" style="font-size:10px;"></i>
                     </a>
                 </div>
+
             </div>
         </div>
     </div>
     {% endfor %}
 </div>
+
 {% else %}
 <div class="text-center text-muted py-5">
     <i class="bi bi-inbox" style="font-size:3rem;"></i>

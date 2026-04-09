@@ -3,6 +3,7 @@
 {% block page_title %}Approval Pemeliharaan{% endblock %}
 
 {% block content %}
+
 <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
     <h2 class="mb-0" style="font-size:20px;font-weight:700;">Approval Pemeliharaan</h2>
 </div>
@@ -10,17 +11,18 @@
 <!-- Tab Buttons -->
 <ul class="nav nav-tabs mb-3">
     <li class="nav-item">
-        <a class="nav-link {% if tab == 'pending' %}active{% endif %}"
-           href="?tab=pending">
+        <a class="nav-link {% if tab == 'pending' %}active{% endif %}" href="?tab=pending">
             Menunggu Approval
-            <span class="badge {% if tab == 'pending' %}bg-danger{% else %}bg-secondary{% endif %} ms-1">
+            {% if pending_list %}
+            <span style="display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:20px;font-size:11px;font-weight:700;margin-left:4px;
+                {% if tab == 'pending' %}background:#fef2f2;color:#dc2626;{% else %}background:#f1f5f9;color:#94a3b8;{% endif %}">
                 {{ pending_list|length }}
             </span>
+            {% endif %}
         </a>
     </li>
     <li class="nav-item">
-        <a class="nav-link {% if tab == 'approved' %}active{% endif %}"
-           href="?tab=approved">
+        <a class="nav-link {% if tab == 'approved' %}active{% endif %}" href="?tab=approved">
             Sudah Disetujui
         </a>
     </li>
@@ -28,117 +30,180 @@
 
 {% if tab == 'pending' %}
 <!-- PENDING TABLE -->
-<div class="card">
-    <div class="card-body p-0">
-        {% if pending_list %}
-        <div class="table-responsive">
-            <table class="table table-hover table-sm mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th>Tanggal</th>
-                        <th>Perangkat</th>
-                        <th>Lokasi</th>
-                        <th>Jenis</th>
-                        <th>Pelaksana</th>
-                        <th>Status</th>
-                        <th>Aksi</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for m in pending_list %}
-                    <tr>
-                        <td>{{ m.date|date:"d M Y" }}</td>
-                        <td>{{ m.device.nama }}</td>
-                        <td>{{ m.device.lokasi }}</td>
-                        <td>{{ m.device.jenis.name|default:"-" }}</td>
-                        <td>
-                            {% if m.pelaksana_names %}
-                                {% for nama in m.pelaksana_names %}
-                                    <span class="badge bg-secondary">{{ nama }}</span>
-                                {% endfor %}
-                            {% else %}
-                                -
-                            {% endif %}
-                        </td>
-                        <td>
-                            <span class="badge bg-success">{{ m.status }}</span>
-                        </td>
-                        <td>
-                            <a href="{% url 'maintenance_view' m.pk %}"
-                               class="btn btn-sm btn-success">
-                                <i class="bi bi-pen me-1"></i>Tanda Tangani
-                            </a>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        {% else %}
-        <div class="text-center text-muted py-4">
-            <i class="bi bi-check2-circle" style="font-size:2rem;"></i>
-            <p class="mt-2 mb-0">Tidak ada pemeliharaan yang menunggu approval.</p>
-        </div>
-        {% endif %}
+<div class="table-card">
+    <div class="table-header" style="display:flex;align-items:center;justify-content:space-between;">
+        <h6 class="mb-0">
+            <i class="bi bi-pen me-1" style="color:#f59e0b;"></i>
+            {{ pending_list|length }} Menunggu Tanda Tangan
+        </h6>
+    </div>
+    <div class="table-responsive">
+        <table class="table mb-0" style="border-collapse:separate;border-spacing:0;">
+            <thead>
+                <tr style="background:#f8fafc;">
+                    <th style="text-align:center;width:46px;font-size:11px;color:#94a3b8;padding:10px 8px;">#</th>
+                    <th style="font-size:11px;color:#64748b;padding:10px 12px;">TANGGAL</th>
+                    <th style="font-size:11px;color:#64748b;padding:10px 12px;">PERANGKAT</th>
+                    <th style="font-size:11px;color:#64748b;padding:10px 12px;">LOKASI</th>
+                    <th style="font-size:11px;color:#64748b;padding:10px 12px;">JENIS</th>
+                    <th style="font-size:11px;color:#64748b;padding:10px 12px;">PELAKSANA</th>
+                    <th style="text-align:center;font-size:11px;color:#64748b;padding:10px 12px;">STATUS</th>
+                    <th style="text-align:center;font-size:11px;color:#64748b;padding:10px 12px;">AKSI</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for m in pending_list %}
+            <tr style="border-top:1px solid #f1f5f9;transition:background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
+                <td style="text-align:center;font-size:12px;color:#cbd5e1;font-weight:600;padding:14px 8px;">{{ forloop.counter }}</td>
+
+                <td style="padding:14px 12px;white-space:nowrap;">
+                    <div style="font-size:13px;font-weight:600;color:#1e293b;">{{ m.date|date:"d M Y" }}</div>
+                </td>
+
+                <td style="padding:14px 12px;">
+                    <div style="font-size:13px;font-weight:700;color:#0f172a;">{{ m.device.nama }}</div>
+                    {% if m.device.jenis %}
+                    <div style="font-size:11px;color:#94a3b8;margin-top:2px;">
+                        <i class="bi bi-cpu" style="font-size:10px;"></i> {{ m.device.jenis }}
+                    </div>
+                    {% endif %}
+                </td>
+
+                <td style="padding:14px 12px;">
+                    <span style="font-size:12px;color:#475569;background:#f1f5f9;padding:3px 10px;border-radius:20px;white-space:nowrap;">
+                        <i class="bi bi-geo-alt" style="font-size:10px;"></i> {{ m.device.lokasi }}
+                    </span>
+                </td>
+
+                <td style="padding:14px 12px;">
+                    <span style="font-size:12px;color:#475569;">{{ m.device.jenis.name|default:"—" }}</span>
+                </td>
+
+                <td style="padding:14px 12px;">
+                    {% if m.pelaksana_names %}
+                    <div style="display:flex;flex-wrap:wrap;gap:4px;">
+                        {% for nama in m.pelaksana_names %}
+                        <span style="font-size:11px;background:#eff6ff;color:#1d4ed8;padding:2px 8px;border-radius:20px;white-space:nowrap;">{{ nama }}</span>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <span style="color:#cbd5e1;font-size:13px;">—</span>
+                    {% endif %}
+                </td>
+
+                <td style="text-align:center;padding:14px 12px;">
+                    <span style="font-size:11.5px;font-weight:700;color:#065f46;background:#dcfce7;padding:4px 12px;border-radius:20px;border:1px solid #a7f3d0;display:inline-flex;align-items:center;gap:4px;">
+                        <i class="bi bi-check-circle-fill" style="font-size:11px;"></i> {{ m.status }}
+                    </span>
+                    <div style="margin-top:4px;">
+                        <span style="font-size:10px;font-weight:600;color:#92400e;background:#fef3c7;padding:2px 7px;border-radius:20px;">
+                            <i class="bi bi-pen" style="font-size:9px;"></i> Belum TTD
+                        </span>
+                    </div>
+                </td>
+
+                <td style="text-align:center;padding:14px 12px;">
+                    <a href="{% url 'maintenance_view' m.pk %}"
+                       class="btn btn-sm btn-warning" style="border-radius:8px;padding:4px 12px;font-size:12px;">
+                        <i class="bi bi-pen me-1"></i>Tanda Tangani
+                    </a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="8" class="text-center text-muted py-5">
+                    <i class="bi bi-check2-circle fs-2 d-block mb-2" style="color:#22c55e;"></i>
+                    Tidak ada pemeliharaan yang menunggu approval.
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
     </div>
 </div>
 
 {% else %}
 <!-- APPROVED TABLE -->
-<div class="card">
-    <div class="card-body p-0">
-        {% if approved_list %}
-        <div class="table-responsive">
-            <table class="table table-hover table-sm mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th>Tanggal</th>
-                        <th>Perangkat</th>
-                        <th>Lokasi</th>
-                        <th>Jenis</th>
-                        <th>Disetujui Oleh</th>
-                        <th>Waktu TTD</th>
-                        <th>Aksi</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for m in approved_list %}
-                    <tr>
-                        <td>{{ m.date|date:"d M Y" }}</td>
-                        <td>{{ m.device.nama }}</td>
-                        <td>{{ m.device.lokasi }}</td>
-                        <td>{{ m.device.jenis.name|default:"-" }}</td>
-                        <td>
-                            {% if m.signed_by.get_full_name %}
-                                {{ m.signed_by.get_full_name }}
-                            {% else %}
-                                {{ m.signed_by.username }}
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if m.signed_at %}
-                                {{ m.signed_at|date:"d M Y H:i" }}
-                            {% else %}
-                                -
-                            {% endif %}
-                        </td>
-                        <td>
-                            <a href="{% url 'maintenance_view' m.pk %}"
-                               class="btn btn-sm btn-outline-primary">
-                                <i class="bi bi-eye me-1"></i>Lihat
-                            </a>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        {% else %}
-        <div class="text-center text-muted py-4">
-            <i class="bi bi-clipboard-x" style="font-size:2rem;"></i>
-            <p class="mt-2 mb-0">Belum ada pemeliharaan yang disetujui.</p>
-        </div>
-        {% endif %}
+<div class="table-card">
+    <div class="table-header" style="display:flex;align-items:center;justify-content:space-between;">
+        <h6 class="mb-0">
+            <i class="bi bi-patch-check me-1" style="color:#22c55e;"></i>
+            {{ approved_list|length }} Sudah Disetujui
+        </h6>
+    </div>
+    <div class="table-responsive">
+        <table class="table mb-0" style="border-collapse:separate;border-spacing:0;">
+            <thead>
+                <tr style="background:#f8fafc;">
+                    <th style="text-align:center;width:46px;font-size:11px;color:#94a3b8;padding:10px 8px;">#</th>
+                    <th style="font-size:11px;color:#64748b;padding:10px 12px;">TANGGAL</th>
+                    <th style="font-size:11px;color:#64748b;padding:10px 12px;">PERANGKAT</th>
+                    <th style="font-size:11px;color:#64748b;padding:10px 12px;">LOKASI</th>
+                    <th style="font-size:11px;color:#64748b;padding:10px 12px;">JENIS</th>
+                    <th style="font-size:11px;color:#64748b;padding:10px 12px;">DISETUJUI OLEH</th>
+                    <th style="font-size:11px;color:#64748b;padding:10px 12px;">WAKTU TTD</th>
+                    <th style="text-align:center;font-size:11px;color:#64748b;padding:10px 12px;">AKSI</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for m in approved_list %}
+            <tr style="border-top:1px solid #f1f5f9;transition:background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
+                <td style="text-align:center;font-size:12px;color:#cbd5e1;font-weight:600;padding:14px 8px;">{{ forloop.counter }}</td>
+
+                <td style="padding:14px 12px;white-space:nowrap;">
+                    <div style="font-size:13px;font-weight:600;color:#1e293b;">{{ m.date|date:"d M Y" }}</div>
+                </td>
+
+                <td style="padding:14px 12px;">
+                    <div style="font-size:13px;font-weight:700;color:#0f172a;">{{ m.device.nama }}</div>
+                    {% if m.device.jenis %}
+                    <div style="font-size:11px;color:#94a3b8;margin-top:2px;">
+                        <i class="bi bi-cpu" style="font-size:10px;"></i> {{ m.device.jenis }}
+                    </div>
+                    {% endif %}
+                </td>
+
+                <td style="padding:14px 12px;">
+                    <span style="font-size:12px;color:#475569;background:#f1f5f9;padding:3px 10px;border-radius:20px;white-space:nowrap;">
+                        <i class="bi bi-geo-alt" style="font-size:10px;"></i> {{ m.device.lokasi }}
+                    </span>
+                </td>
+
+                <td style="padding:14px 12px;">
+                    <span style="font-size:12px;color:#475569;">{{ m.device.jenis.name|default:"—" }}</span>
+                </td>
+
+                <td style="padding:14px 12px;">
+                    <span style="font-size:12px;font-weight:600;color:#0f172a;">
+                        {% if m.signed_by.get_full_name %}{{ m.signed_by.get_full_name }}{% else %}{{ m.signed_by.username }}{% endif %}
+                    </span>
+                </td>
+
+                <td style="padding:14px 12px;white-space:nowrap;">
+                    <div style="font-size:12px;color:#475569;">
+                        {% if m.signed_at %}{{ m.signed_at|date:"d M Y" }}<br>
+                        <span style="font-size:11px;color:#94a3b8;">{{ m.signed_at|date:"H:i" }}</span>
+                        {% else %}—{% endif %}
+                    </div>
+                </td>
+
+                <td style="text-align:center;padding:14px 12px;">
+                    <a href="{% url 'maintenance_view' m.pk %}"
+                       class="btn btn-sm btn-outline-primary" style="border-radius:8px;padding:4px 10px;">
+                        <i class="bi bi-eye"></i>
+                    </a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="8" class="text-center text-muted py-5">
+                    <i class="bi bi-clipboard-x fs-2 d-block mb-2"></i>
+                    Belum ada pemeliharaan yang disetujui.
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
     </div>
 </div>
 {% endif %}
