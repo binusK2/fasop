@@ -1,8 +1,8 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from devices.permissions import require_can_edit, require_can_delete, is_viewer_only
-from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset
-from .forms import MaintenanceForm, MaintenancePLCForm, MaintenanceRouterForm, MaintenanceRadioForm, MaintenanceVoIPForm, MaintenanceMuxForm, MaintenanceRectifierForm, MaintenanceTeleproteksiForm, MaintenanceGensetForm
+from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset, MaintenanceRTU
+from .forms import MaintenanceForm, MaintenancePLCForm, MaintenanceRouterForm, MaintenanceRadioForm, MaintenanceVoIPForm, MaintenanceMuxForm, MaintenanceRectifierForm, MaintenanceTeleproteksiForm, MaintenanceGensetForm, MaintenanceRTUForm
 from devices.models import Device, DeviceType
 from gangguan.models import Gangguan
 from inspection.models import InspectionCatuDaya
@@ -36,6 +36,7 @@ DEVICE_FORM_MAP = {
     'RECTIFIER & BATTERY': (MaintenanceRectifierForm, 'maintenance/rectifier_form.html'),
     'TELEPROTEKSI':        (MaintenanceTeleproteksiForm, 'maintenance/teleproteksi_form.html'),
     'GENSET':              (MaintenanceGensetForm,       'maintenance/genset_form.html'),
+    'RTU':                 (MaintenanceRTUForm,          'maintenance/rtu_form.html'),
 }
 
 DEFAULT_TEMPLATE = 'maintenance/maintenance_form.html'
@@ -191,6 +192,7 @@ def maintenance_detail(request, pk):
     rect_detail   = None
     tp_detail     = None
     genset_detail = None
+    rtu_detail    = None
 
     if device_type == 'PLC':
         try:
@@ -238,6 +240,12 @@ def maintenance_detail(request, pk):
         try:
             genset_detail = maintenance.maintenancegenset
         except MaintenanceGenset.DoesNotExist:
+            pass
+
+    elif device_type == 'RTU':
+        try:
+            rtu_detail = maintenance.maintenancertu
+        except MaintenanceRTU.DoesNotExist:
             pass
 
     # Checklist peralatan terpasang untuk template radio
@@ -394,6 +402,7 @@ def maintenance_detail(request, pk):
             ('Receive Command 4', tp_detail.skema_4_receive_result if tp_detail else ''),
         ] if tp_detail else [],
         'genset_detail': genset_detail,
+        'rtu_detail':    rtu_detail,
         'batere_list': [
             ('Air Accu',       genset_detail.air_accu        if genset_detail else None, 'mm'),
             ('Teg. Batere',    genset_detail.tegangan_batere if genset_detail else None, 'VDC'),
@@ -446,6 +455,8 @@ def maintenance_edit(request, pk):
                 detail_instance = maintenance.maintenanceteleproteksi
             elif detail_form_class.__name__ == 'MaintenanceGensetForm':
                 detail_instance = maintenance.maintenancegenset
+            elif detail_form_class.__name__ == 'MaintenanceRTUForm':
+                detail_instance = maintenance.maintenancertu
         except Exception:
             pass
 

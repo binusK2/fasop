@@ -681,3 +681,56 @@ class MaintenanceGenset(models.Model):
         if self.counter_sebelum is not None and self.counter_sesudah is not None:
             return round(self.counter_sesudah - self.counter_sebelum, 2)
         return None
+
+
+# ─────────────────────────────────────────────────────────────
+# DETAIL RTU (model AK3)
+# ─────────────────────────────────────────────────────────────
+class MaintenanceRTU(models.Model):
+    """
+    Detail pemeliharaan RTU AK3.
+    Indikasi per modul disimpan sebagai JSONField:
+      { "RY": {"sb": true, "sd": true}, "ER": {"sb": false, "sd": true}, ... }
+    sb = sebelum, sd = sesudah
+    """
+
+    maintenance = models.OneToOneField(
+        Maintenance, on_delete=models.CASCADE,
+        related_name='maintenancertu'
+    )
+
+    # ── RTU: CP-2016 ─────────────────────────────────────────────────
+    cp2016_jumlah = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name='Jumlah CP-2016')
+    cp2016_data   = models.JSONField(default=dict, blank=True, verbose_name='Indikasi CP-2016')
+
+    # ── RTU: CP-2019 ─────────────────────────────────────────────────
+    cp2019_jumlah = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name='Jumlah CP-2019')
+    cp2019_data   = models.JSONField(default=dict, blank=True, verbose_name='Indikasi CP-2019')
+
+    # ── RTU: DI-2112/2113 ────────────────────────────────────────────
+    di2112_jumlah = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name='Jumlah DI-2112/2113')
+    di2112_data   = models.JSONField(default=dict, blank=True, verbose_name='Indikasi DI-2112/2113')
+
+    # ── RTU: DO-2210/2211 ────────────────────────────────────────────
+    do2210_jumlah = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name='Jumlah DO-2210/2211')
+    do2210_data   = models.JSONField(default=dict, blank=True, verbose_name='Indikasi DO-2210/2211')
+
+    # ── RTU: AI-2300 ─────────────────────────────────────────────────
+    ai2300_data   = models.JSONField(default=dict, blank=True, verbose_name='Indikasi AI-2300')
+
+    # ── IED ──────────────────────────────────────────────────────────
+    ied_data      = models.JSONField(default=dict, blank=True, verbose_name='Indikasi IED')
+
+    # ── Power Supply 48 VDC ──────────────────────────────────────────
+    ps48_teg_beban  = models.FloatField(null=True, blank=True, verbose_name='48V Tegangan Beban (V)')
+    ps48_arus_beban = models.FloatField(null=True, blank=True, verbose_name='48V Arus Beban (A)')
+    ps48_teg_supply = models.FloatField(null=True, blank=True, verbose_name='48V Tegangan Supply (V)')
+
+    # ── Power Supply 110 VDC ─────────────────────────────────────────
+    ps110_teg_beban   = models.FloatField(null=True, blank=True, verbose_name='110V Tegangan Beban (V)')
+    ps110_arus_beban  = models.FloatField(null=True, blank=True, verbose_name='110V Arus Beban (A)')
+    ps110_teg_supply  = models.FloatField(null=True, blank=True, verbose_name='110V Tegangan Supply (V)')
+    ps110_arus_supply = models.FloatField(null=True, blank=True, verbose_name='110V Arus Supply (A)')
+
+    class Meta:
+        verbose_name = 'Maintenance RTU'
