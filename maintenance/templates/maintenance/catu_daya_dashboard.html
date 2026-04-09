@@ -155,8 +155,8 @@
     </div>
 </div>
 
-<!-- ══ 2. Metric Cards — Nilai Terbaru Inspeksi ══════════════ -->
-<p class="cd-section-title"><i class="bi bi-clipboard-data me-1"></i>Nilai Terbaru Hasil Inspeksi</p>
+<!-- ══ 2. Metric Cards — Nilai Terbaru Pemeliharaan ══════════ -->
+<p class="cd-section-title"><i class="bi bi-tools me-1"></i>Nilai Terbaru Hasil Pemeliharaan</p>
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:22px;" id="metric-grid">
     <div class="cd-metric">
         <div class="cd-metric-label">V Battery</div>
@@ -190,8 +190,40 @@
     </div>
 </div>
 
-<!-- ══ 3. Trend Charts — History Inspeksi ═══════════════════ -->
-<p class="cd-section-title"><i class="bi bi-graph-up me-1"></i>Tren Historis Hasil Inspeksi</p>
+<!-- ══ 2b. Inservice Inspection Terbaru ══════════════════════ -->
+<p class="cd-section-title"><i class="bi bi-clipboard-check me-1"></i>Nilai Terbaru Inservice Inspection</p>
+<div class="cd-card mb-4" id="insp-card">
+    <div class="cd-card-head">
+        <h5><i class="bi bi-clipboard2-pulse me-2" style="color:#7c3aed;"></i>Pengukuran &amp; Kondisi — Inservice Inspection</h5>
+        <span id="insp-tanggal-label" class="text-muted" style="font-size:12px;"></span>
+    </div>
+    <div id="insp-no-data" class="cd-empty" style="padding:30px 20px;display:none;">
+        <i class="bi bi-clipboard-x" style="font-size:28px;opacity:.4;display:block;margin-bottom:8px;"></i>
+        <span style="font-size:13px;color:#94a3b8;">Belum ada data inservice inspection untuk perangkat ini.</span>
+    </div>
+    <div id="insp-content">
+        <!-- Pengukuran -->
+        <div style="padding:14px 18px 0;border-bottom:1px solid #f1f5f9;">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#64748b;margin-bottom:10px;">Pengukuran</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px;">
+                <div class="cd-metric"><div class="cd-metric-label">V Baterai DC</div><div class="cd-metric-val" id="i-vbatt" style="color:#3b82f6;">—</div><div class="cd-metric-unit">Volt</div></div>
+                <div class="cd-metric"><div class="cd-metric-label">V Load DC</div><div class="cd-metric-val" id="i-vload" style="color:#0891b2;">—</div><div class="cd-metric-unit">Volt</div></div>
+                <div class="cd-metric"><div class="cd-metric-label">A Load DC</div><div class="cd-metric-val" id="i-aload" style="color:#d97706;">—</div><div class="cd-metric-unit">Ampere</div></div>
+                <div class="cd-metric"><div class="cd-metric-label">A Baterai DC</div><div class="cd-metric-val" id="i-abatt" style="color:#7c3aed;">—</div><div class="cd-metric-unit">Ampere</div></div>
+                <div class="cd-metric"><div class="cd-metric-label">V Input AC</div><div class="cd-metric-val" id="i-vac" style="color:#059669;">—</div><div class="cd-metric-unit">Volt</div></div>
+                <div class="cd-metric"><div class="cd-metric-label">A Input AC</div><div class="cd-metric-val" id="i-aac" style="color:#0f172a;">—</div><div class="cd-metric-unit">Ampere</div></div>
+            </div>
+        </div>
+        <!-- Kondisi & Alarm -->
+        <div style="padding:14px 18px;">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#64748b;margin-bottom:10px;">Kondisi &amp; Alarm</div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;" id="insp-badges"></div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ 3. Trend Charts — History Pemeliharaan ═══════════════ -->
+<p class="cd-section-title"><i class="bi bi-graph-up me-1"></i>Tren Historis Hasil Pemeliharaan</p>
 <div class="cd-trend-grid">
     <!-- V Trend -->
     <div class="cd-card" style="margin-bottom:0;">
@@ -592,11 +624,59 @@ function renderDischarge(dev) {
     });
 }
 
+/* ── Inspection section ────────────────────────────── */
+function renderInspection(dev) {
+    const hasInsp = dev.insp_tanggal != null;
+    document.getElementById('insp-no-data').style.display  = hasInsp ? 'none'  : 'block';
+    document.getElementById('insp-content').style.display  = hasInsp ? 'block' : 'none';
+
+    if (!hasInsp) {
+        document.getElementById('insp-tanggal-label').textContent = '';
+        return;
+    }
+
+    document.getElementById('insp-tanggal-label').textContent = 'Tgl. inspeksi: ' + dev.insp_tanggal;
+
+    const fv = v => v != null ? v.toFixed(2) + ' V' : '—';
+    const fa = v => v != null ? v.toFixed(2) + ' A' : '—';
+    document.getElementById('i-vbatt').textContent = fv(dev.insp_teg_baterai);
+    document.getElementById('i-vload').textContent = fv(dev.insp_teg_load);
+    document.getElementById('i-aload').textContent = fa(dev.insp_arus_load);
+    document.getElementById('i-abatt').textContent = fa(dev.insp_arus_baterai);
+    document.getElementById('i-vac').textContent   = fv(dev.insp_teg_input_ac);
+    document.getElementById('i-aac').textContent   = fa(dev.insp_arus_input_ac);
+
+    /* Badges kondisi & alarm */
+    const badgesEl = document.getElementById('insp-badges');
+    badgesEl.innerHTML = '';
+    const badge = (label, val, okVal, okClass, nokClass) => {
+        if (!val) return '';
+        const isOk = val === okVal;
+        return `<span class="cd-badge ${isOk ? okClass : nokClass}">${label}: ${val.replace('_',' ')}</span>`;
+    };
+    const alarmBadge = (label, val) => {
+        if (!val) return '';
+        const isOk = val === 'tidak_ada';
+        return `<span class="cd-badge ${isOk ? 'cd-badge-ok' : 'cd-badge-danger'}">
+            ${isOk ? '' : '<i class="bi bi-bell-fill me-1"></i>'}${label}: ${isOk ? 'Tidak Ada' : 'ADA'}</span>`;
+    };
+    badgesEl.innerHTML = [
+        badge('Rectifier', dev.insp_kondisi_rectifier, 'normal', 'cd-badge-ok', 'cd-badge-danger'),
+        alarmBadge('Ground Fault', dev.insp_alarm_ground),
+        alarmBadge('Min AC Fault', dev.insp_alarm_min_ac),
+        alarmBadge('Recti Fault',  dev.insp_alarm_recti),
+        badge('Level Air Bank', dev.insp_level_air, 'normal', 'cd-badge-ok', 'cd-badge-warn'),
+        badge('Exhaust Fan', dev.insp_exhaust_fan, 'nyala', 'cd-badge-ok', 'cd-badge-danger'),
+        badge('Kondisi Keseluruhan', dev.insp_kondisi_keseluruhan, 'bersih', 'cd-badge-ok', 'cd-badge-warn'),
+    ].filter(Boolean).join('');
+}
+
 /* ── Main switch — re-render all panels for device ──── */
 function switchDevice(deviceId) {
     const dev = DEVICES.find(d => d.device_id === deviceId);
     if (!dev) return;
     renderMetrics(dev);
+    renderInspection(dev);
     renderVTrend(dev);
     renderATrend(dev);
     renderDischarge(dev);
