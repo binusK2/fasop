@@ -180,10 +180,15 @@
         <!-- Row 1: SWR + Power -->
         <div class="row g-3 mb-3">
             <div class="col-md-4">
-                <div class="measure-card">
+                <div class="measure-card" id="swr-card">
                     <div class="measure-label">SWR</div>
-                    {{ detail_form.swr }}
-                    <div class="measure-hint">SWR &lt; 1,5 = Baik</div>
+                    <div class="input-group">
+                        {{ detail_form.swr }}
+                        <span class="input-group-text measure-unit" id="swr-unit">—</span>
+                    </div>
+                    <div class="measure-hint" id="swr-hint">
+                        &lt; 1,5 = Baik &nbsp;|&nbsp; 1,5 – 2 = Perlu Perhatian &nbsp;|&nbsp; &gt; 2 = Buruk
+                    </div>
                 </div>
             </div>
             <div class="col-md-4">
@@ -351,8 +356,12 @@ function setStatus(fieldName, value) {
             );
         });
     }
+    // Fix: RadioSelect renders <input type="radio">, bukan <select>
     const wrap = document.getElementById('field-' + fieldName);
-    if (wrap) { const sel = wrap.querySelector('select'); if (sel) sel.value = value; }
+    if (wrap) {
+        const radio = wrap.querySelector(`input[value="${value}"]`);
+        if (radio) radio.checked = true;
+    }
 }
 
 function renderChecklist() {
@@ -372,14 +381,48 @@ function renderChecklist() {
             </div>`;
         container.appendChild(col);
     });
+    // Fix: baca nilai dari radio input yang sudah ter-check (saat edit)
     CHECKLIST.forEach(({ id }) => {
         const wrap = document.getElementById('field-' + id);
         if (!wrap) return;
-        const sel = wrap.querySelector('select');
-        if (sel && sel.value) setStatus(id, sel.value);
+        const checked = wrap.querySelector('input[type="radio"]:checked');
+        if (checked) setStatus(id, checked.value);
     });
 }
 
-document.addEventListener('DOMContentLoaded', renderChecklist);
+/* SWR real-time color feedback */
+function updateSwrColor() {
+    const inp  = document.getElementById('id_swr');
+    const card = document.getElementById('swr-card');
+    const unit = document.getElementById('swr-unit');
+    const hint = document.getElementById('swr-hint');
+    if (!inp || !card) return;
+    const v = parseFloat(inp.value);
+    if (isNaN(v)) {
+        card.style.border = '';
+        card.style.background = '';
+        if (unit) unit.style.color = '';
+        return;
+    }
+    if (v < 1.5) {
+        card.style.border = '1.5px solid #6ee7b7';
+        card.style.background = '#f0fdf4';
+        if (unit) { unit.textContent = 'Baik'; unit.style.color = '#065f46'; }
+    } else if (v <= 2) {
+        card.style.border = '1.5px solid #fde68a';
+        card.style.background = '#fffbeb';
+        if (unit) { unit.textContent = 'Perhatian'; unit.style.color = '#92400e'; }
+    } else {
+        card.style.border = '1.5px solid #fca5a5';
+        card.style.background = '#fef2f2';
+        if (unit) { unit.textContent = 'Buruk'; unit.style.color = '#991b1b'; }
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    renderChecklist();
+    const swrInp = document.getElementById('id_swr');
+    if (swrInp) { swrInp.addEventListener('input', updateSwrColor); updateSwrColor(); }
+});
 </script>
 {% endblock %}

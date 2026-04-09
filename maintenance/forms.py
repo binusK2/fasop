@@ -151,7 +151,9 @@ class MaintenanceRadioForm(forms.ModelForm):
             'jenis_antena': forms.Select(attrs={'class': 'form-select'}),
 
             # Pengukuran
-            'swr': forms.Select(attrs={'class': 'form-select'}),
+            'swr': forms.NumberInput(attrs={
+                'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. 1.2', 'id': 'id_swr'
+            }),
             'power_tx': forms.NumberInput(attrs={
                 'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. 5.0'
             }),

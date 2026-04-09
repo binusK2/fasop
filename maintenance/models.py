@@ -160,11 +160,6 @@ class MaintenanceRadio(models.Model):
         ('Bidirectional', 'Bidirectional'),
     )
 
-    SWR_CHOICES = (
-        ('<1.5', '< 1,5 (Baik)'),
-        ('>1.5', '> 1,5 (Buruk)'),
-    )
-
     maintenance = models.OneToOneField(Maintenance, on_delete=models.CASCADE)
 
     # Kondisi ruangan
@@ -181,7 +176,7 @@ class MaintenanceRadio(models.Model):
     jenis_antena        = models.CharField(max_length=15, choices=ANTENA_CHOICES, blank=True, verbose_name='Jenis Antena')
 
     # Pengukuran
-    swr                 = models.CharField(max_length=5, choices=SWR_CHOICES, blank=True, verbose_name='SWR')
+    swr                 = models.FloatField(null=True, blank=True, verbose_name='SWR')
     power_tx            = models.FloatField(null=True, blank=True, verbose_name='Power TX (W)')
     tegangan_battery    = models.FloatField(null=True, blank=True, verbose_name='Tegangan Battery (V)')
     tegangan_psu        = models.FloatField(null=True, blank=True, verbose_name='Tegangan Power Supply (V)')
