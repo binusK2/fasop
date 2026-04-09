@@ -5,6 +5,7 @@ from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceR
 from .forms import MaintenanceForm, MaintenancePLCForm, MaintenanceRouterForm, MaintenanceRadioForm, MaintenanceVoIPForm, MaintenanceMuxForm, MaintenanceRectifierForm, MaintenanceTeleproteksiForm, MaintenanceGensetForm
 from devices.models import Device, DeviceType
 from gangguan.models import Gangguan
+from inspection.models import InspectionCatuDaya
 from django.db.models import Q, Count
 from django.db.models.functions import Trim
 from django.http import HttpResponse
@@ -1934,6 +1935,33 @@ def catu_daya_dashboard(request):
                 'v_total':     _fv(rec.bat1_v_total),
             })
 
+        # ── Data inservice inspection terbaru ───────────────────────
+        latest_insp = (
+            InspectionCatuDaya.objects
+            .filter(inspection__device=dev)
+            .select_related('inspection')
+            .order_by('-inspection__tanggal')
+            .first()
+        )
+        insp_data = {}
+        if latest_insp:
+            insp_data = {
+                'insp_tanggal':         str(latest_insp.inspection.tanggal.date()),
+                'insp_teg_baterai':     _fv(latest_insp.tegangan_baterai_dc),
+                'insp_teg_load':        _fv(latest_insp.tegangan_load_dc),
+                'insp_arus_load':       _fv(latest_insp.arus_load_dc),
+                'insp_arus_baterai':    _fv(latest_insp.arus_baterai_dc),
+                'insp_teg_input_ac':    _fv(latest_insp.tegangan_input_ac),
+                'insp_arus_input_ac':   _fv(latest_insp.arus_input_ac),
+                'insp_kondisi_rectifier': latest_insp.kondisi_rectifier or '',
+                'insp_alarm_ground':    latest_insp.alarm_ground_fault or '',
+                'insp_alarm_min_ac':    latest_insp.alarm_min_ac_fault or '',
+                'insp_alarm_recti':     latest_insp.alarm_recti_fault or '',
+                'insp_level_air':       latest_insp.level_air_bank or '',
+                'insp_kondisi_keseluruhan': latest_insp.kondisi_keseluruhan or '',
+                'insp_exhaust_fan':     latest_insp.exhaust_fan or '',
+            }
+
         devices_data.append({
             'device_id':      dev.id,
             'device_name':    dev.nama,
@@ -1941,7 +1969,7 @@ def catu_daya_dashboard(request):
             'tanggal':        str(latest.maintenance.date),
             'v_float_total':  _vtotal_row_val(cells, 'v_float') or _sum_field(cells, 'v_float') or latest.bat1_v_total,
             'v_total_field':  latest.bat1_v_total,
-            # latest inspection metrics
+            # latest pemeliharaan metrics
             'v_battery':      latest.rect1_v_battery,
             'v_load':         latest.bat1_v_load,
             'a_load':         latest.rect1_a_load,
@@ -1958,6 +1986,8 @@ def catu_daya_dashboard(request):
             'bat_kapasitas':  latest.bat1_kapasitas or '-',
             # historical series
             'history':        history,
+            # inservice inspection
+            **insp_data,
         })
 
     selected_id = request.GET.get('device')

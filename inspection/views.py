@@ -396,6 +396,22 @@ def inspection_riwayat(request, pk):
 
 
 @login_required
+def inspection_delete(request, pk):
+    """Hapus satu record inspeksi — hanya superuser."""
+    if not request.user.is_superuser:
+        return render(request, '403.html',
+                      {'message': 'Hanya superuser yang dapat menghapus inspeksi.'}, status=403)
+    insp = get_object_or_404(Inspection, pk=pk)
+    if request.method == 'POST':
+        lokasi = insp.device.lokasi
+        insp.delete()
+        from django.contrib import messages
+        messages.success(request, 'Inspeksi berhasil dihapus.')
+        return redirect('inspection_device_list', lokasi=lokasi)
+    return render(request, '403.html', {'message': 'Method tidak diizinkan.'}, status=405)
+
+
+@login_required
 @require_operator
 def inspection_riwayat_device(request, device_pk):
     """Riwayat semua inspeksi untuk satu device + trend kondisi."""
