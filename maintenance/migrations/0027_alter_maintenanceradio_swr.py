@@ -8,14 +8,33 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # Bersihkan nilai lama yang tidak bisa dikonversi ke float
+        # Konversi tipe sekaligus dalam satu ALTER TABLE:
+        # - Nilai numerik (misal "1.2") → float
+        # - Nilai non-numerik ("<1.5", ">1.5", "") → NULL
+        # - DROP NOT NULL agar FloatField(null=True) valid
         migrations.RunSQL(
-            "UPDATE maintenance_maintenanceradio SET swr = NULL WHERE swr IS NOT NULL AND swr != '';",
+            sql="""
+                ALTER TABLE maintenance_maintenanceradio
+                ALTER COLUMN swr TYPE double precision
+                USING CASE
+                    WHEN swr ~ '^[0-9]+(\\.[0-9]+)?$' THEN swr::double precision
+                    ELSE NULL
+                END;
+
+                ALTER TABLE maintenance_maintenanceradio
+                ALTER COLUMN swr DROP NOT NULL;
+            """,
             reverse_sql=migrations.RunSQL.noop,
         ),
-        migrations.AlterField(
-            model_name='maintenanceradio',
-            name='swr',
-            field=models.FloatField(blank=True, null=True, verbose_name='SWR'),
+        # Sinkronkan state Django (tanpa menyentuh DB lagi)
+        migrations.SeparateDatabaseAndState(
+            state_operations=[
+                migrations.AlterField(
+                    model_name='maintenanceradio',
+                    name='swr',
+                    field=models.FloatField(blank=True, null=True, verbose_name='SWR'),
+                ),
+            ],
+            database_operations=[],
         ),
     ]
