@@ -817,8 +817,275 @@
         {% include 'maintenance/genset_detail_section.html' %}
         {% endif %}
 
+        <!-- ═══════════════ DETAIL RTU ═══════════════ -->
+        {% if rtu_detail %}
+        <div class="card mb-3">
+            <div class="card-body px-4 py-3">
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <span style="width:5px;height:18px;background:#3b82f6;border-radius:3px;display:inline-block;"></span>
+                    <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#64748b;">
+                        <i class="bi bi-cpu me-1" style="color:#3b82f6;"></i>Detail RTU
+                    </h6>
+                </div>
+
+                <!-- CP-2016 -->
+                {% if rtu_detail.cp2016_data %}
+                <div class="mb-4">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <span style="font-size:12px;font-weight:700;color:#1e40af;background:#dbeafe;padding:2px 10px;border-radius:20px;">CP-2016</span>
+                        {% if rtu_detail.cp2016_jumlah %}<span style="font-size:11px;color:#64748b;">Jumlah: <b>{{ rtu_detail.cp2016_jumlah }}</b></span>{% endif %}
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-sm mb-0" style="font-size:12px;">
+                            <thead style="background:#f1f5f9;">
+                                <tr>
+                                    <th style="color:#475569;width:40px;">#</th>
+                                    <th style="color:#475569;">Indikasi</th>
+                                    <th style="color:#475569;text-align:center;width:90px;">Sebelum</th>
+                                    <th style="color:#475569;text-align:center;width:90px;">Sesudah</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for key, val in rtu_detail.cp2016_data.items %}
+                                <tr>
+                                    <td style="color:#94a3b8;text-align:center;">{{ forloop.counter }}</td>
+                                    <td style="font-weight:600;color:#334155;">{{ key }}</td>
+                                    <td style="text-align:center;">{% if val.sb %}<span style="color:#6366f1;font-size:16px;">&#10003;</span>{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}</td>
+                                    <td style="text-align:center;">{% if val.sd %}<span style="color:#10b981;font-size:16px;">&#10003;</span>{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- CP-2019 -->
+                {% if rtu_detail.cp2019_data %}
+                <div class="mb-4">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <span style="font-size:12px;font-weight:700;color:#1e40af;background:#dbeafe;padding:2px 10px;border-radius:20px;">CP-2019</span>
+                        {% if rtu_detail.cp2019_jumlah %}<span style="font-size:11px;color:#64748b;">Jumlah: <b>{{ rtu_detail.cp2019_jumlah }}</b></span>{% endif %}
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-sm mb-0" style="font-size:12px;">
+                            <thead style="background:#f1f5f9;">
+                                <tr>
+                                    <th style="color:#475569;width:40px;">#</th>
+                                    <th style="color:#475569;">Indikasi</th>
+                                    <th style="color:#475569;text-align:center;width:90px;">Sebelum</th>
+                                    <th style="color:#475569;text-align:center;width:90px;">Sesudah</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for key, val in rtu_detail.cp2019_data.items %}
+                                <tr>
+                                    <td style="color:#94a3b8;text-align:center;">{{ forloop.counter }}</td>
+                                    <td style="font-weight:600;color:#334155;">{{ key }}</td>
+                                    <td style="text-align:center;">{% if val.sb %}<span style="color:#6366f1;font-size:16px;">&#10003;</span>{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}</td>
+                                    <td style="text-align:center;">{% if val.sd %}<span style="color:#10b981;font-size:16px;">&#10003;</span>{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- DI-2112/2113 -->
+                {% if rtu_detail.di2112_data %}
+                <div class="mb-4">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <span style="font-size:12px;font-weight:700;color:#166534;background:#dcfce7;padding:2px 10px;border-radius:20px;">DI-2112/2113</span>
+                        {% if rtu_detail.di2112_jumlah %}<span style="font-size:11px;color:#64748b;">Jumlah: <b>{{ rtu_detail.di2112_jumlah }}</b></span>{% endif %}
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-sm mb-0" style="font-size:12px;">
+                            <thead style="background:#f1f5f9;">
+                                <tr>
+                                    <th style="color:#475569;width:40px;">#</th>
+                                    <th style="color:#475569;">Indikasi</th>
+                                    <th style="color:#475569;text-align:center;width:90px;">Sebelum</th>
+                                    <th style="color:#475569;text-align:center;width:90px;">Sesudah</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for key, val in rtu_detail.di2112_data.items %}
+                                <tr>
+                                    <td style="color:#94a3b8;text-align:center;">{{ forloop.counter }}</td>
+                                    <td style="font-weight:600;color:#334155;">{{ key }}</td>
+                                    <td style="text-align:center;">{% if val.sb %}<span style="color:#6366f1;font-size:16px;">&#10003;</span>{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}</td>
+                                    <td style="text-align:center;">{% if val.sd %}<span style="color:#10b981;font-size:16px;">&#10003;</span>{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- DO-2210/2211 -->
+                {% if rtu_detail.do2210_data %}
+                <div class="mb-4">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <span style="font-size:12px;font-weight:700;color:#166534;background:#dcfce7;padding:2px 10px;border-radius:20px;">DO-2210/2211</span>
+                        {% if rtu_detail.do2210_jumlah %}<span style="font-size:11px;color:#64748b;">Jumlah: <b>{{ rtu_detail.do2210_jumlah }}</b></span>{% endif %}
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-sm mb-0" style="font-size:12px;">
+                            <thead style="background:#f1f5f9;">
+                                <tr>
+                                    <th style="color:#475569;width:40px;">#</th>
+                                    <th style="color:#475569;">Indikasi</th>
+                                    <th style="color:#475569;text-align:center;width:90px;">Sebelum</th>
+                                    <th style="color:#475569;text-align:center;width:90px;">Sesudah</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for key, val in rtu_detail.do2210_data.items %}
+                                <tr>
+                                    <td style="color:#94a3b8;text-align:center;">{{ forloop.counter }}</td>
+                                    <td style="font-weight:600;color:#334155;">{{ key }}</td>
+                                    <td style="text-align:center;">{% if val.sb %}<span style="color:#6366f1;font-size:16px;">&#10003;</span>{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}</td>
+                                    <td style="text-align:center;">{% if val.sd %}<span style="color:#10b981;font-size:16px;">&#10003;</span>{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- AI-2300 -->
+                {% if rtu_detail.ai2300_data %}
+                <div class="mb-4">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <span style="font-size:12px;font-weight:700;color:#92400e;background:#fef9c3;padding:2px 10px;border-radius:20px;">AI-2300</span>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-sm mb-0" style="font-size:12px;">
+                            <thead style="background:#f1f5f9;">
+                                <tr>
+                                    <th style="color:#475569;width:40px;">#</th>
+                                    <th style="color:#475569;">Indikasi</th>
+                                    <th style="color:#475569;text-align:center;width:90px;">Sebelum</th>
+                                    <th style="color:#475569;text-align:center;width:90px;">Sesudah</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for key, val in rtu_detail.ai2300_data.items %}
+                                <tr>
+                                    <td style="color:#94a3b8;text-align:center;">{{ forloop.counter }}</td>
+                                    <td style="font-weight:600;color:#334155;">{{ key }}</td>
+                                    <td style="text-align:center;">{% if val.sb %}<span style="color:#6366f1;font-size:16px;">&#10003;</span>{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}</td>
+                                    <td style="text-align:center;">{% if val.sd %}<span style="color:#10b981;font-size:16px;">&#10003;</span>{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- IED -->
+                {% if rtu_detail.ied_data %}
+                <div class="mb-4">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <span style="font-size:12px;font-weight:700;color:#6b21a8;background:#f3e8ff;padding:2px 10px;border-radius:20px;">IED</span>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-sm mb-0" style="font-size:12px;">
+                            <thead style="background:#f1f5f9;">
+                                <tr>
+                                    <th style="color:#475569;width:40px;">#</th>
+                                    <th style="color:#475569;">Peralatan</th>
+                                    <th style="color:#475569;text-align:center;width:90px;">Sebelum</th>
+                                    <th style="color:#475569;text-align:center;width:90px;">Sesudah</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for key, val in rtu_detail.ied_data.items %}
+                                <tr>
+                                    <td style="color:#94a3b8;text-align:center;">{{ forloop.counter }}</td>
+                                    <td style="font-weight:600;color:#334155;">{{ key }}</td>
+                                    <td style="text-align:center;">{% if val.sb %}<span style="color:#6366f1;font-size:16px;">&#10003;</span>{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}</td>
+                                    <td style="text-align:center;">{% if val.sd %}<span style="color:#10b981;font-size:16px;">&#10003;</span>{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Power Supply -->
+                <div class="row g-3">
+                    <!-- 48V -->
+                    <div class="col-md-6">
+                        <div class="p-3 rounded" style="background:#eff6ff;border:1px solid #bfdbfe;">
+                            <div style="font-size:12px;font-weight:700;color:#1e40af;margin-bottom:10px;">48V Power Supply</div>
+                            <div class="row g-2 text-center">
+                                <div class="col-4">
+                                    <div style="font-size:10px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;">Teg. Beban</div>
+                                    <div style="font-size:16px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;">
+                                        {{ rtu_detail.ps48_teg_beban|default:"—" }}{% if rtu_detail.ps48_teg_beban %}<span style="font-size:10px;font-weight:500;color:#64748b;"> V</span>{% endif %}
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div style="font-size:10px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;">Arus Beban</div>
+                                    <div style="font-size:16px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;">
+                                        {{ rtu_detail.ps48_arus_beban|default:"—" }}{% if rtu_detail.ps48_arus_beban %}<span style="font-size:10px;font-weight:500;color:#64748b;"> A</span>{% endif %}
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div style="font-size:10px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;">Teg. Supply</div>
+                                    <div style="font-size:16px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;">
+                                        {{ rtu_detail.ps48_teg_supply|default:"—" }}{% if rtu_detail.ps48_teg_supply %}<span style="font-size:10px;font-weight:500;color:#64748b;"> V</span>{% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- 110V -->
+                    <div class="col-md-6">
+                        <div class="p-3 rounded" style="background:#f0fdf4;border:1px solid #bbf7d0;">
+                            <div style="font-size:12px;font-weight:700;color:#166534;margin-bottom:10px;">110V Power Supply</div>
+                            <div class="row g-2 text-center">
+                                <div class="col-6">
+                                    <div style="font-size:10px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;">Teg. Beban</div>
+                                    <div style="font-size:16px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;">
+                                        {{ rtu_detail.ps110_teg_beban|default:"—" }}{% if rtu_detail.ps110_teg_beban %}<span style="font-size:10px;font-weight:500;color:#64748b;"> V</span>{% endif %}
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div style="font-size:10px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;">Arus Beban</div>
+                                    <div style="font-size:16px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;">
+                                        {{ rtu_detail.ps110_arus_beban|default:"—" }}{% if rtu_detail.ps110_arus_beban %}<span style="font-size:10px;font-weight:500;color:#64748b;"> A</span>{% endif %}
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div style="font-size:10px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;">Teg. Supply</div>
+                                    <div style="font-size:16px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;">
+                                        {{ rtu_detail.ps110_teg_supply|default:"—" }}{% if rtu_detail.ps110_teg_supply %}<span style="font-size:10px;font-weight:500;color:#64748b;"> V</span>{% endif %}
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div style="font-size:10px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;">Arus Supply</div>
+                                    <div style="font-size:16px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;">
+                                        {{ rtu_detail.ps110_arus_supply|default:"—" }}{% if rtu_detail.ps110_arus_supply %}<span style="font-size:10px;font-weight:500;color:#64748b;"> A</span>{% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+        {% endif %}
+
         <!-- Tidak ada detail khusus -->
-        {% if not plc_detail and not router_detail and not radio_detail and not voip_detail and not mux_detail and not rect_detail and not tp_detail and not genset_detail %}
+        {% if not plc_detail and not router_detail and not radio_detail and not voip_detail and not mux_detail and not rect_detail and not tp_detail and not genset_detail and not rtu_detail %}
             {% if maintenance.maintenance_type == 'Corrective' and maintenance.corrective_detail %}
             {# Detail Corrective ditampilkan di sini, di dalam panel kanan #}
             {% with cd=maintenance.corrective_detail %}

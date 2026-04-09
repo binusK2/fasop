@@ -1,5 +1,5 @@
 from django import forms
-from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset
+from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset, MaintenanceRTU
 
 
 # ─── Widget helpers ───────────────────────────────────────────────────
@@ -474,3 +474,36 @@ class MaintenanceGensetForm(forms.ModelForm):
 
         # Catatan
         self.fields['catatan'].widget = forms.Textarea(attrs={'class': fc, 'rows': 3})
+
+
+# ─────────────────────────────────────────────────────────────────────
+# FORM DETAIL RTU
+# ─────────────────────────────────────────────────────────────────────
+class MaintenanceRTUForm(forms.ModelForm):
+
+    class Meta:
+        model   = MaintenanceRTU
+        exclude = ['maintenance']
+        widgets = {
+            # Jumlah modul — NumberInput
+            'cp2016_jumlah': forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'placeholder': 'Jumlah'}),
+            'cp2019_jumlah': forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'placeholder': 'Jumlah'}),
+            'di2112_jumlah': forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'placeholder': 'Jumlah'}),
+            'do2210_jumlah': forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'placeholder': 'Jumlah'}),
+            # JSON data — HiddenInput, diisi oleh JavaScript
+            'cp2016_data': forms.HiddenInput(attrs={'id': 'id_cp2016_data'}),
+            'cp2019_data': forms.HiddenInput(attrs={'id': 'id_cp2019_data'}),
+            'di2112_data': forms.HiddenInput(attrs={'id': 'id_di2112_data'}),
+            'do2210_data': forms.HiddenInput(attrs={'id': 'id_do2210_data'}),
+            'ai2300_data': forms.HiddenInput(attrs={'id': 'id_ai2300_data'}),
+            'ied_data':    forms.HiddenInput(attrs={'id': 'id_ied_data'}),
+            # Power Supply 48V
+            'ps48_teg_beban':  forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': 'V'}),
+            'ps48_arus_beban': forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': 'A'}),
+            'ps48_teg_supply': forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': 'V'}),
+            # Power Supply 110V
+            'ps110_teg_beban':  forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': 'V'}),
+            'ps110_arus_beban': forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': 'A'}),
+            'ps110_teg_supply': forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': 'V'}),
+            'ps110_arus_supply':forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': 'A'}),
+        }
