@@ -573,19 +573,37 @@
 
         {% with url_name=request.resolver_match.url_name %}
         <button class="sidebar-link sidebar-group-toggle w-100 text-start border-0
-            {% if 'maintenance' in url_name or 'offline_form' in url_name %}active open{% endif %}"
+            {% if 'maintenance' in url_name or 'offline_form' in url_name or url_name == 'maintenance_approval' or url_name == 'maintenance_coverage' %}active open{% endif %}"
             data-target="submenu-pemeliharaan" type="button">
             <span class="si-icon"><i class="bi bi-tools"></i></span>
             Pemeliharaan
             <i class="bi bi-chevron-right sidebar-toggle-btn ms-auto"></i>
         </button>
 
-        <div class="sidebar-submenu {% if 'maintenance' in url_name or 'jadwal' in url_name or 'offline_form' in url_name %}open{% endif %}"
+        <div class="sidebar-submenu {% if 'maintenance' in url_name or 'jadwal' in url_name or 'offline_form' in url_name or url_name == 'maintenance_approval' or url_name == 'maintenance_coverage' %}open{% endif %}"
              id="submenu-pemeliharaan">
             <a href="{% url 'maintenance_list' %}"
                class="sidebar-link {% if url_name == 'maintenance_list' or url_name == 'maintenance_view' or url_name == 'maintenance_edit' %}active{% endif %}">
                 <span class="si-icon"><i class="bi bi-card-checklist"></i></span>
                 Semua Pemeliharaan
+            </a>
+            {% if request.user.is_superuser %}
+            <a href="{% url 'maintenance_approval' %}"
+               class="sidebar-link {% if url_name == 'maintenance_approval' %}active{% endif %}">
+                <span class="si-icon"><i class="bi bi-pen-check"></i></span>
+                Approval
+            </a>
+            {% elif request.user.profile.is_asisten_manager %}
+            <a href="{% url 'maintenance_approval' %}"
+               class="sidebar-link {% if url_name == 'maintenance_approval' %}active{% endif %}">
+                <span class="si-icon"><i class="bi bi-pen-check"></i></span>
+                Approval
+            </a>
+            {% endif %}
+            <a href="{% url 'maintenance_coverage' %}"
+               class="sidebar-link {% if url_name == 'maintenance_coverage' %}active{% endif %}">
+                <span class="si-icon"><i class="bi bi-clipboard2-check"></i></span>
+                Cakupan per Lokasi
             </a>
             <a href="{% url 'jadwal_list' %}"
                class="sidebar-link {% if 'jadwal' in url_name %}active{% endif %}">

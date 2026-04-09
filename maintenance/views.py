@@ -1670,6 +1670,136 @@ def profile_view(request):
 
     return render(request, 'maintenance/profile.html', ctx)
 
+
+# ─────────────────────────────────────────────────────────────
+# APPROVAL VIEW
+# ─────────────────────────────────────────────────────────────
+
+@login_required
+def maintenance_approval(request):
+    from django.contrib import messages as dj_messages
+    try:
+        is_am = request.user.profile.is_asisten_manager
+    except Exception:
+        is_am = False
+
+    if not (request.user.is_superuser or is_am):
+        dj_messages.error(request, 'Anda tidak memiliki akses ke halaman Approval.')
+        return redirect('maintenance_list')
+
+    tab = request.GET.get('tab', 'pending')
+
+    pending_list = (
+        Maintenance.objects
+        .filter(status='Done', signed_by__isnull=True)
+        .select_related('device', 'device__jenis')
+        .order_by('-date')
+    )
+
+    approved_list = (
+        Maintenance.objects
+        .filter(signed_by__isnull=False)
+        .select_related('device', 'device__jenis', 'signed_by')
+        .order_by('-signed_at')
+    )
+
+    return render(request, 'maintenance/approval.html', {
+        'pending_list':  pending_list,
+        'approved_list': approved_list,
+        'tab':           tab,
+    })
+
+
+# ─────────────────────────────────────────────────────────────
+# COVERAGE VIEW
+# ─────────────────────────────────────────────────────────────
+
+@login_required
+def maintenance_coverage(request):
+    from django.utils import timezone as tz
+
+    year = request.GET.get('tahun', '')
+    try:
+        year = int(year)
+    except (ValueError, TypeError):
+        year = tz.now().year
+
+    selected_lokasi = request.GET.get('lokasi', '')
+
+    devices_qs = (
+        Device.objects
+        .filter(is_deleted=False, lokasi__isnull=False)
+        .exclude(lokasi='')
+        .exclude(lokasi__iexact='none')
+        .select_related('jenis')
+        .order_by('lokasi', 'nama')
+    )
+
+    # IDs of devices that have maintenance this year
+    maintained_ids = set(
+        Maintenance.objects
+        .filter(device__in=devices_qs, date__year=year)
+        .values_list('device_id', flat=True)
+        .distinct()
+    )
+
+    # Last maintenance date per device
+    from django.db.models import Max
+    last_maint_qs = (
+        Maintenance.objects
+        .filter(device__in=devices_qs, date__year=year)
+        .values('device_id')
+        .annotate(last_date=Max('date'))
+    )
+    last_maint_map = {row['device_id']: row['last_date'] for row in last_maint_qs}
+
+    if selected_lokasi:
+        # Drill-down: detail per lokasi
+        lokasi_devices = devices_qs.filter(lokasi__iexact=selected_lokasi)
+        device_rows = []
+        for d in lokasi_devices:
+            device_rows.append({
+                'device':        d,
+                'has_maintenance': d.id in maintained_ids,
+                'last_date':     last_maint_map.get(d.id),
+            })
+        return render(request, 'maintenance/coverage.html', {
+            'device_rows':      device_rows,
+            'selected_lokasi':  selected_lokasi,
+            'year':             year,
+            'detail_view':      True,
+        })
+
+    # Summary per lokasi
+    lokasi_map = {}
+    for d in devices_qs:
+        lok = d.lokasi.strip()
+        if lok not in lokasi_map:
+            lokasi_map[lok] = {'lokasi': lok, 'total': 0, 'sudah': 0, 'devices': []}
+        lokasi_map[lok]['total'] += 1
+        has_maint = d.id in maintained_ids
+        if has_maint:
+            lokasi_map[lok]['sudah'] += 1
+        lokasi_map[lok]['devices'].append({
+            'device':        d,
+            'has_maintenance': has_maint,
+            'last_date':     last_maint_map.get(d.id),
+        })
+
+    lokasi_list = []
+    for v in sorted(lokasi_map.values(), key=lambda x: x['lokasi']):
+        v['belum'] = v['total'] - v['sudah']
+        v['persen'] = int(v['sudah'] / v['total'] * 100) if v['total'] else 0
+        lokasi_list.append(v)
+
+    return render(request, 'maintenance/coverage.html', {
+        'lokasi_list':     lokasi_list,
+        'year':            year,
+        'detail_view':     False,
+        'selected_lokasi': '',
+    })
+
+
 # ─────────────────────────────────────────────────────────────
 # CORRECTIVE MAINTENANCE VIEWS
 # ─────────────────────────────────────────────────────────────
