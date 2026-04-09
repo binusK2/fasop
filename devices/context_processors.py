@@ -164,6 +164,24 @@ def user_display_name(request):
     return {'user_display_name': name}
 
 
+def pending_approval_count(request):
+    """Inject jumlah maintenance Done belum TTD — untuk badge sidebar Approval."""
+    if not request.user.is_authenticated:
+        return {'pending_approval_count': 0}
+    try:
+        is_am = request.user.profile.is_asisten_manager
+    except Exception:
+        is_am = False
+    if not (request.user.is_superuser or is_am):
+        return {'pending_approval_count': 0}
+    try:
+        from maintenance.models import Maintenance
+        count = Maintenance.objects.filter(status='Done', signed_by__isnull=True).count()
+    except Exception:
+        count = 0
+    return {'pending_approval_count': count}
+
+
 def user_permissions(request):
     """
     Inject permission flags ke semua template.

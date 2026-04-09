@@ -79,6 +79,7 @@ TEMPLATES = [
                 'devices.context_processors.notifikasi_count',
                 'devices.context_processors.user_permissions',
                 'devices.context_processors.user_display_name',
+                'devices.context_processors.pending_approval_count',
             ],
         },
     },
