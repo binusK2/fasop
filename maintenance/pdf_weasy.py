@@ -34,6 +34,8 @@ _TEMPLATE_MAP = {
     'GENSET':              'maintenance/pdf/genset.html',
 }
 
+_CORRECTIVE_TEMPLATE = 'maintenance/pdf/corrective.html'
+
 _TITLES = {
     'ROUTER':      'Formulir Pemeliharaan Peralatan Router',
     'SWITCH':      'Formulir Pemeliharaan Peralatan Switch',
@@ -44,6 +46,8 @@ _TITLES = {
     'RECTIFIER':   'Formulir Pemeliharaan Peralatan Rectifier dan Battery',
     'CATU DAYA':   'Formulir Pemeliharaan Peralatan Rectifier dan Battery',
 }
+
+_CORRECTIVE_TITLE = 'Laporan Corrective Maintenance'
 
 _v = lambda x: x if x not in (None, '') else '-'
 
@@ -360,17 +364,34 @@ def _ctx_genset(data, ctx):
 _CTX_BUILDERS['GENSET'] = _ctx_genset
 
 
+def _ctx_corrective(data, ctx):
+    c = data.get('corrective', {})
+    ctx.update({
+        'title':       _CORRECTIVE_TITLE,
+        'corrective':  c,
+        'foto_sebelum': _img_uri(c.get('foto_sebelum_path', '')),
+        'foto_sesudah': _img_uri(c.get('foto_sesudah_path', '')),
+    })
+
+
 def build_pdf_weasy(data: dict, output):
     """Generate PDF menggunakan WeasyPrint."""
     import weasyprint
 
+    is_corrective = data.get('maintenance_type') == 'Corrective'
     kind = data.get('device_kind', 'GENERIC').strip().upper()
-    template_name = _TEMPLATE_MAP.get(kind, 'maintenance/pdf/generic.html')
 
-    ctx = _base_context(data)
-    builder = _CTX_BUILDERS.get(kind)
-    if builder:
-        builder(data, ctx)
+    if is_corrective:
+        template_name = _CORRECTIVE_TEMPLATE
+        ctx = _base_context(data)
+        ctx['title'] = _CORRECTIVE_TITLE
+        _ctx_corrective(data, ctx)
+    else:
+        template_name = _TEMPLATE_MAP.get(kind, 'maintenance/pdf/generic.html')
+        ctx = _base_context(data)
+        builder = _CTX_BUILDERS.get(kind)
+        if builder:
+            builder(data, ctx)
 
     html_string = render_to_string(template_name, ctx)
     html = weasyprint.HTML(string=html_string)
