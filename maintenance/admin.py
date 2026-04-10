@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Maintenance, MaintenancePLC, MaintenanceRouter
+from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceSAS
 
 
 class MaintenancePLCInline(admin.StackedInline):
@@ -36,3 +36,8 @@ class MaintenancePLCAdmin(admin.ModelAdmin):
 @admin.register(MaintenanceRouter)
 class MaintenanceRouterAdmin(admin.ModelAdmin):
     list_display = ['maintenance', 'kondisi_fisik', 'cpu_load', 'memory_usage', 'status_routing']
+
+
+@admin.register(MaintenanceSAS)
+class MaintenanceSASAdmin(admin.ModelAdmin):
+    list_display = ['maintenance', 'spek_merk', 'spek_type', 'kondisi_server', 'inv_kondisi']

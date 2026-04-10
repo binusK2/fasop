@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Preview — Form Pemeliharaan SAS</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+<style>
+  body { background:#f1f5f9; font-family:'Segoe UI',sans-serif; }
+  .section-title-bar { display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:#334155;margin-bottom:14px; }
+  .section-title-bar .bar { width:3px;height:16px;border-radius:2px;flex-shrink:0; }
+  .form-label { font-size:13px; }
+  .form-control, .form-select { font-size:13px; }
+  .input-group-text { font-size:12px; }
+  .card { border:1px solid #e2e8f0; border-radius:10px; }
+  .card-body { padding:20px 24px; }
+  .form-check-label { font-size:13px; }
+  .badge-pill { padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700;display:inline-block; }
+  .ps-box { background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px; }
+  .peri-row { display:flex;align-items:center;gap:12px;padding:7px 0;border-bottom:1px solid #f1f5f9; }
+  .peri-label { min-width:160px;font-size:12px;font-weight:600;color:#475569; }
+  .ok-label { font-size:12px;font-weight:700;color:#16a34a; }
+  .alarm-label { font-size:12px;font-weight:700;color:#dc2626; }
+  .spek-table td { padding:4px 8px 4px 0;font-size:12.5px;vertical-align:middle; }
+  .spek-table td:first-child { font-weight:600;color:#475569;white-space:nowrap;width:175px; }
+  select, input[type=text], input[type=number], textarea { border:1px solid #cbd5e1;border-radius:6px;padding:5px 10px;font-size:12.5px;width:100%; }
+  textarea { resize:vertical; }
+  .radio-group { display:flex;gap:16px;align-items:center; }
+  .radio-group label { font-size:13px;margin-left:4px;cursor:pointer; }
+</style>
+</head>
+<body>
+<div class="container py-4" style="max-width:960px;">
+
+  <!-- Breadcrumb -->
+  <div class="mb-3">
+    <a href="#" class="btn btn-sm btn-outline-secondary">
+      <i class="bi bi-arrow-left me-1"></i>Kembali ke Perangkat
+    </a>
+  </div>
+
+  <!-- ── DEVICE BANNER ── -->
+  <div class="card mb-3" style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);border:none;">
+    <div class="card-body py-3 px-4">
+      <div class="d-flex align-items-center gap-4 flex-wrap">
+        <div style="width:38px;height:38px;background:rgba(16,185,129,0.2);border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <i class="bi bi-diagram-3" style="font-size:18px;color:#6ee7b7;"></i>
+        </div>
+        <div>
+          <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Perangkat</div>
+          <div style="font-size:15px;font-weight:700;color:#f1f5f9;">SAS GI Bandung Selatan</div>
+        </div>
+        <div class="vr" style="background:rgba(255,255,255,0.1);width:1px;align-self:stretch;"></div>
+        <div><div style="font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;">Jenis</div><div style="font-size:12px;color:#cbd5e1;">SAS</div></div>
+        <div><div style="font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;">IP</div><div style="font-size:12px;color:#7dd3fc;font-family:monospace;">192.168.10.1</div></div>
+        <div><div style="font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;">Lokasi</div><div style="font-size:12px;color:#cbd5e1;">GI Bandung Selatan</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 1. INFORMASI MAINTENANCE ══ -->
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="section-title-bar">
+        <span class="bar" style="background:#3b82f6;"></span>
+        <span>Informasi Maintenance</span>
+      </div>
+      <div class="row g-3 align-items-end">
+        <div class="col-md-2">
+          <label class="form-label fw-semibold">Jenis Maintenance</label>
+          <div style="display:flex;align-items:center;gap:6px;background:#eff6ff;color:#1d4ed8;border:1.5px solid #bfdbfe;border-radius:8px;padding:8px 12px;font-size:13px;font-weight:700;white-space:nowrap;">
+            <i class="bi bi-shield-check"></i> Preventive
+          </div>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label fw-semibold">Tanggal</label>
+          <input type="datetime-local" class="form-control" value="2026-04-09T08:00">
+        </div>
+        <div class="col-md-7">
+          <label class="form-label fw-semibold">Pelaksana</label>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:6px 10px;min-height:38px;align-items:center;">
+            <span style="background:#dbeafe;color:#1d4ed8;border-radius:20px;padding:2px 10px;font-size:12px;font-weight:600;">Ahmad Fauzi <i class="bi bi-x" style="cursor:pointer;"></i></span>
+            <span style="background:#dbeafe;color:#1d4ed8;border-radius:20px;padding:2px 10px;font-size:12px;font-weight:600;">Budi Santoso <i class="bi bi-x" style="cursor:pointer;"></i></span>
+            <input type="text" placeholder="+ Tambah pelaksana..." style="border:none;outline:none;font-size:12px;background:transparent;flex:1;min-width:140px;">
+          </div>
+        </div>
+      </div>
+      <div class="row g-3 mt-1">
+        <div class="col-md-8">
+          <label class="form-label fw-semibold">Deskripsi / Keterangan</label>
+          <textarea rows="3" class="form-control" placeholder="Pemeliharaan rutin bulanan..."></textarea>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Foto Dokumentasi</label>
+          <input type="file" class="form-control">
+          <div class="form-text">Format: JPG, PNG. Maks 10MB.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 2. SPESIFIKASI & MODUL I/O ══ -->
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="section-title-bar">
+        <span class="bar" style="background:#10b981;"></span>
+        <span>Spesifikasi & Modul I/O</span>
+      </div>
+      <div class="row g-0">
+        <!-- Kiri -->
+        <div class="col-lg-6 pe-lg-4">
+          <table class="spek-table" style="width:100%;">
+            <tr><td>Merk</td><td><input type="text" placeholder="misal ABB, Siemens..."></td></tr>
+            <tr><td>Type</td><td><input type="text" placeholder="misal REC670..."></td></tr>
+            <tr><td>CPU</td><td><input type="text" placeholder="misal Intel Core i5..."></td></tr>
+            <tr><td>RAM</td><td><input type="text" placeholder="misal 8 GB DDR4..."></td></tr>
+            <tr><td>GPU</td><td><input type="text" placeholder="misal Onboard Intel..."></td></tr>
+            <tr><td>Storage Memory</td><td><input type="text" placeholder="misal SSD 256 GB..."></td></tr>
+            <tr><td>Firmware Version</td><td><input type="text" placeholder="misal v2.4.1.2..."></td></tr>
+            <tr><td>Configuration Version</td><td><input type="text" placeholder="misal v1.0.3..."></td></tr>
+            <tr><td>Maintenance IP</td><td><input type="text" placeholder="192.168.x.x/24"></td></tr>
+          </table>
+        </div>
+        <!-- Kanan -->
+        <div class="col-lg-6 ps-lg-4" style="border-left:1px solid #e2e8f0;">
+          <label class="form-label fw-semibold" style="font-size:12px;color:#475569;">
+            <i class="bi bi-grid-3x3 me-1"></i>Modul I/O / Card / Terminal yang Terpasang
+          </label>
+          <textarea rows="9" style="width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:8px;font-size:12.5px;" placeholder="Contoh:&#10;- Bay 1: IED BCU L1&#10;- Bay 2: IED BCU L2&#10;- Bay 3: Trafo 1&#10;- Card I/O: DI-16, DO-8&#10;- Terminal 1: 48VDC input&#10;- Terminal 2: 110VDC input"></textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 3. KONDISI PERALATAN ══ -->
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="section-title-bar">
+        <span class="bar" style="background:#f59e0b;"></span>
+        <span>Kondisi Peralatan</span>
+      </div>
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label fw-semibold" style="font-size:12px;">Server / Gateway</label>
+          <div class="radio-group">
+            <div><input type="radio" name="kondisi_server" id="ks1"> <label for="ks1">Bersih</label></div>
+            <div><input type="radio" name="kondisi_server" id="ks2"> <label for="ks2">Tidak Bersih</label></div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label fw-semibold" style="font-size:12px;">Panel</label>
+          <div class="radio-group">
+            <div><input type="radio" name="kondisi_panel" id="kp1"> <label for="kp1">Bersih</label></div>
+            <div><input type="radio" name="kondisi_panel" id="kp2"> <label for="kp2">Tidak Bersih</label></div>
+          </div>
+        </div>
+        <div class="col-md-3 col-6">
+          <label class="form-label fw-semibold" style="font-size:12px;">Temperatur Ruangan</label>
+          <div class="input-group input-group-sm">
+            <input type="number" class="form-control" placeholder="°C" step="0.1">
+            <span class="input-group-text">°C</span>
+          </div>
+        </div>
+        <div class="col-md-3 col-6">
+          <label class="form-label fw-semibold" style="font-size:12px;">Temperatur Peralatan</label>
+          <div class="input-group input-group-sm">
+            <input type="number" class="form-control" placeholder="°C" step="0.1">
+            <span class="input-group-text">°C</span>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label fw-semibold" style="font-size:12px;">Exhaust Fan</label>
+          <div class="radio-group flex-wrap">
+            <div><input type="radio" name="exhaust_fan" id="ef1"> <label for="ef1">Ada, Berfungsi</label></div>
+            <div><input type="radio" name="exhaust_fan" id="ef2"> <label for="ef2">Ada, Tidak Berfungsi</label></div>
+            <div><input type="radio" name="exhaust_fan" id="ef3"> <label for="ef3">Tidak Ada</label></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 4. PERIPHERAL PENDUKUNG ══ -->
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="section-title-bar">
+        <span class="bar" style="background:#8b5cf6;"></span>
+        <span>Peripheral Pendukung</span>
+      </div>
+      <div class="row g-3">
+        <div class="col-lg-7">
+          {% for item in [("Ethernet Switch","eth"), ("GPS","gps"), ("Ethernet to Serial","ets"), ("Router","rtr")] %}
+          <div class="peri-row">
+            <span class="peri-label">Ethernet Switch</span>
+            <div class="radio-group">
+              <div><input type="radio" name="p_eth"> <label class="ok-label">OK</label></div>
+              <div><input type="radio" name="p_eth"> <label class="alarm-label">Alarm</label></div>
+            </div>
+          </div>
+          {% endfor %}
+          <!-- static rows karena ini preview -->
+          <div class="peri-row">
+            <span class="peri-label">Ethernet Switch</span>
+            <div class="radio-group">
+              <div><input type="radio" name="p_eth" id="pe1"> <label for="pe1" class="ok-label">OK</label></div>
+              <div><input type="radio" name="p_eth" id="pe2"> <label for="pe2" class="alarm-label">Alarm</label></div>
+            </div>
+          </div>
+          <div class="peri-row">
+            <span class="peri-label">GPS</span>
+            <div class="radio-group">
+              <div><input type="radio" name="p_gps" id="pg1"> <label for="pg1" class="ok-label">OK</label></div>
+              <div><input type="radio" name="p_gps" id="pg2"> <label for="pg2" class="alarm-label">Alarm</label></div>
+            </div>
+          </div>
+          <div class="peri-row">
+            <span class="peri-label">Ethernet to Serial</span>
+            <div class="radio-group">
+              <div><input type="radio" name="p_ets" id="pes1"> <label for="pes1" class="ok-label">OK</label></div>
+              <div><input type="radio" name="p_ets" id="pes2"> <label for="pes2" class="alarm-label">Alarm</label></div>
+            </div>
+          </div>
+          <div class="peri-row" style="border-bottom:none;">
+            <span class="peri-label">Router</span>
+            <div class="radio-group">
+              <div><input type="radio" name="p_rtr" id="pr1"> <label for="pr1" class="ok-label">OK</label></div>
+              <div><input type="radio" name="p_rtr" id="pr2"> <label for="pr2" class="alarm-label">Alarm</label></div>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-5">
+          <div class="mb-3">
+            <label class="form-label fw-semibold" style="font-size:12px;">Jumlah Bay</label>
+            <input type="number" class="form-control form-control-sm" placeholder="Bay" min="0" style="max-width:120px;">
+          </div>
+          <div>
+            <label class="form-label fw-semibold" style="font-size:12px;">Keterangan</label>
+            <textarea rows="3" class="form-control form-control-sm" placeholder="Keterangan tambahan..."></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 5. PERFORMA PERALATAN ══ -->
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="section-title-bar">
+        <span class="bar" style="background:#06b6d4;"></span>
+        <span>Performa Peralatan</span>
+      </div>
+      <div class="row g-3 mb-3">
+        <div class="col-md-4">
+          <label class="form-label fw-semibold" style="font-size:12px;">CPU Terpakai</label>
+          <input type="text" class="form-control form-control-sm" placeholder="misal 45%">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold" style="font-size:12px;">RAM Terpakai</label>
+          <input type="text" class="form-control form-control-sm" placeholder="misal 60%">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold" style="font-size:12px;">Storage Terpakai</label>
+          <input type="text" class="form-control form-control-sm" placeholder="misal 30%">
+        </div>
+      </div>
+      <div class="peri-row">
+        <span class="peri-label" style="min-width:220px;">Indikasi Alarm / Error</span>
+        <div class="radio-group">
+          <div><input type="radio" name="ind_alarm" id="ia1"> <label for="ia1" class="ok-label">Tidak Ada</label></div>
+          <div><input type="radio" name="ind_alarm" id="ia2"> <label for="ia2" class="alarm-label">Ada</label></div>
+        </div>
+      </div>
+      <div class="peri-row">
+        <span class="peri-label" style="min-width:220px;">Komunikasi ke Master Station</span>
+        <div class="radio-group">
+          <div><input type="radio" name="komm_ms" id="km1"> <label for="km1" class="ok-label">OK</label></div>
+          <div><input type="radio" name="komm_ms" id="km2"> <label for="km2" class="alarm-label">Alarm</label></div>
+        </div>
+      </div>
+      <div class="peri-row">
+        <span class="peri-label" style="min-width:220px;">Komunikasi ke IED</span>
+        <div class="radio-group">
+          <div><input type="radio" name="komm_ied" id="ki1"> <label for="ki1" class="ok-label">OK</label></div>
+          <div><input type="radio" name="komm_ied" id="ki2"> <label for="ki2" class="alarm-label">Alarm</label></div>
+        </div>
+      </div>
+      <div class="peri-row" style="border-bottom:none;">
+        <span class="peri-label" style="min-width:220px;">Time Synchronization</span>
+        <div class="radio-group">
+          <div><input type="radio" name="time_sync" id="ts1"> <label for="ts1" class="ok-label">OK</label></div>
+          <div><input type="radio" name="time_sync" id="ts2"> <label for="ts2" class="alarm-label">NOK</label></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 6. POWER SUPPLY ══ -->
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="section-title-bar">
+        <span class="bar" style="background:#ef4444;"></span>
+        <span>Power Supply</span>
+      </div>
+      <div class="row g-4">
+        <!-- INVERTER -->
+        <div class="col-md-6">
+          <div class="ps-box">
+            <span class="badge-pill" style="background:#dbeafe;color:#1e40af;margin-bottom:12px;display:inline-block;">INVERTER</span>
+            <div class="mb-3">
+              <label class="form-label fw-semibold" style="font-size:12px;">Kondisi</label>
+              <div class="radio-group">
+                <div><input type="radio" name="inv_k" id="ik1"> <label for="ik1" class="ok-label">OK</label></div>
+                <div><input type="radio" name="inv_k" id="ik2"> <label for="ik2" class="alarm-label">Alarm</label></div>
+              </div>
+            </div>
+            <div class="row g-2">
+              <div class="col-6">
+                <label class="form-label mb-1" style="font-size:11px;color:#64748b;">Tegangan Input</label>
+                <div class="input-group input-group-sm"><input type="number" class="form-control" step="any" placeholder="V"><span class="input-group-text">V</span></div>
+              </div>
+              <div class="col-6">
+                <label class="form-label mb-1" style="font-size:11px;color:#64748b;">Arus Input</label>
+                <div class="input-group input-group-sm"><input type="number" class="form-control" step="any" placeholder="A"><span class="input-group-text">A</span></div>
+              </div>
+              <div class="col-6">
+                <label class="form-label mb-1" style="font-size:11px;color:#64748b;">Tegangan Output</label>
+                <div class="input-group input-group-sm"><input type="number" class="form-control" step="any" placeholder="V"><span class="input-group-text">V</span></div>
+              </div>
+              <div class="col-6">
+                <label class="form-label mb-1" style="font-size:11px;color:#64748b;">Arus Output</label>
+                <div class="input-group input-group-sm"><input type="number" class="form-control" step="any" placeholder="A"><span class="input-group-text">A</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- 110 VDC / 48 VDC -->
+        <div class="col-md-6">
+          <div class="ps-box">
+            <span class="badge-pill" style="background:#dcfce7;color:#166534;margin-bottom:12px;display:inline-block;">110 VDC / 48 VDC</span>
+            <div class="row g-2">
+              <div class="col-6">
+                <label class="form-label mb-1" style="font-size:11px;color:#64748b;">Tegangan Input</label>
+                <div class="input-group input-group-sm"><input type="number" class="form-control" step="any" placeholder="V"><span class="input-group-text">V</span></div>
+              </div>
+              <div class="col-6">
+                <label class="form-label mb-1" style="font-size:11px;color:#64748b;">Arus Input</label>
+                <div class="input-group input-group-sm"><input type="number" class="form-control" step="any" placeholder="A"><span class="input-group-text">A</span></div>
+              </div>
+              <div class="col-6">
+                <label class="form-label mb-1" style="font-size:11px;color:#64748b;">Tegangan Output</label>
+                <div class="input-group input-group-sm"><input type="number" class="form-control" step="any" placeholder="V"><span class="input-group-text">V</span></div>
+              </div>
+              <div class="col-6">
+                <label class="form-label mb-1" style="font-size:11px;color:#64748b;">Arus Output</label>
+                <div class="input-group input-group-sm"><input type="number" class="form-control" step="any" placeholder="A"><span class="input-group-text">A</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOMBOL -->
+  <div class="d-flex gap-2 justify-content-end mt-2 mb-5">
+    <a href="#" class="btn btn-outline-secondary">Batal</a>
+    <button class="btn btn-primary px-4">
+      <i class="bi bi-floppy me-1"></i>Simpan Maintenance
+    </button>
+  </div>
+
+</div>
+</body>
+</html>

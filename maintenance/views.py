@@ -1,8 +1,8 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from devices.permissions import require_can_edit, require_can_delete, is_viewer_only
-from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset, MaintenanceRTU
-from .forms import MaintenanceForm, MaintenancePLCForm, MaintenanceRouterForm, MaintenanceRadioForm, MaintenanceVoIPForm, MaintenanceMuxForm, MaintenanceRectifierForm, MaintenanceTeleproteksiForm, MaintenanceGensetForm, MaintenanceRTUForm
+from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset, MaintenanceRTU, MaintenanceSAS
+from .forms import MaintenanceForm, MaintenancePLCForm, MaintenanceRouterForm, MaintenanceRadioForm, MaintenanceVoIPForm, MaintenanceMuxForm, MaintenanceRectifierForm, MaintenanceTeleproteksiForm, MaintenanceGensetForm, MaintenanceRTUForm, MaintenanceSASForm
 from devices.models import Device, DeviceType
 from gangguan.models import Gangguan
 from inspection.models import InspectionCatuDaya
@@ -37,9 +37,43 @@ DEVICE_FORM_MAP = {
     'TELEPROTEKSI':        (MaintenanceTeleproteksiForm, 'maintenance/teleproteksi_form.html'),
     'GENSET':              (MaintenanceGensetForm,       'maintenance/genset_form.html'),
     'RTU':                 (MaintenanceRTUForm,          'maintenance/rtu_form.html'),
+    'SAS':                 (MaintenanceSASForm,          'maintenance/sas_form.html'),
+    'SERVER SCADA':        (MaintenanceSASForm,          'maintenance/sas_form.html'),
+    'GATEWAY SAS':         (MaintenanceSASForm,          'maintenance/sas_form.html'),
 }
 
 DEFAULT_TEMPLATE = 'maintenance/maintenance_form.html'
+
+
+def _build_sas_context(dform):
+    """Build extra context rows untuk template sas_form.html."""
+    if dform is None or dform.__class__.__name__ != 'MaintenanceSASForm':
+        return {}
+    return {
+        'spek_items': [
+            ('Merk',                 dform['spek_merk']),
+            ('Type',                 dform['spek_type']),
+            ('CPU',                  dform['spek_cpu']),
+            ('RAM',                  dform['spek_ram']),
+            ('GPU',                  dform['spek_gpu']),
+            ('Storage Memory',       dform['spek_storage']),
+            ('Firmware Version',     dform['spek_firmware']),
+            ('Configuration Version',dform['spek_config_ver']),
+            ('Maintenance IP',       dform['spek_ip']),
+        ],
+        'peri_ok_alarm_rows': [
+            (dform['peri_eth_switch'], 'Ethernet Switch'),
+            (dform['peri_gps'],        'GPS'),
+            (dform['peri_eth_serial'], 'Ethernet to Serial'),
+            (dform['peri_router'],     'Router'),
+        ],
+        'perf_status_rows': [
+            (dform['indikasi_alarm'], 'Indikasi Alarm / Error'),
+            (dform['komm_master'],    'Komunikasi ke Master Station'),
+            (dform['komm_ied'],       'Komunikasi ke IED'),
+            (dform['time_sync'],      'Time Synchronization'),
+        ],
+    }
 
 
 def _get_detail_form_config(device):
@@ -135,11 +169,14 @@ def maintenance_create(request, device_id):
             l = letter.lower()
             slot_fields.append((letter, dform['slot_' + l + '_modul'], dform['slot_' + l + '_isian']))
 
+    sas_ctx = _build_sas_context(dform)
+
     return render(request, template, {
         'maintenance_form': mform,
         'detail_form':      dform,
         'device':           device,
         'slot_fields':      slot_fields,
+        **sas_ctx,
     })
 
 
@@ -457,6 +494,8 @@ def maintenance_edit(request, pk):
                 detail_instance = maintenance.maintenancegenset
             elif detail_form_class.__name__ == 'MaintenanceRTUForm':
                 detail_instance = maintenance.maintenancertu
+            elif detail_form_class.__name__ == 'MaintenanceSASForm':
+                detail_instance = maintenance.maintenancesas
         except Exception:
             pass
 
@@ -491,6 +530,8 @@ def maintenance_edit(request, pk):
             l = letter.lower()
             slot_fields_edit.append((letter, dform['slot_' + l + '_modul'], dform['slot_' + l + '_isian']))
 
+    sas_ctx = _build_sas_context(dform)
+
     return render(request, edit_template, {
         'maintenance_form': mform,
         'detail_form':      dform,
@@ -499,6 +540,7 @@ def maintenance_edit(request, pk):
         'maintenance':      maintenance,
         'slot_fields':      slot_fields_edit,
         'pelaksana_names_json': json.dumps(maintenance.pelaksana_names or []),
+        **sas_ctx,
     })
 
 # ─────────────────────────────────────────────────────────────────────
@@ -1185,7 +1227,7 @@ def export_maintenance_pdf(request, pk):
 
     # ── Ambil detail sesuai jenis ──────────────────────────────────
     router_detail = plc_detail = radio_detail = None
-    voip_detail = mux_detail = rect_detail = tp_detail = genset_detail = rtu_detail = None
+    voip_detail = mux_detail = rect_detail = tp_detail = genset_detail = rtu_detail = sas_detail = None
 
     def _try(fn):
         try: return fn()
@@ -1209,6 +1251,8 @@ def export_maintenance_pdf(request, pk):
         genset_detail = _try(lambda: maintenance.maintenancegenset)
     elif device_kind == 'RTU':
         rtu_detail = _try(lambda: maintenance.maintenancertu)
+    elif device_kind in ('SAS', 'SERVER SCADA', 'GATEWAY SAS'):
+        sas_detail = _try(lambda: maintenance.maintenancesas)
 
     # Corrective detail
     corrective_detail = None
@@ -1518,6 +1562,46 @@ def export_maintenance_pdf(request, pk):
             'ps110_teg_supply': _g(rtu_detail, 'ps110_teg_supply'),
             'ps110_arus_supply':_g(rtu_detail, 'ps110_arus_supply'),
         } if rtu_detail else {},
+
+        'sas': {
+            'spek_merk':       _g(sas_detail, 'spek_merk', ''),
+            'spek_type':       _g(sas_detail, 'spek_type', ''),
+            'spek_cpu':        _g(sas_detail, 'spek_cpu', ''),
+            'spek_ram':        _g(sas_detail, 'spek_ram', ''),
+            'spek_gpu':        _g(sas_detail, 'spek_gpu', ''),
+            'spek_storage':    _g(sas_detail, 'spek_storage', ''),
+            'spek_firmware':   _g(sas_detail, 'spek_firmware', ''),
+            'spek_config_ver': _g(sas_detail, 'spek_config_ver', ''),
+            'spek_ip':         _g(sas_detail, 'spek_ip', ''),
+            'modul_io':        _g(sas_detail, 'modul_io', ''),
+            'kondisi_server':  _g(sas_detail, 'kondisi_server', ''),
+            'kondisi_panel':   _g(sas_detail, 'kondisi_panel', ''),
+            'temp_ruangan':    _g(sas_detail, 'temp_ruangan'),
+            'temp_peralatan':  _g(sas_detail, 'temp_peralatan'),
+            'exhaust_fan':     _g(sas_detail, 'exhaust_fan', ''),
+            'peri_eth_switch': _g(sas_detail, 'peri_eth_switch', ''),
+            'peri_gps':        _g(sas_detail, 'peri_gps', ''),
+            'peri_eth_serial': _g(sas_detail, 'peri_eth_serial', ''),
+            'peri_router':     _g(sas_detail, 'peri_router', ''),
+            'jumlah_bay':      _g(sas_detail, 'jumlah_bay'),
+            'peri_keterangan': _g(sas_detail, 'peri_keterangan', ''),
+            'perf_cpu':        _g(sas_detail, 'perf_cpu', ''),
+            'perf_ram':        _g(sas_detail, 'perf_ram', ''),
+            'perf_storage':    _g(sas_detail, 'perf_storage', ''),
+            'indikasi_alarm':  _g(sas_detail, 'indikasi_alarm', ''),
+            'komm_master':     _g(sas_detail, 'komm_master', ''),
+            'komm_ied':        _g(sas_detail, 'komm_ied', ''),
+            'time_sync':       _g(sas_detail, 'time_sync', ''),
+            'inv_kondisi':     _g(sas_detail, 'inv_kondisi', ''),
+            'inv_teg_input':   _g(sas_detail, 'inv_teg_input'),
+            'inv_arus_input':  _g(sas_detail, 'inv_arus_input'),
+            'inv_teg_output':  _g(sas_detail, 'inv_teg_output'),
+            'inv_arus_output': _g(sas_detail, 'inv_arus_output'),
+            'ps_teg_input':    _g(sas_detail, 'ps_teg_input'),
+            'ps_arus_input':   _g(sas_detail, 'ps_arus_input'),
+            'ps_teg_output':   _g(sas_detail, 'ps_teg_output'),
+            'ps_arus_output':  _g(sas_detail, 'ps_arus_output'),
+        } if sas_detail else {},
     }
 
     # ── Corrective detail dict ─────────────────────────────────────

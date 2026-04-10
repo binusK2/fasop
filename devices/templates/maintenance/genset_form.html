@@ -13,23 +13,7 @@
     {% endif %}
 </div>
 
-<!-- BANNER -->
-<div class="card mb-4" style="background:linear-gradient(135deg,#0f172a 0%,#14532d 100%);border:none;">
-    <div class="card-body py-3 px-4">
-        <div class="d-flex align-items-center gap-4 flex-wrap">
-            <div style="width:42px;height:42px;background:rgba(74,222,128,0.2);border-radius:10px;display:flex;align-items:center;justify-content:center;">
-                <i class="bi bi-lightning-charge-fill" style="font-size:20px;color:#86efac;"></i>
-            </div>
-            <div>
-                <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;">Perangkat</div>
-                <div style="font-size:16px;font-weight:700;color:#f1f5f9;">{{ device.nama }}</div>
-            </div>
-            <div class="vr" style="background:rgba(255,255,255,0.1);width:1px;align-self:stretch;"></div>
-            <div><div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;">Lokasi</div>
-            <div style="font-size:13px;color:#cbd5e1;">{{ device.lokasi|default:"—" }}</div></div>
-        </div>
-    </div>
-</div>
+{% include 'maintenance/_device_banner.html' with banner_icon='bi-lightning-charge-fill' banner_icon_color='#86efac' banner_icon_bg='rgba(134,239,172,0.2)' %}
 
 <form method="post" enctype="multipart/form-data" id="genset-form"
     {% if is_edit %}action="{% url 'maintenance_edit' maintenance.id %}"{% endif %}>

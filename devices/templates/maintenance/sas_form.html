@@ -1,0 +1,337 @@
+{% extends 'base.html' %}
+{% block title %}{% if is_edit %}Edit{% else %}Form{% endif %} Maintenance SAS — {{ device.nama }}{% endblock %}
+{% block page_title %}{% if is_edit %}Edit{% else %}Form{% endif %} Maintenance SAS{% endblock %}
+
+{% block content %}
+
+<div class="d-flex align-items-center gap-2 mb-3">
+    {% if is_edit %}
+    <a href="{% url 'maintenance_view' maintenance.id %}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Kembali ke Detail
+    </a>
+    {% else %}
+    <a href="{% url 'device_view' device.id %}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Kembali ke Perangkat
+    </a>
+    {% endif %}
+</div>
+
+{% include 'maintenance/_device_banner.html' with banner_icon='bi-diagram-3' banner_icon_color='#6ee7b7' banner_icon_bg='rgba(16,185,129,0.2)' %}
+
+<form method="post" enctype="multipart/form-data"
+    {% if is_edit %}action="{% url 'maintenance_edit' maintenance.id %}"{% endif %}>
+{% csrf_token %}
+
+<!-- ══ 1. INFORMASI MAINTENANCE ══ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-title-bar">
+            <span class="bar" style="background:#3b82f6;"></span>
+            <span>Informasi Maintenance</span>
+        </div>
+        <div class="row g-3 align-items-start">
+            <div class="col-md-2">
+                <label class="form-label fw-semibold">Jenis Maintenance</label>
+                <div style="display:flex;align-items:center;gap:6px;background:#eff6ff;
+                            color:#1d4ed8;border:1.5px solid #bfdbfe;border-radius:8px;
+                            padding:8px 12px;font-size:13px;font-weight:700;white-space:nowrap;">
+                    <i class="bi bi-shield-check" style="font-size:14px;"></i> Preventive
+                </div>
+                <input type="hidden" name="maintenance_type" value="Preventive">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-semibold">Tanggal</label>
+                {{ maintenance_form.date }}
+            </div>
+            {% include 'maintenance/_pelaksana_tag_input.html' %}
+        </div>
+        <div class="row g-3 mt-1">
+            <div class="col-md-8">
+                <label class="form-label fw-semibold">Deskripsi / Keterangan</label>
+                {{ maintenance_form.description }}
+            </div>
+            <div class="col-md-4">
+                <label class="form-label fw-semibold">Foto Dokumentasi</label>
+                {{ maintenance_form.photo }}
+                <div class="form-text">Format: JPG, PNG. Maks 10MB.</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ 2. SPESIFIKASI & MODUL I/O ══ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-title-bar">
+            <span class="bar" style="background:#10b981;"></span>
+            <span>Spesifikasi & Modul I/O</span>
+        </div>
+        <div class="row g-0">
+            <!-- Kiri: Spesifikasi -->
+            <div class="col-lg-6 pe-lg-3">
+                <table style="width:100%;border-collapse:collapse;">
+                    {% for label, field in spek_items %}
+                    <tr>
+                        <td style="padding:4px 8px 4px 0;font-size:12px;font-weight:600;color:#475569;white-space:nowrap;width:175px;">{{ label }}</td>
+                        <td style="padding:4px 0;">{{ field }}</td>
+                    </tr>
+                    {% endfor %}
+                </table>
+            </div>
+            <!-- Kanan: Modul I/O -->
+            <div class="col-lg-6 ps-lg-3 border-start-lg">
+                <label class="form-label fw-semibold" style="font-size:12px;color:#475569;">
+                    <i class="bi bi-grid-3x3 me-1"></i>Modul I/O / Card / Terminal yang Terpasang
+                </label>
+                {{ detail_form.modul_io }}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ 3. KONDISI PERALATAN ══ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-title-bar">
+            <span class="bar" style="background:#f59e0b;"></span>
+            <span>Kondisi Peralatan</span>
+        </div>
+        <div class="row g-3">
+            <!-- Server/Gateway -->
+            <div class="col-md-6">
+                <label class="form-label fw-semibold" style="font-size:12px;">Server / Gateway</label>
+                <div class="d-flex gap-3 align-items-center">
+                    {% for choice in detail_form.kondisi_server %}
+                    <div class="form-check form-check-inline mb-0">
+                        {{ choice.tag }}
+                        <label class="form-check-label" for="{{ choice.id_for_label }}" style="font-size:13px;">{{ choice.choice_label }}</label>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            <!-- Panel -->
+            <div class="col-md-6">
+                <label class="form-label fw-semibold" style="font-size:12px;">Panel</label>
+                <div class="d-flex gap-3 align-items-center">
+                    {% for choice in detail_form.kondisi_panel %}
+                    <div class="form-check form-check-inline mb-0">
+                        {{ choice.tag }}
+                        <label class="form-check-label" for="{{ choice.id_for_label }}" style="font-size:13px;">{{ choice.choice_label }}</label>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            <!-- Temperatur -->
+            <div class="col-md-3 col-6">
+                <label class="form-label fw-semibold" style="font-size:12px;">Temperatur Ruangan</label>
+                <div class="input-group input-group-sm">
+                    {{ detail_form.temp_ruangan }}
+                    <span class="input-group-text">°C</span>
+                </div>
+            </div>
+            <div class="col-md-3 col-6">
+                <label class="form-label fw-semibold" style="font-size:12px;">Temperatur Peralatan</label>
+                <div class="input-group input-group-sm">
+                    {{ detail_form.temp_peralatan }}
+                    <span class="input-group-text">°C</span>
+                </div>
+            </div>
+            <!-- Exhaust Fan -->
+            <div class="col-md-6">
+                <label class="form-label fw-semibold" style="font-size:12px;">Exhaust Fan</label>
+                <div class="d-flex gap-3 align-items-center flex-wrap">
+                    {% for choice in detail_form.exhaust_fan %}
+                    <div class="form-check form-check-inline mb-0">
+                        {{ choice.tag }}
+                        <label class="form-check-label" for="{{ choice.id_for_label }}" style="font-size:13px;">{{ choice.choice_label }}</label>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ 4. PERIPHERAL PENDUKUNG ══ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-title-bar">
+            <span class="bar" style="background:#8b5cf6;"></span>
+            <span>Peripheral Pendukung</span>
+        </div>
+        <div class="row g-3">
+            <div class="col-lg-7">
+                {% for field, label in peri_ok_alarm_rows %}
+                <div class="d-flex align-items-center gap-3 mb-2 py-1"
+                     style="border-bottom:1px solid #f1f5f9;">
+                    <span style="min-width:160px;font-size:12px;font-weight:600;color:#475569;">{{ label }}</span>
+                    <div class="d-flex gap-3">
+                        {% for choice in field %}
+                        <div class="form-check form-check-inline mb-0">
+                            {{ choice.tag }}
+                            <label class="form-check-label" for="{{ choice.id_for_label }}"
+                                style="font-size:12px;font-weight:600;
+                                {% if choice.choice_label == 'OK' %}color:#16a34a;{% else %}color:#dc2626;{% endif %}">
+                                {{ choice.choice_label }}
+                            </label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="col-lg-5">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" style="font-size:12px;">Jumlah Bay</label>
+                    {{ detail_form.jumlah_bay }}
+                </div>
+                <div>
+                    <label class="form-label fw-semibold" style="font-size:12px;">Keterangan</label>
+                    {{ detail_form.peri_keterangan }}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ 5. PERFORMA PERALATAN ══ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-title-bar">
+            <span class="bar" style="background:#06b6d4;"></span>
+            <span>Performa Peralatan</span>
+        </div>
+        <div class="row g-3 mb-3">
+            <div class="col-md-4">
+                <label class="form-label fw-semibold" style="font-size:12px;">CPU Terpakai</label>
+                {{ detail_form.perf_cpu }}
+            </div>
+            <div class="col-md-4">
+                <label class="form-label fw-semibold" style="font-size:12px;">RAM Terpakai</label>
+                {{ detail_form.perf_ram }}
+            </div>
+            <div class="col-md-4">
+                <label class="form-label fw-semibold" style="font-size:12px;">Storage Terpakai</label>
+                {{ detail_form.perf_storage }}
+            </div>
+        </div>
+        <!-- Status baris-baris -->
+        {% for field, label in perf_status_rows %}
+        <div class="d-flex align-items-center gap-3 mb-2 py-1"
+             style="border-bottom:1px solid #f1f5f9;">
+            <span style="min-width:220px;font-size:12px;font-weight:600;color:#475569;">{{ label }}</span>
+            <div class="d-flex gap-3">
+                {% for choice in field %}
+                <div class="form-check form-check-inline mb-0">
+                    {{ choice.tag }}
+                    <label class="form-check-label" for="{{ choice.id_for_label }}"
+                        style="font-size:12px;font-weight:600;
+                        {% if choice.choice_label == 'OK' or choice.choice_label == 'Tidak Ada' %}color:#16a34a;
+                        {% elif choice.choice_label == 'NOK' or choice.choice_label == 'Ada' or choice.choice_label == 'Alarm' %}color:#dc2626;
+                        {% endif %}">
+                        {{ choice.choice_label }}
+                    </label>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- ══ 6. POWER SUPPLY ══ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-title-bar">
+            <span class="bar" style="background:#ef4444;"></span>
+            <span>Power Supply</span>
+        </div>
+        <div class="row g-4">
+            <!-- INVERTER -->
+            <div class="col-md-6">
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px;">
+                    <div style="font-size:11px;font-weight:700;color:#1e40af;background:#dbeafe;
+                                padding:2px 10px;border-radius:20px;display:inline-block;margin-bottom:12px;">
+                        INVERTER
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold" style="font-size:12px;">Kondisi</label>
+                        <div class="d-flex gap-3">
+                            {% for choice in detail_form.inv_kondisi %}
+                            <div class="form-check form-check-inline mb-0">
+                                {{ choice.tag }}
+                                <label class="form-check-label" for="{{ choice.id_for_label }}"
+                                    style="font-size:12px;font-weight:600;
+                                    {% if choice.choice_label == 'OK' %}color:#16a34a;{% else %}color:#dc2626;{% endif %}">
+                                    {{ choice.choice_label }}
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <label class="form-label mb-1" style="font-size:11px;color:#64748b;">Tegangan Input</label>
+                            <div class="input-group input-group-sm">{{ detail_form.inv_teg_input }}<span class="input-group-text">V</span></div>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label mb-1" style="font-size:11px;color:#64748b;">Arus Input</label>
+                            <div class="input-group input-group-sm">{{ detail_form.inv_arus_input }}<span class="input-group-text">A</span></div>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label mb-1" style="font-size:11px;color:#64748b;">Tegangan Output</label>
+                            <div class="input-group input-group-sm">{{ detail_form.inv_teg_output }}<span class="input-group-text">V</span></div>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label mb-1" style="font-size:11px;color:#64748b;">Arus Output</label>
+                            <div class="input-group input-group-sm">{{ detail_form.inv_arus_output }}<span class="input-group-text">A</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- 110 VDC / 48 VDC -->
+            <div class="col-md-6">
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px;">
+                    <div style="font-size:11px;font-weight:700;color:#166534;background:#dcfce7;
+                                padding:2px 10px;border-radius:20px;display:inline-block;margin-bottom:12px;">
+                        110 VDC / 48 VDC
+                    </div>
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <label class="form-label mb-1" style="font-size:11px;color:#64748b;">Tegangan Input</label>
+                            <div class="input-group input-group-sm">{{ detail_form.ps_teg_input }}<span class="input-group-text">V</span></div>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label mb-1" style="font-size:11px;color:#64748b;">Arus Input</label>
+                            <div class="input-group input-group-sm">{{ detail_form.ps_arus_input }}<span class="input-group-text">A</span></div>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label mb-1" style="font-size:11px;color:#64748b;">Tegangan Output</label>
+                            <div class="input-group input-group-sm">{{ detail_form.ps_teg_output }}<span class="input-group-text">V</span></div>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label mb-1" style="font-size:11px;color:#64748b;">Arus Output</label>
+                            <div class="input-group input-group-sm">{{ detail_form.ps_arus_output }}<span class="input-group-text">A</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- TOMBOL SUBMIT -->
+<div class="d-flex gap-2 justify-content-end mt-2 mb-4">
+    {% if is_edit %}
+    <a href="{% url 'maintenance_view' maintenance.id %}" class="btn btn-outline-secondary">Batal</a>
+    {% else %}
+    <a href="{% url 'device_view' device.id %}" class="btn btn-outline-secondary">Batal</a>
+    {% endif %}
+    <button type="submit" class="btn btn-primary px-4">
+        <i class="bi bi-floppy me-1"></i>
+        {% if is_edit %}Simpan Perubahan{% else %}Simpan Maintenance{% endif %}
+    </button>
+</div>
+
+</form>
+{% endblock %}

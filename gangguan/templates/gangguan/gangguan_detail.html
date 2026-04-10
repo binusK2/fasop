@@ -781,17 +781,28 @@
                 {% csrf_token %}
                 <div class="mb-2">
                     <label style="font-size:11.5px;font-weight:600;color:#64748b;display:block;margin-bottom:5px;">Status Baru</label>
-                    <select name="status" class="form-select form-select-sm">
+                    <select name="status" id="statusSelect" class="form-select form-select-sm"
+                            onchange="toggleResolvedTime(this.value)">
                         <option value="open"        {% if gangguan.status == 'open' %}selected{% endif %}>Open</option>
                         <option value="in_progress" {% if gangguan.status == 'in_progress' %}selected{% endif %}>In Progress</option>
                         <option value="resolved"    {% if gangguan.status == 'resolved' %}selected{% endif %}>Resolved</option>
                         <option value="closed"      {% if gangguan.status == 'closed' %}selected{% endif %}>Closed</option>
                     </select>
                 </div>
+                <!-- Waktu Resolved — tampil hanya saat pilih Resolved/Closed -->
+                <div class="mb-2" id="resolvedTimeRow" style="display:none;">
+                    <label style="font-size:11.5px;font-weight:600;color:#16a34a;display:block;margin-bottom:5px;">
+                        <i class="bi bi-clock-history me-1"></i>Waktu Resolved
+                    </label>
+                    <input type="datetime-local" name="tanggal_resolved" id="tanggal_resolved"
+                           class="form-control form-control-sm"
+                           value="{{ gangguan.tanggal_resolved|date:'Y-m-d\TH:i'|default:'' }}">
+                    <div style="font-size:10.5px;color:#94a3b8;margin-top:3px;">Kosongkan untuk pakai waktu sekarang.</div>
+                </div>
                 <div class="mb-3">
                     <label style="font-size:11.5px;font-weight:600;color:#64748b;display:block;margin-bottom:5px;">Catatan</label>
                     <textarea name="catatan_penutupan" class="form-control form-control-sm"
-                              rows="3" placeholder="Catatan update status (opsional)…" style="resize:none;"></textarea>
+                              rows="3" placeholder="Catatan update status (opsional)…" style="resize:none;">{{ gangguan.catatan_penutupan }}</textarea>
                 </div>
                 <button type="submit" class="btn btn-sm btn-primary w-100">
                     <i class="bi bi-check-lg me-1"></i>Simpan Status
@@ -1229,5 +1240,27 @@ function showModal(teks) {
         ta.focus(); ta.select(); ta.setSelectionRange(0, 99999);
     }, 100);
 }
+
+function toggleResolvedTime(val) {
+    var row = document.getElementById('resolvedTimeRow');
+    var inp = document.getElementById('tanggal_resolved');
+    if (val === 'resolved' || val === 'closed') {
+        row.style.display = 'block';
+        // Pre-fill dengan waktu sekarang jika masih kosong
+        if (!inp.value) {
+            var now = new Date();
+            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+            inp.value = now.toISOString().slice(0, 16);
+        }
+    } else {
+        row.style.display = 'none';
+    }
+}
+
+// Jalankan saat load jika status sudah resolved/closed
+document.addEventListener('DOMContentLoaded', function () {
+    var sel = document.getElementById('statusSelect');
+    if (sel) toggleResolvedTime(sel.value);
+});
 </script>
 {% endblock %}

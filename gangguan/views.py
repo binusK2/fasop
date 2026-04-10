@@ -377,6 +377,18 @@ def gangguan_update_status(request, pk):
             catatan = request.POST.get('catatan_penutupan', '').strip()
             if catatan:
                 gangguan.catatan_penutupan = catatan
+            # Set waktu resolved dari input manual jika diisi
+            if new_status in ('resolved', 'closed'):
+                raw_waktu = request.POST.get('tanggal_resolved', '').strip()
+                if raw_waktu:
+                    from django.utils.dateparse import parse_datetime
+                    from django.utils import timezone as tz
+                    parsed = parse_datetime(raw_waktu)
+                    if parsed:
+                        if tz.is_naive(parsed):
+                            parsed = tz.make_aware(parsed)
+                        gangguan.tanggal_resolved = parsed
+                # Jika kosong, biarkan model.save() auto-set via timezone.now()
             gangguan.save()
 
             # Notif ke AM kalau gangguan resolved/closed
