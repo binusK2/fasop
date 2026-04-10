@@ -238,10 +238,10 @@ def _ctx_rectifier(data, ctx):
     RMES = [
         ('V Rectifier', r.get('rect1_v_rectifier'), 'V'),
         ('V Battery',   r.get('rect1_v_battery'),   'V'),
+        ('V Load',      r.get('rect1_v_load'),       'V'),
         ('Teg(+) GND',  r.get('rect1_teg_pos_ground'), 'V'),
         ('Teg(-) GND',  r.get('rect1_teg_neg_ground'), 'V'),
         ('V Dropper',   r.get('rect1_v_dropper'),   'V'),
-        ('V Load',      r.get('rect1_v_load'),       'V'),
         ('A Rectifier', r.get('rect1_a_rectifier'), 'A'),
         ('A Battery',   r.get('rect1_a_battery'),   'A'),
         ('A Load',      r.get('rect1_a_load'),       'A'),
