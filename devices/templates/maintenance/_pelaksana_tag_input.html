@@ -15,13 +15,22 @@
         <div id="pelaksana-tags"
              style="display:flex;flex-wrap:wrap;gap:5px 6px;margin-bottom:4px;"></div>
 
-        <input id="pelaksana-text-input" type="text"
-               placeholder="Ketik nama, tekan Enter…"
-               autocomplete="off"
-               style="border:none;outline:none;background:transparent;
-                      font-size:13px;width:100%;min-width:120px;" />
+        <div style="display:flex;gap:6px;align-items:center;">
+            <input id="pelaksana-text-input" type="text"
+                   placeholder="Ketik nama lalu ketuk +"
+                   autocomplete="off"
+                   inputmode="text"
+                   style="border:none;outline:none;background:transparent;
+                          font-size:13px;flex:1;min-width:0;" />
+            <button type="button" id="pelaksana-add-btn"
+                    style="flex-shrink:0;width:28px;height:28px;border-radius:50%;
+                           border:none;background:#3b82f6;color:#fff;
+                           font-size:18px;line-height:1;cursor:pointer;
+                           display:flex;align-items:center;justify-content:center;"
+                    title="Tambahkan nama">+</button>
+        </div>
     </div>
-    <div class="form-text">Ketik nama lalu tekan <kbd>Enter</kbd> untuk menambahkan.</div>
+    <div class="form-text">Ketik nama lalu ketuk <strong>+</strong> atau tekan <kbd>Enter</kbd>.</div>
 </div>
 
 {% if is_edit %}
@@ -36,15 +45,15 @@
 
 <script>
 (function () {
-    // Nilai awal saat edit
     var initial = [];
     {% if is_edit and pelaksana_names_json %}
     try { initial = JSON.parse('{{ pelaksana_names_json|escapejs }}'); } catch(e){}
     {% endif %}
 
-    var names      = initial.slice();
-    var tagsEl     = document.getElementById('pelaksana-tags');
-    var textInput  = document.getElementById('pelaksana-text-input');
+    var names       = initial.slice();
+    var tagsEl      = document.getElementById('pelaksana-tags');
+    var textInput   = document.getElementById('pelaksana-text-input');
+    var addBtn      = document.getElementById('pelaksana-add-btn');
     var hiddenInput = document.getElementById('id_pelaksana_names');
 
     function sync() {
@@ -80,23 +89,48 @@
         return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     }
 
+    function tryAdd() {
+        var val = textInput.value.replace(/\n/g, '').trim();
+        if (val) {
+            names.push(val);
+            textInput.value = '';
+            render();
+        }
+    }
+
+    // Tombol + (mobile-friendly)
+    addBtn.addEventListener('click', function () {
+        tryAdd();
+        textInput.focus();
+    });
+
+    // keydown — desktop & beberapa mobile
     textInput.addEventListener('keydown', function (e) {
         if (e.key === 'Enter') {
             e.preventDefault();
-            var val = textInput.value.trim();
-            if (val) {
-                names.push(val);
-                textInput.value = '';
-                render();
-            }
+            tryAdd();
         }
-        // Backspace saat input kosong → hapus tag terakhir
         if (e.key === 'Backspace' && textInput.value === '' && names.length) {
             names.pop();
             render();
         }
     });
 
-    render(); // tampilkan initial saat edit
+    // keyup — backup untuk mobile yang skip keydown
+    textInput.addEventListener('keyup', function (e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            tryAdd();
+        }
+    });
+
+    // input — Android yang mengirim newline sebagai karakter
+    textInput.addEventListener('input', function () {
+        if (textInput.value.indexOf('\n') !== -1) {
+            tryAdd();
+        }
+    });
+
+    render();
 })();
 </script>
