@@ -1867,15 +1867,25 @@ def maintenance_coverage(request):
     )
     last_maint_map = {row['device_id']: row['last_date'] for row in last_maint_qs}
 
+    # Last maintenance ID per device (for detail link)
+    last_id_map = {}
+    for m in (Maintenance.objects
+              .filter(device__in=devices_qs, date__year=year)
+              .order_by('device_id', '-date')
+              .values('device_id', 'id')):
+        if m['device_id'] not in last_id_map:
+            last_id_map[m['device_id']] = m['id']
+
     if selected_lokasi:
         # Drill-down: detail per lokasi
         lokasi_devices = devices_qs.filter(lokasi__iexact=selected_lokasi)
         device_rows = []
         for d in lokasi_devices:
             device_rows.append({
-                'device':        d,
-                'has_maintenance': d.id in maintained_ids,
-                'last_date':     last_maint_map.get(d.id),
+                'device':           d,
+                'has_maintenance':  d.id in maintained_ids,
+                'last_date':        last_maint_map.get(d.id),
+                'last_maint_id':    last_id_map.get(d.id),
             })
         return render(request, 'maintenance/coverage.html', {
             'device_rows':      device_rows,
