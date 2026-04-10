@@ -241,14 +241,15 @@ def _ctx_rectifier(data, ctx):
         ('Teg(+) GND',  r.get('rect1_teg_pos_ground'), 'V'),
         ('Teg(-) GND',  r.get('rect1_teg_neg_ground'), 'V'),
         ('V Dropper',   r.get('rect1_v_dropper'),   'V'),
+        ('V Load',      r.get('rect1_v_load'),       'V'),
         ('A Rectifier', r.get('rect1_a_rectifier'), 'A'),
         ('A Battery',   r.get('rect1_a_battery'),   'A'),
         ('A Load',      r.get('rect1_a_load'),       'A'),
     ]
     rect_rows = []
-    for i in range(0, len(RMES), 4):
+    for i in range(0, len(RMES), 3):
         row = []
-        for lbl, val, unit in RMES[i:i+4]:
+        for lbl, val, unit in RMES[i:i+3]:
             row.append({'text': lbl, 'is_label': True})
             row.append({'text': f"{val} {unit}" if val else '-', 'is_value': True})
         rect_rows.append(row)

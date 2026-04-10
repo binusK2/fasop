@@ -358,6 +358,7 @@ class MaintenanceRectifier(models.Model):
     rect1_teg_pos_ground = models.FloatField(null=True, blank=True, verbose_name='Rect1 Teg(+) Ground (V)')
     rect1_teg_neg_ground = models.FloatField(null=True, blank=True, verbose_name='Rect1 Teg(-) Ground (V)')
     rect1_v_dropper      = models.FloatField(null=True, blank=True, verbose_name='Rect1 Dropper (V)')
+    rect1_v_load         = models.FloatField(null=True, blank=True, verbose_name='Rect1 V Load (V)')
     rect1_a_rectifier    = models.FloatField(null=True, blank=True, verbose_name='Rect1 Arus Rectifier (A)')
     rect1_a_battery      = models.FloatField(null=True, blank=True, verbose_name='Rect1 Arus Battery (A)')
     rect1_a_load         = models.FloatField(null=True, blank=True, verbose_name='Rect1 Arus Load (A)')
