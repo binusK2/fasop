@@ -1,0 +1,70 @@
+{% extends 'maintenance/pdf/_base.html' %}
+{% block content %}
+
+<div class="sec">II.&nbsp;&nbsp;KONDISI PERALATAN</div>
+<table>
+    <tr>
+        <td class="lbl" style="width:25%;">Kondisi Fisik Perangkat</td>
+        <td class="{% if roip.kondisi_fisik == 'OK' %}ok{% elif roip.kondisi_fisik == 'NOK' %}nok{% else %}vg{% endif %}" style="width:25%;">{{ roip.kondisi_fisik|default:"-" }}</td>
+        <td class="lbl" style="width:25%;">NTP Server</td>
+        <td class="{% if roip.ntp_server == 'OK' %}ok{% elif roip.ntp_server == 'NOK' %}nok{% else %}vg{% endif %}" style="width:25%;">{{ roip.ntp_server|default:"-" }}</td>
+    </tr>
+    <tr>
+        <td class="lbl">Power Supply</td>
+        <td class="{% if roip.power_supply == 'OK' %}ok{% elif roip.power_supply == 'NOK' %}nok{% else %}vg{% endif %}">{{ roip.power_supply|default:"-" }}</td>
+        <td class="lbl">Memory Usage</td>
+        <td class="vb">{% if roip.memory_usage is not None %}{{ roip.memory_usage }} %{% else %}-{% endif %}</td>
+    </tr>
+</table>
+
+<div class="sec">III.&nbsp;&nbsp;KONFIG PERALATAN</div>
+<table>
+    <tr>
+        <td class="lbl" style="width:40%;">TX Volume Offset to the Transceiver</td>
+        <td class="vb" style="width:20%;">{% if roip.tx_volume_offset is not None %}{{ roip.tx_volume_offset }}{% else %}-{% endif %}</td>
+        <td class="vg" style="width:10%;">dB</td>
+        <td class="lbl" style="width:20%;">RX Volume Offset from the Transceiver</td>
+        <td class="vb">{% if roip.rx_volume_offset is not None %}{{ roip.rx_volume_offset }}{% else %}-{% endif %}</td>
+        <td class="vg">dB</td>
+    </tr>
+</table>
+
+<div class="two-col">
+    <div>
+        <div class="sec">IV.&nbsp;&nbsp;PTT CONTROL SETTING</div>
+        <table>
+            <tr><td class="lbl" style="width:55%;">Attack Time</td><td class="vb">{% if roip.ptt_attack_time is not None %}{{ roip.ptt_attack_time }}{% else %}-{% endif %}</td><td class="vg">ms</td></tr>
+            <tr class="alt"><td class="lbl">Release Time</td><td class="vb">{% if roip.ptt_release_time is not None %}{{ roip.ptt_release_time }}{% else %}-{% endif %}</td><td class="vg">ms</td></tr>
+            <tr><td class="lbl">Voice Delay</td><td class="vb">{% if roip.ptt_voice_delay is not None %}{{ roip.ptt_voice_delay }}{% else %}-{% endif %}</td><td class="vg">ms</td></tr>
+            <tr class="alt"><td class="lbl">VOX Threshold</td><td class="vb">{% if roip.ptt_vox_threshold is not None %}{{ roip.ptt_vox_threshold }}{% else %}-{% endif %}</td><td class="vg">%</td></tr>
+        </table>
+    </div>
+    <div>
+        <div class="sec">V.&nbsp;&nbsp;RECEIVE DETECTION SETTING</div>
+        <table>
+            <tr><td class="lbl" style="width:55%;">Attack Time</td><td class="vb">{% if roip.rx_attack_time is not None %}{{ roip.rx_attack_time }}{% else %}-{% endif %}</td><td class="vg">ms</td></tr>
+            <tr class="alt"><td class="lbl">Release Time</td><td class="vb">{% if roip.rx_release_time is not None %}{{ roip.rx_release_time }}{% else %}-{% endif %}</td><td class="vg">ms</td></tr>
+            <tr><td class="lbl">Voice Delay</td><td class="vb">{% if roip.rx_voice_delay is not None %}{{ roip.rx_voice_delay }}{% else %}-{% endif %}</td><td class="vg">ms</td></tr>
+            <tr class="alt"><td class="lbl">VOX Threshold</td><td class="vb">{% if roip.rx_vox_threshold is not None %}{{ roip.rx_vox_threshold }}{% else %}-{% endif %}</td><td class="vg">%</td></tr>
+        </table>
+    </div>
+</div>
+
+<div class="sec">VI.&nbsp;&nbsp;PENGUJIAN</div>
+<table>
+    <tr>
+        <td class="lbl" style="width:50%;">Test Fungsi Radio ke RoIP Master</td>
+        <td class="{% if roip.test_radio_master == 'OK' %}ok{% elif roip.test_radio_master == 'NOK' %}nok{% else %}vg{% endif %}" style="width:50%;">{{ roip.test_radio_master|default:"-" }}</td>
+    </tr>
+    <tr>
+        <td class="lbl">Test Ping ke RoIP Master</td>
+        <td class="{% if roip.test_ping_master == 'OK' %}ok{% elif roip.test_ping_master == 'NOK' %}nok{% else %}vg{% endif %}">{{ roip.test_ping_master|default:"-" }}</td>
+    </tr>
+</table>
+
+{% if roip.catatan %}
+<div class="sec">VII.&nbsp;&nbsp;CATATAN</div>
+<table><tr><td style="min-height:10mm;white-space:pre-wrap;">{{ roip.catatan }}</td></tr></table>
+{% endif %}
+
+{% endblock %}

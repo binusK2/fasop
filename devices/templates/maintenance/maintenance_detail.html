@@ -821,6 +821,10 @@
         {% include 'maintenance/sas_detail_section.html' %}
         {% endif %}
 
+        {% if roip_detail %}
+        {% include 'maintenance/roip_detail_section.html' %}
+        {% endif %}
+
         <!-- ═══════════════ DETAIL RTU ═══════════════ -->
         {% if rtu_detail %}
         <div class="card mb-3">
@@ -1095,7 +1099,7 @@
         {% endif %}
 
         <!-- Tidak ada detail khusus -->
-        {% if not plc_detail and not router_detail and not radio_detail and not voip_detail and not mux_detail and not rect_detail and not tp_detail and not genset_detail and not rtu_detail and not sas_detail %}
+        {% if not plc_detail and not router_detail and not radio_detail and not voip_detail and not mux_detail and not rect_detail and not tp_detail and not genset_detail and not rtu_detail and not sas_detail and not roip_detail %}
             {% if maintenance.maintenance_type == 'Corrective' and maintenance.corrective_detail %}
             {# Detail Corrective ditampilkan di sini, di dalam panel kanan #}
             {% with cd=maintenance.corrective_detail %}

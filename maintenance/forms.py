@@ -1,5 +1,5 @@
 from django import forms
-from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset, MaintenanceRTU, MaintenanceSAS
+from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset, MaintenanceRTU, MaintenanceSAS, MaintenanceRoIP
 
 
 # ─── Widget helpers ───────────────────────────────────────────────────
@@ -567,4 +567,35 @@ class MaintenanceSASForm(forms.ModelForm):
             'ps_arus_input':   forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': 'A'}),
             'ps_teg_output':   forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': 'V'}),
             'ps_arus_output':  forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': 'A'}),
+        }
+
+
+# ─────────────────────────────────────────────────────────────────────
+# FORM DETAIL RoIP
+# ─────────────────────────────────────────────────────────────────────
+class MaintenanceRoIPForm(forms.ModelForm):
+
+    _SEL = [('', '—'), ('OK', 'OK'), ('NOK', 'NOK')]
+
+    class Meta:
+        model   = MaintenanceRoIP
+        exclude = ['maintenance']
+        widgets = {
+            'kondisi_fisik':    forms.Select(choices=_SEL, attrs={'class': 'form-select'}),
+            'ntp_server':       forms.Select(choices=_SEL, attrs={'class': 'form-select'}),
+            'power_supply':     forms.Select(choices=_SEL, attrs={'class': 'form-select'}),
+            'memory_usage':     forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': '%'}),
+            'tx_volume_offset': forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'dB'}),
+            'rx_volume_offset': forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'dB'}),
+            'ptt_attack_time':   forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'ms'}),
+            'ptt_release_time':  forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'ms'}),
+            'ptt_voice_delay':   forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'ms'}),
+            'ptt_vox_threshold': forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': '%'}),
+            'rx_attack_time':   forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'ms'}),
+            'rx_release_time':  forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'ms'}),
+            'rx_voice_delay':   forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'ms'}),
+            'rx_vox_threshold': forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': '%'}),
+            'test_radio_master': forms.Select(choices=_SEL, attrs={'class': 'form-select'}),
+            'test_ping_master':  forms.Select(choices=_SEL, attrs={'class': 'form-select'}),
+            'catatan':           forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }
