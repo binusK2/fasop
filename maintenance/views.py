@@ -2288,6 +2288,24 @@ def catu_daya_dashboard(request):
                 'insp_exhaust_fan':     latest_insp.exhaust_fan or '',
             }
 
+        # ── Discharge curves dari inspeksi-inspeksi sebelumnya ──────────
+        discharge_history = []
+        for rec in list(all_records)[:-1]:   # semua kecuali latest, urut lama→baru
+            h_cells = rec.bat1_cells or []
+            h_vfloat = _vtotal_row_val(h_cells, 'v_float') or _sum_field(h_cells, 'v_float') or rec.bat1_v_total
+            h_actual = []
+            if h_vfloat:
+                h_actual.append({'t': -0.5, 'v': round(float(h_vfloat), 3)})
+            for _t, _field in [(0, 'vd_0'), (0.5, 'vd_half'), (1, 'vd_1'), (2, 'vd_2')]:
+                _v = _vtotal_row_val(h_cells, _field) or _sum_field(h_cells, _field)
+                if _v is not None:
+                    h_actual.append({'t': _t, 'v': _v})
+            if any(p['t'] >= 0 for p in h_actual):
+                discharge_history.append({
+                    'date': str(rec.maintenance.date)[:10],
+                    'actual': h_actual,
+                })
+
         devices_data.append({
             'device_id':      dev.id,
             'device_name':    dev.nama,
@@ -2311,7 +2329,8 @@ def catu_daya_dashboard(request):
             'bat_tipe':       latest.bat1_tipe or '-',
             'bat_kapasitas':  latest.bat1_kapasitas or '-',
             # historical series
-            'history':        history,
+            'history':           history,
+            'discharge_history': discharge_history,
             # inservice inspection
             **insp_data,
         })
