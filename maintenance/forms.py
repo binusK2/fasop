@@ -322,6 +322,7 @@ class MaintenanceRectifierForm(forms.ModelForm):
             'rect1_teg_pos_ground': forms.NumberInput(attrs={'class':'form-control','step':'any','placeholder':'V'}),
             'rect1_teg_neg_ground': forms.NumberInput(attrs={'class':'form-control','step':'any','placeholder':'V'}),
             'rect1_v_dropper':      forms.NumberInput(attrs={'class':'form-control','step':'any','placeholder':'V'}),
+            'rect1_v_load':         forms.NumberInput(attrs={'class':'form-control','step':'any','placeholder':'V'}),
             'rect1_a_rectifier':    forms.NumberInput(attrs={'class':'form-control','step':'any','placeholder':'A'}),
             'rect1_a_battery':      forms.NumberInput(attrs={'class':'form-control','step':'any','placeholder':'A'}),
             'rect1_a_load':         forms.NumberInput(attrs={'class':'form-control','step':'any','placeholder':'A'}),

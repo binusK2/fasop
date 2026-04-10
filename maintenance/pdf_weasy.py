@@ -33,20 +33,26 @@ _TEMPLATE_MAP = {
     'TELEPROTEKSI':        'maintenance/pdf/teleproteksi.html',
     'GENSET':              'maintenance/pdf/genset.html',
     'RTU':                 'maintenance/pdf/rtu.html',
+    'SAS':                 'maintenance/pdf/sas.html',
+    'SERVER SCADA':        'maintenance/pdf/sas.html',
+    'GATEWAY SAS':         'maintenance/pdf/sas.html',
 }
 
 _CORRECTIVE_TEMPLATE = 'maintenance/pdf/corrective.html'
 
 _TITLES = {
-    'ROUTER':      'Formulir Pemeliharaan Peralatan Router',
-    'SWITCH':      'Formulir Pemeliharaan Peralatan Switch',
-    'PLC':         'Formulir Pemeliharaan Peralatan PLC',
-    'RADIO':       'Formulir Pemeliharaan Peralatan Radio Komunikasi',
-    'VOIP':        'Formulir Pemeliharaan Peralatan VoIP',
-    'MULTIPLEXER': 'Formulir Pemeliharaan Peralatan Multiplexer',
-    'RECTIFIER':   'Formulir Pemeliharaan Peralatan Rectifier dan Battery',
-    'CATU DAYA':   'Formulir Pemeliharaan Peralatan Rectifier dan Battery',
-    'RTU':         'Formulir Pemeliharaan Peralatan RTU AK3',
+    'ROUTER':       'Formulir Pemeliharaan Peralatan Router',
+    'SWITCH':       'Formulir Pemeliharaan Peralatan Switch',
+    'PLC':          'Formulir Pemeliharaan Peralatan PLC',
+    'RADIO':        'Formulir Pemeliharaan Peralatan Radio Komunikasi',
+    'VOIP':         'Formulir Pemeliharaan Peralatan VoIP',
+    'MULTIPLEXER':  'Formulir Pemeliharaan Peralatan Multiplexer',
+    'RECTIFIER':    'Formulir Pemeliharaan Peralatan Rectifier dan Battery',
+    'CATU DAYA':    'Formulir Pemeliharaan Peralatan Rectifier dan Battery',
+    'RTU':          'Formulir Pemeliharaan Peralatan RTU AK3',
+    'SAS':          'Formulir Pemeliharaan Peralatan SAS / Server SCADA',
+    'SERVER SCADA': 'Formulir Pemeliharaan Peralatan Server SCADA',
+    'GATEWAY SAS':  'Formulir Pemeliharaan Peralatan Gateway SAS',
 }
 
 _CORRECTIVE_TITLE = 'Laporan Corrective Maintenance'
@@ -68,6 +74,9 @@ _DOC_CODES = {
     'VOIP':                '',
     'GENSET':              '',
     'RTU':                 '',
+    'SAS':                 '',
+    'SERVER SCADA':        '',
+    'GATEWAY SAS':         '',
 }
 
 
@@ -232,14 +241,15 @@ def _ctx_rectifier(data, ctx):
         ('Teg(+) GND',  r.get('rect1_teg_pos_ground'), 'V'),
         ('Teg(-) GND',  r.get('rect1_teg_neg_ground'), 'V'),
         ('V Dropper',   r.get('rect1_v_dropper'),   'V'),
+        ('V Load',      r.get('rect1_v_load'),       'V'),
         ('A Rectifier', r.get('rect1_a_rectifier'), 'A'),
         ('A Battery',   r.get('rect1_a_battery'),   'A'),
         ('A Load',      r.get('rect1_a_load'),       'A'),
     ]
     rect_rows = []
-    for i in range(0, len(RMES), 4):
+    for i in range(0, len(RMES), 3):
         row = []
-        for lbl, val, unit in RMES[i:i+4]:
+        for lbl, val, unit in RMES[i:i+3]:
             row.append({'text': lbl, 'is_label': True})
             row.append({'text': f"{val} {unit}" if val else '-', 'is_value': True})
         rect_rows.append(row)
@@ -418,6 +428,15 @@ def _ctx_rtu(data, ctx):
 
 
 _CTX_BUILDERS['RTU'] = _ctx_rtu
+
+
+def _ctx_sas(data, ctx):
+    ctx.update({'sas': data.get('sas', {})})
+
+
+_CTX_BUILDERS['SAS'] = _ctx_sas
+_CTX_BUILDERS['SERVER SCADA'] = _ctx_sas
+_CTX_BUILDERS['GATEWAY SAS'] = _ctx_sas
 
 
 def _ctx_corrective(data, ctx):

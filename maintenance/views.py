@@ -230,6 +230,7 @@ def maintenance_detail(request, pk):
     tp_detail     = None
     genset_detail = None
     rtu_detail    = None
+    sas_detail    = None
 
     if device_type == 'PLC':
         try:
@@ -283,6 +284,12 @@ def maintenance_detail(request, pk):
         try:
             rtu_detail = maintenance.maintenancertu
         except MaintenanceRTU.DoesNotExist:
+            pass
+
+    elif device_type in ('SAS', 'SERVER SCADA', 'GATEWAY SAS'):
+        try:
+            sas_detail = maintenance.maintenancesas
+        except MaintenanceSAS.DoesNotExist:
             pass
 
     # Checklist peralatan terpasang untuk template radio
@@ -409,7 +416,7 @@ def maintenance_detail(request, pk):
         'rect_detail':      rect_detail,
         'rect_list':        rect_list,
         'bat_list':         bat_list,
-        'rect_v_list':      [('Rectifier', rect_detail.rect1_v_rectifier if rect_detail else None, 'V'), ('Battery', rect_detail.rect1_v_battery if rect_detail else None, 'V'), ('Teg(+) GND', rect_detail.rect1_teg_pos_ground if rect_detail else None, 'V'), ('Teg(-) GND', rect_detail.rect1_teg_neg_ground if rect_detail else None, 'V'), ('Dropper', rect_detail.rect1_v_dropper if rect_detail else None, 'V')] if rect_detail else [],
+        'rect_v_list':      [('Rectifier', rect_detail.rect1_v_rectifier if rect_detail else None, 'V'), ('Battery', rect_detail.rect1_v_battery if rect_detail else None, 'V'), ('Teg(+) GND', rect_detail.rect1_teg_pos_ground if rect_detail else None, 'V'), ('Teg(-) GND', rect_detail.rect1_teg_neg_ground if rect_detail else None, 'V'), ('Dropper', rect_detail.rect1_v_dropper if rect_detail else None, 'V'), ('V Load', rect_detail.rect1_v_load if rect_detail else None, 'V')] if rect_detail else [],
         'rect_a_list':      [('Rectifier', rect_detail.rect1_a_rectifier if rect_detail else None), ('Battery', rect_detail.rect1_a_battery if rect_detail else None), ('Load', rect_detail.rect1_a_load if rect_detail else None)] if rect_detail else [],
         'bat_kondisi_list': [('Kabel Battery', rect_detail.bat1_kondisi_kabel if rect_detail else ''), ('Mur & Baut', rect_detail.bat1_kondisi_mur_baut if rect_detail else ''), ('Sel & Rak', rect_detail.bat1_kondisi_sel_rak if rect_detail else '')] if rect_detail else [],
         'radio_checklist':  radio_checklist,
@@ -440,6 +447,28 @@ def maintenance_detail(request, pk):
         ] if tp_detail else [],
         'genset_detail': genset_detail,
         'rtu_detail':    rtu_detail,
+        'sas_detail':    sas_detail,
+        # (label, val, ok_val, nok_val)
+        'sas_kondisi_rows': [
+            ('Kondisi Server/Gateway', sas_detail.kondisi_server,  'BERSIH', 'TIDAK BERSIH'),
+            ('Kondisi Panel',          sas_detail.kondisi_panel,   'BERSIH', 'TIDAK BERSIH'),
+            ('Exhaust Fan',            sas_detail.exhaust_fan,     'ADA, BERFUNGSI', 'ADA, TIDAK BERFUNGSI'),
+            ('Indikasi Alarm/Error',   sas_detail.indikasi_alarm,  'TIDAK ADA', 'ADA'),
+            ('Komm. Master Station',   sas_detail.komm_master,     'OK', 'ALARM'),
+            ('Komm. IED',              sas_detail.komm_ied,        'OK', 'ALARM'),
+            ('Time Synchronization',   sas_detail.time_sync,       'OK', 'NOK'),
+        ] if sas_detail else [],
+        'sas_peri_rows': [
+            ('Ethernet Switch', sas_detail.peri_eth_switch),
+            ('GPS',             sas_detail.peri_gps),
+            ('Eth to Serial',   sas_detail.peri_eth_serial),
+            ('Router',          sas_detail.peri_router),
+        ] if sas_detail else [],
+        'sas_perf_rows': [
+            ('CPU Terpakai',     sas_detail.perf_cpu),
+            ('RAM Terpakai',     sas_detail.perf_ram),
+            ('Storage Terpakai', sas_detail.perf_storage),
+        ] if sas_detail else [],
         'batere_list': [
             ('Air Accu',       genset_detail.air_accu        if genset_detail else None, 'mm'),
             ('Teg. Batere',    genset_detail.tegangan_batere if genset_detail else None, 'VDC'),
@@ -1442,6 +1471,7 @@ def export_maintenance_pdf(request, pk):
             'rect1_teg_pos_ground':_g(rect_detail, 'rect1_teg_pos_ground'),
             'rect1_teg_neg_ground':_g(rect_detail, 'rect1_teg_neg_ground'),
             'rect1_v_dropper':     _g(rect_detail, 'rect1_v_dropper'),
+            'rect1_v_load':        _g(rect_detail, 'rect1_v_load'),
             'rect1_a_rectifier':   _g(rect_detail, 'rect1_a_rectifier'),
             'rect1_a_battery':     _g(rect_detail, 'rect1_a_battery'),
             'rect1_a_load':        _g(rect_detail, 'rect1_a_load'),
