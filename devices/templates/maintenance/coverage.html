@@ -85,10 +85,17 @@
                 </td>
 
                 <td style="text-align:center;padding:14px 12px;">
-                    <a href="{% url 'maintenance_list' %}?lokasi={{ row.device.lokasi }}"
-                       class="btn btn-sm btn-outline-primary" style="border-radius:8px;padding:4px 10px;font-size:12px;">
-                        <i class="bi bi-list-ul me-1"></i>Lihat Har
+                    {% if row.has_maintenance %}
+                    <a href="{% url 'maintenance_view' row.last_maint_id %}"
+                       style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:#1d4ed8;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:5px 12px;text-decoration:none;white-space:nowrap;">
+                        <i class="bi bi-file-earmark-text" style="font-size:12px;"></i>Lihat Hasil HAR
                     </a>
+                    {% else %}
+                    <a href="{% url 'maintenance_add_device' row.device.id %}?lokasi={{ row.device.lokasi|urlencode }}"
+                       style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:#065f46;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:5px 12px;text-decoration:none;white-space:nowrap;">
+                        <i class="bi bi-plus-circle" style="font-size:12px;"></i>Catat Pemeliharaan
+                    </a>
+                    {% endif %}
                 </td>
             </tr>
             {% empty %}
