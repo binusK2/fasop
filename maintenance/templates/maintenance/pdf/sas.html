@@ -1,0 +1,144 @@
+{% extends 'maintenance/pdf/_base.html' %}
+{% block extra_css %}
+.bersih { background:#DCFCE7; color:#166534; font-weight:bold; text-align:center; }
+.kotor  { background:#FEE2E2; color:#991B1B; font-weight:bold; text-align:center; }
+.alarm  { background:#FEE2E2; color:#991B1B; font-weight:bold; text-align:center; }
+.ada    { background:#DCFCE7; color:#166534; font-weight:bold; text-align:center; }
+.tdk    { background:#FEF9C3; color:#854D0E; font-weight:bold; text-align:center; }
+.mn     { font-family:Courier,monospace; font-weight:bold; text-align:right; padding-right:4pt; }
+{% endblock %}
+
+{% block content %}
+
+{# ──────────────────────────────────────────────────────── #}
+{# II. SPESIFIKASI PERALATAN                               #}
+{# ──────────────────────────────────────────────────────── #}
+<div class="sec">II.&nbsp;&nbsp;SPESIFIKASI PERALATAN</div>
+<div class="two-col">
+    <div>
+        <table>
+            <tr><td class="lbl" style="width:40%;">Merk</td><td>{{ sas.spek_merk|default:"-" }}</td></tr>
+            <tr class="alt"><td class="lbl">Type</td><td>{{ sas.spek_type|default:"-" }}</td></tr>
+            <tr><td class="lbl">CPU</td><td>{{ sas.spek_cpu|default:"-" }}</td></tr>
+            <tr class="alt"><td class="lbl">RAM</td><td>{{ sas.spek_ram|default:"-" }}</td></tr>
+            <tr><td class="lbl">GPU</td><td>{{ sas.spek_gpu|default:"-" }}</td></tr>
+            <tr class="alt"><td class="lbl">Storage</td><td>{{ sas.spek_storage|default:"-" }}</td></tr>
+            <tr><td class="lbl">Firmware Ver.</td><td>{{ sas.spek_firmware|default:"-" }}</td></tr>
+            <tr class="alt"><td class="lbl">Config Ver.</td><td>{{ sas.spek_config_ver|default:"-" }}</td></tr>
+            <tr><td class="lbl">Maintenance IP</td><td>{{ sas.spek_ip|default:"-" }}</td></tr>
+        </table>
+    </div>
+    <div>
+        <table style="height:100%;">
+            <tr style="height:100%;"><td class="lbl" style="width:40%;vertical-align:top;">Modul I/O / Card</td>
+                <td style="vertical-align:top;white-space:pre-wrap;">{{ sas.modul_io|default:"-" }}</td></tr>
+        </table>
+    </div>
+</div>
+
+{# ──────────────────────────────────────────────────────── #}
+{# III. KONDISI PERALATAN                                  #}
+{# ──────────────────────────────────────────────────────── #}
+<div class="sec">III.&nbsp;&nbsp;KONDISI PERALATAN</div>
+<table>
+    <tr>
+        <td class="lbl" style="width:25%;">Kondisi Server/Gateway</td>
+        <td class="{% if sas.kondisi_server == 'BERSIH' %}bersih{% elif sas.kondisi_server %}kotor{% else %}vg{% endif %}" style="width:25%;">{{ sas.kondisi_server|default:"-" }}</td>
+        <td class="lbl" style="width:25%;">Kondisi Panel</td>
+        <td class="{% if sas.kondisi_panel == 'BERSIH' %}bersih{% elif sas.kondisi_panel %}kotor{% else %}vg{% endif %}" style="width:25%;">{{ sas.kondisi_panel|default:"-" }}</td>
+    </tr>
+    <tr>
+        <td class="lbl">Temperatur Ruangan</td>
+        <td class="mn">{% if sas.temp_ruangan %}{{ sas.temp_ruangan }} °C{% else %}-{% endif %}</td>
+        <td class="lbl">Temperatur Peralatan</td>
+        <td class="mn">{% if sas.temp_peralatan %}{{ sas.temp_peralatan }} °C{% else %}-{% endif %}</td>
+    </tr>
+    <tr>
+        <td class="lbl">Exhaust Fan</td>
+        <td class="{% if sas.exhaust_fan == 'ADA, BERFUNGSI' %}bersih{% elif sas.exhaust_fan == 'ADA, TIDAK BERFUNGSI' %}alarm{% elif sas.exhaust_fan %}vg{% else %}vg{% endif %}" colspan="3">{{ sas.exhaust_fan|default:"-" }}</td>
+    </tr>
+</table>
+
+{# ──────────────────────────────────────────────────────── #}
+{# IV. PERIPHERAL PENDUKUNG                                #}
+{# ──────────────────────────────────────────────────────── #}
+<div class="sec">IV.&nbsp;&nbsp;PERIPHERAL PENDUKUNG</div>
+<table>
+    <tr>
+        <td class="lbl" style="width:25%;">Ethernet Switch</td>
+        <td class="{% if sas.peri_eth_switch == 'OK' %}ok{% elif sas.peri_eth_switch == 'ALARM' %}alarm{% else %}vg{% endif %}" style="width:25%;">{{ sas.peri_eth_switch|default:"-" }}</td>
+        <td class="lbl" style="width:25%;">GPS</td>
+        <td class="{% if sas.peri_gps == 'OK' %}ok{% elif sas.peri_gps == 'ALARM' %}alarm{% else %}vg{% endif %}" style="width:25%;">{{ sas.peri_gps|default:"-" }}</td>
+    </tr>
+    <tr>
+        <td class="lbl">Ethernet to Serial</td>
+        <td class="{% if sas.peri_eth_serial == 'OK' %}ok{% elif sas.peri_eth_serial == 'ALARM' %}alarm{% else %}vg{% endif %}">{{ sas.peri_eth_serial|default:"-" }}</td>
+        <td class="lbl">Router</td>
+        <td class="{% if sas.peri_router == 'OK' %}ok{% elif sas.peri_router == 'ALARM' %}alarm{% else %}vg{% endif %}">{{ sas.peri_router|default:"-" }}</td>
+    </tr>
+    <tr>
+        <td class="lbl">Jumlah Bay</td>
+        <td class="mn">{{ sas.jumlah_bay|default:"-" }}</td>
+        <td class="lbl">Keterangan</td>
+        <td>{{ sas.peri_keterangan|default:"-" }}</td>
+    </tr>
+</table>
+
+{# ──────────────────────────────────────────────────────── #}
+{# V. PERFORMA PERALATAN                                   #}
+{# ──────────────────────────────────────────────────────── #}
+<div class="sec">V.&nbsp;&nbsp;PERFORMA PERALATAN</div>
+<table>
+    <tr>
+        <td class="lbl" style="width:25%;">CPU Terpakai</td>
+        <td class="mn" style="width:25%;">{{ sas.perf_cpu|default:"-" }}</td>
+        <td class="lbl" style="width:25%;">RAM Terpakai</td>
+        <td class="mn" style="width:25%;">{{ sas.perf_ram|default:"-" }}</td>
+    </tr>
+    <tr>
+        <td class="lbl">Storage Terpakai</td>
+        <td class="mn">{{ sas.perf_storage|default:"-" }}</td>
+        <td class="lbl">Indikasi Alarm / Error</td>
+        <td class="{% if sas.indikasi_alarm == 'TIDAK ADA' %}ok{% elif sas.indikasi_alarm == 'ADA' %}alarm{% else %}vg{% endif %}">{{ sas.indikasi_alarm|default:"-" }}</td>
+    </tr>
+    <tr>
+        <td class="lbl">Komunikasi ke Master Station</td>
+        <td class="{% if sas.komm_master == 'OK' %}ok{% elif sas.komm_master == 'ALARM' %}alarm{% else %}vg{% endif %}">{{ sas.komm_master|default:"-" }}</td>
+        <td class="lbl">Komunikasi ke IED</td>
+        <td class="{% if sas.komm_ied == 'OK' %}ok{% elif sas.komm_ied == 'ALARM' %}alarm{% else %}vg{% endif %}">{{ sas.komm_ied|default:"-" }}</td>
+    </tr>
+    <tr>
+        <td class="lbl">Time Synchronization</td>
+        <td class="{% if sas.time_sync == 'OK' %}ok{% elif sas.time_sync == 'NOK' %}nok{% else %}vg{% endif %}">{{ sas.time_sync|default:"-" }}</td>
+        <td></td><td></td>
+    </tr>
+</table>
+
+{# ──────────────────────────────────────────────────────── #}
+{# VI. POWER SUPPLY                                        #}
+{# ──────────────────────────────────────────────────────── #}
+<div class="sec">VI.&nbsp;&nbsp;POWER SUPPLY</div>
+<div class="two-col">
+    <div>
+        <table>
+            <tr><th colspan="3" style="background:#2563EB;color:#fff;text-align:center;">Inverter &nbsp;
+                <span class="{% if sas.inv_kondisi == 'OK' %}ok{% elif sas.inv_kondisi == 'ALARM' %}alarm{% endif %}" style="font-size:6.5pt;padding:0 4pt;border-radius:3pt;">{{ sas.inv_kondisi|default:"-" }}</span>
+            </th></tr>
+            <tr><td class="lbl" style="width:55%;">Tegangan Input</td><td class="mn">{% if sas.inv_teg_input %}{{ sas.inv_teg_input }}{% else %}-{% endif %}</td><td class="vg">V</td></tr>
+            <tr class="alt"><td class="lbl">Arus Input</td><td class="mn">{% if sas.inv_arus_input %}{{ sas.inv_arus_input }}{% else %}-{% endif %}</td><td class="vg">A</td></tr>
+            <tr><td class="lbl">Tegangan Output</td><td class="mn">{% if sas.inv_teg_output %}{{ sas.inv_teg_output }}{% else %}-{% endif %}</td><td class="vg">V</td></tr>
+            <tr class="alt"><td class="lbl">Arus Output</td><td class="mn">{% if sas.inv_arus_output %}{{ sas.inv_arus_output }}{% else %}-{% endif %}</td><td class="vg">A</td></tr>
+        </table>
+    </div>
+    <div>
+        <table>
+            <tr><th colspan="3" style="background:#166534;color:#fff;text-align:center;">110 VDC / 48 VDC Power Supply</th></tr>
+            <tr><td class="lbl" style="width:55%;">Tegangan Input</td><td class="mn">{% if sas.ps_teg_input %}{{ sas.ps_teg_input }}{% else %}-{% endif %}</td><td class="vg">V</td></tr>
+            <tr class="alt"><td class="lbl">Arus Input</td><td class="mn">{% if sas.ps_arus_input %}{{ sas.ps_arus_input }}{% else %}-{% endif %}</td><td class="vg">A</td></tr>
+            <tr><td class="lbl">Tegangan Output</td><td class="mn">{% if sas.ps_teg_output %}{{ sas.ps_teg_output }}{% else %}-{% endif %}</td><td class="vg">V</td></tr>
+            <tr class="alt"><td class="lbl">Arus Output</td><td class="mn">{% if sas.ps_arus_output %}{{ sas.ps_arus_output }}{% else %}-{% endif %}</td><td class="vg">A</td></tr>
+        </table>
+    </div>
+</div>
+
+{% endblock %}
