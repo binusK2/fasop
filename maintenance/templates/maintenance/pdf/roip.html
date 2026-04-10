@@ -21,11 +21,23 @@
 <table>
     <tr>
         <td class="lbl" style="width:40%;">TX Volume Offset to the Transceiver</td>
-        <td class="vb" style="width:20%;">{% if roip.tx_volume_offset is not None %}{{ roip.tx_volume_offset }}{% else %}-{% endif %}</td>
-        <td class="vg" style="width:10%;">dB</td>
-        <td class="lbl" style="width:20%;">RX Volume Offset from the Transceiver</td>
+        <td class="vb" style="width:15%;">{% if roip.tx_volume_offset is not None %}{{ roip.tx_volume_offset }}{% else %}-{% endif %}</td>
+        <td class="vg" style="width:5%;">dB</td>
+        <td class="lbl" style="width:30%;">RX Volume Offset from the Transceiver</td>
         <td class="vb">{% if roip.rx_volume_offset is not None %}{{ roip.rx_volume_offset }}{% else %}-{% endif %}</td>
         <td class="vg">dB</td>
+    </tr>
+    <tr class="alt">
+        <td class="lbl">Bridge Connection Source</td>
+        <td class="vb" colspan="2">{{ roip.bridge_conn_source|default:"-" }}</td>
+        <td class="lbl">Bridge Connection Destination</td>
+        <td class="vb" colspan="2">{{ roip.bridge_conn_destination|default:"-" }}</td>
+    </tr>
+    <tr>
+        <td class="lbl">Destination Port Number</td>
+        <td class="vb" colspan="2">{{ roip.dest_port_number|default:"-" }}</td>
+        <td class="lbl">Source Port Number</td>
+        <td class="vb" colspan="2">{{ roip.source_port_number|default:"-" }}</td>
     </tr>
 </table>
 
@@ -54,11 +66,12 @@
 <table>
     <tr>
         <td class="lbl" style="width:50%;">Test Fungsi Radio ke RoIP Master</td>
-        <td class="{% if roip.test_radio_master == 'OK' %}ok{% elif roip.test_radio_master == 'NOK' %}nok{% else %}vg{% endif %}" style="width:50%;">{{ roip.test_radio_master|default:"-" }}</td>
+        <td class="{% if roip.test_radio_master == 'OK' %}ok{% elif roip.test_radio_master == 'NOK' %}nok{% else %}vg{% endif %}" style="width:30%;">{{ roip.test_radio_master|default:"-" }}</td>
     </tr>
-    <tr>
+    <tr class="alt">
         <td class="lbl">Test Ping ke RoIP Master</td>
-        <td class="{% if roip.test_ping_master == 'OK' %}ok{% elif roip.test_ping_master == 'NOK' %}nok{% else %}vg{% endif %}">{{ roip.test_ping_master|default:"-" }}</td>
+        <td class="vb">{% if roip.test_ping_master is not None %}{{ roip.test_ping_master }}{% else %}-{% endif %}</td>
+        <td class="vg">ms</td>
     </tr>
 </table>
 

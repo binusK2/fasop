@@ -115,6 +115,32 @@
                 </div>
             </div>
         </div>
+        <div class="row g-3 mt-1">
+            <div class="col-md-4">
+                <div class="measure-card">
+                    <div class="measure-label">Bridge Connection Source</div>
+                    {{ detail_form.bridge_conn_source }}
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="measure-card">
+                    <div class="measure-label">Bridge Connection Destination</div>
+                    {{ detail_form.bridge_conn_destination }}
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="measure-card">
+                    <div class="measure-label">Destination Port Number</div>
+                    {{ detail_form.dest_port_number }}
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="measure-card">
+                    <div class="measure-label">Source Port Number</div>
+                    {{ detail_form.source_port_number }}
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -196,13 +222,19 @@
         <div class="section-title-bar">
             <span class="bar" style="background:#ef4444;"></span>
             <span>Pengujian</span>
-            <span style="font-size:11px;color:#94a3b8;margin-left:4px;">— Pilih OK / NOK</span>
         </div>
-        <div class="row g-2" id="pengujian-container"></div>
+        <div class="row g-2 mb-3" id="pengujian-container"></div>
+        <div class="row g-3">
+            <div class="col-md-3">
+                <div class="measure-card">
+                    <div class="measure-label">Test Ping ke RoIP Master</div>
+                    <div class="input-group">{{ detail_form.test_ping_master }}<span class="input-group-text measure-unit">ms</span></div>
+                </div>
+            </div>
+        </div>
         <!-- Hidden Django select fields -->
         <div style="display:none;">
             <div id="field-test_radio_master">{{ detail_form.test_radio_master }}</div>
-            <div id="field-test_ping_master">{{ detail_form.test_ping_master }}</div>
         </div>
     </div>
 </div>
@@ -276,7 +308,6 @@ const KONDISI = [
 ];
 const PENGUJIAN = [
     { id: 'test_radio_master', label: 'Test Fungsi Radio ke RoIP Master', sub: 'Fungsi radio terhubung ke master' },
-    { id: 'test_ping_master',  label: 'Test Ping ke RoIP Master',         sub: 'Konektivitas jaringan ke master' },
 ];
 
 function setStatus(fieldName, value) {

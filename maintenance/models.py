@@ -830,8 +830,12 @@ class MaintenanceRoIP(models.Model):
     memory_usage    = models.FloatField(null=True, blank=True, verbose_name='Memory Usage (%)')
 
     # ── Konfig Peralatan ─────────────────────────────────────
-    tx_volume_offset = models.FloatField(null=True, blank=True, verbose_name='TX Volume Offset to Transceiver (dB)')
-    rx_volume_offset = models.FloatField(null=True, blank=True, verbose_name='RX Volume Offset from Transceiver (dB)')
+    tx_volume_offset          = models.FloatField(null=True, blank=True, verbose_name='TX Volume Offset to Transceiver (dB)')
+    rx_volume_offset          = models.FloatField(null=True, blank=True, verbose_name='RX Volume Offset from Transceiver (dB)')
+    bridge_conn_source        = models.CharField(max_length=100, blank=True, verbose_name='Bridge Connection Source')
+    bridge_conn_destination   = models.CharField(max_length=100, blank=True, verbose_name='Bridge Connection Destination')
+    dest_port_number          = models.CharField(max_length=20, blank=True, verbose_name='Destination Port Number')
+    source_port_number        = models.CharField(max_length=20, blank=True, verbose_name='Source Port Number')
 
     # ── PTT Control Setting ───────────────────────────────────
     ptt_attack_time   = models.FloatField(null=True, blank=True, verbose_name='PTT Attack Time (ms)')
@@ -847,7 +851,7 @@ class MaintenanceRoIP(models.Model):
 
     # ── Pengujian ─────────────────────────────────────────────
     test_radio_master = models.CharField(max_length=3, blank=True, choices=STATUS_CHECK, verbose_name='Test Fungsi Radio ke RoIP Master')
-    test_ping_master  = models.CharField(max_length=3, blank=True, choices=STATUS_CHECK, verbose_name='Test Ping ke RoIP Master')
+    test_ping_master  = models.FloatField(null=True, blank=True, verbose_name='Test Ping ke RoIP Master (ms)')
 
     catatan = models.TextField(blank=True, default='')
 
