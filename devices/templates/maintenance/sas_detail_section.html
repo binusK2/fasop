@@ -1,0 +1,206 @@
+{% comment %}SAS DETAIL SECTION — include dari maintenance_detail{% endcomment %}
+
+{% if sas_detail %}
+{% with s=sas_detail %}
+
+<style>
+.sdt{border-collapse:collapse;width:100%;font-size:12.5px;}
+.sdt th{background:#1e293b;color:#fff;padding:6px 10px;font-size:11px;font-weight:700;border:1px solid #334155;text-align:left;}
+.sdt td{padding:6px 10px;border:1px solid #e2e8f0;vertical-align:middle;}
+.sdt tr:nth-child(even) td{background:#f8fafc;}
+.sdt .vval{font-family:'JetBrains Mono',monospace;font-weight:700;color:#0f172a;}
+.sdt .vunit{font-size:10.5px;color:#94a3b8;}
+{% comment %}status badge helpers rendered inline{% endcomment %}
+</style>
+
+<!-- ── Spesifikasi ─────────────────────────────────────── -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="d-flex align-items-center gap-2 mb-3">
+            <span style="width:5px;height:18px;background:#3b82f6;border-radius:3px;display:inline-block;"></span>
+            <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#64748b;">Spesifikasi</h6>
+        </div>
+        <div class="row g-3">
+            <div class="col-md-6">
+                <table class="sdt">
+                    <tbody>
+                        {% if s.spek_merk %}<tr><td style="width:45%;font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;">Merk</td><td class="vval">{{ s.spek_merk }}</td></tr>{% endif %}
+                        {% if s.spek_type %}<tr><td style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;">Type</td><td class="vval">{{ s.spek_type }}</td></tr>{% endif %}
+                        {% if s.spek_cpu %}<tr><td style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;">CPU</td><td class="vval">{{ s.spek_cpu }}</td></tr>{% endif %}
+                        {% if s.spek_ram %}<tr><td style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;">RAM</td><td class="vval">{{ s.spek_ram }}</td></tr>{% endif %}
+                        {% if s.spek_gpu %}<tr><td style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;">GPU</td><td class="vval">{{ s.spek_gpu }}</td></tr>{% endif %}
+                        {% if s.spek_storage %}<tr><td style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;">Storage</td><td class="vval">{{ s.spek_storage }}</td></tr>{% endif %}
+                        {% if s.spek_firmware %}<tr><td style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;">Firmware</td><td class="vval">{{ s.spek_firmware }}</td></tr>{% endif %}
+                        {% if s.spek_config_ver %}<tr><td style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;">Config Ver.</td><td class="vval">{{ s.spek_config_ver }}</td></tr>{% endif %}
+                        {% if s.spek_ip %}<tr><td style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;">Maint. IP</td><td class="vval" style="color:#3b82f6;">{{ s.spek_ip }}</td></tr>{% endif %}
+                    </tbody>
+                </table>
+            </div>
+            {% if s.modul_io %}
+            <div class="col-md-6">
+                <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Modul I/O / Card / Terminal</div>
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;font-size:12.5px;color:#334155;white-space:pre-wrap;line-height:1.6;">{{ s.modul_io }}</div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- ── Kondisi & Performa (status badges) ─────────────── -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="d-flex align-items-center gap-2 mb-3">
+            <span style="width:5px;height:18px;background:#10b981;border-radius:3px;display:inline-block;"></span>
+            <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#64748b;">Kondisi &amp; Performa</h6>
+        </div>
+        <div class="row g-2 mb-3">
+
+            {% comment %} Helper macro — repeated for every status field {% endcomment %}
+            {% with items=kondisi_status_items %}{% endwith %}
+
+            <!-- Kondisi -->
+            {% for label, val, ok_val, nok_val in sas_kondisi_rows %}
+            <div class="col-md-4 col-sm-6">
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 13px;border-radius:10px;
+                    {% if val == ok_val %}background:#f0fdf4;border:1.5px solid #6ee7b7;{% elif val == nok_val %}background:#fef2f2;border:1.5px solid #fca5a5;{% else %}background:#f8fafc;border:1.5px solid #e2e8f0;{% endif %}">
+                    <span style="font-size:12px;font-weight:600;color:#334155;">{{ label }}</span>
+                    {% if val == ok_val %}
+                        <span style="font-size:11px;font-weight:700;color:#065f46;background:#dcfce7;padding:2px 9px;border-radius:20px;">&#10003; {{ val }}</span>
+                    {% elif val %}
+                        <span style="font-size:11px;font-weight:700;color:#991b1b;background:#fee2e2;padding:2px 9px;border-radius:20px;">&#10007; {{ val }}</span>
+                    {% else %}
+                        <span style="font-size:12px;color:#94a3b8;font-weight:500;">&#8212;</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+
+        </div>
+
+        <!-- Temperatur -->
+        <div class="row g-3 mb-3">
+            <div class="col-md-6">
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;">
+                    <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Temperatur Ruangan</div>
+                    <div style="font-size:20px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;">
+                        {{ s.temp_ruangan|default:"—" }}{% if s.temp_ruangan %}<span style="font-size:13px;font-weight:500;color:#64748b;"> °C</span>{% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;">
+                    <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Temperatur Peralatan</div>
+                    <div style="font-size:20px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;">
+                        {{ s.temp_peralatan|default:"—" }}{% if s.temp_peralatan %}<span style="font-size:13px;font-weight:500;color:#64748b;"> °C</span>{% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Performa -->
+        <div class="row g-2 mb-2">
+            {% for label, val in sas_perf_rows %}
+            <div class="col-md-4 col-sm-6">
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:9px 12px;">
+                    <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;">{{ label }}</div>
+                    <div style="font-size:17px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;">{{ val|default:"—" }}</div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+    </div>
+</div>
+
+<!-- ── Peripheral ──────────────────────────────────────── -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="d-flex align-items-center gap-2 mb-3">
+            <span style="width:5px;height:18px;background:#8b5cf6;border-radius:3px;display:inline-block;"></span>
+            <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#64748b;">Peripheral Pendukung</h6>
+        </div>
+        <div class="row g-2 mb-3">
+            {% for label, val in sas_peri_rows %}
+            <div class="col-md-3 col-sm-6">
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 13px;border-radius:10px;
+                    {% if val == 'OK' %}background:#f0fdf4;border:1.5px solid #6ee7b7;{% elif val == 'ALARM' %}background:#fef2f2;border:1.5px solid #fca5a5;{% else %}background:#f8fafc;border:1.5px solid #e2e8f0;{% endif %}">
+                    <span style="font-size:12px;font-weight:600;color:#334155;">{{ label }}</span>
+                    {% if val == 'OK' %}
+                        <span style="font-size:11px;font-weight:700;color:#065f46;background:#dcfce7;padding:2px 9px;border-radius:20px;">OK</span>
+                    {% elif val == 'ALARM' %}
+                        <span style="font-size:11px;font-weight:700;color:#991b1b;background:#fee2e2;padding:2px 9px;border-radius:20px;">ALARM</span>
+                    {% else %}
+                        <span style="font-size:12px;color:#94a3b8;font-weight:500;">&#8212;</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+            {% if s.jumlah_bay %}
+            <div class="col-md-3 col-sm-6">
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:9px 13px;">
+                    <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;">Jumlah Bay</div>
+                    <div style="font-size:18px;font-weight:700;color:#0f172a;">{{ s.jumlah_bay }}</div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        {% if s.peri_keterangan %}
+        <div style="background:#fafafa;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;font-size:12.5px;color:#334155;white-space:pre-wrap;line-height:1.6;">
+            <span style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;display:block;margin-bottom:4px;">Keterangan</span>
+            {{ s.peri_keterangan }}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- ── Power Supply ────────────────────────────────────── -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="d-flex align-items-center gap-2 mb-3">
+            <span style="width:5px;height:18px;background:#f59e0b;border-radius:3px;display:inline-block;"></span>
+            <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#64748b;">Power Supply</h6>
+        </div>
+        <div class="row g-3">
+            <!-- Inverter -->
+            <div class="col-md-6">
+                <div class="p-3 rounded" style="background:#eff6ff;border:1px solid #bfdbfe;">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <div style="font-size:12px;font-weight:700;color:#1d4ed8;">Inverter</div>
+                        {% if s.inv_kondisi == 'OK' %}
+                        <span style="font-size:11px;font-weight:700;color:#065f46;background:#dcfce7;padding:2px 10px;border-radius:20px;">OK</span>
+                        {% elif s.inv_kondisi == 'ALARM' %}
+                        <span style="font-size:11px;font-weight:700;color:#991b1b;background:#fee2e2;padding:2px 10px;border-radius:20px;">ALARM</span>
+                        {% endif %}
+                    </div>
+                    <table class="sdt" style="background:transparent;">
+                        <thead><tr><th style="background:#1d4ed8;">Parameter</th><th style="background:#1d4ed8;">Nilai</th><th style="background:#1d4ed8;">Satuan</th></tr></thead>
+                        <tbody>
+                            <tr><td>Tegangan Input</td><td class="vval">{{ s.inv_teg_input|default:"—" }}</td><td class="vunit">V</td></tr>
+                            <tr><td>Arus Input</td><td class="vval">{{ s.inv_arus_input|default:"—" }}</td><td class="vunit">A</td></tr>
+                            <tr><td>Tegangan Output</td><td class="vval">{{ s.inv_teg_output|default:"—" }}</td><td class="vunit">V</td></tr>
+                            <tr><td>Arus Output</td><td class="vval">{{ s.inv_arus_output|default:"—" }}</td><td class="vunit">A</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <!-- 110VDC / 48VDC -->
+            <div class="col-md-6">
+                <div class="p-3 rounded" style="background:#f0fdf4;border:1px solid #bbf7d0;">
+                    <div style="font-size:12px;font-weight:700;color:#166534;margin-bottom:10px;">110VDC / 48VDC Power Supply</div>
+                    <table class="sdt" style="background:transparent;">
+                        <thead><tr><th style="background:#166534;">Parameter</th><th style="background:#166534;">Nilai</th><th style="background:#166534;">Satuan</th></tr></thead>
+                        <tbody>
+                            <tr><td>Tegangan Input</td><td class="vval">{{ s.ps_teg_input|default:"—" }}</td><td class="vunit">V</td></tr>
+                            <tr><td>Arus Input</td><td class="vval">{{ s.ps_arus_input|default:"—" }}</td><td class="vunit">A</td></tr>
+                            <tr><td>Tegangan Output</td><td class="vval">{{ s.ps_teg_output|default:"—" }}</td><td class="vunit">V</td></tr>
+                            <tr><td>Arus Output</td><td class="vval">{{ s.ps_arus_output|default:"—" }}</td><td class="vunit">A</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endwith %}
+{% endif %}
