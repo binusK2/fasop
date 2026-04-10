@@ -573,17 +573,18 @@ class MaintenanceSASForm(forms.ModelForm):
 # ─────────────────────────────────────────────────────────────────────
 # FORM DETAIL RoIP
 # ─────────────────────────────────────────────────────────────────────
-class MaintenanceRoIPForm(forms.ModelForm):
+_ROIP_SEL = [('', '—'), ('OK', 'OK'), ('NOK', 'NOK')]
 
-    _SEL = [('', '—'), ('OK', 'OK'), ('NOK', 'NOK')]
+
+class MaintenanceRoIPForm(forms.ModelForm):
 
     class Meta:
         model   = MaintenanceRoIP
         exclude = ['maintenance']
         widgets = {
-            'kondisi_fisik':    forms.Select(choices=_SEL, attrs={'class': 'form-select'}),
-            'ntp_server':       forms.Select(choices=_SEL, attrs={'class': 'form-select'}),
-            'power_supply':     forms.Select(choices=_SEL, attrs={'class': 'form-select'}),
+            'kondisi_fisik':    forms.Select(choices=_ROIP_SEL, attrs={'class': 'form-select'}),
+            'ntp_server':       forms.Select(choices=_ROIP_SEL, attrs={'class': 'form-select'}),
+            'power_supply':     forms.Select(choices=_ROIP_SEL, attrs={'class': 'form-select'}),
             'memory_usage':     forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': '%'}),
             'tx_volume_offset': forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'dB'}),
             'rx_volume_offset': forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'dB'}),
@@ -595,7 +596,7 @@ class MaintenanceRoIPForm(forms.ModelForm):
             'rx_release_time':  forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'ms'}),
             'rx_voice_delay':   forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'ms'}),
             'rx_vox_threshold': forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': '%'}),
-            'test_radio_master': forms.Select(choices=_SEL, attrs={'class': 'form-select'}),
-            'test_ping_master':  forms.Select(choices=_SEL, attrs={'class': 'form-select'}),
+            'test_radio_master': forms.Select(choices=_ROIP_SEL, attrs={'class': 'form-select'}),
+            'test_ping_master':  forms.Select(choices=_ROIP_SEL, attrs={'class': 'form-select'}),
             'catatan':           forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }
