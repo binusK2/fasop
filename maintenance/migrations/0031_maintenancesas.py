@@ -5,7 +5,7 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('maintenance', '0029_maintenancertu_ps48_arus_supply'),
+        ('maintenance', '0030_alter_maintenancerectifier_catatan'),
     ]
 
     operations = [
