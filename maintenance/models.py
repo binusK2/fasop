@@ -809,3 +809,47 @@ class MaintenanceSAS(models.Model):
 
     class Meta:
         verbose_name = 'Maintenance SAS'
+
+
+# ─────────────────────────────────────────────────────────────
+# DETAIL RoIP (Radio over IP)
+# ─────────────────────────────────────────────────────────────
+class MaintenanceRoIP(models.Model):
+
+    STATUS_CHECK = (('OK', 'OK'), ('NOK', 'NOK'),)
+
+    maintenance = models.OneToOneField(
+        Maintenance, on_delete=models.CASCADE,
+        related_name='maintenanceroip'
+    )
+
+    # ── Kondisi Peralatan ────────────────────────────────────
+    kondisi_fisik   = models.CharField(max_length=3, blank=True, choices=STATUS_CHECK, verbose_name='Kondisi Fisik Perangkat')
+    ntp_server      = models.CharField(max_length=3, blank=True, choices=STATUS_CHECK, verbose_name='NTP Server')
+    power_supply    = models.CharField(max_length=3, blank=True, choices=STATUS_CHECK, verbose_name='Power Supply')
+    memory_usage    = models.FloatField(null=True, blank=True, verbose_name='Memory Usage (%)')
+
+    # ── Konfig Peralatan ─────────────────────────────────────
+    tx_volume_offset = models.FloatField(null=True, blank=True, verbose_name='TX Volume Offset to Transceiver (dB)')
+    rx_volume_offset = models.FloatField(null=True, blank=True, verbose_name='RX Volume Offset from Transceiver (dB)')
+
+    # ── PTT Control Setting ───────────────────────────────────
+    ptt_attack_time   = models.FloatField(null=True, blank=True, verbose_name='PTT Attack Time (ms)')
+    ptt_release_time  = models.FloatField(null=True, blank=True, verbose_name='PTT Release Time (ms)')
+    ptt_voice_delay   = models.FloatField(null=True, blank=True, verbose_name='PTT Voice Delay (ms)')
+    ptt_vox_threshold = models.FloatField(null=True, blank=True, verbose_name='PTT VOX Threshold (%)')
+
+    # ── Receive Detection Setting ─────────────────────────────
+    rx_attack_time   = models.FloatField(null=True, blank=True, verbose_name='RX Attack Time (ms)')
+    rx_release_time  = models.FloatField(null=True, blank=True, verbose_name='RX Release Time (ms)')
+    rx_voice_delay   = models.FloatField(null=True, blank=True, verbose_name='RX Voice Delay (ms)')
+    rx_vox_threshold = models.FloatField(null=True, blank=True, verbose_name='RX VOX Threshold (%)')
+
+    # ── Pengujian ─────────────────────────────────────────────
+    test_radio_master = models.CharField(max_length=3, blank=True, choices=STATUS_CHECK, verbose_name='Test Fungsi Radio ke RoIP Master')
+    test_ping_master  = models.CharField(max_length=3, blank=True, choices=STATUS_CHECK, verbose_name='Test Ping ke RoIP Master')
+
+    catatan = models.TextField(blank=True, default='')
+
+    class Meta:
+        verbose_name = 'Maintenance RoIP'

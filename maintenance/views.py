@@ -1,8 +1,8 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from devices.permissions import require_can_edit, require_can_delete, is_viewer_only
-from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset, MaintenanceRTU, MaintenanceSAS
-from .forms import MaintenanceForm, MaintenancePLCForm, MaintenanceRouterForm, MaintenanceRadioForm, MaintenanceVoIPForm, MaintenanceMuxForm, MaintenanceRectifierForm, MaintenanceTeleproteksiForm, MaintenanceGensetForm, MaintenanceRTUForm, MaintenanceSASForm
+from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset, MaintenanceRTU, MaintenanceSAS, MaintenanceRoIP
+from .forms import MaintenanceForm, MaintenancePLCForm, MaintenanceRouterForm, MaintenanceRadioForm, MaintenanceVoIPForm, MaintenanceMuxForm, MaintenanceRectifierForm, MaintenanceTeleproteksiForm, MaintenanceGensetForm, MaintenanceRTUForm, MaintenanceSASForm, MaintenanceRoIPForm
 from devices.models import Device, DeviceType
 from gangguan.models import Gangguan
 from inspection.models import InspectionCatuDaya
@@ -40,6 +40,8 @@ DEVICE_FORM_MAP = {
     'SAS':                 (MaintenanceSASForm,          'maintenance/sas_form.html'),
     'SERVER SCADA':        (MaintenanceSASForm,          'maintenance/sas_form.html'),
     'GATEWAY SAS':         (MaintenanceSASForm,          'maintenance/sas_form.html'),
+    'ROIP':   (MaintenanceRoIPForm, 'maintenance/roip_form.html'),
+    'RoIP':   (MaintenanceRoIPForm, 'maintenance/roip_form.html'),
 }
 
 DEFAULT_TEMPLATE = 'maintenance/maintenance_form.html'
@@ -231,6 +233,7 @@ def maintenance_detail(request, pk):
     genset_detail = None
     rtu_detail    = None
     sas_detail    = None
+    roip_detail   = None
 
     if device_type == 'PLC':
         try:
@@ -290,6 +293,12 @@ def maintenance_detail(request, pk):
         try:
             sas_detail = maintenance.maintenancesas
         except MaintenanceSAS.DoesNotExist:
+            pass
+
+    elif device_type in ('ROIP',):
+        try:
+            roip_detail = maintenance.maintenanceroip
+        except MaintenanceRoIP.DoesNotExist:
             pass
 
     # Checklist peralatan terpasang untuk template radio
@@ -484,6 +493,7 @@ def maintenance_detail(request, pk):
             ('Batere Condition',  genset_detail.batere_condition    if genset_detail else None, 'VDC'),
             ('RPM',               genset_detail.rpm                 if genset_detail else None, 'rpm'),
         ] if genset_detail else [],
+        'roip_detail': roip_detail,
     })
 
 
@@ -525,6 +535,8 @@ def maintenance_edit(request, pk):
                 detail_instance = maintenance.maintenancertu
             elif detail_form_class.__name__ == 'MaintenanceSASForm':
                 detail_instance = maintenance.maintenancesas
+            elif detail_form_class.__name__ == 'MaintenanceRoIPForm':
+                detail_instance = maintenance.maintenanceroip
         except Exception:
             pass
 
@@ -1256,7 +1268,7 @@ def export_maintenance_pdf(request, pk):
 
     # ── Ambil detail sesuai jenis ──────────────────────────────────
     router_detail = plc_detail = radio_detail = None
-    voip_detail = mux_detail = rect_detail = tp_detail = genset_detail = rtu_detail = sas_detail = None
+    voip_detail = mux_detail = rect_detail = tp_detail = genset_detail = rtu_detail = sas_detail = roip_detail = None
 
     def _try(fn):
         try: return fn()
@@ -1282,6 +1294,8 @@ def export_maintenance_pdf(request, pk):
         rtu_detail = _try(lambda: maintenance.maintenancertu)
     elif device_kind in ('SAS', 'SERVER SCADA', 'GATEWAY SAS'):
         sas_detail = _try(lambda: maintenance.maintenancesas)
+    elif device_kind in ('ROIP',):
+        roip_detail = _try(lambda: maintenance.maintenanceroip)
 
     # Corrective detail
     corrective_detail = None
@@ -1632,6 +1646,26 @@ def export_maintenance_pdf(request, pk):
             'ps_teg_output':   _g(sas_detail, 'ps_teg_output'),
             'ps_arus_output':  _g(sas_detail, 'ps_arus_output'),
         } if sas_detail else {},
+
+        'roip': {
+            'kondisi_fisik':    _g(roip_detail, 'kondisi_fisik', ''),
+            'ntp_server':       _g(roip_detail, 'ntp_server', ''),
+            'power_supply':     _g(roip_detail, 'power_supply', ''),
+            'memory_usage':     _g(roip_detail, 'memory_usage'),
+            'tx_volume_offset': _g(roip_detail, 'tx_volume_offset'),
+            'rx_volume_offset': _g(roip_detail, 'rx_volume_offset'),
+            'ptt_attack_time':   _g(roip_detail, 'ptt_attack_time'),
+            'ptt_release_time':  _g(roip_detail, 'ptt_release_time'),
+            'ptt_voice_delay':   _g(roip_detail, 'ptt_voice_delay'),
+            'ptt_vox_threshold': _g(roip_detail, 'ptt_vox_threshold'),
+            'rx_attack_time':   _g(roip_detail, 'rx_attack_time'),
+            'rx_release_time':  _g(roip_detail, 'rx_release_time'),
+            'rx_voice_delay':   _g(roip_detail, 'rx_voice_delay'),
+            'rx_vox_threshold': _g(roip_detail, 'rx_vox_threshold'),
+            'test_radio_master': _g(roip_detail, 'test_radio_master', ''),
+            'test_ping_master':  _g(roip_detail, 'test_ping_master', ''),
+            'catatan':           _g(roip_detail, 'catatan', ''),
+        } if roip_detail else {},
     }
 
     # ── Corrective detail dict ─────────────────────────────────────

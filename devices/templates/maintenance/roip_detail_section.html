@@ -1,0 +1,192 @@
+{% comment %}RoIP DETAIL SECTION — include dari maintenance_detail{% endcomment %}
+
+{% if roip_detail %}
+{% with r=roip_detail %}
+
+<!-- ── Kondisi Peralatan ─────────────────────────────────── -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="d-flex align-items-center gap-2 mb-3">
+            <span style="width:5px;height:18px;background:#10b981;border-radius:3px;display:inline-block;"></span>
+            <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#64748b;">Kondisi Peralatan</h6>
+        </div>
+        <div class="row g-2 mb-2">
+            {% for label, val in r.kondisi_fisik|yesno:","|slice:":0" %}{% endfor %}
+            <!-- kondisi_fisik -->
+            <div class="col-md-3 col-sm-6">
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 13px;border-radius:10px;
+                    {% if r.kondisi_fisik == 'OK' %}background:#f0fdf4;border:1.5px solid #6ee7b7;{% elif r.kondisi_fisik == 'NOK' %}background:#fef2f2;border:1.5px solid #fca5a5;{% else %}background:#f8fafc;border:1.5px solid #e2e8f0;{% endif %}">
+                    <span style="font-size:12px;font-weight:600;color:#334155;">Kondisi Fisik Perangkat</span>
+                    {% if r.kondisi_fisik == 'OK' %}<span style="font-size:11px;font-weight:700;color:#065f46;background:#dcfce7;padding:2px 9px;border-radius:20px;">&#10003; OK</span>
+                    {% elif r.kondisi_fisik == 'NOK' %}<span style="font-size:11px;font-weight:700;color:#991b1b;background:#fee2e2;padding:2px 9px;border-radius:20px;">&#10007; NOK</span>
+                    {% else %}<span style="font-size:12px;color:#94a3b8;font-weight:500;">&#8212;</span>{% endif %}
+                </div>
+            </div>
+            <!-- ntp_server -->
+            <div class="col-md-3 col-sm-6">
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 13px;border-radius:10px;
+                    {% if r.ntp_server == 'OK' %}background:#f0fdf4;border:1.5px solid #6ee7b7;{% elif r.ntp_server == 'NOK' %}background:#fef2f2;border:1.5px solid #fca5a5;{% else %}background:#f8fafc;border:1.5px solid #e2e8f0;{% endif %}">
+                    <span style="font-size:12px;font-weight:600;color:#334155;">NTP Server</span>
+                    {% if r.ntp_server == 'OK' %}<span style="font-size:11px;font-weight:700;color:#065f46;background:#dcfce7;padding:2px 9px;border-radius:20px;">&#10003; OK</span>
+                    {% elif r.ntp_server == 'NOK' %}<span style="font-size:11px;font-weight:700;color:#991b1b;background:#fee2e2;padding:2px 9px;border-radius:20px;">&#10007; NOK</span>
+                    {% else %}<span style="font-size:12px;color:#94a3b8;font-weight:500;">&#8212;</span>{% endif %}
+                </div>
+            </div>
+            <!-- power_supply -->
+            <div class="col-md-3 col-sm-6">
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 13px;border-radius:10px;
+                    {% if r.power_supply == 'OK' %}background:#f0fdf4;border:1.5px solid #6ee7b7;{% elif r.power_supply == 'NOK' %}background:#fef2f2;border:1.5px solid #fca5a5;{% else %}background:#f8fafc;border:1.5px solid #e2e8f0;{% endif %}">
+                    <span style="font-size:12px;font-weight:600;color:#334155;">Power Supply</span>
+                    {% if r.power_supply == 'OK' %}<span style="font-size:11px;font-weight:700;color:#065f46;background:#dcfce7;padding:2px 9px;border-radius:20px;">&#10003; OK</span>
+                    {% elif r.power_supply == 'NOK' %}<span style="font-size:11px;font-weight:700;color:#991b1b;background:#fee2e2;padding:2px 9px;border-radius:20px;">&#10007; NOK</span>
+                    {% else %}<span style="font-size:12px;color:#94a3b8;font-weight:500;">&#8212;</span>{% endif %}
+                </div>
+            </div>
+            <!-- memory_usage tile -->
+            {% if r.memory_usage is not None %}
+            <div class="col-md-3 col-sm-6">
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:9px 13px;text-align:center;">
+                    <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:3px;">Memory Usage</div>
+                    <div style="font-size:20px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#0f172a;">{{ r.memory_usage }}<span style="font-size:12px;color:#94a3b8;"> %</span></div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- ── Konfig Peralatan ───────────────────────────────────── -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="d-flex align-items-center gap-2 mb-3">
+            <span style="width:5px;height:18px;background:#8b5cf6;border-radius:3px;display:inline-block;"></span>
+            <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#64748b;">Konfig Peralatan</h6>
+        </div>
+        <div class="row g-3">
+            <div class="col-md-3 col-sm-6">
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;text-align:center;">
+                    <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:4px;">TX Volume Offset</div>
+                    <div style="font-size:20px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#0f172a;">{{ r.tx_volume_offset|default:"—" }}{% if r.tx_volume_offset is not None %}<span style="font-size:11px;color:#94a3b8;"> dB</span>{% endif %}</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;text-align:center;">
+                    <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:4px;">RX Volume Offset</div>
+                    <div style="font-size:20px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#0f172a;">{{ r.rx_volume_offset|default:"—" }}{% if r.rx_volume_offset is not None %}<span style="font-size:11px;color:#94a3b8;"> dB</span>{% endif %}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── PTT & RX Detection ─────────────────────────────────── -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="d-flex align-items-center gap-2 mb-3">
+            <span style="width:5px;height:18px;background:#f59e0b;border-radius:3px;display:inline-block;"></span>
+            <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#64748b;">PTT &amp; RX Detection</h6>
+        </div>
+        <div class="row g-3">
+            <!-- PTT Control Setting -->
+            <div class="col-md-6">
+                <div style="font-size:10.5px;font-weight:700;color:#f59e0b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">PTT Control Setting</div>
+                <div class="row g-2">
+                    <div class="col-6">
+                        <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 10px;text-align:center;">
+                            <div style="font-size:10px;font-weight:700;color:#92400e;text-transform:uppercase;margin-bottom:3px;">Attack Time</div>
+                            <div style="font-size:16px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#0f172a;">{{ r.ptt_attack_time|default:"—" }}{% if r.ptt_attack_time is not None %}<span style="font-size:10px;color:#94a3b8;"> ms</span>{% endif %}</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 10px;text-align:center;">
+                            <div style="font-size:10px;font-weight:700;color:#92400e;text-transform:uppercase;margin-bottom:3px;">Release Time</div>
+                            <div style="font-size:16px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#0f172a;">{{ r.ptt_release_time|default:"—" }}{% if r.ptt_release_time is not None %}<span style="font-size:10px;color:#94a3b8;"> ms</span>{% endif %}</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 10px;text-align:center;">
+                            <div style="font-size:10px;font-weight:700;color:#92400e;text-transform:uppercase;margin-bottom:3px;">Voice Delay</div>
+                            <div style="font-size:16px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#0f172a;">{{ r.ptt_voice_delay|default:"—" }}{% if r.ptt_voice_delay is not None %}<span style="font-size:10px;color:#94a3b8;"> ms</span>{% endif %}</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 10px;text-align:center;">
+                            <div style="font-size:10px;font-weight:700;color:#92400e;text-transform:uppercase;margin-bottom:3px;">VOX Threshold</div>
+                            <div style="font-size:16px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#0f172a;">{{ r.ptt_vox_threshold|default:"—" }}{% if r.ptt_vox_threshold is not None %}<span style="font-size:10px;color:#94a3b8;"> %</span>{% endif %}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Receive Detection Setting -->
+            <div class="col-md-6">
+                <div style="font-size:10.5px;font-weight:700;color:#06b6d4;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Receive Detection Setting</div>
+                <div class="row g-2">
+                    <div class="col-6">
+                        <div style="background:#ecfeff;border:1px solid #a5f3fc;border-radius:8px;padding:8px 10px;text-align:center;">
+                            <div style="font-size:10px;font-weight:700;color:#155e75;text-transform:uppercase;margin-bottom:3px;">Attack Time</div>
+                            <div style="font-size:16px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#0f172a;">{{ r.rx_attack_time|default:"—" }}{% if r.rx_attack_time is not None %}<span style="font-size:10px;color:#94a3b8;"> ms</span>{% endif %}</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div style="background:#ecfeff;border:1px solid #a5f3fc;border-radius:8px;padding:8px 10px;text-align:center;">
+                            <div style="font-size:10px;font-weight:700;color:#155e75;text-transform:uppercase;margin-bottom:3px;">Release Time</div>
+                            <div style="font-size:16px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#0f172a;">{{ r.rx_release_time|default:"—" }}{% if r.rx_release_time is not None %}<span style="font-size:10px;color:#94a3b8;"> ms</span>{% endif %}</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div style="background:#ecfeff;border:1px solid #a5f3fc;border-radius:8px;padding:8px 10px;text-align:center;">
+                            <div style="font-size:10px;font-weight:700;color:#155e75;text-transform:uppercase;margin-bottom:3px;">Voice Delay</div>
+                            <div style="font-size:16px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#0f172a;">{{ r.rx_voice_delay|default:"—" }}{% if r.rx_voice_delay is not None %}<span style="font-size:10px;color:#94a3b8;"> ms</span>{% endif %}</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div style="background:#ecfeff;border:1px solid #a5f3fc;border-radius:8px;padding:8px 10px;text-align:center;">
+                            <div style="font-size:10px;font-weight:700;color:#155e75;text-transform:uppercase;margin-bottom:3px;">VOX Threshold</div>
+                            <div style="font-size:16px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#0f172a;">{{ r.rx_vox_threshold|default:"—" }}{% if r.rx_vox_threshold is not None %}<span style="font-size:10px;color:#94a3b8;"> %</span>{% endif %}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Pengujian ─────────────────────────────────────────── -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="d-flex align-items-center gap-2 mb-3">
+            <span style="width:5px;height:18px;background:#ef4444;border-radius:3px;display:inline-block;"></span>
+            <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#64748b;">Pengujian</h6>
+        </div>
+        <div class="row g-2">
+            <!-- test_radio_master -->
+            <div class="col-md-4 col-sm-6">
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 13px;border-radius:10px;
+                    {% if r.test_radio_master == 'OK' %}background:#f0fdf4;border:1.5px solid #6ee7b7;{% elif r.test_radio_master == 'NOK' %}background:#fef2f2;border:1.5px solid #fca5a5;{% else %}background:#f8fafc;border:1.5px solid #e2e8f0;{% endif %}">
+                    <span style="font-size:12px;font-weight:600;color:#334155;">Test Fungsi Radio ke RoIP Master</span>
+                    {% if r.test_radio_master == 'OK' %}<span style="font-size:11px;font-weight:700;color:#065f46;background:#dcfce7;padding:2px 9px;border-radius:20px;">&#10003; OK</span>
+                    {% elif r.test_radio_master == 'NOK' %}<span style="font-size:11px;font-weight:700;color:#991b1b;background:#fee2e2;padding:2px 9px;border-radius:20px;">&#10007; NOK</span>
+                    {% else %}<span style="font-size:12px;color:#94a3b8;font-weight:500;">&#8212;</span>{% endif %}
+                </div>
+            </div>
+            <!-- test_ping_master -->
+            <div class="col-md-4 col-sm-6">
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 13px;border-radius:10px;
+                    {% if r.test_ping_master == 'OK' %}background:#f0fdf4;border:1.5px solid #6ee7b7;{% elif r.test_ping_master == 'NOK' %}background:#fef2f2;border:1.5px solid #fca5a5;{% else %}background:#f8fafc;border:1.5px solid #e2e8f0;{% endif %}">
+                    <span style="font-size:12px;font-weight:600;color:#334155;">Test Ping ke RoIP Master</span>
+                    {% if r.test_ping_master == 'OK' %}<span style="font-size:11px;font-weight:700;color:#065f46;background:#dcfce7;padding:2px 9px;border-radius:20px;">&#10003; OK</span>
+                    {% elif r.test_ping_master == 'NOK' %}<span style="font-size:11px;font-weight:700;color:#991b1b;background:#fee2e2;padding:2px 9px;border-radius:20px;">&#10007; NOK</span>
+                    {% else %}<span style="font-size:12px;color:#94a3b8;font-weight:500;">&#8212;</span>{% endif %}
+                </div>
+            </div>
+        </div>
+        {% if r.catatan %}
+        <div style="margin-top:12px;background:#fafafa;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;font-size:12.5px;color:#334155;white-space:pre-wrap;line-height:1.6;">
+            <span style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;display:block;margin-bottom:4px;">Catatan</span>{{ r.catatan }}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% endwith %}
+{% endif %}

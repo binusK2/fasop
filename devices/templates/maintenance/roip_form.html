@@ -1,0 +1,337 @@
+{% extends 'base.html' %}
+{% block title %}{% if is_edit %}Edit{% else %}Form{% endif %} Maintenance RoIP — {{ device.nama }}{% endblock %}
+{% block page_title %}{% if is_edit %}Edit{% else %}Form{% endif %} Maintenance RoIP{% endblock %}
+
+{% block content %}
+
+<div class="d-flex align-items-center gap-2 mb-3">
+    {% if is_edit %}
+    <a href="{% url 'maintenance_view' maintenance.id %}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Kembali ke Detail
+    </a>
+    {% else %}
+    <a href="{% url 'device_view' device.id %}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Kembali ke Perangkat
+    </a>
+    {% endif %}
+</div>
+
+{% include 'maintenance/_device_banner.html' with banner_icon='bi-broadcast' banner_icon_color='#6ee7b7' banner_icon_bg='rgba(16,185,129,0.2)' %}
+
+<form method="post" enctype="multipart/form-data" id="roip-form"
+    {% if is_edit %}action="{% url 'maintenance_edit' maintenance.id %}"{% endif %}>
+{% csrf_token %}
+
+<!-- ══ 1. INFORMASI MAINTENANCE ══════════════════════════════ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-title-bar">
+            <span class="bar" style="background:#3b82f6;"></span>
+            <span>Informasi Maintenance</span>
+        </div>
+        <div class="row g-3 align-items-start">
+            <div class="col-md-2">
+                <label class="form-label fw-semibold">Jenis Maintenance</label>
+                <div style="display:flex;align-items:center;gap:6px;background:#eff6ff;
+                            color:#1d4ed8;border:1.5px solid #bfdbfe;border-radius:8px;
+                            padding:8px 12px;font-size:13px;font-weight:700;white-space:nowrap;">
+                    <i class="bi bi-shield-check" style="font-size:14px;"></i> Preventive
+                </div>
+                <input type="hidden" name="maintenance_type" value="Preventive">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-semibold">Tanggal</label>
+                {{ maintenance_form.date }}
+            </div>
+            {% include 'maintenance/_pelaksana_tag_input.html' %}
+        </div>
+        <div class="row g-3 mt-1">
+            <div class="col-md-8">
+                <label class="form-label fw-semibold">Deskripsi / Keluhan</label>
+                {{ maintenance_form.description }}
+            </div>
+            <div class="col-md-4">
+                <label class="form-label fw-semibold">Foto Dokumentasi</label>
+                {{ maintenance_form.photo }}
+                <div class="form-text">Format: JPG, PNG. Maks 10MB.</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ 2. KONDISI PERALATAN ══════════════════════════════════ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-title-bar">
+            <span class="bar" style="background:#10b981;"></span>
+            <span>Kondisi Peralatan</span>
+            <span style="font-size:11px;color:#94a3b8;margin-left:4px;">— Pilih OK / NOK</span>
+        </div>
+        <div class="row g-2 mb-3" id="kondisi-container"></div>
+        <div class="row g-3">
+            <div class="col-md-3">
+                <div class="measure-card">
+                    <div class="measure-label">Memory Usage</div>
+                    <div class="input-group">
+                        {{ detail_form.memory_usage }}
+                        <span class="input-group-text measure-unit">%</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Hidden Django select fields -->
+        <div style="display:none;">
+            <div id="field-kondisi_fisik">{{ detail_form.kondisi_fisik }}</div>
+            <div id="field-ntp_server">{{ detail_form.ntp_server }}</div>
+            <div id="field-power_supply">{{ detail_form.power_supply }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ 3. KONFIG PERALATAN ═══════════════════════════════════ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-title-bar">
+            <span class="bar" style="background:#8b5cf6;"></span>
+            <span>Konfig Peralatan</span>
+        </div>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <div class="measure-card">
+                    <div class="measure-label">TX Volume Offset to the Transceiver</div>
+                    <div class="input-group">
+                        {{ detail_form.tx_volume_offset }}
+                        <span class="input-group-text measure-unit">dB</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="measure-card">
+                    <div class="measure-label">RX Volume Offset from the Transceiver</div>
+                    <div class="input-group">
+                        {{ detail_form.rx_volume_offset }}
+                        <span class="input-group-text measure-unit">dB</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ 4. PTT CONTROL SETTING ════════════════════════════════ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-title-bar">
+            <span class="bar" style="background:#f59e0b;"></span>
+            <span>PTT Control Setting</span>
+        </div>
+        <div class="row g-3">
+            <div class="col-md-3">
+                <div class="measure-card">
+                    <div class="measure-label">Attack Time</div>
+                    <div class="input-group">{{ detail_form.ptt_attack_time }}<span class="input-group-text measure-unit">ms</span></div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="measure-card">
+                    <div class="measure-label">Release Time</div>
+                    <div class="input-group">{{ detail_form.ptt_release_time }}<span class="input-group-text measure-unit">ms</span></div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="measure-card">
+                    <div class="measure-label">Voice Delay</div>
+                    <div class="input-group">{{ detail_form.ptt_voice_delay }}<span class="input-group-text measure-unit">ms</span></div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="measure-card">
+                    <div class="measure-label">VOX Threshold</div>
+                    <div class="input-group">{{ detail_form.ptt_vox_threshold }}<span class="input-group-text measure-unit">%</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ 5. RECEIVE DETECTION SETTING ══════════════════════════ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-title-bar">
+            <span class="bar" style="background:#06b6d4;"></span>
+            <span>Receive Detection Setting</span>
+        </div>
+        <div class="row g-3">
+            <div class="col-md-3">
+                <div class="measure-card">
+                    <div class="measure-label">Attack Time</div>
+                    <div class="input-group">{{ detail_form.rx_attack_time }}<span class="input-group-text measure-unit">ms</span></div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="measure-card">
+                    <div class="measure-label">Release Time</div>
+                    <div class="input-group">{{ detail_form.rx_release_time }}<span class="input-group-text measure-unit">ms</span></div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="measure-card">
+                    <div class="measure-label">Voice Delay</div>
+                    <div class="input-group">{{ detail_form.rx_voice_delay }}<span class="input-group-text measure-unit">ms</span></div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="measure-card">
+                    <div class="measure-label">VOX Threshold</div>
+                    <div class="input-group">{{ detail_form.rx_vox_threshold }}<span class="input-group-text measure-unit">%</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ 6. PENGUJIAN ══════════════════════════════════════════ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-title-bar">
+            <span class="bar" style="background:#ef4444;"></span>
+            <span>Pengujian</span>
+            <span style="font-size:11px;color:#94a3b8;margin-left:4px;">— Pilih OK / NOK</span>
+        </div>
+        <div class="row g-2" id="pengujian-container"></div>
+        <!-- Hidden Django select fields -->
+        <div style="display:none;">
+            <div id="field-test_radio_master">{{ detail_form.test_radio_master }}</div>
+            <div id="field-test_ping_master">{{ detail_form.test_ping_master }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ 7. CATATAN ════════════════════════════════════════════ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-title-bar">
+            <span class="bar" style="background:#64748b;"></span>
+            <span>Catatan</span>
+        </div>
+        {{ detail_form.catatan }}
+    </div>
+</div>
+
+{% if maintenance_form.errors or detail_form.errors %}
+<div class="alert alert-danger">
+    <i class="bi bi-exclamation-triangle me-2"></i>
+    <strong>Mohon perbaiki error berikut:</strong>
+    {{ maintenance_form.errors }}{{ detail_form.errors }}
+</div>
+{% endif %}
+
+<div class="d-flex gap-2 justify-content-end pb-4">
+    {% if is_edit %}
+    <a href="{% url 'maintenance_view' maintenance.id %}" class="btn btn-outline-secondary">
+        <i class="bi bi-x me-1"></i>Batal
+    </a>
+    {% else %}
+    <a href="{% url 'device_view' device.id %}" class="btn btn-outline-secondary">
+        <i class="bi bi-x me-1"></i>Batal
+    </a>
+    {% endif %}
+    <button type="submit" class="btn btn-primary px-4">
+        <i class="bi bi-floppy me-1"></i>
+        {% if is_edit %}Simpan Perubahan{% else %}Simpan Maintenance{% endif %}
+    </button>
+</div>
+
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<style>
+.section-title-bar { display:flex;align-items:center;gap:8px;margin-bottom:14px; }
+.section-title-bar .bar { width:5px;height:18px;border-radius:3px;flex-shrink:0; }
+.section-title-bar > span:nth-child(2) { font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#475569; }
+.measure-card { background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px; }
+.measure-label { font-size:11.5px;font-weight:700;color:#64748b;margin-bottom:7px;text-transform:uppercase;letter-spacing:0.4px; }
+.measure-unit { background:#e2e8f0;border-color:#e2e8f0 !important;font-size:12px;font-weight:700;color:#475569;min-width:48px;justify-content:center; }
+.checklist-card { background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:11px 13px;transition:border-color 0.15s,background 0.15s;height:100%; }
+.checklist-card.status-ok  { border-color:#10b981;background:#f0fdf4; }
+.checklist-card.status-nok { border-color:#ef4444;background:#fef2f2; }
+.checklist-label { font-size:12.5px;font-weight:600;color:#334155;margin-bottom:4px; }
+.checklist-sublabel { font-size:11px;color:#94a3b8;margin-bottom:9px; }
+.checklist-toggle { display:flex;gap:6px; }
+.toggle-btn { flex:1;padding:5px 0;border-radius:6px;font-size:12px;font-weight:700;border:1.5px solid transparent;cursor:pointer;transition:all 0.12s; }
+.toggle-btn.ok  { background:#fff;border-color:#d1fae5;color:#9ca3af; }
+.toggle-btn.nok { background:#fff;border-color:#fee2e2;color:#9ca3af; }
+.toggle-btn.ok:hover  { background:#d1fae5;color:#065f46;border-color:#6ee7b7; }
+.toggle-btn.nok:hover { background:#fee2e2;color:#991b1b;border-color:#fca5a5; }
+.toggle-btn.ok.selected  { background:#10b981;border-color:#10b981;color:#fff; }
+.toggle-btn.nok.selected { background:#ef4444;border-color:#ef4444;color:#fff; }
+</style>
+
+<script>
+const KONDISI = [
+    { id: 'kondisi_fisik', label: 'Kondisi Fisik Perangkat', sub: 'Tidak ada kerusakan fisik atau korosi' },
+    { id: 'ntp_server',    label: 'NTP Server',              sub: 'Waktu tersinkronisasi dengan NTP' },
+    { id: 'power_supply',  label: 'Power Supply',            sub: 'Catu daya berfungsi normal' },
+];
+const PENGUJIAN = [
+    { id: 'test_radio_master', label: 'Test Fungsi Radio ke RoIP Master', sub: 'Fungsi radio terhubung ke master' },
+    { id: 'test_ping_master',  label: 'Test Ping ke RoIP Master',         sub: 'Konektivitas jaringan ke master' },
+];
+
+function setStatus(fieldName, value) {
+    const card = document.getElementById('card-' + fieldName);
+    if (card) {
+        card.classList.toggle('status-ok',  value === 'OK');
+        card.classList.toggle('status-nok', value === 'NOK');
+        card.querySelectorAll('.toggle-btn').forEach(btn => {
+            btn.classList.toggle('selected',
+                (btn.classList.contains('ok')  && value === 'OK') ||
+                (btn.classList.contains('nok') && value === 'NOK')
+            );
+        });
+    }
+    const wrap = document.getElementById('field-' + fieldName);
+    if (wrap) {
+        const sel = wrap.querySelector('select');
+        if (sel) sel.value = value;
+    }
+}
+
+function getFieldValue(fieldName) {
+    const wrap = document.getElementById('field-' + fieldName);
+    if (!wrap) return '';
+    const sel = wrap.querySelector('select');
+    return sel ? sel.value : '';
+}
+
+function renderGroup(items, containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.innerHTML = '';
+    items.forEach(({ id, label, sub }) => {
+        const col = document.createElement('div');
+        col.className = 'col-md-3 col-sm-6';
+        col.innerHTML = `
+            <div class="checklist-card" id="card-${id}">
+                <div class="checklist-label">${label}</div>
+                <div class="checklist-sublabel">${sub}</div>
+                <div class="checklist-toggle">
+                    <button type="button" class="toggle-btn ok"  onclick="setStatus('${id}','OK')">✓ OK</button>
+                    <button type="button" class="toggle-btn nok" onclick="setStatus('${id}','NOK')">✗ NOK</button>
+                </div>
+            </div>`;
+        container.appendChild(col);
+    });
+    items.forEach(({ id }) => {
+        const val = getFieldValue(id);
+        if (val) setStatus(id, val);
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    renderGroup(KONDISI, 'kondisi-container');
+    renderGroup(PENGUJIAN, 'pengujian-container');
+});
+</script>
+{% endblock %}

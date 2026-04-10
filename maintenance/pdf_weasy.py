@@ -36,6 +36,7 @@ _TEMPLATE_MAP = {
     'SAS':                 'maintenance/pdf/sas.html',
     'SERVER SCADA':        'maintenance/pdf/sas.html',
     'GATEWAY SAS':         'maintenance/pdf/sas.html',
+    'ROIP':                'maintenance/pdf/roip.html',
 }
 
 _CORRECTIVE_TEMPLATE = 'maintenance/pdf/corrective.html'
@@ -53,6 +54,7 @@ _TITLES = {
     'SAS':          'Formulir Pemeliharaan Peralatan SAS / Server SCADA',
     'SERVER SCADA': 'Formulir Pemeliharaan Peralatan Server SCADA',
     'GATEWAY SAS':  'Formulir Pemeliharaan Peralatan Gateway SAS',
+    'ROIP':         'Formulir Pemeliharaan Peralatan RoIP',
 }
 
 _CORRECTIVE_TITLE = 'Laporan Corrective Maintenance'
@@ -77,6 +79,7 @@ _DOC_CODES = {
     'SAS':                 '',
     'SERVER SCADA':        '',
     'GATEWAY SAS':         '',
+    'ROIP':                '',
 }
 
 
@@ -437,6 +440,13 @@ def _ctx_sas(data, ctx):
 _CTX_BUILDERS['SAS'] = _ctx_sas
 _CTX_BUILDERS['SERVER SCADA'] = _ctx_sas
 _CTX_BUILDERS['GATEWAY SAS'] = _ctx_sas
+
+
+def _ctx_roip(data, ctx):
+    ctx.update({'roip': data.get('roip', {})})
+
+
+_CTX_BUILDERS['ROIP'] = _ctx_roip
 
 
 def _ctx_corrective(data, ctx):
