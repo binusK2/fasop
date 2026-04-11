@@ -858,3 +858,50 @@ class MaintenanceRoIP(models.Model):
 
     class Meta:
         verbose_name = 'Maintenance RoIP'
+
+
+# ─────────────────────────────────────────────────────────────────────
+# DETAIL UPS (Uninterruptible Power Supply)
+# ─────────────────────────────────────────────────────────────────────
+class MaintenanceUPS(models.Model):
+
+    STATUS_CHECK = (('OK', 'OK'), ('NOK', 'NOK'),)
+
+    maintenance = models.OneToOneField(Maintenance, on_delete=models.CASCADE)
+
+    # ── Informasi UPS ────────────────────────────────────────────────
+    ups_merk        = models.CharField(max_length=100, blank=True, verbose_name='Merk UPS')
+    ups_model       = models.CharField(max_length=100, blank=True, verbose_name='Model UPS')
+    ups_kapasitas   = models.CharField(max_length=50,  blank=True, verbose_name='Kapasitas (VA/kVA)')
+    ups_kondisi     = models.CharField(max_length=3,   blank=True, choices=STATUS_CHECK, verbose_name='Kondisi UPS')
+
+    # ── Pengukuran Input (AC) ────────────────────────────────────────
+    v_input_r       = models.FloatField(null=True, blank=True, verbose_name='V Input R-N (V)')
+    v_input_s       = models.FloatField(null=True, blank=True, verbose_name='V Input S-N (V)')
+    v_input_t       = models.FloatField(null=True, blank=True, verbose_name='V Input T-N (V)')
+    f_input         = models.FloatField(null=True, blank=True, verbose_name='Frekuensi Input (Hz)')
+
+    # ── Pengukuran Output (AC) ───────────────────────────────────────
+    v_output_r      = models.FloatField(null=True, blank=True, verbose_name='V Output R-N (V)')
+    v_output_s      = models.FloatField(null=True, blank=True, verbose_name='V Output S-N (V)')
+    v_output_t      = models.FloatField(null=True, blank=True, verbose_name='V Output T-N (V)')
+    f_output        = models.FloatField(null=True, blank=True, verbose_name='Frekuensi Output (Hz)')
+    a_load          = models.FloatField(null=True, blank=True, verbose_name='Arus Beban (A)')
+    percent_load    = models.FloatField(null=True, blank=True, verbose_name='Beban (%)')
+
+    # ── Battery ──────────────────────────────────────────────────────
+    bat_merk            = models.CharField(max_length=100, blank=True, verbose_name='Merk Battery')
+    bat_tipe            = models.CharField(max_length=100, blank=True, verbose_name='Tipe Battery')
+    bat_kapasitas       = models.CharField(max_length=50,  blank=True, verbose_name='Kapasitas Battery')
+    bat_jumlah_cell     = models.IntegerField(null=True, blank=True, verbose_name='Jumlah Cell')
+    bat_kondisi         = models.CharField(max_length=3, blank=True, choices=STATUS_CHECK, verbose_name='Kondisi Battery')
+    bat_kondisi_kabel   = models.CharField(max_length=3, blank=True, choices=STATUS_CHECK, verbose_name='Kondisi Kabel Battery')
+    bat_v_total         = models.FloatField(null=True, blank=True, verbose_name='V Total Battery (V)')
+    # JSON: [{"cell":1,"v_float":1.234,"vd_0":1.220,"vd_1":1.210,"vd_2":1.200,"vd_3":1.195}, ...]
+    bat_cells           = models.JSONField(default=list, blank=True, verbose_name='Data Cell Battery')
+
+    # ── Catatan ──────────────────────────────────────────────────────
+    catatan = models.TextField(blank=True, default='')
+
+    class Meta:
+        verbose_name = 'Maintenance UPS'

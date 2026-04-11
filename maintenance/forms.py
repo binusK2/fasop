@@ -1,5 +1,5 @@
 from django import forms
-from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset, MaintenanceRTU, MaintenanceSAS, MaintenanceRoIP
+from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset, MaintenanceRTU, MaintenanceSAS, MaintenanceRoIP, MaintenanceUPS
 
 
 # ─── Widget helpers ───────────────────────────────────────────────────
@@ -619,4 +619,53 @@ class MaintenanceRoIPForm(forms.ModelForm):
             'test_radio_master': forms.Select(choices=_ROIP_SEL, attrs={'class': 'form-select'}),
             'test_ping_master':  forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'ms'}),
             'catatan':           forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        }
+
+
+# ─────────────────────────────────────────────────────────────────────
+# FORM DETAIL UPS
+# ─────────────────────────────────────────────────────────────────────
+_UPS_SEL = forms.Select(choices=[('', '—'), ('OK', 'OK'), ('NOK', 'NOK')], attrs={'class': 'form-select form-select-sm'})
+
+
+class MaintenanceUPSForm(forms.ModelForm):
+
+    class Meta:
+        model   = MaintenanceUPS
+        exclude = ['maintenance']
+
+        def _num(ph='', step='any'):
+            return forms.NumberInput(attrs={'class': 'form-control', 'step': step, 'placeholder': ph})
+        def _txt(ph=''):
+            return forms.TextInput(attrs={'class': 'form-control', 'placeholder': ph})
+
+        widgets = {
+            # UPS info
+            'ups_merk':      forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. APC, Emerson, Socomec'}),
+            'ups_model':     forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. Smart-UPS 3000'}),
+            'ups_kapasitas': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. 3000 VA / 2.7 kVA'}),
+            'ups_kondisi':   _UPS_SEL,
+            # Input AC
+            'v_input_r': forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'V'}),
+            'v_input_s': forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'V'}),
+            'v_input_t': forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'V'}),
+            'f_input':   forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'Hz'}),
+            # Output AC
+            'v_output_r':   forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'V'}),
+            'v_output_s':   forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'V'}),
+            'v_output_t':   forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'V'}),
+            'f_output':     forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'Hz'}),
+            'a_load':       forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'A'}),
+            'percent_load': forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': '%'}),
+            # Battery
+            'bat_merk':         forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. Yuasa, GS Astra'}),
+            'bat_tipe':         forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. NPL38-12'}),
+            'bat_kapasitas':    forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. 38 Ah / 12V'}),
+            'bat_jumlah_cell':  forms.NumberInput(attrs={'class': 'form-control', 'min': 1, 'max': 40, 'id': 'bat_jumlah_cell'}),
+            'bat_kondisi':      _UPS_SEL,
+            'bat_kondisi_kabel':_UPS_SEL,
+            'bat_v_total':      forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'V'}),
+            'bat_cells':        forms.HiddenInput(),
+            # Catatan
+            'catatan': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }
