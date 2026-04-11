@@ -661,7 +661,7 @@ class MaintenanceUPSForm(forms.ModelForm):
             'bat_merk':         forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. Yuasa, GS Astra'}),
             'bat_tipe':         forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. NPL38-12'}),
             'bat_kapasitas':    forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. 38 Ah / 12V'}),
-            'bat_jumlah_cell':  forms.NumberInput(attrs={'class': 'form-control', 'min': 1, 'max': 40, 'id': 'bat_jumlah_cell'}),
+            'bat_jumlah_cell':  forms.NumberInput(attrs={'class': 'form-control', 'min': 1, 'max': 200, 'id': 'bat_jumlah_cell'}),
             'bat_kondisi':      _UPS_SEL,
             'bat_kondisi_kabel':_UPS_SEL,
             'bat_v_total':      forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'V'}),
