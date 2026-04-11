@@ -37,6 +37,7 @@ _TEMPLATE_MAP = {
     'SERVER SCADA':        'maintenance/pdf/sas.html',
     'GATEWAY SAS':         'maintenance/pdf/sas.html',
     'ROIP':                'maintenance/pdf/roip.html',
+    'UPS':                 'maintenance/pdf/ups.html',
 }
 
 _CORRECTIVE_TEMPLATE = 'maintenance/pdf/corrective.html'
@@ -55,6 +56,7 @@ _TITLES = {
     'SERVER SCADA': 'Formulir Pemeliharaan Peralatan Server SCADA',
     'GATEWAY SAS':  'Formulir Pemeliharaan Peralatan Gateway SAS',
     'ROIP':         'Formulir Pemeliharaan Peralatan RoIP',
+    'UPS':          'Formulir Pemeliharaan Peralatan UPS',
 }
 
 _CORRECTIVE_TITLE = 'Laporan Corrective Maintenance'
@@ -80,6 +82,7 @@ _DOC_CODES = {
     'SERVER SCADA':        '',
     'GATEWAY SAS':         '',
     'ROIP':                '',
+    'UPS':                 '',
 }
 
 
@@ -152,6 +155,7 @@ def _ctx_plc(data, ctx):
             {'label': 'Bandwidth RX',            'value': _v(p.get('bandwidth_rx')),      'unit': 'MHz'},
         ],
         'catatan': data.get('catatan_tambahan', ''),
+        'modul_terpasang': p.get('modul_terpasang') or [],
     })
 
 
@@ -447,6 +451,42 @@ def _ctx_roip(data, ctx):
 
 
 _CTX_BUILDERS['ROIP'] = _ctx_roip
+
+
+def _ctx_ups(data, ctx):
+    u = data.get('ups', {})
+
+    CELL_KEYS = ['v_float', 'vd_0', 'vd_1', 'vd_2', 'vd_3']
+
+    def _cv(v):
+        if v is None or v == '': return '-'
+        try:    return f'{float(v):.3f}'
+        except: return str(v)
+
+    all_cells  = u.get('bat_cells') or []
+    raw_cells  = [c for c in all_cells if isinstance(c.get('cell'), int)]
+    vtotal_raw = next((c for c in all_cells if c.get('cell') == 'vtotal'), {})
+
+    fmt_cells = [
+        {'num': str(c.get('cell', '')).zfill(2), 'vals': [_cv(c.get(k)) for k in CELL_KEYS]}
+        for c in raw_cells
+    ]
+    half = (len(fmt_cells) + 1) // 2
+    fmt_cells_left  = fmt_cells[:half]
+    fmt_cells_right = fmt_cells[half:]
+    fmt_vtotal_vals = [_cv(vtotal_raw.get(k)) for k in CELL_KEYS]
+
+    ctx.update({
+        'ups': u,
+        'fmt_cells':       fmt_cells,
+        'fmt_cells_left':  fmt_cells_left,
+        'fmt_cells_right': fmt_cells_right,
+        'fmt_vtotal_vals': fmt_vtotal_vals,
+        'catatan': u.get('catatan', ''),
+    })
+
+
+_CTX_BUILDERS['UPS'] = _ctx_ups
 
 
 def _ctx_corrective(data, ctx):

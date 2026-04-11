@@ -314,6 +314,30 @@
                     </div>
                 </div>
 
+                <!-- Modul Terpasang -->
+                {% if plc_detail.modul_terpasang %}
+                <div class="d-flex align-items-center gap-2 mb-2 mt-1">
+                    <span style="width:5px;height:18px;background:#6366f1;border-radius:3px;display:inline-block;"></span>
+                    <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#64748b;">Modul Terpasang</h6>
+                </div>
+                <div class="row g-2 mb-4">
+                    {% for m in plc_detail.modul_terpasang %}
+                    <div class="col-md-4 col-sm-6">
+                        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 13px;border-radius:10px;
+                            {% if m.kondisi == 'OK' %}background:#f0fdf4;border:1.5px solid #6ee7b7;{% elif m.kondisi == 'NOK' %}background:#fef2f2;border:1.5px solid #fca5a5;{% else %}background:#f8fafc;border:1.5px solid #e2e8f0;{% endif %}">
+                            <div>
+                                <div style="font-size:12.5px;font-weight:600;color:#334155;">{{ m.nama|default:"—" }}</div>
+                                {% if m.jumlah %}<div style="font-size:11px;color:#94a3b8;">Jumlah: {{ m.jumlah }}</div>{% endif %}
+                            </div>
+                            {% if m.kondisi == 'OK' %}<span style="font-size:11px;font-weight:700;color:#065f46;background:#dcfce7;padding:2px 9px;border-radius:20px;">&#10003; OK</span>
+                            {% elif m.kondisi == 'NOK' %}<span style="font-size:11px;font-weight:700;color:#991b1b;background:#fee2e2;padding:2px 9px;border-radius:20px;">&#10007; NOK</span>
+                            {% else %}<span style="font-size:12px;color:#94a3b8;">&#8212;</span>{% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
                 <!-- Nilai Pengukuran -->
                 <div class="d-flex align-items-center gap-2 mb-3">
                     <span style="width:5px;height:18px;background:#f59e0b;border-radius:3px;display:inline-block;"></span>
@@ -825,6 +849,126 @@
         {% include 'maintenance/roip_detail_section.html' %}
         {% endif %}
 
+        <!-- ═══════════════ DETAIL UPS ═══════════════ -->
+        {% if ups_detail %}
+        <div class="card mb-3">
+            <div class="card-body px-4 py-3">
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <span style="width:5px;height:18px;background:#10b981;border-radius:3px;display:inline-block;"></span>
+                    <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#64748b;">
+                        <i class="bi bi-battery-charging me-1" style="color:#10b981;"></i>Detail UPS
+                    </h6>
+                </div>
+
+                <!-- Info UPS -->
+                <div class="row g-2 mb-3">
+                    {% if ups_detail.ups_merk %}
+                    <div class="col-md-3 col-sm-6"><div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;"><div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:3px;">Merk</div><div style="font-size:13px;font-weight:600;color:#334155;">{{ ups_detail.ups_merk }}</div></div></div>
+                    {% endif %}
+                    {% if ups_detail.ups_model %}
+                    <div class="col-md-3 col-sm-6"><div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;"><div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:3px;">Model</div><div style="font-size:13px;font-weight:600;color:#334155;">{{ ups_detail.ups_model }}</div></div></div>
+                    {% endif %}
+                    {% if ups_detail.ups_kapasitas %}
+                    <div class="col-md-3 col-sm-6"><div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;"><div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:3px;">Kapasitas</div><div style="font-size:13px;font-weight:600;color:#334155;">{{ ups_detail.ups_kapasitas }}</div></div></div>
+                    {% endif %}
+                    {% if ups_detail.ups_kondisi %}
+                    <div class="col-md-3 col-sm-6">
+                        <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 13px;border-radius:10px;{% if ups_detail.ups_kondisi == 'OK' %}background:#f0fdf4;border:1.5px solid #6ee7b7;{% elif ups_detail.ups_kondisi == 'NOK' %}background:#fef2f2;border:1.5px solid #fca5a5;{% else %}background:#f8fafc;border:1.5px solid #e2e8f0;{% endif %}">
+                            <span style="font-size:12.5px;font-weight:600;color:#334155;">Kondisi UPS</span>
+                            {% if ups_detail.ups_kondisi == 'OK' %}<span style="font-size:11.5px;font-weight:700;color:#065f46;background:#dcfce7;padding:2px 10px;border-radius:20px;">&#10003; OK</span>
+                            {% elif ups_detail.ups_kondisi == 'NOK' %}<span style="font-size:11.5px;font-weight:700;color:#991b1b;background:#fee2e2;padding:2px 10px;border-radius:20px;">&#10007; NOK</span>
+                            {% else %}<span style="font-size:11.5px;color:#94a3b8;">—</span>{% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Pengukuran AC -->
+                {% if ups_detail.v_input_r or ups_detail.v_output_r %}
+                <div class="d-flex align-items-center gap-2 mb-2 mt-1">
+                    <span style="width:5px;height:18px;background:#3b82f6;border-radius:3px;display:inline-block;"></span>
+                    <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#64748b;">Pengukuran AC</span>
+                </div>
+                <div class="row g-2 mb-3">
+                    {% for lbl, val, unit in ups_ac_list %}
+                    {% if val is not None %}
+                    <div class="col-6 col-md-2">
+                        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;text-align:center;">
+                            <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">{{ lbl }}</div>
+                            <div style="font-size:16px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;">{{ val }}<span style="font-size:11px;font-weight:500;color:#64748b;margin-left:2px;">{{ unit }}</span></div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <!-- Battery info -->
+                <div class="d-flex align-items-center gap-2 mb-2 mt-1">
+                    <span style="width:5px;height:18px;background:#10b981;border-radius:3px;display:inline-block;"></span>
+                    <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#64748b;">Battery</span>
+                </div>
+                <div class="row g-2 mb-3">
+                    {% if ups_detail.bat_merk %}<div class="col-md-2 col-sm-4"><div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;"><div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:3px;">Merk</div><div style="font-size:13px;font-weight:600;color:#334155;">{{ ups_detail.bat_merk }}</div></div></div>{% endif %}
+                    {% if ups_detail.bat_tipe %}<div class="col-md-2 col-sm-4"><div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;"><div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:3px;">Tipe</div><div style="font-size:13px;font-weight:600;color:#334155;">{{ ups_detail.bat_tipe }}</div></div></div>{% endif %}
+                    {% if ups_detail.bat_kapasitas %}<div class="col-md-2 col-sm-4"><div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;"><div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:3px;">Kapasitas</div><div style="font-size:13px;font-weight:600;color:#334155;">{{ ups_detail.bat_kapasitas }}</div></div></div>{% endif %}
+                    {% if ups_detail.bat_jumlah_cell %}<div class="col-md-2 col-sm-4"><div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;"><div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:3px;">Jumlah Cell</div><div style="font-size:16px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;">{{ ups_detail.bat_jumlah_cell }}</div></div></div>{% endif %}
+                    {% if ups_detail.bat_v_total %}<div class="col-md-2 col-sm-4"><div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;"><div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:3px;">V Total Battery</div><div style="font-size:16px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;">{{ ups_detail.bat_v_total }} <span style="font-size:11px;color:#64748b;">V</span></div></div></div>{% endif %}
+                    {% if ups_detail.bat_kondisi %}<div class="col-md-2 col-sm-4">
+                        <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 13px;border-radius:10px;{% if ups_detail.bat_kondisi == 'OK' %}background:#f0fdf4;border:1.5px solid #6ee7b7;{% elif ups_detail.bat_kondisi == 'NOK' %}background:#fef2f2;border:1.5px solid #fca5a5;{% else %}background:#f8fafc;border:1.5px solid #e2e8f0;{% endif %}">
+                            <span style="font-size:12px;font-weight:600;color:#334155;">Kondisi Battery</span>
+                            {% if ups_detail.bat_kondisi == 'OK' %}<span style="font-size:11px;font-weight:700;color:#065f46;background:#dcfce7;padding:2px 8px;border-radius:20px;">OK</span>
+                            {% elif ups_detail.bat_kondisi == 'NOK' %}<span style="font-size:11px;font-weight:700;color:#991b1b;background:#fee2e2;padding:2px 8px;border-radius:20px;">NOK</span>
+                            {% else %}<span style="font-size:11px;color:#94a3b8;">—</span>{% endif %}
+                        </div>
+                    </div>{% endif %}
+                </div>
+
+                <!-- Tabel Per Cell -->
+                {% if ups_cells %}
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <span style="width:5px;height:18px;background:#10b981;border-radius:3px;display:inline-block;"></span>
+                    <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#64748b;">Pengukuran Per Cell</span>
+                </div>
+                <div class="table-responsive" style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;">
+                    <table class="table table-sm mb-0" style="font-size:12px;font-family:'JetBrains Mono',monospace;">
+                        <thead style="background:#f1f5f9;">
+                            <tr>
+                                <th style="color:#475569;width:40px;text-align:center;">#</th>
+                                <th style="color:#065f46;background:#f0fdf4;text-align:center;">V Float</th>
+                                <th style="color:#92400e;background:#fffbeb;text-align:center;">VD 0 Jam</th>
+                                <th style="color:#92400e;background:#fffbeb;text-align:center;">VD 1 Jam</th>
+                                <th style="color:#92400e;background:#fffbeb;text-align:center;">VD 2 Jam</th>
+                                <th style="color:#92400e;background:#fffbeb;text-align:center;">VD 3 Jam</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for c in ups_cells %}
+                            <tr style="{% cycle 'background:#fff;' 'background:#f8fafc;' %}">
+                                <td style="text-align:center;font-weight:700;color:#10b981;">{{ c.num }}</td>
+                                <td style="text-align:center;">{{ c.vf }}</td>
+                                <td style="text-align:center;">{{ c.vd0 }}</td>
+                                <td style="text-align:center;">{{ c.vd1 }}</td>
+                                <td style="text-align:center;">{{ c.vd2 }}</td>
+                                <td style="text-align:center;">{{ c.vd3 }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% endif %}
+
+                <!-- Catatan -->
+                {% if ups_detail.catatan %}
+                <div class="mt-3 p-3" style="background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;">
+                    <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Catatan</div>
+                    <div style="font-size:13px;color:#334155;">{{ ups_detail.catatan }}</div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
         <!-- ═══════════════ DETAIL RTU ═══════════════ -->
         {% if rtu_detail %}
         <div class="card mb-3">
@@ -1099,7 +1243,7 @@
         {% endif %}
 
         <!-- Tidak ada detail khusus -->
-        {% if not plc_detail and not router_detail and not radio_detail and not voip_detail and not mux_detail and not rect_detail and not tp_detail and not genset_detail and not rtu_detail and not sas_detail and not roip_detail %}
+        {% if not plc_detail and not router_detail and not radio_detail and not voip_detail and not mux_detail and not rect_detail and not tp_detail and not genset_detail and not rtu_detail and not sas_detail and not roip_detail and not ups_detail %}
             {% if maintenance.maintenance_type == 'Corrective' and maintenance.corrective_detail %}
             {# Detail Corrective ditampilkan di sini, di dalam panel kanan #}
             {% with cd=maintenance.corrective_detail %}

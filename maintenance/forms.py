@@ -1,5 +1,5 @@
 from django import forms
-from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset, MaintenanceRTU, MaintenanceSAS, MaintenanceRoIP
+from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset, MaintenanceRTU, MaintenanceSAS, MaintenanceRoIP, MaintenanceUPS
 
 
 # ─── Widget helpers ───────────────────────────────────────────────────
@@ -60,18 +60,34 @@ class MaintenanceForm(forms.ModelForm):
 # ─────────────────────────────────────────────────────────────────────
 # FORM DETAIL PLC (sudah ada sebelumnya)
 # ─────────────────────────────────────────────────────────────────────
+_PLC_SEL = forms.Select(choices=[('','—'),('OK','OK'),('NOK','NOK')], attrs={'class':'form-select form-select-sm'})
+
+
 class MaintenancePLCForm(forms.ModelForm):
+    import json as _json
+
+    # HiddenInput carries the JSON array of module rows submitted by JS
+    modul_terpasang = forms.CharField(required=False, widget=forms.HiddenInput(), initial='[]')
+
+    def clean_modul_terpasang(self):
+        import json
+        raw = self.cleaned_data.get('modul_terpasang') or '[]'
+        try:
+            result = json.loads(raw)
+            return result if isinstance(result, list) else []
+        except (ValueError, TypeError):
+            return []
 
     class Meta:
         model   = MaintenancePLC
         exclude = ['maintenance']
         widgets = {
-            'akses_plc':        OK_NOK_WIDGET,
-            'remote_akses_plc': OK_NOK_WIDGET,
-            'time_sync':        OK_NOK_WIDGET,
-            'wave_trap':        OK_NOK_WIDGET,
-            'imu':              OK_NOK_WIDGET,
-            'kabel_coaxial':    OK_NOK_WIDGET,
+            'akses_plc':        _PLC_SEL,
+            'remote_akses_plc': _PLC_SEL,
+            'time_sync':        _PLC_SEL,
+            'wave_trap':        _PLC_SEL,
+            'imu':              _PLC_SEL,
+            'kabel_coaxial':    _PLC_SEL,
             'transmission_line': forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. -32.5'}),
             'rx_pilot_level':    forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. -28.0'}),
             'freq_tx':           forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. 72.5'}),
@@ -603,4 +619,53 @@ class MaintenanceRoIPForm(forms.ModelForm):
             'test_radio_master': forms.Select(choices=_ROIP_SEL, attrs={'class': 'form-select'}),
             'test_ping_master':  forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'ms'}),
             'catatan':           forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        }
+
+
+# ─────────────────────────────────────────────────────────────────────
+# FORM DETAIL UPS
+# ─────────────────────────────────────────────────────────────────────
+_UPS_SEL = forms.Select(choices=[('', '—'), ('OK', 'OK'), ('NOK', 'NOK')], attrs={'class': 'form-select form-select-sm'})
+
+
+class MaintenanceUPSForm(forms.ModelForm):
+
+    class Meta:
+        model   = MaintenanceUPS
+        exclude = ['maintenance']
+
+        def _num(ph='', step='any'):
+            return forms.NumberInput(attrs={'class': 'form-control', 'step': step, 'placeholder': ph})
+        def _txt(ph=''):
+            return forms.TextInput(attrs={'class': 'form-control', 'placeholder': ph})
+
+        widgets = {
+            # UPS info
+            'ups_merk':      forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. APC, Emerson, Socomec'}),
+            'ups_model':     forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. Smart-UPS 3000'}),
+            'ups_kapasitas': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. 3000 VA / 2.7 kVA'}),
+            'ups_kondisi':   _UPS_SEL,
+            # Input AC
+            'v_input_r': forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'V'}),
+            'v_input_s': forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'V'}),
+            'v_input_t': forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'V'}),
+            'f_input':   forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'Hz'}),
+            # Output AC
+            'v_output_r':   forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'V'}),
+            'v_output_s':   forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'V'}),
+            'v_output_t':   forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'V'}),
+            'f_output':     forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'Hz'}),
+            'a_load':       forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'A'}),
+            'percent_load': forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': '%'}),
+            # Battery
+            'bat_merk':         forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. Yuasa, GS Astra'}),
+            'bat_tipe':         forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. NPL38-12'}),
+            'bat_kapasitas':    forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. 38 Ah / 12V'}),
+            'bat_jumlah_cell':  forms.NumberInput(attrs={'class': 'form-control', 'min': 1, 'max': 40, 'id': 'bat_jumlah_cell'}),
+            'bat_kondisi':      _UPS_SEL,
+            'bat_kondisi_kabel':_UPS_SEL,
+            'bat_v_total':      forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'V'}),
+            'bat_cells':        forms.HiddenInput(),
+            # Catatan
+            'catatan': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }

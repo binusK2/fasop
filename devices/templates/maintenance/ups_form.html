@@ -1,0 +1,359 @@
+{% extends 'base.html' %}
+{% block title %}{% if is_edit %}Edit{% else %}Form{% endif %} Maintenance UPS — {{ device.nama }}{% endblock %}
+{% block page_title %}{% if is_edit %}Edit{% else %}Form{% endif %} Maintenance UPS{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center gap-2 mb-3">
+    {% if is_edit %}
+    <a href="{% url 'maintenance_view' maintenance.id %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Kembali ke Detail</a>
+    {% else %}
+    <a href="{% url 'device_view' device.id %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Kembali ke Perangkat</a>
+    {% endif %}
+</div>
+
+{% include 'maintenance/_device_banner.html' with banner_icon='bi-battery-charging' banner_icon_color='#6ee7b7' banner_icon_bg='rgba(16,185,129,0.2)' %}
+
+<form method="post" enctype="multipart/form-data" id="ups-form">
+{% csrf_token %}
+
+<!-- 1. INFORMASI MAINTENANCE -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-title-bar">
+            <span class="bar" style="background:#3b82f6;"></span>
+            <span>Informasi Maintenance</span>
+        </div>
+        <div class="row g-3 align-items-start">
+            <div class="col-md-2">
+                <label class="form-label fw-semibold">Jenis Maintenance</label>
+                <div style="display:flex;align-items:center;gap:6px;background:#eff6ff;color:#1d4ed8;border:1.5px solid #bfdbfe;border-radius:8px;padding:8px 12px;font-size:13px;font-weight:700;white-space:nowrap;">
+                    <i class="bi bi-shield-check" style="font-size:14px;"></i> Preventive
+                </div>
+                <input type="hidden" name="maintenance_type" value="Preventive">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-semibold">Tanggal</label>
+                {{ maintenance_form.date }}
+            </div>
+            {% include 'maintenance/_pelaksana_tag_input.html' %}
+        </div>
+        <div class="row g-3 mt-1">
+            <div class="col-md-8">
+                <label class="form-label fw-semibold">Deskripsi / Keluhan</label>
+                {{ maintenance_form.description }}
+            </div>
+            <div class="col-md-4">
+                <label class="form-label fw-semibold">Foto Dokumentasi</label>
+                {{ maintenance_form.photo }}
+                <div class="form-text">Format: JPG, PNG. Maks 10MB.</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 2. INFORMASI UPS -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="ups-sec" style="--c:#8b5cf6;">Informasi UPS</div>
+        <div class="row g-3">
+            <div class="col-md-3"><div class="ups-card"><div class="ups-lbl">Merk</div>{{ detail_form.ups_merk }}</div></div>
+            <div class="col-md-3"><div class="ups-card"><div class="ups-lbl">Model</div>{{ detail_form.ups_model }}</div></div>
+            <div class="col-md-3"><div class="ups-card"><div class="ups-lbl">Kapasitas</div>{{ detail_form.ups_kapasitas }}</div></div>
+            <div class="col-md-3"><div class="ups-card"><div class="ups-lbl">Kondisi UPS</div>
+                <div id="field-ups_kondisi" style="display:none;">{{ detail_form.ups_kondisi }}</div>
+                <div class="ups-tog-wrap"><button type="button" class="ups-tog ok" data-f="ups_kondisi" data-v="OK">&#10003; OK</button><button type="button" class="ups-tog nok" data-f="ups_kondisi" data-v="NOK">&#10007; NOK</button></div>
+            </div></div>
+        </div>
+    </div>
+</div>
+
+<!-- 3. PENGUKURAN INPUT / OUTPUT -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="ups-sec" style="--c:#3b82f6;">Pengukuran AC</div>
+
+        <div class="ups-sub">Tegangan Input</div>
+        <div class="row g-3 mb-3">
+            <div class="col-md-2"><div class="ups-card"><div class="ups-lbl">V Input R-N</div><div class="input-group">{{ detail_form.v_input_r }}<span class="input-group-text ups-unit">V</span></div></div></div>
+            <div class="col-md-2"><div class="ups-card"><div class="ups-lbl">V Input S-N</div><div class="input-group">{{ detail_form.v_input_s }}<span class="input-group-text ups-unit">V</span></div></div></div>
+            <div class="col-md-2"><div class="ups-card"><div class="ups-lbl">V Input T-N</div><div class="input-group">{{ detail_form.v_input_t }}<span class="input-group-text ups-unit">V</span></div></div></div>
+            <div class="col-md-2"><div class="ups-card"><div class="ups-lbl">Frekuensi Input</div><div class="input-group">{{ detail_form.f_input }}<span class="input-group-text ups-unit">Hz</span></div></div></div>
+        </div>
+
+        <div class="ups-sub">Tegangan Output</div>
+        <div class="row g-3">
+            <div class="col-md-2"><div class="ups-card"><div class="ups-lbl">V Output R-N</div><div class="input-group">{{ detail_form.v_output_r }}<span class="input-group-text ups-unit">V</span></div></div></div>
+            <div class="col-md-2"><div class="ups-card"><div class="ups-lbl">V Output S-N</div><div class="input-group">{{ detail_form.v_output_s }}<span class="input-group-text ups-unit">V</span></div></div></div>
+            <div class="col-md-2"><div class="ups-card"><div class="ups-lbl">V Output T-N</div><div class="input-group">{{ detail_form.v_output_t }}<span class="input-group-text ups-unit">V</span></div></div></div>
+            <div class="col-md-2"><div class="ups-card"><div class="ups-lbl">Frekuensi Output</div><div class="input-group">{{ detail_form.f_output }}<span class="input-group-text ups-unit">Hz</span></div></div></div>
+            <div class="col-md-2"><div class="ups-card"><div class="ups-lbl">Arus Beban</div><div class="input-group">{{ detail_form.a_load }}<span class="input-group-text ups-unit">A</span></div></div></div>
+            <div class="col-md-2"><div class="ups-card"><div class="ups-lbl">Beban</div><div class="input-group">{{ detail_form.percent_load }}<span class="input-group-text ups-unit">%</span></div></div></div>
+        </div>
+    </div>
+</div>
+
+<!-- 4. BATTERY -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="ups-sec" style="--c:#10b981;">Battery</div>
+
+        <!-- Info Battery -->
+        <div class="row g-3 mb-3">
+            <div class="col-md-3"><div class="ups-card"><div class="ups-lbl">Merk Battery</div>{{ detail_form.bat_merk }}</div></div>
+            <div class="col-md-3"><div class="ups-card"><div class="ups-lbl">Tipe Battery</div>{{ detail_form.bat_tipe }}</div></div>
+            <div class="col-md-3"><div class="ups-card"><div class="ups-lbl">Kapasitas Battery</div>{{ detail_form.bat_kapasitas }}</div></div>
+            <div class="col-md-3"><div class="ups-card"><div class="ups-lbl">Jumlah Cell</div>
+                <div class="input-group">{{ detail_form.bat_jumlah_cell }}<span class="input-group-text ups-unit">cell</span></div>
+                <div style="font-size:10px;color:#94a3b8;margin-top:4px;">Ubah → tabel menyesuaikan</div>
+            </div></div>
+        </div>
+
+        <!-- Kondisi Fisik -->
+        <div class="ups-sub">Kondisi Fisik</div>
+        <div class="row g-3 mb-3">
+            <div class="col-md-3"><div class="ups-card"><div class="ups-lbl">Kondisi Battery</div>
+                <div id="field-bat_kondisi" style="display:none;">{{ detail_form.bat_kondisi }}</div>
+                <div class="ups-tog-wrap"><button type="button" class="ups-tog ok" data-f="bat_kondisi" data-v="OK">&#10003; OK</button><button type="button" class="ups-tog nok" data-f="bat_kondisi" data-v="NOK">&#10007; NOK</button></div>
+            </div></div>
+            <div class="col-md-3"><div class="ups-card"><div class="ups-lbl">Kondisi Kabel Battery</div>
+                <div id="field-bat_kondisi_kabel" style="display:none;">{{ detail_form.bat_kondisi_kabel }}</div>
+                <div class="ups-tog-wrap"><button type="button" class="ups-tog ok" data-f="bat_kondisi_kabel" data-v="OK">&#10003; OK</button><button type="button" class="ups-tog nok" data-f="bat_kondisi_kabel" data-v="NOK">&#10007; NOK</button></div>
+            </div></div>
+            <div class="col-md-3"><div class="ups-card"><div class="ups-lbl">V Total Battery</div>
+                <div class="input-group">{{ detail_form.bat_v_total }}<span class="input-group-text ups-unit">V</span></div>
+            </div></div>
+        </div>
+
+        <!-- Tabel Cell -->
+        <div class="d-flex align-items-center justify-content-between mb-2">
+            <div class="ups-sub" style="margin:0;">Pengukuran Per Cell <span id="cell-count-badge" style="color:#10b981;font-weight:700;">(— Cell)</span></div>
+            <span style="font-size:11px;background:#f0fdf4;color:#065f46;padding:3px 12px;border-radius:20px;border:1px solid #a7f3d0;white-space:nowrap;">
+                <i class="bi bi-keyboard me-1"></i>Ketik <strong>3 digit</strong> mis. <code>985</code> → <strong>1.985 V</strong> &middot; <kbd>Enter</kbd> lanjut bawah
+            </span>
+        </div>
+        <div class="table-responsive mb-3" style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">
+            <table class="ups-ctbl">
+                <thead>
+                    <tr>
+                        <th class="ct-n">#</th>
+                        <th class="ct-f">V Float</th>
+                        <th class="ct-d">VD 0 Jam</th>
+                        <th class="ct-d">VD 1 Jam</th>
+                        <th class="ct-d">VD 2 Jam</th>
+                        <th class="ct-d">VD 3 Jam</th>
+                    </tr>
+                </thead>
+                <tbody id="cell-tbody-left"></tbody>
+            </table>
+        </div>
+        {{ detail_form.bat_cells }}
+    </div>
+</div>
+
+<!-- 5. CATATAN -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="ups-sec" style="--c:#64748b;">Catatan</div>
+        <textarea name="catatan" class="form-control" rows="4" style="font-size:13.5px;color:#334155;resize:vertical;" placeholder="Catatan pemeliharaan...">{% if detail_form.catatan.value %}{{ detail_form.catatan.value }}{% endif %}</textarea>
+    </div>
+</div>
+
+{% if maintenance_form.errors or detail_form.errors %}
+<div class="alert alert-danger mb-3"><i class="bi bi-exclamation-triangle me-2"></i><strong>Perbaiki error:</strong>{{ maintenance_form.errors }}{{ detail_form.errors }}</div>
+{% endif %}
+
+<div class="d-flex gap-2 justify-content-end pb-4">
+    {% if is_edit %}<a href="{% url 'maintenance_view' maintenance.id %}" class="btn btn-outline-secondary"><i class="bi bi-x me-1"></i>Batal</a>
+    {% else %}<a href="{% url 'device_view' device.id %}" class="btn btn-outline-secondary"><i class="bi bi-x me-1"></i>Batal</a>{% endif %}
+    <button type="submit" class="btn btn-primary px-4"><i class="bi bi-floppy me-1"></i>{% if is_edit %}Simpan Perubahan{% else %}Simpan Maintenance{% endif %}</button>
+</div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<style>
+.ups-sec{display:flex;align-items:center;gap:10px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:#475569;margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid #f1f5f9;}
+.ups-sec::before{content:'';width:5px;height:20px;border-radius:3px;background:var(--c,#3b82f6);flex-shrink:0;}
+.ups-sub{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;margin-bottom:10px;display:flex;align-items:center;gap:6px;}
+.ups-sub::before{content:'';width:4px;height:13px;border-radius:2px;background:#8b5cf6;flex-shrink:0;}
+.ups-card{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:11px 14px;height:100%;}
+.ups-lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#64748b;margin-bottom:7px;}
+.ups-unit{background:#e2e8f0;border-color:#e2e8f0!important;font-size:12px;font-weight:700;color:#475569;min-width:36px;justify-content:center;}
+.ups-tog-wrap{display:flex;gap:6px;}
+.ups-tog{flex:1;padding:6px 0;border-radius:7px;font-size:12px;font-weight:700;border:1.5px solid transparent;cursor:pointer;transition:all .12s;background:#fff;}
+.ups-tog.ok{border-color:#d1fae5;color:#9ca3af;}
+.ups-tog.nok{border-color:#fee2e2;color:#9ca3af;}
+.ups-tog.ok.on{background:#10b981;border-color:#10b981;color:#fff;}
+.ups-tog.nok.on{background:#ef4444;border-color:#ef4444;color:#fff;}
+/* Tabel cell */
+.ups-ctbl{width:100%;border-collapse:collapse;}
+.ups-ctbl thead th{padding:8px 8px;font-size:11px;font-weight:700;text-align:center;white-space:nowrap;border-bottom:2px solid #e2e8f0;}
+.ct-n{width:46px;background:#f0fdf4;color:#065f46;}
+.ct-f{background:#f0fdf4;color:#334155;min-width:95px;}
+.ct-d{background:#fffbeb;color:#92400e;min-width:90px;}
+.ups-ctbl tbody tr:nth-child(odd){background:#fff;}
+.ups-ctbl tbody tr:nth-child(even){background:#f8fafc;}
+.ups-ctbl tbody td{padding:3px 5px;vertical-align:middle;text-align:center;border-bottom:1px solid #f1f5f9;}
+.cn{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:#10b981;}
+.ci{width:84px;padding:4px 6px;font-size:12.5px;font-family:'JetBrains Mono',monospace;border:1.5px solid #e2e8f0;border-radius:6px;text-align:center;background:#fff;outline:none;transition:border-color .1s,background .1s;}
+.ci:focus{border-color:#10b981!important;box-shadow:0 0 0 2px rgba(16,185,129,.15)!important;}
+.ci.v-ok{border-color:#6ee7b7!important;background:#d1fae5!important;color:#065f46!important;font-weight:700!important;}
+.ci.v-low{border-color:#fbbf24!important;background:#fef9c3!important;color:#92400e!important;font-weight:700!important;}
+.ct-summary-row td{background:#eff6ff;border-top:2px solid #bfdbfe;padding:4px 5px;vertical-align:middle;text-align:center;}
+.ct-summary-lbl{font-size:11px;font-weight:700;color:#1d4ed8;text-align:center;white-space:nowrap;min-width:46px;}
+.ci-sum{border-color:#bfdbfe!important;background:#dbeafe!important;color:#1d4ed8!important;font-weight:700!important;}
+</style>
+
+<script>
+/* Toggle OK/NOK */
+document.addEventListener('click', e => {
+    const b = e.target.closest('.ups-tog');
+    if (!b) return;
+    const f = document.getElementById('field-' + b.dataset.f);
+    if (!f) return;
+    const s = f.querySelector('select');
+    if (s) s.value = b.dataset.v;
+    const w = f.nextElementSibling;
+    if (w) w.querySelectorAll('.ups-tog').forEach(x => x.classList.toggle('on', x.dataset.v === b.dataset.v));
+});
+
+/* UPS Cell table — 5 columns: v_float, vd_0, vd_1, vd_2, vd_3 */
+const COLS = ['v_float', 'vd_0', 'vd_1', 'vd_2', 'vd_3'];
+
+function getNC() {
+    const ji = document.querySelector('input[name="bat_jumlah_cell"]');
+    const n = parseInt(ji?.value) || 12;
+    return Math.max(1, Math.min(40, n));
+}
+function updateBadge() {
+    const nc = getNC();
+    const b = document.getElementById('cell-count-badge');
+    if (b) b.textContent = `(${nc} Cell)`;
+}
+function pv(s) {
+    s = (s || '').trim();
+    if (!s) return null;
+    const v = s.includes('.') ? parseFloat(s) : parseFloat('1.' + s.padStart(3, '0'));
+    return isNaN(v) ? null : v;
+}
+function colStyle(inp, v) {
+    inp.classList.remove('v-ok', 'v-low');
+    if (v !== null) inp.classList.add(v >= 1 ? 'v-ok' : 'v-low');
+}
+function sync() {
+    const rows = {};
+    document.querySelectorAll('.ci').forEach(i => {
+        const c = i.dataset.cell, k = i.dataset.col;
+        if (!rows[c]) {
+            const n = parseInt(c);
+            rows[c] = {cell: isNaN(n) ? c : n};
+        }
+        const v = parseFloat(i.value);
+        rows[c][k] = isNaN(v) ? null : v;
+    });
+    const h = document.querySelector('input[name="bat_cells"]');
+    if (h) h.value = JSON.stringify(Object.values(rows));
+}
+
+function buildTfoot(ex) {
+    /* Add V Total summary row to existing tfoot or tbody */
+    const tb = document.getElementById('cell-tbody-left');
+    const existing = (ex || []).find(r => r.cell === 'vtotal') || {};
+    const tr = document.createElement('tr');
+    tr.className = 'ct-summary-row';
+    const tdLbl = document.createElement('td');
+    tdLbl.className = 'ct-summary-lbl';
+    tdLbl.textContent = 'V Total';
+    tr.appendChild(tdLbl);
+    COLS.forEach(k => {
+        const td = document.createElement('td');
+        const inp = document.createElement('input');
+        inp.type = 'text'; inp.inputMode = 'decimal';
+        inp.className = 'ci ci-sum'; inp.placeholder = '—';
+        inp.dataset.cell = 'vtotal'; inp.dataset.col = k;
+        const sv = existing[k];
+        if (sv !== undefined && sv !== null) inp.value = sv;
+        const blur = () => { const s = inp.value.trim(); if (s) { const v2 = parseFloat(s); if (!isNaN(v2)) inp.value = v2; } sync(); };
+        inp.addEventListener('blur', blur);
+        inp.addEventListener('keydown', e2 => {
+            if (e2.key !== 'Enter') return;
+            e2.preventDefault();
+            blur();
+        });
+        td.appendChild(inp);
+        tr.appendChild(td);
+    });
+    tb.appendChild(tr);
+}
+
+function build(ex) {
+    const NC = getNC();
+    updateBadge();
+    const tb = document.getElementById('cell-tbody-left');
+    tb.innerHTML = '';
+    for (let i = 1; i <= NC; i++) {
+        const e = (ex || []).find(r => r.cell == i) || {};
+        const tr = document.createElement('tr');
+        const tn = document.createElement('td');
+        tn.innerHTML = `<span class="cn">${String(i).padStart(2, '0')}</span>`;
+        tr.appendChild(tn);
+        COLS.forEach(k => {
+            const td = document.createElement('td');
+            const inp = document.createElement('input');
+            inp.type = 'text'; inp.inputMode = 'decimal';
+            inp.className = 'ci'; inp.placeholder = '—';
+            inp.dataset.cell = i; inp.dataset.col = k;
+            const sv = e[k];
+            if (sv !== undefined && sv !== null) { inp.value = sv; colStyle(inp, sv); }
+            inp.addEventListener('blur', () => {
+                const v = pv(inp.value);
+                if (v !== null) inp.value = v;
+                colStyle(inp, v);
+                sync();
+            });
+            inp.addEventListener('input', () => inp.classList.remove('v-ok', 'v-low'));
+            inp.addEventListener('keydown', e2 => {
+                if (e2.key !== 'Enter') return;
+                e2.preventDefault();
+                const v = pv(inp.value); if (v !== null) inp.value = v; colStyle(inp, v); sync();
+                const nx = document.querySelector(`.ci[data-cell="${i + 1}"][data-col="${inp.dataset.col}"]`);
+                if (nx) nx.focus();
+            });
+            td.appendChild(inp);
+            tr.appendChild(td);
+        });
+        tb.appendChild(tr);
+    }
+    buildTfoot(ex);
+    sync();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    /* Restore toggles */
+    ['ups_kondisi', 'bat_kondisi', 'bat_kondisi_kabel'].forEach(n => {
+        const f = document.getElementById('field-' + n);
+        if (!f) return;
+        const s = f.querySelector('select');
+        if (!s || !s.value) return;
+        const w = f.nextElementSibling;
+        if (w) w.querySelectorAll('.ups-tog').forEach(b => b.classList.toggle('on', b.dataset.v === s.value));
+    });
+    /* Set default jumlah cell jika kosong */
+    const ji = document.querySelector('input[name="bat_jumlah_cell"]');
+    if (ji && !ji.value) ji.value = 12;
+    /* Rebuild tabel saat jumlah berubah */
+    if (ji) {
+        ji.addEventListener('change', () => {
+            let ex = [];
+            try { const h = document.querySelector('input[name="bat_cells"]'); ex = JSON.parse(h?.value || '[]'); } catch(e) {}
+            build(ex);
+        });
+        ji.addEventListener('input', updateBadge);
+    }
+    /* Build tabel awal */
+    let ex = [];
+    try { const h = document.querySelector('input[name="bat_cells"]'); ex = JSON.parse(h?.value || '[]'); } catch(e) {}
+    build(ex);
+});
+</script>
+{% endblock %}

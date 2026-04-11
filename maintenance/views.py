@@ -1,8 +1,8 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from devices.permissions import require_can_edit, require_can_delete, is_viewer_only
-from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset, MaintenanceRTU, MaintenanceSAS, MaintenanceRoIP
-from .forms import MaintenanceForm, MaintenancePLCForm, MaintenanceRouterForm, MaintenanceRadioForm, MaintenanceVoIPForm, MaintenanceMuxForm, MaintenanceRectifierForm, MaintenanceTeleproteksiForm, MaintenanceGensetForm, MaintenanceRTUForm, MaintenanceSASForm, MaintenanceRoIPForm
+from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset, MaintenanceRTU, MaintenanceSAS, MaintenanceRoIP, MaintenanceUPS
+from .forms import MaintenanceForm, MaintenancePLCForm, MaintenanceRouterForm, MaintenanceRadioForm, MaintenanceVoIPForm, MaintenanceMuxForm, MaintenanceRectifierForm, MaintenanceTeleproteksiForm, MaintenanceGensetForm, MaintenanceRTUForm, MaintenanceSASForm, MaintenanceRoIPForm, MaintenanceUPSForm
 from devices.models import Device, DeviceType
 from gangguan.models import Gangguan
 from inspection.models import InspectionCatuDaya
@@ -42,6 +42,7 @@ DEVICE_FORM_MAP = {
     'GATEWAY SAS':         (MaintenanceSASForm,          'maintenance/sas_form.html'),
     'ROIP':   (MaintenanceRoIPForm, 'maintenance/roip_form.html'),
     'RoIP':   (MaintenanceRoIPForm, 'maintenance/roip_form.html'),
+    'UPS':    (MaintenanceUPSForm,  'maintenance/ups_form.html'),
 }
 
 DEFAULT_TEMPLATE = 'maintenance/maintenance_form.html'
@@ -234,6 +235,7 @@ def maintenance_detail(request, pk):
     rtu_detail    = None
     sas_detail    = None
     roip_detail   = None
+    ups_detail    = None
 
     if device_type == 'PLC':
         try:
@@ -299,6 +301,12 @@ def maintenance_detail(request, pk):
         try:
             roip_detail = maintenance.maintenanceroip
         except MaintenanceRoIP.DoesNotExist:
+            pass
+
+    elif device_type == 'UPS':
+        try:
+            ups_detail = maintenance.maintenanceups
+        except MaintenanceUPS.DoesNotExist:
             pass
 
     # Checklist peralatan terpasang untuk template radio
@@ -494,6 +502,31 @@ def maintenance_detail(request, pk):
             ('RPM',               genset_detail.rpm                 if genset_detail else None, 'rpm'),
         ] if genset_detail else [],
         'roip_detail': roip_detail,
+        'ups_detail':  ups_detail,
+        'ups_ac_list': [
+            ('V Input R-N',   ups_detail.v_input_r  if ups_detail else None, 'V'),
+            ('V Input S-N',   ups_detail.v_input_s  if ups_detail else None, 'V'),
+            ('V Input T-N',   ups_detail.v_input_t  if ups_detail else None, 'V'),
+            ('Frek. Input',   ups_detail.f_input    if ups_detail else None, 'Hz'),
+            ('V Output R-N',  ups_detail.v_output_r if ups_detail else None, 'V'),
+            ('V Output S-N',  ups_detail.v_output_s if ups_detail else None, 'V'),
+            ('V Output T-N',  ups_detail.v_output_t if ups_detail else None, 'V'),
+            ('Frek. Output',  ups_detail.f_output   if ups_detail else None, 'Hz'),
+            ('Arus Beban',    ups_detail.a_load      if ups_detail else None, 'A'),
+            ('% Beban',       ups_detail.percent_load if ups_detail else None, '%'),
+        ] if ups_detail else [],
+        'ups_cells': [
+            {
+                'num': str(c.get('cell', '')).zfill(2),
+                'vf':  c.get('v_float'),
+                'vd0': c.get('vd_0'),
+                'vd1': c.get('vd_1'),
+                'vd2': c.get('vd_2'),
+                'vd3': c.get('vd_3'),
+            }
+            for c in (ups_detail.bat_cells or [])
+            if isinstance(c.get('cell'), int)
+        ] if ups_detail else [],
     })
 
 
@@ -537,6 +570,8 @@ def maintenance_edit(request, pk):
                 detail_instance = maintenance.maintenancesas
             elif detail_form_class.__name__ == 'MaintenanceRoIPForm':
                 detail_instance = maintenance.maintenanceroip
+            elif detail_form_class.__name__ == 'MaintenanceUPSForm':
+                detail_instance = maintenance.maintenanceups
         except Exception:
             pass
 
@@ -1268,7 +1303,7 @@ def export_maintenance_pdf(request, pk):
 
     # ── Ambil detail sesuai jenis ──────────────────────────────────
     router_detail = plc_detail = radio_detail = None
-    voip_detail = mux_detail = rect_detail = tp_detail = genset_detail = rtu_detail = sas_detail = roip_detail = None
+    voip_detail = mux_detail = rect_detail = tp_detail = genset_detail = rtu_detail = sas_detail = roip_detail = ups_detail = None
 
     def _try(fn):
         try: return fn()
@@ -1296,6 +1331,8 @@ def export_maintenance_pdf(request, pk):
         sas_detail = _try(lambda: maintenance.maintenancesas)
     elif device_kind in ('ROIP',):
         roip_detail = _try(lambda: maintenance.maintenanceroip)
+    elif device_kind == 'UPS':
+        ups_detail = _try(lambda: maintenance.maintenanceups)
 
     # Corrective detail
     corrective_detail = None
@@ -1396,6 +1433,7 @@ def export_maintenance_pdf(request, pk):
             'bandwidth_tx':      _g(plc_detail, 'bandwidth_tx'),
             'freq_rx':           _g(plc_detail, 'freq_rx'),
             'bandwidth_rx':      _g(plc_detail, 'bandwidth_rx'),
+            'modul_terpasang':   _g(plc_detail, 'modul_terpasang', []),
         } if plc_detail else {},
 
         'radio': {
@@ -1670,6 +1708,32 @@ def export_maintenance_pdf(request, pk):
             'test_ping_master':  _g(roip_detail, 'test_ping_master'),
             'catatan':           _g(roip_detail, 'catatan', ''),
         } if roip_detail else {},
+
+        'ups': {
+            'ups_merk':          _g(ups_detail, 'ups_merk', ''),
+            'ups_model':         _g(ups_detail, 'ups_model', ''),
+            'ups_kapasitas':     _g(ups_detail, 'ups_kapasitas', ''),
+            'ups_kondisi':       _g(ups_detail, 'ups_kondisi', ''),
+            'v_input_r':         _g(ups_detail, 'v_input_r'),
+            'v_input_s':         _g(ups_detail, 'v_input_s'),
+            'v_input_t':         _g(ups_detail, 'v_input_t'),
+            'f_input':           _g(ups_detail, 'f_input'),
+            'v_output_r':        _g(ups_detail, 'v_output_r'),
+            'v_output_s':        _g(ups_detail, 'v_output_s'),
+            'v_output_t':        _g(ups_detail, 'v_output_t'),
+            'f_output':          _g(ups_detail, 'f_output'),
+            'a_load':            _g(ups_detail, 'a_load'),
+            'percent_load':      _g(ups_detail, 'percent_load'),
+            'bat_merk':          _g(ups_detail, 'bat_merk', ''),
+            'bat_tipe':          _g(ups_detail, 'bat_tipe', ''),
+            'bat_kapasitas':     _g(ups_detail, 'bat_kapasitas', ''),
+            'bat_jumlah_cell':   _g(ups_detail, 'bat_jumlah_cell'),
+            'bat_kondisi':       _g(ups_detail, 'bat_kondisi', ''),
+            'bat_kondisi_kabel': _g(ups_detail, 'bat_kondisi_kabel', ''),
+            'bat_v_total':       _g(ups_detail, 'bat_v_total'),
+            'bat_cells':         _g(ups_detail, 'bat_cells', []),
+            'catatan':           _g(ups_detail, 'catatan', ''),
+        } if ups_detail else {},
     }
 
     # ── Corrective detail dict ─────────────────────────────────────

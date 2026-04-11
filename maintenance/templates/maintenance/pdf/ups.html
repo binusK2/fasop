@@ -1,0 +1,141 @@
+{% extends 'maintenance/pdf/_base.html' %}
+{% block content %}
+
+<div class="sec">II.&nbsp;&nbsp;INFORMASI UPS</div>
+<table>
+    <colgroup>
+        <col style="width:20%"><col style="width:30%">
+        <col style="width:20%"><col style="width:30%">
+    </colgroup>
+    <tr>
+        <td class="lbl">Merk</td><td>{{ ups.ups_merk|default:"-" }}</td>
+        <td class="lbl">Model</td><td>{{ ups.ups_model|default:"-" }}</td>
+    </tr>
+    <tr>
+        <td class="lbl">Kapasitas</td><td>{{ ups.ups_kapasitas|default:"-" }}</td>
+        <td class="lbl">Kondisi UPS</td><td class="{% if ups.ups_kondisi == 'OK' %}ok{% elif ups.ups_kondisi == 'NOK' %}nok{% else %}vg{% endif %}">{{ ups.ups_kondisi|default:"-" }}</td>
+    </tr>
+</table>
+
+<div class="sec">III.&nbsp;&nbsp;PENGUKURAN TEGANGAN AC</div>
+<table>
+    <colgroup>
+        <col style="width:22%"><col style="width:12%">
+        <col style="width:22%"><col style="width:12%">
+        <col style="width:22%"><col style="width:10%">
+    </colgroup>
+    <tr>
+        <td class="lbl">V Input R-N</td><td class="vb">{% if ups.v_input_r %}{{ ups.v_input_r }} V{% else %}-{% endif %}</td>
+        <td class="lbl">V Input S-N</td><td class="vb">{% if ups.v_input_s %}{{ ups.v_input_s }} V{% else %}-{% endif %}</td>
+        <td class="lbl">V Input T-N</td><td class="vb">{% if ups.v_input_t %}{{ ups.v_input_t }} V{% else %}-{% endif %}</td>
+    </tr>
+    <tr>
+        <td class="lbl">V Output R-N</td><td class="vb">{% if ups.v_output_r %}{{ ups.v_output_r }} V{% else %}-{% endif %}</td>
+        <td class="lbl">V Output S-N</td><td class="vb">{% if ups.v_output_s %}{{ ups.v_output_s }} V{% else %}-{% endif %}</td>
+        <td class="lbl">V Output T-N</td><td class="vb">{% if ups.v_output_t %}{{ ups.v_output_t }} V{% else %}-{% endif %}</td>
+    </tr>
+    <tr>
+        <td class="lbl">Frek. Input</td><td class="vb">{% if ups.f_input %}{{ ups.f_input }} Hz{% else %}-{% endif %}</td>
+        <td class="lbl">Frek. Output</td><td class="vb">{% if ups.f_output %}{{ ups.f_output }} Hz{% else %}-{% endif %}</td>
+        <td class="lbl">Arus Beban</td><td class="vb">{% if ups.a_load %}{{ ups.a_load }} A{% else %}-{% endif %}</td>
+    </tr>
+    <tr>
+        <td class="lbl">% Beban</td><td class="vb">{% if ups.percent_load %}{{ ups.percent_load }} %{% else %}-{% endif %}</td>
+        <td colspan="4"></td>
+    </tr>
+</table>
+
+<div class="sec">IV.&nbsp;&nbsp;BATTERY</div>
+<table>
+    <colgroup>
+        <col style="width:20%"><col style="width:30%">
+        <col style="width:20%"><col style="width:30%">
+    </colgroup>
+    <tr>
+        <td class="lbl">Merk Battery</td><td>{{ ups.bat_merk|default:"-" }}</td>
+        <td class="lbl">Tipe Battery</td><td>{{ ups.bat_tipe|default:"-" }}</td>
+    </tr>
+    <tr>
+        <td class="lbl">Kapasitas</td><td>{{ ups.bat_kapasitas|default:"-" }}</td>
+        <td class="lbl">Jumlah Cell</td><td class="vb">{{ ups.bat_jumlah_cell|default:"-" }}</td>
+    </tr>
+    <tr>
+        <td class="lbl">Kondisi Battery</td><td class="{% if ups.bat_kondisi == 'OK' %}ok{% elif ups.bat_kondisi == 'NOK' %}nok{% else %}vg{% endif %}">{{ ups.bat_kondisi|default:"-" }}</td>
+        <td class="lbl">Kondisi Kabel</td><td class="{% if ups.bat_kondisi_kabel == 'OK' %}ok{% elif ups.bat_kondisi_kabel == 'NOK' %}nok{% else %}vg{% endif %}">{{ ups.bat_kondisi_kabel|default:"-" }}</td>
+    </tr>
+    <tr>
+        <td class="lbl">V Total Battery</td><td class="vb">{% if ups.bat_v_total %}{{ ups.bat_v_total }} V{% else %}-{% endif %}</td>
+        <td colspan="2"></td>
+    </tr>
+</table>
+
+{% if fmt_cells %}
+<div class="sec">V.&nbsp;&nbsp;PENGUKURAN TEGANGAN PER CELL</div>
+<style>
+.ctbl{width:100%;border-collapse:collapse;font-size:5.8pt;}
+.ctbl th{padding:1.5pt 2pt;text-align:center;border:0.3pt solid #CBD5E1;font-weight:bold;}
+.ctbl td{padding:1.5pt 2pt;text-align:center;border:0.3pt solid #e2e8f0;}
+.ctbl .cn{font-weight:bold;color:#10b981;background:#f0fdf4;}
+.ctbl .th-n{background:#1A3A5C;color:#fff;width:12pt;}
+.ctbl .th-f{background:#d1fae5;}
+.ctbl .th-d{background:#fef3c7;}
+.ctbl .alt{background:#f8fafc;}
+.ctbl .sr-tot td{background:#1e3a8a;color:#fff;font-weight:bold;}
+</style>
+<div class="two-col" style="margin-top:1mm;align-items:flex-start;">
+    <div style="flex:1;min-width:0;">
+        <table class="ctbl">
+            <thead><tr>
+                <th class="th-n">#</th>
+                <th class="th-f">V Float</th>
+                <th class="th-d">VD 0 Jam</th>
+                <th class="th-d">VD 1 Jam</th>
+                <th class="th-d">VD 2 Jam</th>
+                <th class="th-d">VD 3 Jam</th>
+            </tr></thead>
+            <tbody>
+                {% for c in fmt_cells_left %}
+                <tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %}>
+                    <td class="cn">{{ c.num }}</td>
+                    {% for v in c.vals %}<td>{{ v }}</td>{% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+            {% if fmt_cells_left %}
+            <tfoot>
+                <tr class="sr-tot"><td>&#x2211;</td>{% for v in fmt_vtotal_vals %}<td>{{ v }}</td>{% endfor %}</tr>
+            </tfoot>
+            {% endif %}
+        </table>
+    </div>
+    {% if fmt_cells_right %}
+    <div style="flex:1;min-width:0;">
+        <table class="ctbl">
+            <thead><tr>
+                <th class="th-n">#</th>
+                <th class="th-f">V Float</th>
+                <th class="th-d">VD 0 Jam</th>
+                <th class="th-d">VD 1 Jam</th>
+                <th class="th-d">VD 2 Jam</th>
+                <th class="th-d">VD 3 Jam</th>
+            </tr></thead>
+            <tbody>
+                {% for c in fmt_cells_right %}
+                <tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %}>
+                    <td class="cn">{{ c.num }}</td>
+                    {% for v in c.vals %}<td>{{ v }}</td>{% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+{% if catatan %}
+<div class="sec">{% if fmt_cells %}VI.{% else %}V.{% endif %}&nbsp;&nbsp;CATATAN TAMBAHAN</div>
+<table><tr><td style="min-height:10mm;">{{ catatan|default:"-" }}</td></tr></table>
+{% endif %}
+
+{% endblock %}

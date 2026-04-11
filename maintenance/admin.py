@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceSAS, MaintenanceRoIP
+from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceSAS, MaintenanceRoIP, MaintenanceUPS
 
 
 class MaintenancePLCInline(admin.StackedInline):
@@ -46,3 +46,8 @@ class MaintenanceSASAdmin(admin.ModelAdmin):
 @admin.register(MaintenanceRoIP)
 class MaintenanceRoIPAdmin(admin.ModelAdmin):
     pass
+
+
+@admin.register(MaintenanceUPS)
+class MaintenanceUPSAdmin(admin.ModelAdmin):
+    list_display = ['maintenance', 'ups_merk', 'ups_model', 'ups_kondisi', 'bat_jumlah_cell']

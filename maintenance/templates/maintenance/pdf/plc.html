@@ -14,8 +14,27 @@
 <table>
     {% for i in pengukuran_items %}<tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %}><td style="width:55%;">{{ i.label }}</td><td class="vb">{{ i.value|default:"-" }}</td><td class="vg">{{ i.unit }}</td></tr>{% endfor %}
 </table>
+{% if modul_terpasang %}
+<div class="sec">IV.&nbsp;&nbsp;MODUL TERPASANG</div>
+<table>
+    <tr>
+        <th style="width:10%;">#</th>
+        <th style="width:55%;text-align:left;">Nama Modul</th>
+        <th style="width:15%;text-align:center;">Jumlah</th>
+        <th style="width:20%;text-align:center;">Kondisi</th>
+    </tr>
+    {% for m in modul_terpasang %}
+    <tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %}>
+        <td style="text-align:center;color:#94A3B8;">{{ forloop.counter }}</td>
+        <td>{{ m.nama|default:"—" }}</td>
+        <td style="text-align:center;font-weight:bold;">{{ m.jumlah|default:"—" }}</td>
+        <td class="{% if m.kondisi == 'OK' %}ok{% elif m.kondisi == 'NOK' %}nok{% else %}vg{% endif %}">{{ m.kondisi|default:"—" }}</td>
+    </tr>
+    {% endfor %}
+</table>
+{% endif %}
 {% if catatan %}
-<div class="sec">IV.&nbsp;&nbsp;CATATAN TAMBAHAN</div>
+<div class="sec">{% if modul_terpasang %}V.{% else %}IV.{% endif %}&nbsp;&nbsp;CATATAN TAMBAHAN</div>
 <table><tr><td style="min-height:10mm;">{{ catatan|default:"-" }}</td></tr></table>
 {% endif %}
 {% endblock %}
