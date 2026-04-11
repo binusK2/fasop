@@ -60,18 +60,34 @@ class MaintenanceForm(forms.ModelForm):
 # ─────────────────────────────────────────────────────────────────────
 # FORM DETAIL PLC (sudah ada sebelumnya)
 # ─────────────────────────────────────────────────────────────────────
+_PLC_SEL = forms.Select(choices=[('','—'),('OK','OK'),('NOK','NOK')], attrs={'class':'form-select form-select-sm'})
+
+
 class MaintenancePLCForm(forms.ModelForm):
+    import json as _json
+
+    # HiddenInput carries the JSON array of module rows submitted by JS
+    modul_terpasang = forms.CharField(required=False, widget=forms.HiddenInput(), initial='[]')
+
+    def clean_modul_terpasang(self):
+        import json
+        raw = self.cleaned_data.get('modul_terpasang') or '[]'
+        try:
+            result = json.loads(raw)
+            return result if isinstance(result, list) else []
+        except (ValueError, TypeError):
+            return []
 
     class Meta:
         model   = MaintenancePLC
         exclude = ['maintenance']
         widgets = {
-            'akses_plc':        OK_NOK_WIDGET,
-            'remote_akses_plc': OK_NOK_WIDGET,
-            'time_sync':        OK_NOK_WIDGET,
-            'wave_trap':        OK_NOK_WIDGET,
-            'imu':              OK_NOK_WIDGET,
-            'kabel_coaxial':    OK_NOK_WIDGET,
+            'akses_plc':        _PLC_SEL,
+            'remote_akses_plc': _PLC_SEL,
+            'time_sync':        _PLC_SEL,
+            'wave_trap':        _PLC_SEL,
+            'imu':              _PLC_SEL,
+            'kabel_coaxial':    _PLC_SEL,
             'transmission_line': forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. -32.5'}),
             'rx_pilot_level':    forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. -28.0'}),
             'freq_tx':           forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. 72.5'}),

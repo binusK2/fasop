@@ -1396,6 +1396,7 @@ def export_maintenance_pdf(request, pk):
             'bandwidth_tx':      _g(plc_detail, 'bandwidth_tx'),
             'freq_rx':           _g(plc_detail, 'freq_rx'),
             'bandwidth_rx':      _g(plc_detail, 'bandwidth_rx'),
+            'modul_terpasang':   _g(plc_detail, 'modul_terpasang', []),
         } if plc_detail else {},
 
         'radio': {

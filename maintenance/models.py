@@ -79,6 +79,7 @@ class MaintenancePLC(models.Model):
     wave_trap           = models.CharField(max_length=3, choices=STATUS_CHECK, blank=True)
     imu                 = models.CharField(max_length=3, choices=STATUS_CHECK, blank=True)
     kabel_coaxial       = models.CharField(max_length=3, choices=STATUS_CHECK, blank=True)
+    modul_terpasang     = models.JSONField(default=list, blank=True, verbose_name='Modul Terpasang')
 
     class Meta:
         verbose_name = 'Maintenance PLC'

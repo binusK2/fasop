@@ -152,6 +152,7 @@ def _ctx_plc(data, ctx):
             {'label': 'Bandwidth RX',            'value': _v(p.get('bandwidth_rx')),      'unit': 'MHz'},
         ],
         'catatan': data.get('catatan_tambahan', ''),
+        'modul_terpasang': p.get('modul_terpasang') or [],
     })
 
 
