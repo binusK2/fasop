@@ -223,7 +223,7 @@ const COLS = ['v_float', 'vd_0', 'vd_1', 'vd_2', 'vd_3'];
 function getNC() {
     const ji = document.querySelector('input[name="bat_jumlah_cell"]');
     const n = parseInt(ji?.value) || 12;
-    return Math.max(1, Math.min(40, n));
+    return Math.max(1, Math.min(200, n));
 }
 function updateBadge() {
     const nc = getNC();
