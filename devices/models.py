@@ -91,6 +91,14 @@ class Device(models.Model):
         verbose_name='Token Publik QR',
         help_text='Token unik untuk halaman publik QR Code'
     )
+    host = models.ForeignKey(
+        'self',
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='vm_children',
+        verbose_name='Host Server (untuk VM)',
+        help_text='Isi jika perangkat ini adalah VM di dalam server fisik',
+    )
 
     def __str__(self):
         return self.nama

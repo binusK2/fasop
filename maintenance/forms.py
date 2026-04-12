@@ -529,24 +529,9 @@ class MaintenanceRTUForm(forms.ModelForm):
 # ─────────────────────────────────────────────────────────────────────
 # FORM DETAIL SAS (SERVER / GATEWAY SAS)
 # ─────────────────────────────────────────────────────────────────────
+_SAS_SEL = {'class': 'form-select form-select-sm'}
+
 class MaintenanceSASForm(forms.ModelForm):
-
-    _R = {'class': 'd-flex gap-3'}         # shared RadioSelect attrs
-    _RW = {'class': 'd-flex gap-3 flex-wrap'}
-
-    # ── Explicit ChoiceFields so RadioSelect never adds a blank "------" option ──
-    kondisi_server  = forms.ChoiceField(choices=MaintenanceSAS.BERSIH_CHOICES, required=False, widget=forms.RadioSelect(attrs=_R))
-    kondisi_panel   = forms.ChoiceField(choices=MaintenanceSAS.BERSIH_CHOICES, required=False, widget=forms.RadioSelect(attrs=_R))
-    exhaust_fan     = forms.ChoiceField(choices=MaintenanceSAS.FAN_CHOICES,    required=False, widget=forms.RadioSelect(attrs=_RW))
-    peri_eth_switch = forms.ChoiceField(choices=MaintenanceSAS.OK_ALARM,       required=False, widget=forms.RadioSelect(attrs=_R))
-    peri_gps        = forms.ChoiceField(choices=MaintenanceSAS.OK_ALARM,       required=False, widget=forms.RadioSelect(attrs=_R))
-    peri_eth_serial = forms.ChoiceField(choices=MaintenanceSAS.OK_ALARM,       required=False, widget=forms.RadioSelect(attrs=_R))
-    peri_router     = forms.ChoiceField(choices=MaintenanceSAS.OK_ALARM,       required=False, widget=forms.RadioSelect(attrs=_R))
-    indikasi_alarm  = forms.ChoiceField(choices=MaintenanceSAS.ADA_CHOICES,    required=False, widget=forms.RadioSelect(attrs=_R))
-    komm_master     = forms.ChoiceField(choices=MaintenanceSAS.OK_ALARM,       required=False, widget=forms.RadioSelect(attrs=_R))
-    komm_ied        = forms.ChoiceField(choices=MaintenanceSAS.OK_ALARM,       required=False, widget=forms.RadioSelect(attrs=_R))
-    time_sync       = forms.ChoiceField(choices=MaintenanceSAS.OK_NOK,         required=False, widget=forms.RadioSelect(attrs=_R))
-    inv_kondisi     = forms.ChoiceField(choices=MaintenanceSAS.OK_ALARM,       required=False, widget=forms.RadioSelect(attrs=_R))
 
     class Meta:
         model   = MaintenanceSAS
@@ -563,17 +548,29 @@ class MaintenanceSASForm(forms.ModelForm):
             'spek_config_ver': forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
             'spek_ip':         forms.TextInput(attrs={'class': 'form-control form-control-sm', 'placeholder': '192.168.x.x/24'}),
             'modul_io':        forms.Textarea(attrs={'class': 'form-control form-control-sm', 'rows': 8, 'placeholder': 'Daftar modul/card/terminal yang terpasang...'}),
-            # Kondisi
+            # Kondisi (Select — hidden, dikendalikan toggle button di template)
+            'kondisi_server':  forms.Select(attrs=_SAS_SEL),
+            'kondisi_panel':   forms.Select(attrs=_SAS_SEL),
+            'exhaust_fan':     forms.Select(attrs=_SAS_SEL),
             'temp_ruangan':    forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': '°C'}),
             'temp_peralatan':  forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': '°C'}),
             # Peripheral
+            'peri_eth_switch': forms.Select(attrs=_SAS_SEL),
+            'peri_gps':        forms.Select(attrs=_SAS_SEL),
+            'peri_eth_serial': forms.Select(attrs=_SAS_SEL),
+            'peri_router':     forms.Select(attrs=_SAS_SEL),
             'jumlah_bay':      forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'min': '0', 'placeholder': 'Bay'}),
             'peri_keterangan': forms.Textarea(attrs={'class': 'form-control form-control-sm', 'rows': 3}),
             # Performa
             'perf_cpu':        forms.TextInput(attrs={'class': 'form-control form-control-sm', 'placeholder': 'misal 45%'}),
             'perf_ram':        forms.TextInput(attrs={'class': 'form-control form-control-sm', 'placeholder': 'misal 60%'}),
             'perf_storage':    forms.TextInput(attrs={'class': 'form-control form-control-sm', 'placeholder': 'misal 30%'}),
+            'indikasi_alarm':  forms.Select(attrs=_SAS_SEL),
+            'komm_master':     forms.Select(attrs=_SAS_SEL),
+            'komm_ied':        forms.Select(attrs=_SAS_SEL),
+            'time_sync':       forms.Select(attrs=_SAS_SEL),
             # Power Supply — Inverter
+            'inv_kondisi':     forms.Select(attrs=_SAS_SEL),
             'inv_teg_input':   forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': 'V'}),
             'inv_arus_input':  forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': 'A'}),
             'inv_teg_output':  forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': 'V'}),

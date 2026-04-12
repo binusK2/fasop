@@ -161,6 +161,29 @@
     </div>
 </div>
 
+<!-- ══ 2b. HOST SERVER (hanya untuk VM SCADA) ════════════════ -->
+<div class="card mb-3" id="host-section" style="display:none;">
+    <div class="card-body px-4 py-3">
+        <div class="section-title-bar">
+            <span class="bar" style="background:#7c3aed;"></span>
+            <span>Host Server</span>
+        </div>
+        <div class="row g-3">
+            <div class="col-md-8">
+                <div class="field-card">
+                    <label class="field-label"><i class="bi bi-hdd-rack me-1"></i>Server Fisik (Host)</label>
+                    {{ form.host }}
+                    <div style="font-size:11px;color:#94a3b8;margin-top:5px;">
+                        Pilih server fisik (baremetal) yang menjadi host VM ini.
+                        VM tidak akan tercatat sebagai aset independen.
+                    </div>
+                    {% if form.host.errors %}<div class="field-error">{{ form.host.errors.0 }}</div>{% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- ══ 3. KETERANGAN & FOTO ══════════════════════════════════ -->
 <div class="card mb-3">
     <div class="card-body px-4 py-3">
@@ -598,8 +621,33 @@ document.addEventListener('DOMContentLoaded', () => {
     if (jaringanTitle) {
       jaringanTitle.textContent = isNonNetwork ? 'Lokasi & Status' : 'Jaringan & Lokasi';
     }
+
+    // Host Server section — tampil hanya untuk VM SCADA
+    const isVM = nama.includes('VM SCADA');
+    const hostSection = document.getElementById('host-section');
+    if (hostSection) hostSection.style.display = isVM ? '' : 'none';
+    // Jika bukan VM, kosongkan pilihan host agar tidak tersimpan
+    const hostSelect = document.querySelector('[name="host"]');
+    if (hostSelect && !isVM) hostSelect.value = '';
   }
 })();
+
+// ── Pre-fill host & jenis for VM SCADA (from ?host= param) ──
+{% if prefill_host_pk %}
+document.addEventListener('DOMContentLoaded', function() {
+  // Auto-select jenis = VM SCADA
+  {% if vm_jenis_id %}
+  const jenisEl = document.querySelector('[name="jenis"]');
+  if (jenisEl) {
+    jenisEl.value = '{{ vm_jenis_id }}';
+    jenisEl.dispatchEvent(new Event('change'));
+  }
+  {% endif %}
+  // Auto-select host
+  const hostEl = document.querySelector('[name="host"]');
+  if (hostEl) hostEl.value = '{{ prefill_host_pk }}';
+});
+{% endif %}
 
 // ══════════════════════════════════════════════════════════════
 // KOMPONEN PERANGKAT — repeatable rows

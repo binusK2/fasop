@@ -29,7 +29,7 @@ def device_list(request):
     sort           = request.GET.get('sort', 'nama')
     direction      = request.GET.get('dir', 'asc')
 
-    devices = Device.objects.filter(is_deleted=False)
+    devices = Device.objects.filter(is_deleted=False, host__isnull=True)
 
     if jenis_id:
         devices = devices.filter(jenis_id=jenis_id)
@@ -128,13 +128,29 @@ def device_create(request):
             log_create(device, request.user)
             return redirect('device_view', pk=device.pk)
     else:
-        form = DeviceForm()
+        initial = {}
+        host_pk = request.GET.get('host')
+        if host_pk:
+            try:
+                host_device = Device.objects.get(pk=host_pk, is_deleted=False)
+                initial['host'] = host_device
+            except Device.DoesNotExist:
+                pass
+        form = DeviceForm(initial=initial)
     from devices.views_komponen import get_tipe_grouped_json
+    # Tentukan jenis DeviceType untuk "VM SCADA" agar JS bisa pre-pilih
+    try:
+        vm_jenis = DeviceType.objects.get(name__iexact='VM SCADA')
+        vm_jenis_id = vm_jenis.pk
+    except DeviceType.DoesNotExist:
+        vm_jenis_id = None
     return render(request, 'devices/device_form.html', {
         'form': form,
         'is_edit': False,
         'device_schema_json': json.dumps(DEVICE_SCHEMA),
         'tipe_komponen_json': get_tipe_grouped_json(),
+        'prefill_host_pk': host_pk,
+        'vm_jenis_id': vm_jenis_id,
     })
 
 
@@ -222,14 +238,15 @@ def dashboard(request):
             return _dashboard_operator(request)
 
     # ── Dashboard normal (teknisi / AM / superuser) ──────────────
-    total_devices  = Device.objects.filter(is_deleted=False).count()
-    dev_operasi    = Device.objects.filter(is_deleted=False, status_operasi='operasi').count()
-    dev_tdk_operasi= Device.objects.filter(is_deleted=False, status_operasi='tidak_operasi').count()
+    # VM (host__isnull=False) tidak dihitung sebagai aset fisik
+    _asset_qs = Device.objects.filter(is_deleted=False, host__isnull=True)
+    total_devices  = _asset_qs.count()
+    dev_operasi    = _asset_qs.filter(status_operasi='operasi').count()
+    dev_tdk_operasi= _asset_qs.filter(status_operasi='tidak_operasi').count()
 
     # Hitung per jenis + persen untuk progress bar
     device_by_type_qs = (
-        Device.objects
-        .filter(is_deleted=False)
+        _asset_qs
         .values('jenis__name', 'jenis__id')
         .annotate(total=Count('id'))
         .order_by('jenis__name')
@@ -244,8 +261,7 @@ def dashboard(request):
     # Status operasi per jenis → untuk pie chart di dashboard
     import json as _json
     _status_qs = (
-        Device.objects
-        .filter(is_deleted=False)
+        _asset_qs
         .values('jenis__name', 'status_operasi')
         .annotate(total=Count('id'))
         .order_by('jenis__name')
@@ -751,6 +767,16 @@ def device_detail(request, pk):
     from devices.models import DeviceEviden
     eviden_list = DeviceEviden.objects.filter(device=device).order_by('uploaded_at')
 
+    # VM children (untuk SERVER SCADA)
+    vm_children = device.vm_children.filter(is_deleted=False).order_by('nama')
+
+    # Kandidat host server untuk form tambah VM (SERVER SCADA yg bukan VM)
+    host_candidates = Device.objects.filter(
+        is_deleted=False,
+        host__isnull=True,
+        jenis__name__icontains='server scada',
+    ).exclude(pk=device.pk)
+
     return render(request, 'devices/device_detail.html', {
         'device':             device,
         'maintenance_history': maintenance_history,
@@ -767,6 +793,8 @@ def device_detail(request, pk):
         'tipe_grouped':       tipe_grouped,
         'eviden_list':        eviden_list,
         'today_date':         date_type.today().strftime('%Y-%m-%d'),
+        'vm_children':        vm_children,
+        'host_candidates':    host_candidates,
     })
 
 
