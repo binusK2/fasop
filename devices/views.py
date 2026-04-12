@@ -87,6 +87,7 @@ def device_list(request):
 @login_required
 @require_can_edit
 def device_create(request):
+    host_pk = request.GET.get('host') or request.POST.get('host_prefill')
     if request.method == 'POST':
         form = DeviceForm(request.POST, request.FILES)
         if form.is_valid():
@@ -129,7 +130,6 @@ def device_create(request):
             return redirect('device_view', pk=device.pk)
     else:
         initial = {}
-        host_pk = request.GET.get('host')
         if host_pk:
             try:
                 host_device = Device.objects.get(pk=host_pk, is_deleted=False)
