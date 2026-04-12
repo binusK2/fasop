@@ -42,6 +42,7 @@
 
 <form method="post" enctype="multipart/form-data" id="device-form">
 {% csrf_token %}
+{% if prefill_host_pk %}<input type="hidden" name="host_prefill" value="{{ prefill_host_pk }}">{% endif %}
 
 <!-- ══ 1. IDENTITAS PERANGKAT ════════════════════════════════ -->
 <div class="card mb-3">
