@@ -2399,6 +2399,187 @@ def catu_daya_dashboard(request):
             **insp_data,
         })
 
+    # ── UPS Dashboard Data ────────────────────────────────────────────
+    UPS_VAC_THRESHOLD = 170.0  # VAC minimum — threshold prediksi backup
+
+    ups_devices = Device.objects.filter(
+        is_deleted=False,
+        jenis__isnull=False,
+    ).filter(
+        Q(jenis__name__icontains='ups')
+    ).select_related('jenis').order_by('lokasi', 'nama')
+
+    def _avg3(a, b, c):
+        vs = [float(x) for x in (a, b, c) if x is not None]
+        return round(sum(vs) / len(vs), 2) if vs else None
+
+    ups_data = []
+    for udev in ups_devices:
+        u_recs = (
+            MaintenanceUPS.objects
+            .filter(maintenance__device=udev)
+            .select_related('maintenance')
+            .order_by('maintenance__date')
+        )
+        if not u_recs.exists():
+            continue
+
+        u_latest = u_recs.last()
+        u_cells  = u_latest.bat_cells or []
+
+        def _u_vd(field):
+            row = next((c for c in u_cells if str(c.get('cell', '')) == 'vtotal'), None)
+            if row:
+                v = row.get(field)
+                if v not in (None, '', 0):
+                    try:
+                        return round(float(v), 3)
+                    except (TypeError, ValueError):
+                        pass
+            vals = [float(c[field]) for c in u_cells
+                    if isinstance(c.get('cell'), int) and c.get(field) not in (None, '', 0)]
+            return round(sum(vals), 3) if vals else None
+
+        u_vfloat = _u_vd('v_float')
+        u_actual = []
+        if u_vfloat:
+            u_actual.append({'t': -0.5, 'v': u_vfloat, 'label': 'V Float'})
+        for _t, _f in [(0, 'vd_0'), (1, 'vd_1'), (2, 'vd_2'), (3, 'vd_3')]:
+            _v = _u_vd(_f)
+            if _v is not None:
+                u_actual.append({'t': _t, 'v': _v})
+
+        # Threshold DC ketika output AC ≈ 170 VAC (1.75 V/cell end-of-discharge)
+        n_cell = u_latest.bat_jumlah_cell or 0
+        bat_thr = round(n_cell * 1.75, 1) if n_cell else None
+
+        u_prediction = []
+        backup_time  = None
+        u_bat_slope  = None
+        u_dpts = [p for p in u_actual if p['t'] >= 0]
+        if len(u_dpts) >= 2:
+            xs_u = [p['t'] for p in u_dpts]
+            ys_u = [p['v'] for p in u_dpts]
+            sl_u, ic_u = _linreg(xs_u, ys_u)
+            if sl_u is not None and sl_u < 0:
+                u_bat_slope = sl_u
+                for _t2 in [x / 2 for x in range(7, 25)]:
+                    u_prediction.append({'t': _t2, 'v': round(sl_u * _t2 + ic_u, 3)})
+                if bat_thr:
+                    _t_thr = (bat_thr - ic_u) / sl_u
+                    if _t_thr > 0:
+                        backup_time = round(_t_thr, 2)
+
+        # History per maintenance record
+        u_history = []
+        for u_rec in u_recs:
+            u_history.append({
+                'date':          str(u_rec.maintenance.date),
+                'v_input':       _avg3(u_rec.v_input_r, u_rec.v_input_s, u_rec.v_input_t),
+                'v_input_r':     _fv(u_rec.v_input_r),
+                'v_input_s':     _fv(u_rec.v_input_s),
+                'v_input_t':     _fv(u_rec.v_input_t),
+                'v_output':      _avg3(u_rec.v_output_r, u_rec.v_output_s, u_rec.v_output_t),
+                'v_output_r':    _fv(u_rec.v_output_r),
+                'v_output_s':    _fv(u_rec.v_output_s),
+                'v_output_t':    _fv(u_rec.v_output_t),
+                'f_input':       _fv(u_rec.f_input),
+                'f_output':      _fv(u_rec.f_output),
+                'a_load':        _fv(u_rec.a_load),
+                'percent_load':  _fv(u_rec.percent_load),
+                'bat_v_total':   _fv(u_rec.bat_v_total),
+            })
+
+        # Prediksi kapan V Input PLN turun ke 170 VAC (tren historis)
+        vin_pred = None
+        vin_pts = [(h['date'], h['v_input']) for h in u_history if h['v_input'] is not None]
+        if len(vin_pts) >= 2:
+            from datetime import date as _ddate
+            _d0 = _ddate.fromisoformat(vin_pts[0][0])
+            _xs = [(_ddate.fromisoformat(d) - _d0).days for d, _ in vin_pts]
+            _ys = [v for _, v in vin_pts]
+            _sl, _ic = _linreg(_xs, _ys)
+            if _sl is not None and _sl < 0 and _ic > UPS_VAC_THRESHOLD:
+                _x_thr = (UPS_VAC_THRESHOLD - _ic) / _sl
+                _days_rem = int(_x_thr - _xs[-1])
+                if _days_rem > 0:
+                    vin_pred = {
+                        'days':      _days_rem,
+                        'rate_mo':   round(_sl * 30, 2),
+                    }
+
+        v_in_lat  = _avg3(u_latest.v_input_r, u_latest.v_input_s, u_latest.v_input_t)
+        v_out_lat = _avg3(u_latest.v_output_r, u_latest.v_output_s, u_latest.v_output_t)
+
+        if (v_in_lat and v_in_lat < 180) or (v_out_lat and v_out_lat < 180):
+            u_status = 'danger'
+        elif (v_in_lat and v_in_lat < 200) or (backup_time and backup_time < 3):
+            u_status = 'warning'
+        else:
+            u_status = 'ok'
+
+        # Discharge history dari record sebelumnya
+        u_disc_hist = []
+        for u_rec in list(u_recs)[:-1]:
+            h_cells  = u_rec.bat_cells or []
+            h_vfloat = next((round(float(c['v_float']), 3)
+                             for c in h_cells if str(c.get('cell', '')) == 'vtotal'
+                             and c.get('v_float') not in (None, '', 0)), None)
+            h_actual = []
+            if h_vfloat:
+                h_actual.append({'t': -0.5, 'v': h_vfloat})
+            for _ht, _hf in [(0, 'vd_0'), (1, 'vd_1'), (2, 'vd_2'), (3, 'vd_3')]:
+                _row = next((c for c in h_cells if str(c.get('cell', '')) == 'vtotal'), None)
+                _hv  = _row.get(_hf) if _row else None
+                if _hv not in (None, '', 0):
+                    try:
+                        h_actual.append({'t': _ht, 'v': round(float(_hv), 3)})
+                    except (TypeError, ValueError):
+                        pass
+            if any(p['t'] >= 0 for p in h_actual):
+                u_disc_hist.append({
+                    'date':   str(u_rec.maintenance.date)[:10],
+                    'actual': h_actual,
+                })
+
+        ups_data.append({
+            'device_id':      udev.id,
+            'device_name':    udev.nama,
+            'lokasi':         udev.lokasi or '-',
+            'tanggal':        str(u_latest.maintenance.date),
+            'v_input':        v_in_lat,
+            'v_output':       v_out_lat,
+            'v_input_r':      _fv(u_latest.v_input_r),
+            'v_input_s':      _fv(u_latest.v_input_s),
+            'v_input_t':      _fv(u_latest.v_input_t),
+            'v_output_r':     _fv(u_latest.v_output_r),
+            'v_output_s':     _fv(u_latest.v_output_s),
+            'v_output_t':     _fv(u_latest.v_output_t),
+            'f_input':        _fv(u_latest.f_input),
+            'f_output':       _fv(u_latest.f_output),
+            'a_load':         _fv(u_latest.a_load),
+            'percent_load':   _fv(u_latest.percent_load),
+            'ups_merk':       u_latest.ups_merk or '-',
+            'ups_model':      u_latest.ups_model or '-',
+            'ups_kapasitas':  u_latest.ups_kapasitas or '-',
+            'ups_kondisi':    u_latest.ups_kondisi or '',
+            'bat_merk':       u_latest.bat_merk or '-',
+            'bat_tipe':       u_latest.bat_tipe or '-',
+            'bat_kapasitas':  u_latest.bat_kapasitas or '-',
+            'bat_jumlah_cell': n_cell,
+            'bat_v_total':    _fv(u_latest.bat_v_total),
+            'bat_kondisi':    u_latest.bat_kondisi or '',
+            'bat_threshold':  bat_thr,
+            'actual':         u_actual,
+            'prediction':     u_prediction,
+            'backup_time':    backup_time,
+            'bat_slope':      round(u_bat_slope, 4) if u_bat_slope else None,
+            'history':        u_history,
+            'discharge_history': u_disc_hist,
+            'vin_pred':       vin_pred,
+            'status':         u_status,
+        })
+
     selected_id = request.GET.get('device')
     if selected_id:
         try:
@@ -2409,11 +2590,17 @@ def catu_daya_dashboard(request):
     if not selected_id and devices_data:
         selected_id = devices_data[0]['device_id']
 
+    ups_selected_id = ups_data[0]['device_id'] if ups_data else None
+
     return render(request, 'maintenance/catu_daya_dashboard.html', {
-        'devices_data_json': json.dumps(devices_data),
-        'devices_data':      devices_data,
-        'selected_id':       selected_id,
-        'threshold':         THRESHOLD,
+        'devices_data_json':   json.dumps(devices_data),
+        'devices_data':        devices_data,
+        'selected_id':         selected_id,
+        'threshold':           THRESHOLD,
+        'ups_data_json':       json.dumps(ups_data),
+        'ups_data':            ups_data,
+        'ups_vac_threshold':   UPS_VAC_THRESHOLD,
+        'ups_selected_id':     ups_selected_id,
     })
 
 
