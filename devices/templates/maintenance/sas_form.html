@@ -3,22 +3,17 @@
 {% block page_title %}{% if is_edit %}Edit{% else %}Form{% endif %} Maintenance SAS{% endblock %}
 
 {% block content %}
-
 <div class="d-flex align-items-center gap-2 mb-3">
     {% if is_edit %}
-    <a href="{% url 'maintenance_view' maintenance.id %}" class="btn btn-sm btn-outline-secondary">
-        <i class="bi bi-arrow-left me-1"></i>Kembali ke Detail
-    </a>
+    <a href="{% url 'maintenance_view' maintenance.id %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Kembali ke Detail</a>
     {% else %}
-    <a href="{% url 'device_view' device.id %}" class="btn btn-sm btn-outline-secondary">
-        <i class="bi bi-arrow-left me-1"></i>Kembali ke Perangkat
-    </a>
+    <a href="{% url 'device_view' device.id %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Kembali ke Perangkat</a>
     {% endif %}
 </div>
 
 {% include 'maintenance/_device_banner.html' with banner_icon='bi-diagram-3' banner_icon_color='#6ee7b7' banner_icon_bg='rgba(16,185,129,0.2)' %}
 
-<form method="post" enctype="multipart/form-data"
+<form method="post" enctype="multipart/form-data" id="sas-form"
     {% if is_edit %}action="{% url 'maintenance_edit' maintenance.id %}"{% endif %}>
 {% csrf_token %}
 
@@ -32,9 +27,7 @@
         <div class="row g-3 align-items-start">
             <div class="col-md-2">
                 <label class="form-label fw-semibold">Jenis Maintenance</label>
-                <div style="display:flex;align-items:center;gap:6px;background:#eff6ff;
-                            color:#1d4ed8;border:1.5px solid #bfdbfe;border-radius:8px;
-                            padding:8px 12px;font-size:13px;font-weight:700;white-space:nowrap;">
+                <div style="display:flex;align-items:center;gap:6px;background:#eff6ff;color:#1d4ed8;border:1.5px solid #bfdbfe;border-radius:8px;padding:8px 12px;font-size:13px;font-weight:700;white-space:nowrap;">
                     <i class="bi bi-shield-check" style="font-size:14px;"></i> Preventive
                 </div>
                 <input type="hidden" name="maintenance_type" value="Preventive">
@@ -62,12 +55,8 @@
 <!-- ══ 2. SPESIFIKASI & MODUL I/O ══ -->
 <div class="card mb-3">
     <div class="card-body px-4 py-3">
-        <div class="section-title-bar">
-            <span class="bar" style="background:#10b981;"></span>
-            <span>Spesifikasi & Modul I/O</span>
-        </div>
+        <div class="sas-sec" style="--c:#10b981;">Spesifikasi &amp; Modul I/O</div>
         <div class="row g-0">
-            <!-- Kiri: Spesifikasi -->
             <div class="col-lg-6 pe-lg-3">
                 <table style="width:100%;border-collapse:collapse;">
                     {% for label, field in spek_items %}
@@ -78,7 +67,6 @@
                     {% endfor %}
                 </table>
             </div>
-            <!-- Kanan: Modul I/O -->
             <div class="col-lg-6 ps-lg-3 border-start-lg">
                 <label class="form-label fw-semibold" style="font-size:12px;color:#475569;">
                     <i class="bi bi-grid-3x3 me-1"></i>Modul I/O / Card / Terminal yang Terpasang
@@ -92,60 +80,53 @@
 <!-- ══ 3. KONDISI PERALATAN ══ -->
 <div class="card mb-3">
     <div class="card-body px-4 py-3">
-        <div class="section-title-bar">
-            <span class="bar" style="background:#f59e0b;"></span>
-            <span>Kondisi Peralatan</span>
-        </div>
+        <div class="sas-sec" style="--c:#f59e0b;">Kondisi Peralatan</div>
         <div class="row g-3">
-            <!-- Server/Gateway -->
-            <div class="col-md-6">
-                <label class="form-label fw-semibold" style="font-size:12px;">Server / Gateway</label>
-                <div class="d-flex gap-3 align-items-center">
-                    {% for choice in detail_form.kondisi_server %}
-                    <div class="form-check form-check-inline mb-0">
-                        {{ choice.tag }}
-                        <label class="form-check-label" for="{{ choice.id_for_label }}" style="font-size:13px;">{{ choice.choice_label }}</label>
+            <!-- Kondisi Server/Gateway -->
+            <div class="col-md-3">
+                <div class="sas-card">
+                    <div class="sas-lbl">Server / Gateway</div>
+                    <div id="field-kondisi_server" style="display:none;">{{ detail_form.kondisi_server }}</div>
+                    <div class="sas-tog-wrap">
+                        <button type="button" class="sas-tog ok" data-f="kondisi_server" data-v="BERSIH">&#10003; Bersih</button>
+                        <button type="button" class="sas-tog nok" data-f="kondisi_server" data-v="TIDAK BERSIH">&#10007; Tdk Bersih</button>
                     </div>
-                    {% endfor %}
                 </div>
             </div>
-            <!-- Panel -->
-            <div class="col-md-6">
-                <label class="form-label fw-semibold" style="font-size:12px;">Panel</label>
-                <div class="d-flex gap-3 align-items-center">
-                    {% for choice in detail_form.kondisi_panel %}
-                    <div class="form-check form-check-inline mb-0">
-                        {{ choice.tag }}
-                        <label class="form-check-label" for="{{ choice.id_for_label }}" style="font-size:13px;">{{ choice.choice_label }}</label>
+            <!-- Kondisi Panel -->
+            <div class="col-md-3">
+                <div class="sas-card">
+                    <div class="sas-lbl">Panel</div>
+                    <div id="field-kondisi_panel" style="display:none;">{{ detail_form.kondisi_panel }}</div>
+                    <div class="sas-tog-wrap">
+                        <button type="button" class="sas-tog ok" data-f="kondisi_panel" data-v="BERSIH">&#10003; Bersih</button>
+                        <button type="button" class="sas-tog nok" data-f="kondisi_panel" data-v="TIDAK BERSIH">&#10007; Tdk Bersih</button>
                     </div>
-                    {% endfor %}
+                </div>
+            </div>
+            <!-- Exhaust Fan — 3 pilihan -->
+            <div class="col-md-3">
+                <div class="sas-card">
+                    <div class="sas-lbl">Exhaust Fan</div>
+                    <div id="field-exhaust_fan" style="display:none;">{{ detail_form.exhaust_fan }}</div>
+                    <div class="sas-tog-wrap">
+                        <button type="button" class="sas-tog ok" data-f="exhaust_fan" data-v="ADA, BERFUNGSI">&#10003; Berfungsi</button>
+                        <button type="button" class="sas-tog nok" data-f="exhaust_fan" data-v="ADA, TIDAK BERFUNGSI">&#10007; Tdk Berfungsi</button>
+                        <button type="button" class="sas-tog warn" data-f="exhaust_fan" data-v="TIDAK ADA">&#8722; Tidak Ada</button>
+                    </div>
                 </div>
             </div>
             <!-- Temperatur -->
-            <div class="col-md-3 col-6">
-                <label class="form-label fw-semibold" style="font-size:12px;">Temperatur Ruangan</label>
-                <div class="input-group input-group-sm">
-                    {{ detail_form.temp_ruangan }}
-                    <span class="input-group-text">°C</span>
+            <div class="col-md-2 col-6">
+                <div class="sas-card">
+                    <div class="sas-lbl">Temp. Ruangan</div>
+                    <div class="input-group input-group-sm">{{ detail_form.temp_ruangan }}<span class="input-group-text sas-unit">°C</span></div>
                 </div>
             </div>
-            <div class="col-md-3 col-6">
-                <label class="form-label fw-semibold" style="font-size:12px;">Temperatur Peralatan</label>
-                <div class="input-group input-group-sm">
-                    {{ detail_form.temp_peralatan }}
-                    <span class="input-group-text">°C</span>
-                </div>
-            </div>
-            <!-- Exhaust Fan -->
-            <div class="col-md-6">
-                <label class="form-label fw-semibold" style="font-size:12px;">Exhaust Fan</label>
-                <div class="d-flex gap-3 align-items-center flex-wrap">
-                    {% for choice in detail_form.exhaust_fan %}
-                    <div class="form-check form-check-inline mb-0">
-                        {{ choice.tag }}
-                        <label class="form-check-label" for="{{ choice.id_for_label }}" style="font-size:13px;">{{ choice.choice_label }}</label>
-                    </div>
-                    {% endfor %}
+            <div class="col-md-1 col-6">
+                <div class="sas-card">
+                    <div class="sas-lbl">Temp. Peralatan</div>
+                    <div class="input-group input-group-sm">{{ detail_form.temp_peralatan }}<span class="input-group-text sas-unit">°C</span></div>
                 </div>
             </div>
         </div>
@@ -155,30 +136,41 @@
 <!-- ══ 4. PERIPHERAL PENDUKUNG ══ -->
 <div class="card mb-3">
     <div class="card-body px-4 py-3">
-        <div class="section-title-bar">
-            <span class="bar" style="background:#8b5cf6;"></span>
-            <span>Peripheral Pendukung</span>
-        </div>
+        <div class="sas-sec" style="--c:#8b5cf6;">Peripheral Pendukung</div>
         <div class="row g-3">
             <div class="col-lg-7">
-                {% for field, label in peri_ok_alarm_rows %}
-                <div class="d-flex align-items-center gap-3 mb-2 py-1"
-                     style="border-bottom:1px solid #f1f5f9;">
-                    <span style="min-width:160px;font-size:12px;font-weight:600;color:#475569;">{{ label }}</span>
-                    <div class="d-flex gap-3">
-                        {% for choice in field %}
-                        <div class="form-check form-check-inline mb-0">
-                            {{ choice.tag }}
-                            <label class="form-check-label" for="{{ choice.id_for_label }}"
-                                style="font-size:12px;font-weight:600;
-                                {% if choice.choice_label == 'OK' %}color:#16a34a;{% else %}color:#dc2626;{% endif %}">
-                                {{ choice.choice_label }}
-                            </label>
-                        </div>
-                        {% endfor %}
+                <div class="sas-row-item">
+                    <span class="sas-row-lbl">Ethernet Switch</span>
+                    <div id="field-peri_eth_switch" style="display:none;">{{ detail_form.peri_eth_switch }}</div>
+                    <div class="sas-tog-wrap">
+                        <button type="button" class="sas-tog ok"  data-f="peri_eth_switch" data-v="OK">&#10003; OK</button>
+                        <button type="button" class="sas-tog nok" data-f="peri_eth_switch" data-v="ALARM">&#9888; Alarm</button>
                     </div>
                 </div>
-                {% endfor %}
+                <div class="sas-row-item">
+                    <span class="sas-row-lbl">GPS</span>
+                    <div id="field-peri_gps" style="display:none;">{{ detail_form.peri_gps }}</div>
+                    <div class="sas-tog-wrap">
+                        <button type="button" class="sas-tog ok"  data-f="peri_gps" data-v="OK">&#10003; OK</button>
+                        <button type="button" class="sas-tog nok" data-f="peri_gps" data-v="ALARM">&#9888; Alarm</button>
+                    </div>
+                </div>
+                <div class="sas-row-item">
+                    <span class="sas-row-lbl">Ethernet to Serial</span>
+                    <div id="field-peri_eth_serial" style="display:none;">{{ detail_form.peri_eth_serial }}</div>
+                    <div class="sas-tog-wrap">
+                        <button type="button" class="sas-tog ok"  data-f="peri_eth_serial" data-v="OK">&#10003; OK</button>
+                        <button type="button" class="sas-tog nok" data-f="peri_eth_serial" data-v="ALARM">&#9888; Alarm</button>
+                    </div>
+                </div>
+                <div class="sas-row-item" style="border-bottom:none;">
+                    <span class="sas-row-lbl">Router</span>
+                    <div id="field-peri_router" style="display:none;">{{ detail_form.peri_router }}</div>
+                    <div class="sas-tog-wrap">
+                        <button type="button" class="sas-tog ok"  data-f="peri_router" data-v="OK">&#10003; OK</button>
+                        <button type="button" class="sas-tog nok" data-f="peri_router" data-v="ALARM">&#9888; Alarm</button>
+                    </div>
+                </div>
             </div>
             <div class="col-lg-5">
                 <div class="mb-3">
@@ -186,7 +178,7 @@
                     {{ detail_form.jumlah_bay }}
                 </div>
                 <div>
-                    <label class="form-label fw-semibold" style="font-size:12px;">Keterangan</label>
+                    <label class="form-label fw-semibold" style="font-size:12px;">Keterangan Peripheral</label>
                     {{ detail_form.peri_keterangan }}
                 </div>
             </div>
@@ -197,121 +189,120 @@
 <!-- ══ 5. PERFORMA PERALATAN ══ -->
 <div class="card mb-3">
     <div class="card-body px-4 py-3">
-        <div class="section-title-bar">
-            <span class="bar" style="background:#06b6d4;"></span>
-            <span>Performa Peralatan</span>
-        </div>
+        <div class="sas-sec" style="--c:#06b6d4;">Performa Peralatan</div>
         <div class="row g-3 mb-3">
             <div class="col-md-4">
-                <label class="form-label fw-semibold" style="font-size:12px;">CPU Terpakai</label>
-                {{ detail_form.perf_cpu }}
-            </div>
-            <div class="col-md-4">
-                <label class="form-label fw-semibold" style="font-size:12px;">RAM Terpakai</label>
-                {{ detail_form.perf_ram }}
-            </div>
-            <div class="col-md-4">
-                <label class="form-label fw-semibold" style="font-size:12px;">Storage Terpakai</label>
-                {{ detail_form.perf_storage }}
-            </div>
-        </div>
-        <!-- Status baris-baris -->
-        {% for field, label in perf_status_rows %}
-        <div class="d-flex align-items-center gap-3 mb-2 py-1"
-             style="border-bottom:1px solid #f1f5f9;">
-            <span style="min-width:220px;font-size:12px;font-weight:600;color:#475569;">{{ label }}</span>
-            <div class="d-flex gap-3">
-                {% for choice in field %}
-                <div class="form-check form-check-inline mb-0">
-                    {{ choice.tag }}
-                    <label class="form-check-label" for="{{ choice.id_for_label }}"
-                        style="font-size:12px;font-weight:600;
-                        {% if choice.choice_label == 'OK' or choice.choice_label == 'Tidak Ada' %}color:#16a34a;
-                        {% elif choice.choice_label == 'NOK' or choice.choice_label == 'Ada' or choice.choice_label == 'Alarm' %}color:#dc2626;
-                        {% endif %}">
-                        {{ choice.choice_label }}
-                    </label>
+                <div class="sas-card">
+                    <div class="sas-lbl">CPU Terpakai</div>
+                    {{ detail_form.perf_cpu }}
                 </div>
-                {% endfor %}
+            </div>
+            <div class="col-md-4">
+                <div class="sas-card">
+                    <div class="sas-lbl">RAM Terpakai</div>
+                    {{ detail_form.perf_ram }}
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="sas-card">
+                    <div class="sas-lbl">Storage Terpakai</div>
+                    {{ detail_form.perf_storage }}
+                </div>
             </div>
         </div>
-        {% endfor %}
+        <!-- Status rows -->
+        <div class="sas-row-item">
+            <span class="sas-row-lbl">Indikasi Alarm / Error</span>
+            <div id="field-indikasi_alarm" style="display:none;">{{ detail_form.indikasi_alarm }}</div>
+            <div class="sas-tog-wrap">
+                <button type="button" class="sas-tog ok"  data-f="indikasi_alarm" data-v="TIDAK ADA">&#10003; Tidak Ada</button>
+                <button type="button" class="sas-tog nok" data-f="indikasi_alarm" data-v="ADA">&#9888; Ada</button>
+            </div>
+        </div>
+        <div class="sas-row-item">
+            <span class="sas-row-lbl">Komunikasi ke Master Station</span>
+            <div id="field-komm_master" style="display:none;">{{ detail_form.komm_master }}</div>
+            <div class="sas-tog-wrap">
+                <button type="button" class="sas-tog ok"  data-f="komm_master" data-v="OK">&#10003; OK</button>
+                <button type="button" class="sas-tog nok" data-f="komm_master" data-v="ALARM">&#9888; Alarm</button>
+            </div>
+        </div>
+        <div class="sas-row-item">
+            <span class="sas-row-lbl">Komunikasi ke IED</span>
+            <div id="field-komm_ied" style="display:none;">{{ detail_form.komm_ied }}</div>
+            <div class="sas-tog-wrap">
+                <button type="button" class="sas-tog ok"  data-f="komm_ied" data-v="OK">&#10003; OK</button>
+                <button type="button" class="sas-tog nok" data-f="komm_ied" data-v="ALARM">&#9888; Alarm</button>
+            </div>
+        </div>
+        <div class="sas-row-item" style="border-bottom:none;">
+            <span class="sas-row-lbl">Time Synchronization</span>
+            <div id="field-time_sync" style="display:none;">{{ detail_form.time_sync }}</div>
+            <div class="sas-tog-wrap">
+                <button type="button" class="sas-tog ok"  data-f="time_sync" data-v="OK">&#10003; OK</button>
+                <button type="button" class="sas-tog nok" data-f="time_sync" data-v="NOK">&#10007; NOK</button>
+            </div>
+        </div>
     </div>
 </div>
 
 <!-- ══ 6. POWER SUPPLY ══ -->
 <div class="card mb-3">
     <div class="card-body px-4 py-3">
-        <div class="section-title-bar">
-            <span class="bar" style="background:#ef4444;"></span>
-            <span>Power Supply</span>
-        </div>
+        <div class="sas-sec" style="--c:#ef4444;">Power Supply</div>
         <div class="row g-4">
             <!-- INVERTER -->
             <div class="col-md-6">
-                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px;">
-                    <div style="font-size:11px;font-weight:700;color:#1e40af;background:#dbeafe;
-                                padding:2px 10px;border-radius:20px;display:inline-block;margin-bottom:12px;">
-                        INVERTER
-                    </div>
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px;">
+                    <div style="font-size:11px;font-weight:700;color:#1e40af;background:#dbeafe;padding:2px 10px;border-radius:20px;display:inline-block;margin-bottom:12px;">INVERTER</div>
                     <div class="mb-3">
-                        <label class="form-label fw-semibold" style="font-size:12px;">Kondisi</label>
-                        <div class="d-flex gap-3">
-                            {% for choice in detail_form.inv_kondisi %}
-                            <div class="form-check form-check-inline mb-0">
-                                {{ choice.tag }}
-                                <label class="form-check-label" for="{{ choice.id_for_label }}"
-                                    style="font-size:12px;font-weight:600;
-                                    {% if choice.choice_label == 'OK' %}color:#16a34a;{% else %}color:#dc2626;{% endif %}">
-                                    {{ choice.choice_label }}
-                                </label>
-                            </div>
-                            {% endfor %}
+                        <div class="sas-lbl">Kondisi</div>
+                        <div id="field-inv_kondisi" style="display:none;">{{ detail_form.inv_kondisi }}</div>
+                        <div class="sas-tog-wrap">
+                            <button type="button" class="sas-tog ok"  data-f="inv_kondisi" data-v="OK">&#10003; OK</button>
+                            <button type="button" class="sas-tog nok" data-f="inv_kondisi" data-v="ALARM">&#9888; Alarm</button>
                         </div>
                     </div>
                     <div class="row g-2">
                         <div class="col-6">
                             <label class="form-label mb-1" style="font-size:11px;color:#64748b;">Tegangan Input</label>
-                            <div class="input-group input-group-sm">{{ detail_form.inv_teg_input }}<span class="input-group-text">V</span></div>
+                            <div class="input-group input-group-sm">{{ detail_form.inv_teg_input }}<span class="input-group-text sas-unit">V</span></div>
                         </div>
                         <div class="col-6">
                             <label class="form-label mb-1" style="font-size:11px;color:#64748b;">Arus Input</label>
-                            <div class="input-group input-group-sm">{{ detail_form.inv_arus_input }}<span class="input-group-text">A</span></div>
+                            <div class="input-group input-group-sm">{{ detail_form.inv_arus_input }}<span class="input-group-text sas-unit">A</span></div>
                         </div>
                         <div class="col-6">
                             <label class="form-label mb-1" style="font-size:11px;color:#64748b;">Tegangan Output</label>
-                            <div class="input-group input-group-sm">{{ detail_form.inv_teg_output }}<span class="input-group-text">V</span></div>
+                            <div class="input-group input-group-sm">{{ detail_form.inv_teg_output }}<span class="input-group-text sas-unit">V</span></div>
                         </div>
                         <div class="col-6">
                             <label class="form-label mb-1" style="font-size:11px;color:#64748b;">Arus Output</label>
-                            <div class="input-group input-group-sm">{{ detail_form.inv_arus_output }}<span class="input-group-text">A</span></div>
+                            <div class="input-group input-group-sm">{{ detail_form.inv_arus_output }}<span class="input-group-text sas-unit">A</span></div>
                         </div>
                     </div>
                 </div>
             </div>
             <!-- 110 VDC / 48 VDC -->
             <div class="col-md-6">
-                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px;">
-                    <div style="font-size:11px;font-weight:700;color:#166534;background:#dcfce7;
-                                padding:2px 10px;border-radius:20px;display:inline-block;margin-bottom:12px;">
-                        110 VDC / 48 VDC
-                    </div>
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px;">
+                    <div style="font-size:11px;font-weight:700;color:#166534;background:#dcfce7;padding:2px 10px;border-radius:20px;display:inline-block;margin-bottom:12px;">110 VDC / 48 VDC</div>
                     <div class="row g-2">
                         <div class="col-6">
                             <label class="form-label mb-1" style="font-size:11px;color:#64748b;">Tegangan Input</label>
-                            <div class="input-group input-group-sm">{{ detail_form.ps_teg_input }}<span class="input-group-text">V</span></div>
+                            <div class="input-group input-group-sm">{{ detail_form.ps_teg_input }}<span class="input-group-text sas-unit">V</span></div>
                         </div>
                         <div class="col-6">
                             <label class="form-label mb-1" style="font-size:11px;color:#64748b;">Arus Input</label>
-                            <div class="input-group input-group-sm">{{ detail_form.ps_arus_input }}<span class="input-group-text">A</span></div>
+                            <div class="input-group input-group-sm">{{ detail_form.ps_arus_input }}<span class="input-group-text sas-unit">A</span></div>
                         </div>
                         <div class="col-6">
                             <label class="form-label mb-1" style="font-size:11px;color:#64748b;">Tegangan Output</label>
-                            <div class="input-group input-group-sm">{{ detail_form.ps_teg_output }}<span class="input-group-text">V</span></div>
+                            <div class="input-group input-group-sm">{{ detail_form.ps_teg_output }}<span class="input-group-text sas-unit">V</span></div>
                         </div>
                         <div class="col-6">
                             <label class="form-label mb-1" style="font-size:11px;color:#64748b;">Arus Output</label>
-                            <div class="input-group input-group-sm">{{ detail_form.ps_arus_output }}<span class="input-group-text">A</span></div>
+                            <div class="input-group input-group-sm">{{ detail_form.ps_arus_output }}<span class="input-group-text sas-unit">A</span></div>
                         </div>
                     </div>
                 </div>
@@ -320,18 +311,102 @@
     </div>
 </div>
 
-<!-- TOMBOL SUBMIT -->
-<div class="d-flex gap-2 justify-content-end mt-2 mb-4">
+{% if maintenance_form.errors or detail_form.errors %}
+<div class="alert alert-danger mb-3"><i class="bi bi-exclamation-triangle me-2"></i><strong>Perbaiki error:</strong> {{ maintenance_form.errors }}{{ detail_form.errors }}</div>
+{% endif %}
+
+<div class="d-flex gap-2 justify-content-end pb-4">
     {% if is_edit %}
-    <a href="{% url 'maintenance_view' maintenance.id %}" class="btn btn-outline-secondary">Batal</a>
+    <a href="{% url 'maintenance_view' maintenance.id %}" class="btn btn-outline-secondary"><i class="bi bi-x me-1"></i>Batal</a>
     {% else %}
-    <a href="{% url 'device_view' device.id %}" class="btn btn-outline-secondary">Batal</a>
+    <a href="{% url 'device_view' device.id %}" class="btn btn-outline-secondary"><i class="bi bi-x me-1"></i>Batal</a>
     {% endif %}
-    <button type="submit" class="btn btn-primary px-4">
-        <i class="bi bi-floppy me-1"></i>
-        {% if is_edit %}Simpan Perubahan{% else %}Simpan Maintenance{% endif %}
+    <button type="submit" class="btn btn-primary px-4" id="btn-submit">
+        <i class="bi bi-floppy me-1"></i>{% if is_edit %}Simpan Perubahan{% else %}Simpan Maintenance{% endif %}
     </button>
 </div>
-
 </form>
+{% endblock %}
+
+{% block extra_js %}
+<style>
+/* ── Section header ─────────────────────────────────────────── */
+.sas-sec {
+    display:flex; align-items:center; gap:10px;
+    font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.7px;
+    color:#475569; margin-bottom:16px; padding-bottom:10px; border-bottom:1px solid #f1f5f9;
+}
+.sas-sec::before {
+    content:''; width:5px; height:20px; border-radius:3px;
+    background:var(--c,#3b82f6); flex-shrink:0;
+}
+/* ── Card ───────────────────────────────────────────────────── */
+.sas-card {
+    background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px;
+    padding:11px 14px; height:100%;
+}
+.sas-lbl {
+    font-size:11px; font-weight:700; text-transform:uppercase;
+    letter-spacing:.4px; color:#64748b; margin-bottom:7px;
+}
+/* ── Unit ───────────────────────────────────────────────────── */
+.sas-unit {
+    background:#e2e8f0; border-color:#e2e8f0!important;
+    font-size:12px; font-weight:700; color:#475569;
+    min-width:36px; justify-content:center;
+}
+/* ── Toggle buttons ─────────────────────────────────────────── */
+.sas-tog-wrap { display:flex; gap:6px; flex-wrap:wrap; }
+.sas-tog {
+    flex:1; padding:6px 4px; border-radius:7px; font-size:12px;
+    font-weight:700; border:1.5px solid transparent; cursor:pointer;
+    transition:all .12s; background:#fff; white-space:nowrap;
+}
+.sas-tog.ok   { border-color:#d1fae5; color:#9ca3af; }
+.sas-tog.nok  { border-color:#fee2e2; color:#9ca3af; }
+.sas-tog.warn { border-color:#fef3c7; color:#9ca3af; }
+.sas-tog.ok.on   { background:#10b981; border-color:#10b981; color:#fff; }
+.sas-tog.nok.on  { background:#ef4444; border-color:#ef4444; color:#fff; }
+.sas-tog.warn.on { background:#f59e0b; border-color:#f59e0b; color:#fff; }
+/* ── Row item (peripheral / performa) ───────────────────────── */
+.sas-row-item {
+    display:flex; align-items:center; gap:12px;
+    padding:8px 4px; border-bottom:1px solid #f1f5f9; flex-wrap:wrap;
+}
+.sas-row-lbl {
+    min-width:200px; font-size:12px; font-weight:600; color:#475569;
+}
+</style>
+
+<script>
+/* ── Toggle OK/BERSIH/ALARM buttons ─────────────────────────── */
+document.addEventListener('click', e => {
+    const b = e.target.closest('.sas-tog');
+    if (!b) return;
+    const f = document.getElementById('field-' + b.dataset.f);
+    if (!f) return;
+    const s = f.querySelector('select');
+    if (s) s.value = b.dataset.v;
+    const w = f.nextElementSibling;
+    if (w) w.querySelectorAll('.sas-tog').forEach(x => x.classList.toggle('on', x.dataset.v === b.dataset.v));
+});
+
+/* ── Restore toggle state on load (edit mode) ───────────────── */
+document.addEventListener('DOMContentLoaded', () => {
+    const fields = [
+        'kondisi_server', 'kondisi_panel', 'exhaust_fan',
+        'peri_eth_switch', 'peri_gps', 'peri_eth_serial', 'peri_router',
+        'indikasi_alarm', 'komm_master', 'komm_ied', 'time_sync',
+        'inv_kondisi',
+    ];
+    fields.forEach(n => {
+        const f = document.getElementById('field-' + n);
+        if (!f) return;
+        const s = f.querySelector('select');
+        if (!s || !s.value) return;
+        const w = f.nextElementSibling;
+        if (w) w.querySelectorAll('.sas-tog').forEach(b => b.classList.toggle('on', b.dataset.v === s.value));
+    });
+});
+</script>
 {% endblock %}
