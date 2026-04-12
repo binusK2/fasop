@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
-{% block title %}Dashboard Catu Daya — FASOP UP2B{% endblock %}
-{% block page_title %}Dashboard Catu Daya{% endblock %}
+{% block title %}Dashboard Catu Daya & UPS — FASOP UP2B{% endblock %}
+{% block page_title %}Dashboard Catu Daya & UPS{% endblock %}
 
 {% block content %}
 <style>
@@ -92,6 +92,25 @@
 .cd-empty { text-align: center; padding: 60px 20px; color: #94a3b8; font-size: 13px; }
 .cd-empty i { font-size: 42px; display: block; margin-bottom: 12px; opacity: .4; }
 
+/* ── Tab switcher ──────────────────────────────────────────── */
+.cd-tab-bar { display:flex; gap:6px; margin-bottom:22px; border-bottom:2px solid #e2e8f0; padding-bottom:0; }
+.cd-tab-btn {
+    padding:8px 20px; font-size:13px; font-weight:700; border:none; background:none;
+    cursor:pointer; color:#64748b; border-bottom:3px solid transparent; margin-bottom:-2px;
+    display:flex; align-items:center; gap:7px; transition:color .15s,border-color .15s;
+    border-radius:0;
+}
+.cd-tab-btn:hover { color:#0f172a; }
+.cd-tab-btn.active { color:#3b82f6; border-bottom-color:#3b82f6; }
+.cd-tab-btn.active-ups { color:#8b5cf6; border-bottom-color:#8b5cf6; }
+.cd-tab-panel { display:none; }
+.cd-tab-panel.show { display:block; }
+
+/* ── UPS-specific overrides ────────────────────────────────── */
+.ups-dash-sec { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.8px;
+    color:#64748b; margin:0 0 14px; display:flex; align-items:center; gap:8px; }
+.ups-dash-sec::after { content:''; flex:1; height:1px; background:#e2e8f0; }
+
 /* ── Export buttons ────────────────────────────────────────── */
 .cd-export-group { display: flex; gap: 5px; align-items: center; }
 .cd-export-btn {
@@ -115,9 +134,24 @@
 
 <!-- Page header -->
 <div class="cd-page-header">
-    <h2><i class="bi bi-battery-charging me-2" style="color:#3b82f6;"></i>Dashboard Catu Daya</h2>
-    <p>Monitoring tegangan, arus & prediksi discharge baterai. Batas aman: <strong>{{ threshold }} VDC</strong></p>
+    <h2><i class="bi bi-battery-charging me-2" style="color:#3b82f6;"></i>Dashboard Catu Daya &amp; UPS</h2>
+    <p>Monitoring tegangan, arus &amp; prediksi discharge baterai</p>
 </div>
+
+<!-- Tab bar -->
+<div class="cd-tab-bar">
+    <button class="cd-tab-btn active" id="tab-btn-rect" onclick="switchTab('rect')">
+        <i class="bi bi-hdd-stack" style="font-size:14px;"></i> Catu Daya / Rectifier
+        {% if devices_data %}<span style="font-size:11px;background:#eff6ff;color:#3b82f6;padding:1px 8px;border-radius:10px;">{{ devices_data|length }}</span>{% endif %}
+    </button>
+    <button class="cd-tab-btn" id="tab-btn-ups" onclick="switchTab('ups')">
+        <i class="bi bi-plug" style="font-size:14px;"></i> UPS
+        {% if ups_data %}<span style="font-size:11px;background:#f5f3ff;color:#8b5cf6;padding:1px 8px;border-radius:10px;">{{ ups_data|length }}</span>{% endif %}
+    </button>
+</div>
+
+<!-- ═══════════════════════════════════ TAB: CATU DAYA ═══════════════════════════════════ -->
+<div id="tab-panel-rect" class="cd-tab-panel show">
 
 {% if devices_data %}
 
@@ -355,12 +389,204 @@
 </div>
 {% endif %}
 
+</div><!-- /tab-panel-rect -->
+
+<!-- ═══════════════════════════════════ TAB: UPS ═══════════════════════════════════ -->
+<div id="tab-panel-ups" class="cd-tab-panel">
+
+{% if ups_data %}
+
+<!-- UPS Summary stats -->
+<div class="cd-stat-grid">
+    <div class="cd-stat-card">
+        <div class="cd-stat-icon" style="background:#f5f3ff;color:#8b5cf6;"><i class="bi bi-plug"></i></div>
+        <div><div class="cd-stat-val">{{ ups_data|length }}</div><div class="cd-stat-lbl">Total UPS</div></div>
+    </div>
+    <div class="cd-stat-card">
+        <div class="cd-stat-icon" style="background:#f0fdf4;color:#16a34a;"><i class="bi bi-check-circle"></i></div>
+        <div><div class="cd-stat-val" id="ups-stat-ok" style="color:#16a34a;">—</div><div class="cd-stat-lbl">Aman</div></div>
+    </div>
+    <div class="cd-stat-card">
+        <div class="cd-stat-icon" style="background:#fffbeb;color:#d97706;"><i class="bi bi-exclamation-triangle"></i></div>
+        <div><div class="cd-stat-val" id="ups-stat-warn" style="color:#d97706;">—</div><div class="cd-stat-lbl">Perlu Perhatian</div></div>
+    </div>
+    <div class="cd-stat-card">
+        <div class="cd-stat-icon" style="background:#fef2f2;color:#dc2626;"><i class="bi bi-exclamation-circle"></i></div>
+        <div><div class="cd-stat-val" id="ups-stat-danger" style="color:#dc2626;">—</div><div class="cd-stat-lbl">Di Bawah Threshold</div></div>
+    </div>
+</div>
+
+<!-- UPS Device selector -->
+<div class="cd-card" style="margin-bottom:22px;">
+    <div class="cd-card-head">
+        <h5><i class="bi bi-plug me-2" style="color:#8b5cf6;"></i>Pilih Perangkat UPS</h5>
+        <select class="cd-select" id="ups-device-select" onchange="switchUPS(parseInt(this.value))">
+            {% for d in ups_data %}
+            <option value="{{ d.device_id }}" {% if d.device_id == ups_selected_id %}selected{% endif %}>
+                {{ d.device_name }} — {{ d.lokasi }}
+            </option>
+            {% endfor %}
+        </select>
+    </div>
+</div>
+
+<!-- UPS AC Metrics -->
+<p class="ups-dash-sec"><i class="bi bi-lightning me-1"></i>Nilai Terbaru — Pengukuran AC</p>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:22px;" id="ups-metric-grid">
+    <div class="cd-metric"><div class="cd-metric-label">V Input (avg R/S/T)</div><div class="cd-metric-val" id="um-vin" style="color:#8b5cf6;">—</div><div class="cd-metric-unit">Volt AC</div></div>
+    <div class="cd-metric"><div class="cd-metric-label">V Output (avg R/S/T)</div><div class="cd-metric-val" id="um-vout" style="color:#3b82f6;">—</div><div class="cd-metric-unit">Volt AC</div></div>
+    <div class="cd-metric"><div class="cd-metric-label">Frekuensi Input</div><div class="cd-metric-val" id="um-fin" style="color:#0891b2;">—</div><div class="cd-metric-unit">Hz</div></div>
+    <div class="cd-metric"><div class="cd-metric-label">Frekuensi Output</div><div class="cd-metric-val" id="um-fout" style="color:#0891b2;">—</div><div class="cd-metric-unit">Hz</div></div>
+    <div class="cd-metric"><div class="cd-metric-label">Arus Beban</div><div class="cd-metric-val" id="um-aload" style="color:#d97706;">—</div><div class="cd-metric-unit">Ampere</div></div>
+    <div class="cd-metric"><div class="cd-metric-label">Beban</div><div class="cd-metric-val" id="um-load" style="color:#059669;">—</div><div class="cd-metric-unit">%</div></div>
+    <div class="cd-metric"><div class="cd-metric-label">V Battery Total</div><div class="cd-metric-val" id="um-vbat" style="color:#10b981;">—</div><div class="cd-metric-unit">Volt DC</div></div>
+    <div class="cd-metric"><div class="cd-metric-label">Kondisi UPS</div><div id="um-kondisi" style="margin-top:4px;">—</div><div class="cd-metric-unit">&nbsp;</div></div>
+</div>
+
+<!-- Prediksi Backup 170 VAC -->
+<div class="cd-card mb-4" id="ups-pred-card">
+    <div class="cd-card-head">
+        <h5><i class="bi bi-clock-history me-2" style="color:#8b5cf6;"></i>Prediksi Backup — Sampai Output 170 VAC</h5>
+        <span id="ups-pred-device-label" class="text-muted" style="font-size:12px;"></span>
+    </div>
+    <div id="ups-pred-alert" class="cd-alert" style="margin:14px 18px 0;"></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;padding:14px 18px;">
+        <div><div class="cd-info-label">Backup Tersisa</div><div class="cd-info-val" id="ups-info-backup">—</div></div>
+        <div><div class="cd-info-label">Laju Penurunan V Batt</div><div class="cd-info-val" id="ups-info-slope">—</div></div>
+        <div><div class="cd-info-label">Threshold DC (≈170 VAC)</div><div class="cd-info-val" id="ups-info-thr">—</div></div>
+        <div><div class="cd-info-label">V Float Total</div><div class="cd-info-val" id="ups-info-vfloat">—</div></div>
+        <div><div class="cd-info-label">Jumlah Cell</div><div class="cd-info-val" id="ups-info-ncell">—</div></div>
+        <div><div class="cd-info-label">Merk / Tipe Battery</div><div class="cd-info-val" id="ups-info-bat">—</div></div>
+        <div><div class="cd-info-label">Kapasitas UPS</div><div class="cd-info-val" id="ups-info-kap">—</div></div>
+        <div><div class="cd-info-label">Tren V Input PLN</div><div class="cd-info-val" id="ups-info-vin-trend">—</div></div>
+    </div>
+</div>
+
+<!-- UPS Trend Charts -->
+<p class="ups-dash-sec"><i class="bi bi-graph-up me-1"></i>Tren Historis Pemeliharaan</p>
+<div class="cd-trend-grid">
+    <div class="cd-card" style="margin-bottom:0;">
+        <div class="cd-card-head">
+            <h5><i class="bi bi-plug me-2" style="color:#8b5cf6;"></i>V Input AC (R/S/T avg)</h5>
+            <div class="cd-export-group">
+                <button class="cd-export-btn" onclick="downloadChart('upsVinChart','ups-v-input')"><i class="bi bi-download"></i> PNG</button>
+                <button class="cd-export-btn" id="copy-upsvin" onclick="copyChart('upsVinChart','copy-upsvin')"><i class="bi bi-clipboard"></i> Copy</button>
+            </div>
+        </div>
+        <div class="cd-card-body">
+            <div class="cd-legend">
+                <div class="cd-legend-item"><div class="cd-legend-line" style="background:#8b5cf6;"></div><span>V Input avg</span></div>
+                <div class="cd-legend-item"><div class="cd-legend-line" style="background:#a78bfa;border-top:2px dashed #a78bfa;height:0;width:24px;"></div><span>V Input R</span></div>
+                <div class="cd-legend-item"><div class="cd-legend-line" style="background:#60a5fa;border-top:2px dashed #60a5fa;height:0;width:24px;"></div><span>V Input S</span></div>
+                <div class="cd-legend-item"><div class="cd-legend-line" style="background:#34d399;border-top:2px dashed #34d399;height:0;width:24px;"></div><span>V Input T</span></div>
+                <div class="cd-legend-item"><div style="width:24px;border-top:2px dashed #ef4444;"></div><span>170 VAC</span></div>
+            </div>
+            <div class="cd-chart-wrap cd-chart-h240"><canvas id="upsVinChart"></canvas></div>
+        </div>
+    </div>
+    <div class="cd-card" style="margin-bottom:0;">
+        <div class="cd-card-head">
+            <h5><i class="bi bi-activity me-2" style="color:#3b82f6;"></i>V Output AC &amp; Beban (%)</h5>
+            <div class="cd-export-group">
+                <button class="cd-export-btn" onclick="downloadChart('upsVoutChart','ups-v-output')"><i class="bi bi-download"></i> PNG</button>
+                <button class="cd-export-btn" id="copy-upsvout" onclick="copyChart('upsVoutChart','copy-upsvout')"><i class="bi bi-clipboard"></i> Copy</button>
+            </div>
+        </div>
+        <div class="cd-card-body">
+            <div class="cd-legend">
+                <div class="cd-legend-item"><div class="cd-legend-line" style="background:#3b82f6;"></div><span>V Output avg</span></div>
+                <div class="cd-legend-item"><div class="cd-legend-line" style="background:#d97706;border-top:2px dashed #d97706;height:0;width:24px;"></div><span>Beban (%)</span></div>
+            </div>
+            <div class="cd-chart-wrap cd-chart-h240"><canvas id="upsVoutChart"></canvas></div>
+        </div>
+    </div>
+</div>
+
+<!-- UPS Battery Discharge Chart -->
+<p class="ups-dash-sec" style="margin-top:4px;"><i class="bi bi-battery-half me-1"></i>Kurva Discharge Battery &amp; Prediksi Backup sampai 170 VAC</p>
+<div class="cd-card">
+    <div class="cd-card-head">
+        <h5><i class="bi bi-battery-half me-2" style="color:#10b981;"></i>Discharge Battery UPS — Prediksi Waktu Backup</h5>
+        <div class="cd-export-group">
+            <button class="cd-export-btn" onclick="downloadChart('upsDischargeChart','ups-discharge')"><i class="bi bi-download"></i> PNG</button>
+            <button class="cd-export-btn" id="copy-upsdisc" onclick="copyChart('upsDischargeChart','copy-upsdisc')"><i class="bi bi-clipboard"></i> Copy</button>
+        </div>
+    </div>
+    <div class="cd-card-body">
+        <div class="cd-legend">
+            <div class="cd-legend-item"><div style="width:12px;height:12px;background:#059669;transform:rotate(45deg);flex-shrink:0;"></div><span>V Float</span></div>
+            <div class="cd-legend-item"><div class="cd-legend-line" style="background:#10b981;"></div><span>Discharge Aktual</span></div>
+            <div class="cd-legend-item"><div style="width:24px;border-top:2px dashed #f59e0b;"></div><span>Prediksi (Linear)</span></div>
+            <div class="cd-legend-item"><div class="cd-legend-line" style="background:#ef4444;"></div><span>Threshold ≈ 170 VAC</span></div>
+            <div id="ups-disc-hist-legend" style="display:contents;"></div>
+        </div>
+        <div class="cd-chart-wrap cd-chart-h340"><canvas id="upsDischargeChart"></canvas></div>
+    </div>
+</div>
+
+<!-- UPS Discharge History Table -->
+<div id="ups-disc-hist-wrap" style="display:none;margin-top:22px;">
+    <p class="ups-dash-sec"><i class="bi bi-clock-history me-1"></i>Riwayat Data Discharge Battery UPS</p>
+    <div class="cd-table-card">
+        <div style="overflow-x:auto;">
+            <table class="cd-tbl">
+                <thead>
+                    <tr>
+                        <th style="width:36px;"></th>
+                        <th>Tanggal Pemeliharaan</th>
+                        <th>V Float (V)</th>
+                        <th>VD 0 Jam (V)</th>
+                        <th>VD 1 Jam (V)</th>
+                        <th>VD 2 Jam (V)</th>
+                        <th>VD 3 Jam (V)</th>
+                        <th>Laju Penurunan</th>
+                    </tr>
+                </thead>
+                <tbody id="ups-disc-hist-body"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- UPS Device List Table -->
+<p class="ups-dash-sec" style="margin-top:22px;"><i class="bi bi-list-ul me-1"></i>Daftar Semua Perangkat UPS</p>
+<div class="cd-table-card">
+    <table class="cd-tbl">
+        <thead>
+            <tr>
+                <th>Perangkat</th>
+                <th>Lokasi</th>
+                <th>Tgl Maint</th>
+                <th>V Input avg</th>
+                <th>V Output avg</th>
+                <th>Beban (%)</th>
+                <th>V Batt Total</th>
+                <th>Backup Est.</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody id="ups-device-table-body"></tbody>
+    </table>
+</div>
+
+{% else %}
+<div class="cd-empty">
+    <i class="bi bi-plug" style="color:#8b5cf6;"></i>
+    <strong>Belum ada data UPS</strong>
+    <p>Pastikan perangkat bertipe "UPS" sudah memiliki data pemeliharaan.</p>
+</div>
+{% endif %}
+
+</div><!-- /tab-panel-ups -->
+
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 
 <script>
-const DEVICES   = {{ devices_data_json|safe }};
-const THRESHOLD = {{ threshold }};
+const DEVICES      = {{ devices_data_json|safe }};
+const THRESHOLD    = {{ threshold }};
+const UPS_DEVICES  = {{ ups_data_json|safe }};
+const UPS_VAC_THR  = {{ ups_vac_threshold }};
 
 let chartDischarge = null;
 let chartVTrend    = null;
@@ -857,6 +1083,408 @@ function copyChart(canvasId, btnId) {
     }, 'image/png');
 }
 
+/* ══════════════════════════════════════════════════════════
+   TAB SWITCHER
+   ══════════════════════════════════════════════════════════ */
+function switchTab(tab) {
+    document.getElementById('tab-panel-rect').classList.toggle('show', tab === 'rect');
+    document.getElementById('tab-panel-ups').classList.toggle('show',  tab === 'ups');
+    const bRect = document.getElementById('tab-btn-rect');
+    const bUPS  = document.getElementById('tab-btn-ups');
+    bRect.className = 'cd-tab-btn' + (tab === 'rect' ? ' active' : '');
+    bUPS.className  = 'cd-tab-btn' + (tab === 'ups'  ? ' active-ups' : '');
+    // Lazily render UPS charts on first open
+    if (tab === 'ups' && !upsInitDone) {
+        upsInitDone = true;
+        upsRenderStats();
+        upsRenderTable();
+        const uid = {{ ups_selected_id|default:"null" }};
+        if (UPS_DEVICES.length > 0)
+            switchUPS(uid !== null ? uid : UPS_DEVICES[0].device_id);
+    }
+}
+let upsInitDone = false;
+
+/* ══════════════════════════════════════════════════════════
+   UPS DASHBOARD
+   ══════════════════════════════════════════════════════════ */
+let upsChartDischarge = null;
+let upsChartVin       = null;
+let upsChartVout      = null;
+
+/* ── Stats ──────────────────────────────────────────── */
+function upsRenderStats() {
+    let ok = 0, warn = 0, danger = 0;
+    UPS_DEVICES.forEach(d => {
+        if (d.status === 'ok') ok++;
+        else if (d.status === 'warning') warn++;
+        else danger++;
+    });
+    document.getElementById('ups-stat-ok').textContent     = ok;
+    document.getElementById('ups-stat-warn').textContent   = warn;
+    document.getElementById('ups-stat-danger').textContent = danger;
+}
+
+/* ── Device Table ───────────────────────────────────── */
+function upsRenderTable() {
+    const tbody = document.getElementById('ups-device-table-body');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    UPS_DEVICES.forEach(d => {
+        let badge;
+        if (d.status === 'ok')
+            badge = `<span class="cd-badge cd-badge-ok"><i class="bi bi-check-circle-fill"></i> Aman</span>`;
+        else if (d.status === 'warning')
+            badge = `<span class="cd-badge cd-badge-warn"><i class="bi bi-exclamation-triangle-fill"></i> Perhatian</span>`;
+        else
+            badge = `<span class="cd-badge cd-badge-danger"><i class="bi bi-x-circle-fill"></i> Bahaya</span>`;
+
+        const backup = d.backup_time != null ? d.backup_time + ' jam' : '—';
+        const tr = document.createElement('tr');
+        tr.onclick = () => {
+            document.getElementById('ups-device-select').value = d.device_id;
+            switchUPS(d.device_id);
+            document.getElementById('ups-metric-grid').scrollIntoView({behavior:'smooth', block:'start'});
+        };
+        tr.innerHTML = `
+            <td><strong>${d.device_name}</strong></td>
+            <td>${d.lokasi}</td>
+            <td>${d.tanggal}</td>
+            <td>${d.v_input   != null ? d.v_input.toFixed(1)   + ' V' : '—'}</td>
+            <td>${d.v_output  != null ? d.v_output.toFixed(1)  + ' V' : '—'}</td>
+            <td>${d.percent_load != null ? d.percent_load + ' %' : '—'}</td>
+            <td>${d.bat_v_total  != null ? d.bat_v_total  + ' V' : '—'}</td>
+            <td style="font-family:monospace;">${backup}</td>
+            <td>${badge}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+/* ── AC Metrics ─────────────────────────────────────── */
+function upsRenderMetrics(dev) {
+    const fv = (v, u) => v != null ? v + ' ' + u : '—';
+    document.getElementById('um-vin').textContent   = dev.v_input    != null ? dev.v_input.toFixed(1)  + ' V' : '—';
+    document.getElementById('um-vout').textContent  = dev.v_output   != null ? dev.v_output.toFixed(1) + ' V' : '—';
+    document.getElementById('um-fin').textContent   = dev.f_input    != null ? dev.f_input  + ' Hz' : '—';
+    document.getElementById('um-fout').textContent  = dev.f_output   != null ? dev.f_output + ' Hz' : '—';
+    document.getElementById('um-aload').textContent = dev.a_load     != null ? dev.a_load   + ' A'  : '—';
+    document.getElementById('um-load').textContent  = dev.percent_load != null ? dev.percent_load + ' %' : '—';
+    document.getElementById('um-vbat').textContent  = dev.bat_v_total  != null ? dev.bat_v_total  + ' V' : '—';
+
+    const kondEl = document.getElementById('um-kondisi');
+    if (dev.ups_kondisi === 'OK')
+        kondEl.innerHTML = `<span class="cd-badge cd-badge-ok"><i class="bi bi-check-circle-fill"></i> OK</span>`;
+    else if (dev.ups_kondisi === 'NOK')
+        kondEl.innerHTML = `<span class="cd-badge cd-badge-danger"><i class="bi bi-x-circle-fill"></i> NOK</span>`;
+    else
+        kondEl.textContent = '—';
+}
+
+/* ── Prediction Card ────────────────────────────────── */
+function upsRenderPred(dev) {
+    document.getElementById('ups-pred-device-label').textContent = dev.device_name + ' · ' + dev.lokasi;
+
+    const alertEl = document.getElementById('ups-pred-alert');
+    alertEl.className = 'cd-alert';
+    if (dev.backup_time == null && dev.bat_slope == null) {
+        alertEl.innerHTML = `<i class="bi bi-info-circle-fill fs-5"></i><div>Data discharge belum cukup (butuh minimal 2 titik VD). Isi VD 0 Jam s/d VD 3 Jam di form pemeliharaan.</div>`;
+        alertEl.classList.add('cd-alert-warn');
+    } else if (dev.status === 'danger') {
+        alertEl.innerHTML = `<i class="bi bi-x-circle-fill fs-5"></i><div><strong>Tegangan kritis!</strong> V Input atau V Output di bawah 180 VAC. Segera periksa.</div>`;
+        alertEl.classList.add('cd-alert-danger');
+    } else if (dev.backup_time != null && dev.backup_time <= 3) {
+        alertEl.innerHTML = `<i class="bi bi-exclamation-triangle-fill fs-5"></i><div><strong>Perhatian:</strong> Prediksi battery habis dalam <strong>${dev.backup_time} jam</strong> — output bisa drop ke 170 VAC.</div>`;
+        alertEl.classList.add('cd-alert-warn');
+    } else if (dev.backup_time != null) {
+        alertEl.innerHTML = `<i class="bi bi-check-circle-fill fs-5"></i><div><strong>Battery aman.</strong> Prediksi backup tersisa <strong>${dev.backup_time} jam</strong> sebelum output turun ke ~170 VAC.</div>`;
+        alertEl.classList.add('cd-alert-ok');
+    } else {
+        alertEl.innerHTML = `<i class="bi bi-check-circle-fill fs-5"></i><div>Battery dalam kondisi baik. Tidak ada prediksi penurunan signifikan.</div>`;
+        alertEl.classList.add('cd-alert-ok');
+    }
+
+    document.getElementById('ups-info-backup').innerHTML   = dev.backup_time != null
+        ? (dev.backup_time <= 3
+            ? `<span style="color:#dc2626;font-weight:700;">${dev.backup_time} jam ⚠</span>`
+            : `<span style="color:#16a34a;font-weight:700;">${dev.backup_time} jam</span>`)
+        : '—';
+    document.getElementById('ups-info-slope').textContent  = dev.bat_slope != null ? dev.bat_slope + ' V/jam' : '—';
+    document.getElementById('ups-info-thr').textContent    = dev.bat_threshold != null ? dev.bat_threshold + ' V DC' : '—';
+    document.getElementById('ups-info-vfloat').textContent = (() => {
+        const vf = dev.actual.find(p => p.t < 0);
+        return vf ? vf.v + ' V' : '—';
+    })();
+    document.getElementById('ups-info-ncell').textContent  = dev.bat_jumlah_cell ? dev.bat_jumlah_cell + ' cell' : '—';
+    document.getElementById('ups-info-bat').textContent    = dev.bat_merk + ' / ' + dev.bat_tipe;
+    document.getElementById('ups-info-kap').textContent    = dev.ups_kapasitas || '—';
+
+    const vinTrendEl = document.getElementById('ups-info-vin-trend');
+    if (dev.vin_pred) {
+        vinTrendEl.innerHTML = `<span style="color:#d97706;font-weight:700;">Turun ${dev.vin_pred.rate_mo} V/bln → est. ${dev.vin_pred.days} hari</span>`;
+    } else {
+        vinTrendEl.textContent = 'Stabil / data kurang';
+    }
+}
+
+/* ── V Input Trend Chart ────────────────────────────── */
+function upsRenderVinChart(dev) {
+    upsChartVin = destroyChart(upsChartVin);
+    const hist   = dev.history || [];
+    const labels = hist.map(h => h.date);
+    const ctx    = document.getElementById('upsVinChart').getContext('2d');
+
+    upsChartVin = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [
+                { label:'V Input avg', data: hist.map(h => h.v_input),
+                  borderColor:'#8b5cf6', backgroundColor:'rgba(139,92,246,0.08)',
+                  borderWidth:2.5, pointRadius:5, tension:0.3, fill:true, spanGaps:true },
+                { label:'V Input R', data: hist.map(h => h.v_input_r),
+                  borderColor:'#a78bfa', backgroundColor:'transparent',
+                  borderWidth:1.5, pointRadius:3, tension:0.3, spanGaps:true, borderDash:[5,3] },
+                { label:'V Input S', data: hist.map(h => h.v_input_s),
+                  borderColor:'#60a5fa', backgroundColor:'transparent',
+                  borderWidth:1.5, pointRadius:3, tension:0.3, spanGaps:true, borderDash:[5,3] },
+                { label:'V Input T', data: hist.map(h => h.v_input_t),
+                  borderColor:'#34d399', backgroundColor:'transparent',
+                  borderWidth:1.5, pointRadius:3, tension:0.3, spanGaps:true, borderDash:[5,3] },
+                { label:'170 VAC Threshold', data: labels.map(() => UPS_VAC_THR),
+                  borderColor:'#ef4444', backgroundColor:'rgba(239,68,68,0.04)',
+                  borderWidth:1.5, pointRadius:0, spanGaps:true, borderDash:[4,3] },
+            ]
+        },
+        options: {
+            responsive:true, maintainAspectRatio:false,
+            interaction:{ mode:'index', intersect:false },
+            plugins:{
+                legend:{ display:false },
+                tooltip:{ callbacks:{ label: c => c.parsed.y != null ? `${c.dataset.label}: ${c.parsed.y.toFixed(1)} V` : null }}
+            },
+            scales:{
+                x:{ ticks:{color:'#64748b',font:{size:10},maxRotation:45}, grid:{color:'#f1f5f9'} },
+                y:{
+                    ticks:{color:'#64748b',font:{size:10},callback:v=>v.toFixed(0)+' V'},
+                    grid:{color:'#f1f5f9'},
+                    title:{display:true,text:'Volt AC (V)',color:'#94a3b8',font:{size:11}},
+                    suggestedMin: 160,
+                }
+            }
+        }
+    });
+}
+
+/* ── V Output + Load Chart ──────────────────────────── */
+function upsRenderVoutChart(dev) {
+    upsChartVout = destroyChart(upsChartVout);
+    const hist   = dev.history || [];
+    const labels = hist.map(h => h.date);
+    const ctx    = document.getElementById('upsVoutChart').getContext('2d');
+
+    upsChartVout = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [
+                { label:'V Output avg', data: hist.map(h => h.v_output),
+                  borderColor:'#3b82f6', backgroundColor:'rgba(59,130,246,0.07)',
+                  borderWidth:2.5, pointRadius:5, tension:0.3, fill:true, spanGaps:true,
+                  yAxisID: 'yV' },
+                { label:'Beban (%)', data: hist.map(h => h.percent_load),
+                  borderColor:'#d97706', backgroundColor:'transparent',
+                  borderWidth:2, pointRadius:4, tension:0.3, spanGaps:true,
+                  borderDash:[5,3], yAxisID:'yP' },
+            ]
+        },
+        options: {
+            responsive:true, maintainAspectRatio:false,
+            interaction:{ mode:'index', intersect:false },
+            plugins:{
+                legend:{ display:false },
+                tooltip:{ callbacks:{ label: c => {
+                    if (c.parsed.y == null) return null;
+                    return c.dataset.label.includes('%')
+                        ? `${c.dataset.label}: ${c.parsed.y.toFixed(1)} %`
+                        : `${c.dataset.label}: ${c.parsed.y.toFixed(1)} V`;
+                }}}
+            },
+            scales:{
+                x:{ ticks:{color:'#64748b',font:{size:10},maxRotation:45}, grid:{color:'#f1f5f9'} },
+                yV:{
+                    position:'left',
+                    ticks:{color:'#64748b',font:{size:10},callback:v=>v.toFixed(0)+' V'},
+                    grid:{color:'#f1f5f9'},
+                    title:{display:true,text:'Volt AC (V)',color:'#94a3b8',font:{size:11}},
+                },
+                yP:{
+                    position:'right',
+                    ticks:{color:'#d97706',font:{size:10},callback:v=>v.toFixed(0)+' %'},
+                    grid:{drawOnChartArea:false},
+                    title:{display:true,text:'Beban (%)',color:'#d97706',font:{size:11}},
+                    suggestedMin:0, suggestedMax:100,
+                }
+            }
+        }
+    });
+}
+
+/* ── Discharge Chart ────────────────────────────────── */
+function upsRenderDischarge(dev) {
+    const disc_hist = dev.discharge_history || [];
+    const allTimes  = new Set();
+    const vfloatPt  = dev.actual.find(p => p.t < 0);
+    const actPts    = dev.actual.filter(p => p.t >= 0);
+    if (vfloatPt) allTimes.add(vfloatPt.t);
+    actPts.forEach(p => allTimes.add(p.t));
+    dev.prediction.forEach(p => allTimes.add(p.t));
+    disc_hist.forEach(h => h.actual.filter(p => p.t >= 0).forEach(p => allTimes.add(p.t)));
+    const timeAxis   = Array.from(allTimes).sort((a,b) => a-b);
+    const timeLabels = timeAxis.map(t => t < 0 ? 'V Float' : t + ' jam');
+
+    const actMap  = {}; actPts.forEach(p => actMap[p.t]  = p.v);
+    const predMap = {}; dev.prediction.forEach(p => predMap[p.t] = p.v);
+    const lastT   = actPts.length ? actPts[actPts.length-1].t : null;
+    const lastV   = actPts.length ? actPts[actPts.length-1].v : null;
+
+    const actData   = timeAxis.map(t => actMap.hasOwnProperty(t)  ? actMap[t]  : null);
+    const predData  = timeAxis.map(t => {
+        if (predMap.hasOwnProperty(t)) return predMap[t];
+        if (t === lastT) return lastV;
+        return null;
+    });
+    const vfData    = timeAxis.map(t => (vfloatPt && t === vfloatPt.t) ? vfloatPt.v : null);
+    const thrData   = dev.bat_threshold ? timeAxis.map(() => dev.bat_threshold) : null;
+    const crossData = (dev.bat_threshold && dev.backup_time != null)
+        ? timeAxis.map(t => Math.abs(t - dev.backup_time) < 0.3 ? dev.bat_threshold : null)
+        : timeAxis.map(() => null);
+
+    /* History datasets */
+    const histDS = disc_hist.map((h, i) => {
+        const hMap = {}; h.actual.filter(p => p.t >= 0).forEach(p => hMap[p.t] = p.v);
+        const color = HIST_COLORS[i % HIST_COLORS.length];
+        return {
+            label: h.date, data: timeAxis.map(t => hMap[t] ?? null),
+            borderColor: color, backgroundColor:'transparent',
+            borderWidth:1.5, pointRadius:3, tension:0.2, spanGaps:false, borderDash:[5,4],
+        };
+    });
+
+    /* Update legend */
+    const histLeg = document.getElementById('ups-disc-hist-legend');
+    histLeg.innerHTML = disc_hist.map((h, i) => {
+        const c = HIST_COLORS[i % HIST_COLORS.length];
+        return `<div class="cd-legend-item"><div style="width:22px;height:0;border-top:2px dashed ${c};"></div><span style="color:${c};font-weight:600;">${h.date}</span></div>`;
+    }).join('');
+
+    upsChartDischarge = destroyChart(upsChartDischarge);
+    const ctx = document.getElementById('upsDischargeChart').getContext('2d');
+    const datasets = [
+        ...histDS,
+        { label:'V Float (Ref)', data:vfData, borderColor:'transparent', backgroundColor:'#059669',
+          pointRadius:8, pointStyle:'rectRot', showLine:false, spanGaps:false },
+        { label:'Discharge Aktual', data:actData, borderColor:'#10b981', backgroundColor:'rgba(16,185,129,0.08)',
+          borderWidth:2.5, pointRadius:5, tension:0.3, fill:true, spanGaps:false },
+        { label:'Prediksi (Linear)', data:predData, borderColor:'#f59e0b', backgroundColor:'transparent',
+          borderWidth:2, pointRadius:3, tension:0.2, spanGaps:false, borderDash:[7,4] },
+    ];
+    if (thrData) {
+        datasets.push({ label:'Threshold ≈170 VAC', data:thrData, borderColor:'#ef4444',
+            backgroundColor:'rgba(239,68,68,0.04)', borderWidth:1.5, pointRadius:0, spanGaps:true, borderDash:[4,3] });
+        datasets.push({ label:'Titik Threshold', data:crossData, borderColor:'transparent',
+            backgroundColor:'#ef4444', pointRadius:8, pointStyle:'triangle', showLine:false, spanGaps:false });
+    }
+
+    upsChartDischarge = new Chart(ctx, {
+        type:'line',
+        data:{ labels:timeLabels, datasets },
+        options:{
+            responsive:true, maintainAspectRatio:false,
+            interaction:{ mode:'index', intersect:false },
+            plugins:{
+                legend:{ display:false },
+                tooltip:{ callbacks:{
+                    label: c => {
+                        if (c.parsed.y === null) return null;
+                        const lbl = c.dataset.label;
+                        if (lbl.includes('Threshold')) return `⚠ ${lbl}: ${c.parsed.y.toFixed(2)} V`;
+                        return `${lbl}: ${c.parsed.y.toFixed(2)} V`;
+                    },
+                    title: lbl => `Waktu: ${lbl[0]?.label}`
+                }}
+            },
+            scales:{
+                x:{ title:{display:true,text:'Waktu Discharge (jam)',color:'#64748b',font:{size:11}},
+                    grid:{color:'#f1f5f9'}, ticks:{color:'#64748b',font:{size:10}} },
+                y:{ title:{display:true,text:'Tegangan Total Battery (V)',color:'#64748b',font:{size:11}},
+                    grid:{color:'#f1f5f9'}, ticks:{color:'#64748b',font:{size:10},callback:v=>v.toFixed(1)+' V'} }
+            }
+        }
+    });
+
+    upsRenderDiscHistory(dev);
+}
+
+/* ── Discharge History Table ────────────────────────── */
+function upsRenderDiscHistory(dev) {
+    const wrap  = document.getElementById('ups-disc-hist-wrap');
+    const tbody = document.getElementById('ups-disc-hist-body');
+    const hist  = dev.discharge_history || [];
+    const allRows = [
+        ...hist.map((h, i) => ({ date:h.date, actual:h.actual, isLatest:false, ci:i })),
+        { date:(dev.tanggal||'').slice(0,10), actual:dev.actual, isLatest:true, ci:-1 },
+    ];
+
+    function lrSlope(actual) {
+        const pts = actual.filter(p => p.t >= 0);
+        if (pts.length < 2) return null;
+        const n=pts.length, sx=pts.reduce((s,p)=>s+p.t,0), sy=pts.reduce((s,p)=>s+p.v,0);
+        const sxy=pts.reduce((s,p)=>s+p.t*p.v,0), sx2=pts.reduce((s,p)=>s+p.t*p.t,0);
+        const d=n*sx2-sx*sx;
+        return d===0?null:(n*sxy-sx*sy)/d;
+    }
+
+    const fv = v => v != null ? parseFloat(v).toFixed(2) : '—';
+    tbody.innerHTML = allRows.map(row => {
+        const vfPt  = row.actual.find(p => p.t < 0);
+        const getV  = t => { const p = row.actual.find(x => x.t === t); return p ? fv(p.v) : '—'; };
+        const slope = lrSlope(row.actual);
+        const color = row.isLatest ? '#10b981' : HIST_COLORS[row.ci % HIST_COLORS.length];
+        const slopeHtml = slope != null
+            ? `<span style="color:${slope<0?'#dc2626':'#16a34a'};font-weight:600;">${slope.toFixed(2)} V/jam</span>`
+            : '—';
+        const latestBadge = row.isLatest
+            ? `<span style="font-size:10px;background:#10b981;color:#fff;padding:1px 7px;border-radius:8px;margin-left:5px;">Terbaru</span>`
+            : '';
+        const lineIcon = row.isLatest
+            ? `<div style="width:24px;height:3px;background:#10b981;border-radius:2px;"></div>`
+            : `<div style="width:24px;height:0;border-top:2.5px dashed ${color};"></div>`;
+        return `<tr style="${row.isLatest ? 'background:#f0fdf4;font-weight:600;' : ''}">
+            <td>${lineIcon}</td>
+            <td>${row.date}${latestBadge}</td>
+            <td>${fv(vfPt?.v)}</td>
+            <td>${getV(0)}</td>
+            <td>${getV(1)}</td>
+            <td>${getV(2)}</td>
+            <td>${getV(3)}</td>
+            <td>${slopeHtml}</td>
+        </tr>`;
+    }).join('');
+    wrap.style.display = allRows.length > 0 ? 'block' : 'none';
+}
+
+/* ── Main switch ────────────────────────────────────── */
+function switchUPS(deviceId) {
+    const dev = UPS_DEVICES.find(d => d.device_id === deviceId);
+    if (!dev) return;
+    upsRenderMetrics(dev);
+    upsRenderPred(dev);
+    upsRenderVinChart(dev);
+    upsRenderVoutChart(dev);
+    upsRenderDischarge(dev);
+}
+
 /* ── Init ───────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', () => {
     renderStats();
@@ -865,6 +1493,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (DEVICES.length > 0) {
         switchDevice(initId !== null ? initId : DEVICES[0].device_id);
     }
+    // UPS init dilakukan lazy saat tab pertama kali dibuka
 });
 </script>
 {% endblock %}
