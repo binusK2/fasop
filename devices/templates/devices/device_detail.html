@@ -347,6 +347,117 @@
 </div>
 {% endif %}
 
+{# ── VM Children (Server SCADA) ──────────────────────────── #}
+{% if device.jenis and 'server scada' in device.jenis.name|lower %}
+<div class="card mb-3" id="section-vm-children">
+    <div class="card-body px-4 py-3">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <div class="d-flex align-items-center gap-2">
+                <span style="width:5px;height:18px;border-radius:3px;background:#7c3aed;flex-shrink:0;display:inline-block;"></span>
+                <span style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#475569;">
+                    Virtual Machines
+                </span>
+                {% if vm_children %}
+                <span style="background:#ede9fe;color:#7c3aed;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;">
+                    {{ vm_children|length }} VM
+                </span>
+                {% endif %}
+            </div>
+            {% if user_can_edit %}
+            <a href="{% url 'device_add' %}?host={{ device.pk }}"
+               style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;
+                      border-radius:8px;border:1px solid #ede9fe;background:#f5f3ff;
+                      font-size:12px;font-weight:600;color:#7c3aed;text-decoration:none;">
+                <i class="bi bi-plus-circle"></i>
+                <span>Tambah VM</span>
+            </a>
+            {% endif %}
+        </div>
+
+        {% if vm_children %}
+        <div class="table-responsive">
+            <table class="table table-sm" style="font-size:12.5px;">
+                <thead>
+                    <tr style="background:#f5f3ff;">
+                        <th style="font-weight:700;color:#6d28d9;padding:8px 10px;">Nama VM</th>
+                        <th style="font-weight:700;color:#6d28d9;padding:8px 10px;">IP Address</th>
+                        <th style="font-weight:700;color:#6d28d9;padding:8px 10px;">OS / Type</th>
+                        <th style="font-weight:700;color:#6d28d9;padding:8px 10px;">Status</th>
+                        <th style="font-weight:700;color:#6d28d9;padding:8px 10px;">Keterangan</th>
+                        <th style="padding:8px 10px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for vm in vm_children %}
+                <tr>
+                    <td style="padding:8px 10px;">
+                        <a href="{% url 'device_view' vm.pk %}" style="font-weight:600;color:#7c3aed;text-decoration:none;">
+                            <i class="bi bi-display me-1"></i>{{ vm.nama }}
+                        </a>
+                    </td>
+                    <td style="padding:8px 10px;font-family:monospace;color:#334155;">
+                        {{ vm.ip_address|default:'—' }}
+                    </td>
+                    <td style="padding:8px 10px;color:#475569;">{{ vm.type|default:'—' }}</td>
+                    <td style="padding:8px 10px;">
+                        {% if vm.status_operasi == 'operasi' %}
+                        <span style="background:#dcfce7;color:#15803d;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;">
+                            <i class="bi bi-check-circle me-1"></i>Operasi
+                        </span>
+                        {% else %}
+                        <span style="background:#fee2e2;color:#dc2626;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;">
+                            <i class="bi bi-x-circle me-1"></i>Tidak Operasi
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td style="padding:8px 10px;color:#64748b;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                        {{ vm.keterangan|default:'—'|truncatechars:60 }}
+                    </td>
+                    <td style="padding:8px 10px;text-align:right;">
+                        <a href="{% url 'device_view' vm.pk %}"
+                           style="font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid #ede9fe;
+                                  background:#f5f3ff;color:#7c3aed;text-decoration:none;font-weight:600;">
+                            Detail
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div style="text-align:center;padding:24px 16px;color:#c4b5fd;font-size:13px;">
+            <i class="bi bi-display" style="font-size:28px;display:block;margin-bottom:6px;opacity:.5;"></i>
+            Belum ada VM yang terdaftar di server ini
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+{# ── Host Server info (untuk VM SCADA) ───────────────────── #}
+{% if device.host %}
+<div class="alert mb-3" style="background:#f5f3ff;border:1px solid #ddd6fe;border-radius:10px;padding:12px 16px;">
+    <div class="d-flex align-items-center gap-2">
+        <i class="bi bi-hdd-rack" style="font-size:18px;color:#7c3aed;flex-shrink:0;"></i>
+        <div>
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#7c3aed;">Host Server</div>
+            <div style="font-size:13.5px;font-weight:600;color:#4c1d95;">
+                <a href="{% url 'device_view' device.host.pk %}" style="color:#7c3aed;text-decoration:none;">
+                    {{ device.host.nama }}
+                </a>
+                <span style="font-size:12px;font-weight:400;color:#6d28d9;margin-left:8px;">
+                    {{ device.host.lokasi }}
+                </span>
+            </div>
+            <div style="font-size:11px;color:#8b5cf6;margin-top:2px;">
+                VM ini tidak tercatat sebagai aset independen. Aset fisik: {{ device.host.nama }}.
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 {# ── Eviden Tambahan ─────────────────────────────────────── #}
 <div class="card mb-3" id="section-eviden">
     <div class="card-body px-4 py-3">
