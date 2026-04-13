@@ -22,8 +22,8 @@
 {% if sfp_ports %}
 <div class="sec">V.&nbsp;&nbsp;DATA SFP PORT&nbsp;&nbsp;({{ sfp_ports|length }} port)</div>
 <table>
-    <tr class="lbl"><th style="width:8%;">Port</th><th>Tx (dBm)</th><th>Rx (dBm)</th><th>Lambda</th><th>BW</th><th>Merk / Tipe</th><th style="width:10%;">Status</th></tr>
-    {% for s in sfp_ports %}<tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %}><td class="vb">SFP {{ forloop.counter }}</td><td class="vg">{{ s.tx|default:"-" }}</td><td class="vg">{{ s.rx|default:"-" }}</td><td class="vg">{{ s.lambda|default:"-" }}</td><td class="vg">{{ s.bandwidth|default:"-" }}</td><td>{{ s.merk|default:"-" }}</td><td class="{% if s.status == 'OK' %}ok{% elif s.status == 'NOK' %}nok{% else %}vg{% endif %}">{{ s.status|default:"-" }}</td></tr>{% endfor %}
+    <tr class="lbl"><th style="width:7%;">Port</th><th>Tx (dBm)</th><th>Rx (dBm)</th><th>Lambda</th><th>BW</th><th>Merk / Tipe</th><th>Suhu (°C)</th><th>Link To</th><th style="width:9%;">Status</th></tr>
+    {% for s in sfp_ports %}<tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %}><td class="vb">SFP {{ forloop.counter }}</td><td class="vg">{{ s.tx|default:"-" }}</td><td class="vg">{{ s.rx|default:"-" }}</td><td class="vg">{{ s.lambda|default:"-" }}</td><td class="vg">{{ s.bandwidth|default:"-" }}</td><td>{{ s.merk|default:"-" }}</td><td class="vg">{% if s.suhu %}{{ s.suhu }}{% else %}-{% endif %}</td><td>{{ s.link_to|default:"-" }}</td><td class="{% if s.status == 'UP' %}ok{% elif s.status == 'DOWN' %}nok{% else %}vg{% endif %}">{{ s.status|default:"-" }}</td></tr>{% endfor %}
 </table>
 {% endif %}
 {% endblock %}
