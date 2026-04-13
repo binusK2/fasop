@@ -33,7 +33,7 @@
     {% endif %}
 </div>
 
-<form method="post" autocomplete="off">
+<form method="post" enctype="multipart/form-data" autocomplete="off">
 {% csrf_token %}
 
 <!-- IDENTITAS -->
@@ -101,11 +101,20 @@
                 </select>
             </div>
             <div class="col-md-4">
-                <label class="field-label">Tipe Konektor</label>
-                <select name="tipe_konektor" class="form-select">
+                <label class="field-label">Tipe Konektor Site A <span style="color:#3b82f6;font-size:10px;">({{ fo.lokasi_a|default:'Site A' }})</span></label>
+                <select name="tipe_konektor_a" class="form-select">
                     <option value="">- Pilih konektor -</option>
                     {% for val, label in TIPE_KONEKTOR %}
-                    <option value="{{ val }}" {% if fo.tipe_konektor == val %}selected{% endif %}>{{ label }}</option>
+                    <option value="{{ val }}" {% if fo.tipe_konektor_a == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="field-label">Tipe Konektor Site B <span style="color:#10b981;font-size:10px;">({{ fo.lokasi_b|default:'Site B' }})</span></label>
+                <select name="tipe_konektor_b" class="form-select">
+                    <option value="">- Pilih konektor -</option>
+                    {% for val, label in TIPE_KONEKTOR %}
+                    <option value="{{ val }}" {% if fo.tipe_konektor_b == val %}selected{% endif %}>{{ label }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -150,6 +159,35 @@
                     </option>
                     {% endfor %}
                 </select>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- FOTO SITE -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-bar"><span class="bar" style="background:#0ea5e9;"></span><span>Foto Dokumentasi</span></div>
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="field-label"><i class="bi bi-camera me-1" style="color:#3b82f6;"></i>Foto Site A <span style="font-weight:400;color:#94a3b8;">({{ fo.lokasi_a|default:'Titik A' }})</span></label>
+                {% if is_edit and fo.foto_site_a %}
+                <div class="d-flex align-items-center gap-2 mb-2 p-2" style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;">
+                    <img src="{{ fo.foto_site_a.url }}" style="width:48px;height:48px;object-fit:cover;border-radius:6px;">
+                    <div style="font-size:12px;color:#1d4ed8;font-weight:600;">Foto tersimpan — upload baru untuk mengganti</div>
+                </div>
+                {% endif %}
+                <input type="file" name="foto_site_a" accept="image/*" class="form-control">
+            </div>
+            <div class="col-md-6">
+                <label class="field-label"><i class="bi bi-camera me-1" style="color:#10b981;"></i>Foto Site B <span style="font-weight:400;color:#94a3b8;">({{ fo.lokasi_b|default:'Titik B' }})</span></label>
+                {% if is_edit and fo.foto_site_b %}
+                <div class="d-flex align-items-center gap-2 mb-2 p-2" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;">
+                    <img src="{{ fo.foto_site_b.url }}" style="width:48px;height:48px;object-fit:cover;border-radius:6px;">
+                    <div style="font-size:12px;color:#065f46;font-weight:600;">Foto tersimpan — upload baru untuk mengganti</div>
+                </div>
+                {% endif %}
+                <input type="file" name="foto_site_b" accept="image/*" class="form-control">
             </div>
         </div>
     </div>

@@ -1069,20 +1069,25 @@ def fiber_optic_create(request):
     if request.method == 'POST':
         jumlah_core = int(request.POST['jumlah_core']) if request.POST.get('jumlah_core') else None
         fo = FiberOptic(
-            nama          = request.POST.get('nama', '').strip(),
-            lokasi_a      = request.POST.get('lokasi_a', '').strip(),
-            lokasi_b      = request.POST.get('lokasi_b', '').strip(),
-            tipe_kabel    = request.POST.get('tipe_kabel') or None,
-            tipe_konektor = request.POST.get('tipe_konektor') or None,
-            jumlah_core   = jumlah_core,
-            panjang_km    = request.POST.get('panjang_km') or None,
-            tahun_pasang  = int(request.POST['tahun_pasang']) if request.POST.get('tahun_pasang') else None,
-            status        = request.POST.get('status', 'baik'),
-            keterangan    = request.POST.get('keterangan', '').strip() or None,
-            created_by    = request.user,
+            nama            = request.POST.get('nama', '').strip(),
+            lokasi_a        = request.POST.get('lokasi_a', '').strip(),
+            lokasi_b        = request.POST.get('lokasi_b', '').strip(),
+            tipe_kabel      = request.POST.get('tipe_kabel') or None,
+            tipe_konektor   = request.POST.get('tipe_konektor') or None,
+            tipe_konektor_a = request.POST.get('tipe_konektor_a') or None,
+            tipe_konektor_b = request.POST.get('tipe_konektor_b') or None,
+            jumlah_core     = jumlah_core,
+            panjang_km      = request.POST.get('panjang_km') or None,
+            tahun_pasang    = int(request.POST['tahun_pasang']) if request.POST.get('tahun_pasang') else None,
+            status          = request.POST.get('status', 'baik'),
+            keterangan      = request.POST.get('keterangan', '').strip() or None,
+            created_by      = request.user,
         )
+        if request.FILES.get('foto_site_a'):
+            fo.foto_site_a = request.FILES['foto_site_a']
+        if request.FILES.get('foto_site_b'):
+            fo.foto_site_b = request.FILES['foto_site_b']
         fo.save()
-        # Buat record core otomatis sesuai jumlah_core
         if jumlah_core:
             for n in range(1, jumlah_core + 1):
                 FiberOpticCore.objects.get_or_create(fiber_optic=fo, nomor_core=n)
@@ -1104,16 +1109,22 @@ def fiber_optic_update(request, pk):
     lokasi_list = list(SiteLocation.objects.values_list('nama', flat=True).order_by('nama'))
     if request.method == 'POST':
         jumlah_core_baru = int(request.POST['jumlah_core']) if request.POST.get('jumlah_core') else None
-        fo.nama          = request.POST.get('nama', '').strip()
-        fo.lokasi_a      = request.POST.get('lokasi_a', '').strip()
-        fo.lokasi_b      = request.POST.get('lokasi_b', '').strip()
-        fo.tipe_kabel    = request.POST.get('tipe_kabel') or None
-        fo.tipe_konektor = request.POST.get('tipe_konektor') or None
-        fo.jumlah_core   = jumlah_core_baru
-        fo.panjang_km    = request.POST.get('panjang_km') or None
-        fo.tahun_pasang  = int(request.POST['tahun_pasang']) if request.POST.get('tahun_pasang') else None
-        fo.status        = request.POST.get('status', 'baik')
-        fo.keterangan    = request.POST.get('keterangan', '').strip() or None
+        fo.nama            = request.POST.get('nama', '').strip()
+        fo.lokasi_a        = request.POST.get('lokasi_a', '').strip()
+        fo.lokasi_b        = request.POST.get('lokasi_b', '').strip()
+        fo.tipe_kabel      = request.POST.get('tipe_kabel') or None
+        fo.tipe_konektor   = request.POST.get('tipe_konektor') or None
+        fo.tipe_konektor_a = request.POST.get('tipe_konektor_a') or None
+        fo.tipe_konektor_b = request.POST.get('tipe_konektor_b') or None
+        fo.jumlah_core     = jumlah_core_baru
+        fo.panjang_km      = request.POST.get('panjang_km') or None
+        fo.tahun_pasang    = int(request.POST['tahun_pasang']) if request.POST.get('tahun_pasang') else None
+        fo.status          = request.POST.get('status', 'baik')
+        fo.keterangan      = request.POST.get('keterangan', '').strip() or None
+        if request.FILES.get('foto_site_a'):
+            fo.foto_site_a = request.FILES['foto_site_a']
+        if request.FILES.get('foto_site_b'):
+            fo.foto_site_b = request.FILES['foto_site_b']
         fo.save()
         # Tambah core baru jika jumlah_core bertambah
         if jumlah_core_baru:

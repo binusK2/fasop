@@ -81,8 +81,16 @@
                         <div class="info-val">{{ fo.get_tipe_kabel_display|default:"—" }}</div>
                     </div>
                     <div class="col-6 col-md-3">
-                        <div class="info-label">Tipe Konektor</div>
-                        <div class="info-val">{{ fo.get_tipe_konektor_display|default:"—" }}</div>
+                        <div class="info-label">Konektor Site A</div>
+                        <div class="info-val">
+                            {% if fo.tipe_konektor_a %}{{ fo.get_tipe_konektor_a_display }}{% elif fo.tipe_konektor %}{{ fo.get_tipe_konektor_display }}{% else %}—{% endif %}
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="info-label">Konektor Site B</div>
+                        <div class="info-val">
+                            {% if fo.tipe_konektor_b %}{{ fo.get_tipe_konektor_b_display }}{% else %}—{% endif %}
+                        </div>
                     </div>
                     <div class="col-6 col-md-3">
                         <div class="info-label">Jumlah Core</div>
@@ -108,6 +116,35 @@
                     <div class="col-12">
                         <div class="info-label">Keterangan</div>
                         <div style="font-size:13px;color:#475569;">{{ fo.keterangan }}</div>
+                    </div>
+                    {% endif %}
+                    {% if fo.foto_site_a or fo.foto_site_b %}
+                    <div class="col-12">
+                        <div class="info-label">Foto Dokumentasi</div>
+                        <div class="d-flex gap-3 flex-wrap mt-1">
+                            {% if fo.foto_site_a %}
+                            <div style="text-align:center;">
+                                <a href="{{ fo.foto_site_a.url }}" target="_blank">
+                                    <img src="{{ fo.foto_site_a.url }}"
+                                         style="width:120px;height:90px;object-fit:cover;border-radius:8px;border:2px solid #bfdbfe;">
+                                </a>
+                                <div style="font-size:11px;color:#3b82f6;font-weight:600;margin-top:4px;">
+                                    <i class="bi bi-geo-alt-fill me-1"></i>Site A
+                                </div>
+                            </div>
+                            {% endif %}
+                            {% if fo.foto_site_b %}
+                            <div style="text-align:center;">
+                                <a href="{{ fo.foto_site_b.url }}" target="_blank">
+                                    <img src="{{ fo.foto_site_b.url }}"
+                                         style="width:120px;height:90px;object-fit:cover;border-radius:8px;border:2px solid #bbf7d0;">
+                                </a>
+                                <div style="font-size:11px;color:#10b981;font-weight:600;margin-top:4px;">
+                                    <i class="bi bi-geo-alt-fill me-1"></i>Site B
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
                     </div>
                     {% endif %}
                 </div>
