@@ -2583,6 +2583,95 @@ def catu_daya_dashboard(request):
         })
 
     selected_id = request.GET.get('device')
+
+    # ── Genset Dashboard Data ─────────────────────────────────────────
+    from datetime import date as _date_type
+    _today = _date_type.today()
+
+    genset_devices = Device.objects.filter(
+        is_deleted=False,
+        jenis__isnull=False,
+        jenis__name__iexact='GENSET',
+    ).select_related('jenis').order_by('lokasi', 'nama')
+
+    def _avg(*vals):
+        vs = [float(v) for v in vals if v is not None]
+        return round(sum(vs) / len(vs), 2) if vs else None
+
+    genset_data = []
+    for gdev in genset_devices:
+        g_recs = (
+            MaintenanceGenset.objects
+            .filter(maintenance__device=gdev)
+            .select_related('maintenance')
+            .order_by('maintenance__date')
+        )
+        if not g_recs.exists():
+            genset_data.append({
+                'device_id': gdev.id, 'device_name': gdev.nama,
+                'lokasi': gdev.lokasi or '-',
+                'last_date': None, 'days_since': None,
+                'weekly_status': 'no_data',
+                'bbm_before': None, 'bbm_after': None,
+                'rpm': None, 'engine_temp': None,
+                'oil_pressure': None, 'bat_volt': None,
+                'radiator': None, 'counter': None,
+                'waktu_transisi': None,
+                'pln_v_avg': None, 'gen_v_avg': None,
+                'pln_f_avg': None, 'gen_f_avg': None,
+                'history': [],
+            })
+            continue
+
+        g_latest = g_recs.last()
+        last_date = g_latest.maintenance.date.date() if hasattr(g_latest.maintenance.date, 'date') else g_latest.maintenance.date
+        days_since = (_today - last_date).days
+        weekly_status = 'ok' if days_since <= 7 else 'late'
+
+        history = []
+        for r in g_recs.order_by('-maintenance__date')[:12][::-1]:
+            history.append({
+                'date':        str(r.maintenance.date)[:10],
+                'bbm_before':  _fv(r.tangki_bbm_sebelum),
+                'bbm_after':   _fv(r.tangki_bbm_sesudah),
+                'rpm':         _fv(r.rpm),
+                'engine_temp': _fv(r.engine_temperature),
+                'oil_pressure':_fv(r.oil_pressure),
+                'bat_volt':    _fv(r.tegangan_batere),
+                'bat_cond':    _fv(r.batere_condition),
+                'counter':     _fv(r.counter_sesudah),
+                'radiator':    _fv(r.radiator),
+                'transisi':    _fv(r.waktu_transisi),
+                'pln_v_avg':   _avg(r.pln_v_rn, r.pln_v_sn, r.pln_v_tn),
+                'gen_v_avg':   _avg(r.gen_v_rn, r.gen_v_sn, r.gen_v_tn),
+                'pln_f_avg':   _avg(r.pln_f_r,  r.pln_f_s,  r.pln_f_t),
+                'gen_f_avg':   _avg(r.gen_f_r,  r.gen_f_s,  r.gen_f_t),
+                'durasi':      round(r.durasi_menit, 1) if r.durasi_menit else None,
+            })
+
+        genset_data.append({
+            'device_id':     gdev.id,
+            'device_name':   gdev.nama,
+            'lokasi':        gdev.lokasi or '-',
+            'last_date':     str(last_date),
+            'days_since':    days_since,
+            'weekly_status': weekly_status,
+            'bbm_before':    _fv(g_latest.tangki_bbm_sebelum),
+            'bbm_after':     _fv(g_latest.tangki_bbm_sesudah),
+            'rpm':           _fv(g_latest.rpm),
+            'engine_temp':   _fv(g_latest.engine_temperature),
+            'oil_pressure':  _fv(g_latest.oil_pressure),
+            'bat_volt':      _fv(g_latest.tegangan_batere),
+            'bat_cond':      _fv(g_latest.batere_condition),
+            'radiator':      _fv(g_latest.radiator),
+            'counter':       _fv(g_latest.counter_sesudah),
+            'waktu_transisi':_fv(g_latest.waktu_transisi),
+            'pln_v_avg':     _avg(g_latest.pln_v_rn, g_latest.pln_v_sn, g_latest.pln_v_tn),
+            'gen_v_avg':     _avg(g_latest.gen_v_rn, g_latest.gen_v_sn, g_latest.gen_v_tn),
+            'pln_f_avg':     _avg(g_latest.pln_f_r,  g_latest.pln_f_s,  g_latest.pln_f_t),
+            'gen_f_avg':     _avg(g_latest.gen_f_r,  g_latest.gen_f_s,  g_latest.gen_f_t),
+            'history':       history,
+        })
     if selected_id:
         try:
             selected_id = int(selected_id)
@@ -2603,6 +2692,8 @@ def catu_daya_dashboard(request):
         'ups_data':            ups_data,
         'ups_vac_threshold':   UPS_VAC_THRESHOLD,
         'ups_selected_id':     ups_selected_id,
+        'genset_data':         genset_data,
+        'genset_data_json':    json.dumps(genset_data),
     })
 
 

@@ -106,10 +106,21 @@
 .cd-tab-panel { display:none; }
 .cd-tab-panel.show { display:block; }
 
+/* ── Tab active-genset ─────────────────────────────────────── */
+.cd-tab-btn.active-genset { color:#f59e0b; border-bottom-color:#f59e0b; }
+
 /* ── UPS-specific overrides ────────────────────────────────── */
 .ups-dash-sec { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.8px;
     color:#64748b; margin:0 0 14px; display:flex; align-items:center; gap:8px; }
 .ups-dash-sec::after { content:''; flex:1; height:1px; background:#e2e8f0; }
+
+/* ── Genset-specific overrides ─────────────────────────────── */
+.gn-dash-sec { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.8px;
+    color:#64748b; margin:0 0 14px; display:flex; align-items:center; gap:8px; }
+.gn-dash-sec::after { content:''; flex:1; height:1px; background:#e2e8f0; }
+.gn-weekly-ok   { background:#f0fdf4; color:#16a34a; border-radius:20px; padding:2px 10px; font-size:11.5px; font-weight:600; }
+.gn-weekly-late { background:#fef2f2; color:#dc2626; border-radius:20px; padding:2px 10px; font-size:11.5px; font-weight:600; }
+.gn-weekly-nd   { background:#f8fafc; color:#94a3b8; border-radius:20px; padding:2px 10px; font-size:11.5px; font-weight:600; }
 
 /* ── Export buttons ────────────────────────────────────────── */
 .cd-export-group { display: flex; gap: 5px; align-items: center; }
@@ -147,6 +158,10 @@
     <button class="cd-tab-btn" id="tab-btn-ups" onclick="switchTab('ups')">
         <i class="bi bi-plug" style="font-size:14px;"></i> UPS
         {% if ups_data %}<span style="font-size:11px;background:#f5f3ff;color:#8b5cf6;padding:1px 8px;border-radius:10px;">{{ ups_data|length }}</span>{% endif %}
+    </button>
+    <button class="cd-tab-btn" id="tab-btn-genset" onclick="switchTab('genset')">
+        <i class="bi bi-fuel-pump" style="font-size:14px;"></i> Genset
+        {% if genset_data %}<span style="font-size:11px;background:#fffbeb;color:#f59e0b;padding:1px 8px;border-radius:10px;">{{ genset_data|length }}</span>{% endif %}
     </button>
 </div>
 
@@ -579,6 +594,147 @@
 
 </div><!-- /tab-panel-ups -->
 
+<!-- ═══════════════════════════════════ TAB: GENSET ═══════════════════════════════════ -->
+<div id="tab-panel-genset" class="cd-tab-panel">
+
+{% if genset_data %}
+
+<!-- Genset Summary stats -->
+<div class="cd-stat-grid">
+    <div class="cd-stat-card">
+        <div class="cd-stat-icon" style="background:#fffbeb;color:#f59e0b;"><i class="bi bi-fuel-pump"></i></div>
+        <div><div class="cd-stat-val">{{ genset_data|length }}</div><div class="cd-stat-lbl">Total Genset</div></div>
+    </div>
+    <div class="cd-stat-card">
+        <div class="cd-stat-icon" style="background:#f0fdf4;color:#16a34a;"><i class="bi bi-check-circle"></i></div>
+        <div><div class="cd-stat-val" id="gn-stat-ok" style="color:#16a34a;">—</div><div class="cd-stat-lbl">Tepat Waktu (≤7 hari)</div></div>
+    </div>
+    <div class="cd-stat-card">
+        <div class="cd-stat-icon" style="background:#fef2f2;color:#dc2626;"><i class="bi bi-exclamation-circle"></i></div>
+        <div><div class="cd-stat-val" id="gn-stat-late" style="color:#dc2626;">—</div><div class="cd-stat-lbl">Terlambat (&gt;7 hari)</div></div>
+    </div>
+    <div class="cd-stat-card">
+        <div class="cd-stat-icon" style="background:#f8fafc;color:#94a3b8;"><i class="bi bi-dash-circle"></i></div>
+        <div><div class="cd-stat-val" id="gn-stat-nd" style="color:#94a3b8;">—</div><div class="cd-stat-lbl">Belum Ada Data</div></div>
+    </div>
+</div>
+
+<!-- Genset all-devices table -->
+<p class="gn-dash-sec"><i class="bi bi-list-ul me-1"></i>Status Pemeliharaan Mingguan Semua Genset</p>
+<div class="cd-table-card" style="margin-bottom:22px;">
+    <div style="overflow-x:auto;">
+        <table class="cd-tbl">
+            <thead>
+                <tr>
+                    <th>Perangkat</th>
+                    <th>Lokasi</th>
+                    <th>Tgl Pemeliharaan Terakhir</th>
+                    <th>Hari Sejak HAR</th>
+                    <th>Status Mingguan</th>
+                    <th>BBM Sesudah (%)</th>
+                    <th>RPM</th>
+                    <th>Suhu Mesin (°C)</th>
+                </tr>
+            </thead>
+            <tbody id="gn-device-table-body"></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Genset device selector -->
+<div class="cd-card" style="margin-bottom:22px;">
+    <div class="cd-card-head">
+        <h5><i class="bi bi-fuel-pump me-2" style="color:#f59e0b;"></i>Detail per Perangkat Genset</h5>
+        <select class="cd-select" id="gn-device-select" onchange="switchGenset(parseInt(this.value))">
+            {% for d in genset_data %}
+            <option value="{{ d.device_id }}">{{ d.device_name }} — {{ d.lokasi }}</option>
+            {% endfor %}
+        </select>
+    </div>
+</div>
+
+<!-- Genset Metrics cards -->
+<p class="gn-dash-sec"><i class="bi bi-speedometer me-1"></i>Nilai Terbaru</p>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:22px;" id="gn-metric-grid">
+    <div class="cd-metric"><div class="cd-metric-label">BBM Sebelum</div><div class="cd-metric-val" id="gm-bbm-before" style="color:#f59e0b;">—</div><div class="cd-metric-unit">%</div></div>
+    <div class="cd-metric"><div class="cd-metric-label">BBM Sesudah</div><div class="cd-metric-val" id="gm-bbm-after" style="color:#d97706;">—</div><div class="cd-metric-unit">%</div></div>
+    <div class="cd-metric"><div class="cd-metric-label">RPM</div><div class="cd-metric-val" id="gm-rpm" style="color:#3b82f6;">—</div><div class="cd-metric-unit">RPM</div></div>
+    <div class="cd-metric"><div class="cd-metric-label">Suhu Mesin</div><div class="cd-metric-val" id="gm-engine-temp" style="color:#ef4444;">—</div><div class="cd-metric-unit">°C</div></div>
+    <div class="cd-metric"><div class="cd-metric-label">Oil Pressure</div><div class="cd-metric-val" id="gm-oil" style="color:#10b981;">—</div><div class="cd-metric-unit">kPa</div></div>
+    <div class="cd-metric"><div class="cd-metric-label">Tegangan Batere</div><div class="cd-metric-val" id="gm-bat" style="color:#8b5cf6;">—</div><div class="cd-metric-unit">VDC</div></div>
+    <div class="cd-metric"><div class="cd-metric-label">Radiator</div><div class="cd-metric-val" id="gm-radiator" style="color:#0891b2;">—</div><div class="cd-metric-unit">°C</div></div>
+    <div class="cd-metric"><div class="cd-metric-label">Waktu Transisi</div><div class="cd-metric-val" id="gm-transisi" style="color:#64748b;">—</div><div class="cd-metric-unit">detik</div></div>
+    <div class="cd-metric"><div class="cd-metric-label">Counter</div><div class="cd-metric-val" id="gm-counter" style="color:#059669;">—</div><div class="cd-metric-unit">jam</div></div>
+</div>
+
+<!-- Trend Charts -->
+<p class="gn-dash-sec"><i class="bi bi-graph-up me-1"></i>Tren Historis</p>
+<div class="cd-trend-grid">
+    <div class="cd-card" style="margin-bottom:0;">
+        <div class="cd-card-head">
+            <h5><i class="bi bi-fuel-pump me-2" style="color:#f59e0b;"></i>Tren BBM Sesudah (%)</h5>
+            <div class="cd-export-group">
+                <button class="cd-export-btn" onclick="downloadChart('gnBbmChart','genset-bbm')"><i class="bi bi-download"></i> PNG</button>
+            </div>
+        </div>
+        <div class="cd-card-body">
+            <div class="cd-chart-wrap cd-chart-h240"><canvas id="gnBbmChart"></canvas></div>
+        </div>
+    </div>
+    <div class="cd-card" style="margin-bottom:0;">
+        <div class="cd-card-head">
+            <h5><i class="bi bi-thermometer-half me-2" style="color:#ef4444;"></i>Tren Mesin (RPM / Suhu / Oil)</h5>
+            <div class="cd-export-group">
+                <button class="cd-export-btn" onclick="downloadChart('gnEngineChart','genset-engine')"><i class="bi bi-download"></i> PNG</button>
+            </div>
+        </div>
+        <div class="cd-card-body">
+            <div class="cd-legend">
+                <div class="cd-legend-item"><div class="cd-legend-line" style="background:#3b82f6;"></div><span>RPM (/10)</span></div>
+                <div class="cd-legend-item"><div class="cd-legend-line" style="background:#ef4444;"></div><span>Suhu (°C)</span></div>
+                <div class="cd-legend-item"><div class="cd-legend-line" style="background:#10b981;"></div><span>Oil (kPa)</span></div>
+            </div>
+            <div class="cd-chart-wrap cd-chart-h240"><canvas id="gnEngineChart"></canvas></div>
+        </div>
+    </div>
+    <div class="cd-card" style="margin-bottom:0;">
+        <div class="cd-card-head">
+            <h5><i class="bi bi-lightning me-2" style="color:#3b82f6;"></i>Tegangan PLN vs Genset (V avg)</h5>
+            <div class="cd-export-group">
+                <button class="cd-export-btn" onclick="downloadChart('gnVoltChart','genset-volt')"><i class="bi bi-download"></i> PNG</button>
+            </div>
+        </div>
+        <div class="cd-card-body">
+            <div class="cd-legend">
+                <div class="cd-legend-item"><div class="cd-legend-line" style="background:#3b82f6;"></div><span>PLN (V)</span></div>
+                <div class="cd-legend-item"><div class="cd-legend-line" style="background:#f59e0b;"></div><span>Genset (V)</span></div>
+            </div>
+            <div class="cd-chart-wrap cd-chart-h240"><canvas id="gnVoltChart"></canvas></div>
+        </div>
+    </div>
+    <div class="cd-card" style="margin-bottom:0;">
+        <div class="cd-card-head">
+            <h5><i class="bi bi-clock-history me-2" style="color:#8b5cf6;"></i>Counter / Jam Operasi (jam)</h5>
+            <div class="cd-export-group">
+                <button class="cd-export-btn" onclick="downloadChart('gnCounterChart','genset-counter')"><i class="bi bi-download"></i> PNG</button>
+            </div>
+        </div>
+        <div class="cd-card-body">
+            <div class="cd-chart-wrap cd-chart-h240"><canvas id="gnCounterChart"></canvas></div>
+        </div>
+    </div>
+</div>
+
+{% else %}
+<div class="cd-empty">
+    <i class="bi bi-fuel-pump" style="color:#f59e0b;"></i>
+    <strong>Belum ada data Genset</strong>
+    <p>Pastikan perangkat bertipe "GENSET" sudah memiliki data pemeliharaan.</p>
+</div>
+{% endif %}
+
+</div><!-- /tab-panel-genset -->
+
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 
@@ -586,6 +742,7 @@
 const DEVICES      = {{ devices_data_json|safe }};
 const THRESHOLD    = {{ threshold }};
 const UPS_DEVICES  = {{ ups_data_json|safe }};
+const GENSET_DEVICES = {{ genset_data_json|safe }};
 const UPS_VAC_THR  = {{ ups_vac_threshold }};
 
 let chartDischarge = null;
@@ -1087,12 +1244,15 @@ function copyChart(canvasId, btnId) {
    TAB SWITCHER
    ══════════════════════════════════════════════════════════ */
 function switchTab(tab) {
-    document.getElementById('tab-panel-rect').classList.toggle('show', tab === 'rect');
-    document.getElementById('tab-panel-ups').classList.toggle('show',  tab === 'ups');
-    const bRect = document.getElementById('tab-btn-rect');
-    const bUPS  = document.getElementById('tab-btn-ups');
-    bRect.className = 'cd-tab-btn' + (tab === 'rect' ? ' active' : '');
-    bUPS.className  = 'cd-tab-btn' + (tab === 'ups'  ? ' active-ups' : '');
+    document.getElementById('tab-panel-rect').classList.toggle('show',   tab === 'rect');
+    document.getElementById('tab-panel-ups').classList.toggle('show',    tab === 'ups');
+    document.getElementById('tab-panel-genset').classList.toggle('show', tab === 'genset');
+    const bRect   = document.getElementById('tab-btn-rect');
+    const bUPS    = document.getElementById('tab-btn-ups');
+    const bGenset = document.getElementById('tab-btn-genset');
+    bRect.className   = 'cd-tab-btn' + (tab === 'rect'   ? ' active' : '');
+    bUPS.className    = 'cd-tab-btn' + (tab === 'ups'    ? ' active-ups' : '');
+    bGenset.className = 'cd-tab-btn' + (tab === 'genset' ? ' active-genset' : '');
     // Lazily render UPS charts on first open
     if (tab === 'ups' && !upsInitDone) {
         upsInitDone = true;
@@ -1102,8 +1262,16 @@ function switchTab(tab) {
         if (UPS_DEVICES.length > 0)
             switchUPS(uid !== null ? uid : UPS_DEVICES[0].device_id);
     }
+    // Lazily render Genset charts on first open
+    if (tab === 'genset' && !gensetInitDone) {
+        gensetInitDone = true;
+        gnRenderStats();
+        gnRenderTable();
+        if (GENSET_DEVICES.length > 0) switchGenset(GENSET_DEVICES[0].device_id);
+    }
 }
-let upsInitDone = false;
+let upsInitDone    = false;
+let gensetInitDone = false;
 
 /* ══════════════════════════════════════════════════════════
    UPS DASHBOARD
@@ -1472,6 +1640,223 @@ function upsRenderDiscHistory(dev) {
         </tr>`;
     }).join('');
     wrap.style.display = allRows.length > 0 ? 'block' : 'none';
+}
+
+/* ══════════════════════════════════════════════════════════
+   GENSET DASHBOARD
+   ══════════════════════════════════════════════════════════ */
+let gnChartBbm     = null;
+let gnChartEngine  = null;
+let gnChartVolt    = null;
+let gnChartCounter = null;
+
+const fgv = v => (v != null && v !== '' && !isNaN(v)) ? parseFloat(v) : null;
+const fgs = (v, dec=1) => fgv(v) != null ? fgv(v).toFixed(dec) : '—';
+
+function gnRenderStats() {
+    let ok = 0, late = 0, nd = 0;
+    GENSET_DEVICES.forEach(d => {
+        if (d.weekly_status === 'ok')      ok++;
+        else if (d.weekly_status === 'late') late++;
+        else                                 nd++;
+    });
+    const el = id => document.getElementById(id);
+    if (el('gn-stat-ok'))   el('gn-stat-ok').textContent   = ok;
+    if (el('gn-stat-late')) el('gn-stat-late').textContent = late;
+    if (el('gn-stat-nd'))   el('gn-stat-nd').textContent   = nd;
+}
+
+function gnWeeklyBadge(status) {
+    if (status === 'ok')   return `<span class="gn-weekly-ok"><i class="bi bi-check-circle-fill"></i> Tepat Waktu</span>`;
+    if (status === 'late') return `<span class="gn-weekly-late"><i class="bi bi-exclamation-circle-fill"></i> Terlambat</span>`;
+    return `<span class="gn-weekly-nd">Belum Ada Data</span>`;
+}
+
+function gnRenderTable() {
+    const tbody = document.getElementById('gn-device-table-body');
+    if (!tbody) return;
+    if (!GENSET_DEVICES.length) {
+        tbody.innerHTML = `<tr><td colspan="8" class="cd-empty">Tidak ada data genset</td></tr>`;
+        return;
+    }
+    tbody.innerHTML = GENSET_DEVICES.map(d => `
+        <tr onclick="gnSelectDevice(${d.device_id})" style="cursor:pointer;">
+            <td><strong>${d.device_name}</strong></td>
+            <td>${d.lokasi}</td>
+            <td>${d.last_date || '—'}</td>
+            <td>${d.days_since != null ? d.days_since + ' hari' : '—'}</td>
+            <td>${gnWeeklyBadge(d.weekly_status)}</td>
+            <td>${fgs(d.bbm_after)}%</td>
+            <td>${fgs(d.rpm, 0)}</td>
+            <td>${fgs(d.engine_temp)}°C</td>
+        </tr>`).join('');
+}
+
+function gnSelectDevice(deviceId) {
+    const sel = document.getElementById('gn-device-select');
+    if (sel) sel.value = deviceId;
+    switchGenset(deviceId);
+}
+
+function gnRenderMetrics(dev) {
+    const set = (id, v, dec=1) => { const el = document.getElementById(id); if (el) el.textContent = fgs(v, dec); };
+    set('gm-bbm-before',  dev.bbm_before);
+    set('gm-bbm-after',   dev.bbm_after);
+    set('gm-rpm',         dev.rpm, 0);
+    set('gm-engine-temp', dev.engine_temp);
+    set('gm-oil',         dev.oil_pressure, 1);
+    set('gm-bat',         dev.bat_volt, 2);
+    set('gm-radiator',    dev.radiator);
+    set('gm-transisi',    dev.waktu_transisi, 1);
+    set('gm-counter',     dev.counter, 1);
+}
+
+function gnRenderBbmChart(dev) {
+    const hist  = (dev.history || []).filter(h => fgv(h.bbm_after) != null);
+    const labels = hist.map(h => h.date);
+    const data   = hist.map(h => fgv(h.bbm_after));
+    gnChartBbm = destroyChart(gnChartBbm);
+    const ctx = document.getElementById('gnBbmChart');
+    if (!ctx) return;
+    gnChartBbm = new Chart(ctx.getContext('2d'), {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [{
+                label: 'BBM Sesudah (%)',
+                data,
+                borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.1)',
+                borderWidth: 2.5, pointRadius: 5, tension: 0.3, fill: true,
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: { legend: { display: false }, tooltip: { callbacks: {
+                label: c => `BBM: ${c.parsed.y?.toFixed(1)}%`
+            }}},
+            scales: {
+                x: { grid: { color: '#f1f5f9' }, ticks: { color: '#64748b', font: { size: 10 }, maxRotation: 45 } },
+                y: { min: 0, max: 100, grid: { color: '#f1f5f9' },
+                     ticks: { color: '#64748b', font: { size: 10 }, callback: v => v + '%' } }
+            }
+        }
+    });
+}
+
+function gnRenderEngineChart(dev) {
+    const hist    = dev.history || [];
+    const labels  = hist.map(h => h.date);
+    const rpmData = hist.map(h => fgv(h.rpm) != null ? fgv(h.rpm) / 10 : null);
+    const tmpData = hist.map(h => fgv(h.engine_temp));
+    const oilData = hist.map(h => fgv(h.oil_pressure));
+    gnChartEngine = destroyChart(gnChartEngine);
+    const ctx = document.getElementById('gnEngineChart');
+    if (!ctx) return;
+    gnChartEngine = new Chart(ctx.getContext('2d'), {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [
+                { label: 'RPM (/10)', data: rpmData, borderColor: '#3b82f6', backgroundColor: 'transparent',
+                  borderWidth: 2, pointRadius: 4, tension: 0.3 },
+                { label: 'Suhu (°C)', data: tmpData, borderColor: '#ef4444', backgroundColor: 'transparent',
+                  borderWidth: 2, pointRadius: 4, tension: 0.3 },
+                { label: 'Oil (kPa)', data: oilData, borderColor: '#10b981', backgroundColor: 'transparent',
+                  borderWidth: 2, pointRadius: 4, tension: 0.3 },
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: { legend: { display: false }, tooltip: { callbacks: {
+                label: c => {
+                    const lbl = c.dataset.label;
+                    if (lbl.includes('RPM')) return `RPM: ${(c.parsed.y * 10).toFixed(0)}`;
+                    return `${lbl}: ${c.parsed.y?.toFixed(1)}`;
+                }
+            }}},
+            scales: {
+                x: { grid: { color: '#f1f5f9' }, ticks: { color: '#64748b', font: { size: 10 }, maxRotation: 45 } },
+                y: { grid: { color: '#f1f5f9' }, ticks: { color: '#64748b', font: { size: 10 } } }
+            }
+        }
+    });
+}
+
+function gnRenderVoltChart(dev) {
+    const hist     = dev.history || [];
+    const labels   = hist.map(h => h.date);
+    const plnData  = hist.map(h => fgv(h.pln_v_avg));
+    const genData  = hist.map(h => fgv(h.gen_v_avg));
+    gnChartVolt = destroyChart(gnChartVolt);
+    const ctx = document.getElementById('gnVoltChart');
+    if (!ctx) return;
+    gnChartVolt = new Chart(ctx.getContext('2d'), {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [
+                { label: 'PLN (V)', data: plnData, borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.08)',
+                  borderWidth: 2.5, pointRadius: 4, tension: 0.3, fill: false },
+                { label: 'Genset (V)', data: genData, borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.08)',
+                  borderWidth: 2.5, pointRadius: 4, tension: 0.3, fill: false },
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: { legend: { display: false }, tooltip: { callbacks: {
+                label: c => `${c.dataset.label}: ${c.parsed.y?.toFixed(1)} V`
+            }}},
+            scales: {
+                x: { grid: { color: '#f1f5f9' }, ticks: { color: '#64748b', font: { size: 10 }, maxRotation: 45 } },
+                y: { grid: { color: '#f1f5f9' }, ticks: { color: '#64748b', font: { size: 10 }, callback: v => v + ' V' } }
+            }
+        }
+    });
+}
+
+function gnRenderCounterChart(dev) {
+    const hist    = dev.history || [];
+    const labels  = hist.map(h => h.date);
+    const ctrData = hist.map(h => fgv(h.counter));
+    gnChartCounter = destroyChart(gnChartCounter);
+    const ctx = document.getElementById('gnCounterChart');
+    if (!ctx) return;
+    gnChartCounter = new Chart(ctx.getContext('2d'), {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [{
+                label: 'Counter (jam)',
+                data: ctrData,
+                borderColor: '#8b5cf6', backgroundColor: 'rgba(139,92,246,0.08)',
+                borderWidth: 2.5, pointRadius: 5, tension: 0.3, fill: true,
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: { legend: { display: false }, tooltip: { callbacks: {
+                label: c => `Counter: ${c.parsed.y?.toFixed(1)} jam`
+            }}},
+            scales: {
+                x: { grid: { color: '#f1f5f9' }, ticks: { color: '#64748b', font: { size: 10 }, maxRotation: 45 } },
+                y: { grid: { color: '#f1f5f9' }, ticks: { color: '#64748b', font: { size: 10 }, callback: v => v + ' jam' } }
+            }
+        }
+    });
+}
+
+function switchGenset(deviceId) {
+    const dev = GENSET_DEVICES.find(d => d.device_id === deviceId);
+    if (!dev) return;
+    gnRenderMetrics(dev);
+    gnRenderBbmChart(dev);
+    gnRenderEngineChart(dev);
+    gnRenderVoltChart(dev);
+    gnRenderCounterChart(dev);
 }
 
 /* ── Main switch ────────────────────────────────────── */
