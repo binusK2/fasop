@@ -9,7 +9,7 @@ DEVICE_GROUP_CONFIG = {
         'color': '#3b82f6',
         'types': [
             'router', 'switch', 'teleproteksi', 'roip',
-            'voip', 'multiplexer', 'plc', 'radio', 'server telkom',
+            'voip', 'multiplexer', 'plc', 'radio', 'server telkom', 'master clock',
         ],
     },
     'scada': {
@@ -17,7 +17,7 @@ DEVICE_GROUP_CONFIG = {
         'icon': 'bi-diagram-3',
         'color': '#10b981',
         'types': [
-            'rtu', 'sas', 'ups', 'server scada', 'ied bcu', 'clock server', 'serial server','router sas', 'switch sas', 'inverter sas',
+            'rtu', 'sas', 'ups', 'server scada', 'vm scada', 'ied bcu', 'clock server', 'serial server', 'router sas', 'switch sas', 'inverter sas',
         ],
     },
     'prosis': {
@@ -33,8 +33,8 @@ DEVICE_GROUP_CONFIG = {
 # Urutan dalam group
 DEVICE_TYPE_ORDER_IN_GROUP = [
     "ROUTER", "SWITCH", "RADIO", "VOIP", "MULTIPLEXER", 
-    "PLC", "TELEPROTEKSI", "ROIP", "SERVER TELKOM",
-    "RTU", "SAS", "SERVER SCADA", "UPS",
+    "PLC", "TELEPROTEKSI", "ROIP", "SERVER TELKOM", "MASTER CLOCK",
+    "RTU", "SAS", "SERVER SCADA", "VM SCADA", "UPS",
     "IED BCU", "CLOCK SERVER", "SERIAL SERVER", "ROUTER SAS", "SWITCH SAS", "INVERTER SAS",
 
     "RELE DEFENSE SCHEME", "MASTER TRIP", "UFLS", "DFR", "SERVER PROSIS", 
