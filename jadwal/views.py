@@ -7,7 +7,7 @@ from django.utils import timezone
 from datetime import date as date_type
 import calendar
 
-from .models import JadwalKunjungan
+from .models import JadwalKunjungan, JADWAL_EXCLUDED_JENIS
 from devices.models import Device
 from maintenance.models import Maintenance
 
@@ -34,7 +34,9 @@ def _hitung_prioritas(lokasi):
     """
     today = date_type.today()
 
-    devices = Device.objects.filter(lokasi__iexact=lokasi, is_deleted=False)
+    devices = Device.objects.filter(
+        lokasi__iexact=lokasi, is_deleted=False, host__isnull=True,
+    ).exclude(jenis__name__in=JADWAL_EXCLUDED_JENIS)
     total_device = devices.count()
     if total_device == 0:
         return 0
@@ -181,8 +183,8 @@ def jadwal_detail(request, pk):
     jadwal.sync_status()
 
     devices = Device.objects.filter(
-        lokasi__iexact=jadwal.lokasi, is_deleted=False
-    ).select_related('jenis').order_by('jenis__name', 'nama')
+        lokasi__iexact=jadwal.lokasi, is_deleted=False, host__isnull=True,
+    ).exclude(jenis__name__in=JADWAL_EXCLUDED_JENIS).select_related('jenis').order_by('jenis__name', 'nama')
 
     # Cek tiap device: sudah ada maintenance Preventive di periode ini?
     device_data = []
