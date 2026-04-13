@@ -1942,11 +1942,13 @@ def maintenance_coverage(request):
 
     selected_lokasi = request.GET.get('lokasi', '')
 
+    from jadwal.models import JADWAL_EXCLUDED_JENIS
     devices_qs = (
         Device.objects
-        .filter(is_deleted=False, lokasi__isnull=False)
+        .filter(is_deleted=False, lokasi__isnull=False, host__isnull=True)
         .exclude(lokasi='')
         .exclude(lokasi__iexact='none')
+        .exclude(jenis__name__in=JADWAL_EXCLUDED_JENIS)
         .select_related('jenis')
         .order_by('lokasi', 'nama')
     )
