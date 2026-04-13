@@ -10,6 +10,7 @@ DEVICE_GROUP_CONFIG = {
         'types': [
             'router', 'switch', 'teleproteksi', 'roip',
             'voip', 'multiplexer', 'plc', 'radio', 'server telkom', 'master clock',
+            'ht', 'pheriperal telkom', 'peripheral telkom',
         ],
     },
     'scada': {
@@ -32,8 +33,8 @@ DEVICE_GROUP_CONFIG = {
 
 # Urutan dalam group
 DEVICE_TYPE_ORDER_IN_GROUP = [
-    "ROUTER", "SWITCH", "RADIO", "VOIP", "MULTIPLEXER", 
-    "PLC", "TELEPROTEKSI", "ROIP", "SERVER TELKOM", "MASTER CLOCK",
+    "ROUTER", "SWITCH", "RADIO", "VOIP", "MULTIPLEXER",
+    "PLC", "TELEPROTEKSI", "ROIP", "SERVER TELKOM", "MASTER CLOCK", "HT", "PHERIPERAL TELKOM", "PERIPHERAL TELKOM",
     "RTU", "SAS", "SERVER SCADA", "VM SCADA", "UPS",
     "IED BCU", "CLOCK SERVER", "SERIAL SERVER", "ROUTER SAS", "SWITCH SAS", "INVERTER SAS",
 
