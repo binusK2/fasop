@@ -5,10 +5,12 @@ from django.utils import timezone
 # Jenis perangkat yang TIDAK muncul sebagai item jadwal mandiri:
 # - SAS peripheral (form-nya bergabung dalam form SAS)
 # - VM SCADA (bukan aset fisik mandiri)
+# - HT dan Peripheral Telkom (tidak masuk jadwal HAR)
 JADWAL_EXCLUDED_JENIS = {
     'IED BCU', 'CLOCK SERVER', 'SERIAL SERVER',
     'ROUTER SAS', 'SWITCH SAS', 'INVERTER SAS',
     'VM SCADA',
+    'HT', 'PHERIPERAL TELKOM', 'PERIPHERAL TELKOM',
 }
 
 
