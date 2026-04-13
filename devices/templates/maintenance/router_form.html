@@ -408,8 +408,8 @@ function renderSFPRows(count, existing) {
         const row = document.createElement('tr');
         row.innerHTML = `
             <td><span style="font-family:'JetBrains Mono',monospace;font-weight:600;font-size:12.5px;color:#8b5cf6;">SFP ${i+1}</span></td>
-            <td><input type="number" step="0.01" class="form-control form-control-sm sfp-f" data-port="${i}" data-field="tx" placeholder="-3.5" value="${d.tx??''}"></td>
-            <td><input type="number" step="0.01" class="form-control form-control-sm sfp-f" data-port="${i}" data-field="rx" placeholder="-5.2" value="${d.rx??''}"></td>
+            <td><input type="number" step="0.0001" class="form-control form-control-sm sfp-f" data-port="${i}" data-field="tx" placeholder="-3.5" value="${d.tx??''}"></td>
+            <td><input type="number" step="0.0001" class="form-control form-control-sm sfp-f" data-port="${i}" data-field="rx" placeholder="-5.2" value="${d.rx??''}"></td>
             <td><input type="number" class="form-control form-control-sm sfp-f" data-port="${i}" data-field="lambda" placeholder="1310" value="${d.lambda??''}"></td>
             <td><input type="text" class="form-control form-control-sm sfp-f" data-port="${i}" data-field="bandwidth" placeholder="1G / 10G" value="${d.bandwidth??''}"></td>
             <td><input type="text" class="form-control form-control-sm sfp-f" data-port="${i}" data-field="merk" placeholder="Cisco GLC-SX-MMD" value="${d.merk??''}"></td>
