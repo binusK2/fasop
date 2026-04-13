@@ -2,6 +2,15 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
 
+# Jenis perangkat yang TIDAK muncul sebagai item jadwal mandiri:
+# - SAS peripheral (form-nya bergabung dalam form SAS)
+# - VM SCADA (bukan aset fisik mandiri)
+JADWAL_EXCLUDED_JENIS = {
+    'IED BCU', 'CLOCK SERVER', 'SERIAL SERVER',
+    'ROUTER SAS', 'SWITCH SAS', 'INVERTER SAS',
+    'VM SCADA',
+}
+
 
 class JadwalKunjungan(models.Model):
 
@@ -75,8 +84,8 @@ class JadwalKunjungan(models.Model):
         from maintenance.models import Maintenance
 
         devices = Device.objects.filter(
-            lokasi__iexact=self.lokasi, is_deleted=False
-        )
+            lokasi__iexact=self.lokasi, is_deleted=False, host__isnull=True,
+        ).exclude(jenis__name__in=JADWAL_EXCLUDED_JENIS)
         total = devices.count()
         if total == 0:
             return {'total': 0, 'selesai': 0, 'pct': 0, 'status_auto': 'planned'}
