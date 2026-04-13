@@ -29,7 +29,17 @@ def device_list(request):
     sort           = request.GET.get('sort', 'nama')
     direction      = request.GET.get('dir', 'asc')
 
-    devices = Device.objects.filter(is_deleted=False, host__isnull=True)
+    # Cek apakah filter jenis yang dipilih adalah VM SCADA
+    _is_vm_jenis = (
+        jenis_id and
+        DeviceType.objects.filter(pk=jenis_id, name__iexact='VM SCADA').exists()
+    )
+    if _is_vm_jenis:
+        # Untuk VM SCADA: tampilkan VM (host terisi), bukan aset fisik
+        devices = Device.objects.filter(is_deleted=False, host__isnull=False)
+    else:
+        # Semua jenis lain: hanya aset fisik (bukan VM)
+        devices = Device.objects.filter(is_deleted=False, host__isnull=True)
 
     if jenis_id:
         devices = devices.filter(jenis_id=jenis_id)
@@ -800,8 +810,11 @@ def device_detail(request, pk):
 
 @login_required
 def device_by_type(request, type_id):
-    devices = Device.objects.filter(jenis_id=type_id, is_deleted=False)
     device_type = get_object_or_404(DeviceType, id=type_id)
+    if device_type.name.strip().upper() == 'VM SCADA':
+        devices = Device.objects.filter(jenis_id=type_id, is_deleted=False, host__isnull=False)
+    else:
+        devices = Device.objects.filter(jenis_id=type_id, is_deleted=False, host__isnull=True)
     lokasi_list = (
         Device.objects.filter(is_deleted=False)
         .exclude(lokasi__isnull=True).exclude(lokasi__exact='')
