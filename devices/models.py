@@ -448,6 +448,10 @@ class FiberOptic(models.Model):
                                        blank=True, null=True, verbose_name='Tipe Kabel')
     tipe_konektor   = models.CharField(max_length=20, choices=TIPE_KONEKTOR_CHOICES,
                                        blank=True, null=True, verbose_name='Tipe Konektor')
+    tipe_konektor_a = models.CharField(max_length=20, choices=TIPE_KONEKTOR_CHOICES,
+                                       blank=True, null=True, verbose_name='Tipe Konektor Site A')
+    tipe_konektor_b = models.CharField(max_length=20, choices=TIPE_KONEKTOR_CHOICES,
+                                       blank=True, null=True, verbose_name='Tipe Konektor Site B')
     jumlah_core     = models.PositiveIntegerField(blank=True, null=True,
                                                    verbose_name='Jumlah Core')
     panjang_km      = models.DecimalField(max_digits=8, decimal_places=2,
@@ -459,6 +463,12 @@ class FiberOptic(models.Model):
     status          = models.CharField(max_length=20, choices=STATUS_CHOICES,
                                        default='baik', verbose_name='Status')
     keterangan      = models.TextField(blank=True, null=True, verbose_name='Keterangan')
+
+    # ── Foto site ────────────────────────────────────────────────
+    foto_site_a  = models.ImageField(upload_to='fiber_optic/foto/', blank=True, null=True,
+                                     verbose_name='Foto Site A')
+    foto_site_b  = models.ImageField(upload_to='fiber_optic/foto/', blank=True, null=True,
+                                     verbose_name='Foto Site B')
 
     # ── Metadata ─────────────────────────────────────────────────
     created_at   = models.DateTimeField(auto_now_add=True)
