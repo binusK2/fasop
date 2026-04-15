@@ -81,6 +81,8 @@ body {
 .tbl-rekap tr:nth-child(even) td { background: #F2F2F2; }
 .tbl-rekap .td-grup { text-align: center; font-weight: normal; }
 .tbl-rekap .abnormal { color: #C00000; font-weight: bold; }
+.tbl-rekap .sudah    { color: #375623; font-weight: bold; }
+.tbl-rekap .belum-mn { color: #C55A11; font-weight: bold; }
 
 /* PENUTUP */
 .penutup { margin-bottom: 6mm; font-size: 10pt; }
@@ -150,11 +152,12 @@ body {
 <table class="tbl-rekap">
     <thead>
         <tr>
-            <th style="width:30%;">GRUP</th>
-            <th style="width:17%;">TOTAL<br>PERALATAN</th>
-            <th style="width:15%;">NORMAL</th>
-            <th style="width:18%;">TIDAK<br>NORMAL</th>
-            <th style="width:20%;">BELUM<br>TERINSPEKSI</th>
+            <th style="width:28%;">GRUP</th>
+            <th style="width:14%;">TOTAL<br>PERALATAN</th>
+            <th style="width:13%;">NORMAL</th>
+            <th style="width:15%;">TIDAK<br>NORMAL</th>
+            <th style="width:15%;">SUDAH<br>MAINTENANCE</th>
+            <th style="width:15%;">BELUM<br>MAINTENANCE</th>
         </tr>
     </thead>
     <tbody>
@@ -166,7 +169,8 @@ body {
             <td {% if row.tidak_normal > 0 %}class="abnormal"{% endif %}>
                 {{ row.tidak_normal }}
             </td>
-            <td>{{ row.belum }}</td>
+            <td {% if row.sudah > 0 %}class="sudah"{% endif %}>{{ row.sudah }}</td>
+            <td {% if row.belum > 0 %}class="belum-mn"{% endif %}>{{ row.belum }}</td>
         </tr>
         {% endfor %}
     </tbody>

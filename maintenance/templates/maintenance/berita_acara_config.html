@@ -1,0 +1,225 @@
+{% extends 'base.html' %}
+{% block title %}Konfigurasi Berita Acara — FASOP{% endblock %}
+{% block page_title %}Berita Acara Asesmen{% endblock %}
+
+{% block content %}
+<style>
+    .grp-card { border-radius:10px; padding:14px 16px; }
+    .grp-check { display:flex; align-items:center; gap:7px; padding:4px 0; }
+    .grp-check label { font-size:12.5px; color:#374151; cursor:pointer; margin:0; }
+    .grp-check input[type="checkbox"] { width:15px; height:15px; cursor:pointer; flex-shrink:0; }
+    .preview-tbl { width:100%; border-collapse:collapse; font-size:13px; }
+    .preview-tbl thead th { background:#f1f5f9; font-size:11px; font-weight:700;
+        text-transform:uppercase; letter-spacing:.5px; color:#475569;
+        padding:8px 12px; border:1px solid #e2e8f0; text-align:center; }
+    .preview-tbl tbody td { padding:9px 12px; border:1px solid #e2e8f0; }
+    .preview-tbl tbody tr:nth-child(even) { background:#f8fafc; }
+    .badge-sudah { display:inline-block; padding:2px 9px; border-radius:20px;
+        font-size:11.5px; font-weight:700; background:#dcfce7; color:#166534; }
+    .badge-belum { display:inline-block; padding:2px 9px; border-radius:20px;
+        font-size:11.5px; font-weight:700; background:#fef3c7; color:#92400e; }
+    .badge-abnormal { display:inline-block; padding:2px 9px; border-radius:20px;
+        font-size:11.5px; font-weight:700; background:#fee2e2; color:#991b1b; }
+    .select-all-btn { font-size:11px; color:#64748b; background:none; border:none;
+        cursor:pointer; text-decoration:underline; padding:0; }
+    .select-all-btn:hover { color:#1d4ed8; }
+</style>
+
+<!-- Header -->
+<div class="d-flex align-items-center gap-2 mb-3">
+    <a href="{% url 'maintenance_report' %}?mode=ytd" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i>
+    </a>
+    <div>
+        <h2 class="mb-0" style="font-size:18px;font-weight:700;">Konfigurasi Berita Acara Asesmen</h2>
+        <p class="text-muted mb-0" style="font-size:12px;">Pilih peralatan dan periode, lalu ekspor ke Excel atau PDF</p>
+    </div>
+</div>
+
+<form id="filter-form" method="get" action="">
+    <input type="hidden" name="submitted" value="1">
+
+    <!-- Period + Filter Card -->
+    <div class="card mb-3">
+        <div class="card-body px-4 py-3">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;margin-bottom:12px;">
+                <i class="bi bi-calendar3 me-1"></i>Periode & Pilihan Peralatan
+            </div>
+
+            <!-- Period selector -->
+            <div class="d-flex gap-3 align-items-end mb-4 flex-wrap">
+                <div>
+                    <label style="font-size:11px;font-weight:600;color:#64748b;display:block;margin-bottom:4px;">Tahun</label>
+                    <select name="year" class="form-select form-select-sm" style="width:110px;">
+                        {% for y in year_choices %}
+                        <option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size:11px;font-weight:600;color:#64748b;display:block;margin-bottom:4px;">s.d. Bulan</label>
+                    <select name="bulan" class="form-select form-select-sm" style="width:150px;">
+                        {% for val, nama in bulan_choices %}
+                        <option value="{{ val }}" {% if val == selected_bulan %}selected{% endif %}>{{ nama }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <button type="submit" class="btn btn-primary btn-sm">
+                        <i class="bi bi-arrow-clockwise me-1"></i>Perbarui Pratinjau
+                    </button>
+                </div>
+            </div>
+
+            <!-- Device type checkboxes -->
+            <div class="row g-3">
+                {% for grp in groups %}
+                <div class="col-md-4">
+                    <div class="grp-card" style="border:1.5px solid {{ grp.border }};background:{{ grp.bg }};">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <div style="font-size:11.5px;font-weight:700;color:{{ grp.color }};text-transform:uppercase;letter-spacing:.5px;">
+                                <i class="bi bi-{{ grp.icon }} me-1"></i>{{ grp.nama }}
+                            </div>
+                            <div style="display:flex;gap:6px;">
+                                <button type="button" class="select-all-btn"
+                                        onclick="setAll('{{ grp.key }}', true)">Pilih Semua</button>
+                                <span style="color:#cbd5e1;">|</span>
+                                <button type="button" class="select-all-btn"
+                                        onclick="setAll('{{ grp.key }}', false)">Hapus</button>
+                            </div>
+                        </div>
+                        {% for jenis in grp.jenis_list %}
+                        <div class="grp-check">
+                            <input type="checkbox" name="{{ grp.key }}" value="{{ jenis }}"
+                                   id="chk-{{ grp.key }}-{{ forloop.counter }}"
+                                   {% if jenis in grp.selected %}checked{% endif %}>
+                            <label for="chk-{{ grp.key }}-{{ forloop.counter }}">{{ jenis }}</label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</form>
+
+<!-- Preview + Export Card -->
+<div class="card">
+    <div class="card-body px-4 py-3">
+        <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+            <div>
+                <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;">
+                    <i class="bi bi-table me-1"></i>Pratinjau Rekap
+                </div>
+                <div style="font-size:13px;font-weight:600;color:#1e293b;margin-top:2px;">
+                    Bulan Januari s.d. {{ bulan_str }} {{ tahun_str }}
+                </div>
+            </div>
+            <div class="d-flex gap-2 flex-wrap">
+                <button id="btn-excel" class="btn btn-success btn-sm">
+                    <i class="bi bi-file-earmark-excel me-1"></i>Export Excel
+                </button>
+                <button id="btn-pdf" class="btn btn-danger btn-sm">
+                    <i class="bi bi-file-earmark-pdf me-1"></i>Export PDF
+                </button>
+            </div>
+        </div>
+
+        {% if rekap %}
+        <div class="table-responsive">
+            <table class="preview-tbl">
+                <thead>
+                    <tr>
+                        <th style="width:28%;text-align:left;">Kategori</th>
+                        <th>Total Peralatan</th>
+                        <th>Normal</th>
+                        <th>Tidak Normal</th>
+                        <th>Sudah Maintenance</th>
+                        <th>Belum Maintenance</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rekap %}
+                    <tr>
+                        <td style="font-weight:600;color:#1e293b;">{{ row.grup }}</td>
+                        <td style="text-align:center;font-weight:700;">{{ row.total }}</td>
+                        <td style="text-align:center;color:#166534;">{{ row.normal }}</td>
+                        <td style="text-align:center;">
+                            {% if row.tidak_normal > 0 %}
+                            <span class="badge-abnormal">{{ row.tidak_normal }}</span>
+                            {% else %}
+                            <span style="color:#94a3b8;">0</span>
+                            {% endif %}
+                        </td>
+                        <td style="text-align:center;">
+                            <span class="badge-sudah">{{ row.sudah }}</span>
+                        </td>
+                        <td style="text-align:center;">
+                            {% if row.belum > 0 %}
+                            <span class="badge-belum">{{ row.belum }}</span>
+                            {% else %}
+                            <span style="color:#10b981;font-weight:700;">0 ✓</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    <!-- Total row -->
+                    <tr style="background:#f1f5f9;font-weight:700;">
+                        <td style="font-size:12px;color:#475569;">TOTAL</td>
+                        <td style="text-align:center;">{{ rekap|length }}</td>
+                        <td colspan="4" style="font-size:11px;color:#64748b;text-align:center;">
+                            {% with total_dev=0 %}
+                            {% for row in rekap %}{% endfor %}
+                            {% endwith %}
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Legend -->
+        <div class="d-flex gap-3 mt-3 flex-wrap" style="font-size:11.5px;">
+            <span><span class="badge-sudah">n</span> = jumlah peralatan yang sudah maintenance tahun {{ tahun_str }} s.d. {{ bulan_str }}</span>
+            <span><span class="badge-belum">n</span> = belum dilakukan maintenance pada periode tersebut</span>
+            <span><span class="badge-abnormal">n</span> = status operasi tidak normal</span>
+        </div>
+        {% else %}
+        <div class="text-center py-5" style="color:#94a3b8;">
+            <i class="bi bi-table d-block mb-2" style="font-size:28px;"></i>
+            <div style="font-size:13px;">Tidak ada data. Pilih minimal satu jenis peralatan di atas lalu klik <strong>Perbarui Pratinjau</strong>.</div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const URL_EXCEL = '{% url "berita_acara_excel" %}';
+const URL_PDF   = '{% url "berita_acara_pdf" %}';
+
+function buildExportUrl(base) {
+    const form = document.getElementById('filter-form');
+    const params = new URLSearchParams();
+    params.append('year',  form.querySelector('[name="year"]').value);
+    params.append('bulan', form.querySelector('[name="bulan"]').value);
+    form.querySelectorAll('[name="telkom"]:checked').forEach(cb => params.append('telkom', cb.value));
+    form.querySelectorAll('[name="scada"]:checked').forEach(cb  => params.append('scada',  cb.value));
+    form.querySelectorAll('[name="prosis"]:checked').forEach(cb => params.append('prosis', cb.value));
+    return base + '?' + params.toString();
+}
+
+document.getElementById('btn-excel').addEventListener('click', function() {
+    window.location.href = buildExportUrl(URL_EXCEL);
+});
+document.getElementById('btn-pdf').addEventListener('click', function() {
+    window.location.href = buildExportUrl(URL_PDF);
+});
+
+function setAll(groupKey, checked) {
+    document.querySelectorAll(`[name="${groupKey}"]`).forEach(cb => cb.checked = checked);
+}
+</script>
+{% endblock %}

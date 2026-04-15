@@ -12,7 +12,8 @@ urlpatterns = [
     # ✅ BARU: Laporan bulanan & Export
     path('report/', views.maintenance_report, name='maintenance_report'),
     path('export/', views.export_maintenance_excel, name='export_maintenance_excel'),
-    path('berita-acara/', views.berita_acara_excel, name='berita_acara_excel'),
+    path('berita-acara/', views.berita_acara_config, name='berita_acara_config'),
+    path('berita-acara/excel/', views.berita_acara_excel, name='berita_acara_excel'),
     path('berita-acara/pdf/', views.berita_acara_pdf, name='berita_acara_pdf'),
     path('export-pdf/<int:pk>/', views.export_maintenance_pdf, name='export_maintenance_pdf'),
     path('sign/<int:pk>/', views.maintenance_sign, name='maintenance_sign'),
