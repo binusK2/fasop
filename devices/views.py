@@ -1149,16 +1149,44 @@ def fiber_optic_update(request, pk):
 
 @login_required
 def fiber_optic_detail(request, pk):
+    import json as _json
     from .models import FiberOptic, FiberOpticCore
     fo = get_object_or_404(FiberOptic, pk=pk)
     cores = fo.cores.order_by('nomor_core')
     from gangguan.models import Gangguan
     gangguan_list = Gangguan.objects.filter(fiber_optic=fo).order_by('-tanggal_gangguan')
+
+    # Build JSON for OTDR dashboard
+    def _f(v):
+        return float(v) if v is not None else None
+
+    cores_json = _json.dumps([{
+        'pk':              c.pk,
+        'nomor_core':      c.nomor_core,
+        'fungsi':          c.fungsi or '',
+        'status':          c.status,
+        'koneksi_a':       c.koneksi_a or '',
+        'koneksi_b':       c.koneksi_b or '',
+        # OTDR Site A (existing fields)
+        'a_jarak':         _f(c.otdr_jarak_km),
+        'a_redaman':       _f(c.otdr_redaman_db),
+        'a_dbkm':          _f(c.otdr_redaman_per_km),
+        'a_tanggal':       str(c.otdr_tanggal) if c.otdr_tanggal else '',
+        'a_catatan':       c.otdr_catatan or '',
+        # OTDR Site B (new fields)
+        'b_jarak':         _f(c.otdr_b_jarak_km),
+        'b_redaman':       _f(c.otdr_b_redaman_db),
+        'b_dbkm':          _f(c.otdr_b_redaman_per_km),
+        'b_tanggal':       str(c.otdr_b_tanggal) if c.otdr_b_tanggal else '',
+        'b_catatan':       c.otdr_b_catatan or '',
+    } for c in cores])
+
     return render(request, 'devices/fiber_optic_detail.html', {
         'fo':            fo,
         'cores':         cores,
         'gangguan_list': gangguan_list,
         'STATUS_CORE':   FiberOpticCore.STATUS_CORE_CHOICES,
+        'cores_json':    cores_json,
     })
 
 
@@ -1169,16 +1197,21 @@ def fiber_optic_core_update(request, fo_pk, core_pk):
     from .models import FiberOpticCore
     core = get_object_or_404(FiberOpticCore, pk=core_pk, fiber_optic_id=fo_pk)
     if request.method == 'POST':
-        core.fungsi              = request.POST.get('fungsi', '').strip() or None
-        core.status              = request.POST.get('status', 'spare')
-        core.koneksi_a           = request.POST.get('koneksi_a', '').strip() or None
-        core.koneksi_b           = request.POST.get('koneksi_b', '').strip() or None
-        core.otdr_jarak_km       = request.POST.get('otdr_jarak_km') or None
-        core.otdr_redaman_db     = request.POST.get('otdr_redaman_db') or None
-        core.otdr_redaman_per_km = request.POST.get('otdr_redaman_per_km') or None
-        core.otdr_tanggal        = request.POST.get('otdr_tanggal') or None
-        core.otdr_catatan        = request.POST.get('otdr_catatan', '').strip() or None
-        core.keterangan          = request.POST.get('keterangan', '').strip() or None
+        core.fungsi                 = request.POST.get('fungsi', '').strip() or None
+        core.status                 = request.POST.get('status', 'spare')
+        core.koneksi_a              = request.POST.get('koneksi_a', '').strip() or None
+        core.koneksi_b              = request.POST.get('koneksi_b', '').strip() or None
+        core.otdr_jarak_km          = request.POST.get('otdr_jarak_km') or None
+        core.otdr_redaman_db        = request.POST.get('otdr_redaman_db') or None
+        core.otdr_redaman_per_km    = request.POST.get('otdr_redaman_per_km') or None
+        core.otdr_tanggal           = request.POST.get('otdr_tanggal') or None
+        core.otdr_catatan           = request.POST.get('otdr_catatan', '').strip() or None
+        core.otdr_b_jarak_km        = request.POST.get('otdr_b_jarak_km') or None
+        core.otdr_b_redaman_db      = request.POST.get('otdr_b_redaman_db') or None
+        core.otdr_b_redaman_per_km  = request.POST.get('otdr_b_redaman_per_km') or None
+        core.otdr_b_tanggal         = request.POST.get('otdr_b_tanggal') or None
+        core.otdr_b_catatan         = request.POST.get('otdr_b_catatan', '').strip() or None
+        core.keterangan             = request.POST.get('keterangan', '').strip() or None
         core.save()
         if request.headers.get('x-requested-with') == 'XMLHttpRequest':
             return JsonResponse({'ok': True})

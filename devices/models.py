@@ -550,32 +550,60 @@ class FiberOpticCore(models.Model):
         help_text='Perangkat/port yang terhubung di Site B (misal: Switch GI Barru eth1)',
     )
 
-    # ── Hasil OTDR ───────────────────────────────────────────────
+    # ── Hasil OTDR Site A ─────────────────────────────────────
     otdr_jarak_km    = models.DecimalField(
         max_digits=8, decimal_places=3,
         blank=True, null=True,
-        verbose_name='OTDR Jarak (km)',
-        help_text='Jarak total atau jarak ke titik gangguan',
+        verbose_name='OTDR A Jarak (km)',
+        help_text='Jarak total atau jarak ke titik gangguan dari Site A',
     )
     otdr_redaman_db  = models.DecimalField(
         max_digits=6, decimal_places=3,
         blank=True, null=True,
-        verbose_name='OTDR Redaman (dB)',
-        help_text='Total redaman kabel',
+        verbose_name='OTDR A Redaman (dB)',
+        help_text='Total redaman kabel diukur dari Site A',
     )
     otdr_redaman_per_km = models.DecimalField(
         max_digits=5, decimal_places=3,
         blank=True, null=True,
-        verbose_name='Redaman per km (dB/km)',
+        verbose_name='OTDR A Redaman per km (dB/km)',
     )
     otdr_tanggal     = models.DateField(
         blank=True, null=True,
-        verbose_name='Tanggal Pengukuran OTDR',
+        verbose_name='OTDR A Tanggal Pengukuran',
     )
     otdr_catatan     = models.TextField(
         blank=True, null=True,
-        verbose_name='Catatan OTDR',
-        help_text='Temuan, anomali, atau catatan hasil pengukuran',
+        verbose_name='OTDR A Catatan',
+        help_text='Temuan, anomali, atau catatan hasil pengukuran dari Site A',
+    )
+
+    # ── Hasil OTDR Site B ─────────────────────────────────────
+    otdr_b_jarak_km    = models.DecimalField(
+        max_digits=8, decimal_places=3,
+        blank=True, null=True,
+        verbose_name='OTDR B Jarak (km)',
+        help_text='Jarak total atau jarak ke titik gangguan dari Site B',
+    )
+    otdr_b_redaman_db  = models.DecimalField(
+        max_digits=6, decimal_places=3,
+        blank=True, null=True,
+        verbose_name='OTDR B Redaman (dB)',
+        help_text='Total redaman kabel diukur dari Site B',
+    )
+    otdr_b_redaman_per_km = models.DecimalField(
+        max_digits=5, decimal_places=3,
+        blank=True, null=True,
+        verbose_name='OTDR B Redaman per km (dB/km)',
+    )
+    otdr_b_tanggal     = models.DateField(
+        blank=True, null=True,
+        verbose_name='OTDR B Tanggal Pengukuran',
+    )
+    otdr_b_catatan     = models.TextField(
+        blank=True, null=True,
+        verbose_name='OTDR B Catatan',
+        help_text='Temuan, anomali, atau catatan hasil pengukuran dari Site B',
     )
 
     keterangan   = models.TextField(blank=True, null=True, verbose_name='Keterangan')
