@@ -978,6 +978,98 @@ def export_maintenance_excel(request):
 # ─────────────────────────────────────────────────────────────────────
 # BERITA ACARA ASESMEN PERALATAN
 # ─────────────────────────────────────────────────────────────────────
+
+BULAN_ID = ['Januari','Februari','Maret','April','Mei','Juni',
+            'Juli','Agustus','September','Oktober','November','Desember']
+
+BA_GRUP_MAP = {
+    'TELEKOMUNIKASI': ['Router','Switch','Radio','VoIP','Multiplexer','PLC','Teleproteksi','RoIP'],
+    'SCADA':          ['RTU','SAS','SERVER','UPS'],
+    'PROSIS':         ['RELE DEFENSE SCHEME','DFR','GENSET','Catu Daya','Workstation PC'],
+}
+
+def _ba_hitung(jenis_list, year, bulan):
+    """Hitung rekap satu grup peralatan untuk Berita Acara."""
+    devs     = Device.objects.filter(is_deleted=False, jenis__name__in=jenis_list)
+    total    = devs.count()
+    normal   = devs.filter(status_operasi='operasi').count()
+    tdk_nrm  = devs.exclude(status_operasi='operasi').exclude(
+                    status_operasi__isnull=True).exclude(status_operasi='').count()
+    sudah_ids = set(Maintenance.objects.filter(
+        device__in=devs,
+        date__year=year,
+        date__month__lte=bulan,
+    ).values_list('device_id', flat=True))
+    sudah = len(sudah_ids)
+    belum = total - sudah
+    return {'total': total, 'normal': normal, 'tidak_normal': tdk_nrm,
+            'sudah': sudah, 'belum': belum}
+
+
+def _ba_params(request):
+    """Baca parameter filter dari GET: year, bulan, telkom[], scada[], prosis[]."""
+    today = date.today()
+    year  = int(request.GET.get('year',  today.year))
+    bulan = int(request.GET.get('bulan', today.month))
+    submitted = 'year' in request.GET or 'telkom' in request.GET
+    if submitted:
+        sel_telkom = request.GET.getlist('telkom') or []
+        sel_scada  = request.GET.getlist('scada')  or []
+        sel_prosis = request.GET.getlist('prosis') or []
+    else:
+        sel_telkom = BA_GRUP_MAP['TELEKOMUNIKASI']
+        sel_scada  = BA_GRUP_MAP['SCADA']
+        sel_prosis = BA_GRUP_MAP['PROSIS']
+    return year, bulan, sel_telkom, sel_scada, sel_prosis
+
+
+def _ba_rekap(year, bulan, sel_telkom, sel_scada, sel_prosis):
+    """Bangun list rekap [{grup, total, normal, tidak_normal, sudah, belum}]."""
+    rekap = []
+    for grup_nama, jenis_list in [
+        ('TELEKOMUNIKASI', sel_telkom),
+        ('SCADA',          sel_scada),
+        ('PROSIS',         sel_prosis),
+    ]:
+        if jenis_list:
+            data = _ba_hitung(jenis_list, year, bulan)
+            rekap.append({'grup': grup_nama, **data})
+    return rekap
+
+
+@login_required
+def berita_acara_config(request):
+    """Halaman konfigurasi Berita Acara — pilih peralatan, periode, pratinjau rekap."""
+    today = date.today()
+    year, bulan, sel_telkom, sel_scada, sel_prosis = _ba_params(request)
+    rekap = _ba_rekap(year, bulan, sel_telkom, sel_scada, sel_prosis)
+
+    first_year = (Maintenance.objects.order_by('date').first().date.year
+                  if Maintenance.objects.exists() else today.year)
+    year_choices  = list(range(first_year, today.year + 1))
+    bulan_choices = list(enumerate(BULAN_ID, start=1))   # [(1,'Januari'), ...]
+
+    groups = [
+        {'key': 'telkom', 'nama': 'TELEKOMUNIKASI', 'icon': 'broadcast',        'border': '#bfdbfe', 'bg': '#eff6ff', 'color': '#1d4ed8',
+         'jenis_list': BA_GRUP_MAP['TELEKOMUNIKASI'], 'selected': sel_telkom},
+        {'key': 'scada',  'nama': 'SCADA',          'icon': 'cpu',              'border': '#bbf7d0', 'bg': '#f0fdf4', 'color': '#065f46',
+         'jenis_list': BA_GRUP_MAP['SCADA'],          'selected': sel_scada},
+        {'key': 'prosis', 'nama': 'PROSIS',         'icon': 'lightning-charge', 'border': '#fde68a', 'bg': '#fffbeb', 'color': '#92400e',
+         'jenis_list': BA_GRUP_MAP['PROSIS'],         'selected': sel_prosis},
+    ]
+
+    return render(request, 'maintenance/berita_acara_config.html', {
+        'rekap':         rekap,
+        'groups':        groups,
+        'selected_year': year,
+        'selected_bulan': bulan,
+        'year_choices':  year_choices,
+        'bulan_choices': bulan_choices,
+        'bulan_str':     BULAN_ID[bulan - 1],
+        'tahun_str':     str(year),
+    })
+
+
 @login_required
 def berita_acara_excel(request):
     """Generate Berita Acara Asesmen — landscape A4, siap print 1 halaman."""
@@ -986,40 +1078,16 @@ def berita_acara_excel(request):
     from openpyxl.drawing.image import Image as XLImage
     from openpyxl.utils import get_column_letter
 
-    today = date.today()
-    BULAN_ID = ['Januari','Februari','Maret','April','Mei','Juni',
-                'Juli','Agustus','September','Oktober','November','Desember']
-    bulan_str = BULAN_ID[today.month - 1]
-    tahun_str = str(today.year)
-
-    GRUP_MAP = {
-        'TELEKOMUNIKASI': ['Router','Switch','Radio','VoIP','Multiplexer','PLC','Teleproteksi','RoIP'],
-        'SCADA':          ['RTU','SAS','SERVER','UPS'],
-        'PROSIS':         ['RELE DEFENSE SCHEME','DFR','GENSET','Catu Daya','Workstation PC'],
-    }
-
-    def hitung_grup(jenis_list):
-        devs    = Device.objects.filter(is_deleted=False, jenis__name__in=jenis_list)
-        total   = devs.count()
-        normal  = devs.filter(status_operasi='operasi').count()
-        tdk_nrm = devs.exclude(status_operasi='operasi').exclude(
-            status_operasi__isnull=True).exclude(status_operasi='').count()
-        insp    = Maintenance.objects.filter(
-            device__in=devs).values_list('device_id', flat=True).distinct()
-        belum   = devs.exclude(pk__in=insp).count()
-        return total, normal, tdk_nrm, belum
-
-    rekap = []
-    for grup, jenis_list in GRUP_MAP.items():
-        t, n, tn, b = hitung_grup(jenis_list)
-        rekap.append({'grup': grup, 'total': t, 'normal': n, 'tidak_normal': tn, 'belum': b})
+    year, bulan, sel_telkom, sel_scada, sel_prosis = _ba_params(request)
+    bulan_str = BULAN_ID[bulan - 1]
+    tahun_str = str(year)
+    rekap = _ba_rekap(year, bulan, sel_telkom, sel_scada, sel_prosis)
 
     # ── Workbook ─────────────────────────────────────────────────────
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = 'Berita Acara'
 
-    # Landscape A4, fit to 1 page
     ws.page_setup.paperSize   = ws.PAPERSIZE_A4
     ws.page_setup.orientation = 'landscape'
     ws.page_setup.fitToPage   = True
@@ -1033,29 +1101,26 @@ def berita_acara_excel(request):
     ws.page_margins.footer = 0
     ws.sheet_view.showGridLines = False
 
-    # ── Kolom layout (landscape A4 = ~27.9cm printable)
-    # A=margin, B=no, C=grup, D=total, E=normal, F=tidak normal, G=belum, H=margin
-    # Gunakan unit karakter Excel (1 unit ≈ 0.18cm)
+    # A=margin, B=label, C=grup, D=total, E=normal, F=tidak normal,
+    # G=sudah maintenance, H=belum maintenance, I=margin
     col_cfg = [
-        ('A', 1.5),   # margin kiri
-        ('B', 6),     # nomor / label kecil
-        ('C', 42),    # GRUP — lebar utama
-        ('D', 16),    # TOTAL PERALATAN
-        ('E', 14),    # NORMAL
-        ('F', 16),    # TIDAK NORMAL
-        ('G', 20),    # BELUM TERINSPEKSI
-        ('H', 1.5),   # margin kanan
+        ('A', 1.5),
+        ('B', 6),
+        ('C', 36),
+        ('D', 13),
+        ('E', 12),
+        ('F', 14),
+        ('G', 18),
+        ('H', 18),
+        ('I', 1.5),
     ]
     for col_letter, width in col_cfg:
         ws.column_dimensions[col_letter].width = width
 
-    # Row heights default
-    for r in range(1, 40):
+    for r in range(1, 45):
         ws.row_dimensions[r].height = 14
 
-    # ── Styles ───────────────────────────────────────────────────────
     thin   = Side(style='thin')
-    medium = Side(style='medium')
     TNR    = 'Times New Roman'
 
     def brd(l=None, r=None, t=None, b=None, all_thin=False):
@@ -1080,8 +1145,7 @@ def berita_acara_excel(request):
     def MG(r1, c1, r2, c2):
         ws.merge_cells(start_row=r1, start_column=c1, end_row=r2, end_column=c2)
 
-    # Col indices
-    cB, cC, cD, cE, cF, cG = 2, 3, 4, 5, 6, 7
+    cB, cC, cD, cE, cF, cG, cH = 2, 3, 4, 5, 6, 7, 8
 
     # ── Logo PLN ─────────────────────────────────────────────────────
     logo_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'pln_logo_conv.png')
@@ -1089,7 +1153,7 @@ def berita_acara_excel(request):
         img        = XLImage(logo_path)
         img.width  = 65
         img.height = 65
-        img.anchor = 'F2'
+        img.anchor = 'H2'
         ws.add_image(img)
 
     # ── Judul ─────────────────────────────────────────────────────────
@@ -1098,18 +1162,18 @@ def berita_acara_excel(request):
 
     r = 3
     ws.row_dimensions[r].height = 22
-    MG(r, cB, r, cF)
+    MG(r, cB, r, cG)
     C(r, cB, 'BERITA ACARA', bold=True, sz=14, ha='center', va='center')
 
     r = 4
     ws.row_dimensions[r].height = 18
-    MG(r, cB, r, cF)
+    MG(r, cB, r, cG)
     C(r, cB, 'Penyampaian Data Hasil Asesmen Peralatan Fasilitas Operasi',
       bold=True, sz=12, ha='center', va='center')
 
     r = 5
     ws.row_dimensions[r].height = 16
-    MG(r, cB, r, cF)
+    MG(r, cB, r, cG)
     C(r, cB, f'Bulan Januari s.d. {bulan_str} {tahun_str}',
       sz=11, ha='center', va='center')
 
@@ -1119,7 +1183,7 @@ def berita_acara_excel(request):
     # ── Teks pembuka ──────────────────────────────────────────────────
     r = 7
     ws.row_dimensions[r].height = 28
-    MG(r, cB, r, cG)
+    MG(r, cB, r, cH)
     C(r, cB,
       'Berikut disampaikan tabel rekap hasil asesmen peralatan Fasilitas Operasi '
       'UP2B Sistem Makassar sebagai berikut :',
@@ -1134,15 +1198,15 @@ def berita_acara_excel(request):
     ws.row_dimensions[r].height   = 14
     ws.row_dimensions[r+1].height = 20
 
-    # Merge 2 baris per kolom header
-    for col in [cC, cD, cE, cF, cG]:
+    for col in [cC, cD, cE, cF, cG, cH]:
         MG(r, col, r+1, col)
     labels = {
         cC: 'GRUP',
         cD: 'TOTAL\nPERALATAN',
         cE: 'NORMAL',
         cF: 'TIDAK\nNORMAL',
-        cG: 'BELUM\nTERINSPEKSI',
+        cG: 'SUDAH\nMAINTENANCE',
+        cH: 'BELUM\nMAINTENANCE',
     }
     for col, lbl in labels.items():
         C(r, col, lbl, bold=True, sz=10, ha='center', va='center',
@@ -1160,13 +1224,18 @@ def berita_acara_excel(request):
         cn = C(r+i, cF, row['tidak_normal'], sz=10, ha='center', va='center', bg=alt, border=box)
         if row['tidak_normal'] > 0:
             cn.font = Font(name=TNR, bold=True, size=10, color='C00000')
-        C(r+i, cG, row['belum'],       sz=10, ha='center', va='center', bg=alt, border=box)
+        cs = C(r+i, cG, row['sudah'], sz=10, ha='center', va='center', bg=alt, border=box)
+        if row['sudah'] > 0:
+            cs.font = Font(name=TNR, bold=True, size=10, color='375623')
+        cb = C(r+i, cH, row['belum'], sz=10, ha='center', va='center', bg=alt, border=box)
+        if row['belum'] > 0:
+            cb.font = Font(name=TNR, bold=True, size=10, color='C55A11')
 
     r = r + len(rekap) + 1
 
     # ── Teks penutup ──────────────────────────────────────────────────
     ws.row_dimensions[r].height = 26
-    MG(r, cB, r, cG)
+    MG(r, cB, r, cH)
     C(r, cB,
       'Berdasarkan rekap data di atas, dilampirkan detail informasi aset untuk hasil ABNORMAL.',
       sz=10, va='center', wrap=True)
@@ -1174,7 +1243,7 @@ def berita_acara_excel(request):
     r += 2
     # ── Tanggal ───────────────────────────────────────────────────────
     ws.row_dimensions[r].height = 16
-    MG(r, cE, r, cG)
+    MG(r, cE, r, cH)
     C(r, cE, f'Makassar,     {bulan_str} {tahun_str}', sz=10, ha='center')
 
     r += 2
@@ -1183,7 +1252,7 @@ def berita_acara_excel(request):
     MG(r, cB, r, cD-1)
     C(r, cB, 'Disahkan Oleh :', sz=10, ha='center',
       border=brd(l=thin, r=thin, t=thin))
-    MG(r, cE, r, cG)
+    MG(r, cE, r, cH)
     C(r, cE, 'Disusun Oleh :', sz=10, ha='center',
       border=brd(l=thin, r=thin, t=thin))
 
@@ -1192,7 +1261,7 @@ def berita_acara_excel(request):
     MG(r, cB, r, cD-1)
     C(r, cB, 'MUP2B SISTEM MAKASSAR', bold=True, sz=10, ha='center',
       border=brd(l=thin, r=thin))
-    MG(r, cE, r, cG)
+    MG(r, cE, r, cH)
     C(r, cE, 'ASMAN FASOP UP2B SISTEM MAKASSAR', bold=True, sz=10, ha='center',
       border=brd(l=thin, r=thin))
 
@@ -1200,7 +1269,7 @@ def berita_acara_excel(request):
         ws.row_dimensions[ttd_r].height = 18
         MG(ttd_r, cB, ttd_r, cD-1)
         ws.cell(ttd_r, cB).border = brd(l=thin, r=thin)
-        MG(ttd_r, cE, ttd_r, cG)
+        MG(ttd_r, cE, ttd_r, cH)
         ws.cell(ttd_r, cE).border = brd(l=thin, r=thin)
 
     name_r = r + 5
@@ -1208,14 +1277,12 @@ def berita_acara_excel(request):
     MG(name_r, cB, name_r, cD-1)
     C(name_r, cB, '(                                             )',
       sz=10, ha='center', border=brd(l=thin, r=thin, b=thin))
-    MG(name_r, cE, name_r, cG)
+    MG(name_r, cE, name_r, cH)
     C(name_r, cE, '(                                             )',
       sz=10, ha='center', border=brd(l=thin, r=thin, b=thin))
 
-    # Print area
-    ws.print_area = f'A1:{get_column_letter(8)}{name_r + 1}'
+    ws.print_area = f'A1:{get_column_letter(9)}{name_r + 1}'
 
-    # ── Response ──────────────────────────────────────────────────────
     resp = HttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
@@ -1232,33 +1299,11 @@ def berita_acara_pdf(request):
     from django.conf import settings
     from django.template.loader import render_to_string
 
-    today = date.today()
-    BULAN_ID = ['Januari','Februari','Maret','April','Mei','Juni',
-                'Juli','Agustus','September','Oktober','November','Desember']
-    bulan_str = BULAN_ID[today.month - 1]
-    tahun_str = str(today.year)
+    year, bulan, sel_telkom, sel_scada, sel_prosis = _ba_params(request)
+    bulan_str = BULAN_ID[bulan - 1]
+    tahun_str = str(year)
+    rekap = _ba_rekap(year, bulan, sel_telkom, sel_scada, sel_prosis)
 
-    GRUP_MAP = {
-        'TELEKOMUNIKASI': ['Router','Switch','Radio','VoIP','Multiplexer','PLC','Teleproteksi','RoIP'],
-        'SCADA':          ['RTU','SAS','SERVER','UPS'],
-        'PROSIS':         ['RELE DEFENSE SCHEME','DFR','GENSET','Catu Daya','Workstation PC'],
-    }
-
-    def hitung_grup(jenis_list):
-        devs    = Device.objects.filter(is_deleted=False, jenis__name__in=jenis_list)
-        total   = devs.count()
-        normal  = devs.filter(status_operasi='operasi').count()
-        tdk_nrm = devs.exclude(status_operasi='operasi').exclude(status_operasi__isnull=True).exclude(status_operasi='').count()
-        insp    = Maintenance.objects.filter(device__in=devs).values_list('device_id', flat=True).distinct()
-        belum   = devs.exclude(pk__in=insp).count()
-        return total, normal, tdk_nrm, belum
-
-    rekap = []
-    for grup, jenis_list in GRUP_MAP.items():
-        t, n, tn, b = hitung_grup(jenis_list)
-        rekap.append({'grup': grup, 'total': t, 'normal': n, 'tidak_normal': tn, 'belum': b})
-
-    # Logo sebagai base64
     logo_b64 = ''
     logo_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'pln_logo_conv.png')
     if os.path.exists(logo_path):

@@ -13,13 +13,9 @@
            class="btn btn-success btn-sm">
             <i class="bi bi-file-earmark-excel me-1"></i>Export Excel Bulan Berjalan (per Jenis)
         </a>
-        <a href="{% url 'berita_acara_excel' %}"
+        <a href="{% url 'berita_acara_config' %}"
            class="btn btn-primary btn-sm">
-            <i class="bi bi-file-earmark-text me-1"></i>Berita Acara (Excel)
-        </a>
-        <a href="{% url 'berita_acara_pdf' %}"
-           class="btn btn-outline-danger btn-sm">
-            <i class="bi bi-file-earmark-pdf me-1"></i>Berita Acara (PDF)
+            <i class="bi bi-file-earmark-text me-1"></i>Berita Acara
         </a>
         {% else %}
         <a href="{% url 'export_maintenance_excel' %}?year={{ selected_year }}&month={{ selected_month }}&mode=monthly"
