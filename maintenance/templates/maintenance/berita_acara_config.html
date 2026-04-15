@@ -133,9 +133,8 @@
                     <tr>
                         <th style="width:28%;text-align:left;">Kategori</th>
                         <th>Total Peralatan</th>
-                        <th>Normal</th>
-                        <th>Tidak Normal</th>
                         <th>Sudah Maintenance</th>
+                        <th>Tidak Normal</th>
                         <th>Belum Maintenance</th>
                     </tr>
                 </thead>
@@ -144,16 +143,15 @@
                     <tr>
                         <td style="font-weight:600;color:#1e293b;">{{ row.grup }}</td>
                         <td style="text-align:center;font-weight:700;">{{ row.total }}</td>
-                        <td style="text-align:center;color:#166534;">{{ row.normal }}</td>
+                        <td style="text-align:center;">
+                            <span class="badge-sudah">{{ row.sudah }}</span>
+                        </td>
                         <td style="text-align:center;">
                             {% if row.tidak_normal > 0 %}
                             <span class="badge-abnormal">{{ row.tidak_normal }}</span>
                             {% else %}
                             <span style="color:#94a3b8;">0</span>
                             {% endif %}
-                        </td>
-                        <td style="text-align:center;">
-                            <span class="badge-sudah">{{ row.sudah }}</span>
                         </td>
                         <td style="text-align:center;">
                             {% if row.belum > 0 %}
@@ -168,11 +166,7 @@
                     <tr style="background:#f1f5f9;font-weight:700;">
                         <td style="font-size:12px;color:#475569;">TOTAL</td>
                         <td style="text-align:center;">{{ rekap|length }}</td>
-                        <td colspan="4" style="font-size:11px;color:#64748b;text-align:center;">
-                            {% with total_dev=0 %}
-                            {% for row in rekap %}{% endfor %}
-                            {% endwith %}
-                        </td>
+                        <td colspan="3" style="font-size:11px;color:#64748b;text-align:center;"></td>
                     </tr>
                 </tbody>
             </table>
