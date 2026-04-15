@@ -430,6 +430,12 @@ class FiberOptic(models.Model):
         ('lainnya','Lainnya'),
     )
 
+    KONFIGURASI_CHOICES = (
+        ('lurus',    'Lurus (Straight)'),
+        ('crossing', 'Crossing'),
+        ('campuran', 'Campuran'),
+    )
+
     STATUS_CHOICES = (
         ('baik',           'Baik'),
         ('gangguan',       'Gangguan'),
@@ -454,6 +460,9 @@ class FiberOptic(models.Model):
                                        blank=True, null=True, verbose_name='Tipe Konektor Site B')
     jumlah_core     = models.PositiveIntegerField(blank=True, null=True,
                                                    verbose_name='Jumlah Core')
+    konfigurasi     = models.CharField(max_length=20, choices=KONFIGURASI_CHOICES,
+                                       blank=True, null=True, verbose_name='Konfigurasi Core',
+                                       help_text='Lurus: core A1→B1; Crossing: core A1→B lain')
     panjang_km      = models.DecimalField(max_digits=8, decimal_places=2,
                                           blank=True, null=True, verbose_name='Panjang (km)')
 
@@ -529,6 +538,16 @@ class FiberOpticCore(models.Model):
     status       = models.CharField(
         max_length=20, choices=STATUS_CORE_CHOICES,
         default='spare', verbose_name='Status Core',
+    )
+    koneksi_a    = models.CharField(
+        max_length=200, blank=True, null=True,
+        verbose_name='Koneksi Site A',
+        help_text='Perangkat/port yang terhubung di Site A (misal: ODF-1 port 3)',
+    )
+    koneksi_b    = models.CharField(
+        max_length=200, blank=True, null=True,
+        verbose_name='Koneksi Site B',
+        help_text='Perangkat/port yang terhubung di Site B (misal: Switch GI Barru eth1)',
     )
 
     # ── Hasil OTDR ───────────────────────────────────────────────

@@ -125,7 +125,6 @@
                     {% endwith %}
 
                     <th style="text-align:center;">Tipe Kabel</th>
-                    <th style="text-align:center;">Konektor</th>
                     <th style="text-align:center;">Core</th>
 
                     {% with col="panjang" label="Panjang (km)" %}
@@ -173,7 +172,6 @@
                         <span style="font-size:12px;background:#f0fdf4;color:#065f46;padding:2px 8px;border-radius:6px;font-weight:500;">{{ fo.lokasi_b }}</span>
                     </td>
                     <td style="text-align:center;font-size:12px;color:#475569;">{{ fo.get_tipe_kabel_display|default:"—" }}</td>
-                    <td style="text-align:center;font-size:12px;color:#475569;">{{ fo.get_tipe_konektor_display|default:"—" }}</td>
                     <td style="text-align:center;">
                         {% if fo.jumlah_core %}
                         <span style="font-size:12px;font-weight:700;background:#f5f3ff;color:#6d28d9;padding:2px 8px;border-radius:20px;">{{ fo.jumlah_core }} core</span>

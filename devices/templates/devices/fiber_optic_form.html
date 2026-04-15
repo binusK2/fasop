@@ -128,6 +128,16 @@
                 </div>
             </div>
             <div class="col-md-4">
+                <label class="field-label">Konfigurasi Core</label>
+                <select name="konfigurasi" class="form-select">
+                    <option value="">— Pilih Konfigurasi —</option>
+                    {% for val, label in KONFIGURASI %}
+                    <option value="{{ val }}" {% if fo.konfigurasi == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                <div class="field-hint"><i class="bi bi-info-circle me-1"></i>Lurus: core A1→B1; Crossing: core A1→B berbeda</div>
+            </div>
+            <div class="col-md-4">
                 <label class="field-label">Panjang (km)</label>
                 <div class="input-group">
                     <input type="number" id="input-panjang" class="form-control"

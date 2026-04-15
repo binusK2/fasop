@@ -1077,6 +1077,7 @@ def fiber_optic_create(request):
             tipe_konektor_a = request.POST.get('tipe_konektor_a') or None,
             tipe_konektor_b = request.POST.get('tipe_konektor_b') or None,
             jumlah_core     = jumlah_core,
+            konfigurasi     = request.POST.get('konfigurasi') or None,
             panjang_km      = request.POST.get('panjang_km') or None,
             tahun_pasang    = int(request.POST['tahun_pasang']) if request.POST.get('tahun_pasang') else None,
             status          = request.POST.get('status', 'baik'),
@@ -1093,11 +1094,12 @@ def fiber_optic_create(request):
                 FiberOpticCore.objects.get_or_create(fiber_optic=fo, nomor_core=n)
         return redirect('fiber_optic_detail', pk=fo.pk)
     return render(request, 'devices/fiber_optic_form.html', {
-        'is_edit':        False,
-        'TIPE_KABEL':     FiberOptic.TIPE_KABEL_CHOICES,
-        'TIPE_KONEKTOR':  FiberOptic.TIPE_KONEKTOR_CHOICES,
-        'STATUS_CHOICES': FiberOptic.STATUS_CHOICES,
-        'lokasi_list':    lokasi_list,
+        'is_edit':           False,
+        'TIPE_KABEL':        FiberOptic.TIPE_KABEL_CHOICES,
+        'TIPE_KONEKTOR':     FiberOptic.TIPE_KONEKTOR_CHOICES,
+        'KONFIGURASI':       FiberOptic.KONFIGURASI_CHOICES,
+        'STATUS_CHOICES':    FiberOptic.STATUS_CHOICES,
+        'lokasi_list':       lokasi_list,
     })
 
 
@@ -1117,6 +1119,7 @@ def fiber_optic_update(request, pk):
         fo.tipe_konektor_a = request.POST.get('tipe_konektor_a') or None
         fo.tipe_konektor_b = request.POST.get('tipe_konektor_b') or None
         fo.jumlah_core     = jumlah_core_baru
+        fo.konfigurasi     = request.POST.get('konfigurasi') or None
         fo.panjang_km      = request.POST.get('panjang_km') or None
         fo.tahun_pasang    = int(request.POST['tahun_pasang']) if request.POST.get('tahun_pasang') else None
         fo.status          = request.POST.get('status', 'baik')
@@ -1138,6 +1141,7 @@ def fiber_optic_update(request, pk):
         'fo':             fo,
         'TIPE_KABEL':     FiberOptic.TIPE_KABEL_CHOICES,
         'TIPE_KONEKTOR':  FiberOptic.TIPE_KONEKTOR_CHOICES,
+        'KONFIGURASI':    FiberOptic.KONFIGURASI_CHOICES,
         'STATUS_CHOICES': FiberOptic.STATUS_CHOICES,
         'lokasi_list':    lokasi_list,
     })
@@ -1167,6 +1171,8 @@ def fiber_optic_core_update(request, fo_pk, core_pk):
     if request.method == 'POST':
         core.fungsi              = request.POST.get('fungsi', '').strip() or None
         core.status              = request.POST.get('status', 'spare')
+        core.koneksi_a           = request.POST.get('koneksi_a', '').strip() or None
+        core.koneksi_b           = request.POST.get('koneksi_b', '').strip() or None
         core.otdr_jarak_km       = request.POST.get('otdr_jarak_km') or None
         core.otdr_redaman_db     = request.POST.get('otdr_redaman_db') or None
         core.otdr_redaman_per_km = request.POST.get('otdr_redaman_per_km') or None
