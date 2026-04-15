@@ -16,25 +16,17 @@ body {
 }
 
 /* HEADER */
-.header-wrap {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-bottom: 4mm;
-    position: relative;
-}
 .header-logo {
-    position: absolute;
-    right: 0;
-    top: 0;
+    text-align: center;
+    margin-bottom: 3mm;
 }
 .header-logo img {
-    width: 22mm;
-    height: auto;
+    height: 20mm;
+    width: auto;
 }
 .header-title {
     text-align: center;
-    flex: 1;
+    margin-bottom: 4mm;
 }
 .header-title h1 {
     font-size: 13pt;
@@ -44,16 +36,16 @@ body {
 .header-title h2 {
     font-size: 11pt;
     font-weight: bold;
+    margin-bottom: 2mm;
 }
 .header-title h3 {
     font-size: 10pt;
     font-weight: normal;
-    margin-top: 2mm;
 }
 
 /* PEMBUKA */
 .pembuka {
-    margin: 5mm 0 4mm 0;
+    margin: 4mm 0 4mm 0;
     font-size: 10pt;
 }
 
@@ -126,20 +118,18 @@ body {
 </head>
 <body>
 
-<!-- HEADER -->
-<div class="header-wrap">
-    
-    <div class="header-logo">
-        {% if logo_b64 %}
-        <img src="data:image/png;base64,{{ logo_b64 }}" alt="PLN">
-        {% endif %}
-    </div>
-    <div class="header-title">
-        <h1>BERITA ACARA</h1>
-        <h2>Penyampaian Data Hasil Asesmen Peralatan Fasilitas Operasi</h2>
-        <h3>Bulan Januari s.d. {{ bulan_str }} {{ tahun_str }}</h3>
-    </div>
-    
+<!-- LOGO PLN — center atas -->
+{% if logo_b64 %}
+<div class="header-logo">
+    <img src="data:image/png;base64,{{ logo_b64 }}" alt="PLN">
+</div>
+{% endif %}
+
+<!-- JUDUL -->
+<div class="header-title">
+    <h1>BERITA ACARA</h1>
+    <h2>Penyampaian Data Hasil Asesmen Peralatan Fasilitas Operasi</h2>
+    <h3>Bulan Januari s.d. {{ bulan_str }} {{ tahun_str }}</h3>
 </div>
 
 <!-- PEMBUKA -->
@@ -152,12 +142,11 @@ body {
 <table class="tbl-rekap">
     <thead>
         <tr>
-            <th style="width:28%;">GRUP</th>
-            <th style="width:14%;">TOTAL<br>PERALATAN</th>
-            <th style="width:13%;">NORMAL</th>
-            <th style="width:15%;">TIDAK<br>NORMAL</th>
-            <th style="width:15%;">SUDAH<br>MAINTENANCE</th>
-            <th style="width:15%;">BELUM<br>MAINTENANCE</th>
+            <th style="width:32%;">GRUP</th>
+            <th style="width:17%;">TOTAL<br>PERALATAN</th>
+            <th style="width:17%;">SUDAH<br>MAINTENANCE</th>
+            <th style="width:17%;">TIDAK<br>NORMAL</th>
+            <th style="width:17%;">BELUM<br>MAINTENANCE</th>
         </tr>
     </thead>
     <tbody>
@@ -165,11 +154,8 @@ body {
         <tr>
             <td class="td-grup">{{ row.grup }}</td>
             <td>{{ row.total }}</td>
-            <td>{{ row.normal }}</td>
-            <td {% if row.tidak_normal > 0 %}class="abnormal"{% endif %}>
-                {{ row.tidak_normal }}
-            </td>
             <td {% if row.sudah > 0 %}class="sudah"{% endif %}>{{ row.sudah }}</td>
+            <td {% if row.tidak_normal > 0 %}class="abnormal"{% endif %}>{{ row.tidak_normal }}</td>
             <td {% if row.belum > 0 %}class="belum-mn"{% endif %}>{{ row.belum }}</td>
         </tr>
         {% endfor %}

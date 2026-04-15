@@ -1109,18 +1109,16 @@ def berita_acara_excel(request):
     ws.page_margins.footer = 0
     ws.sheet_view.showGridLines = False
 
-    # A=margin, B=label, C=grup, D=total, E=normal, F=tidak normal,
-    # G=sudah maintenance, H=belum maintenance, I=margin
+    # A=margin, B=label, C=GRUP, D=TOTAL, E=SUDAH, F=TIDAK NORMAL, G=BELUM, H=margin
     col_cfg = [
         ('A', 1.5),
         ('B', 6),
-        ('C', 36),
-        ('D', 13),
-        ('E', 12),
-        ('F', 14),
+        ('C', 38),
+        ('D', 14),
+        ('E', 18),
+        ('F', 16),
         ('G', 18),
-        ('H', 18),
-        ('I', 1.5),
+        ('H', 1.5),
     ]
     for col_letter, width in col_cfg:
         ws.column_dimensions[col_letter].width = width
@@ -1153,16 +1151,17 @@ def berita_acara_excel(request):
     def MG(r1, c1, r2, c2):
         ws.merge_cells(start_row=r1, start_column=c1, end_row=r2, end_column=c2)
 
-    cB, cC, cD, cE, cF, cG, cH = 2, 3, 4, 5, 6, 7, 8
+    cB, cC, cD, cE, cF, cG = 2, 3, 4, 5, 6, 7
 
     # ── Logo PLN ─────────────────────────────────────────────────────
     logo_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'pln_logo_conv.png')
     if os.path.exists(logo_path):
         img        = XLImage(logo_path)
-        img.width  = 65
-        img.height = 65
-        img.anchor = 'H2'
+        img.width  = 55
+        img.height = 55
+        img.anchor = 'D1'
         ws.add_image(img)
+        ws.row_dimensions[1].height = 42
 
     # ── Judul ─────────────────────────────────────────────────────────
     r = 2
@@ -1191,7 +1190,7 @@ def berita_acara_excel(request):
     # ── Teks pembuka ──────────────────────────────────────────────────
     r = 7
     ws.row_dimensions[r].height = 28
-    MG(r, cB, r, cH)
+    MG(r, cB, r, cG)
     C(r, cB,
       'Berikut disampaikan tabel rekap hasil asesmen peralatan Fasilitas Operasi '
       'UP2B Sistem Makassar sebagai berikut :',
@@ -1206,15 +1205,14 @@ def berita_acara_excel(request):
     ws.row_dimensions[r].height   = 14
     ws.row_dimensions[r+1].height = 20
 
-    for col in [cC, cD, cE, cF, cG, cH]:
+    for col in [cC, cD, cE, cF, cG]:
         MG(r, col, r+1, col)
     labels = {
         cC: 'GRUP',
         cD: 'TOTAL\nPERALATAN',
-        cE: 'NORMAL',
+        cE: 'SUDAH\nMAINTENANCE',
         cF: 'TIDAK\nNORMAL',
-        cG: 'SUDAH\nMAINTENANCE',
-        cH: 'BELUM\nMAINTENANCE',
+        cG: 'BELUM\nMAINTENANCE',
     }
     for col, lbl in labels.items():
         C(r, col, lbl, bold=True, sz=10, ha='center', va='center',
@@ -1228,14 +1226,13 @@ def berita_acara_excel(request):
         alt = 'F2F2F2' if i % 2 == 1 else None
         C(r+i, cC, row['grup'],        sz=10, ha='center', va='center', bg=alt, border=box)
         C(r+i, cD, row['total'],       sz=10, ha='center', va='center', bg=alt, border=box)
-        C(r+i, cE, row['normal'],      sz=10, ha='center', va='center', bg=alt, border=box)
+        cs = C(r+i, cE, row['sudah'], sz=10, ha='center', va='center', bg=alt, border=box)
+        if row['sudah'] > 0:
+            cs.font = Font(name=TNR, bold=True, size=10, color='375623')
         cn = C(r+i, cF, row['tidak_normal'], sz=10, ha='center', va='center', bg=alt, border=box)
         if row['tidak_normal'] > 0:
             cn.font = Font(name=TNR, bold=True, size=10, color='C00000')
-        cs = C(r+i, cG, row['sudah'], sz=10, ha='center', va='center', bg=alt, border=box)
-        if row['sudah'] > 0:
-            cs.font = Font(name=TNR, bold=True, size=10, color='375623')
-        cb = C(r+i, cH, row['belum'], sz=10, ha='center', va='center', bg=alt, border=box)
+        cb = C(r+i, cG, row['belum'], sz=10, ha='center', va='center', bg=alt, border=box)
         if row['belum'] > 0:
             cb.font = Font(name=TNR, bold=True, size=10, color='C55A11')
 
@@ -1243,7 +1240,7 @@ def berita_acara_excel(request):
 
     # ── Teks penutup ──────────────────────────────────────────────────
     ws.row_dimensions[r].height = 26
-    MG(r, cB, r, cH)
+    MG(r, cB, r, cG)
     C(r, cB,
       'Berdasarkan rekap data di atas, dilampirkan detail informasi aset untuk hasil ABNORMAL.',
       sz=10, va='center', wrap=True)
@@ -1251,45 +1248,45 @@ def berita_acara_excel(request):
     r += 2
     # ── Tanggal ───────────────────────────────────────────────────────
     ws.row_dimensions[r].height = 16
-    MG(r, cE, r, cH)
+    MG(r, cE, r, cG)
     C(r, cE, f'Makassar,     {bulan_str} {tahun_str}', sz=10, ha='center')
 
     r += 2
     # ── Tanda Tangan ─────────────────────────────────────────────────
     ws.row_dimensions[r].height = 16
-    MG(r, cB, r, cD-1)
+    MG(r, cB, r, cC)
     C(r, cB, 'Disahkan Oleh :', sz=10, ha='center',
       border=brd(l=thin, r=thin, t=thin))
-    MG(r, cE, r, cH)
+    MG(r, cE, r, cG)
     C(r, cE, 'Disusun Oleh :', sz=10, ha='center',
       border=brd(l=thin, r=thin, t=thin))
 
     r += 1
     ws.row_dimensions[r].height = 16
-    MG(r, cB, r, cD-1)
+    MG(r, cB, r, cC)
     C(r, cB, 'MUP2B SISTEM MAKASSAR', bold=True, sz=10, ha='center',
       border=brd(l=thin, r=thin))
-    MG(r, cE, r, cH)
+    MG(r, cE, r, cG)
     C(r, cE, 'ASMAN FASOP UP2B SISTEM MAKASSAR', bold=True, sz=10, ha='center',
       border=brd(l=thin, r=thin))
 
     for ttd_r in range(r+1, r+5):
         ws.row_dimensions[ttd_r].height = 18
-        MG(ttd_r, cB, ttd_r, cD-1)
+        MG(ttd_r, cB, ttd_r, cC)
         ws.cell(ttd_r, cB).border = brd(l=thin, r=thin)
-        MG(ttd_r, cE, ttd_r, cH)
+        MG(ttd_r, cE, ttd_r, cG)
         ws.cell(ttd_r, cE).border = brd(l=thin, r=thin)
 
     name_r = r + 5
     ws.row_dimensions[name_r].height = 16
-    MG(name_r, cB, name_r, cD-1)
+    MG(name_r, cB, name_r, cC)
     C(name_r, cB, '(                                             )',
       sz=10, ha='center', border=brd(l=thin, r=thin, b=thin))
-    MG(name_r, cE, name_r, cH)
+    MG(name_r, cE, name_r, cG)
     C(name_r, cE, '(                                             )',
       sz=10, ha='center', border=brd(l=thin, r=thin, b=thin))
 
-    ws.print_area = f'A1:{get_column_letter(9)}{name_r + 1}'
+    ws.print_area = f'A1:{get_column_letter(8)}{name_r + 1}'
 
     resp = HttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
