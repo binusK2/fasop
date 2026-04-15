@@ -983,9 +983,17 @@ BULAN_ID = ['Januari','Februari','Maret','April','Mei','Juni',
             'Juli','Agustus','September','Oktober','November','Desember']
 
 BA_GRUP_MAP = {
-    'TELEKOMUNIKASI': ['Router','Switch','Radio','VoIP','Multiplexer','PLC','Teleproteksi','RoIP'],
-    'SCADA':          ['RTU','SAS','SERVER','UPS'],
-    'PROSIS':         ['RELE DEFENSE SCHEME','DFR','GENSET','Catu Daya','Workstation PC'],
+    'TELEKOMUNIKASI': [
+        'Router','Switch','Radio','VoIP','Multiplexer','PLC','Teleproteksi','RoIP',
+        'Server Telkom','Master Clock','Catu Daya',
+    ],
+    'SCADA': [
+        'RTU','SAS','Server SCADA','UPS','IED BCU','Clock Server',
+        'Serial Server','Router SAS','Switch SAS','Inverter','GENSET',
+    ],
+    'PROSIS': [
+        'RELE DEFENSE SCHEME','Master Trip','UFLS','DFR','Server Prosis',
+    ],
 }
 
 def _ba_hitung(jenis_list, year, bulan):
