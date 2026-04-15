@@ -1,0 +1,260 @@
+{% extends 'base.html' %}
+{% block title %}BA Penggantian Perangkat — FASOP{% endblock %}
+{% block page_title %}Berita Acara Penggantian{% endblock %}
+
+{% block content %}
+<style>
+    .pool-wrap { max-height: 260px; overflow-y: auto; }
+    .pool-wrap thead th { position: sticky; top: 0; background: #f8fafc; z-index: 1; }
+    .preview-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .preview-tbl thead th {
+        background: #f1f5f9; font-size: 11px; font-weight: 700;
+        text-transform: uppercase; letter-spacing: .5px; color: #475569;
+        padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center;
+    }
+    .preview-tbl tbody td { padding: 7px 10px; border: 1px solid #e2e8f0; vertical-align: middle; }
+    .preview-tbl tbody tr:nth-child(even) { background: #f8fafc; }
+    .btn-add  { font-size: 11px; padding: 2px 8px; }
+    .btn-rm   { font-size: 11px; padding: 2px 7px; }
+    .inp-sm   { font-size: 12px; padding: 3px 7px; height: auto; }
+</style>
+
+<!-- Header -->
+<div class="d-flex align-items-center gap-2 mb-3">
+    <a href="javascript:history.back()" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i>
+    </a>
+    <div>
+        <h2 class="mb-0" style="font-size:18px;font-weight:700;">Berita Acara Penggantian Komponen</h2>
+        <p class="text-muted mb-0" style="font-size:12px;">Isi informasi, pilih perangkat, lalu ekspor ke PDF</p>
+    </div>
+</div>
+
+<form method="post" id="ba-form">
+{% csrf_token %}
+
+<!-- Card 1: Informasi BA -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;margin-bottom:12px;">
+            <i class="bi bi-info-circle me-1"></i>Informasi Berita Acara
+        </div>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label" style="font-size:12px;font-weight:600;">Nomor BA</label>
+                <input type="text" name="nomor_ba" class="form-control form-control-sm"
+                       placeholder="Contoh: 001/BA-GNT/IV/2026">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label" style="font-size:12px;font-weight:600;">Tanggal Pelaksanaan</label>
+                <input type="date" name="tanggal" class="form-control form-control-sm"
+                       value="{{ today }}" required>
+            </div>
+            <div class="col-md-5">
+                <label class="form-label" style="font-size:12px;font-weight:600;">Pelaksana</label>
+                <input type="text" name="pelaksana" class="form-control form-control-sm"
+                       placeholder="Nama pelaksana kegiatan" required>
+            </div>
+            <div class="col-12">
+                <label class="form-label" style="font-size:12px;font-weight:600;">Catatan / Keterangan Umum <span class="text-muted fw-normal">(opsional)</span></label>
+                <textarea name="catatan" class="form-control form-control-sm" rows="2"
+                          placeholder="Catatan tambahan"></textarea>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Card 2: Cari & Tambah Perangkat -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;margin-bottom:10px;">
+            <i class="bi bi-search me-1"></i>Cari &amp; Tambah Perangkat
+        </div>
+        <div class="row g-2 mb-2">
+            <div class="col-md-4">
+                <input type="text" id="filter-nama" class="form-control form-control-sm"
+                       placeholder="Cari nama perangkat...">
+            </div>
+            <div class="col-md-3">
+                <select id="filter-jenis" class="form-select form-select-sm">
+                    <option value="">Semua Jenis</option>
+                    {% for j in jenis_list %}
+                    <option value="{{ j }}">{{ j }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select id="filter-lokasi" class="form-select form-select-sm">
+                    <option value="">Semua Lokasi</option>
+                    {% for l in lokasi_list %}
+                    <option value="{{ l }}">{{ l }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <div class="pool-wrap">
+            <table class="preview-tbl" id="device-pool">
+                <thead>
+                    <tr>
+                        <th style="width:5%;"></th>
+                        <th style="width:30%;">Nama Perangkat</th>
+                        <th style="width:18%;">Jenis</th>
+                        <th style="width:20%;">Serial Number</th>
+                        <th style="width:27%;">Lokasi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for d in devices %}
+                    <tr class="pool-row"
+                        data-id="{{ d.pk }}"
+                        data-nama="{{ d.nama }}"
+                        data-jenis="{{ d.jenis.name|default:'' }}"
+                        data-serial="{{ d.serial_number|default:'' }}"
+                        data-lokasi="{{ d.lokasi|default:'' }}">
+                        <td style="text-align:center;">
+                            <button type="button" class="btn btn-success btn-sm btn-add">
+                                <i class="bi bi-plus-lg"></i>
+                            </button>
+                        </td>
+                        <td>{{ d.nama }}</td>
+                        <td>{{ d.jenis.name|default:"—" }}</td>
+                        <td>{{ d.serial_number|default:"—" }}</td>
+                        <td>{{ d.lokasi|default:"—" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Card 3: Daftar Perangkat Dipilih -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;">
+                <i class="bi bi-table me-1"></i>Perangkat Dipilih
+                <span id="row-count" class="ms-1 badge bg-primary rounded-pill" style="font-size:10px;">0</span>
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table class="preview-tbl">
+                <thead>
+                    <tr>
+                        <th style="width:4%;">No</th>
+                        <th style="width:20%;">Nama Perangkat</th>
+                        <th style="width:13%;">Jenis</th>
+                        <th style="width:18%;">Komponen Lama</th>
+                        <th style="width:18%;">Komponen Baru</th>
+                        <th style="width:22%;">Keterangan</th>
+                        <th style="width:5%;"></th>
+                    </tr>
+                </thead>
+                <tbody id="selected-body">
+                    <tr id="empty-row">
+                        <td colspan="7" class="text-center text-muted py-3" style="font-size:12px;">
+                            <i class="bi bi-inbox d-block mb-1" style="font-size:20px;"></i>
+                            Belum ada perangkat. Klik <i class="bi bi-plus-lg text-success"></i> di atas untuk menambahkan.
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="d-flex justify-content-end mt-3">
+            <button type="submit" class="btn btn-danger btn-sm">
+                <i class="bi bi-file-earmark-pdf me-1"></i>Ekspor PDF
+            </button>
+        </div>
+    </div>
+</div>
+
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const addedIds = new Set();
+let rowOrder   = [];
+
+function applyFilter() {
+    const q = document.getElementById('filter-nama').value.toLowerCase();
+    const j = document.getElementById('filter-jenis').value.toLowerCase();
+    const l = document.getElementById('filter-lokasi').value.toLowerCase();
+    document.querySelectorAll('.pool-row').forEach(tr => {
+        const ok = (!q || tr.dataset.nama.toLowerCase().includes(q))
+                && (!j || tr.dataset.jenis.toLowerCase() === j)
+                && (!l || tr.dataset.lokasi.toLowerCase() === l);
+        tr.style.display = ok ? '' : 'none';
+    });
+}
+document.getElementById('filter-nama').addEventListener('input', applyFilter);
+document.getElementById('filter-jenis').addEventListener('change', applyFilter);
+document.getElementById('filter-lokasi').addEventListener('change', applyFilter);
+
+document.querySelector('#device-pool tbody').addEventListener('click', e => {
+    const btn = e.target.closest('.btn-add');
+    if (!btn) return;
+    const tr = btn.closest('tr');
+    const id = tr.dataset.id;
+    if (addedIds.has(id)) { alert('Perangkat ini sudah ditambahkan.'); return; }
+    addedIds.add(id);
+    rowOrder.push({ id, nama: tr.dataset.nama, jenis: tr.dataset.jenis,
+                    serial: tr.dataset.serial, lokasi: tr.dataset.lokasi });
+    renderSelected();
+});
+
+function renderSelected() {
+    const tbody = document.getElementById('selected-body');
+    document.getElementById('row-count').textContent = rowOrder.length;
+    document.getElementById('empty-row').style.display = rowOrder.length ? 'none' : '';
+    tbody.querySelectorAll('tr.data-row').forEach(r => r.remove());
+
+    rowOrder.forEach((row, i) => {
+        const tr = document.createElement('tr');
+        tr.className = 'data-row';
+        tr.innerHTML = `
+            <td style="text-align:center;">${i + 1}
+                <input type="hidden" name="device_ids[]" value="${row.id}">
+            </td>
+            <td style="font-size:12.5px;">${row.nama}</td>
+            <td style="font-size:12px;color:#64748b;">${row.jenis || '—'}</td>
+            <td>
+                <input type="text" name="komponen_lama[]"
+                       class="form-control inp-sm" placeholder="Komponen lama">
+            </td>
+            <td>
+                <input type="text" name="komponen_baru[]"
+                       class="form-control inp-sm" placeholder="Komponen baru">
+            </td>
+            <td>
+                <input type="text" name="keterangan[]"
+                       class="form-control inp-sm" placeholder="Keterangan">
+            </td>
+            <td>
+                <button type="button" class="btn btn-outline-danger btn-sm btn-rm"
+                        data-id="${row.id}">
+                    <i class="bi bi-x"></i>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    tbody.querySelectorAll('.btn-rm').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const rid = this.dataset.id;
+            addedIds.delete(rid);
+            rowOrder = rowOrder.filter(r => r.id !== rid);
+            renderSelected();
+        });
+    });
+}
+
+document.getElementById('ba-form').addEventListener('submit', e => {
+    if (rowOrder.length === 0) {
+        e.preventDefault();
+        alert('Pilih minimal satu perangkat sebelum ekspor PDF.');
+    }
+});
+</script>
+{% endblock %}
