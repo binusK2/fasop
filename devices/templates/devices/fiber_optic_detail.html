@@ -47,6 +47,12 @@
     .btn-edit-core:hover{background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8;}
     .btn-edit-core.active{background:#eff6ff;border-color:#3b82f6;color:#1d4ed8;}
 
+    /* Site toggle buttons */
+    .site-toggle-btn{padding:5px 14px;font-size:12px;font-weight:700;border-radius:20px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#64748b;cursor:pointer;transition:all .12s;display:inline-flex;align-items:center;gap:5px;}
+    .site-toggle-btn:hover{border-color:#94a3b8;}
+    .site-toggle-btn.active-a{background:#eff6ff;border-color:#3b82f6;color:#1d4ed8;}
+    .site-toggle-btn.active-b{background:#f0fdf4;border-color:#10b981;color:#065f46;}
+
     /* Gangguan history mini */
     .gng-item{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid #f1f5f9;}
     .gng-item:last-child{border-bottom:none;}
@@ -314,12 +320,19 @@
 {% if cores %}
 <div class="card">
     <div class="card-body px-4 py-3">
-        <div class="d-flex align-items-center justify-content-between mb-3">
+        <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
             <div class="section-bar mb-0">
                 <span class="bar" style="background:#f59e0b;"></span>
                 <span>Detail Core ({{ cores.count }} core)</span>
             </div>
-            <div class="d-flex gap-2 align-items-center">
+            <div class="d-flex gap-2 align-items-center flex-wrap">
+                <!-- Site toggle -->
+                <button id="btn-site-a" class="site-toggle-btn active-a" onclick="switchSite('a')">
+                    <i class="bi bi-geo-alt-fill"></i> Site A
+                </button>
+                <button id="btn-site-b" class="site-toggle-btn" onclick="switchSite('b')">
+                    <i class="bi bi-geo-alt-fill"></i> Site B
+                </button>
                 <!-- Filter status core -->
                 <select id="filter-status-core" class="form-select form-select-sm" style="width:140px;" onchange="filterCores(this.value)">
                     <option value="">Semua Status</option>
@@ -347,15 +360,11 @@
                         <th style="width:50px;">Core</th>
                         <th>Fungsi / Digunakan Untuk</th>
                         <th style="width:130px;text-align:center;">Status</th>
-                        <th>Koneksi Site A</th>
-                        <th>Koneksi Site B</th>
-                        <th style="text-align:center;">Jarak A (km)</th>
-                        <th style="text-align:center;">Redaman A (dB)</th>
-                        <th style="text-align:center;">dB/km A</th>
-                        <th style="text-align:center;">Jarak B (km)</th>
-                        <th style="text-align:center;">Redaman B (dB)</th>
-                        <th style="text-align:center;">dB/km B</th>
-                        <th style="text-align:center;">Tgl A / B</th>
+                        <th id="th-koneksi">Koneksi Site A</th>
+                        <th style="text-align:center;" id="th-jarak">Jarak (km)</th>
+                        <th style="text-align:center;" id="th-redaman">Redaman (dB)</th>
+                        <th style="text-align:center;" id="th-dbkm">dB/km</th>
+                        <th style="text-align:center;" id="th-tanggal">Tgl Ukur</th>
                         <th style="width:70px;text-align:center;">Aksi</th>
                     </tr>
                 </thead>
@@ -383,38 +392,24 @@
                         </span>
                     </td>
                     <td style="font-size:12px;color:#1e293b;">
-                        {% if core.koneksi_a %}<span style="font-weight:500;">{{ core.koneksi_a }}</span>{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}
-                    </td>
-                    <td style="font-size:12px;color:#1e293b;">
-                        {% if core.koneksi_b %}<span style="font-weight:500;">{{ core.koneksi_b }}</span>{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}
+                        <span class="site-col site-col-a">{% if core.koneksi_a %}<span style="font-weight:500;">{{ core.koneksi_a }}</span>{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}</span>
+                        <span class="site-col site-col-b" style="display:none;">{% if core.koneksi_b %}<span style="font-weight:500;">{{ core.koneksi_b }}</span>{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}</span>
                     </td>
                     <td style="text-align:center;">
-                        {% if core.otdr_jarak_km %}<span class="otdr-val" style="color:#1d4ed8;">{{ core.otdr_jarak_km }}</span>
-                        {% else %}<span style="color:#cbd5e1;">—</span>{% endif %}
+                        <span class="site-col site-col-a">{% if core.otdr_jarak_km %}<span class="otdr-val" style="color:#1d4ed8;">{{ core.otdr_jarak_km }}</span>{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}</span>
+                        <span class="site-col site-col-b" style="display:none;">{% if core.otdr_b_jarak_km %}<span class="otdr-val" style="color:#065f46;">{{ core.otdr_b_jarak_km }}</span>{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}</span>
                     </td>
                     <td style="text-align:center;">
-                        {% if core.otdr_redaman_db %}<span class="otdr-val" style="color:#1d4ed8;">{{ core.otdr_redaman_db }}</span>
-                        {% else %}<span style="color:#cbd5e1;">—</span>{% endif %}
+                        <span class="site-col site-col-a">{% if core.otdr_redaman_db %}<span class="otdr-val" style="color:#1d4ed8;">{{ core.otdr_redaman_db }}</span>{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}</span>
+                        <span class="site-col site-col-b" style="display:none;">{% if core.otdr_b_redaman_db %}<span class="otdr-val" style="color:#065f46;">{{ core.otdr_b_redaman_db }}</span>{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}</span>
                     </td>
                     <td style="text-align:center;">
-                        {% if core.otdr_redaman_per_km %}<span class="otdr-val" style="color:#1d4ed8;">{{ core.otdr_redaman_per_km }}</span>
-                        {% else %}<span style="color:#cbd5e1;">—</span>{% endif %}
+                        <span class="site-col site-col-a">{% if core.otdr_redaman_per_km %}<span class="otdr-val" style="color:#1d4ed8;">{{ core.otdr_redaman_per_km }}</span>{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}</span>
+                        <span class="site-col site-col-b" style="display:none;">{% if core.otdr_b_redaman_per_km %}<span class="otdr-val" style="color:#065f46;">{{ core.otdr_b_redaman_per_km }}</span>{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}</span>
                     </td>
-                    <td style="text-align:center;">
-                        {% if core.otdr_b_jarak_km %}<span class="otdr-val" style="color:#065f46;">{{ core.otdr_b_jarak_km }}</span>
-                        {% else %}<span style="color:#cbd5e1;">—</span>{% endif %}
-                    </td>
-                    <td style="text-align:center;">
-                        {% if core.otdr_b_redaman_db %}<span class="otdr-val" style="color:#065f46;">{{ core.otdr_b_redaman_db }}</span>
-                        {% else %}<span style="color:#cbd5e1;">—</span>{% endif %}
-                    </td>
-                    <td style="text-align:center;">
-                        {% if core.otdr_b_redaman_per_km %}<span class="otdr-val" style="color:#065f46;">{{ core.otdr_b_redaman_per_km }}</span>
-                        {% else %}<span style="color:#cbd5e1;">—</span>{% endif %}
-                    </td>
-                    <td style="text-align:center;font-size:10.5px;color:#64748b;white-space:nowrap;">
-                        {% if core.otdr_tanggal %}<span style="color:#1d4ed8;">{{ core.otdr_tanggal|date:"d/m/y" }}</span>{% else %}—{% endif %}
-                        {% if core.otdr_b_tanggal %} / <span style="color:#065f46;">{{ core.otdr_b_tanggal|date:"d/m/y" }}</span>{% endif %}
+                    <td style="text-align:center;font-size:11px;white-space:nowrap;">
+                        <span class="site-col site-col-a">{% if core.otdr_tanggal %}<span style="color:#1d4ed8;">{{ core.otdr_tanggal|date:"d/m/Y" }}</span>{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}</span>
+                        <span class="site-col site-col-b" style="display:none;">{% if core.otdr_b_tanggal %}<span style="color:#065f46;">{{ core.otdr_b_tanggal|date:"d/m/Y" }}</span>{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}</span>
                     </td>
                     <td style="text-align:center;">
                         {% if user_can_edit %}
@@ -427,7 +422,7 @@
 
                 {# Baris edit inline #}
                 <tr class="edit-row" id="edit-{{ core.pk }}">
-                    <td colspan="12">
+                    <td colspan="9">
                         <form method="post" action="{% url 'fiber_optic_core_update' fo.pk core.pk %}"
                               id="form-core-{{ core.pk }}">
                             {% csrf_token %}
@@ -848,6 +843,30 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 /* ══════════════════════════════════════════════════════════ */
+
+/* ── Site A / Site B toggle ────────────────────────────── */
+const LOKASI_A = '{{ fo.lokasi_a|escapejs }}';
+const LOKASI_B = '{{ fo.lokasi_b|escapejs }}';
+
+function switchSite(site) {
+    // Toggle span visibility
+    document.querySelectorAll('.site-col-a').forEach(el => el.style.display = site === 'a' ? '' : 'none');
+    document.querySelectorAll('.site-col-b').forEach(el => el.style.display = site === 'b' ? '' : 'none');
+
+    // Update table header labels
+    const lokasi = site === 'a' ? LOKASI_A : LOKASI_B;
+    const color  = site === 'a' ? '#1d4ed8' : '#065f46';
+    const el = id => document.getElementById(id);
+    if (el('th-koneksi'))  el('th-koneksi').textContent  = `Koneksi Site ${site.toUpperCase()} — ${lokasi}`;
+    if (el('th-jarak'))    el('th-jarak').textContent    = 'Jarak (km)';
+    if (el('th-redaman'))  el('th-redaman').textContent  = 'Redaman (dB)';
+    if (el('th-dbkm'))     el('th-dbkm').textContent     = 'dB/km';
+    if (el('th-tanggal'))  el('th-tanggal').textContent  = 'Tgl Ukur';
+
+    // Update button states
+    el('btn-site-a').className = 'site-toggle-btn' + (site === 'a' ? ' active-a' : '');
+    el('btn-site-b').className = 'site-toggle-btn' + (site === 'b' ? ' active-b' : '');
+}
 
 function toggleEditCore(coreId) {
     const editRow = document.getElementById('edit-' + coreId);
