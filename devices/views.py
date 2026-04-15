@@ -1165,6 +1165,8 @@ def fiber_optic_detail(request, pk):
         'nomor_core':      c.nomor_core,
         'fungsi':          c.fungsi or '',
         'status':          c.status,
+        'status_a':        c.status_a,
+        'status_b':        c.status_b,
         'koneksi_a':       c.koneksi_a or '',
         'koneksi_b':       c.koneksi_b or '',
         # OTDR Site A (existing fields)
@@ -1197,21 +1199,30 @@ def fiber_optic_core_update(request, fo_pk, core_pk):
     from .models import FiberOpticCore
     core = get_object_or_404(FiberOpticCore, pk=core_pk, fiber_optic_id=fo_pk)
     if request.method == 'POST':
-        core.fungsi                 = request.POST.get('fungsi', '').strip() or None
-        core.status                 = request.POST.get('status', 'spare')
-        core.koneksi_a              = request.POST.get('koneksi_a', '').strip() or None
-        core.koneksi_b              = request.POST.get('koneksi_b', '').strip() or None
-        core.otdr_jarak_km          = request.POST.get('otdr_jarak_km') or None
-        core.otdr_redaman_db        = request.POST.get('otdr_redaman_db') or None
-        core.otdr_redaman_per_km    = request.POST.get('otdr_redaman_per_km') or None
-        core.otdr_tanggal           = request.POST.get('otdr_tanggal') or None
-        core.otdr_catatan           = request.POST.get('otdr_catatan', '').strip() or None
-        core.otdr_b_jarak_km        = request.POST.get('otdr_b_jarak_km') or None
-        core.otdr_b_redaman_db      = request.POST.get('otdr_b_redaman_db') or None
-        core.otdr_b_redaman_per_km  = request.POST.get('otdr_b_redaman_per_km') or None
-        core.otdr_b_tanggal         = request.POST.get('otdr_b_tanggal') or None
-        core.otdr_b_catatan         = request.POST.get('otdr_b_catatan', '').strip() or None
-        core.keterangan             = request.POST.get('keterangan', '').strip() or None
+        # shared fields
+        core.fungsi     = request.POST.get('fungsi', '').strip() or None
+        core.keterangan = request.POST.get('keterangan', '').strip() or None
+
+        site = request.POST.get('site', 'a')
+        if site == 'a':
+            core.status_a               = request.POST.get('status_a', 'spare')
+            core.koneksi_a              = request.POST.get('koneksi_a', '').strip() or None
+            core.otdr_jarak_km          = request.POST.get('otdr_jarak_km') or None
+            core.otdr_redaman_db        = request.POST.get('otdr_redaman_db') or None
+            core.otdr_redaman_per_km    = request.POST.get('otdr_redaman_per_km') or None
+            core.otdr_tanggal           = request.POST.get('otdr_tanggal') or None
+            core.otdr_catatan           = request.POST.get('otdr_catatan', '').strip() or None
+        else:  # site == 'b'
+            core.status_b               = request.POST.get('status_b', 'spare')
+            core.koneksi_b              = request.POST.get('koneksi_b', '').strip() or None
+            core.otdr_b_jarak_km        = request.POST.get('otdr_b_jarak_km') or None
+            core.otdr_b_redaman_db      = request.POST.get('otdr_b_redaman_db') or None
+            core.otdr_b_redaman_per_km  = request.POST.get('otdr_b_redaman_per_km') or None
+            core.otdr_b_tanggal         = request.POST.get('otdr_b_tanggal') or None
+            core.otdr_b_catatan         = request.POST.get('otdr_b_catatan', '').strip() or None
+
+        # keep legacy status in sync with the site being updated
+        core.status = core.status_a if site == 'a' else core.status_b
         core.save()
         if request.headers.get('x-requested-with') == 'XMLHttpRequest':
             return JsonResponse({'ok': True})

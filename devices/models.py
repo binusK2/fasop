@@ -537,7 +537,15 @@ class FiberOpticCore(models.Model):
     )
     status       = models.CharField(
         max_length=20, choices=STATUS_CORE_CHOICES,
-        default='spare', verbose_name='Status Core',
+        default='spare', verbose_name='Status Core (overall)',
+    )
+    status_a     = models.CharField(
+        max_length=20, choices=STATUS_CORE_CHOICES,
+        default='spare', verbose_name='Status Core Site A',
+    )
+    status_b     = models.CharField(
+        max_length=20, choices=STATUS_CORE_CHOICES,
+        default='spare', verbose_name='Status Core Site B',
     )
     koneksi_a    = models.CharField(
         max_length=200, blank=True, null=True,
@@ -618,23 +626,29 @@ class FiberOpticCore(models.Model):
     def __str__(self):
         return f'Core {self.nomor_core} — {self.fiber_optic.nama}'
 
-    @property
-    def status_color(self):
-        return {
-            'aktif':      '#10b981',
-            'spare':      '#3b82f6',
-            'rusak':      '#ef4444',
-            'tidak_aktif':'#94a3b8',
-        }.get(self.status, '#94a3b8')
+    _STATUS_COLORS = {'aktif':'#10b981','spare':'#3b82f6','rusak':'#ef4444','tidak_aktif':'#94a3b8'}
+    _STATUS_BGS    = {'aktif':'#dcfce7','spare':'#eff6ff','rusak':'#fee2e2','tidak_aktif':'#f1f5f9'}
 
     @property
+    def status_color(self):
+        return self._STATUS_COLORS.get(self.status, '#94a3b8')
+    @property
     def status_bg(self):
-        return {
-            'aktif':      '#dcfce7',
-            'spare':      '#eff6ff',
-            'rusak':      '#fee2e2',
-            'tidak_aktif':'#f1f5f9',
-        }.get(self.status, '#f1f5f9')
+        return self._STATUS_BGS.get(self.status, '#f1f5f9')
+
+    @property
+    def status_a_color(self):
+        return self._STATUS_COLORS.get(self.status_a, '#94a3b8')
+    @property
+    def status_a_bg(self):
+        return self._STATUS_BGS.get(self.status_a, '#f1f5f9')
+
+    @property
+    def status_b_color(self):
+        return self._STATUS_COLORS.get(self.status_b, '#94a3b8')
+    @property
+    def status_b_bg(self):
+        return self._STATUS_BGS.get(self.status_b, '#f1f5f9')
 
 
 # ── Import model komponen agar ikut migrasi ──────────────────
