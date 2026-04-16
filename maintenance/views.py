@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from devices.permissions import require_can_edit, require_can_delete, is_viewer_only
-from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset, MaintenanceRTU, MaintenanceSAS, MaintenanceRoIP, MaintenanceUPS
+from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset, MaintenanceRTU, MaintenanceSAS, MaintenanceRoIP, MaintenanceUPS, BeritaAcaraRecord, BeritaAcaraEviden
 from .forms import MaintenanceForm, MaintenancePLCForm, MaintenanceRouterForm, MaintenanceRadioForm, MaintenanceVoIPForm, MaintenanceMuxForm, MaintenanceRectifierForm, MaintenanceTeleproteksiForm, MaintenanceGensetForm, MaintenanceRTUForm, MaintenanceSASForm, MaintenanceRoIPForm, MaintenanceUPSForm
 from devices.models import Device, DeviceType
 from gangguan.models import Gangguan
@@ -2996,6 +2996,122 @@ def _ba_extra_ctx(tanggal, nomor_ba):
     return tahun, hari_display, bulan_tahun_display, fname_base
 
 
+def _save_ba_record(jenis, nomor_ba, tanggal_str, pelaksana, nip, jabatan, catatan, rows, eviden_files, eviden_captions, user):
+    """Simpan record BA + eviden ke database."""
+    from datetime import datetime as _dt
+    try:
+        tanggal_date = _dt.strptime(tanggal_str, '%Y-%m-%d').date()
+    except (ValueError, TypeError):
+        tanggal_date = None
+    try:
+        rec = BeritaAcaraRecord.objects.create(
+            jenis=jenis,
+            nomor_ba=nomor_ba,
+            tanggal=tanggal_date,
+            pelaksana=pelaksana,
+            nip=nip,
+            jabatan=jabatan,
+            catatan=catatan,
+            rows_data=rows,
+            created_by=user,
+        )
+        for i, f in enumerate(eviden_files):
+            try:
+                f.seek(0)
+            except Exception:
+                pass
+            catatan_ev = eviden_captions[i] if i < len(eviden_captions) else ''
+            BeritaAcaraEviden.objects.create(ba=rec, gambar=f, catatan=catatan_ev, urutan=i)
+    except Exception:
+        pass  # jangan gagalkan export PDF jika penyimpanan error
+
+
+@login_required
+def ba_list(request):
+    records = (
+        BeritaAcaraRecord.objects
+        .select_related('created_by')
+        .prefetch_related('evidens')
+        .order_by('-created_at')
+    )
+    return render(request, 'maintenance/ba_list.html', {
+        'records': records,
+    })
+
+
+@login_required
+def ba_export(request, pk):
+    import re as _re2
+    record = get_object_or_404(BeritaAcaraRecord, pk=pk)
+
+    import base64 as _b64
+    eviden_list = []
+    for ev in record.evidens.all():
+        if ev.gambar:
+            try:
+                with open(ev.gambar.path, 'rb') as f:
+                    data = f.read()
+                name = ev.gambar.name.lower()
+                if name.endswith('.png'):
+                    mime = 'image/png'
+                elif name.endswith('.gif'):
+                    mime = 'image/gif'
+                else:
+                    mime = 'image/jpeg'
+                eviden_list.append({'b64': _b64.b64encode(data).decode(), 'mime': mime, 'catatan': ev.catatan})
+            except Exception:
+                pass
+
+    HARI_ID = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu']
+    d = record.tanggal
+    hari_display        = HARI_ID[d.weekday()]
+    tanggal_display     = f'{d.day} {_BULAN_ID_FULL[d.month - 1]} {d.year}'
+    bulan_tahun_display = f'{_BULAN_ID_FULL[d.month - 1]} {d.year}'
+
+    ctx = {
+        'logo_b64':             _load_logo_b64(),
+        'nomor_ba':             record.nomor_ba,
+        'tanggal_display':      tanggal_display,
+        'hari_display':         hari_display,
+        'bulan_tahun_display':  bulan_tahun_display,
+        'pelaksana':            record.pelaksana,
+        'nip':                  record.nip,
+        'jabatan':              record.jabatan,
+        'catatan':              record.catatan,
+        'rows':                 record.rows_data,
+        'eviden_list':          eviden_list,
+    }
+    template_map = {
+        'pemasangan':   'maintenance/pdf/ba_pemasangan.html',
+        'pembongkaran': 'maintenance/pdf/ba_pembongkaran.html',
+        'penggantian':  'maintenance/pdf/ba_penggantian.html',
+    }
+    template = template_map.get(record.jenis, 'maintenance/pdf/ba_pemasangan.html')
+    nomor_clean = _re2.sub(r'[^\w]', '', record.nomor_ba) if record.nomor_ba else 'export'
+    return _render_ba_pdf(template, ctx, f'{nomor_clean}.pdf')
+
+
+@login_required
+def ba_delete(request, pk):
+    from django.contrib import messages as dj_messages
+    if not request.user.is_superuser:
+        dj_messages.error(request, 'Hanya superuser yang dapat menghapus data BA.')
+        return redirect('ba_list')
+    record = get_object_or_404(BeritaAcaraRecord, pk=pk)
+    if request.method == 'POST':
+        for ev in record.evidens.all():
+            if ev.gambar:
+                try:
+                    import os as _os
+                    if _os.path.exists(ev.gambar.path):
+                        _os.remove(ev.gambar.path)
+                except Exception:
+                    pass
+        record.delete()
+        dj_messages.success(request, 'Data BA berhasil dihapus.')
+    return redirect('ba_list')
+
+
 @login_required
 def ba_pemasangan(request):
     devices, jenis_list, lokasi_list = _ba_device_context()
@@ -3032,9 +3148,15 @@ def ba_pemasangan(request):
         tahun, hari, bulan_tahun, fname_base = _ba_extra_ctx(tanggal, nomor_input)
         nomor_ba = f'{nomor_input}.BA/FASOP/UP2BS-MKS/{tahun}' if nomor_input else ''
         import base64 as _b64
+        eviden_files    = request.FILES.getlist('eviden')
+        eviden_captions = request.POST.getlist('eviden_catatan')
         eviden_list = [
-            {'b64': _b64.b64encode(f.read()).decode(), 'mime': f.content_type or 'image/jpeg'}
-            for f in request.FILES.getlist('eviden')
+            {
+                'b64':     _b64.b64encode(f.read()).decode(),
+                'mime':    f.content_type or 'image/jpeg',
+                'catatan': eviden_captions[i] if i < len(eviden_captions) else '',
+            }
+            for i, f in enumerate(eviden_files)
         ]
         ctx = {
             'logo_b64':          _load_logo_b64(),
@@ -3049,6 +3171,7 @@ def ba_pemasangan(request):
             'rows':              rows,
             'eviden_list':       eviden_list,
         }
+        _save_ba_record('pemasangan', nomor_ba, tanggal, pelaksana, nip, jabatan, catatan, rows, eviden_files, eviden_captions, request.user)
         return _render_ba_pdf('maintenance/pdf/ba_pemasangan.html', ctx, f'{fname_base}.pdf')
 
     return render(request, 'maintenance/ba_pemasangan.html', {
@@ -3094,9 +3217,15 @@ def ba_pembongkaran(request):
         tahun, hari, bulan_tahun, fname_base = _ba_extra_ctx(tanggal, nomor_input)
         nomor_ba = f'{nomor_input}.BA/FASOP/UP2BS-MKS/{tahun}' if nomor_input else ''
         import base64 as _b64
+        eviden_files    = request.FILES.getlist('eviden')
+        eviden_captions = request.POST.getlist('eviden_catatan')
         eviden_list = [
-            {'b64': _b64.b64encode(f.read()).decode(), 'mime': f.content_type or 'image/jpeg'}
-            for f in request.FILES.getlist('eviden')
+            {
+                'b64':     _b64.b64encode(f.read()).decode(),
+                'mime':    f.content_type or 'image/jpeg',
+                'catatan': eviden_captions[i] if i < len(eviden_captions) else '',
+            }
+            for i, f in enumerate(eviden_files)
         ]
         ctx = {
             'logo_b64':          _load_logo_b64(),
@@ -3111,6 +3240,7 @@ def ba_pembongkaran(request):
             'rows':              rows,
             'eviden_list':       eviden_list,
         }
+        _save_ba_record('pembongkaran', nomor_ba, tanggal, pelaksana, nip, jabatan, catatan, rows, eviden_files, eviden_captions, request.user)
         return _render_ba_pdf('maintenance/pdf/ba_pembongkaran.html', ctx, f'{fname_base}.pdf')
 
     return render(request, 'maintenance/ba_pembongkaran.html', {
@@ -3158,9 +3288,15 @@ def ba_penggantian(request):
         tahun, hari, bulan_tahun, fname_base = _ba_extra_ctx(tanggal, nomor_input)
         nomor_ba = f'{nomor_input}.BA/FASOP/UP2BS-MKS/{tahun}' if nomor_input else ''
         import base64 as _b64
+        eviden_files    = request.FILES.getlist('eviden')
+        eviden_captions = request.POST.getlist('eviden_catatan')
         eviden_list = [
-            {'b64': _b64.b64encode(f.read()).decode(), 'mime': f.content_type or 'image/jpeg'}
-            for f in request.FILES.getlist('eviden')
+            {
+                'b64':     _b64.b64encode(f.read()).decode(),
+                'mime':    f.content_type or 'image/jpeg',
+                'catatan': eviden_captions[i] if i < len(eviden_captions) else '',
+            }
+            for i, f in enumerate(eviden_files)
         ]
         ctx = {
             'logo_b64':          _load_logo_b64(),
@@ -3175,6 +3311,7 @@ def ba_penggantian(request):
             'rows':              rows,
             'eviden_list':       eviden_list,
         }
+        _save_ba_record('penggantian', nomor_ba, tanggal, pelaksana, nip, jabatan, catatan, rows, eviden_files, eviden_captions, request.user)
         return _render_ba_pdf('maintenance/pdf/ba_penggantian.html', ctx, f'{fname_base}.pdf')
 
     return render(request, 'maintenance/ba_penggantian.html', {
