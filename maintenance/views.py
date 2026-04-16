@@ -1955,24 +1955,60 @@ def maintenance_approval(request):
 
     tab = request.GET.get('tab', 'pending')
 
-    pending_list = (
+    # ── Filter terkunci per peralatan (jenis) ──────────────────
+    # Reset filter jika user klik tombol reset
+    if 'reset_filter' in request.GET:
+        request.session.pop('approval_jenis_id', None)
+        params = request.GET.copy()
+        params.pop('reset_filter', None)
+        qs = params.urlencode()
+        return redirect(f"{request.path}?{qs}" if qs else request.path)
+
+    # Simpan filter baru ke session jika user memilih
+    if 'jenis_id' in request.GET:
+        val = request.GET.get('jenis_id', '').strip()
+        if val:
+            request.session['approval_jenis_id'] = val
+        else:
+            request.session.pop('approval_jenis_id', None)
+
+    selected_jenis_id = request.session.get('approval_jenis_id', '')
+
+    jenis_list = DeviceType.objects.all().order_by('name')
+
+    pending_qs = (
         Maintenance.objects
         .filter(status='Done', signed_by__isnull=True)
         .select_related('device', 'device__jenis')
         .order_by('-date')
     )
 
-    approved_list = (
+    approved_qs = (
         Maintenance.objects
         .filter(signed_by__isnull=False)
         .select_related('device', 'device__jenis', 'signed_by')
         .order_by('-signed_at')
     )
 
+    if selected_jenis_id:
+        pending_qs  = pending_qs.filter(device__jenis_id=selected_jenis_id)
+        approved_qs = approved_qs.filter(device__jenis_id=selected_jenis_id)
+
+    selected_jenis_obj = None
+    if selected_jenis_id:
+        try:
+            selected_jenis_obj = DeviceType.objects.get(pk=selected_jenis_id)
+        except DeviceType.DoesNotExist:
+            request.session.pop('approval_jenis_id', None)
+            selected_jenis_id = ''
+
     return render(request, 'maintenance/approval.html', {
-        'pending_list':  pending_list,
-        'approved_list': approved_list,
-        'tab':           tab,
+        'pending_list':       pending_qs,
+        'approved_list':      approved_qs,
+        'tab':                tab,
+        'jenis_list':         jenis_list,
+        'selected_jenis_id':  selected_jenis_id,
+        'selected_jenis_obj': selected_jenis_obj,
     })
 
 
