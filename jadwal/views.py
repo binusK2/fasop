@@ -234,6 +234,37 @@ def jadwal_done(request, pk):
 
 
 @login_required
+@require_can_edit
+def jadwal_selesai_semua(request, pk):
+    """Bulk tandai semua pemeliharaan device di jadwal ini sebagai Done."""
+    from datetime import datetime
+    if request.method == 'POST':
+        jadwal = get_object_or_404(JadwalKunjungan, pk=pk)
+        devices = Device.objects.filter(
+            lokasi__iexact=jadwal.lokasi, is_deleted=False, host__isnull=True,
+        ).exclude(jenis__name__in=JADWAL_EXCLUDED_JENIS)
+
+        tgl = timezone.make_aware(datetime(jadwal.tahun_rencana, jadwal.bulan_rencana, 1))
+
+        for d in devices:
+            exists = Maintenance.objects.filter(
+                device=d,
+                maintenance_type='Preventive',
+                date__year=jadwal.tahun_rencana,
+                date__month=jadwal.bulan_rencana,
+            ).exists()
+            if not exists:
+                Maintenance.objects.create(
+                    device=d,
+                    maintenance_type='Preventive',
+                    date=tgl,
+                    status='Done',
+                    description='Ditandai selesai via Jadwal Kunjungan (bulk)',
+                )
+    return redirect('jadwal_detail', pk=pk)
+
+
+@login_required
 @require_can_delete
 def jadwal_delete(request, pk):
     """Hapus jadwal."""
