@@ -2915,6 +2915,25 @@ def _ba_device_context():
     return devices, jenis_list, lokasi_list
 
 
+def _ba_extra_ctx(tanggal, nomor_ba):
+    """Hitung hari, bulan-tahun, tahun, dan nama file dari tanggal & nomor BA."""
+    import re as _re
+    from datetime import datetime as _dt
+    HARI_ID = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu']
+    try:
+        d = _dt.strptime(tanggal, '%Y-%m-%d')
+        tahun              = str(d.year)
+        hari_display       = HARI_ID[d.weekday()]
+        bulan_tahun_display = f'{_BULAN_ID_FULL[d.month - 1]} {d.year}'
+    except (ValueError, IndexError):
+        tahun = tanggal[:4] if tanggal else ''
+        hari_display        = ''
+        bulan_tahun_display = tanggal
+    nomor_clean = _re.sub(r'[^\w]', '', nomor_ba) if nomor_ba else 'export'
+    fname_base  = f'{nomor_clean}.BAPFASOPUP2BS-MKS{tahun}'
+    return tahun, hari_display, bulan_tahun_display, fname_base
+
+
 @login_required
 def ba_pemasangan(request):
     devices, jenis_list, lokasi_list = _ba_device_context()
@@ -2923,6 +2942,8 @@ def ba_pemasangan(request):
         nomor_ba        = request.POST.get('nomor_ba', '').strip()
         tanggal         = request.POST.get('tanggal', '').strip()
         pelaksana       = request.POST.get('pelaksana', '').strip()
+        nip             = request.POST.get('nip', '').strip()
+        jabatan         = request.POST.get('jabatan', '').strip()
         catatan         = request.POST.get('catatan', '').strip()
         device_ids      = request.POST.getlist('device_ids[]')
         lokasi_tujuan   = request.POST.getlist('lokasi_tujuan[]')
@@ -2946,16 +2967,20 @@ def ba_pemasangan(request):
                 'keterangan':    keterangan_list[i] if i < len(keterangan_list) else '',
             })
 
+        tahun, hari, bulan_tahun, fname_base = _ba_extra_ctx(tanggal, nomor_ba)
         ctx = {
-            'logo_b64':        _load_logo_b64(),
-            'nomor_ba':        nomor_ba,
-            'tanggal_display': _format_tanggal(tanggal),
-            'pelaksana':       pelaksana,
-            'catatan':         catatan,
-            'rows':            rows,
+            'logo_b64':          _load_logo_b64(),
+            'nomor_ba':          nomor_ba,
+            'tanggal_display':   _format_tanggal(tanggal),
+            'hari_display':      hari,
+            'bulan_tahun_display': bulan_tahun,
+            'pelaksana':         pelaksana,
+            'nip':               nip,
+            'jabatan':           jabatan,
+            'catatan':           catatan,
+            'rows':              rows,
         }
-        fname = f'BA_Pemasangan_{nomor_ba or tanggal or "export"}.pdf'
-        return _render_ba_pdf('maintenance/pdf/ba_pemasangan.html', ctx, fname)
+        return _render_ba_pdf('maintenance/pdf/ba_pemasangan.html', ctx, f'{fname_base}.pdf')
 
     return render(request, 'maintenance/ba_pemasangan.html', {
         'devices':     devices,
@@ -2973,6 +2998,8 @@ def ba_pembongkaran(request):
         nomor_ba        = request.POST.get('nomor_ba', '').strip()
         tanggal         = request.POST.get('tanggal', '').strip()
         pelaksana       = request.POST.get('pelaksana', '').strip()
+        nip             = request.POST.get('nip', '').strip()
+        jabatan         = request.POST.get('jabatan', '').strip()
         catatan         = request.POST.get('catatan', '').strip()
         device_ids      = request.POST.getlist('device_ids[]')
         keterangan_list = request.POST.getlist('keterangan[]')
@@ -2995,16 +3022,20 @@ def ba_pembongkaran(request):
                 'keterangan':    keterangan_list[i] if i < len(keterangan_list) else '',
             })
 
+        tahun, hari, bulan_tahun, fname_base = _ba_extra_ctx(tanggal, nomor_ba)
         ctx = {
-            'logo_b64':        _load_logo_b64(),
-            'nomor_ba':        nomor_ba,
-            'tanggal_display': _format_tanggal(tanggal),
-            'pelaksana':       pelaksana,
-            'catatan':         catatan,
-            'rows':            rows,
+            'logo_b64':          _load_logo_b64(),
+            'nomor_ba':          nomor_ba,
+            'tanggal_display':   _format_tanggal(tanggal),
+            'hari_display':      hari,
+            'bulan_tahun_display': bulan_tahun,
+            'pelaksana':         pelaksana,
+            'nip':               nip,
+            'jabatan':           jabatan,
+            'catatan':           catatan,
+            'rows':              rows,
         }
-        fname = f'BA_Pembongkaran_{nomor_ba or tanggal or "export"}.pdf'
-        return _render_ba_pdf('maintenance/pdf/ba_pembongkaran.html', ctx, fname)
+        return _render_ba_pdf('maintenance/pdf/ba_pembongkaran.html', ctx, f'{fname_base}.pdf')
 
     return render(request, 'maintenance/ba_pembongkaran.html', {
         'devices':     devices,
@@ -3019,13 +3050,15 @@ def ba_penggantian(request):
     devices, jenis_list, lokasi_list = _ba_device_context()
 
     if request.method == 'POST':
-        nomor_ba       = request.POST.get('nomor_ba', '').strip()
-        tanggal        = request.POST.get('tanggal', '').strip()
-        pelaksana      = request.POST.get('pelaksana', '').strip()
-        catatan        = request.POST.get('catatan', '').strip()
-        device_ids     = request.POST.getlist('device_ids[]')
-        komponen_lama  = request.POST.getlist('komponen_lama[]')
-        komponen_baru  = request.POST.getlist('komponen_baru[]')
+        nomor_ba        = request.POST.get('nomor_ba', '').strip()
+        tanggal         = request.POST.get('tanggal', '').strip()
+        pelaksana       = request.POST.get('pelaksana', '').strip()
+        nip             = request.POST.get('nip', '').strip()
+        jabatan         = request.POST.get('jabatan', '').strip()
+        catatan         = request.POST.get('catatan', '').strip()
+        device_ids      = request.POST.getlist('device_ids[]')
+        komponen_lama   = request.POST.getlist('komponen_lama[]')
+        komponen_baru   = request.POST.getlist('komponen_baru[]')
         keterangan_list = request.POST.getlist('keterangan[]')
 
         dev_map = {
@@ -3046,16 +3079,20 @@ def ba_penggantian(request):
                 'keterangan':    keterangan_list[i] if i < len(keterangan_list) else '',
             })
 
+        tahun, hari, bulan_tahun, fname_base = _ba_extra_ctx(tanggal, nomor_ba)
         ctx = {
-            'logo_b64':        _load_logo_b64(),
-            'nomor_ba':        nomor_ba,
-            'tanggal_display': _format_tanggal(tanggal),
-            'pelaksana':       pelaksana,
-            'catatan':         catatan,
-            'rows':            rows,
+            'logo_b64':          _load_logo_b64(),
+            'nomor_ba':          nomor_ba,
+            'tanggal_display':   _format_tanggal(tanggal),
+            'hari_display':      hari,
+            'bulan_tahun_display': bulan_tahun,
+            'pelaksana':         pelaksana,
+            'nip':               nip,
+            'jabatan':           jabatan,
+            'catatan':           catatan,
+            'rows':              rows,
         }
-        fname = f'BA_Penggantian_{nomor_ba or tanggal or "export"}.pdf'
-        return _render_ba_pdf('maintenance/pdf/ba_penggantian.html', ctx, fname)
+        return _render_ba_pdf('maintenance/pdf/ba_penggantian.html', ctx, f'{fname_base}.pdf')
 
     return render(request, 'maintenance/ba_penggantian.html', {
         'devices':     devices,
