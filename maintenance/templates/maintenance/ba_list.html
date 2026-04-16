@@ -1,0 +1,183 @@
+{% extends 'base.html' %}
+{% block title %}Daftar Berita Acara — FASOP{% endblock %}
+{% block page_title %}Daftar Berita Acara{% endblock %}
+
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+    <h2 class="mb-0" style="font-size:20px;font-weight:700;">Daftar Berita Acara</h2>
+</div>
+
+{% if messages %}
+{% for msg in messages %}
+<div class="alert alert-{% if msg.tags == 'error' %}danger{% else %}{{ msg.tags }}{% endif %} alert-dismissible fade show py-2" role="alert" style="font-size:13px;">
+    {{ msg }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endfor %}
+{% endif %}
+
+<div class="table-card">
+    <div class="table-header d-flex align-items-center justify-content-between">
+        <h6 class="mb-0">
+            <i class="bi bi-file-earmark-text me-1" style="color:#2563eb;"></i>
+            {{ records|length }} Berita Acara
+        </h6>
+        <div style="display:flex;gap:6px;">
+            <a href="{% url 'ba_pemasangan' %}" class="btn btn-sm btn-outline-primary" style="font-size:12px;">
+                <i class="bi bi-plus-lg me-1"></i>BA Baru
+            </a>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table mb-0" style="border-collapse:separate;border-spacing:0;">
+            <thead>
+                <tr style="background:#f8fafc;">
+                    <th style="text-align:center;width:40px;font-size:11px;color:#94a3b8;padding:10px 8px;">#</th>
+                    <th style="font-size:11px;color:#64748b;padding:10px 12px;">JENIS BA</th>
+                    <th style="font-size:11px;color:#64748b;padding:10px 12px;">NOMOR BA</th>
+                    <th style="font-size:11px;color:#64748b;padding:10px 12px;">TANGGAL</th>
+                    <th style="font-size:11px;color:#64748b;padding:10px 12px;">PELAKSANA</th>
+                    <th style="font-size:11px;color:#64748b;padding:10px 12px;">EVIDEN</th>
+                    <th style="font-size:11px;color:#64748b;padding:10px 12px;">DIBUAT OLEH</th>
+                    <th style="font-size:11px;color:#64748b;padding:10px 12px;">DIBUAT PADA</th>
+                    <th style="text-align:center;font-size:11px;color:#64748b;padding:10px 12px;">AKSI</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for rec in records %}
+            <tr style="border-top:1px solid #f1f5f9;transition:background 0.15s;"
+                onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
+
+                <td style="text-align:center;font-size:12px;color:#cbd5e1;font-weight:600;padding:13px 8px;">
+                    {{ forloop.counter }}
+                </td>
+
+                <td style="padding:13px 12px;">
+                    {% if rec.jenis == 'pemasangan' %}
+                    <span style="font-size:11.5px;font-weight:700;color:#065f46;background:#dcfce7;padding:3px 10px;border-radius:20px;border:1px solid #a7f3d0;">
+                        <i class="bi bi-box-arrow-in-down" style="font-size:10px;"></i> Pemasangan
+                    </span>
+                    {% elif rec.jenis == 'pembongkaran' %}
+                    <span style="font-size:11.5px;font-weight:700;color:#92400e;background:#fef3c7;padding:3px 10px;border-radius:20px;border:1px solid #fde68a;">
+                        <i class="bi bi-box-arrow-up" style="font-size:10px;"></i> Pembongkaran
+                    </span>
+                    {% else %}
+                    <span style="font-size:11.5px;font-weight:700;color:#1e40af;background:#dbeafe;padding:3px 10px;border-radius:20px;border:1px solid #bfdbfe;">
+                        <i class="bi bi-arrow-left-right" style="font-size:10px;"></i> Penggantian
+                    </span>
+                    {% endif %}
+                </td>
+
+                <td style="padding:13px 12px;">
+                    <div style="font-size:13px;font-weight:600;color:#0f172a;">
+                        {{ rec.nomor_ba|default:"—" }}
+                    </div>
+                </td>
+
+                <td style="padding:13px 12px;white-space:nowrap;">
+                    <div style="font-size:13px;color:#1e293b;">{{ rec.tanggal|date:"d M Y" }}</div>
+                </td>
+
+                <td style="padding:13px 12px;">
+                    <div style="font-size:13px;color:#1e293b;font-weight:600;">{{ rec.pelaksana }}</div>
+                    {% if rec.jabatan %}
+                    <div style="font-size:11px;color:#94a3b8;margin-top:1px;">{{ rec.jabatan }}</div>
+                    {% endif %}
+                </td>
+
+                <td style="padding:13px 12px;text-align:center;">
+                    {% with n=rec.evidens.count %}
+                    {% if n %}
+                    <span style="font-size:11px;color:#1d4ed8;background:#eff6ff;padding:2px 8px;border-radius:20px;border:1px solid #bfdbfe;">
+                        <i class="bi bi-images" style="font-size:10px;"></i> {{ n }}
+                    </span>
+                    {% else %}
+                    <span style="font-size:11px;color:#94a3b8;">—</span>
+                    {% endif %}
+                    {% endwith %}
+                </td>
+
+                <td style="padding:13px 12px;">
+                    <span style="font-size:12px;color:#475569;">
+                        {% if rec.created_by %}
+                            {% if rec.created_by.get_full_name %}{{ rec.created_by.get_full_name }}{% else %}{{ rec.created_by.username }}{% endif %}
+                        {% else %}—{% endif %}
+                    </span>
+                </td>
+
+                <td style="padding:13px 12px;white-space:nowrap;">
+                    <div style="font-size:12px;color:#475569;">{{ rec.created_at|date:"d M Y" }}</div>
+                    <div style="font-size:11px;color:#94a3b8;">{{ rec.created_at|date:"H:i" }}</div>
+                </td>
+
+                <td style="text-align:center;padding:13px 10px;">
+                    <div style="display:flex;gap:5px;justify-content:center;">
+                        <a href="{% url 'ba_export' rec.pk %}"
+                           class="btn btn-sm btn-outline-primary"
+                           style="border-radius:7px;padding:4px 10px;font-size:12px;"
+                           title="Export PDF">
+                            <i class="bi bi-file-earmark-pdf"></i>
+                        </a>
+                        {% if request.user.is_superuser %}
+                        <button type="button"
+                                class="btn btn-sm btn-outline-danger"
+                                style="border-radius:7px;padding:4px 10px;font-size:12px;"
+                                title="Hapus"
+                                onclick="confirmHapus({{ rec.pk }}, '{{ rec.nomor_ba|default:"BA ini" }}')">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="9" class="text-center text-muted py-5">
+                    <i class="bi bi-file-earmark-x fs-2 d-block mb-2"></i>
+                    Belum ada Berita Acara yang dibuat.
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal konfirmasi hapus -->
+<form id="hapus-form" method="post" action="">
+    {% csrf_token %}
+</form>
+<div class="modal fade" id="hapusModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0 pb-0">
+                <h6 class="modal-title fw-bold" style="color:#dc2626;">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>Konfirmasi Hapus
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body pt-2" style="font-size:13px;">
+                Hapus BA <strong id="hapus-nomor"></strong>? Tindakan ini tidak dapat dibatalkan.
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-sm btn-danger" onclick="document.getElementById('hapus-form').submit()">
+                    <i class="bi bi-trash me-1"></i>Hapus
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function confirmHapus(pk, nomor) {
+    document.getElementById('hapus-form').action = `/maintenance/ekspor/${pk}/hapus/`;
+    document.getElementById('hapus-nomor').textContent = nomor;
+    new bootstrap.Modal(document.getElementById('hapusModal')).show();
+}
+</script>
+{% endblock %}

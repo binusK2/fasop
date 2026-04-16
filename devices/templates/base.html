@@ -628,14 +628,19 @@
         <div class="sidebar-section-label">Ekspor Data</div>
         {% with url_name=request.resolver_match.url_name %}
         <button class="sidebar-link sidebar-group-toggle w-100 text-start border-0
-            {% if url_name == 'berita_acara_config' or url_name == 'ba_pemasangan' or url_name == 'ba_pembongkaran' or url_name == 'ba_penggantian' %}active open{% endif %}"
+            {% if url_name == 'berita_acara_config' or url_name == 'ba_pemasangan' or url_name == 'ba_pembongkaran' or url_name == 'ba_penggantian' or url_name == 'ba_list' %}active open{% endif %}"
             data-target="submenu-ekspor" type="button">
             <span class="si-icon"><i class="bi bi-file-earmark-arrow-down"></i></span>
             Berita Acara
             <i class="bi bi-chevron-right sidebar-toggle-btn ms-auto"></i>
         </button>
-        <div class="sidebar-submenu {% if url_name == 'berita_acara_config' or url_name == 'ba_pemasangan' or url_name == 'ba_pembongkaran' or url_name == 'ba_penggantian' %}open{% endif %}"
+        <div class="sidebar-submenu {% if url_name == 'berita_acara_config' or url_name == 'ba_pemasangan' or url_name == 'ba_pembongkaran' or url_name == 'ba_penggantian' or url_name == 'ba_list' %}open{% endif %}"
              id="submenu-ekspor">
+            <a href="{% url 'ba_list' %}"
+               class="sidebar-link {% if url_name == 'ba_list' %}active{% endif %}">
+                <span class="si-icon"><i class="bi bi-list-ul"></i></span>
+                Daftar BA
+            </a>
             <a href="{% url 'berita_acara_config' %}"
                class="sidebar-link {% if url_name == 'berita_acara_config' %}active{% endif %}">
                 <span class="si-icon"><i class="bi bi-file-earmark-bar-graph"></i></span>
