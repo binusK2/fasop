@@ -171,6 +171,8 @@ DEVICE_SCHEMA = {
     ],
 
     "Workstation PC": [
+        {"key": "core",             "label": "Core / Divisi",        "type": "select",
+         "options": ["Telekomunikasi", "SCADA", "PROSIS", "Umum"]},
         {"key": "os",               "label": "Sistem Operasi",       "type": "select",
          "options": ["Windows 10", "Windows 11", "Windows Server 2019",
                      "Windows Server 2022", "Linux Ubuntu", "Linux CentOS", "Linux RHEL"]},
