@@ -3032,9 +3032,15 @@ def ba_pemasangan(request):
         tahun, hari, bulan_tahun, fname_base = _ba_extra_ctx(tanggal, nomor_input)
         nomor_ba = f'{nomor_input}.BA/FASOP/UP2BS-MKS/{tahun}' if nomor_input else ''
         import base64 as _b64
+        eviden_files    = request.FILES.getlist('eviden')
+        eviden_captions = request.POST.getlist('eviden_catatan')
         eviden_list = [
-            {'b64': _b64.b64encode(f.read()).decode(), 'mime': f.content_type or 'image/jpeg'}
-            for f in request.FILES.getlist('eviden')
+            {
+                'b64':     _b64.b64encode(f.read()).decode(),
+                'mime':    f.content_type or 'image/jpeg',
+                'catatan': eviden_captions[i] if i < len(eviden_captions) else '',
+            }
+            for i, f in enumerate(eviden_files)
         ]
         ctx = {
             'logo_b64':          _load_logo_b64(),
@@ -3094,9 +3100,15 @@ def ba_pembongkaran(request):
         tahun, hari, bulan_tahun, fname_base = _ba_extra_ctx(tanggal, nomor_input)
         nomor_ba = f'{nomor_input}.BA/FASOP/UP2BS-MKS/{tahun}' if nomor_input else ''
         import base64 as _b64
+        eviden_files    = request.FILES.getlist('eviden')
+        eviden_captions = request.POST.getlist('eviden_catatan')
         eviden_list = [
-            {'b64': _b64.b64encode(f.read()).decode(), 'mime': f.content_type or 'image/jpeg'}
-            for f in request.FILES.getlist('eviden')
+            {
+                'b64':     _b64.b64encode(f.read()).decode(),
+                'mime':    f.content_type or 'image/jpeg',
+                'catatan': eviden_captions[i] if i < len(eviden_captions) else '',
+            }
+            for i, f in enumerate(eviden_files)
         ]
         ctx = {
             'logo_b64':          _load_logo_b64(),
@@ -3158,9 +3170,15 @@ def ba_penggantian(request):
         tahun, hari, bulan_tahun, fname_base = _ba_extra_ctx(tanggal, nomor_input)
         nomor_ba = f'{nomor_input}.BA/FASOP/UP2BS-MKS/{tahun}' if nomor_input else ''
         import base64 as _b64
+        eviden_files    = request.FILES.getlist('eviden')
+        eviden_captions = request.POST.getlist('eviden_catatan')
         eviden_list = [
-            {'b64': _b64.b64encode(f.read()).decode(), 'mime': f.content_type or 'image/jpeg'}
-            for f in request.FILES.getlist('eviden')
+            {
+                'b64':     _b64.b64encode(f.read()).decode(),
+                'mime':    f.content_type or 'image/jpeg',
+                'catatan': eviden_captions[i] if i < len(eviden_captions) else '',
+            }
+            for i, f in enumerate(eviden_files)
         ]
         ctx = {
             'logo_b64':          _load_logo_b64(),
