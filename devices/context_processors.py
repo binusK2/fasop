@@ -19,6 +19,7 @@ DEVICE_GROUP_CONFIG = {
         'color': '#10b981',
         'types': [
             'rtu', 'sas', 'ups', 'server scada', 'vm scada', 'ied bcu', 'clock server', 'serial server', 'router sas', 'switch sas', 'inverter sas',
+            'pheriperal scada', 'peripheral scada',
         ],
     },
     'prosis': {
@@ -37,6 +38,7 @@ DEVICE_TYPE_ORDER_IN_GROUP = [
     "PLC", "TELEPROTEKSI", "ROIP", "SERVER TELKOM", "MASTER CLOCK", "HT", "PHERIPERAL TELKOM", "PERIPHERAL TELKOM",
     "RTU", "SAS", "SERVER SCADA", "VM SCADA", "UPS",
     "IED BCU", "CLOCK SERVER", "SERIAL SERVER", "ROUTER SAS", "SWITCH SAS", "INVERTER SAS",
+    "PHERIPERAL SCADA", "PERIPHERAL SCADA",
 
     "RELE DEFENSE SCHEME", "MASTER TRIP", "UFLS", "DFR", "SERVER PROSIS", 
     "Catu Daya", "Workstation PC", "GPS", "GENSET",

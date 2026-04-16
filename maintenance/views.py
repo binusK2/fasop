@@ -996,13 +996,23 @@ BA_GRUP_MAP = {
     ],
 }
 
-def _ba_hitung(jenis_list, year, bulan):
-    """Hitung rekap satu grup peralatan untuk Berita Acara."""
-    devs     = Device.objects.filter(is_deleted=False, jenis__name__in=jenis_list)
-    total    = devs.count()
-    normal   = devs.filter(status_operasi='operasi').count()
-    tdk_nrm  = devs.exclude(status_operasi='operasi').exclude(
-                    status_operasi__isnull=True).exclude(status_operasi='').count()
+def _ba_hitung(jenis_list, year, bulan, core_label=None):
+    """Hitung rekap satu grup peralatan untuk Berita Acara.
+    core_label: jika diisi, Workstation PC dengan spesifikasi.core=core_label
+    akan ikut dihitung dalam grup ini.
+    """
+    devs = Device.objects.filter(is_deleted=False, jenis__name__in=jenis_list)
+    if core_label:
+        ws_qs = Device.objects.filter(
+            is_deleted=False,
+            jenis__name__iexact='Workstation PC',
+            spesifikasi__core=core_label,
+        )
+        devs = (devs | ws_qs).distinct()
+    total   = devs.count()
+    normal  = devs.filter(status_operasi='operasi').count()
+    tdk_nrm = devs.exclude(status_operasi='operasi').exclude(
+                   status_operasi__isnull=True).exclude(status_operasi='').count()
     sudah_ids = set(Maintenance.objects.filter(
         device__in=devs,
         date__year=year,
@@ -1031,6 +1041,14 @@ def _ba_params(request):
     return year, bulan, sel_telkom, sel_scada, sel_prosis
 
 
+# Map nama grup → nilai spesifikasi.core Workstation PC yang ikut dihitung
+_BA_CORE_LABEL = {
+    'TELEKOMUNIKASI': 'Telekomunikasi',
+    'SCADA':          'SCADA',
+    'PROSIS':         'PROSIS',
+}
+
+
 def _ba_rekap(year, bulan, sel_telkom, sel_scada, sel_prosis):
     """Bangun list rekap [{grup, total, normal, tidak_normal, sudah, belum}]."""
     rekap = []
@@ -1040,7 +1058,8 @@ def _ba_rekap(year, bulan, sel_telkom, sel_scada, sel_prosis):
         ('PROSIS',         sel_prosis),
     ]:
         if jenis_list:
-            data = _ba_hitung(jenis_list, year, bulan)
+            core_label = _BA_CORE_LABEL.get(grup_nama)
+            data = _ba_hitung(jenis_list, year, bulan, core_label=core_label)
             rekap.append({'grup': grup_nama, **data})
     return rekap
 
