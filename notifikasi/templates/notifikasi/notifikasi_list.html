@@ -16,11 +16,18 @@
             {% endif %}
         </div>
     </div>
-    {% if unread_count > 0 %}
-    <button onclick="readAll()" class="btn btn-sm btn-outline-secondary">
-        <i class="bi bi-check2-all me-1"></i>Tandai Semua Dibaca
-    </button>
-    {% endif %}
+    <div class="d-flex gap-2">
+        {% if unread_count > 0 %}
+        <button onclick="readAll()" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-check2-all me-1"></i>Tandai Semua Dibaca
+        </button>
+        {% endif %}
+        <button onclick="deleteRead()" id="btn-delete-read"
+                class="btn btn-sm btn-outline-danger"
+                {% if unread_count > 0 %}disabled title="Baca semua notifikasi dulu sebelum menghapus"{% else %}title="Hapus semua yang sudah dibaca"{% endif %}>
+            <i class="bi bi-trash3 me-1"></i>Hapus Sudah Dibaca
+        </button>
+    </div>
 </div>
 
 {# ── FILTER BAR ── #}
@@ -109,6 +116,12 @@
                         <i class="bi bi-check2"></i>
                     </button>
                     {% endif %}
+                    <button onclick="deleteOne({{ n.id }})"
+                            class="btn btn-sm btn-outline-danger"
+                            style="border-radius:7px;padding:4px 10px;font-size:12px;"
+                            title="Hapus notifikasi">
+                        <i class="bi bi-trash3"></i>
+                    </button>
                 </div>
 
             </div>
@@ -143,7 +156,17 @@ async function readOne(id) {
         el.style.opacity = '0.5';
         el.style.background = '';
         el.querySelector('span[style*="border-radius:50%"]')?.remove();
+        // Hide the mark-read button on this card
+        el.querySelector('button[title="Tandai dibaca"]')?.remove();
         updateBadge(data.unread_count);
+        // Enable bulk delete once all are read
+        if (data.unread_count === 0) {
+            const btnDel = document.getElementById('btn-delete-read');
+            if (btnDel) {
+                btnDel.disabled = false;
+                btnDel.setAttribute('title', 'Hapus semua yang sudah dibaca');
+            }
+        }
         setTimeout(() => { el.style.opacity = '1'; }, 400);
     }
 }
@@ -156,6 +179,46 @@ async function readAll() {
     const data = await res.json();
     if (data.ok) {
         updateBadge(0);
+        location.reload();
+    }
+}
+
+async function deleteOne(id) {
+    if (!confirm('Hapus notifikasi ini?')) return;
+    const res = await fetch(`/notifikasi/${id}/delete/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': getCsrf() }
+    });
+    const data = await res.json();
+    if (data.ok) {
+        const el = document.getElementById(`notif-${id}`);
+        el.style.transition = 'opacity 0.3s, max-height 0.3s';
+        el.style.opacity = '0';
+        el.style.overflow = 'hidden';
+        setTimeout(() => {
+            el.remove();
+            updateBadge(data.unread_count);
+            // Enable/disable bulk delete button
+            const btnDel = document.getElementById('btn-delete-read');
+            if (btnDel && data.unread_count === 0) {
+                btnDel.disabled = false;
+                btnDel.removeAttribute('title');
+                btnDel.setAttribute('title', 'Hapus semua yang sudah dibaca');
+            }
+        }, 300);
+    }
+}
+
+async function deleteRead() {
+    const btnDel = document.getElementById('btn-delete-read');
+    if (btnDel && btnDel.disabled) return;
+    if (!confirm('Hapus semua notifikasi yang sudah dibaca?')) return;
+    const res = await fetch(`{% url 'notifikasi_delete_read' %}`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': getCsrf() }
+    });
+    const data = await res.json();
+    if (data.ok) {
         location.reload();
     }
 }

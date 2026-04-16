@@ -66,6 +66,40 @@ def notifikasi_count(request):
     return JsonResponse({'unread_count': count})
 
 
+@login_required
+def notifikasi_delete(request, pk):
+    """Hapus satu notifikasi (AJAX POST)."""
+    from django.db.models import Q
+    if request.method == 'POST':
+        notif = get_object_or_404(
+            Notifikasi, pk=pk,
+        )
+        # Only allow deleting own or global notifications
+        if notif.user is not None and notif.user != request.user:
+            return JsonResponse({'ok': False, 'error': 'Forbidden'}, status=403)
+        notif.delete()
+        from django.db.models import Q
+        unread_count = Notifikasi.objects.filter(
+            Q(user=request.user) | Q(user__isnull=True),
+            is_read=False
+        ).count()
+        return JsonResponse({'ok': True, 'deleted_id': pk, 'unread_count': unread_count})
+    return JsonResponse({'ok': False}, status=405)
+
+
+@login_required
+def notifikasi_delete_read(request):
+    """Hapus semua notifikasi yang sudah dibaca (AJAX POST)."""
+    from django.db.models import Q
+    if request.method == 'POST':
+        deleted_count, _ = Notifikasi.objects.filter(
+            Q(user=request.user) | Q(user__isnull=True),
+            is_read=True
+        ).delete()
+        return JsonResponse({'ok': True, 'deleted_count': deleted_count})
+    return JsonResponse({'ok': False}, status=405)
+
+
 # ── Helper: kirim notif ke semua AM ──────────────────────────────────────────
 def notif_ke_am(tipe, judul, pesan, level='info', url='', device=None):
     """
