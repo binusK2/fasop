@@ -3031,6 +3031,11 @@ def ba_pemasangan(request):
 
         tahun, hari, bulan_tahun, fname_base = _ba_extra_ctx(tanggal, nomor_input)
         nomor_ba = f'{nomor_input}.BA/FASOP/UP2BS-MKS/{tahun}' if nomor_input else ''
+        import base64 as _b64
+        eviden_list = [
+            {'b64': _b64.b64encode(f.read()).decode(), 'mime': f.content_type or 'image/jpeg'}
+            for f in request.FILES.getlist('eviden')
+        ]
         ctx = {
             'logo_b64':          _load_logo_b64(),
             'nomor_ba':          nomor_ba,
@@ -3042,6 +3047,7 @@ def ba_pemasangan(request):
             'jabatan':           jabatan,
             'catatan':           catatan,
             'rows':              rows,
+            'eviden_list':       eviden_list,
         }
         return _render_ba_pdf('maintenance/pdf/ba_pemasangan.html', ctx, f'{fname_base}.pdf')
 
@@ -3087,6 +3093,11 @@ def ba_pembongkaran(request):
 
         tahun, hari, bulan_tahun, fname_base = _ba_extra_ctx(tanggal, nomor_input)
         nomor_ba = f'{nomor_input}.BA/FASOP/UP2BS-MKS/{tahun}' if nomor_input else ''
+        import base64 as _b64
+        eviden_list = [
+            {'b64': _b64.b64encode(f.read()).decode(), 'mime': f.content_type or 'image/jpeg'}
+            for f in request.FILES.getlist('eviden')
+        ]
         ctx = {
             'logo_b64':          _load_logo_b64(),
             'nomor_ba':          nomor_ba,
@@ -3098,6 +3109,7 @@ def ba_pembongkaran(request):
             'jabatan':           jabatan,
             'catatan':           catatan,
             'rows':              rows,
+            'eviden_list':       eviden_list,
         }
         return _render_ba_pdf('maintenance/pdf/ba_pembongkaran.html', ctx, f'{fname_base}.pdf')
 
@@ -3145,6 +3157,11 @@ def ba_penggantian(request):
 
         tahun, hari, bulan_tahun, fname_base = _ba_extra_ctx(tanggal, nomor_input)
         nomor_ba = f'{nomor_input}.BA/FASOP/UP2BS-MKS/{tahun}' if nomor_input else ''
+        import base64 as _b64
+        eviden_list = [
+            {'b64': _b64.b64encode(f.read()).decode(), 'mime': f.content_type or 'image/jpeg'}
+            for f in request.FILES.getlist('eviden')
+        ]
         ctx = {
             'logo_b64':          _load_logo_b64(),
             'nomor_ba':          nomor_ba,
@@ -3156,6 +3173,7 @@ def ba_penggantian(request):
             'jabatan':           jabatan,
             'catatan':           catatan,
             'rows':              rows,
+            'eviden_list':       eviden_list,
         }
         return _render_ba_pdf('maintenance/pdf/ba_penggantian.html', ctx, f'{fname_base}.pdf')
 

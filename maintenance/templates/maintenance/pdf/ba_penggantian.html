@@ -188,5 +188,17 @@ body {
 <!-- FOOTER -->
 <p class="kop-footer">UP2B/FML/04-1014</p>
 
+{% if eviden_list %}
+<!-- HALAMAN 2: EVIDEN -->
+<div style="page-break-before:always;"></div>
+<h2 style="text-align:center;font-size:16pt;font-weight:bold;letter-spacing:2pt;margin:10mm 0 8mm;">EVIDEN</h2>
+<div style="display:flex;flex-wrap:wrap;gap:6mm;justify-content:center;">
+  {% for ev in eviden_list %}
+  <img src="data:{{ ev.mime }};base64,{{ ev.b64 }}"
+       style="max-width:82mm;max-height:100mm;object-fit:contain;border:0.5pt solid #ccc;border-radius:2pt;">
+  {% endfor %}
+</div>
+{% endif %}
+
 </body>
 </html>
