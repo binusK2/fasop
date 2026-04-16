@@ -2854,3 +2854,212 @@ def offline_form_upload(request):
     """Placeholder — upload hasil form offline."""
     from django.http import HttpResponse
     return HttpResponse("Fitur offline form upload belum tersedia.", status=501)
+
+
+# ─────────────────────────────────────────────────────────────────────
+# EKSPOR DATA — BERITA ACARA (Pemasangan / Pembongkaran / Penggantian)
+# ─────────────────────────────────────────────────────────────────────
+
+_BULAN_ID_FULL = [
+    'Januari','Februari','Maret','April','Mei','Juni',
+    'Juli','Agustus','September','Oktober','November','Desember',
+]
+
+def _load_logo_b64():
+    import os, base64
+    from django.conf import settings
+    logo_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'pln_logo_conv.png')
+    if os.path.exists(logo_path):
+        with open(logo_path, 'rb') as f:
+            return base64.b64encode(f.read()).decode()
+    return ''
+
+
+def _render_ba_pdf(template_name, ctx, filename):
+    from django.template.loader import render_to_string
+    try:
+        import weasyprint
+        html = render_to_string(template_name, ctx)
+        pdf  = weasyprint.HTML(string=html).write_pdf()
+        resp = HttpResponse(pdf, content_type='application/pdf')
+        resp['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return resp
+    except ImportError:
+        return HttpResponse('WeasyPrint tidak tersedia di server ini.', status=500)
+
+
+def _format_tanggal(tanggal_str):
+    """Convert '2026-04-15' → '15 April 2026' (locale-independent)."""
+    try:
+        from datetime import datetime
+        d = datetime.strptime(tanggal_str, '%Y-%m-%d')
+        return f'{d.day} {_BULAN_ID_FULL[d.month - 1]} {d.year}'
+    except (ValueError, IndexError):
+        return tanggal_str
+
+
+def _ba_device_context():
+    """Shared GET context: full device list + filter options."""
+    devices = Device.objects.filter(
+        is_deleted=False
+    ).select_related('jenis').order_by('jenis__name', 'nama')
+
+    jenis_list = list(
+        DeviceType.objects.values_list('name', flat=True).order_by('name')
+    )
+    lokasi_list = list(
+        Device.objects.filter(is_deleted=False)
+        .exclude(lokasi='').values_list('lokasi', flat=True)
+        .distinct().order_by('lokasi')
+    )
+    return devices, jenis_list, lokasi_list
+
+
+@login_required
+def ba_pemasangan(request):
+    devices, jenis_list, lokasi_list = _ba_device_context()
+
+    if request.method == 'POST':
+        nomor_ba        = request.POST.get('nomor_ba', '').strip()
+        tanggal         = request.POST.get('tanggal', '').strip()
+        pelaksana       = request.POST.get('pelaksana', '').strip()
+        catatan         = request.POST.get('catatan', '').strip()
+        device_ids      = request.POST.getlist('device_ids[]')
+        lokasi_tujuan   = request.POST.getlist('lokasi_tujuan[]')
+        keterangan_list = request.POST.getlist('keterangan[]')
+
+        dev_map = {
+            str(d.pk): d
+            for d in Device.objects.select_related('jenis').filter(pk__in=device_ids)
+        }
+        rows = []
+        for i, did in enumerate(device_ids):
+            dev = dev_map.get(did)
+            if not dev:
+                continue
+            rows.append({
+                'no':            i + 1,
+                'nama':          dev.nama,
+                'jenis':         dev.jenis.name if dev.jenis else '-',
+                'serial_number': dev.serial_number or '-',
+                'lokasi_tujuan': lokasi_tujuan[i] if i < len(lokasi_tujuan) else (dev.lokasi or '-'),
+                'keterangan':    keterangan_list[i] if i < len(keterangan_list) else '',
+            })
+
+        ctx = {
+            'logo_b64':        _load_logo_b64(),
+            'nomor_ba':        nomor_ba,
+            'tanggal_display': _format_tanggal(tanggal),
+            'pelaksana':       pelaksana,
+            'catatan':         catatan,
+            'rows':            rows,
+        }
+        fname = f'BA_Pemasangan_{nomor_ba or tanggal or "export"}.pdf'
+        return _render_ba_pdf('maintenance/pdf/ba_pemasangan.html', ctx, fname)
+
+    return render(request, 'maintenance/ba_pemasangan.html', {
+        'devices':     devices,
+        'jenis_list':  jenis_list,
+        'lokasi_list': lokasi_list,
+        'today':       date.today().isoformat(),
+    })
+
+
+@login_required
+def ba_pembongkaran(request):
+    devices, jenis_list, lokasi_list = _ba_device_context()
+
+    if request.method == 'POST':
+        nomor_ba        = request.POST.get('nomor_ba', '').strip()
+        tanggal         = request.POST.get('tanggal', '').strip()
+        pelaksana       = request.POST.get('pelaksana', '').strip()
+        catatan         = request.POST.get('catatan', '').strip()
+        device_ids      = request.POST.getlist('device_ids[]')
+        keterangan_list = request.POST.getlist('keterangan[]')
+
+        dev_map = {
+            str(d.pk): d
+            for d in Device.objects.select_related('jenis').filter(pk__in=device_ids)
+        }
+        rows = []
+        for i, did in enumerate(device_ids):
+            dev = dev_map.get(did)
+            if not dev:
+                continue
+            rows.append({
+                'no':            i + 1,
+                'nama':          dev.nama,
+                'jenis':         dev.jenis.name if dev.jenis else '-',
+                'serial_number': dev.serial_number or '-',
+                'lokasi_asal':   dev.lokasi or '-',
+                'keterangan':    keterangan_list[i] if i < len(keterangan_list) else '',
+            })
+
+        ctx = {
+            'logo_b64':        _load_logo_b64(),
+            'nomor_ba':        nomor_ba,
+            'tanggal_display': _format_tanggal(tanggal),
+            'pelaksana':       pelaksana,
+            'catatan':         catatan,
+            'rows':            rows,
+        }
+        fname = f'BA_Pembongkaran_{nomor_ba or tanggal or "export"}.pdf'
+        return _render_ba_pdf('maintenance/pdf/ba_pembongkaran.html', ctx, fname)
+
+    return render(request, 'maintenance/ba_pembongkaran.html', {
+        'devices':     devices,
+        'jenis_list':  jenis_list,
+        'lokasi_list': lokasi_list,
+        'today':       date.today().isoformat(),
+    })
+
+
+@login_required
+def ba_penggantian(request):
+    devices, jenis_list, lokasi_list = _ba_device_context()
+
+    if request.method == 'POST':
+        nomor_ba       = request.POST.get('nomor_ba', '').strip()
+        tanggal        = request.POST.get('tanggal', '').strip()
+        pelaksana      = request.POST.get('pelaksana', '').strip()
+        catatan        = request.POST.get('catatan', '').strip()
+        device_ids     = request.POST.getlist('device_ids[]')
+        komponen_lama  = request.POST.getlist('komponen_lama[]')
+        komponen_baru  = request.POST.getlist('komponen_baru[]')
+        keterangan_list = request.POST.getlist('keterangan[]')
+
+        dev_map = {
+            str(d.pk): d
+            for d in Device.objects.select_related('jenis').filter(pk__in=device_ids)
+        }
+        rows = []
+        for i, did in enumerate(device_ids):
+            dev = dev_map.get(did)
+            if not dev:
+                continue
+            rows.append({
+                'no':            i + 1,
+                'nama':          dev.nama,
+                'jenis':         dev.jenis.name if dev.jenis else '-',
+                'komponen_lama': komponen_lama[i] if i < len(komponen_lama) else '',
+                'komponen_baru': komponen_baru[i] if i < len(komponen_baru) else '',
+                'keterangan':    keterangan_list[i] if i < len(keterangan_list) else '',
+            })
+
+        ctx = {
+            'logo_b64':        _load_logo_b64(),
+            'nomor_ba':        nomor_ba,
+            'tanggal_display': _format_tanggal(tanggal),
+            'pelaksana':       pelaksana,
+            'catatan':         catatan,
+            'rows':            rows,
+        }
+        fname = f'BA_Penggantian_{nomor_ba or tanggal or "export"}.pdf'
+        return _render_ba_pdf('maintenance/pdf/ba_penggantian.html', ctx, fname)
+
+    return render(request, 'maintenance/ba_penggantian.html', {
+        'devices':     devices,
+        'jenis_list':  jenis_list,
+        'lokasi_list': lokasi_list,
+        'today':       date.today().isoformat(),
+    })

@@ -34,4 +34,9 @@ urlpatterns = [
     # Offline Form (download template & upload)
     path('offline/download/', views.offline_form_download, name='offline_form_download'),
     path('offline/upload/',   views.offline_form_upload,   name='offline_form_upload'),
+
+    # Ekspor Data — Berita Acara
+    path('ekspor/pemasangan/',   views.ba_pemasangan,   name='ba_pemasangan'),
+    path('ekspor/pembongkaran/', views.ba_pembongkaran, name='ba_pembongkaran'),
+    path('ekspor/penggantian/',  views.ba_penggantian,  name='ba_penggantian'),
 ]
