@@ -1955,16 +1955,17 @@ def maintenance_approval(request):
 
     tab = request.GET.get('tab', 'pending')
 
-    # ── Filter terkunci per peralatan (jenis) ──────────────────
-    # Reset filter jika user klik tombol reset
+    # ── Filter terkunci per peralatan (jenis) & lokasi ─────────
+    # Reset semua filter
     if 'reset_filter' in request.GET:
         request.session.pop('approval_jenis_id', None)
+        request.session.pop('approval_lokasi', None)
         params = request.GET.copy()
         params.pop('reset_filter', None)
         qs = params.urlencode()
         return redirect(f"{request.path}?{qs}" if qs else request.path)
 
-    # Simpan filter baru ke session jika user memilih
+    # Simpan filter jenis ke session
     if 'jenis_id' in request.GET:
         val = request.GET.get('jenis_id', '').strip()
         if val:
@@ -1972,9 +1973,28 @@ def maintenance_approval(request):
         else:
             request.session.pop('approval_jenis_id', None)
 
+    # Simpan filter lokasi ke session
+    if 'lokasi' in request.GET:
+        val = request.GET.get('lokasi', '').strip()
+        if val:
+            request.session['approval_lokasi'] = val
+        else:
+            request.session.pop('approval_lokasi', None)
+
     selected_jenis_id = request.session.get('approval_jenis_id', '')
+    selected_lokasi   = request.session.get('approval_lokasi', '')
 
     jenis_list = DeviceType.objects.all().order_by('name')
+
+    lokasi_list = (
+        Device.objects
+        .filter(is_deleted=False)
+        .exclude(lokasi__isnull=True)
+        .exclude(lokasi='')
+        .annotate(lokasi_clean=Trim('lokasi'))
+        .values_list('lokasi_clean', flat=True)
+        .distinct().order_by('lokasi_clean')
+    )
 
     pending_qs = (
         Maintenance.objects
@@ -1994,6 +2014,10 @@ def maintenance_approval(request):
         pending_qs  = pending_qs.filter(device__jenis_id=selected_jenis_id)
         approved_qs = approved_qs.filter(device__jenis_id=selected_jenis_id)
 
+    if selected_lokasi:
+        pending_qs  = pending_qs.filter(device__lokasi__iexact=selected_lokasi)
+        approved_qs = approved_qs.filter(device__lokasi__iexact=selected_lokasi)
+
     selected_jenis_obj = None
     if selected_jenis_id:
         try:
@@ -2007,8 +2031,10 @@ def maintenance_approval(request):
         'approved_list':      approved_qs,
         'tab':                tab,
         'jenis_list':         jenis_list,
+        'lokasi_list':        lokasi_list,
         'selected_jenis_id':  selected_jenis_id,
         'selected_jenis_obj': selected_jenis_obj,
+        'selected_lokasi':    selected_lokasi,
     })
 
 
@@ -2975,7 +3001,7 @@ def ba_pemasangan(request):
     devices, jenis_list, lokasi_list = _ba_device_context()
 
     if request.method == 'POST':
-        nomor_ba        = request.POST.get('nomor_ba', '').strip()
+        nomor_input     = request.POST.get('nomor_ba', '').strip()
         tanggal         = request.POST.get('tanggal', '').strip()
         pelaksana       = request.POST.get('pelaksana', '').strip()
         nip             = request.POST.get('nip', '').strip()
@@ -3003,7 +3029,13 @@ def ba_pemasangan(request):
                 'keterangan':    keterangan_list[i] if i < len(keterangan_list) else '',
             })
 
-        tahun, hari, bulan_tahun, fname_base = _ba_extra_ctx(tanggal, nomor_ba)
+        tahun, hari, bulan_tahun, fname_base = _ba_extra_ctx(tanggal, nomor_input)
+        nomor_ba = f'{nomor_input}.BA/FASOP/UP2BS-MKS/{tahun}' if nomor_input else ''
+        import base64 as _b64
+        eviden_list = [
+            {'b64': _b64.b64encode(f.read()).decode(), 'mime': f.content_type or 'image/jpeg'}
+            for f in request.FILES.getlist('eviden')
+        ]
         ctx = {
             'logo_b64':          _load_logo_b64(),
             'nomor_ba':          nomor_ba,
@@ -3015,6 +3047,7 @@ def ba_pemasangan(request):
             'jabatan':           jabatan,
             'catatan':           catatan,
             'rows':              rows,
+            'eviden_list':       eviden_list,
         }
         return _render_ba_pdf('maintenance/pdf/ba_pemasangan.html', ctx, f'{fname_base}.pdf')
 
@@ -3031,7 +3064,7 @@ def ba_pembongkaran(request):
     devices, jenis_list, lokasi_list = _ba_device_context()
 
     if request.method == 'POST':
-        nomor_ba        = request.POST.get('nomor_ba', '').strip()
+        nomor_input     = request.POST.get('nomor_ba', '').strip()
         tanggal         = request.POST.get('tanggal', '').strip()
         pelaksana       = request.POST.get('pelaksana', '').strip()
         nip             = request.POST.get('nip', '').strip()
@@ -3058,7 +3091,13 @@ def ba_pembongkaran(request):
                 'keterangan':    keterangan_list[i] if i < len(keterangan_list) else '',
             })
 
-        tahun, hari, bulan_tahun, fname_base = _ba_extra_ctx(tanggal, nomor_ba)
+        tahun, hari, bulan_tahun, fname_base = _ba_extra_ctx(tanggal, nomor_input)
+        nomor_ba = f'{nomor_input}.BA/FASOP/UP2BS-MKS/{tahun}' if nomor_input else ''
+        import base64 as _b64
+        eviden_list = [
+            {'b64': _b64.b64encode(f.read()).decode(), 'mime': f.content_type or 'image/jpeg'}
+            for f in request.FILES.getlist('eviden')
+        ]
         ctx = {
             'logo_b64':          _load_logo_b64(),
             'nomor_ba':          nomor_ba,
@@ -3070,6 +3109,7 @@ def ba_pembongkaran(request):
             'jabatan':           jabatan,
             'catatan':           catatan,
             'rows':              rows,
+            'eviden_list':       eviden_list,
         }
         return _render_ba_pdf('maintenance/pdf/ba_pembongkaran.html', ctx, f'{fname_base}.pdf')
 
@@ -3086,7 +3126,7 @@ def ba_penggantian(request):
     devices, jenis_list, lokasi_list = _ba_device_context()
 
     if request.method == 'POST':
-        nomor_ba        = request.POST.get('nomor_ba', '').strip()
+        nomor_input     = request.POST.get('nomor_ba', '').strip()
         tanggal         = request.POST.get('tanggal', '').strip()
         pelaksana       = request.POST.get('pelaksana', '').strip()
         nip             = request.POST.get('nip', '').strip()
@@ -3115,7 +3155,13 @@ def ba_penggantian(request):
                 'keterangan':    keterangan_list[i] if i < len(keterangan_list) else '',
             })
 
-        tahun, hari, bulan_tahun, fname_base = _ba_extra_ctx(tanggal, nomor_ba)
+        tahun, hari, bulan_tahun, fname_base = _ba_extra_ctx(tanggal, nomor_input)
+        nomor_ba = f'{nomor_input}.BA/FASOP/UP2BS-MKS/{tahun}' if nomor_input else ''
+        import base64 as _b64
+        eviden_list = [
+            {'b64': _b64.b64encode(f.read()).decode(), 'mime': f.content_type or 'image/jpeg'}
+            for f in request.FILES.getlist('eviden')
+        ]
         ctx = {
             'logo_b64':          _load_logo_b64(),
             'nomor_ba':          nomor_ba,
@@ -3127,6 +3173,7 @@ def ba_penggantian(request):
             'jabatan':           jabatan,
             'catatan':           catatan,
             'rows':              rows,
+            'eviden_list':       eviden_list,
         }
         return _render_ba_pdf('maintenance/pdf/ba_penggantian.html', ctx, f'{fname_base}.pdf')
 
