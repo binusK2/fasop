@@ -3001,7 +3001,7 @@ def ba_pemasangan(request):
     devices, jenis_list, lokasi_list = _ba_device_context()
 
     if request.method == 'POST':
-        nomor_ba        = request.POST.get('nomor_ba', '').strip()
+        nomor_input     = request.POST.get('nomor_ba', '').strip()
         tanggal         = request.POST.get('tanggal', '').strip()
         pelaksana       = request.POST.get('pelaksana', '').strip()
         nip             = request.POST.get('nip', '').strip()
@@ -3029,7 +3029,8 @@ def ba_pemasangan(request):
                 'keterangan':    keterangan_list[i] if i < len(keterangan_list) else '',
             })
 
-        tahun, hari, bulan_tahun, fname_base = _ba_extra_ctx(tanggal, nomor_ba)
+        tahun, hari, bulan_tahun, fname_base = _ba_extra_ctx(tanggal, nomor_input)
+        nomor_ba = f'{nomor_input}.BA/FASOP/UP2BS-MKS/{tahun}' if nomor_input else ''
         ctx = {
             'logo_b64':          _load_logo_b64(),
             'nomor_ba':          nomor_ba,
@@ -3057,7 +3058,7 @@ def ba_pembongkaran(request):
     devices, jenis_list, lokasi_list = _ba_device_context()
 
     if request.method == 'POST':
-        nomor_ba        = request.POST.get('nomor_ba', '').strip()
+        nomor_input     = request.POST.get('nomor_ba', '').strip()
         tanggal         = request.POST.get('tanggal', '').strip()
         pelaksana       = request.POST.get('pelaksana', '').strip()
         nip             = request.POST.get('nip', '').strip()
@@ -3084,7 +3085,8 @@ def ba_pembongkaran(request):
                 'keterangan':    keterangan_list[i] if i < len(keterangan_list) else '',
             })
 
-        tahun, hari, bulan_tahun, fname_base = _ba_extra_ctx(tanggal, nomor_ba)
+        tahun, hari, bulan_tahun, fname_base = _ba_extra_ctx(tanggal, nomor_input)
+        nomor_ba = f'{nomor_input}.BA/FASOP/UP2BS-MKS/{tahun}' if nomor_input else ''
         ctx = {
             'logo_b64':          _load_logo_b64(),
             'nomor_ba':          nomor_ba,
@@ -3112,7 +3114,7 @@ def ba_penggantian(request):
     devices, jenis_list, lokasi_list = _ba_device_context()
 
     if request.method == 'POST':
-        nomor_ba        = request.POST.get('nomor_ba', '').strip()
+        nomor_input     = request.POST.get('nomor_ba', '').strip()
         tanggal         = request.POST.get('tanggal', '').strip()
         pelaksana       = request.POST.get('pelaksana', '').strip()
         nip             = request.POST.get('nip', '').strip()
@@ -3141,7 +3143,8 @@ def ba_penggantian(request):
                 'keterangan':    keterangan_list[i] if i < len(keterangan_list) else '',
             })
 
-        tahun, hari, bulan_tahun, fname_base = _ba_extra_ctx(tanggal, nomor_ba)
+        tahun, hari, bulan_tahun, fname_base = _ba_extra_ctx(tanggal, nomor_input)
+        nomor_ba = f'{nomor_input}.BA/FASOP/UP2BS-MKS/{tahun}' if nomor_input else ''
         ctx = {
             'logo_b64':          _load_logo_b64(),
             'nomor_ba':          nomor_ba,
