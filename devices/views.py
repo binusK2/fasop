@@ -284,6 +284,70 @@ def dashboard(request):
         _status_map[jenis][row['status_operasi']] = row['total']
     device_status_by_type_json = _json.dumps(_status_map)
 
+    # ── Distribusi peralatan per kelompok (Telkom / SCADA / Prosis) ─
+    _KELOMPOK_CFG = [
+        {
+            'key': 'telkom', 'label': 'Telekomunikasi',
+            'icon': 'bi-broadcast-pin', 'color': '#3b82f6', 'bg': '#eff6ff',
+            'types': {
+                'router', 'switch', 'teleproteksi', 'roip', 'voip',
+                'multiplexer', 'plc', 'radio', 'server telkom',
+                'master clock', 'ht', 'pheriperal telkom', 'peripheral telkom',
+            },
+        },
+        {
+            'key': 'scada', 'label': 'SCADA',
+            'icon': 'bi-diagram-3', 'color': '#10b981', 'bg': '#f0fdf4',
+            'types': {
+                'rtu', 'sas', 'ups', 'server scada', 'vm scada', 'ied bcu',
+                'clock server', 'serial server', 'router sas', 'switch sas',
+                'inverter sas', 'pheriperal scada', 'peripheral scada',
+            },
+        },
+        {
+            'key': 'prosis', 'label': 'Proteksi Sistem',
+            'icon': 'bi-shield-check', 'color': '#f59e0b', 'bg': '#fffbeb',
+            'types': {
+                'defense scheme', 'rele defense scheme', 'dfr',
+                'master trip', 'ufls', 'server prosis',
+            },
+        },
+    ]
+    _maintained_ids = set(
+        Maintenance.objects.filter(status='Done').values_list('device_id', flat=True)
+    )
+    _type_agg = {}
+    for _dev in _asset_qs.select_related('jenis'):
+        _jname = (_dev.jenis.name if _dev.jenis else 'Lainnya').strip()
+        if _jname not in _type_agg:
+            _type_agg[_jname] = {'total': 0, 'maintained': 0}
+        _type_agg[_jname]['total'] += 1
+        if _dev.id in _maintained_ids:
+            _type_agg[_jname]['maintained'] += 1
+
+    kelompok_data = []
+    for _kg in _KELOMPOK_CFG:
+        _entries = []
+        for _jname, _st in _type_agg.items():
+            if _jname.lower().strip() in _kg['types']:
+                _entries.append({
+                    'name': _jname,
+                    'total': _st['total'],
+                    'maintained': _st['maintained'],
+                })
+        _entries.sort(key=lambda x: -x['total'])
+        kelompok_data.append({
+            'key':        _kg['key'],
+            'label':      _kg['label'],
+            'icon':       _kg['icon'],
+            'color':      _kg['color'],
+            'bg':         _kg['bg'],
+            'total':      sum(e['total'] for e in _entries),
+            'maintained': sum(e['maintained'] for e in _entries),
+            'types':      _entries,
+        })
+    kelompok_json = _json.dumps(kelompok_data)
+
     total_maintenance = Maintenance.objects.count()
     maintenance_open = Maintenance.objects.filter(status='Open').count()
     maintenance_done = Maintenance.objects.filter(status='Done').count()
@@ -489,6 +553,8 @@ def dashboard(request):
         'dev_tdk_operasi':  dev_tdk_operasi,
         'device_by_type':              device_by_type,
         'device_status_by_type_json':  device_status_by_type_json,
+        'kelompok_data':    kelompok_data,
+        'kelompok_json':    kelompok_json,
         'total_maintenance':    total_maintenance,
         'maintenance_open':     maintenance_open,
         'maintenance_done':     maintenance_done,

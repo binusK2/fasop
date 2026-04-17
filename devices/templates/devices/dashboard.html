@@ -142,6 +142,72 @@
 </div>
 
 <!-- ════════════════════════════════════════════════════════════
+     DISTRIBUSI PERALATAN PER KELOMPOK
+═════════════════════════════════════════════════════════════ -->
+<div class="section-title">
+    <i class="bi bi-layers" style="color:#8b5cf6;"></i> Distribusi Peralatan per Kelompok
+</div>
+<div class="row g-4 mb-5">
+    {% for grp in kelompok_data %}
+    <div class="col-12 col-lg-4">
+        <div class="tbl-card h-100" style="display:flex;flex-direction:column;">
+
+            <!-- Group header -->
+            <div class="tbl-head" style="border-left:3px solid {{ grp.color }};">
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <span style="width:34px;height:34px;border-radius:9px;background:{{ grp.bg }};color:{{ grp.color }};display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;">
+                        <i class="bi {{ grp.icon }}"></i>
+                    </span>
+                    <div>
+                        <h6 style="margin:0;font-size:13.5px;">{{ grp.label }}</h6>
+                        <div style="font-size:11px;color:#94a3b8;margin-top:1px;">{{ grp.types|length }} jenis terdaftar</div>
+                    </div>
+                </div>
+                <div style="text-align:right;flex-shrink:0;">
+                    <div style="font-size:24px;font-weight:700;color:{{ grp.color }};line-height:1;font-family:'JetBrains Mono',monospace;">{{ grp.total }}</div>
+                    <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;">Perangkat</div>
+                </div>
+            </div>
+
+            <!-- Progress pemeliharaan -->
+            <div style="padding:10px 18px;border-bottom:1px solid #f1f5f9;background:#fafafa;">
+                <div style="display:flex;justify-content:space-between;align-items:center;font-size:11.5px;margin-bottom:5px;">
+                    <span style="color:#475569;"><i class="bi bi-wrench-adjustable me-1" style="color:#10b981;"></i>Sudah Dipelihara</span>
+                    <span style="font-weight:700;color:#10b981;">
+                        {{ grp.maintained }}&nbsp;/&nbsp;{{ grp.total }}
+                        {% if grp.total %}&nbsp;<span style="color:#94a3b8;font-weight:400;">({% widthratio grp.maintained grp.total 100 %}%)</span>{% endif %}
+                    </span>
+                </div>
+                <div style="height:7px;background:#e2e8f0;border-radius:4px;overflow:hidden;">
+                    {% if grp.total %}
+                    <div style="height:100%;background:linear-gradient(90deg,#10b981,#34d399);border-radius:4px;width:{% widthratio grp.maintained grp.total 100 %}%;transition:width .4s;"></div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Chart -->
+            <div style="padding:14px 16px;flex:1;">
+                {% if grp.types %}
+                <div style="font-size:11px;font-weight:600;color:#64748b;margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px;">
+                    Distribusi per Jenis
+                </div>
+                <div style="position:relative;" id="kelompokWrap_{{ grp.key }}">
+                    <canvas id="kelompokChart_{{ grp.key }}"></canvas>
+                </div>
+                {% else %}
+                <div class="text-center text-muted py-4" style="font-size:12px;">
+                    <i class="bi bi-inbox d-block mb-1" style="font-size:28px;"></i>
+                    Belum ada perangkat
+                </div>
+                {% endif %}
+            </div>
+
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
      BARIS 2 — STAT GANGGUAN
 ═════════════════════════════════════════════════════════════ -->
 <div class="section-title">
@@ -1174,5 +1240,86 @@ if (jenisNames.length > 0) {
     updatePie(jenisNames[0]);
 }
 jenisSelect.addEventListener('change', () => updatePie(jenisSelect.value));
+
+// ── Kelompok peralatan charts ──────────────────────────────
+(function() {
+    const kelompok = {{ kelompok_json|safe }};
+    const GROUP_COLORS = {
+        telkom: { bar: 'rgba(59,130,246,0.75)',  border: '#3b82f6' },
+        scada:  { bar: 'rgba(16,185,129,0.75)', border: '#10b981' },
+        prosis: { bar: 'rgba(245,158,11,0.75)', border: '#f59e0b' },
+    };
+    kelompok.forEach(grp => {
+        const wrap   = document.getElementById('kelompokWrap_' + grp.key);
+        const canvas = document.getElementById('kelompokChart_' + grp.key);
+        if (!canvas || !grp.types.length) return;
+
+        const h = Math.max(grp.types.length * 38 + 50, 120);
+        wrap.style.height = h + 'px';
+
+        const gc = GROUP_COLORS[grp.key] || { bar: 'rgba(99,102,241,.7)', border: '#6366f1' };
+
+        new Chart(canvas, {
+            type: 'bar',
+            data: {
+                labels: grp.types.map(t => t.name),
+                datasets: [
+                    {
+                        label: 'Total Perangkat',
+                        data: grp.types.map(t => t.total),
+                        backgroundColor: gc.bar,
+                        borderColor: gc.border,
+                        borderWidth: 1,
+                        borderRadius: 4,
+                    },
+                    {
+                        label: 'Sudah Dipelihara',
+                        data: grp.types.map(t => t.maintained),
+                        backgroundColor: 'rgba(16,185,129,0.55)',
+                        borderColor: '#10b981',
+                        borderWidth: 1,
+                        borderRadius: 4,
+                    },
+                ],
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: { font: { size: 11 }, boxWidth: 12, padding: 10 },
+                    },
+                    tooltip: {
+                        backgroundColor: '#0f172a',
+                        padding: 10,
+                        cornerRadius: 8,
+                        callbacks: {
+                            label: ctx => {
+                                const t = grp.types[ctx.dataIndex];
+                                if (ctx.datasetIndex === 0) return `  Total: ${t.total} perangkat`;
+                                const pct = t.total > 0 ? Math.round(t.maintained / t.total * 100) : 0;
+                                return `  Dipelihara: ${t.maintained} (${pct}%)`;
+                            }
+                        }
+                    },
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        ticks: { precision: 0, font: { size: 11 } },
+                        grid: { color: '#f1f5f9' },
+                    },
+                    y: {
+                        ticks: { font: { size: 11 } },
+                        grid: { display: false },
+                    },
+                },
+            },
+        });
+    });
+})();
 </script>
 {% endblock %}
