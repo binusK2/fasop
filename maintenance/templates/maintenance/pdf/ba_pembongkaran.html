@@ -132,7 +132,7 @@ body {
   Telah melaksanakan pembongkaran terhadap material dengan rincian sebagai berikut :
 </p>
 
-<table class="tbl-rekap">
+<table class="data-tbl">
     <thead>
         <tr>
             <th style="width:5%;">No</th>
@@ -147,16 +147,16 @@ body {
     <tbody>
         {% for row in rows %}
         <tr>
-            <td class="td-center">{{ row.no }}</td>
+            <td class="td-c">{{ row.no }}</td>
             <td>{{ row.nama }}</td>
             <td>{{ row.komponen|default:"—" }}</td>
             <td>{{ row.jenis }}</td>
-            <td class="td-center">{{ row.serial_number }}</td>
+            <td class="td-c">{{ row.serial_number }}</td>
             <td>{{ row.lokasi_asal }}</td>
             <td>{{ row.keterangan }}</td>
         </tr>
         {% empty %}
-        <tr><td colspan="7" class="td-center">— tidak ada data —</td></tr>
+        <tr><td colspan="7" class="td-c">— tidak ada data —</td></tr>
         {% endfor %}
     </tbody>
 </table>
