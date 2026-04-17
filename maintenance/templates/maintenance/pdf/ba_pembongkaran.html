@@ -172,13 +172,25 @@ body {
 <div class="ttd-wrap">
   <div class="ttd-side">
     <div class="ttd-peran">Pelaksana,</div>
-    <div class="ttd-jabatan">Staf Fasop</div>
+    <div style="font-weight:bold;margin-bottom:3mm;">Staf Fasop</div>
+    <div style="height:20mm;display:flex;align-items:flex-end;justify-content:center;padding-bottom:2mm;">
+      {% if ttd_engineer_sig_b64 %}
+      <img src="data:image/png;base64,{{ ttd_engineer_sig_b64 }}"
+           style="max-height:18mm;max-width:55mm;object-fit:contain;" alt="ttd">
+      {% endif %}
+    </div>
     <div class="ttd-nama">{{ pelaksana }}</div>
   </div>
   <div class="ttd-side">
     <div class="ttd-peran">Mengetahui,</div>
-    <div class="ttd-jabatan">Asisten Manager Fasop</div>
-    <div class="ttd-nama">&nbsp;</div>
+    <div style="font-weight:bold;margin-bottom:3mm;">Asisten Manager Fasop</div>
+    <div style="height:20mm;display:flex;align-items:flex-end;justify-content:center;padding-bottom:2mm;">
+      {% if ttd_am_sig_b64 %}
+      <img src="data:image/png;base64,{{ ttd_am_sig_b64 }}"
+           style="max-height:18mm;max-width:55mm;object-fit:contain;" alt="ttd">
+      {% endif %}
+    </div>
+    <div class="ttd-nama">{{ ttd_am_name|default:"&nbsp;" }}</div>
   </div>
 </div>
 

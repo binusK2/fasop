@@ -2946,6 +2946,39 @@ _BULAN_ID_FULL = [
     'Juli','Agustus','September','Oktober','November','Desember',
 ]
 
+
+def _load_ba_sig_b64(user):
+    """Return base64-encoded signature image for user, or empty string."""
+    if not user:
+        return ''
+    try:
+        import os as _os, base64 as _b
+        path = user.profile.signature.path
+        if path and _os.path.exists(path):
+            with open(path, 'rb') as f:
+                return _b.b64encode(f.read()).decode()
+    except Exception:
+        pass
+    return ''
+
+
+def _ba_ttd_ctx(record):
+    """Build TTD context dict for BA PDF templates."""
+    def _display(u):
+        if not u:
+            return ''
+        try:
+            return u.profile.get_display_name()
+        except Exception:
+            return u.get_full_name() or u.username
+
+    return {
+        'ttd_engineer_name':   _display(record.ttd_engineer),
+        'ttd_engineer_sig_b64': _load_ba_sig_b64(record.ttd_engineer),
+        'ttd_am_name':         _display(record.ttd_am),
+        'ttd_am_sig_b64':      _load_ba_sig_b64(record.ttd_am),
+    }
+
 def _load_logo_b64():
     import os, base64
     from django.conf import settings
@@ -3047,15 +3080,84 @@ def _save_ba_record(jenis, nomor_ba, tanggal_str, pelaksana, nip, jabatan, catat
 
 @login_required
 def ba_list(request):
+    from django.contrib.auth import get_user_model as _get_user_model
     records = (
         BeritaAcaraRecord.objects
-        .select_related('created_by')
+        .select_related('created_by', 'ttd_req_to', 'ttd_engineer', 'ttd_am')
         .prefetch_related('evidens')
         .order_by('-created_at')
     )
+    _User = _get_user_model()
+    engineers = (
+        _User.objects
+        .filter(profile__role='technician')
+        .select_related('profile')
+        .order_by('profile__display_name', 'first_name')
+    )
     return render(request, 'maintenance/ba_list.html', {
-        'records': records,
+        'records':   records,
+        'engineers': engineers,
     })
+
+
+@login_required
+def ba_request_sign(request, pk):
+    from django.contrib import messages as dj_messages
+    from django.contrib.auth import get_user_model as _gum
+    record = get_object_or_404(BeritaAcaraRecord, pk=pk)
+    if not (request.user.is_superuser or record.created_by == request.user):
+        dj_messages.error(request, 'Tidak memiliki izin.')
+        return redirect('ba_list')
+    if request.method == 'POST':
+        eng_id = request.POST.get('engineer_id')
+        try:
+            eng = _gum().objects.select_related('profile').get(pk=eng_id, profile__role='technician')
+            record.ttd_req_to = eng
+            record.ttd_status = 'menunggu_engineer'
+            record.save(update_fields=['ttd_req_to', 'ttd_status'])
+            dj_messages.success(request, f'Permintaan TTD dikirim ke {eng.profile.get_display_name()}.')
+        except Exception:
+            dj_messages.error(request, 'Engineer tidak valid.')
+    return redirect('ba_list')
+
+
+@login_required
+def ba_sign_engineer(request, pk):
+    from django.contrib import messages as dj_messages
+    record = get_object_or_404(BeritaAcaraRecord, pk=pk)
+    if record.ttd_status != 'menunggu_engineer' or record.ttd_req_to_id != request.user.pk:
+        dj_messages.error(request, 'Anda tidak dapat menandatangani BA ini.')
+        return redirect('ba_list')
+    if request.method == 'POST':
+        record.ttd_engineer    = request.user
+        record.ttd_engineer_at = dj_timezone.now()
+        record.ttd_status      = 'signed_engineer'
+        record.save(update_fields=['ttd_engineer', 'ttd_engineer_at', 'ttd_status'])
+        dj_messages.success(request, 'Berita Acara berhasil Anda tandatangani.')
+    return redirect('ba_list')
+
+
+@login_required
+def ba_sign_am(request, pk):
+    from django.contrib import messages as dj_messages
+    record = get_object_or_404(BeritaAcaraRecord, pk=pk)
+    try:
+        is_am = request.user.profile.is_asisten_manager
+    except Exception:
+        is_am = False
+    if not (request.user.is_superuser or is_am):
+        dj_messages.error(request, 'Hanya Asisten Manager yang dapat menandatangani sebagai AM.')
+        return redirect('ba_list')
+    if record.ttd_status != 'signed_engineer':
+        dj_messages.error(request, 'BA belum ditandatangani oleh engineer.')
+        return redirect('ba_list')
+    if request.method == 'POST':
+        record.ttd_am    = request.user
+        record.ttd_am_at = dj_timezone.now()
+        record.ttd_status = 'signed_am'
+        record.save(update_fields=['ttd_am', 'ttd_am_at', 'ttd_status'])
+        dj_messages.success(request, 'Berita Acara berhasil ditandatangani sebagai AM.')
+    return redirect('ba_list')
 
 
 @login_required
@@ -3099,6 +3201,7 @@ def ba_export(request, pk):
         'catatan':              record.catatan,
         'rows':                 record.rows_data,
         'eviden_list':          eviden_list,
+        **_ba_ttd_ctx(record),
     }
     template_map = {
         'pemasangan':   'maintenance/pdf/ba_pemasangan.html',
@@ -3172,6 +3275,7 @@ def ba_preview(request, pk):
         'catatan':              record.catatan,
         'rows':                 record.rows_data,
         'eviden_list':          eviden_list,
+        **_ba_ttd_ctx(record),
     }
     template_map = {
         'pemasangan':   'maintenance/pdf/ba_pemasangan.html',

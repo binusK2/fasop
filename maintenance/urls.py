@@ -41,8 +41,11 @@ urlpatterns = [
     path('ekspor/penggantian/',  views.ba_penggantian,  name='ba_penggantian'),
 
     # List & aksi BA
-    path('ekspor/list/',              views.ba_list,   name='ba_list'),
-    path('ekspor/<int:pk>/export/',   views.ba_export,   name='ba_export'),
-    path('ekspor/<int:pk>/preview/',  views.ba_preview,  name='ba_preview'),
-    path('ekspor/<int:pk>/hapus/',    views.ba_delete,   name='ba_delete'),
+    path('ekspor/list/',                    views.ba_list,         name='ba_list'),
+    path('ekspor/<int:pk>/export/',         views.ba_export,       name='ba_export'),
+    path('ekspor/<int:pk>/preview/',        views.ba_preview,      name='ba_preview'),
+    path('ekspor/<int:pk>/hapus/',          views.ba_delete,       name='ba_delete'),
+    path('ekspor/<int:pk>/minta-ttd/',      views.ba_request_sign, name='ba_request_sign'),
+    path('ekspor/<int:pk>/ttd-engineer/',   views.ba_sign_engineer,name='ba_sign_engineer'),
+    path('ekspor/<int:pk>/ttd-am/',         views.ba_sign_am,      name='ba_sign_am'),
 ]
