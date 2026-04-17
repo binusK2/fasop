@@ -30,7 +30,7 @@
     </div>
 </div>
 
-<form method="post" id="ba-form">
+<form method="post" enctype="multipart/form-data" id="ba-form">
 {% csrf_token %}
 
 <!-- Card 1: Informasi BA -->
@@ -42,8 +42,9 @@
         <div class="row g-3">
             <div class="col-md-4">
                 <label class="form-label" style="font-size:12px;font-weight:600;">Nomor BA</label>
-                <input type="text" name="nomor_ba" class="form-control form-control-sm"
-                       placeholder="Contoh: 001/BA-GNT/IV/2026">
+                <input type="text" name="nomor_ba" id="nomor_ba_input" class="form-control form-control-sm"
+                       placeholder="Contoh: 001" oninput="updateNomorPreview()">
+                <div id="nomor_ba_preview" style="font-size:11px;color:#64748b;margin-top:4px;min-height:16px;"></div>
             </div>
             <div class="col-md-3">
                 <label class="form-label" style="font-size:12px;font-weight:600;">Tanggal Pelaksanaan</label>
@@ -51,9 +52,19 @@
                        value="{{ today }}" required>
             </div>
             <div class="col-md-5">
-                <label class="form-label" style="font-size:12px;font-weight:600;">Pelaksana</label>
+                <label class="form-label" style="font-size:12px;font-weight:600;">Nama Pelaksana</label>
                 <input type="text" name="pelaksana" class="form-control form-control-sm"
                        placeholder="Nama pelaksana kegiatan" required>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label" style="font-size:12px;font-weight:600;">NIP</label>
+                <input type="text" name="nip" class="form-control form-control-sm"
+                       placeholder="NIP pelaksana">
+            </div>
+            <div class="col-md-8">
+                <label class="form-label" style="font-size:12px;font-weight:600;">Jabatan</label>
+                <input type="text" name="jabatan" class="form-control form-control-sm"
+                       placeholder="Jabatan pelaksana">
             </div>
             <div class="col-12">
                 <label class="form-label" style="font-size:12px;font-weight:600;">Catatan / Keterangan Umum <span class="text-muted fw-normal">(opsional)</span></label>
@@ -64,7 +75,28 @@
     </div>
 </div>
 
-<!-- Card 2: Cari & Tambah Perangkat -->
+<!-- Card 2: Eviden -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;margin-bottom:12px;">
+            <i class="bi bi-images me-1"></i>Eviden <span class="text-muted fw-normal" style="text-transform:none;">(opsional)</span>
+        </div>
+        <div class="row g-3">
+            <div class="col-12">
+                <label class="form-label" style="font-size:12px;font-weight:600;">Upload Foto / Gambar Eviden</label>
+                <input type="file" name="eviden" id="eviden_input" class="form-control form-control-sm"
+                       accept="image/*" multiple onchange="previewEviden(this)">
+                <div class="form-text" style="font-size:11px;">Bisa pilih lebih dari satu gambar. Akan tampil di halaman 2 PDF.</div>
+            </div>
+            <div class="col-12" id="eviden_preview_wrap" style="display:none;">
+                <div style="font-size:11px;font-weight:600;color:#64748b;margin-bottom:6px;">Preview Eviden:</div>
+                <div id="eviden_preview" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Card 3: Cari & Tambah Perangkat -->
 <div class="card mb-3">
     <div class="card-body px-4 py-3">
         <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;margin-bottom:10px;">
@@ -286,5 +318,36 @@ document.getElementById('ba-form').addEventListener('submit', e => {
         alert('Pilih minimal satu perangkat sebelum ekspor PDF.');
     }
 });
+
+function previewEviden(input) {
+    const wrap = document.getElementById('eviden_preview_wrap');
+    const box  = document.getElementById('eviden_preview');
+    box.innerHTML = '';
+    if (!input.files.length) { wrap.style.display = 'none'; return; }
+    wrap.style.display = '';
+    Array.from(input.files).forEach(file => {
+        const url = URL.createObjectURL(file);
+        const div = document.createElement('div');
+        div.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:4px;width:130px;';
+        div.innerHTML = `
+            <img src="${url}" style="height:90px;width:100%;border-radius:6px;border:1px solid #e2e8f0;object-fit:cover;">
+            <input type="text" name="eviden_catatan[]" class="form-control form-control-sm"
+                   placeholder="Catatan gambar..." style="font-size:11px;width:100%;">
+        `;
+        box.appendChild(div);
+    });
+}
+
+function updateNomorPreview() {
+    const nomor = document.getElementById('nomor_ba_input').value.trim();
+    const tgl   = document.querySelector('input[name="tanggal"]').value;
+    const tahun = tgl ? tgl.substring(0, 4) : new Date().getFullYear();
+    const el    = document.getElementById('nomor_ba_preview');
+    el.innerHTML = nomor
+        ? `<span style="color:#475569;"><i class="bi bi-eye" style="font-size:10px;"></i> Format: <strong>${nomor}.BA/FASOP/UP2BS-MKS/${tahun}</strong></span>`
+        : '';
+}
+document.querySelector('input[name="tanggal"]').addEventListener('change', updateNomorPreview);
+updateNomorPreview();
 </script>
 {% endblock %}

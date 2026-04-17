@@ -905,3 +905,51 @@ class MaintenanceUPS(models.Model):
 
     class Meta:
         verbose_name = 'Maintenance UPS'
+
+
+# ─────────────────────────────────────────────────────────────
+# BERITA ACARA RECORD (histori BA yang sudah dibuat)
+# ─────────────────────────────────────────────────────────────
+
+def ba_eviden_upload(instance, filename):
+    ext = os.path.splitext(filename)[1].lower() or '.jpg'
+    tgl = timezone.localtime(timezone.now()).strftime('%Y%m%d_%H%M%S')
+    return f'ba_eviden/{instance.ba.jenis}_{instance.urutan}_{tgl}{ext}'
+
+
+class BeritaAcaraRecord(models.Model):
+    JENIS_CHOICES = [
+        ('pemasangan',   'Pemasangan'),
+        ('pembongkaran', 'Pembongkaran'),
+        ('penggantian',  'Penggantian'),
+    ]
+    jenis      = models.CharField(max_length=20, choices=JENIS_CHOICES)
+    nomor_ba   = models.CharField(max_length=200, blank=True)
+    tanggal    = models.DateField()
+    pelaksana  = models.CharField(max_length=200)
+    nip        = models.CharField(max_length=100, blank=True)
+    jabatan    = models.CharField(max_length=200, blank=True)
+    catatan    = models.TextField(blank=True)
+    rows_data  = models.JSONField(default=list)
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='ba_records'
+    )
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Berita Acara Record'
+
+    def __str__(self):
+        return f'{self.get_jenis_display()} — {self.nomor_ba or "(tanpa nomor)"}'
+
+
+class BeritaAcaraEviden(models.Model):
+    ba      = models.ForeignKey(BeritaAcaraRecord, on_delete=models.CASCADE, related_name='evidens')
+    gambar  = models.ImageField(upload_to=ba_eviden_upload)
+    catatan = models.CharField(max_length=500, blank=True)
+    urutan  = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ['urutan']

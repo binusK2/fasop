@@ -8,10 +8,83 @@
     <h2 class="mb-0" style="font-size:20px;font-weight:700;">Approval Pemeliharaan</h2>
 </div>
 
+<!-- Filter Peralatan & Lokasi -->
+{% with filter_active=selected_jenis_id|default:selected_lokasi %}
+<div style="background:#f8fafc;border:1px solid {% if filter_active %}#bfdbfe{% else %}#e2e8f0{% endif %};border-radius:10px;padding:12px 16px;margin-bottom:16px;">
+    <form method="get" action="" id="filter-form">
+        <input type="hidden" name="tab" value="{{ tab }}">
+
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <!-- Label -->
+            <div style="display:flex;align-items:center;gap:6px;margin-right:4px;">
+                <i class="bi bi-funnel-fill" style="color:{% if filter_active %}#2563eb{% else %}#94a3b8{% endif %};font-size:14px;"></i>
+                <span style="font-size:12px;font-weight:600;color:#64748b;">Filter</span>
+                {% if filter_active %}
+                <span style="font-size:10px;font-weight:700;color:#fff;background:#2563eb;padding:2px 7px;border-radius:20px;display:inline-flex;align-items:center;gap:3px;">
+                    <i class="bi bi-lock-fill" style="font-size:9px;"></i> Terkunci
+                </span>
+                {% endif %}
+            </div>
+
+            <!-- Dropdown Jenis Peralatan -->
+            <div style="display:flex;flex-direction:column;gap:2px;">
+                <label style="font-size:10px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.4px;">Jenis Peralatan</label>
+                <select name="jenis_id" onchange="this.form.submit()"
+                    style="font-size:12px;padding:5px 10px;border:1px solid {% if selected_jenis_id %}#2563eb{% else %}#e2e8f0{% endif %};border-radius:7px;background:#fff;color:#1e293b;min-width:190px;cursor:pointer;outline:none;">
+                    <option value="">— Semua Jenis —</option>
+                    {% for jenis in jenis_list %}
+                    <option value="{{ jenis.pk }}" {% if selected_jenis_id == jenis.pk|stringformat:"s" %}selected{% endif %}>{{ jenis.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Dropdown Lokasi -->
+            <div style="display:flex;flex-direction:column;gap:2px;">
+                <label style="font-size:10px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.4px;">Lokasi</label>
+                <select name="lokasi" onchange="this.form.submit()"
+                    style="font-size:12px;padding:5px 10px;border:1px solid {% if selected_lokasi %}#2563eb{% else %}#e2e8f0{% endif %};border-radius:7px;background:#fff;color:#1e293b;min-width:190px;cursor:pointer;outline:none;">
+                    <option value="">— Semua Lokasi —</option>
+                    {% for lok in lokasi_list %}
+                    <option value="{{ lok }}" {% if selected_lokasi == lok %}selected{% endif %}>{{ lok }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Tombol Reset -->
+            {% if filter_active %}
+            <div style="display:flex;flex-direction:column;gap:2px;">
+                <label style="font-size:10px;color:transparent;">reset</label>
+                <a href="?tab={{ tab }}&reset_filter=1"
+                   style="font-size:12px;padding:5px 12px;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;border-radius:7px;text-decoration:none;display:inline-flex;align-items:center;gap:5px;font-weight:600;white-space:nowrap;">
+                    <i class="bi bi-x-circle-fill" style="font-size:11px;"></i> Reset Filter
+                </a>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Badge aktif -->
+        {% if selected_jenis_obj or selected_lokasi %}
+        <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;">
+            {% if selected_jenis_obj %}
+            <span style="font-size:11px;color:#1d4ed8;background:#eff6ff;border:1px solid #bfdbfe;padding:3px 10px;border-radius:20px;display:inline-flex;align-items:center;gap:4px;">
+                <i class="bi bi-cpu" style="font-size:10px;"></i> {{ selected_jenis_obj.name }}
+            </span>
+            {% endif %}
+            {% if selected_lokasi %}
+            <span style="font-size:11px;color:#065f46;background:#ecfdf5;border:1px solid #a7f3d0;padding:3px 10px;border-radius:20px;display:inline-flex;align-items:center;gap:4px;">
+                <i class="bi bi-geo-alt-fill" style="font-size:10px;"></i> {{ selected_lokasi }}
+            </span>
+            {% endif %}
+        </div>
+        {% endif %}
+    </form>
+</div>
+{% endwith %}
+
 <!-- Tab Buttons -->
 <ul class="nav nav-tabs mb-3">
     <li class="nav-item">
-        <a class="nav-link {% if tab == 'pending' %}active{% endif %}" href="?tab=pending">
+        <a class="nav-link {% if tab == 'pending' %}active{% endif %}" href="?tab=pending{% if selected_jenis_id %}&jenis_id={{ selected_jenis_id }}{% endif %}">
             Menunggu Approval
             {% if pending_list %}
             <span style="display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:20px;font-size:11px;font-weight:700;margin-left:4px;
@@ -22,7 +95,7 @@
         </a>
     </li>
     <li class="nav-item">
-        <a class="nav-link {% if tab == 'approved' %}active{% endif %}" href="?tab=approved">
+        <a class="nav-link {% if tab == 'approved' %}active{% endif %}" href="?tab=approved{% if selected_jenis_id %}&jenis_id={{ selected_jenis_id }}{% endif %}">
             Sudah Disetujui
         </a>
     </li>

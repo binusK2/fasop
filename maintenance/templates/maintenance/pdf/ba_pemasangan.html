@@ -4,71 +4,132 @@
 <meta charset="utf-8">
 <style>
 @page {
-    size: A4 landscape;
+    size: A4 portrait;
     margin: 15mm 20mm 15mm 20mm;
 }
 * { margin:0; padding:0; box-sizing:border-box; }
 body {
-    font-family: 'Times New Roman', Times, serif;
+    font-family: Arial, Helvetica, sans-serif;
     font-size: 10pt;
     color: #000;
-    line-height: 1.4;
+    line-height: 1.5;
 }
-.header-logo { text-align: center; margin-bottom: 3mm; }
-.header-logo img { height: 20mm; width: auto; }
-.header-title { text-align: center; margin-bottom: 4mm; }
-.header-title h1 { font-size: 13pt; font-weight: bold; margin-bottom: 2mm; }
-.header-title h2 { font-size: 11pt; font-weight: bold; margin-bottom: 2mm; }
-.header-title h3 { font-size: 10pt; font-weight: normal; }
-.info-table { width: 60%; border-collapse: collapse; margin: 3mm 0 4mm 0; font-size: 10pt; }
-.info-table td { padding: 2pt 4pt; vertical-align: top; }
-.info-table .lbl { width: 110pt; }
-.pembuka { margin: 3mm 0 4mm 0; font-size: 10pt; }
-.tbl-rekap { width: 100%; border-collapse: collapse; margin-bottom: 5mm; font-size: 10pt; }
-.tbl-rekap th {
-    background: #BFBFBF; border: 0.5pt solid #000;
-    padding: 4pt 6pt; text-align: center;
-    font-weight: bold; vertical-align: middle;
+
+/* ── KOP SURAT ── */
+.kop { width:100%; border-collapse:collapse; margin-bottom:5mm; }
+.kop td { border: 1pt solid #000; padding: 3pt 5pt; vertical-align: middle; }
+.kop-left { width: 63%; }
+.kop-org-wrap { display: flex; align-items: center; gap: 6pt; }
+.kop-logo img { height: 14mm; width: auto; }
+.kop-org { font-size: 8pt; font-weight: bold; line-height: 1.6; }
+.kop-label { font-size: 8pt; width: 18%; text-align: left; padding-left: 4pt; }
+.kop-value { font-size: 8pt; width: 19%; font-weight: bold; }
+.kop-level { text-align: center; font-size: 10pt; font-weight: bold; padding: 3pt; }
+.kop-judul { text-align: center; font-size: 13pt; font-weight: bold; padding: 5pt 3pt; }
+
+/* ── NOMOR ── */
+.nomor-blok { text-align: center; font-size: 10pt; font-weight: bold; margin: 5mm 0 5mm; }
+
+/* ── PEMBUKA ── */
+.pembuka { font-size: 10pt; margin-bottom: 3mm; text-align: justify; }
+
+/* ── INFO PELAKSANA ── */
+.info-tbl { border-collapse: collapse; margin: 2mm 0 3mm 8mm; font-size: 10pt; }
+.info-tbl td { padding: 1.5pt 3pt; vertical-align: top; }
+.info-tbl .lbl { width: 55pt; }
+.info-tbl .sep { width: 8pt; }
+
+/* ── TABEL DATA ── */
+.data-tbl { width: 100%; border-collapse: collapse; margin: 3mm 0 5mm; font-size: 9pt; }
+.data-tbl th {
+    border: 0.5pt solid #000;
+    background: #BFBFBF;
+    padding: 4pt 4pt;
+    text-align: center;
+    font-weight: bold;
+    vertical-align: middle;
 }
-.tbl-rekap td {
-    border: 0.5pt solid #000; padding: 4pt 6pt;
-    vertical-align: middle; word-break: break-word;
+.data-tbl td {
+    border: 0.5pt solid #000;
+    padding: 3pt 4pt;
+    vertical-align: middle;
+    word-break: break-word;
 }
-.tbl-rekap tr:nth-child(even) td { background: #F2F2F2; }
-.td-center { text-align: center; }
-.penutup { margin-bottom: 6mm; font-size: 10pt; }
-.tgl-wrap { text-align: right; margin-bottom: 8mm; font-size: 10pt; }
-.ttd-wrap { display: flex; justify-content: space-between; margin-top: 4mm; }
-.ttd-box { width: 46%; border: 0.5pt solid #000; }
-.ttd-header { border-bottom: 0.5pt solid #000; padding: 4pt 6pt; text-align: center; font-size: 10pt; }
-.ttd-jabatan { padding: 4pt 6pt; text-align: center; font-weight: bold; font-size: 10pt; border-bottom: 0.5pt solid #000; }
-.ttd-space { height: 28mm; }
-.ttd-nama { border-top: 0.5pt solid #000; padding: 4pt 6pt; text-align: center; font-size: 10pt; }
+.data-tbl tr:nth-child(even) td { background: #F2F2F2; }
+.td-c { text-align: center; }
+
+/* ── PENUTUP ── */
+.penutup { font-size: 10pt; margin: 3mm 0 8mm; text-align: justify; }
+
+/* ── TANGGAL & TTD ── */
+.tgl-right { text-align: right; font-size: 10pt; margin-bottom: 8mm; }
+.ttd-wrap { display: flex; justify-content: space-between; font-size: 10pt; }
+.ttd-side { width: 44%; text-align: center; }
+.ttd-peran { margin-bottom: 1mm; }
+.ttd-jabatan { font-weight: bold; margin-bottom: 25mm; }
+.ttd-nama { font-size: 10pt; text-align: center; border-bottom: 0.5pt solid #000; padding-bottom: 2pt; }
 </style>
 </head>
 <body>
 
-{% if logo_b64 %}
-<div class="header-logo">
-    <img src="data:image/png;base64,{{ logo_b64 }}" alt="PLN">
-</div>
-{% endif %}
+<!-- KOP SURAT -->
+<table class="kop">
+  <tr>
+    <td class="kop-left" rowspan="2">
+      <div class="kop-org-wrap">
+        {% if logo_b64 %}
+        <div class="kop-logo"><img src="data:image/png;base64,{{ logo_b64 }}" alt="PLN"></div>
+        {% endif %}
+        <div class="kop-org">
+          PT. PLN (PERSERO) UIP3B SULAWESI<br>
+          UNIT PELAKSANA PENGATUR BEBAN SISTEM MAKASSAR<br>
+          JL. HERTASNING BLOK B MAKASSAR 90222
+        </div>
+      </div>
+    </td>
+    <td class="kop-label">No. Formulir</td>
+    <td class="kop-value">UP2B/FML/04-1014</td>
+  </tr>
+  <tr>
+    <td class="kop-label">Berlaku Efektif</td>
+    <td class="kop-value">01 April 2020</td>
+  </tr>
+  <tr>
+    <td colspan="3" class="kop-level">DOKUMEN LEVEL 4</td>
+  </tr>
+  <tr>
+    <td colspan="3" class="kop-judul">BERITA ACARA PASANG / BONGKAR PERALATAN</td>
+  </tr>
+</table>
 
-<div class="header-title">
-    <h1>BERITA ACARA</h1>
-    <h2>Pemasangan Perangkat Fasilitas Operasi UP2B Sistem Makassar</h2>
-    {% if nomor_ba %}<h3>Nomor : {{ nomor_ba }}</h3>{% endif %}
-</div>
+<!-- NOMOR -->
+<p class="nomor-blok">Nomor :&nbsp;&nbsp;{{ nomor_ba }}</p>
 
-<table class="info-table">
-    <tr><td class="lbl">Tanggal Pelaksanaan</td><td>: {{ tanggal_display }}</td></tr>
-    <tr><td class="lbl">Pelaksana</td><td>: {{ pelaksana }}</td></tr>
-    {% if catatan %}<tr><td class="lbl">Keterangan</td><td>: {{ catatan }}</td></tr>{% endif %}
+<!-- PEMBUKA -->
+<p class="pembuka">
+  Pada hari ini {{ hari_display }} tanggal {{ tanggal_display }}, Saya yang bertanda tangan dibawah ini :
+</p>
+
+<table class="info-tbl">
+  <tr>
+    <td class="lbl">Nama</td>
+    <td class="sep">:</td>
+    <td>{{ pelaksana }}</td>
+  </tr>
+  <tr>
+    <td class="lbl">NIP</td>
+    <td class="sep">:</td>
+    <td>{{ nip }}</td>
+  </tr>
+  <tr>
+    <td class="lbl">Jabatan</td>
+    <td class="sep">:</td>
+    <td>{{ jabatan }}</td>
+  </tr>
 </table>
 
 <p class="pembuka">
-    Dengan ini diterangkan bahwa pada tanggal tersebut di atas, telah dilaksanakan kegiatan
-    pemasangan perangkat Fasilitas Operasi dengan rincian sebagai berikut :
+  Telah melaksanakan pemasangan terhadap material dengan rincian sebagai berikut :
 </p>
 
 <table class="tbl-rekap">
@@ -100,26 +161,76 @@ body {
     </tbody>
 </table>
 
+<!-- PENUTUP -->
 <p class="penutup">
-    Demikian Berita Acara ini dibuat untuk dipergunakan sebagaimana mestinya.
+  Demikian berita acara ini dibuat untuk dipergunakan sebagaimana mestinya.
 </p>
 
-<p class="tgl-wrap">Makassar, &nbsp;&nbsp;&nbsp; {{ tanggal_display }}</p>
+<!-- TANGGAL -->
+<p class="tgl-right"><strong>Makassar,&nbsp;&nbsp;{{ tanggal_display }}</strong></p>
 
+<!-- TTD -->
 <div class="ttd-wrap">
-    <div class="ttd-box">
-        <div class="ttd-header">Mengetahui :</div>
-        <div class="ttd-jabatan">MUP2B SISTEM MAKASSAR</div>
-        <div class="ttd-space"></div>
-        <div class="ttd-nama">( &nbsp;FURQAN IDRIS&nbsp; )</div>
-    </div>
-    <div class="ttd-box">
-        <div class="ttd-header">Pelaksana :</div>
-        <div class="ttd-jabatan">ASMAN FASOP UP2B SISTEM MAKASSAR</div>
-        <div class="ttd-space"></div>
-        <div class="ttd-nama">( &nbsp;DANANG CAHYA KARTIKA&nbsp; )</div>
-    </div>
+  <div class="ttd-side">
+    <div class="ttd-peran">Pelaksana,</div>
+    <div class="ttd-jabatan">Staf Fasop</div>
+    <div class="ttd-nama">{{ pelaksana }}</div>
+  </div>
+  <div class="ttd-side">
+    <div class="ttd-peran">Mengetahui,</div>
+    <div class="ttd-jabatan">Asisten Manager Fasop</div>
+    <div class="ttd-nama">&nbsp;</div>
+  </div>
 </div>
+
+<!-- FOOTER pojok kiri bawah -->
+<p style="position:fixed;bottom:5mm;left:0;font-size:8pt;margin:0;">UP2B/FML/04-1014</p>
+
+{% if eviden_list %}
+<!-- HALAMAN 2: EVIDEN -->
+<div style="page-break-before:always;"></div>
+
+<table class="kop">
+  <tr>
+    <td class="kop-left" rowspan="2">
+      <div class="kop-org-wrap">
+        {% if logo_b64 %}
+        <div class="kop-logo"><img src="data:image/png;base64,{{ logo_b64 }}" alt="PLN"></div>
+        {% endif %}
+        <div class="kop-org">
+          PT. PLN (PERSERO) UIP3B SULAWESI<br>
+          UNIT PELAKSANA PENGATUR BEBAN SISTEM MAKASSAR<br>
+          JL. HERTASNING BLOK B MAKASSAR 90222
+        </div>
+      </div>
+    </td>
+    <td class="kop-label">No. Formulir</td>
+    <td class="kop-value">UP2B/FML/04-1014</td>
+  </tr>
+  <tr>
+    <td class="kop-label">Berlaku Efektif</td>
+    <td class="kop-value">01 April 2020</td>
+  </tr>
+  <tr>
+    <td colspan="3" class="kop-level">DOKUMEN LEVEL 4</td>
+  </tr>
+  <tr>
+    <td colspan="3" class="kop-judul">EVIDEN</td>
+  </tr>
+</table>
+
+<div style="display:flex;flex-wrap:wrap;gap:8mm;justify-content:center;margin-top:6mm;">
+  {% for ev in eviden_list %}
+  <div style="text-align:center;max-width:82mm;">
+    <img src="data:{{ ev.mime }};base64,{{ ev.b64 }}"
+         style="max-width:82mm;max-height:100mm;object-fit:contain;border:0.5pt solid #ccc;border-radius:2pt;display:block;margin:0 auto;">
+    {% if ev.catatan %}
+    <p style="font-size:9pt;color:#333;margin-top:2mm;">{{ ev.catatan }}</p>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
 
 </body>
 </html>

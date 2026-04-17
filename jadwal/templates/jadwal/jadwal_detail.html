@@ -87,18 +87,28 @@
 
 {# ── TABEL DEVICE ── #}
 <div class="table-card">
-    <div style="padding:14px 18px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;">
+    <div style="padding:14px 18px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
         <h6 style="margin:0;font-size:13.5px;font-weight:600;">
             <i class="bi bi-cpu me-1" style="color:#3b82f6;"></i>
             Daftar Peralatan di {{ jadwal.lokasi }}
         </h6>
-        <div style="display:flex;gap:8px;">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
             <span style="font-size:11px;background:#dcfce7;color:#065f46;padding:3px 10px;border-radius:20px;font-weight:600;">
                 <i class="bi bi-check me-1"></i>{{ progress.selesai }} selesai
             </span>
             <span style="font-size:11px;background:#fee2e2;color:#991b1b;padding:3px 10px;border-radius:20px;font-weight:600;">
                 <i class="bi bi-x me-1"></i>{{ progress.belum }} belum
             </span>
+            {% if progress.belum > 0 %}
+            <form method="post" action="{% url 'jadwal_selesai_semua' jadwal.pk %}" class="d-inline m-0">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-warning"
+                        style="font-size:11.5px;font-weight:600;padding:3px 12px;"
+                        onclick="return confirm('Tandai semua {{ progress.belum }} pemeliharaan yang belum sebagai selesai?')">
+                    <i class="bi bi-check2-all me-1"></i>Selesaikan Semua
+                </button>
+            </form>
+            {% endif %}
         </div>
     </div>
     <div class="table-responsive">
