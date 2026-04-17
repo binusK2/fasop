@@ -64,13 +64,10 @@ body {
 /* ── TANGGAL & TTD ── */
 .tgl-right { text-align: right; font-size: 10pt; margin-bottom: 8mm; }
 .ttd-wrap { display: flex; justify-content: space-between; font-size: 10pt; }
-.ttd-side { width: 44%; }
+.ttd-side { width: 44%; text-align: center; }
 .ttd-peran { margin-bottom: 1mm; }
 .ttd-jabatan { font-weight: bold; margin-bottom: 25mm; }
-.ttd-nama { border-top: 0.5pt solid #000; padding-top: 2pt; font-size: 10pt; text-align: center; }
-
-/* ── FOOTER ── */
-.kop-footer { font-size: 8pt; margin-top: 8mm; }
+.ttd-nama { font-size: 10pt; text-align: center; border-bottom: 0.5pt solid #000; padding-bottom: 2pt; }
 </style>
 </head>
 <body>
@@ -169,7 +166,7 @@ body {
 </p>
 
 <!-- TANGGAL -->
-<p class="tgl-right"><strong>Makassar,&nbsp;&nbsp;{{ bulan_tahun_display }}</strong></p>
+<p class="tgl-right"><strong>Makassar,&nbsp;&nbsp;{{ tanggal_display }}</strong></p>
 
 <!-- TTD -->
 <div class="ttd-wrap">
@@ -178,15 +175,15 @@ body {
     <div class="ttd-jabatan">Staf Fasop</div>
     <div class="ttd-nama">{{ pelaksana }}</div>
   </div>
-  <div class="ttd-side" style="text-align:center;">
+  <div class="ttd-side">
     <div class="ttd-peran">Mengetahui,</div>
-    <div class="ttd-jabatan">Manajer Bagian Fasop</div>
+    <div class="ttd-jabatan">Asisten Manager Fasop</div>
     <div class="ttd-nama">&nbsp;</div>
   </div>
 </div>
 
-<!-- FOOTER -->
-<p class="kop-footer">UP2B/FML/04-1014</p>
+<!-- FOOTER pojok kiri bawah -->
+<p style="position:fixed;bottom:5mm;left:0;font-size:8pt;margin:0;">UP2B/FML/04-1014</p>
 
 {% if eviden_list %}
 <!-- HALAMAN 2: EVIDEN -->
