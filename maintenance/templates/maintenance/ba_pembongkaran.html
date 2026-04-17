@@ -289,7 +289,7 @@ function updateCount() {
 
 async function loadKomponen(deviceId, sel) {
     try {
-        const res = await fetch(`/devices/api/device/${deviceId}/komponen/`);
+        const res = await fetch(`/api/device/${deviceId}/komponen/`);
         const data = await res.json();
         sel.innerHTML = '<option value="">— Perangkat (keseluruhan) —</option>';
         if (data.length === 0) {
