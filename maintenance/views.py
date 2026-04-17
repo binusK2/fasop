@@ -2943,9 +2943,10 @@ def ba_pemasangan(request):
         tanggal         = request.POST.get('tanggal', '').strip()
         pelaksana       = request.POST.get('pelaksana', '').strip()
         catatan         = request.POST.get('catatan', '').strip()
-        device_ids      = request.POST.getlist('device_ids[]')
-        lokasi_tujuan   = request.POST.getlist('lokasi_tujuan[]')
-        keterangan_list = request.POST.getlist('keterangan[]')
+        device_ids       = request.POST.getlist('device_ids[]')
+        komponen_labels  = request.POST.getlist('komponen_label[]')
+        lokasi_tujuan    = request.POST.getlist('lokasi_tujuan[]')
+        keterangan_list  = request.POST.getlist('keterangan[]')
 
         dev_map = {
             str(d.pk): d
@@ -2961,6 +2962,7 @@ def ba_pemasangan(request):
                 'nama':          dev.nama,
                 'jenis':         dev.jenis.name if dev.jenis else '-',
                 'serial_number': dev.serial_number or '-',
+                'komponen':      komponen_labels[i] if i < len(komponen_labels) else '',
                 'lokasi_tujuan': lokasi_tujuan[i] if i < len(lokasi_tujuan) else (dev.lokasi or '-'),
                 'keterangan':    keterangan_list[i] if i < len(keterangan_list) else '',
             })
@@ -2993,8 +2995,9 @@ def ba_pembongkaran(request):
         tanggal         = request.POST.get('tanggal', '').strip()
         pelaksana       = request.POST.get('pelaksana', '').strip()
         catatan         = request.POST.get('catatan', '').strip()
-        device_ids      = request.POST.getlist('device_ids[]')
-        keterangan_list = request.POST.getlist('keterangan[]')
+        device_ids       = request.POST.getlist('device_ids[]')
+        komponen_labels  = request.POST.getlist('komponen_label[]')
+        keterangan_list  = request.POST.getlist('keterangan[]')
 
         dev_map = {
             str(d.pk): d
@@ -3010,6 +3013,7 @@ def ba_pembongkaran(request):
                 'nama':          dev.nama,
                 'jenis':         dev.jenis.name if dev.jenis else '-',
                 'serial_number': dev.serial_number or '-',
+                'komponen':      komponen_labels[i] if i < len(komponen_labels) else '',
                 'lokasi_asal':   dev.lokasi or '-',
                 'keterangan':    keterangan_list[i] if i < len(keterangan_list) else '',
             })
