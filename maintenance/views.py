@@ -3185,7 +3185,7 @@ def ba_pemasangan(request):
         nomor_ba = f'{nomor_input}.BA/FASOP/UP2BS-MKS/{tahun}' if nomor_input else ''
         import base64 as _b64
         eviden_files    = request.FILES.getlist('eviden')
-        eviden_captions = request.POST.getlist('eviden_catatan')
+        eviden_captions = request.POST.getlist('eviden_catatan[]')
         eviden_list = [
             {
                 'b64':     _b64.b64encode(f.read()).decode(),
@@ -3257,7 +3257,7 @@ def ba_pembongkaran(request):
         nomor_ba = f'{nomor_input}.BA/FASOP/UP2BS-MKS/{tahun}' if nomor_input else ''
         import base64 as _b64
         eviden_files    = request.FILES.getlist('eviden')
-        eviden_captions = request.POST.getlist('eviden_catatan')
+        eviden_captions = request.POST.getlist('eviden_catatan[]')
         eviden_list = [
             {
                 'b64':     _b64.b64encode(f.read()).decode(),
@@ -3329,7 +3329,7 @@ def ba_penggantian(request):
         nomor_ba = f'{nomor_input}.BA/FASOP/UP2BS-MKS/{tahun}' if nomor_input else ''
         import base64 as _b64
         eviden_files    = request.FILES.getlist('eviden')
-        eviden_captions = request.POST.getlist('eviden_catatan')
+        eviden_captions = request.POST.getlist('eviden_catatan[]')
         eviden_list = [
             {
                 'b64':     _b64.b64encode(f.read()).decode(),
