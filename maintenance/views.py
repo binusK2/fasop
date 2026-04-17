@@ -3113,10 +3113,10 @@ def ba_export(request, pk):
 @login_required
 def ba_delete(request, pk):
     from django.contrib import messages as dj_messages
-    if not request.user.is_superuser:
-        dj_messages.error(request, 'Hanya superuser yang dapat menghapus data BA.')
-        return redirect('ba_list')
     record = get_object_or_404(BeritaAcaraRecord, pk=pk)
+    if not (request.user.is_superuser or record.created_by == request.user):
+        dj_messages.error(request, 'Anda tidak memiliki izin untuk menghapus BA ini.')
+        return redirect('ba_list')
     if request.method == 'POST':
         for ev in record.evidens.all():
             if ev.gambar:
@@ -3129,6 +3129,67 @@ def ba_delete(request, pk):
         record.delete()
         dj_messages.success(request, 'Data BA berhasil dihapus.')
     return redirect('ba_list')
+
+
+@login_required
+def ba_preview(request, pk):
+    import re as _re2
+    record = get_object_or_404(BeritaAcaraRecord, pk=pk)
+
+    import base64 as _b64
+    eviden_list = []
+    for ev in record.evidens.all():
+        if ev.gambar:
+            try:
+                with open(ev.gambar.path, 'rb') as f:
+                    data = f.read()
+                name = ev.gambar.name.lower()
+                if name.endswith('.png'):
+                    mime = 'image/png'
+                elif name.endswith('.gif'):
+                    mime = 'image/gif'
+                else:
+                    mime = 'image/jpeg'
+                eviden_list.append({'b64': _b64.b64encode(data).decode(), 'mime': mime, 'catatan': ev.catatan})
+            except Exception:
+                pass
+
+    HARI_ID = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu']
+    d = record.tanggal
+    hari_display        = HARI_ID[d.weekday()]
+    tanggal_display     = f'{d.day} {_BULAN_ID_FULL[d.month - 1]} {d.year}'
+    bulan_tahun_display = f'{_BULAN_ID_FULL[d.month - 1]} {d.year}'
+
+    ctx = {
+        'logo_b64':             _load_logo_b64(),
+        'nomor_ba':             record.nomor_ba,
+        'tanggal_display':      tanggal_display,
+        'hari_display':         hari_display,
+        'bulan_tahun_display':  bulan_tahun_display,
+        'pelaksana':            record.pelaksana,
+        'nip':                  record.nip,
+        'jabatan':              record.jabatan,
+        'catatan':              record.catatan,
+        'rows':                 record.rows_data,
+        'eviden_list':          eviden_list,
+    }
+    template_map = {
+        'pemasangan':   'maintenance/pdf/ba_pemasangan.html',
+        'pembongkaran': 'maintenance/pdf/ba_pembongkaran.html',
+        'penggantian':  'maintenance/pdf/ba_penggantian.html',
+    }
+    template = template_map.get(record.jenis, 'maintenance/pdf/ba_pemasangan.html')
+    from django.template.loader import render_to_string
+    try:
+        import weasyprint
+        html = render_to_string(template, ctx)
+        pdf  = weasyprint.HTML(string=html).write_pdf()
+        nomor_clean = _re2.sub(r'[^\w]', '', record.nomor_ba) if record.nomor_ba else 'preview'
+        resp = HttpResponse(pdf, content_type='application/pdf')
+        resp['Content-Disposition'] = f'inline; filename="{nomor_clean}.pdf"'
+        return resp
+    except ImportError:
+        return HttpResponse('WeasyPrint tidak tersedia di server ini.', status=500)
 
 
 @login_required
