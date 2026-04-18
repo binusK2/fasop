@@ -132,32 +132,33 @@ body {
   Telah melaksanakan pembongkaran terhadap material dengan rincian sebagai berikut :
 </p>
 
-<!-- TABEL PERALATAN -->
 <table class="data-tbl">
-  <thead>
-    <tr>
-      <th style="width:5%;">No.</th>
-      <th style="width:27%;">Nama Peralatan</th>
-      <th style="width:14%;">Jenis</th>
-      <th style="width:17%;">Serial Number</th>
-      <th style="width:19%;">Lokasi Asal</th>
-      <th style="width:18%;">Keterangan / Alasan</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for row in rows %}
-    <tr>
-      <td class="td-c">{{ row.no }}</td>
-      <td>{{ row.nama }}</td>
-      <td>{{ row.jenis }}</td>
-      <td class="td-c">{{ row.serial_number }}</td>
-      <td>{{ row.lokasi_asal }}</td>
-      <td>{{ row.keterangan }}</td>
-    </tr>
-    {% empty %}
-    <tr><td colspan="6" class="td-c">— tidak ada data —</td></tr>
-    {% endfor %}
-  </tbody>
+    <thead>
+        <tr>
+            <th style="width:5%;">No</th>
+            <th style="width:19%;">Nama Perangkat</th>
+            <th style="width:17%;">Komponen</th>
+            <th style="width:13%;">Jenis</th>
+            <th style="width:13%;">Serial Number</th>
+            <th style="width:16%;">Lokasi Asal</th>
+            <th style="width:17%;">Keterangan / Alasan</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in rows %}
+        <tr>
+            <td class="td-c">{{ row.no }}</td>
+            <td>{{ row.nama }}</td>
+            <td>{{ row.komponen|default:"—" }}</td>
+            <td>{{ row.jenis }}</td>
+            <td class="td-c">{{ row.serial_number }}</td>
+            <td>{{ row.lokasi_asal }}</td>
+            <td>{{ row.keterangan }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="td-c">— tidak ada data —</td></tr>
+        {% endfor %}
+    </tbody>
 </table>
 
 <!-- PENUTUP -->
@@ -191,6 +192,8 @@ body {
       {% endif %}
     </div>
     <div class="ttd-nama">{{ ttd_am_name|default:"&nbsp;" }}</div>
+    <div class="ttd-jabatan">Asisten Manager Fasop</div>
+    <div class="ttd-nama">{{ am_name|default:"&nbsp;" }}</div>
   </div>
 </div>
 

@@ -206,7 +206,6 @@
 {% block extra_js %}
 <script>
 const addedIds = new Set();
-let rowOrder   = [];
 
 function applyFilter() {
     const q = document.getElementById('filter-nama').value.toLowerCase();
@@ -229,61 +228,92 @@ document.querySelector('#device-pool tbody').addEventListener('click', e => {
     const tr = btn.closest('tr');
     const id = tr.dataset.id;
     if (addedIds.has(id)) { alert('Perangkat ini sudah ditambahkan.'); return; }
-    addedIds.add(id);
-    rowOrder.push({ id, nama: tr.dataset.nama, jenis: tr.dataset.jenis,
-                    serial: tr.dataset.serial, lokasi: tr.dataset.lokasi });
-    renderSelected();
+    addDevice(id, tr.dataset.nama, tr.dataset.jenis);
 });
 
-function renderSelected() {
+function addDevice(id, nama, jenis) {
+    addedIds.add(id);
     const tbody = document.getElementById('selected-body');
-    document.getElementById('row-count').textContent = rowOrder.length;
-    document.getElementById('empty-row').style.display = rowOrder.length ? 'none' : '';
-    tbody.querySelectorAll('tr.data-row').forEach(r => r.remove());
+    document.getElementById('empty-row').style.display = 'none';
 
-    rowOrder.forEach((row, i) => {
-        const tr = document.createElement('tr');
-        tr.className = 'data-row';
-        tr.innerHTML = `
-            <td style="text-align:center;">${i + 1}
-                <input type="hidden" name="device_ids[]" value="${row.id}">
-            </td>
-            <td style="font-size:12.5px;">${row.nama}</td>
-            <td style="font-size:12px;color:#64748b;">${row.jenis || '—'}</td>
-            <td>
-                <input type="text" name="komponen_lama[]"
-                       class="form-control inp-sm" placeholder="Komponen lama">
-            </td>
-            <td>
-                <input type="text" name="komponen_baru[]"
-                       class="form-control inp-sm" placeholder="Komponen baru">
-            </td>
-            <td>
-                <input type="text" name="keterangan[]"
-                       class="form-control inp-sm" placeholder="Keterangan">
-            </td>
-            <td>
-                <button type="button" class="btn btn-outline-danger btn-sm btn-rm"
-                        data-id="${row.id}">
-                    <i class="bi bi-x"></i>
-                </button>
-            </td>
-        `;
-        tbody.appendChild(tr);
+    const tr = document.createElement('tr');
+    tr.className = 'data-row';
+    tr.innerHTML = `
+        <td class="td-no" style="text-align:center;">—
+            <input type="hidden" name="device_ids[]" value="${id}">
+        </td>
+        <td style="font-size:12.5px;">${escHtml(nama)}</td>
+        <td style="font-size:12px;color:#64748b;">${escHtml(jenis) || '—'}</td>
+        <td>
+            <select name="komponen_lama[]" class="form-select inp-sm komponen-sel">
+                <option value="">— Perangkat (keseluruhan) —</option>
+                <option value="" disabled>Memuat komponen...</option>
+            </select>
+        </td>
+        <td>
+            <input type="text" name="komponen_baru[]"
+                   class="form-control inp-sm" placeholder="Deskripsi komponen baru">
+        </td>
+        <td>
+            <input type="text" name="keterangan[]"
+                   class="form-control inp-sm" placeholder="Keterangan">
+        </td>
+        <td>
+            <button type="button" class="btn btn-outline-danger btn-sm btn-rm">
+                <i class="bi bi-x"></i>
+            </button>
+        </td>
+    `;
+    tbody.appendChild(tr);
+    tr.querySelector('.btn-rm').addEventListener('click', () => {
+        addedIds.delete(id);
+        tr.remove();
+        renumberRows();
+        updateCount();
     });
+    renumberRows();
+    updateCount();
+    loadKomponen(id, tr.querySelector('.komponen-sel'));
+}
 
-    tbody.querySelectorAll('.btn-rm').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const rid = this.dataset.id;
-            addedIds.delete(rid);
-            rowOrder = rowOrder.filter(r => r.id !== rid);
-            renderSelected();
-        });
+function renumberRows() {
+    document.querySelectorAll('#selected-body tr.data-row').forEach((tr, i) => {
+        tr.querySelector('.td-no').firstChild.textContent = i + 1;
     });
 }
 
+function updateCount() {
+    const count = document.querySelectorAll('#selected-body tr.data-row').length;
+    document.getElementById('row-count').textContent = count;
+    if (count === 0) document.getElementById('empty-row').style.display = '';
+}
+
+async function loadKomponen(deviceId, sel) {
+    try {
+        const res = await fetch(`/api/device/${deviceId}/komponen/`);
+        const data = await res.json();
+        sel.innerHTML = '<option value="">— Perangkat (keseluruhan) —</option>';
+        if (data.length === 0) {
+            sel.innerHTML += '<option value="" disabled>— belum ada komponen —</option>';
+        } else {
+            data.forEach(k => {
+                const opt = document.createElement('option');
+                opt.value = k.label;
+                opt.textContent = k.label + (k.tipe ? ` (${k.tipe})` : '');
+                sel.appendChild(opt);
+            });
+        }
+    } catch(e) {
+        sel.innerHTML = '<option value="">— Perangkat (keseluruhan) —</option>';
+    }
+}
+
+function escHtml(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
 document.getElementById('ba-form').addEventListener('submit', e => {
-    if (rowOrder.length === 0) {
+    if (document.querySelectorAll('#selected-body tr.data-row').length === 0) {
         e.preventDefault();
         alert('Pilih minimal satu perangkat sebelum ekspor PDF.');
     }
@@ -295,15 +325,25 @@ function previewEviden(input) {
     box.innerHTML = '';
     if (!input.files.length) { wrap.style.display = 'none'; return; }
     wrap.style.display = '';
-    Array.from(input.files).forEach(file => {
+    Array.from(input.files).forEach((file, idx) => {
         const url = URL.createObjectURL(file);
         const div = document.createElement('div');
-        div.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:4px;width:130px;';
-        div.innerHTML = `
-            <img src="${url}" style="height:90px;width:100%;border-radius:6px;border:1px solid #e2e8f0;object-fit:cover;">
-            <input type="text" name="eviden_catatan[]" class="form-control form-control-sm"
-                   placeholder="Catatan gambar..." style="font-size:11px;width:100%;">
-        `;
+        div.style.cssText = 'display:flex;flex-direction:column;gap:4px;width:160px;';
+        const img = document.createElement('img');
+        img.src = url;
+        img.style.cssText = 'height:100px;width:100%;border-radius:6px;border:1px solid #e2e8f0;object-fit:cover;';
+        const lbl = document.createElement('label');
+        lbl.textContent = `Catatan foto ${idx + 1}`;
+        lbl.style.cssText = 'font-size:11px;font-weight:600;color:#475569;margin:0;';
+        const inp = document.createElement('input');
+        inp.type = 'text';
+        inp.name = 'eviden_catatan';
+        inp.className = 'form-control form-control-sm';
+        inp.placeholder = 'Keterangan foto...';
+        inp.style.cssText = 'font-size:12px;';
+        div.appendChild(img);
+        div.appendChild(lbl);
+        div.appendChild(inp);
         box.appendChild(div);
     });
 }

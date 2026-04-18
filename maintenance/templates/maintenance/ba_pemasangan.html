@@ -174,17 +174,18 @@
                 <thead>
                     <tr>
                         <th style="width:4%;">No</th>
-                        <th style="width:22%;">Nama Perangkat</th>
-                        <th style="width:14%;">Jenis</th>
-                        <th style="width:15%;">Serial Number</th>
-                        <th style="width:20%;">Lokasi Tujuan</th>
-                        <th style="width:20%;">Keterangan</th>
+                        <th style="width:18%;">Nama Perangkat</th>
+                        <th style="width:17%;">Komponen</th>
+                        <th style="width:12%;">Jenis</th>
+                        <th style="width:11%;">Serial Number</th>
+                        <th style="width:16%;">Lokasi Tujuan</th>
+                        <th style="width:17%;">Keterangan</th>
                         <th style="width:5%;"></th>
                     </tr>
                 </thead>
                 <tbody id="selected-body">
                     <tr id="empty-row">
-                        <td colspan="7" class="text-center text-muted py-3" style="font-size:12px;">
+                        <td colspan="8" class="text-center text-muted py-3" style="font-size:12px;">
                             <i class="bi bi-inbox d-block mb-1" style="font-size:20px;"></i>
                             Belum ada perangkat. Klik <i class="bi bi-plus-lg text-success"></i> di atas untuk menambahkan.
                         </td>
@@ -206,9 +207,7 @@
 {% block extra_js %}
 <script>
 const addedIds = new Set();
-let rowOrder   = [];   // tracks insertion order
 
-// ── Filter pool ──────────────────────────────────────────────────
 function applyFilter() {
     const q = document.getElementById('filter-nama').value.toLowerCase();
     const j = document.getElementById('filter-jenis').value.toLowerCase();
@@ -224,72 +223,101 @@ document.getElementById('filter-nama').addEventListener('input', applyFilter);
 document.getElementById('filter-jenis').addEventListener('change', applyFilter);
 document.getElementById('filter-lokasi').addEventListener('change', applyFilter);
 
-// ── Add device ───────────────────────────────────────────────────
 document.querySelector('#device-pool tbody').addEventListener('click', e => {
     const btn = e.target.closest('.btn-add');
     if (!btn) return;
     const tr = btn.closest('tr');
     const id = tr.dataset.id;
     if (addedIds.has(id)) { alert('Perangkat ini sudah ditambahkan.'); return; }
-    addedIds.add(id);
-    rowOrder.push({ id, nama: tr.dataset.nama, jenis: tr.dataset.jenis,
-                    serial: tr.dataset.serial, lokasi: tr.dataset.lokasi });
-    renderSelected();
+    addDevice(id, tr.dataset.nama, tr.dataset.jenis, tr.dataset.serial, tr.dataset.lokasi);
 });
 
-// ── Render selected table ────────────────────────────────────────
-function renderSelected() {
+function addDevice(id, nama, jenis, serial, lokasi) {
+    addedIds.add(id);
     const tbody = document.getElementById('selected-body');
-    const emptyRow = document.getElementById('empty-row');
-    document.getElementById('row-count').textContent = rowOrder.length;
-    emptyRow.style.display = rowOrder.length ? 'none' : '';
+    document.getElementById('empty-row').style.display = 'none';
 
-    // Remove old data rows (keep empty-row)
-    tbody.querySelectorAll('tr.data-row').forEach(r => r.remove());
-
-    rowOrder.forEach((row, i) => {
-        const tr = document.createElement('tr');
-        tr.className = 'data-row';
-        tr.innerHTML = `
-            <td style="text-align:center;">${i + 1}
-                <input type="hidden" name="device_ids[]" value="${row.id}">
-            </td>
-            <td style="font-size:12.5px;">${row.nama}</td>
-            <td style="font-size:12px;color:#64748b;">${row.jenis || '—'}</td>
-            <td style="font-size:12px;color:#64748b;">${row.serial || '—'}</td>
-            <td>
-                <input type="text" name="lokasi_tujuan[]"
-                       class="form-control inp-sm" value="${row.lokasi}"
-                       placeholder="Lokasi tujuan">
-            </td>
-            <td>
-                <input type="text" name="keterangan[]"
-                       class="form-control inp-sm" placeholder="Keterangan">
-            </td>
-            <td>
-                <button type="button" class="btn btn-outline-danger btn-sm btn-rm"
-                        data-id="${row.id}">
-                    <i class="bi bi-x"></i>
-                </button>
-            </td>
-        `;
-        tbody.appendChild(tr);
+    const tr = document.createElement('tr');
+    tr.className = 'data-row';
+    tr.innerHTML = `
+        <td class="td-no" style="text-align:center;">—
+            <input type="hidden" name="device_ids[]" value="${id}">
+        </td>
+        <td style="font-size:12.5px;">${escHtml(nama)}</td>
+        <td>
+            <select name="komponen_label[]" class="form-select inp-sm komponen-sel">
+                <option value="">— Perangkat (keseluruhan) —</option>
+                <option value="" disabled>Memuat komponen...</option>
+            </select>
+        </td>
+        <td style="font-size:12px;color:#64748b;">${escHtml(jenis) || '—'}</td>
+        <td style="font-size:12px;color:#64748b;">${escHtml(serial) || '—'}</td>
+        <td>
+            <input type="text" name="lokasi_tujuan[]"
+                   class="form-control inp-sm" value="${escAttr(lokasi)}"
+                   placeholder="Lokasi tujuan">
+        </td>
+        <td>
+            <input type="text" name="keterangan[]"
+                   class="form-control inp-sm" placeholder="Keterangan">
+        </td>
+        <td>
+            <button type="button" class="btn btn-outline-danger btn-sm btn-rm">
+                <i class="bi bi-x"></i>
+            </button>
+        </td>
+    `;
+    tbody.appendChild(tr);
+    tr.querySelector('.btn-rm').addEventListener('click', () => {
+        addedIds.delete(id);
+        tr.remove();
+        renumberRows();
+        updateCount();
     });
+    renumberRows();
+    updateCount();
+    loadKomponen(id, tr.querySelector('.komponen-sel'));
+}
 
-    // Bind remove buttons
-    tbody.querySelectorAll('.btn-rm').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const rid = this.dataset.id;
-            addedIds.delete(rid);
-            rowOrder = rowOrder.filter(r => r.id !== rid);
-            renderSelected();
-        });
+function renumberRows() {
+    document.querySelectorAll('#selected-body tr.data-row').forEach((tr, i) => {
+        tr.querySelector('.td-no').firstChild.textContent = i + 1;
     });
 }
 
-// ── Submit guard ─────────────────────────────────────────────────
+function updateCount() {
+    const count = document.querySelectorAll('#selected-body tr.data-row').length;
+    document.getElementById('row-count').textContent = count;
+    if (count === 0) document.getElementById('empty-row').style.display = '';
+}
+
+async function loadKomponen(deviceId, sel) {
+    try {
+        const res = await fetch(`/api/device/${deviceId}/komponen/`);
+        const data = await res.json();
+        sel.innerHTML = '<option value="">— Perangkat (keseluruhan) —</option>';
+        if (data.length === 0) {
+            sel.innerHTML += '<option value="" disabled>— belum ada komponen —</option>';
+        } else {
+            data.forEach(k => {
+                const opt = document.createElement('option');
+                opt.value = k.label;
+                opt.textContent = k.label + (k.tipe ? ` (${k.tipe})` : '');
+                sel.appendChild(opt);
+            });
+        }
+    } catch(e) {
+        sel.innerHTML = '<option value="">— Perangkat (keseluruhan) —</option>';
+    }
+}
+
+function escHtml(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function escAttr(s) { return String(s || '').replace(/"/g,'&quot;'); }
+
 document.getElementById('ba-form').addEventListener('submit', e => {
-    if (rowOrder.length === 0) {
+    if (document.querySelectorAll('#selected-body tr.data-row').length === 0) {
         e.preventDefault();
         alert('Pilih minimal satu perangkat sebelum ekspor PDF.');
     }
@@ -301,15 +329,30 @@ function previewEviden(input) {
     box.innerHTML = '';
     if (!input.files.length) { wrap.style.display = 'none'; return; }
     wrap.style.display = '';
-    Array.from(input.files).forEach(file => {
+    Array.from(input.files).forEach((file, idx) => {
         const url = URL.createObjectURL(file);
+
         const div = document.createElement('div');
-        div.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:4px;width:130px;';
-        div.innerHTML = `
-            <img src="${url}" style="height:90px;width:100%;border-radius:6px;border:1px solid #e2e8f0;object-fit:cover;">
-            <input type="text" name="eviden_catatan[]" class="form-control form-control-sm"
-                   placeholder="Catatan gambar..." style="font-size:11px;width:100%;">
-        `;
+        div.style.cssText = 'display:flex;flex-direction:column;gap:4px;width:160px;';
+
+        const img = document.createElement('img');
+        img.src = url;
+        img.style.cssText = 'height:100px;width:100%;border-radius:6px;border:1px solid #e2e8f0;object-fit:cover;';
+
+        const lbl = document.createElement('label');
+        lbl.textContent = `Catatan foto ${idx + 1}`;
+        lbl.style.cssText = 'font-size:11px;font-weight:600;color:#475569;margin:0;';
+
+        const inp = document.createElement('input');
+        inp.type = 'text';
+        inp.name = 'eviden_catatan';
+        inp.className = 'form-control form-control-sm';
+        inp.placeholder = 'Keterangan foto...';
+        inp.style.cssText = 'font-size:12px;';
+
+        div.appendChild(img);
+        div.appendChild(lbl);
+        div.appendChild(inp);
         box.appendChild(div);
     });
 }
