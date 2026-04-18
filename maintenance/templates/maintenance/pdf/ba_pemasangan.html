@@ -235,9 +235,9 @@ body {
   {% for ev in eviden_list %}
   <div style="text-align:center;max-width:82mm;">
     <img src="data:{{ ev.mime }};base64,{{ ev.b64 }}"
-         style="max-width:82mm;max-height:100mm;object-fit:contain;border:0.5pt solid #ccc;border-radius:2pt;display:block;margin:0 auto;">
+         style="max-width:82mm;max-height:88mm;display:block;margin:0 auto;border:0.5pt solid #ccc;border-radius:2pt;">
     {% if ev.catatan %}
-    <p style="font-size:9pt;color:#333;margin-top:2mm;">{{ ev.catatan }}</p>
+    <div style="font-size:8.5pt;color:#333;margin-top:3mm;text-align:center;font-style:italic;">{{ ev.catatan }}</div>
     {% endif %}
   </div>
   {% endfor %}
