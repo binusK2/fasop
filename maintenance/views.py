@@ -2957,15 +2957,6 @@ def _load_ba_sig_b64(user):
         if path and _os.path.exists(path):
             with open(path, 'rb') as f:
                 return _b.b64encode(f.read()).decode()
-def _get_am_name():
-    """Return display name of the first Asisten Manager user, or empty string."""
-    from django.contrib.auth.models import User
-    try:
-        am = User.objects.filter(
-            profile__role='asisten_manager'
-        ).select_related('profile').first()
-        if am:
-            return am.profile.get_display_name()
     except Exception:
         pass
     return ''
@@ -3211,7 +3202,6 @@ def ba_export(request, pk):
         'rows':                 record.rows_data,
         'eviden_list':          eviden_list,
         **_ba_ttd_ctx(record),
-        'am_name':              _get_am_name(),
     }
     template_map = {
         'pemasangan':   'maintenance/pdf/ba_pemasangan.html',
@@ -3366,7 +3356,6 @@ def ba_pemasangan(request):
             'catatan':           catatan,
             'rows':              rows,
             'eviden_list':       eviden_list,
-            'am_name':           _get_am_name(),
         }
         _save_ba_record('pemasangan', nomor_ba, tanggal, pelaksana, nip, jabatan, catatan, rows, eviden_files, eviden_captions, request.user)
         return _render_ba_pdf('maintenance/pdf/ba_pemasangan.html', ctx, f'{fname_base}.pdf')
@@ -3438,7 +3427,6 @@ def ba_pembongkaran(request):
             'catatan':           catatan,
             'rows':              rows,
             'eviden_list':       eviden_list,
-            'am_name':           _get_am_name(),
         }
         _save_ba_record('pembongkaran', nomor_ba, tanggal, pelaksana, nip, jabatan, catatan, rows, eviden_files, eviden_captions, request.user)
         return _render_ba_pdf('maintenance/pdf/ba_pembongkaran.html', ctx, f'{fname_base}.pdf')
@@ -3510,7 +3498,6 @@ def ba_penggantian(request):
             'catatan':           catatan,
             'rows':              rows,
             'eviden_list':       eviden_list,
-            'am_name':           _get_am_name(),
         }
         _save_ba_record('penggantian', nomor_ba, tanggal, pelaksana, nip, jabatan, catatan, rows, eviden_files, eviden_captions, request.user)
         return _render_ba_pdf('maintenance/pdf/ba_penggantian.html', ctx, f'{fname_base}.pdf')
