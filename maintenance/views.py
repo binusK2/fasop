@@ -3336,29 +3336,10 @@ def ba_pemasangan(request):
         import base64 as _b64
         eviden_files    = request.FILES.getlist('eviden')
         eviden_captions = request.POST.getlist('eviden_catatan[]')
-        eviden_list = [
-            {
-                'b64':     _b64.b64encode(f.read()).decode(),
-                'mime':    f.content_type or 'image/jpeg',
-                'catatan': eviden_captions[i] if i < len(eviden_captions) else '',
-            }
-            for i, f in enumerate(eviden_files)
-        ]
-        ctx = {
-            'logo_b64':          _load_logo_b64(),
-            'nomor_ba':          nomor_ba,
-            'tanggal_display':   _format_tanggal(tanggal),
-            'hari_display':      hari,
-            'bulan_tahun_display': bulan_tahun,
-            'pelaksana':         pelaksana,
-            'nip':               nip,
-            'jabatan':           jabatan,
-            'catatan':           catatan,
-            'rows':              rows,
-            'eviden_list':       eviden_list,
-        }
         _save_ba_record('pemasangan', nomor_ba, tanggal, pelaksana, nip, jabatan, catatan, rows, eviden_files, eviden_captions, request.user)
-        return _render_ba_pdf('maintenance/pdf/ba_pemasangan.html', ctx, f'{fname_base}.pdf')
+        from django.contrib import messages as _msg
+        _msg.success(request, f'Berita Acara Pemasangan "{nomor_ba}" berhasil dibuat.')
+        return redirect('ba_list')
 
     return render(request, 'maintenance/ba_pemasangan.html', {
         'devices':     devices,
@@ -3407,29 +3388,10 @@ def ba_pembongkaran(request):
         import base64 as _b64
         eviden_files    = request.FILES.getlist('eviden')
         eviden_captions = request.POST.getlist('eviden_catatan[]')
-        eviden_list = [
-            {
-                'b64':     _b64.b64encode(f.read()).decode(),
-                'mime':    f.content_type or 'image/jpeg',
-                'catatan': eviden_captions[i] if i < len(eviden_captions) else '',
-            }
-            for i, f in enumerate(eviden_files)
-        ]
-        ctx = {
-            'logo_b64':          _load_logo_b64(),
-            'nomor_ba':          nomor_ba,
-            'tanggal_display':   _format_tanggal(tanggal),
-            'hari_display':      hari,
-            'bulan_tahun_display': bulan_tahun,
-            'pelaksana':         pelaksana,
-            'nip':               nip,
-            'jabatan':           jabatan,
-            'catatan':           catatan,
-            'rows':              rows,
-            'eviden_list':       eviden_list,
-        }
         _save_ba_record('pembongkaran', nomor_ba, tanggal, pelaksana, nip, jabatan, catatan, rows, eviden_files, eviden_captions, request.user)
-        return _render_ba_pdf('maintenance/pdf/ba_pembongkaran.html', ctx, f'{fname_base}.pdf')
+        from django.contrib import messages as _msg
+        _msg.success(request, f'Berita Acara Pembongkaran "{nomor_ba}" berhasil dibuat.')
+        return redirect('ba_list')
 
     return render(request, 'maintenance/ba_pembongkaran.html', {
         'devices':     devices,
@@ -3478,29 +3440,10 @@ def ba_penggantian(request):
         import base64 as _b64
         eviden_files    = request.FILES.getlist('eviden')
         eviden_captions = request.POST.getlist('eviden_catatan[]')
-        eviden_list = [
-            {
-                'b64':     _b64.b64encode(f.read()).decode(),
-                'mime':    f.content_type or 'image/jpeg',
-                'catatan': eviden_captions[i] if i < len(eviden_captions) else '',
-            }
-            for i, f in enumerate(eviden_files)
-        ]
-        ctx = {
-            'logo_b64':          _load_logo_b64(),
-            'nomor_ba':          nomor_ba,
-            'tanggal_display':   _format_tanggal(tanggal),
-            'hari_display':      hari,
-            'bulan_tahun_display': bulan_tahun,
-            'pelaksana':         pelaksana,
-            'nip':               nip,
-            'jabatan':           jabatan,
-            'catatan':           catatan,
-            'rows':              rows,
-            'eviden_list':       eviden_list,
-        }
         _save_ba_record('penggantian', nomor_ba, tanggal, pelaksana, nip, jabatan, catatan, rows, eviden_files, eviden_captions, request.user)
-        return _render_ba_pdf('maintenance/pdf/ba_penggantian.html', ctx, f'{fname_base}.pdf')
+        from django.contrib import messages as _msg
+        _msg.success(request, f'Berita Acara Penggantian "{nomor_ba}" berhasil dibuat.')
+        return redirect('ba_list')
 
     return render(request, 'maintenance/ba_penggantian.html', {
         'devices':     devices,
