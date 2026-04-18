@@ -923,6 +923,12 @@ class BeritaAcaraRecord(models.Model):
         ('pembongkaran', 'Pembongkaran'),
         ('penggantian',  'Penggantian'),
     ]
+    TTD_STATUS_CHOICES = [
+        ('draft',             'Draft'),
+        ('menunggu_engineer', 'Menunggu TTD Engineer'),
+        ('signed_engineer',   'Sudah TTD Engineer'),
+        ('signed_am',         'Selesai'),
+    ]
     jenis      = models.CharField(max_length=20, choices=JENIS_CHOICES)
     nomor_ba   = models.CharField(max_length=200, blank=True)
     tanggal    = models.DateField()
@@ -936,6 +942,22 @@ class BeritaAcaraRecord(models.Model):
         User, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='ba_records'
     )
+    # ── Tanda Tangan ──────────────────────────────────────────
+    ttd_status      = models.CharField(max_length=30, choices=TTD_STATUS_CHOICES, default='draft')
+    ttd_req_to      = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='ba_ttd_requests'
+    )
+    ttd_engineer    = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='ba_signed_engineer'
+    )
+    ttd_engineer_at = models.DateTimeField(null=True, blank=True)
+    ttd_am          = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='ba_signed_am'
+    )
+    ttd_am_at       = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ['-created_at']

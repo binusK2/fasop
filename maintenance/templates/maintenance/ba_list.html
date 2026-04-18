@@ -39,6 +39,7 @@
                     <th style="font-size:11px;color:#64748b;padding:10px 12px;">TANGGAL</th>
                     <th style="font-size:11px;color:#64748b;padding:10px 12px;">PELAKSANA</th>
                     <th style="font-size:11px;color:#64748b;padding:10px 12px;">EVIDEN</th>
+                    <th style="font-size:11px;color:#64748b;padding:10px 12px;">STATUS TTD</th>
                     <th style="font-size:11px;color:#64748b;padding:10px 12px;">DIBUAT OLEH</th>
                     <th style="font-size:11px;color:#64748b;padding:10px 12px;">DIBUAT PADA</th>
                     <th style="text-align:center;font-size:11px;color:#64748b;padding:10px 12px;">AKSI</th>
@@ -46,6 +47,7 @@
             </thead>
             <tbody>
             {% for rec in records %}
+            {% with is_owner=rec.created_by|default_if_none:"" %}
             <tr style="border-top:1px solid #f1f5f9;transition:background 0.15s;"
                 onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
 
@@ -98,6 +100,61 @@
                     {% endwith %}
                 </td>
 
+                <!-- STATUS TTD -->
+                <td style="padding:13px 12px;min-width:160px;">
+                    {% if rec.ttd_status == 'draft' %}
+                    <span style="font-size:11px;font-weight:600;color:#64748b;background:#f1f5f9;padding:3px 9px;border-radius:20px;border:1px solid #e2e8f0;">
+                        <i class="bi bi-pencil-square" style="font-size:10px;"></i> Draft
+                    </span>
+
+                    {% elif rec.ttd_status == 'menunggu_engineer' %}
+                    <div>
+                        <span style="font-size:11px;font-weight:600;color:#92400e;background:#fef3c7;padding:3px 9px;border-radius:20px;border:1px solid #fde68a;display:inline-block;margin-bottom:3px;">
+                            <i class="bi bi-hourglass-split" style="font-size:10px;"></i> Menunggu TTD
+                        </span>
+                        {% if rec.ttd_req_to %}
+                        <div style="font-size:10.5px;color:#64748b;margin-top:2px;">
+                            <i class="bi bi-person me-1"></i>
+                            {% if rec.ttd_req_to.profile.get_display_name %}{{ rec.ttd_req_to.profile.get_display_name }}{% else %}{{ rec.ttd_req_to.get_full_name|default:rec.ttd_req_to.username }}{% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    {% elif rec.ttd_status == 'signed_engineer' %}
+                    <div>
+                        <span style="font-size:11px;font-weight:600;color:#1d4ed8;background:#eff6ff;padding:3px 9px;border-radius:20px;border:1px solid #bfdbfe;display:inline-block;margin-bottom:3px;">
+                            <i class="bi bi-pen-fill" style="font-size:10px;"></i> TTD Engineer ✓
+                        </span>
+                        {% if rec.ttd_engineer %}
+                        <div style="font-size:10.5px;color:#64748b;margin-top:2px;">
+                            <i class="bi bi-person-check me-1"></i>
+                            {% if rec.ttd_engineer.profile.get_display_name %}{{ rec.ttd_engineer.profile.get_display_name }}{% else %}{{ rec.ttd_engineer.get_full_name|default:rec.ttd_engineer.username }}{% endif %}
+                        </div>
+                        {% endif %}
+                        <div style="font-size:10.5px;color:#94a3b8;">Menunggu TTD AM</div>
+                    </div>
+
+                    {% elif rec.ttd_status == 'signed_am' %}
+                    <div>
+                        <span style="font-size:11px;font-weight:600;color:#065f46;background:#dcfce7;padding:3px 9px;border-radius:20px;border:1px solid #a7f3d0;display:inline-block;margin-bottom:3px;">
+                            <i class="bi bi-patch-check-fill" style="font-size:10px;"></i> Selesai
+                        </span>
+                        {% if rec.ttd_engineer %}
+                        <div style="font-size:10.5px;color:#64748b;margin-top:2px;">
+                            <i class="bi bi-person-check me-1" style="color:#10b981;"></i>
+                            {% if rec.ttd_engineer.profile.get_display_name %}{{ rec.ttd_engineer.profile.get_display_name }}{% else %}{{ rec.ttd_engineer.get_full_name|default:rec.ttd_engineer.username }}{% endif %}
+                        </div>
+                        {% endif %}
+                        {% if rec.ttd_am %}
+                        <div style="font-size:10.5px;color:#64748b;">
+                            <i class="bi bi-person-check-fill me-1" style="color:#10b981;"></i>
+                            {% if rec.ttd_am.profile.get_display_name %}{{ rec.ttd_am.profile.get_display_name }}{% else %}{{ rec.ttd_am.get_full_name|default:rec.ttd_am.username }}{% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </td>
+
                 <td style="padding:13px 12px;">
                     <span style="font-size:12px;color:#475569;">
                         {% if rec.created_by %}
@@ -112,28 +169,74 @@
                 </td>
 
                 <td style="text-align:center;padding:13px 10px;">
-                    <div style="display:flex;gap:5px;justify-content:center;">
+                    <div style="display:flex;gap:5px;justify-content:center;flex-wrap:wrap;">
+                        <a href="{% url 'ba_preview' rec.pk %}"
+                           target="_blank"
+                           class="btn btn-sm btn-outline-secondary"
+                           style="border-radius:7px;padding:4px 10px;font-size:12px;"
+                           title="Preview PDF">
+                            <i class="bi bi-eye"></i>
+                        </a>
                         <a href="{% url 'ba_export' rec.pk %}"
                            class="btn btn-sm btn-outline-primary"
                            style="border-radius:7px;padding:4px 10px;font-size:12px;"
-                           title="Export PDF">
-                            <i class="bi bi-file-earmark-pdf"></i>
+                           title="Download PDF">
+                            <i class="bi bi-file-earmark-arrow-down"></i>
                         </a>
-                        {% if request.user.is_superuser %}
+
+                        {# Minta TTD — tampil untuk creator/superuser ketika masih draft #}
+                        {% if rec.ttd_status == 'draft' %}
+                            {% if request.user.is_superuser or rec.created_by == request.user %}
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-warning"
+                                    style="border-radius:7px;padding:4px 10px;font-size:12px;"
+                                    title="Minta Tanda Tangan"
+                                    onclick="openMintaTTD({{ rec.pk }}, '{{ rec.nomor_ba|default:"BA ini"|escapejs }}')">
+                                <i class="bi bi-person-plus"></i>
+                            </button>
+                            {% endif %}
+                        {% endif %}
+
+                        {# TTD Engineer — hanya untuk engineer yang diminta #}
+                        {% if rec.ttd_status == 'menunggu_engineer' and rec.ttd_req_to == request.user %}
+                        <button type="button"
+                                class="btn btn-sm btn-warning"
+                                style="border-radius:7px;padding:4px 10px;font-size:12px;"
+                                title="Tandatangani sebagai Engineer"
+                                onclick="confirmTTDEngineer({{ rec.pk }}, '{{ rec.nomor_ba|default:"BA ini"|escapejs }}')">
+                            <i class="bi bi-pen-fill"></i> TTD
+                        </button>
+                        {% endif %}
+
+                        {# TTD AM — hanya untuk AM ketika engineer sudah TTD #}
+                        {% if rec.ttd_status == 'signed_engineer' %}
+                            {% if request.user.is_superuser or request.user.profile.is_asisten_manager %}
+                            <button type="button"
+                                    class="btn btn-sm btn-success"
+                                    style="border-radius:7px;padding:4px 10px;font-size:12px;"
+                                    title="Tandatangani sebagai AM"
+                                    onclick="confirmTTDAM({{ rec.pk }}, '{{ rec.nomor_ba|default:"BA ini"|escapejs }}')">
+                                <i class="bi bi-person-check-fill"></i> TTD AM
+                            </button>
+                            {% endif %}
+                        {% endif %}
+
+                        {% if request.user.is_superuser or rec.created_by == request.user %}
                         <button type="button"
                                 class="btn btn-sm btn-outline-danger"
                                 style="border-radius:7px;padding:4px 10px;font-size:12px;"
                                 title="Hapus"
-                                onclick="confirmHapus({{ rec.pk }}, '{{ rec.nomor_ba|default:"BA ini" }}')">
+                                onclick="confirmHapus({{ rec.pk }}, '{{ rec.nomor_ba|default:"BA ini"|escapejs }}')">
                             <i class="bi bi-trash"></i>
                         </button>
                         {% endif %}
                     </div>
                 </td>
             </tr>
+            {% endwith %}
             {% empty %}
             <tr>
-                <td colspan="9" class="text-center text-muted py-5">
+                <td colspan="10" class="text-center text-muted py-5">
                     <i class="bi bi-file-earmark-x fs-2 d-block mb-2"></i>
                     Belum ada Berita Acara yang dibuat.
                 </td>
@@ -144,10 +247,102 @@
     </div>
 </div>
 
-<!-- Modal konfirmasi hapus -->
-<form id="hapus-form" method="post" action="">
-    {% csrf_token %}
-</form>
+<!-- ── Hidden forms ──────────────────────────────────────── -->
+<form id="hapus-form" method="post" action="">{% csrf_token %}</form>
+<form id="ttd-engineer-form" method="post" action="">{% csrf_token %}</form>
+<form id="ttd-am-form" method="post" action="">{% csrf_token %}</form>
+
+<!-- ── Modal: Minta TTD (pilih engineer) ────────────────── -->
+<div class="modal fade" id="mintaTTDModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0 pb-0">
+                <h6 class="modal-title fw-bold" style="color:#d97706;">
+                    <i class="bi bi-person-plus-fill me-2"></i>Minta Tanda Tangan
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" id="minta-ttd-form" action="">
+                {% csrf_token %}
+                <div class="modal-body" style="font-size:13px;">
+                    <p class="mb-3 text-muted">BA: <strong id="minta-ttd-nomor"></strong></p>
+                    <label class="form-label fw-semibold" style="font-size:12px;">Pilih Engineer / Staf Fasop</label>
+                    <select name="engineer_id" class="form-select form-select-sm" required>
+                        <option value="">— Pilih engineer —</option>
+                        {% for eng in engineers %}
+                        <option value="{{ eng.pk }}">
+                            {% if eng.profile.get_display_name %}{{ eng.profile.get_display_name }}{% else %}{{ eng.get_full_name|default:eng.username }}{% endif %}
+                            {% if eng.profile.jabatan %} — {{ eng.profile.jabatan }}{% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-sm btn-warning">
+                        <i class="bi bi-send me-1"></i>Kirim Permintaan
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ── Modal: Konfirmasi TTD Engineer ───────────────────── -->
+<div class="modal fade" id="ttdEngineerModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0 pb-0">
+                <h6 class="modal-title fw-bold" style="color:#1d4ed8;">
+                    <i class="bi bi-pen-fill me-2"></i>Tanda Tangan sebagai Engineer
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body pt-2" style="font-size:13px;">
+                Anda akan menandatangani BA <strong id="ttd-eng-nomor"></strong> sebagai pelaksana / staf Fasop.
+                <div class="mt-2 p-2 rounded" style="background:#eff6ff;font-size:12px;color:#1d4ed8;">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Tanda tangan digital Anda (dari profil) akan ditampilkan di PDF.
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-sm btn-primary" onclick="document.getElementById('ttd-engineer-form').submit()">
+                    <i class="bi bi-pen me-1"></i>Tanda Tangan
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Modal: Konfirmasi TTD AM ─────────────────────────── -->
+<div class="modal fade" id="ttdAMModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0 pb-0">
+                <h6 class="modal-title fw-bold" style="color:#065f46;">
+                    <i class="bi bi-person-check-fill me-2"></i>Tanda Tangan sebagai AM
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body pt-2" style="font-size:13px;">
+                Anda akan menandatangani BA <strong id="ttd-am-nomor"></strong> sebagai <em>Asisten Manager Fasop</em>.
+                <div class="mt-2 p-2 rounded" style="background:#f0fdf4;font-size:12px;color:#065f46;">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Tanda tangan digital Anda (dari profil) akan ditampilkan di PDF.
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-sm btn-success" onclick="document.getElementById('ttd-am-form').submit()">
+                    <i class="bi bi-pen me-1"></i>Tanda Tangan
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Modal: Konfirmasi Hapus ──────────────────────────── -->
 <div class="modal fade" id="hapusModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -174,6 +369,21 @@
 
 {% block extra_js %}
 <script>
+function openMintaTTD(pk, nomor) {
+    document.getElementById('minta-ttd-form').action = `/maintenance/ekspor/${pk}/minta-ttd/`;
+    document.getElementById('minta-ttd-nomor').textContent = nomor;
+    new bootstrap.Modal(document.getElementById('mintaTTDModal')).show();
+}
+function confirmTTDEngineer(pk, nomor) {
+    document.getElementById('ttd-engineer-form').action = `/maintenance/ekspor/${pk}/ttd-engineer/`;
+    document.getElementById('ttd-eng-nomor').textContent = nomor;
+    new bootstrap.Modal(document.getElementById('ttdEngineerModal')).show();
+}
+function confirmTTDAM(pk, nomor) {
+    document.getElementById('ttd-am-form').action = `/maintenance/ekspor/${pk}/ttd-am/`;
+    document.getElementById('ttd-am-nomor').textContent = nomor;
+    new bootstrap.Modal(document.getElementById('ttdAMModal')).show();
+}
 function confirmHapus(pk, nomor) {
     document.getElementById('hapus-form').action = `/maintenance/ekspor/${pk}/hapus/`;
     document.getElementById('hapus-nomor').textContent = nomor;

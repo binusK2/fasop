@@ -2946,6 +2946,17 @@ _BULAN_ID_FULL = [
     'Juli','Agustus','September','Oktober','November','Desember',
 ]
 
+
+def _load_ba_sig_b64(user):
+    """Return base64-encoded signature image for user, or empty string."""
+    if not user:
+        return ''
+    try:
+        import os as _os, base64 as _b
+        path = user.profile.signature.path
+        if path and _os.path.exists(path):
+            with open(path, 'rb') as f:
+                return _b.b64encode(f.read()).decode()
 def _get_am_name():
     """Return display name of the first Asisten Manager user, or empty string."""
     from django.contrib.auth.models import User
@@ -2959,6 +2970,23 @@ def _get_am_name():
         pass
     return ''
 
+
+def _ba_ttd_ctx(record):
+    """Build TTD context dict for BA PDF templates."""
+    def _display(u):
+        if not u:
+            return ''
+        try:
+            return u.profile.get_display_name()
+        except Exception:
+            return u.get_full_name() or u.username
+
+    return {
+        'ttd_engineer_name':   _display(record.ttd_engineer),
+        'ttd_engineer_sig_b64': _load_ba_sig_b64(record.ttd_engineer),
+        'ttd_am_name':         _display(record.ttd_am),
+        'ttd_am_sig_b64':      _load_ba_sig_b64(record.ttd_am),
+    }
 
 def _load_logo_b64():
     import os, base64
@@ -3061,15 +3089,84 @@ def _save_ba_record(jenis, nomor_ba, tanggal_str, pelaksana, nip, jabatan, catat
 
 @login_required
 def ba_list(request):
+    from django.contrib.auth import get_user_model as _get_user_model
     records = (
         BeritaAcaraRecord.objects
-        .select_related('created_by')
+        .select_related('created_by', 'ttd_req_to', 'ttd_engineer', 'ttd_am')
         .prefetch_related('evidens')
         .order_by('-created_at')
     )
+    _User = _get_user_model()
+    engineers = (
+        _User.objects
+        .filter(profile__role='technician')
+        .select_related('profile')
+        .order_by('profile__display_name', 'first_name')
+    )
     return render(request, 'maintenance/ba_list.html', {
-        'records': records,
+        'records':   records,
+        'engineers': engineers,
     })
+
+
+@login_required
+def ba_request_sign(request, pk):
+    from django.contrib import messages as dj_messages
+    from django.contrib.auth import get_user_model as _gum
+    record = get_object_or_404(BeritaAcaraRecord, pk=pk)
+    if not (request.user.is_superuser or record.created_by == request.user):
+        dj_messages.error(request, 'Tidak memiliki izin.')
+        return redirect('ba_list')
+    if request.method == 'POST':
+        eng_id = request.POST.get('engineer_id')
+        try:
+            eng = _gum().objects.select_related('profile').get(pk=eng_id, profile__role='technician')
+            record.ttd_req_to = eng
+            record.ttd_status = 'menunggu_engineer'
+            record.save(update_fields=['ttd_req_to', 'ttd_status'])
+            dj_messages.success(request, f'Permintaan TTD dikirim ke {eng.profile.get_display_name()}.')
+        except Exception:
+            dj_messages.error(request, 'Engineer tidak valid.')
+    return redirect('ba_list')
+
+
+@login_required
+def ba_sign_engineer(request, pk):
+    from django.contrib import messages as dj_messages
+    record = get_object_or_404(BeritaAcaraRecord, pk=pk)
+    if record.ttd_status != 'menunggu_engineer' or record.ttd_req_to_id != request.user.pk:
+        dj_messages.error(request, 'Anda tidak dapat menandatangani BA ini.')
+        return redirect('ba_list')
+    if request.method == 'POST':
+        record.ttd_engineer    = request.user
+        record.ttd_engineer_at = dj_timezone.now()
+        record.ttd_status      = 'signed_engineer'
+        record.save(update_fields=['ttd_engineer', 'ttd_engineer_at', 'ttd_status'])
+        dj_messages.success(request, 'Berita Acara berhasil Anda tandatangani.')
+    return redirect('ba_list')
+
+
+@login_required
+def ba_sign_am(request, pk):
+    from django.contrib import messages as dj_messages
+    record = get_object_or_404(BeritaAcaraRecord, pk=pk)
+    try:
+        is_am = request.user.profile.is_asisten_manager
+    except Exception:
+        is_am = False
+    if not (request.user.is_superuser or is_am):
+        dj_messages.error(request, 'Hanya Asisten Manager yang dapat menandatangani sebagai AM.')
+        return redirect('ba_list')
+    if record.ttd_status != 'signed_engineer':
+        dj_messages.error(request, 'BA belum ditandatangani oleh engineer.')
+        return redirect('ba_list')
+    if request.method == 'POST':
+        record.ttd_am    = request.user
+        record.ttd_am_at = dj_timezone.now()
+        record.ttd_status = 'signed_am'
+        record.save(update_fields=['ttd_am', 'ttd_am_at', 'ttd_status'])
+        dj_messages.success(request, 'Berita Acara berhasil ditandatangani sebagai AM.')
+    return redirect('ba_list')
 
 
 @login_required
@@ -3113,6 +3210,7 @@ def ba_export(request, pk):
         'catatan':              record.catatan,
         'rows':                 record.rows_data,
         'eviden_list':          eviden_list,
+        **_ba_ttd_ctx(record),
         'am_name':              _get_am_name(),
     }
     template_map = {
@@ -3128,10 +3226,10 @@ def ba_export(request, pk):
 @login_required
 def ba_delete(request, pk):
     from django.contrib import messages as dj_messages
-    if not request.user.is_superuser:
-        dj_messages.error(request, 'Hanya superuser yang dapat menghapus data BA.')
-        return redirect('ba_list')
     record = get_object_or_404(BeritaAcaraRecord, pk=pk)
+    if not (request.user.is_superuser or record.created_by == request.user):
+        dj_messages.error(request, 'Anda tidak memiliki izin untuk menghapus BA ini.')
+        return redirect('ba_list')
     if request.method == 'POST':
         for ev in record.evidens.all():
             if ev.gambar:
@@ -3144,6 +3242,68 @@ def ba_delete(request, pk):
         record.delete()
         dj_messages.success(request, 'Data BA berhasil dihapus.')
     return redirect('ba_list')
+
+
+@login_required
+def ba_preview(request, pk):
+    import re as _re2
+    record = get_object_or_404(BeritaAcaraRecord, pk=pk)
+
+    import base64 as _b64
+    eviden_list = []
+    for ev in record.evidens.all():
+        if ev.gambar:
+            try:
+                with open(ev.gambar.path, 'rb') as f:
+                    data = f.read()
+                name = ev.gambar.name.lower()
+                if name.endswith('.png'):
+                    mime = 'image/png'
+                elif name.endswith('.gif'):
+                    mime = 'image/gif'
+                else:
+                    mime = 'image/jpeg'
+                eviden_list.append({'b64': _b64.b64encode(data).decode(), 'mime': mime, 'catatan': ev.catatan})
+            except Exception:
+                pass
+
+    HARI_ID = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu']
+    d = record.tanggal
+    hari_display        = HARI_ID[d.weekday()]
+    tanggal_display     = f'{d.day} {_BULAN_ID_FULL[d.month - 1]} {d.year}'
+    bulan_tahun_display = f'{_BULAN_ID_FULL[d.month - 1]} {d.year}'
+
+    ctx = {
+        'logo_b64':             _load_logo_b64(),
+        'nomor_ba':             record.nomor_ba,
+        'tanggal_display':      tanggal_display,
+        'hari_display':         hari_display,
+        'bulan_tahun_display':  bulan_tahun_display,
+        'pelaksana':            record.pelaksana,
+        'nip':                  record.nip,
+        'jabatan':              record.jabatan,
+        'catatan':              record.catatan,
+        'rows':                 record.rows_data,
+        'eviden_list':          eviden_list,
+        **_ba_ttd_ctx(record),
+    }
+    template_map = {
+        'pemasangan':   'maintenance/pdf/ba_pemasangan.html',
+        'pembongkaran': 'maintenance/pdf/ba_pembongkaran.html',
+        'penggantian':  'maintenance/pdf/ba_penggantian.html',
+    }
+    template = template_map.get(record.jenis, 'maintenance/pdf/ba_pemasangan.html')
+    from django.template.loader import render_to_string
+    try:
+        import weasyprint
+        html = render_to_string(template, ctx)
+        pdf  = weasyprint.HTML(string=html).write_pdf()
+        nomor_clean = _re2.sub(r'[^\w]', '', record.nomor_ba) if record.nomor_ba else 'preview'
+        resp = HttpResponse(pdf, content_type='application/pdf')
+        resp['Content-Disposition'] = f'inline; filename="{nomor_clean}.pdf"'
+        return resp
+    except ImportError:
+        return HttpResponse('WeasyPrint tidak tersedia di server ini.', status=500)
 
 
 @login_required
