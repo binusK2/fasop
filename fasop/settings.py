@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'axes',
     'devices',
     'maintenance',
     'gangguan',
@@ -55,6 +56,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'axes.middleware.AxesMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'devices.middleware.ForcePasswordChangeMiddleware',
@@ -165,8 +167,28 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 DATA_UPLOAD_MAX_MEMORY_SIZE = 20 * 1024 * 1024   # 20 MB
 FILE_UPLOAD_MAX_MEMORY_SIZE = 20 * 1024 * 1024   # 20 MB
 
-SESSION_COOKIE_AGE = 28800
+SESSION_COOKIE_AGE            = 28800
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+SESSION_COOKIE_HTTPONLY       = True
+SESSION_COOKIE_SAMESITE       = 'Lax'
+SESSION_COOKIE_SECURE         = not DEBUG   # True di production (HTTPS)
+
+CSRF_COOKIE_HTTPONLY          = True
+CSRF_COOKIE_SAMESITE          = 'Lax'
+CSRF_COOKIE_SECURE            = not DEBUG   # True di production (HTTPS)
+
+# -------------------------------------------------------------------
+# Login rate limiting — django-axes
+# -------------------------------------------------------------------
+AUTHENTICATION_BACKENDS = [
+    'axes.backends.AxesStandaloneBackend',
+    'django.contrib.auth.backends.ModelBackend',
+]
+AXES_FAILURE_LIMIT       = 5
+AXES_LOCKOUT_PARAMETERS  = [['username']]   # kunci per username
+AXES_RESET_ON_SUCCESS    = True             # reset counter jika berhasil login
+AXES_LOCKOUT_TEMPLATE    = 'registration/lockout.html'
+AXES_VERBOSE             = False
 
 # -------------------------------------------------------------------
 # API Key untuk integrasi eksternal (n8n, Google Sheets, dsb.)
