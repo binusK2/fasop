@@ -91,6 +91,14 @@ class Device(models.Model):
         verbose_name='Token Publik QR',
         help_text='Token unik untuk halaman publik QR Code'
     )
+    wiring_json = models.JSONField(
+        null=True, blank=True,
+        verbose_name='Wiring Diagram Data',
+    )
+    wiring_img = models.ImageField(
+        upload_to='wiring/', null=True, blank=True,
+        verbose_name='Wiring Diagram Image',
+    )
     host = models.ForeignKey(
         'self',
         null=True, blank=True,

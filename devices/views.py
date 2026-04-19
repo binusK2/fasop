@@ -2047,3 +2047,40 @@ def device_eviden_delete(request, pk, eviden_pk):
             pass
     eviden.delete()
     return redirect('device_view', pk=pk)
+
+
+@login_required
+@require_can_edit
+def device_wiring(request, pk):
+    """Editor wiring diagram perangkat."""
+    device = get_object_or_404(Device, pk=pk, is_deleted=False)
+    if request.method == 'POST':
+        import json as _json, base64 as _b64
+        from django.core.files.base import ContentFile as _CF
+        wiring_raw = request.POST.get('wiring_json', '')
+        img_data   = request.POST.get('wiring_img', '')
+        update_fields = []
+        if wiring_raw:
+            try:
+                device.wiring_json = _json.loads(wiring_raw)
+                update_fields.append('wiring_json')
+            except Exception:
+                pass
+        if img_data and img_data.startswith('data:image/png;base64,'):
+            try:
+                img_bytes = _b64.b64decode(img_data.split(',')[1])
+                fname = f'wiring_{device.pk}.png'
+                if device.wiring_img:
+                    try:
+                        import os; os.remove(device.wiring_img.path)
+                    except Exception:
+                        pass
+                device.wiring_img.save(fname, _CF(img_bytes), save=False)
+                update_fields.append('wiring_img')
+            except Exception:
+                pass
+        if update_fields:
+            device.save(update_fields=update_fields)
+        from django.http import JsonResponse as _JR
+        return _JR({'ok': True})
+    return render(request, 'devices/device_wiring.html', {'device': device})

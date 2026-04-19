@@ -41,6 +41,9 @@ urlpatterns = [
     path('view/<hid:pk>/event/add/', views.device_event_add, name='device_event_add'),
     path('view/<hid:pk>/event/<hid:event_pk>/delete/', views.device_event_delete, name='device_event_delete'),
 
+    # Wiring Diagram
+    path('view/<hid:pk>/wiring/', views.device_wiring, name='device_wiring'),
+
     # Eviden Tambahan
     path('view/<hid:pk>/eviden/add/', views.device_eviden_add, name='device_eviden_add'),
     path('view/<hid:pk>/eviden/<hid:eviden_pk>/delete/', views.device_eviden_delete, name='device_eviden_delete'),
