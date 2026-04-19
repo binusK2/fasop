@@ -65,5 +65,5 @@ urlpatterns = [
     path('public/<str:token>/', views.device_public, name='device_public'),
 
     # API komponen berdasarkan device
-    path('api/device/<hid:device_pk>/komponen/', views_komponen.api_komponen_by_device, name='api_komponen_by_device'),
+    path('api/device/<int:device_pk>/komponen/', views_komponen.api_komponen_by_device, name='api_komponen_by_device'),
 ]
