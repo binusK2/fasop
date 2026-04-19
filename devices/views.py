@@ -1320,6 +1320,57 @@ def api_fiber_optic_json(request):
             d['panjang_km'] = str(d['panjang_km'])
     return JsonResponse({'fiber_optic': data})
 
+
+def fo_public(request, token):
+    """Halaman publik fiber optic via QR Code — tidak perlu login."""
+    from .models import FiberOptic, FiberOpticCore
+    fo = get_object_or_404(FiberOptic, public_token=token)
+    cores = fo.cores.order_by('nomor_core')
+
+    # Gangguan aktif terkait segmen ini
+    try:
+        from gangguan.models import Gangguan
+        gangguan_aktif = Gangguan.objects.filter(
+            fiber_optic=fo, status__in=['open', 'in_progress']
+        ).order_by('-tanggal_gangguan')
+    except Exception:
+        gangguan_aktif = []
+
+    # Ringkasan status core
+    total_core    = cores.count()
+    aktif_count   = cores.filter(status='aktif').count()
+    spare_count   = cores.filter(status='spare').count()
+    rusak_count   = cores.filter(status='rusak').count()
+    nonaktif_count = cores.filter(status='tidak_aktif').count()
+
+    return render(request, 'devices/fiber_optic_public.html', {
+        'fo':             fo,
+        'cores':          cores,
+        'gangguan_aktif': gangguan_aktif,
+        'total_core':     total_core,
+        'aktif_count':    aktif_count,
+        'spare_count':    spare_count,
+        'rusak_count':    rusak_count,
+        'nonaktif_count': nonaktif_count,
+    })
+
+
+@login_required
+def fo_qr(request, pk):
+    """Halaman cetak QR Code fiber optic."""
+    from .models import FiberOptic
+    fo = get_object_or_404(FiberOptic, pk=pk)
+    if not fo.public_token:
+        import secrets
+        fo.public_token = secrets.token_urlsafe(20)
+        fo.save(update_fields=['public_token'])
+    public_url = request.build_absolute_uri(f'/fo/public/{fo.public_token}/')
+    return render(request, 'devices/fiber_optic_qr.html', {
+        'fo':         fo,
+        'public_url': public_url,
+    })
+
+
 @login_required
 @require_can_edit
 def icon_create(request):

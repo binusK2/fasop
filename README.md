@@ -1,78 +1,142 @@
-# FASOP — Asset & Pemeliharaan Peralatan
+# FASOP — Sistem Manajemen Aset & Pemeliharaan
 
-Aplikasi web untuk manajemen aset peralatan telekomunikasi dan pencatatan pemeliharaan (preventive & corrective).
+Aplikasi web internal PT. PLN (Persero) UIP3B Sulawesi — Unit Pelaksana Pengatur Beban Sistem Makassar untuk manajemen aset peralatan, pencatatan pemeliharaan, dan monitoring gangguan.
 
 ---
 
 ## Fitur
-- 📋 Manajemen perangkat (Router, Switch, MUX, PLC, Radio, VoIP, Rectifier)
-- 🔧 Form pemeliharaan per jenis perangkat dengan detail teknis
-- 📊 Laporan & ekspor PDF pemeliharaan
-- 📍 Manajemen lokasi / site
-- 🖼️ Upload foto perangkat & pemeliharaan
-- 🔐 Manajemen user (Admin, Asisten Manager, Teknisi)
-- ✍️ Tanda tangan digital teknisi
-- 📱 Responsive UI (Bootstrap 5)
+
+### Manajemen Perangkat
+- Inventaris perangkat per jenis: Router, Switch, MUX, PLC, Radio, VoIP, Rectifier, RTU, SAS, RoIP, UPS, Genset, Teleproteksi
+- Grouping kelompok: Telekomunikasi, SCADA, Proteksi Sistem
+- Upload foto & eviden perangkat
+- QR Code per perangkat — halaman publik tanpa login
+- Peta jaringan & distribusi per lokasi
+
+### Fiber Optic
+- Inventaris segmen kabel FO (ADSS / OPGW / Drop)
+- Detail per-core: status, fungsi, koneksi A/B, data OTDR
+- QR Code per segmen — halaman publik menampilkan pemakaian core & status
+
+### Pemeliharaan
+- Form pemeliharaan preventif per jenis perangkat (detail teknis lengkap)
+- Pemeliharaan korektif terkait gangguan
+- Berita Acara (BA) Pemasangan, Pembongkaran, Penggantian
+- Workflow tanda tangan digital: Draft → Minta TTD Engineer → TTD AM
+- Ekspor PDF dengan tanda tangan & eviden foto
+- Approval oleh Asisten Manager
+
+### Gangguan
+- Pencatatan tiket gangguan peralatan & link fiber optic
+- Tracking status: Open → In Progress → Resolved → Closed
+- Log perubahan & riwayat penanganan
+- Halaman publik status gangguan via token
+
+### Dashboard & Monitoring
+- Statistik pemeliharaan & gangguan bulanan (Chart.js)
+- Health Index peralatan
+- Distribusi status per jenis & per kelompok peralatan
+- Jadwal pemeliharaan
+
+### Gudang
+- Manajemen alat uji & spare part
+- Mutasi stok
+
+### Keamanan
+- Login rate limiting: kunci akun otomatis setelah 5x gagal (django-axes)
+- URL obfuskasi: integer ID di-encode dengan Hashids
+- Session & CSRF cookie: HttpOnly, SameSite=Lax, Secure (HTTPS)
+- Role-based access: Viewer, Operator, Teknisi, Asisten Manager
+- Single session per user
+- Tanda tangan digital tersimpan di profil user
 
 ---
 
 ## Tech Stack
-- **Backend:** Django 6.x · Python 3.12+
-- **Database:** SQLite (development) / PostgreSQL (production)
-- **Frontend:** Bootstrap 5 · Bootstrap Icons
-- **Server:** Nginx + Gunicorn (VPS)
+
+| Layer | Teknologi |
+|---|---|
+| Backend | Django 6.0 · Python 3.12+ |
+| Database | SQLite (dev) / PostgreSQL (prod) |
+| Frontend | Bootstrap 5 · Bootstrap Icons · Chart.js |
+| PDF | ReportLab · WeasyPrint |
+| Server | Nginx + Gunicorn |
+| Security | django-axes · Hashids |
 
 ---
 
 ## Instalasi Lokal
 
 ```bash
-# Clone repo
 git clone https://github.com/binusK2/fasop.git
 cd fasop
 
-# Install dependencies
 pip install -r requirements.txt
 
-# Buat file .env
 cp .env.example .env
 # Edit .env sesuai kebutuhan
 
-# Migrasi database
 python manage.py migrate
-
-# Jalankan server
 python manage.py runserver
 ```
 
 ### Isi `.env`
-```
-SECRET_KEY=your-secret-key
+```env
+SECRET_KEY=your-secret-key-yang-kuat
 DEBUG=True
 ALLOWED_HOSTS=localhost,127.0.0.1
+CSRF_TRUSTED_ORIGINS=http://localhost:8000
+
+# Database (opsional, default SQLite)
+# DB_ENGINE=django.db.backends.postgresql
+# DB_NAME=fasop
+# DB_USER=fasop
+# DB_PASSWORD=password
+# DB_HOST=localhost
+# DB_PORT=5432
+
+# API Key untuk integrasi eksternal
+API_KEY=
 ```
 
 ---
 
-## Struktur Folder
+## Struktur Aplikasi
+
 ```
 fasop/
-├── devices/        # App manajemen perangkat
-├── maintenance/    # App pemeliharaan
-├── fasop/          # Settings package Django
-├── media/          # Upload foto
-├── static/         # Static files
+├── api/            # REST API (integrasi n8n / Google Sheets)
+├── devices/        # Manajemen perangkat, FO, dashboard
+├── maintenance/    # Pemeliharaan preventif, korektif, Berita Acara
+├── gangguan/       # Tiket gangguan
+├── health_index/   # Kalkulasi Health Index peralatan
+├── inspection/     # Inservice inspection
+├── jadwal/         # Jadwal pemeliharaan
+├── gudang/         # Alat uji & spare part
+├── notifikasi/     # Notifikasi in-app
+├── fasop/          # Settings, URL root, konverter Hashids
+├── static/         # CSS, JS, gambar statis
+├── media/          # Upload foto, tanda tangan (tidak di-git)
 └── manage.py
 ```
 
 ---
 
-## Deployment (VPS)
+## Deployment
+
 ```bash
 git pull origin main
+pip install -r requirements.txt
 python manage.py migrate
 sudo systemctl restart gunicorn
 sudo systemctl reload nginx
+```
+
+### Unlock akun yang terkunci (django-axes)
+```bash
+# Via Django admin: /secure-panel/ → Axes → Access Attempts → hapus record
+# Via shell:
+python manage.py axes_reset_user --username namauser
 ```
 
 ---

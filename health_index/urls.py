@@ -1,4 +1,6 @@
-from django.urls import path
+from django.urls import path, register_converter
+from fasop.converters import HashIdConverter
+register_converter(HashIdConverter, 'hid')
 from . import views
 
 urlpatterns = [
@@ -6,5 +8,5 @@ urlpatterns = [
     path('settings/',       views.hi_settings,      name='hi_settings'),
     path('export/pdf/',     views.export_hi_pdf,    name='export_hi_pdf'),
     path('export/jadwal/',  views.export_jadwal_pdf, name='export_jadwal_pdf'),
-    path('<int:pk>/',       views.hi_detail,        name='hi_detail'),
+    path('<hid:pk>/',       views.hi_detail,        name='hi_detail'),
 ]
