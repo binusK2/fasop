@@ -1,14 +1,27 @@
-asgiref==3.11.1
-charset-normalizer==3.4.4
+# ── Core ──────────────────────────────────────────────────────────
 Django==6.0.2
-django-axes==7.0.1
-et_xmlfile==2.0.0
-gunicorn==25.1.0
-hashids==1.3.0
-openpyxl==3.1.5
-packaging==26.0
-pillow==12.1.0
-python-decouple==3.8
-reportlab==4.4.10
+asgiref==3.11.1
+python-decouple==3.8          # Konfigurasi via .env
+
+# ── Database & ORM ────────────────────────────────────────────────
 sqlparse==0.5.5
+
+# ── Server ────────────────────────────────────────────────────────
+gunicorn==25.1.0
+
+# ── File & Image Processing ───────────────────────────────────────
+pillow==12.1.0                # Upload foto, tanda tangan digital
+reportlab==4.4.10             # Ekspor PDF laporan pemeliharaan
+
+# ── Excel Export ──────────────────────────────────────────────────
+openpyxl==3.1.5
+et_xmlfile==2.0.0
+
+# ── Security ──────────────────────────────────────────────────────
+django-axes==7.0.1            # Rate limiting login (lockout 5x gagal)
+hashids==1.3.0                # Obfuskasi integer ID di URL
+
+# ── Utilities ─────────────────────────────────────────────────────
+charset-normalizer==3.4.0
+packaging==26.0
 tzdata==2025.3
