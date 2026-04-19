@@ -512,6 +512,34 @@
 </div>
 {% endif %}
 
+{# ── Wiring Diagram ───────────────────────────────────────── #}
+<div class="card mb-3" id="section-wiring">
+    <div class="card-body px-4 py-3">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <h6 class="mb-0 fw-bold" style="font-size:13px;">
+                <i class="bi bi-diagram-3 me-2" style="color:#8b5cf6;"></i>Wiring Diagram
+            </h6>
+            {% if user_can_edit %}
+            <a href="{% url 'device_wiring' device.pk %}" class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-pencil-square me-1"></i>{% if device.wiring_img %}Edit{% else %}Buat{% endif %} Wiring
+            </a>
+            {% endif %}
+        </div>
+        {% if device.wiring_img %}
+        <div style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;background:#f8fafc;">
+            <img src="{{ device.wiring_img.url }}" class="img-fluid w-100"
+                 style="display:block;cursor:zoom-in;" onclick="openLightbox('{{ device.wiring_img.url }}')">
+        </div>
+        {% else %}
+        <div class="d-flex align-items-center justify-content-center rounded"
+             style="height:100px;background:#f8fafc;border:1.5px dashed #cbd5e1;color:#94a3b8;flex-direction:column;gap:6px;">
+            <i class="bi bi-diagram-3" style="font-size:28px;"></i>
+            <span style="font-size:12px;">Belum ada wiring diagram</span>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
 {# ── Eviden Tambahan ─────────────────────────────────────── #}
 <div class="card mb-3" id="section-eviden">
     <div class="card-body px-4 py-3">
