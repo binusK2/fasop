@@ -81,11 +81,70 @@
                     {% endif %}
 
                 {% else %}
-                    <div class="d-flex align-items-center justify-content-center rounded"
+                    <div class="d-flex align-items-center justify-content: center rounded"
                          style="height:160px; background:#f1f5f9; color:#94a3b8;">
                         <i class="bi bi-image fs-1"></i>
                     </div>
                 {% endif %}
+
+                <!-- ── Info ringkas bawah foto ── -->
+                <div style="border-top:1px solid #f1f5f9;margin-top:10px;padding-top:10px;">
+
+                    <!-- Status operasi -->
+                    <div class="text-center mb-2">
+                        {% if device.status_operasi == 'operasi' %}
+                        <span style="display:inline-flex;align-items:center;gap:5px;background:#dcfce7;color:#166534;font-size:11.5px;font-weight:700;padding:3px 12px;border-radius:20px;">
+                            <span style="width:7px;height:7px;background:#16a34a;border-radius:50%;display:inline-block;"></span>Operasi
+                        </span>
+                        {% else %}
+                        <span style="display:inline-flex;align-items:center;gap:5px;background:#fee2e2;color:#991b1b;font-size:11.5px;font-weight:700;padding:3px 12px;border-radius:20px;">
+                            <span style="width:7px;height:7px;background:#dc2626;border-radius:50%;display:inline-block;"></span>Tidak Operasi
+                        </span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Health Index -->
+                    {% if health_index %}
+                    {% with hi=health_index.score %}
+                    <div style="padding:0 4px;margin-bottom:10px;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;margin-bottom:4px;">
+                            <span style="color:#64748b;font-weight:600;">Health Index</span>
+                            <span style="font-weight:800;font-size:13px;color:{% if hi >= 80 %}#16a34a{% elif hi >= 60 %}#d97706{% else %}#dc2626{% endif %};">{{ hi|floatformat:0 }}</span>
+                        </div>
+                        <div style="height:5px;background:#e2e8f0;border-radius:3px;overflow:hidden;">
+                            <div style="height:100%;width:{{ hi|floatformat:0 }}%;background:{% if hi >= 80 %}#22c55e{% elif hi >= 60 %}#f59e0b{% else %}#ef4444{% endif %};border-radius:3px;"></div>
+                        </div>
+                    </div>
+                    {% endwith %}
+                    {% endif %}
+
+                    <!-- Mini stats -->
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-bottom:10px;">
+                        <div style="text-align:center;background:#f8fafc;border-radius:8px;padding:7px 4px;">
+                            <div style="font-size:15px;font-weight:800;color:#1e293b;line-height:1;">{{ umur_peralatan|default:"—" }}</div>
+                            <div style="font-size:9.5px;color:#94a3b8;font-weight:600;text-transform:uppercase;margin-top:2px;">Thn</div>
+                        </div>
+                        <div style="text-align:center;background:#f8fafc;border-radius:8px;padding:7px 4px;">
+                            <div style="font-size:15px;font-weight:800;color:#1e293b;line-height:1;">{{ maintenance_total }}</div>
+                            <div style="font-size:9.5px;color:#94a3b8;font-weight:600;text-transform:uppercase;margin-top:2px;">Total PM</div>
+                        </div>
+                        <div style="text-align:center;background:{% if maintenance_open %}#fff5f5{% else %}#f8fafc{% endif %};border-radius:8px;padding:7px 4px;">
+                            <div style="font-size:15px;font-weight:800;color:{% if maintenance_open %}#dc2626{% else %}#1e293b{% endif %};line-height:1;">{{ maintenance_open }}</div>
+                            <div style="font-size:9.5px;color:#94a3b8;font-weight:600;text-transform:uppercase;margin-top:2px;">Open</div>
+                        </div>
+                    </div>
+
+                    <!-- Last maintenance -->
+                    <div style="border-top:1px solid #f1f5f9;padding-top:8px;text-align:center;">
+                        <div style="font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px;">Pemeliharaan Terakhir</div>
+                        {% if maintenance_history %}
+                        <div style="font-size:12px;font-weight:600;color:#475569;">{{ maintenance_history.0.date|date:"d M Y" }}</div>
+                        {% else %}
+                        <div style="font-size:12px;color:#cbd5e1;">Belum ada</div>
+                        {% endif %}
+                    </div>
+
+                </div>
             </div>
         </div>
     </div>
