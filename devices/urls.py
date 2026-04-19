@@ -28,6 +28,7 @@ urlpatterns = [
     path('fiber-optic/<int:pk>/', views.fiber_optic_detail, name='fiber_optic_detail'),
     path('fiber-optic/<int:fo_pk>/core/<int:core_pk>/update/', views.fiber_optic_core_update, name='fiber_optic_core_update'),
     path('api/fiber-optic/', views.api_fiber_optic_json, name='api_fiber_optic_json'),
+    path('fiber-optic/<int:pk>/qr/', views.fo_qr, name='fo_qr'),
 
     # QR Code & Export
     path('qr/<int:pk>/', views.device_qr, name='device_qr'),

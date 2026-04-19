@@ -488,6 +488,11 @@ class FiberOptic(models.Model):
         related_name='fiber_dibuat',
         verbose_name='Dibuat Oleh',
     )
+    public_token = models.CharField(
+        max_length=40, blank=True, null=True, unique=True,
+        verbose_name='Token Publik QR',
+    )
+
 
     class Meta:
         verbose_name        = 'Fiber Optic'
@@ -496,6 +501,12 @@ class FiberOptic(models.Model):
 
     def __str__(self):
         return f'{self.nama} ({self.lokasi_a} ↔ {self.lokasi_b})'
+
+    def save(self, *args, **kwargs):
+        if not self.public_token:
+            import secrets
+            self.public_token = secrets.token_urlsafe(20)
+        super().save(*args, **kwargs)
 
     @property
     def status_color(self):
