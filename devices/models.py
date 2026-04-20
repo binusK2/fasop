@@ -579,7 +579,7 @@ class FiberOpticCore(models.Model):
 
     # ── Hasil OTDR Site A ─────────────────────────────────────
     otdr_jarak_km    = models.DecimalField(
-        max_digits=8, decimal_places=3,
+        max_digits=9, decimal_places=4,
         blank=True, null=True,
         verbose_name='OTDR A Jarak (km)',
         help_text='Jarak total atau jarak ke titik gangguan dari Site A',
@@ -607,7 +607,7 @@ class FiberOpticCore(models.Model):
 
     # ── Hasil OTDR Site B ─────────────────────────────────────
     otdr_b_jarak_km    = models.DecimalField(
-        max_digits=8, decimal_places=3,
+        max_digits=9, decimal_places=4,
         blank=True, null=True,
         verbose_name='OTDR B Jarak (km)',
         help_text='Jarak total atau jarak ke titik gangguan dari Site B',
