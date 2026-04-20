@@ -1266,6 +1266,17 @@ def fiber_optic_core_update(request, fo_pk, core_pk):
     from .models import FiberOpticCore
     core = get_object_or_404(FiberOpticCore, pk=core_pk, fiber_optic_id=fo_pk)
     if request.method == 'POST':
+        # nomor core (editable, must stay unique within same FO)
+        new_nomor = request.POST.get('nomor_core', '').strip()
+        if new_nomor.isdigit():
+            new_nomor_int = int(new_nomor)
+            if new_nomor_int != core.nomor_core:
+                conflict = FiberOpticCore.objects.filter(
+                    fiber_optic_id=fo_pk, nomor_core=new_nomor_int
+                ).exclude(pk=core_pk).exists()
+                if not conflict:
+                    core.nomor_core = new_nomor_int
+
         # shared fields
         core.fungsi     = request.POST.get('fungsi', '').strip() or None
         core.keterangan = request.POST.get('keterangan', '').strip() or None

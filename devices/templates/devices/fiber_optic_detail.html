@@ -389,6 +389,9 @@
                     </td>
                     <td>
                         <div style="font-weight:500;color:#1e293b;">{{ core.fungsi|default:"—" }}</div>
+                        {% if core.keterangan %}
+                        <div style="font-size:11px;color:#64748b;margin-top:2px;"><i class="bi bi-chat-left-text me-1"></i>{{ core.keterangan }}</div>
+                        {% endif %}
                     </td>
                     <td style="text-align:center;">
                         <span class="site-col site-col-a">
@@ -435,17 +438,22 @@
                             {% csrf_token %}
                             <input type="hidden" name="site" class="site-input" value="a">
                             <div class="row g-2">
-                                <!-- Shared: fungsi + keterangan + tombol -->
-                                <div class="col-md-5">
+                                <!-- Shared: nomor core + fungsi + keterangan + tombol -->
+                                <div class="col-md-1">
+                                    <label style="font-size:11px;font-weight:600;color:#64748b;">No. Core</label>
+                                    <input type="number" name="nomor_core" class="form-control form-control-sm"
+                                           min="1" value="{{ core.nomor_core }}">
+                                </div>
+                                <div class="col-md-4">
                                     <label style="font-size:11px;font-weight:600;color:#64748b;">Fungsi / Digunakan Untuk</label>
                                     <input type="text" name="fungsi" class="form-control form-control-sm"
                                            placeholder="Misal: Link SCADA GI Tello-Barru"
                                            value="{{ core.fungsi|default:'' }}">
                                 </div>
                                 <div class="col-md-5">
-                                    <label style="font-size:11px;font-weight:600;color:#64748b;">Keterangan</label>
+                                    <label style="font-size:11px;font-weight:600;color:#64748b;">Catatan</label>
                                     <input type="text" name="keterangan" class="form-control form-control-sm"
-                                           placeholder="Keterangan tambahan..."
+                                           placeholder="Catatan tambahan..."
                                            value="{{ core.keterangan|default:'' }}">
                                 </div>
                                 <div class="col-md-2 d-flex align-items-end gap-1">
