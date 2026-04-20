@@ -16,11 +16,14 @@ Including another URLconf
 """
 from django.conf import settings
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path, include, register_converter
 from django.contrib.auth import views as auth_views
 from django.conf.urls.static import static
 from django.views.defaults import page_not_found
 from devices.views import fo_public
+from fasop.converters import HashIdConverter
+
+register_converter(HashIdConverter, 'hid')
 
 handler404 = 'django.views.defaults.page_not_found'
 

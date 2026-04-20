@@ -1,6 +1,4 @@
-from django.urls import path, register_converter
-from fasop.converters import HashIdConverter
-register_converter(HashIdConverter, 'hid')
+from django.urls import path
 from . import views
 
 app_name = 'gudang'
