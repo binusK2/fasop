@@ -370,7 +370,7 @@
                         <th id="th-koneksi">Koneksi Site A</th>
                         <th style="text-align:center;" id="th-jarak">Jarak (km)</th>
                         <th style="text-align:center;" id="th-redaman">Redaman (dB)</th>
-                        <th style="text-align:center;" id="th-dbkm">dB/km</th>
+                        <th style="text-align:center;" id="th-dbkm">Avg Loss (dB/km)</th>
                         <th style="text-align:center;" id="th-tanggal">Tgl Ukur</th>
                         <th style="width:70px;text-align:center;">Aksi</th>
                     </tr>
@@ -389,6 +389,9 @@
                     </td>
                     <td>
                         <div style="font-weight:500;color:#1e293b;">{{ core.fungsi|default:"—" }}</div>
+                        {% if core.keterangan %}
+                        <div style="font-size:11px;color:#64748b;margin-top:2px;"><i class="bi bi-chat-left-text me-1"></i>{{ core.keterangan }}</div>
+                        {% endif %}
                     </td>
                     <td style="text-align:center;">
                         <span class="site-col site-col-a">
@@ -435,17 +438,22 @@
                             {% csrf_token %}
                             <input type="hidden" name="site" class="site-input" value="a">
                             <div class="row g-2">
-                                <!-- Shared: fungsi + keterangan + tombol -->
-                                <div class="col-md-5">
+                                <!-- Shared: nomor core + fungsi + keterangan + tombol -->
+                                <div class="col-md-1">
+                                    <label style="font-size:11px;font-weight:600;color:#64748b;">No. Core</label>
+                                    <input type="number" name="nomor_core" class="form-control form-control-sm"
+                                           min="1" value="{{ core.nomor_core }}">
+                                </div>
+                                <div class="col-md-4">
                                     <label style="font-size:11px;font-weight:600;color:#64748b;">Fungsi / Digunakan Untuk</label>
                                     <input type="text" name="fungsi" class="form-control form-control-sm"
                                            placeholder="Misal: Link SCADA GI Tello-Barru"
                                            value="{{ core.fungsi|default:'' }}">
                                 </div>
                                 <div class="col-md-5">
-                                    <label style="font-size:11px;font-weight:600;color:#64748b;">Keterangan</label>
+                                    <label style="font-size:11px;font-weight:600;color:#64748b;">Catatan</label>
                                     <input type="text" name="keterangan" class="form-control form-control-sm"
-                                           placeholder="Keterangan tambahan..."
+                                           placeholder="Catatan tambahan..."
                                            value="{{ core.keterangan|default:'' }}">
                                 </div>
                                 <div class="col-md-2 d-flex align-items-end gap-1">
@@ -496,7 +504,7 @@
                                                 <div class="col-2">
                                                     <input type="number" name="otdr_redaman_per_km" step="0.001" class="form-control form-control-sm"
                                                            placeholder="dB/km" value="{{ core.otdr_redaman_per_km|default:'' }}">
-                                                    <div style="font-size:10px;color:#94a3b8;margin-top:2px;">dB/km</div>
+                                                    <div style="font-size:10px;color:#94a3b8;margin-top:2px;">Avg Loss (dB/km)</div>
                                                 </div>
                                                 <div class="col-2">
                                                     <input type="date" name="otdr_tanggal" class="form-control form-control-sm"
@@ -551,7 +559,7 @@
                                                 <div class="col-2">
                                                     <input type="number" name="otdr_b_redaman_per_km" step="0.001" class="form-control form-control-sm"
                                                            placeholder="dB/km" value="{{ core.otdr_b_redaman_per_km|default:'' }}">
-                                                    <div style="font-size:10px;color:#94a3b8;margin-top:2px;">dB/km</div>
+                                                    <div style="font-size:10px;color:#94a3b8;margin-top:2px;">Avg Loss (dB/km)</div>
                                                 </div>
                                                 <div class="col-2">
                                                     <input type="date" name="otdr_b_tanggal" class="form-control form-control-sm"
@@ -645,7 +653,7 @@
                                 <div class="otdr-mc-unit">dB</div>
                             </div>
                             <div class="otdr-metric-card">
-                                <div class="otdr-mc-label">dB/km</div>
+                                <div class="otdr-mc-label">Avg Loss</div>
                                 <div class="otdr-mc-val" id="otdr-a-dbkm" style="color:#1d4ed8;">—</div>
                                 <div class="otdr-mc-unit">dB/km</div>
                             </div>
@@ -679,7 +687,7 @@
                                 <div class="otdr-mc-unit">dB</div>
                             </div>
                             <div class="otdr-metric-card">
-                                <div class="otdr-mc-label">dB/km</div>
+                                <div class="otdr-mc-label">Avg Loss</div>
                                 <div class="otdr-mc-val" id="otdr-b-dbkm" style="color:#065f46;">—</div>
                                 <div class="otdr-mc-unit">dB/km</div>
                             </div>
@@ -699,7 +707,7 @@
         <!-- Comparison chart -->
         <div style="border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
             <div style="padding:10px 16px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
-                <span style="font-size:12px;font-weight:700;color:#475569;"><i class="bi bi-bar-chart-horizontal me-1"></i>Perbandingan Redaman dB/km — Semua Core</span>
+                <span style="font-size:12px;font-weight:700;color:#475569;"><i class="bi bi-bar-chart-horizontal me-1"></i>Perbandingan Average Loss (dB/km) — Semua Core</span>
                 <div style="display:flex;gap:14px;align-items:center;font-size:11.5px;">
                     <span style="display:flex;align-items:center;gap:5px;"><span style="width:14px;height:10px;background:#3b82f6;border-radius:2px;display:inline-block;"></span>Site A</span>
                     <span style="display:flex;align-items:center;gap:5px;"><span style="width:14px;height:10px;background:#10b981;border-radius:2px;display:inline-block;"></span>Site B</span>
@@ -800,7 +808,7 @@ function renderOTDRChart() {
             labels,
             datasets: [
                 {
-                    label: 'Site A (dB/km)',
+                    label: 'Site A — Avg Loss (dB/km)',
                     data: dataA,
                     backgroundColor: 'rgba(59,130,246,0.75)',
                     borderColor: '#3b82f6',
@@ -808,7 +816,7 @@ function renderOTDRChart() {
                     borderRadius: 4,
                 },
                 {
-                    label: 'Site B (dB/km)',
+                    label: 'Site B — Avg Loss (dB/km)',
                     data: dataB,
                     backgroundColor: 'rgba(16,185,129,0.75)',
                     borderColor: '#10b981',
@@ -827,13 +835,13 @@ function renderOTDRChart() {
                 tooltip: { callbacks: {
                     label: c => {
                         if (c.parsed.x == null) return null;
-                        return `${c.dataset.label}: ${c.parsed.x.toFixed(3)} dB/km`;
+                        return `${c.dataset.label}: ${c.parsed.x.toFixed(3)} dB/km (avg loss)`;
                     }
                 }},
             },
             scales: {
                 x: {
-                    title: { display: true, text: 'Redaman (dB/km)', color: '#64748b', font: { size: 11 } },
+                    title: { display: true, text: 'Average Loss (dB/km)', color: '#64748b', font: { size: 11 } },
                     grid: { color: '#f1f5f9' },
                     ticks: { color: '#64748b', font: { size: 10 }, callback: v => v.toFixed(2) },
                 },
@@ -929,7 +937,7 @@ function switchSite(site) {
     if (el('th-koneksi'))  el('th-koneksi').textContent  = `Koneksi Site ${site.toUpperCase()} — ${lokasi}`;
     if (el('th-jarak'))    el('th-jarak').textContent    = 'Jarak (km)';
     if (el('th-redaman'))  el('th-redaman').textContent  = 'Redaman (dB)';
-    if (el('th-dbkm'))     el('th-dbkm').textContent     = 'dB/km';
+    if (el('th-dbkm'))     el('th-dbkm').textContent     = 'Avg Loss (dB/km)';
     if (el('th-tanggal'))  el('th-tanggal').textContent  = 'Tgl Ukur';
 
     // Update button states
