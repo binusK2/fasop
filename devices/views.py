@@ -1236,18 +1236,26 @@ def fiber_optic_detail(request, pk):
         'status_b':        c.status_b,
         'koneksi_a':       c.koneksi_a or '',
         'koneksi_b':       c.koneksi_b or '',
-        # OTDR Site A (existing fields)
-        'a_jarak':         _f(c.otdr_jarak_km),
-        'a_redaman':       _f(c.otdr_redaman_db),
-        'a_dbkm':          _f(c.otdr_redaman_per_km),
-        'a_tanggal':       str(c.otdr_tanggal) if c.otdr_tanggal else '',
-        'a_catatan':       c.otdr_catatan or '',
-        # OTDR Site B (new fields)
-        'b_jarak':         _f(c.otdr_b_jarak_km),
-        'b_redaman':       _f(c.otdr_b_redaman_db),
-        'b_dbkm':          _f(c.otdr_b_redaman_per_km),
-        'b_tanggal':       str(c.otdr_b_tanggal) if c.otdr_b_tanggal else '',
-        'b_catatan':       c.otdr_b_catatan or '',
+        # OTDR Site A
+        'a_jarak':              _f(c.otdr_jarak_km),
+        'a_redaman':            _f(c.otdr_redaman_db),
+        'a_dbkm':               _f(c.otdr_redaman_per_km),
+        'a_redaman_1310':       _f(c.otdr_redaman_db_1310),
+        'a_dbkm_1310':          _f(c.otdr_redaman_per_km_1310),
+        'a_redaman_1550':       _f(c.otdr_redaman_db_1550),
+        'a_dbkm_1550':          _f(c.otdr_redaman_per_km_1550),
+        'a_tanggal':            str(c.otdr_tanggal) if c.otdr_tanggal else '',
+        'a_catatan':            c.otdr_catatan or '',
+        # OTDR Site B
+        'b_jarak':              _f(c.otdr_b_jarak_km),
+        'b_redaman':            _f(c.otdr_b_redaman_db),
+        'b_dbkm':               _f(c.otdr_b_redaman_per_km),
+        'b_redaman_1310':       _f(c.otdr_b_redaman_db_1310),
+        'b_dbkm_1310':          _f(c.otdr_b_redaman_per_km_1310),
+        'b_redaman_1550':       _f(c.otdr_b_redaman_db_1550),
+        'b_dbkm_1550':          _f(c.otdr_b_redaman_per_km_1550),
+        'b_tanggal':            str(c.otdr_b_tanggal) if c.otdr_b_tanggal else '',
+        'b_catatan':            c.otdr_b_catatan or '',
     } for c in cores])
 
     return render(request, 'devices/fiber_optic_detail.html', {
@@ -1283,21 +1291,29 @@ def fiber_optic_core_update(request, fo_pk, core_pk):
 
         site = request.POST.get('site', 'a')
         if site == 'a':
-            core.status_a               = request.POST.get('status_a', 'spare')
-            core.koneksi_a              = request.POST.get('koneksi_a', '').strip() or None
-            core.otdr_jarak_km          = request.POST.get('otdr_jarak_km') or None
-            core.otdr_redaman_db        = request.POST.get('otdr_redaman_db') or None
-            core.otdr_redaman_per_km    = request.POST.get('otdr_redaman_per_km') or None
-            core.otdr_tanggal           = request.POST.get('otdr_tanggal') or None
-            core.otdr_catatan           = request.POST.get('otdr_catatan', '').strip() or None
+            core.status_a                    = request.POST.get('status_a', 'spare')
+            core.koneksi_a                   = request.POST.get('koneksi_a', '').strip() or None
+            core.otdr_jarak_km               = request.POST.get('otdr_jarak_km') or None
+            core.otdr_redaman_db             = request.POST.get('otdr_redaman_db') or None
+            core.otdr_redaman_per_km         = request.POST.get('otdr_redaman_per_km') or None
+            core.otdr_redaman_db_1310        = request.POST.get('otdr_redaman_db_1310') or None
+            core.otdr_redaman_per_km_1310    = request.POST.get('otdr_redaman_per_km_1310') or None
+            core.otdr_redaman_db_1550        = request.POST.get('otdr_redaman_db_1550') or None
+            core.otdr_redaman_per_km_1550    = request.POST.get('otdr_redaman_per_km_1550') or None
+            core.otdr_tanggal                = request.POST.get('otdr_tanggal') or None
+            core.otdr_catatan                = request.POST.get('otdr_catatan', '').strip() or None
         else:  # site == 'b'
-            core.status_b               = request.POST.get('status_b', 'spare')
-            core.koneksi_b              = request.POST.get('koneksi_b', '').strip() or None
-            core.otdr_b_jarak_km        = request.POST.get('otdr_b_jarak_km') or None
-            core.otdr_b_redaman_db      = request.POST.get('otdr_b_redaman_db') or None
-            core.otdr_b_redaman_per_km  = request.POST.get('otdr_b_redaman_per_km') or None
-            core.otdr_b_tanggal         = request.POST.get('otdr_b_tanggal') or None
-            core.otdr_b_catatan         = request.POST.get('otdr_b_catatan', '').strip() or None
+            core.status_b                    = request.POST.get('status_b', 'spare')
+            core.koneksi_b                   = request.POST.get('koneksi_b', '').strip() or None
+            core.otdr_b_jarak_km             = request.POST.get('otdr_b_jarak_km') or None
+            core.otdr_b_redaman_db           = request.POST.get('otdr_b_redaman_db') or None
+            core.otdr_b_redaman_per_km       = request.POST.get('otdr_b_redaman_per_km') or None
+            core.otdr_b_redaman_db_1310      = request.POST.get('otdr_b_redaman_db_1310') or None
+            core.otdr_b_redaman_per_km_1310  = request.POST.get('otdr_b_redaman_per_km_1310') or None
+            core.otdr_b_redaman_db_1550      = request.POST.get('otdr_b_redaman_db_1550') or None
+            core.otdr_b_redaman_per_km_1550  = request.POST.get('otdr_b_redaman_per_km_1550') or None
+            core.otdr_b_tanggal              = request.POST.get('otdr_b_tanggal') or None
+            core.otdr_b_catatan              = request.POST.get('otdr_b_catatan', '').strip() or None
 
         # keep legacy status in sync with the site being updated
         core.status = core.status_a if site == 'a' else core.status_b
