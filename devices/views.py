@@ -1,4 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
+from fasop.hashids_helper import encode as _hid
 from django.contrib.auth.decorators import login_required
 from devices.permissions import (
     require_can_delete, require_can_edit, require_can_manage_lokasi,
@@ -1979,8 +1980,8 @@ def api_peta_jaringan(request):
                 'hi_label':  kat['label']  if kat else '\u2014',
                 'hi_accent': kat['accent'] if kat else '#94a3b8',
                 'hi_icon':   kat['icon']   if kat else 'bi-circle',
-                'url':       f'/view/{dev.pk}/',
-                'hi_url':    f'/health-index/{dev.pk}/',
+                'url':       f'/view/{_hid(dev.pk)}/',
+                'hi_url':    f'/health-index/{_hid(dev.pk)}/',
             })
 
         valid_scores = [s for s in scores if s is not None]
