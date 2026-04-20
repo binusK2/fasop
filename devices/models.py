@@ -595,6 +595,28 @@ class FiberOpticCore(models.Model):
         blank=True, null=True,
         verbose_name='OTDR A Redaman per km (dB/km)',
     )
+    # λ1310 nm — Site A
+    otdr_redaman_db_1310 = models.DecimalField(
+        max_digits=6, decimal_places=3,
+        blank=True, null=True,
+        verbose_name='OTDR A Redaman λ1310 (dB)',
+    )
+    otdr_redaman_per_km_1310 = models.DecimalField(
+        max_digits=5, decimal_places=3,
+        blank=True, null=True,
+        verbose_name='OTDR A Avg Loss λ1310 (dB/km)',
+    )
+    # λ1550 nm — Site A
+    otdr_redaman_db_1550 = models.DecimalField(
+        max_digits=6, decimal_places=3,
+        blank=True, null=True,
+        verbose_name='OTDR A Redaman λ1550 (dB)',
+    )
+    otdr_redaman_per_km_1550 = models.DecimalField(
+        max_digits=5, decimal_places=3,
+        blank=True, null=True,
+        verbose_name='OTDR A Avg Loss λ1550 (dB/km)',
+    )
     otdr_tanggal     = models.DateField(
         blank=True, null=True,
         verbose_name='OTDR A Tanggal Pengukuran',
@@ -622,6 +644,28 @@ class FiberOpticCore(models.Model):
         max_digits=5, decimal_places=3,
         blank=True, null=True,
         verbose_name='OTDR B Redaman per km (dB/km)',
+    )
+    # λ1310 nm — Site B
+    otdr_b_redaman_db_1310 = models.DecimalField(
+        max_digits=6, decimal_places=3,
+        blank=True, null=True,
+        verbose_name='OTDR B Redaman λ1310 (dB)',
+    )
+    otdr_b_redaman_per_km_1310 = models.DecimalField(
+        max_digits=5, decimal_places=3,
+        blank=True, null=True,
+        verbose_name='OTDR B Avg Loss λ1310 (dB/km)',
+    )
+    # λ1550 nm — Site B
+    otdr_b_redaman_db_1550 = models.DecimalField(
+        max_digits=6, decimal_places=3,
+        blank=True, null=True,
+        verbose_name='OTDR B Redaman λ1550 (dB)',
+    )
+    otdr_b_redaman_per_km_1550 = models.DecimalField(
+        max_digits=5, decimal_places=3,
+        blank=True, null=True,
+        verbose_name='OTDR B Avg Loss λ1550 (dB/km)',
     )
     otdr_b_tanggal     = models.DateField(
         blank=True, null=True,

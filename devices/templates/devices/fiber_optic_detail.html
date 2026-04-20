@@ -489,32 +489,55 @@
                                             </div>
                                         </div>
                                         <div style="background:#fff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 12px;">
-                                            <div style="font-size:10.5px;font-weight:700;color:#1d4ed8;margin-bottom:6px;"><i class="bi bi-graph-up me-1"></i>OTDR Site A</div>
-                                            <div class="row g-1">
-                                                <div class="col-2">
+                                            <div style="font-size:10.5px;font-weight:700;color:#1d4ed8;margin-bottom:8px;"><i class="bi bi-graph-up me-1"></i>OTDR Site A</div>
+                                            <!-- Baris 1: jarak + tanggal + catatan -->
+                                            <div class="row g-1 mb-2">
+                                                <div class="col-3">
                                                     <input type="number" name="otdr_jarak_km" step="0.0001" class="form-control form-control-sm"
                                                            placeholder="12.xxxx" value="{{ core.otdr_jarak_km|default:'' }}">
                                                     <div style="font-size:10px;color:#94a3b8;margin-top:2px;">Jarak (km)</div>
                                                 </div>
-                                                <div class="col-2">
-                                                    <input type="number" name="otdr_redaman_db" step="0.001" class="form-control form-control-sm"
-                                                           placeholder="Redaman (dB)" value="{{ core.otdr_redaman_db|default:'' }}">
-                                                    <div style="font-size:10px;color:#94a3b8;margin-top:2px;">Redaman (dB)</div>
-                                                </div>
-                                                <div class="col-2">
-                                                    <input type="number" name="otdr_redaman_per_km" step="0.001" class="form-control form-control-sm"
-                                                           placeholder="dB/km" value="{{ core.otdr_redaman_per_km|default:'' }}">
-                                                    <div style="font-size:10px;color:#94a3b8;margin-top:2px;">Avg Loss (dB/km)</div>
-                                                </div>
-                                                <div class="col-2">
+                                                <div class="col-3">
                                                     <input type="date" name="otdr_tanggal" class="form-control form-control-sm"
                                                            value="{{ core.otdr_tanggal|date:'Y-m-d'|default:'' }}">
                                                     <div style="font-size:10px;color:#94a3b8;margin-top:2px;">Tanggal Ukur</div>
                                                 </div>
-                                                <div class="col-4">
+                                                <div class="col-6">
                                                     <input type="text" name="otdr_catatan" class="form-control form-control-sm"
                                                            placeholder="Catatan OTDR A..." value="{{ core.otdr_catatan|default:'' }}">
                                                     <div style="font-size:10px;color:#94a3b8;margin-top:2px;">Catatan</div>
+                                                </div>
+                                            </div>
+                                            <!-- Baris 2: λ1310 -->
+                                            <div class="row g-1 mb-1 align-items-center">
+                                                <div class="col-auto" style="min-width:70px;">
+                                                    <span style="font-size:10px;font-weight:700;color:#7c3aed;background:#ede9fe;border-radius:4px;padding:2px 6px;">λ 1310 nm</span>
+                                                </div>
+                                                <div class="col">
+                                                    <input type="number" name="otdr_redaman_db_1310" step="0.001" class="form-control form-control-sm"
+                                                           placeholder="Redaman (dB)" value="{{ core.otdr_redaman_db_1310|default:'' }}">
+                                                    <div style="font-size:10px;color:#94a3b8;margin-top:1px;">Redaman (dB)</div>
+                                                </div>
+                                                <div class="col">
+                                                    <input type="number" name="otdr_redaman_per_km_1310" step="0.001" class="form-control form-control-sm"
+                                                           placeholder="Avg Loss (dB/km)" value="{{ core.otdr_redaman_per_km_1310|default:'' }}">
+                                                    <div style="font-size:10px;color:#94a3b8;margin-top:1px;">Avg Loss (dB/km)</div>
+                                                </div>
+                                            </div>
+                                            <!-- Baris 3: λ1550 -->
+                                            <div class="row g-1 align-items-center">
+                                                <div class="col-auto" style="min-width:70px;">
+                                                    <span style="font-size:10px;font-weight:700;color:#b45309;background:#fef3c7;border-radius:4px;padding:2px 6px;">λ 1550 nm</span>
+                                                </div>
+                                                <div class="col">
+                                                    <input type="number" name="otdr_redaman_db_1550" step="0.001" class="form-control form-control-sm"
+                                                           placeholder="Redaman (dB)" value="{{ core.otdr_redaman_db_1550|default:'' }}">
+                                                    <div style="font-size:10px;color:#94a3b8;margin-top:1px;">Redaman (dB)</div>
+                                                </div>
+                                                <div class="col">
+                                                    <input type="number" name="otdr_redaman_per_km_1550" step="0.001" class="form-control form-control-sm"
+                                                           placeholder="Avg Loss (dB/km)" value="{{ core.otdr_redaman_per_km_1550|default:'' }}">
+                                                    <div style="font-size:10px;color:#94a3b8;margin-top:1px;">Avg Loss (dB/km)</div>
                                                 </div>
                                             </div>
                                         </div>
@@ -544,32 +567,55 @@
                                             </div>
                                         </div>
                                         <div style="background:#fff;border:1px solid #bbf7d0;border-radius:8px;padding:10px 12px;">
-                                            <div style="font-size:10.5px;font-weight:700;color:#065f46;margin-bottom:6px;"><i class="bi bi-graph-up me-1"></i>OTDR Site B</div>
-                                            <div class="row g-1">
-                                                <div class="col-2">
+                                            <div style="font-size:10.5px;font-weight:700;color:#065f46;margin-bottom:8px;"><i class="bi bi-graph-up me-1"></i>OTDR Site B</div>
+                                            <!-- Baris 1: jarak + tanggal + catatan -->
+                                            <div class="row g-1 mb-2">
+                                                <div class="col-3">
                                                     <input type="number" name="otdr_b_jarak_km" step="0.0001" class="form-control form-control-sm"
                                                            placeholder="12.xxxx" value="{{ core.otdr_b_jarak_km|default:'' }}">
                                                     <div style="font-size:10px;color:#94a3b8;margin-top:2px;">Jarak (km)</div>
                                                 </div>
-                                                <div class="col-2">
-                                                    <input type="number" name="otdr_b_redaman_db" step="0.001" class="form-control form-control-sm"
-                                                           placeholder="Redaman (dB)" value="{{ core.otdr_b_redaman_db|default:'' }}">
-                                                    <div style="font-size:10px;color:#94a3b8;margin-top:2px;">Redaman (dB)</div>
-                                                </div>
-                                                <div class="col-2">
-                                                    <input type="number" name="otdr_b_redaman_per_km" step="0.001" class="form-control form-control-sm"
-                                                           placeholder="dB/km" value="{{ core.otdr_b_redaman_per_km|default:'' }}">
-                                                    <div style="font-size:10px;color:#94a3b8;margin-top:2px;">Avg Loss (dB/km)</div>
-                                                </div>
-                                                <div class="col-2">
+                                                <div class="col-3">
                                                     <input type="date" name="otdr_b_tanggal" class="form-control form-control-sm"
                                                            value="{{ core.otdr_b_tanggal|date:'Y-m-d'|default:'' }}">
                                                     <div style="font-size:10px;color:#94a3b8;margin-top:2px;">Tanggal Ukur</div>
                                                 </div>
-                                                <div class="col-4">
+                                                <div class="col-6">
                                                     <input type="text" name="otdr_b_catatan" class="form-control form-control-sm"
                                                            placeholder="Catatan OTDR B..." value="{{ core.otdr_b_catatan|default:'' }}">
                                                     <div style="font-size:10px;color:#94a3b8;margin-top:2px;">Catatan</div>
+                                                </div>
+                                            </div>
+                                            <!-- Baris 2: λ1310 -->
+                                            <div class="row g-1 mb-1 align-items-center">
+                                                <div class="col-auto" style="min-width:70px;">
+                                                    <span style="font-size:10px;font-weight:700;color:#7c3aed;background:#ede9fe;border-radius:4px;padding:2px 6px;">λ 1310 nm</span>
+                                                </div>
+                                                <div class="col">
+                                                    <input type="number" name="otdr_b_redaman_db_1310" step="0.001" class="form-control form-control-sm"
+                                                           placeholder="Redaman (dB)" value="{{ core.otdr_b_redaman_db_1310|default:'' }}">
+                                                    <div style="font-size:10px;color:#94a3b8;margin-top:1px;">Redaman (dB)</div>
+                                                </div>
+                                                <div class="col">
+                                                    <input type="number" name="otdr_b_redaman_per_km_1310" step="0.001" class="form-control form-control-sm"
+                                                           placeholder="Avg Loss (dB/km)" value="{{ core.otdr_b_redaman_per_km_1310|default:'' }}">
+                                                    <div style="font-size:10px;color:#94a3b8;margin-top:1px;">Avg Loss (dB/km)</div>
+                                                </div>
+                                            </div>
+                                            <!-- Baris 3: λ1550 -->
+                                            <div class="row g-1 align-items-center">
+                                                <div class="col-auto" style="min-width:70px;">
+                                                    <span style="font-size:10px;font-weight:700;color:#b45309;background:#fef3c7;border-radius:4px;padding:2px 6px;">λ 1550 nm</span>
+                                                </div>
+                                                <div class="col">
+                                                    <input type="number" name="otdr_b_redaman_db_1550" step="0.001" class="form-control form-control-sm"
+                                                           placeholder="Redaman (dB)" value="{{ core.otdr_b_redaman_db_1550|default:'' }}">
+                                                    <div style="font-size:10px;color:#94a3b8;margin-top:1px;">Redaman (dB)</div>
+                                                </div>
+                                                <div class="col">
+                                                    <input type="number" name="otdr_b_redaman_per_km_1550" step="0.001" class="form-control form-control-sm"
+                                                           placeholder="Avg Loss (dB/km)" value="{{ core.otdr_b_redaman_per_km_1550|default:'' }}">
+                                                    <div style="font-size:10px;color:#94a3b8;margin-top:1px;">Avg Loss (dB/km)</div>
                                                 </div>
                                             </div>
                                         </div>
@@ -641,20 +687,30 @@
                         <span id="otdr-a-tgl-badge" style="font-size:11px;color:#64748b;"></span>
                     </div>
                     <div style="padding:16px;">
-                        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px;" id="otdr-a-metrics">
+                        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:12px;" id="otdr-a-metrics">
                             <div class="otdr-metric-card">
                                 <div class="otdr-mc-label">Jarak</div>
                                 <div class="otdr-mc-val" id="otdr-a-jarak" style="color:#1d4ed8;">—</div>
                                 <div class="otdr-mc-unit">km</div>
                             </div>
-                            <div class="otdr-metric-card">
-                                <div class="otdr-mc-label">Redaman</div>
-                                <div class="otdr-mc-val" id="otdr-a-redaman" style="color:#1d4ed8;">—</div>
+                            <div class="otdr-metric-card" style="border-left:2px solid #ede9fe;">
+                                <div class="otdr-mc-label" style="color:#7c3aed;">λ1310 Redaman</div>
+                                <div class="otdr-mc-val" id="otdr-a-redaman-1310" style="color:#7c3aed;">—</div>
                                 <div class="otdr-mc-unit">dB</div>
                             </div>
-                            <div class="otdr-metric-card">
-                                <div class="otdr-mc-label">Avg Loss</div>
-                                <div class="otdr-mc-val" id="otdr-a-dbkm" style="color:#1d4ed8;">—</div>
+                            <div class="otdr-metric-card" style="border-left:2px solid #ede9fe;">
+                                <div class="otdr-mc-label" style="color:#7c3aed;">λ1310 Avg Loss</div>
+                                <div class="otdr-mc-val" id="otdr-a-dbkm-1310" style="color:#7c3aed;">—</div>
+                                <div class="otdr-mc-unit">dB/km</div>
+                            </div>
+                            <div class="otdr-metric-card" style="border-left:2px solid #fef3c7;">
+                                <div class="otdr-mc-label" style="color:#b45309;">λ1550 Redaman</div>
+                                <div class="otdr-mc-val" id="otdr-a-redaman-1550" style="color:#b45309;">—</div>
+                                <div class="otdr-mc-unit">dB</div>
+                            </div>
+                            <div class="otdr-metric-card" style="border-left:2px solid #fef3c7;">
+                                <div class="otdr-mc-label" style="color:#b45309;">λ1550 Avg Loss</div>
+                                <div class="otdr-mc-val" id="otdr-a-dbkm-1550" style="color:#b45309;">—</div>
                                 <div class="otdr-mc-unit">dB/km</div>
                             </div>
                         </div>
@@ -675,20 +731,30 @@
                         <span id="otdr-b-tgl-badge" style="font-size:11px;color:#64748b;"></span>
                     </div>
                     <div style="padding:16px;">
-                        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px;" id="otdr-b-metrics">
+                        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:12px;" id="otdr-b-metrics">
                             <div class="otdr-metric-card">
                                 <div class="otdr-mc-label">Jarak</div>
                                 <div class="otdr-mc-val" id="otdr-b-jarak" style="color:#065f46;">—</div>
                                 <div class="otdr-mc-unit">km</div>
                             </div>
-                            <div class="otdr-metric-card">
-                                <div class="otdr-mc-label">Redaman</div>
-                                <div class="otdr-mc-val" id="otdr-b-redaman" style="color:#065f46;">—</div>
+                            <div class="otdr-metric-card" style="border-left:2px solid #ede9fe;">
+                                <div class="otdr-mc-label" style="color:#7c3aed;">λ1310 Redaman</div>
+                                <div class="otdr-mc-val" id="otdr-b-redaman-1310" style="color:#7c3aed;">—</div>
                                 <div class="otdr-mc-unit">dB</div>
                             </div>
-                            <div class="otdr-metric-card">
-                                <div class="otdr-mc-label">Avg Loss</div>
-                                <div class="otdr-mc-val" id="otdr-b-dbkm" style="color:#065f46;">—</div>
+                            <div class="otdr-metric-card" style="border-left:2px solid #ede9fe;">
+                                <div class="otdr-mc-label" style="color:#7c3aed;">λ1310 Avg Loss</div>
+                                <div class="otdr-mc-val" id="otdr-b-dbkm-1310" style="color:#7c3aed;">—</div>
+                                <div class="otdr-mc-unit">dB/km</div>
+                            </div>
+                            <div class="otdr-metric-card" style="border-left:2px solid #fef3c7;">
+                                <div class="otdr-mc-label" style="color:#b45309;">λ1550 Redaman</div>
+                                <div class="otdr-mc-val" id="otdr-b-redaman-1550" style="color:#b45309;">—</div>
+                                <div class="otdr-mc-unit">dB</div>
+                            </div>
+                            <div class="otdr-metric-card" style="border-left:2px solid #fef3c7;">
+                                <div class="otdr-mc-label" style="color:#b45309;">λ1550 Avg Loss</div>
+                                <div class="otdr-mc-val" id="otdr-b-dbkm-1550" style="color:#b45309;">—</div>
                                 <div class="otdr-mc-unit">dB/km</div>
                             </div>
                         </div>
@@ -762,13 +828,15 @@ function switchOTDRCore(corePk) {
     const statusLabels = { aktif:'Aktif', spare:'Spare', rusak:'Rusak', tidak_aktif:'Tidak Aktif' };
     if (sbadge) sbadge.innerHTML = `<span style="padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700;background:${statusBgs[core.status]||'#f1f5f9'};color:${statusColors[core.status]||'#475569'};">${statusLabels[core.status]||core.status}</span>`;
 
-    const hasA = core.a_jarak != null || core.a_redaman != null || core.a_dbkm != null;
-    const hasB = core.b_jarak != null || core.b_redaman != null || core.b_dbkm != null;
+    const hasA = core.a_jarak != null || core.a_redaman_1310 != null || core.a_redaman_1550 != null;
+    const hasB = core.b_jarak != null || core.b_redaman_1310 != null || core.b_redaman_1550 != null;
 
     // Site A panel
-    document.getElementById('otdr-a-jarak').textContent   = otdrFmt(core.a_jarak);
-    document.getElementById('otdr-a-redaman').textContent = otdrFmt(core.a_redaman);
-    document.getElementById('otdr-a-dbkm').textContent    = otdrFmt(core.a_dbkm);
+    document.getElementById('otdr-a-jarak').textContent        = otdrFmt(core.a_jarak, 4);
+    document.getElementById('otdr-a-redaman-1310').textContent = otdrFmt(core.a_redaman_1310);
+    document.getElementById('otdr-a-dbkm-1310').textContent    = otdrFmt(core.a_dbkm_1310);
+    document.getElementById('otdr-a-redaman-1550').textContent = otdrFmt(core.a_redaman_1550);
+    document.getElementById('otdr-a-dbkm-1550').textContent    = otdrFmt(core.a_dbkm_1550);
     const aTglBadge = document.getElementById('otdr-a-tgl-badge');
     if (aTglBadge) aTglBadge.textContent = core.a_tanggal ? '📅 ' + core.a_tanggal : '';
     const aCatWrap = document.getElementById('otdr-a-catatan-wrap');
@@ -780,9 +848,11 @@ function switchOTDRCore(corePk) {
     if (aEmpty) aEmpty.style.display = hasA ? 'none' : 'block';
 
     // Site B panel
-    document.getElementById('otdr-b-jarak').textContent   = otdrFmt(core.b_jarak);
-    document.getElementById('otdr-b-redaman').textContent = otdrFmt(core.b_redaman);
-    document.getElementById('otdr-b-dbkm').textContent    = otdrFmt(core.b_dbkm);
+    document.getElementById('otdr-b-jarak').textContent        = otdrFmt(core.b_jarak, 4);
+    document.getElementById('otdr-b-redaman-1310').textContent = otdrFmt(core.b_redaman_1310);
+    document.getElementById('otdr-b-dbkm-1310').textContent    = otdrFmt(core.b_dbkm_1310);
+    document.getElementById('otdr-b-redaman-1550').textContent = otdrFmt(core.b_redaman_1550);
+    document.getElementById('otdr-b-dbkm-1550').textContent    = otdrFmt(core.b_dbkm_1550);
     const bTglBadge = document.getElementById('otdr-b-tgl-badge');
     if (bTglBadge) bTglBadge.textContent = core.b_tanggal ? '📅 ' + core.b_tanggal : '';
     const bCatWrap = document.getElementById('otdr-b-catatan-wrap');
@@ -799,8 +869,6 @@ function renderOTDRChart() {
     const ctx = document.getElementById('otdrCompareChart');
     if (!ctx || !CORES_OTDR.length) return;
     const labels = CORES_OTDR.map(c => 'Core ' + c.nomor_core + (c.fungsi ? ' (' + c.fungsi.substring(0,20) + ')' : ''));
-    const dataA  = CORES_OTDR.map(c => c.a_dbkm);
-    const dataB  = CORES_OTDR.map(c => c.b_dbkm);
     if (otdrChart) otdrChart.destroy();
     otdrChart = new Chart(ctx.getContext('2d'), {
         type: 'bar',
@@ -808,20 +876,33 @@ function renderOTDRChart() {
             labels,
             datasets: [
                 {
-                    label: 'Site A — Avg Loss (dB/km)',
-                    data: dataA,
-                    backgroundColor: 'rgba(59,130,246,0.75)',
-                    borderColor: '#3b82f6',
-                    borderWidth: 1,
-                    borderRadius: 4,
+                    label: 'Site A — λ1310 Avg Loss',
+                    data: CORES_OTDR.map(c => c.a_dbkm_1310),
+                    backgroundColor: 'rgba(124,58,237,0.7)',
+                    borderColor: '#7c3aed',
+                    borderWidth: 1, borderRadius: 3,
                 },
                 {
-                    label: 'Site B — Avg Loss (dB/km)',
-                    data: dataB,
-                    backgroundColor: 'rgba(16,185,129,0.75)',
-                    borderColor: '#10b981',
-                    borderWidth: 1,
-                    borderRadius: 4,
+                    label: 'Site A — λ1550 Avg Loss',
+                    data: CORES_OTDR.map(c => c.a_dbkm_1550),
+                    backgroundColor: 'rgba(180,83,9,0.7)',
+                    borderColor: '#b45309',
+                    borderWidth: 1, borderRadius: 3,
+                },
+                {
+                    label: 'Site B — λ1310 Avg Loss',
+                    data: CORES_OTDR.map(c => c.b_dbkm_1310),
+                    backgroundColor: 'rgba(124,58,237,0.35)',
+                    borderColor: '#7c3aed',
+                    borderWidth: 1, borderRadius: 3,
+                    borderDash: [4,2],
+                },
+                {
+                    label: 'Site B — λ1550 Avg Loss',
+                    data: CORES_OTDR.map(c => c.b_dbkm_1550),
+                    backgroundColor: 'rgba(180,83,9,0.35)',
+                    borderColor: '#b45309',
+                    borderWidth: 1, borderRadius: 3,
                 },
             ],
         },
@@ -831,11 +912,11 @@ function renderOTDRChart() {
             maintainAspectRatio: false,
             interaction: { mode: 'index', intersect: false },
             plugins: {
-                legend: { display: false },
+                legend: { display: true, position: 'top', labels: { font: { size: 11 }, boxWidth: 12, padding: 12 } },
                 tooltip: { callbacks: {
                     label: c => {
                         if (c.parsed.x == null) return null;
-                        return `${c.dataset.label}: ${c.parsed.x.toFixed(3)} dB/km (avg loss)`;
+                        return `${c.dataset.label}: ${c.parsed.x.toFixed(3)} dB/km`;
                     }
                 }},
             },
