@@ -9,6 +9,7 @@ sehingga bisa dikonfigurasi tanpa edit kode.
 from datetime import date as date_type
 from django.utils import timezone
 from dateutil.relativedelta import relativedelta
+from fasop.hashids_helper import encode as _hid
 
 
 def get_kategori(score):
@@ -49,7 +50,7 @@ def trigger_notifikasi(device, score, score_sebelumnya, kategori_label):
                     'judul': f'Health Index Rendah — {device.nama}',
                     'pesan': f'Skor HI {device.nama} ({device.lokasi}) adalah {score} ({kategori_label}).',
                     'level': level,
-                    'url':   f'/health-index/{device.pk}/',
+                    'url':   f'/health-index/{_hid(device.pk)}/',
                 }
             )
         else:
@@ -63,7 +64,7 @@ def trigger_notifikasi(device, score, score_sebelumnya, kategori_label):
                     'judul': f'HI Turun Drastis — {device.nama}',
                     'pesan': f'Skor HI {device.nama} turun {penurunan} poin bulan ini ({score_sebelumnya} → {score}).',
                     'level': 'danger',
-                    'url':   f'/health-index/{device.pk}/',
+                    'url':   f'/health-index/{_hid(device.pk)}/',
                 }
             )
 
@@ -78,7 +79,7 @@ def trigger_notifikasi(device, score, score_sebelumnya, kategori_label):
                         'judul': f'Maintenance Overdue — {device.nama}',
                         'pesan': f'Maintenance terakhir {device.nama} sudah {bulan_lalu} bulan lalu.',
                         'level': 'warning',
-                        'url':   f'/view/{device.pk}/',
+                        'url':   f'/view/{_hid(device.pk)}/',
                     }
                 )
             else:
@@ -90,7 +91,7 @@ def trigger_notifikasi(device, score, score_sebelumnya, kategori_label):
                     'judul': f'Belum Ada Maintenance — {device.nama}',
                     'pesan': f'{device.nama} ({device.lokasi}) belum pernah tercatat maintenance.',
                     'level': 'warning',
-                    'url':   f'/view/{device.pk}/',
+                    'url':   f'/view/{_hid(device.pk)}/',
                 }
             )
     except Exception:
