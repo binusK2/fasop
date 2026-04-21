@@ -245,36 +245,46 @@
                     <div style="background:#eff6ff;padding:8px 14px;font-size:11.5px;font-weight:700;color:#1d4ed8;border-bottom:1px solid #bfdbfe;">
                         <i class="bi bi-geo-alt-fill me-1"></i>Site A — {{ fo.lokasi_a }}
                     </div>
-                    <table style="width:100%;border-collapse:collapse;font-size:12px;" id="rs-table-a">
+                    <div style="overflow-x:auto;">
+                    <table style="width:100%;border-collapse:collapse;font-size:11.5px;" id="rs-table-a">
                         <thead>
                             <tr style="background:#f8fafc;">
-                                <th style="padding:6px 10px;color:#64748b;font-weight:600;font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;width:55px;">Core</th>
-                                <th style="padding:6px 10px;color:#64748b;font-weight:600;font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;">Koneksi / Fungsi</th>
-                                <th style="padding:6px 10px;color:#64748b;font-weight:600;font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;width:90px;text-align:center;">Status</th>
+                                <th style="padding:5px 8px;color:#64748b;font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.4px;width:38px;">Core</th>
+                                <th style="padding:5px 8px;color:#64748b;font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.4px;">Koneksi / Fungsi</th>
+                                <th style="padding:5px 8px;color:#7c3aed;font-weight:600;font-size:10px;text-align:right;white-space:nowrap;">λ1310<br><span style="font-weight:400;font-size:9px;">Jarak&nbsp;·&nbsp;Red&nbsp;·&nbsp;AvgL</span></th>
+                                <th style="padding:5px 8px;color:#b45309;font-weight:600;font-size:10px;text-align:right;white-space:nowrap;">λ1550<br><span style="font-weight:400;font-size:9px;">Jarak&nbsp;·&nbsp;Red&nbsp;·&nbsp;AvgL</span></th>
+                                <th style="padding:5px 8px;color:#64748b;font-weight:600;font-size:10px;text-align:center;">Status</th>
                             </tr>
                         </thead>
                         <tbody>
                         {% for core in cores %}
                         <tr style="border-bottom:1px solid #f1f5f9;">
-                            <td style="padding:6px 10px;">
-                                <span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;font-size:11px;font-weight:700;background:{{ core.status_a_bg }};color:{{ core.status_a_color }};">{{ core.nomor_core }}</span>
+                            <td style="padding:5px 8px;">
+                                <span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;font-size:11px;font-weight:700;background:{{ core.status_a_bg }};color:{{ core.status_a_color }};">{{ core.core_num_a }}</span>
                             </td>
-                            <td style="padding:6px 10px;color:#1e293b;">
-                                {% if core.koneksi_a %}
-                                <span style="font-weight:500;">{{ core.koneksi_a }}</span>
-                                {% elif core.fungsi %}
-                                <span style="color:#64748b;font-style:italic;">{{ core.fungsi }}</span>
-                                {% else %}
-                                <span style="color:#cbd5e1;">—</span>
-                                {% endif %}
+                            <td style="padding:5px 8px;color:#1e293b;max-width:130px;">
+                                {% if core.koneksi_a %}<span style="font-weight:500;">{{ core.koneksi_a }}</span>
+                                {% elif core.fungsi %}<span style="color:#64748b;font-style:italic;">{{ core.fungsi }}</span>
+                                {% else %}<span style="color:#cbd5e1;">—</span>{% endif %}
                             </td>
-                            <td style="padding:6px 10px;text-align:center;">
-                                <span style="font-size:10.5px;font-weight:600;padding:1px 8px;border-radius:20px;background:{{ core.status_a_bg }};color:{{ core.status_a_color }};">{{ core.get_status_a_display }}</span>
+                            <td style="padding:5px 8px;text-align:right;white-space:nowrap;font-size:11px;color:#7c3aed;">
+                                {% if core.otdr_jarak_km_1310 or core.otdr_redaman_db_1310 or core.otdr_redaman_per_km_1310 %}
+                                {{ core.otdr_jarak_km_1310|default:"—" }}&nbsp;·&nbsp;{{ core.otdr_redaman_db_1310|default:"—" }}&nbsp;·&nbsp;{{ core.otdr_redaman_per_km_1310|default:"—" }}
+                                {% else %}<span style="color:#cbd5e1;">—</span>{% endif %}
+                            </td>
+                            <td style="padding:5px 8px;text-align:right;white-space:nowrap;font-size:11px;color:#b45309;">
+                                {% if core.otdr_jarak_km_1550 or core.otdr_redaman_db_1550 or core.otdr_redaman_per_km_1550 %}
+                                {{ core.otdr_jarak_km_1550|default:"—" }}&nbsp;·&nbsp;{{ core.otdr_redaman_db_1550|default:"—" }}&nbsp;·&nbsp;{{ core.otdr_redaman_per_km_1550|default:"—" }}
+                                {% else %}<span style="color:#cbd5e1;">—</span>{% endif %}
+                            </td>
+                            <td style="padding:5px 8px;text-align:center;">
+                                <span style="font-size:10px;font-weight:600;padding:1px 7px;border-radius:20px;background:{{ core.status_a_bg }};color:{{ core.status_a_color }};">{{ core.get_status_a_display }}</span>
                             </td>
                         </tr>
                         {% endfor %}
                         </tbody>
                     </table>
+                    </div>
                 </div>
             </div>
             <div class="col-md-6">
@@ -282,36 +292,46 @@
                     <div style="background:#f0fdf4;padding:8px 14px;font-size:11.5px;font-weight:700;color:#065f46;border-bottom:1px solid #bbf7d0;">
                         <i class="bi bi-geo-alt-fill me-1"></i>Site B — {{ fo.lokasi_b }}
                     </div>
-                    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+                    <div style="overflow-x:auto;">
+                    <table style="width:100%;border-collapse:collapse;font-size:11.5px;">
                         <thead>
                             <tr style="background:#f8fafc;">
-                                <th style="padding:6px 10px;color:#64748b;font-weight:600;font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;width:55px;">Core</th>
-                                <th style="padding:6px 10px;color:#64748b;font-weight:600;font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;">Koneksi / Fungsi</th>
-                                <th style="padding:6px 10px;color:#64748b;font-weight:600;font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;width:90px;text-align:center;">Status</th>
+                                <th style="padding:5px 8px;color:#64748b;font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.4px;width:38px;">Core</th>
+                                <th style="padding:5px 8px;color:#64748b;font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.4px;">Koneksi / Fungsi</th>
+                                <th style="padding:5px 8px;color:#7c3aed;font-weight:600;font-size:10px;text-align:right;white-space:nowrap;">λ1310<br><span style="font-weight:400;font-size:9px;">Jarak&nbsp;·&nbsp;Red&nbsp;·&nbsp;AvgL</span></th>
+                                <th style="padding:5px 8px;color:#b45309;font-weight:600;font-size:10px;text-align:right;white-space:nowrap;">λ1550<br><span style="font-weight:400;font-size:9px;">Jarak&nbsp;·&nbsp;Red&nbsp;·&nbsp;AvgL</span></th>
+                                <th style="padding:5px 8px;color:#64748b;font-weight:600;font-size:10px;text-align:center;">Status</th>
                             </tr>
                         </thead>
                         <tbody>
                         {% for core in cores %}
                         <tr style="border-bottom:1px solid #f1f5f9;">
-                            <td style="padding:6px 10px;">
-                                <span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;font-size:11px;font-weight:700;background:{{ core.status_b_bg }};color:{{ core.status_b_color }};">{{ core.nomor_core }}</span>
+                            <td style="padding:5px 8px;">
+                                <span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;font-size:11px;font-weight:700;background:{{ core.status_b_bg }};color:{{ core.status_b_color }};">{{ core.core_num_b }}</span>
                             </td>
-                            <td style="padding:6px 10px;color:#1e293b;">
-                                {% if core.koneksi_b %}
-                                <span style="font-weight:500;">{{ core.koneksi_b }}</span>
-                                {% elif core.fungsi %}
-                                <span style="color:#64748b;font-style:italic;">{{ core.fungsi }}</span>
-                                {% else %}
-                                <span style="color:#cbd5e1;">—</span>
-                                {% endif %}
+                            <td style="padding:5px 8px;color:#1e293b;max-width:130px;">
+                                {% if core.koneksi_b %}<span style="font-weight:500;">{{ core.koneksi_b }}</span>
+                                {% elif core.fungsi %}<span style="color:#64748b;font-style:italic;">{{ core.fungsi }}</span>
+                                {% else %}<span style="color:#cbd5e1;">—</span>{% endif %}
                             </td>
-                            <td style="padding:6px 10px;text-align:center;">
-                                <span style="font-size:10.5px;font-weight:600;padding:1px 8px;border-radius:20px;background:{{ core.status_b_bg }};color:{{ core.status_b_color }};">{{ core.get_status_b_display }}</span>
+                            <td style="padding:5px 8px;text-align:right;white-space:nowrap;font-size:11px;color:#7c3aed;">
+                                {% if core.otdr_b_jarak_km_1310 or core.otdr_b_redaman_db_1310 or core.otdr_b_redaman_per_km_1310 %}
+                                {{ core.otdr_b_jarak_km_1310|default:"—" }}&nbsp;·&nbsp;{{ core.otdr_b_redaman_db_1310|default:"—" }}&nbsp;·&nbsp;{{ core.otdr_b_redaman_per_km_1310|default:"—" }}
+                                {% else %}<span style="color:#cbd5e1;">—</span>{% endif %}
+                            </td>
+                            <td style="padding:5px 8px;text-align:right;white-space:nowrap;font-size:11px;color:#b45309;">
+                                {% if core.otdr_b_jarak_km_1550 or core.otdr_b_redaman_db_1550 or core.otdr_b_redaman_per_km_1550 %}
+                                {{ core.otdr_b_jarak_km_1550|default:"—" }}&nbsp;·&nbsp;{{ core.otdr_b_redaman_db_1550|default:"—" }}&nbsp;·&nbsp;{{ core.otdr_b_redaman_per_km_1550|default:"—" }}
+                                {% else %}<span style="color:#cbd5e1;">—</span>{% endif %}
+                            </td>
+                            <td style="padding:5px 8px;text-align:center;">
+                                <span style="font-size:10px;font-weight:600;padding:1px 7px;border-radius:20px;background:{{ core.status_b_bg }};color:{{ core.status_b_color }};">{{ core.get_status_b_display }}</span>
                             </td>
                         </tr>
                         {% endfor %}
                         </tbody>
                     </table>
+                    </div>
                 </div>
             </div>
         </div>
@@ -364,15 +384,14 @@
             <table class="core-table" id="core-table">
                 <thead>
                     <tr>
-                        <th style="width:50px;">Core</th>
+                        <th style="width:46px;">Core</th>
                         <th>Fungsi / Digunakan Untuk</th>
-                        <th style="width:130px;text-align:center;">Status</th>
+                        <th style="width:120px;text-align:center;">Status</th>
                         <th id="th-koneksi">Koneksi Site A</th>
-                        <th style="text-align:center;" id="th-jarak">Jarak (km)</th>
-                        <th style="text-align:center;" id="th-redaman">Redaman (dB)</th>
-                        <th style="text-align:center;" id="th-dbkm">Avg Loss (dB/km)</th>
+                        <th style="text-align:center;color:#7c3aed;" colspan="3" id="th-1310">λ 1310 nm<br><span style="font-size:9px;font-weight:400;">Jarak · Red · AvgL</span></th>
+                        <th style="text-align:center;color:#b45309;" colspan="3" id="th-1550">λ 1550 nm<br><span style="font-size:9px;font-weight:400;">Jarak · Red · AvgL</span></th>
                         <th style="text-align:center;" id="th-tanggal">Tgl Ukur</th>
-                        <th style="width:70px;text-align:center;">Aksi</th>
+                        <th style="width:60px;text-align:center;">Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -384,8 +403,8 @@
                     data-status-b="{{ core.status_b }}"
                     data-fungsi="{{ core.fungsi|default:''|lower }}">
                     <td>
-                        <span class="core-num site-col-a" style="background:{{ core.status_a_bg }};color:{{ core.status_a_color }};">{{ core.nomor_core }}</span>
-                        <span class="core-num site-col-b" style="display:none;background:{{ core.status_b_bg }};color:{{ core.status_b_color }};">{{ core.nomor_core }}</span>
+                        <span class="core-num site-col-a" style="background:{{ core.status_a_bg }};color:{{ core.status_a_color }};">{{ core.core_num_a }}</span>
+                        <span class="core-num site-col-b" style="display:none;background:{{ core.status_b_bg }};color:{{ core.status_b_color }};">{{ core.core_num_b }}</span>
                     </td>
                     <td>
                         <div style="font-weight:500;color:#1e293b;">{{ core.fungsi|default:"—" }}</div>
@@ -405,17 +424,35 @@
                         <span class="site-col site-col-a">{% if core.koneksi_a %}<span style="font-weight:500;">{{ core.koneksi_a }}</span>{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}</span>
                         <span class="site-col site-col-b" style="display:none;">{% if core.koneksi_b %}<span style="font-weight:500;">{{ core.koneksi_b }}</span>{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}</span>
                     </td>
-                    <td style="text-align:center;">
-                        <span class="site-col site-col-a">{% if core.otdr_jarak_km %}<span class="otdr-val" style="color:#1d4ed8;">{{ core.otdr_jarak_km }}</span>{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}</span>
-                        <span class="site-col site-col-b" style="display:none;">{% if core.otdr_b_jarak_km %}<span class="otdr-val" style="color:#065f46;">{{ core.otdr_b_jarak_km }}</span>{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}</span>
+                    {# λ1310: jarak #}
+                    <td style="text-align:center;font-size:11px;">
+                        <span class="site-col site-col-a">{% if core.otdr_jarak_km_1310 %}<span class="otdr-val" style="color:#7c3aed;">{{ core.otdr_jarak_km_1310 }}</span>{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}</span>
+                        <span class="site-col site-col-b" style="display:none;">{% if core.otdr_b_jarak_km_1310 %}<span class="otdr-val" style="color:#7c3aed;">{{ core.otdr_b_jarak_km_1310 }}</span>{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}</span>
                     </td>
-                    <td style="text-align:center;">
-                        <span class="site-col site-col-a">{% if core.otdr_redaman_db %}<span class="otdr-val" style="color:#1d4ed8;">{{ core.otdr_redaman_db }}</span>{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}</span>
-                        <span class="site-col site-col-b" style="display:none;">{% if core.otdr_b_redaman_db %}<span class="otdr-val" style="color:#065f46;">{{ core.otdr_b_redaman_db }}</span>{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}</span>
+                    {# λ1310: redaman #}
+                    <td style="text-align:center;font-size:11px;">
+                        <span class="site-col site-col-a">{% if core.otdr_redaman_db_1310 %}<span class="otdr-val" style="color:#7c3aed;">{{ core.otdr_redaman_db_1310 }}</span>{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}</span>
+                        <span class="site-col site-col-b" style="display:none;">{% if core.otdr_b_redaman_db_1310 %}<span class="otdr-val" style="color:#7c3aed;">{{ core.otdr_b_redaman_db_1310 }}</span>{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}</span>
                     </td>
-                    <td style="text-align:center;">
-                        <span class="site-col site-col-a">{% if core.otdr_redaman_per_km %}<span class="otdr-val" style="color:#1d4ed8;">{{ core.otdr_redaman_per_km }}</span>{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}</span>
-                        <span class="site-col site-col-b" style="display:none;">{% if core.otdr_b_redaman_per_km %}<span class="otdr-val" style="color:#065f46;">{{ core.otdr_b_redaman_per_km }}</span>{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}</span>
+                    {# λ1310: avg loss #}
+                    <td style="text-align:center;font-size:11px;">
+                        <span class="site-col site-col-a">{% if core.otdr_redaman_per_km_1310 %}<span class="otdr-val" style="color:#7c3aed;">{{ core.otdr_redaman_per_km_1310 }}</span>{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}</span>
+                        <span class="site-col site-col-b" style="display:none;">{% if core.otdr_b_redaman_per_km_1310 %}<span class="otdr-val" style="color:#7c3aed;">{{ core.otdr_b_redaman_per_km_1310 }}</span>{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}</span>
+                    </td>
+                    {# λ1550: jarak #}
+                    <td style="text-align:center;font-size:11px;">
+                        <span class="site-col site-col-a">{% if core.otdr_jarak_km_1550 %}<span class="otdr-val" style="color:#b45309;">{{ core.otdr_jarak_km_1550 }}</span>{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}</span>
+                        <span class="site-col site-col-b" style="display:none;">{% if core.otdr_b_jarak_km_1550 %}<span class="otdr-val" style="color:#b45309;">{{ core.otdr_b_jarak_km_1550 }}</span>{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}</span>
+                    </td>
+                    {# λ1550: redaman #}
+                    <td style="text-align:center;font-size:11px;">
+                        <span class="site-col site-col-a">{% if core.otdr_redaman_db_1550 %}<span class="otdr-val" style="color:#b45309;">{{ core.otdr_redaman_db_1550 }}</span>{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}</span>
+                        <span class="site-col site-col-b" style="display:none;">{% if core.otdr_b_redaman_db_1550 %}<span class="otdr-val" style="color:#b45309;">{{ core.otdr_b_redaman_db_1550 }}</span>{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}</span>
+                    </td>
+                    {# λ1550: avg loss #}
+                    <td style="text-align:center;font-size:11px;">
+                        <span class="site-col site-col-a">{% if core.otdr_redaman_per_km_1550 %}<span class="otdr-val" style="color:#b45309;">{{ core.otdr_redaman_per_km_1550 }}</span>{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}</span>
+                        <span class="site-col site-col-b" style="display:none;">{% if core.otdr_b_redaman_per_km_1550 %}<span class="otdr-val" style="color:#b45309;">{{ core.otdr_b_redaman_per_km_1550 }}</span>{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}</span>
                     </td>
                     <td style="text-align:center;font-size:11px;white-space:nowrap;">
                         <span class="site-col site-col-a">{% if core.otdr_tanggal %}<span style="color:#1d4ed8;">{{ core.otdr_tanggal|date:"d/m/Y" }}</span>{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}</span>
@@ -432,7 +469,7 @@
 
                 {# Baris edit inline #}
                 <tr class="edit-row" id="edit-{{ core.pk }}">
-                    <td colspan="9">
+                    <td colspan="12">
                         <form method="post" action="{% url 'fiber_optic_core_update' fo.pk core.pk %}"
                               id="form-core-{{ core.pk }}">
                             {% csrf_token %}
@@ -473,6 +510,11 @@
                                             <i class="bi bi-geo-alt-fill me-1"></i>Data Site A — {{ fo.lokasi_a }}
                                         </div>
                                         <div class="row g-2 mb-2">
+                                            <div class="col-md-2">
+                                                <label style="font-size:11px;font-weight:600;color:#1d4ed8;">No Core A</label>
+                                                <input type="number" name="nomor_core_a" class="form-control form-control-sm"
+                                                       min="1" placeholder="—" value="{{ core.nomor_core_a|default:'' }}">
+                                            </div>
                                             <div class="col-md-3">
                                                 <label style="font-size:11px;font-weight:600;color:#1d4ed8;">Status Core Site A</label>
                                                 <select name="status_a" class="form-select form-select-sm">
@@ -490,28 +532,28 @@
                                         </div>
                                         <div style="background:#fff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 12px;">
                                             <div style="font-size:10.5px;font-weight:700;color:#1d4ed8;margin-bottom:8px;"><i class="bi bi-graph-up me-1"></i>OTDR Site A</div>
-                                            <!-- Baris 1: jarak + tanggal + catatan -->
+                                            <!-- Tanggal + Catatan -->
                                             <div class="row g-1 mb-2">
-                                                <div class="col-3">
-                                                    <input type="number" name="otdr_jarak_km" step="0.0001" class="form-control form-control-sm"
-                                                           placeholder="12.xxxx" value="{{ core.otdr_jarak_km|default:'' }}">
-                                                    <div style="font-size:10px;color:#94a3b8;margin-top:2px;">Jarak (km)</div>
-                                                </div>
-                                                <div class="col-3">
+                                                <div class="col-4">
                                                     <input type="date" name="otdr_tanggal" class="form-control form-control-sm"
                                                            value="{{ core.otdr_tanggal|date:'Y-m-d'|default:'' }}">
                                                     <div style="font-size:10px;color:#94a3b8;margin-top:2px;">Tanggal Ukur</div>
                                                 </div>
-                                                <div class="col-6">
+                                                <div class="col-8">
                                                     <input type="text" name="otdr_catatan" class="form-control form-control-sm"
                                                            placeholder="Catatan OTDR A..." value="{{ core.otdr_catatan|default:'' }}">
                                                     <div style="font-size:10px;color:#94a3b8;margin-top:2px;">Catatan</div>
                                                 </div>
                                             </div>
-                                            <!-- Baris 2: λ1310 -->
+                                            <!-- λ1310 -->
                                             <div class="row g-1 mb-1 align-items-center">
                                                 <div class="col-auto" style="min-width:70px;">
                                                     <span style="font-size:10px;font-weight:700;color:#7c3aed;background:#ede9fe;border-radius:4px;padding:2px 6px;">λ 1310 nm</span>
+                                                </div>
+                                                <div class="col">
+                                                    <input type="number" name="otdr_jarak_km_1310" step="0.0001" class="form-control form-control-sm"
+                                                           placeholder="Jarak (km)" value="{{ core.otdr_jarak_km_1310|default:'' }}">
+                                                    <div style="font-size:10px;color:#94a3b8;margin-top:1px;">Jarak (km)</div>
                                                 </div>
                                                 <div class="col">
                                                     <input type="number" name="otdr_redaman_db_1310" step="0.001" class="form-control form-control-sm"
@@ -520,14 +562,19 @@
                                                 </div>
                                                 <div class="col">
                                                     <input type="number" name="otdr_redaman_per_km_1310" step="0.001" class="form-control form-control-sm"
-                                                           placeholder="Avg Loss (dB/km)" value="{{ core.otdr_redaman_per_km_1310|default:'' }}">
+                                                           placeholder="Avg Loss" value="{{ core.otdr_redaman_per_km_1310|default:'' }}">
                                                     <div style="font-size:10px;color:#94a3b8;margin-top:1px;">Avg Loss (dB/km)</div>
                                                 </div>
                                             </div>
-                                            <!-- Baris 3: λ1550 -->
+                                            <!-- λ1550 -->
                                             <div class="row g-1 align-items-center">
                                                 <div class="col-auto" style="min-width:70px;">
                                                     <span style="font-size:10px;font-weight:700;color:#b45309;background:#fef3c7;border-radius:4px;padding:2px 6px;">λ 1550 nm</span>
+                                                </div>
+                                                <div class="col">
+                                                    <input type="number" name="otdr_jarak_km_1550" step="0.0001" class="form-control form-control-sm"
+                                                           placeholder="Jarak (km)" value="{{ core.otdr_jarak_km_1550|default:'' }}">
+                                                    <div style="font-size:10px;color:#94a3b8;margin-top:1px;">Jarak (km)</div>
                                                 </div>
                                                 <div class="col">
                                                     <input type="number" name="otdr_redaman_db_1550" step="0.001" class="form-control form-control-sm"
@@ -536,7 +583,7 @@
                                                 </div>
                                                 <div class="col">
                                                     <input type="number" name="otdr_redaman_per_km_1550" step="0.001" class="form-control form-control-sm"
-                                                           placeholder="Avg Loss (dB/km)" value="{{ core.otdr_redaman_per_km_1550|default:'' }}">
+                                                           placeholder="Avg Loss" value="{{ core.otdr_redaman_per_km_1550|default:'' }}">
                                                     <div style="font-size:10px;color:#94a3b8;margin-top:1px;">Avg Loss (dB/km)</div>
                                                 </div>
                                             </div>
@@ -551,6 +598,11 @@
                                             <i class="bi bi-geo-alt-fill me-1"></i>Data Site B — {{ fo.lokasi_b }}
                                         </div>
                                         <div class="row g-2 mb-2">
+                                            <div class="col-md-2">
+                                                <label style="font-size:11px;font-weight:600;color:#065f46;">No Core B</label>
+                                                <input type="number" name="nomor_core_b" class="form-control form-control-sm"
+                                                       min="1" placeholder="—" value="{{ core.nomor_core_b|default:'' }}">
+                                            </div>
                                             <div class="col-md-3">
                                                 <label style="font-size:11px;font-weight:600;color:#065f46;">Status Core Site B</label>
                                                 <select name="status_b" class="form-select form-select-sm">
@@ -568,28 +620,28 @@
                                         </div>
                                         <div style="background:#fff;border:1px solid #bbf7d0;border-radius:8px;padding:10px 12px;">
                                             <div style="font-size:10.5px;font-weight:700;color:#065f46;margin-bottom:8px;"><i class="bi bi-graph-up me-1"></i>OTDR Site B</div>
-                                            <!-- Baris 1: jarak + tanggal + catatan -->
+                                            <!-- Tanggal + Catatan -->
                                             <div class="row g-1 mb-2">
-                                                <div class="col-3">
-                                                    <input type="number" name="otdr_b_jarak_km" step="0.0001" class="form-control form-control-sm"
-                                                           placeholder="12.xxxx" value="{{ core.otdr_b_jarak_km|default:'' }}">
-                                                    <div style="font-size:10px;color:#94a3b8;margin-top:2px;">Jarak (km)</div>
-                                                </div>
-                                                <div class="col-3">
+                                                <div class="col-4">
                                                     <input type="date" name="otdr_b_tanggal" class="form-control form-control-sm"
                                                            value="{{ core.otdr_b_tanggal|date:'Y-m-d'|default:'' }}">
                                                     <div style="font-size:10px;color:#94a3b8;margin-top:2px;">Tanggal Ukur</div>
                                                 </div>
-                                                <div class="col-6">
+                                                <div class="col-8">
                                                     <input type="text" name="otdr_b_catatan" class="form-control form-control-sm"
                                                            placeholder="Catatan OTDR B..." value="{{ core.otdr_b_catatan|default:'' }}">
                                                     <div style="font-size:10px;color:#94a3b8;margin-top:2px;">Catatan</div>
                                                 </div>
                                             </div>
-                                            <!-- Baris 2: λ1310 -->
+                                            <!-- λ1310 -->
                                             <div class="row g-1 mb-1 align-items-center">
                                                 <div class="col-auto" style="min-width:70px;">
                                                     <span style="font-size:10px;font-weight:700;color:#7c3aed;background:#ede9fe;border-radius:4px;padding:2px 6px;">λ 1310 nm</span>
+                                                </div>
+                                                <div class="col">
+                                                    <input type="number" name="otdr_b_jarak_km_1310" step="0.0001" class="form-control form-control-sm"
+                                                           placeholder="Jarak (km)" value="{{ core.otdr_b_jarak_km_1310|default:'' }}">
+                                                    <div style="font-size:10px;color:#94a3b8;margin-top:1px;">Jarak (km)</div>
                                                 </div>
                                                 <div class="col">
                                                     <input type="number" name="otdr_b_redaman_db_1310" step="0.001" class="form-control form-control-sm"
@@ -598,14 +650,19 @@
                                                 </div>
                                                 <div class="col">
                                                     <input type="number" name="otdr_b_redaman_per_km_1310" step="0.001" class="form-control form-control-sm"
-                                                           placeholder="Avg Loss (dB/km)" value="{{ core.otdr_b_redaman_per_km_1310|default:'' }}">
+                                                           placeholder="Avg Loss" value="{{ core.otdr_b_redaman_per_km_1310|default:'' }}">
                                                     <div style="font-size:10px;color:#94a3b8;margin-top:1px;">Avg Loss (dB/km)</div>
                                                 </div>
                                             </div>
-                                            <!-- Baris 3: λ1550 -->
+                                            <!-- λ1550 -->
                                             <div class="row g-1 align-items-center">
                                                 <div class="col-auto" style="min-width:70px;">
                                                     <span style="font-size:10px;font-weight:700;color:#b45309;background:#fef3c7;border-radius:4px;padding:2px 6px;">λ 1550 nm</span>
+                                                </div>
+                                                <div class="col">
+                                                    <input type="number" name="otdr_b_jarak_km_1550" step="0.0001" class="form-control form-control-sm"
+                                                           placeholder="Jarak (km)" value="{{ core.otdr_b_jarak_km_1550|default:'' }}">
+                                                    <div style="font-size:10px;color:#94a3b8;margin-top:1px;">Jarak (km)</div>
                                                 </div>
                                                 <div class="col">
                                                     <input type="number" name="otdr_b_redaman_db_1550" step="0.001" class="form-control form-control-sm"
@@ -614,7 +671,7 @@
                                                 </div>
                                                 <div class="col">
                                                     <input type="number" name="otdr_b_redaman_per_km_1550" step="0.001" class="form-control form-control-sm"
-                                                           placeholder="Avg Loss (dB/km)" value="{{ core.otdr_b_redaman_per_km_1550|default:'' }}">
+                                                           placeholder="Avg Loss" value="{{ core.otdr_b_redaman_per_km_1550|default:'' }}">
                                                     <div style="font-size:10px;color:#94a3b8;margin-top:1px;">Avg Loss (dB/km)</div>
                                                 </div>
                                             </div>
@@ -828,11 +885,11 @@ function switchOTDRCore(corePk) {
     const statusLabels = { aktif:'Aktif', spare:'Spare', rusak:'Rusak', tidak_aktif:'Tidak Aktif' };
     if (sbadge) sbadge.innerHTML = `<span style="padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700;background:${statusBgs[core.status]||'#f1f5f9'};color:${statusColors[core.status]||'#475569'};">${statusLabels[core.status]||core.status}</span>`;
 
-    const hasA = core.a_jarak != null || core.a_redaman_1310 != null || core.a_redaman_1550 != null;
-    const hasB = core.b_jarak != null || core.b_redaman_1310 != null || core.b_redaman_1550 != null;
+    const hasA = core.a_jarak_1310 != null || core.a_jarak_1550 != null || core.a_redaman_1310 != null || core.a_redaman_1550 != null;
+    const hasB = core.b_jarak_1310 != null || core.b_jarak_1550 != null || core.b_redaman_1310 != null || core.b_redaman_1550 != null;
 
     // Site A panel
-    document.getElementById('otdr-a-jarak').textContent        = otdrFmt(core.a_jarak, 4);
+    document.getElementById('otdr-a-jarak').textContent        = otdrFmt(core.a_jarak_1310, 4) + ' / ' + otdrFmt(core.a_jarak_1550, 4);
     document.getElementById('otdr-a-redaman-1310').textContent = otdrFmt(core.a_redaman_1310);
     document.getElementById('otdr-a-dbkm-1310').textContent    = otdrFmt(core.a_dbkm_1310);
     document.getElementById('otdr-a-redaman-1550').textContent = otdrFmt(core.a_redaman_1550);
@@ -848,7 +905,7 @@ function switchOTDRCore(corePk) {
     if (aEmpty) aEmpty.style.display = hasA ? 'none' : 'block';
 
     // Site B panel
-    document.getElementById('otdr-b-jarak').textContent        = otdrFmt(core.b_jarak, 4);
+    document.getElementById('otdr-b-jarak').textContent        = otdrFmt(core.b_jarak_1310, 4) + ' / ' + otdrFmt(core.b_jarak_1550, 4);
     document.getElementById('otdr-b-redaman-1310').textContent = otdrFmt(core.b_redaman_1310);
     document.getElementById('otdr-b-dbkm-1310').textContent    = otdrFmt(core.b_dbkm_1310);
     document.getElementById('otdr-b-redaman-1550').textContent = otdrFmt(core.b_redaman_1550);
@@ -1016,9 +1073,6 @@ function switchSite(site) {
     const lokasi = site === 'a' ? LOKASI_A : LOKASI_B;
     const el = id => document.getElementById(id);
     if (el('th-koneksi'))  el('th-koneksi').textContent  = `Koneksi Site ${site.toUpperCase()} — ${lokasi}`;
-    if (el('th-jarak'))    el('th-jarak').textContent    = 'Jarak (km)';
-    if (el('th-redaman'))  el('th-redaman').textContent  = 'Redaman (dB)';
-    if (el('th-dbkm'))     el('th-dbkm').textContent     = 'Avg Loss (dB/km)';
     if (el('th-tanggal'))  el('th-tanggal').textContent  = 'Tgl Ukur';
 
     // Update button states

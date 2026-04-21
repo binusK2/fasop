@@ -1230,28 +1230,30 @@ def fiber_optic_detail(request, pk):
     cores_json = _json.dumps([{
         'pk':              c.pk,
         'nomor_core':      c.nomor_core,
+        'core_num_a':      c.core_num_a,
+        'core_num_b':      c.core_num_b,
         'fungsi':          c.fungsi or '',
         'status':          c.status,
         'status_a':        c.status_a,
         'status_b':        c.status_b,
         'koneksi_a':       c.koneksi_a or '',
         'koneksi_b':       c.koneksi_b or '',
-        # OTDR Site A
-        'a_jarak':              _f(c.otdr_jarak_km),
-        'a_redaman':            _f(c.otdr_redaman_db),
-        'a_dbkm':               _f(c.otdr_redaman_per_km),
+        # OTDR Site A λ1310
+        'a_jarak_1310':         _f(c.otdr_jarak_km_1310),
         'a_redaman_1310':       _f(c.otdr_redaman_db_1310),
         'a_dbkm_1310':          _f(c.otdr_redaman_per_km_1310),
+        # OTDR Site A λ1550
+        'a_jarak_1550':         _f(c.otdr_jarak_km_1550),
         'a_redaman_1550':       _f(c.otdr_redaman_db_1550),
         'a_dbkm_1550':          _f(c.otdr_redaman_per_km_1550),
         'a_tanggal':            str(c.otdr_tanggal) if c.otdr_tanggal else '',
         'a_catatan':            c.otdr_catatan or '',
-        # OTDR Site B
-        'b_jarak':              _f(c.otdr_b_jarak_km),
-        'b_redaman':            _f(c.otdr_b_redaman_db),
-        'b_dbkm':               _f(c.otdr_b_redaman_per_km),
+        # OTDR Site B λ1310
+        'b_jarak_1310':         _f(c.otdr_b_jarak_km_1310),
         'b_redaman_1310':       _f(c.otdr_b_redaman_db_1310),
         'b_dbkm_1310':          _f(c.otdr_b_redaman_per_km_1310),
+        # OTDR Site B λ1550
+        'b_jarak_1550':         _f(c.otdr_b_jarak_km_1550),
         'b_redaman_1550':       _f(c.otdr_b_redaman_db_1550),
         'b_dbkm_1550':          _f(c.otdr_b_redaman_per_km_1550),
         'b_tanggal':            str(c.otdr_b_tanggal) if c.otdr_b_tanggal else '',
@@ -1293,11 +1295,15 @@ def fiber_optic_core_update(request, fo_pk, core_pk):
         if site == 'a':
             core.status_a                    = request.POST.get('status_a', 'spare')
             core.koneksi_a                   = request.POST.get('koneksi_a', '').strip() or None
-            core.otdr_jarak_km               = request.POST.get('otdr_jarak_km') or None
-            core.otdr_redaman_db             = request.POST.get('otdr_redaman_db') or None
-            core.otdr_redaman_per_km         = request.POST.get('otdr_redaman_per_km') or None
+            # nomor core site A
+            nc_a = request.POST.get('nomor_core_a', '').strip()
+            core.nomor_core_a = int(nc_a) if nc_a.isdigit() else None
+            # λ1310 site A
+            core.otdr_jarak_km_1310          = request.POST.get('otdr_jarak_km_1310') or None
             core.otdr_redaman_db_1310        = request.POST.get('otdr_redaman_db_1310') or None
             core.otdr_redaman_per_km_1310    = request.POST.get('otdr_redaman_per_km_1310') or None
+            # λ1550 site A
+            core.otdr_jarak_km_1550          = request.POST.get('otdr_jarak_km_1550') or None
             core.otdr_redaman_db_1550        = request.POST.get('otdr_redaman_db_1550') or None
             core.otdr_redaman_per_km_1550    = request.POST.get('otdr_redaman_per_km_1550') or None
             core.otdr_tanggal                = request.POST.get('otdr_tanggal') or None
@@ -1305,11 +1311,15 @@ def fiber_optic_core_update(request, fo_pk, core_pk):
         else:  # site == 'b'
             core.status_b                    = request.POST.get('status_b', 'spare')
             core.koneksi_b                   = request.POST.get('koneksi_b', '').strip() or None
-            core.otdr_b_jarak_km             = request.POST.get('otdr_b_jarak_km') or None
-            core.otdr_b_redaman_db           = request.POST.get('otdr_b_redaman_db') or None
-            core.otdr_b_redaman_per_km       = request.POST.get('otdr_b_redaman_per_km') or None
+            # nomor core site B
+            nc_b = request.POST.get('nomor_core_b', '').strip()
+            core.nomor_core_b = int(nc_b) if nc_b.isdigit() else None
+            # λ1310 site B
+            core.otdr_b_jarak_km_1310        = request.POST.get('otdr_b_jarak_km_1310') or None
             core.otdr_b_redaman_db_1310      = request.POST.get('otdr_b_redaman_db_1310') or None
             core.otdr_b_redaman_per_km_1310  = request.POST.get('otdr_b_redaman_per_km_1310') or None
+            # λ1550 site B
+            core.otdr_b_jarak_km_1550        = request.POST.get('otdr_b_jarak_km_1550') or None
             core.otdr_b_redaman_db_1550      = request.POST.get('otdr_b_redaman_db_1550') or None
             core.otdr_b_redaman_per_km_1550  = request.POST.get('otdr_b_redaman_per_km_1550') or None
             core.otdr_b_tanggal              = request.POST.get('otdr_b_tanggal') or None
