@@ -35,12 +35,14 @@ def _tbl():
 
 def _get_connection():
     import pyodbc
+    user = getattr(settings, 'MSSQL_USER', '')
+    pwd  = getattr(settings, 'MSSQL_PASS', '')
+    auth = f"UID={user};PWD={pwd};" if user else "Trusted_Connection=yes;"
     conn_str = (
         f"DRIVER={getattr(settings, 'MSSQL_DRIVER', 'ODBC Driver 17 for SQL Server')};"
         f"SERVER={getattr(settings, 'MSSQL_HOST', 'localhost')};"
         f"DATABASE={getattr(settings, 'MSSQL_DB', '')};"
-        f"UID={getattr(settings, 'MSSQL_USER', '')};"
-        f"PWD={getattr(settings, 'MSSQL_PASS', '')};"
+        + auth +
         "Encrypt=no;TrustServerCertificate=yes;"
     )
     return pyodbc.connect(conn_str, timeout=5)
@@ -108,7 +110,7 @@ def get_live_data(pembangkit_list):
 
             # 1. Ambil timestamp terbaru untuk pembangkit ini
             cursor.execute(
-                f"SELECT MAX(TIME) FROM {tbl} WHERE B1 = ?",
+                f"SELECT MAX(TIME) FROM {tbl} WHERE RTRIM(B1) = ?",
                 (p.kode,)
             )
             row = cursor.fetchone()
@@ -131,7 +133,7 @@ def get_live_data(pembangkit_list):
                     STRING_AGG(B3 + '=' + CAST(ISNULL(P,0) AS VARCHAR), ', ')
                               AS unit_detail
                 FROM {tbl}
-                WHERE B1 = ? AND TIME = ?
+                WHERE RTRIM(B1) = ? AND TIME = ?
                 """,
                 (p.kode, latest_time)
             )
@@ -185,7 +187,7 @@ def get_trend_data(pembangkit, jam=1):
                 SUM(P)                           AS total_mw,
                 SUM(Q)                           AS total_mvar
             FROM {tbl}
-            WHERE B1 = ?
+            WHERE RTRIM(B1) = ?
               AND TIME >= DATEADD(hour, ?, GETDATE())
               AND DATEPART(minute, TIME) % ? = 0
             GROUP BY CONVERT(VARCHAR(16), TIME, 120)
