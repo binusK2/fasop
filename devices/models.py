@@ -584,6 +584,11 @@ class FiberOpticCore(models.Model):
         verbose_name='Koneksi Site B',
         help_text='Perangkat/port yang terhubung di Site B (misal: Switch GI Barru eth1)',
     )
+    fungsi_b     = models.CharField(
+        max_length=200, blank=True, null=True,
+        verbose_name='Fungsi / Digunakan Untuk (Site B)',
+    )
+    keterangan_b = models.TextField(blank=True, null=True, verbose_name='Catatan Site B')
 
     # ── Hasil OTDR Site A ─────────────────────────────────────
     # λ1310 nm — Site A

@@ -312,6 +312,7 @@
                             </td>
                             <td style="padding:5px 8px;color:#1e293b;max-width:130px;">
                                 {% if core.koneksi_b %}<span style="font-weight:500;">{{ core.koneksi_b }}</span>
+                                {% elif core.fungsi_b %}<span style="color:#64748b;font-style:italic;">{{ core.fungsi_b }}</span>
                                 {% elif core.fungsi %}<span style="color:#64748b;font-style:italic;">{{ core.fungsi }}</span>
                                 {% else %}<span style="color:#cbd5e1;">—</span>{% endif %}
                             </td>
@@ -401,16 +402,20 @@
                     data-status="{{ core.status_a }}"
                     data-status-a="{{ core.status_a }}"
                     data-status-b="{{ core.status_b }}"
-                    data-fungsi="{{ core.fungsi|default:''|lower }}">
+                    data-fungsi="{{ core.fungsi|default:''|lower }} {{ core.fungsi_b|default:''|lower }}">
                     <td>
                         <span class="core-num site-col-a" style="background:{{ core.status_a_bg }};color:{{ core.status_a_color }};">{{ core.core_num_a }}</span>
                         <span class="core-num site-col-b" style="display:none;background:{{ core.status_b_bg }};color:{{ core.status_b_color }};">{{ core.core_num_b }}</span>
                     </td>
                     <td>
-                        <div style="font-weight:500;color:#1e293b;">{{ core.fungsi|default:"—" }}</div>
-                        {% if core.keterangan %}
-                        <div style="font-size:11px;color:#64748b;margin-top:2px;"><i class="bi bi-chat-left-text me-1"></i>{{ core.keterangan }}</div>
-                        {% endif %}
+                        <span class="site-col site-col-a">
+                            <div style="font-weight:500;color:#1e293b;">{{ core.fungsi|default:"—" }}</div>
+                            {% if core.keterangan %}<div style="font-size:11px;color:#64748b;margin-top:2px;"><i class="bi bi-chat-left-text me-1"></i>{{ core.keterangan }}</div>{% endif %}
+                        </span>
+                        <span class="site-col site-col-b" style="display:none;">
+                            <div style="font-weight:500;color:#1e293b;">{% if core.fungsi_b %}{{ core.fungsi_b }}{% else %}{{ core.fungsi|default:"—" }}{% endif %}</div>
+                            {% if core.keterangan_b %}<div style="font-size:11px;color:#64748b;margin-top:2px;"><i class="bi bi-chat-left-text me-1"></i>{{ core.keterangan_b }}</div>{% endif %}
+                        </span>
                     </td>
                     <td style="text-align:center;">
                         <span class="site-col site-col-a">
@@ -475,21 +480,9 @@
                             {% csrf_token %}
                             <input type="hidden" name="site" class="site-input" value="a">
                             <div class="row g-2">
-                                <!-- Shared: fungsi + keterangan + tombol -->
-                                <div class="col-md-5">
-                                    <label style="font-size:11px;font-weight:600;color:#64748b;">Fungsi / Digunakan Untuk</label>
-                                    <input type="text" name="fungsi" class="form-control form-control-sm"
-                                           placeholder="Misal: Link SCADA GI Tello-Barru"
-                                           value="{{ core.fungsi|default:'' }}">
-                                </div>
-                                <div class="col-md-5">
-                                    <label style="font-size:11px;font-weight:600;color:#64748b;">Catatan</label>
-                                    <input type="text" name="keterangan" class="form-control form-control-sm"
-                                           placeholder="Catatan tambahan..."
-                                           value="{{ core.keterangan|default:'' }}">
-                                </div>
-                                <div class="col-md-2 d-flex align-items-end gap-1">
-                                    <button type="submit" class="btn btn-primary btn-sm w-100">
+                                <!-- Simpan / Batal -->
+                                <div class="col-12 d-flex justify-content-end gap-1 mb-1">
+                                    <button type="submit" class="btn btn-primary btn-sm">
                                         <i class="bi bi-floppy me-1"></i>Simpan
                                     </button>
                                     <button type="button" class="btn btn-outline-secondary btn-sm"
@@ -518,11 +511,23 @@
                                                     {% endfor %}
                                                 </select>
                                             </div>
-                                            <div class="col-md-5">
+                                            <div class="col-md-7">
                                                 <label style="font-size:11px;font-weight:600;color:#1d4ed8;">Koneksi Site A</label>
                                                 <input type="text" name="koneksi_a" class="form-control form-control-sm"
                                                        placeholder="Misal: ODF-1 port 3, Router eth1"
                                                        value="{{ core.koneksi_a|default:'' }}">
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label style="font-size:11px;font-weight:600;color:#1d4ed8;">Fungsi / Digunakan Untuk (Site A)</label>
+                                                <input type="text" name="fungsi" class="form-control form-control-sm"
+                                                       placeholder="Misal: Link SCADA GI Tello-Barru"
+                                                       value="{{ core.fungsi|default:'' }}">
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label style="font-size:11px;font-weight:600;color:#1d4ed8;">Catatan Site A</label>
+                                                <input type="text" name="keterangan" class="form-control form-control-sm"
+                                                       placeholder="Catatan tambahan..."
+                                                       value="{{ core.keterangan|default:'' }}">
                                             </div>
                                         </div>
                                         <div style="background:#fff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 12px;">
@@ -606,11 +611,23 @@
                                                     {% endfor %}
                                                 </select>
                                             </div>
-                                            <div class="col-md-5">
+                                            <div class="col-md-7">
                                                 <label style="font-size:11px;font-weight:600;color:#065f46;">Koneksi Site B</label>
                                                 <input type="text" name="koneksi_b" class="form-control form-control-sm"
                                                        placeholder="Misal: ODF-2 port 3, Switch eth5"
                                                        value="{{ core.koneksi_b|default:'' }}">
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label style="font-size:11px;font-weight:600;color:#065f46;">Fungsi / Digunakan Untuk (Site B)</label>
+                                                <input type="text" name="fungsi_b" class="form-control form-control-sm"
+                                                       placeholder="Misal: Link SCADA GI Tello-Barru"
+                                                       value="{{ core.fungsi_b|default:'' }}">
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label style="font-size:11px;font-weight:600;color:#065f46;">Catatan Site B</label>
+                                                <input type="text" name="keterangan_b" class="form-control form-control-sm"
+                                                       placeholder="Catatan tambahan..."
+                                                       value="{{ core.keterangan_b|default:'' }}">
                                             </div>
                                         </div>
                                         <div style="background:#fff;border:1px solid #bbf7d0;border-radius:8px;padding:10px 12px;">

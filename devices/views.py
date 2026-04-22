@@ -1233,6 +1233,9 @@ def fiber_optic_detail(request, pk):
         'core_num_a':      c.core_num_a,
         'core_num_b':      c.core_num_b,
         'fungsi':          c.fungsi or '',
+        'fungsi_b':        c.fungsi_b or '',
+        'keterangan':      c.keterangan or '',
+        'keterangan_b':    c.keterangan_b or '',
         'status':          c.status,
         'status_a':        c.status_a,
         'status_b':        c.status_b,
@@ -1287,14 +1290,12 @@ def fiber_optic_core_update(request, fo_pk, core_pk):
                 if not conflict:
                     core.nomor_core = new_nomor_int
 
-        # shared fields
-        core.fungsi     = request.POST.get('fungsi', '').strip() or None
-        core.keterangan = request.POST.get('keterangan', '').strip() or None
-
         site = request.POST.get('site', 'a')
         if site == 'a':
-            core.status_a                    = request.POST.get('status_a', 'spare')
-            core.koneksi_a                   = request.POST.get('koneksi_a', '').strip() or None
+            core.fungsi     = request.POST.get('fungsi', '').strip() or None
+            core.keterangan = request.POST.get('keterangan', '').strip() or None
+            core.status_a   = request.POST.get('status_a', 'spare')
+            core.koneksi_a  = request.POST.get('koneksi_a', '').strip() or None
             # nomor core site A
             nc_a = request.POST.get('nomor_core_a', '').strip()
             core.nomor_core_a = int(nc_a) if nc_a.isdigit() else None
@@ -1309,8 +1310,10 @@ def fiber_optic_core_update(request, fo_pk, core_pk):
             core.otdr_tanggal                = request.POST.get('otdr_tanggal') or None
             core.otdr_catatan                = request.POST.get('otdr_catatan', '').strip() or None
         else:  # site == 'b'
-            core.status_b                    = request.POST.get('status_b', 'spare')
-            core.koneksi_b                   = request.POST.get('koneksi_b', '').strip() or None
+            core.fungsi_b     = request.POST.get('fungsi_b', '').strip() or None
+            core.keterangan_b = request.POST.get('keterangan_b', '').strip() or None
+            core.status_b     = request.POST.get('status_b', 'spare')
+            core.koneksi_b    = request.POST.get('koneksi_b', '').strip() or None
             # nomor core site B
             nc_b = request.POST.get('nomor_core_b', '').strip()
             core.nomor_core_b = int(nc_b) if nc_b.isdigit() else None
