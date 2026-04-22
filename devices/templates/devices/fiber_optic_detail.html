@@ -1010,6 +1010,9 @@ document.addEventListener('DOMContentLoaded', function() {
         renderOTDRChart();
         switchOTDRCore(CORES_OTDR[0].pk);
     }
+    // Restore active site tab after page reload
+    const savedSite = sessionStorage.getItem('fo_active_site_{{ fo.pk }}');
+    if (savedSite === 'b') switchSite('b');
 });
 
 /* ══════════════════════════════════════════════════════════ */
@@ -1047,6 +1050,7 @@ function renderCoreStats() {
 
 function switchSite(site) {
     currentSite = site;
+    sessionStorage.setItem('fo_active_site_{{ fo.pk }}', site);
 
     // Update data-status on each row to reflect the active site
     document.querySelectorAll('.core-data-row').forEach(row => {
