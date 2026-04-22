@@ -110,7 +110,7 @@ def get_live_data(pembangkit_list):
 
             # 1. Ambil timestamp terbaru untuk pembangkit ini
             cursor.execute(
-                f"SELECT MAX(TIME) FROM {tbl} WHERE B1 = ?",
+                f"SELECT MAX(TIME) FROM {tbl} WHERE RTRIM(B1) = ?",
                 (p.kode,)
             )
             row = cursor.fetchone()
@@ -133,7 +133,7 @@ def get_live_data(pembangkit_list):
                     STRING_AGG(B3 + '=' + CAST(ISNULL(P,0) AS VARCHAR), ', ')
                               AS unit_detail
                 FROM {tbl}
-                WHERE B1 = ? AND TIME = ?
+                WHERE RTRIM(B1) = ? AND TIME = ?
                 """,
                 (p.kode, latest_time)
             )
@@ -187,7 +187,7 @@ def get_trend_data(pembangkit, jam=1):
                 SUM(P)                           AS total_mw,
                 SUM(Q)                           AS total_mvar
             FROM {tbl}
-            WHERE B1 = ?
+            WHERE RTRIM(B1) = ?
               AND TIME >= DATEADD(hour, ?, GETDATE())
               AND DATEPART(minute, TIME) % ? = 0
             GROUP BY CONVERT(VARCHAR(16), TIME, 120)

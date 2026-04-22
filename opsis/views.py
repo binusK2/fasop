@@ -96,9 +96,9 @@ def api_diagnose(request):
         result['koneksi'] = 'BERHASIL'
         cursor = conn.cursor()
 
-        # Cek nilai B1 yang ada di tabel
+        # Cek nilai B1 yang ada di tabel (RTRIM agar bersih dari trailing spaces)
         try:
-            cursor.execute(f"SELECT DISTINCT TOP 10 B1 FROM {tbl} ORDER BY B1")
+            cursor.execute(f"SELECT DISTINCT TOP 10 RTRIM(B1) FROM {tbl} ORDER BY RTRIM(B1)")
             result['b1_sample'] = [row[0] for row in cursor.fetchall()]
         except Exception as e:
             result['b1_sample'] = f'Error: {e}'
@@ -107,15 +107,15 @@ def api_diagnose(request):
         for p in _pembangkit_aktif():
             info = {'kode': p.kode, 'nama': p.nama}
             try:
-                cursor.execute(f"SELECT COUNT(*) FROM {tbl} WHERE B1 = ?", (p.kode,))
+                cursor.execute(f"SELECT COUNT(*) FROM {tbl} WHERE RTRIM(B1) = ?", (p.kode,))
                 info['total_baris'] = cursor.fetchone()[0]
 
-                cursor.execute(f"SELECT MAX(TIME) FROM {tbl} WHERE B1 = ?", (p.kode,))
+                cursor.execute(f"SELECT MAX(TIME) FROM {tbl} WHERE RTRIM(B1) = ?", (p.kode,))
                 row = cursor.fetchone()
                 info['max_time'] = str(row[0]) if row and row[0] else 'NULL — tidak ada data'
 
                 cursor.execute(
-                    f"SELECT TOP 3 B1, B3, P, Q, TIME FROM {tbl} WHERE B1 = ? ORDER BY TIME DESC",
+                    f"SELECT TOP 3 RTRIM(B1), RTRIM(B3), P, Q, TIME FROM {tbl} WHERE RTRIM(B1) = ? ORDER BY TIME DESC",
                     (p.kode,)
                 )
                 info['sample'] = [
