@@ -116,25 +116,26 @@ def api_diagnose(request):
         result['koneksi'] = 'BERHASIL'
         cursor = conn.cursor()
 
-        # Cek nilai B1 yang ada di tabel (RTRIM agar bersih dari trailing spaces)
+        # Cek nilai B1 terbaru — pakai TOP dari data terbaru, bukan DISTINCT full scan
         try:
-            cursor.execute(f"SELECT DISTINCT TOP 10 RTRIM(B1) FROM {tbl} ORDER BY RTRIM(B1)")
+            cursor.execute(
+                f"SELECT DISTINCT TOP 10 RTRIM(B1) FROM {tbl} WHERE TIME >= DATEADD(hour, -24, GETDATE())"
+            )
             result['b1_sample'] = [row[0] for row in cursor.fetchall()]
         except Exception as e:
             result['b1_sample'] = f'Error: {e}'
 
-        # Cek semua pembangkit dalam 2 query bulk (bukan N×3 query per-pembangkit)
+        # Cek semua pembangkit — MAX(TIME) saja, tanpa COUNT (hindari full table scan)
         pembangkit_list = _pembangkit_aktif()
         kode_list = [p.kode for p in pembangkit_list]
         info_map = {p.kode: {'kode': p.kode, 'nama': p.nama} for p in pembangkit_list}
 
         if kode_list:
             placeholders = ','.join('?' * len(kode_list))
-            # Query 1: COUNT dan MAX(TIME) semua pembangkit sekaligus
             try:
                 cursor.execute(
                     f"""
-                    SELECT RTRIM(B1), COUNT(*) AS jml, MAX(TIME) AS max_time
+                    SELECT RTRIM(B1), MAX(TIME) AS max_time
                     FROM {tbl}
                     WHERE RTRIM(B1) IN ({placeholders})
                     GROUP BY RTRIM(B1)
@@ -144,8 +145,7 @@ def api_diagnose(request):
                 for row in cursor.fetchall():
                     kode = row[0]
                     if kode in info_map:
-                        info_map[kode]['total_baris'] = row[1]
-                        info_map[kode]['max_time'] = str(row[2]) if row[2] else 'NULL — tidak ada data'
+                        info_map[kode]['max_time'] = str(row[1]) if row[1] else 'NULL — tidak ada data'
             except Exception as e:
                 for info in info_map.values():
                     info.setdefault('error', str(e))
