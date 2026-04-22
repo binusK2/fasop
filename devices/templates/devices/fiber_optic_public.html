@@ -36,39 +36,53 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .status-dalam_perbaikan{ background:#fef3c7; color:#92400e; }
 .status-tidak_aktif    { background:#f1f5f9; color:#475569; }
 
-.container { max-width:600px; margin:0 auto; padding:16px; }
+.container { max-width:680px; margin:0 auto; padding:16px; }
 
 .card { background:var(--card); border:1px solid var(--border); border-radius:12px; margin-bottom:14px; overflow:hidden; }
-.card-head { padding:12px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:8px; }
-.card-head .icon { width:28px; height:28px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; }
-.card-head .title { font-size:13px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; }
-.card-body { padding:14px 16px; }
+.card-head { padding:10px 14px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:8px; }
+.card-head .icon { width:26px; height:26px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:13px; flex-shrink:0; }
+.card-head .title { font-size:12px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; }
+.card-body { padding:14px; }
 
-.info-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-.info-item .lbl { font-size:11px; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:.4px; margin-bottom:3px; }
-.info-item .val { font-size:14px; font-weight:600; color:var(--text); }
+.info-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.info-item .lbl { font-size:11px; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:.4px; margin-bottom:2px; }
+.info-item .val { font-size:13px; font-weight:600; color:var(--text); }
 .info-item.full { grid-column:1/-1; }
 
-.stat-row { display:flex; gap:8px; flex-wrap:wrap; }
-.stat-box { flex:1; min-width:60px; text-align:center; padding:10px 6px; border-radius:10px; border:1px solid var(--border); }
-.stat-box .num { font-size:22px; font-weight:800; line-height:1; }
-.stat-box .lbl { font-size:10px; color:var(--muted); margin-top:3px; font-weight:600; text-transform:uppercase; }
+/* Site panels */
+.site-panels { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+@media (max-width:520px) { .site-panels { grid-template-columns:1fr; } }
 
-.core-table { width:100%; border-collapse:collapse; font-size:12px; }
-.core-table thead th { background:#f8fafc; padding:8px 8px; text-align:left; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); border-bottom:1px solid var(--border); }
-.core-table tbody td { padding:8px 8px; border-bottom:1px solid #f1f5f9; vertical-align:middle; }
+.site-panel-a { border:1.5px solid #bfdbfe; border-radius:10px; overflow:hidden; }
+.site-panel-b { border:1.5px solid #bbf7d0; border-radius:10px; overflow:hidden; }
+.site-panel-head-a { background:#eff6ff; padding:8px 12px; font-size:11.5px; font-weight:700; color:#1d4ed8; }
+.site-panel-head-b { background:#f0fdf4; padding:8px 12px; font-size:11.5px; font-weight:700; color:#065f46; }
+
+.stat-row { display:flex; gap:6px; padding:8px 10px; }
+.stat-box { flex:1; text-align:center; padding:8px 4px; border-radius:8px; border:1px solid var(--border); }
+.stat-box .num { font-size:18px; font-weight:800; line-height:1; }
+.stat-box .lbl { font-size:10px; color:var(--muted); margin-top:2px; font-weight:600; text-transform:uppercase; }
+
+.core-table { width:100%; border-collapse:collapse; font-size:11.5px; }
+.core-table thead th { background:#f8fafc; padding:6px 8px; text-align:left; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); border-bottom:1px solid var(--border); white-space:nowrap; }
+.core-table thead th.right { text-align:right; }
+.core-table tbody td { padding:6px 8px; border-bottom:1px solid #f1f5f9; vertical-align:middle; }
 .core-table tbody tr:last-child td { border-bottom:none; }
 
-.core-num { display:inline-flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:50%; background:#f1f5f9; font-size:11px; font-weight:700; color:#475569; }
+.core-num-a { display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; font-size:11px; font-weight:700; }
+.core-num-b { display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; font-size:11px; font-weight:700; }
 
-.badge { display:inline-flex; align-items:center; gap:3px; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:700; }
-.badge-aktif       { background:#dcfce7; color:#166534; }
-.badge-spare       { background:#dbeafe; color:#1e40af; }
-.badge-rusak       { background:#fee2e2; color:#991b1b; }
-.badge-tidak_aktif { background:#f1f5f9; color:#475569; }
+.badge-aktif       { background:#dcfce7; color:#166534; padding:1px 7px; border-radius:12px; font-size:10px; font-weight:700; }
+.badge-spare       { background:#dbeafe; color:#1e40af; padding:1px 7px; border-radius:12px; font-size:10px; font-weight:700; }
+.badge-rusak       { background:#fee2e2; color:#991b1b; padding:1px 7px; border-radius:12px; font-size:10px; font-weight:700; }
+.badge-tidak_aktif { background:#f1f5f9; color:#475569; padding:1px 7px; border-radius:12px; font-size:10px; font-weight:700; }
+
+.otdr-val { font-family: monospace; font-size:11px; }
+.lambda-1310 { color:#7c3aed; }
+.lambda-1550 { color:#b45309; }
 
 .alert-gangguan { background:#fef2f2; border:1px solid #fecaca; border-radius:10px; padding:12px 14px; margin-bottom:14px; }
-.alert-gangguan .al-title { font-size:13px; font-weight:700; color:#991b1b; margin-bottom:4px; display:flex; align-items:center; gap:6px; }
+.alert-gangguan .al-title { font-size:13px; font-weight:700; color:#991b1b; margin-bottom:4px; }
 .alert-gangguan .al-item { font-size:12px; color:#7f1d1d; margin-top:4px; }
 
 .footer { text-align:center; font-size:11px; color:var(--muted); padding:20px 16px; }
@@ -154,72 +168,172 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
         </div>
     </div>
 
-    <!-- Ringkasan Core -->
+    <!-- Ringkasan Core per Site -->
     <div class="card">
         <div class="card-head">
             <div class="icon" style="background:#dcfce7;color:#166534;">◎</div>
-            <span class="title">Ringkasan Core</span>
+            <span class="title">Ringkasan Core — {{ total_core }} total</span>
         </div>
-        <div class="card-body">
-            <div class="stat-row">
-                <div class="stat-box" style="border-color:#e2e8f0;">
-                    <div class="num" style="color:var(--text);">{{ total_core }}</div>
-                    <div class="lbl">Total</div>
+        <div class="card-body" style="padding:10px 14px;">
+            <div class="site-panels">
+                <div class="site-panel-a">
+                    <div class="site-panel-head-a">📍 Site A — {{ fo.lokasi_a }}</div>
+                    <div class="stat-row">
+                        <div class="stat-box" style="border-color:#bbf7d0;">
+                            <div class="num" style="color:#166534;">{{ aktif_a_count }}</div>
+                            <div class="lbl">Aktif</div>
+                        </div>
+                        <div class="stat-box" style="border-color:#bfdbfe;">
+                            <div class="num" style="color:#1e40af;">{{ spare_a_count }}</div>
+                            <div class="lbl">Spare</div>
+                        </div>
+                        <div class="stat-box" style="border-color:#fecaca;">
+                            <div class="num" style="color:#991b1b;">{{ rusak_a_count }}</div>
+                            <div class="lbl">Rusak</div>
+                        </div>
+                        {% if nonaktif_a_count %}
+                        <div class="stat-box">
+                            <div class="num" style="color:var(--muted);">{{ nonaktif_a_count }}</div>
+                            <div class="lbl">Nonaktif</div>
+                        </div>
+                        {% endif %}
+                    </div>
                 </div>
-                <div class="stat-box" style="border-color:#bbf7d0;">
-                    <div class="num" style="color:#166534;">{{ aktif_count }}</div>
-                    <div class="lbl">Aktif</div>
+                <div class="site-panel-b">
+                    <div class="site-panel-head-b">📍 Site B — {{ fo.lokasi_b }}</div>
+                    <div class="stat-row">
+                        <div class="stat-box" style="border-color:#bbf7d0;">
+                            <div class="num" style="color:#166534;">{{ aktif_b_count }}</div>
+                            <div class="lbl">Aktif</div>
+                        </div>
+                        <div class="stat-box" style="border-color:#bfdbfe;">
+                            <div class="num" style="color:#1e40af;">{{ spare_b_count }}</div>
+                            <div class="lbl">Spare</div>
+                        </div>
+                        <div class="stat-box" style="border-color:#fecaca;">
+                            <div class="num" style="color:#991b1b;">{{ rusak_b_count }}</div>
+                            <div class="lbl">Rusak</div>
+                        </div>
+                        {% if nonaktif_b_count %}
+                        <div class="stat-box">
+                            <div class="num" style="color:var(--muted);">{{ nonaktif_b_count }}</div>
+                            <div class="lbl">Nonaktif</div>
+                        </div>
+                        {% endif %}
+                    </div>
                 </div>
-                <div class="stat-box" style="border-color:#bfdbfe;">
-                    <div class="num" style="color:#1e40af;">{{ spare_count }}</div>
-                    <div class="lbl">Spare</div>
-                </div>
-                <div class="stat-box" style="border-color:#fecaca;">
-                    <div class="num" style="color:#991b1b;">{{ rusak_count }}</div>
-                    <div class="lbl">Rusak</div>
-                </div>
-                {% if nonaktif_count %}
-                <div class="stat-box" style="border-color:#e2e8f0;">
-                    <div class="num" style="color:var(--muted);">{{ nonaktif_count }}</div>
-                    <div class="lbl">Nonaktif</div>
-                </div>
-                {% endif %}
             </div>
         </div>
     </div>
 
-    <!-- Tabel Core -->
+    <!-- Detail Core Site A -->
     {% if cores %}
     <div class="card">
-        <div class="card-head">
-            <div class="icon" style="background:#f3e8ff;color:#7c3aed;">≡</div>
-            <span class="title">Detail Core</span>
+        <div class="card-head" style="background:#eff6ff;border-bottom:1px solid #bfdbfe;">
+            <div class="icon" style="background:#bfdbfe;color:#1d4ed8;">≡</div>
+            <span class="title" style="color:#1d4ed8;">Site A — {{ fo.lokasi_a }}</span>
         </div>
         <div style="overflow-x:auto;">
             <table class="core-table">
                 <thead>
                     <tr>
-                        <th style="width:40px;">Core</th>
-                        <th>Fungsi / Pemakaian</th>
-                        <th style="width:80px;">Status</th>
-                        <th>Koneksi A</th>
-                        <th>Koneksi B</th>
+                        <th>Core</th>
+                        <th>Fungsi / Koneksi</th>
+                        <th>Status</th>
+                        <th class="right" style="color:#7c3aed;">λ1310<br><span style="font-weight:400;font-size:9px;">J · Red · AvgL</span></th>
+                        <th class="right" style="color:#b45309;">λ1550<br><span style="font-weight:400;font-size:9px;">J · Red · AvgL</span></th>
+                        <th style="text-align:center;">Tgl Ukur</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for core in cores %}
-                    <tr {% if core.status == 'rusak' %}style="background:#fff5f5;"{% elif core.status == 'aktif' %}style="background:#f0fdf4;"{% endif %}>
-                        <td><span class="core-num">{{ core.nomor_core }}</span></td>
-                        <td style="color:{% if core.fungsi %}var(--text){% else %}var(--muted){% endif %};">
-                            {{ core.fungsi|default:"—" }}
+                    <tr{% if core.status_a == 'rusak' %} style="background:#fff5f5;"{% elif core.status_a == 'aktif' %} style="background:#f0fdf4;"{% endif %}>
+                        <td>
+                            <span class="core-num-a" style="background:{{ core.status_a_bg }};color:{{ core.status_a_color }};">{{ core.core_num_a }}</span>
+                        </td>
+                        <td style="max-width:140px;">
+                            {% if core.koneksi_a %}
+                            <span style="font-weight:500;font-size:12px;">{{ core.koneksi_a }}</span>
+                            {% elif core.fungsi %}
+                            <span style="color:var(--muted);font-size:12px;font-style:italic;">{{ core.fungsi }}</span>
+                            {% else %}
+                            <span style="color:#cbd5e1;">—</span>
+                            {% endif %}
                         </td>
                         <td>
-                            <span class="badge badge-{{ core.status }}">
-                                {{ core.get_status_display }}
-                            </span>
+                            <span class="badge-{{ core.status_a }}">{{ core.get_status_a_display }}</span>
                         </td>
-                        <td style="color:var(--muted);font-size:11px;">{{ core.koneksi_a|default:"—" }}</td>
-                        <td style="color:var(--muted);font-size:11px;">{{ core.koneksi_b|default:"—" }}</td>
+                        <td style="text-align:right;white-space:nowrap;" class="lambda-1310">
+                            {% if core.otdr_jarak_km_1310 or core.otdr_redaman_db_1310 or core.otdr_redaman_per_km_1310 %}
+                            <span class="otdr-val">{{ core.otdr_jarak_km_1310|default:"—" }}&nbsp;·&nbsp;{{ core.otdr_redaman_db_1310|default:"—" }}&nbsp;·&nbsp;{{ core.otdr_redaman_per_km_1310|default:"—" }}</span>
+                            {% else %}<span style="color:#cbd5e1;">—</span>{% endif %}
+                        </td>
+                        <td style="text-align:right;white-space:nowrap;" class="lambda-1550">
+                            {% if core.otdr_jarak_km_1550 or core.otdr_redaman_db_1550 or core.otdr_redaman_per_km_1550 %}
+                            <span class="otdr-val">{{ core.otdr_jarak_km_1550|default:"—" }}&nbsp;·&nbsp;{{ core.otdr_redaman_db_1550|default:"—" }}&nbsp;·&nbsp;{{ core.otdr_redaman_per_km_1550|default:"—" }}</span>
+                            {% else %}<span style="color:#cbd5e1;">—</span>{% endif %}
+                        </td>
+                        <td style="text-align:center;font-size:11px;white-space:nowrap;color:var(--muted);">
+                            {% if core.otdr_tanggal %}{{ core.otdr_tanggal|date:"d/m/Y" }}{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Detail Core Site B -->
+    <div class="card">
+        <div class="card-head" style="background:#f0fdf4;border-bottom:1px solid #bbf7d0;">
+            <div class="icon" style="background:#bbf7d0;color:#065f46;">≡</div>
+            <span class="title" style="color:#065f46;">Site B — {{ fo.lokasi_b }}</span>
+        </div>
+        <div style="overflow-x:auto;">
+            <table class="core-table">
+                <thead>
+                    <tr>
+                        <th>Core</th>
+                        <th>Fungsi / Koneksi</th>
+                        <th>Status</th>
+                        <th class="right" style="color:#7c3aed;">λ1310<br><span style="font-weight:400;font-size:9px;">J · Red · AvgL</span></th>
+                        <th class="right" style="color:#b45309;">λ1550<br><span style="font-weight:400;font-size:9px;">J · Red · AvgL</span></th>
+                        <th style="text-align:center;">Tgl Ukur</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for core in cores %}
+                    <tr{% if core.status_b == 'rusak' %} style="background:#fff5f5;"{% elif core.status_b == 'aktif' %} style="background:#f0fdf4;"{% endif %}>
+                        <td>
+                            <span class="core-num-b" style="background:{{ core.status_b_bg }};color:{{ core.status_b_color }};">{{ core.core_num_b }}</span>
+                        </td>
+                        <td style="max-width:140px;">
+                            {% if core.koneksi_b %}
+                            <span style="font-weight:500;font-size:12px;">{{ core.koneksi_b }}</span>
+                            {% elif core.fungsi_b %}
+                            <span style="color:var(--muted);font-size:12px;font-style:italic;">{{ core.fungsi_b }}</span>
+                            {% elif core.fungsi %}
+                            <span style="color:var(--muted);font-size:12px;font-style:italic;">{{ core.fungsi }}</span>
+                            {% else %}
+                            <span style="color:#cbd5e1;">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge-{{ core.status_b }}">{{ core.get_status_b_display }}</span>
+                        </td>
+                        <td style="text-align:right;white-space:nowrap;" class="lambda-1310">
+                            {% if core.otdr_b_jarak_km_1310 or core.otdr_b_redaman_db_1310 or core.otdr_b_redaman_per_km_1310 %}
+                            <span class="otdr-val">{{ core.otdr_b_jarak_km_1310|default:"—" }}&nbsp;·&nbsp;{{ core.otdr_b_redaman_db_1310|default:"—" }}&nbsp;·&nbsp;{{ core.otdr_b_redaman_per_km_1310|default:"—" }}</span>
+                            {% else %}<span style="color:#cbd5e1;">—</span>{% endif %}
+                        </td>
+                        <td style="text-align:right;white-space:nowrap;" class="lambda-1550">
+                            {% if core.otdr_b_jarak_km_1550 or core.otdr_b_redaman_db_1550 or core.otdr_b_redaman_per_km_1550 %}
+                            <span class="otdr-val">{{ core.otdr_b_jarak_km_1550|default:"—" }}&nbsp;·&nbsp;{{ core.otdr_b_redaman_db_1550|default:"—" }}&nbsp;·&nbsp;{{ core.otdr_b_redaman_per_km_1550|default:"—" }}</span>
+                            {% else %}<span style="color:#cbd5e1;">—</span>{% endif %}
+                        </td>
+                        <td style="text-align:center;font-size:11px;white-space:nowrap;color:var(--muted);">
+                            {% if core.otdr_b_tanggal %}{{ core.otdr_b_tanggal|date:"d/m/Y" }}{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
