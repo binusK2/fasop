@@ -1,0 +1,291 @@
+{% extends "opsis/opsis_base.html" %}
+
+{% block title %}{{ p.nama }}{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+.live-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+}
+.metric-card { position: relative; }
+.metric-trend {
+    font-size: 11px; margin-top: 6px;
+    display: flex; align-items: center; gap: 4px;
+}
+.trend-up   { color: #34d399; }
+.trend-down { color: #f87171; }
+.trend-flat { color: var(--muted); }
+
+.chart-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-bd);
+    border-radius: 14px;
+    padding: 20px;
+    margin-bottom: 16px;
+}
+.chart-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+.chart-title { font-size: 13px; font-weight: 700; color: var(--text); }
+
+.range-btns { display: flex; gap: 4px; }
+.btn-range {
+    background: var(--sb-border);
+    border: 1px solid #2d3e55;
+    color: var(--muted);
+    font-size: 11px; font-weight: 600;
+    padding: 4px 12px; border-radius: 6px;
+    cursor: pointer; transition: .15s;
+}
+.btn-range:hover { border-color: var(--sb-active); color: var(--text); }
+.btn-range.active { background: rgba(59,130,246,.2); border-color: var(--sb-active); color: #60a5fa; }
+
+.chart-wrap { position: relative; height: 220px; }
+
+.dummy-bar {
+    background: rgba(245,158,11,.08);
+    border: 1px solid rgba(245,158,11,.25);
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 11px; color: #fbbf24;
+    margin-bottom: 16px;
+    display: none;
+}
+.dummy-bar.show { display: flex; align-items: center; gap: 8px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
+    <a href="/opsis/" style="color:var(--muted); text-decoration:none; font-size:13px;">
+        <i class="bi bi-arrow-left-circle me-1"></i>Dashboard
+    </a>
+    <span style="color:var(--sb-border);">/</span>
+    <span style="font-size:20px; font-weight:800; color:#fff;">{{ p.nama }}</span>
+    <span style="width:10px;height:10px;border-radius:50%;background:{{ p.warna }};display:inline-block;"></span>
+    <span style="font-size:12px; color:var(--muted);"><span class="live-dot"></span>Live</span>
+</div>
+
+<div class="dummy-bar" id="dummy-bar">
+    <i class="bi bi-exclamation-triangle-fill"></i>
+    Data simulasi — konfigurasi MSSQL di settings dan isi tag di Admin.
+</div>
+
+<!-- Live metric cards -->
+<div class="live-metrics">
+    <div class="metric-card" style="border-color: rgba(96,165,250,.3);">
+        <div class="metric-label"><i class="bi bi-activity me-1" style="color:#60a5fa;"></i>Frekuensi</div>
+        <div class="metric-value" style="color:#60a5fa;" id="live-hz">—<span class="metric-unit">Hz</span></div>
+        <div class="metric-trend" id="trend-hz"><span class="trend-flat">—</span></div>
+    </div>
+    <div class="metric-card" style="border-color: rgba(52,211,153,.3);">
+        <div class="metric-label"><i class="bi bi-lightning-charge-fill me-1" style="color:#34d399;"></i>Daya Aktif</div>
+        <div class="metric-value" style="color:#34d399;" id="live-mw">—<span class="metric-unit">MW</span></div>
+        <div class="metric-trend" id="trend-mw"><span class="trend-flat">—</span></div>
+    </div>
+    <div class="metric-card" style="border-color: rgba(167,139,250,.3);">
+        <div class="metric-label"><i class="bi bi-lightning-fill me-1" style="color:#a78bfa;"></i>Daya Reaktif</div>
+        <div class="metric-value" style="color:#a78bfa;" id="live-mvar">—<span class="metric-unit">MVAR</span></div>
+        <div class="metric-trend" id="trend-mvar"><span class="trend-flat">—</span></div>
+    </div>
+</div>
+
+<!-- Chart Frekuensi -->
+<div class="chart-card">
+    <div class="chart-head">
+        <div class="chart-title"><i class="bi bi-graph-up me-1" style="color:#60a5fa;"></i>Trend Frekuensi (Hz)</div>
+        <div class="range-btns" id="range-btns">
+            <button class="btn-range active" data-jam="1">1j</button>
+            <button class="btn-range" data-jam="6">6j</button>
+            <button class="btn-range" data-jam="24">24j</button>
+        </div>
+    </div>
+    <div class="chart-wrap"><canvas id="chart-hz"></canvas></div>
+</div>
+
+<!-- Chart MW + MVAR -->
+<div class="chart-card">
+    <div class="chart-head">
+        <div class="chart-title"><i class="bi bi-graph-up me-1" style="color:#34d399;"></i>Trend Daya MW & MVAR</div>
+    </div>
+    <div class="chart-wrap"><canvas id="chart-daya"></canvas></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const PK   = {{ p.pk }};
+const KODE = "{{ p.kode }}";
+const WARNA = "{{ p.warna }}";
+
+// Chart defaults
+Chart.defaults.color = '#64748b';
+Chart.defaults.font.family = 'DM Sans';
+
+const ctxHz   = document.getElementById('chart-hz').getContext('2d');
+const ctxDaya = document.getElementById('chart-daya').getContext('2d');
+
+const chartHz = new Chart(ctxHz, {
+    type: 'line',
+    data: {
+        labels: [],
+        datasets: [{
+            label: 'Frekuensi (Hz)',
+            data: [],
+            borderColor: '#60a5fa',
+            backgroundColor: 'rgba(96,165,250,.08)',
+            borderWidth: 1.5,
+            pointRadius: 0,
+            tension: 0.3,
+            fill: true,
+        }]
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        animation: false,
+        plugins: { legend: { display: false } },
+        scales: {
+            x: { grid: { color: '#1e2d45' }, ticks: { maxTicksLimit: 10 } },
+            y: {
+                grid: { color: '#1e2d45' },
+                suggestedMin: 49.5, suggestedMax: 50.5,
+            }
+        }
+    }
+});
+
+const chartDaya = new Chart(ctxDaya, {
+    type: 'line',
+    data: {
+        labels: [],
+        datasets: [
+            {
+                label: 'MW',
+                data: [],
+                borderColor: '#34d399',
+                backgroundColor: 'rgba(52,211,153,.06)',
+                borderWidth: 1.5,
+                pointRadius: 0,
+                tension: 0.3,
+                fill: true,
+                yAxisID: 'yMW',
+            },
+            {
+                label: 'MVAR',
+                data: [],
+                borderColor: '#a78bfa',
+                backgroundColor: 'rgba(167,139,250,.06)',
+                borderWidth: 1.5,
+                pointRadius: 0,
+                tension: 0.3,
+                fill: false,
+                yAxisID: 'yMVAR',
+            }
+        ]
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        animation: false,
+        plugins: { legend: { labels: { color: '#94a3b8', boxWidth: 12 } } },
+        scales: {
+            x: { grid: { color: '#1e2d45' }, ticks: { maxTicksLimit: 10 } },
+            yMW:   { position: 'left',  grid: { color: '#1e2d45' }, title: { display: true, text: 'MW',   color: '#34d399' } },
+            yMVAR: { position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'MVAR', color: '#a78bfa' } },
+        }
+    }
+});
+
+// Load trend chart
+let currentJam = 1;
+async function loadChart(jam) {
+    try {
+        const resp = await fetch(`/opsis/api/trend/${PK}/?jam=${jam}`);
+        if (!resp.ok) return;
+        const d = await resp.json();
+        chartHz.data.labels = d.labels;
+        chartHz.data.datasets[0].data = d.frekuensi;
+        chartHz.update();
+        chartDaya.data.labels = d.labels;
+        chartDaya.data.datasets[0].data = d.mw;
+        chartDaya.data.datasets[1].data = d.mvar;
+        chartDaya.update();
+    } catch (e) {}
+}
+
+// Range buttons
+document.querySelectorAll('.btn-range').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.btn-range').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentJam = parseInt(btn.dataset.jam);
+        loadChart(currentJam);
+    });
+});
+
+loadChart(1);
+setInterval(() => loadChart(currentJam), 60000);
+
+// Live value polling
+let prevHz = null, prevMw = null, prevMvar = null;
+
+function trendIcon(curr, prev) {
+    if (prev === null || curr === null) return '<span class="trend-flat">—</span>';
+    const diff = parseFloat(curr) - parseFloat(prev);
+    if (Math.abs(diff) < 0.001) return '<span class="trend-flat">— stabil</span>';
+    return diff > 0
+        ? `<span class="trend-up"><i class="bi bi-arrow-up-short"></i>${Math.abs(diff).toFixed(3)}</span>`
+        : `<span class="trend-down"><i class="bi bi-arrow-down-short"></i>${Math.abs(diff).toFixed(3)}</span>`;
+}
+
+function fmt(val, dec) {
+    return (val === null || val === undefined) ? '—' : parseFloat(val).toFixed(dec);
+}
+
+async function pollLive() {
+    try {
+        const resp = await fetch('/opsis/api/live/');
+        if (!resp.ok) return;
+        const json = await resp.json();
+        const d = json.data[KODE];
+        if (!d) return;
+
+        // Update values
+        document.getElementById('live-hz').innerHTML   = `${fmt(d.frekuensi,3)}<span class="metric-unit">Hz</span>`;
+        document.getElementById('live-mw').innerHTML   = `${fmt(d.mw,2)}<span class="metric-unit">MW</span>`;
+        document.getElementById('live-mvar').innerHTML = `${fmt(d.mvar,2)}<span class="metric-unit">MVAR</span>`;
+
+        // Trend indicators
+        document.getElementById('trend-hz').innerHTML   = trendIcon(d.frekuensi, prevHz);
+        document.getElementById('trend-mw').innerHTML   = trendIcon(d.mw,        prevMw);
+        document.getElementById('trend-mvar').innerHTML = trendIcon(d.mvar,       prevMvar);
+
+        prevHz   = d.frekuensi;
+        prevMw   = d.mw;
+        prevMvar = d.mvar;
+
+        // Sidebar dot
+        const dot = document.getElementById(`dot-${KODE}`);
+        if (dot) {
+            const hz = parseFloat(d.frekuensi);
+            dot.className = 'sb-dot ' + (hz >= 49.5 && hz <= 50.5 ? 'green' : hz ? 'yellow' : '');
+        }
+
+        // Dummy notice
+        const bar = document.getElementById('dummy-bar');
+        if (bar) bar.classList.toggle('show', !!d.is_dummy);
+
+        setLastUpdate();
+    } catch (e) {}
+}
+
+pollLive();
+setInterval(pollLive, 5000);
+</script>
+{% endblock %}

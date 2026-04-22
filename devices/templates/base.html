@@ -812,6 +812,8 @@
                     <span style="background:#f1f5f9;color:#64748b;font-size:9.5px;padding:1px 6px;border-radius:10px;font-weight:700;">VIEW ONLY</span>
                     {% elif user.profile.role == 'operator' %}
                     <span style="background:#f1f5f9;color:#64748b;font-size:9.5px;padding:1px 6px;border-radius:10px;font-weight:700;">OPERATOR</span>
+                    {% elif user.profile.role == 'opsis' %}
+                    <span style="background:#dbeafe;color:#1d4ed8;font-size:9.5px;padding:1px 6px;border-radius:10px;font-weight:700;">OPSIS</span>
                     {% else %}
                     <span style="background:#dcfce7;color:#166534;font-size:9.5px;padding:1px 6px;border-radius:10px;font-weight:700;">ENGINEER</span>
                     {% endif %}

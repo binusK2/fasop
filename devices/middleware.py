@@ -87,6 +87,43 @@ class OperatorAccessMiddleware:
         return self.get_response(request)
 
 
+class OpsisAccessMiddleware:
+    """
+    Middleware untuk role Opsis — hanya bisa akses:
+    - /opsis/ dan sub-URL-nya
+    - /login/, /logout/, /ganti-password/
+    - static, media
+    Semua URL lain → redirect ke /opsis/.
+    """
+
+    ALLOWED_PREFIXES = (
+        '/opsis/',
+        '/static/',
+        '/media/',
+        '/logout/',
+        '/login/',
+        '/ganti-password/',
+    )
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if request.user.is_authenticated and not request.user.is_superuser:
+            try:
+                role = request.user.profile.role
+            except Exception:
+                role = ''
+
+            if role == 'opsis':
+                path = request.path
+                allowed = any(path.startswith(p) for p in self.ALLOWED_PREFIXES)
+                if not allowed:
+                    return redirect('/opsis/')
+
+        return self.get_response(request)
+
+
 class SingleSessionMiddleware:
     """
     Middleware single active session per user.
