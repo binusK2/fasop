@@ -29,8 +29,8 @@ _DUMMY_MODE = False  # set True untuk paksa data dummy
 
 
 def _tbl():
-    """Nama tabel MSSQL — baca dari settings, default 'RealtimeData'."""
-    return getattr(settings, 'MSSQL_TABLE', 'RealtimeData')
+    """Nama tabel MSSQL — baca dari settings."""
+    return getattr(settings, 'MSSQL_TABLE', 'dbo.HIS_MEAS_KIT')
 
 
 def _get_connection():
@@ -108,7 +108,7 @@ def get_live_data(pembangkit_list):
 
             # 1. Ambil timestamp terbaru untuk pembangkit ini
             cursor.execute(
-                f"SELECT MAX(TIME) FROM [{tbl}] WHERE B1 = ?",
+                f"SELECT MAX(TIME) FROM {tbl} WHERE B1 = ?",
                 (p.kode,)
             )
             row = cursor.fetchone()
@@ -130,7 +130,7 @@ def get_live_data(pembangkit_list):
                     MAX(TIME) AS ts,
                     STRING_AGG(B3 + '=' + CAST(ISNULL(P,0) AS VARCHAR), ', ')
                               AS unit_detail
-                FROM [{tbl}]
+                FROM {tbl}
                 WHERE B1 = ? AND TIME = ?
                 """,
                 (p.kode, latest_time)
@@ -181,10 +181,10 @@ def get_trend_data(pembangkit, jam=1):
         cursor.execute(
             f"""
             SELECT
-                CONVERT(VARCHAR(16), TIME, 120)                AS menit,
-                SUM(P)                                         AS total_mw,
-                SUM(Q)                                         AS total_mvar
-            FROM [{tbl}]
+                CONVERT(VARCHAR(16), TIME, 120)  AS menit,
+                SUM(P)                           AS total_mw,
+                SUM(Q)                           AS total_mvar
+            FROM {tbl}
             WHERE B1 = ?
               AND TIME >= DATEADD(hour, ?, GETDATE())
               AND DATEPART(minute, TIME) % ? = 0

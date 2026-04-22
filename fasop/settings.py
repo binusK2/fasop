@@ -211,7 +211,7 @@ MSSQL_HOST   = config('MSSQL_HOST',   default='')
 MSSQL_DB     = config('MSSQL_DB',     default='')
 MSSQL_USER   = config('MSSQL_USER',   default='')
 MSSQL_PASS   = config('MSSQL_PASS',   default='')
-MSSQL_TABLE  = config('MSSQL_TABLE',  default='RealtimeData')
+MSSQL_TABLE  = config('MSSQL_TABLE',  default='dbo.HIS_MEAS_KIT')
 MSSQL_DRIVER = config('MSSQL_DRIVER', default='ODBC Driver 17 for SQL Server')
 
 
