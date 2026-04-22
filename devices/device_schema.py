@@ -42,6 +42,23 @@ DEVICE_SCHEMA = {
         {"key": "nama_ekstensi",    "label": "Nama Ekstensi",        "type": "text"},
     ],
 
+    "PABX": [
+        {"key": "kapasitas_ekstensi", "label": "Kapasitas Ekstensi", "type": "number",
+         "placeholder": "Jumlah maksimal ekstensi"},
+        {"key": "kapasitas_trunk",    "label": "Kapasitas Trunk/CO Line", "type": "number",
+         "placeholder": "Jumlah trunk/CO line"},
+        {"key": "tipe_interface",     "label": "Tipe Interface",     "type": "select",
+         "options": ["Analog", "ISDN BRI", "ISDN PRI", "VoIP SIP", "Analog + VoIP", "Analog + ISDN"]},
+        {"key": "tegangan_input",     "label": "Tegangan Input",     "type": "select",
+         "options": ["220 VAC", "48 VDC", "24 VDC"]},
+        {"key": "jumlah_ekstensi",    "label": "Jumlah Ekstensi Terpasang", "type": "number"},
+        {"key": "range_ekstensi",     "label": "Range Nomor Ekstensi", "type": "text",
+         "placeholder": "cth: 100-199"},
+        {"key": "protokol_voip",      "label": "Protokol VoIP",      "type": "select",
+         "options": ["—", "SIP", "H.323", "MGCP", "SCCP"]},
+        {"key": "ip_address",         "label": "IP Address",         "type": "text"},
+    ],
+
     "Multiplexer": [
         {"key": "tegangan_input", "label": "Tegangan Input",         "type": "select",
          "options": ["48 VDC", "220 VAC"]},   
