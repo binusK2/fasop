@@ -97,6 +97,8 @@ def api_diagnose(request):
 
     tbl = getattr(settings, 'MSSQL_TABLE', 'dbo.HIS_MEAS_KIT')
 
+    import time as _time
+
     result = {
         'config': {
             'MSSQL_HOST':  getattr(settings, 'MSSQL_HOST',  '') or '(kosong)',
@@ -105,6 +107,7 @@ def api_diagnose(request):
             'MSSQL_TABLE': tbl,
             'MSSQL_PASS':  '***' if getattr(settings, 'MSSQL_PASS', '') else '(kosong)',
         },
+        'timing':     {},
         'koneksi':    None,
         'b1_sample':  [],
         'pembangkit': [],
@@ -112,11 +115,13 @@ def api_diagnose(request):
     }
 
     try:
+        t0 = _time.monotonic()
         conn = mssql._get_connection()
+        result['timing']['koneksi_ms'] = round((_time.monotonic() - t0) * 1000)
         result['koneksi'] = 'BERHASIL'
         cursor = conn.cursor()
 
-        # Ambil 20 baris terbaru lalu extract B1 unik — jauh lebih cepat dari DISTINCT full scan
+        t0 = _time.monotonic()
         try:
             cursor.execute(
                 f"SELECT TOP 20 B1, TIME FROM {tbl} WITH (NOLOCK) ORDER BY ID DESC"
@@ -130,14 +135,14 @@ def api_diagnose(request):
             result['b1_sample'] = [{'B1': k, 'TIME': t} for k, t in seen.items()]
         except Exception as e:
             result['b1_sample'] = f'Error: {e}'
+        result['timing']['b1_sample_ms'] = round((_time.monotonic() - t0) * 1000)
 
-        # Cek per-pembangkit: TOP 1 ORDER BY ID DESC per kode (hindari GROUP BY full scan)
         pembangkit_list = _pembangkit_aktif()
         info_map = {p.kode: {'kode': p.kode, 'nama': p.nama} for p in pembangkit_list}
 
+        t0 = _time.monotonic()
         for p in pembangkit_list:
             try:
-                # LIKE 'KODE%' agar match meski B1 punya trailing spaces, masih bisa pakai index
                 cursor.execute(
                     f"""
                     SELECT TOP 1 RTRIM(B1), RTRIM(B3), P, Q, TIME
@@ -157,9 +162,9 @@ def api_diagnose(request):
                     info_map[p.kode]['max_time'] = 'NULL — tidak ada data (cek apakah kode cocok dengan B1)'
             except Exception as e:
                 info_map[p.kode]['error'] = str(e)
+        result['timing']['pembangkit_ms'] = round((_time.monotonic() - t0) * 1000)
 
         result['pembangkit'] = list(info_map.values())
-
         conn.close()
 
     except Exception as e:
