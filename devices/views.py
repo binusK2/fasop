@@ -1377,22 +1377,30 @@ def fo_public(request, token):
     except Exception:
         gangguan_aktif = []
 
-    # Ringkasan status core
-    total_core    = cores.count()
-    aktif_count   = cores.filter(status='aktif').count()
-    spare_count   = cores.filter(status='spare').count()
-    rusak_count   = cores.filter(status='rusak').count()
-    nonaktif_count = cores.filter(status='tidak_aktif').count()
+    # Ringkasan status core per site
+    total_core       = cores.count()
+    aktif_a_count    = cores.filter(status_a='aktif').count()
+    spare_a_count    = cores.filter(status_a='spare').count()
+    rusak_a_count    = cores.filter(status_a='rusak').count()
+    nonaktif_a_count = cores.filter(status_a='tidak_aktif').count()
+    aktif_b_count    = cores.filter(status_b='aktif').count()
+    spare_b_count    = cores.filter(status_b='spare').count()
+    rusak_b_count    = cores.filter(status_b='rusak').count()
+    nonaktif_b_count = cores.filter(status_b='tidak_aktif').count()
 
     return render(request, 'devices/fiber_optic_public.html', {
-        'fo':             fo,
-        'cores':          cores,
-        'gangguan_aktif': gangguan_aktif,
-        'total_core':     total_core,
-        'aktif_count':    aktif_count,
-        'spare_count':    spare_count,
-        'rusak_count':    rusak_count,
-        'nonaktif_count': nonaktif_count,
+        'fo':              fo,
+        'cores':           cores,
+        'gangguan_aktif':  gangguan_aktif,
+        'total_core':      total_core,
+        'aktif_a_count':   aktif_a_count,
+        'spare_a_count':   spare_a_count,
+        'rusak_a_count':   rusak_a_count,
+        'nonaktif_a_count': nonaktif_a_count,
+        'aktif_b_count':   aktif_b_count,
+        'spare_b_count':   spare_b_count,
+        'rusak_b_count':   rusak_b_count,
+        'nonaktif_b_count': nonaktif_b_count,
     })
 
 
