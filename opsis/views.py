@@ -103,28 +103,60 @@ def api_diagnose(request):
         except Exception as e:
             result['b1_sample'] = f'Error: {e}'
 
-        # Cek setiap pembangkit yang terdaftar
-        for p in _pembangkit_aktif():
-            info = {'kode': p.kode, 'nama': p.nama}
+        # Cek semua pembangkit dalam 2 query bulk (bukan N×3 query per-pembangkit)
+        pembangkit_list = _pembangkit_aktif()
+        kode_list = [p.kode for p in pembangkit_list]
+        info_map = {p.kode: {'kode': p.kode, 'nama': p.nama} for p in pembangkit_list}
+
+        if kode_list:
+            placeholders = ','.join('?' * len(kode_list))
+            # Query 1: COUNT dan MAX(TIME) semua pembangkit sekaligus
             try:
-                cursor.execute(f"SELECT COUNT(*) FROM {tbl} WHERE RTRIM(B1) = ?", (p.kode,))
-                info['total_baris'] = cursor.fetchone()[0]
-
-                cursor.execute(f"SELECT MAX(TIME) FROM {tbl} WHERE RTRIM(B1) = ?", (p.kode,))
-                row = cursor.fetchone()
-                info['max_time'] = str(row[0]) if row and row[0] else 'NULL — tidak ada data'
-
                 cursor.execute(
-                    f"SELECT TOP 3 RTRIM(B1), RTRIM(B3), P, Q, TIME FROM {tbl} WHERE RTRIM(B1) = ? ORDER BY TIME DESC",
-                    (p.kode,)
+                    f"""
+                    SELECT RTRIM(B1), COUNT(*) AS jml, MAX(TIME) AS max_time
+                    FROM {tbl}
+                    WHERE RTRIM(B1) IN ({placeholders})
+                    GROUP BY RTRIM(B1)
+                    """,
+                    kode_list,
                 )
-                info['sample'] = [
-                    {'B1': r[0], 'B3': r[1], 'P': str(r[2]), 'Q': str(r[3]), 'TIME': str(r[4])}
-                    for r in cursor.fetchall()
-                ]
+                for row in cursor.fetchall():
+                    kode = row[0]
+                    if kode in info_map:
+                        info_map[kode]['total_baris'] = row[1]
+                        info_map[kode]['max_time'] = str(row[2]) if row[2] else 'NULL — tidak ada data'
             except Exception as e:
-                info['error'] = str(e)
-            result['pembangkit'].append(info)
+                for info in info_map.values():
+                    info.setdefault('error', str(e))
+
+            # Query 2: TOP 3 per pembangkit menggunakan ROW_NUMBER
+            try:
+                cursor.execute(
+                    f"""
+                    SELECT RTRIM(B1), RTRIM(B3), P, Q, TIME
+                    FROM (
+                        SELECT RTRIM(B1) AS B1, RTRIM(B3) AS B3, P, Q, TIME,
+                               ROW_NUMBER() OVER (PARTITION BY RTRIM(B1) ORDER BY TIME DESC) AS rn
+                        FROM {tbl}
+                        WHERE RTRIM(B1) IN ({placeholders})
+                    ) t
+                    WHERE rn <= 3
+                    ORDER BY B1, TIME DESC
+                    """,
+                    kode_list,
+                )
+                for row in cursor.fetchall():
+                    kode = row[0]
+                    if kode in info_map:
+                        info_map[kode].setdefault('sample', []).append(
+                            {'B1': row[0], 'B3': row[1], 'P': str(row[2]), 'Q': str(row[3]), 'TIME': str(row[4])}
+                        )
+            except Exception as e:
+                for info in info_map.values():
+                    info.setdefault('sample_error', str(e))
+
+        result['pembangkit'] = list(info_map.values())
 
         conn.close()
 
