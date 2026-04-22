@@ -137,14 +137,15 @@ def api_diagnose(request):
 
         for p in pembangkit_list:
             try:
+                # LIKE 'KODE%' agar match meski B1 punya trailing spaces, masih bisa pakai index
                 cursor.execute(
                     f"""
                     SELECT TOP 1 RTRIM(B1), RTRIM(B3), P, Q, TIME
                     FROM {tbl} WITH (NOLOCK)
-                    WHERE B1 = ?
+                    WHERE B1 LIKE ?
                     ORDER BY ID DESC
                     """,
-                    (p.kode,)
+                    (p.kode + '%',)
                 )
                 row = cursor.fetchone()
                 if row:
