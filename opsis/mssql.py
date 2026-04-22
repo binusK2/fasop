@@ -68,7 +68,9 @@ def _get_connection():
         + auth +
         "Encrypt=no;TrustServerCertificate=yes;"
     )
-    return pyodbc.connect(conn_str, timeout=5)
+    conn = pyodbc.connect(conn_str, timeout=5)
+    conn.timeout = 10  # query timeout 10 detik — gagal cepat jika query lambat
+    return conn
 
 
 # ── Dummy data (saat MSSQL belum tersambung) ─────────────────────────
