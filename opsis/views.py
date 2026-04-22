@@ -75,10 +75,10 @@ def api_ping(request):
     if host == '(kosong)':
         return JsonResponse({'tcp': 'SKIP', 'info': 'MSSQL_HOST belum diset di .env'})
 
-    reachable = mssql._tcp_ping(host)
+    reachable, h, port = mssql._tcp_ping(host)
     return JsonResponse({
-        'host': host,
-        'port': 1433,
+        'host': h,
+        'port': port,
         'tcp':  'BERHASIL' if reachable else 'GAGAL',
         'info': 'Host reachable, lanjut cek /opsis/api/diagnose/' if reachable
                 else 'Host tidak reachable — cek IP/hostname, firewall, atau pastikan SQL Server berjalan',
