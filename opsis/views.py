@@ -124,7 +124,7 @@ def api_diagnose(request):
         t0 = _time.monotonic()
         try:
             cursor.execute(
-                f"SELECT TOP 20 B1, TIME FROM {tbl} WITH (NOLOCK) ORDER BY ID DESC"
+                f"SELECT TOP 20 B1, TIME FROM {tbl} WITH (NOLOCK) ORDER BY TIME DESC"
             )
             rows = cursor.fetchall()
             seen = {}
@@ -148,7 +148,7 @@ def api_diagnose(request):
                     SELECT TOP 1 RTRIM(B1), RTRIM(B3), P, Q, TIME
                     FROM {tbl} WITH (NOLOCK)
                     WHERE B1 LIKE ?
-                    ORDER BY ID DESC
+                    ORDER BY TIME DESC
                     """,
                     (p.kode + '%',)
                 )
