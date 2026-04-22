@@ -66,6 +66,26 @@ def api_trend(request, pk):
 
 
 @login_required
+def api_ping(request):
+    """Cek cepat TCP ke MSSQL host:1433. Selesai dalam maks ~2 detik."""
+    if not (request.user.is_superuser or request.user.is_staff):
+        return JsonResponse({'error': 'Akses ditolak'}, status=403)
+
+    host = getattr(settings, 'MSSQL_HOST', '') or '(kosong)'
+    if host == '(kosong)':
+        return JsonResponse({'tcp': 'SKIP', 'info': 'MSSQL_HOST belum diset di .env'})
+
+    reachable = mssql._tcp_ping(host)
+    return JsonResponse({
+        'host': host,
+        'port': 1433,
+        'tcp':  'BERHASIL' if reachable else 'GAGAL',
+        'info': 'Host reachable, lanjut cek /opsis/api/diagnose/' if reachable
+                else 'Host tidak reachable — cek IP/hostname, firewall, atau pastikan SQL Server berjalan',
+    })
+
+
+@login_required
 def api_diagnose(request):
     """
     Endpoint diagnostik — cek koneksi MSSQL dan query data.

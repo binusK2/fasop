@@ -33,14 +33,27 @@ def _tbl():
     return getattr(settings, 'MSSQL_TABLE', 'dbo.HIS_MEAS_KIT')
 
 
+def _tcp_ping(host, port=1433, timeout=2):
+    """Cek apakah host:port reachable via TCP. Gagal cepat jika tidak."""
+    import socket
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
 def _get_connection():
     import pyodbc
+    host = getattr(settings, 'MSSQL_HOST', 'localhost')
+    if not _tcp_ping(host):
+        raise ConnectionError(f"Host {host}:1433 tidak reachable (TCP timeout)")
     user = getattr(settings, 'MSSQL_USER', '')
     pwd  = getattr(settings, 'MSSQL_PASS', '')
     auth = f"UID={user};PWD={pwd};" if user else "Trusted_Connection=yes;"
     conn_str = (
         f"DRIVER={getattr(settings, 'MSSQL_DRIVER', 'ODBC Driver 17 for SQL Server')};"
-        f"SERVER={getattr(settings, 'MSSQL_HOST', 'localhost')};"
+        f"SERVER={host};"
         f"DATABASE={getattr(settings, 'MSSQL_DB', '')};"
         + auth +
         "Encrypt=no;TrustServerCertificate=yes;"
