@@ -1,0 +1,175 @@
+{% extends "opsis/opsis_base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block extra_head %}
+<style>
+.pb-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+}
+.pb-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-bd);
+    border-radius: 14px;
+    padding: 18px 20px;
+    text-decoration: none;
+    color: var(--text);
+    display: block;
+    transition: .2s;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+.pb-card:hover { border-color: #2d4a6b; transform: translateY(-1px); }
+.pb-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--accent-color, #3b82f6);
+}
+.pb-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+}
+.pb-name { font-size: 14px; font-weight: 700; color: var(--text); }
+.pb-status-badge {
+    font-size: 10px; font-weight: 700; padding: 2px 8px;
+    border-radius: 20px; background: rgba(16,185,129,.15); color: #34d399;
+}
+.pb-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+}
+.pb-metric .lbl {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .4px; color: var(--muted); margin-bottom: 3px;
+}
+.pb-metric .val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 20px; font-weight: 700; color: var(--text);
+}
+.pb-metric .unit { font-size: 11px; font-weight: 400; color: var(--muted); }
+.pb-metric.hz  .val { color: #60a5fa; }
+.pb-metric.mw  .val { color: #34d399; }
+.pb-metric.mvar .val { color: #a78bfa; }
+.pb-footer { margin-top: 12px; font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 4px; }
+
+.dummy-notice {
+    background: rgba(245,158,11,.08);
+    border: 1px solid rgba(245,158,11,.3);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 12px;
+    color: #fbbf24;
+    margin-bottom: 16px;
+    display: none;
+}
+.dummy-notice.show { display: flex; align-items: center; gap: 8px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:20px; display:flex; align-items:center; justify-content:space-between;">
+    <div>
+        <div style="font-size:20px; font-weight:800; color:#fff; margin-bottom:2px;">Dashboard Pembangkit</div>
+        <div style="font-size:12px; color:var(--muted);"><span class="live-dot"></span>Nilai diperbarui setiap 5 detik</div>
+    </div>
+    <div style="font-size:12px; color:var(--muted); text-align:right;">
+        <div id="total-aktif">{{ pembangkit_list|length }} pembangkit aktif</div>
+    </div>
+</div>
+
+<div class="dummy-notice" id="dummy-notice">
+    <i class="bi bi-exclamation-triangle-fill"></i>
+    Menampilkan data simulasi — koneksi MSSQL belum dikonfigurasi.
+</div>
+
+{% if pembangkit_list %}
+<div class="pb-grid" id="pb-grid">
+    {% for p in pembangkit_list %}
+    <a href="/opsis/{{ p.pk }}/" class="pb-card" id="card-{{ p.kode }}" style="--accent-color:{{ p.warna }};">
+        <div class="pb-card-head">
+            <div class="pb-name">{{ p.nama }}</div>
+            <div class="pb-status-badge" id="badge-{{ p.kode }}">Online</div>
+        </div>
+        <div class="pb-metrics">
+            <div class="pb-metric hz">
+                <div class="lbl">Frekuensi</div>
+                <div class="val" id="val-hz-{{ p.kode }}">—</div>
+                <div class="unit">Hz</div>
+            </div>
+            <div class="pb-metric mw">
+                <div class="lbl">Daya MW</div>
+                <div class="val" id="val-mw-{{ p.kode }}">—</div>
+                <div class="unit">MW</div>
+            </div>
+            <div class="pb-metric mvar">
+                <div class="lbl">Daya MVAR</div>
+                <div class="val" id="val-mvar-{{ p.kode }}">—</div>
+                <div class="unit">MVAR</div>
+            </div>
+        </div>
+        <div class="pb-footer"><i class="bi bi-clock"></i> <span id="ts-{{ p.kode }}">—</span></div>
+    </a>
+    {% endfor %}
+</div>
+{% else %}
+<div style="text-align:center; padding:60px 20px; color:var(--muted);">
+    <i class="bi bi-plug" style="font-size:48px; display:block; margin-bottom:12px;"></i>
+    <div style="font-size:16px; font-weight:600; margin-bottom:6px;">Belum ada pembangkit</div>
+    <div style="font-size:13px;">Tambahkan pembangkit melalui Django Admin → Opsis → Pembangkit</div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const KODE_LIST = [{% for p in pembangkit_list %}"{{ p.kode }}"{% if not forloop.last %},{% endif %}{% endfor %}];
+
+function fmt(val, dec) {
+    if (val === null || val === undefined) return '—';
+    return parseFloat(val).toFixed(dec);
+}
+
+async function pollLive() {
+    try {
+        const resp = await fetch('/opsis/api/live/');
+        if (!resp.ok) return;
+        const json = await resp.json();
+        const data = json.data;
+        let hasDummy = false;
+        for (const kode of KODE_LIST) {
+            const d = data[kode];
+            if (!d) continue;
+            const el = (id) => document.getElementById(id);
+            el(`val-hz-${kode}`)  && (el(`val-hz-${kode}`).textContent   = fmt(d.frekuensi, 3));
+            el(`val-mw-${kode}`)  && (el(`val-mw-${kode}`).textContent   = fmt(d.mw,        2));
+            el(`val-mvar-${kode}`)&& (el(`val-mvar-${kode}`).textContent = fmt(d.mvar,       2));
+            if (el(`ts-${kode}`) && d.timestamp) {
+                const t = new Date(d.timestamp);
+                el(`ts-${kode}`).textContent = isNaN(t) ? d.timestamp : t.toLocaleTimeString('id-ID');
+            }
+            // Status dot in sidebar
+            const dot = document.getElementById(`dot-${kode}`);
+            if (dot) {
+                const hz = parseFloat(d.frekuensi);
+                dot.className = 'sb-dot ' + (hz >= 49.5 && hz <= 50.5 ? 'green' : hz ? 'yellow' : '');
+            }
+            if (d.is_dummy) hasDummy = true;
+        }
+        const notice = document.getElementById('dummy-notice');
+        if (notice) notice.classList.toggle('show', hasDummy);
+        setLastUpdate();
+    } catch (e) {}
+}
+
+pollLive();
+setInterval(pollLive, 5000);
+</script>
+{% endblock %}

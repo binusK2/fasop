@@ -5,6 +5,7 @@ python-decouple==3.8          # Konfigurasi via .env
 
 # ── Database & ORM ────────────────────────────────────────────────
 sqlparse==0.5.5
+pyodbc                        # Koneksi MSSQL untuk fitur Opsis (butuh ODBC Driver 17 di server)
 
 # ── Server ────────────────────────────────────────────────────────
 gunicorn==25.1.0

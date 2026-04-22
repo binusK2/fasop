@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'jadwal',
     'gudang',
     'inspection',
+    'opsis',
 ]
 
 MIDDLEWARE = [
@@ -60,6 +61,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'devices.middleware.ForcePasswordChangeMiddleware',
+    'devices.middleware.OpsisAccessMiddleware',
     'devices.middleware.OperatorAccessMiddleware',
     'devices.middleware.SingleSessionMiddleware',
 ]
@@ -195,5 +197,20 @@ AXES_VERBOSE             = False
 # Set di .env:  API_KEY=isi-dengan-string-acak-yang-kuat
 # -------------------------------------------------------------------
 API_KEY = config('API_KEY', default='')
+
+# -------------------------------------------------------------------
+# MSSQL — Koneksi ke database historian/SCADA untuk fitur Opsis
+# Set di .env server (tidak di-commit):
+#   MSSQL_HOST=localhost
+#   MSSQL_DB=nama_database
+#   MSSQL_USER=username
+#   MSSQL_PASS=password
+#   MSSQL_DRIVER=ODBC Driver 17 for SQL Server
+# -------------------------------------------------------------------
+MSSQL_HOST   = config('MSSQL_HOST',   default='')
+MSSQL_DB     = config('MSSQL_DB',     default='')
+MSSQL_USER   = config('MSSQL_USER',   default='')
+MSSQL_PASS   = config('MSSQL_PASS',   default='')
+MSSQL_DRIVER = config('MSSQL_DRIVER', default='ODBC Driver 17 for SQL Server')
 
 

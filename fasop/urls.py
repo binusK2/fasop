@@ -45,6 +45,9 @@ urlpatterns = [
     # Inservice Inspection — role Operator
     path('inspection/', include('inspection.urls')),
 
+    # Opsis — Monitoring Pembangkit (role Opsis)
+    path('opsis/', include('opsis.urls')),
+
     # Public FO page — tanpa login (QR scan)
     path('fo/public/<str:token>/', fo_public, name='fo_public'),
 
