@@ -116,65 +116,47 @@ def api_diagnose(request):
         result['koneksi'] = 'BERHASIL'
         cursor = conn.cursor()
 
-        # Cek nilai B1 terbaru — pakai TOP dari data terbaru, bukan DISTINCT full scan
+        # Ambil 20 baris terbaru lalu extract B1 unik — jauh lebih cepat dari DISTINCT full scan
         try:
             cursor.execute(
-                f"SELECT DISTINCT TOP 10 RTRIM(B1) FROM {tbl} WHERE TIME >= DATEADD(hour, -24, GETDATE())"
+                f"SELECT TOP 20 B1, TIME FROM {tbl} WITH (NOLOCK) ORDER BY ID DESC"
             )
-            result['b1_sample'] = [row[0] for row in cursor.fetchall()]
+            rows = cursor.fetchall()
+            seen = {}
+            for r in rows:
+                k = r[0].strip() if r[0] else ''
+                if k and k not in seen:
+                    seen[k] = str(r[1])
+            result['b1_sample'] = [{'B1': k, 'TIME': t} for k, t in seen.items()]
         except Exception as e:
             result['b1_sample'] = f'Error: {e}'
 
-        # Cek semua pembangkit — MAX(TIME) saja, tanpa COUNT (hindari full table scan)
+        # Cek per-pembangkit: TOP 1 ORDER BY ID DESC per kode (hindari GROUP BY full scan)
         pembangkit_list = _pembangkit_aktif()
-        kode_list = [p.kode for p in pembangkit_list]
         info_map = {p.kode: {'kode': p.kode, 'nama': p.nama} for p in pembangkit_list}
 
-        if kode_list:
-            placeholders = ','.join('?' * len(kode_list))
+        for p in pembangkit_list:
             try:
+                # LIKE 'KODE%' agar match meski B1 punya trailing spaces, masih bisa pakai index
                 cursor.execute(
                     f"""
-                    SELECT RTRIM(B1), MAX(TIME) AS max_time
-                    FROM {tbl}
-                    WHERE RTRIM(B1) IN ({placeholders})
-                    GROUP BY RTRIM(B1)
+                    SELECT TOP 1 RTRIM(B1), RTRIM(B3), P, Q, TIME
+                    FROM {tbl} WITH (NOLOCK)
+                    WHERE B1 LIKE ?
+                    ORDER BY ID DESC
                     """,
-                    kode_list,
+                    (p.kode + '%',)
                 )
-                for row in cursor.fetchall():
-                    kode = row[0]
-                    if kode in info_map:
-                        info_map[kode]['max_time'] = str(row[1]) if row[1] else 'NULL — tidak ada data'
+                row = cursor.fetchone()
+                if row:
+                    info_map[p.kode]['max_time'] = str(row[4])
+                    info_map[p.kode]['sample'] = {
+                        'B1': row[0], 'B3': row[1], 'P': str(row[2]), 'Q': str(row[3]), 'TIME': str(row[4])
+                    }
+                else:
+                    info_map[p.kode]['max_time'] = 'NULL — tidak ada data (cek apakah kode cocok dengan B1)'
             except Exception as e:
-                for info in info_map.values():
-                    info.setdefault('error', str(e))
-
-            # Query 2: TOP 3 per pembangkit menggunakan ROW_NUMBER
-            try:
-                cursor.execute(
-                    f"""
-                    SELECT RTRIM(B1), RTRIM(B3), P, Q, TIME
-                    FROM (
-                        SELECT RTRIM(B1) AS B1, RTRIM(B3) AS B3, P, Q, TIME,
-                               ROW_NUMBER() OVER (PARTITION BY RTRIM(B1) ORDER BY TIME DESC) AS rn
-                        FROM {tbl}
-                        WHERE RTRIM(B1) IN ({placeholders})
-                    ) t
-                    WHERE rn <= 3
-                    ORDER BY B1, TIME DESC
-                    """,
-                    kode_list,
-                )
-                for row in cursor.fetchall():
-                    kode = row[0]
-                    if kode in info_map:
-                        info_map[kode].setdefault('sample', []).append(
-                            {'B1': row[0], 'B3': row[1], 'P': str(row[2]), 'Q': str(row[3]), 'TIME': str(row[4])}
-                        )
-            except Exception as e:
-                for info in info_map.values():
-                    info.setdefault('sample_error', str(e))
+                info_map[p.kode]['error'] = str(e)
 
         result['pembangkit'] = list(info_map.values())
 
