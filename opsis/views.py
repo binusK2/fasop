@@ -33,6 +33,9 @@ def api_live(request):
     """JSON: nilai live semua pembangkit aktif. Dipanggil setiap 5 detik."""
     pembangkit_list = _pembangkit_aktif()
     data = mssql.get_live_data(pembangkit_list)
+    # debug=1 → tampilkan is_dummy & error info (hanya superuser/staff)
+    if request.GET.get('debug') and (request.user.is_superuser or request.user.is_staff):
+        return JsonResponse({'data': data, 'dummy_count': sum(1 for v in data.values() if v.get('is_dummy'))})
     return JsonResponse({'data': data})
 
 

@@ -23,6 +23,9 @@ Env vars di .env server:
 """
 from django.conf import settings
 import datetime
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 _DUMMY_MODE = False  # set True untuk paksa data dummy
@@ -181,7 +184,8 @@ def get_live_data(pembangkit_list):
         conn.close()
         return result
 
-    except Exception:
+    except Exception as e:
+        logger.error('get_live_data error: %s', e, exc_info=True)
         return _dummy_live(pembangkit_list)
 
 
