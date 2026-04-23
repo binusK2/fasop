@@ -133,17 +133,21 @@ def get_live_data(pembangkit_list):
 
         # Satu query bulk: filter TIME 10 menit terakhir (pakai index TIME),
         # return unit-level rows (per B3) → agregasi di Python.
+        # ROW_NUMBER per (B1,B3) → 1 baris terbaru per unit, deduplikasi B1 trailing spaces
         cursor.execute(
             f"""
             WITH recent AS (
                 SELECT RTRIM(B1) AS B1, RTRIM(B3) AS B3, P, Q, TIME,
-                       DENSE_RANK() OVER (PARTITION BY RTRIM(B1) ORDER BY TIME DESC) AS rn_time
+                       ROW_NUMBER() OVER (
+                           PARTITION BY RTRIM(B1), RTRIM(B3)
+                           ORDER BY TIME DESC
+                       ) AS rn
                 FROM {tbl} WITH (NOLOCK)
                 WHERE TIME >= DATEADD(minute, -10, GETDATE())
             )
             SELECT B1, B3, P, Q, TIME
             FROM recent
-            WHERE rn_time = 1
+            WHERE rn = 1
             ORDER BY B1, B3
             """
         )
