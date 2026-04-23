@@ -90,6 +90,26 @@
     Menampilkan data simulasi — koneksi MSSQL belum dikonfigurasi.
 </div>
 
+<!-- Summary bar: Frekuensi Sistem + Beban Kit -->
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px;">
+    <div style="background:var(--card-bg); border:1px solid rgba(96,165,250,.3); border-radius:14px; padding:18px 20px;">
+        <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); margin-bottom:6px;">
+            <i class="bi bi-activity me-1" style="color:#60a5fa;"></i>Frekuensi Sistem
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace; font-size:28px; font-weight:700; color:#60a5fa;" id="sys-hz">
+            —<span style="font-size:14px; font-weight:400; color:var(--muted); margin-left:4px;">Hz</span>
+        </div>
+    </div>
+    <div style="background:var(--card-bg); border:1px solid rgba(52,211,153,.3); border-radius:14px; padding:18px 20px;">
+        <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); margin-bottom:6px;">
+            <i class="bi bi-lightning-charge-fill me-1" style="color:#34d399;"></i>Beban Kit
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace; font-size:28px; font-weight:700; color:#34d399;" id="sys-mw">
+            —<span style="font-size:14px; font-weight:400; color:var(--muted); margin-left:4px;">MW</span>
+        </div>
+    </div>
+</div>
+
 {% if pembangkit_list %}
 <div class="pb-grid" id="pb-grid">
     {% for p in pembangkit_list %}
@@ -98,12 +118,7 @@
             <div class="pb-name">{{ p.nama }}</div>
             <div class="pb-status-badge" id="badge-{{ p.kode }}">Online</div>
         </div>
-        <div class="pb-metrics">
-            <div class="pb-metric hz">
-                <div class="lbl">Frekuensi</div>
-                <div class="val" id="val-hz-{{ p.kode }}">—</div>
-                <div class="unit">Hz</div>
-            </div>
+        <div class="pb-metrics" style="grid-template-columns: repeat(2, 1fr);">
             <div class="pb-metric mw">
                 <div class="lbl">Daya MW</div>
                 <div class="val" id="val-mw-{{ p.kode }}">—</div>
@@ -144,25 +159,28 @@ async function pollLive() {
         const json = await resp.json();
         const data = json.data;
         let hasDummy = false;
+        let totalMw = 0, hasMw = false;
+        let sysHz = null;
         for (const kode of KODE_LIST) {
             const d = data[kode];
             if (!d) continue;
             const el = (id) => document.getElementById(id);
-            el(`val-hz-${kode}`)  && (el(`val-hz-${kode}`).textContent   = fmt(d.frekuensi, 3));
-            el(`val-mw-${kode}`)  && (el(`val-mw-${kode}`).textContent   = fmt(d.mw,        2));
-            el(`val-mvar-${kode}`)&& (el(`val-mvar-${kode}`).textContent = fmt(d.mvar,       2));
+            el(`val-mw-${kode}`)  && (el(`val-mw-${kode}`).textContent   = fmt(d.mw,   2));
+            el(`val-mvar-${kode}`)&& (el(`val-mvar-${kode}`).textContent = fmt(d.mvar,  2));
             if (el(`ts-${kode}`) && d.timestamp) {
                 const t = new Date(d.timestamp);
                 el(`ts-${kode}`).textContent = isNaN(t) ? d.timestamp : t.toLocaleTimeString('id-ID');
             }
-            // Status dot in sidebar
             const dot = document.getElementById(`dot-${kode}`);
-            if (dot) {
-                const hz = parseFloat(d.frekuensi);
-                dot.className = 'sb-dot ' + (hz >= 49.5 && hz <= 50.5 ? 'green' : hz ? 'yellow' : '');
-            }
+            if (dot) dot.className = 'sb-dot ' + (d.mw !== null ? 'green' : '');
+            if (d.mw !== null) { totalMw += parseFloat(d.mw); hasMw = true; }
+            if (d.frekuensi !== null && sysHz === null) sysHz = d.frekuensi;
             if (d.is_dummy) hasDummy = true;
         }
+        const sysMwEl = document.getElementById('sys-mw');
+        if (sysMwEl) sysMwEl.innerHTML = (hasMw ? totalMw.toFixed(2) : '—') + '<span style="font-size:14px;font-weight:400;color:var(--muted);margin-left:4px;">MW</span>';
+        const sysHzEl = document.getElementById('sys-hz');
+        if (sysHzEl) sysHzEl.innerHTML = (sysHz !== null ? parseFloat(sysHz).toFixed(3) : '—') + '<span style="font-size:14px;font-weight:400;color:var(--muted);margin-left:4px;">Hz</span>';
         const notice = document.getElementById('dummy-notice');
         if (notice) notice.classList.toggle('show', hasDummy);
         setLastUpdate();

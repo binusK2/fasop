@@ -79,12 +79,7 @@
 </div>
 
 <!-- Live metric cards -->
-<div class="live-metrics">
-    <div class="metric-card" style="border-color: rgba(96,165,250,.3);">
-        <div class="metric-label"><i class="bi bi-activity me-1" style="color:#60a5fa;"></i>Frekuensi</div>
-        <div class="metric-value" style="color:#60a5fa;" id="live-hz">—<span class="metric-unit">Hz</span></div>
-        <div class="metric-trend" id="trend-hz"><span class="trend-flat">—</span></div>
-    </div>
+<div class="live-metrics" style="grid-template-columns: repeat(2, 1fr);">
     <div class="metric-card" style="border-color: rgba(52,211,153,.3);">
         <div class="metric-label"><i class="bi bi-lightning-charge-fill me-1" style="color:#34d399;"></i>Daya Aktif</div>
         <div class="metric-value" style="color:#34d399;" id="live-mw">—<span class="metric-unit">MW</span></div>
@@ -97,23 +92,15 @@
     </div>
 </div>
 
-<!-- Chart Frekuensi -->
+<!-- Chart MW + MVAR -->
 <div class="chart-card">
     <div class="chart-head">
-        <div class="chart-title"><i class="bi bi-graph-up me-1" style="color:#60a5fa;"></i>Trend Frekuensi (Hz)</div>
+        <div class="chart-title"><i class="bi bi-graph-up me-1" style="color:#34d399;"></i>Trend Daya MW & MVAR</div>
         <div class="range-btns" id="range-btns">
             <button class="btn-range active" data-jam="1">1j</button>
             <button class="btn-range" data-jam="6">6j</button>
             <button class="btn-range" data-jam="24">24j</button>
         </div>
-    </div>
-    <div class="chart-wrap"><canvas id="chart-hz"></canvas></div>
-</div>
-
-<!-- Chart MW + MVAR -->
-<div class="chart-card">
-    <div class="chart-head">
-        <div class="chart-title"><i class="bi bi-graph-up me-1" style="color:#34d399;"></i>Trend Daya MW & MVAR</div>
     </div>
     <div class="chart-wrap"><canvas id="chart-daya"></canvas></div>
 </div>
@@ -129,37 +116,7 @@ const WARNA = "{{ p.warna }}";
 Chart.defaults.color = '#64748b';
 Chart.defaults.font.family = 'DM Sans';
 
-const ctxHz   = document.getElementById('chart-hz').getContext('2d');
 const ctxDaya = document.getElementById('chart-daya').getContext('2d');
-
-const chartHz = new Chart(ctxHz, {
-    type: 'line',
-    data: {
-        labels: [],
-        datasets: [{
-            label: 'Frekuensi (Hz)',
-            data: [],
-            borderColor: '#60a5fa',
-            backgroundColor: 'rgba(96,165,250,.08)',
-            borderWidth: 1.5,
-            pointRadius: 0,
-            tension: 0.3,
-            fill: true,
-        }]
-    },
-    options: {
-        responsive: true, maintainAspectRatio: false,
-        animation: false,
-        plugins: { legend: { display: false } },
-        scales: {
-            x: { grid: { color: '#1e2d45' }, ticks: { maxTicksLimit: 10 } },
-            y: {
-                grid: { color: '#1e2d45' },
-                suggestedMin: 49.5, suggestedMax: 50.5,
-            }
-        }
-    }
-});
 
 const chartDaya = new Chart(ctxDaya, {
     type: 'line',
@@ -209,9 +166,6 @@ async function loadChart(jam) {
         const resp = await fetch(`/opsis/api/trend/${PK}/?jam=${jam}`);
         if (!resp.ok) return;
         const d = await resp.json();
-        chartHz.data.labels = d.labels;
-        chartHz.data.datasets[0].data = d.frekuensi;
-        chartHz.update();
         chartDaya.data.labels = d.labels;
         chartDaya.data.datasets[0].data = d.mw;
         chartDaya.data.datasets[1].data = d.mvar;
@@ -233,7 +187,7 @@ loadChart(1);
 setInterval(() => loadChart(currentJam), 60000);
 
 // Live value polling
-let prevHz = null, prevMw = null, prevMvar = null;
+let prevMw = null, prevMvar = null;
 
 function trendIcon(curr, prev) {
     if (prev === null || curr === null) return '<span class="trend-flat">—</span>';
@@ -257,16 +211,13 @@ async function pollLive() {
         if (!d) return;
 
         // Update values
-        document.getElementById('live-hz').innerHTML   = `${fmt(d.frekuensi,3)}<span class="metric-unit">Hz</span>`;
         document.getElementById('live-mw').innerHTML   = `${fmt(d.mw,2)}<span class="metric-unit">MW</span>`;
         document.getElementById('live-mvar').innerHTML = `${fmt(d.mvar,2)}<span class="metric-unit">MVAR</span>`;
 
         // Trend indicators
-        document.getElementById('trend-hz').innerHTML   = trendIcon(d.frekuensi, prevHz);
         document.getElementById('trend-mw').innerHTML   = trendIcon(d.mw,        prevMw);
         document.getElementById('trend-mvar').innerHTML = trendIcon(d.mvar,       prevMvar);
 
-        prevHz   = d.frekuensi;
         prevMw   = d.mw;
         prevMvar = d.mvar;
 
