@@ -92,6 +92,28 @@
     </div>
 </div>
 
+<!-- Tabel unit/kit -->
+<div class="chart-card" style="margin-bottom:16px;">
+    <div class="chart-head">
+        <div class="chart-title"><i class="bi bi-grid-3x2-gap me-1" style="color:#fbbf24;"></i>Detail Unit / Kit</div>
+        <span style="font-size:11px; color:var(--muted);" id="unit-ts">—</span>
+    </div>
+    <div id="unit-table" style="overflow-x:auto;">
+        <table style="width:100%; border-collapse:collapse; font-size:12px;">
+            <thead>
+                <tr style="color:var(--muted); text-align:left; border-bottom:1px solid var(--card-bd);">
+                    <th style="padding:6px 10px;">Unit</th>
+                    <th style="padding:6px 10px; text-align:right; color:#34d399;">MW</th>
+                    <th style="padding:6px 10px; text-align:right; color:#a78bfa;">MVAR</th>
+                </tr>
+            </thead>
+            <tbody id="unit-tbody">
+                <tr><td colspan="3" style="padding:12px 10px; color:var(--muted); text-align:center;">Memuat data...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
 <!-- Chart MW + MVAR -->
 <div class="chart-card">
     <div class="chart-head">
@@ -220,6 +242,28 @@ async function pollLive() {
 
         prevMw   = d.mw;
         prevMvar = d.mvar;
+
+        // Tabel unit/kit
+        if (d.units && d.units.length) {
+            const tbody = document.getElementById('unit-tbody');
+            const ts    = document.getElementById('unit-ts');
+            if (tbody) {
+                tbody.innerHTML = d.units.map(u => `
+                    <tr style="border-bottom:1px solid var(--card-bd);">
+                        <td style="padding:7px 10px; color:var(--text); font-weight:600;">${u.nama}</td>
+                        <td style="padding:7px 10px; text-align:right; font-family:'JetBrains Mono',monospace; color:#34d399;">
+                            ${u.mw !== null ? parseFloat(u.mw).toFixed(2) : '—'}
+                        </td>
+                        <td style="padding:7px 10px; text-align:right; font-family:'JetBrains Mono',monospace; color:#a78bfa;">
+                            ${u.mvar !== null ? parseFloat(u.mvar).toFixed(2) : '—'}
+                        </td>
+                    </tr>`).join('');
+            }
+            if (ts && d.timestamp) {
+                const t = new Date(d.timestamp);
+                ts.textContent = isNaN(t) ? d.timestamp : t.toLocaleTimeString('id-ID');
+            }
+        }
 
         // Sidebar dot
         const dot = document.getElementById(`dot-${KODE}`);
