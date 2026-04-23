@@ -130,58 +130,53 @@ def get_live_data(pembangkit_list):
         conn   = _get_connection()
         cursor = conn.cursor()
         tbl    = _tbl()
-        result = {}
 
-        for p in pembangkit_list:
-            if not p.aktif:
-                continue
-
-            # 1. Ambil timestamp terbaru — TOP 1 ORDER BY TIME DESC pakai index (B1, TIME DESC)
-            cursor.execute(
-                f"SELECT TOP 1 TIME FROM {tbl} WHERE B1 LIKE ? ORDER BY TIME DESC",
-                (p.kode + '%',)
+        # Satu query bulk: filter TIME 10 menit terakhir dulu (pakai index TIME),
+        # ambil SUM(P)/SUM(Q) per B1 per timestamp, lalu pilih timestamp terbaru per B1.
+        # Jauh lebih cepat daripada N×2 query per pembangkit.
+        cursor.execute(
+            f"""
+            WITH recent AS (
+                SELECT RTRIM(B1) AS B1, RTRIM(B3) AS B3, P, Q, TIME,
+                       ROW_NUMBER() OVER (PARTITION BY RTRIM(B1), TIME ORDER BY TIME DESC) AS rn_unit,
+                       DENSE_RANK()  OVER (PARTITION BY RTRIM(B1) ORDER BY TIME DESC) AS rn_time
+                FROM {tbl} WITH (NOLOCK)
+                WHERE TIME >= DATEADD(minute, -10, GETDATE())
+            ),
+            latest AS (
+                SELECT B1, SUM(P) AS mw, SUM(Q) AS mvar, MAX(TIME) AS ts
+                FROM recent
+                WHERE rn_time = 1
+                GROUP BY B1, TIME
             )
-            row = cursor.fetchone()
-            if not row or row[0] is None:
-                result[p.kode] = {
-                    'mw': None, 'mvar': None, 'frekuensi': None,
-                    'units': [], 'timestamp': None, 'is_dummy': False,
-                }
-                continue
+            SELECT B1, mw, mvar, ts FROM latest
+            """
+        )
+        rows = cursor.fetchall()
+        conn.close()
 
-            latest_time = row[0]
-
-            # 2. Ambil semua unit pada timestamp tersebut, hitung total P dan Q
-            cursor.execute(
-                f"""
-                SELECT
-                    SUM(P)    AS total_mw,
-                    SUM(Q)    AS total_mvar,
-                    MAX(TIME) AS ts,
-                    STRING_AGG(B3 + '=' + CAST(ISNULL(P,0) AS VARCHAR), ', ')
-                              AS unit_detail
-                FROM {tbl}
-                WHERE B1 LIKE ? AND TIME = ?
-                """,
-                (p.kode + '%', latest_time)
-            )
-            row = cursor.fetchone()
-
-            mw   = float(row[0]) if row and row[0] is not None else None
-            mvar = float(row[1]) if row and row[1] is not None else None
-            ts   = row[2].isoformat() if row and row[2] else latest_time.isoformat()
-            unit_detail = row[3] if row else ''
-
-            result[p.kode] = {
-                'mw':        mw,
-                'mvar':      mvar,
-                'frekuensi': None,   # kolom frekuensi belum tersedia
-                'units':     unit_detail or '',
-                'timestamp': ts,
+        # Bangun map hasil dari query bulk
+        db_map = {}
+        for row in rows:
+            b1 = row[0].strip() if row[0] else ''
+            db_map[b1] = {
+                'mw':        float(row[1]) if row[1] is not None else None,
+                'mvar':      float(row[2]) if row[2] is not None else None,
+                'frekuensi': None,
+                'units':     '',
+                'timestamp': row[3].isoformat() if row[3] else None,
                 'is_dummy':  False,
             }
 
-        conn.close()
+        # Cocokkan dengan kode pembangkit Django
+        result = {}
+        for p in pembangkit_list:
+            if not p.aktif:
+                continue
+            result[p.kode] = db_map.get(p.kode, {
+                'mw': None, 'mvar': None, 'frekuensi': None,
+                'units': '', 'timestamp': None, 'is_dummy': False,
+            })
         return result
 
     except Exception as e:
