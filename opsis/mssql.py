@@ -204,17 +204,30 @@ def get_trend_data(pembangkit, jam=1):
         # Interval titik: 1j→1 mnt, 6j→5 mnt, 24j→15 mnt
         interval_menit = {1: 1, 6: 5, 24: 15}.get(jam, 1)
 
+        # Ambil nilai terbaru per B3 per menit → baru SUM antar unit
+        # Tanpa ini, SUM menjumlahkan semua baris dalam satu menit (bisa puluhan)
         cursor.execute(
             f"""
-            SELECT
-                CONVERT(VARCHAR(16), TIME, 120)  AS menit,
-                SUM(P)                           AS total_mw,
-                SUM(Q)                           AS total_mvar
-            FROM {tbl}
-            WHERE B1 LIKE ?
-              AND TIME >= DATEADD(hour, ?, GETDATE())
-              AND DATEPART(minute, TIME) % ? = 0
-            GROUP BY CONVERT(VARCHAR(16), TIME, 120)
+            WITH per_unit AS (
+                SELECT
+                    CONVERT(VARCHAR(16), TIME, 120) AS menit,
+                    RTRIM(B3) AS B3,
+                    P, Q,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY CONVERT(VARCHAR(16), TIME, 120), RTRIM(B3)
+                        ORDER BY TIME DESC
+                    ) AS rn
+                FROM {tbl} WITH (NOLOCK)
+                WHERE B1 LIKE ?
+                  AND TIME >= DATEADD(hour, ?, GETDATE())
+                  AND DATEPART(minute, TIME) % ? = 0
+            )
+            SELECT menit,
+                   SUM(CASE WHEN P > 0 THEN P ELSE 0 END) AS total_mw,
+                   SUM(CASE WHEN Q > 0 THEN Q ELSE 0 END) AS total_mvar
+            FROM per_unit
+            WHERE rn = 1
+            GROUP BY menit
             ORDER BY menit
             """,
             (pembangkit.kode + '%', -jam, interval_menit)
