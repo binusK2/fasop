@@ -131,42 +131,41 @@ def get_live_data(pembangkit_list):
         cursor = conn.cursor()
         tbl    = _tbl()
 
-        # Satu query bulk: filter TIME 10 menit terakhir dulu (pakai index TIME),
-        # ambil SUM(P)/SUM(Q) per B1 per timestamp, lalu pilih timestamp terbaru per B1.
-        # Jauh lebih cepat daripada N×2 query per pembangkit.
+        # Satu query bulk: filter TIME 10 menit terakhir (pakai index TIME),
+        # return unit-level rows (per B3) → agregasi di Python.
         cursor.execute(
             f"""
             WITH recent AS (
                 SELECT RTRIM(B1) AS B1, RTRIM(B3) AS B3, P, Q, TIME,
-                       ROW_NUMBER() OVER (PARTITION BY RTRIM(B1), TIME ORDER BY TIME DESC) AS rn_unit,
-                       DENSE_RANK()  OVER (PARTITION BY RTRIM(B1) ORDER BY TIME DESC) AS rn_time
+                       DENSE_RANK() OVER (PARTITION BY RTRIM(B1) ORDER BY TIME DESC) AS rn_time
                 FROM {tbl} WITH (NOLOCK)
                 WHERE TIME >= DATEADD(minute, -10, GETDATE())
-            ),
-            latest AS (
-                SELECT B1, SUM(P) AS mw, SUM(Q) AS mvar, MAX(TIME) AS ts
-                FROM recent
-                WHERE rn_time = 1
-                GROUP BY B1, TIME
             )
-            SELECT B1, mw, mvar, ts FROM latest
+            SELECT B1, B3, P, Q, TIME
+            FROM recent
+            WHERE rn_time = 1
+            ORDER BY B1, B3
             """
         )
         rows = cursor.fetchall()
         conn.close()
 
-        # Bangun map hasil dari query bulk
+        # Agregasi di Python: SUM per B1, kumpulkan unit list
         db_map = {}
         for row in rows:
-            b1 = row[0].strip() if row[0] else ''
-            db_map[b1] = {
-                'mw':        float(row[1]) if row[1] is not None else None,
-                'mvar':      float(row[2]) if row[2] is not None else None,
-                'frekuensi': None,
-                'units':     '',
-                'timestamp': row[3].isoformat() if row[3] else None,
-                'is_dummy':  False,
-            }
+            b1  = row[0].strip() if row[0] else ''
+            b3  = row[1].strip() if row[1] else ''
+            p_  = float(row[2]) if row[2] is not None else None
+            q_  = float(row[3]) if row[3] is not None else None
+            ts  = row[4].isoformat() if row[4] else None
+            if b1 not in db_map:
+                db_map[b1] = {'mw': 0.0, 'mvar': 0.0, 'frekuensi': None,
+                               'units': [], 'timestamp': ts, 'is_dummy': False}
+            if p_ is not None:
+                db_map[b1]['mw'] = round(db_map[b1]['mw'] + p_, 3)
+            if q_ is not None:
+                db_map[b1]['mvar'] = round(db_map[b1]['mvar'] + q_, 3)
+            db_map[b1]['units'].append({'nama': b3, 'mw': p_, 'mvar': q_})
 
         # Cocokkan dengan kode pembangkit Django
         result = {}
@@ -175,7 +174,7 @@ def get_live_data(pembangkit_list):
                 continue
             result[p.kode] = db_map.get(p.kode, {
                 'mw': None, 'mvar': None, 'frekuensi': None,
-                'units': '', 'timestamp': None, 'is_dummy': False,
+                'units': [], 'timestamp': None, 'is_dummy': False,
             })
         return result
 
