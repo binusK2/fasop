@@ -72,7 +72,7 @@ def _get_connection():
         "Encrypt=no;TrustServerCertificate=yes;"
     )
     conn = pyodbc.connect(conn_str, timeout=5)
-    conn.timeout = 10  # query timeout 10 detik — gagal cepat jika query lambat
+    conn.timeout = 30  # query timeout 30 detik
     return conn
 
 
@@ -136,9 +136,9 @@ def get_live_data(pembangkit_list):
             if not p.aktif:
                 continue
 
-            # 1. Ambil timestamp terbaru untuk pembangkit ini
+            # 1. Ambil timestamp terbaru — TOP 1 ORDER BY TIME DESC pakai index (B1, TIME DESC)
             cursor.execute(
-                f"SELECT MAX(TIME) FROM {tbl} WHERE B1 LIKE ?",
+                f"SELECT TOP 1 TIME FROM {tbl} WHERE B1 LIKE ? ORDER BY TIME DESC",
                 (p.kode + '%',)
             )
             row = cursor.fetchone()
