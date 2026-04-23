@@ -161,9 +161,10 @@ def get_live_data(pembangkit_list):
             if b1 not in db_map:
                 db_map[b1] = {'mw': 0.0, 'mvar': 0.0, 'frekuensi': None,
                                'units': [], 'timestamp': ts, 'is_dummy': False}
-            if p_ is not None:
+            # Total hanya dari nilai positif — nilai negatif diabaikan di SUM
+            if p_ is not None and p_ > 0:
                 db_map[b1]['mw'] = round(db_map[b1]['mw'] + p_, 3)
-            if q_ is not None:
+            if q_ is not None and q_ > 0:
                 db_map[b1]['mvar'] = round(db_map[b1]['mvar'] + q_, 3)
             db_map[b1]['units'].append({'nama': b3, 'mw': p_, 'mvar': q_})
 
