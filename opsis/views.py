@@ -288,37 +288,44 @@ def api_freq(request):
 @login_required
 def api_beban(request):
     """
-    Chart beban kit — rolling window 2 jam terakhir (per menit).
-    ?jam=N  untuk lebar jendela berbeda (default 2, max 24).
-    Coba PostgreSQL (SnapLive) dulu, fallback ke MSSQL HIS_MEAS_KIT.
+    Chart beban kit — seluruh hari ini (00:00 sampai sekarang, per menit).
+    Sumber: PostgreSQL (SnapLive). Termasuk nilai beban puncak siang (12:00)
+    dan malam (18:30) untuk ditampilkan di bawah chart.
     """
     from django.db.models import Sum
-    try:
-        jam = min(max(int(request.GET.get('jam', 2)), 1), 24)
-    except (ValueError, TypeError):
-        jam = 2
 
     tz_local = timezone.get_current_timezone()
-    since    = timezone.now() - datetime.timedelta(hours=jam)   # rolling window
+    today    = timezone.now().astimezone(tz_local).date()
 
     snaps = (SnapLive.objects
-             .filter(waktu__gte=since)
+             .filter(waktu__date=today)
              .values('waktu')
              .annotate(total_mw=Sum('mw'))
              .order_by('waktu'))
     if snaps.exists():
-        rows = [
-            {
-                'timestamp': s['waktu'].astimezone(tz_local).strftime('%H:%M'),
-                'mw':        round(s['total_mw'], 2) if s['total_mw'] is not None else None,
-            }
-            for s in snaps
-        ]
-        return JsonResponse({'rows': rows, 'source': 'postgresql', 'count': len(rows), 'jam': jam})
+        rows = []
+        puncak_siang = None  # MW pada 12:00
+        puncak_malam = None  # MW pada 18:30
+        for s in snaps:
+            waktu_lokal = s['waktu'].astimezone(tz_local)
+            ts = waktu_lokal.strftime('%H:%M')
+            mw = round(s['total_mw'], 2) if s['total_mw'] is not None else None
+            rows.append({'timestamp': ts, 'mw': mw})
+            if ts == '12:00':
+                puncak_siang = mw
+            elif ts == '18:30':
+                puncak_malam = mw
+        return JsonResponse({
+            'rows':          rows,
+            'source':        'postgresql',
+            'count':         len(rows),
+            'puncak_siang':  puncak_siang,
+            'puncak_malam':  puncak_malam,
+        })
 
     # Fallback: MSSQL HIS_MEAS_KIT per 15 menit
     rows = mssql.get_beban_trend()
-    return JsonResponse({'rows': rows, 'source': 'mssql', 'jam': jam})
+    return JsonResponse({'rows': rows, 'source': 'mssql', 'puncak_siang': None, 'puncak_malam': None})
 
 
 @login_required

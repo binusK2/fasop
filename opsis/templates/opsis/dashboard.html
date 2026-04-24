@@ -142,7 +142,7 @@
 <!-- Chart Beban Kit Hari Ini -->
 <div class="chart-card" style="margin-bottom:16px;">
     <div class="chart-head">
-        <div class="chart-title"><i class="bi bi-graph-up me-1" style="color:#34d399;"></i>Beban Kit — <span id="beban-chart-title">2 Jam Terakhir</span></div>
+        <div class="chart-title"><i class="bi bi-graph-up me-1" style="color:#34d399;"></i>Beban Kit — Hari Ini</div>
         <div style="display:flex; align-items:center; gap:10px;">
             <span id="beban-updated" style="font-size:11px; color:var(--muted);">memuat...</span>
             <a id="btn-dl-beban" href="/opsis/export/beban/" target="_blank"
@@ -155,9 +155,28 @@
     <div style="position:relative; height:160px; overflow:visible;">
         <canvas id="chart-beban"></canvas>
     </div>
-    <div style="display:flex; gap:16px; margin-top:8px; font-size:10px; color:var(--muted);">
-        <span><span style="display:inline-block;width:2px;height:10px;background:#fbbf24;margin-right:4px;vertical-align:middle;"></span>Puncak Siang 12:00</span>
-        <span><span style="display:inline-block;width:2px;height:10px;background:#f87171;margin-right:4px;vertical-align:middle;"></span>Puncak Malam 19:00</span>
+    <!-- Legenda + nilai puncak -->
+    <div style="display:flex; gap:20px; margin-top:10px; flex-wrap:wrap; align-items:center;">
+        <div style="display:flex; align-items:center; gap:6px; font-size:10px; color:var(--muted);">
+            <span style="display:inline-block;width:2px;height:10px;background:#fbbf24;vertical-align:middle;"></span>
+            Puncak Siang 12:00
+        </div>
+        <div style="display:flex; align-items:center; gap:6px; font-size:10px; color:var(--muted);">
+            <span style="display:inline-block;width:2px;height:10px;background:#f87171;vertical-align:middle;"></span>
+            Puncak Malam 18:30
+        </div>
+        <div style="margin-left:auto; display:flex; gap:16px;">
+            <div style="font-size:11px;">
+                <span style="color:var(--muted);">Puncak Siang</span>
+                <span id="peak-siang-mw" style="font-family:'JetBrains Mono',monospace; font-weight:700; color:#fbbf24; margin-left:6px;">—</span>
+                <span style="font-size:10px; color:var(--muted);"> MW</span>
+            </div>
+            <div style="font-size:11px;">
+                <span style="color:var(--muted);">Puncak Malam</span>
+                <span id="peak-malam-mw" style="font-family:'JetBrains Mono',monospace; font-weight:700; color:#f87171; margin-left:6px;">—</span>
+                <span style="font-size:10px; color:var(--muted);"> MW</span>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -300,16 +319,31 @@ pollHz();
 setInterval(pollHz, 1000);
 
 // ── Plugin garis vertikal (puncak siang/malam) ───────────────────────
+// Cari label terdekat ke target (toleransi ±5 menit) supaya tetap tampil
+// meski data tidak tepat di menit tersebut.
+function _nearestLabelIdx(labels, targetHHMM) {
+    const [th, tm] = targetHHMM.split(':').map(Number);
+    const targetMin = th * 60 + tm;
+    let bestIdx = -1, bestDiff = Infinity;
+    labels.forEach((l, i) => {
+        const parts = l.split(':');
+        if (parts.length < 2) return;
+        const diff = Math.abs(parseInt(parts[0]) * 60 + parseInt(parts[1]) - targetMin);
+        if (diff < bestDiff) { bestDiff = diff; bestIdx = i; }
+    });
+    return bestDiff <= 5 ? bestIdx : -1;  // toleransi 5 menit
+}
+
 const peakPlugin = {
     id: 'peakLines',
     afterDraw(chart) {
         const { ctx, scales: { x, y } } = chart;
         const peaks = [
             { label: '12:00', color: '#fbbf24' },
-            { label: '19:00', color: '#f87171' },
+            { label: '18:30', color: '#f87171' },
         ];
         peaks.forEach(({ label, color }) => {
-            const idx = chart.data.labels.findIndex(l => l === label || l.startsWith(label));
+            const idx = _nearestLabelIdx(chart.data.labels, label);
             if (idx < 0) return;
             const xPos = x.getPixelForIndex(idx);
             ctx.save();
@@ -321,7 +355,7 @@ const peakPlugin = {
             ctx.lineTo(xPos, y.bottom);
             ctx.stroke();
             ctx.fillStyle = color;
-            ctx.font = '10px DM Sans';
+            ctx.font = 'bold 9px DM Sans';
             ctx.fillText(label, xPos + 3, y.top + 12);
             ctx.restore();
         });
@@ -341,8 +375,7 @@ const tooltipOpts = {
 };
 const interactOpts = { intersect: false, mode: 'index' };
 
-// ── Chart Beban Kit — rolling window ─────────────────────────────────
-const BEBAN_JAM = 2;   // lebar jendela rolling (jam)
+// ── Chart Beban Kit — hari ini (00:00 sampai sekarang) ───────────────
 let chartBeban = null;
 
 function initBebanChart(rows) {
@@ -363,7 +396,7 @@ function initBebanChart(rows) {
         options: {
             responsive: true, maintainAspectRatio: false,
             animation: { duration: 400 },
-            clip: false,            // tooltip tidak ter-clip di tepi chart
+            clip: false,
             interaction: interactOpts,
             plugins: {
                 legend: { display: false },
@@ -374,10 +407,14 @@ function initBebanChart(rows) {
                 }
             },
             scales: {
-                x: { grid: { color: '#1e2d45' }, ticks: { maxTicksLimit: 10 } },
+                x: {
+                    grid: { color: '#1e2d45' },
+                    // Tampilkan ~24 tick (satu per jam) agar tidak penuh
+                    ticks: { maxTicksLimit: 24, maxRotation: 0 }
+                },
                 y: {
                     grid: { color: '#1e2d45' },
-                    grace: '25%',
+                    grace: '10%',
                     title: { display: true, text: 'MW', color: '#64748b' },
                     ticks: { callback: v => v.toFixed(0) },
                 }
@@ -389,20 +426,24 @@ function initBebanChart(rows) {
 
 async function loadBebanChart() {
     try {
-        const r = await fetch(`/opsis/api/beban/?jam=${BEBAN_JAM}`);
+        const r = await fetch('/opsis/api/beban/');
         if (!r.ok) return;
         const d = await r.json();
         const src = d.source === 'postgresql' ? '🟢 PostgreSQL' : '🟡 MSSQL';
         const el = document.getElementById('beban-updated');
         if (el) el.textContent = src + ' · ' + new Date().toLocaleTimeString('id-ID');
-        // Update judul chart sesuai lebar window
-        const titleEl = document.getElementById('beban-chart-title');
-        if (titleEl) titleEl.textContent = `${BEBAN_JAM} Jam Terakhir`;
         if (!d.rows || !d.rows.length) return;
+
+        // Tampilkan nilai puncak siang dan malam
+        const elSiang = document.getElementById('peak-siang-mw');
+        const elMalam = document.getElementById('peak-malam-mw');
+        if (elSiang) elSiang.textContent = d.puncak_siang !== null ? parseFloat(d.puncak_siang).toFixed(2) : '—';
+        if (elMalam) elMalam.textContent = d.puncak_malam !== null ? parseFloat(d.puncak_malam).toFixed(2) : '—';
+
         if (!chartBeban) {
             initBebanChart(d.rows);
         } else {
-            chartBeban.data.labels   = d.rows.map(r => r.timestamp);
+            chartBeban.data.labels = d.rows.map(r => r.timestamp);
             chartBeban.data.datasets[0].data = d.rows.map(r => r.mw);
             chartBeban.update();
         }
