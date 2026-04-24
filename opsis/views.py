@@ -1,8 +1,10 @@
+import datetime
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
+from django.utils import timezone
 from django.conf import settings
-from .models import Pembangkit
+from .models import Pembangkit, SnapLive
 from . import mssql
 
 
@@ -119,6 +121,44 @@ def api_ping(request):
         'tcp':  'BERHASIL' if reachable else 'GAGAL',
         'info': 'Host reachable, lanjut cek /opsis/api/diagnose/' if reachable
                 else 'Host tidak reachable — cek IP/hostname, firewall, atau pastikan SQL Server berjalan',
+    })
+
+
+@login_required
+def api_history(request, pk):
+    """
+    JSON: historis MW/MVAR dari PostgreSQL (SnapLive) untuk chart trend.
+    ?jam=1|6|24|168  (default 24; 168 = 7 hari)
+    Data berasal dari collect_live management command, bukan MSSQL langsung.
+    """
+    p = get_object_or_404(Pembangkit, pk=pk)
+    try:
+        jam = int(request.GET.get('jam', 24))
+        if jam not in (1, 6, 24, 168):
+            jam = 24
+    except (ValueError, TypeError):
+        jam = 24
+
+    since = timezone.now() - datetime.timedelta(hours=jam)
+    snaps = (SnapLive.objects
+             .filter(pembangkit=p, waktu__gte=since)
+             .order_by('waktu')
+             .values('waktu', 'mw', 'mvar', 'frekuensi'))
+
+    return JsonResponse({
+        'nama':  p.nama,
+        'warna': p.warna,
+        'jam':   jam,
+        'count': snaps.count(),
+        'rows': [
+            {
+                'timestamp': s['waktu'].astimezone(timezone.get_current_timezone()).strftime('%H:%M'),
+                'mw':        s['mw'],
+                'mvar':      s['mvar'],
+                'frekuensi': s['frekuensi'],
+            }
+            for s in snaps
+        ]
     })
 
 

@@ -32,3 +32,44 @@ class Pembangkit(models.Model):
 
     def __str__(self):
         return self.nama
+
+
+class SnapLive(models.Model):
+    """
+    Snapshot data realtime KIT_REALTIME yang disimpan ke PostgreSQL tiap N menit
+    via management command 'collect_live'.
+    Satu baris per pembangkit per menit — ML-ready, tidak ada duplikat.
+    """
+    pembangkit   = models.ForeignKey(Pembangkit, on_delete=models.PROTECT,
+                                     related_name='snaps', db_index=True)
+    waktu        = models.DateTimeField()        # floor ke menit (timezone-aware)
+    mw           = models.FloatField(null=True)  # total MW semua unit positif
+    mvar         = models.FloatField(null=True)  # total MVAR semua unit positif
+    frekuensi    = models.FloatField(null=True)  # Hz sistem saat snapshot
+    dicatat_pada = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('pembangkit', 'waktu')
+        indexes = [models.Index(fields=['pembangkit', '-waktu'])]
+        ordering = ['-waktu']
+        verbose_name = 'Snapshot Live'
+        verbose_name_plural = 'Snapshots Live'
+
+    def __str__(self):
+        return f"{self.pembangkit.kode} @ {self.waktu:%Y-%m-%d %H:%M}"
+
+
+class SnapUnit(models.Model):
+    """Detail per unit (UNIT1..UNIT8) dari satu SnapLive."""
+    snap = models.ForeignKey(SnapLive, on_delete=models.CASCADE, related_name='units')
+    nama = models.CharField(max_length=10)   # 'UNIT1'..'UNIT8'
+    mw   = models.FloatField(null=True)
+    mvar = models.FloatField(null=True)
+
+    class Meta:
+        unique_together = ('snap', 'nama')
+        verbose_name = 'Unit Snapshot'
+        verbose_name_plural = 'Unit Snapshots'
+
+    def __str__(self):
+        return f"{self.snap} — {self.nama}"
