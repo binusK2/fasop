@@ -11,5 +11,7 @@ urlpatterns = [
     path('api/hz/',              views.api_hz,       name='opsis_api_hz'),
     path('api/ping/',            views.api_ping,     name='opsis_api_ping'),
     path('api/diagnose/',       views.api_diagnose, name='opsis_api_diagnose'),
-    path('api/history/<int:pk>/', views.api_history, name='opsis_api_history'),
+    path('api/history/<int:pk>/', views.api_history,        name='opsis_api_history'),
+    path('export/frekuensi/',     views.export_frekuensi,   name='opsis_export_frekuensi'),
+    path('export/beban/',         views.export_beban,        name='opsis_export_beban'),
 ]
