@@ -4,7 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.utils import timezone
 from django.conf import settings
-from .models import Pembangkit, SnapLive
+from .models import Pembangkit, SnapLive, SnapFreq
 from . import mssql
 
 
@@ -77,6 +77,187 @@ def api_trend(request, pk):
         'nama':      p.nama,
         'warna':     p.warna,
     })
+
+
+@login_required
+def export_frekuensi(request):
+    """
+    Download rekap frekuensi sistem harian dari PostgreSQL (SnapLive).
+    ?tanggal=YYYY-MM-DD  (default: hari ini)
+    Format: Excel (.xlsx)
+    """
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from django.db.models import Avg
+    from django.http import HttpResponse
+
+    # Parse tanggal
+    tanggal_str = request.GET.get('tanggal', '')
+    try:
+        tanggal = datetime.date.fromisoformat(tanggal_str)
+    except ValueError:
+        tanggal = timezone.now().astimezone(timezone.get_current_timezone()).date()
+
+    tz_local = timezone.get_current_timezone()
+
+    # Ambil dari SnapFreq (per detik, retensi 30 hari)
+    rows = SnapFreq.objects.filter(waktu__date=tanggal).order_by('waktu')
+
+    # Buat workbook Excel
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = f'Frekuensi {tanggal}'
+
+    # Style
+    hdr_fill = PatternFill('solid', fgColor='0F172A')
+    hdr_font = Font(bold=True, color='60A5FA', size=10)
+    thin     = Side(style='thin', color='1E293B')
+    border   = Border(left=thin, right=thin, top=thin, bottom=thin)
+    center   = Alignment(horizontal='center', vertical='center')
+
+    # Header
+    headers = ['No', 'Tanggal', 'Waktu', 'Frekuensi (Hz)', 'Status']
+    ws.append(headers)
+    for col, _ in enumerate(headers, 1):
+        cell = ws.cell(1, col)
+        cell.font = hdr_font
+        cell.fill = hdr_fill
+        cell.border = border
+        cell.alignment = center
+
+    ws.column_dimensions['A'].width = 6
+    ws.column_dimensions['B'].width = 14
+    ws.column_dimensions['C'].width = 10
+    ws.column_dimensions['D'].width = 18
+    ws.column_dimensions['E'].width = 18
+
+    # Batas frekuensi normal PLN: 49.5 – 50.5 Hz
+    batas_bawah, batas_atas = 49.5, 50.5
+
+    for i, row in enumerate(rows, 1):
+        waktu_lokal = row.waktu.astimezone(tz_local)
+        hz = round(row.hz, 4) if row.hz is not None else None
+        if hz is None:
+            status = '—'
+        elif hz < batas_bawah:
+            status = '⚠ Rendah'
+        elif hz > batas_atas:
+            status = '⚠ Tinggi'
+        else:
+            status = '✓ Normal'
+
+        ws.append([
+            i,
+            waktu_lokal.strftime('%Y-%m-%d'),
+            waktu_lokal.strftime('%H:%M'),
+            hz,
+            status,
+        ])
+
+        # Warna baris abnormal
+        if hz is not None and (hz < batas_bawah or hz > batas_atas):
+            for col in range(1, 6):
+                ws.cell(i + 1, col).fill = PatternFill('solid', fgColor='2D1A1A')
+
+        for col in range(1, 6):
+            ws.cell(i + 1, col).border = border
+            ws.cell(i + 1, col).alignment = center
+
+    # Summary baris terakhir
+    if rows.exists():
+        hz_vals = [r.hz for r in rows if r.hz is not None]
+        if hz_vals:
+            ws.append([])
+            ws.append(['', '', 'Rata-rata', round(sum(hz_vals)/len(hz_vals), 4), ''])
+            ws.append(['', '', 'Minimum',   round(min(hz_vals), 4), ''])
+            ws.append(['', '', 'Maksimum',  round(max(hz_vals), 4), ''])
+            abnormal = sum(1 for h in hz_vals if h < batas_bawah or h > batas_atas)
+            ws.append(['', '', 'Abnormal',  abnormal, f'dari {len(hz_vals)} data'])
+
+    # Response
+    filename = f'Frekuensi_{tanggal}.xlsx'
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    wb.save(response)
+    return response
+
+
+@login_required
+def export_beban(request):
+    """
+    Download rekap beban kit harian dari PostgreSQL (SnapLive).
+    ?tanggal=YYYY-MM-DD  (default: hari ini)
+    Format: Excel (.xlsx)
+    """
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from django.db.models import Sum
+    from django.http import HttpResponse
+
+    tanggal_str = request.GET.get('tanggal', '')
+    try:
+        tanggal = datetime.date.fromisoformat(tanggal_str)
+    except ValueError:
+        tanggal = timezone.now().astimezone(timezone.get_current_timezone()).date()
+
+    tz_local = timezone.get_current_timezone()
+
+    # Beban total per menit (sum semua pembangkit)
+    rows = (SnapLive.objects
+            .filter(waktu__date=tanggal)
+            .values('waktu')
+            .annotate(total_mw=Sum('mw'))
+            .order_by('waktu'))
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = f'Beban {tanggal}'
+
+    hdr_fill = PatternFill('solid', fgColor='0F172A')
+    hdr_font = Font(bold=True, color='34D399', size=10)
+    thin     = Side(style='thin', color='1E293B')
+    border   = Border(left=thin, right=thin, top=thin, bottom=thin)
+    center   = Alignment(horizontal='center', vertical='center')
+
+    headers = ['No', 'Tanggal', 'Waktu', 'Total Beban (MW)']
+    ws.append(headers)
+    for col, _ in enumerate(headers, 1):
+        cell = ws.cell(1, col)
+        cell.font = hdr_font
+        cell.fill = hdr_fill
+        cell.border = border
+        cell.alignment = center
+
+    ws.column_dimensions['A'].width = 6
+    ws.column_dimensions['B'].width = 14
+    ws.column_dimensions['C'].width = 10
+    ws.column_dimensions['D'].width = 18
+
+    for i, row in enumerate(rows, 1):
+        waktu_lokal = row['waktu'].astimezone(tz_local)
+        mw = round(row['total_mw'], 2) if row['total_mw'] is not None else None
+        ws.append([i, waktu_lokal.strftime('%Y-%m-%d'), waktu_lokal.strftime('%H:%M'), mw])
+        for col in range(1, 5):
+            ws.cell(i + 1, col).border = border
+            ws.cell(i + 1, col).alignment = center
+
+    if rows:
+        mw_vals = [r['total_mw'] for r in rows if r['total_mw'] is not None]
+        if mw_vals:
+            ws.append([])
+            ws.append(['', '', 'Rata-rata', round(sum(mw_vals)/len(mw_vals), 2)])
+            ws.append(['', '', 'Minimum',   round(min(mw_vals), 2)])
+            ws.append(['', '', 'Maksimum',  round(max(mw_vals), 2)])
+
+    filename = f'BebanKit_{tanggal}.xlsx'
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    wb.save(response)
+    return response
 
 
 @login_required

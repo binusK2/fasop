@@ -34,6 +34,25 @@ class Pembangkit(models.Model):
         return self.nama
 
 
+class SnapFreq(models.Model):
+    """
+    Snapshot frekuensi sistem per detik dari SYS_FREQ_HIS.
+    Disimpan via management command 'collect_freq' (jalan tiap menit).
+    Auto-purge: data > 30 hari dihapus otomatis saat collect berjalan.
+    Estimasi: 86.400 baris/hari × 30 hari = ~2.6 juta baris max.
+    """
+    waktu = models.DateTimeField(unique=True, db_index=True)  # timezone-aware, per detik
+    hz    = models.FloatField()
+
+    class Meta:
+        ordering = ['-waktu']
+        verbose_name = 'Snapshot Frekuensi'
+        verbose_name_plural = 'Snapshots Frekuensi'
+
+    def __str__(self):
+        return f"{self.waktu:%Y-%m-%d %H:%M:%S} — {self.hz} Hz"
+
+
 class SnapLive(models.Model):
     """
     Snapshot data realtime KIT_REALTIME yang disimpan ke PostgreSQL tiap N menit

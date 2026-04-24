@@ -143,7 +143,14 @@
 <div class="chart-card" style="margin-bottom:16px;">
     <div class="chart-head">
         <div class="chart-title"><i class="bi bi-graph-up me-1" style="color:#34d399;"></i>Beban Kit Hari Ini</div>
-        <span id="beban-updated" style="font-size:11px; color:var(--muted);">memuat...</span>
+        <div style="display:flex; align-items:center; gap:10px;">
+            <span id="beban-updated" style="font-size:11px; color:var(--muted);">memuat...</span>
+            <a id="btn-dl-beban" href="/opsis/export/beban/" target="_blank"
+               style="font-size:11px; color:#34d399; text-decoration:none; border:1px solid rgba(52,211,153,.3);
+                      padding:2px 8px; border-radius:5px; white-space:nowrap;">
+                <i class="bi bi-download me-1"></i>Excel
+            </a>
+        </div>
     </div>
     <div style="position:relative; height:160px;">
         <canvas id="chart-beban"></canvas>
@@ -158,7 +165,14 @@
 <div class="chart-card" style="margin-bottom:20px;">
     <div class="chart-head">
         <div class="chart-title"><i class="bi bi-activity me-1" style="color:#60a5fa;"></i>Frekuensi Sistem — 30 Menit Terakhir</div>
-        <span id="freq-updated" style="font-size:11px; color:var(--muted);">memuat...</span>
+        <div style="display:flex; align-items:center; gap:10px;">
+            <span id="freq-updated" style="font-size:11px; color:var(--muted);">memuat...</span>
+            <a id="btn-dl-freq" href="/opsis/export/frekuensi/" target="_blank"
+               style="font-size:11px; color:#60a5fa; text-decoration:none; border:1px solid rgba(96,165,250,.3);
+                      padding:2px 8px; border-radius:5px; white-space:nowrap;">
+                <i class="bi bi-download me-1"></i>Excel
+            </a>
+        </div>
     </div>
     <div style="position:relative; height:160px;">
         <canvas id="chart-freq-hari"></canvas>
@@ -466,5 +480,14 @@ async function loadFreqHariChart() {
 
 loadFreqHariChart();
 setInterval(loadFreqHariChart, 5000); // refresh tiap 5 detik — data per detik
+
+// ── Tombol download — update href dengan tanggal hari ini ─────────────
+(function () {
+    const today = new Date().toLocaleDateString('sv'); // 'YYYY-MM-DD'
+    const dlFreq  = document.getElementById('btn-dl-freq');
+    const dlBeban = document.getElementById('btn-dl-beban');
+    if (dlFreq)  dlFreq.href  = `/opsis/export/frekuensi/?tanggal=${today}`;
+    if (dlBeban) dlBeban.href = `/opsis/export/beban/?tanggal=${today}`;
+})();
 </script>
 {% endblock %}
