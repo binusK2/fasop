@@ -95,10 +95,7 @@
     background: var(--card-bg);
     border: 1px solid rgba(96,165,250,.3);
     border-radius: 14px; padding: 18px 20px;
-    cursor: pointer; transition: .2s;
-    user-select: none;
 }
-.hz-card:hover { border-color: rgba(96,165,250,.6); }
 </style>
 {% endblock %}
 
@@ -121,20 +118,13 @@
 <!-- Summary bar: Frekuensi Sistem (klikable) + Beban Kit -->
 <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
 
-    <!-- Card Hz — klik untuk expand chart -->
-    <div class="hz-card" id="hz-card" onclick="toggleFreqChart()">
-        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
-            <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--muted);">
-                <i class="bi bi-activity me-1" style="color:#60a5fa;"></i>Frekuensi Sistem
-            </div>
-            <i class="bi bi-chevron-down" id="hz-chevron" style="font-size:11px; color:var(--muted); transition:.2s;"></i>
+    <!-- Card Hz — nilai live saja -->
+    <div class="hz-card" id="hz-card">
+        <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); margin-bottom:6px;">
+            <i class="bi bi-activity me-1" style="color:#60a5fa;"></i>Frekuensi Sistem
         </div>
         <div style="font-family:'JetBrains Mono',monospace; font-size:28px; font-weight:700; color:#60a5fa;" id="sys-hz">
             —<span style="font-size:14px; font-weight:400; color:var(--muted); margin-left:4px;">Hz</span>
-        </div>
-        <!-- Chart expand -->
-        <div id="freq-chart-wrap" style="display:none; margin-top:14px; height:90px; position:relative;">
-            <canvas id="chart-freq"></canvas>
         </div>
     </div>
 
@@ -150,7 +140,7 @@
 </div>
 
 <!-- Chart Beban Kit Hari Ini -->
-<div class="chart-card" style="margin-bottom:20px;">
+<div class="chart-card" style="margin-bottom:16px;">
     <div class="chart-head">
         <div class="chart-title"><i class="bi bi-graph-up me-1" style="color:#34d399;"></i>Beban Kit Hari Ini</div>
         <span id="beban-updated" style="font-size:11px; color:var(--muted);">memuat...</span>
@@ -161,6 +151,20 @@
     <div style="display:flex; gap:16px; margin-top:8px; font-size:10px; color:var(--muted);">
         <span><span style="display:inline-block;width:2px;height:10px;background:#fbbf24;margin-right:4px;vertical-align:middle;"></span>Puncak Siang 12:00</span>
         <span><span style="display:inline-block;width:2px;height:10px;background:#f87171;margin-right:4px;vertical-align:middle;"></span>Puncak Malam 19:00</span>
+    </div>
+</div>
+
+<!-- Chart Frekuensi Hari Ini -->
+<div class="chart-card" style="margin-bottom:20px;">
+    <div class="chart-head">
+        <div class="chart-title"><i class="bi bi-activity me-1" style="color:#60a5fa;"></i>Frekuensi Hari Ini</div>
+        <span id="freq-updated" style="font-size:11px; color:var(--muted);">memuat...</span>
+    </div>
+    <div style="position:relative; height:160px;">
+        <canvas id="chart-freq-hari"></canvas>
+    </div>
+    <div style="display:flex; gap:16px; margin-top:8px; font-size:10px; color:var(--muted);">
+        <span><span style="display:inline-block;width:20px;height:2px;background:#ef4444;margin-right:4px;vertical-align:middle;"></span>Referensi 50 Hz</span>
     </div>
 </div>
 
@@ -272,99 +276,59 @@ async function pollLive() {
 pollLive();
 setInterval(pollLive, 5000);
 
-// ── Chart Frekuensi (expand on click, update 1 detik) ─────────────────
-let chartFreq = null, freqInterval = null, freqVisible = false;
-
-function toggleFreqChart() {
-    freqVisible = !freqVisible;
-    const wrap    = document.getElementById('freq-chart-wrap');
-    const chevron = document.getElementById('hz-chevron');
-    wrap.style.display = freqVisible ? 'block' : 'none';
-    chevron.style.transform = freqVisible ? 'rotate(180deg)' : '';
-
-    if (freqVisible) {
-        if (!chartFreq) initFreqChart();
-        loadFreqChart();
-        freqInterval = setInterval(loadFreqChart, 1000);
-    } else {
-        clearInterval(freqInterval);
+// ── Plugin garis vertikal (puncak siang/malam) ───────────────────────
+const peakPlugin = {
+    id: 'peakLines',
+    afterDraw(chart) {
+        const { ctx, scales: { x, y } } = chart;
+        const peaks = [
+            { label: '12:00', color: '#fbbf24' },
+            { label: '19:00', color: '#f87171' },
+        ];
+        peaks.forEach(({ label, color }) => {
+            const idx = chart.data.labels.findIndex(l => l === label || l.startsWith(label));
+            if (idx < 0) return;
+            const xPos = x.getPixelForIndex(idx);
+            ctx.save();
+            ctx.beginPath();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([4, 3]);
+            ctx.moveTo(xPos, y.top);
+            ctx.lineTo(xPos, y.bottom);
+            ctx.stroke();
+            ctx.fillStyle = color;
+            ctx.font = '10px DM Sans';
+            ctx.fillText(label, xPos + 3, y.top + 12);
+            ctx.restore();
+        });
     }
-}
+};
 
-function initFreqChart() {
-    const ctx = document.getElementById('chart-freq').getContext('2d');
-    chartFreq = new Chart(ctx, {
-        type: 'line',
-        data: { labels: [], datasets: [{
-            data: [], borderColor: '#60a5fa',
-            backgroundColor: 'rgba(96,165,250,.08)',
-            borderWidth: 1.5, pointRadius: 0, tension: 0.2, fill: true,
-        }]},
-        options: {
-            responsive: true, maintainAspectRatio: false, animation: false,
-            plugins: { legend: { display: false } },
-            scales: {
-                x: { display: false },
-                y: { grid: { color: '#1e2d45' }, suggestedMin: 49.8, suggestedMax: 50.2,
-                     ticks: { callback: v => v.toFixed(2) } }
-            }
-        }
-    });
-}
-
-async function loadFreqChart() {
-    try {
-        const r = await fetch('/opsis/api/freq/?menit=5');
-        if (!r.ok) return;
-        const d = await r.json();
-        if (!chartFreq || !d.rows.length) return;
-        chartFreq.data.labels = d.rows.map(r => r.timestamp);
-        chartFreq.data.datasets[0].data = d.rows.map(r => r.hz);
-        chartFreq.update('none');
-    } catch (e) {}
-}
+// Opsi tooltip crosshair yang sama untuk semua chart
+const tooltipOpts = {
+    enabled: true,
+    backgroundColor: 'rgba(15,23,42,.9)',
+    titleColor: '#94a3b8',
+    bodyColor: '#f1f5f9',
+    borderColor: '#334155',
+    borderWidth: 1,
+    padding: 8,
+    displayColors: false,
+};
+const interactOpts = { intersect: false, mode: 'index' };
 
 // ── Chart Beban Kit Hari Ini ──────────────────────────────────────────
 let chartBeban = null;
 
 function initBebanChart(rows) {
     const ctx = document.getElementById('chart-beban').getContext('2d');
-
-    // Garis vertikal untuk puncak siang (12:00) dan puncak malam (19:00)
-    const peakPlugin = {
-        id: 'peakLines',
-        afterDraw(chart) {
-            const { ctx, scales: { x, y } } = chart;
-            const peaks = [
-                { label: '12:00', color: '#fbbf24' },
-                { label: '19:00', color: '#f87171' },
-            ];
-            peaks.forEach(({ label, color }) => {
-                const idx = chart.data.labels.findIndex(l => l === label || l.startsWith(label));
-                if (idx < 0) return;
-                const xPos = x.getPixelForIndex(idx);
-                ctx.save();
-                ctx.beginPath();
-                ctx.strokeStyle = color;
-                ctx.lineWidth = 1.5;
-                ctx.setLineDash([4, 3]);
-                ctx.moveTo(xPos, y.top);
-                ctx.lineTo(xPos, y.bottom);
-                ctx.stroke();
-                ctx.fillStyle = color;
-                ctx.font = '10px DM Sans';
-                ctx.fillText(label, xPos + 3, y.top + 12);
-                ctx.restore();
-            });
-        }
-    };
-
     chartBeban = new Chart(ctx, {
         type: 'line',
         data: {
             labels: rows.map(r => r.timestamp),
             datasets: [{
-                label: 'Beban Kit (MW)',
+                label: 'Beban Kit',
                 data: rows.map(r => r.mw),
                 borderColor: '#34d399',
                 backgroundColor: 'rgba(52,211,153,.07)',
@@ -373,7 +337,14 @@ function initBebanChart(rows) {
         },
         options: {
             responsive: true, maintainAspectRatio: false, animation: false,
-            plugins: { legend: { display: false } },
+            interaction: interactOpts,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    ...tooltipOpts,
+                    callbacks: { label: ctx => `${(ctx.parsed.y ?? 0).toFixed(2)} MW` }
+                }
+            },
             scales: {
                 x: { grid: { color: '#1e2d45' }, ticks: { maxTicksLimit: 12 } },
                 y: { grid: { color: '#1e2d45' }, title: { display: true, text: 'MW', color: '#64748b' } }
@@ -403,5 +374,87 @@ async function loadBebanChart() {
 
 loadBebanChart();
 setInterval(loadBebanChart, 300000); // refresh tiap 5 menit
+
+// ── Chart Frekuensi Hari Ini ──────────────────────────────────────────
+let chartFreqHari = null;
+
+function initFreqHariChart(rows) {
+    const ctx = document.getElementById('chart-freq-hari').getContext('2d');
+    const n = rows.length;
+    chartFreqHari = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: rows.map(r => r.timestamp),
+            datasets: [
+                {
+                    label: 'Frekuensi',
+                    data: rows.map(r => r.hz),
+                    borderColor: '#60a5fa',
+                    backgroundColor: 'rgba(96,165,250,.07)',
+                    borderWidth: 1.5, pointRadius: 0, tension: 0.2, fill: true,
+                    order: 1,
+                },
+                {
+                    label: '50 Hz',
+                    data: new Array(n).fill(50),
+                    borderColor: '#ef4444',
+                    borderWidth: 1.5,
+                    borderDash: [5, 4],
+                    pointRadius: 0,
+                    fill: false,
+                    tension: 0,
+                    order: 0,
+                }
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false, animation: false,
+            interaction: interactOpts,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    ...tooltipOpts,
+                    callbacks: {
+                        label: ctx => ctx.datasetIndex === 0
+                            ? `${(ctx.parsed.y ?? 0).toFixed(3)} Hz`
+                            : '50.000 Hz (referensi)'
+                    }
+                }
+            },
+            scales: {
+                x: { grid: { color: '#1e2d45' }, ticks: { maxTicksLimit: 12 } },
+                y: {
+                    grid: { color: '#1e2d45' },
+                    suggestedMin: 49.8, suggestedMax: 50.2,
+                    ticks: { callback: v => v.toFixed(2) },
+                    title: { display: true, text: 'Hz', color: '#64748b' }
+                }
+            }
+        },
+    });
+}
+
+async function loadFreqHariChart() {
+    try {
+        const r = await fetch('/opsis/api/freq/?mode=hari_ini');
+        if (!r.ok) return;
+        const d = await r.json();
+        const el = document.getElementById('freq-updated');
+        if (el) el.textContent = 'Update: ' + new Date().toLocaleTimeString('id-ID');
+        if (!d.rows.length) return;
+        const n = d.rows.length;
+        if (!chartFreqHari) {
+            initFreqHariChart(d.rows);
+        } else {
+            chartFreqHari.data.labels = d.rows.map(r => r.timestamp);
+            chartFreqHari.data.datasets[0].data = d.rows.map(r => r.hz);
+            chartFreqHari.data.datasets[1].data = new Array(n).fill(50);
+            chartFreqHari.update();
+        }
+    } catch (e) {}
+}
+
+loadFreqHariChart();
+setInterval(loadFreqHariChart, 60000); // refresh tiap 1 menit
 </script>
 {% endblock %}

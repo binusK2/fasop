@@ -79,12 +79,19 @@ def api_trend(request, pk):
 
 @login_required
 def api_freq(request):
-    """Chart frekuensi sistem — last N menit dari SYS_FREQ_HIS. ?menit=10"""
-    try:
-        menit = min(max(int(request.GET.get('menit', 10)), 1), 60)
-    except (ValueError, TypeError):
-        menit = 10
-    rows = mssql.get_freq_trend(menit)
+    """
+    Chart frekuensi sistem.
+    ?mode=hari_ini  → rata-rata per menit sejak 00:00 (untuk chart Frekuensi Hari Ini)
+    ?menit=N        → last N menit data per detik (default 10, maks 60)
+    """
+    if request.GET.get('mode') == 'hari_ini':
+        rows = mssql.get_freq_hari_ini()
+    else:
+        try:
+            menit = min(max(int(request.GET.get('menit', 10)), 1), 60)
+        except (ValueError, TypeError):
+            menit = 10
+        rows = mssql.get_freq_trend(menit)
     return JsonResponse({'rows': rows})
 
 
