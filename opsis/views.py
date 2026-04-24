@@ -288,15 +288,21 @@ def api_freq(request):
 @login_required
 def api_beban(request):
     """
-    Chart beban kit hari ini.
-    Coba PostgreSQL (SnapLive, per menit) dulu — lebih cepat & akurat.
-    Fallback ke MSSQL HIS_MEAS_KIT (per 15 menit) jika belum ada data hari ini.
+    Chart beban kit — rolling window 2 jam terakhir (per menit).
+    ?jam=N  untuk lebar jendela berbeda (default 2, max 24).
+    Coba PostgreSQL (SnapLive) dulu, fallback ke MSSQL HIS_MEAS_KIT.
     """
     from django.db.models import Sum
-    tz_local   = timezone.get_current_timezone()
-    today_local = timezone.now().astimezone(tz_local).date()   # tanggal lokal, bukan UTC
+    try:
+        jam = min(max(int(request.GET.get('jam', 2)), 1), 24)
+    except (ValueError, TypeError):
+        jam = 2
+
+    tz_local = timezone.get_current_timezone()
+    since    = timezone.now() - datetime.timedelta(hours=jam)   # rolling window
+
     snaps = (SnapLive.objects
-             .filter(waktu__date=today_local)   # Django konversi TZ secara otomatis
+             .filter(waktu__gte=since)
              .values('waktu')
              .annotate(total_mw=Sum('mw'))
              .order_by('waktu'))
@@ -308,11 +314,11 @@ def api_beban(request):
             }
             for s in snaps
         ]
-        return JsonResponse({'rows': rows, 'source': 'postgresql', 'count': len(rows)})
+        return JsonResponse({'rows': rows, 'source': 'postgresql', 'count': len(rows), 'jam': jam})
 
     # Fallback: MSSQL HIS_MEAS_KIT per 15 menit
     rows = mssql.get_beban_trend()
-    return JsonResponse({'rows': rows, 'source': 'mssql'})
+    return JsonResponse({'rows': rows, 'source': 'mssql', 'jam': jam})
 
 
 @login_required
