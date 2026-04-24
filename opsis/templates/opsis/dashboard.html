@@ -5,86 +5,79 @@
 {% block extra_head %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
-/* ── Layout kartu pembangkit (vertikal, satu per baris) ────── */
-.pb-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-.pb-card {
-    background: var(--card-bg);
-    border: 1px solid var(--card-bd);
-    border-radius: 12px;
-    padding: 12px 18px;
-    text-decoration: none;
-    color: var(--text);
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    transition: .2s;
-    cursor: pointer;
-    position: relative;
-    overflow: hidden;
-}
-.pb-card:hover { border-color: #2d4a6b; transform: translateY(-1px); }
-.pb-card::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; bottom: 0;
-    width: 3px;
-    background: var(--accent-color, #3b82f6);
-}
-.pb-card-left {
-    flex: 1; min-width: 0; padding-left: 6px;
-}
-.pb-name { font-size: 13px; font-weight: 700; color: var(--text); }
-.pb-status-badge {
-    font-size: 10px; font-weight: 700; padding: 2px 8px;
-    border-radius: 20px; background: rgba(16,185,129,.15); color: #34d399;
-}
-.pb-metrics {
-    display: flex;
-    gap: 24px;
-    flex-shrink: 0;
-}
-.pb-metric .lbl {
-    font-size: 10px; font-weight: 700; text-transform: uppercase;
-    letter-spacing: .4px; color: var(--muted); margin-bottom: 2px;
-    text-align: right;
-}
-.pb-metric .val {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 16px; font-weight: 700; color: var(--text);
-    text-align: right;
-}
-.pb-metric.mw   .val { color: #34d399; }
-.pb-metric.mvar .val { color: #a78bfa; }
-.pb-footer { margin-top: 4px; font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 4px; }
-
-/* ── Grid 2 kolom per jenis ─────────────────────────────────── */
+/* ── Grid semua jenis sejajar (auto-fit) ─────────────────────── */
 .jenis-outer-grid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
     align-items: start;
 }
-@media (max-width: 640px) {
-    .jenis-outer-grid { grid-template-columns: 1fr; }
-}
+
+/* ── Header per jenis: nama + total MW besar ─────────────────── */
 .jenis-header {
-    display: flex; align-items: center; gap: 8px;
-    font-size: 12px; font-weight: 700; text-transform: uppercase;
-    letter-spacing: .5px; color: var(--muted);
-    margin-bottom: 8px; padding: 8px 12px;
     background: rgba(255,255,255,.03);
     border: 1px solid var(--card-bd);
     border-radius: 10px;
+    padding: 10px 12px 8px;
+    margin-bottom: 8px;
 }
-.jenis-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink:0; }
-.jenis-total {
-    margin-left: auto; font-weight: 400; font-size: 11px;
-    font-family: 'JetBrains Mono', monospace; letter-spacing: 0;
-    text-transform: none; color: var(--muted);
+.jenis-label {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .5px; color: var(--muted);
+    display: flex; align-items: center; gap: 6px; margin-bottom: 4px;
+}
+.jenis-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.jenis-total-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 20px; font-weight: 700; color: #34d399; line-height: 1;
+}
+.jenis-total-unit { font-size: 11px; font-weight: 400; color: var(--muted); }
+
+/* ── Card pembangkit compact ─────────────────────────────────── */
+.pb-grid { display: flex; flex-direction: column; gap: 6px; }
+.pb-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-bd);
+    border-radius: 10px;
+    padding: 10px 12px;
+    text-decoration: none; color: var(--text);
+    display: block; transition: .15s; cursor: pointer;
+    position: relative; overflow: hidden;
+}
+.pb-card:hover { border-color: #2d4a6b; }
+.pb-card::before {
+    content: ''; position: absolute;
+    top: 0; left: 0; bottom: 0; width: 3px;
+    background: var(--accent-color, #3b82f6);
+}
+.pb-name-row {
+    display: flex; align-items: center; gap: 6px;
+    padding-left: 6px; margin-bottom: 5px;
+}
+.pb-name { font-size: 11px; font-weight: 600; color: var(--muted); }
+.pb-live-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: #34d399; flex-shrink: 0;
+    animation: liveblink 1.8s ease-in-out infinite;
+}
+@keyframes liveblink {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: .15; }
+}
+.pb-mw {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 22px; font-weight: 700; color: #34d399;
+    line-height: 1; padding-left: 6px;
+}
+.pb-mw-unit { font-size: 10px; color: var(--muted); font-weight: 400; }
+.pb-mvar {
+    font-size: 11px; font-family: 'JetBrains Mono', monospace;
+    color: #a78bfa; padding-left: 6px; margin-top: 4px;
+}
+.pb-mvar-unit { font-size: 10px; color: var(--muted); }
+.pb-ts {
+    font-size: 10px; color: var(--muted); padding-left: 6px;
+    margin-top: 6px; display: flex; align-items: center; gap: 3px;
 }
 
 .chart-card {
@@ -235,39 +228,32 @@
     </div>
 </div>
 
-<!-- Grid pembangkit — 2 kolom per jenis, kartu vertikal di tiap kolom -->
+<!-- Grid pembangkit — semua jenis sejajar, unit vertikal di tiap kolom -->
 {% if grouped %}
 <div class="jenis-outer-grid">
     {% for jenis, cards in grouped.items %}
     <div>
+        <!-- Header jenis: nama + total MW besar -->
         <div class="jenis-header">
-            <span class="jenis-dot" id="dot-jenis-{{ jenis }}"></span>
-            {{ jenis }}
-            <span style="font-weight:400; font-size:11px; text-transform:none; letter-spacing:0;">{{ cards|length }} unit</span>
-            <span class="jenis-total">
-                Total&nbsp;<span id="total-mw-{{ jenis }}" style="color:#34d399; font-weight:700;">—</span>&nbsp;MW
-            </span>
+            <div class="jenis-label">
+                <span class="jenis-dot" id="dot-jenis-{{ jenis }}"></span>
+                {{ jenis }} · {{ cards|length }} unit
+            </div>
+            <div class="jenis-total-val">
+                <span id="total-mw-{{ jenis }}">—</span><span class="jenis-total-unit"> MW</span>
+            </div>
         </div>
+        <!-- Kartu unit vertikal -->
         <div class="pb-grid">
             {% for p in cards %}
             <a href="/opsis/{{ p.pk }}/" class="pb-card" id="card-{{ p.kode }}" style="--accent-color:{{ p.warna }};">
-                <div class="pb-card-left">
-                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
-                        <div class="pb-name">{{ p.nama }}</div>
-                        <div class="pb-status-badge" id="badge-{{ p.kode }}">Online</div>
-                    </div>
-                    <div class="pb-footer"><i class="bi bi-clock"></i> <span id="ts-{{ p.kode }}">—</span></div>
+                <div class="pb-name-row">
+                    <span class="pb-name">{{ p.nama }}</span>
+                    <span class="pb-live-dot"></span>
                 </div>
-                <div class="pb-metrics">
-                    <div class="pb-metric mw">
-                        <div class="lbl">MW</div>
-                        <div class="val" id="val-mw-{{ p.kode }}">—</div>
-                    </div>
-                    <div class="pb-metric mvar">
-                        <div class="lbl">MVAR</div>
-                        <div class="val" id="val-mvar-{{ p.kode }}">—</div>
-                    </div>
-                </div>
+                <div class="pb-mw"><span id="val-mw-{{ p.kode }}">—</span><span class="pb-mw-unit"> MW</span></div>
+                <div class="pb-mvar"><span id="val-mvar-{{ p.kode }}">—</span><span class="pb-mvar-unit"> MVAR</span></div>
+                <div class="pb-ts"><i class="bi bi-clock" style="font-size:9px;"></i><span id="ts-{{ p.kode }}">—</span></div>
             </a>
             {% endfor %}
         </div>
