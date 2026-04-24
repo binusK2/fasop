@@ -276,3 +276,94 @@ def get_trend_data(pembangkit, jam=1):
 
     except Exception:
         return _dummy_trend(pembangkit, jam)
+
+
+# ── Frekuensi trend ───────────────────────────────────────────────────
+
+def get_freq_trend(menit=10):
+    """
+    Return list [{timestamp, hz}] dari SYS_FREQ_HIS, N menit terakhir.
+    Data per detik → menit×60 titik, diurutkan ascending untuk chart.
+    """
+    if _DUMMY_MODE or not getattr(settings, 'MSSQL_HOST', ''):
+        import random
+        now = datetime.datetime.now()
+        return [
+            {'timestamp': (now - datetime.timedelta(seconds=i)).strftime('%H:%M:%S'),
+             'hz': round(50 + random.uniform(-0.1, 0.1), 3)}
+            for i in range(menit * 60, 0, -1)
+        ]
+    try:
+        conn   = _get_connection()
+        cursor = conn.cursor()
+        freq   = _freq_tbl()
+        titik  = menit * 60
+        cursor.execute(
+            f"SELECT TOP ? TIME, F FROM {freq} WITH (NOLOCK) ORDER BY ID DESC",
+            (titik,)
+        )
+        rows = cursor.fetchall()
+        conn.close()
+        return [
+            {'timestamp': row[0].strftime('%H:%M:%S') if row[0] else '',
+             'hz': float(row[1]) if row[1] is not None else None}
+            for row in reversed(rows)
+        ]
+    except Exception as e:
+        logger.error('get_freq_trend error: %s', e)
+        return []
+
+
+# ── Beban total hari ini ──────────────────────────────────────────────
+
+def get_beban_trend():
+    """
+    Return list [{timestamp 'HH:MM', mw}] SUM semua pembangkit hari ini,
+    per 15 menit, dari HIS_MEAS_KIT.
+    """
+    if _DUMMY_MODE or not getattr(settings, 'MSSQL_HOST', ''):
+        import random
+        now = datetime.datetime.now()
+        result = []
+        t = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        while t <= now:
+            result.append({'timestamp': t.strftime('%H:%M'),
+                           'mw': round(random.uniform(300, 600), 2)})
+            t += datetime.timedelta(minutes=15)
+        return result
+    try:
+        conn   = _get_connection()
+        cursor = conn.cursor()
+        tbl    = _tbl()
+        cursor.execute(
+            f"""
+            WITH per_unit AS (
+                SELECT CONVERT(VARCHAR(16), TIME, 120) AS menit,
+                       RTRIM(B1) AS B1, RTRIM(B3) AS B3, P,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY CONVERT(VARCHAR(16), TIME, 120),
+                                        RTRIM(B1), RTRIM(B3)
+                           ORDER BY TIME DESC
+                       ) AS rn
+                FROM {tbl} WITH (NOLOCK)
+                WHERE TIME >= CAST(CAST(GETDATE() AS DATE) AS DATETIME)
+                  AND DATEPART(minute, TIME) % 15 = 0
+            )
+            SELECT menit,
+                   SUM(CASE WHEN P > 0 THEN P ELSE 0 END) AS total_mw
+            FROM per_unit
+            WHERE rn = 1
+            GROUP BY menit
+            ORDER BY menit
+            """
+        )
+        rows = cursor.fetchall()
+        conn.close()
+        return [
+            {'timestamp': row[0][11:16] if row[0] else '',   # 'YYYY-MM-DD HH:MM' → 'HH:MM'
+             'mw': float(row[1]) if row[1] is not None else None}
+            for row in rows
+        ]
+    except Exception as e:
+        logger.error('get_beban_trend error: %s', e)
+        return []

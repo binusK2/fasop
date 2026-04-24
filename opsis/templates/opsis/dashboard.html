@@ -3,11 +3,12 @@
 {% block title %}Dashboard{% endblock %}
 
 {% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
 .pb-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 16px;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 14px;
 }
 .pb-card {
     background: var(--card-bg);
@@ -43,7 +44,7 @@
 }
 .pb-metrics {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, 1fr);
     gap: 10px;
 }
 .pb-metric .lbl {
@@ -55,22 +56,49 @@
     font-size: 20px; font-weight: 700; color: var(--text);
 }
 .pb-metric .unit { font-size: 11px; font-weight: 400; color: var(--muted); }
-.pb-metric.hz  .val { color: #60a5fa; }
-.pb-metric.mw  .val { color: #34d399; }
+.pb-metric.mw   .val { color: #34d399; }
 .pb-metric.mvar .val { color: #a78bfa; }
 .pb-footer { margin-top: 12px; font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 4px; }
+
+.jenis-header {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .5px; color: var(--muted);
+    margin-bottom: 10px; padding-bottom: 8px;
+    border-bottom: 1px solid var(--card-bd);
+}
+.jenis-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+.chart-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-bd);
+    border-radius: 14px;
+    padding: 16px 20px;
+}
+.chart-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 12px;
+}
+.chart-title { font-size: 12px; font-weight: 700; color: var(--text); }
 
 .dummy-notice {
     background: rgba(245,158,11,.08);
     border: 1px solid rgba(245,158,11,.3);
     border-radius: 10px;
     padding: 10px 14px;
-    font-size: 12px;
-    color: #fbbf24;
-    margin-bottom: 16px;
-    display: none;
+    font-size: 12px; color: #fbbf24;
+    margin-bottom: 16px; display: none;
 }
 .dummy-notice.show { display: flex; align-items: center; gap: 8px; }
+
+.hz-card {
+    background: var(--card-bg);
+    border: 1px solid rgba(96,165,250,.3);
+    border-radius: 14px; padding: 18px 20px;
+    cursor: pointer; transition: .2s;
+    user-select: none;
+}
+.hz-card:hover { border-color: rgba(96,165,250,.6); }
 </style>
 {% endblock %}
 
@@ -80,8 +108,8 @@
         <div style="font-size:20px; font-weight:800; color:#fff; margin-bottom:2px;">Dashboard Pembangkit</div>
         <div style="font-size:12px; color:var(--muted);"><span class="live-dot"></span>Nilai diperbarui setiap 5 detik</div>
     </div>
-    <div style="font-size:12px; color:var(--muted); text-align:right;">
-        <div id="total-aktif">{{ pembangkit_list|length }} pembangkit aktif</div>
+    <div style="font-size:12px; color:var(--muted);">
+        {{ pembangkit_list|length }} pembangkit aktif
     </div>
 </div>
 
@@ -90,16 +118,27 @@
     Menampilkan data simulasi — koneksi MSSQL belum dikonfigurasi.
 </div>
 
-<!-- Summary bar: Frekuensi Sistem + Beban Kit -->
-<div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px;">
-    <div style="background:var(--card-bg); border:1px solid rgba(96,165,250,.3); border-radius:14px; padding:18px 20px;">
-        <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); margin-bottom:6px;">
-            <i class="bi bi-activity me-1" style="color:#60a5fa;"></i>Frekuensi Sistem
+<!-- Summary bar: Frekuensi Sistem (klikable) + Beban Kit -->
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
+
+    <!-- Card Hz — klik untuk expand chart -->
+    <div class="hz-card" id="hz-card" onclick="toggleFreqChart()">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+            <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--muted);">
+                <i class="bi bi-activity me-1" style="color:#60a5fa;"></i>Frekuensi Sistem
+            </div>
+            <i class="bi bi-chevron-down" id="hz-chevron" style="font-size:11px; color:var(--muted); transition:.2s;"></i>
         </div>
         <div style="font-family:'JetBrains Mono',monospace; font-size:28px; font-weight:700; color:#60a5fa;" id="sys-hz">
             —<span style="font-size:14px; font-weight:400; color:var(--muted); margin-left:4px;">Hz</span>
         </div>
+        <!-- Chart expand -->
+        <div id="freq-chart-wrap" style="display:none; margin-top:14px; height:90px; position:relative;">
+            <canvas id="chart-freq"></canvas>
+        </div>
     </div>
+
+    <!-- Beban Kit total -->
     <div style="background:var(--card-bg); border:1px solid rgba(52,211,153,.3); border-radius:14px; padding:18px 20px;">
         <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); margin-bottom:6px;">
             <i class="bi bi-lightning-charge-fill me-1" style="color:#34d399;"></i>Beban Kit
@@ -110,30 +149,55 @@
     </div>
 </div>
 
-{% if pembangkit_list %}
-<div class="pb-grid" id="pb-grid">
-    {% for p in pembangkit_list %}
-    <a href="/opsis/{{ p.pk }}/" class="pb-card" id="card-{{ p.kode }}" style="--accent-color:{{ p.warna }};">
-        <div class="pb-card-head">
-            <div class="pb-name">{{ p.nama }}</div>
-            <div class="pb-status-badge" id="badge-{{ p.kode }}">Online</div>
-        </div>
-        <div class="pb-metrics" style="grid-template-columns: repeat(2, 1fr);">
-            <div class="pb-metric mw">
-                <div class="lbl">Daya MW</div>
-                <div class="val" id="val-mw-{{ p.kode }}">—</div>
-                <div class="unit">MW</div>
-            </div>
-            <div class="pb-metric mvar">
-                <div class="lbl">Daya MVAR</div>
-                <div class="val" id="val-mvar-{{ p.kode }}">—</div>
-                <div class="unit">MVAR</div>
-            </div>
-        </div>
-        <div class="pb-footer"><i class="bi bi-clock"></i> <span id="ts-{{ p.kode }}">—</span></div>
-    </a>
-    {% endfor %}
+<!-- Chart Beban Kit Hari Ini -->
+<div class="chart-card" style="margin-bottom:20px;">
+    <div class="chart-head">
+        <div class="chart-title"><i class="bi bi-graph-up me-1" style="color:#34d399;"></i>Beban Kit Hari Ini</div>
+        <span id="beban-updated" style="font-size:11px; color:var(--muted);">memuat...</span>
+    </div>
+    <div style="position:relative; height:160px;">
+        <canvas id="chart-beban"></canvas>
+    </div>
+    <div style="display:flex; gap:16px; margin-top:8px; font-size:10px; color:var(--muted);">
+        <span><span style="display:inline-block;width:2px;height:10px;background:#fbbf24;margin-right:4px;vertical-align:middle;"></span>Puncak Siang 12:00</span>
+        <span><span style="display:inline-block;width:2px;height:10px;background:#f87171;margin-right:4px;vertical-align:middle;"></span>Puncak Malam 19:00</span>
+    </div>
 </div>
+
+<!-- Grid pembangkit — dikelompokkan per jenis -->
+{% if grouped %}
+    {% for jenis, cards in grouped.items %}
+    <div style="margin-bottom:28px;">
+        <div class="jenis-header">
+            <span class="jenis-dot" id="dot-jenis-{{ jenis }}"></span>
+            {{ jenis }}
+            <span style="font-weight:400; font-size:11px;">— {{ cards|length }} unit</span>
+        </div>
+        <div class="pb-grid">
+            {% for p in cards %}
+            <a href="/opsis/{{ p.pk }}/" class="pb-card" id="card-{{ p.kode }}" style="--accent-color:{{ p.warna }};">
+                <div class="pb-card-head">
+                    <div class="pb-name">{{ p.nama }}</div>
+                    <div class="pb-status-badge" id="badge-{{ p.kode }}">Online</div>
+                </div>
+                <div class="pb-metrics">
+                    <div class="pb-metric mw">
+                        <div class="lbl">Daya MW</div>
+                        <div class="val" id="val-mw-{{ p.kode }}">—</div>
+                        <div class="unit">MW</div>
+                    </div>
+                    <div class="pb-metric mvar">
+                        <div class="lbl">Daya MVAR</div>
+                        <div class="val" id="val-mvar-{{ p.kode }}">—</div>
+                        <div class="unit">MVAR</div>
+                    </div>
+                </div>
+                <div class="pb-footer"><i class="bi bi-clock"></i> <span id="ts-{{ p.kode }}">—</span></div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
 {% else %}
 <div style="text-align:center; padding:60px 20px; color:var(--muted);">
     <i class="bi bi-plug" style="font-size:48px; display:block; margin-bottom:12px;"></i>
@@ -147,25 +211,41 @@
 <script>
 const KODE_LIST = [{% for p in pembangkit_list %}"{{ p.kode }}"{% if not forloop.last %},{% endif %}{% endfor %}];
 
+// Warna per jenis pembangkit
+const JENIS_WARNA = {
+    PLTA: '#3b82f6', PLTB: '#22c55e', PLTD: '#ef4444',
+    PLTU: '#f59e0b', PLTG: '#a855f7', PLTGU: '#06b6d4',
+    PLTS: '#eab308', LAIN: '#64748b',
+};
+// Set warna dot header jenis
+document.querySelectorAll('[id^="dot-jenis-"]').forEach(el => {
+    const jenis = el.id.replace('dot-jenis-', '');
+    el.style.background = JENIS_WARNA[jenis] || '#64748b';
+});
+
+Chart.defaults.color = '#64748b';
+Chart.defaults.font.family = 'DM Sans';
+
 function fmt(val, dec) {
     if (val === null || val === undefined) return '—';
     return parseFloat(val).toFixed(dec);
 }
 
+// ── Live polling (5 detik) ────────────────────────────────────────────
 async function pollLive() {
     try {
         const resp = await fetch('/opsis/api/live/');
         if (!resp.ok) return;
         const json = await resp.json();
         const data = json.data;
-        let hasDummy = false;
-        let totalMw = 0, hasMw = false;
+        let hasDummy = false, totalMw = 0, hasMw = false;
+
         for (const kode of KODE_LIST) {
             const d = data[kode];
             if (!d) continue;
-            const el = (id) => document.getElementById(id);
-            el(`val-mw-${kode}`)  && (el(`val-mw-${kode}`).textContent   = fmt(d.mw,   2));
-            el(`val-mvar-${kode}`)&& (el(`val-mvar-${kode}`).textContent = fmt(d.mvar,  2));
+            const el = id => document.getElementById(id);
+            el(`val-mw-${kode}`)   && (el(`val-mw-${kode}`).textContent   = fmt(d.mw,  2));
+            el(`val-mvar-${kode}`) && (el(`val-mvar-${kode}`).textContent = fmt(d.mvar, 2));
             if (el(`ts-${kode}`) && d.timestamp) {
                 const t = new Date(d.timestamp);
                 el(`ts-${kode}`).textContent = isNaN(t) ? d.timestamp : t.toLocaleTimeString('id-ID');
@@ -175,18 +255,153 @@ async function pollLive() {
             if (d.mw !== null) { totalMw += parseFloat(d.mw); hasMw = true; }
             if (d.is_dummy) hasDummy = true;
         }
+
         const sysMwEl = document.getElementById('sys-mw');
-        if (sysMwEl) sysMwEl.innerHTML = (hasMw ? totalMw.toFixed(2) : '—') + '<span style="font-size:14px;font-weight:400;color:var(--muted);margin-left:4px;">MW</span>';
+        if (sysMwEl) sysMwEl.innerHTML = (hasMw ? totalMw.toFixed(2) : '—')
+            + '<span style="font-size:14px;font-weight:400;color:var(--muted);margin-left:4px;">MW</span>';
+
         const sysHzEl = document.getElementById('sys-hz');
         const sysHz = json.frekuensi_sistem ?? null;
-        if (sysHzEl) sysHzEl.innerHTML = (sysHz !== null ? parseFloat(sysHz).toFixed(3) : '—') + '<span style="font-size:14px;font-weight:400;color:var(--muted);margin-left:4px;">Hz</span>';
-        const notice = document.getElementById('dummy-notice');
-        if (notice) notice.classList.toggle('show', hasDummy);
+        if (sysHzEl) sysHzEl.innerHTML = (sysHz !== null ? parseFloat(sysHz).toFixed(3) : '—')
+            + '<span style="font-size:14px;font-weight:400;color:var(--muted);margin-left:4px;">Hz</span>';
+
+        document.getElementById('dummy-notice')?.classList.toggle('show', hasDummy);
         setLastUpdate();
     } catch (e) {}
 }
-
 pollLive();
 setInterval(pollLive, 5000);
+
+// ── Chart Frekuensi (expand on click, update 1 detik) ─────────────────
+let chartFreq = null, freqInterval = null, freqVisible = false;
+
+function toggleFreqChart() {
+    freqVisible = !freqVisible;
+    const wrap    = document.getElementById('freq-chart-wrap');
+    const chevron = document.getElementById('hz-chevron');
+    wrap.style.display = freqVisible ? 'block' : 'none';
+    chevron.style.transform = freqVisible ? 'rotate(180deg)' : '';
+
+    if (freqVisible) {
+        if (!chartFreq) initFreqChart();
+        loadFreqChart();
+        freqInterval = setInterval(loadFreqChart, 1000);
+    } else {
+        clearInterval(freqInterval);
+    }
+}
+
+function initFreqChart() {
+    const ctx = document.getElementById('chart-freq').getContext('2d');
+    chartFreq = new Chart(ctx, {
+        type: 'line',
+        data: { labels: [], datasets: [{
+            data: [], borderColor: '#60a5fa',
+            backgroundColor: 'rgba(96,165,250,.08)',
+            borderWidth: 1.5, pointRadius: 0, tension: 0.2, fill: true,
+        }]},
+        options: {
+            responsive: true, maintainAspectRatio: false, animation: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { display: false },
+                y: { grid: { color: '#1e2d45' }, suggestedMin: 49.8, suggestedMax: 50.2,
+                     ticks: { callback: v => v.toFixed(2) } }
+            }
+        }
+    });
+}
+
+async function loadFreqChart() {
+    try {
+        const r = await fetch('/opsis/api/freq/?menit=5');
+        if (!r.ok) return;
+        const d = await r.json();
+        if (!chartFreq || !d.rows.length) return;
+        chartFreq.data.labels = d.rows.map(r => r.timestamp);
+        chartFreq.data.datasets[0].data = d.rows.map(r => r.hz);
+        chartFreq.update('none');
+    } catch (e) {}
+}
+
+// ── Chart Beban Kit Hari Ini ──────────────────────────────────────────
+let chartBeban = null;
+
+function initBebanChart(rows) {
+    const ctx = document.getElementById('chart-beban').getContext('2d');
+
+    // Garis vertikal untuk puncak siang (12:00) dan puncak malam (19:00)
+    const peakPlugin = {
+        id: 'peakLines',
+        afterDraw(chart) {
+            const { ctx, scales: { x, y } } = chart;
+            const peaks = [
+                { label: '12:00', color: '#fbbf24' },
+                { label: '19:00', color: '#f87171' },
+            ];
+            peaks.forEach(({ label, color }) => {
+                const idx = chart.data.labels.findIndex(l => l === label || l.startsWith(label));
+                if (idx < 0) return;
+                const xPos = x.getPixelForIndex(idx);
+                ctx.save();
+                ctx.beginPath();
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 1.5;
+                ctx.setLineDash([4, 3]);
+                ctx.moveTo(xPos, y.top);
+                ctx.lineTo(xPos, y.bottom);
+                ctx.stroke();
+                ctx.fillStyle = color;
+                ctx.font = '10px DM Sans';
+                ctx.fillText(label, xPos + 3, y.top + 12);
+                ctx.restore();
+            });
+        }
+    };
+
+    chartBeban = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: rows.map(r => r.timestamp),
+            datasets: [{
+                label: 'Beban Kit (MW)',
+                data: rows.map(r => r.mw),
+                borderColor: '#34d399',
+                backgroundColor: 'rgba(52,211,153,.07)',
+                borderWidth: 1.5, pointRadius: 0, tension: 0.3, fill: true,
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false, animation: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { grid: { color: '#1e2d45' }, ticks: { maxTicksLimit: 12 } },
+                y: { grid: { color: '#1e2d45' }, title: { display: true, text: 'MW', color: '#64748b' } }
+            }
+        },
+        plugins: [peakPlugin],
+    });
+}
+
+async function loadBebanChart() {
+    try {
+        const r = await fetch('/opsis/api/beban/');
+        if (!r.ok) return;
+        const d = await r.json();
+        const el = document.getElementById('beban-updated');
+        if (el) el.textContent = 'Update: ' + new Date().toLocaleTimeString('id-ID');
+        if (!d.rows.length) return;
+        if (!chartBeban) {
+            initBebanChart(d.rows);
+        } else {
+            chartBeban.data.labels = d.rows.map(r => r.timestamp);
+            chartBeban.data.datasets[0].data = d.rows.map(r => r.mw);
+            chartBeban.update();
+        }
+    } catch (e) {}
+}
+
+loadBebanChart();
+setInterval(loadBebanChart, 300000); // refresh tiap 5 menit
 </script>
 {% endblock %}
