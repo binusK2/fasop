@@ -297,10 +297,9 @@ def get_freq_trend(menit=10):
         conn   = _get_connection()
         cursor = conn.cursor()
         freq   = _freq_tbl()
-        titik  = menit * 60
+        titik  = int(menit) * 60  # int, aman di-embed langsung (TOP tidak terima parameter)
         cursor.execute(
-            f"SELECT TOP ? TIME, F FROM {freq} WITH (NOLOCK) ORDER BY ID DESC",
-            (titik,)
+            f"SELECT TOP ({titik}) TIME, F FROM {freq} WITH (NOLOCK) ORDER BY ID DESC"
         )
         rows = cursor.fetchall()
         conn.close()
