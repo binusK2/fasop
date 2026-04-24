@@ -80,6 +80,13 @@ def api_trend(request, pk):
 
 
 @login_required
+def api_hz(request):
+    """Hz terkini — ringan, dipanggil tiap 1 detik dari dashboard."""
+    hz = mssql.get_current_hz()
+    return JsonResponse({'hz': hz})
+
+
+@login_required
 def api_freq(request):
     """
     Chart frekuensi sistem.

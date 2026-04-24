@@ -117,7 +117,10 @@
 <!-- Chart MW + MVAR -->
 <div class="chart-card">
     <div class="chart-head">
-        <div class="chart-title"><i class="bi bi-graph-up me-1" style="color:#34d399;"></i>Trend Daya MW & MVAR</div>
+        <div class="chart-title">
+            <i class="bi bi-graph-up me-1" style="color:#34d399;"></i>Trend Daya MW & MVAR
+            <span id="chart-source" style="font-size:10px; font-weight:400; margin-left:8px; color:var(--muted);"></span>
+        </div>
         <div class="range-btns" id="range-btns">
             <button class="btn-range active" data-jam="1">1j</button>
             <button class="btn-range" data-jam="6">6j</button>
@@ -150,10 +153,7 @@ const chartDaya = new Chart(ctxDaya, {
                 data: [],
                 borderColor: '#34d399',
                 backgroundColor: 'rgba(52,211,153,.06)',
-                borderWidth: 1.5,
-                pointRadius: 0,
-                tension: 0.3,
-                fill: true,
+                borderWidth: 1.5, pointRadius: 0, tension: 0.3, fill: true,
                 yAxisID: 'yMW',
             },
             {
@@ -161,38 +161,78 @@ const chartDaya = new Chart(ctxDaya, {
                 data: [],
                 borderColor: '#a78bfa',
                 backgroundColor: 'rgba(167,139,250,.06)',
-                borderWidth: 1.5,
-                pointRadius: 0,
-                tension: 0.3,
-                fill: false,
+                borderWidth: 1.5, pointRadius: 0, tension: 0.3, fill: false,
                 yAxisID: 'yMVAR',
             }
         ]
     },
     options: {
-        responsive: true, maintainAspectRatio: false,
-        animation: false,
-        plugins: { legend: { labels: { color: '#94a3b8', boxWidth: 12 } } },
+        responsive: true, maintainAspectRatio: false, animation: false,
+        interaction: { intersect: false, mode: 'index' },
+        plugins: {
+            legend: { labels: { color: '#94a3b8', boxWidth: 12 } },
+            tooltip: {
+                enabled: true,
+                backgroundColor: 'rgba(15,23,42,.9)',
+                titleColor: '#94a3b8', bodyColor: '#f1f5f9',
+                borderColor: '#334155', borderWidth: 1,
+                padding: 8, displayColors: true,
+                callbacks: {
+                    label: ctx => ctx.datasetIndex === 0
+                        ? ` ${(ctx.parsed.y ?? 0).toFixed(2)} MW`
+                        : ` ${(ctx.parsed.y ?? 0).toFixed(2)} MVAR`
+                }
+            }
+        },
         scales: {
             x: { grid: { color: '#1e2d45' }, ticks: { maxTicksLimit: 10 } },
-            yMW:   { position: 'left',  grid: { color: '#1e2d45' }, title: { display: true, text: 'MW',   color: '#34d399' } },
-            yMVAR: { position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'MVAR', color: '#a78bfa' } },
+            yMW:   { position: 'left',  grid: { color: '#1e2d45' },
+                     title: { display: true, text: 'MW',   color: '#34d399' } },
+            yMVAR: { position: 'right', grid: { drawOnChartArea: false },
+                     title: { display: true, text: 'MVAR', color: '#a78bfa' } },
         }
     }
 });
 
-// Load trend chart
+// Sumber data: coba PostgreSQL (SnapLive) dulu, fallback ke MSSQL HIS_MEAS_KIT
 let currentJam = 1;
+let chartSource = '—';
+
 async function loadChart(jam) {
     try {
+        // Coba PostgreSQL dulu (lebih cepat, tidak bergantung koneksi MSSQL saat render)
+        const histResp = await fetch(`/opsis/api/history/${PK}/?jam=${jam}`);
+        if (histResp.ok) {
+            const hist = await histResp.json();
+            if (hist.rows && hist.rows.length > 0) {
+                chartDaya.data.labels            = hist.rows.map(r => r.timestamp);
+                chartDaya.data.datasets[0].data  = hist.rows.map(r => r.mw);
+                chartDaya.data.datasets[1].data  = hist.rows.map(r => r.mvar);
+                chartDaya.update();
+                chartSource = 'PostgreSQL';
+                updateSourceBadge();
+                return;
+            }
+        }
+        // Fallback: MSSQL HIS_MEAS_KIT (data lama / sebelum pipeline aktif)
         const resp = await fetch(`/opsis/api/trend/${PK}/?jam=${jam}`);
         if (!resp.ok) return;
         const d = await resp.json();
-        chartDaya.data.labels = d.labels;
+        chartDaya.data.labels           = d.labels;
         chartDaya.data.datasets[0].data = d.mw;
         chartDaya.data.datasets[1].data = d.mvar;
         chartDaya.update();
+        chartSource = 'MSSQL';
+        updateSourceBadge();
     } catch (e) {}
+}
+
+function updateSourceBadge() {
+    const el = document.getElementById('chart-source');
+    if (el) {
+        el.textContent = chartSource;
+        el.style.color = chartSource === 'PostgreSQL' ? '#34d399' : '#fbbf24';
+    }
 }
 
 // Range buttons
