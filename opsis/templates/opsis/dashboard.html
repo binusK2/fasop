@@ -371,7 +371,12 @@ function initBebanChart(rows) {
             },
             scales: {
                 x: { grid: { color: '#1e2d45' }, ticks: { maxTicksLimit: 12 } },
-                y: { grid: { color: '#1e2d45' }, title: { display: true, text: 'MW', color: '#64748b' } }
+                y: {
+                    grid: { color: '#1e2d45' },
+                    grace: '25%',   // padding 25% di atas & bawah range data → garis ke tengah
+                    title: { display: true, text: 'MW', color: '#64748b' },
+                    ticks: { callback: v => v.toFixed(0) },
+                }
             }
         },
         plugins: [peakPlugin],
