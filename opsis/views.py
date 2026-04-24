@@ -32,11 +32,15 @@ def pembangkit_detail(request, pk):
 def api_live(request):
     """JSON: nilai live semua pembangkit aktif. Dipanggil setiap 5 detik."""
     pembangkit_list = _pembangkit_aktif()
-    data = mssql.get_live_data(pembangkit_list)
-    # debug=1 → tampilkan is_dummy & error info (hanya superuser/staff)
+    result = mssql.get_live_data(pembangkit_list)
+    data   = result['data']
+    response = {
+        'data':              data,
+        'frekuensi_sistem':  result.get('frekuensi_sistem'),
+    }
     if request.GET.get('debug') and (request.user.is_superuser or request.user.is_staff):
-        return JsonResponse({'data': data, 'dummy_count': sum(1 for v in data.values() if v.get('is_dummy'))})
-    return JsonResponse({'data': data})
+        response['dummy_count'] = sum(1 for v in data.values() if v.get('is_dummy'))
+    return JsonResponse(response)
 
 
 @login_required
