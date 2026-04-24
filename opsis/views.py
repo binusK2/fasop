@@ -13,8 +13,13 @@ def _pembangkit_aktif():
 @login_required
 def dashboard(request):
     pembangkit_list = _pembangkit_aktif()
+    # Kelompokkan per jenis untuk tampilan grid
+    grouped = {}
+    for p in pembangkit_list:
+        grouped.setdefault(p.jenis, []).append(p)
     return render(request, 'opsis/dashboard.html', {
         'pembangkit_list': pembangkit_list,
+        'grouped':         grouped,
     })
 
 
@@ -70,6 +75,24 @@ def api_trend(request, pk):
         'nama':      p.nama,
         'warna':     p.warna,
     })
+
+
+@login_required
+def api_freq(request):
+    """Chart frekuensi sistem — last N menit dari SYS_FREQ_HIS. ?menit=10"""
+    try:
+        menit = min(max(int(request.GET.get('menit', 10)), 1), 60)
+    except (ValueError, TypeError):
+        menit = 10
+    rows = mssql.get_freq_trend(menit)
+    return JsonResponse({'rows': rows})
+
+
+@login_required
+def api_beban(request):
+    """Chart beban kit hari ini per 15 menit dari HIS_MEAS_KIT."""
+    rows = mssql.get_beban_trend()
+    return JsonResponse({'rows': rows})
 
 
 @login_required
