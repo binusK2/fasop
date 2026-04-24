@@ -61,7 +61,16 @@
 .pb-metric.mvar .val { color: #a78bfa; }
 .pb-footer { margin-top: 4px; font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 4px; }
 
-/* ── Header per jenis ───────────────────────────────────────── */
+/* ── Grid 2 kolom per jenis ─────────────────────────────────── */
+.jenis-outer-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    align-items: start;
+}
+@media (max-width: 640px) {
+    .jenis-outer-grid { grid-template-columns: 1fr; }
+}
 .jenis-header {
     display: flex; align-items: center; gap: 8px;
     font-size: 12px; font-weight: 700; text-transform: uppercase;
@@ -226,10 +235,11 @@
     </div>
 </div>
 
-<!-- Grid pembangkit — dikelompokkan per jenis -->
+<!-- Grid pembangkit — 2 kolom per jenis, kartu vertikal di tiap kolom -->
 {% if grouped %}
+<div class="jenis-outer-grid">
     {% for jenis, cards in grouped.items %}
-    <div style="margin-bottom:20px;">
+    <div>
         <div class="jenis-header">
             <span class="jenis-dot" id="dot-jenis-{{ jenis }}"></span>
             {{ jenis }}
@@ -263,6 +273,7 @@
         </div>
     </div>
     {% endfor %}
+</div>
 {% else %}
 <div style="text-align:center; padding:60px 20px; color:var(--muted);">
     <i class="bi bi-plug" style="font-size:48px; display:block; margin-bottom:12px;"></i>
@@ -501,38 +512,61 @@ const interactOpts = { intersect: false, mode: 'index' };
 // ── Chart Beban Kit — hari ini (00:00 sampai sekarang) ───────────────
 let chartBeban = null;
 
-function initBebanChart(rows) {
+function initBebanChart(rows, pSiang, pMalam) {
+    const n = rows.length;
     const ctx = document.getElementById('chart-beban').getContext('2d');
     chartBeban = new Chart(ctx, {
         type: 'line',
         data: {
             labels: rows.map(r => r.timestamp),
-            datasets: [{
-                label: 'Beban Kit',
-                data: rows.map(r => r.mw),
-                borderColor: '#34d399',
-                backgroundColor: 'rgba(52,211,153,.07)',
-                borderWidth: 1.5, pointRadius: 0, tension: 0.4, fill: true,
-                spanGaps: true,
-            }]
+            datasets: [
+                {
+                    label: 'Beban Kit',
+                    data: rows.map(r => r.mw),
+                    borderColor: '#34d399',
+                    backgroundColor: 'rgba(52,211,153,.07)',
+                    borderWidth: 1.5, pointRadius: 0, tension: 0.4, fill: true,
+                    spanGaps: true, order: 3,
+                },
+                {
+                    label: 'Puncak Siang 12:00',
+                    data: pSiang != null ? new Array(n).fill(pSiang) : [],
+                    borderColor: '#fbbf24', borderWidth: 1.5,
+                    borderDash: [5, 4], pointRadius: 0, fill: false,
+                    tension: 0, order: 2,
+                },
+                {
+                    label: 'Puncak Malam 18:30',
+                    data: pMalam != null ? new Array(n).fill(pMalam) : [],
+                    borderColor: '#f87171', borderWidth: 1.5,
+                    borderDash: [5, 4], pointRadius: 0, fill: false,
+                    tension: 0, order: 1,
+                },
+            ]
         },
         options: {
             responsive: true, maintainAspectRatio: false,
-            animation: { duration: 400 },
-            clip: false,
-            interaction: interactOpts,
+            animation: { duration: 300 },
+            interaction: { intersect: false, mode: 'index' },
             plugins: {
                 legend: { display: false },
                 tooltip: {
                     ...tooltipOpts,
-                    position: 'nearest',
-                    callbacks: { label: ctx => `${(ctx.parsed.y ?? 0).toFixed(2)} MW` }
+                    callbacks: {
+                        label: ctx => {
+                            const v = (ctx.parsed.y ?? 0).toFixed(2);
+                            if (ctx.datasetIndex === 0) return `Beban: ${v} MW`;
+                            if (ctx.datasetIndex === 1) return `Puncak Siang: ${v} MW`;
+                            if (ctx.datasetIndex === 2) return `Puncak Malam: ${v} MW`;
+                        },
+                        // sembunyikan baris puncak jika belum ada data
+                        filter: item => item.parsed.y != null,
+                    }
                 }
             },
             scales: {
                 x: {
                     grid: { color: '#1e2d45' },
-                    // Tampilkan ~24 tick (satu per jam) agar tidak penuh
                     ticks: { maxTicksLimit: 24, maxRotation: 0 }
                 },
                 y: {
@@ -560,21 +594,24 @@ async function loadBebanChart() {
         // Tampilkan nilai puncak siang dan malam
         const elSiang = document.getElementById('peak-siang-mw');
         const elMalam = document.getElementById('peak-malam-mw');
-        if (elSiang) elSiang.textContent = d.puncak_siang !== null ? parseFloat(d.puncak_siang).toFixed(2) : '—';
-        if (elMalam) elMalam.textContent = d.puncak_malam !== null ? parseFloat(d.puncak_malam).toFixed(2) : '—';
+        if (elSiang) elSiang.textContent = d.puncak_siang != null ? parseFloat(d.puncak_siang).toFixed(2) : '—';
+        if (elMalam) elMalam.textContent = d.puncak_malam != null ? parseFloat(d.puncak_malam).toFixed(2) : '—';
 
+        const n = d.rows.length;
         if (!chartBeban) {
-            initBebanChart(d.rows);
+            initBebanChart(d.rows, d.puncak_siang, d.puncak_malam);
         } else {
             chartBeban.data.labels = d.rows.map(r => r.timestamp);
             chartBeban.data.datasets[0].data = d.rows.map(r => r.mw);
-            chartBeban.update();
+            chartBeban.data.datasets[1].data = d.puncak_siang != null ? new Array(n).fill(d.puncak_siang) : [];
+            chartBeban.data.datasets[2].data = d.puncak_malam != null ? new Array(n).fill(d.puncak_malam) : [];
+            chartBeban.update('none');
         }
     } catch (e) {}
 }
 
 loadBebanChart();
-setInterval(loadBebanChart, 60000); // refresh tiap 1 menit
+setInterval(loadBebanChart, 5000); // refresh tiap 5 detik
 
 // ── Chart Frekuensi Hari Ini ──────────────────────────────────────────
 let chartFreqHari = null;
