@@ -48,6 +48,9 @@ urlpatterns = [
     # Opsis — Monitoring Pembangkit (role Opsis)
     path('opsis/', include('opsis.urls')),
 
+    # Device Monitor — Status RTU Realtime + Availability
+    path('device-mon/', include('device_mon.urls')),
+
     # Public FO page — tanpa login (QR scan)
     path('fo/public/<str:token>/', fo_public, name='fo_public'),
 

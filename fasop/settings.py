@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'gudang',
     'inspection',
     'opsis',
+    'device_mon',
 ]
 
 MIDDLEWARE = [
