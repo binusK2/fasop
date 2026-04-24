@@ -1,0 +1,48 @@
+{% extends "device_mon/base.html" %}
+{% block title %}Histori Gangguan RTU{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:18px;">
+    <div style="font-size:20px; font-weight:800; color:#fff; margin-bottom:2px;">Histori Gangguan RTU</div>
+    <div style="font-size:12px; color:var(--muted);">200 gangguan terakhir yang tercatat</div>
+</div>
+
+<div class="chart-card">
+    <table class="gangguan-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>RTU</th>
+                <th>State</th>
+                <th>Mulai</th>
+                <th>Selesai</th>
+                <th>Durasi</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in logs %}
+            <tr>
+                <td style="color:var(--muted);">{{ forloop.counter }}</td>
+                <td><strong>{{ log.rtu.nama }}</strong>{% if log.rtu.lokasi %}<br><span style="font-size:10px;color:var(--muted);">{{ log.rtu.lokasi }}</span>{% endif %}</td>
+                <td><span class="tag-{{ log.state|lower }}">{{ log.state }}</span></td>
+                <td>{{ log.mulai|date:"d/m/Y H:i" }}</td>
+                <td>
+                    {% if log.selesai %}{{ log.selesai|date:"d/m/Y H:i" }}
+                    {% else %}<span style="color:#f59e0b;">Berlangsung</span>{% endif %}
+                </td>
+                <td>
+                    {% if log.durasi_menit %}
+                        {% if log.durasi_menit < 60 %}{{ log.durasi_menit }}m
+                        {% else %}{{ log.durasi_menit|divisibleby:60 }}j {% endif %}
+                    {% else %}—{% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6" style="text-align:center;padding:40px;color:var(--muted);">
+                Tidak ada gangguan tercatat 🎉
+            </td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

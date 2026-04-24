@@ -508,3 +508,38 @@ def get_beban_trend():
     except Exception as e:
         logger.error('get_beban_trend error: %s', e)
         return []
+
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# RTU State — untuk device_mon app
+# ─────────────────────────────────────────────────────────────────────────────
+
+def get_rtu_state():
+    """
+    Ambil semua baris dari dbo.RTU_ALL_STATE.
+    Returns list of (nama:str, state:str, state_sejak:datetime|None).
+    state = 'UP' atau 'DOWN'.
+    """
+    try:
+        conn   = _get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT RTRIM(RTU), RTRIM(STATE), TIME "
+            "FROM dbo.RTU_ALL_STATE WITH (NOLOCK) "
+            "ORDER BY RTU"
+        )
+        rows = cursor.fetchall()
+        conn.close()
+        result = []
+        for row in rows:
+            nama        = (row[0] or '').strip()
+            state       = (row[1] or '').strip().upper()
+            state_sejak = row[2]   # datetime atau None
+            if not nama:
+                continue
+            result.append((nama, state, state_sejak))
+        return result
+    except Exception as e:
+        logger.error('get_rtu_state error: %s', e)
+        return []

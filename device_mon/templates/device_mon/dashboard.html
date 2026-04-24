@@ -1,0 +1,270 @@
+{% extends "device_mon/base.html" %}
+
+{% block title %}Dashboard RTU{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:18px;">
+    <div>
+        <div style="font-size:20px; font-weight:800; color:#fff; margin-bottom:2px;">
+            Status RTU Realtime
+        </div>
+        <div style="font-size:12px; color:var(--muted);">
+            <span class="live-dot"></span>Diperbarui setiap 60 detik dari MSSQL
+        </div>
+    </div>
+    <div style="font-size:11px; color:var(--muted);" id="last-updated">—</div>
+</div>
+
+<!-- Stat bar -->
+<div class="stat-bar">
+    <div class="stat-card up">
+        <div class="stat-lbl"><i class="bi bi-check-circle-fill me-1" style="color:#10b981;"></i>RTU Up</div>
+        <div class="stat-val up" id="stat-up">—</div>
+    </div>
+    <div class="stat-card down">
+        <div class="stat-lbl"><i class="bi bi-x-circle-fill me-1" style="color:#ef4444;"></i>RTU Down</div>
+        <div class="stat-val down" id="stat-down">—</div>
+    </div>
+    <div class="stat-card avail">
+        <div class="stat-lbl"><i class="bi bi-shield-check me-1" style="color:#60a5fa;"></i>Availability Hari Ini</div>
+        <div class="stat-val avail" id="stat-avail">—<span class="stat-unit">%</span></div>
+    </div>
+    <div class="stat-card avail" style="border-color:rgba(139,92,246,.3);">
+        <div class="stat-lbl"><i class="bi bi-calendar-month me-1" style="color:#a78bfa;"></i>Availability Bulan Ini</div>
+        <div class="stat-val" style="color:#a78bfa;" id="stat-avail-bulan">—<span class="stat-unit">%</span></div>
+    </div>
+</div>
+
+<!-- RTU Cards Grid -->
+<div class="rtu-grid" id="rtu-grid">
+    <!-- Diisi oleh JS via API -->
+    <div style="grid-column:1/-1; text-align:center; padding:40px; color:var(--muted);">
+        <i class="bi bi-arrow-repeat" style="font-size:24px; display:block; margin-bottom:8px; animation:spin 1s linear infinite;"></i>
+        Memuat data RTU...
+    </div>
+</div>
+<style>
+@keyframes spin { to { transform:rotate(360deg); } }
+</style>
+
+<!-- Chart: Availability per RTU hari ini -->
+<div class="chart-card">
+    <div class="chart-head">
+        <div class="chart-title">
+            <i class="bi bi-bar-chart-fill me-1" style="color:#60a5fa;"></i>
+            Availability RTU — Hari Ini
+        </div>
+        <span style="font-size:11px; color:var(--muted);" id="chart-updated">—</span>
+    </div>
+    <div style="position:relative; height:220px;">
+        <canvas id="chart-avail"></canvas>
+    </div>
+</div>
+
+<!-- Gangguan Terkini -->
+<div class="chart-card">
+    <div class="chart-head">
+        <div class="chart-title">
+            <i class="bi bi-exclamation-triangle-fill me-1" style="color:#f87171;"></i>
+            Gangguan Terkini (10 Terakhir)
+        </div>
+        <a href="/device-mon/gangguan/" style="font-size:11px; color:#60a5fa; text-decoration:none;">
+            Lihat semua <i class="bi bi-arrow-right"></i>
+        </a>
+    </div>
+    <table class="gangguan-table" id="tbl-gangguan">
+        <thead>
+            <tr>
+                <th>RTU</th>
+                <th>State</th>
+                <th>Mulai</th>
+                <th>Selesai</th>
+                <th>Durasi</th>
+            </tr>
+        </thead>
+        <tbody id="tbl-gangguan-body">
+            <tr><td colspan="5" style="text-align:center; color:var(--muted); padding:20px;">Memuat...</td></tr>
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+Chart.defaults.color = '#3d6896';
+Chart.defaults.font.family = 'DM Sans';
+
+let chartAvail = null;
+
+function fmtDur(menit) {
+    if (menit === null || menit === undefined) return '—';
+    if (menit < 60) return menit + 'm';
+    const j = Math.floor(menit / 60), m = menit % 60;
+    return m ? `${j}j ${m}m` : `${j}j`;
+}
+
+function fmtDt(s) {
+    if (!s) return '—';
+    const d = new Date(s);
+    return d.toLocaleString('id-ID', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+}
+
+// ── Render RTU Grid ───────────────────────────────────────────────────
+function renderGrid(rtus) {
+    const grid = document.getElementById('rtu-grid');
+    if (!rtus || !rtus.length) {
+        grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--muted);">Belum ada data RTU. Jalankan <code>collect_rtu</code> terlebih dahulu.</div>';
+        return;
+    }
+    grid.innerHTML = rtus.map(r => {
+        const cls     = r.state === 'UP' ? 'up' : r.state === 'DOWN' ? 'down' : 'unknown';
+        const avail   = r.avail_hari !== null ? r.avail_hari.toFixed(1) : '—';
+        const availPct = r.avail_hari !== null ? r.avail_hari : 0;
+        const fillClr  = availPct >= 99 ? '#10b981' : availPct >= 95 ? '#f59e0b' : '#ef4444';
+        return `
+        <div class="rtu-card ${cls}" onclick="location.href='/device-mon/rtu/${r.id}/'">
+            <div class="rtu-card-head">
+                <div class="rtu-nama">${r.nama}</div>
+                <div class="rtu-state-badge ${cls}">${r.state}</div>
+            </div>
+            <div class="rtu-meta">
+                ${r.lokasi ? `<div class="row"><i class="bi bi-geo-alt"></i><span>${r.lokasi}</span></div>` : ''}
+                <div class="row">
+                    <i class="bi bi-clock"></i>
+                    <span>${r.state === 'UP' ? 'Up selama' : r.state === 'DOWN' ? 'Down selama' : 'Sejak'}
+                    <strong>${fmtDur(r.durasi_menit)}</strong></span>
+                </div>
+                <div class="row">
+                    <i class="bi bi-calendar-day"></i>
+                    <span>Avail hari ini: <strong>${avail}%</strong></span>
+                </div>
+            </div>
+            <div class="rtu-avail-bar">
+                <div class="rtu-avail-fill" style="width:${availPct}%;background:${fillClr};"></div>
+            </div>
+            <div class="rtu-avail-pct">${avail}%</div>
+        </div>`;
+    }).join('');
+}
+
+// ── Render Chart Availability ─────────────────────────────────────────
+function renderChart(rtus) {
+    if (!rtus || !rtus.length) return;
+    const labels = rtus.map(r => r.nama);
+    const data   = rtus.map(r => r.avail_hari !== null ? parseFloat(r.avail_hari.toFixed(2)) : 0);
+    const colors = data.map(v => v >= 99 ? '#10b981' : v >= 95 ? '#f59e0b' : '#ef4444');
+
+    const ctx = document.getElementById('chart-avail').getContext('2d');
+    if (chartAvail) {
+        chartAvail.data.labels   = labels;
+        chartAvail.data.datasets[0].data = data;
+        chartAvail.data.datasets[0].backgroundColor = colors;
+        chartAvail.update();
+        return;
+    }
+    chartAvail = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [{
+                label: 'Availability (%)',
+                data,
+                backgroundColor: colors,
+                borderRadius: 6,
+                borderSkipped: false,
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            indexAxis: 'y',   // horizontal bar
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(7,17,31,.95)',
+                    titleColor: '#5d8ab5',
+                    bodyColor: '#cce0ff',
+                    borderColor: '#112240',
+                    borderWidth: 1,
+                    callbacks: {
+                        label: ctx => ` ${ctx.parsed.x.toFixed(2)}%`,
+                        afterLabel: ctx => {
+                            const rtu = window._rtuData?.[ctx.dataIndex];
+                            if (!rtu) return '';
+                            return ` Down hari ini: ${fmtDur(rtu.down_menit_hari)}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    min: 80, max: 100,
+                    grid: { color: '#0d1e36' },
+                    ticks: { callback: v => v + '%' }
+                },
+                y: { grid: { display: false } }
+            }
+        }
+    });
+}
+
+// ── Render Tabel Gangguan ─────────────────────────────────────────────
+function renderGangguan(logs) {
+    const tbody = document.getElementById('tbl-gangguan-body');
+    if (!logs || !logs.length) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px;">Tidak ada gangguan tercatat hari ini 🎉</td></tr>';
+        return;
+    }
+    tbody.innerHTML = logs.map(g => `
+        <tr>
+            <td><strong>${g.rtu}</strong></td>
+            <td><span class="tag-${g.state.toLowerCase()}">${g.state}</span></td>
+            <td>${fmtDt(g.mulai)}</td>
+            <td>${g.selesai ? fmtDt(g.selesai) : '<span style="color:#f59e0b;">Berlangsung</span>'}</td>
+            <td>${fmtDur(g.durasi_menit)}</td>
+        </tr>`).join('');
+}
+
+// ── Polling utama ─────────────────────────────────────────────────────
+async function pollDashboard() {
+    try {
+        const r = await fetch('/device-mon/api/status/');
+        if (!r.ok) return;
+        const d = await r.json();
+
+        window._rtuData = d.rtus;
+
+        // Stat bar
+        document.getElementById('stat-up').textContent    = d.total_up   ?? '—';
+        document.getElementById('stat-down').textContent  = d.total_down ?? '—';
+        document.getElementById('stat-avail').innerHTML   =
+            (d.avail_hari !== null ? d.avail_hari.toFixed(2) : '—')
+            + '<span class="stat-unit">%</span>';
+        document.getElementById('stat-avail-bulan').innerHTML =
+            (d.avail_bulan !== null ? d.avail_bulan.toFixed(2) : '—')
+            + '<span class="stat-unit">%</span>';
+
+        // Badge sidebar down count
+        const badge = document.querySelector('.sb-badge');
+        if (badge) badge.textContent = d.total_down || '';
+
+        renderGrid(d.rtus);
+        renderChart(d.rtus);
+        renderGangguan(d.gangguan_terkini);
+
+        const now = new Date().toLocaleTimeString('id-ID');
+        document.getElementById('last-updated').textContent  = 'Update: ' + now;
+        document.getElementById('chart-updated').textContent = now;
+    } catch(e) {
+        console.error('poll error', e);
+    }
+}
+
+pollDashboard();
+setInterval(pollDashboard, 60000);   // refresh tiap 1 menit
+</script>
+{% endblock %}

@@ -1,0 +1,84 @@
+{% extends "device_mon/base.html" %}
+{% block title %}Availability RTU{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:18px;">
+    <div style="font-size:20px; font-weight:800; color:#fff; margin-bottom:2px;">Availability RTU</div>
+    <div style="font-size:12px; color:var(--muted);">Periode: {{ period }}</div>
+</div>
+
+<!-- Chart -->
+<div class="chart-card" style="margin-bottom:16px;">
+    <div class="chart-head">
+        <div class="chart-title"><i class="bi bi-bar-chart-fill me-1" style="color:#60a5fa;"></i>Availability per RTU</div>
+    </div>
+    <div style="position:relative; height:280px;">
+        <canvas id="chart-avail"></canvas>
+    </div>
+</div>
+
+<!-- Tabel -->
+<div class="chart-card">
+    <table class="gangguan-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>RTU</th>
+                <th>Lokasi</th>
+                <th>Availability</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr>
+                <td style="color:var(--muted);">{{ forloop.counter }}</td>
+                <td><strong>{{ row.rtu.nama }}</strong></td>
+                <td>{{ row.rtu.lokasi|default:"—" }}</td>
+                <td>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <div style="flex:1; height:4px; background:rgba(255,255,255,.06); border-radius:2px;">
+                            <div style="width:{{ row.avail }}%; height:100%; background:{% if row.avail >= 99 %}#10b981{% elif row.avail >= 95 %}#f59e0b{% else %}#ef4444{% endif %}; border-radius:2px;"></div>
+                        </div>
+                        <span style="font-family:'JetBrains Mono',monospace; font-size:12px;">{{ row.avail|floatformat:2 }}%</span>
+                    </div>
+                </td>
+                <td>
+                    {% if row.avail >= 99 %}<span class="tag-up">Baik</span>
+                    {% elif row.avail >= 95 %}<span style="display:inline-block;background:rgba(245,158,11,.12);color:#fbbf24;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;">Perhatian</span>
+                    {% else %}<span class="tag-down">Kritis</span>{% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" style="text-align:center;padding:40px;color:var(--muted);">Belum ada data. Jalankan collect_rtu terlebih dahulu.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const labels = [{% for row in rows %}"{{ row.rtu.nama }}"{% if not forloop.last %},{% endif %}{% endfor %}];
+const data   = [{% for row in rows %}{{ row.avail|floatformat:2 }}{% if not forloop.last %},{% endif %}{% endfor %}];
+const colors = data.map(v => v >= 99 ? '#10b981' : v >= 95 ? '#f59e0b' : '#ef4444');
+
+new Chart(document.getElementById('chart-avail').getContext('2d'), {
+    type: 'bar',
+    data: { labels, datasets: [{ label:'Availability (%)', data, backgroundColor: colors, borderRadius:6, borderSkipped:false }] },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        indexAxis: 'y',
+        plugins: { legend: { display:false }, tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.x.toFixed(2)}%` } } },
+        scales: {
+            x: { min:80, max:100, grid:{ color:'#0d1e36' }, ticks:{ callback: v => v+'%' } },
+            y: { grid:{ display:false } }
+        }
+    }
+});
+</script>
+{% endblock %}
