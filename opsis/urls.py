@@ -10,4 +10,5 @@ urlpatterns = [
     path('api/beban/',           views.api_beban,    name='opsis_api_beban'),
     path('api/ping/',            views.api_ping,     name='opsis_api_ping'),
     path('api/diagnose/',       views.api_diagnose, name='opsis_api_diagnose'),
+    path('api/history/<int:pk>/', views.api_history, name='opsis_api_history'),
 ]
