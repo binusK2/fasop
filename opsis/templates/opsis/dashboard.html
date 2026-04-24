@@ -160,7 +160,6 @@ async function pollLive() {
         const data = json.data;
         let hasDummy = false;
         let totalMw = 0, hasMw = false;
-        let sysHz = null;
         for (const kode of KODE_LIST) {
             const d = data[kode];
             if (!d) continue;
@@ -174,12 +173,12 @@ async function pollLive() {
             const dot = document.getElementById(`dot-${kode}`);
             if (dot) dot.className = 'sb-dot ' + (d.mw !== null ? 'green' : '');
             if (d.mw !== null) { totalMw += parseFloat(d.mw); hasMw = true; }
-            if (d.frekuensi !== null && sysHz === null) sysHz = d.frekuensi;
             if (d.is_dummy) hasDummy = true;
         }
         const sysMwEl = document.getElementById('sys-mw');
         if (sysMwEl) sysMwEl.innerHTML = (hasMw ? totalMw.toFixed(2) : '—') + '<span style="font-size:14px;font-weight:400;color:var(--muted);margin-left:4px;">MW</span>';
         const sysHzEl = document.getElementById('sys-hz');
+        const sysHz = json.frekuensi_sistem ?? null;
         if (sysHzEl) sysHzEl.innerHTML = (sysHz !== null ? parseFloat(sysHz).toFixed(3) : '—') + '<span style="font-size:14px;font-weight:400;color:var(--muted);margin-left:4px;">Hz</span>';
         const notice = document.getElementById('dummy-notice');
         if (notice) notice.classList.toggle('show', hasDummy);

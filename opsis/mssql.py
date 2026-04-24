@@ -1,25 +1,20 @@
 """
-Koneksi dan query ke MSSQL untuk data real-time pembangkit.
+Koneksi dan query ke MSSQL untuk data pembangkit.
 
-Struktur tabel:
-  ID   — auto increment
-  TIME — datetime timestamp
-  B1   — nama pembangkit  (contoh: SUPPA5, BKARU5, TELLO_SW)
-  B3   — nama unit/kit    (contoh: UNIT1_P, UNIT2_P)
-  P    — daya aktif MW    (float, bisa NULL)
-  Q    — daya reaktif MVAR (float, bisa NULL — untuk pengembangan selanjutnya)
-  V, I — kolom lain (belum dipakai)
-
-Satu pembangkit (B1) bisa punya banyak baris unit (B3) per timestamp.
-Query menggunakan SUM(P)/SUM(Q) GROUP BY B1 agar total daya per pembangkit.
+Tabel yang digunakan:
+  HIS_MEAS_KIT  — historis per-unit (B1, B3, P, Q, TIME) → untuk trend chart
+  KIT_REALTIME  — live per-KIT (KIT, UNIT1_P..UNIT8_P, TOTAL, DATE) → untuk live dashboard
+  SYS_FREQ_HIS  — frekuensi sistem (ID, TIME, F) → untuk Frekuensi Sistem dashboard
 
 Env vars di .env server:
-  MSSQL_HOST   = localhost
-  MSSQL_DB     = nama_database
-  MSSQL_USER   = username
-  MSSQL_PASS   = password
-  MSSQL_TABLE  = nama_tabel        ← SESUAIKAN dengan nama tabel aktual
-  MSSQL_DRIVER = ODBC Driver 17 for SQL Server
+  MSSQL_HOST     = host,port
+  MSSQL_DB       = nama_database
+  MSSQL_USER     = username
+  MSSQL_PASS     = password
+  MSSQL_TABLE    = dbo.HIS_MEAS_KIT
+  MSSQL_RT_TABLE = dbo.KIT_REALTIME
+  MSSQL_FREQ_TABLE = dbo.SYS_FREQ_HIS
+  MSSQL_DRIVER   = ODBC Driver 17 for SQL Server
 """
 from django.conf import settings
 import datetime
@@ -32,8 +27,16 @@ _DUMMY_MODE = False  # set True untuk paksa data dummy
 
 
 def _tbl():
-    """Nama tabel MSSQL — baca dari settings."""
+    """Tabel historis HIS_MEAS_KIT — untuk trend chart."""
     return getattr(settings, 'MSSQL_TABLE', 'dbo.HIS_MEAS_KIT')
+
+def _rt_tbl():
+    """Tabel realtime KIT_REALTIME — untuk live dashboard."""
+    return getattr(settings, 'MSSQL_RT_TABLE', 'dbo.KIT_REALTIME')
+
+def _freq_tbl():
+    """Tabel frekuensi SYS_FREQ_HIS — untuk Frekuensi Sistem."""
+    return getattr(settings, 'MSSQL_FREQ_TABLE', 'dbo.SYS_FREQ_HIS')
 
 
 def _parse_host_port(host_setting, default_port=1433):
@@ -115,77 +118,94 @@ def _dummy_trend(pembangkit, jam=1):
 
 def get_live_data(pembangkit_list):
     """
-    Return dict {kode: {mw, mvar, frekuensi, units, timestamp, is_dummy}}.
+    Return {'data': {kode: {...}}, 'frekuensi_sistem': float|None}.
 
-    Strategi: ambil timestamp terbaru per B1, lalu SUM(P)/SUM(Q) untuk
-    semua unit (B3) pada timestamp tersebut.
-
-    `kode` di model Pembangkit harus sama persis dengan nilai B1 di tabel.
-    Contoh: Pembangkit.kode = 'SUPPA5'  ←→  B1 = 'SUPPA5'
+    Live MW/unit → KIT_REALTIME (satu baris per KIT, kolom UNIT1_P..UNIT8_P, TOTAL).
+    Frekuensi sistem → SYS_FREQ_HIS (TOP 1 ORDER BY ID DESC).
+    Trend tetap pakai HIS_MEAS_KIT via get_trend_data().
     """
     if _DUMMY_MODE or not getattr(settings, 'MSSQL_HOST', ''):
-        return _dummy_live(pembangkit_list)
+        return {'data': _dummy_live(pembangkit_list), 'frekuensi_sistem': None}
 
     try:
         conn   = _get_connection()
         cursor = conn.cursor()
-        tbl    = _tbl()
+        rt     = _rt_tbl()
+        freq   = _freq_tbl()
 
-        # Satu query bulk: filter TIME 10 menit terakhir (pakai index TIME),
-        # return unit-level rows (per B3) → agregasi di Python.
-        # ROW_NUMBER per (B1,B3) → 1 baris terbaru per unit, deduplikasi B1 trailing spaces
+        # ── Query 1: live MW per KIT dari KIT_REALTIME ──────────────────
         cursor.execute(
             f"""
-            WITH recent AS (
-                SELECT RTRIM(B1) AS B1, RTRIM(B3) AS B3, P, Q, TIME,
-                       ROW_NUMBER() OVER (
-                           PARTITION BY RTRIM(B1), RTRIM(B3)
-                           ORDER BY TIME DESC
-                       ) AS rn
-                FROM {tbl} WITH (NOLOCK)
-                WHERE TIME >= DATEADD(minute, -10, GETDATE())
-            )
-            SELECT B1, B3, P, Q, TIME
-            FROM recent
-            WHERE rn = 1
-            ORDER BY B1, B3
+            SELECT KIT, DATE,
+                   UNIT1_P, UNIT1_Q, UNIT2_P, UNIT2_Q,
+                   UNIT3_P, UNIT3_Q, UNIT4_P, UNIT4_Q,
+                   UNIT5_P, UNIT5_Q, UNIT6_P, UNIT6_Q,
+                   UNIT7_P, UNIT7_Q, UNIT8_P, UNIT8_Q,
+                   TOTAL
+            FROM {rt} WITH (NOLOCK)
             """
         )
-        rows = cursor.fetchall()
+        rt_rows = cursor.fetchall()
+
+        # Proses per KIT: bangun units list dari UNIT1..UNIT8
+        db_map = {}
+        unit_cols = [  # (P_idx, Q_idx, nama)
+            (2,  3,  'UNIT1'), (4,  5,  'UNIT2'),
+            (6,  7,  'UNIT3'), (8,  9,  'UNIT4'),
+            (10, 11, 'UNIT5'), (12, 13, 'UNIT6'),
+            (14, 15, 'UNIT7'), (16, 17, 'UNIT8'),
+        ]
+        for row in rt_rows:
+            kit = row[0].strip().upper() if row[0] else ''
+            ts  = row[1].isoformat() if row[1] else None
+            total = float(row[18]) if row[18] is not None else None
+
+            units = []
+            mvar_total = 0.0
+            for p_idx, q_idx, nama in unit_cols:
+                p_ = float(row[p_idx]) if row[p_idx] is not None else None
+                q_ = float(row[q_idx]) if row[q_idx] is not None else None
+                if p_ is not None:  # skip unit yang NULL (tidak aktif)
+                    units.append({'nama': nama, 'mw': p_, 'mvar': q_})
+                    if q_ is not None:
+                        mvar_total += q_
+
+            db_map[kit] = {
+                'mw':        total,
+                'mvar':      round(mvar_total, 3) if mvar_total else None,
+                'frekuensi': None,
+                'units':     units,
+                'timestamp': ts,
+                'is_dummy':  False,
+            }
+
+        # ── Query 2: frekuensi sistem dari SYS_FREQ_HIS ─────────────────
+        frekuensi_sistem = None
+        try:
+            cursor.execute(f"SELECT TOP 1 F FROM {freq} WITH (NOLOCK) ORDER BY ID DESC")
+            row = cursor.fetchone()
+            if row and row[0] is not None:
+                frekuensi_sistem = float(row[0])
+        except Exception as e:
+            logger.warning('Frekuensi sistem gagal diambil: %s', e)
+
         conn.close()
 
-        # Agregasi di Python: SUM per B1, kumpulkan unit list
-        db_map = {}
-        for row in rows:
-            b1  = row[0].strip() if row[0] else ''
-            b3  = row[1].strip() if row[1] else ''
-            p_  = float(row[2]) if row[2] is not None else None
-            q_  = float(row[3]) if row[3] is not None else None
-            ts  = row[4].isoformat() if row[4] else None
-            if b1 not in db_map:
-                db_map[b1] = {'mw': 0.0, 'mvar': 0.0, 'frekuensi': None,
-                               'units': [], 'timestamp': ts, 'is_dummy': False}
-            # Total hanya dari nilai positif — nilai negatif diabaikan di SUM
-            if p_ is not None and p_ > 0:
-                db_map[b1]['mw'] = round(db_map[b1]['mw'] + p_, 3)
-            if q_ is not None and q_ > 0:
-                db_map[b1]['mvar'] = round(db_map[b1]['mvar'] + q_, 3)
-            db_map[b1]['units'].append({'nama': b3, 'mw': p_, 'mvar': q_})
-
-        # Cocokkan dengan kode pembangkit Django
-        result = {}
+        # Cocokkan dengan kode pembangkit Django (case-insensitive)
+        data = {}
         for p in pembangkit_list:
             if not p.aktif:
                 continue
-            result[p.kode] = db_map.get(p.kode, {
+            data[p.kode] = db_map.get(p.kode.strip().upper(), {
                 'mw': None, 'mvar': None, 'frekuensi': None,
                 'units': [], 'timestamp': None, 'is_dummy': False,
             })
-        return result
+
+        return {'data': data, 'frekuensi_sistem': frekuensi_sistem}
 
     except Exception as e:
         logger.error('get_live_data error: %s', e, exc_info=True)
-        return _dummy_live(pembangkit_list)
+        return {'data': _dummy_live(pembangkit_list), 'frekuensi_sistem': None}
 
 
 # ── Trend data (untuk chart) ──────────────────────────────────────────
