@@ -358,9 +358,9 @@ def get_freq_trend(menit=10):
         cursor = conn.cursor()
         freq   = _freq_tbl()
         titik  = int(menit) * 60  # int, aman di-embed langsung (TOP tidak terima parameter)
-        # WHERE TIME >= ... agar bisa pakai index TIME (hindari full scan tabel besar)
-        # buffer 2x menit supaya hasil tidak kurang saat ada gap data
-        buf = int(menit) * 2
+        # WHERE TIME >= ... agar pakai index TIME (hindari full scan tabel besar)
+        # buffer +5 menit supaya hasil tidak kurang saat ada gap data
+        buf = int(menit) + 5
         cursor.execute(
             f"""
             SELECT TOP ({titik}) TIME, F

@@ -97,7 +97,7 @@ def api_freq(request):
         rows = mssql.get_freq_hari_ini()
     else:
         try:
-            menit = min(max(int(request.GET.get('menit', 10)), 1), 60)
+            menit = min(max(int(request.GET.get('menit', 10)), 1), 120)
         except (ValueError, TypeError):
             menit = 10
         rows = mssql.get_freq_trend(menit)
@@ -106,9 +106,32 @@ def api_freq(request):
 
 @login_required
 def api_beban(request):
-    """Chart beban kit hari ini per 15 menit dari HIS_MEAS_KIT."""
+    """
+    Chart beban kit hari ini.
+    Coba PostgreSQL (SnapLive, per menit) dulu — lebih cepat & akurat.
+    Fallback ke MSSQL HIS_MEAS_KIT (per 15 menit) jika belum ada data hari ini.
+    """
+    from django.db.models import Sum
+    today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    snaps = (SnapLive.objects
+             .filter(waktu__gte=today_start)
+             .values('waktu')
+             .annotate(total_mw=Sum('mw'))
+             .order_by('waktu'))
+    if snaps.exists():
+        tz_local = timezone.get_current_timezone()
+        rows = [
+            {
+                'timestamp': s['waktu'].astimezone(tz_local).strftime('%H:%M'),
+                'mw':        round(s['total_mw'], 2) if s['total_mw'] else None,
+            }
+            for s in snaps
+        ]
+        return JsonResponse({'rows': rows, 'source': 'postgresql'})
+
+    # Fallback: MSSQL HIS_MEAS_KIT per 15 menit
     rows = mssql.get_beban_trend()
-    return JsonResponse({'rows': rows})
+    return JsonResponse({'rows': rows, 'source': 'mssql'})
 
 
 @login_required

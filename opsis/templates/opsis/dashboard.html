@@ -154,10 +154,10 @@
     </div>
 </div>
 
-<!-- Chart Frekuensi Hari Ini -->
+<!-- Chart Frekuensi -->
 <div class="chart-card" style="margin-bottom:20px;">
     <div class="chart-head">
-        <div class="chart-title"><i class="bi bi-activity me-1" style="color:#60a5fa;"></i>Frekuensi Hari Ini</div>
+        <div class="chart-title"><i class="bi bi-activity me-1" style="color:#60a5fa;"></i>Frekuensi Sistem — 30 Menit Terakhir</div>
         <span id="freq-updated" style="font-size:11px; color:var(--muted);">memuat...</span>
     </div>
     <div style="position:relative; height:160px;">
@@ -341,11 +341,12 @@ function initBebanChart(rows) {
                 data: rows.map(r => r.mw),
                 borderColor: '#34d399',
                 backgroundColor: 'rgba(52,211,153,.07)',
-                borderWidth: 1.5, pointRadius: 0, tension: 0.3, fill: true,
+                borderWidth: 1.5, pointRadius: 0, tension: 0.4, fill: true,
+                spanGaps: true,
             }]
         },
         options: {
-            responsive: true, maintainAspectRatio: false, animation: false,
+            responsive: true, maintainAspectRatio: false, animation: { duration: 400 },
             interaction: interactOpts,
             plugins: {
                 legend: { display: false },
@@ -369,8 +370,9 @@ async function loadBebanChart() {
         if (!r.ok) return;
         const d = await r.json();
         const el = document.getElementById('beban-updated');
-        if (el) el.textContent = 'Update: ' + new Date().toLocaleTimeString('id-ID');
-        if (!d.rows.length) return;
+        const src = d.source === 'postgresql' ? '🟢 PostgreSQL' : '🟡 MSSQL';
+        if (el) el.textContent = src + ' · ' + new Date().toLocaleTimeString('id-ID');
+        if (!d.rows || !d.rows.length) return;
         if (!chartBeban) {
             initBebanChart(d.rows);
         } else {
@@ -382,7 +384,7 @@ async function loadBebanChart() {
 }
 
 loadBebanChart();
-setInterval(loadBebanChart, 300000); // refresh tiap 5 menit
+setInterval(loadBebanChart, 60000); // refresh tiap 1 menit
 
 // ── Chart Frekuensi Hari Ini ──────────────────────────────────────────
 let chartFreqHari = null;
@@ -400,24 +402,22 @@ function initFreqHariChart(rows) {
                     data: rows.map(r => r.hz),
                     borderColor: '#60a5fa',
                     backgroundColor: 'rgba(96,165,250,.07)',
-                    borderWidth: 1.5, pointRadius: 0, tension: 0.2, fill: true,
+                    borderWidth: 1, pointRadius: 0, tension: 0.1, fill: true,
                     order: 1,
                 },
                 {
                     label: '50 Hz',
                     data: new Array(n).fill(50),
                     borderColor: '#ef4444',
-                    borderWidth: 1.5,
-                    borderDash: [5, 4],
-                    pointRadius: 0,
-                    fill: false,
-                    tension: 0,
+                    borderWidth: 1.5, borderDash: [5, 4],
+                    pointRadius: 0, fill: false, tension: 0,
                     order: 0,
                 }
             ]
         },
         options: {
-            responsive: true, maintainAspectRatio: false, animation: false,
+            responsive: true, maintainAspectRatio: false,
+            animation: false,
             interaction: interactOpts,
             plugins: {
                 legend: { display: false },
@@ -431,7 +431,7 @@ function initFreqHariChart(rows) {
                 }
             },
             scales: {
-                x: { grid: { color: '#1e2d45' }, ticks: { maxTicksLimit: 12 } },
+                x: { grid: { color: '#1e2d45' }, ticks: { maxTicksLimit: 10 } },
                 y: {
                     grid: { color: '#1e2d45' },
                     suggestedMin: 49.8, suggestedMax: 50.2,
@@ -445,12 +445,13 @@ function initFreqHariChart(rows) {
 
 async function loadFreqHariChart() {
     try {
-        const r = await fetch('/opsis/api/freq/?mode=hari_ini');
+        // Ambil 30 menit terakhir data per detik → smooth, tidak rata-rata
+        const r = await fetch('/opsis/api/freq/?menit=30');
         if (!r.ok) return;
         const d = await r.json();
         const el = document.getElementById('freq-updated');
-        if (el) el.textContent = 'Update: ' + new Date().toLocaleTimeString('id-ID');
-        if (!d.rows.length) return;
+        if (el) el.textContent = new Date().toLocaleTimeString('id-ID');
+        if (!d.rows || !d.rows.length) return;
         const n = d.rows.length;
         if (!chartFreqHari) {
             initFreqHariChart(d.rows);
@@ -458,12 +459,12 @@ async function loadFreqHariChart() {
             chartFreqHari.data.labels = d.rows.map(r => r.timestamp);
             chartFreqHari.data.datasets[0].data = d.rows.map(r => r.hz);
             chartFreqHari.data.datasets[1].data = new Array(n).fill(50);
-            chartFreqHari.update();
+            chartFreqHari.update('none'); // tanpa animasi agar smooth saat refresh
         }
     } catch (e) {}
 }
 
 loadFreqHariChart();
-setInterval(loadFreqHariChart, 60000); // refresh tiap 1 menit
+setInterval(loadFreqHariChart, 5000); // refresh tiap 5 detik — data per detik
 </script>
 {% endblock %}
