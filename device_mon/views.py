@@ -168,6 +168,90 @@ def api_status(request):
 
 
 @login_required
+def rtu_detail(request, pk):
+    """Halaman detail satu RTU — info state, availability, histori log."""
+    rtu = get_object_or_404(RTU, pk=pk)
+    return render(request, 'device_mon/rtu_detail.html', {'rtu': rtu})
+
+
+@login_required
+def api_rtu_logs(request, pk):
+    """
+    JSON: log state RTU untuk chart timeline + tabel.
+    ?hari=N  (default 7, max 30)
+    """
+    rtu = get_object_or_404(RTU, pk=pk)
+    try:
+        hari = min(max(int(request.GET.get('hari', 7)), 1), 30)
+    except (ValueError, TypeError):
+        hari = 7
+
+    now, today_start, month_start = _boundaries()
+    tz_local = timezone.get_current_timezone()
+    since    = now - datetime.timedelta(days=hari)
+
+    logs = (RTULog.objects
+            .filter(rtu=rtu, mulai__gte=since)
+            .order_by('mulai'))
+
+    total_menit = max(1, int((now - since).total_seconds() / 60))
+    down_logs   = [l for l in logs if l.state == 'DOWN']
+    avail       = _calc_avail(down_logs, since, now, total_menit)
+
+    # Availability hari ini & bulan ini
+    down_today = [l for l in RTULog.objects.filter(
+        rtu=rtu, state='DOWN', mulai__lt=now
+    ).filter(Q(selesai__gt=today_start) | Q(selesai__isnull=True))]
+    down_month = [l for l in RTULog.objects.filter(
+        rtu=rtu, state='DOWN', mulai__lt=now
+    ).filter(Q(selesai__gt=month_start) | Q(selesai__isnull=True))]
+
+    avail_hari  = _calc_avail(down_today, today_start, now,
+                              max(1, int((now - today_start).total_seconds() / 60)))
+    avail_bulan = _calc_avail(down_month, month_start, now,
+                              max(1, int((now - month_start).total_seconds() / 60)))
+
+    # Total menit DOWN dalam periode
+    down_menit_total = sum(
+        max(0, int((
+            (min(l.selesai, now) if l.selesai else now) -
+            max(l.mulai, since)
+        ).total_seconds() / 60))
+        for l in down_logs
+    )
+
+    # Format log untuk tabel & chart
+    log_data = []
+    for l in logs:
+        mulai_local   = l.mulai.astimezone(tz_local)
+        selesai_local = l.selesai.astimezone(tz_local) if l.selesai else None
+        # Durasi aktual (mungkin masih berjalan)
+        dur = l.durasi_menit
+        if dur is None and not l.selesai:
+            dur = max(0, int((now - l.mulai).total_seconds() / 60))
+        log_data.append({
+            'state':        l.state,
+            'mulai':        mulai_local.strftime('%d/%m %H:%M'),
+            'selesai':      selesai_local.strftime('%d/%m %H:%M') if selesai_local else None,
+            'durasi_menit': dur,
+        })
+
+    return JsonResponse({
+        'nama':             rtu.nama,
+        'lokasi':           rtu.lokasi,
+        'state':            rtu.state,
+        'state_sejak':      rtu.state_sejak.astimezone(tz_local).strftime('%d/%m/%Y %H:%M') if rtu.state_sejak else None,
+        'durasi_menit':     rtu.durasi_menit,
+        'avail_hari':       avail_hari,
+        'avail_bulan':      avail_bulan,
+        'avail_periode':    avail,
+        'down_menit_total': down_menit_total,
+        'hari':             hari,
+        'logs':             log_data,
+    })
+
+
+@login_required
 def gangguan_list(request):
     """Halaman histori gangguan."""
     logs = (RTULog.objects
