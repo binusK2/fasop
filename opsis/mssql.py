@@ -114,7 +114,8 @@ def get_current_hz():
         return round(50 + random.uniform(-0.1, 0.1), 3)
 
     freq = _freq_tbl()
-    sql  = f"SELECT TOP 1 F FROM {freq} WITH (NOLOCK) ORDER BY ID DESC"
+    # WHERE TIME >= ... agar pakai index TIME, hindari full scan tabel besar
+    sql  = f"SELECT TOP 1 F FROM {freq} WITH (NOLOCK) WHERE TIME >= DATEADD(minute, -5, GETDATE()) ORDER BY TIME DESC"
 
     for attempt in range(2):  # 1 retry jika koneksi mati
         try:
@@ -245,7 +246,7 @@ def get_live_data(pembangkit_list):
         # ── Query 2: frekuensi sistem dari SYS_FREQ_HIS ─────────────────
         frekuensi_sistem = None
         try:
-            cursor.execute(f"SELECT TOP 1 F FROM {freq} WITH (NOLOCK) ORDER BY ID DESC")
+            cursor.execute(f"SELECT TOP 1 F FROM {freq} WITH (NOLOCK) WHERE TIME >= DATEADD(minute, -5, GETDATE()) ORDER BY TIME DESC")
             row = cursor.fetchone()
             if row and row[0] is not None:
                 frekuensi_sistem = float(row[0])
