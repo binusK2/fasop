@@ -293,22 +293,22 @@ def api_beban(request):
     Fallback ke MSSQL HIS_MEAS_KIT (per 15 menit) jika belum ada data hari ini.
     """
     from django.db.models import Sum
-    today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    tz_local   = timezone.get_current_timezone()
+    today_local = timezone.now().astimezone(tz_local).date()   # tanggal lokal, bukan UTC
     snaps = (SnapLive.objects
-             .filter(waktu__gte=today_start)
+             .filter(waktu__date=today_local)   # Django konversi TZ secara otomatis
              .values('waktu')
              .annotate(total_mw=Sum('mw'))
              .order_by('waktu'))
     if snaps.exists():
-        tz_local = timezone.get_current_timezone()
         rows = [
             {
                 'timestamp': s['waktu'].astimezone(tz_local).strftime('%H:%M'),
-                'mw':        round(s['total_mw'], 2) if s['total_mw'] else None,
+                'mw':        round(s['total_mw'], 2) if s['total_mw'] is not None else None,
             }
             for s in snaps
         ]
-        return JsonResponse({'rows': rows, 'source': 'postgresql'})
+        return JsonResponse({'rows': rows, 'source': 'postgresql', 'count': len(rows)})
 
     # Fallback: MSSQL HIS_MEAS_KIT per 15 menit
     rows = mssql.get_beban_trend()
