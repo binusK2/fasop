@@ -187,7 +187,7 @@ AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
 ]
 AXES_FAILURE_LIMIT       = 5
-AXES_LOCKOUT_PARAMETERS  = [['username']]   # kunci per username
+AXES_LOCKOUT_PARAMETERS  = [['username', 'ip_address']]   # kunci per username + IP
 AXES_RESET_ON_SUCCESS    = True             # reset counter jika berhasil login
 AXES_LOCKOUT_TEMPLATE    = 'registration/lockout.html'
 AXES_VERBOSE             = False
