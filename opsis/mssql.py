@@ -140,8 +140,7 @@ def get_live_data(pembangkit_list):
                    UNIT1_P, UNIT1_Q, UNIT2_P, UNIT2_Q,
                    UNIT3_P, UNIT3_Q, UNIT4_P, UNIT4_Q,
                    UNIT5_P, UNIT5_Q, UNIT6_P, UNIT6_Q,
-                   UNIT7_P, UNIT7_Q, UNIT8_P, UNIT8_Q,
-                   TOTAL
+                   UNIT7_P, UNIT7_Q, UNIT8_P, UNIT8_Q
             FROM {rt} WITH (NOLOCK)
             """
         )
@@ -158,21 +157,25 @@ def get_live_data(pembangkit_list):
         for row in rt_rows:
             kit = row[0].strip().upper() if row[0] else ''
             ts  = row[1].isoformat() if row[1] else None
-            total = float(row[18]) if row[18] is not None else None
 
             units = []
+            mw_total   = 0.0
             mvar_total = 0.0
+            has_mw = has_mvar = False
             for p_idx, q_idx, nama in unit_cols:
                 p_ = float(row[p_idx]) if row[p_idx] is not None else None
                 q_ = float(row[q_idx]) if row[q_idx] is not None else None
                 if p_ is not None:  # skip unit yang NULL (tidak aktif)
                     units.append({'nama': nama, 'mw': p_, 'mvar': q_})
+                    mw_total += p_
+                    has_mw = True
                     if q_ is not None:
                         mvar_total += q_
+                        has_mvar = True
 
             db_map[kit] = {
-                'mw':        total,
-                'mvar':      round(mvar_total, 3) if mvar_total else None,
+                'mw':        round(mw_total, 3)   if has_mw   else None,
+                'mvar':      round(mvar_total, 3) if has_mvar else None,
                 'frekuensi': None,
                 'units':     units,
                 'timestamp': ts,
