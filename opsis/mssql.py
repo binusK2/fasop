@@ -167,9 +167,10 @@ def get_live_data(pembangkit_list):
                 q_ = float(row[q_idx]) if row[q_idx] is not None else None
                 if p_ is not None:  # skip unit yang NULL (tidak aktif)
                     units.append({'nama': nama, 'mw': p_, 'mvar': q_})
-                    mw_total += p_
-                    has_mw = True
-                    if q_ is not None:
+                    if p_ > 0:      # total hanya dari unit yang menghasilkan (positif)
+                        mw_total += p_
+                        has_mw = True
+                    if q_ is not None and q_ > 0:
                         mvar_total += q_
                         has_mvar = True
 
