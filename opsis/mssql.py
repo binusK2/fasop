@@ -321,6 +321,46 @@ def get_freq_trend(menit=10):
         return []
 
 
+def get_freq_hari_ini():
+    """
+    Return list [{timestamp 'HH:MM', hz}] rata-rata per menit hari ini
+    dari SYS_FREQ_HIS. Dipakai untuk chart Frekuensi Hari Ini di dashboard.
+    """
+    if _DUMMY_MODE or not getattr(settings, 'MSSQL_HOST', ''):
+        import random
+        now = datetime.datetime.now()
+        result = []
+        t = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        while t <= now:
+            result.append({'timestamp': t.strftime('%H:%M'),
+                           'hz': round(50 + random.uniform(-0.15, 0.15), 3)})
+            t += datetime.timedelta(minutes=1)
+        return result
+    try:
+        conn   = _get_connection()
+        cursor = conn.cursor()
+        freq   = _freq_tbl()
+        # GROUP BY per menit (CONVERT varchar 5 → 'HH:MM'), AVG Hz per menit
+        cursor.execute(
+            f"""
+            SELECT CONVERT(VARCHAR(5), TIME, 108) AS menit, AVG(F) AS avg_hz
+            FROM {freq} WITH (NOLOCK)
+            WHERE TIME >= CAST(CAST(GETDATE() AS DATE) AS DATETIME)
+            GROUP BY CONVERT(VARCHAR(5), TIME, 108)
+            ORDER BY menit
+            """
+        )
+        rows = cursor.fetchall()
+        conn.close()
+        return [
+            {'timestamp': row[0], 'hz': float(row[1]) if row[1] is not None else None}
+            for row in rows
+        ]
+    except Exception as e:
+        logger.error('get_freq_hari_ini error: %s', e)
+        return []
+
+
 # ── Beban total hari ini ──────────────────────────────────────────────
 
 def get_beban_trend():
