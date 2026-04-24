@@ -8,6 +8,7 @@ urlpatterns = [
     path('api/trend/<int:pk>/', views.api_trend,   name='opsis_api_trend'),
     path('api/freq/',            views.api_freq,     name='opsis_api_freq'),
     path('api/beban/',           views.api_beban,    name='opsis_api_beban'),
+    path('api/hz/',              views.api_hz,       name='opsis_api_hz'),
     path('api/ping/',            views.api_ping,     name='opsis_api_ping'),
     path('api/diagnose/',       views.api_diagnose, name='opsis_api_diagnose'),
     path('api/history/<int:pk>/', views.api_history, name='opsis_api_history'),

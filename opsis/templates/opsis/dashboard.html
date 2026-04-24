@@ -235,7 +235,7 @@ function fmt(val, dec) {
     return parseFloat(val).toFixed(dec);
 }
 
-// ── Live polling (5 detik) ────────────────────────────────────────────
+// ── Live polling MW/MVAR (5 detik) ───────────────────────────────────
 async function pollLive() {
     try {
         const resp = await fetch('/opsis/api/live/');
@@ -243,6 +243,7 @@ async function pollLive() {
         const json = await resp.json();
         const data = json.data;
         let hasDummy = false, totalMw = 0, hasMw = false;
+        const now = new Date().toLocaleTimeString('id-ID');  // waktu browser saat data diterima
 
         for (const kode of KODE_LIST) {
             const d = data[kode];
@@ -250,10 +251,8 @@ async function pollLive() {
             const el = id => document.getElementById(id);
             el(`val-mw-${kode}`)   && (el(`val-mw-${kode}`).textContent   = fmt(d.mw,  2));
             el(`val-mvar-${kode}`) && (el(`val-mvar-${kode}`).textContent = fmt(d.mvar, 2));
-            if (el(`ts-${kode}`) && d.timestamp) {
-                const t = new Date(d.timestamp);
-                el(`ts-${kode}`).textContent = isNaN(t) ? d.timestamp : t.toLocaleTimeString('id-ID');
-            }
+            // Gunakan waktu browser (selalu update, tidak tergantung timestamp MSSQL)
+            el(`ts-${kode}`) && (el(`ts-${kode}`).textContent = now);
             const dot = document.getElementById(`dot-${kode}`);
             if (dot) dot.className = 'sb-dot ' + (d.mw !== null ? 'green' : '');
             if (d.mw !== null) { totalMw += parseFloat(d.mw); hasMw = true; }
@@ -264,17 +263,27 @@ async function pollLive() {
         if (sysMwEl) sysMwEl.innerHTML = (hasMw ? totalMw.toFixed(2) : '—')
             + '<span style="font-size:14px;font-weight:400;color:var(--muted);margin-left:4px;">MW</span>';
 
-        const sysHzEl = document.getElementById('sys-hz');
-        const sysHz = json.frekuensi_sistem ?? null;
-        if (sysHzEl) sysHzEl.innerHTML = (sysHz !== null ? parseFloat(sysHz).toFixed(3) : '—')
-            + '<span style="font-size:14px;font-weight:400;color:var(--muted);margin-left:4px;">Hz</span>';
-
         document.getElementById('dummy-notice')?.classList.toggle('show', hasDummy);
         setLastUpdate();
     } catch (e) {}
 }
 pollLive();
 setInterval(pollLive, 5000);
+
+// ── Hz polling (1 detik) — endpoint ringan khusus Hz ─────────────────
+async function pollHz() {
+    try {
+        const r = await fetch('/opsis/api/hz/');
+        if (!r.ok) return;
+        const d = await r.json();
+        const sysHzEl = document.getElementById('sys-hz');
+        if (sysHzEl) sysHzEl.innerHTML =
+            (d.hz !== null ? parseFloat(d.hz).toFixed(3) : '—')
+            + '<span style="font-size:14px;font-weight:400;color:var(--muted);margin-left:4px;">Hz</span>';
+    } catch (e) {}
+}
+pollHz();
+setInterval(pollHz, 1000);
 
 // ── Plugin garis vertikal (puncak siang/malam) ───────────────────────
 const peakPlugin = {

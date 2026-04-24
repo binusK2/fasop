@@ -79,6 +79,65 @@ def _get_connection():
     return conn
 
 
+def _make_conn_str():
+    """Build connection string dari settings (tanpa TCP ping)."""
+    import pyodbc
+    host = getattr(settings, 'MSSQL_HOST', '')
+    if not host:
+        return None, None
+    h, port = _parse_host_port(host)
+    user = getattr(settings, 'MSSQL_USER', '')
+    pwd  = getattr(settings, 'MSSQL_PASS', '')
+    auth = f"UID={user};PWD={pwd};" if user else "Trusted_Connection=yes;"
+    conn_str = (
+        f"DRIVER={getattr(settings, 'MSSQL_DRIVER', 'ODBC Driver 17 for SQL Server')};"
+        f"SERVER={h},{port};"
+        f"DATABASE={getattr(settings, 'MSSQL_DB', '')};"
+        + auth +
+        "Encrypt=no;TrustServerCertificate=yes;"
+    )
+    return conn_str, pyodbc
+
+
+# Persistent connection untuk Hz polling 1 detik — di-share dalam satu proses
+_hz_conn = None
+
+def get_current_hz():
+    """
+    Ambil nilai Hz terkini dari SYS_FREQ_HIS.
+    Menggunakan persistent connection (tidak buat koneksi baru tiap detik).
+    Reconnect otomatis jika koneksi putus.
+    """
+    global _hz_conn
+    if _DUMMY_MODE or not getattr(settings, 'MSSQL_HOST', ''):
+        import random
+        return round(50 + random.uniform(-0.1, 0.1), 3)
+
+    freq = _freq_tbl()
+    sql  = f"SELECT TOP 1 F FROM {freq} WITH (NOLOCK) ORDER BY ID DESC"
+
+    for attempt in range(2):  # 1 retry jika koneksi mati
+        try:
+            if _hz_conn is None:
+                conn_str, pyodbc = _make_conn_str()
+                if conn_str is None:
+                    return None
+                _hz_conn = pyodbc.connect(conn_str, timeout=3)
+                _hz_conn.timeout = 5
+            cursor = _hz_conn.cursor()
+            cursor.execute(sql)
+            row = cursor.fetchone()
+            return float(row[0]) if row and row[0] is not None else None
+        except Exception as e:
+            logger.debug('get_current_hz attempt %d: %s', attempt + 1, e)
+            try:
+                _hz_conn.close()
+            except Exception:
+                pass
+            _hz_conn = None  # force reconnect on next attempt
+    return None
+
+
 # ── Dummy data (saat MSSQL belum tersambung) ─────────────────────────
 
 def _dummy_live(pembangkit_list):
