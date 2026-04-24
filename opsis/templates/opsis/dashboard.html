@@ -5,19 +5,22 @@
 {% block extra_head %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
+/* ── Layout kartu pembangkit (vertikal, satu per baris) ────── */
 .pb-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 .pb-card {
     background: var(--card-bg);
     border: 1px solid var(--card-bd);
-    border-radius: 14px;
-    padding: 18px 20px;
+    border-radius: 12px;
+    padding: 12px 18px;
     text-decoration: none;
     color: var(--text);
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 16px;
     transition: .2s;
     cursor: pointer;
     position: relative;
@@ -27,47 +30,53 @@
 .pb-card::before {
     content: '';
     position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 3px;
+    top: 0; left: 0; bottom: 0;
+    width: 3px;
     background: var(--accent-color, #3b82f6);
 }
-.pb-card-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 14px;
+.pb-card-left {
+    flex: 1; min-width: 0; padding-left: 6px;
 }
-.pb-name { font-size: 14px; font-weight: 700; color: var(--text); }
+.pb-name { font-size: 13px; font-weight: 700; color: var(--text); }
 .pb-status-badge {
     font-size: 10px; font-weight: 700; padding: 2px 8px;
     border-radius: 20px; background: rgba(16,185,129,.15); color: #34d399;
 }
 .pb-metrics {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
+    display: flex;
+    gap: 24px;
+    flex-shrink: 0;
 }
 .pb-metric .lbl {
     font-size: 10px; font-weight: 700; text-transform: uppercase;
-    letter-spacing: .4px; color: var(--muted); margin-bottom: 3px;
+    letter-spacing: .4px; color: var(--muted); margin-bottom: 2px;
+    text-align: right;
 }
 .pb-metric .val {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 20px; font-weight: 700; color: var(--text);
+    font-size: 16px; font-weight: 700; color: var(--text);
+    text-align: right;
 }
-.pb-metric .unit { font-size: 11px; font-weight: 400; color: var(--muted); }
 .pb-metric.mw   .val { color: #34d399; }
 .pb-metric.mvar .val { color: #a78bfa; }
-.pb-footer { margin-top: 12px; font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 4px; }
+.pb-footer { margin-top: 4px; font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 4px; }
 
+/* ── Header per jenis ───────────────────────────────────────── */
 .jenis-header {
     display: flex; align-items: center; gap: 8px;
     font-size: 12px; font-weight: 700; text-transform: uppercase;
     letter-spacing: .5px; color: var(--muted);
-    margin-bottom: 10px; padding-bottom: 8px;
-    border-bottom: 1px solid var(--card-bd);
+    margin-bottom: 8px; padding: 8px 12px;
+    background: rgba(255,255,255,.03);
+    border: 1px solid var(--card-bd);
+    border-radius: 10px;
 }
-.jenis-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.jenis-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink:0; }
+.jenis-total {
+    margin-left: auto; font-weight: 400; font-size: 11px;
+    font-family: 'JetBrains Mono', monospace; letter-spacing: 0;
+    text-transform: none; color: var(--muted);
+}
 
 .chart-card {
     background: var(--card-bg);
@@ -201,35 +210,54 @@
     </div>
 </div>
 
+<!-- Chart Komposisi Pembangkit -->
+<div class="chart-card" style="margin-bottom:20px;">
+    <div class="chart-head">
+        <div class="chart-title"><i class="bi bi-pie-chart-fill me-1" style="color:#a78bfa;"></i>Komposisi Pembangkit</div>
+        <span id="komposisi-updated" style="font-size:11px; color:var(--muted);">memuat...</span>
+    </div>
+    <div style="display:flex; align-items:center; gap:24px;">
+        <div style="position:relative; height:160px; width:160px; flex-shrink:0;">
+            <canvas id="chart-komposisi"></canvas>
+        </div>
+        <div id="komposisi-legend" style="flex:1; display:flex; flex-direction:column; gap:8px; min-width:0;">
+            <div style="font-size:11px; color:var(--muted); font-style:italic;">Memuat data...</div>
+        </div>
+    </div>
+</div>
+
 <!-- Grid pembangkit — dikelompokkan per jenis -->
 {% if grouped %}
     {% for jenis, cards in grouped.items %}
-    <div style="margin-bottom:28px;">
+    <div style="margin-bottom:20px;">
         <div class="jenis-header">
             <span class="jenis-dot" id="dot-jenis-{{ jenis }}"></span>
             {{ jenis }}
-            <span style="font-weight:400; font-size:11px;">— {{ cards|length }} unit</span>
+            <span style="font-weight:400; font-size:11px; text-transform:none; letter-spacing:0;">{{ cards|length }} unit</span>
+            <span class="jenis-total">
+                Total&nbsp;<span id="total-mw-{{ jenis }}" style="color:#34d399; font-weight:700;">—</span>&nbsp;MW
+            </span>
         </div>
         <div class="pb-grid">
             {% for p in cards %}
             <a href="/opsis/{{ p.pk }}/" class="pb-card" id="card-{{ p.kode }}" style="--accent-color:{{ p.warna }};">
-                <div class="pb-card-head">
-                    <div class="pb-name">{{ p.nama }}</div>
-                    <div class="pb-status-badge" id="badge-{{ p.kode }}">Online</div>
+                <div class="pb-card-left">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                        <div class="pb-name">{{ p.nama }}</div>
+                        <div class="pb-status-badge" id="badge-{{ p.kode }}">Online</div>
+                    </div>
+                    <div class="pb-footer"><i class="bi bi-clock"></i> <span id="ts-{{ p.kode }}">—</span></div>
                 </div>
                 <div class="pb-metrics">
                     <div class="pb-metric mw">
-                        <div class="lbl">Daya MW</div>
+                        <div class="lbl">MW</div>
                         <div class="val" id="val-mw-{{ p.kode }}">—</div>
-                        <div class="unit">MW</div>
                     </div>
                     <div class="pb-metric mvar">
-                        <div class="lbl">Daya MVAR</div>
+                        <div class="lbl">MVAR</div>
                         <div class="val" id="val-mvar-{{ p.kode }}">—</div>
-                        <div class="unit">MVAR</div>
                     </div>
                 </div>
-                <div class="pb-footer"><i class="bi bi-clock"></i> <span id="ts-{{ p.kode }}">—</span></div>
             </a>
             {% endfor %}
         </div>
@@ -254,11 +282,84 @@ const JENIS_WARNA = {
     PLTU: '#f59e0b', PLTG: '#a855f7', PLTGU: '#06b6d4',
     PLTS: '#eab308', LAIN: '#64748b',
 };
+
+// Mapping kode → jenis (untuk komposisi chart)
+const PB_INFO = {
+    {% for p in pembangkit_list %}"{{ p.kode }}": "{{ p.jenis }}"{% if not forloop.last %},{% endif %}{% endfor %}
+};
+
 // Set warna dot header jenis
 document.querySelectorAll('[id^="dot-jenis-"]').forEach(el => {
     const jenis = el.id.replace('dot-jenis-', '');
     el.style.background = JENIS_WARNA[jenis] || '#64748b';
 });
+
+// ── Chart Komposisi Pembangkit (donut) ───────────────────────────────
+let chartKomposisi = null;
+
+function updateKomposisiChart(jenisData) {
+    const labels = jenisData.map(d => d.jenis);
+    const values = jenisData.map(d => d.mw);
+    const colors = jenisData.map(d => JENIS_WARNA[d.jenis] || '#64748b');
+    const total  = values.reduce((a, b) => a + b, 0);
+
+    if (!chartKomposisi) {
+        const ctx = document.getElementById('chart-komposisi').getContext('2d');
+        chartKomposisi = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels,
+                datasets: [{
+                    data: values,
+                    backgroundColor: colors.map(c => c + 'bb'),
+                    borderColor: colors,
+                    borderWidth: 1.5,
+                    hoverOffset: 6,
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                cutout: '62%',
+                animation: { duration: 300 },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        ...tooltipOpts,
+                        callbacks: {
+                            label: ctx => {
+                                const pct = total > 0 ? (ctx.parsed / total * 100).toFixed(1) : 0;
+                                return `${ctx.parsed.toFixed(2)} MW  (${pct}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    } else {
+        chartKomposisi.data.labels = labels;
+        chartKomposisi.data.datasets[0].data   = values;
+        chartKomposisi.data.datasets[0].backgroundColor = colors.map(c => c + 'bb');
+        chartKomposisi.data.datasets[0].borderColor     = colors;
+        chartKomposisi.update();
+    }
+
+    // Legend kustom di sebelah kanan chart
+    const legendEl = document.getElementById('komposisi-legend');
+    if (!legendEl) return;
+    legendEl.innerHTML = jenisData.map(d => {
+        const color = JENIS_WARNA[d.jenis] || '#64748b';
+        const pct   = total > 0 ? (d.mw / total * 100).toFixed(1) : '0.0';
+        return `<div style="display:flex;align-items:center;gap:8px;font-size:12px;">
+            <span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${color};flex-shrink:0;"></span>
+            <span style="flex:1;font-weight:600;color:var(--text);">${d.jenis}</span>
+            <span style="font-family:'JetBrains Mono',monospace;color:${color};font-size:13px;font-weight:700;">${d.mw.toFixed(2)}</span>
+            <span style="color:var(--muted);font-size:11px;min-width:38px;text-align:right;">${pct}%</span>
+        </div>`;
+    }).join('');
+
+    const updEl = document.getElementById('komposisi-updated');
+    if (updEl) updEl.textContent = new Date().toLocaleTimeString('id-ID');
+}
 
 Chart.defaults.color = '#64748b';
 Chart.defaults.font.family = 'DM Sans';
@@ -298,6 +399,28 @@ async function pollLive() {
 
         document.getElementById('dummy-notice')?.classList.toggle('show', hasDummy);
         setLastUpdate();
+
+        // Akumulasi MW per jenis untuk komposisi chart + total header
+        const jenisMw = {};
+        for (const kode of KODE_LIST) {
+            const d = data[kode];
+            if (!d || d.mw === null) continue;
+            const jenis = PB_INFO[kode];
+            if (!jenis) continue;
+            jenisMw[jenis] = (jenisMw[jenis] || 0) + parseFloat(d.mw);
+        }
+        // Update label "Total X MW" di header setiap jenis
+        for (const [jenis, mw] of Object.entries(jenisMw)) {
+            const el = document.getElementById(`total-mw-${jenis}`);
+            if (el) el.textContent = mw.toFixed(2);
+        }
+        // Update komposisi chart — urutkan descending MW, hanya yg > 0
+        const jenisData = Object.entries(jenisMw)
+            .filter(([, mw]) => mw > 0)
+            .sort((a, b) => b[1] - a[1])
+            .map(([jenis, mw]) => ({ jenis, mw }));
+        if (jenisData.length) updateKomposisiChart(jenisData);
+
     } catch (e) {}
 }
 pollLive();
