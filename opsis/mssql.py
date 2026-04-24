@@ -421,6 +421,40 @@ def get_freq_hari_ini():
         return []
 
 
+def get_freq_seconds(detik=70):
+    """
+    Ambil data frekuensi per detik dari SYS_FREQ_HIS untuk N detik terakhir.
+    Return list of (datetime_naive, float_hz) — dipakai oleh collect_freq command.
+    Menggunakan _get_connection() biasa (dengan TCP ping).
+    """
+    if _DUMMY_MODE or not getattr(settings, 'MSSQL_HOST', ''):
+        return []
+    try:
+        conn   = _get_connection()
+        cursor = conn.cursor()
+        freq   = _freq_tbl()
+        titik  = int(detik)
+        buf    = titik + 10
+        cursor.execute(
+            f"""
+            SELECT TOP ({titik}) TIME, F
+            FROM {freq} WITH (NOLOCK)
+            WHERE TIME >= DATEADD(second, -{buf}, GETDATE())
+            ORDER BY TIME DESC
+            """
+        )
+        rows = cursor.fetchall()
+        conn.close()
+        return [
+            (row[0], float(row[1]))          # (datetime_naive, hz)
+            for row in rows
+            if row[0] is not None and row[1] is not None
+        ]
+    except Exception as e:
+        logger.error('get_freq_seconds error: %s', e)
+        return []
+
+
 # ── Beban total hari ini ──────────────────────────────────────────────
 
 def get_beban_trend():

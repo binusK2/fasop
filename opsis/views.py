@@ -4,7 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.utils import timezone
 from django.conf import settings
-from .models import Pembangkit, SnapLive
+from .models import Pembangkit, SnapLive, SnapFreq
 from . import mssql
 
 
@@ -100,12 +100,8 @@ def export_frekuensi(request):
 
     tz_local = timezone.get_current_timezone()
 
-    # Ambil data dari SnapLive — rata-rata Hz per menit (semua pembangkit nilai sama)
-    rows = (SnapLive.objects
-            .filter(waktu__date=tanggal)
-            .values('waktu')
-            .annotate(hz=Avg('frekuensi'))
-            .order_by('waktu'))
+    # Ambil dari SnapFreq (per detik, retensi 30 hari)
+    rows = SnapFreq.objects.filter(waktu__date=tanggal).order_by('waktu')
 
     # Buat workbook Excel
     wb = openpyxl.Workbook()
@@ -139,8 +135,8 @@ def export_frekuensi(request):
     batas_bawah, batas_atas = 49.5, 50.5
 
     for i, row in enumerate(rows, 1):
-        waktu_lokal = row['waktu'].astimezone(tz_local)
-        hz = round(row['hz'], 4) if row['hz'] is not None else None
+        waktu_lokal = row.waktu.astimezone(tz_local)
+        hz = round(row.hz, 4) if row.hz is not None else None
         if hz is None:
             status = '—'
         elif hz < batas_bawah:
@@ -168,8 +164,8 @@ def export_frekuensi(request):
             ws.cell(i + 1, col).alignment = center
 
     # Summary baris terakhir
-    if rows:
-        hz_vals = [r['hz'] for r in rows if r['hz'] is not None]
+    if rows.exists():
+        hz_vals = [r.hz for r in rows if r.hz is not None]
         if hz_vals:
             ws.append([])
             ws.append(['', '', 'Rata-rata', round(sum(hz_vals)/len(hz_vals), 4), ''])
