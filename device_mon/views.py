@@ -3,34 +3,44 @@ from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.utils import timezone
-from django.db.models import Sum, Count, Q
+from django.db.models import Q
 from .models import RTU, RTULog
 
 
-def _avail_pct(rtu, since, until=None):
+def _boundaries():
     """
-    Hitung availability RTU dalam periode [since, until].
-    Returns float 0-100 atau None jika belum ada log.
+    Kembalikan (now, today_start, month_start) semuanya timezone-aware UTC.
+    Batas dihitung dari waktu LOKAL agar benar untuk zona Asia/Makassar.
     """
-    if until is None:
-        until = timezone.now()
-    total_menit = max(1, int((until - since).total_seconds() / 60))
+    tz_local   = timezone.get_current_timezone()
+    now        = timezone.now()                         # UTC-aware
+    now_local  = now.astimezone(tz_local)
 
-    # Jumlahkan durasi DOWN dalam periode
-    logs = RTULog.objects.filter(
-        rtu=rtu,
-        state='DOWN',
-        mulai__lt=until,
-    ).filter(Q(selesai__gt=since) | Q(selesai__isnull=True))
+    today_start = now_local.replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )                                                   # masih aware (local tz)
 
+    month_start = now_local.replace(
+        day=1, hour=0, minute=0, second=0, microsecond=0
+    )
+
+    return now, today_start, month_start
+
+
+def _calc_avail(logs_down, since, now, total_menit):
+    """
+    Hitung menit DOWN dari kumpulan log yang sudah di-filter,
+    lalu kembalikan availability %.
+    logs_down: queryset atau list RTULog (state=DOWN) yang overlap dengan [since, now].
+    """
     down_menit = 0
-    for log in logs:
+    for log in logs_down:
         start = max(log.mulai, since)
-        end   = min(log.selesai, until) if log.selesai else until
+        end   = min(log.selesai, now) if log.selesai else now
         down_menit += max(0, int((end - start).total_seconds() / 60))
 
     up_menit = max(0, total_menit - down_menit)
-    return round(up_menit / total_menit * 100, 4)
+    return round(up_menit / total_menit * 100, 2)
 
 
 @login_required
@@ -43,65 +53,98 @@ def api_status(request):
     """
     JSON: status semua RTU + statistik availability.
     Dipanggil oleh dashboard setiap 60 detik.
+
+    Optimasi: ambil semua log DOWN dalam satu query per periode,
+    kemudian group by rtu_id di Python — tidak ada N+1.
     """
-    tz_local = timezone.get_current_timezone()
-    now      = timezone.now()
+    now, today_start, month_start = _boundaries()
 
-    # Batas waktu hari ini & bulan ini (waktu lokal)
-    now_local    = now.astimezone(tz_local)
-    today_start  = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
-    today_start  = today_start.astimezone(timezone.utc)
-    month_start  = now_local.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    month_start  = month_start.astimezone(timezone.utc)
+    rtus = list(RTU.objects.filter(aktif=True))
+    if not rtus:
+        return JsonResponse({
+            'total_up': 0, 'total_down': 0, 'total_rtu': 0,
+            'avail_hari': None, 'avail_bulan': None,
+            'rtus': [], 'gangguan_terkini': [],
+        })
 
-    rtus = RTU.objects.filter(aktif=True)
+    rtu_ids = [r.pk for r in rtus]
 
-    rtu_data    = []
-    total_up    = 0
-    total_down  = 0
-    avail_list  = []
+    # ── Ambil semua log DOWN relevan dalam SATU query per periode ──────
+    # Hari ini
+    down_today = list(
+        RTULog.objects.filter(
+            rtu_id__in=rtu_ids,
+            state='DOWN',
+            mulai__lt=now,
+        ).filter(Q(selesai__gt=today_start) | Q(selesai__isnull=True))
+    )
+
+    # Bulan ini
+    down_month = list(
+        RTULog.objects.filter(
+            rtu_id__in=rtu_ids,
+            state='DOWN',
+            mulai__lt=now,
+        ).filter(Q(selesai__gt=month_start) | Q(selesai__isnull=True))
+    )
+
+    # Group log by rtu_id di Python (tanpa loop N query)
+    def group_by_rtu(logs):
+        d = {}
+        for log in logs:
+            d.setdefault(log.rtu_id, []).append(log)
+        return d
+
+    today_by_rtu = group_by_rtu(down_today)
+    month_by_rtu = group_by_rtu(down_month)
+
+    total_menit_today = max(1, int((now - today_start).total_seconds() / 60))
+    total_menit_month = max(1, int((now - month_start).total_seconds() / 60))
+
+    # ── Hitung per RTU ─────────────────────────────────────────────────
+    rtu_data   = []
+    total_up   = 0
+    total_down = 0
+    avail_hari_list = []
 
     for rtu in rtus:
-        is_up      = rtu.state == 'UP'
-        if is_up:
+        if rtu.state == 'UP':
             total_up  += 1
         elif rtu.state == 'DOWN':
             total_down += 1
 
-        # Availability hari ini
-        avail_hari = _avail_pct(rtu, today_start, now)
-        avail_list.append(avail_hari)
-
-        # Availability bulan ini
-        avail_bulan = _avail_pct(rtu, month_start, now)
-
-        # Menit DOWN hari ini
-        down_hari = RTULog.objects.filter(
-            rtu=rtu, state='DOWN',
-            mulai__gte=today_start,
+        avail_hari  = _calc_avail(
+            today_by_rtu.get(rtu.pk, []), today_start, now, total_menit_today
         )
-        down_menit_hari = sum(
-            l.durasi_menit or 0 for l in down_hari if l.durasi_menit
+        avail_bulan = _calc_avail(
+            month_by_rtu.get(rtu.pk, []), month_start, now, total_menit_month
         )
+        avail_hari_list.append(avail_hari)
+
+        # Menit DOWN hari ini (hanya yang sudah selesai + yang masih jalan)
+        down_menit_hari = 0
+        for log in today_by_rtu.get(rtu.pk, []):
+            start = max(log.mulai, today_start)
+            end   = min(log.selesai, now) if log.selesai else now
+            down_menit_hari += max(0, int((end - start).total_seconds() / 60))
 
         rtu_data.append({
-            'id':             rtu.pk,
-            'nama':           rtu.nama,
-            'lokasi':         rtu.lokasi,
-            'state':          rtu.state,
-            'state_sejak':    rtu.state_sejak.isoformat() if rtu.state_sejak else None,
-            'durasi_menit':   rtu.durasi_menit,
-            'avail_hari':     avail_hari,
-            'avail_bulan':    avail_bulan,
+            'id':              rtu.pk,
+            'nama':            rtu.nama,
+            'lokasi':          rtu.lokasi,
+            'state':           rtu.state,
+            'state_sejak':     rtu.state_sejak.isoformat() if rtu.state_sejak else None,
+            'durasi_menit':    rtu.durasi_menit,
+            'avail_hari':      avail_hari,
+            'avail_bulan':     avail_bulan,
             'down_menit_hari': down_menit_hari,
         })
 
-    # Availability sistem = rata-rata semua RTU
-    avg_avail_hari  = round(sum(avail_list) / len(avail_list), 2) if avail_list else None
-    avg_avail_bulan = None  # hitung saat diperlukan (berat jika banyak RTU)
+    avg_avail_hari  = round(sum(avail_hari_list) / len(avail_hari_list), 2) if avail_hari_list else None
+    avg_avail_bulan = _calc_avail(down_month, month_start, now, total_menit_month * len(rtus)) if rtus else None
 
-    # 10 log gangguan terkini
-    gangguan = RTULog.objects.filter(state='DOWN').select_related('rtu')[:10]
+    # ── 10 log gangguan terkini ────────────────────────────────────────
+    gangguan = RTULog.objects.filter(state='DOWN').select_related('rtu').order_by('-mulai')[:10]
     gangguan_data = [
         {
             'rtu':          g.rtu.nama,
@@ -136,22 +179,33 @@ def gangguan_list(request):
 
 @login_required
 def availability_report(request):
-    """Halaman laporan availability per RTU."""
-    tz_local    = timezone.get_current_timezone()
-    now         = timezone.now()
-    now_local   = now.astimezone(tz_local)
+    """Halaman laporan availability per RTU — bulan ini."""
+    now, _, month_start = _boundaries()
 
-    # Default: bulan ini
-    month_start = now_local.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    month_start_utc = month_start.astimezone(timezone.utc)
+    rtu_ids = list(RTU.objects.filter(aktif=True).values_list('pk', flat=True))
+    down_month = list(
+        RTULog.objects.filter(
+            rtu_id__in=rtu_ids,
+            state='DOWN',
+            mulai__lt=now,
+        ).filter(Q(selesai__gt=month_start) | Q(selesai__isnull=True))
+    )
+    month_by_rtu   = {}
+    for log in down_month:
+        month_by_rtu.setdefault(log.rtu_id, []).append(log)
+
+    total_menit = max(1, int((now - month_start).total_seconds() / 60))
 
     rtus = RTU.objects.filter(aktif=True)
     rows = []
     for rtu in rtus:
-        avail = _avail_pct(rtu, month_start_utc, now)
+        avail = _calc_avail(month_by_rtu.get(rtu.pk, []), month_start, now, total_menit)
         rows.append({'rtu': rtu, 'avail': avail})
 
+    tz_local   = timezone.get_current_timezone()
+    month_start_local = month_start.astimezone(tz_local)
+
     return render(request, 'device_mon/availability.html', {
-        'rows':       rows,
-        'period':     month_start.strftime('%B %Y'),
+        'rows':   rows,
+        'period': month_start_local.strftime('%B %Y'),
     })
