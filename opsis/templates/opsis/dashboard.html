@@ -497,6 +497,25 @@ const interactOpts = { intersect: false, mode: 'index' };
 
 // ── Chart Beban Kit — hari ini (00:00 sampai sekarang) ───────────────
 let chartBeban = null;
+let _bh = { idx: -1, pos: null }; // hover state — diisi oleh plugin di bawah
+
+// Plugin Chart.js: catat posisi hover terakhir (mouse & touch) agar tooltip
+// bisa di-restore setelah programmatic chart.update() setiap 5 detik.
+const bebanHoverPlugin = {
+    id: 'bebanHoverTrack',
+    afterEvent(chart, { event }) {
+        const t = event.type;
+        if (t === 'mousemove' || t === 'touchmove' || t === 'touchstart') {
+            const active = chart.tooltip.getActiveElements();
+            if (active.length) {
+                _bh.idx = active[0].index;
+                _bh.pos = { x: event.x, y: event.y };
+            }
+        } else if (t === 'mouseout' || t === 'touchend' || t === 'touchcancel') {
+            _bh.idx = -1; _bh.pos = null;
+        }
+    }
+};
 
 function initBebanChart(rows, pSiang, pMalam) {
     const n = rows.length;
@@ -567,7 +586,7 @@ function initBebanChart(rows, pSiang, pMalam) {
                 }
             }
         },
-        plugins: [peakPlugin],
+        plugins: [peakPlugin, bebanHoverPlugin],
     });
 }
 
@@ -607,21 +626,6 @@ async function loadBebanChart() {
         }
     } catch (e) {}
 }
-
-// Pertahankan tooltip beban saat chart di-update setiap 5 detik.
-// Chart.js tidak re-fire mousemove setelah programmatic update, sehingga
-// tooltip hilang. Kita simpan posisi hover terakhir dan restore setelah update.
-const _bebanCanvas = document.getElementById('chart-beban');
-let _bh = { idx: -1, pos: null };
-_bebanCanvas.addEventListener('mousemove', e => {
-    const r = _bebanCanvas.getBoundingClientRect();
-    _bh.pos = { x: e.clientX - r.left, y: e.clientY - r.top };
-    if (chartBeban) {
-        const els = chartBeban.getElementsAtEventForMode(e, 'index', { intersect: false }, true);
-        _bh.idx = els.length ? els[0].index : -1;
-    }
-});
-_bebanCanvas.addEventListener('mouseleave', () => { _bh.idx = -1; _bh.pos = null; });
 
 loadBebanChart();
 setInterval(loadBebanChart, 5000); // refresh tiap 5 detik
