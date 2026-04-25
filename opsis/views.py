@@ -473,3 +473,125 @@ def api_diagnose(request):
         result['error']   = str(e)
 
     return JsonResponse(result, json_dumps_params={'indent': 2})
+
+
+@login_required
+def rangkuman(request):
+    """
+    Rangkuman harian sistem: beban puncak, frekuensi, durasi abnormal.
+    ?periode=kemarin|minggu|bulan
+    """
+    from django.db.models import Sum, Avg, Max, Min, Count, Case, When, IntegerField
+    from django.db.models.functions import TruncDate
+    from collections import defaultdict
+
+    tz_local   = timezone.get_current_timezone()
+    today      = timezone.now().astimezone(tz_local).date()
+    periode    = request.GET.get('periode', 'kemarin')
+
+    if periode == 'minggu':
+        start_date = today - datetime.timedelta(days=7)
+        end_date   = today - datetime.timedelta(days=1)
+    elif periode == 'bulan':
+        start_date = today - datetime.timedelta(days=30)
+        end_date   = today - datetime.timedelta(days=1)
+    else:
+        periode    = 'kemarin'
+        start_date = today - datetime.timedelta(days=1)
+        end_date   = today - datetime.timedelta(days=1)
+
+    # ── Beban: totalisasi per menit, lalu agregat per hari di Python ─
+    per_minute = list(
+        SnapLive.objects
+        .filter(waktu__date__range=(start_date, end_date))
+        .values('waktu')
+        .annotate(total_mw=Sum('mw'))
+        .order_by('waktu')
+    )
+    daily_mw = defaultdict(list)
+    for r in per_minute:
+        if r['total_mw'] is None:
+            continue
+        day = r['waktu'].astimezone(tz_local).date()
+        daily_mw[day].append((r['total_mw'], r['waktu'].astimezone(tz_local)))
+
+    # ── Frekuensi: agregat per hari via ORM (efisien) ────────────────
+    freq_daily = (
+        SnapFreq.objects
+        .filter(waktu__date__range=(start_date, end_date), hz__isnull=False)
+        .annotate(tanggal=TruncDate('waktu', tzinfo=tz_local))
+        .values('tanggal')
+        .annotate(
+            avg_hz=Avg('hz'),
+            min_hz=Min('hz'),
+            max_hz=Max('hz'),
+            total_detik=Count('id'),
+            abnormal=Count(Case(
+                When(hz__lt=49.5, then=1),
+                When(hz__gt=50.5, then=1),
+                output_field=IntegerField(),
+            )),
+        )
+        .order_by('tanggal')
+    )
+    freq_map = {r['tanggal']: r for r in freq_daily}
+
+    # ── Gabungkan per hari ────────────────────────────────────────────
+    all_dates = sorted(set(list(daily_mw.keys()) + list(freq_map.keys())))
+    ringkasan = []
+    for day in all_dates:
+        entry = {'tanggal': day}
+
+        records = daily_mw.get(day, [])
+        if records:
+            mw_vals       = [r[0] for r in records]
+            pk_idx        = mw_vals.index(max(mw_vals))
+            entry.update({
+                'puncak_mw':    round(max(mw_vals), 2),
+                'puncak_waktu': records[pk_idx][1].strftime('%H:%M'),
+                'avg_mw':       round(sum(mw_vals) / len(mw_vals), 2),
+                'min_mw':       round(min(mw_vals), 2),
+                'data_menit':   len(records),
+            })
+        else:
+            entry.update({'puncak_mw': None, 'puncak_waktu': None,
+                          'avg_mw': None, 'min_mw': None, 'data_menit': 0})
+
+        freq = freq_map.get(day, {})
+        total_detik = freq.get('total_detik', 0)
+        abnormal    = freq.get('abnormal', 0)
+        entry.update({
+            'avg_hz':         round(freq['avg_hz'], 3) if freq.get('avg_hz') else None,
+            'min_hz':         round(freq['min_hz'], 3) if freq.get('min_hz') else None,
+            'max_hz':         round(freq['max_hz'], 3) if freq.get('max_hz') else None,
+            'abnormal_detik': abnormal,
+            'abnormal_menit': round(abnormal / 60, 1) if abnormal else 0,
+            'abnormal_pct':   round(abnormal / total_detik * 100, 2) if total_detik else 0,
+        })
+        ringkasan.append(entry)
+
+    # ── Ringkasan keseluruhan periode ─────────────────────────────────
+    puncak_list  = [r['puncak_mw']  for r in ringkasan if r.get('puncak_mw')]
+    avg_mw_list  = [r['avg_mw']     for r in ringkasan if r.get('avg_mw')]
+    avg_hz_list  = [r['avg_hz']     for r in ringkasan if r.get('avg_hz')]
+    min_hz_list  = [r['min_hz']     for r in ringkasan if r.get('min_hz')]
+    total_abnormal = sum(r.get('abnormal_detik', 0) for r in ringkasan)
+    summary = {
+        'puncak_mw':      max(puncak_list)                              if puncak_list else None,
+        'avg_beban':      round(sum(avg_mw_list)/len(avg_mw_list), 2)  if avg_mw_list else None,
+        'avg_hz':         round(sum(avg_hz_list)/len(avg_hz_list), 3)  if avg_hz_list else None,
+        'min_hz':         min(min_hz_list)                              if min_hz_list else None,
+        'total_abnormal': total_abnormal,
+        'abnormal_menit': round(total_abnormal / 60, 1),
+        'total_hari':     len(ringkasan),
+    }
+
+    pembangkit_list = _pembangkit_aktif()
+    return render(request, 'opsis/rangkuman.html', {
+        'pembangkit_list': pembangkit_list,
+        'ringkasan':       ringkasan,
+        'summary':         summary,
+        'periode':         periode,
+        'start_date':      start_date,
+        'end_date':        end_date,
+    })

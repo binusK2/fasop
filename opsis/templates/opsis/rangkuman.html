@@ -1,0 +1,309 @@
+{% extends "opsis/opsis_base.html" %}
+{% block title %}Rangkuman Sistem{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+/* ── Tabs periode ─────────────────────────────────────────────── */
+.tab-row {
+    display: flex; gap: 8px; margin-bottom: 20px;
+}
+.tab-btn {
+    padding: 7px 18px; border-radius: 8px; font-size: 12px; font-weight: 600;
+    border: 1px solid var(--card-bd); background: var(--card-bg);
+    color: var(--muted); text-decoration: none; transition: .15s;
+}
+.tab-btn.active, .tab-btn:hover {
+    background: rgba(96,165,250,.15); border-color: rgba(96,165,250,.5);
+    color: #60a5fa;
+}
+
+/* ── Summary cards ────────────────────────────────────────────── */
+.sum-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px; margin-bottom: 20px;
+}
+.sum-card {
+    background: var(--card-bg); border: 1px solid var(--card-bd);
+    border-radius: 12px; padding: 14px 16px;
+}
+.sum-label {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .4px; color: var(--muted); margin-bottom: 6px;
+}
+.sum-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 24px; font-weight: 700; line-height: 1;
+}
+.sum-unit { font-size: 11px; font-weight: 400; color: var(--muted); margin-left: 3px; }
+
+/* ── Chart card ───────────────────────────────────────────────── */
+.chart-card {
+    background: var(--card-bg); border: 1px solid var(--card-bd);
+    border-radius: 14px; padding: 16px 20px; margin-bottom: 16px;
+}
+.chart-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 12px;
+}
+.chart-title { font-size: 12px; font-weight: 700; color: var(--text); }
+
+/* ── Tabel ────────────────────────────────────────────────────── */
+.rk-table-wrap { overflow-x: auto; }
+.rk-table {
+    width: 100%; border-collapse: collapse; font-size: 12px;
+}
+.rk-table th {
+    background: #0f172a; color: #60a5fa; font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .4px;
+    padding: 9px 12px; text-align: center; white-space: nowrap;
+    border-bottom: 1px solid #1e2d45; position: sticky; top: 0;
+}
+.rk-table th:first-child { text-align: left; }
+.rk-table td {
+    padding: 8px 12px; border-bottom: 1px solid #131f35;
+    text-align: center; font-family: 'JetBrains Mono', monospace;
+    white-space: nowrap;
+}
+.rk-table td:first-child {
+    text-align: left; font-family: 'DM Sans', sans-serif; font-weight: 600;
+}
+.rk-table tr:hover td { background: rgba(96,165,250,.04); }
+.rk-table td.ok   { color: #34d399; }
+.rk-table td.warn { color: #fbbf24; }
+.rk-table td.bad  { color: #f87171; }
+.rk-table td.muted { color: var(--muted); font-size: 11px; }
+.no-data {
+    text-align: center; padding: 60px 20px; color: var(--muted);
+    font-size: 13px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Page header -->
+<div style="margin-bottom:20px; display:flex; align-items:center; justify-content:space-between;">
+    <div>
+        <div style="font-size:20px; font-weight:800; color:#fff; margin-bottom:2px;">Rangkuman Sistem</div>
+        <div style="font-size:12px; color:var(--muted);">
+            Data historis sistem tenaga —
+            {% if periode == 'kemarin' %}kemarin ({{ start_date }})
+            {% elif periode == 'minggu' %}7 hari terakhir ({{ start_date }} s.d. {{ end_date }})
+            {% else %}30 hari terakhir ({{ start_date }} s.d. {{ end_date }}){% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Tabs periode -->
+<div class="tab-row">
+    <a href="?periode=kemarin" class="tab-btn {% if periode == 'kemarin' %}active{% endif %}">
+        <i class="bi bi-calendar-day me-1"></i>Kemarin
+    </a>
+    <a href="?periode=minggu" class="tab-btn {% if periode == 'minggu' %}active{% endif %}">
+        <i class="bi bi-calendar-week me-1"></i>7 Hari
+    </a>
+    <a href="?periode=bulan" class="tab-btn {% if periode == 'bulan' %}active{% endif %}">
+        <i class="bi bi-calendar-month me-1"></i>30 Hari
+    </a>
+</div>
+
+{% if ringkasan %}
+
+<!-- Summary cards -->
+<div class="sum-grid">
+    <div class="sum-card" style="border-color:rgba(52,211,153,.3);">
+        <div class="sum-label"><i class="bi bi-lightning-charge-fill me-1" style="color:#34d399;"></i>Beban Puncak</div>
+        <div class="sum-val" style="color:#34d399;">
+            {{ summary.puncak_mw|default:"—" }}<span class="sum-unit">MW</span>
+        </div>
+    </div>
+    <div class="sum-card">
+        <div class="sum-label"><i class="bi bi-graph-up me-1" style="color:#60a5fa;"></i>Rata-rata Beban</div>
+        <div class="sum-val" style="color:#60a5fa;">
+            {{ summary.avg_beban|default:"—" }}<span class="sum-unit">MW</span>
+        </div>
+    </div>
+    <div class="sum-card">
+        <div class="sum-label"><i class="bi bi-activity me-1" style="color:#a78bfa;"></i>Rata-rata Frekuensi</div>
+        <div class="sum-val" style="color:#a78bfa;">
+            {{ summary.avg_hz|default:"—" }}<span class="sum-unit">Hz</span>
+        </div>
+    </div>
+    <div class="sum-card">
+        <div class="sum-label"><i class="bi bi-arrow-down-circle me-1" style="color:#fbbf24;"></i>Frekuensi Minimum</div>
+        <div class="sum-val" style="color:#fbbf24;">
+            {{ summary.min_hz|default:"—" }}<span class="sum-unit">Hz</span>
+        </div>
+    </div>
+    <div class="sum-card" style="{% if summary.total_abnormal > 0 %}border-color:rgba(248,113,113,.3);{% endif %}">
+        <div class="sum-label"><i class="bi bi-exclamation-triangle me-1" style="color:#f87171;"></i>Durasi Abnormal</div>
+        <div class="sum-val" style="color:{% if summary.total_abnormal > 0 %}#f87171{% else %}#34d399{% endif %};">
+            {{ summary.abnormal_menit|default:"0" }}<span class="sum-unit">menit</span>
+        </div>
+        <div style="font-size:11px; color:var(--muted); margin-top:4px;">{{ summary.total_abnormal }} detik total</div>
+    </div>
+</div>
+
+<!-- Chart beban puncak harian -->
+{% if ringkasan|length > 1 %}
+<div class="chart-card">
+    <div class="chart-head">
+        <div class="chart-title"><i class="bi bi-bar-chart-fill me-1" style="color:#34d399;"></i>Trend Beban Puncak Harian</div>
+    </div>
+    <div style="position:relative; height:180px;">
+        <canvas id="chart-puncak"></canvas>
+    </div>
+</div>
+{% endif %}
+
+<!-- Tabel per hari -->
+<div class="chart-card">
+    <div class="chart-head">
+        <div class="chart-title"><i class="bi bi-table me-1" style="color:#60a5fa;"></i>Detail per Hari</div>
+        <span style="font-size:11px; color:var(--muted);">{{ ringkasan|length }} hari data</span>
+    </div>
+    <div class="rk-table-wrap">
+        <table class="rk-table">
+            <thead>
+                <tr>
+                    <th>Tanggal</th>
+                    <th style="color:#34d399;">Beban Puncak</th>
+                    <th>Jam Puncak</th>
+                    <th>Rata-rata MW</th>
+                    <th>Min MW</th>
+                    <th style="color:#a78bfa;">Rata-rata Hz</th>
+                    <th>Min Hz</th>
+                    <th>Max Hz</th>
+                    <th style="color:#f87171;">Abnormal</th>
+                    <th>Data</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in ringkasan|dictsortreversed:"tanggal" %}
+                <tr>
+                    <td>{{ r.tanggal|date:"D, d M Y" }}</td>
+
+                    <!-- Beban puncak -->
+                    <td class="ok">
+                        {% if r.puncak_mw %}{{ r.puncak_mw }} MW{% else %}<span class="muted">—</span>{% endif %}
+                    </td>
+
+                    <!-- Jam puncak -->
+                    <td class="muted">{{ r.puncak_waktu|default:"—" }}</td>
+
+                    <!-- Rata-rata MW -->
+                    <td>{% if r.avg_mw %}{{ r.avg_mw }}{% else %}—{% endif %}</td>
+
+                    <!-- Min MW -->
+                    <td class="muted">{% if r.min_mw %}{{ r.min_mw }}{% else %}—{% endif %}</td>
+
+                    <!-- Rata-rata Hz -->
+                    <td class="{% if r.avg_hz %}{% if r.avg_hz >= 49.5 and r.avg_hz <= 50.5 %}ok{% else %}warn{% endif %}{% endif %}">
+                        {% if r.avg_hz %}{{ r.avg_hz }}{% else %}—{% endif %}
+                    </td>
+
+                    <!-- Min Hz -->
+                    <td class="{% if r.min_hz %}{% if r.min_hz < 49.5 %}bad{% else %}ok{% endif %}{% endif %}">
+                        {% if r.min_hz %}{{ r.min_hz }}{% else %}—{% endif %}
+                    </td>
+
+                    <!-- Max Hz -->
+                    <td class="{% if r.max_hz %}{% if r.max_hz > 50.5 %}bad{% else %}ok{% endif %}{% endif %}">
+                        {% if r.max_hz %}{{ r.max_hz }}{% else %}—{% endif %}
+                    </td>
+
+                    <!-- Abnormal -->
+                    <td class="{% if r.abnormal_detik > 0 %}warn{% else %}ok{% endif %}">
+                        {% if r.abnormal_detik > 0 %}
+                            {{ r.abnormal_menit }} mnt
+                            <span style="font-size:10px; color:var(--muted);">({{ r.abnormal_pct }}%)</span>
+                        {% else %}Normal{% endif %}
+                    </td>
+
+                    <!-- Data menit -->
+                    <td class="muted">{{ r.data_menit }} mnt</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% else %}
+<div class="chart-card">
+    <div class="no-data">
+        <i class="bi bi-inbox" style="font-size:40px; display:block; margin-bottom:12px;"></i>
+        Belum ada data untuk periode ini.<br>
+        <span style="font-size:11px; margin-top:6px; display:block;">
+            Data dikumpulkan oleh <code>collect_live</code> dan <code>collect_freq</code> setiap menit.
+        </span>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+{% if ringkasan|length > 1 %}
+<script>
+const LABELS = [{% for r in ringkasan %}"{{ r.tanggal|date:'d/m' }}"{% if not forloop.last %},{% endif %}{% endfor %}];
+const PUNCAK = [{% for r in ringkasan %}{{ r.puncak_mw|default:"null" }}{% if not forloop.last %},{% endif %}{% endfor %}];
+const AVG_MW = [{% for r in ringkasan %}{{ r.avg_mw|default:"null" }}{% if not forloop.last %},{% endif %}{% endfor %}];
+
+Chart.defaults.color = '#64748b';
+Chart.defaults.font.family = 'DM Sans';
+
+new Chart(document.getElementById('chart-puncak').getContext('2d'), {
+    type: 'bar',
+    data: {
+        labels: LABELS,
+        datasets: [
+            {
+                label: 'Beban Puncak (MW)',
+                data: PUNCAK,
+                backgroundColor: 'rgba(52,211,153,.6)',
+                borderColor: '#34d399',
+                borderWidth: 1,
+                borderRadius: 4,
+                order: 2,
+            },
+            {
+                label: 'Rata-rata Beban (MW)',
+                data: AVG_MW,
+                type: 'line',
+                borderColor: '#60a5fa',
+                borderWidth: 1.5,
+                borderDash: [4, 3],
+                pointRadius: 3,
+                fill: false,
+                tension: 0.3,
+                order: 1,
+            },
+        ]
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        animation: false,
+        interaction: { intersect: false, mode: 'index' },
+        plugins: {
+            legend: { labels: { color: '#94a3b8', boxWidth: 12, font: { size: 11 } } },
+            tooltip: {
+                backgroundColor: 'rgba(15,23,42,.9)',
+                titleColor: '#94a3b8', bodyColor: '#f1f5f9',
+                borderColor: '#334155', borderWidth: 1, padding: 8,
+                callbacks: { label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y?.toFixed(2) ?? '—'} MW` }
+            }
+        },
+        scales: {
+            x: { grid: { color: '#1e2d45' } },
+            y: {
+                grid: { color: '#1e2d45' }, grace: '10%',
+                title: { display: true, text: 'MW', color: '#64748b' },
+                ticks: { callback: v => v.toFixed(0) }
+            }
+        }
+    }
+});
+</script>
+{% endif %}
+{% endblock %}
