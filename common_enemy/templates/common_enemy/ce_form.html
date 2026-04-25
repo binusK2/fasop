@@ -1,0 +1,336 @@
+{% extends 'base.html' %}
+{% block title %}{% if is_edit %}Edit Common Enemy{% else %}Laporkan Common Enemy{% endif %} — FASOP{% endblock %}
+{% block page_title %}{% if is_edit %}Edit Common Enemy{% else %}Laporkan Common Enemy{% endif %}{% endblock %}
+
+{% block content %}
+<style>
+  .section-bar { display:flex;align-items:center;gap:8px;margin-bottom:16px; }
+  .section-bar .bar { width:4px;height:18px;border-radius:3px;flex-shrink:0; }
+  .section-bar span:last-child { font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#475569; }
+  .field-label { font-size:12px;font-weight:600;color:#64748b;margin-bottom:5px;display:block; }
+  .field-label .req { color:#ef4444;margin-left:2px; }
+  .field-hint { font-size:11px;color:#94a3b8;margin-top:4px; }
+</style>
+
+<div class="d-flex align-items-center gap-2 mb-4">
+  <a href="{% url 'ce_list' %}" class="btn btn-sm btn-outline-secondary">
+    <i class="bi bi-arrow-left me-1"></i>Kembali
+  </a>
+  {% if is_edit %}
+  <a href="{% url 'ce_detail' ce.pk %}" class="btn btn-sm btn-outline-primary">
+    <i class="bi bi-eye me-1"></i>Lihat Detail
+  </a>
+  {% endif %}
+</div>
+
+<form method="post" enctype="multipart/form-data" autocomplete="off">
+{% csrf_token %}
+
+<!-- ── 1. KATEGORISASI ───────────────────────────────────── -->
+<div class="card mb-3">
+  <div class="card-body px-4 py-3">
+    <div class="section-bar">
+      <span class="bar" style="background:#6366f1;"></span>
+      <span>Kategorisasi</span>
+    </div>
+    <div class="row g-3">
+      <div class="col-md-3">
+        <label class="field-label">Bidang / Kategori <span class="req">*</span></label>
+        {{ form.kategori }}
+        {% if form.kategori.errors %}<div class="text-danger" style="font-size:11.5px;">{{ form.kategori.errors.0 }}</div>{% endif %}
+      </div>
+      <div class="col-md-3">
+        <label class="field-label">Sub Kategori (Jenis Peralatan)</label>
+        {{ form.sub_kategori }}
+        <div class="field-hint">Difilter otomatis sesuai bidang</div>
+        {% if form.sub_kategori.errors %}<div class="text-danger" style="font-size:11.5px;">{{ form.sub_kategori.errors.0 }}</div>{% endif %}
+      </div>
+      <div class="col-md-3">
+        <label class="field-label">Tingkat Keparahan <span class="req">*</span></label>
+        {{ form.tingkat_keparahan }}
+        {% if form.tingkat_keparahan.errors %}<div class="text-danger" style="font-size:11.5px;">{{ form.tingkat_keparahan.errors.0 }}</div>{% endif %}
+      </div>
+      <div class="col-md-3">
+        <label class="field-label">Sumber Laporan <span class="req">*</span></label>
+        {{ form.sumber_laporan }}
+        {% if form.sumber_laporan.errors %}<div class="text-danger" style="font-size:11.5px;">{{ form.sumber_laporan.errors.0 }}</div>{% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── 2. LOKASI & PERALATAN ─────────────────────────────── -->
+<div class="card mb-3">
+  <div class="card-body px-4 py-3">
+    <div class="section-bar">
+      <span class="bar" style="background:#0ea5e9;"></span>
+      <span>Lokasi & Peralatan</span>
+    </div>
+    <div class="row g-3">
+      <div class="col-md-4">
+        <label class="field-label">Tanggal & Jam Laporan <span class="req">*</span></label>
+        {{ form.tanggal_laporan }}
+        {% if form.tanggal_laporan.errors %}<div class="text-danger" style="font-size:11.5px;">{{ form.tanggal_laporan.errors.0 }}</div>{% endif %}
+      </div>
+      <div class="col-md-4">
+        <label class="field-label">Site / Lokasi <span class="req">*</span></label>
+        {{ form.site }}
+        <datalist id="site-datalist">
+          {% for s in site_list %}<option value="{{ s }}">{% endfor %}
+        </datalist>
+        {% if form.site.errors %}<div class="text-danger" style="font-size:11.5px;">{{ form.site.errors.0 }}</div>{% endif %}
+      </div>
+      <div class="col-md-4">
+        <label class="field-label">Peralatan Terdampak</label>
+        {{ form.peralatan }}
+        <div class="field-hint">Opsional — difilter otomatis sesuai sub kategori</div>
+        {% if form.peralatan.errors %}<div class="text-danger" style="font-size:11.5px;">{{ form.peralatan.errors.0 }}</div>{% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── 3. LAPORAN MASALAH ─────────────────────────────────── -->
+<div class="card mb-3">
+  <div class="card-body px-4 py-3">
+    <div class="section-bar">
+      <span class="bar" style="background:#8b5cf6;"></span>
+      <span>Laporan Masalah</span>
+    </div>
+    <div class="row g-3">
+      <div class="col-12">
+        <label class="field-label">Pelaksana / PIC</label>
+        <input type="hidden" id="id_pelaksana_ce" name="pelaksana_names_input" value="[]">
+        <div id="pelaksana-tag-box"
+             style="min-height:44px;border:1px solid #e2e8f0;border-radius:8px;padding:6px 10px;
+                    background:#f8fafc;cursor:text;display:flex;flex-wrap:wrap;align-items:center;gap:5px;"
+             onclick="document.getElementById('pelaksana-text').focus();">
+          <div id="pelaksana-tags" style="display:contents;"></div>
+          <input id="pelaksana-text" type="text"
+                 placeholder="Ketik nama pelaksana, tekan Enter…"
+                 autocomplete="off"
+                 style="border:none;outline:none;background:transparent;font-size:13px;min-width:160px;flex:1;">
+        </div>
+        <div class="field-hint">Teknisi atau PIC yang menangani masalah ini</div>
+      </div>
+      <div class="col-12">
+        <label class="field-label">Deskripsi Masalah <span class="req">*</span></label>
+        {{ form.deskripsi_masalah }}
+        <div class="field-hint">Uraian lengkap masalah yang dilaporkan / ditemukan</div>
+        {% if form.deskripsi_masalah.errors %}<div class="text-danger" style="font-size:11.5px;">{{ form.deskripsi_masalah.errors.0 }}</div>{% endif %}
+      </div>
+      <div class="col-12">
+        <label class="field-label">Tindak Lanjut</label>
+        {{ form.tindak_lanjut }}
+        <div class="field-hint">Tindakan yang sudah atau sedang dilakukan</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── 4. STATUS & PENUTUPAN ─────────────────────────────── -->
+<div class="card mb-3">
+  <div class="card-body px-4 py-3">
+    <div class="section-bar">
+      <span class="bar" style="background:#10b981;"></span>
+      <span>{% if is_edit %}Status & Penutupan{% else %}Catatan Penutupan{% endif %}</span>
+    </div>
+    {% if not is_edit %}<input type="hidden" name="status" value="open">{% endif %}
+    <div class="row g-3">
+      {% if is_edit %}
+      <div class="col-md-3">
+        <label class="field-label">Status <span class="req">*</span></label>
+        {{ form.status }}
+      </div>
+      <div class="col-md-9">
+      {% else %}
+      <div class="col-12">
+      {% endif %}
+        <label class="field-label">Catatan Penutupan</label>
+        {{ form.catatan_penutupan }}
+        <div class="field-hint">Diisi saat issue dinyatakan Resolved / Closed</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── 5. FOTO EVIDEN ─────────────────────────────────────── -->
+<div class="card mb-4">
+  <div class="card-body px-4 py-3">
+    <div class="section-bar">
+      <span class="bar" style="background:#f59e0b;"></span>
+      <span>Foto Eviden</span>
+    </div>
+    <p style="font-size:12px;color:#94a3b8;margin-bottom:14px;">Unggah maksimal 3 foto sebagai dokumentasi/bukti masalah</p>
+    <div class="row g-3">
+      {% for n, foto_field, foto_inst in foto_fields %}
+      <div class="col-md-4">
+        <label class="field-label">Foto Eviden {{ n }}</label>
+        {% if foto_inst %}
+        <div class="mb-2">
+          <img src="{{ foto_inst.url }}" style="width:100%;height:120px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0;">
+        </div>
+        {% endif %}
+        {{ foto_field }}
+      </div>
+      {% empty %}
+      <div class="col-md-4">
+        <label class="field-label">Foto Eviden 1</label>
+        {% if form.instance.foto_eviden1 %}
+        <div class="mb-2">
+          <img src="{{ form.instance.foto_eviden1.url }}" style="width:100%;height:120px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0;">
+        </div>
+        {% endif %}
+        {{ form.foto_eviden1 }}
+      </div>
+      <div class="col-md-4">
+        <label class="field-label">Foto Eviden 2</label>
+        {% if form.instance.foto_eviden2 %}
+        <div class="mb-2">
+          <img src="{{ form.instance.foto_eviden2.url }}" style="width:100%;height:120px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0;">
+        </div>
+        {% endif %}
+        {{ form.foto_eviden2 }}
+      </div>
+      <div class="col-md-4">
+        <label class="field-label">Foto Eviden 3</label>
+        {% if form.instance.foto_eviden3 %}
+        <div class="mb-2">
+          <img src="{{ form.instance.foto_eviden3.url }}" style="width:100%;height:120px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0;">
+        </div>
+        {% endif %}
+        {{ form.foto_eviden3 }}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- ── SUBMIT ─────────────────────────────────────────────── -->
+<div class="d-flex gap-2 mb-4">
+  <button type="submit" class="btn btn-warning px-4">
+    <i class="bi bi-{% if is_edit %}floppy{% else %}plus-lg{% endif %} me-1"></i>
+    {% if is_edit %}Simpan Perubahan{% else %}Laporkan Common Enemy{% endif %}
+  </button>
+  <a href="{% if is_edit %}{% url 'ce_detail' ce.pk %}{% else %}{% url 'ce_list' %}{% endif %}"
+     class="btn btn-outline-secondary">Batal</a>
+</div>
+
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ── Data Device & DeviceType ─────────────────────────────────
+const ALL_DEVICES   = {{ device_json|safe }};
+const ALL_TYPES     = {{ type_json|safe }};
+
+// Mapping kategori CE ke nama DeviceType (match by name contains)
+const KATEGORI_TYPE_MAP = {
+  'scada':   ['RTU', 'SAS', 'Workstation', 'SCADA'],
+  'telkom':  ['Router', 'Switch', 'MUX', 'Radio', 'VoIP', 'RoIP', 'UPS', 'Rectifier', 'Genset', 'Telepon'],
+  'prosis':  ['Teleproteksi', 'PLC'],
+  'lainnya': [],
+};
+
+const selKategori    = document.getElementById('id_kategori');
+const selSubKategori = document.getElementById('id_sub_kategori');
+const selPeralatan   = document.getElementById('id_peralatan');
+
+const savedSubKat  = "{{ form.instance.sub_kategori_id|default:'' }}";
+const savedDevice  = "{{ form.instance.peralatan_id|default:'' }}";
+
+function getTypeKeywords(kategori) {
+  return KATEGORI_TYPE_MAP[kategori] || [];
+}
+
+function typeMatchesKategori(typeName, kategori) {
+  if (!kategori || kategori === 'lainnya') return true;
+  const keywords = getTypeKeywords(kategori);
+  if (keywords.length === 0) return true;
+  const lower = typeName.toLowerCase();
+  return keywords.some(k => lower.includes(k.toLowerCase()));
+}
+
+function filterSubKategori(kategori, selectedId) {
+  const current = selectedId !== undefined ? selectedId : selSubKategori.value;
+  selSubKategori.innerHTML = '<option value="">— Semua Jenis —</option>';
+  ALL_TYPES.forEach(function(t) {
+    if (typeMatchesKategori(t.name, kategori)) {
+      const opt = document.createElement('option');
+      opt.value = t.id;
+      opt.textContent = t.name;
+      if (String(t.id) === String(current)) opt.selected = true;
+      selSubKategori.appendChild(opt);
+    }
+  });
+}
+
+function filterPeralatan(typeId, selectedId) {
+  const current = selectedId !== undefined ? selectedId : selPeralatan.value;
+  selPeralatan.innerHTML = '<option value="">— Tidak dipilih —</option>';
+  ALL_DEVICES.forEach(function(d) {
+    if (!typeId || String(d.jenis_id) === String(typeId)) {
+      const opt = document.createElement('option');
+      opt.value = d.id;
+      opt.textContent = (d.lokasi ? '[' + d.lokasi + '] ' : '') + d.nama;
+      if (String(d.id) === String(current)) opt.selected = true;
+      selPeralatan.appendChild(opt);
+    }
+  });
+}
+
+// Initial render
+filterSubKategori(selKategori.value, savedSubKat);
+filterPeralatan(savedSubKat || '', savedDevice);
+
+selKategori.addEventListener('change', function() {
+  filterSubKategori(this.value, '');
+  filterPeralatan('', '');
+});
+
+selSubKategori.addEventListener('change', function() {
+  filterPeralatan(this.value, '');
+});
+
+// ── Tag-input Pelaksana ──────────────────────────────────────
+(function() {
+  var initial = [];
+  {% if is_edit and ce.pelaksana_names %}
+  try { initial = JSON.parse('{{ ce.pelaksana_names|default:"[]"|escapejs }}'); } catch(e) {}
+  {% endif %}
+  var names       = initial.slice();
+  var tagsEl      = document.getElementById('pelaksana-tags');
+  var textInput   = document.getElementById('pelaksana-text');
+  var hiddenInput = document.getElementById('id_pelaksana_ce');
+
+  function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function sync()  { hiddenInput.value = JSON.stringify(names); }
+  function render() {
+    tagsEl.innerHTML = '';
+    names.forEach(function(n, i) {
+      var span = document.createElement('span');
+      span.style.cssText = 'display:inline-flex;align-items:center;gap:4px;background:#dbeafe;color:#1d4ed8;border-radius:20px;padding:3px 10px;font-size:12px;font-weight:500;white-space:nowrap;';
+      span.innerHTML = '<i class="bi bi-person" style="font-size:11px;"></i><span>' + esc(n) + '</span>'
+          + '<span data-idx="' + i + '" style="cursor:pointer;font-size:14px;color:#93c5fd;margin-left:2px;" title="Hapus">&times;</span>';
+      span.querySelector('[data-idx]').addEventListener('click', function() {
+        names.splice(parseInt(this.dataset.idx), 1); render(); sync();
+      });
+      tagsEl.appendChild(span);
+    });
+    sync();
+  }
+  textInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      var val = textInput.value.trim();
+      if (val) { names.push(val); textInput.value = ''; render(); }
+    }
+    if (e.key === 'Backspace' && textInput.value === '' && names.length) {
+      names.pop(); render();
+    }
+  });
+  render();
+})();
+</script>
+{% endblock %}

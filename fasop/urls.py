@@ -51,6 +51,9 @@ urlpatterns = [
     # Device Monitor — Status RTU Realtime + Availability
     path('device-mon/', include('device_mon.urls')),
 
+    # Common Enemy — Masalah kronik / berulang pada peralatan
+    path('common-enemy/', include('common_enemy.urls')),
+
     # Public FO page — tanpa login (QR scan)
     path('fo/public/<str:token>/', fo_public, name='fo_public'),
 
