@@ -516,17 +516,19 @@ function initBebanChart(rows, pSiang, pMalam) {
                 },
                 {
                     label: 'Puncak Siang 12:00',
-                    data: pSiang != null ? new Array(n).fill(pSiang) : [],
+                    // Selalu sama panjang dengan labels agar mode:'index' bekerja.
+                    // Gunakan null jika nilai belum tersedia (bukan array kosong).
+                    data: new Array(n).fill(pSiang ?? null),
                     borderColor: '#fbbf24', borderWidth: 1.5,
                     borderDash: [5, 4], pointRadius: 0, fill: false,
-                    tension: 0, order: 2,
+                    tension: 0, order: 2, spanGaps: false,
                 },
                 {
                     label: 'Puncak Malam 18:30',
-                    data: pMalam != null ? new Array(n).fill(pMalam) : [],
+                    data: new Array(n).fill(pMalam ?? null),
                     borderColor: '#f87171', borderWidth: 1.5,
                     borderDash: [5, 4], pointRadius: 0, fill: false,
-                    tension: 0, order: 1,
+                    tension: 0, order: 1, spanGaps: false,
                 },
             ]
         },
@@ -545,8 +547,8 @@ function initBebanChart(rows, pSiang, pMalam) {
                             if (ctx.datasetIndex === 1) return `Puncak Siang: ${v} MW`;
                             if (ctx.datasetIndex === 2) return `Puncak Malam: ${v} MW`;
                         },
-                        // sembunyikan baris puncak jika belum ada data
-                        filter: item => item.parsed.y != null,
+                        // Sembunyikan baris dataset puncak jika nilainya null
+                        filter: item => item.raw != null,
                     }
                 }
             },
@@ -589,8 +591,9 @@ async function loadBebanChart() {
         } else {
             chartBeban.data.labels = d.rows.map(r => r.timestamp);
             chartBeban.data.datasets[0].data = d.rows.map(r => r.mw);
-            chartBeban.data.datasets[1].data = d.puncak_siang != null ? new Array(n).fill(d.puncak_siang) : [];
-            chartBeban.data.datasets[2].data = d.puncak_malam != null ? new Array(n).fill(d.puncak_malam) : [];
+            // Selalu isi array panjang n (null jika belum ada), bukan array kosong
+            chartBeban.data.datasets[1].data = new Array(n).fill(d.puncak_siang ?? null);
+            chartBeban.data.datasets[2].data = new Array(n).fill(d.puncak_malam ?? null);
             chartBeban.update('none');
         }
     } catch (e) {}
