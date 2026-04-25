@@ -534,7 +534,7 @@ function initBebanChart(rows, pSiang, pMalam) {
         },
         options: {
             responsive: true, maintainAspectRatio: false,
-            animation: { duration: 300 },
+            animation: false,
             interaction: { intersect: false, mode: 'index' },
             plugins: {
                 legend: { display: false },
@@ -542,13 +542,15 @@ function initBebanChart(rows, pSiang, pMalam) {
                     ...tooltipOpts,
                     callbacks: {
                         label: ctx => {
-                            const v = (ctx.parsed.y ?? 0).toFixed(2);
-                            if (ctx.datasetIndex === 0) return `Beban: ${v} MW`;
+                            if (ctx.datasetIndex === 0)
+                                return `Beban: ${ctx.raw != null ? ctx.parsed.y.toFixed(2) : '—'} MW`;
+                            if (ctx.raw == null) return null;
+                            const v = ctx.parsed.y.toFixed(2);
                             if (ctx.datasetIndex === 1) return `Puncak Siang: ${v} MW`;
                             if (ctx.datasetIndex === 2) return `Puncak Malam: ${v} MW`;
                         },
-                        // Sembunyikan baris dataset puncak jika nilainya null
-                        filter: item => item.raw != null,
+                        // Dataset 0 (beban) selalu tampil; dataset 1&2 hanya jika ada nilai
+                        filter: item => item.datasetIndex === 0 || item.raw != null,
                     }
                 }
             },
@@ -591,13 +593,35 @@ async function loadBebanChart() {
         } else {
             chartBeban.data.labels = d.rows.map(r => r.timestamp);
             chartBeban.data.datasets[0].data = d.rows.map(r => r.mw);
-            // Selalu isi array panjang n (null jika belum ada), bukan array kosong
             chartBeban.data.datasets[1].data = new Array(n).fill(d.puncak_siang ?? null);
             chartBeban.data.datasets[2].data = new Array(n).fill(d.puncak_malam ?? null);
+            // Jika mouse masih di atas chart, set active elements sebelum update
+            // agar tooltip tidak hilang akibat programmatic chart.update()
+            if (_bh.idx >= 0 && _bh.idx < n && _bh.pos) {
+                chartBeban.tooltip.setActiveElements(
+                    [0, 1, 2].map(di => ({ datasetIndex: di, index: _bh.idx })),
+                    _bh.pos
+                );
+            }
             chartBeban.update('none');
         }
     } catch (e) {}
 }
+
+// Pertahankan tooltip beban saat chart di-update setiap 5 detik.
+// Chart.js tidak re-fire mousemove setelah programmatic update, sehingga
+// tooltip hilang. Kita simpan posisi hover terakhir dan restore setelah update.
+const _bebanCanvas = document.getElementById('chart-beban');
+let _bh = { idx: -1, pos: null };
+_bebanCanvas.addEventListener('mousemove', e => {
+    const r = _bebanCanvas.getBoundingClientRect();
+    _bh.pos = { x: e.clientX - r.left, y: e.clientY - r.top };
+    if (chartBeban) {
+        const els = chartBeban.getElementsAtEventForMode(e, 'index', { intersect: false }, true);
+        _bh.idx = els.length ? els[0].index : -1;
+    }
+});
+_bebanCanvas.addEventListener('mouseleave', () => { _bh.idx = -1; _bh.pos = null; });
 
 loadBebanChart();
 setInterval(loadBebanChart, 5000); // refresh tiap 5 detik
