@@ -221,6 +221,10 @@ body { font-family:'DM Sans', sans-serif; background:var(--body-bg); color:var(-
             <i class="bi bi-grid-3x3-gap-fill sb-icon"></i>
             <span class="sb-label">Dashboard</span>
         </a>
+        <a href="/opsis/rangkuman/" class="sb-link {% if request.resolver_match.url_name == 'opsis_rangkuman' %}active{% endif %}">
+            <i class="bi bi-calendar2-week sb-icon"></i>
+            <span class="sb-label">Rangkuman</span>
+        </a>
 
         {% if pembangkit_list %}
         <div class="sb-section-label" style="margin-top:8px;">Pembangkit</div>
