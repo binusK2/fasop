@@ -1,0 +1,531 @@
+{% extends 'base.html' %}
+{% block title %}{{ ce.nomor_ce }} — Common Enemy FASOP{% endblock %}
+{% block page_title %}Detail Common Enemy{% endblock %}
+
+{% block content %}
+<style>
+  .g-card { background:#fff;border-radius:12px;border:1px solid #e2e8f0;margin-bottom:14px;overflow:hidden; }
+  .g-card-head { padding:11px 16px;font-size:12px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;
+                 color:#64748b;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:8px;background:#f8fafc; }
+  .g-card-body { padding:16px; }
+  .g-pill { display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700; }
+  .pill-open        { background:#fee2e2;color:#991b1b;border:1px solid #fca5a5; }
+  .pill-in_progress { background:#fffbeb;color:#92400e;border:1px solid #fde68a; }
+  .pill-resolved    { background:#f0fdf4;color:#166534;border:1px solid #bbf7d0; }
+  .pill-closed      { background:#f1f5f9;color:#475569;border:1px solid #cbd5e1; }
+  .sev-kritis { background:#fee2e2;color:#991b1b;border:1px solid #fca5a5; }
+  .sev-tinggi { background:#fff7ed;color:#9a3412;border:1px solid #fed7aa; }
+  .sev-sedang { background:#fffbeb;color:#92400e;border:1px solid #fde68a; }
+  .sev-rendah { background:#f0fdf4;color:#166534;border:1px solid #bbf7d0; }
+  .log-tl { position:relative; }
+  .log-tl::before { content:'';position:absolute;left:6px;top:10px;bottom:10px;width:2px;background:#d1fae5; }
+  .log-item { position:relative;padding-left:24px;margin-bottom:14px; }
+  .log-dot { position:absolute;left:0;top:3px;width:14px;height:14px;border-radius:50%;
+             background:#10b981;border:2px solid #fff;box-shadow:0 0 0 2px #d1fae5; }
+  .log-bubble { background:#f8fafc;border:1px solid #e2e8f0;border-radius:9px;padding:10px 13px; }
+  .log-bubble-time { font-size:11.5px;font-weight:700;color:#475569; }
+  .log-bubble-text { font-size:13px;color:#0f172a;margin-top:5px;line-height:1.6;white-space:pre-wrap; }
+  .accent-row { border-left:3px solid transparent;padding:10px 14px;border-radius:0 8px 8px 0;background:#f8fafc;margin-bottom:10px; }
+  .closed-banner { background:#f1f5f9;border:1px solid #cbd5e1;border-radius:10px;padding:12px 16px;
+                   margin-bottom:16px;display:flex;align-items:center;gap:10px;font-size:13px;color:#475569; }
+</style>
+
+{# Topbar #}
+<div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+  <div class="d-flex align-items-center gap-2">
+    <a href="{% url 'ce_list' %}" class="btn btn-sm btn-outline-secondary">
+      <i class="bi bi-arrow-left me-1"></i>Kembali
+    </a>
+    {% if user_can_edit %}
+    {% if ce.status != 'closed' %}
+    <a href="{% url 'ce_update' ce.pk %}" class="btn btn-sm btn-outline-warning">
+      <i class="bi bi-pencil me-1"></i>Edit
+    </a>
+    {% else %}
+    <span class="btn btn-sm btn-outline-secondary disabled" style="opacity:.5;cursor:not-allowed;" title="Tiket closed tidak bisa diedit">
+      <i class="bi bi-lock me-1"></i>Edit
+    </span>
+    {% endif %}
+    {% endif %}
+  </div>
+  <div class="d-flex align-items-center gap-2 flex-wrap">
+    <span class="g-pill pill-{{ ce.status }}">
+      {% if ce.status == 'open' %}<i class="bi bi-circle-fill" style="font-size:7px;"></i>Open
+      {% elif ce.status == 'in_progress' %}<i class="bi bi-hourglass-split" style="font-size:11px;"></i>In Progress
+      {% elif ce.status == 'resolved' %}<i class="bi bi-check-circle-fill" style="font-size:11px;"></i>Resolved
+      {% else %}<i class="bi bi-archive" style="font-size:11px;"></i>Closed{% endif %}
+    </span>
+    <span class="g-pill sev-{{ ce.tingkat_keparahan }}">{{ ce.get_tingkat_keparahan_display }}</span>
+    <span class="g-pill" style="background:{{ ce.kategori_color }}20;color:{{ ce.kategori_color }};border:1px solid {{ ce.kategori_color }}40;">
+      {{ ce.get_kategori_display }}
+    </span>
+  </div>
+</div>
+
+{% if ce.status == 'closed' %}
+<div class="closed-banner">
+  <i class="bi bi-lock-fill" style="color:#94a3b8;font-size:16px;flex-shrink:0;"></i>
+  Tiket ini sudah <strong>Closed</strong> dan tidak dapat diedit.
+</div>
+{% endif %}
+
+<div class="row g-3">
+
+{# ═══ KOLOM KIRI ══════════════════════════════════════════════ #}
+<div class="col-lg-8">
+
+  {# Hero card #}
+  <div class="g-card">
+    <div class="g-card-body" style="padding:18px 20px;">
+      <div class="d-flex align-items-start justify-content-between gap-3 flex-wrap">
+        <div>
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;margin-bottom:3px;">Nomor Common Enemy</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;color:#f97316;letter-spacing:1px;">
+            {{ ce.nomor_ce }}
+          </div>
+          <div style="margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <span style="font-size:13px;color:#475569;">
+              <i class="bi bi-geo-alt-fill me-1" style="color:#f97316;"></i>
+              <strong>{{ ce.site }}</strong>
+            </span>
+            {% if ce.peralatan %}
+            <span style="color:#cbd5e1;">·</span>
+            <a href="{% url 'device_view' ce.peralatan.pk %}"
+               style="font-size:13px;color:#64748b;text-decoration:none;"
+               onmouseover="this.style.color='#3b82f6'" onmouseout="this.style.color='#64748b'">
+              <i class="bi bi-cpu me-1"></i>{{ ce.peralatan.nama }}
+            </a>
+            {% endif %}
+            {% if ce.sub_kategori %}
+            <span style="color:#cbd5e1;">·</span>
+            <span style="font-size:12px;background:#ede9fe;color:#5b21b6;padding:3px 10px;border-radius:20px;font-weight:600;">
+              {{ ce.sub_kategori.name }}
+            </span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="text-end flex-shrink-0">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;margin-bottom:3px;">Durasi</div>
+          <div style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;font-size:15px;font-weight:700;
+              {% if ce.is_open %}background:#fffbeb;color:#92400e;border:1px solid #fde68a;
+              {% else %}background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;{% endif %}">
+            <i class="bi bi-clock"></i>{{ ce.durasi }}
+          </div>
+          <div style="font-size:11px;color:#94a3b8;margin-top:3px;">
+            {% if ce.is_open %}sedang berlangsung{% else %}sudah selesai{% endif %}
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:14px;padding-top:12px;border-top:1px solid #f1f5f9;
+                  display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
+        <div>
+          <div style="font-size:11px;font-weight:600;color:#94a3b8;margin-bottom:1px;">Waktu Laporan</div>
+          <div style="font-size:13px;font-weight:600;color:#0f172a;">
+            {{ ce.tanggal_laporan|date:"d M Y" }}
+            <span style="color:#64748b;font-weight:400;">{{ ce.tanggal_laporan|date:"H:i" }} WITA</span>
+          </div>
+        </div>
+        {% if ce.tanggal_resolved %}
+        <div style="color:#cbd5e1;font-size:16px;">→</div>
+        <div>
+          <div style="font-size:11px;font-weight:600;color:#10b981;margin-bottom:1px;">Waktu Resolved</div>
+          <div style="font-size:13px;font-weight:600;color:#0f172a;">
+            {{ ce.tanggal_resolved|date:"d M Y" }}
+            <span style="color:#64748b;font-weight:400;">{{ ce.tanggal_resolved|date:"H:i" }} WITA</span>
+          </div>
+        </div>
+        {% endif %}
+        <div>
+          <div style="font-size:11px;font-weight:600;color:#94a3b8;margin-bottom:1px;">Dilaporkan oleh</div>
+          <div style="font-size:13px;font-weight:600;color:#0f172a;">
+            {{ ce.created_by.get_full_name|default:ce.created_by.username|default:"—" }}
+          </div>
+        </div>
+        {% if ce.pelaksana_names %}
+        <div>
+          <div style="font-size:11px;font-weight:600;color:#94a3b8;margin-bottom:4px;">Pelaksana / PIC</div>
+          <div style="display:flex;flex-wrap:wrap;gap:5px;">
+            {% for nama in ce.pelaksana_names %}
+            <span style="display:inline-flex;align-items:center;gap:4px;background:#dbeafe;color:#1d4ed8;
+                         border-radius:20px;padding:3px 10px;font-size:12px;font-weight:500;">
+              <i class="bi bi-person" style="font-size:11px;"></i>{{ nama }}
+            </span>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {# Laporan Masalah #}
+  <div class="g-card">
+    <div class="g-card-head">
+      <i class="bi bi-file-text" style="color:#8b5cf6;"></i> Laporan Masalah
+    </div>
+    <div class="g-card-body">
+      <div class="accent-row" style="border-left-color:#8b5cf6;">
+        <div style="font-size:11px;font-weight:700;color:#7c3aed;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">
+          Deskripsi Masalah
+        </div>
+        <div style="font-size:13.5px;color:#0f172a;line-height:1.7;white-space:pre-wrap;">{{ ce.deskripsi_masalah }}</div>
+      </div>
+      {% if ce.tindak_lanjut %}
+      <div class="accent-row" style="border-left-color:#0ea5e9;">
+        <div style="font-size:11px;font-weight:700;color:#0284c7;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">
+          Tindak Lanjut
+        </div>
+        <div style="font-size:13.5px;color:#0f172a;line-height:1.7;white-space:pre-wrap;">{{ ce.tindak_lanjut }}</div>
+      </div>
+      {% endif %}
+      {% if ce.catatan_penutupan %}
+      <div class="accent-row" style="border-left-color:#10b981;">
+        <div style="font-size:11px;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">
+          Catatan Penutupan
+        </div>
+        <div style="font-size:13.5px;color:#0f172a;line-height:1.7;white-space:pre-wrap;">{{ ce.catatan_penutupan }}</div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  {# Log Tindak Lanjut #}
+  <div class="g-card">
+    <div class="g-card-head">
+      <i class="bi bi-journal-text" style="color:#10b981;"></i>
+      Log Tindak Lanjut
+      {% if log_entries %}
+      <span style="background:#d1fae5;color:#065f46;font-size:11px;padding:1px 8px;border-radius:20px;font-weight:700;">
+        {{ log_entries|length }} entri
+      </span>
+      {% endif %}
+    </div>
+    <div class="g-card-body">
+      {% if ce.status != 'closed' and user_can_edit %}
+      <form method="post" action="{% url 'ce_add_log' ce.pk %}" class="mb-3 pb-3" style="border-bottom:1px solid #f1f5f9;">
+        {% csrf_token %}
+        <div style="font-size:11.5px;font-weight:700;color:#065f46;margin-bottom:8px;">
+          <i class="bi bi-plus-circle me-1"></i>Tambah Entri Log
+        </div>
+        <div class="row g-2">
+          <div class="col-md-4">
+            <label style="font-size:11px;font-weight:600;color:#64748b;display:block;margin-bottom:3px;">Waktu Aksi</label>
+            {{ log_form.waktu_aksi }}
+          </div>
+          <div class="col-md-8">
+            <label style="font-size:11px;font-weight:600;color:#64748b;display:block;margin-bottom:3px;">Keterangan Tindakan</label>
+            {{ log_form.keterangan }}
+          </div>
+        </div>
+        <div class="text-end mt-2">
+          <button type="submit" class="btn btn-sm btn-success px-3">
+            <i class="bi bi-plus-lg me-1"></i>Simpan
+          </button>
+        </div>
+      </form>
+      {% endif %}
+
+      {% if log_entries %}
+      <div class="log-tl">
+        {% for log in log_entries %}
+        <div class="log-item log-entry-wa"
+             data-waktu="{{ log.waktu_aksi|date:'d M Y H:i' }} WITA"
+             data-isi="{{ log.keterangan|escapejs }}">
+          <div class="log-dot"></div>
+          <div class="log-bubble">
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-1">
+              <span class="log-bubble-time">
+                <i class="bi bi-clock me-1" style="color:#10b981;font-size:11px;"></i>
+                {{ log.waktu_aksi|date:"d M Y, H:i" }} WITA
+              </span>
+              <div class="d-flex align-items-center gap-2">
+                {% if log.dibuat_oleh %}
+                <span style="font-size:11px;color:#94a3b8;">
+                  <i class="bi bi-person me-1"></i>{{ log.dibuat_oleh.username }}
+                </span>
+                {% endif %}
+                {% if ce.status != 'closed' and user_can_edit %}
+                <form method="post" action="{% url 'ce_delete_log' ce.pk log.pk %}"
+                      onsubmit="return confirm('Hapus entri ini?');" style="display:inline;margin:0;">
+                  {% csrf_token %}
+                  <button type="submit"
+                          style="background:none;border:none;color:#fca5a5;font-size:12px;cursor:pointer;padding:0;line-height:1;"
+                          onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#fca5a5'">
+                    <i class="bi bi-trash3"></i>
+                  </button>
+                </form>
+                {% endif %}
+              </div>
+            </div>
+            <div class="log-bubble-text">{{ log.keterangan }}</div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div style="text-align:center;padding:20px 0;color:#94a3b8;font-size:13px;">
+        <i class="bi bi-journal-plus d-block mb-2" style="font-size:22px;opacity:.5;"></i>
+        Belum ada entri log.
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  {# Foto Eviden #}
+  {% if ce.foto_eviden1 or ce.foto_eviden2 or ce.foto_eviden3 %}
+  <div class="g-card">
+    <div class="g-card-head">
+      <i class="bi bi-images" style="color:#0ea5e9;"></i> Foto Eviden
+    </div>
+    <div class="g-card-body">
+      <div class="row g-2">
+        {% if ce.foto_eviden1 %}
+        <div class="col-md-4">
+          <img src="{{ ce.foto_eviden1.url }}" onclick="openLightbox('{{ ce.foto_eviden1.url }}')"
+               style="width:100%;height:160px;object-fit:cover;border-radius:8px;cursor:zoom-in;border:1px solid #e2e8f0;">
+          <div class="text-muted text-center" style="font-size:11px;margin-top:4px;">Foto 1</div>
+        </div>
+        {% endif %}
+        {% if ce.foto_eviden2 %}
+        <div class="col-md-4">
+          <img src="{{ ce.foto_eviden2.url }}" onclick="openLightbox('{{ ce.foto_eviden2.url }}')"
+               style="width:100%;height:160px;object-fit:cover;border-radius:8px;cursor:zoom-in;border:1px solid #e2e8f0;">
+          <div class="text-muted text-center" style="font-size:11px;margin-top:4px;">Foto 2</div>
+        </div>
+        {% endif %}
+        {% if ce.foto_eviden3 %}
+        <div class="col-md-4">
+          <img src="{{ ce.foto_eviden3.url }}" onclick="openLightbox('{{ ce.foto_eviden3.url }}')"
+               style="width:100%;height:160px;object-fit:cover;border-radius:8px;cursor:zoom-in;border:1px solid #e2e8f0;">
+          <div class="text-muted text-center" style="font-size:11px;margin-top:4px;">Foto 3</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+</div>{# end kolom kiri #}
+
+{# ═══ KOLOM KANAN ═════════════════════════════════════════════ #}
+<div class="col-lg-4">
+
+  {# Update Status #}
+  {% if ce.status != 'closed' and user_can_edit %}
+  <div class="g-card" style="border:1px solid #fde68a;">
+    <div class="g-card-head" style="background:#fffbeb;border-bottom:1px solid #fde68a;color:#92400e;">
+      <i class="bi bi-lightning-fill" style="color:#f59e0b;font-size:13px;"></i>
+      Update Status
+    </div>
+    <div class="g-card-body" style="padding:16px;">
+      <form method="post" action="{% url 'ce_update_status' ce.pk %}">
+        {% csrf_token %}
+        <div class="mb-2">
+          <label style="font-size:11.5px;font-weight:600;color:#64748b;display:block;margin-bottom:5px;">Status Baru</label>
+          <select name="status" id="statusSelect" class="form-select form-select-sm"
+                  onchange="toggleResolvedTime(this.value)">
+            <option value="open"        {% if ce.status == 'open' %}selected{% endif %}>Open</option>
+            <option value="in_progress" {% if ce.status == 'in_progress' %}selected{% endif %}>In Progress</option>
+            <option value="resolved"    {% if ce.status == 'resolved' %}selected{% endif %}>Resolved</option>
+            <option value="closed"      {% if ce.status == 'closed' %}selected{% endif %}>Closed</option>
+          </select>
+        </div>
+        <div class="mb-2" id="resolvedTimeRow" style="display:none;">
+          <label style="font-size:11.5px;font-weight:600;color:#16a34a;display:block;margin-bottom:5px;">
+            <i class="bi bi-clock-history me-1"></i>Waktu Resolved
+          </label>
+          <input type="datetime-local" name="tanggal_resolved" id="tanggal_resolved"
+                 class="form-control form-control-sm"
+                 value="{{ ce.tanggal_resolved|date:'Y-m-d\TH:i'|default:'' }}">
+          <div style="font-size:10.5px;color:#94a3b8;margin-top:3px;">Kosongkan untuk pakai waktu sekarang.</div>
+        </div>
+        <div class="mb-3">
+          <label style="font-size:11.5px;font-weight:600;color:#64748b;display:block;margin-bottom:5px;">Catatan</label>
+          <textarea name="catatan_penutupan" class="form-control form-control-sm"
+                    rows="3" placeholder="Catatan update status (opsional)…"
+                    style="resize:none;">{{ ce.catatan_penutupan }}</textarea>
+        </div>
+        <button type="submit" class="btn btn-sm btn-primary w-100">
+          <i class="bi bi-check-lg me-1"></i>Simpan Status
+        </button>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+
+  {# Salin Laporan WA #}
+  <div class="g-card" style="border:1px solid #86efac;">
+    <div class="g-card-head" style="background:#f0fdf4;border-bottom:1px solid #bbf7d0;color:#166534;">
+      <i class="bi bi-whatsapp" style="color:#25d366;font-size:14px;"></i>
+      Salin Laporan WA
+    </div>
+    <div class="g-card-body" style="padding:14px 16px;">
+      <p style="font-size:12px;color:#64748b;margin-bottom:12px;line-height:1.6;">
+        Format teks siap kirim ke grup manajemen via WhatsApp, termasuk log tindak lanjut.
+      </p>
+      <button onclick="copyLaporanWA()" id="btn-copy-wa"
+              class="btn btn-sm w-100 fw-bold"
+              style="background:#25d366;color:white;border:none;">
+        <i class="bi bi-whatsapp me-1"></i>Salin Laporan
+      </button>
+      <div id="copy-wa-success"
+           style="display:none;margin-top:8px;font-size:12px;color:#166534;
+                  background:#f0fdf4;padding:7px 10px;border-radius:6px;text-align:center;
+                  border:1px solid #bbf7d0;">
+        <i class="bi bi-check-circle me-1"></i>Laporan berhasil disalin!
+      </div>
+    </div>
+  </div>
+
+  {# Info Tiket #}
+  <div class="g-card">
+    <div class="g-card-head">
+      <i class="bi bi-info-circle" style="color:#64748b;"></i> Informasi Tiket
+    </div>
+    <div class="g-card-body" style="padding:0;">
+      <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
+        <tr style="border-bottom:1px solid #f1f5f9;">
+          <td style="padding:9px 14px;color:#94a3b8;font-weight:600;width:45%;">Nomor CE</td>
+          <td style="padding:9px 14px;font-family:'JetBrains Mono',monospace;color:#f97316;font-weight:700;">{{ ce.nomor_ce }}</td>
+        </tr>
+        <tr style="border-bottom:1px solid #f1f5f9;">
+          <td style="padding:9px 14px;color:#94a3b8;font-weight:600;">Status</td>
+          <td style="padding:9px 14px;">
+            <span class="g-pill pill-{{ ce.status }}" style="font-size:11px;">{{ ce.get_status_display }}</span>
+          </td>
+        </tr>
+        <tr style="border-bottom:1px solid #f1f5f9;">
+          <td style="padding:9px 14px;color:#94a3b8;font-weight:600;">Keparahan</td>
+          <td style="padding:9px 14px;">
+            <span class="g-pill sev-{{ ce.tingkat_keparahan }}" style="font-size:11px;">{{ ce.get_tingkat_keparahan_display }}</span>
+          </td>
+        </tr>
+        <tr style="border-bottom:1px solid #f1f5f9;">
+          <td style="padding:9px 14px;color:#94a3b8;font-weight:600;">Bidang</td>
+          <td style="padding:9px 14px;">
+            <span style="font-size:12px;font-weight:700;color:{{ ce.kategori_color }};">{{ ce.get_kategori_display }}</span>
+          </td>
+        </tr>
+        {% if ce.sub_kategori %}
+        <tr style="border-bottom:1px solid #f1f5f9;">
+          <td style="padding:9px 14px;color:#94a3b8;font-weight:600;">Jenis Peralatan</td>
+          <td style="padding:9px 14px;color:#475569;">{{ ce.sub_kategori.name }}</td>
+        </tr>
+        {% endif %}
+        <tr style="border-bottom:1px solid #f1f5f9;">
+          <td style="padding:9px 14px;color:#94a3b8;font-weight:600;">Sumber</td>
+          <td style="padding:9px 14px;color:#475569;">{{ ce.get_sumber_laporan_display }}</td>
+        </tr>
+        <tr style="border-bottom:1px solid #f1f5f9;">
+          <td style="padding:9px 14px;color:#94a3b8;font-weight:600;">Dilaporkan oleh</td>
+          <td style="padding:9px 14px;color:#475569;">
+            {{ ce.created_by.get_full_name|default:ce.created_by.username|default:"—" }}
+          </td>
+        </tr>
+        <tr style="border-bottom:1px solid #f1f5f9;">
+          <td style="padding:9px 14px;color:#94a3b8;font-weight:600;">Dibuat</td>
+          <td style="padding:9px 14px;color:#475569;">{{ ce.created_at|date:"d M Y, H:i" }}</td>
+        </tr>
+        <tr>
+          <td style="padding:9px 14px;color:#94a3b8;font-weight:600;">Diupdate</td>
+          <td style="padding:9px 14px;color:#475569;">{{ ce.updated_at|date:"d M Y, H:i" }}</td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  {# Progress Status #}
+  <div class="g-card">
+    <div class="g-card-head">
+      <i class="bi bi-signpost-2" style="color:#6366f1;"></i> Progress
+    </div>
+    <div class="g-card-body">
+      {% for step_val, step_label in ce.STATUS_CHOICES %}
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:{% if not forloop.last %}14px{% else %}0{% endif %};">
+        <div style="width:16px;height:16px;border-radius:50%;flex-shrink:0;
+          {% if ce.status == step_val %}background:#3b82f6;border:3px solid #bfdbfe;box-shadow:0 0 0 3px #eff6ff;
+          {% elif ce.STATUS_CHOICES|dictsort:'0'|dictsortreversed:'0' %}
+          {% comment %}check if passed{% endcomment %}
+          {% if step_val == 'open' %}background:#10b981;
+          {% elif step_val == 'in_progress' and ce.status in 'in_progress,resolved,closed' %}background:#10b981;
+          {% elif step_val == 'resolved' and ce.status in 'resolved,closed' %}background:#10b981;
+          {% elif step_val == 'closed' and ce.status == 'closed' %}background:#10b981;
+          {% else %}background:#e2e8f0;{% endif %}
+          {% else %}background:#e2e8f0;{% endif %}">
+        </div>
+        <span style="font-size:13px;
+          {% if ce.status == step_val %}font-weight:700;color:#1d4ed8;
+          {% else %}color:#94a3b8;{% endif %}">
+          {{ step_label }}
+        </span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+</div>{# end kolom kanan #}
+</div>{# row #}
+
+{# Lightbox #}
+<div id="lightbox" onclick="closeLightbox()"
+     style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;
+            align-items:center;justify-content:center;cursor:zoom-out;">
+  <img id="lightbox-img" src=""
+       style="max-width:90vw;max-height:90vh;border-radius:8px;box-shadow:0 25px 50px rgba(0,0,0,.5);">
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function openLightbox(url) {
+  var lb = document.getElementById('lightbox');
+  document.getElementById('lightbox-img').src = url;
+  lb.style.display = 'flex';
+}
+function closeLightbox() {
+  document.getElementById('lightbox').style.display = 'none';
+}
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeLightbox();
+});
+
+function toggleResolvedTime(val) {
+  var row = document.getElementById('resolvedTimeRow');
+  if (row) {
+    row.style.display = (val === 'resolved' || val === 'closed') ? 'block' : 'none';
+  }
+}
+document.addEventListener('DOMContentLoaded', function() {
+  var sel = document.getElementById('statusSelect');
+  if (sel) toggleResolvedTime(sel.value);
+});
+
+function copyLaporanWA() {
+  var logItems = document.querySelectorAll('.log-entry-wa');
+  var logText = '';
+  logItems.forEach(function(item) {
+    logText += '\n• [' + item.dataset.waktu + '] ' + item.dataset.isi;
+  });
+
+  var text = [
+    '🐛 *COMMON ENEMY — {{ ce.nomor_ce }}*',
+    '📍 Site: {{ ce.site|escapejs }}',
+    '🏷️ Bidang: {{ ce.get_kategori_display|escapejs }}{% if ce.sub_kategori %} / {{ ce.sub_kategori.name|escapejs }}{% endif %}',
+    '⚠️ Keparahan: {{ ce.get_tingkat_keparahan_display|escapejs }}',
+    '📋 Status: {{ ce.get_status_display|escapejs }}',
+    '📅 Laporan: {{ ce.tanggal_laporan|date:"d M Y H:i" }} WITA',
+    '',
+    '📄 *Deskripsi Masalah:*',
+    '{{ ce.deskripsi_masalah|escapejs }}',
+    {% if ce.tindak_lanjut %}'','⚙️ *Tindak Lanjut:*','{{ ce.tindak_lanjut|escapejs }}',{% endif %}
+    logText ? ('\n📝 *Log Tindak Lanjut:*' + logText) : '',
+  ].join('\n');
+
+  navigator.clipboard.writeText(text).then(function() {
+    var s = document.getElementById('copy-wa-success');
+    if (s) { s.style.display='block'; setTimeout(function(){ s.style.display='none'; }, 3000); }
+  });
+}
+</script>
+{% endblock %}

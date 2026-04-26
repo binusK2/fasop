@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'inspection',
     'opsis',
     'device_mon',
+    'common_enemy',
 ]
 
 MIDDLEWARE = [
