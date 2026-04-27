@@ -24,10 +24,18 @@ class SettingReleForm(forms.ModelForm):
             'status':      forms.Select(attrs={'class': 'form-select'}),
         }
 
+    # Nama jenis device yang diizinkan untuk setting rele
+    PROSIS_TYPES = [
+        'defense scheme', 'rele defense scheme', 'master trip', 'ufls',
+    ]
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['device'].queryset = (
-            Device.objects.filter(is_deleted=False)
+            Device.objects.filter(
+                is_deleted=False,
+                jenis__name__iregex=r'^(defense scheme|rele defense scheme|master trip|ufls)$',
+            )
             .select_related('jenis')
             .order_by('lokasi', 'nama')
         )

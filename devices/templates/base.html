@@ -526,7 +526,7 @@
         {# ── Sub-group: Telkom, SCADA, Prosis ── #}
         {% for group in device_groups %}
         <button class="sidebar-link sidebar-group-toggle w-100 text-start border-0
-            {% for dt in group.types %}{% with jid=dt.id|stringformat:"s" %}{% if jenis_param == jid or url_name == 'device_view' and active_device_jenis_id == dt.id %}active open{% endif %}{% endwith %}{% endfor %}{% if group.key == 'prosis' %}{% if 'setting_rele' in url_name %}active open{% endif %}{% endif %}"
+            {% for dt in group.types %}{% with jid=dt.id|stringformat:"s" %}{% if jenis_param == jid or url_name == 'device_view' and active_device_jenis_id == dt.id %}active open{% endif %}{% endwith %}{% endfor %}"
             data-target="submenu-peralatan-{{ group.key }}" type="button">
             <span class="si-icon"><i class="bi {{ group.icon }}" style="color:{{ group.color }};"></i></span>
             {{ group.label }}
@@ -534,16 +534,8 @@
         </button>
 
         <div class="sidebar-submenu
-            {% for dt in group.types %}{% with jid=dt.id|stringformat:"s" %}{% if jenis_param == jid or url_name == 'device_view' and active_device_jenis_id == dt.id %}open{% endif %}{% endwith %}{% endfor %}{% if group.key == 'prosis' %}{% if 'setting_rele' in url_name %}open{% endif %}{% endif %}"
+            {% for dt in group.types %}{% with jid=dt.id|stringformat:"s" %}{% if jenis_param == jid or url_name == 'device_view' and active_device_jenis_id == dt.id %}open{% endif %}{% endwith %}{% endfor %}"
              id="submenu-peralatan-{{ group.key }}">
-            {% if group.key == 'prosis' %}
-            <a href="{% url 'setting_rele_list' %}"
-               class="sidebar-link {% if 'setting_rele' in url_name %}active{% endif %}"
-               style="margin-bottom:4px;padding-bottom:7px;border-bottom:1px solid #f1f5f9;">
-                <span class="si-icon"><i class="bi bi-file-earmark-text" style="color:#f59e0b;font-size:12px;"></i></span>
-                Data Setting Rele
-            </a>
-            {% endif %}
             {% for dt in group.types %}
             {% with jid=dt.id|stringformat:"s" %}
             <a href="{% url 'device_list' %}?jenis={{ dt.id }}"
@@ -757,6 +749,11 @@
     <div class="sidebar-section">
         <div class="sidebar-section-label">Dokumentasi</div>
         {% with url_name=request.resolver_match.url_name %}
+        <a href="{% url 'setting_rele_list' %}"
+           class="sidebar-link {% if 'setting_rele' in url_name %}active{% endif %}">
+            <span class="si-icon"><i class="bi bi-file-earmark-text"></i></span>
+            Data Setting Rele
+        </a>
         <a href="{% url 'gambar_rele_list' %}"
            class="sidebar-link {% if 'gambar_rele' in url_name %}active{% endif %}">
             <span class="si-icon"><i class="bi bi-image"></i></span>
