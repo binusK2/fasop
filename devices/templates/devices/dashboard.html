@@ -326,192 +326,75 @@
 </div>
 
 <!-- ════════════════════════════════════════════════════════════
-     BARIS HI CHART + COMMON ENEMY OPEN
+     COMMON ENEMY AKTIF + PERANGKAT HI BURUK / KRITIS
 ═════════════════════════════════════════════════════════════ -->
-<div class="row g-3 mb-3">
-
-    <!-- Distribusi HI — Donut + Progress Bars -->
-    <div class="col-md-4">
-        <div class="card h-100">
-            <div class="card-body d-flex flex-column" style="padding:16px 18px;">
-                <div class="d-flex align-items-center justify-content-between mb-3">
-                    <div class="section-title mb-0" style="margin-bottom:0!important;">
-                        <i class="bi bi-pie-chart-fill" style="color:#8b5cf6;"></i> Distribusi HI
-                    </div>
-                    <a href="{% url 'hi_list' %}" style="font-size:11px;font-weight:600;color:#8b5cf6;text-decoration:none;">
-                        <i class="bi bi-arrow-right me-1"></i>Lihat semua
-                    </a>
-                </div>
-
-                <!-- Donut -->
-                <div class="d-flex justify-content-center mb-3">
-                    <div style="position:relative;width:148px;height:148px;flex-shrink:0;">
-                        <canvas id="hiDonut" width="148" height="148"></canvas>
-                        <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;">
-                            <div id="hiDonutTotal" style="font-size:24px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;line-height:1;"></div>
-                            <div style="font-size:9px;color:#94a3b8;margin-top:2px;">perangkat</div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Progress bars legend -->
-                {% with hi_total=hi_summary.sangat_baik|add:hi_summary.baik|add:hi_summary.cukup|add:hi_summary.buruk|add:hi_summary.kritis %}
-                <div style="display:flex;flex-direction:column;gap:9px;flex:1;">
-
-                    <div>
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
-                            <div style="display:flex;align-items:center;gap:6px;font-size:12px;">
-                                <div style="width:9px;height:9px;border-radius:2px;background:#10b981;flex-shrink:0;"></div>
-                                <span style="color:#374151;">Sangat Baik</span>
-                                <span style="font-size:10px;color:#94a3b8;">(85–100)</span>
-                            </div>
-                            <strong style="font-size:12px;font-family:monospace;color:#065f46;">{{ hi_summary.sangat_baik }}</strong>
-                        </div>
-                        <div style="height:4px;background:#f1f5f9;border-radius:2px;overflow:hidden;">
-                            {% if hi_total %}<div style="height:100%;background:#10b981;border-radius:2px;width:{% widthratio hi_summary.sangat_baik hi_total 100 %}%;"></div>{% endif %}
-                        </div>
-                    </div>
-
-                    <div>
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
-                            <div style="display:flex;align-items:center;gap:6px;font-size:12px;">
-                                <div style="width:9px;height:9px;border-radius:2px;background:#3b82f6;flex-shrink:0;"></div>
-                                <span style="color:#374151;">Baik</span>
-                                <span style="font-size:10px;color:#94a3b8;">(70–84)</span>
-                            </div>
-                            <strong style="font-size:12px;font-family:monospace;color:#1d4ed8;">{{ hi_summary.baik }}</strong>
-                        </div>
-                        <div style="height:4px;background:#f1f5f9;border-radius:2px;overflow:hidden;">
-                            {% if hi_total %}<div style="height:100%;background:#3b82f6;border-radius:2px;width:{% widthratio hi_summary.baik hi_total 100 %}%;"></div>{% endif %}
-                        </div>
-                    </div>
-
-                    <div>
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
-                            <div style="display:flex;align-items:center;gap:6px;font-size:12px;">
-                                <div style="width:9px;height:9px;border-radius:2px;background:#f59e0b;flex-shrink:0;"></div>
-                                <span style="color:#374151;">Cukup</span>
-                                <span style="font-size:10px;color:#94a3b8;">(50–69)</span>
-                            </div>
-                            <strong style="font-size:12px;font-family:monospace;color:#92400e;">{{ hi_summary.cukup }}</strong>
-                        </div>
-                        <div style="height:4px;background:#f1f5f9;border-radius:2px;overflow:hidden;">
-                            {% if hi_total %}<div style="height:100%;background:#f59e0b;border-radius:2px;width:{% widthratio hi_summary.cukup hi_total 100 %}%;"></div>{% endif %}
-                        </div>
-                    </div>
-
-                    <div>
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
-                            <div style="display:flex;align-items:center;gap:6px;font-size:12px;">
-                                <div style="width:9px;height:9px;border-radius:2px;background:#f97316;flex-shrink:0;"></div>
-                                <span style="color:#374151;">Buruk</span>
-                                <span style="font-size:10px;color:#94a3b8;">(25–49)</span>
-                            </div>
-                            <strong style="font-size:12px;font-family:monospace;color:#9a3412;">{{ hi_summary.buruk }}</strong>
-                        </div>
-                        <div style="height:4px;background:#f1f5f9;border-radius:2px;overflow:hidden;">
-                            {% if hi_total %}<div style="height:100%;background:#f97316;border-radius:2px;width:{% widthratio hi_summary.buruk hi_total 100 %}%;"></div>{% endif %}
-                        </div>
-                    </div>
-
-                    <div>
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
-                            <div style="display:flex;align-items:center;gap:6px;font-size:12px;">
-                                <div style="width:9px;height:9px;border-radius:2px;background:#ef4444;flex-shrink:0;"></div>
-                                <span style="color:#374151;">Kritis</span>
-                                <span style="font-size:10px;color:#94a3b8;">(0–24)</span>
-                            </div>
-                            <strong style="font-size:12px;font-family:monospace;color:#991b1b;">{{ hi_summary.kritis }}</strong>
-                        </div>
-                        <div style="height:4px;background:#f1f5f9;border-radius:2px;overflow:hidden;">
-                            {% if hi_total %}<div style="height:100%;background:#ef4444;border-radius:2px;width:{% widthratio hi_summary.kritis hi_total 100 %}%;"></div>{% endif %}
-                        </div>
-                    </div>
-
-                </div>
-                {% endwith %}
-            </div>
-        </div>
-    </div>
+<div class="row g-3 mb-4">
 
     <!-- Common Enemy Aktif -->
-    <div class="col-md-8">
+    <div class="col-md-6">
         <div class="tbl-card h-100">
-            <div class="tbl-head">
-                <h6>
+            <div class="tbl-head" style="padding:10px 14px;">
+                <h6 style="font-size:13px;">
                     <i class="bi bi-bug-fill me-1" style="color:#f97316;"></i>Common Enemy Aktif
                     {% if ce_open_total %}
-                    <span style="font-size:11px;font-weight:700;background:#fff7ed;color:#9a3412;
-                                 border:1px solid #fed7aa;padding:2px 8px;border-radius:20px;margin-left:6px;">
+                    <span style="font-size:10.5px;font-weight:700;background:#fff7ed;color:#9a3412;
+                                 border:1px solid #fed7aa;padding:1px 7px;border-radius:20px;margin-left:5px;">
                         {{ ce_open_total }} tiket
                     </span>
                     {% endif %}
                 </h6>
-                <a href="{% url 'ce_list' %}" class="btn btn-sm btn-outline-warning">Lihat Semua</a>
+                <a href="{% url 'ce_list' %}" class="btn btn-sm btn-outline-warning" style="font-size:11px;padding:3px 9px;">Lihat Semua</a>
             </div>
             {% if ce_open_list %}
-            <div style="overflow-x:auto;">
-            <table class="table mb-0" style="min-width:560px;">
+            <table class="table mb-0">
                 <thead>
                     <tr style="background:#f8fafc;">
-                        <th style="font-size:11px;color:#64748b;padding:9px 14px;white-space:nowrap;">NOMOR CE</th>
-                        <th style="font-size:11px;color:#64748b;padding:9px 10px;">SITE</th>
-                        <th style="font-size:11px;color:#64748b;padding:9px 10px;white-space:nowrap;">BIDANG</th>
-                        <th style="font-size:11px;color:#64748b;padding:9px 10px;white-space:nowrap;">KEPARAHAN</th>
-                        <th style="font-size:11px;color:#64748b;padding:9px 10px;">STATUS</th>
-                        <th style="font-size:11px;color:#64748b;padding:9px 10px;white-space:nowrap;">DURASI</th>
-                        <th style="padding:9px 8px;"></th>
+                        <th style="font-size:10.5px;color:#94a3b8;padding:7px 12px;font-weight:600;letter-spacing:.3px;">NOMOR CE</th>
+                        <th style="font-size:10.5px;color:#94a3b8;padding:7px 8px;font-weight:600;letter-spacing:.3px;">SITE</th>
+                        <th style="font-size:10.5px;color:#94a3b8;padding:7px 8px;font-weight:600;letter-spacing:.3px;">KEPARAHAN</th>
+                        <th style="font-size:10.5px;color:#94a3b8;padding:7px 8px;font-weight:600;letter-spacing:.3px;">DURASI</th>
+                        <th style="padding:7px 6px;"></th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for ce in ce_open_list %}
                     <tr style="border-top:1px solid #f1f5f9;vertical-align:middle;">
-                        <td style="padding:9px 14px;">
-                            <span style="font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#f97316;">
+                        <td style="padding:7px 12px;">
+                            <span style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:#f97316;">
                                 {{ ce.nomor_ce }}
                             </span>
-                        </td>
-                        <td style="padding:9px 10px;">
-                            <div style="font-size:13px;font-weight:500;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px;" title="{{ ce.site }}">
-                                {{ ce.site }}
+                            <div style="font-size:10px;color:#94a3b8;margin-top:1px;">
+                                <span class="g-pill pill-{{ ce.status }}" style="font-size:10px;padding:1px 6px;">
+                                    {% if ce.status == 'open' %}Open{% else %}In Progress{% endif %}
+                                </span>
                             </div>
-                            {% if ce.peralatan %}
-                            <div style="font-size:10.5px;color:#94a3b8;">{{ ce.peralatan.nama }}</div>
-                            {% endif %}
                         </td>
-                        <td style="padding:9px 10px;">
-                            <span style="font-size:11.5px;font-weight:600;color:{{ ce.kategori_color }};">
-                                {{ ce.get_kategori_display }}
-                            </span>
+                        <td style="padding:7px 8px;">
+                            <div style="font-size:12px;font-weight:500;color:#0f172a;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ ce.site }}">{{ ce.site }}</div>
+                            <div style="font-size:10px;color:#94a3b8;">{{ ce.get_kategori_display }}</div>
                         </td>
-                        <td style="padding:9px 10px;">
-                            <span class="g-pill sev-{{ ce.tingkat_keparahan }}" style="font-size:11px;">
+                        <td style="padding:7px 8px;">
+                            <span class="g-pill sev-{{ ce.tingkat_keparahan }}" style="font-size:10.5px;padding:2px 8px;">
                                 {{ ce.get_tingkat_keparahan_display }}
                             </span>
                         </td>
-                        <td style="padding:9px 10px;">
-                            <span class="g-pill pill-{{ ce.status }}" style="font-size:11px;">
-                                {% if ce.status == 'open' %}Open{% else %}In Progress{% endif %}
-                            </span>
+                        <td style="padding:7px 8px;font-size:11px;color:#f59e0b;font-weight:600;white-space:nowrap;">
+                            <i class="bi bi-clock" style="font-size:10px;"></i> {{ ce.durasi }}
                         </td>
-                        <td style="padding:9px 10px;font-size:12px;color:#f59e0b;font-weight:600;white-space:nowrap;">
-                            <i class="bi bi-clock me-1" style="font-size:10px;"></i>{{ ce.durasi }}
-                        </td>
-                        <td style="padding:9px 8px;">
-                            <a href="{% url 'ce_detail' ce.pk %}" class="btn btn-sm btn-outline-secondary" style="padding:3px 8px;">
-                                <i class="bi bi-arrow-right"></i>
+                        <td style="padding:7px 6px;">
+                            <a href="{% url 'ce_detail' ce.pk %}" class="btn btn-sm btn-outline-secondary" style="padding:2px 7px;">
+                                <i class="bi bi-arrow-right" style="font-size:11px;"></i>
                             </a>
                         </td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
-            </div>
             {% else %}
-            <div class="text-center py-5" style="color:#94a3b8;">
-                <i class="bi bi-bug-slash d-block mb-2" style="font-size:26px;color:#10b981;opacity:.6;"></i>
-                <div style="font-size:13px;">Tidak ada Common Enemy aktif</div>
-                <a href="{% url 'ce_create' %}" class="btn btn-sm btn-outline-warning mt-2" style="font-size:12px;">
+            <div class="d-flex flex-column align-items-center justify-content-center py-4" style="color:#94a3b8;flex:1;min-height:120px;">
+                <i class="bi bi-bug-slash mb-2" style="font-size:22px;color:#10b981;opacity:.5;"></i>
+                <div style="font-size:12.5px;">Tidak ada Common Enemy aktif</div>
+                <a href="{% url 'ce_create' %}" class="btn btn-sm btn-outline-warning mt-2" style="font-size:11px;padding:3px 10px;">
                     <i class="bi bi-plus-lg me-1"></i>Laporkan CE
                 </a>
             </div>
@@ -519,98 +402,78 @@
         </div>
     </div>
 
-</div>
-
-<!-- ════════════════════════════════════════════════════════════
-     PERANGKAT HEALTH INDEX BURUK / KRITIS
-═════════════════════════════════════════════════════════════ -->
-<div class="row g-3 mb-4">
-    <div class="col-12">
-        <div class="tbl-card">
-            <div class="tbl-head">
-                <h6>
-                    <i class="bi bi-shield-slash me-1" style="color:#f97316;"></i>
-                    Perangkat Health Index Buruk / Kritis
+    <!-- Perangkat HI Buruk / Kritis -->
+    <div class="col-md-6">
+        <div class="tbl-card h-100">
+            <div class="tbl-head" style="padding:10px 14px;">
+                <h6 style="font-size:13px;">
+                    <i class="bi bi-shield-slash me-1" style="color:#f97316;"></i>HI Buruk / Kritis
                     {% if hi_buruk_list %}
-                    <span style="font-size:11px;font-weight:700;background:#fff7ed;color:#9a3412;
-                                 border:1px solid #fed7aa;padding:2px 8px;border-radius:20px;margin-left:6px;">
+                    <span style="font-size:10.5px;font-weight:700;background:#fff7ed;color:#9a3412;
+                                 border:1px solid #fed7aa;padding:1px 7px;border-radius:20px;margin-left:5px;">
                         {{ hi_summary.buruk|add:hi_summary.kritis }} perangkat
                     </span>
                     {% endif %}
                 </h6>
-                <a href="{% url 'hi_list' %}?kategori=Buruk" class="btn btn-sm btn-outline-danger">Lihat Semua</a>
+                <a href="{% url 'hi_list' %}?kategori=Buruk" class="btn btn-sm btn-outline-danger" style="font-size:11px;padding:3px 9px;">Lihat Semua</a>
             </div>
             {% if hi_buruk_list %}
-            <div style="overflow-x:auto;">
-            <table class="table mb-0" style="min-width:620px;">
+            <table class="table mb-0">
                 <thead>
                     <tr style="background:#f8fafc;">
-                        <th style="font-size:11px;color:#64748b;padding:9px 16px;">PERANGKAT</th>
-                        <th style="font-size:11px;color:#64748b;padding:9px 10px;">LOKASI</th>
-                        <th style="font-size:11px;color:#64748b;padding:9px 10px;">JENIS</th>
-                        <th style="font-size:11px;color:#64748b;padding:9px 10px;text-align:center;">SKOR HI</th>
-                        <th style="font-size:11px;color:#64748b;padding:9px 10px;">KATEGORI</th>
-                        <th style="font-size:11px;color:#64748b;padding:9px 10px;min-width:130px;">KONDISI</th>
-                        <th style="padding:9px 8px;"></th>
+                        <th style="font-size:10.5px;color:#94a3b8;padding:7px 12px;font-weight:600;letter-spacing:.3px;">PERANGKAT</th>
+                        <th style="font-size:10.5px;color:#94a3b8;padding:7px 8px;font-weight:600;letter-spacing:.3px;">LOKASI</th>
+                        <th style="font-size:10.5px;color:#94a3b8;padding:7px 8px;font-weight:600;letter-spacing:.3px;text-align:center;">SKOR</th>
+                        <th style="font-size:10.5px;color:#94a3b8;padding:7px 8px;font-weight:600;letter-spacing:.3px;">KONDISI</th>
+                        <th style="padding:7px 6px;"></th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for item in hi_buruk_list %}
-                    <tr style="border-top:1px solid #f1f5f9;vertical-align:middle;
-                        {% if item.hi.score < 25 %}background:#fffafa;{% endif %}">
-                        <td style="padding:9px 16px;">
-                            <div style="font-size:13px;font-weight:600;color:#0f172a;">{{ item.device.nama }}</div>
+                    <tr style="border-top:1px solid #f1f5f9;vertical-align:middle;{% if item.hi.score < 25 %}background:#fffafa;{% endif %}">
+                        <td style="padding:7px 12px;">
+                            <div style="font-size:12px;font-weight:600;color:#0f172a;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ item.device.nama }}">{{ item.device.nama }}</div>
+                            <div style="font-size:10px;color:#94a3b8;">{{ item.device.jenis }}</div>
                         </td>
-                        <td style="padding:9px 10px;font-size:12px;color:#475569;">{{ item.device.lokasi }}</td>
-                        <td style="padding:9px 10px;font-size:11.5px;color:#64748b;">{{ item.device.jenis }}</td>
-                        <td style="padding:9px 10px;text-align:center;">
-                            <span style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:800;
+                        <td style="padding:7px 8px;font-size:11px;color:#475569;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ item.device.lokasi }}">{{ item.device.lokasi }}</td>
+                        <td style="padding:7px 8px;text-align:center;">
+                            <span style="font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:800;
                                 {% if item.hi.score < 25 %}color:#dc2626;{% else %}color:#ea580c;{% endif %}">
                                 {{ item.hi.score }}
                             </span>
                         </td>
-                        <td style="padding:9px 10px;">
-                            {% if item.hi.score < 25 %}
-                            <span style="font-size:11.5px;font-weight:700;background:#fee2e2;color:#991b1b;
-                                         padding:3px 10px;border-radius:20px;border:1px solid #fca5a5;">
-                                <i class="bi bi-exclamation-triangle-fill me-1" style="font-size:10px;"></i>Kritis
-                            </span>
-                            {% else %}
-                            <span style="font-size:11.5px;font-weight:700;background:#fff7ed;color:#9a3412;
-                                         padding:3px 10px;border-radius:20px;border:1px solid #fed7aa;">
-                                <i class="bi bi-shield-slash me-1" style="font-size:10px;"></i>Buruk
-                            </span>
-                            {% endif %}
-                        </td>
-                        <td style="padding:9px 10px;">
-                            <div style="display:flex;align-items:center;gap:7px;">
-                                <div style="flex:1;height:6px;background:#f1f5f9;border-radius:3px;overflow:hidden;min-width:80px;max-width:120px;">
+                        <td style="padding:7px 8px;">
+                            <div style="display:flex;align-items:center;gap:5px;">
+                                <div style="width:55px;height:5px;background:#f1f5f9;border-radius:3px;overflow:hidden;flex-shrink:0;">
                                     <div style="height:100%;border-radius:3px;
-                                        {% if item.hi.score < 25 %}background:linear-gradient(90deg,#ef4444,#fca5a5);
-                                        {% else %}background:linear-gradient(90deg,#f97316,#fdba74);{% endif %}
+                                        {% if item.hi.score < 25 %}background:#ef4444;{% else %}background:#f97316;{% endif %}
                                         width:{{ item.hi.score }}%;"></div>
                                 </div>
-                                <span style="font-size:11px;color:#94a3b8;">{{ item.hi.score }}%</span>
+                                {% if item.hi.score < 25 %}
+                                <span style="font-size:10px;font-weight:700;color:#991b1b;">Kritis</span>
+                                {% else %}
+                                <span style="font-size:10px;font-weight:700;color:#9a3412;">Buruk</span>
+                                {% endif %}
                             </div>
                         </td>
-                        <td style="padding:9px 8px;">
-                            <a href="{% url 'device_detail' item.device.pk %}" class="btn btn-sm btn-outline-secondary" style="padding:3px 8px;">
-                                <i class="bi bi-arrow-right"></i>
+                        <td style="padding:7px 6px;">
+                            <a href="{% url 'device_detail' item.device.pk %}" class="btn btn-sm btn-outline-secondary" style="padding:2px 7px;">
+                                <i class="bi bi-arrow-right" style="font-size:11px;"></i>
                             </a>
                         </td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
-            </div>
             {% else %}
-            <div class="text-center py-4" style="color:#94a3b8;">
-                <i class="bi bi-shield-check d-block mb-2" style="font-size:26px;color:#10b981;"></i>
-                <div style="font-size:13px;">Semua perangkat dalam kondisi baik</div>
+            <div class="d-flex flex-column align-items-center justify-content-center py-4" style="color:#94a3b8;flex:1;min-height:120px;">
+                <i class="bi bi-shield-check mb-2" style="font-size:22px;color:#10b981;"></i>
+                <div style="font-size:12.5px;">Semua perangkat dalam kondisi baik</div>
             </div>
             {% endif %}
         </div>
     </div>
+
 </div>
 
 <!-- ════════════════════════════════════════════════════════════
@@ -1162,37 +1025,6 @@ new Chart(document.getElementById('gangguanLine'), {
             y: { beginAtZero: true, ticks: { stepSize:1, precision:0, font:{size:11}, color:'#94a3b8' },
                  grid: { color:'#f1f5f9' }, border: { display:false } },
             x: { ticks: { font:{size:11}, color:'#94a3b8' }, grid: { display:false }, border: { display:false } }
-        }
-    }
-});
-
-// ── HI Donut ──────────────────────────────────────────────────
-const hiData = {{ hi_summary_json|safe }};
-const hiTotal = hiData.sangat_baik + hiData.baik + hiData.cukup + hiData.buruk + hiData.kritis;
-document.getElementById('hiDonutTotal').textContent = hiTotal;
-new Chart(document.getElementById('hiDonut'), {
-    type: 'doughnut',
-    data: {
-        labels: ['Sangat Baik', 'Baik', 'Cukup', 'Buruk', 'Kritis'],
-        datasets: [{
-            data: [hiData.sangat_baik, hiData.baik, hiData.cukup, hiData.buruk, hiData.kritis],
-            backgroundColor: ['#10b981','#3b82f6','#f59e0b','#f97316','#ef4444'],
-            borderColor: '#fff', borderWidth: 3, hoverOffset: 6,
-        }]
-    },
-    options: {
-        responsive: false, cutout: '65%',
-        plugins: {
-            legend: { display: false },
-            tooltip: {
-                backgroundColor: '#0f172a', padding: 10, cornerRadius: 8,
-                callbacks: {
-                    label: ctx => {
-                        const pct = hiTotal > 0 ? Math.round(ctx.parsed / hiTotal * 100) : 0;
-                        return `  ${ctx.parsed} perangkat (${pct}%)`;
-                    }
-                }
-            }
         }
     }
 });
