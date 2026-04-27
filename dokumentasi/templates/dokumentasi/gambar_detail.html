@@ -1,0 +1,128 @@
+{% extends 'base.html' %}
+{% block title %}{{ obj.nomor }} — Gambar / Wiring Diagram{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center gap-2 mb-4">
+  <a href="{% url 'gambar_rele_list' %}" class="btn btn-sm btn-outline-secondary">
+    <i class="bi bi-arrow-left me-1"></i>Kembali
+  </a>
+  {% if user_can_edit %}
+  <a href="{% url 'gambar_rele_update' obj.pk %}" class="btn btn-sm btn-warning">
+    <i class="bi bi-pencil me-1"></i>Edit
+  </a>
+  {% endif %}
+</div>
+
+{# ── Header ── #}
+<div class="card border-0 shadow-sm mb-3" style="border-left:4px solid #8b5cf6!important">
+  <div class="card-body px-4 py-3">
+    <div class="d-flex align-items-start gap-3 flex-wrap">
+      <div style="min-width:0;">
+        <div class="font-monospace fw-bold text-primary" style="font-size:16px;">{{ obj.nomor }}</div>
+        <div class="fw-semibold" style="font-size:15px;margin-top:2px;">{{ obj.judul }}</div>
+        <div class="d-flex align-items-center gap-2 mt-1 flex-wrap" style="font-size:12px;color:#64748b;">
+          <span><i class="bi bi-cpu me-1"></i>{{ obj.device.nama }}</span>
+          {% if obj.device.lokasi %}
+          <span class="text-muted">·</span>
+          <span><i class="bi bi-geo-alt-fill me-1" style="color:#8b5cf6;"></i>{{ obj.device.lokasi }}</span>
+          {% endif %}
+          {% if obj.device.jenis %}
+          <span class="text-muted">·</span>
+          <span class="badge bg-light text-dark border" style="font-size:10px;">{{ obj.device.jenis.name }}</span>
+          {% endif %}
+        </div>
+      </div>
+      <div class="ms-auto text-end" style="flex-shrink:0;">
+        <span class="badge bg-light text-dark border">{{ obj.get_tipe_display }}</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+
+  <div class="col-lg-8">
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-body px-4 py-3">
+        <div class="row g-3" style="font-size:13px;">
+          <div class="col-sm-4">
+            <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;font-weight:600;">Tanggal</div>
+            <div class="mt-1">{{ obj.tanggal|date:"d M Y" }}</div>
+          </div>
+          <div class="col-sm-4">
+            <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;font-weight:600;">Versi</div>
+            <div class="mt-1">{{ obj.versi|default:"—" }}</div>
+          </div>
+          <div class="col-sm-4">
+            <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;font-weight:600;">Dibuat oleh</div>
+            <div class="mt-1">{{ obj.created_by.get_full_name|default:obj.created_by.username|default:"—" }}</div>
+          </div>
+          {% if obj.keterangan %}
+          <div class="col-12">
+            <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;font-weight:600;">Keterangan</div>
+            <div class="mt-1" style="white-space:pre-wrap;">{{ obj.keterangan }}</div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    {# ── File ── #}
+    {% if obj.file_gambar %}
+    <div class="card border-0 shadow-sm">
+      <div class="card-body px-4 py-3">
+        {% with ext=obj.file_ext %}
+        {% if obj.is_image %}
+        <div class="mb-3">
+          <img src="{{ obj.file_gambar.url }}" alt="{{ obj.judul }}"
+               style="max-width:100%;border-radius:8px;border:1px solid #e2e8f0;">
+        </div>
+        {% endif %}
+        <div class="d-flex align-items-center gap-3">
+          {% if ext == 'pdf' %}
+          <i class="bi bi-file-earmark-pdf" style="font-size:36px;color:#ef4444;flex-shrink:0;"></i>
+          {% elif ext == 'jpg' or ext == 'jpeg' or ext == 'png' or ext == 'svg' %}
+          <i class="bi bi-file-earmark-image" style="font-size:36px;color:#8b5cf6;flex-shrink:0;"></i>
+          {% elif ext == 'dwg' or ext == 'dxf' %}
+          <i class="bi bi-file-earmark-code" style="font-size:36px;color:#0ea5e9;flex-shrink:0;"></i>
+          {% else %}
+          <i class="bi bi-file-earmark" style="font-size:36px;color:#94a3b8;flex-shrink:0;"></i>
+          {% endif %}
+          <div style="min-width:0;">
+            <div style="font-size:12px;color:#64748b;">File Gambar</div>
+            <div class="text-truncate fw-semibold" style="font-size:13px;">
+              {{ obj.file_gambar.name|cut:"dokumentasi/gambar/" }}
+            </div>
+            <a href="{{ obj.file_gambar.url }}" download class="btn btn-sm btn-outline-primary mt-1" style="font-size:12px;">
+              <i class="bi bi-download me-1"></i>Download
+            </a>
+          </div>
+        </div>
+        {% endwith %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body px-4 py-3">
+        <div class="fw-semibold mb-3" style="font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:#475569;">
+          <i class="bi bi-shield-check me-1"></i>Verifikasi
+        </div>
+        <div style="font-size:13px;">
+          <div class="mb-2">
+            <span class="text-muted" style="font-size:11px;">Checker</span><br>
+            {{ obj.checker.get_full_name|default:obj.checker.username|default:"Belum ditentukan" }}
+          </div>
+          <div>
+            <span class="text-muted" style="font-size:11px;">Tanggal Cek</span><br>
+            {{ obj.tanggal_cek|date:"d M Y"|default:"—" }}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,154 @@
+{% extends 'base.html' %}
+{% block title %}Data Setting Rele — FASOP{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h4 class="mb-0 fw-semibold">Data Setting Rele</h4>
+    <small class="text-muted">Dokumentasi file setting relay proteksi</small>
+  </div>
+  {% if user_can_edit %}
+  <a href="{% url 'setting_rele_create' %}" class="btn btn-warning btn-sm">
+    <i class="bi bi-plus-circle me-1"></i>Tambah Setting
+  </a>
+  {% endif %}
+</div>
+
+{# ── Stat cards ── #}
+<div class="row g-2 mb-3">
+  <div class="col-6 col-md-4">
+    <div class="card text-center border-0 shadow-sm h-100">
+      <div class="card-body py-2">
+        <div class="fs-4 fw-bold text-secondary">{{ stats.total }}</div>
+        <div class="small text-muted">Total</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-4">
+    <div class="card text-center border-0 shadow-sm h-100" style="border-left:3px solid #94a3b8!important">
+      <div class="card-body py-2">
+        <div class="fs-4 fw-bold" style="color:#94a3b8">{{ stats.draft }}</div>
+        <div class="small text-muted">Draft</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-4">
+    <div class="card text-center border-0 shadow-sm h-100" style="border-left:3px solid #10b981!important">
+      <div class="card-body py-2">
+        <div class="fs-4 fw-bold" style="color:#10b981">{{ stats.checked }}</div>
+        <div class="small text-muted">Sudah Dicek</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── Filter bar ── #}
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-body py-2">
+    <form method="get" class="row g-2 align-items-end">
+      <div class="col-sm-6 col-md-5">
+        <input type="text" name="q" class="form-control form-control-sm"
+               placeholder="Cari nomor, judul, perangkat, lokasi…" value="{{ search }}">
+      </div>
+      <div class="col-sm-4 col-md-3">
+        <select name="status" class="form-select form-select-sm">
+          <option value="">Semua Status</option>
+          {% for val, label in STATUS_CHOICES %}
+          <option value="{{ val }}" {% if status_filter == val %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-auto">
+        <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-search"></i></button>
+      </div>
+      {% if search or status_filter %}
+      <div class="col-auto">
+        <a href="{% url 'setting_rele_list' %}" class="btn btn-outline-secondary btn-sm">
+          <i class="bi bi-x-circle"></i> Reset
+        </a>
+      </div>
+      {% endif %}
+    </form>
+  </div>
+</div>
+
+{# ── Tabel ── #}
+{% if object_list %}
+<div class="card border-0 shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-sm table-hover mb-0" style="font-size:13px;">
+      <thead class="table-light">
+        <tr>
+          <th>Nomor</th>
+          <th>Perangkat</th>
+          <th>Lokasi</th>
+          <th>Judul</th>
+          <th>Versi</th>
+          <th>Tanggal</th>
+          <th>Checker</th>
+          <th>Status</th>
+          <th>File</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for obj in object_list %}
+        <tr>
+          <td class="font-monospace text-primary fw-semibold" style="white-space:nowrap;">
+            <a href="{% url 'setting_rele_detail' obj.pk %}" class="text-decoration-none">{{ obj.nomor }}</a>
+          </td>
+          <td>{{ obj.device.nama }}</td>
+          <td class="text-muted">{{ obj.device.lokasi|default:"—" }}</td>
+          <td style="max-width:220px;" class="text-truncate">{{ obj.judul }}</td>
+          <td class="text-muted">{{ obj.versi|default:"—" }}</td>
+          <td class="text-muted" style="white-space:nowrap;">{{ obj.tanggal|date:"d M Y" }}</td>
+          <td class="text-muted">
+            {% if obj.checker %}{{ obj.checker.get_full_name|default:obj.checker.username }}{% else %}—{% endif %}
+          </td>
+          <td>
+            {% if obj.status == 'checked' %}
+            <span class="badge" style="background:#10b981">Sudah Dicek</span>
+            {% else %}
+            <span class="badge bg-secondary">Draft</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if obj.file_setting %}
+            {% with ext=obj.file_ext %}
+            {% if ext == 'pdf' %}
+            <span class="badge" style="background:#ef4444;font-size:10px;">PDF</span>
+            {% elif ext == 'xlsx' or ext == 'xls' %}
+            <span class="badge" style="background:#10b981;font-size:10px;">XLS</span>
+            {% elif ext == 'ols' or ext == 'rdb' %}
+            <span class="badge" style="background:#3b82f6;font-size:10px;">{{ ext|upper }}</span>
+            {% else %}
+            <span class="badge bg-secondary" style="font-size:10px;">{{ ext|upper|default:"FILE" }}</span>
+            {% endif %}
+            {% endwith %}
+            {% else %}
+            <span class="text-muted" style="font-size:12px;">—</span>
+            {% endif %}
+          </td>
+          <td>
+            <a href="{% url 'setting_rele_detail' obj.pk %}" class="btn btn-xs btn-outline-primary btn-sm py-0 px-2">
+              <i class="bi bi-eye"></i>
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="text-center py-5 text-muted">
+  <i class="bi bi-file-earmark-text fs-1 d-block mb-2"></i>
+  <p>Belum ada data setting rele.</p>
+  {% if user_can_edit %}
+  <a href="{% url 'setting_rele_create' %}" class="btn btn-warning btn-sm">
+    <i class="bi bi-plus-circle me-1"></i>Tambah Sekarang
+  </a>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}
