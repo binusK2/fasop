@@ -681,14 +681,14 @@
 
         {% with url_name=request.resolver_match.url_name %}
         <button class="sidebar-link sidebar-group-toggle w-100 text-start border-0
-            {% if 'gangguan' in url_name %}active open{% endif %}"
+            {% if 'gangguan' in url_name or 'ce_' in url_name %}active open{% endif %}"
             data-target="submenu-gangguan" type="button">
             <span class="si-icon"><i class="bi bi-exclamation-triangle"></i></span>
             Gangguan
             <i class="bi bi-chevron-right sidebar-toggle-btn ms-auto"></i>
         </button>
 
-        <div class="sidebar-submenu {% if 'gangguan' in url_name %}open{% endif %}"
+        <div class="sidebar-submenu {% if 'gangguan' in url_name or 'ce_' in url_name %}open{% endif %}"
              id="submenu-gangguan">
             <a href="{% url 'gangguan_create' %}"
                class="sidebar-link {% if url_name == 'gangguan_create' %}active{% endif %}">
@@ -700,33 +700,10 @@
                 <span class="si-icon"><i class="bi bi-ticket-perforated"></i></span>
                 History Gangguan
             </a>
-        </div>
-        {% endwith %}
-    </div>
-
-    <div class="sidebar-section">
-        <div class="sidebar-section-label">Common Enemy</div>
-
-        {% with url_name=request.resolver_match.url_name %}
-        <button class="sidebar-link sidebar-group-toggle w-100 text-start border-0
-            {% if 'ce_' in url_name %}active open{% endif %}"
-            data-target="submenu-ce" type="button">
-            <span class="si-icon"><i class="bi bi-bug"></i></span>
-            Common Enemy
-            <i class="bi bi-chevron-right sidebar-toggle-btn ms-auto"></i>
-        </button>
-
-        <div class="sidebar-submenu {% if 'ce_' in url_name %}open{% endif %}"
-             id="submenu-ce">
-            <a href="{% url 'ce_create' %}"
-               class="sidebar-link {% if url_name == 'ce_create' %}active{% endif %}">
-                <span class="si-icon"><i class="bi bi-plus-circle"></i></span>
-                Laporkan CE
-            </a>
             <a href="{% url 'ce_list' %}"
-               class="sidebar-link {% if url_name == 'ce_list' or url_name == 'ce_detail' or url_name == 'ce_update' %}active{% endif %}">
-                <span class="si-icon"><i class="bi bi-list-ul"></i></span>
-                Daftar Common Enemy
+               class="sidebar-link {% if 'ce_' in url_name %}active{% endif %}">
+                <span class="si-icon"><i class="bi bi-bug"></i></span>
+                Common Enemy
             </a>
         </div>
         {% endwith %}
