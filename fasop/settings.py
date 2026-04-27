@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     'opsis',
     'device_mon',
     'common_enemy',
+    'dokumentasi',
 ]
 
 MIDDLEWARE = [
