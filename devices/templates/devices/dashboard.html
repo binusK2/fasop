@@ -326,95 +326,271 @@
 </div>
 
 <!-- ════════════════════════════════════════════════════════════
-     BARIS HI CHART + KRITIS LIST
+     BARIS HI CHART + COMMON ENEMY OPEN
 ═════════════════════════════════════════════════════════════ -->
-<div class="row g-3 mb-4">
+<div class="row g-3 mb-3">
 
-    <!-- Donut distribusi Health Index -->
+    <!-- Distribusi HI — Donut + Progress Bars -->
     <div class="col-md-4">
         <div class="card h-100">
-            <div class="card-body d-flex flex-column">
-                <div class="section-title mb-2"><i class="bi bi-pie-chart-fill" style="color:#8b5cf6;"></i> Distribusi HI</div>
-                <div class="d-flex justify-content-center align-items-center gap-3 flex-wrap" style="flex:1;">
-                    <div style="position:relative;width:150px;height:150px;flex-shrink:0;">
-                        <canvas id="hiDonut" width="150" height="150"></canvas>
+            <div class="card-body d-flex flex-column" style="padding:16px 18px;">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <div class="section-title mb-0" style="margin-bottom:0!important;">
+                        <i class="bi bi-pie-chart-fill" style="color:#8b5cf6;"></i> Distribusi HI
+                    </div>
+                    <a href="{% url 'hi_list' %}" style="font-size:11px;font-weight:600;color:#8b5cf6;text-decoration:none;">
+                        <i class="bi bi-arrow-right me-1"></i>Lihat semua
+                    </a>
+                </div>
+
+                <!-- Donut -->
+                <div class="d-flex justify-content-center mb-3">
+                    <div style="position:relative;width:148px;height:148px;flex-shrink:0;">
+                        <canvas id="hiDonut" width="148" height="148"></canvas>
                         <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;">
-                            <div id="hiDonutTotal" style="font-size:22px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;line-height:1;"></div>
+                            <div id="hiDonutTotal" style="font-size:24px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;line-height:1;"></div>
                             <div style="font-size:9px;color:#94a3b8;margin-top:2px;">perangkat</div>
                         </div>
                     </div>
-                    <div style="display:flex;flex-direction:column;gap:8px;font-size:12px;">
-                        <div class="d-flex align-items-center gap-2">
-                            <div style="width:10px;height:10px;border-radius:3px;background:#10b981;flex-shrink:0;"></div>
-                            <span style="color:#374151;">Sangat Baik</span>
-                            <strong class="ms-auto" style="font-family:monospace;">{{ hi_summary.sangat_baik }}</strong>
+                </div>
+
+                <!-- Progress bars legend -->
+                {% with hi_total=hi_summary.sangat_baik|add:hi_summary.baik|add:hi_summary.cukup|add:hi_summary.buruk|add:hi_summary.kritis %}
+                <div style="display:flex;flex-direction:column;gap:9px;flex:1;">
+
+                    <div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+                            <div style="display:flex;align-items:center;gap:6px;font-size:12px;">
+                                <div style="width:9px;height:9px;border-radius:2px;background:#10b981;flex-shrink:0;"></div>
+                                <span style="color:#374151;">Sangat Baik</span>
+                                <span style="font-size:10px;color:#94a3b8;">(85–100)</span>
+                            </div>
+                            <strong style="font-size:12px;font-family:monospace;color:#065f46;">{{ hi_summary.sangat_baik }}</strong>
                         </div>
-                        <div class="d-flex align-items-center gap-2">
-                            <div style="width:10px;height:10px;border-radius:3px;background:#3b82f6;flex-shrink:0;"></div>
-                            <span style="color:#374151;">Baik</span>
-                            <strong class="ms-auto" style="font-family:monospace;">{{ hi_summary.baik }}</strong>
-                        </div>
-                        <div class="d-flex align-items-center gap-2">
-                            <div style="width:10px;height:10px;border-radius:3px;background:#f59e0b;flex-shrink:0;"></div>
-                            <span style="color:#374151;">Cukup</span>
-                            <strong class="ms-auto" style="font-family:monospace;">{{ hi_summary.cukup }}</strong>
-                        </div>
-                        <div class="d-flex align-items-center gap-2">
-                            <div style="width:10px;height:10px;border-radius:3px;background:#f97316;flex-shrink:0;"></div>
-                            <span style="color:#374151;">Buruk</span>
-                            <strong class="ms-auto" style="font-family:monospace;">{{ hi_summary.buruk }}</strong>
-                        </div>
-                        <div class="d-flex align-items-center gap-2">
-                            <div style="width:10px;height:10px;border-radius:3px;background:#ef4444;flex-shrink:0;"></div>
-                            <span style="color:#374151;">Kritis</span>
-                            <strong class="ms-auto" style="font-family:monospace;">{{ hi_summary.kritis }}</strong>
+                        <div style="height:4px;background:#f1f5f9;border-radius:2px;overflow:hidden;">
+                            {% if hi_total %}<div style="height:100%;background:#10b981;border-radius:2px;width:{% widthratio hi_summary.sangat_baik hi_total 100 %}%;"></div>{% endif %}
                         </div>
                     </div>
+
+                    <div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+                            <div style="display:flex;align-items:center;gap:6px;font-size:12px;">
+                                <div style="width:9px;height:9px;border-radius:2px;background:#3b82f6;flex-shrink:0;"></div>
+                                <span style="color:#374151;">Baik</span>
+                                <span style="font-size:10px;color:#94a3b8;">(70–84)</span>
+                            </div>
+                            <strong style="font-size:12px;font-family:monospace;color:#1d4ed8;">{{ hi_summary.baik }}</strong>
+                        </div>
+                        <div style="height:4px;background:#f1f5f9;border-radius:2px;overflow:hidden;">
+                            {% if hi_total %}<div style="height:100%;background:#3b82f6;border-radius:2px;width:{% widthratio hi_summary.baik hi_total 100 %}%;"></div>{% endif %}
+                        </div>
+                    </div>
+
+                    <div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+                            <div style="display:flex;align-items:center;gap:6px;font-size:12px;">
+                                <div style="width:9px;height:9px;border-radius:2px;background:#f59e0b;flex-shrink:0;"></div>
+                                <span style="color:#374151;">Cukup</span>
+                                <span style="font-size:10px;color:#94a3b8;">(50–69)</span>
+                            </div>
+                            <strong style="font-size:12px;font-family:monospace;color:#92400e;">{{ hi_summary.cukup }}</strong>
+                        </div>
+                        <div style="height:4px;background:#f1f5f9;border-radius:2px;overflow:hidden;">
+                            {% if hi_total %}<div style="height:100%;background:#f59e0b;border-radius:2px;width:{% widthratio hi_summary.cukup hi_total 100 %}%;"></div>{% endif %}
+                        </div>
+                    </div>
+
+                    <div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+                            <div style="display:flex;align-items:center;gap:6px;font-size:12px;">
+                                <div style="width:9px;height:9px;border-radius:2px;background:#f97316;flex-shrink:0;"></div>
+                                <span style="color:#374151;">Buruk</span>
+                                <span style="font-size:10px;color:#94a3b8;">(25–49)</span>
+                            </div>
+                            <strong style="font-size:12px;font-family:monospace;color:#9a3412;">{{ hi_summary.buruk }}</strong>
+                        </div>
+                        <div style="height:4px;background:#f1f5f9;border-radius:2px;overflow:hidden;">
+                            {% if hi_total %}<div style="height:100%;background:#f97316;border-radius:2px;width:{% widthratio hi_summary.buruk hi_total 100 %}%;"></div>{% endif %}
+                        </div>
+                    </div>
+
+                    <div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+                            <div style="display:flex;align-items:center;gap:6px;font-size:12px;">
+                                <div style="width:9px;height:9px;border-radius:2px;background:#ef4444;flex-shrink:0;"></div>
+                                <span style="color:#374151;">Kritis</span>
+                                <span style="font-size:10px;color:#94a3b8;">(0–24)</span>
+                            </div>
+                            <strong style="font-size:12px;font-family:monospace;color:#991b1b;">{{ hi_summary.kritis }}</strong>
+                        </div>
+                        <div style="height:4px;background:#f1f5f9;border-radius:2px;overflow:hidden;">
+                            {% if hi_total %}<div style="height:100%;background:#ef4444;border-radius:2px;width:{% widthratio hi_summary.kritis hi_total 100 %}%;"></div>{% endif %}
+                        </div>
+                    </div>
+
                 </div>
+                {% endwith %}
             </div>
         </div>
     </div>
 
-    <!-- Tabel perangkat HI kritis -->
+    <!-- Common Enemy Aktif -->
     <div class="col-md-8">
         <div class="tbl-card h-100">
             <div class="tbl-head">
-                <h6><i class="bi bi-exclamation-triangle-fill me-1" style="color:#ef4444;"></i>Perangkat Health Index Kritis / Buruk</h6>
-                <a href="{% url 'hi_list' %}?kategori=Kritis" class="btn btn-sm btn-outline-danger">Lihat Semua</a>
+                <h6>
+                    <i class="bi bi-bug-fill me-1" style="color:#f97316;"></i>Common Enemy Aktif
+                    {% if ce_open_total %}
+                    <span style="font-size:11px;font-weight:700;background:#fff7ed;color:#9a3412;
+                                 border:1px solid #fed7aa;padding:2px 8px;border-radius:20px;margin-left:6px;">
+                        {{ ce_open_total }} tiket
+                    </span>
+                    {% endif %}
+                </h6>
+                <a href="{% url 'ce_list' %}" class="btn btn-sm btn-outline-warning">Lihat Semua</a>
             </div>
-            {% if hi_kritis_list %}
-            <table class="table mb-0">
+            {% if ce_open_list %}
+            <div style="overflow-x:auto;">
+            <table class="table mb-0" style="min-width:560px;">
                 <thead>
                     <tr style="background:#f8fafc;">
-                        <th style="font-size:11px;color:#64748b;padding:9px 16px;">PERANGKAT</th>
-                        <th style="font-size:11px;color:#64748b;padding:9px 12px;">LOKASI</th>
-                        <th style="font-size:11px;color:#64748b;padding:9px 12px;text-align:center;">SKOR HI</th>
-                        <th style="font-size:11px;color:#64748b;padding:9px 12px;">KONDISI</th>
+                        <th style="font-size:11px;color:#64748b;padding:9px 14px;white-space:nowrap;">NOMOR CE</th>
+                        <th style="font-size:11px;color:#64748b;padding:9px 10px;">SITE</th>
+                        <th style="font-size:11px;color:#64748b;padding:9px 10px;white-space:nowrap;">BIDANG</th>
+                        <th style="font-size:11px;color:#64748b;padding:9px 10px;white-space:nowrap;">KEPARAHAN</th>
+                        <th style="font-size:11px;color:#64748b;padding:9px 10px;">STATUS</th>
+                        <th style="font-size:11px;color:#64748b;padding:9px 10px;white-space:nowrap;">DURASI</th>
                         <th style="padding:9px 8px;"></th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for item in hi_kritis_list %}
+                    {% for ce in ce_open_list %}
                     <tr style="border-top:1px solid #f1f5f9;vertical-align:middle;">
+                        <td style="padding:9px 14px;">
+                            <span style="font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#f97316;">
+                                {{ ce.nomor_ce }}
+                            </span>
+                        </td>
+                        <td style="padding:9px 10px;">
+                            <div style="font-size:13px;font-weight:500;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px;" title="{{ ce.site }}">
+                                {{ ce.site }}
+                            </div>
+                            {% if ce.peralatan %}
+                            <div style="font-size:10.5px;color:#94a3b8;">{{ ce.peralatan.nama }}</div>
+                            {% endif %}
+                        </td>
+                        <td style="padding:9px 10px;">
+                            <span style="font-size:11.5px;font-weight:600;color:{{ ce.kategori_color }};">
+                                {{ ce.get_kategori_display }}
+                            </span>
+                        </td>
+                        <td style="padding:9px 10px;">
+                            <span class="g-pill sev-{{ ce.tingkat_keparahan }}" style="font-size:11px;">
+                                {{ ce.get_tingkat_keparahan_display }}
+                            </span>
+                        </td>
+                        <td style="padding:9px 10px;">
+                            <span class="g-pill pill-{{ ce.status }}" style="font-size:11px;">
+                                {% if ce.status == 'open' %}Open{% else %}In Progress{% endif %}
+                            </span>
+                        </td>
+                        <td style="padding:9px 10px;font-size:12px;color:#f59e0b;font-weight:600;white-space:nowrap;">
+                            <i class="bi bi-clock me-1" style="font-size:10px;"></i>{{ ce.durasi }}
+                        </td>
+                        <td style="padding:9px 8px;">
+                            <a href="{% url 'ce_detail' ce.pk %}" class="btn btn-sm btn-outline-secondary" style="padding:3px 8px;">
+                                <i class="bi bi-arrow-right"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5" style="color:#94a3b8;">
+                <i class="bi bi-bug-slash d-block mb-2" style="font-size:26px;color:#10b981;opacity:.6;"></i>
+                <div style="font-size:13px;">Tidak ada Common Enemy aktif</div>
+                <a href="{% url 'ce_create' %}" class="btn btn-sm btn-outline-warning mt-2" style="font-size:12px;">
+                    <i class="bi bi-plus-lg me-1"></i>Laporkan CE
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     PERANGKAT HEALTH INDEX BURUK / KRITIS
+═════════════════════════════════════════════════════════════ -->
+<div class="row g-3 mb-4">
+    <div class="col-12">
+        <div class="tbl-card">
+            <div class="tbl-head">
+                <h6>
+                    <i class="bi bi-shield-slash me-1" style="color:#f97316;"></i>
+                    Perangkat Health Index Buruk / Kritis
+                    {% if hi_buruk_list %}
+                    <span style="font-size:11px;font-weight:700;background:#fff7ed;color:#9a3412;
+                                 border:1px solid #fed7aa;padding:2px 8px;border-radius:20px;margin-left:6px;">
+                        {{ hi_summary.buruk|add:hi_summary.kritis }} perangkat
+                    </span>
+                    {% endif %}
+                </h6>
+                <a href="{% url 'hi_list' %}?kategori=Buruk" class="btn btn-sm btn-outline-danger">Lihat Semua</a>
+            </div>
+            {% if hi_buruk_list %}
+            <div style="overflow-x:auto;">
+            <table class="table mb-0" style="min-width:620px;">
+                <thead>
+                    <tr style="background:#f8fafc;">
+                        <th style="font-size:11px;color:#64748b;padding:9px 16px;">PERANGKAT</th>
+                        <th style="font-size:11px;color:#64748b;padding:9px 10px;">LOKASI</th>
+                        <th style="font-size:11px;color:#64748b;padding:9px 10px;">JENIS</th>
+                        <th style="font-size:11px;color:#64748b;padding:9px 10px;text-align:center;">SKOR HI</th>
+                        <th style="font-size:11px;color:#64748b;padding:9px 10px;">KATEGORI</th>
+                        <th style="font-size:11px;color:#64748b;padding:9px 10px;min-width:130px;">KONDISI</th>
+                        <th style="padding:9px 8px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in hi_buruk_list %}
+                    <tr style="border-top:1px solid #f1f5f9;vertical-align:middle;
+                        {% if item.hi.score < 25 %}background:#fffafa;{% endif %}">
                         <td style="padding:9px 16px;">
                             <div style="font-size:13px;font-weight:600;color:#0f172a;">{{ item.device.nama }}</div>
-                            <div style="font-size:11px;color:#94a3b8;">{{ item.device.jenis }}</div>
                         </td>
-                        <td style="padding:9px 12px;font-size:12px;color:#475569;">{{ item.device.lokasi }}</td>
-                        <td style="padding:9px 12px;text-align:center;">
-                            <span style="font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:700;
+                        <td style="padding:9px 10px;font-size:12px;color:#475569;">{{ item.device.lokasi }}</td>
+                        <td style="padding:9px 10px;font-size:11.5px;color:#64748b;">{{ item.device.jenis }}</td>
+                        <td style="padding:9px 10px;text-align:center;">
+                            <span style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:800;
                                 {% if item.hi.score < 25 %}color:#dc2626;{% else %}color:#ea580c;{% endif %}">
                                 {{ item.hi.score }}
                             </span>
                         </td>
-                        <td style="padding:9px 12px;">
-                            <div style="height:6px;background:#f1f5f9;border-radius:3px;overflow:hidden;width:80px;">
-                                <div style="height:100%;border-radius:3px;
-                                    {% if item.hi.score < 25 %}background:#ef4444;{% else %}background:#f97316;{% endif %}
-                                    width:{{ item.hi.score }}%;"></div>
-                            </div>
-                            <div style="font-size:10px;color:#94a3b8;margin-top:2px;">
-                                {% if item.hi.score < 25 %}Kritis{% else %}Buruk{% endif %}
+                        <td style="padding:9px 10px;">
+                            {% if item.hi.score < 25 %}
+                            <span style="font-size:11.5px;font-weight:700;background:#fee2e2;color:#991b1b;
+                                         padding:3px 10px;border-radius:20px;border:1px solid #fca5a5;">
+                                <i class="bi bi-exclamation-triangle-fill me-1" style="font-size:10px;"></i>Kritis
+                            </span>
+                            {% else %}
+                            <span style="font-size:11.5px;font-weight:700;background:#fff7ed;color:#9a3412;
+                                         padding:3px 10px;border-radius:20px;border:1px solid #fed7aa;">
+                                <i class="bi bi-shield-slash me-1" style="font-size:10px;"></i>Buruk
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td style="padding:9px 10px;">
+                            <div style="display:flex;align-items:center;gap:7px;">
+                                <div style="flex:1;height:6px;background:#f1f5f9;border-radius:3px;overflow:hidden;min-width:80px;max-width:120px;">
+                                    <div style="height:100%;border-radius:3px;
+                                        {% if item.hi.score < 25 %}background:linear-gradient(90deg,#ef4444,#fca5a5);
+                                        {% else %}background:linear-gradient(90deg,#f97316,#fdba74);{% endif %}
+                                        width:{{ item.hi.score }}%;"></div>
+                                </div>
+                                <span style="font-size:11px;color:#94a3b8;">{{ item.hi.score }}%</span>
                             </div>
                         </td>
                         <td style="padding:9px 8px;">
@@ -426,15 +602,15 @@
                     {% endfor %}
                 </tbody>
             </table>
+            </div>
             {% else %}
             <div class="text-center py-4" style="color:#94a3b8;">
-                <i class="bi bi-shield-check fs-3 d-block mb-2" style="color:#10b981;"></i>
-                <div style="font-size:13px;">Tidak ada perangkat dengan HI kritis</div>
+                <i class="bi bi-shield-check d-block mb-2" style="font-size:26px;color:#10b981;"></i>
+                <div style="font-size:13px;">Semua perangkat dalam kondisi baik</div>
             </div>
             {% endif %}
         </div>
     </div>
-
 </div>
 
 <!-- ════════════════════════════════════════════════════════════
