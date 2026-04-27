@@ -9,21 +9,20 @@ from devices.models import Device
 from devices.permissions import require_can_edit, is_viewer_only
 
 
-def _get_device_json():
-    devices = (
-        Device.objects.filter(is_deleted=False)
-        .select_related('jenis')
-        .order_by('lokasi', 'nama')
-        .values('id', 'nama', 'lokasi', 'jenis__name')
-    )
+def _get_device_json(prosis_only=False):
+    qs = Device.objects.filter(is_deleted=False).select_related('jenis').order_by('lokasi', 'nama')
+    if prosis_only:
+        qs = qs.filter(
+            jenis__name__iregex=r'^(defense scheme|rele defense scheme|master trip|ufls)$'
+        )
     return json.dumps([
         {
-            'id':       d['id'],
-            'nama':     d['nama'],
-            'lokasi':   d['lokasi'] or '',
-            'jenis':    d['jenis__name'] or '',
+            'id':    d.id,
+            'nama':  d.nama,
+            'lokasi': d.lokasi or '',
+            'jenis':  d.jenis.name if d.jenis else '',
         }
-        for d in devices
+        for d in qs
     ])
 
 
@@ -63,7 +62,7 @@ def setting_list(request):
 @login_required
 @require_can_edit
 def setting_create(request):
-    device_json = _get_device_json()
+    device_json = _get_device_json(prosis_only=True)
     if request.method == 'POST':
         form = SettingReleForm(request.POST, request.FILES)
         if form.is_valid():
@@ -94,7 +93,7 @@ def setting_detail(request, pk):
 @require_can_edit
 def setting_update(request, pk):
     obj = get_object_or_404(SettingRele, pk=pk)
-    device_json = _get_device_json()
+    device_json = _get_device_json(prosis_only=True)
     if request.method == 'POST':
         form = SettingReleForm(request.POST, request.FILES, instance=obj)
         if form.is_valid():
