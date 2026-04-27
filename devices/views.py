@@ -420,7 +420,7 @@ def dashboard(request):
     # ── Health Index summary ─────────────────────────────────────
     from health_index.calculator import calculate_hi
     hi_summary = {'sangat_baik': 0, 'baik': 0, 'cukup': 0, 'buruk': 0, 'kritis': 0}
-    hi_kritis_list = []
+    hi_buruk_list = []
     for dev in Device.objects.filter(is_deleted=False).select_related('jenis'):
         hi = calculate_hi(dev, save_snapshot=False)
         s = hi['score']
@@ -432,11 +432,23 @@ def dashboard(request):
             hi_summary['cukup'] += 1
         elif s >= 25:
             hi_summary['buruk'] += 1
+            hi_buruk_list.append({'device': dev, 'hi': hi})
         else:
             hi_summary['kritis'] += 1
-            hi_kritis_list.append({'device': dev, 'hi': hi})
-    hi_kritis_list = hi_kritis_list[:5]  # tampilkan max 5
+            hi_buruk_list.append({'device': dev, 'hi': hi})
+    hi_buruk_list.sort(key=lambda x: x['hi']['score'])  # terburuk di atas
+    hi_buruk_list = hi_buruk_list[:12]
     hi_summary_json = _json.dumps(hi_summary)
+
+    # ── Common Enemy aktif ────────────────────────────────────────
+    from common_enemy.models import CommonEnemy
+    ce_open_list = (
+        CommonEnemy.objects
+        .filter(status__in=['open', 'in_progress'])
+        .select_related('peralatan', 'sub_kategori')
+        .order_by('tingkat_keparahan', '-tanggal_laporan')[:10]
+    )
+    ce_open_total = CommonEnemy.objects.filter(status__in=['open', 'in_progress']).count()
 
     # ── Gangguan breakdown by kategori & severity ─────────────────
     gangguan_by_kategori_qs = (
@@ -574,7 +586,10 @@ def dashboard(request):
         'recent_gangguan':   recent_gangguan,
         # health index
         'hi_summary':        hi_summary,
-        'hi_kritis_list':    hi_kritis_list,
+        'hi_buruk_list':     hi_buruk_list,
+        # common enemy
+        'ce_open_list':      ce_open_list,
+        'ce_open_total':     ce_open_total,
         # jadwal & notifikasi
         'jadwal_terdekat':   jadwal_terdekat,
         'notif_terbaru':     notif_terbaru,
