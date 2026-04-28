@@ -1,10 +1,21 @@
-# FASOP — Sistem Manajemen Aset & Pemeliharaan
+# FASOP — Sistem Manajemen Aset & Monitoring Sistem Tenaga
 
-Aplikasi web internal PT. PLN (Persero) UIP3B Sulawesi — Unit Pelaksana Pengatur Beban Sistem Makassar untuk manajemen aset peralatan, pencatatan pemeliharaan, dan monitoring gangguan.
+Aplikasi web internal PT. PLN (Persero) UIP3B Sulawesi untuk manajemen aset peralatan telekomunikasi & SCADA, pencatatan pemeliharaan, monitoring gangguan, serta monitoring sistem tenaga secara real-time.
 
 ---
 
 ## Fitur
+
+### OPSIS — Monitoring Sistem Tenaga (Real-time)
+- Dashboard live: beban kit total (MW), frekuensi sistem (Hz), data per pembangkit
+- Chart beban harian (00:00–sekarang) dengan tanda puncak siang (12:00) & malam (18:30)
+- Chart frekuensi 30 menit terakhir (data per detik)
+- Chart komposisi pembangkit per jenis (PLTA / PLTU / PLTD / PLTG / PLTGU)
+- Halaman detail per pembangkit (trend MW/MVAR 1–24 jam)
+- Rangkuman historis: kemarin / 7 hari / 30 hari — beban puncak, rata-rata, durasi abnormal frekuensi
+- Ekspor Excel: data frekuensi & beban per hari
+- Sumber data: MSSQL (SCADA real-time) → fallback ke PostgreSQL (data yang dikumpulkan tiap menit)
+- Monitoring RTU: status UP/DOWN per RTU dari MSSQL
 
 ### Manajemen Perangkat
 - Inventaris perangkat per jenis: Router, Switch, MUX, PLC, Radio, VoIP, Rectifier, RTU, SAS, RoIP, UPS, Genset, Teleproteksi
@@ -57,11 +68,14 @@ Aplikasi web internal PT. PLN (Persero) UIP3B Sulawesi — Unit Pelaksana Pengat
 | Layer | Teknologi |
 |---|---|
 | Backend | Django 6.0 · Python 3.12+ |
-| Database | SQLite (dev) / PostgreSQL (prod) |
-| Frontend | Bootstrap 5 · Bootstrap Icons · Chart.js |
+| Database Utama | PostgreSQL (prod) · SQLite (dev) |
+| Database SCADA | Microsoft SQL Server (MSSQL) via pyodbc |
+| Frontend | Bootstrap 5 · Bootstrap Icons · Chart.js 4 |
+| Font | DM Sans · JetBrains Mono (Google Fonts) |
 | PDF | ReportLab · WeasyPrint |
+| Excel | openpyxl |
 | Server | Nginx + Gunicorn |
-| Security | django-axes · Hashids |
+| Keamanan | django-axes · Hashids |
 
 ---
 
@@ -73,6 +87,9 @@ cd fasop
 
 pip install -r requirements.txt
 
+# Install ODBC Driver 17 for SQL Server (untuk koneksi MSSQL/OPSIS)
+# Ubuntu/Debian: https://learn.microsoft.com/en-us/sql/connect/odbc/linux-mac/installing-the-microsoft-odbc-driver-for-sql-server
+
 cp .env.example .env
 # Edit .env sesuai kebutuhan
 
@@ -81,19 +98,30 @@ python manage.py runserver
 ```
 
 ### Isi `.env`
+
 ```env
 SECRET_KEY=your-secret-key-yang-kuat
 DEBUG=True
 ALLOWED_HOSTS=localhost,127.0.0.1
 CSRF_TRUSTED_ORIGINS=http://localhost:8000
 
-# Database (opsional, default SQLite)
-# DB_ENGINE=django.db.backends.postgresql
-# DB_NAME=fasop
-# DB_USER=fasop
-# DB_PASSWORD=password
-# DB_HOST=localhost
-# DB_PORT=5432
+# Database PostgreSQL (prod — untuk SnapLive, SnapFreq OPSIS)
+DB_ENGINE=django.db.backends.postgresql
+DB_NAME=fasop
+DB_USER=fasop
+DB_PASSWORD=password
+DB_HOST=localhost
+DB_PORT=5432
+
+# MSSQL — Sumber data real-time SCADA (opsional, fallback ke PostgreSQL)
+MSSQL_HOST=192.168.x.x,1433
+MSSQL_DB=nama_database
+MSSQL_USER=username
+MSSQL_PASS=password
+MSSQL_TABLE=dbo.HIS_MEAS_KIT
+MSSQL_RT_TABLE=dbo.KIT_REALTIME
+MSSQL_FREQ_TABLE=dbo.SYS_FREQ_HIS
+MSSQL_DRIVER=ODBC Driver 17 for SQL Server
 
 # API Key untuk integrasi eksternal
 API_KEY=
@@ -114,11 +142,38 @@ fasop/
 ├── jadwal/         # Jadwal pemeliharaan
 ├── gudang/         # Alat uji & spare part
 ├── notifikasi/     # Notifikasi in-app
+├── opsis/          # Monitoring sistem tenaga real-time (OPSIS)
+│   └── management/commands/
+│       ├── collect_live.py   # Kumpulkan MW/MVAR per menit → SnapLive
+│       └── collect_freq.py   # Kumpulkan Hz per detik → SnapFreq
+├── device_mon/     # Monitoring status RTU
 ├── fasop/          # Settings, URL root, konverter Hashids
 ├── static/         # CSS, JS, gambar statis
 ├── media/          # Upload foto, tanda tangan (tidak di-git)
 └── manage.py
 ```
+
+---
+
+## OPSIS — Data Collection
+
+OPSIS menyimpan data historis ke PostgreSQL menggunakan dua management command yang dijalankan sebagai cron job:
+
+```bash
+# Jalankan tiap menit — ambil MW/MVAR semua pembangkit dari MSSQL → simpan ke SnapLive
+python manage.py collect_live
+
+# Jalankan tiap menit — ambil data Hz per detik dari MSSQL → simpan ke SnapFreq
+python manage.py collect_freq
+```
+
+Contoh crontab:
+```cron
+* * * * * /path/to/venv/bin/python /path/to/fasop/manage.py collect_live
+* * * * * /path/to/venv/bin/python /path/to/fasop/manage.py collect_freq
+```
+
+Jika MSSQL tidak reachable, dashboard otomatis fallback ke data PostgreSQL (SnapLive/SnapFreq) yang terakhir dikumpulkan.
 
 ---
 
