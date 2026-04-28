@@ -4,6 +4,12 @@ Aplikasi web internal PT. PLN (Persero) UIP3B Sulawesi untuk manajemen aset pera
 
 ---
 
+## Arsitektur Sistem
+
+![Arsitektur FASOP](docs/arsitektur.png)
+
+---
+
 ## Fitur
 
 ### OPSIS — Monitoring Sistem Tenaga (Real-time)
