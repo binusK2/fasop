@@ -122,6 +122,7 @@ def _get_fo_json():
     """Semua segmen FO sebagai JSON untuk JS autocomplete."""
     import json
     from devices.models import FiberOptic
+    from decimal import Decimal
     fo_list = FiberOptic.objects.all().order_by('nama').values(
         'id', 'nama', 'lokasi_a', 'lokasi_b',
         'tipe_kabel', 'tipe_konektor', 'jumlah_core',
@@ -130,8 +131,9 @@ def _get_fo_json():
     data = []
     for f in fo_list:
         d = dict(f)
-        if d['panjang_km']:
-            d['panjang_km'] = str(d['panjang_km'])
+        for k, v in d.items():
+            if isinstance(v, Decimal):
+                d[k] = str(v)
         data.append(d)
     return json.dumps(data)
 
