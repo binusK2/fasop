@@ -74,16 +74,18 @@
       </div>
       <div class="col-md-4">
         <label class="field-label">Site / Lokasi <span class="req">*</span></label>
-        {{ form.site }}
-        <datalist id="site-datalist">
-          {% for s in site_list %}<option value="{{ s }}">{% endfor %}
-        </datalist>
+        <select name="site" id="id_site" class="form-select" required>
+          <option value="">— Pilih Lokasi —</option>
+          {% for s in master_lokasi_list %}
+          <option value="{{ s }}" {% if form.instance.site == s %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select>
         {% if form.site.errors %}<div class="text-danger" style="font-size:11.5px;">{{ form.site.errors.0 }}</div>{% endif %}
       </div>
       <div class="col-md-4">
         <label class="field-label">Peralatan Terdampak</label>
         {{ form.peralatan }}
-        <div class="field-hint">Opsional — difilter otomatis sesuai sub kategori</div>
+        <div class="field-hint">Opsional — difilter otomatis sesuai sub kategori & lokasi</div>
         {% if form.peralatan.errors %}<div class="text-danger" style="font-size:11.5px;">{{ form.peralatan.errors.0 }}</div>{% endif %}
       </div>
     </div>
@@ -225,31 +227,29 @@
 const ALL_DEVICES   = {{ device_json|safe }};
 const ALL_TYPES     = {{ type_json|safe }};
 
-// Mapping kategori CE ke nama DeviceType (match by name contains)
+// Mapping kategori CE ke nama DeviceType — disinkron dengan DEVICE_GROUP_CONFIG di context_processors.py
 const KATEGORI_TYPE_MAP = {
-  'scada':   ['RTU', 'SAS', 'Workstation', 'SCADA'],
-  'telkom':  ['Router', 'Switch', 'MUX', 'Radio', 'VoIP', 'RoIP', 'UPS', 'Rectifier', 'Genset', 'Telepon'],
-  'prosis':  ['Teleproteksi', 'PLC'],
+  'telkom':  ['router', 'switch', 'teleproteksi', 'roip', 'voip', 'multiplexer', 'plc', 'radio',
+              'server telkom', 'master clock', 'ht', 'pheriperal telkom', 'peripheral telkom', 'pabx'],
+  'scada':   ['rtu', 'sas', 'ups', 'server scada', 'vm scada', 'ied bcu', 'clock server',
+              'serial server', 'router sas', 'switch sas', 'inverter sas', 'pheriperal scada', 'peripheral scada'],
+  'prosis':  ['defense scheme', 'rele defense scheme', 'dfr', 'master trip', 'ufls', 'server prosis'],
   'lainnya': [],
 };
 
 const selKategori    = document.getElementById('id_kategori');
 const selSubKategori = document.getElementById('id_sub_kategori');
 const selPeralatan   = document.getElementById('id_peralatan');
+const selSite        = document.getElementById('id_site');
 
 const savedSubKat  = "{{ form.instance.sub_kategori_id|default:'' }}";
 const savedDevice  = "{{ form.instance.peralatan_id|default:'' }}";
 
-function getTypeKeywords(kategori) {
-  return KATEGORI_TYPE_MAP[kategori] || [];
-}
-
 function typeMatchesKategori(typeName, kategori) {
   if (!kategori || kategori === 'lainnya') return true;
-  const keywords = getTypeKeywords(kategori);
-  if (keywords.length === 0) return true;
-  const lower = typeName.toLowerCase();
-  return keywords.some(k => lower.includes(k.toLowerCase()));
+  const allowed = KATEGORI_TYPE_MAP[kategori] || [];
+  if (allowed.length === 0) return true;
+  return allowed.includes(typeName.trim().toLowerCase());
 }
 
 function filterSubKategori(kategori, selectedId) {
@@ -266,11 +266,13 @@ function filterSubKategori(kategori, selectedId) {
   });
 }
 
-function filterPeralatan(typeId, selectedId) {
+function filterPeralatan(typeId, lokasi, selectedId) {
   const current = selectedId !== undefined ? selectedId : selPeralatan.value;
   selPeralatan.innerHTML = '<option value="">— Tidak dipilih —</option>';
   ALL_DEVICES.forEach(function(d) {
-    if (!typeId || String(d.jenis_id) === String(typeId)) {
+    const matchType  = !typeId  || String(d.jenis_id) === String(typeId);
+    const matchLokasi = !lokasi || d.lokasi === lokasi;
+    if (matchType && matchLokasi) {
       const opt = document.createElement('option');
       opt.value = d.id;
       opt.textContent = (d.lokasi ? '[' + d.lokasi + '] ' : '') + d.nama;
@@ -282,15 +284,19 @@ function filterPeralatan(typeId, selectedId) {
 
 // Initial render
 filterSubKategori(selKategori.value, savedSubKat);
-filterPeralatan(savedSubKat || '', savedDevice);
+filterPeralatan(savedSubKat || '', selSite ? selSite.value : '', savedDevice);
 
 selKategori.addEventListener('change', function() {
   filterSubKategori(this.value, '');
-  filterPeralatan('', '');
+  filterPeralatan('', selSite ? selSite.value : '', '');
 });
 
 selSubKategori.addEventListener('change', function() {
-  filterPeralatan(this.value, '');
+  filterPeralatan(this.value, selSite ? selSite.value : '', '');
+});
+
+selSite.addEventListener('change', function() {
+  filterPeralatan(selSubKategori.value, this.value, '');
 });
 
 // ── Tag-input Pelaksana ──────────────────────────────────────
