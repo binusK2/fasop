@@ -30,8 +30,12 @@ DEVICE_SCHEMA = {
     ],
 
     "Radio": [
-        {"key": "frekuensi",        "label": "Frekuensi (Rx)",      "type": "text"},
-        {"key": "frekuensi",        "label": "Frekuensi (TX)",      "type": "text"},
+        {"key": "nomor_isr",        "label": "Nomor ISR Radio",     "type": "text",
+         "placeholder": "cth: ISR-123456"},
+        {"key": "frekuensi_rx",     "label": "Frekuensi RX (MHz)",  "type": "text",
+         "placeholder": "cth: 450.500"},
+        {"key": "frekuensi_tx",     "label": "Frekuensi TX (MHz)",  "type": "text",
+         "placeholder": "cth: 455.500"},
         {"key": "Tone_Rx",          "label": "Tone (Rx)",           "type": "text"},
         {"key": "Tone_Tx",          "label": "Tone (TX)",           "type": "text"},
         {"key": "tx_power",         "label": "TX Power (W)",        "type": "number"},
