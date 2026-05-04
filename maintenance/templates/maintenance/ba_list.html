@@ -226,7 +226,7 @@
                                 class="btn btn-sm btn-outline-danger"
                                 style="border-radius:7px;padding:4px 10px;font-size:12px;"
                                 title="Hapus"
-                                onclick="confirmHapus({{ rec.pk }}, '{{ rec.nomor_ba|default:"BA ini"|escapejs }}')">
+                                onclick="confirmHapus('{% url 'ba_delete' rec.pk %}', '{{ rec.nomor_ba|default:"BA ini"|escapejs }}')">
                             <i class="bi bi-trash"></i>
                         </button>
                         {% endif %}
@@ -384,8 +384,8 @@ function confirmTTDAM(pk, nomor) {
     document.getElementById('ttd-am-nomor').textContent = nomor;
     new bootstrap.Modal(document.getElementById('ttdAMModal')).show();
 }
-function confirmHapus(pk, nomor) {
-    document.getElementById('hapus-form').action = `/maintenance/ekspor/${pk}/hapus/`;
+function confirmHapus(url, nomor) {
+    document.getElementById('hapus-form').action = url;
     document.getElementById('hapus-nomor').textContent = nomor;
     new bootstrap.Modal(document.getElementById('hapusModal')).show();
 }
