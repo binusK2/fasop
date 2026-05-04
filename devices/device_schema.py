@@ -121,7 +121,7 @@ DEVICE_SCHEMA = {
     ],
     "TELEPROTEKSI": [
         {"key": "komunikasi",       "label": "Port Komunikasi",      "type": "select",
-         "options": ["E1", "E&M", "PLC", ]},
+         "options": ["E1", "E&M", "PLC", "G64"]},
         {"key": "jumlah_Command",        "label": "Jumlah command",    "type": "number"},
         {"key": "Command1",         "label": "command 1",   "type": "select",
          "options": ["Distance", "DEF", "DTT", "StandBy"]},
