@@ -876,6 +876,20 @@ function addEvidenRow() {
                     {% endif %}
                 </div>
                 {% endif %}
+                {% if ev.tipe == 'penggantian' and ev.merk_komponen_baru or ev.tipe_komponen_baru %}
+                <div style="font-size:11.5px;color:#92400e;margin-top:4px;display:flex;gap:8px;flex-wrap:wrap;">
+                    {% if ev.merk_komponen_baru %}
+                    <span style="background:#fef3c7;padding:2px 8px;border-radius:5px;">
+                        <i class="bi bi-tag me-1"></i>{{ ev.merk_komponen_baru }}
+                    </span>
+                    {% endif %}
+                    {% if ev.tipe_komponen_baru %}
+                    <span style="background:#fef3c7;padding:2px 8px;border-radius:5px;">
+                        <i class="bi bi-cpu me-1"></i>{{ ev.tipe_komponen_baru }}
+                    </span>
+                    {% endif %}
+                </div>
+                {% endif %}
                 {% endif %}
 
                 {% if ev.catatan %}
@@ -1018,6 +1032,37 @@ function addEvidenRow() {
                                     <textarea name="nilai_baru" class="form-control form-control-sm" rows="2"
                                               placeholder="Misal: XYZ 48V/50A, baru"></textarea>
                                 </div>
+
+                                {# Field khusus Penggantian Komponen #}
+                                <div id="fieldPenggantian" style="display:none;" class="col-12">
+                                    <div style="background:#fef3c7;border-radius:10px;padding:12px 14px;">
+                                        <div style="font-size:11.5px;font-weight:700;color:#92400e;margin-bottom:10px;">
+                                            <i class="bi bi-arrow-repeat me-1"></i>Detail Komponen Pengganti
+                                        </div>
+                                        <div class="row g-2">
+                                            <div class="col-6">
+                                                <label style="font-size:11.5px;font-weight:600;color:#78350f;display:block;margin-bottom:4px;">Merk Komponen Baru</label>
+                                                <input type="text" name="merk_komponen_baru" class="form-control form-control-sm"
+                                                       placeholder="Misal: Huawei, Siemens, ABB">
+                                            </div>
+                                            <div class="col-6">
+                                                <label style="font-size:11.5px;font-weight:600;color:#78350f;display:block;margin-bottom:4px;">Tipe / Model Komponen Baru</label>
+                                                <input type="text" name="tipe_komponen_baru" class="form-control form-control-sm"
+                                                       placeholder="Misal: PSU-4850, SFP-10G-SR">
+                                            </div>
+                                            <div class="col-12">
+                                                <label style="font-size:11.5px;font-weight:600;color:#78350f;display:block;margin-bottom:4px;">
+                                                    <i class="bi bi-box-seam me-1"></i>Disimpan Di <span style="font-weight:400;color:#92400e;">(komponen lama)</span>
+                                                </label>
+                                                <input type="text" name="disimpan_di" class="form-control form-control-sm"
+                                                       placeholder="Misal: Gudang Teknik, Loker B2, Ruang Spare Part">
+                                                <div style="font-size:10px;color:#92400e;margin-top:3px;">
+                                                    <i class="bi bi-info-circle me-1"></i>Komponen lama akan otomatis masuk ke daftar komponen rusak.
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -1046,6 +1091,53 @@ function addEvidenRow() {
         </div>
     </div>
 </div>
+
+{# ── Daftar Komponen Rusak ──────────────────────────────────────── #}
+{% if komponen_rusak_list %}
+<div class="table-card mt-3">
+    <div class="table-header" style="display:flex;align-items:center;justify-content:space-between;">
+        <h6 class="mb-0">
+            <i class="bi bi-exclamation-triangle me-1" style="color:#ef4444;"></i>
+            Daftar Komponen Rusak
+            <span style="font-size:11px;font-weight:400;color:#94a3b8;margin-left:6px;">{{ komponen_rusak_list|length }} item</span>
+        </h6>
+    </div>
+    <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
+            <thead>
+                <tr style="background:#fef2f2;border-bottom:1px solid #fecaca;">
+                    <th style="padding:8px 14px;font-weight:600;color:#991b1b;text-align:left;">Tanggal</th>
+                    <th style="padding:8px 14px;font-weight:600;color:#991b1b;text-align:left;">Nama Komponen</th>
+                    <th style="padding:8px 14px;font-weight:600;color:#991b1b;text-align:left;">Merk</th>
+                    <th style="padding:8px 14px;font-weight:600;color:#991b1b;text-align:left;">Tipe / Model</th>
+                    <th style="padding:8px 14px;font-weight:600;color:#991b1b;text-align:left;">Disimpan Di</th>
+                    <th style="padding:8px 14px;font-weight:600;color:#991b1b;text-align:left;">Keterangan</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for kr in komponen_rusak_list %}
+                <tr style="border-bottom:1px solid #fef2f2;">
+                    <td style="padding:8px 14px;color:#64748b;white-space:nowrap;">{{ kr.tanggal_rusak|date:"d M Y" }}</td>
+                    <td style="padding:8px 14px;font-weight:600;color:#1e293b;">{{ kr.nama_komponen|default:"—" }}</td>
+                    <td style="padding:8px 14px;color:#475569;">{{ kr.merk|default:"—" }}</td>
+                    <td style="padding:8px 14px;color:#475569;">{{ kr.tipe|default:"—" }}</td>
+                    <td style="padding:8px 14px;">
+                        {% if kr.disimpan_di %}
+                        <span style="background:#fef3c7;color:#92400e;padding:2px 9px;border-radius:5px;font-size:11.5px;">
+                            <i class="bi bi-box-seam me-1"></i>{{ kr.disimpan_di }}
+                        </span>
+                        {% else %}
+                        <span style="color:#cbd5e1;">—</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding:8px 14px;color:#64748b;max-width:200px;">{{ kr.keterangan|default:"—"|truncatechars:60 }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
 
 {# ── Log Perubahan — hanya admin ──────────────────────────────── #}
 {% if request.user.is_superuser or request.user.profile.is_asisten_manager %}
@@ -1139,12 +1231,14 @@ function addEvidenRow() {
 <script>
 // ── Toggle field form event ───────────────────────────────────────────────
 function toggleEventFields() {
-    const tipe        = document.getElementById('evTipe').value;
-    const isRelokasi  = tipe === 'relokasi';
-    const isKomponen  = ['penggantian','penambahan','pembongkaran','pemasangan','modifikasi'].includes(tipe);
+    const tipe           = document.getElementById('evTipe').value;
+    const isRelokasi     = tipe === 'relokasi';
+    const isKomponen     = ['penggantian','penambahan','pembongkaran','pemasangan','modifikasi'].includes(tipe);
+    const isPenggantian  = tipe === 'penggantian';
 
-    document.getElementById('fieldRelokasi').style.display  = isRelokasi ? 'block' : 'none';
-    document.getElementById('fieldKomponen').style.display  = isKomponen ? 'block' : 'none';
+    document.getElementById('fieldRelokasi').style.display    = isRelokasi    ? 'block' : 'none';
+    document.getElementById('fieldKomponen').style.display    = isKomponen    ? 'block' : 'none';
+    document.getElementById('fieldPenggantian').style.display = isPenggantian ? 'block' : 'none';
 
     if (isKomponen) { loadDevKomponen(); }
 }
