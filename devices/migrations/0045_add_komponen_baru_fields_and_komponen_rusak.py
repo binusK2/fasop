@@ -8,7 +8,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('devices', '0044_alter_fiberopticcore_otdr_b_catatan_and_more'),
+        ('devices', '0042_fiberopticcore_fungsi_b_keterangan_b'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
