@@ -628,13 +628,13 @@
         <div class="sidebar-section-label">Ekspor Data</div>
         {% with url_name=request.resolver_match.url_name %}
         <button class="sidebar-link sidebar-group-toggle w-100 text-start border-0
-            {% if url_name == 'berita_acara_config' or url_name == 'ba_pemasangan' or url_name == 'ba_pembongkaran' or url_name == 'ba_penggantian' or url_name == 'ba_list' %}active open{% endif %}"
+            {% if url_name == 'berita_acara_config' or url_name == 'ba_pemasangan' or url_name == 'ba_pembongkaran' or url_name == 'ba_penggantian' or url_name == 'ba_gangguan' or url_name == 'ba_list' %}active open{% endif %}"
             data-target="submenu-ekspor" type="button">
             <span class="si-icon"><i class="bi bi-file-earmark-arrow-down"></i></span>
             Berita Acara
             <i class="bi bi-chevron-right sidebar-toggle-btn ms-auto"></i>
         </button>
-        <div class="sidebar-submenu {% if url_name == 'berita_acara_config' or url_name == 'ba_pemasangan' or url_name == 'ba_pembongkaran' or url_name == 'ba_penggantian' or url_name == 'ba_list' %}open{% endif %}"
+        <div class="sidebar-submenu {% if url_name == 'berita_acara_config' or url_name == 'ba_pemasangan' or url_name == 'ba_pembongkaran' or url_name == 'ba_penggantian' or url_name == 'ba_gangguan' or url_name == 'ba_list' %}open{% endif %}"
              id="submenu-ekspor">
             <a href="{% url 'ba_list' %}"
                class="sidebar-link {% if url_name == 'ba_list' %}active{% endif %}">
@@ -686,14 +686,14 @@
 
         {% with url_name=request.resolver_match.url_name %}
         <button class="sidebar-link sidebar-group-toggle w-100 text-start border-0
-            {% if 'gangguan' in url_name or 'ce_' in url_name %}active open{% endif %}"
+            {% if (('gangguan' in url_name) and url_name != 'ba_gangguan') or 'ce_' in url_name %}active open{% endif %}"
             data-target="submenu-gangguan" type="button">
             <span class="si-icon"><i class="bi bi-exclamation-triangle"></i></span>
             Gangguan
             <i class="bi bi-chevron-right sidebar-toggle-btn ms-auto"></i>
         </button>
 
-        <div class="sidebar-submenu {% if 'gangguan' in url_name or 'ce_' in url_name %}open{% endif %}"
+        <div class="sidebar-submenu {% if (('gangguan' in url_name) and url_name != 'ba_gangguan') or 'ce_' in url_name %}open{% endif %}"
              id="submenu-gangguan">
             <a href="{% url 'gangguan_create' %}"
                class="sidebar-link {% if url_name == 'gangguan_create' %}active{% endif %}">
