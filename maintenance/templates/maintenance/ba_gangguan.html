@@ -1,0 +1,233 @@
+{% extends 'base.html' %}
+{% block title %}BA Gangguan Peralatan — FASOP{% endblock %}
+{% block page_title %}Berita Acara Gangguan{% endblock %}
+
+{% block content %}
+<style>
+    .preview-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .preview-tbl thead th {
+        background: #f1f5f9; font-size: 11px; font-weight: 700;
+        text-transform: uppercase; letter-spacing: .5px; color: #475569;
+        padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center;
+    }
+    .preview-tbl tbody td { padding: 7px 10px; border: 1px solid #e2e8f0; vertical-align: middle; }
+    .preview-tbl tbody tr:nth-child(even) { background: #f8fafc; }
+    .btn-rm   { font-size: 11px; padding: 2px 7px; }
+    .inp-sm   { font-size: 12px; padding: 3px 7px; height: auto; }
+</style>
+
+<!-- Header -->
+<div class="d-flex align-items-center gap-2 mb-3">
+    <a href="javascript:history.back()" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i>
+    </a>
+    <div>
+        <h2 class="mb-0" style="font-size:18px;font-weight:700;">Berita Acara Gangguan / Kerusakan Peralatan</h2>
+        <p class="text-muted mb-0" style="font-size:12px;">Isi informasi, tambah data gangguan, lalu ekspor ke PDF</p>
+    </div>
+</div>
+
+<form method="post" enctype="multipart/form-data" id="ba-form">
+{% csrf_token %}
+
+<!-- Card 1: Informasi BA -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;margin-bottom:12px;">
+            <i class="bi bi-info-circle me-1"></i>Informasi Berita Acara
+        </div>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label" style="font-size:12px;font-weight:600;">Nomor BA</label>
+                <input type="text" name="nomor_ba" id="nomor_ba_input" class="form-control form-control-sm"
+                       placeholder="Contoh: 006" oninput="updateNomorPreview()">
+                <div id="nomor_ba_preview" style="font-size:11px;color:#64748b;margin-top:4px;min-height:16px;"></div>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label" style="font-size:12px;font-weight:600;">Tanggal Pelaksanaan</label>
+                <input type="date" name="tanggal" class="form-control form-control-sm"
+                       value="{{ today }}" required>
+            </div>
+            <div class="col-md-5">
+                <label class="form-label" style="font-size:12px;font-weight:600;">Nama Pelaksana</label>
+                <input type="text" name="pelaksana" class="form-control form-control-sm"
+                       placeholder="Nama pelaksana kegiatan" required>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label" style="font-size:12px;font-weight:600;">NIP</label>
+                <input type="text" name="nip" class="form-control form-control-sm"
+                       placeholder="NIP pelaksana">
+            </div>
+            <div class="col-md-8">
+                <label class="form-label" style="font-size:12px;font-weight:600;">Jabatan</label>
+                <input type="text" name="jabatan" class="form-control form-control-sm"
+                       placeholder="Jabatan pelaksana">
+            </div>
+            <div class="col-12">
+                <label class="form-label" style="font-size:12px;font-weight:600;">Catatan / Keterangan Umum <span class="text-muted fw-normal">(opsional)</span></label>
+                <textarea name="catatan" class="form-control form-control-sm" rows="2"
+                          placeholder="Catatan tambahan"></textarea>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Card 2: Eviden -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;margin-bottom:12px;">
+            <i class="bi bi-images me-1"></i>Eviden <span class="text-muted fw-normal" style="text-transform:none;">(opsional)</span>
+        </div>
+        <div class="row g-3">
+            <div class="col-12">
+                <label class="form-label" style="font-size:12px;font-weight:600;">Upload Foto / Gambar Eviden</label>
+                <input type="file" name="eviden" id="eviden_input" class="form-control form-control-sm"
+                       accept="image/*" multiple onchange="previewEviden(this)">
+                <div class="form-text" style="font-size:11px;">Bisa pilih lebih dari satu gambar. Akan tampil di halaman 2 PDF.</div>
+            </div>
+            <div class="col-12" id="eviden_preview_wrap" style="display:none;">
+                <div style="font-size:11px;font-weight:600;color:#64748b;margin-bottom:6px;">Preview Eviden:</div>
+                <div id="eviden_preview" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Card 3: Data Gangguan -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;">
+                <i class="bi bi-exclamation-triangle me-1"></i>Data Gangguan / Kerusakan
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addRow()" style="font-size:12px;">
+                <i class="bi bi-plus-lg me-1"></i>Tambah Baris
+            </button>
+        </div>
+
+        <div class="table-responsive">
+            <table class="preview-tbl" id="gangguan-tbl">
+                <thead>
+                    <tr>
+                        <th style="width:4%;">No</th>
+                        <th style="width:12%;">Lokasi</th>
+                        <th style="width:11%;">Tgl Gangguan</th>
+                        <th style="width:11%;">Tgl Perbaikan</th>
+                        <th style="width:14%;">Peralatan</th>
+                        <th style="width:13%;">Merk / Tipe</th>
+                        <th style="width:18%;">Indikasi Gangguan</th>
+                        <th style="width:13%;">Keterangan</th>
+                        <th style="width:4%;"></th>
+                    </tr>
+                </thead>
+                <tbody id="gangguan-tbody">
+                    <!-- baris ditambah via JS -->
+                </tbody>
+            </table>
+        </div>
+        <div id="empty-msg" class="text-center text-muted py-3" style="font-size:12px;">
+            <i class="bi bi-info-circle me-1"></i>Belum ada data. Klik "+ Tambah Baris" untuk mulai.
+        </div>
+    </div>
+</div>
+
+<!-- Submit -->
+<div class="d-flex justify-content-end gap-2 mb-4">
+    <a href="{% url 'ba_list' %}" class="btn btn-sm btn-outline-secondary">Batal</a>
+    <button type="submit" class="btn btn-sm btn-primary" onclick="return validateForm()">
+        <i class="bi bi-save me-1"></i>Simpan & Kembali ke Daftar
+    </button>
+</div>
+
+</form>
+
+<script>
+let rowCount = 0;
+
+function updateNomorPreview() {
+    const val = document.getElementById('nomor_ba_input').value.trim();
+    const el  = document.getElementById('nomor_ba_preview');
+    if (val) {
+        const tgl   = document.querySelector('input[name="tanggal"]').value;
+        const tahun = tgl ? tgl.substring(0, 4) : new Date().getFullYear();
+        el.textContent = `→ ${val}.BA/FASOP/UP2BS-MKS/${tahun}`;
+    } else {
+        el.textContent = '';
+    }
+}
+
+function addRow() {
+    rowCount++;
+    const tbody = document.getElementById('gangguan-tbody');
+    document.getElementById('empty-msg').style.display = 'none';
+
+    const tr = document.createElement('tr');
+    tr.id = `row-${rowCount}`;
+    tr.innerHTML = `
+        <td class="td-c" style="text-align:center;font-weight:600;color:#94a3b8;">${rowCount}</td>
+        <td><input type="text" name="lokasi[]" class="form-control form-control-sm inp-sm" placeholder="GI Bolangi" required></td>
+        <td><input type="date" name="tanggal_gangguan[]" class="form-control form-control-sm inp-sm" required></td>
+        <td><input type="date" name="tanggal_perbaikan[]" class="form-control form-control-sm inp-sm"></td>
+        <td><input type="text" name="peralatan[]" class="form-control form-control-sm inp-sm" placeholder="Rectifier 48Vdc" required></td>
+        <td><input type="text" name="merk_tipe[]" class="form-control form-control-sm inp-sm" placeholder="Swaden SCR-48-80A"></td>
+        <td><input type="text" name="indikasi_gangguan[]" class="form-control form-control-sm inp-sm" placeholder="Indikasi gangguan..."></td>
+        <td><input type="text" name="keterangan[]" class="form-control form-control-sm inp-sm" placeholder="Keterangan..."></td>
+        <td style="text-align:center;">
+            <button type="button" class="btn btn-sm btn-outline-danger btn-rm" onclick="removeRow(${rowCount})">
+                <i class="bi bi-trash"></i>
+            </button>
+        </td>`;
+    tbody.appendChild(tr);
+    renumberRows();
+}
+
+function removeRow(id) {
+    const row = document.getElementById(`row-${id}`);
+    if (row) row.remove();
+    renumberRows();
+    if (document.getElementById('gangguan-tbody').children.length === 0) {
+        document.getElementById('empty-msg').style.display = '';
+    }
+}
+
+function renumberRows() {
+    const rows = document.querySelectorAll('#gangguan-tbody tr');
+    rows.forEach((tr, i) => {
+        tr.cells[0].textContent = i + 1;
+    });
+}
+
+function validateForm() {
+    const rows = document.querySelectorAll('#gangguan-tbody tr');
+    if (rows.length === 0) {
+        alert('Tambahkan minimal satu baris data gangguan.');
+        return false;
+    }
+    return true;
+}
+
+function previewEviden(input) {
+    const wrap    = document.getElementById('eviden_preview_wrap');
+    const preview = document.getElementById('eviden_preview');
+    preview.innerHTML = '';
+    if (!input.files || input.files.length === 0) { wrap.style.display = 'none'; return; }
+    wrap.style.display = '';
+    Array.from(input.files).forEach((file, i) => {
+        const reader = new FileReader();
+        reader.onload = e => {
+            const div = document.createElement('div');
+            div.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:4px;';
+            div.innerHTML = `
+                <img src="${e.target.result}" style="max-width:120px;max-height:90px;border:1px solid #e2e8f0;border-radius:4px;object-fit:cover;">
+                <input type="text" name="eviden_catatan[]" class="form-control form-control-sm"
+                       placeholder="Keterangan foto ${i+1}" style="font-size:11px;width:120px;">`;
+            preview.appendChild(div);
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+// Tambah 1 baris default saat halaman load
+addRow();
+</script>
+{% endblock %}

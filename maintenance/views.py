@@ -3207,6 +3207,7 @@ def ba_export(request, pk):
         'pemasangan':   'maintenance/pdf/ba_pemasangan.html',
         'pembongkaran': 'maintenance/pdf/ba_pembongkaran.html',
         'penggantian':  'maintenance/pdf/ba_penggantian.html',
+        'gangguan':     'maintenance/pdf/ba_gangguan.html',
     }
     template = template_map.get(record.jenis, 'maintenance/pdf/ba_pemasangan.html')
     nomor_clean = _re2.sub(r'[^\w]', '', record.nomor_ba) if record.nomor_ba else 'export'
@@ -3281,6 +3282,7 @@ def ba_preview(request, pk):
         'pemasangan':   'maintenance/pdf/ba_pemasangan.html',
         'pembongkaran': 'maintenance/pdf/ba_pembongkaran.html',
         'penggantian':  'maintenance/pdf/ba_penggantian.html',
+        'gangguan':     'maintenance/pdf/ba_gangguan.html',
     }
     template = template_map.get(record.jenis, 'maintenance/pdf/ba_pemasangan.html')
     from django.template.loader import render_to_string
@@ -3450,4 +3452,48 @@ def ba_penggantian(request):
         'jenis_list':  jenis_list,
         'lokasi_list': lokasi_list,
         'today':       date.today().isoformat(),
+    })
+
+
+@login_required
+def ba_gangguan(request):
+    if request.method == 'POST':
+        nomor_input        = request.POST.get('nomor_ba', '').strip()
+        tanggal            = request.POST.get('tanggal', '').strip()
+        pelaksana          = request.POST.get('pelaksana', '').strip()
+        nip                = request.POST.get('nip', '').strip()
+        jabatan            = request.POST.get('jabatan', '').strip()
+        catatan            = request.POST.get('catatan', '').strip()
+        lokasi_list        = request.POST.getlist('lokasi[]')
+        tgl_gangguan_list  = request.POST.getlist('tanggal_gangguan[]')
+        tgl_perbaikan_list = request.POST.getlist('tanggal_perbaikan[]')
+        peralatan_list     = request.POST.getlist('peralatan[]')
+        merk_tipe_list     = request.POST.getlist('merk_tipe[]')
+        indikasi_list      = request.POST.getlist('indikasi_gangguan[]')
+        keterangan_list    = request.POST.getlist('keterangan[]')
+
+        rows = []
+        for i, lok in enumerate(lokasi_list):
+            rows.append({
+                'no':                i + 1,
+                'lokasi':            lok,
+                'tanggal_gangguan':  tgl_gangguan_list[i]  if i < len(tgl_gangguan_list)  else '',
+                'tanggal_perbaikan': tgl_perbaikan_list[i] if i < len(tgl_perbaikan_list) else '',
+                'peralatan':         peralatan_list[i]     if i < len(peralatan_list)     else '',
+                'merk_tipe':         merk_tipe_list[i]     if i < len(merk_tipe_list)     else '',
+                'indikasi_gangguan': indikasi_list[i]      if i < len(indikasi_list)      else '',
+                'keterangan':        keterangan_list[i]    if i < len(keterangan_list)    else '',
+            })
+
+        tahun, hari, bulan_tahun, fname_base = _ba_extra_ctx(tanggal, nomor_input)
+        nomor_ba        = f'{nomor_input}.BA/FASOP/UP2BS-MKS/{tahun}' if nomor_input else ''
+        eviden_files    = request.FILES.getlist('eviden')
+        eviden_captions = request.POST.getlist('eviden_catatan[]')
+        _save_ba_record('gangguan', nomor_ba, tanggal, pelaksana, nip, jabatan, catatan, rows, eviden_files, eviden_captions, request.user)
+        from django.contrib import messages as _msg
+        _msg.success(request, f'Berita Acara Gangguan "{nomor_ba}" berhasil dibuat.')
+        return redirect('ba_list')
+
+    return render(request, 'maintenance/ba_gangguan.html', {
+        'today': date.today().isoformat(),
     })

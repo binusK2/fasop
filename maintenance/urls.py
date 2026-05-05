@@ -39,6 +39,7 @@ urlpatterns = [
     path('ekspor/pemasangan/',   views.ba_pemasangan,   name='ba_pemasangan'),
     path('ekspor/pembongkaran/', views.ba_pembongkaran, name='ba_pembongkaran'),
     path('ekspor/penggantian/',  views.ba_penggantian,  name='ba_penggantian'),
+    path('ekspor/gangguan/',     views.ba_gangguan,     name='ba_gangguan'),
 
     # List & aksi BA
     path('ekspor/list/',                    views.ba_list,         name='ba_list'),

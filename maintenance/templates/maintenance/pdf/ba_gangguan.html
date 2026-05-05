@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+@page {
+    size: A4 portrait;
+    margin: 15mm 20mm 15mm 20mm;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 10pt;
+    color: #000;
+    line-height: 1.5;
+}
+
+/* ── KOP SURAT ── */
+.kop { width:100%; border-collapse:collapse; margin-bottom:5mm; }
+.kop td { border: 1pt solid #000; padding: 3pt 5pt; vertical-align: middle; }
+.kop-left { width: 63%; }
+.kop-org-wrap { display: flex; align-items: center; gap: 6pt; }
+.kop-logo img { height: 14mm; width: auto; }
+.kop-org { font-size: 8pt; font-weight: bold; line-height: 1.6; }
+.kop-label { font-size: 8pt; width: 18%; text-align: left; padding-left: 4pt; }
+.kop-value { font-size: 8pt; width: 19%; font-weight: bold; }
+.kop-level { text-align: center; font-size: 10pt; font-weight: bold; padding: 3pt; }
+.kop-judul { text-align: center; font-size: 13pt; font-weight: bold; padding: 5pt 3pt; }
+
+/* ── NOMOR ── */
+.nomor-blok { text-align: center; font-size: 10pt; font-weight: bold; margin: 5mm 0 5mm; }
+
+/* ── PEMBUKA ── */
+.pembuka { font-size: 10pt; margin-bottom: 3mm; text-align: justify; }
+
+/* ── INFO PELAKSANA ── */
+.info-tbl { border-collapse: collapse; margin: 2mm 0 3mm 8mm; font-size: 10pt; }
+.info-tbl td { padding: 1.5pt 3pt; vertical-align: top; }
+.info-tbl .lbl { width: 55pt; }
+.info-tbl .sep { width: 8pt; }
+
+/* ── TABEL DATA ── */
+.data-tbl { width: 100%; border-collapse: collapse; margin: 3mm 0 5mm; font-size: 9pt; }
+.data-tbl th {
+    border: 0.5pt solid #000;
+    background: #BFBFBF;
+    padding: 4pt 4pt;
+    text-align: center;
+    font-weight: bold;
+    vertical-align: middle;
+}
+.data-tbl td {
+    border: 0.5pt solid #000;
+    padding: 3pt 4pt;
+    vertical-align: middle;
+    word-break: break-word;
+}
+.data-tbl tr:nth-child(even) td { background: #F2F2F2; }
+.td-c { text-align: center; }
+
+/* ── PENUTUP ── */
+.penutup { font-size: 10pt; margin: 3mm 0 8mm; text-align: justify; }
+
+/* ── TANGGAL & TTD ── */
+.tgl-right { text-align: right; font-size: 10pt; margin-bottom: 8mm; }
+.ttd-wrap { display: flex; justify-content: flex-end; font-size: 10pt; }
+.ttd-side { width: 44%; text-align: center; }
+.ttd-peran { margin-bottom: 1mm; }
+.ttd-jabatan { font-weight: bold; margin-bottom: 25mm; }
+.ttd-nama { font-size: 10pt; text-align: center; border-bottom: 0.5pt solid #000; padding-bottom: 2pt; }
+</style>
+</head>
+<body>
+
+<!-- KOP SURAT -->
+<table class="kop">
+  <tr>
+    <td class="kop-left" rowspan="2">
+      <div class="kop-org-wrap">
+        {% if logo_b64 %}
+        <div class="kop-logo"><img src="data:image/png;base64,{{ logo_b64 }}" alt="PLN"></div>
+        {% endif %}
+        <div class="kop-org">
+          PT. PLN (PERSERO) UIP3B SULAWESI<br>
+          UNIT PELAKSANA PENGATUR BEBAN SISTEM MAKASSAR<br>
+          JL. HERTASNING BLOK B MAKASSAR 90222
+        </div>
+      </div>
+    </td>
+    <td class="kop-label">No. Formulir</td>
+    <td class="kop-value">UP2B/FML/04-1013</td>
+  </tr>
+  <tr>
+    <td class="kop-label">Berlaku Efektif</td>
+    <td class="kop-value">01 April 2020</td>
+  </tr>
+  <tr>
+    <td colspan="3" class="kop-level">DOKUMEN LEVEL 4</td>
+  </tr>
+  <tr>
+    <td colspan="3" class="kop-judul">BERITA ACARA GANGGUAN / KERUSAKAN PERALATAN</td>
+  </tr>
+</table>
+
+<!-- NOMOR -->
+<p class="nomor-blok">Nomor :&nbsp;&nbsp;{{ nomor_ba }}</p>
+
+<!-- PEMBUKA -->
+<p class="pembuka">
+  Pada hari ini <strong>{{ hari_display }}</strong> tanggal <strong>{{ tanggal_display }}</strong>,
+  telah dilaksanakan pengecekan terhadap barang/peralatan Fasop di PLN UP2B Sistem Makassar
+  yang mengalami gangguan dan atau kerusakan. Adapun hasil inventarisasi sebagai berikut :
+</p>
+
+<!-- TABEL DATA -->
+<table class="data-tbl">
+    <thead>
+        <tr>
+            <th style="width:4%;">No</th>
+            <th style="width:12%;">Lokasi</th>
+            <th style="width:11%;">Tanggal Gangguan</th>
+            <th style="width:11%;">Tanggal Perbaikan</th>
+            <th style="width:14%;">Peralatan</th>
+            <th style="width:13%;">Merk / Tipe</th>
+            <th style="width:18%;">Indikasi Gangguan</th>
+            <th style="width:17%;">Keterangan</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in rows %}
+        <tr>
+            <td class="td-c">{{ row.no }}</td>
+            <td>{{ row.lokasi|default:"—" }}</td>
+            <td class="td-c">{{ row.tanggal_gangguan|default:"—" }}</td>
+            <td class="td-c">{{ row.tanggal_perbaikan|default:"—" }}</td>
+            <td>{{ row.peralatan|default:"—" }}</td>
+            <td>{{ row.merk_tipe|default:"—" }}</td>
+            <td>{{ row.indikasi_gangguan|default:"—" }}</td>
+            <td>{{ row.keterangan|default:"—" }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="8" class="td-c">— tidak ada data —</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<!-- PENUTUP -->
+<p class="penutup">
+  Demikian Berita Acara Gangguan ini dibuat untuk dapat digunakan sebagaimana mestinya.
+</p>
+
+<!-- TANGGAL -->
+<p class="tgl-right"><strong>Makassar,&nbsp;&nbsp;{{ tanggal_display }}</strong></p>
+
+<!-- TTD — hanya kolom kanan (Mengetahui AM) sesuai format formulir -->
+<div class="ttd-wrap">
+  <div class="ttd-side">
+    <div class="ttd-peran">Mengetahui,</div>
+    <div style="font-weight:bold;margin-bottom:3mm;">Assistant Manager Fasilitas Operasi</div>
+    <div style="height:20mm;display:flex;align-items:flex-end;justify-content:center;padding-bottom:2mm;">
+      {% if ttd_am_sig_b64 %}
+      <img src="data:image/png;base64,{{ ttd_am_sig_b64 }}"
+           style="max-height:18mm;max-width:55mm;object-fit:contain;" alt="ttd">
+      {% endif %}
+    </div>
+    <div class="ttd-nama">{{ ttd_am_name|default:"&nbsp;" }}</div>
+  </div>
+</div>
+
+<!-- FOOTER pojok kiri bawah -->
+<p style="position:fixed;bottom:5mm;left:0;font-size:8pt;margin:0;">UP2B/FML/04-1013</p>
+
+{% if eviden_list %}
+<!-- HALAMAN 2: EVIDEN -->
+<div style="page-break-before:always;"></div>
+
+<table class="kop">
+  <tr>
+    <td class="kop-left" rowspan="2">
+      <div class="kop-org-wrap">
+        {% if logo_b64 %}
+        <div class="kop-logo"><img src="data:image/png;base64,{{ logo_b64 }}" alt="PLN"></div>
+        {% endif %}
+        <div class="kop-org">
+          PT. PLN (PERSERO) UIP3B SULAWESI<br>
+          UNIT PELAKSANA PENGATUR BEBAN SISTEM MAKASSAR<br>
+          JL. HERTASNING BLOK B MAKASSAR 90222
+        </div>
+      </div>
+    </td>
+    <td class="kop-label">No. Formulir</td>
+    <td class="kop-value">UP2B/FML/04-1013</td>
+  </tr>
+  <tr>
+    <td class="kop-label">Berlaku Efektif</td>
+    <td class="kop-value">01 April 2020</td>
+  </tr>
+  <tr>
+    <td colspan="3" class="kop-level">DOKUMEN LEVEL 4</td>
+  </tr>
+  <tr>
+    <td colspan="3" class="kop-judul">EVIDEN</td>
+  </tr>
+</table>
+
+<div style="display:flex;flex-wrap:wrap;gap:8mm;justify-content:center;margin-top:6mm;">
+  {% for ev in eviden_list %}
+  <div style="text-align:center;max-width:82mm;">
+    <img src="data:{{ ev.mime }};base64,{{ ev.b64 }}"
+         style="max-width:82mm;max-height:88mm;display:block;margin:0 auto;border:0.5pt solid #ccc;border-radius:2pt;">
+    {% if ev.catatan %}
+    <div style="font-size:8.5pt;color:#333;margin-top:3mm;text-align:center;font-style:italic;">{{ ev.catatan }}</div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+</body>
+</html>
