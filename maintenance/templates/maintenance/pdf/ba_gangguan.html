@@ -39,24 +39,18 @@ body {
 .info-tbl .lbl { width: 55pt; }
 .info-tbl .sep { width: 8pt; }
 
-/* ── TABEL DATA ── */
-.data-tbl { width: 100%; border-collapse: collapse; margin: 3mm 0 5mm; font-size: 9pt; }
-.data-tbl th {
-    border: 0.5pt solid #000;
-    background: #BFBFBF;
-    padding: 4pt 4pt;
-    text-align: center;
-    font-weight: bold;
-    vertical-align: middle;
+/* ── LIST DATA GANGGUAN (tanpa tabel) ── */
+.gangguan-list { margin: 3mm 0 5mm; }
+.gangguan-item {
+    margin: 0 0 4mm 0;
+    padding: 0 0 3mm 0;
+    border-bottom: 0.5pt dotted #888;
 }
-.data-tbl td {
-    border: 0.5pt solid #000;
-    padding: 3pt 4pt;
-    vertical-align: middle;
-    word-break: break-word;
-}
-.data-tbl tr:nth-child(even) td { background: #F2F2F2; }
-.td-c { text-align: center; }
+.gangguan-item:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+.gangguan-row { margin: 0.5mm 0; font-size: 10pt; line-height: 1.45; }
+.gangguan-label { display: inline-block; width: 46mm; vertical-align: top; }
+.gangguan-sep { display: inline-block; width: 4mm; text-align: center; vertical-align: top; }
+.gangguan-val { display: inline-block; width: 110mm; vertical-align: top; word-break: break-word; }
 
 /* ── PENUTUP ── */
 .penutup { font-size: 10pt; margin: 3mm 0 8mm; text-align: justify; }
@@ -112,37 +106,25 @@ body {
   yang mengalami gangguan dan atau kerusakan. Adapun hasil inventarisasi sebagai berikut :
 </p>
 
-<!-- TABEL DATA -->
-<table class="data-tbl">
-    <thead>
-        <tr>
-            <th style="width:4%;">No</th>
-            <th style="width:12%;">Lokasi</th>
-            <th style="width:11%;">Tanggal Gangguan</th>
-            <th style="width:11%;">Tanggal Perbaikan</th>
-            <th style="width:14%;">Peralatan</th>
-            <th style="width:13%;">Merk / Tipe</th>
-            <th style="width:18%;">Indikasi Gangguan</th>
-            <th style="width:17%;">Keterangan</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for row in rows %}
-        <tr>
-            <td class="td-c">{{ row.no }}</td>
-            <td>{{ row.lokasi|default:"—" }}</td>
-            <td class="td-c">{{ row.tanggal_gangguan|default:"—" }}</td>
-            <td class="td-c">{{ row.tanggal_perbaikan|default:"—" }}</td>
-            <td>{{ row.peralatan|default:"—" }}</td>
-            <td>{{ row.merk_tipe|default:"—" }}</td>
-            <td>{{ row.indikasi_gangguan|default:"—" }}</td>
-            <td>{{ row.keterangan|default:"—" }}</td>
-        </tr>
-        {% empty %}
-        <tr><td colspan="8" class="td-c">— tidak ada data —</td></tr>
-        {% endfor %}
-    </tbody>
-</table>
+<!-- DATA GANGGUAN (tanpa tabel) -->
+<div class="gangguan-list">
+  {% for row in rows %}
+  <div class="gangguan-item">
+    <div class="gangguan-row"><span class="gangguan-label">Lokasi</span><span class="gangguan-sep">:</span><span class="gangguan-val">{{ row.lokasi|default:"—" }}</span></div>
+    <div class="gangguan-row"><span class="gangguan-label">Tanggal Gangguan</span><span class="gangguan-sep">:</span><span class="gangguan-val">{{ row.tanggal_gangguan|default:"—" }}</span></div>
+    <div class="gangguan-row"><span class="gangguan-label">Tanggal Perbaikan</span><span class="gangguan-sep">:</span><span class="gangguan-val">{{ row.tanggal_perbaikan|default:"—" }}</span></div>
+    <div class="gangguan-row"><span class="gangguan-label">Peralatan</span><span class="gangguan-sep">:</span><span class="gangguan-val">{{ row.peralatan|default:"—" }}</span></div>
+    <div class="gangguan-row"><span class="gangguan-label">Merk/Tipe</span><span class="gangguan-sep">:</span><span class="gangguan-val">{{ row.merk_tipe|default:"—" }}</span></div>
+    <div class="gangguan-row"><span class="gangguan-label">Komponen</span><span class="gangguan-sep">:</span><span class="gangguan-val">{{ row.komponen|default:"—" }}</span></div>
+    <div class="gangguan-row"><span class="gangguan-label">Indikasi Gangguan</span><span class="gangguan-sep">:</span><span class="gangguan-val">{{ row.indikasi_gangguan|default:"—" }}</span></div>
+    <div class="gangguan-row"><span class="gangguan-label">Keterangan</span><span class="gangguan-sep">:</span><span class="gangguan-val">{{ row.keterangan|default:"—" }}</span></div>
+  </div>
+  {% empty %}
+  <div class="gangguan-item">
+    <div class="gangguan-row"><span class="gangguan-label">Data Gangguan</span><span class="gangguan-sep">:</span><span class="gangguan-val">— tidak ada data —</span></div>
+  </div>
+  {% endfor %}
+</div>
 
 <!-- PENUTUP -->
 <p class="penutup">
