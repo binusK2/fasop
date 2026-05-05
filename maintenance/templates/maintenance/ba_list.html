@@ -8,15 +8,6 @@
     <h2 class="mb-0" style="font-size:20px;font-weight:700;">Daftar Berita Acara</h2>
 </div>
 
-{% if messages %}
-{% for msg in messages %}
-<div class="alert alert-{% if msg.tags == 'error' %}danger{% else %}{{ msg.tags }}{% endif %} alert-dismissible fade show py-2" role="alert" style="font-size:13px;">
-    {{ msg }}
-    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-</div>
-{% endfor %}
-{% endif %}
-
 <div class="table-card">
     <div class="table-header d-flex align-items-center justify-content-between">
         <h6 class="mb-0">
