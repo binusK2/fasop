@@ -60,6 +60,8 @@
 <div class="d-flex flex-column gap-2">
     {% for n in notifs %}
     <div id="notif-{{ n.id }}"
+         data-read-url="{% url 'notifikasi_read' n.pk %}"
+         data-delete-url="{% url 'notifikasi_delete' n.pk %}"
          class="card"
          style="border-left:4px solid {{ n.level_color }};
                 {% if not n.is_read %}background:#fffef7;{% endif %}
@@ -146,7 +148,8 @@ function getCsrf() {
 }
 
 async function readOne(id) {
-    const res = await fetch(`/notifikasi/${id}/read/`, {
+    const el = document.getElementById(`notif-${id}`);
+    const res = await fetch(el.dataset.readUrl, {
         method: 'POST',
         headers: { 'X-CSRFToken': getCsrf() }
     });
@@ -185,7 +188,8 @@ async function readAll() {
 
 async function deleteOne(id) {
     if (!confirm('Hapus notifikasi ini?')) return;
-    const res = await fetch(`/notifikasi/${id}/delete/`, {
+    const el = document.getElementById(`notif-${id}`);
+    const res = await fetch(el.dataset.deleteUrl, {
         method: 'POST',
         headers: { 'X-CSRFToken': getCsrf() }
     });

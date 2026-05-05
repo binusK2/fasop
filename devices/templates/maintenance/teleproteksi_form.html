@@ -83,7 +83,6 @@
             </div>
         </div>
         <div class="row g-2" id="umum-checklist-container"></div>
-        <!-- Hidden selects -->
         <div style="display:none;">
             <div id="field-kebersihan_perangkat">{{ detail_form.kebersihan_perangkat }}</div>
             <div id="field-kebersihan_panel">{{ detail_form.kebersihan_panel }}</div>
@@ -167,74 +166,189 @@
             </div>
         </div>
 
-        {% for n in "1234" %}
-        {% with cmd=detail_form|dictsort:n %}
-        <div class="skema-block mb-3">
-            <div class="skema-header"><i class="bi bi-lightning-charge-fill me-1"></i> Skema Command {{ n }}</div>
+        {# ── Skema 1 ── #}
+        <div class="skema-block mb-3" id="skema-block-1">
+            <div class="skema-header"><i class="bi bi-lightning-charge-fill me-1"></i> Skema Command 1</div>
             <div class="row g-2">
                 <div class="col-md-3">
                     <div class="measure-card">
                         <div class="measure-label">Tipe Command</div>
-                        {% if n == "1" %}{{ detail_form.skema_1_command }}
-                        {% elif n == "2" %}{{ detail_form.skema_2_command }}
-                        {% elif n == "3" %}{{ detail_form.skema_3_command }}
-                        {% else %}{{ detail_form.skema_4_command }}{% endif %}
+                        {{ detail_form.skema_1_command }}
+                    </div>
+                </div>
+                {# Send #}
+                <div class="col-md-3">
+                    <div class="measure-card">
+                        <div class="measure-label">Send — Tegangan Standby</div>
+                        {{ detail_form.skema_1_send_teg }}
                     </div>
                 </div>
                 <div class="col-md-3">
                     <div class="measure-card">
-                        <div class="measure-label">Send Standby (−) V</div>
-                        <div class="input-group">
-                            {% if n == "1" %}{{ detail_form.skema_1_send_minus }}
-                            {% elif n == "2" %}{{ detail_form.skema_2_send_minus }}
-                            {% elif n == "3" %}{{ detail_form.skema_3_send_minus }}
-                            {% else %}{{ detail_form.skema_4_send_minus }}{% endif %}
-                            <span class="input-group-text measure-unit">V</span>
-                        </div>
+                        <div class="measure-label">Send — Polaritas</div>
+                        {{ detail_form.skema_1_send_pol }}
+                    </div>
+                </div>
+            </div>
+            <div class="row g-2 mt-1">
+                {# Receive #}
+                <div class="col-md-3 offset-md-3">
+                    <div class="measure-card">
+                        <div class="measure-label">Receive — Tegangan Standby</div>
+                        {{ detail_form.skema_1_receive_teg }}
                     </div>
                 </div>
                 <div class="col-md-3">
                     <div class="measure-card">
-                        <div class="measure-label">Send Standby (+) V</div>
-                        <div class="input-group">
-                            {% if n == "1" %}{{ detail_form.skema_1_send_plus }}
-                            {% elif n == "2" %}{{ detail_form.skema_2_send_plus }}
-                            {% elif n == "3" %}{{ detail_form.skema_3_send_plus }}
-                            {% else %}{{ detail_form.skema_4_send_plus }}{% endif %}
-                            <span class="input-group-text measure-unit">V</span>
-                        </div>
+                        <div class="measure-label">Receive — Polaritas</div>
+                        {{ detail_form.skema_1_receive_pol }}
+                    </div>
+                </div>
+            </div>
+            {# Lama: hidden untuk kompatibilitas data lama #}
+            <div style="display:none;">
+                {{ detail_form.skema_1_send_minus }}
+                {{ detail_form.skema_1_send_plus }}
+                {{ detail_form.skema_1_receive_minus }}
+                {{ detail_form.skema_1_receive_plus }}
+            </div>
+        </div>
+
+        {# ── Skema 2 ── #}
+        <div class="skema-block mb-3" id="skema-block-2">
+            <div class="skema-header"><i class="bi bi-lightning-charge-fill me-1"></i> Skema Command 2</div>
+            <div class="row g-2">
+                <div class="col-md-3">
+                    <div class="measure-card">
+                        <div class="measure-label">Tipe Command</div>
+                        {{ detail_form.skema_2_command }}
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="measure-card">
+                        <div class="measure-label">Send — Tegangan Standby</div>
+                        {{ detail_form.skema_2_send_teg }}
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="measure-card">
+                        <div class="measure-label">Send — Polaritas</div>
+                        {{ detail_form.skema_2_send_pol }}
                     </div>
                 </div>
             </div>
             <div class="row g-2 mt-1">
                 <div class="col-md-3 offset-md-3">
                     <div class="measure-card">
-                        <div class="measure-label">Receive Standby (−) V</div>
-                        <div class="input-group">
-                            {% if n == "1" %}{{ detail_form.skema_1_receive_minus }}
-                            {% elif n == "2" %}{{ detail_form.skema_2_receive_minus }}
-                            {% elif n == "3" %}{{ detail_form.skema_3_receive_minus }}
-                            {% else %}{{ detail_form.skema_4_receive_minus }}{% endif %}
-                            <span class="input-group-text measure-unit">V</span>
-                        </div>
+                        <div class="measure-label">Receive — Tegangan Standby</div>
+                        {{ detail_form.skema_2_receive_teg }}
                     </div>
                 </div>
                 <div class="col-md-3">
                     <div class="measure-card">
-                        <div class="measure-label">Receive Standby (+) V</div>
-                        <div class="input-group">
-                            {% if n == "1" %}{{ detail_form.skema_1_receive_plus }}
-                            {% elif n == "2" %}{{ detail_form.skema_2_receive_plus }}
-                            {% elif n == "3" %}{{ detail_form.skema_3_receive_plus }}
-                            {% else %}{{ detail_form.skema_4_receive_plus }}{% endif %}
-                            <span class="input-group-text measure-unit">V</span>
-                        </div>
+                        <div class="measure-label">Receive — Polaritas</div>
+                        {{ detail_form.skema_2_receive_pol }}
                     </div>
                 </div>
             </div>
+            <div style="display:none;">
+                {{ detail_form.skema_2_send_minus }}
+                {{ detail_form.skema_2_send_plus }}
+                {{ detail_form.skema_2_receive_minus }}
+                {{ detail_form.skema_2_receive_plus }}
+            </div>
         </div>
-        {% endwith %}
-        {% endfor %}
+
+        {# ── Skema 3 ── #}
+        <div class="skema-block mb-3" id="skema-block-3">
+            <div class="skema-header"><i class="bi bi-lightning-charge-fill me-1"></i> Skema Command 3</div>
+            <div class="row g-2">
+                <div class="col-md-3">
+                    <div class="measure-card">
+                        <div class="measure-label">Tipe Command</div>
+                        {{ detail_form.skema_3_command }}
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="measure-card">
+                        <div class="measure-label">Send — Tegangan Standby</div>
+                        {{ detail_form.skema_3_send_teg }}
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="measure-card">
+                        <div class="measure-label">Send — Polaritas</div>
+                        {{ detail_form.skema_3_send_pol }}
+                    </div>
+                </div>
+            </div>
+            <div class="row g-2 mt-1">
+                <div class="col-md-3 offset-md-3">
+                    <div class="measure-card">
+                        <div class="measure-label">Receive — Tegangan Standby</div>
+                        {{ detail_form.skema_3_receive_teg }}
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="measure-card">
+                        <div class="measure-label">Receive — Polaritas</div>
+                        {{ detail_form.skema_3_receive_pol }}
+                    </div>
+                </div>
+            </div>
+            <div style="display:none;">
+                {{ detail_form.skema_3_send_minus }}
+                {{ detail_form.skema_3_send_plus }}
+                {{ detail_form.skema_3_receive_minus }}
+                {{ detail_form.skema_3_receive_plus }}
+            </div>
+        </div>
+
+        {# ── Skema 4 ── #}
+        <div class="skema-block mb-3" id="skema-block-4">
+            <div class="skema-header"><i class="bi bi-lightning-charge-fill me-1"></i> Skema Command 4</div>
+            <div class="row g-2">
+                <div class="col-md-3">
+                    <div class="measure-card">
+                        <div class="measure-label">Tipe Command</div>
+                        {{ detail_form.skema_4_command }}
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="measure-card">
+                        <div class="measure-label">Send — Tegangan Standby</div>
+                        {{ detail_form.skema_4_send_teg }}
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="measure-card">
+                        <div class="measure-label">Send — Polaritas</div>
+                        {{ detail_form.skema_4_send_pol }}
+                    </div>
+                </div>
+            </div>
+            <div class="row g-2 mt-1">
+                <div class="col-md-3 offset-md-3">
+                    <div class="measure-card">
+                        <div class="measure-label">Receive — Tegangan Standby</div>
+                        {{ detail_form.skema_4_receive_teg }}
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="measure-card">
+                        <div class="measure-label">Receive — Polaritas</div>
+                        {{ detail_form.skema_4_receive_pol }}
+                    </div>
+                </div>
+            </div>
+            <div style="display:none;">
+                {{ detail_form.skema_4_send_minus }}
+                {{ detail_form.skema_4_send_plus }}
+                {{ detail_form.skema_4_receive_minus }}
+                {{ detail_form.skema_4_receive_plus }}
+            </div>
+        </div>
+
     </div>
 </div>
 
@@ -247,7 +361,7 @@
             <span style="font-size:11px;color:#94a3b8;margin-left:4px;">— Pilih OK / NOK</span>
         </div>
         <div class="row g-2 mb-3" id="uji-checklist-container"></div>
-        <div style="display:none;">
+        <div style="display:none;" id="uji-hidden-fields">
             <div id="field-skema_1_send_result">{{ detail_form.skema_1_send_result }}</div>
             <div id="field-skema_1_receive_result">{{ detail_form.skema_1_receive_result }}</div>
             <div id="field-skema_2_send_result">{{ detail_form.skema_2_send_result }}</div>
@@ -333,10 +447,22 @@
 .toggle-btn.nok:hover{background:#fee2e2;color:#991b1b;border-color:#fca5a5;}
 .toggle-btn.ok.selected{background:#10b981;border-color:#10b981;color:#fff;}
 .toggle-btn.nok.selected{background:#ef4444;border-color:#ef4444;color:#fff;}
-.skema-block{background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:14px;}
+.skema-block{background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:14px;transition:opacity .2s;}
+.skema-block.hidden-skema{display:none;}
 .skema-header{font-size:12px;font-weight:700;color:#b45309;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;}
 </style>
 <script>
+const ALL_UJI_ITEMS = [
+    {id:'skema_1_send_result',    label:'Send Command 1',    sub:'Pengujian kirim skema 1'},
+    {id:'skema_1_receive_result', label:'Receive Command 1', sub:'Pengujian terima skema 1'},
+    {id:'skema_2_send_result',    label:'Send Command 2',    sub:'Pengujian kirim skema 2'},
+    {id:'skema_2_receive_result', label:'Receive Command 2', sub:'Pengujian terima skema 2'},
+    {id:'skema_3_send_result',    label:'Send Command 3',    sub:'Pengujian kirim skema 3'},
+    {id:'skema_3_receive_result', label:'Receive Command 3', sub:'Pengujian terima skema 3'},
+    {id:'skema_4_send_result',    label:'Send Command 4',    sub:'Pengujian kirim skema 4'},
+    {id:'skema_4_receive_result', label:'Receive Command 4', sub:'Pengujian terima skema 4'},
+];
+
 function toggleAddressTP(){
     const t=document.getElementById('id_tipe_tp'),w=document.getElementById('wrap-address-tp');
     if(t&&w) w.style.display=t.value==='Digital'?'':'none';
@@ -386,6 +512,26 @@ function updateSuhuBar(){
         }else{w.style.display='none';}
     };i.addEventListener('input',run);run();
 }
+
+function updateSkema(){
+    const inp = document.getElementById('id_jumlah_skema');
+    const n = inp ? (parseInt(inp.value) || 0) : 4;
+    const aktif = Math.min(Math.max(n, 0), 4);
+
+    // Show/hide skema blocks
+    for(let i=1;i<=4;i++){
+        const blk = document.getElementById('skema-block-'+i);
+        if(blk) blk.classList.toggle('hidden-skema', i > aktif);
+    }
+
+    // Re-render pengujian checklist with only active skema items
+    const activeUji = ALL_UJI_ITEMS.filter(item => {
+        const skemaNum = parseInt(item.id.match(/skema_(\d)/)[1]);
+        return skemaNum <= aktif;
+    });
+    renderList('uji-checklist-container', activeUji);
+}
+
 document.addEventListener('DOMContentLoaded',()=>{
     renderList('umum-checklist-container',[
         {id:'kebersihan_perangkat',label:'Kebersihan Perangkat',sub:'Kondisi kebersihan unit TP',ok:'✓ Bersih',nok:'✗ Kotor'},
@@ -396,20 +542,16 @@ document.addEventListener('DOMContentLoaded',()=>{
         {id:'akses_tp',label:'Akses TP',sub:'Akses lokal ke perangkat'},
         {id:'remote_akses_tp',label:'Remote Akses TP',sub:'Akses remote via jaringan'},
     ]);
-    renderList('uji-checklist-container',[
-        {id:'skema_1_send_result',label:'Send Command 1',sub:'Pengujian kirim skema 1'},
-        {id:'skema_1_receive_result',label:'Receive Command 1',sub:'Pengujian terima skema 1'},
-        {id:'skema_2_send_result',label:'Send Command 2',sub:'Pengujian kirim skema 2'},
-        {id:'skema_2_receive_result',label:'Receive Command 2',sub:'Pengujian terima skema 2'},
-        {id:'skema_3_send_result',label:'Send Command 3',sub:'Pengujian kirim skema 3'},
-        {id:'skema_3_receive_result',label:'Receive Command 3',sub:'Pengujian terima skema 3'},
-        {id:'skema_4_send_result',label:'Send Command 4',sub:'Pengujian kirim skema 4'},
-        {id:'skema_4_receive_result',label:'Receive Command 4',sub:'Pengujian terima skema 4'},
-    ]);
     renderList('uji-umum-container',[{id:'time_sync',label:'Time Sync',sub:'Waktu tersinkronisasi'}]);
     updateSuhuBar();
+
     const t=document.getElementById('id_tipe_tp');
     if(t){toggleAddressTP();t.addEventListener('change',toggleAddressTP);}
+
+    // Initial skema render + listen for changes
+    updateSkema();
+    const skemaInp = document.getElementById('id_jumlah_skema');
+    if(skemaInp) skemaInp.addEventListener('input', updateSkema);
 });
 </script>
 {% endblock %}
