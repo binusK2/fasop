@@ -4,6 +4,8 @@
 
 {% block content %}
 <style>
+    .pool-wrap { max-height: 260px; overflow-y: auto; }
+    .pool-wrap thead th { position: sticky; top: 0; background: #f8fafc; z-index: 1; }
     .preview-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
     .preview-tbl thead th {
         background: #f1f5f9; font-size: 11px; font-weight: 700;
@@ -12,8 +14,10 @@
     }
     .preview-tbl tbody td { padding: 7px 10px; border: 1px solid #e2e8f0; vertical-align: middle; }
     .preview-tbl tbody tr:nth-child(even) { background: #f8fafc; }
+    .btn-add  { font-size: 11px; padding: 2px 8px; }
     .btn-rm   { font-size: 11px; padding: 2px 7px; }
     .inp-sm   { font-size: 12px; padding: 3px 7px; height: auto; }
+    .td-center { text-align: center; }
 </style>
 
 <!-- Header -->
@@ -23,7 +27,7 @@
     </a>
     <div>
         <h2 class="mb-0" style="font-size:18px;font-weight:700;">Berita Acara Gangguan / Kerusakan Peralatan</h2>
-        <p class="text-muted mb-0" style="font-size:12px;">Isi informasi, tambah data gangguan, lalu ekspor ke PDF</p>
+        <p class="text-muted mb-0" style="font-size:12px;">Isi informasi, pilih peralatan, lalu ekspor ke PDF</p>
     </div>
 </div>
 
@@ -93,60 +97,108 @@
     </div>
 </div>
 
-<!-- Card 3: Data Gangguan -->
+<!-- Card 3: Cari & Pilih Peralatan berdasarkan Lokasi -->
 <div class="card mb-3">
     <div class="card-body px-4 py-3">
-        <div class="d-flex align-items-center justify-content-between mb-3">
-            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;">
-                <i class="bi bi-exclamation-triangle me-1"></i>Data Gangguan / Kerusakan
-            </div>
-            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addRow()" style="font-size:12px;">
-                <i class="bi bi-plus-lg me-1"></i>Tambah Baris
-            </button>
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;margin-bottom:10px;">
+            <i class="bi bi-search me-1"></i>Cari &amp; Pilih Peralatan
         </div>
-
-        <div class="table-responsive">
-            <table class="preview-tbl" id="gangguan-tbl">
+        <div class="row g-2 mb-2">
+            <div class="col-md-4">
+                <select id="filter-lokasi" class="form-select form-select-sm" onchange="filterByLokasi(this.value)">
+                    <option value="">— Pilih Lokasi —</option>
+                    {% for lok in master_lokasi_list %}
+                    <option value="{{ lok }}">{{ lok }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <input type="text" id="filter-nama" class="form-control form-control-sm"
+                       placeholder="Cari nama peralatan..." oninput="applyFilter()">
+            </div>
+            <div class="col-md-4 d-flex align-items-center">
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addManualRow()" style="font-size:12px;white-space:nowrap;">
+                    <i class="bi bi-pencil-square me-1"></i>Tambah Manual
+                </button>
+            </div>
+        </div>
+        <div class="pool-wrap">
+            <table class="preview-tbl" id="device-pool">
                 <thead>
                     <tr>
-                        <th style="width:4%;">No</th>
-                        <th style="width:12%;">Lokasi</th>
-                        <th style="width:11%;">Tgl Gangguan</th>
-                        <th style="width:11%;">Tgl Perbaikan</th>
-                        <th style="width:14%;">Peralatan</th>
-                        <th style="width:13%;">Merk / Tipe</th>
-                        <th style="width:18%;">Indikasi Gangguan</th>
-                        <th style="width:13%;">Keterangan</th>
-                        <th style="width:4%;"></th>
+                        <th style="width:5%;"></th>
+                        <th style="width:35%;">Nama Peralatan</th>
+                        <th style="width:30%;">Jenis</th>
+                        <th style="width:30%;">Merk / Tipe</th>
                     </tr>
                 </thead>
-                <tbody id="gangguan-tbody">
-                    <!-- baris ditambah via JS -->
+                <tbody id="pool-tbody">
+                    <tr id="pool-empty">
+                        <td colspan="4" class="text-center text-muted py-3" style="font-size:12px;">
+                            <i class="bi bi-geo-alt d-block mb-1" style="font-size:18px;"></i>
+                            Pilih lokasi di atas untuk menampilkan peralatan.
+                        </td>
+                    </tr>
                 </tbody>
             </table>
-        </div>
-        <div id="empty-msg" class="text-center text-muted py-3" style="font-size:12px;">
-            <i class="bi bi-info-circle me-1"></i>Belum ada data. Klik "+ Tambah Baris" untuk mulai.
         </div>
     </div>
 </div>
 
-<!-- Submit -->
-<div class="d-flex justify-content-end gap-2 mb-4">
-    <a href="{% url 'ba_list' %}" class="btn btn-sm btn-outline-secondary">Batal</a>
-    <button type="submit" class="btn btn-sm btn-primary" onclick="return validateForm()">
-        <i class="bi bi-save me-1"></i>Simpan & Kembali ke Daftar
-    </button>
+<!-- Card 4: Daftar Gangguan Dipilih -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;">
+                <i class="bi bi-exclamation-triangle me-1"></i>Data Gangguan / Kerusakan
+                <span id="row-count" class="ms-1 badge bg-danger rounded-pill" style="font-size:10px;background:#7c3aed!important;">0</span>
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table class="preview-tbl">
+                <thead>
+                    <tr>
+                        <th style="width:4%;">No</th>
+                        <th style="width:11%;">Lokasi</th>
+                        <th style="width:13%;">Peralatan</th>
+                        <th style="width:12%;">Merk / Tipe</th>
+                        <th style="width:10%;">Tgl Gangguan</th>
+                        <th style="width:10%;">Tgl Perbaikan</th>
+                        <th style="width:20%;">Indikasi Gangguan</th>
+                        <th style="width:16%;">Keterangan</th>
+                        <th style="width:4%;"></th>
+                    </tr>
+                </thead>
+                <tbody id="selected-body">
+                    <tr id="empty-row">
+                        <td colspan="9" class="text-center text-muted py-3" style="font-size:12px;">
+                            <i class="bi bi-inbox d-block mb-1" style="font-size:20px;"></i>
+                            Belum ada data. Pilih peralatan di atas atau klik "Tambah Manual".
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="d-flex justify-content-end mt-3">
+            <button type="submit" class="btn btn-primary btn-sm" onclick="return validateForm()">
+                <i class="bi bi-check2-circle me-1"></i>Buat BA
+            </button>
+        </div>
+    </div>
 </div>
 
 </form>
+{% endblock %}
 
+{% block extra_js %}
 <script>
-/* ── Data perangkat per lokasi (dari view) ── */
+/* ── Data dari view ── */
 const LOKASI_DEV = {{ lokasi_device_json|safe }};
 
-let rowCount = 0;
+let rowNum = 0;
+let currentLokasi = '';
 
+/* ── Nomor preview ── */
 function updateNomorPreview() {
     const val = document.getElementById('nomor_ba_input').value.trim();
     const el  = document.getElementById('nomor_ba_preview');
@@ -154,111 +206,140 @@ function updateNomorPreview() {
         const tgl   = document.querySelector('input[name="tanggal"]').value;
         const tahun = tgl ? tgl.substring(0, 4) : new Date().getFullYear();
         el.textContent = `→ ${val}.BA/FASOP/UP2BS-MKS/${tahun}`;
-    } else {
-        el.textContent = '';
+    } else { el.textContent = ''; }
+}
+
+/* ── Filter pool berdasarkan lokasi ── */
+function filterByLokasi(lokasi) {
+    currentLokasi = lokasi;
+    buildPool(lokasi);
+    applyFilter();
+}
+
+function buildPool(lokasi) {
+    const tbody = document.getElementById('pool-tbody');
+    const devs  = LOKASI_DEV[lokasi] || [];
+
+    if (!lokasi || !devs.length) {
+        tbody.innerHTML = `<tr id="pool-empty">
+            <td colspan="4" class="text-center text-muted py-3" style="font-size:12px;">
+                <i class="bi bi-geo-alt d-block mb-1" style="font-size:18px;"></i>
+                ${!lokasi ? 'Pilih lokasi di atas untuk menampilkan peralatan.' : 'Tidak ada peralatan terdaftar di lokasi ini.'}
+            </td></tr>`;
+        return;
     }
+
+    tbody.innerHTML = devs.map(d => `
+        <tr class="pool-row"
+            data-nama="${_e(d.nama)}"
+            data-merk="${_e(d.merk_tipe)}">
+            <td class="td-center">
+                <button type="button" class="btn btn-success btn-sm btn-add" onclick="addFromPool('${_e(lokasi)}','${_e(d.nama)}','${_e(d.merk_tipe)}')">
+                    <i class="bi bi-plus-lg"></i>
+                </button>
+            </td>
+            <td style="font-size:12.5px;">${_e(d.nama)}</td>
+            <td style="font-size:12px;color:#64748b;">—</td>
+            <td style="font-size:12px;color:#64748b;">${_e(d.merk_tipe) || '—'}</td>
+        </tr>`).join('');
 }
 
-/* ── Saat lokasi berubah: isi datalist peralatan, reset field ── */
-function onLokasiChange(input, rowId) {
-    const lokasi  = input.value.trim();
-    const dl      = document.getElementById(`peralatan-dl-${rowId}`);
-    const devs    = LOKASI_DEV[lokasi] || [];
-    dl.innerHTML  = devs.map(d => `<option value="${_e(d.nama)}">`).join('');
-    /* Reset peralatan & merk/tipe saat lokasi ganti */
-    const row     = input.closest('tr');
-    row.querySelector('input[name="peralatan[]"]').value  = '';
-    row.querySelector('input[name="merk_tipe[]"]').value  = '';
-}
-
-/* ── Saat peralatan berubah: auto-fill merk/tipe ── */
-function onPeralatanChange(input, rowId) {
-    const nama   = input.value.trim();
-    const row    = input.closest('tr');
-    const lokasi = row.querySelector('input[name="lokasi[]"]').value.trim();
-    const devs   = LOKASI_DEV[lokasi] || [];
-    const found  = devs.find(d => d.nama.toLowerCase() === nama.toLowerCase());
-    if (found) {
-        row.querySelector('input[name="merk_tipe[]"]').value = found.merk_tipe;
-    }
-}
-
-function _e(s) {
-    return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-
-function addRow() {
-    rowCount++;
-    const id    = rowCount;
-    const tbody = document.getElementById('gangguan-tbody');
-    document.getElementById('empty-msg').style.display = 'none';
-
-    const tr = document.createElement('tr');
-    tr.id = `row-${id}`;
-    tr.innerHTML = `
-        <td style="text-align:center;font-weight:600;color:#94a3b8;">${id}</td>
-        <td>
-          <datalist id="lokasi-dl-${id}">
-            {% for lok in master_lokasi_list %}<option value="{{ lok }}">{% endfor %}
-          </datalist>
-          <input type="text" name="lokasi[]" list="lokasi-dl-${id}"
-                 class="form-control form-control-sm inp-sm"
-                 placeholder="Pilih / ketik lokasi..."
-                 oninput="onLokasiChange(this,${id})"
-                 onchange="onLokasiChange(this,${id})" required>
-        </td>
-        <td><input type="date" name="tanggal_gangguan[]" class="form-control form-control-sm inp-sm"></td>
-        <td><input type="date" name="tanggal_perbaikan[]" class="form-control form-control-sm inp-sm"></td>
-        <td>
-          <datalist id="peralatan-dl-${id}"></datalist>
-          <input type="text" name="peralatan[]" list="peralatan-dl-${id}"
-                 class="form-control form-control-sm inp-sm"
-                 placeholder="Pilih / ketik peralatan..."
-                 oninput="onPeralatanChange(this,${id})"
-                 onchange="onPeralatanChange(this,${id})">
-        </td>
-        <td><input type="text" name="merk_tipe[]" class="form-control form-control-sm inp-sm" placeholder="Merk / Tipe (auto-isi)"></td>
-        <td><input type="text" name="indikasi_gangguan[]" class="form-control form-control-sm inp-sm" placeholder="Indikasi gangguan..."></td>
-        <td><input type="text" name="keterangan[]" class="form-control form-control-sm inp-sm" placeholder="Keterangan..."></td>
-        <td style="text-align:center;">
-          <button type="button" class="btn btn-sm btn-outline-danger btn-rm" onclick="removeRow(${id})">
-            <i class="bi bi-trash"></i>
-          </button>
-        </td>`;
-    tbody.appendChild(tr);
-    renumberRows();
-}
-
-function removeRow(id) {
-    const row = document.getElementById(`row-${id}`);
-    if (row) row.remove();
-    renumberRows();
-    if (document.getElementById('gangguan-tbody').children.length === 0) {
-        document.getElementById('empty-msg').style.display = '';
-    }
-}
-
-function renumberRows() {
-    const rows = document.querySelectorAll('#gangguan-tbody tr');
-    rows.forEach((tr, i) => {
-        tr.cells[0].textContent = i + 1;
+function applyFilter() {
+    const q = document.getElementById('filter-nama').value.toLowerCase();
+    document.querySelectorAll('.pool-row').forEach(tr => {
+        const ok = !q || tr.dataset.nama.toLowerCase().includes(q);
+        tr.style.display = ok ? '' : 'none';
     });
 }
 
+/* ── Tambah dari pool ── */
+function addFromPool(lokasi, nama, merkTipe) {
+    addRow(lokasi, nama, merkTipe);
+}
+
+/* ── Tambah baris manual (kosong) ── */
+function addManualRow() {
+    addRow('', '', '');
+}
+
+/* ── Core: buat satu baris di tabel Data Gangguan ── */
+function addRow(lokasi, peralatan, merkTipe) {
+    rowNum++;
+    const id    = rowNum;
+    const tbody = document.getElementById('selected-body');
+    document.getElementById('empty-row').style.display = 'none';
+
+    const tr = document.createElement('tr');
+    tr.className = 'data-row';
+    tr.id = `sel-row-${id}`;
+    tr.innerHTML = `
+        <td class="td-no td-center" style="font-size:12px;font-weight:600;color:#94a3b8;">—</td>
+        <td><input type="text" name="lokasi[]"
+                   class="form-control form-control-sm inp-sm"
+                   value="${_e(lokasi)}" placeholder="Lokasi" required
+                   list="lokasi-master-dl"></td>
+        <td><input type="text" name="peralatan[]"
+                   class="form-control form-control-sm inp-sm"
+                   value="${_e(peralatan)}" placeholder="Nama peralatan"></td>
+        <td><input type="text" name="merk_tipe[]"
+                   class="form-control form-control-sm inp-sm"
+                   value="${_e(merkTipe)}" placeholder="Merk / Tipe"></td>
+        <td><input type="date" name="tanggal_gangguan[]"
+                   class="form-control form-control-sm inp-sm"></td>
+        <td><input type="date" name="tanggal_perbaikan[]"
+                   class="form-control form-control-sm inp-sm"></td>
+        <td><input type="text" name="indikasi_gangguan[]"
+                   class="form-control form-control-sm inp-sm" placeholder="Indikasi..."></td>
+        <td><input type="text" name="keterangan[]"
+                   class="form-control form-control-sm inp-sm" placeholder="Keterangan..."></td>
+        <td class="td-center">
+            <button type="button" class="btn btn-outline-danger btn-sm btn-rm"
+                    onclick="removeRow(${id})">
+                <i class="bi bi-x"></i>
+            </button>
+        </td>`;
+    tbody.appendChild(tr);
+    renumberRows();
+    updateCount();
+}
+
+function removeRow(id) {
+    const row = document.getElementById(`sel-row-${id}`);
+    if (row) row.remove();
+    renumberRows();
+    updateCount();
+}
+
+function renumberRows() {
+    document.querySelectorAll('#selected-body tr.data-row').forEach((tr, i) => {
+        tr.querySelector('.td-no').textContent = i + 1;
+    });
+}
+
+function updateCount() {
+    const count = document.querySelectorAll('#selected-body tr.data-row').length;
+    document.getElementById('row-count').textContent = count;
+    if (count === 0) document.getElementById('empty-row').style.display = '';
+}
+
 function validateForm() {
-    const rows = document.querySelectorAll('#gangguan-tbody tr');
-    if (rows.length === 0) {
-        alert('Tambahkan minimal satu baris data gangguan.');
+    if (!document.querySelectorAll('#selected-body tr.data-row').length) {
+        alert('Tambahkan minimal satu data gangguan.');
         return false;
     }
     return true;
 }
 
+function _e(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+/* ── Eviden preview ── */
 function previewEviden(input) {
     const wrap    = document.getElementById('eviden_preview_wrap');
     const preview = document.getElementById('eviden_preview');
     preview.innerHTML = '';
-    if (!input.files || input.files.length === 0) { wrap.style.display = 'none'; return; }
+    if (!input.files || !input.files.length) { wrap.style.display = 'none'; return; }
     wrap.style.display = '';
     Array.from(input.files).forEach((file, i) => {
         const reader = new FileReader();
@@ -274,8 +355,10 @@ function previewEviden(input) {
         reader.readAsDataURL(file);
     });
 }
-
-// Tambah 1 baris default saat halaman load
-addRow();
 </script>
+
+<!-- Datalist master lokasi (dipakai oleh baris manual) -->
+<datalist id="lokasi-master-dl">
+    {% for lok in master_lokasi_list %}<option value="{{ lok }}">{% endfor %}
+</datalist>
 {% endblock %}
