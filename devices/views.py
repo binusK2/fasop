@@ -549,13 +549,20 @@ def dashboard(request):
     # ── Notifikasi terbaru belum dibaca ───────────────────────────
     try:
         from notifikasi.models import Notifikasi
+        from django.db.models import Q
         notif_terbaru = (
             Notifikasi.objects
-            .filter(is_read=False)
+            .filter(
+                Q(user=request.user) | Q(user__isnull=True),
+                is_read=False
+            )
             .select_related('device')
             .order_by('-created_at')[:5]
         )
-        notif_unread_total = Notifikasi.objects.filter(is_read=False).count()
+        notif_unread_total = Notifikasi.objects.filter(
+            Q(user=request.user) | Q(user__isnull=True),
+            is_read=False
+        ).count()
     except Exception:
         notif_terbaru      = []
         notif_unread_total = 0

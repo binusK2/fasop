@@ -2,18 +2,22 @@ from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.utils import timezone
+from django.db.models import Q
 from .models import Notifikasi
+
+
+def _notif_scope(user):
+    return Q(user=user) | Q(user__isnull=True)
 
 
 @login_required
 def notifikasi_list(request):
     """Halaman daftar notifikasi — per user + global."""
-    from django.db.models import Q
     filter_level = request.GET.get('level', '')
     filter_read  = request.GET.get('read', '')
 
     notifs = Notifikasi.objects.select_related('device').filter(
-        Q(user=request.user) | Q(user__isnull=True)
+        _notif_scope(request.user)
     )
 
     if filter_level:
@@ -37,11 +41,17 @@ def notifikasi_list(request):
 def notifikasi_read(request, pk):
     """Tandai satu notifikasi sebagai sudah dibaca (AJAX)."""
     if request.method == 'POST':
-        notif = get_object_or_404(Notifikasi, pk=pk)
+        notif = get_object_or_404(
+            Notifikasi.objects.filter(_notif_scope(request.user)),
+            pk=pk
+        )
         notif.is_read = True
         notif.read_at = timezone.now()
         notif.save()
-        unread_count = Notifikasi.objects.filter(is_read=False).count()
+        unread_count = Notifikasi.objects.filter(
+            _notif_scope(request.user),
+            is_read=False
+        ).count()
         return JsonResponse({'ok': True, 'unread_count': unread_count})
     return JsonResponse({'ok': False}, status=405)
 
@@ -49,10 +59,9 @@ def notifikasi_read(request, pk):
 @login_required
 def notifikasi_read_all(request):
     """Tandai semua notifikasi user sebagai sudah dibaca."""
-    from django.db.models import Q
     if request.method == 'POST':
         Notifikasi.objects.filter(
-            Q(user=request.user) | Q(user__isnull=True),
+            _notif_scope(request.user),
             is_read=False
         ).update(is_read=True, read_at=timezone.now())
         return JsonResponse({'ok': True, 'unread_count': 0})
@@ -62,25 +71,24 @@ def notifikasi_read_all(request):
 @login_required
 def notifikasi_count(request):
     """API ringan — kembalikan jumlah notif belum dibaca (untuk polling)."""
-    count = Notifikasi.objects.filter(is_read=False).count()
+    count = Notifikasi.objects.filter(
+        _notif_scope(request.user),
+        is_read=False
+    ).count()
     return JsonResponse({'unread_count': count})
 
 
 @login_required
 def notifikasi_delete(request, pk):
     """Hapus satu notifikasi (AJAX POST)."""
-    from django.db.models import Q
     if request.method == 'POST':
         notif = get_object_or_404(
-            Notifikasi, pk=pk,
+            Notifikasi.objects.filter(_notif_scope(request.user)),
+            pk=pk,
         )
-        # Only allow deleting own or global notifications
-        if notif.user is not None and notif.user != request.user:
-            return JsonResponse({'ok': False, 'error': 'Forbidden'}, status=403)
         notif.delete()
-        from django.db.models import Q
         unread_count = Notifikasi.objects.filter(
-            Q(user=request.user) | Q(user__isnull=True),
+            _notif_scope(request.user),
             is_read=False
         ).count()
         return JsonResponse({'ok': True, 'deleted_id': pk, 'unread_count': unread_count})
@@ -90,10 +98,9 @@ def notifikasi_delete(request, pk):
 @login_required
 def notifikasi_delete_read(request):
     """Hapus semua notifikasi yang sudah dibaca (AJAX POST)."""
-    from django.db.models import Q
     if request.method == 'POST':
         deleted_count, _ = Notifikasi.objects.filter(
-            Q(user=request.user) | Q(user__isnull=True),
+            _notif_scope(request.user),
             is_read=True
         ).delete()
         return JsonResponse({'ok': True, 'deleted_count': deleted_count})
