@@ -106,24 +106,6 @@ body {
   yang mengalami gangguan dan atau kerusakan. Adapun hasil inventarisasi sebagai berikut :
 </p>
 
-<table class="info-tbl">
-  <tr>
-    <td class="lbl">Nama</td>
-    <td class="sep">:</td>
-    <td>{{ pelaksana|default:"-" }}</td>
-  </tr>
-  <tr>
-    <td class="lbl">NIP</td>
-    <td class="sep">:</td>
-    <td>{{ nip|default:"-" }}</td>
-  </tr>
-  <tr>
-    <td class="lbl">Jabatan</td>
-    <td class="sep">:</td>
-    <td>{{ jabatan|default:"-" }}</td>
-  </tr>
-</table>
-
 <!-- DATA GANGGUAN (tanpa tabel) -->
 <div class="gangguan-list">
   {% for row in rows %}
