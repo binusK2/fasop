@@ -164,10 +164,10 @@ body {
 <p style="position:fixed;bottom:5mm;left:0;font-size:8pt;margin:0;">UP2B/FML/04-1013</p>
 
 {% if eviden_list %}
-<!-- HALAMAN EVIDEN — setiap 4 foto = 1 halaman baru dengan header KOP -->
+<!-- HALAMAN EVIDEN — setiap 2 foto = 1 halaman baru dengan header KOP -->
 {% for ev in eviden_list %}
 
-  {% if forloop.counter0|divisibleby:4 %}
+  {% if forloop.counter0|divisibleby:2 %}
     {% if not forloop.first %}</div>{% endif %}
     <div style="page-break-before:always;"></div>
     <table class="kop">
