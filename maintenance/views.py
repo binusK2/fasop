@@ -3215,6 +3215,142 @@ def ba_export(request, pk):
 
 
 @login_required
+def ba_edit(request, pk):
+    from django.contrib import messages as dj_messages
+    import json as _json
+    record = get_object_or_404(BeritaAcaraRecord, pk=pk)
+
+    if not (request.user.is_superuser or record.created_by == request.user):
+        dj_messages.error(request, 'Tidak memiliki izin untuk mengedit BA ini.')
+        return redirect('ba_list')
+    if record.ttd_status != 'draft':
+        dj_messages.error(request, 'BA sudah dalam proses TTD dan tidak dapat diedit.')
+        return redirect('ba_list')
+
+    if request.method == 'POST':
+        from datetime import datetime as _dt
+        nomor_input = request.POST.get('nomor_ba', '').strip()
+        tanggal     = request.POST.get('tanggal', '').strip()
+        pelaksana   = request.POST.get('pelaksana', '').strip()
+        nip         = request.POST.get('nip', '').strip()
+        jabatan     = request.POST.get('jabatan', '').strip()
+        catatan     = request.POST.get('catatan', '').strip()
+
+        tahun, _, _, _ = _ba_extra_ctx(tanggal, nomor_input)
+        nomor_ba = f'{nomor_input}.BA/FASOP/UP2BS-MKS/{tahun}' if nomor_input else ''
+
+        # Bangun rows sesuai jenis
+        if record.jenis == 'gangguan':
+            lokasi_list        = request.POST.getlist('lokasi[]')
+            tgl_gangguan_list  = request.POST.getlist('tanggal_gangguan[]')
+            tgl_perbaikan_list = request.POST.getlist('tanggal_perbaikan[]')
+            peralatan_list     = request.POST.getlist('peralatan[]')
+            merk_tipe_list     = request.POST.getlist('merk_tipe[]')
+            indikasi_list      = request.POST.getlist('indikasi_gangguan[]')
+            keterangan_list    = request.POST.getlist('keterangan[]')
+            rows = []
+            for i, lok in enumerate(lokasi_list):
+                rows.append({
+                    'no':                i + 1,
+                    'lokasi':            lok,
+                    'tanggal_gangguan':  tgl_gangguan_list[i]  if i < len(tgl_gangguan_list)  else '',
+                    'tanggal_perbaikan': tgl_perbaikan_list[i] if i < len(tgl_perbaikan_list) else '',
+                    'peralatan':         peralatan_list[i]     if i < len(peralatan_list)     else '',
+                    'merk_tipe':         merk_tipe_list[i]     if i < len(merk_tipe_list)     else '',
+                    'indikasi_gangguan': indikasi_list[i]      if i < len(indikasi_list)      else '',
+                    'keterangan':        keterangan_list[i]    if i < len(keterangan_list)    else '',
+                })
+        elif record.jenis == 'pemasangan':
+            nama_list      = request.POST.getlist('nama[]')
+            jenis_list_r   = request.POST.getlist('jenis_perangkat[]')
+            sn_list        = request.POST.getlist('serial_number[]')
+            komponen_list  = request.POST.getlist('komponen[]')
+            lok_tujuan     = request.POST.getlist('lokasi_tujuan[]')
+            ket_list       = request.POST.getlist('keterangan[]')
+            rows = [{'no': i+1, 'nama': nama_list[i], 'jenis': jenis_list_r[i] if i < len(jenis_list_r) else '',
+                     'serial_number': sn_list[i] if i < len(sn_list) else '',
+                     'komponen': komponen_list[i] if i < len(komponen_list) else '',
+                     'lokasi_tujuan': lok_tujuan[i] if i < len(lok_tujuan) else '',
+                     'keterangan': ket_list[i] if i < len(ket_list) else ''}
+                    for i, _ in enumerate(nama_list)]
+        elif record.jenis == 'pembongkaran':
+            nama_list     = request.POST.getlist('nama[]')
+            jenis_list_r  = request.POST.getlist('jenis_perangkat[]')
+            sn_list       = request.POST.getlist('serial_number[]')
+            komponen_list = request.POST.getlist('komponen[]')
+            lok_asal      = request.POST.getlist('lokasi_asal[]')
+            ket_list      = request.POST.getlist('keterangan[]')
+            rows = [{'no': i+1, 'nama': nama_list[i], 'jenis': jenis_list_r[i] if i < len(jenis_list_r) else '',
+                     'serial_number': sn_list[i] if i < len(sn_list) else '',
+                     'komponen': komponen_list[i] if i < len(komponen_list) else '',
+                     'lokasi_asal': lok_asal[i] if i < len(lok_asal) else '',
+                     'keterangan': ket_list[i] if i < len(ket_list) else ''}
+                    for i, _ in enumerate(nama_list)]
+        elif record.jenis == 'penggantian':
+            nama_list     = request.POST.getlist('nama[]')
+            jenis_list_r  = request.POST.getlist('jenis_perangkat[]')
+            komp_lama     = request.POST.getlist('komponen_lama[]')
+            komp_baru     = request.POST.getlist('komponen_baru[]')
+            ket_list      = request.POST.getlist('keterangan[]')
+            rows = [{'no': i+1, 'nama': nama_list[i], 'jenis': jenis_list_r[i] if i < len(jenis_list_r) else '',
+                     'komponen_lama': komp_lama[i] if i < len(komp_lama) else '',
+                     'komponen_baru': komp_baru[i] if i < len(komp_baru) else '',
+                     'keterangan': ket_list[i] if i < len(ket_list) else ''}
+                    for i, _ in enumerate(nama_list)]
+        else:
+            rows = record.rows_data
+
+        try:
+            tanggal_date = _dt.strptime(tanggal, '%Y-%m-%d').date()
+        except (ValueError, TypeError):
+            tanggal_date = record.tanggal
+
+        record.nomor_ba   = nomor_ba
+        record.tanggal    = tanggal_date
+        record.pelaksana  = pelaksana
+        record.nip        = nip
+        record.jabatan    = jabatan
+        record.catatan    = catatan
+        record.rows_data  = rows
+        record.save()
+
+        # Hapus eviden yang ditandai
+        delete_ids = request.POST.getlist('delete_eviden[]')
+        for ev_id in delete_ids:
+            try:
+                ev = BeritaAcaraEviden.objects.get(pk=ev_id, ba=record)
+                if ev.gambar:
+                    import os as _os
+                    if _os.path.exists(ev.gambar.path):
+                        _os.remove(ev.gambar.path)
+                ev.delete()
+            except Exception:
+                pass
+
+        # Tambah eviden baru
+        new_files    = request.FILES.getlist('eviden')
+        new_captions = request.POST.getlist('eviden_catatan[]')
+        start_urutan = record.evidens.count()
+        for i, f in enumerate(new_files):
+            catatan_ev = new_captions[i] if i < len(new_captions) else ''
+            BeritaAcaraEviden.objects.create(ba=record, gambar=f, catatan=catatan_ev, urutan=start_urutan + i)
+
+        dj_messages.success(request, f'BA "{nomor_ba}" berhasil diperbarui.')
+        return redirect('ba_list')
+
+    # GET — kirim rows_data sebagai JSON ke template
+    rows_json = _json.dumps(record.rows_data, ensure_ascii=False)
+    existing_evidens = record.evidens.all().order_by('urutan')
+    tanggal_str = record.tanggal.isoformat() if record.tanggal else date.today().isoformat()
+    return render(request, 'maintenance/ba_edit.html', {
+        'record':           record,
+        'rows_json':        rows_json,
+        'existing_evidens': existing_evidens,
+        'tanggal_str':      tanggal_str,
+    })
+
+
+@login_required
 def ba_delete(request, pk):
     from django.contrib import messages as dj_messages
     record = get_object_or_404(BeritaAcaraRecord, pk=pk)

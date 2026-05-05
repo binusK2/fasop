@@ -43,6 +43,7 @@ urlpatterns = [
 
     # List & aksi BA
     path('ekspor/list/',                    views.ba_list,         name='ba_list'),
+    path('ekspor/<hid:pk>/edit/',           views.ba_edit,         name='ba_edit'),
     path('ekspor/<hid:pk>/export/',         views.ba_export,       name='ba_export'),
     path('ekspor/<hid:pk>/preview/',        views.ba_preview,      name='ba_preview'),
     path('ekspor/<hid:pk>/hapus/',          views.ba_delete,       name='ba_delete'),

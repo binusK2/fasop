@@ -192,6 +192,16 @@
 
                 <td style="text-align:center;padding:13px 10px;">
                     <div style="display:flex;gap:5px;justify-content:center;flex-wrap:wrap;">
+                        {% if rec.ttd_status == 'draft' %}
+                            {% if request.user.is_superuser or rec.created_by == request.user %}
+                            <a href="{% url 'ba_edit' rec.pk %}"
+                               class="btn btn-sm btn-outline-info"
+                               style="border-radius:7px;padding:4px 10px;font-size:12px;"
+                               title="Edit BA">
+                                <i class="bi bi-pencil-square"></i>
+                            </a>
+                            {% endif %}
+                        {% endif %}
                         <a href="{% url 'ba_preview' rec.pk %}"
                            target="_blank"
                            class="btn btn-sm btn-outline-secondary"
