@@ -3342,11 +3342,14 @@ def ba_edit(request, pk):
     rows_json = _json.dumps(record.rows_data, ensure_ascii=False)
     existing_evidens = record.evidens.all().order_by('urutan')
     tanggal_str = record.tanggal.isoformat() if record.tanggal else date.today().isoformat()
+    # Ekstrak prefix nomor (bagian sebelum ".BA/")
+    nomor_prefix = record.nomor_ba.split('.BA/')[0] if record.nomor_ba else ''
     return render(request, 'maintenance/ba_edit.html', {
         'record':           record,
         'rows_json':        rows_json,
         'existing_evidens': existing_evidens,
         'tanggal_str':      tanggal_str,
+        'nomor_prefix':     nomor_prefix,
     })
 
 

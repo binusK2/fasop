@@ -48,9 +48,8 @@
         <div class="row g-3">
             <div class="col-md-4">
                 <label class="form-label" style="font-size:12px;font-weight:600;">Nomor BA</label>
-                {% comment %}Ambil bagian nomor saja sebelum .BA/{% endcomment %}
                 <input type="text" name="nomor_ba" id="nomor_ba_input" class="form-control form-control-sm"
-                       value="{{ record.nomor_ba|slice:':3' }}" oninput="updateNomorPreview()">
+                       value="{{ nomor_prefix }}" oninput="updateNomorPreview()">
                 <div id="nomor_ba_preview" style="font-size:11px;color:#64748b;margin-top:4px;min-height:16px;">
                     → {{ record.nomor_ba }}
                 </div>
@@ -197,7 +196,7 @@
 
 <script>
 const JENIS    = "{{ record.jenis }}";
-const ROWS     = {{ rows_json }};
+const ROWS     = {{ rows_json|safe }};
 let rowCount   = 0;
 
 /* ── Nomor preview ── */
