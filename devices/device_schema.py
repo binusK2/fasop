@@ -299,3 +299,23 @@ DEVICE_SCHEMA = {
     ],
 
 }
+
+# Skema spesifikasi khusus Repeater & Tower
+REPEATER_TOWER_SCHEMA = [
+    {"key": "radio_rx", "label": "Radio Rx", "type": "text"},
+    {"key": "radio_tx", "label": "Radio Tx", "type": "text"},
+    {"key": "tone_rx", "label": "Tone Rx", "type": "text"},
+    {"key": "tone_tx", "label": "Tone Tx", "type": "text"},
+    {"key": "antena_rx", "label": "Antena Rx", "type": "text"},
+    {"key": "antena_tx", "label": "Antena Tx", "type": "text"},
+    {"key": "tipe_tower", "label": "Tipe Tower", "type": "text"},
+    {"key": "tinggi_tower", "label": "Tinggi Tower", "type": "number"},
+]
+
+# Alias nama jenis perangkat untuk menjaga kompatibilitas kapitalisasi / penamaan
+DEVICE_SCHEMA["Repeater"] = REPEATER_TOWER_SCHEMA
+DEVICE_SCHEMA["Tower"] = REPEATER_TOWER_SCHEMA
+DEVICE_SCHEMA["Repeater & Tower"] = REPEATER_TOWER_SCHEMA
+DEVICE_SCHEMA["REPEATER"] = REPEATER_TOWER_SCHEMA
+DEVICE_SCHEMA["TOWER"] = REPEATER_TOWER_SCHEMA
+DEVICE_SCHEMA["REPEATER & TOWER"] = REPEATER_TOWER_SCHEMA

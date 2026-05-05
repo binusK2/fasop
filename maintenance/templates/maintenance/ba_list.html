@@ -8,15 +8,6 @@
     <h2 class="mb-0" style="font-size:20px;font-weight:700;">Daftar Berita Acara</h2>
 </div>
 
-{% if messages %}
-{% for msg in messages %}
-<div class="alert alert-{% if msg.tags == 'error' %}danger{% else %}{{ msg.tags }}{% endif %} alert-dismissible fade show py-2" role="alert" style="font-size:13px;">
-    {{ msg }}
-    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-</div>
-{% endfor %}
-{% endif %}
-
 <div class="table-card">
     <div class="table-header d-flex align-items-center justify-content-between">
         <h6 class="mb-0">
@@ -223,7 +214,7 @@
                                     class="btn btn-sm btn-outline-warning"
                                     style="border-radius:7px;padding:4px 10px;font-size:12px;"
                                     title="Minta Tanda Tangan"
-                                    onclick="openMintaTTD({{ rec.pk }}, '{{ rec.nomor_ba|default:"BA ini"|escapejs }}')">
+                                    onclick="openMintaTTD('{% url 'ba_request_sign' rec.pk %}', '{{ rec.nomor_ba|default:"BA ini"|escapejs }}')">
                                 <i class="bi bi-person-plus"></i>
                             </button>
                             {% endif %}
@@ -235,7 +226,7 @@
                                 class="btn btn-sm btn-warning"
                                 style="border-radius:7px;padding:4px 10px;font-size:12px;"
                                 title="Tandatangani sebagai Engineer"
-                                onclick="confirmTTDEngineer({{ rec.pk }}, '{{ rec.nomor_ba|default:"BA ini"|escapejs }}')">
+                                onclick="confirmTTDEngineer('{% url 'ba_sign_engineer' rec.pk %}', '{{ rec.nomor_ba|default:"BA ini"|escapejs }}')">
                             <i class="bi bi-pen-fill"></i> TTD
                         </button>
                         {% endif %}
@@ -247,7 +238,7 @@
                                     class="btn btn-sm btn-success"
                                     style="border-radius:7px;padding:4px 10px;font-size:12px;"
                                     title="Tandatangani sebagai AM"
-                                    onclick="confirmTTDAM({{ rec.pk }}, '{{ rec.nomor_ba|default:"BA ini"|escapejs }}')">
+                                    onclick="confirmTTDAM('{% url 'ba_sign_am' rec.pk %}', '{{ rec.nomor_ba|default:"BA ini"|escapejs }}')">
                                 <i class="bi bi-person-check-fill"></i> TTD AM
                             </button>
                             {% endif %}
@@ -401,18 +392,18 @@
 
 {% block extra_js %}
 <script>
-function openMintaTTD(pk, nomor) {
-    document.getElementById('minta-ttd-form').action = `/maintenance/ekspor/${pk}/minta-ttd/`;
+function openMintaTTD(url, nomor) {
+    document.getElementById('minta-ttd-form').action = url;
     document.getElementById('minta-ttd-nomor').textContent = nomor;
     new bootstrap.Modal(document.getElementById('mintaTTDModal')).show();
 }
-function confirmTTDEngineer(pk, nomor) {
-    document.getElementById('ttd-engineer-form').action = `/maintenance/ekspor/${pk}/ttd-engineer/`;
+function confirmTTDEngineer(url, nomor) {
+    document.getElementById('ttd-engineer-form').action = url;
     document.getElementById('ttd-eng-nomor').textContent = nomor;
     new bootstrap.Modal(document.getElementById('ttdEngineerModal')).show();
 }
-function confirmTTDAM(pk, nomor) {
-    document.getElementById('ttd-am-form').action = `/maintenance/ekspor/${pk}/ttd-am/`;
+function confirmTTDAM(url, nomor) {
+    document.getElementById('ttd-am-form').action = url;
     document.getElementById('ttd-am-nomor').textContent = nomor;
     new bootstrap.Modal(document.getElementById('ttdAMModal')).show();
 }
