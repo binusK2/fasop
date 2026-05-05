@@ -120,10 +120,13 @@ body {
             <th style="width:12%;">Lokasi</th>
             <th style="width:11%;">Tanggal Gangguan</th>
             <th style="width:11%;">Tanggal Perbaikan</th>
-            <th style="width:14%;">Peralatan</th>
-            <th style="width:13%;">Merk / Tipe</th>
-            <th style="width:18%;">Indikasi Gangguan</th>
-            <th style="width:17%;">Keterangan</th>
+            <th style="width:10%;">Peralatan</th>
+            <th style="width:8%;">Tipe</th>
+            <th style="width:9%;">Serial Number</th>
+            <th style="width:9%;">Komponen</th>
+            <th style="width:10%;">Merk / Tipe</th>
+            <th style="width:16%;">Indikasi Gangguan</th>
+            <th style="width:15%;">Keterangan</th>
         </tr>
     </thead>
     <tbody>
@@ -134,12 +137,15 @@ body {
             <td class="td-c">{{ row.tanggal_gangguan|default:"—" }}</td>
             <td class="td-c">{{ row.tanggal_perbaikan|default:"—" }}</td>
             <td>{{ row.peralatan|default:"—" }}</td>
+            <td>{{ row.tipe|default:"—" }}</td>
+            <td class="td-c">{{ row.serial_number|default:"—" }}</td>
+            <td>{{ row.komponen|default:"—" }}</td>
             <td>{{ row.merk_tipe|default:"—" }}</td>
             <td>{{ row.indikasi_gangguan|default:"—" }}</td>
             <td>{{ row.keterangan|default:"—" }}</td>
         </tr>
         {% empty %}
-        <tr><td colspan="8" class="td-c">— tidak ada data —</td></tr>
+        <tr><td colspan="11" class="td-c">— tidak ada data —</td></tr>
         {% endfor %}
     </tbody>
 </table>
