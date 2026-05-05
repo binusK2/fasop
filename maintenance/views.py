@@ -3033,6 +3033,15 @@ def _format_tanggal(tanggal_str):
     except (ValueError, IndexError):
         return tanggal_str
 
+def _format_tanggal_dmy(tanggal_str):
+    """Convert '2026-04-15' -> '15-04-2026'."""
+    try:
+        from datetime import datetime
+        d = datetime.strptime((tanggal_str or '').strip(), '%Y-%m-%d')
+        return d.strftime('%d-%m-%Y')
+    except (ValueError, TypeError, AttributeError):
+        return tanggal_str
+
 
 def _ba_device_context():
     """Shared GET context: full device list + filter options."""
@@ -3662,8 +3671,8 @@ def ba_gangguan(request):
             rows.append({
                 'no':                i + 1,
                 'lokasi':            lok,
-                'tanggal_gangguan':  tgl_gangguan_list[i]  if i < len(tgl_gangguan_list)  else '',
-                'tanggal_perbaikan': tgl_perbaikan_list[i] if i < len(tgl_perbaikan_list) else '',
+                'tanggal_gangguan':  _format_tanggal_dmy(tgl_gangguan_list[i])  if i < len(tgl_gangguan_list)  else '',
+                'tanggal_perbaikan': _format_tanggal_dmy(tgl_perbaikan_list[i]) if i < len(tgl_perbaikan_list) else '',
                 'peralatan':         peralatan_list[i]     if i < len(peralatan_list)     else '',
                 'tipe':              tipe_list[i]          if i < len(tipe_list)          else '',
                 'serial_number':     serial_list[i]        if i < len(serial_list)        else '',
