@@ -2,11 +2,11 @@ from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.utils import timezone
+from django.db.models import Q
 from .models import Notifikasi
 
 
 def _notif_scope(user):
-    from django.db.models import Q
     return Q(user=user) | Q(user__isnull=True)
 
 
