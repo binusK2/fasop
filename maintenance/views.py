@@ -3245,6 +3245,9 @@ def ba_edit(request, pk):
             tgl_gangguan_list  = request.POST.getlist('tanggal_gangguan[]')
             tgl_perbaikan_list = request.POST.getlist('tanggal_perbaikan[]')
             peralatan_list     = request.POST.getlist('peralatan[]')
+            tipe_list          = request.POST.getlist('tipe[]')
+            serial_list        = request.POST.getlist('serial_number[]')
+            komponen_list      = request.POST.getlist('komponen[]')
             merk_tipe_list     = request.POST.getlist('merk_tipe[]')
             indikasi_list      = request.POST.getlist('indikasi_gangguan[]')
             keterangan_list    = request.POST.getlist('keterangan[]')
@@ -3256,6 +3259,9 @@ def ba_edit(request, pk):
                     'tanggal_gangguan':  tgl_gangguan_list[i]  if i < len(tgl_gangguan_list)  else '',
                     'tanggal_perbaikan': tgl_perbaikan_list[i] if i < len(tgl_perbaikan_list) else '',
                     'peralatan':         peralatan_list[i]     if i < len(peralatan_list)     else '',
+                    'tipe':              tipe_list[i]          if i < len(tipe_list)          else '',
+                    'serial_number':     serial_list[i]        if i < len(serial_list)        else '',
+                    'komponen':          komponen_list[i]      if i < len(komponen_list)      else '',
                     'merk_tipe':         merk_tipe_list[i]     if i < len(merk_tipe_list)     else '',
                     'indikasi_gangguan': indikasi_list[i]      if i < len(indikasi_list)      else '',
                     'keterangan':        keterangan_list[i]    if i < len(keterangan_list)    else '',
@@ -3352,7 +3358,12 @@ def ba_edit(request, pk):
             continue
         if lok not in lok_dev_map:
             lok_dev_map[lok] = []
-        lok_dev_map[lok].append({'nama': d.nama, 'merk_tipe': d.merk or ''})
+        lok_dev_map[lok].append({
+            'nama': d.nama,
+            'tipe': d.jenis.name if d.jenis else '',
+            'serial_number': d.serial_number or '',
+            'merk_tipe': d.merk or '',
+        })
     return render(request, 'maintenance/ba_edit.html', {
         'record':             record,
         'rows_json':          rows_json,
@@ -3617,6 +3628,9 @@ def ba_gangguan(request):
         tgl_gangguan_list  = request.POST.getlist('tanggal_gangguan[]')
         tgl_perbaikan_list = request.POST.getlist('tanggal_perbaikan[]')
         peralatan_list     = request.POST.getlist('peralatan[]')
+        tipe_list          = request.POST.getlist('tipe[]')
+        serial_list        = request.POST.getlist('serial_number[]')
+        komponen_list      = request.POST.getlist('komponen[]')
         merk_tipe_list     = request.POST.getlist('merk_tipe[]')
         indikasi_list      = request.POST.getlist('indikasi_gangguan[]')
         keterangan_list    = request.POST.getlist('keterangan[]')
@@ -3629,6 +3643,9 @@ def ba_gangguan(request):
                 'tanggal_gangguan':  tgl_gangguan_list[i]  if i < len(tgl_gangguan_list)  else '',
                 'tanggal_perbaikan': tgl_perbaikan_list[i] if i < len(tgl_perbaikan_list) else '',
                 'peralatan':         peralatan_list[i]     if i < len(peralatan_list)     else '',
+                'tipe':              tipe_list[i]          if i < len(tipe_list)          else '',
+                'serial_number':     serial_list[i]        if i < len(serial_list)        else '',
+                'komponen':          komponen_list[i]      if i < len(komponen_list)      else '',
                 'merk_tipe':         merk_tipe_list[i]     if i < len(merk_tipe_list)     else '',
                 'indikasi_gangguan': indikasi_list[i]      if i < len(indikasi_list)      else '',
                 'keterangan':        keterangan_list[i]    if i < len(keterangan_list)    else '',
@@ -3655,6 +3672,8 @@ def ba_gangguan(request):
             lok_dev_map[lok] = []
         lok_dev_map[lok].append({
             'nama':      d.nama,
+            'tipe':      d.jenis.name if d.jenis else '',
+            'serial_number': d.serial_number or '',
             'merk_tipe': d.merk or '',
         })
     return render(request, 'maintenance/ba_gangguan.html', {
