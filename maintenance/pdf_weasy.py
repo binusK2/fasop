@@ -318,17 +318,44 @@ def _ctx_rectifier(data, ctx):
     })
 
 
+_TEG_LABEL  = {'48': '48 V', '110': '110 V', '220': '220 V', 'standby': 'Standby'}
+_POL_LABEL  = {'negatif': 'Negatif', 'positif': 'Positif'}
+
+
 def _ctx_teleproteksi(data, ctx):
     tp = data.get('tp', {})
+    jumlah = tp.get('jumlah_skema') or 4
+    try:
+        jumlah = min(int(jumlah), 4)
+    except (TypeError, ValueError):
+        jumlah = 4
     skema_list = []
-    for n in range(1, 5):
+    for n in range(1, jumlah + 1):
+        send_teg  = tp.get(f'skema_{n}_send_teg', '')
+        send_pol  = tp.get(f'skema_{n}_send_pol', '')
+        recv_teg  = tp.get(f'skema_{n}_receive_teg', '')
+        recv_pol  = tp.get(f'skema_{n}_receive_pol', '')
+        send_minus = tp.get(f'skema_{n}_send_minus')
+        send_plus  = tp.get(f'skema_{n}_send_plus')
+        recv_minus = tp.get(f'skema_{n}_receive_minus')
+        recv_plus  = tp.get(f'skema_{n}_receive_plus')
         skema_list.append({
             'n': n,
-            'command':       tp.get(f'skema_{n}_command', ''),
-            'send_minus':    tp.get(f'skema_{n}_send_minus'),
-            'send_plus':     tp.get(f'skema_{n}_send_plus'),
-            'receive_minus': tp.get(f'skema_{n}_receive_minus'),
-            'receive_plus':  tp.get(f'skema_{n}_receive_plus'),
+            'command':           tp.get(f'skema_{n}_command', ''),
+            'send_teg':          send_teg,
+            'send_pol':          send_pol,
+            'receive_teg':       recv_teg,
+            'receive_pol':       recv_pol,
+            # pre-formatted display labels for template
+            'send_teg_label':    _TEG_LABEL.get(send_teg, ''),
+            'send_pol_label':    _POL_LABEL.get(send_pol, ''),
+            'receive_teg_label': _TEG_LABEL.get(recv_teg, ''),
+            'receive_pol_label': _POL_LABEL.get(recv_pol, ''),
+            # field lama — backward compat
+            'send_minus':    send_minus,
+            'send_plus':     send_plus,
+            'receive_minus': recv_minus,
+            'receive_plus':  recv_plus,
             'send_result':   tp.get(f'skema_{n}_send_result', ''),
             'receive_result':tp.get(f'skema_{n}_receive_result', ''),
         })

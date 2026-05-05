@@ -170,34 +170,70 @@ Menggunakan: tp_detail, tp_akses_list, tp_skema_list, tp_uji_list
                 {% endif %}
             </div>
             <div class="row g-2">
+                {# Tampilkan field baru (teg/pol) jika ada, fallback ke field lama (minus/plus) #}
+                {% if skema.send_teg or skema.send_pol %}
                 <div class="col-md-3">
                     <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:10px;text-align:center;">
-                        <div style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:0.4px;margin-bottom:4px;">SEND (−)</div>
+                        <div style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:0.4px;margin-bottom:4px;">SEND — TEG STANDBY</div>
+                        <div style="font-size:18px;font-weight:700;color:#334155;font-family:'JetBrains Mono',monospace;">
+                            {% if skema.send_teg == '48' %}48 V{% elif skema.send_teg == '110' %}110 V{% elif skema.send_teg == '220' %}220 V{% elif skema.send_teg == 'standby' %}Standby{% else %}—{% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:10px;text-align:center;">
+                        <div style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:0.4px;margin-bottom:4px;">SEND — POLARITAS</div>
+                        <div style="font-size:18px;font-weight:700;color:#334155;">
+                            {% if skema.send_pol == 'negatif' %}<span style="color:#ef4444;">Negatif</span>{% elif skema.send_pol == 'positif' %}<span style="color:#10b981;">Positif</span>{% else %}—{% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% elif skema.send_minus or skema.send_plus %}
+                <div class="col-md-3">
+                    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:10px;text-align:center;">
+                        <div style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:0.4px;margin-bottom:4px;">SEND (−) V</div>
                         <div style="font-size:20px;font-weight:700;color:#334155;font-family:'JetBrains Mono',monospace;">{{ skema.send_minus|default:"—" }}</div>
-                        {% if skema.send_minus %}<div style="font-size:10px;color:#94a3b8;">V</div>{% endif %}
                     </div>
                 </div>
                 <div class="col-md-3">
                     <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:10px;text-align:center;">
-                        <div style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:0.4px;margin-bottom:4px;">SEND (+)</div>
+                        <div style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:0.4px;margin-bottom:4px;">SEND (+) V</div>
                         <div style="font-size:20px;font-weight:700;color:#334155;font-family:'JetBrains Mono',monospace;">{{ skema.send_plus|default:"—" }}</div>
-                        {% if skema.send_plus %}<div style="font-size:10px;color:#94a3b8;">V</div>{% endif %}
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if skema.receive_teg or skema.receive_pol %}
+                <div class="col-md-3">
+                    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:10px;text-align:center;">
+                        <div style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:0.4px;margin-bottom:4px;">RECEIVE — TEG STANDBY</div>
+                        <div style="font-size:18px;font-weight:700;color:#334155;font-family:'JetBrains Mono',monospace;">
+                            {% if skema.receive_teg == '48' %}48 V{% elif skema.receive_teg == '110' %}110 V{% elif skema.receive_teg == '220' %}220 V{% elif skema.receive_teg == 'standby' %}Standby{% else %}—{% endif %}
+                        </div>
                     </div>
                 </div>
                 <div class="col-md-3">
                     <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:10px;text-align:center;">
-                        <div style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:0.4px;margin-bottom:4px;">RECEIVE (−)</div>
+                        <div style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:0.4px;margin-bottom:4px;">RECEIVE — POLARITAS</div>
+                        <div style="font-size:18px;font-weight:700;color:#334155;">
+                            {% if skema.receive_pol == 'negatif' %}<span style="color:#ef4444;">Negatif</span>{% elif skema.receive_pol == 'positif' %}<span style="color:#10b981;">Positif</span>{% else %}—{% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% elif skema.receive_minus or skema.receive_plus %}
+                <div class="col-md-3">
+                    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:10px;text-align:center;">
+                        <div style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:0.4px;margin-bottom:4px;">RECEIVE (−) V</div>
                         <div style="font-size:20px;font-weight:700;color:#334155;font-family:'JetBrains Mono',monospace;">{{ skema.receive_minus|default:"—" }}</div>
-                        {% if skema.receive_minus %}<div style="font-size:10px;color:#94a3b8;">V</div>{% endif %}
                     </div>
                 </div>
                 <div class="col-md-3">
                     <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:10px;text-align:center;">
-                        <div style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:0.4px;margin-bottom:4px;">RECEIVE (+)</div>
+                        <div style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:0.4px;margin-bottom:4px;">RECEIVE (+) V</div>
                         <div style="font-size:20px;font-weight:700;color:#334155;font-family:'JetBrains Mono',monospace;">{{ skema.receive_plus|default:"—" }}</div>
-                        {% if skema.receive_plus %}<div style="font-size:10px;color:#94a3b8;">V</div>{% endif %}
                     </div>
                 </div>
+                {% endif %}
             </div>
         </div>
         {% endfor %}

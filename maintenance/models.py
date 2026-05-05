@@ -504,6 +504,18 @@ class MaintenanceTeleproteksi(models.Model):
         ('Tidak Terpakai', 'Tidak Terpakai'),
     )
 
+    TEG_STANDBY = (
+        ('48',      '48 V'),
+        ('110',     '110 V'),
+        ('220',     '220 V'),
+        ('standby', 'Standby'),
+    )
+
+    POLARITAS = (
+        ('negatif', 'Negatif'),
+        ('positif', 'Positif'),
+    )
+
     KEBERSIHAN = (
         ('Bersih', 'Bersih'),
         ('Kotor',  'Kotor'),
@@ -556,6 +568,28 @@ class MaintenanceTeleproteksi(models.Model):
     skema_4_send_plus        = models.FloatField(null=True, blank=True, verbose_name='Skema 4 Teg Standby Send (+) V')
     skema_4_receive_minus    = models.FloatField(null=True, blank=True, verbose_name='Skema 4 Teg Standby Receive (-) V')
     skema_4_receive_plus     = models.FloatField(null=True, blank=True, verbose_name='Skema 4 Teg Standby Receive (+) V')
+
+    # ── Teg Standby & Polaritas (field baru — menggantikan minus/plus) ────
+    # Skema 1
+    skema_1_send_teg         = models.CharField(max_length=10, choices=TEG_STANDBY, blank=True, verbose_name='Skema 1 Teg Send')
+    skema_1_send_pol         = models.CharField(max_length=10, choices=POLARITAS,   blank=True, verbose_name='Skema 1 Polaritas Send')
+    skema_1_receive_teg      = models.CharField(max_length=10, choices=TEG_STANDBY, blank=True, verbose_name='Skema 1 Teg Receive')
+    skema_1_receive_pol      = models.CharField(max_length=10, choices=POLARITAS,   blank=True, verbose_name='Skema 1 Polaritas Receive')
+    # Skema 2
+    skema_2_send_teg         = models.CharField(max_length=10, choices=TEG_STANDBY, blank=True, verbose_name='Skema 2 Teg Send')
+    skema_2_send_pol         = models.CharField(max_length=10, choices=POLARITAS,   blank=True, verbose_name='Skema 2 Polaritas Send')
+    skema_2_receive_teg      = models.CharField(max_length=10, choices=TEG_STANDBY, blank=True, verbose_name='Skema 2 Teg Receive')
+    skema_2_receive_pol      = models.CharField(max_length=10, choices=POLARITAS,   blank=True, verbose_name='Skema 2 Polaritas Receive')
+    # Skema 3
+    skema_3_send_teg         = models.CharField(max_length=10, choices=TEG_STANDBY, blank=True, verbose_name='Skema 3 Teg Send')
+    skema_3_send_pol         = models.CharField(max_length=10, choices=POLARITAS,   blank=True, verbose_name='Skema 3 Polaritas Send')
+    skema_3_receive_teg      = models.CharField(max_length=10, choices=TEG_STANDBY, blank=True, verbose_name='Skema 3 Teg Receive')
+    skema_3_receive_pol      = models.CharField(max_length=10, choices=POLARITAS,   blank=True, verbose_name='Skema 3 Polaritas Receive')
+    # Skema 4
+    skema_4_send_teg         = models.CharField(max_length=10, choices=TEG_STANDBY, blank=True, verbose_name='Skema 4 Teg Send')
+    skema_4_send_pol         = models.CharField(max_length=10, choices=POLARITAS,   blank=True, verbose_name='Skema 4 Polaritas Send')
+    skema_4_receive_teg      = models.CharField(max_length=10, choices=TEG_STANDBY, blank=True, verbose_name='Skema 4 Teg Receive')
+    skema_4_receive_pol      = models.CharField(max_length=10, choices=POLARITAS,   blank=True, verbose_name='Skema 4 Polaritas Receive')
 
     # ── Pengujian per Skema ──────────────────────────────────────────
     skema_1_send_result     = models.CharField(max_length=3, choices=STATUS_CHECK, blank=True, verbose_name='Pengujian Send Command 1')

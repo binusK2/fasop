@@ -50,19 +50,20 @@
     <tr class="lbl">
         <td style="width:16%;">Skema</td>
         <td style="width:18%;">Command</td>
-        <td style="width:16%;">Send (−) V</td>
-        <td style="width:16%;">Send (+) V</td>
-        <td style="width:17%;">Receive (−) V</td>
-        <td style="width:17%;">Receive (+) V</td>
+        <td style="width:16%;">Teg Standby Send</td>
+        <td style="width:16%;">Pol. Send</td>
+        <td style="width:17%;">Teg Standby Receive</td>
+        <td style="width:17%;">Pol. Receive</td>
     </tr>
     {% for s in tp_skema %}
     <tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %}>
         <td class="lbl">Command {{ s.n }}</td>
         <td>{{ s.command|default:"-" }}</td>
-        <td class="vb">{{ s.send_minus|default:"-" }}</td>
-        <td class="vb">{{ s.send_plus|default:"-" }}</td>
-        <td class="vb">{{ s.receive_minus|default:"-" }}</td>
-        <td class="vb">{{ s.receive_plus|default:"-" }}</td>
+        {# New fields — fall back to old minus/plus if not set #}
+        <td class="vb">{% if s.send_teg_label %}{{ s.send_teg_label }}{% elif s.send_minus %}{{ s.send_minus }} V{% else %}-{% endif %}</td>
+        <td class="vb">{% if s.send_pol_label %}{{ s.send_pol_label }}{% elif s.send_plus %}{{ s.send_plus }} V{% else %}-{% endif %}</td>
+        <td class="vb">{% if s.receive_teg_label %}{{ s.receive_teg_label }}{% elif s.receive_minus %}{{ s.receive_minus }} V{% else %}-{% endif %}</td>
+        <td class="vb">{% if s.receive_pol_label %}{{ s.receive_pol_label }}{% elif s.receive_plus %}{{ s.receive_plus }} V{% else %}-{% endif %}</td>
     </tr>
     {% endfor %}
 </table>
