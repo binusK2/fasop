@@ -160,18 +160,21 @@
                     <tr>
                         <th style="width:4%;">No</th>
                         <th style="width:11%;">Lokasi</th>
-                        <th style="width:13%;">Peralatan</th>
-                        <th style="width:12%;">Merk / Tipe</th>
-                        <th style="width:10%;">Tgl Gangguan</th>
-                        <th style="width:10%;">Tgl Perbaikan</th>
-                        <th style="width:20%;">Indikasi Gangguan</th>
+                        <th style="width:10%;">Peralatan</th>
+                        <th style="width:8%;">Tipe</th>
+                        <th style="width:9%;">Serial Number</th>
+                        <th style="width:9%;">Komponen</th>
+                        <th style="width:10%;">Merk / Tipe</th>
+                        <th style="width:9%;">Tgl Gangguan</th>
+                        <th style="width:9%;">Tgl Perbaikan</th>
+                        <th style="width:16%;">Indikasi Gangguan</th>
                         <th style="width:16%;">Keterangan</th>
                         <th style="width:4%;"></th>
                     </tr>
                 </thead>
                 <tbody id="selected-body">
                     <tr id="empty-row">
-                        <td colspan="9" class="text-center text-muted py-3" style="font-size:12px;">
+                        <td colspan="11" class="text-center text-muted py-3" style="font-size:12px;">
                             <i class="bi bi-inbox d-block mb-1" style="font-size:20px;"></i>
                             Belum ada data. Pilih peralatan di atas atau klik "Tambah Manual".
                         </td>
@@ -234,7 +237,7 @@ function buildPool(lokasi) {
             data-nama="${_e(d.nama)}"
             data-merk="${_e(d.merk_tipe)}">
             <td class="td-center">
-                <button type="button" class="btn btn-success btn-sm btn-add" onclick="addFromPool('${_e(lokasi)}','${_e(d.nama)}','${_e(d.merk_tipe)}')">
+                <button type="button" class="btn btn-success btn-sm btn-add" onclick="addFromPool('${_e(lokasi)}','${_e(d.nama)}','${_e(d.tipe)}','${_e(d.serial_number)}','${_e(d.merk_tipe)}')">
                     <i class="bi bi-plus-lg"></i>
                 </button>
             </td>
@@ -253,17 +256,17 @@ function applyFilter() {
 }
 
 /* ── Tambah dari pool ── */
-function addFromPool(lokasi, nama, merkTipe) {
-    addRow(lokasi, nama, merkTipe);
+function addFromPool(lokasi, nama, tipe, serialNumber, merkTipe) {
+    addRow(lokasi, nama, tipe, serialNumber, '', merkTipe);
 }
 
 /* ── Tambah baris manual (kosong) ── */
 function addManualRow() {
-    addRow('', '', '');
+    addRow('', '', '', '', '', '');
 }
 
 /* ── Core: buat satu baris di tabel Data Gangguan ── */
-function addRow(lokasi, peralatan, merkTipe) {
+function addRow(lokasi, peralatan, tipe, serialNumber, komponen, merkTipe) {
     rowNum++;
     const id    = rowNum;
     const tbody = document.getElementById('selected-body');
@@ -281,6 +284,15 @@ function addRow(lokasi, peralatan, merkTipe) {
         <td><input type="text" name="peralatan[]"
                    class="form-control form-control-sm inp-sm"
                    value="${_e(peralatan)}" placeholder="Nama peralatan"></td>
+        <td><input type="text" name="tipe[]"
+                   class="form-control form-control-sm inp-sm"
+                   value="${_e(tipe)}" placeholder="Tipe"></td>
+        <td><input type="text" name="serial_number[]"
+                   class="form-control form-control-sm inp-sm"
+                   value="${_e(serialNumber)}" placeholder="Serial number"></td>
+        <td><input type="text" name="komponen[]"
+                   class="form-control form-control-sm inp-sm"
+                   value="${_e(komponen)}" placeholder="Komponen"></td>
         <td><input type="text" name="merk_tipe[]"
                    class="form-control form-control-sm inp-sm"
                    value="${_e(merkTipe)}" placeholder="Merk / Tipe"></td>
