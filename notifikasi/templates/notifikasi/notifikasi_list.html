@@ -143,26 +143,24 @@
 {% block extra_js %}
 <script>
 function getCsrf() {
-    return document.cookie.split(';').map(c => c.trim())
-        .find(c => c.startsWith('csrftoken='))?.split('=')[1] || '';
+    return document.querySelector('meta[name="csrf-token"]')?.content || '';
 }
 
 async function readOne(id) {
     const el = document.getElementById(`notif-${id}`);
+    if (!el) return;
     const res = await fetch(el.dataset.readUrl, {
         method: 'POST',
         headers: { 'X-CSRFToken': getCsrf() }
     });
+    if (!res.ok) return;
     const data = await res.json();
     if (data.ok) {
-        const el = document.getElementById(`notif-${id}`);
         el.style.opacity = '0.5';
         el.style.background = '';
         el.querySelector('span[style*="border-radius:50%"]')?.remove();
-        // Hide the mark-read button on this card
         el.querySelector('button[title="Tandai dibaca"]')?.remove();
         updateBadge(data.unread_count);
-        // Enable bulk delete once all are read
         if (data.unread_count === 0) {
             const btnDel = document.getElementById('btn-delete-read');
             if (btnDel) {
@@ -189,24 +187,23 @@ async function readAll() {
 async function deleteOne(id) {
     if (!confirm('Hapus notifikasi ini?')) return;
     const el = document.getElementById(`notif-${id}`);
+    if (!el) return;
     const res = await fetch(el.dataset.deleteUrl, {
         method: 'POST',
         headers: { 'X-CSRFToken': getCsrf() }
     });
+    if (!res.ok) return;
     const data = await res.json();
     if (data.ok) {
-        const el = document.getElementById(`notif-${id}`);
         el.style.transition = 'opacity 0.3s, max-height 0.3s';
         el.style.opacity = '0';
         el.style.overflow = 'hidden';
         setTimeout(() => {
             el.remove();
             updateBadge(data.unread_count);
-            // Enable/disable bulk delete button
             const btnDel = document.getElementById('btn-delete-read');
             if (btnDel && data.unread_count === 0) {
                 btnDel.disabled = false;
-                btnDel.removeAttribute('title');
                 btnDel.setAttribute('title', 'Hapus semua yang sudah dibaca');
             }
         }, 300);
