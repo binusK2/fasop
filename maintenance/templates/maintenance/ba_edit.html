@@ -179,12 +179,9 @@
         <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;margin-bottom:12px;">
             <i class="bi bi-cloud-upload me-1"></i>Tambah Eviden Baru <span class="text-muted fw-normal" style="text-transform:none;">(opsional)</span>
         </div>
-        <input type="file" name="eviden" id="eviden_input" class="form-control form-control-sm"
-               accept="image/*" multiple onchange="previewEviden(this)">
-        <div class="form-text" style="font-size:11px;">Foto baru akan ditambahkan ke eviden yang sudah ada.</div>
-        <div class="col-12 mt-2" id="eviden_preview_wrap" style="display:none;">
-            <div id="eviden_preview" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;"></div>
-        </div>
+        <div id="eviden-fields"></div>
+        <button type="button" class="btn btn-sm btn-outline-primary mt-2" onclick="addEvidenField()"><i class="bi bi-plus-lg me-1"></i>Tambah Eviden</button>
+        <div class="form-text" style="font-size:11px;">Tambah eviden satu per satu agar foto dan keterangannya sesuai saat ekspor PDF.</div>
     </div>
 </div>
 
@@ -349,37 +346,15 @@ function validateForm() {
     return true;
 }
 
-function previewEviden(input) {
-    const wrap    = document.getElementById('eviden_preview_wrap');
-    const preview = document.getElementById('eviden_preview');
-    preview.innerHTML = '';
-    if (!input.files || !input.files.length) { wrap.style.display = 'none'; return; }
-    wrap.style.display = '';
-    Array.from(input.files).forEach((file, i) => {
-        const reader = new FileReader();
-        reader.onload = e => {
-            const div = document.createElement('div');
-            div.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:4px;';
-            div.innerHTML = `
-                <img src="${e.target.result}" style="max-width:100px;max-height:75px;border:1px solid #e2e8f0;border-radius:4px;object-fit:cover;">
-                <input type="text" name="eviden_catatan[]" class="form-control form-control-sm"
-                       placeholder="Keterangan foto ${i+1}" style="font-size:11px;width:100px;">`;
-            preview.appendChild(div);
-        };
-        reader.readAsDataURL(file);
-    });
+function addEvidenField() {
+    const wrap = document.getElementById('eviden-fields');
+    const idx = wrap.children.length + 1;
+    const div = document.createElement('div');
+    div.className = 'row g-2 mb-2 align-items-center';
+    div.innerHTML = `<div class="col-md-5"><input type="file" name="eviden" class="form-control form-control-sm" accept="image/*"></div>
+                     <div class="col-md-6"><input type="text" name="eviden_catatan[]" class="form-control form-control-sm" placeholder="Keterangan foto ${idx}"></div>
+                     <div class="col-md-1 text-end"><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('.row').remove()"><i class="bi bi-trash"></i></button></div>`;
+    wrap.appendChild(div);
 }
+addEvidenField();
 
-/* ── Load existing rows dari JSON ── */
-document.addEventListener('DOMContentLoaded', () => {
-    const tbody = document.getElementById('data-tbody');
-    if (ROWS && ROWS.length) {
-        ROWS.forEach(row => tbody.appendChild(buildRow(row)));
-        document.getElementById('empty-msg').style.display = 'none';
-    } else {
-        document.getElementById('empty-msg').style.display = '';
-    }
-    updateNomorPreview();
-});
-</script>
-{% endblock %}
