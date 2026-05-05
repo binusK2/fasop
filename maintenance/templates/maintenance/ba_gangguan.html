@@ -142,6 +142,9 @@
 </form>
 
 <script>
+/* ── Data perangkat per lokasi (dari view) ── */
+const LOKASI_DEV = {{ lokasi_device_json|safe }};
+
 let rowCount = 0;
 
 function updateNomorPreview() {
@@ -156,26 +159,71 @@ function updateNomorPreview() {
     }
 }
 
+/* ── Saat lokasi berubah: isi datalist peralatan, reset field ── */
+function onLokasiChange(input, rowId) {
+    const lokasi  = input.value.trim();
+    const dl      = document.getElementById(`peralatan-dl-${rowId}`);
+    const devs    = LOKASI_DEV[lokasi] || [];
+    dl.innerHTML  = devs.map(d => `<option value="${_e(d.nama)}">`).join('');
+    /* Reset peralatan & merk/tipe saat lokasi ganti */
+    const row     = input.closest('tr');
+    row.querySelector('input[name="peralatan[]"]').value  = '';
+    row.querySelector('input[name="merk_tipe[]"]').value  = '';
+}
+
+/* ── Saat peralatan berubah: auto-fill merk/tipe ── */
+function onPeralatanChange(input, rowId) {
+    const nama   = input.value.trim();
+    const row    = input.closest('tr');
+    const lokasi = row.querySelector('input[name="lokasi[]"]').value.trim();
+    const devs   = LOKASI_DEV[lokasi] || [];
+    const found  = devs.find(d => d.nama.toLowerCase() === nama.toLowerCase());
+    if (found) {
+        row.querySelector('input[name="merk_tipe[]"]').value = found.merk_tipe;
+    }
+}
+
+function _e(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
 function addRow() {
     rowCount++;
+    const id    = rowCount;
     const tbody = document.getElementById('gangguan-tbody');
     document.getElementById('empty-msg').style.display = 'none';
 
     const tr = document.createElement('tr');
-    tr.id = `row-${rowCount}`;
+    tr.id = `row-${id}`;
     tr.innerHTML = `
-        <td class="td-c" style="text-align:center;font-weight:600;color:#94a3b8;">${rowCount}</td>
-        <td><input type="text" name="lokasi[]" class="form-control form-control-sm inp-sm" placeholder="GI Bolangi" required></td>
-        <td><input type="date" name="tanggal_gangguan[]" class="form-control form-control-sm inp-sm" required></td>
+        <td style="text-align:center;font-weight:600;color:#94a3b8;">${id}</td>
+        <td>
+          <datalist id="lokasi-dl-${id}">
+            {% for lok in master_lokasi_list %}<option value="{{ lok }}">{% endfor %}
+          </datalist>
+          <input type="text" name="lokasi[]" list="lokasi-dl-${id}"
+                 class="form-control form-control-sm inp-sm"
+                 placeholder="Pilih / ketik lokasi..."
+                 oninput="onLokasiChange(this,${id})"
+                 onchange="onLokasiChange(this,${id})" required>
+        </td>
+        <td><input type="date" name="tanggal_gangguan[]" class="form-control form-control-sm inp-sm"></td>
         <td><input type="date" name="tanggal_perbaikan[]" class="form-control form-control-sm inp-sm"></td>
-        <td><input type="text" name="peralatan[]" class="form-control form-control-sm inp-sm" placeholder="Rectifier 48Vdc" required></td>
-        <td><input type="text" name="merk_tipe[]" class="form-control form-control-sm inp-sm" placeholder="Swaden SCR-48-80A"></td>
+        <td>
+          <datalist id="peralatan-dl-${id}"></datalist>
+          <input type="text" name="peralatan[]" list="peralatan-dl-${id}"
+                 class="form-control form-control-sm inp-sm"
+                 placeholder="Pilih / ketik peralatan..."
+                 oninput="onPeralatanChange(this,${id})"
+                 onchange="onPeralatanChange(this,${id})">
+        </td>
+        <td><input type="text" name="merk_tipe[]" class="form-control form-control-sm inp-sm" placeholder="Merk / Tipe (auto-isi)"></td>
         <td><input type="text" name="indikasi_gangguan[]" class="form-control form-control-sm inp-sm" placeholder="Indikasi gangguan..."></td>
         <td><input type="text" name="keterangan[]" class="form-control form-control-sm inp-sm" placeholder="Keterangan..."></td>
         <td style="text-align:center;">
-            <button type="button" class="btn btn-sm btn-outline-danger btn-rm" onclick="removeRow(${rowCount})">
-                <i class="bi bi-trash"></i>
-            </button>
+          <button type="button" class="btn btn-sm btn-outline-danger btn-rm" onclick="removeRow(${id})">
+            <i class="bi bi-trash"></i>
+          </button>
         </td>`;
     tbody.appendChild(tr);
     renumberRows();

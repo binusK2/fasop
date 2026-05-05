@@ -3342,14 +3342,24 @@ def ba_edit(request, pk):
     rows_json = _json.dumps(record.rows_data, ensure_ascii=False)
     existing_evidens = record.evidens.all().order_by('urutan')
     tanggal_str = record.tanggal.isoformat() if record.tanggal else date.today().isoformat()
-    # Ekstrak prefix nomor (bagian sebelum ".BA/")
     nomor_prefix = record.nomor_ba.split('.BA/')[0] if record.nomor_ba else ''
+    # Build lokasi→devices map (untuk gangguan type)
+    devs_qs = Device.objects.filter(is_deleted=False).select_related('jenis').order_by('nama')
+    lok_dev_map = {}
+    for d in devs_qs:
+        lok = (d.lokasi or '').strip()
+        if not lok:
+            continue
+        if lok not in lok_dev_map:
+            lok_dev_map[lok] = []
+        lok_dev_map[lok].append({'nama': d.nama, 'merk_tipe': d.merk or ''})
     return render(request, 'maintenance/ba_edit.html', {
-        'record':           record,
-        'rows_json':        rows_json,
-        'existing_evidens': existing_evidens,
-        'tanggal_str':      tanggal_str,
-        'nomor_prefix':     nomor_prefix,
+        'record':             record,
+        'rows_json':          rows_json,
+        'existing_evidens':   existing_evidens,
+        'tanggal_str':        tanggal_str,
+        'nomor_prefix':       nomor_prefix,
+        'lokasi_device_json': _json.dumps(lok_dev_map, ensure_ascii=False),
     })
 
 
@@ -3633,6 +3643,21 @@ def ba_gangguan(request):
         _msg.success(request, f'Berita Acara Gangguan "{nomor_ba}" berhasil dibuat.')
         return redirect('ba_list')
 
+    import json as _json
+    # Build lokasi → devices map untuk filter peralatan di form
+    devs_qs = Device.objects.filter(is_deleted=False).select_related('jenis').order_by('nama')
+    lok_dev_map = {}
+    for d in devs_qs:
+        lok = (d.lokasi or '').strip()
+        if not lok:
+            continue
+        if lok not in lok_dev_map:
+            lok_dev_map[lok] = []
+        lok_dev_map[lok].append({
+            'nama':      d.nama,
+            'merk_tipe': d.merk or '',
+        })
     return render(request, 'maintenance/ba_gangguan.html', {
-        'today': date.today().isoformat(),
+        'today':              date.today().isoformat(),
+        'lokasi_device_json': _json.dumps(lok_dev_map, ensure_ascii=False),
     })

@@ -195,9 +195,33 @@
 </form>
 
 <script>
-const JENIS    = "{{ record.jenis }}";
-const ROWS     = {{ rows_json|safe }};
-let rowCount   = 0;
+const JENIS        = "{{ record.jenis }}";
+const ROWS         = {{ rows_json|safe }};
+const LOKASI_DEV   = {{ lokasi_device_json|safe }};
+let rowCount       = 0;
+
+/* ── Helpers filter lokasi/peralatan (untuk jenis gangguan) ── */
+function _e(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function onLokasiChange(input, rowId) {
+    const lokasi = input.value.trim();
+    const dl     = document.getElementById(`peralatan-dl-${rowId}`);
+    if (!dl) return;
+    const devs   = LOKASI_DEV[lokasi] || [];
+    dl.innerHTML = devs.map(d => `<option value="${_e(d.nama)}">`).join('');
+    const row    = input.closest('tr');
+    row.querySelector('input[name="peralatan[]"]').value = '';
+    row.querySelector('input[name="merk_tipe[]"]').value = '';
+}
+function onPeralatanChange(input, rowId) {
+    const nama   = input.value.trim();
+    const row    = input.closest('tr');
+    const lokasi = row.querySelector('input[name="lokasi[]"]').value.trim();
+    const devs   = LOKASI_DEV[lokasi] || [];
+    const found  = devs.find(d => d.nama.toLowerCase() === nama.toLowerCase());
+    if (found) row.querySelector('input[name="merk_tipe[]"]').value = found.merk_tipe;
+}
 
 /* ── Nomor preview ── */
 function updateNomorPreview() {
@@ -217,11 +241,31 @@ function buildRow(data) {
     let cells = '';
 
     if (JENIS === 'gangguan') {
+        /* Pre-populate datalist peralatan jika lokasi sudah ada */
+        const savedLok   = data.lokasi || '';
+        const savedDevs  = LOKASI_DEV[savedLok] || [];
+        const peralOpts  = savedDevs.map(d => `<option value="${_e(d.nama)}">`).join('');
         cells = `
-            <td><input type="text"  name="lokasi[]"            class="form-control form-control-sm inp-sm" value="${esc(data.lokasi||'')}" required></td>
+            <td>
+              <datalist id="lokasi-dl-${id}">
+                {% for lok in master_lokasi_list %}<option value="{{ lok }}">{% endfor %}
+              </datalist>
+              <input type="text" name="lokasi[]" list="lokasi-dl-${id}"
+                     class="form-control form-control-sm inp-sm"
+                     value="${esc(savedLok)}"
+                     oninput="onLokasiChange(this,${id})"
+                     onchange="onLokasiChange(this,${id})" required>
+            </td>
             <td><input type="date"  name="tanggal_gangguan[]"  class="form-control form-control-sm inp-sm" value="${esc(data.tanggal_gangguan||'')}"></td>
             <td><input type="date"  name="tanggal_perbaikan[]" class="form-control form-control-sm inp-sm" value="${esc(data.tanggal_perbaikan||'')}"></td>
-            <td><input type="text"  name="peralatan[]"         class="form-control form-control-sm inp-sm" value="${esc(data.peralatan||'')}"></td>
+            <td>
+              <datalist id="peralatan-dl-${id}">${peralOpts}</datalist>
+              <input type="text" name="peralatan[]" list="peralatan-dl-${id}"
+                     class="form-control form-control-sm inp-sm"
+                     value="${esc(data.peralatan||'')}"
+                     oninput="onPeralatanChange(this,${id})"
+                     onchange="onPeralatanChange(this,${id})">
+            </td>
             <td><input type="text"  name="merk_tipe[]"         class="form-control form-control-sm inp-sm" value="${esc(data.merk_tipe||'')}"></td>
             <td><input type="text"  name="indikasi_gangguan[]" class="form-control form-control-sm inp-sm" value="${esc(data.indikasi_gangguan||'')}"></td>
             <td><input type="text"  name="keterangan[]"        class="form-control form-control-sm inp-sm" value="${esc(data.keterangan||'')}"></td>`;
