@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('maintenance', '0039_alter_maintenanceups_bat_kondisi_and_more'),
+        ('maintenance', '0038_beritaacararecord_ttd_fields'),
     ]
 
     operations = [
