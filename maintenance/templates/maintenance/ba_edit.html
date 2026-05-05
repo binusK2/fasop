@@ -107,10 +107,13 @@
                         <th style="width:11%;">Lokasi</th>
                         <th style="width:10%;">Tgl Gangguan</th>
                         <th style="width:10%;">Tgl Perbaikan</th>
-                        <th style="width:13%;">Peralatan</th>
-                        <th style="width:12%;">Merk / Tipe</th>
-                        <th style="width:18%;">Indikasi Gangguan</th>
-                        <th style="width:18%;">Keterangan</th>
+                        <th style="width:10%;">Peralatan</th>
+                        <th style="width:8%;">Tipe</th>
+                        <th style="width:9%;">Serial Number</th>
+                        <th style="width:9%;">Komponen</th>
+                        <th style="width:10%;">Merk / Tipe</th>
+                        <th style="width:13%;">Indikasi Gangguan</th>
+                        <th style="width:13%;">Keterangan</th>
                         {% elif record.jenis == 'pemasangan' %}
                         <th style="width:16%;">Nama Perangkat</th>
                         <th style="width:10%;">Jenis</th>
@@ -220,7 +223,11 @@ function onPeralatanChange(input, rowId) {
     const lokasi = row.querySelector('input[name="lokasi[]"]').value.trim();
     const devs   = LOKASI_DEV[lokasi] || [];
     const found  = devs.find(d => d.nama.toLowerCase() === nama.toLowerCase());
-    if (found) row.querySelector('input[name="merk_tipe[]"]').value = found.merk_tipe;
+    if (found) {
+        row.querySelector('input[name="tipe[]"]').value = found.tipe || '';
+        row.querySelector('input[name="serial_number[]"]').value = found.serial_number || '';
+        row.querySelector('input[name="merk_tipe[]"]').value = found.merk_tipe || '';
+    }
 }
 
 /* ── Nomor preview ── */
@@ -266,6 +273,9 @@ function buildRow(data) {
                      oninput="onPeralatanChange(this,${id})"
                      onchange="onPeralatanChange(this,${id})">
             </td>
+            <td><input type="text"  name="tipe[]"              class="form-control form-control-sm inp-sm" value="${esc(data.tipe||'')}"></td>
+            <td><input type="text"  name="serial_number[]"     class="form-control form-control-sm inp-sm" value="${esc(data.serial_number||'')}"></td>
+            <td><input type="text"  name="komponen[]"          class="form-control form-control-sm inp-sm" value="${esc(data.komponen||'')}"></td>
             <td><input type="text"  name="merk_tipe[]"         class="form-control form-control-sm inp-sm" value="${esc(data.merk_tipe||'')}"></td>
             <td><input type="text"  name="indikasi_gangguan[]" class="form-control form-control-sm inp-sm" value="${esc(data.indikasi_gangguan||'')}"></td>
             <td><input type="text"  name="keterangan[]"        class="form-control form-control-sm inp-sm" value="${esc(data.keterangan||'')}"></td>`;
