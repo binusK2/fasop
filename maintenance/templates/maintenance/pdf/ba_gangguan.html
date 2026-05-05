@@ -57,7 +57,7 @@ body {
 
 /* ── TANGGAL & TTD ── */
 .tgl-right { text-align: right; font-size: 10pt; margin-bottom: 8mm; }
-.ttd-wrap { display: flex; justify-content: flex-end; font-size: 10pt; }
+.ttd-wrap { display: flex; justify-content: space-between; font-size: 10pt; }
 .ttd-side { width: 44%; text-align: center; }
 .ttd-peran { margin-bottom: 1mm; }
 .ttd-jabatan { font-weight: bold; margin-bottom: 25mm; }
@@ -149,7 +149,7 @@ body {
   </div>
   <div class="ttd-side">
     <div class="ttd-peran">Mengetahui,</div>
-    <div style="font-weight:bold;margin-bottom:3mm;">Assistant Manager Fasilitas Operasi</div>
+    <div style="font-weight:bold;margin-bottom:3mm;">Asisten Manager Fasop</div>
     <div style="height:20mm;display:flex;align-items:flex-end;justify-content:center;padding-bottom:2mm;">
       {% if ttd_am_sig_b64 %}
       <img src="data:image/png;base64,{{ ttd_am_sig_b64 }}"
