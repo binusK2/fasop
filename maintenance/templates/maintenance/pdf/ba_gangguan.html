@@ -171,40 +171,43 @@ body {
 <p style="position:fixed;bottom:5mm;left:0;font-size:8pt;margin:0;">UP2B/FML/04-1013</p>
 
 {% if eviden_list %}
-<!-- HALAMAN 2: EVIDEN -->
-<div style="page-break-before:always;"></div>
+<!-- HALAMAN EVIDEN — setiap 4 foto = 1 halaman baru dengan header KOP -->
+{% for ev in eviden_list %}
 
-<table class="kop">
-  <tr>
-    <td class="kop-left" rowspan="2">
-      <div class="kop-org-wrap">
-        {% if logo_b64 %}
-        <div class="kop-logo"><img src="data:image/png;base64,{{ logo_b64 }}" alt="PLN"></div>
-        {% endif %}
-        <div class="kop-org">
-          PT. PLN (PERSERO) UIP3B SULAWESI<br>
-          UNIT PELAKSANA PENGATUR BEBAN SISTEM MAKASSAR<br>
-          JL. HERTASNING BLOK B MAKASSAR 90222
-        </div>
-      </div>
-    </td>
-    <td class="kop-label">No. Formulir</td>
-    <td class="kop-value">UP2B/FML/04-1013</td>
-  </tr>
-  <tr>
-    <td class="kop-label">Berlaku Efektif</td>
-    <td class="kop-value">01 April 2020</td>
-  </tr>
-  <tr>
-    <td colspan="3" class="kop-level">DOKUMEN LEVEL 4</td>
-  </tr>
-  <tr>
-    <td colspan="3" class="kop-judul">EVIDEN</td>
-  </tr>
-</table>
+  {% if forloop.counter0|divisibleby:4 %}
+    {% if not forloop.first %}</div>{% endif %}
+    <div style="page-break-before:always;"></div>
+    <table class="kop">
+      <tr>
+        <td class="kop-left" rowspan="2">
+          <div class="kop-org-wrap">
+            {% if logo_b64 %}
+            <div class="kop-logo"><img src="data:image/png;base64,{{ logo_b64 }}" alt="PLN"></div>
+            {% endif %}
+            <div class="kop-org">
+              PT. PLN (PERSERO) UIP3B SULAWESI<br>
+              UNIT PELAKSANA PENGATUR BEBAN SISTEM MAKASSAR<br>
+              JL. HERTASNING BLOK B MAKASSAR 90222
+            </div>
+          </div>
+        </td>
+        <td class="kop-label">No. Formulir</td>
+        <td class="kop-value">UP2B/FML/04-1013</td>
+      </tr>
+      <tr>
+        <td class="kop-label">Berlaku Efektif</td>
+        <td class="kop-value">01 April 2020</td>
+      </tr>
+      <tr>
+        <td colspan="3" class="kop-level">DOKUMEN LEVEL 4</td>
+      </tr>
+      <tr>
+        <td colspan="3" class="kop-judul">EVIDEN</td>
+      </tr>
+    </table>
+    <div style="display:flex;flex-wrap:wrap;gap:8mm;justify-content:center;margin-top:6mm;">
+  {% endif %}
 
-<div style="display:flex;flex-wrap:wrap;gap:8mm;justify-content:center;margin-top:6mm;">
-  {% for ev in eviden_list %}
   <div style="text-align:center;max-width:82mm;">
     <img src="data:{{ ev.mime }};base64,{{ ev.b64 }}"
          style="max-width:82mm;max-height:88mm;display:block;margin:0 auto;border:0.5pt solid #ccc;border-radius:2pt;">
@@ -212,8 +215,10 @@ body {
     <div style="font-size:8.5pt;color:#333;margin-top:3mm;text-align:center;font-style:italic;">{{ ev.catatan }}</div>
     {% endif %}
   </div>
-  {% endfor %}
-</div>
+
+  {% if forloop.last %}</div>{% endif %}
+
+{% endfor %}
 {% endif %}
 
 </body>
