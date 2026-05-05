@@ -549,7 +549,6 @@ def dashboard(request):
     # ── Notifikasi terbaru belum dibaca ───────────────────────────
     try:
         from notifikasi.models import Notifikasi
-        from django.db.models import Q
         notif_terbaru = (
             Notifikasi.objects
             .filter(
