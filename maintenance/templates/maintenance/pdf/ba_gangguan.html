@@ -134,8 +134,19 @@ body {
 <!-- TANGGAL -->
 <p class="tgl-right"><strong>Makassar,&nbsp;&nbsp;{{ tanggal_display }}</strong></p>
 
-<!-- TTD — hanya kolom kanan (Mengetahui AM) sesuai format formulir -->
+<!-- TTD -->
 <div class="ttd-wrap">
+  <div class="ttd-side">
+    <div class="ttd-peran">Pelaksana,</div>
+    <div style="font-weight:bold;margin-bottom:3mm;">Staf Fasop</div>
+    <div style="height:20mm;display:flex;align-items:flex-end;justify-content:center;padding-bottom:2mm;">
+      {% if ttd_engineer_sig_b64 %}
+      <img src="data:image/png;base64,{{ ttd_engineer_sig_b64 }}"
+           style="max-height:18mm;max-width:55mm;object-fit:contain;" alt="ttd">
+      {% endif %}
+    </div>
+    <div class="ttd-nama">{{ pelaksana|default:"&nbsp;" }}</div>
+  </div>
   <div class="ttd-side">
     <div class="ttd-peran">Mengetahui,</div>
     <div style="font-weight:bold;margin-bottom:3mm;">Assistant Manager Fasilitas Operasi</div>
