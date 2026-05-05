@@ -661,6 +661,11 @@
                 <span class="si-icon"><i class="bi bi-arrow-left-right"></i></span>
                 BA Penggantian
             </a>
+            <a href="{% url 'ba_gangguan' %}"
+               class="sidebar-link {% if url_name == 'ba_gangguan' %}active{% endif %}">
+                <span class="si-icon"><i class="bi bi-exclamation-triangle"></i></span>
+                BA Gangguan
+            </a>
         </div>
         {% endwith %}
     </div>
