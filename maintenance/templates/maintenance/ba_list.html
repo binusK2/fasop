@@ -214,7 +214,7 @@
                                     class="btn btn-sm btn-outline-warning"
                                     style="border-radius:7px;padding:4px 10px;font-size:12px;"
                                     title="Minta Tanda Tangan"
-                                    onclick="openMintaTTD({{ rec.pk }}, '{{ rec.nomor_ba|default:"BA ini"|escapejs }}')">
+                                    onclick="openMintaTTD('{% url 'ba_request_sign' rec.pk %}', '{{ rec.nomor_ba|default:"BA ini"|escapejs }}')">
                                 <i class="bi bi-person-plus"></i>
                             </button>
                             {% endif %}
@@ -226,7 +226,7 @@
                                 class="btn btn-sm btn-warning"
                                 style="border-radius:7px;padding:4px 10px;font-size:12px;"
                                 title="Tandatangani sebagai Engineer"
-                                onclick="confirmTTDEngineer({{ rec.pk }}, '{{ rec.nomor_ba|default:"BA ini"|escapejs }}')">
+                                onclick="confirmTTDEngineer('{% url 'ba_sign_engineer' rec.pk %}', '{{ rec.nomor_ba|default:"BA ini"|escapejs }}')">
                             <i class="bi bi-pen-fill"></i> TTD
                         </button>
                         {% endif %}
@@ -238,7 +238,7 @@
                                     class="btn btn-sm btn-success"
                                     style="border-radius:7px;padding:4px 10px;font-size:12px;"
                                     title="Tandatangani sebagai AM"
-                                    onclick="confirmTTDAM({{ rec.pk }}, '{{ rec.nomor_ba|default:"BA ini"|escapejs }}')">
+                                    onclick="confirmTTDAM('{% url 'ba_sign_am' rec.pk %}', '{{ rec.nomor_ba|default:"BA ini"|escapejs }}')">
                                 <i class="bi bi-person-check-fill"></i> TTD AM
                             </button>
                             {% endif %}
@@ -392,18 +392,18 @@
 
 {% block extra_js %}
 <script>
-function openMintaTTD(pk, nomor) {
-    document.getElementById('minta-ttd-form').action = `/maintenance/ekspor/${pk}/minta-ttd/`;
+function openMintaTTD(url, nomor) {
+    document.getElementById('minta-ttd-form').action = url;
     document.getElementById('minta-ttd-nomor').textContent = nomor;
     new bootstrap.Modal(document.getElementById('mintaTTDModal')).show();
 }
-function confirmTTDEngineer(pk, nomor) {
-    document.getElementById('ttd-engineer-form').action = `/maintenance/ekspor/${pk}/ttd-engineer/`;
+function confirmTTDEngineer(url, nomor) {
+    document.getElementById('ttd-engineer-form').action = url;
     document.getElementById('ttd-eng-nomor').textContent = nomor;
     new bootstrap.Modal(document.getElementById('ttdEngineerModal')).show();
 }
-function confirmTTDAM(pk, nomor) {
-    document.getElementById('ttd-am-form').action = `/maintenance/ekspor/${pk}/ttd-am/`;
+function confirmTTDAM(url, nomor) {
+    document.getElementById('ttd-am-form').action = url;
     document.getElementById('ttd-am-nomor').textContent = nomor;
     new bootstrap.Modal(document.getElementById('ttdAMModal')).show();
 }
