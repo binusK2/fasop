@@ -947,6 +947,21 @@ def lokasi_list(request):
         loc = (m.device.lokasi or '').strip()
         open_by_lokasi[loc] = open_by_lokasi.get(loc, 0) + 1
 
+    # Jenis perangkat per lokasi (untuk filter peta)
+    jenis_by_lokasi = {}
+    for row in (
+        Device.objects
+        .filter(is_deleted=False)
+        .exclude(lokasi__isnull=True).exclude(lokasi__exact='').exclude(lokasi__iexact='none')
+        .annotate(lokasi_clean=Trim('lokasi'))
+        .values('lokasi_clean', 'jenis__name')
+        .distinct()
+        .order_by('lokasi_clean', 'jenis__name')
+    ):
+        loc = row['lokasi_clean']
+        j = row['jenis__name'] or 'Lainnya'
+        jenis_by_lokasi.setdefault(loc, []).append(j)
+
     # Ambil koordinat dari SiteLocation
     site_coords = {sl.nama: sl for sl in SiteLocation.objects.all()}
 
@@ -958,33 +973,41 @@ def lokasi_list(request):
         row['latitude']  = sl.latitude  if sl and sl.has_coords else None
         row['longitude'] = sl.longitude if sl and sl.has_coords else None
         row['has_coords'] = bool(row['latitude'] and row['longitude'])
+        row['jenis_list'] = jenis_by_lokasi.get(row['lokasi_clean'], [])
         lokasi_list_final.append(row)
 
-    return render(request, 'devices/lokasi_list.html', {'lokasi_data': lokasi_list_final})
+    device_types = list(DeviceType.objects.order_by('name'))
+
+    return render(request, 'devices/lokasi_list.html', {
+        'lokasi_data':  lokasi_list_final,
+        'device_types': device_types,
+    })
 
 
 def api_lokasi_devices(request, lokasi_nama):
     """API endpoint: kembalikan daftar device di suatu lokasi sebagai JSON."""
     if not request.user.is_authenticated:
         return JsonResponse({'error': 'Unauthenticated'}, status=401)
-    devices = (
+    qs = (
         Device.objects
         .filter(is_deleted=False, lokasi__iexact=lokasi_nama)
         .select_related('jenis')
-        .values('id', 'nama', 'jenis__name', 'merk', 'type', 'ip_address', 'serial_number')
         .order_by('jenis__name', 'nama')
     )
+    jenis_filter = request.GET.get('jenis', '').strip()
+    if jenis_filter:
+        qs = qs.filter(jenis__name__iexact=jenis_filter)
     data = [
         {
-            'id':     d['id'],
-            'nama':   d['nama'],
-            'jenis':  d['jenis__name'] or '-',
-            'merk':   d['merk'],
-            'type':   d['type'] or '-',
-            'ip':     d['ip_address'] or '-',
-            'sn':     d['serial_number'] or '-',
+            'id':    d.id,
+            'nama':  d.nama,
+            'jenis': d.jenis.name if d.jenis else '-',
+            'merk':  d.merk or '',
+            'type':  d.type or '-',
+            'ip':    str(d.ip_address) if d.ip_address else '-',
+            'sn':    d.serial_number or '-',
         }
-        for d in devices
+        for d in qs
     ]
     return JsonResponse({'lokasi': lokasi_nama, 'devices': data})
 
