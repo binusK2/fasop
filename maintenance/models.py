@@ -505,10 +505,9 @@ class MaintenanceTeleproteksi(models.Model):
     )
 
     TEG_STANDBY = (
-        ('48',      '48 V'),
-        ('110',     '110 V'),
-        ('220',     '220 V'),
-        ('standby', 'Standby'),
+        ('48',  '48 V'),
+        ('110', '110 V'),
+        ('220', '220 V'),
     )
 
     POLARITAS = (
