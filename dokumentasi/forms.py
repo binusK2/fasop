@@ -8,7 +8,7 @@ class SettingReleForm(forms.ModelForm):
     class Meta:
         model = SettingRele
         fields = ['device', 'judul', 'tipe_setting', 'penyulang_bay',
-                  'tanggal', 'versi', 'file_setting', 'keterangan',
+                  'tanggal', 'file_setting', 'keterangan',
                   'checker', 'tanggal_cek']
         widgets = {
             'device':        forms.Select(attrs={'class': 'form-select', 'id': 'id_device'}),
@@ -16,7 +16,6 @@ class SettingReleForm(forms.ModelForm):
             'tipe_setting':  forms.Select(attrs={'class': 'form-select'}),
             'penyulang_bay': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Misal: Penyulang Tello / Bay 1'}),
             'tanggal':       forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
-            'versi':         forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Rev.1 / v2.0'}),
             'file_setting':  forms.FileInput(attrs={
                 'class': 'form-control',
                 'accept': '.pdf,.xlsx,.xls,.ols,.rdb,.csv,.doc,.docx,.zip',
@@ -46,7 +45,7 @@ class SettingReleForm(forms.ModelForm):
             .order_by('first_name', 'last_name')
         )
         self.fields['checker'].empty_label = '— Pilih Checker —'
-        for f in ('checker', 'versi', 'keterangan', 'tanggal_cek',
+        for f in ('checker', 'keterangan', 'tanggal_cek',
                   'file_setting', 'tipe_setting', 'penyulang_bay'):
             self.fields[f].required = False
 

@@ -158,15 +158,11 @@
             {{ form.penyulang_bay }}
           </div>
 
-          {# Tanggal + Versi #}
+          {# Tanggal #}
           <div class="col-md-6">
             <label class="fl">Tanggal <span class="req">*</span></label>
             {{ form.tanggal }}
             {% if form.tanggal.errors %}<div class="text-danger" style="font-size:11.5px;margin-top:4px;">{{ form.tanggal.errors.0 }}</div>{% endif %}
-          </div>
-          <div class="col-md-6">
-            <label class="fl">Versi / Revisi</label>
-            {{ form.versi }}
           </div>
 
         </div>
@@ -249,10 +245,6 @@
           <div class="col-12">
             <label class="fl">Tanggal Cek</label>
             {{ form.tanggal_cek }}
-          </div>
-          <div class="col-12">
-            <label class="fl">Status <span class="req">*</span></label>
-            {{ form.status }}
           </div>
         </div>
       </div>
