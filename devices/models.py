@@ -790,3 +790,42 @@ class DeviceEviden(models.Model):
 
     def __str__(self):
         return f'Eviden {self.pk} — {self.device.nama}'
+
+
+# ─────────────────────────────────────────────────────────────
+# KONEKSI ANTAR PERANGKAT (untuk peta topologi)
+# ─────────────────────────────────────────────────────────────
+
+class DeviceLink(models.Model):
+    TIPE_CHOICES = [
+        ('fiber',      'Fiber Optik'),
+        ('radio',      'Radio / MW'),
+        ('opgw',       'OPGW'),
+        ('pilot_wire', 'Pilot Wire'),
+        ('lainnya',    'Lainnya'),
+    ]
+
+    device_a  = models.ForeignKey(Device, on_delete=models.CASCADE,
+                                  related_name='link_dari', verbose_name='Perangkat A')
+    device_b  = models.ForeignKey(Device, on_delete=models.CASCADE,
+                                  related_name='link_ke',   verbose_name='Perangkat B')
+    tipe      = models.CharField(max_length=20, choices=TIPE_CHOICES, default='fiber',
+                                 verbose_name='Tipe Koneksi')
+    label     = models.CharField(max_length=120, blank=True, verbose_name='Label',
+                                 help_text='Kosongkan untuk otomatis "NamaA → NamaB"')
+    aktif     = models.BooleanField(default=True, verbose_name='Aktif')
+    keterangan = models.TextField(blank=True, verbose_name='Keterangan')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name        = 'Koneksi Perangkat'
+        verbose_name_plural = 'Koneksi Perangkat'
+        ordering            = ['device_a__lokasi', 'device_a__nama']
+
+    def __str__(self):
+        label = self.label or f'{self.device_a.nama} → {self.device_b.nama}'
+        return f'[{self.get_tipe_display()}] {label}'
+
+    @property
+    def display_label(self):
+        return self.label or f'{self.device_a.nama} → {self.device_b.nama}'

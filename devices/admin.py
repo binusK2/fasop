@@ -195,3 +195,43 @@ class KomponenRusakAdmin(admin.ModelAdmin):
     list_filter   = ['tanggal_rusak', 'device__lokasi']
     search_fields = ['nama_komponen', 'merk', 'tipe', 'disimpan_di', 'device__nama']
     date_hierarchy = 'tanggal_rusak'
+
+
+from .models import DeviceLink
+
+@admin.register(DeviceLink)
+class DeviceLinkAdmin(admin.ModelAdmin):
+    list_display        = ['display_label', 'tipe_badge', 'lokasi_a', 'lokasi_b', 'aktif', 'created_at']
+    list_filter         = ['tipe', 'aktif', 'device_a__lokasi']
+    search_fields       = ['label', 'device_a__nama', 'device_b__nama',
+                           'device_a__lokasi', 'device_b__lokasi']
+    autocomplete_fields = ['device_a', 'device_b']
+    list_editable       = ['aktif']
+    readonly_fields     = ['created_at']
+    fieldsets = [
+        (None,      {'fields': ['device_a', 'device_b', 'tipe', 'label', 'aktif']}),
+        ('Catatan', {'fields': ['keterangan', 'created_at'], 'classes': ['collapse']}),
+    ]
+
+    @admin.display(description='Koneksi')
+    def display_label(self, obj):
+        return obj.display_label
+
+    @admin.display(description='Tipe')
+    def tipe_badge(self, obj):
+        from django.utils.html import format_html
+        colors = {'fiber':'#3b82f6','radio':'#f59e0b','opgw':'#10b981',
+                  'pilot_wire':'#8b5cf6','lainnya':'#94a3b8'}
+        c = colors.get(obj.tipe, '#94a3b8')
+        return format_html(
+            '<span style="background:{};color:#fff;padding:2px 8px;border-radius:20px;'
+            'font-size:11px;font-weight:600;">{}</span>', c, obj.get_tipe_display()
+        )
+
+    @admin.display(description='Lokasi A')
+    def lokasi_a(self, obj):
+        return obj.device_a.lokasi or '—'
+
+    @admin.display(description='Lokasi B')
+    def lokasi_b(self, obj):
+        return obj.device_b.lokasi or '—'
