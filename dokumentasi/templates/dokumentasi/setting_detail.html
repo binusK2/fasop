@@ -1,134 +1,441 @@
 {% extends 'base.html' %}
 {% block title %}{{ obj.nomor }} — Setting Rele{% endblock %}
+{% block page_title %}Detail Setting Rele{% endblock %}
 
 {% block content %}
-<div class="d-flex align-items-center gap-2 mb-4">
+<style>
+  /* ── Section bar ── */
+  .sec-bar { display:flex;align-items:center;gap:8px;margin-bottom:14px;
+             padding-bottom:10px;border-bottom:1px solid #f1f5f9; }
+  .sec-bar .bar { width:4px;height:18px;border-radius:3px;flex-shrink:0; }
+  .sec-bar .ttl { font-size:11.5px;font-weight:700;text-transform:uppercase;
+                  letter-spacing:.6px;color:#1e293b; }
+
+  /* ── Info rows ── */
+  .info-grid { display:grid;grid-template-columns:repeat(auto-fill, minmax(160px,1fr));gap:14px 20px; }
+  .info-cell .lbl { font-size:10.5px;font-weight:700;text-transform:uppercase;
+                    letter-spacing:.4px;color:#94a3b8;margin-bottom:3px; }
+  .info-cell .val { font-size:13px;color:#1e293b;font-weight:500; }
+
+  /* ── Status badges ── */
+  .badge-checked { background:#dcfce7;color:#166534;border:1px solid #bbf7d0;
+                   padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700; }
+  .badge-draft   { background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;
+                   padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700; }
+
+  /* ── Catatan perbaikan alert ── */
+  .revisi-alert {
+    background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;
+    padding:14px 18px;margin-bottom:14px;
+  }
+  .revisi-alert .ra-head { font-size:12px;font-weight:700;color:#c2410c;
+                           display:flex;align-items:center;gap:6px;margin-bottom:6px; }
+  .revisi-alert .ra-body { font-size:13px;color:#7c2d12;white-space:pre-wrap;line-height:1.6; }
+
+  /* ── PDF preview ── */
+  .pdf-frame-wrap {
+    border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;
+    background:#f8fafc;
+  }
+  .pdf-frame-wrap iframe {
+    width:100%;height:640px;border:none;display:block;
+  }
+  .pdf-toolbar {
+    display:flex;align-items:center;justify-content:space-between;
+    padding:10px 16px;background:#f8fafc;border-bottom:1px solid #e2e8f0;
+  }
+  .pdf-toolbar .pt-name { font-size:12.5px;font-weight:600;color:#1e293b;
+                          white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:300px; }
+
+  /* ── File non-PDF card ── */
+  .file-card {
+    display:flex;align-items:center;gap:14px;
+    padding:18px;background:#f8fafc;border:1px solid #e2e8f0;
+    border-radius:12px;
+  }
+  .file-card .fc-ext {
+    width:52px;height:52px;border-radius:10px;display:flex;align-items:center;
+    justify-content:center;font-size:12px;font-weight:800;color:#fff;flex-shrink:0;
+  }
+
+  /* ── Verifikasi card actions ── */
+  .vcard-section { padding:14px 0;border-bottom:1px solid #f1f5f9; }
+  .vcard-section:last-child { border-bottom:none;padding-bottom:0; }
+  .vcard-lbl { font-size:10.5px;font-weight:700;text-transform:uppercase;
+               letter-spacing:.4px;color:#94a3b8;margin-bottom:4px; }
+  .vcard-val { font-size:13px;color:#1e293b;font-weight:500; }
+
+  /* ── Revisi form (collapse) ── */
+  #revisi-form { display:none; }
+  #revisi-form.open { display:block; }
+</style>
+
+{# ── Breadcrumb ── #}
+<div class="d-flex align-items-center gap-2 mb-3">
   <a href="{% url 'setting_rele_list' %}" class="btn btn-sm btn-outline-secondary">
     <i class="bi bi-arrow-left me-1"></i>Kembali
   </a>
   {% if user_can_edit %}
-  <a href="{% url 'setting_rele_update' obj.pk %}" class="btn btn-sm btn-warning">
+  <a href="{% url 'setting_rele_update' obj.pk %}" class="btn btn-sm btn-outline-warning">
     <i class="bi bi-pencil me-1"></i>Edit
   </a>
   {% endif %}
 </div>
 
 {# ── Header ── #}
-<div class="card border-0 shadow-sm mb-3" style="border-left:4px solid #f59e0b!important">
+<div class="card mb-3" style="border-left:4px solid #f59e0b;">
   <div class="card-body px-4 py-3">
-    <div class="d-flex align-items-start gap-3 flex-wrap">
+    <div class="d-flex align-items-start justify-content-between gap-3 flex-wrap">
       <div style="min-width:0;">
-        <div class="font-monospace fw-bold text-primary" style="font-size:16px;">{{ obj.nomor }}</div>
-        <div class="fw-semibold" style="font-size:15px;margin-top:2px;">{{ obj.judul }}</div>
-        <div class="d-flex align-items-center gap-2 mt-1 flex-wrap" style="font-size:12px;color:#64748b;">
-          <span><i class="bi bi-cpu me-1"></i>{{ obj.device.nama }}</span>
+        <div class="font-monospace fw-bold text-warning" style="font-size:13px;">{{ obj.nomor }}</div>
+        <div style="font-size:17px;font-weight:700;color:#0f172a;margin:3px 0 6px;">{{ obj.judul }}</div>
+        <div class="d-flex flex-wrap gap-2 align-items-center" style="font-size:12px;color:#64748b;">
+          <span><i class="bi bi-cpu me-1" style="color:#8b5cf6;"></i><strong>{{ obj.device.nama }}</strong></span>
           {% if obj.device.lokasi %}
           <span class="text-muted">·</span>
           <span><i class="bi bi-geo-alt-fill me-1" style="color:#f59e0b;"></i>{{ obj.device.lokasi }}</span>
           {% endif %}
           {% if obj.device.jenis %}
           <span class="text-muted">·</span>
-          <span class="badge bg-light text-dark border" style="font-size:10px;">{{ obj.device.jenis.name }}</span>
+          <span style="background:#f1f5f9;border:1px solid #e2e8f0;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;color:#475569;">{{ obj.device.jenis.name }}</span>
+          {% endif %}
+          {% if obj.device.merk %}
+          <span class="text-muted">·</span>
+          <span>{{ obj.device.merk }}{% if obj.device.type %} {{ obj.device.type }}{% endif %}</span>
           {% endif %}
         </div>
       </div>
-      <div class="ms-auto text-end" style="flex-shrink:0;">
+      <div style="flex-shrink:0;">
         {% if obj.status == 'checked' %}
-        <span class="badge" style="background:#10b981;font-size:12px;">Sudah Dicek</span>
+        <span class="badge-checked"><i class="bi bi-patch-check-fill me-1"></i>Sudah Dicek</span>
         {% else %}
-        <span class="badge bg-secondary" style="font-size:12px;">Draft</span>
+        <span class="badge-draft"><i class="bi bi-pencil-square me-1"></i>Draft</span>
         {% endif %}
       </div>
     </div>
   </div>
 </div>
 
+{# ── Catatan Perbaikan (muncul kalau ada) ── #}
+{% if obj.catatan_perbaikan %}
+<div class="revisi-alert" id="revisi-alert-box">
+  <div class="ra-head">
+    <i class="bi bi-exclamation-triangle-fill"></i>
+    Catatan Perbaikan dari Checker
+    {% if obj.checker %}<span style="font-weight:400;color:#9a3412;"> — {{ obj.checker.get_full_name|default:obj.checker.username }}</span>{% endif %}
+  </div>
+  <div class="ra-body">{{ obj.catatan_perbaikan }}</div>
+</div>
+{% endif %}
+
 <div class="row g-3">
 
+  {# ══ KIRI col-8 ══ #}
   <div class="col-lg-8">
-    <div class="card border-0 shadow-sm mb-3">
-      <div class="card-body px-4 py-3">
-        <div class="row g-3" style="font-size:13px;">
-          <div class="col-sm-4">
-            <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;font-weight:600;">Tanggal</div>
-            <div class="mt-1">{{ obj.tanggal|date:"d M Y" }}</div>
+
+    {# ── Card: Detail Dokumen ── #}
+    <div class="card mb-3">
+      <div class="card-body px-4 py-4">
+        <div class="sec-bar">
+          <span class="bar" style="background:#8b5cf6;"></span>
+          <span class="ttl">Detail Dokumen</span>
+        </div>
+        <div class="info-grid">
+          {% if obj.tipe_setting %}
+          <div class="info-cell">
+            <div class="lbl">Tipe Setting</div>
+            <div class="val">{{ obj.get_tipe_setting_display }}</div>
           </div>
-          <div class="col-sm-4">
-            <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;font-weight:600;">Versi</div>
-            <div class="mt-1">{{ obj.versi|default:"—" }}</div>
+          {% endif %}
+          {% if obj.penyulang_bay %}
+          <div class="info-cell">
+            <div class="lbl">Penyulang / Bay</div>
+            <div class="val">{{ obj.penyulang_bay }}</div>
           </div>
-          <div class="col-sm-4">
-            <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;font-weight:600;">Dibuat oleh</div>
-            <div class="mt-1">{{ obj.created_by.get_full_name|default:obj.created_by.username|default:"—" }}</div>
+          {% endif %}
+          <div class="info-cell">
+            <div class="lbl">Tanggal</div>
+            <div class="val">{{ obj.tanggal|date:"d M Y" }}</div>
           </div>
-          {% if obj.keterangan %}
-          <div class="col-12">
-            <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;font-weight:600;">Keterangan</div>
-            <div class="mt-1" style="white-space:pre-wrap;">{{ obj.keterangan }}</div>
+          <div class="info-cell">
+            <div class="lbl">Versi / Revisi</div>
+            <div class="val">{{ obj.versi|default:"—" }}</div>
+          </div>
+          <div class="info-cell">
+            <div class="lbl">Dibuat Oleh</div>
+            <div class="val">{{ obj.created_by.get_full_name|default:obj.created_by.username|default:"—" }}</div>
+          </div>
+          <div class="info-cell">
+            <div class="lbl">Dibuat Pada</div>
+            <div class="val">{{ obj.created_at|date:"d M Y H:i" }}</div>
+          </div>
+          {% if obj.updated_at != obj.created_at %}
+          <div class="info-cell">
+            <div class="lbl">Diperbarui</div>
+            <div class="val">{{ obj.updated_at|date:"d M Y H:i" }}</div>
           </div>
           {% endif %}
         </div>
+
+        {% if obj.keterangan %}
+        <div style="margin-top:16px;padding-top:14px;border-top:1px solid #f1f5f9;">
+          <div class="lbl" style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#94a3b8;margin-bottom:5px;">Keterangan</div>
+          <div style="font-size:13px;color:#334155;white-space:pre-wrap;line-height:1.7;">{{ obj.keterangan }}</div>
+        </div>
+        {% endif %}
       </div>
     </div>
 
-    {# ── File ── #}
+    {# ── Card: File Setting ── #}
     {% if obj.file_setting %}
-    <div class="card border-0 shadow-sm">
-      <div class="card-body px-4 py-3">
-        <div class="d-flex align-items-center gap-3">
-          {% with ext=obj.file_ext %}
-          {% if ext == 'pdf' %}
-          <i class="bi bi-file-earmark-pdf" style="font-size:36px;color:#ef4444;flex-shrink:0;"></i>
-          {% elif ext == 'xlsx' or ext == 'xls' %}
-          <i class="bi bi-file-earmark-excel" style="font-size:36px;color:#10b981;flex-shrink:0;"></i>
-          {% elif ext == 'ols' or ext == 'rdb' %}
-          <i class="bi bi-file-earmark-binary" style="font-size:36px;color:#3b82f6;flex-shrink:0;"></i>
-          {% else %}
-          <i class="bi bi-file-earmark" style="font-size:36px;color:#94a3b8;flex-shrink:0;"></i>
-          {% endif %}
-          <div style="min-width:0;">
-            <div style="font-size:12px;color:#64748b;">File Setting</div>
-            <div class="text-truncate fw-semibold" style="font-size:13px;">
-              {{ obj.file_setting.name|cut:"dokumentasi/setting/" }}
-            </div>
-            <a href="{{ obj.file_setting.url }}" download class="btn btn-sm btn-outline-primary mt-1" style="font-size:12px;">
+    <div class="card mb-3">
+      <div class="card-body px-4 py-4">
+        <div class="sec-bar">
+          <span class="bar" style="background:#f59e0b;"></span>
+          <span class="ttl">File Setting</span>
+        </div>
+
+        {% with ext=obj.file_ext fname=obj.file_setting.name|cut:"dokumentasi/setting/" %}
+
+        {% if ext == 'pdf' %}
+        {# ── PDF: preview inline ── #}
+        <div class="pdf-frame-wrap">
+          <div class="pdf-toolbar">
+            <span class="pt-name"><i class="bi bi-file-earmark-pdf me-1" style="color:#ef4444;"></i>{{ fname }}</span>
+            <a href="{{ obj.file_setting.url }}" download="{{ fname }}"
+               class="btn btn-sm btn-outline-danger" style="font-size:12px;white-space:nowrap;">
               <i class="bi bi-download me-1"></i>Download
             </a>
           </div>
-          {% endwith %}
+          <iframe src="{{ obj.file_setting.url }}" title="Preview {{ obj.judul }}"></iframe>
         </div>
+
+        {% elif ext in 'jpg,jpeg,png,svg,gif,webp' %}
+        {# ── Gambar ── #}
+        <div style="border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;background:#f8fafc;">
+          <img src="{{ obj.file_setting.url }}" alt="{{ obj.judul }}"
+               style="width:100%;max-height:480px;object-fit:contain;display:block;padding:8px;">
+          <div style="padding:10px 16px;border-top:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-size:12px;color:#64748b;"><i class="bi bi-image me-1"></i>{{ fname }}</span>
+            <a href="{{ obj.file_setting.url }}" download="{{ fname }}"
+               class="btn btn-sm btn-outline-primary" style="font-size:12px;">
+              <i class="bi bi-download me-1"></i>Download
+            </a>
+          </div>
+        </div>
+
+        {% else %}
+        {# ── File lain: card info + download ── #}
+        {% with ext_upper=ext|upper %}
+        <div class="file-card">
+          {% if ext == 'xlsx' or ext == 'xls' %}
+          <div class="fc-ext" style="background:#16a34a;">{{ ext_upper }}</div>
+          {% elif ext == 'doc' or ext == 'docx' %}
+          <div class="fc-ext" style="background:#2563eb;">{{ ext_upper }}</div>
+          {% elif ext == 'ols' or ext == 'rdb' %}
+          <div class="fc-ext" style="background:#7c3aed;">{{ ext_upper }}</div>
+          {% elif ext == 'csv' %}
+          <div class="fc-ext" style="background:#0891b2;">{{ ext_upper }}</div>
+          {% elif ext == 'zip' %}
+          <div class="fc-ext" style="background:#d97706;">{{ ext_upper }}</div>
+          {% else %}
+          <div class="fc-ext" style="background:#64748b;">{{ ext_upper }}</div>
+          {% endif %}
+          <div style="min-width:0;flex:1;">
+            <div style="font-size:13.5px;font-weight:600;color:#1e293b;word-break:break-all;">{{ fname }}</div>
+            <div style="font-size:11px;color:#94a3b8;margin-top:2px;">File tidak dapat dipreview di browser</div>
+          </div>
+          <a href="{{ obj.file_setting.url }}" download="{{ fname }}"
+             class="btn btn-outline-primary" style="font-size:13px;white-space:nowrap;flex-shrink:0;">
+            <i class="bi bi-download me-1"></i>Download
+          </a>
+        </div>
+        {% endwith %}
+        {% endif %}
+
+        {% endwith %}
       </div>
     </div>
     {% endif %}
+
   </div>
 
+  {# ══ KANAN col-4 ══ #}
   <div class="col-lg-4">
-    <div class="card border-0 shadow-sm">
-      <div class="card-body px-4 py-3">
-        <div class="fw-semibold mb-3" style="font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:#475569;">
-          <i class="bi bi-shield-check me-1"></i>Verifikasi
+
+    {# ── Card: Verifikasi ── #}
+    <div class="card mb-3">
+      <div class="card-body px-4 py-4">
+        <div class="sec-bar">
+          <span class="bar" style="background:#10b981;"></span>
+          <span class="ttl">Verifikasi</span>
         </div>
-        <div style="font-size:13px;">
-          <div class="mb-2">
-            <span class="text-muted" style="font-size:11px;">Checker</span><br>
-            {{ obj.checker.get_full_name|default:obj.checker.username|default:"Belum ditentukan" }}
+
+        <div class="vcard-section">
+          <div class="vcard-lbl">Checker</div>
+          <div class="vcard-val">
+            {% if obj.checker %}
+            <i class="bi bi-person-circle me-1" style="color:#10b981;"></i>
+            {{ obj.checker.get_full_name|default:obj.checker.username }}
+            {% else %}
+            <span style="color:#94a3b8;font-style:italic;">Belum ditentukan</span>
+            {% endif %}
           </div>
-          <div class="mb-2">
-            <span class="text-muted" style="font-size:11px;">Tanggal Cek</span><br>
+        </div>
+
+        <div class="vcard-section">
+          <div class="vcard-lbl">Tanggal Cek</div>
+          <div class="vcard-val" id="vcard-tanggal-cek">
             {{ obj.tanggal_cek|date:"d M Y"|default:"—" }}
           </div>
-          <div>
-            <span class="text-muted" style="font-size:11px;">Status</span><br>
+        </div>
+
+        <div class="vcard-section">
+          <div class="vcard-lbl">Status</div>
+          <div id="vcard-status-wrap">
             {% if obj.status == 'checked' %}
-            <span class="badge" style="background:#10b981;">Sudah Dicek</span>
+            <span class="badge-checked" id="vcard-status-badge">
+              <i class="bi bi-patch-check-fill me-1"></i>Sudah Dicek
+            </span>
             {% else %}
-            <span class="badge bg-secondary">Draft</span>
+            <span class="badge-draft" id="vcard-status-badge">
+              <i class="bi bi-pencil-square me-1"></i>Draft
+            </span>
             {% endif %}
+          </div>
+        </div>
+
+        {# ── Aksi Checker (hanya muncul jika user adalah checker) ── #}
+        {% if user_is_checker %}
+        <div class="vcard-section" id="checker-actions">
+          {% if obj.status == 'draft' %}
+          {# Belum dicek — tombol Tandai Sudah Dicek #}
+          <button onclick="doVerify()" id="btn-verify"
+                  class="btn btn-success w-100 mb-2" style="font-size:13px;font-weight:600;">
+            <i class="bi bi-patch-check me-2"></i>Tandai Sudah Dicek
+          </button>
+          <button onclick="toggleRevisiForm()" id="btn-revisi-toggle"
+                  class="btn btn-outline-warning w-100" style="font-size:12px;">
+            <i class="bi bi-arrow-counterclockwise me-1"></i>Beri Catatan Perbaikan
+          </button>
+          {% else %}
+          {# Sudah dicek — tombol kembalikan #}
+          <button onclick="toggleRevisiForm()" id="btn-revisi-toggle"
+                  class="btn btn-outline-secondary w-100" style="font-size:12px;">
+            <i class="bi bi-arrow-counterclockwise me-1"></i>Kembalikan ke Draft
+          </button>
+          {% endif %}
+
+          {# Form catatan perbaikan (hidden by default) #}
+          <div id="revisi-form" class="mt-3">
+            <label style="font-size:11.5px;font-weight:700;color:#64748b;margin-bottom:5px;display:block;">
+              Catatan Perbaikan <span style="color:#ef4444;">*</span>
+            </label>
+            <textarea id="revisi-textarea" class="form-control" rows="4"
+                      placeholder="Tulis catatan perbaikan untuk uploader…"
+                      style="font-size:13px;resize:vertical;"></textarea>
+            <div id="revisi-error" class="text-danger" style="font-size:11.5px;margin-top:4px;display:none;"></div>
+            <div class="d-flex gap-2 mt-2">
+              <button onclick="doRevisi()" class="btn btn-warning flex-fill" style="font-size:13px;font-weight:600;">
+                <i class="bi bi-send me-1"></i>Kirim & Kembalikan
+              </button>
+              <button onclick="toggleRevisiForm()" class="btn btn-outline-secondary" style="font-size:12px;">
+                Batal
+              </button>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
+      </div>
+    </div>
+
+    {# ── Card: Info Sistem ── #}
+    <div class="card" style="background:#f8fafc;border:1px solid #e2e8f0;">
+      <div class="card-body px-4 py-3">
+        <div class="sec-bar" style="border-bottom:1px solid #e2e8f0;margin-bottom:10px;padding-bottom:8px;">
+          <span class="bar" style="background:#e2e8f0;"></span>
+          <span class="ttl" style="color:#94a3b8;">Info Sistem</span>
+        </div>
+        <div style="font-size:12px;">
+          <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f1f5f9;">
+            <span style="color:#94a3b8;">Nomor</span>
+            <span class="font-monospace text-warning fw-bold">{{ obj.nomor }}</span>
+          </div>
+          {% if obj.created_by %}
+          <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f1f5f9;">
+            <span style="color:#94a3b8;">Upload oleh</span>
+            <span style="color:#1e293b;font-weight:500;">{{ obj.created_by.get_full_name|default:obj.created_by.username }}</span>
+          </div>
+          {% endif %}
+          <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f1f5f9;">
+            <span style="color:#94a3b8;">Upload pada</span>
+            <span style="color:#1e293b;">{{ obj.created_at|date:"d M Y H:i" }}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;padding:5px 0;">
+            <span style="color:#94a3b8;">Diperbarui</span>
+            <span style="color:#1e293b;">{{ obj.updated_at|date:"d M Y H:i" }}</span>
           </div>
         </div>
       </div>
     </div>
-  </div>
 
+  </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const CSRF   = document.querySelector('meta[name="csrf-token"]')?.content || '';
+const VERIFY_URL = "{% url 'setting_rele_verify' obj.pk %}";
+const REVISI_URL = "{% url 'setting_rele_revisi' obj.pk %}";
+
+function toggleRevisiForm() {
+  const form = document.getElementById('revisi-form');
+  form.classList.toggle('open');
+  if (form.classList.contains('open')) {
+    document.getElementById('revisi-textarea').focus();
+  }
+}
+
+async function doVerify() {
+  const btn = document.getElementById('btn-verify');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Menyimpan…';
+  try {
+    const res  = await fetch(VERIFY_URL, { method:'POST', headers:{'X-CSRFToken':CSRF} });
+    const data = await res.json();
+    if (!data.ok) { alert(data.error || 'Gagal'); btn.disabled=false; btn.innerHTML='<i class="bi bi-patch-check me-2"></i>Tandai Sudah Dicek'; return; }
+    // Update UI tanpa reload
+    document.getElementById('vcard-status-badge').outerHTML =
+      '<span class="badge-checked" id="vcard-status-badge"><i class="bi bi-patch-check-fill me-1"></i>Sudah Dicek</span>';
+    document.getElementById('vcard-tanggal-cek').textContent = data.tanggal_cek;
+    document.getElementById('checker-actions').innerHTML =
+      '<div style="font-size:12px;color:#16a34a;font-weight:600;text-align:center;padding:6px 0;">' +
+      '<i class="bi bi-patch-check-fill me-1"></i>Dokumen telah diverifikasi</div>';
+    // Hapus header status badge
+    const headerBadge = document.querySelector('.badge-draft');
+    if (headerBadge) headerBadge.outerHTML = '<span class="badge-checked"><i class="bi bi-patch-check-fill me-1"></i>Sudah Dicek</span>';
+    // Hapus catatan perbaikan jika ada
+    const alertBox = document.getElementById('revisi-alert-box');
+    if (alertBox) alertBox.remove();
+  } catch(e) { alert('Gagal menghubungi server'); btn.disabled=false; btn.innerHTML='<i class="bi bi-patch-check me-2"></i>Tandai Sudah Dicek'; }
+}
+
+async function doRevisi() {
+  const catatan  = document.getElementById('revisi-textarea').value.trim();
+  const errEl    = document.getElementById('revisi-error');
+  if (!catatan) { errEl.textContent='Catatan tidak boleh kosong'; errEl.style.display='block'; return; }
+  errEl.style.display = 'none';
+  try {
+    const form = new FormData();
+    form.append('catatan', catatan);
+    const res  = await fetch(REVISI_URL, { method:'POST', headers:{'X-CSRFToken':CSRF}, body:form });
+    const data = await res.json();
+    if (!data.ok) { errEl.textContent=data.error||'Gagal'; errEl.style.display='block'; return; }
+    // Reload untuk tampilkan catatan perbaikan
+    location.reload();
+  } catch(e) { errEl.textContent='Gagal menghubungi server'; errEl.style.display='block'; }
+}
+</script>
 {% endblock %}
