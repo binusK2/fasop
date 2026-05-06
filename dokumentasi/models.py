@@ -67,6 +67,8 @@ class SettingRele(models.Model):
                                      related_name='setting_rele_checked', verbose_name='Checker')
     tanggal_cek  = models.DateField(null=True, blank=True, verbose_name='Tanggal Cek')
     status       = models.CharField(max_length=10, choices=STATUS_CHOICES, default='draft', verbose_name='Status')
+    catatan_perbaikan = models.TextField(blank=True, verbose_name='Catatan Perbaikan',
+                                         help_text='Diisi checker saat mengembalikan dokumen untuk diperbaiki')
     created_by   = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
                                      related_name='setting_rele_dibuat', verbose_name='Dibuat Oleh')
     created_at   = models.DateTimeField(auto_now_add=True)

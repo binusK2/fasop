@@ -1,6 +1,7 @@
 import json
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
 from django.db.models import Q
 from django.utils import timezone
 from .models import SettingRele, GambarDevice
@@ -87,10 +88,49 @@ def setting_create(request):
 @login_required
 def setting_detail(request, pk):
     obj = get_object_or_404(SettingRele, pk=pk)
+    user = request.user
+    user_is_checker = (obj.checker_id == user.pk) or user.is_superuser
     return render(request, 'dokumentasi/setting_detail.html', {
-        'obj':          obj,
-        'user_can_edit': not is_viewer_only(request.user),
+        'obj':            obj,
+        'user_can_edit':  not is_viewer_only(user),
+        'user_is_checker': user_is_checker,
     })
+
+
+@login_required
+@require_can_edit
+def setting_verify(request, pk):
+    """Checker tandai setting sudah dicek (AJAX POST)."""
+    if request.method != 'POST':
+        return JsonResponse({'ok': False}, status=405)
+    obj = get_object_or_404(SettingRele, pk=pk)
+    if request.user.pk != obj.checker_id and not request.user.is_superuser:
+        return JsonResponse({'ok': False, 'error': 'Bukan checker dokumen ini'}, status=403)
+    obj.status = 'checked'
+    obj.tanggal_cek = timezone.localdate()
+    obj.catatan_perbaikan = ''
+    obj.save()
+    return JsonResponse({'ok': True, 'status': 'checked',
+                         'tanggal_cek': obj.tanggal_cek.strftime('%d %b %Y')})
+
+
+@login_required
+@require_can_edit
+def setting_revisi(request, pk):
+    """Checker kembalikan ke draft dengan catatan perbaikan (AJAX POST)."""
+    if request.method != 'POST':
+        return JsonResponse({'ok': False}, status=405)
+    obj = get_object_or_404(SettingRele, pk=pk)
+    if request.user.pk != obj.checker_id and not request.user.is_superuser:
+        return JsonResponse({'ok': False, 'error': 'Bukan checker dokumen ini'}, status=403)
+    catatan = request.POST.get('catatan', '').strip()
+    if not catatan:
+        return JsonResponse({'ok': False, 'error': 'Catatan perbaikan wajib diisi'}, status=400)
+    obj.status = 'draft'
+    obj.catatan_perbaikan = catatan
+    obj.tanggal_cek = None
+    obj.save()
+    return JsonResponse({'ok': True, 'status': 'draft', 'catatan': catatan})
 
 
 @login_required

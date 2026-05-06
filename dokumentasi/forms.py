@@ -41,7 +41,9 @@ class SettingReleForm(forms.ModelForm):
         self.fields['device'].empty_label = '— Pilih Perangkat Rele —'
         self.fields['tipe_setting'].empty_label = '— Pilih Tipe Setting —'
         self.fields['checker'].queryset = (
-            User.objects.select_related('profile')
+            User.objects.filter(
+                profile__role__in=('technician', 'asisten_manager')
+            ).select_related('profile')
             .order_by('first_name', 'last_name')
         )
         self.fields['checker'].empty_label = '— Pilih Checker —'
@@ -83,7 +85,9 @@ class GambarDeviceForm(forms.ModelForm):
         )
         self.fields['device'].empty_label = '— Pilih Perangkat —'
         self.fields['checker'].queryset = (
-            User.objects.select_related('profile')
+            User.objects.filter(
+                profile__role__in=('technician', 'asisten_manager')
+            ).select_related('profile')
             .order_by('first_name', 'last_name')
         )
         self.fields['checker'].empty_label = '— Pilih Checker —'
