@@ -417,8 +417,15 @@ def maintenance_detail(request, pk):
             ('Status Power Supply',    voip_detail.ps_status),
         ]
 
+    try:
+        from health_index.calculator import calculate_hi
+        health_index = calculate_hi(device, save_snapshot=False)
+    except Exception:
+        health_index = None
+
     return render(request, 'maintenance/maintenance_detail.html', {
         'maintenance':      maintenance,
+        'health_index':     health_index,
         'device_type':      device_type,
         'plc_detail':       plc_detail,
         'router_detail':    router_detail,
