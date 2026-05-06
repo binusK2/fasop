@@ -12,7 +12,7 @@ class Migration(migrations.Migration):
             model_name='settingrele',
             name='status',
             field=models.CharField(
-                max_length=50,
+                max_length=25,
                 choices=[
                     ('draft',           'Draft'),
                     ('on_check',        'On Check'),

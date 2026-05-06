@@ -111,10 +111,15 @@ def setting_submit(request, pk):
         return JsonResponse({'ok': False, 'error': 'Status tidak valid untuk dikirim'}, status=400)
     if not obj.checker_id:
         return JsonResponse({'ok': False, 'error': 'Checker belum ditentukan — edit dokumen dulu'}, status=400)
+    if obj.status == 'perlu_perbaikan':
+        try:
+            obj.versi = f'{int(obj.versi) + 1:04d}'
+        except (ValueError, TypeError):
+            obj.versi = '0002'
     obj.status = 'on_check'
     obj.catatan_perbaikan = ''
     obj.save()
-    return JsonResponse({'ok': True, 'status': 'on_check'})
+    return JsonResponse({'ok': True, 'status': 'on_check', 'versi': obj.versi})
 
 
 @login_required

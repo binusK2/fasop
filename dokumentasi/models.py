@@ -68,7 +68,7 @@ class SettingRele(models.Model):
     checker      = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
                                      related_name='setting_rele_checked', verbose_name='Checker')
     tanggal_cek  = models.DateField(null=True, blank=True, verbose_name='Tanggal Cek')
-    status       = models.CharField(max_length=10, choices=STATUS_CHOICES, default='draft', verbose_name='Status')
+    status       = models.CharField(max_length=25, choices=STATUS_CHOICES, default='draft', verbose_name='Status')
     catatan_perbaikan = models.TextField(blank=True, verbose_name='Catatan Perbaikan',
                                          help_text='Diisi checker saat mengembalikan dokumen untuk diperbaiki')
     created_by   = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
@@ -87,6 +87,8 @@ class SettingRele(models.Model):
     def save(self, *args, **kwargs):
         if not self.nomor:
             self.nomor = _generate_nomor_sr()
+        if not self.pk and not self.versi:
+            self.versi = '0001'
         super().save(*args, **kwargs)
 
     @property
