@@ -50,15 +50,23 @@ def setting_list(request):
             Q(device__lokasi__icontains=search)
         )
 
-    total   = SettingRele.objects.count()
-    n_draft   = SettingRele.objects.filter(status='draft').count()
-    n_checked = SettingRele.objects.filter(status='checked').count()
+    total         = SettingRele.objects.count()
+    n_draft       = SettingRele.objects.filter(status='draft').count()
+    n_on_check    = SettingRele.objects.filter(status='on_check').count()
+    n_perbaikan   = SettingRele.objects.filter(status='perlu_perbaikan').count()
+    n_uptodate    = SettingRele.objects.filter(status='uptodate').count()
 
     return render(request, 'dokumentasi/setting_list.html', {
         'object_list':    qs,
         'status_filter':  status_filter,
         'search':         search,
-        'stats': {'total': total, 'draft': n_draft, 'checked': n_checked},
+        'stats': {
+            'total':      total,
+            'draft':      n_draft,
+            'on_check':   n_on_check,
+            'perbaikan':  n_perbaikan,
+            'uptodate':   n_uptodate,
+        },
         'STATUS_CHOICES': SettingRele.STATUS_CHOICES,
         'user_can_edit':  not is_viewer_only(request.user),
     })

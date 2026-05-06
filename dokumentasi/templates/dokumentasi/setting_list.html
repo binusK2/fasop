@@ -16,7 +16,7 @@
 
 {# ── Stat cards ── #}
 <div class="row g-2 mb-3">
-  <div class="col-6 col-md-4">
+  <div class="col-6 col-md">
     <div class="card text-center border-0 shadow-sm h-100">
       <div class="card-body py-2">
         <div class="fs-4 fw-bold text-secondary">{{ stats.total }}</div>
@@ -24,7 +24,7 @@
       </div>
     </div>
   </div>
-  <div class="col-6 col-md-4">
+  <div class="col-6 col-md">
     <div class="card text-center border-0 shadow-sm h-100" style="border-left:3px solid #94a3b8!important">
       <div class="card-body py-2">
         <div class="fs-4 fw-bold" style="color:#94a3b8">{{ stats.draft }}</div>
@@ -32,11 +32,27 @@
       </div>
     </div>
   </div>
-  <div class="col-6 col-md-4">
+  <div class="col-6 col-md">
+    <div class="card text-center border-0 shadow-sm h-100" style="border-left:3px solid #3b82f6!important">
+      <div class="card-body py-2">
+        <div class="fs-4 fw-bold" style="color:#3b82f6">{{ stats.on_check }}</div>
+        <div class="small text-muted">On Check</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md">
+    <div class="card text-center border-0 shadow-sm h-100" style="border-left:3px solid #f59e0b!important">
+      <div class="card-body py-2">
+        <div class="fs-4 fw-bold" style="color:#f59e0b">{{ stats.perbaikan }}</div>
+        <div class="small text-muted">Perlu Perbaikan</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md">
     <div class="card text-center border-0 shadow-sm h-100" style="border-left:3px solid #10b981!important">
       <div class="card-body py-2">
-        <div class="fs-4 fw-bold" style="color:#10b981">{{ stats.checked }}</div>
-        <div class="small text-muted">Sudah Dicek</div>
+        <div class="fs-4 fw-bold" style="color:#10b981">{{ stats.uptodate }}</div>
+        <div class="small text-muted">Up to Date</div>
       </div>
     </div>
   </div>
@@ -83,7 +99,6 @@
           <th>Perangkat</th>
           <th>Lokasi</th>
           <th>Judul</th>
-          <th>Versi</th>
           <th>Tanggal</th>
           <th>Checker</th>
           <th>Status</th>
@@ -100,19 +115,22 @@
           <td>{{ obj.device.nama }}</td>
           <td class="text-muted">{{ obj.device.lokasi|default:"—" }}</td>
           <td style="max-width:220px;" class="text-truncate">{{ obj.judul }}</td>
-          <td class="text-muted">{{ obj.versi|default:"—" }}</td>
           <td class="text-muted" style="white-space:nowrap;">{{ obj.tanggal|date:"d M Y" }}</td>
           <td class="text-muted">
             {% if obj.checker %}{{ obj.checker.get_full_name|default:obj.checker.username }}{% else %}—{% endif %}
           </td>
           <td>
-            {% if obj.status == 'checked' %}
-            <span class="badge" style="background:#10b981">Sudah Dicek</span>
+            {% if obj.status == 'uptodate' %}
+            <span class="badge" style="background:#10b981;font-size:11px;">Up to Date</span>
+            {% elif obj.status == 'on_check' %}
+            <span class="badge" style="background:#3b82f6;font-size:11px;">On Check</span>
+            {% elif obj.status == 'perlu_perbaikan' %}
+            <span class="badge" style="background:#f59e0b;font-size:11px;">Perlu Perbaikan</span>
             {% else %}
-            <span class="badge bg-secondary">Draft</span>
+            <span class="badge bg-secondary" style="font-size:11px;">Draft</span>
             {% endif %}
           </td>
-          <td>
+          <td style="white-space:nowrap;">
             {% if obj.file_setting %}
             {% with ext=obj.file_ext %}
             {% if ext == 'pdf' %}
@@ -125,6 +143,7 @@
             <span class="badge bg-secondary" style="font-size:10px;">{{ ext|upper|default:"FILE" }}</span>
             {% endif %}
             {% endwith %}
+            {% if obj.versi %}<span class="text-muted" style="font-size:11px;margin-left:3px;">v{{ obj.versi }}</span>{% endif %}
             {% else %}
             <span class="text-muted" style="font-size:12px;">—</span>
             {% endif %}
