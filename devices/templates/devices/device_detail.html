@@ -24,8 +24,47 @@
     <a href="{% url 'corrective_add_device' device.id %}" class="btn btn-sm btn-warning">
         <i class="bi bi-tools me-1"></i>Catat Corrective
     </a>
+    {% else %}
+    <span class="ms-auto"></span>
+    {% endif %}
+    {% if user_can_delete %}
+    <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalDeleteDevice">
+        <i class="bi bi-trash3 me-1"></i>Hapus
+    </button>
     {% endif %}
 </div>
+
+{% if user_can_delete %}
+<div class="modal fade" id="modalDeleteDevice" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header border-0 pb-0">
+        <h6 class="modal-title fw-bold text-danger"><i class="bi bi-exclamation-triangle me-2"></i>Hapus Perangkat</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-1">Anda akan menghapus perangkat:</p>
+        <div class="p-3 rounded mb-3" style="background:#fef2f2;border:1px solid #fecaca;">
+          <div class="fw-bold text-danger" style="font-size:14px;">{{ device.nama }}</div>
+          <div class="text-muted" style="font-size:12px;">{{ device.lokasi|default:"—" }} · {{ device.jenis.name|default:"—" }}</div>
+        </div>
+        <p class="text-muted mb-0" style="font-size:12.5px;">
+          Perangkat akan dihapus dari sistem. Riwayat maintenance tetap tersimpan.
+        </p>
+      </div>
+      <div class="modal-footer border-0 pt-0">
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+        <form method="post" action="{% url 'device_delete' device.pk %}" style="display:inline;">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-sm btn-danger">
+            <i class="bi bi-trash3 me-1"></i>Ya, Hapus
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
 
 <div class="row g-3 mb-3">
 
