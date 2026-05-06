@@ -231,10 +231,15 @@ def device_delete(request, pk):
     device = get_object_or_404(Device, pk=pk)
     from devices.device_audit import log_delete
     log_delete(device, request.user)
+    jenis_id = device.jenis_id
     device.is_deleted = True
     device.deleted_by = request.user
     device.save()
-    return redirect('device_list')
+    from django.urls import reverse
+    url = reverse('device_list')
+    if jenis_id:
+        url += f'?jenis={jenis_id}'
+    return redirect(url)
 
 
 @login_required
