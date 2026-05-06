@@ -984,46 +984,98 @@ def lokasi_list(request):
     })
 
 
-def api_device_links(request):
-    """Kembalikan semua DeviceLink aktif beserta koordinat site masing-masing device."""
-    from .models import DeviceLink
-    site_coords = {sl.nama.strip(): sl for sl in SiteLocation.objects.all()}
+def _link_to_dict(link, site_coords):
+    loc_a = (link.device_a.lokasi or '').strip()
+    loc_b = (link.device_b.lokasi or '').strip()
+    sl_a  = site_coords.get(loc_a)
+    sl_b  = site_coords.get(loc_b)
+    return {
+        'id':    link.pk,
+        'label': link.display_label,
+        'tipe':  link.tipe,
+        'aktif': link.aktif,
+        'device_a': {
+            'id':    link.device_a.pk,
+            'nama':  link.device_a.nama,
+            'jenis': link.device_a.jenis.name if link.device_a.jenis else '',
+            'lokasi': loc_a,
+        },
+        'device_b': {
+            'id':    link.device_b.pk,
+            'nama':  link.device_b.nama,
+            'jenis': link.device_b.jenis.name if link.device_b.jenis else '',
+            'lokasi': loc_b,
+        },
+        'lat_a': float(sl_a.latitude)  if sl_a and sl_a.has_coords else None,
+        'lng_a': float(sl_a.longitude) if sl_a and sl_a.has_coords else None,
+        'lat_b': float(sl_b.latitude)  if sl_b and sl_b.has_coords else None,
+        'lng_b': float(sl_b.longitude) if sl_b and sl_b.has_coords else None,
+    }
 
-    result = []
-    for link in (DeviceLink.objects
-                 .filter(aktif=True)
-                 .select_related('device_a', 'device_a__jenis',
-                                 'device_b', 'device_b__jenis')):
-        loc_a = (link.device_a.lokasi or '').strip()
-        loc_b = (link.device_b.lokasi or '').strip()
-        sl_a  = site_coords.get(loc_a)
-        sl_b  = site_coords.get(loc_b)
-        if not (sl_a and sl_a.has_coords and sl_b and sl_b.has_coords):
-            continue
-        if loc_a == loc_b:
-            continue
-        result.append({
-            'id':    link.pk,
-            'label': link.display_label,
-            'tipe':  link.tipe,
-            'device_a': {
-                'id':    link.device_a.pk,
-                'nama':  link.device_a.nama,
-                'jenis': link.device_a.jenis.name if link.device_a.jenis else '',
-                'lokasi': loc_a,
-            },
-            'device_b': {
-                'id':    link.device_b.pk,
-                'nama':  link.device_b.nama,
-                'jenis': link.device_b.jenis.name if link.device_b.jenis else '',
-                'lokasi': loc_b,
-            },
-            'lat_a': float(sl_a.latitude),
-            'lng_a': float(sl_a.longitude),
-            'lat_b': float(sl_b.latitude),
-            'lng_b': float(sl_b.longitude),
-        })
-    return JsonResponse({'links': result})
+
+def api_device_links(request):
+    from .models import DeviceLink
+    sc  = {sl.nama.strip(): sl for sl in SiteLocation.objects.all()}
+    qs  = (DeviceLink.objects
+           .select_related('device_a', 'device_a__jenis', 'device_b', 'device_b__jenis'))
+    out = []
+    for link in qs:
+        d = _link_to_dict(link, sc)
+        if d['lat_a'] and d['lat_b']:
+            out.append(d)
+    return JsonResponse({'links': out})
+
+
+@login_required
+@require_can_edit
+def api_device_link_create(request):
+    if request.method != 'POST':
+        return JsonResponse({'ok': False}, status=405)
+    from .models import DeviceLink
+    try:
+        data = json.loads(request.body)
+        a    = get_object_or_404(Device, pk=data['device_a_id'])
+        b    = get_object_or_404(Device, pk=data['device_b_id'])
+        link = DeviceLink.objects.create(
+            device_a   = a,
+            device_b   = b,
+            tipe       = data.get('tipe', 'fiber'),
+            label      = data.get('label', '').strip(),
+            keterangan = data.get('keterangan', '').strip(),
+        )
+        sc = {sl.nama.strip(): sl for sl in SiteLocation.objects.all()}
+        return JsonResponse({'ok': True, 'link': _link_to_dict(link, sc)})
+    except Exception as e:
+        return JsonResponse({'ok': False, 'error': str(e)}, status=400)
+
+
+@login_required
+@require_can_edit
+def api_device_link_delete(request, pk):
+    if request.method != 'POST':
+        return JsonResponse({'ok': False}, status=405)
+    from .models import DeviceLink
+    get_object_or_404(DeviceLink, pk=pk).delete()
+    return JsonResponse({'ok': True})
+
+
+@login_required
+@require_can_edit
+def api_device_link_update(request, pk):
+    if request.method != 'POST':
+        return JsonResponse({'ok': False}, status=405)
+    from .models import DeviceLink
+    link = get_object_or_404(DeviceLink, pk=pk)
+    try:
+        data       = json.loads(request.body)
+        link.tipe  = data.get('tipe', link.tipe)
+        link.label = data.get('label', link.label).strip()
+        link.aktif = data.get('aktif', link.aktif)
+        link.save()
+        sc = {sl.nama.strip(): sl for sl in SiteLocation.objects.all()}
+        return JsonResponse({'ok': True, 'link': _link_to_dict(link, sc)})
+    except Exception as e:
+        return JsonResponse({'ok': False, 'error': str(e)}, status=400)
 
 
 def api_lokasi_devices(request, lokasi_nama):
