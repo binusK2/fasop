@@ -73,6 +73,7 @@ def setting_create(request):
         if form.is_valid():
             obj = form.save(commit=False)
             obj.created_by = request.user
+            obj.status = 'draft'
             obj.save()
             return redirect('setting_rele_detail', pk=obj.pk)
     else:
@@ -89,35 +90,56 @@ def setting_create(request):
 def setting_detail(request, pk):
     obj = get_object_or_404(SettingRele, pk=pk)
     user = request.user
-    user_is_checker = (obj.checker_id == user.pk) or user.is_superuser
+    user_is_checker  = (obj.checker_id == user.pk) or user.is_superuser
+    user_is_uploader = (obj.created_by_id == user.pk) or user.is_superuser
     return render(request, 'dokumentasi/setting_detail.html', {
-        'obj':            obj,
-        'user_can_edit':  not is_viewer_only(user),
+        'obj':             obj,
+        'user_can_edit':   not is_viewer_only(user),
         'user_is_checker': user_is_checker,
+        'user_is_uploader': user_is_uploader,
     })
 
 
 @login_required
 @require_can_edit
+def setting_submit(request, pk):
+    """Uploader kirim dokumen ke checker: draft/perlu_perbaikan → on_check (AJAX POST)."""
+    if request.method != 'POST':
+        return JsonResponse({'ok': False}, status=405)
+    obj = get_object_or_404(SettingRele, pk=pk)
+    if obj.status not in ('draft', 'perlu_perbaikan'):
+        return JsonResponse({'ok': False, 'error': 'Status tidak valid untuk dikirim'}, status=400)
+    if not obj.checker_id:
+        return JsonResponse({'ok': False, 'error': 'Checker belum ditentukan — edit dokumen dulu'}, status=400)
+    obj.status = 'on_check'
+    obj.catatan_perbaikan = ''
+    obj.save()
+    return JsonResponse({'ok': True, 'status': 'on_check'})
+
+
+@login_required
+@require_can_edit
 def setting_verify(request, pk):
-    """Checker tandai setting sudah dicek (AJAX POST)."""
+    """Checker setujui — on_check → uptodate (AJAX POST)."""
     if request.method != 'POST':
         return JsonResponse({'ok': False}, status=405)
     obj = get_object_or_404(SettingRele, pk=pk)
     if request.user.pk != obj.checker_id and not request.user.is_superuser:
         return JsonResponse({'ok': False, 'error': 'Bukan checker dokumen ini'}, status=403)
-    obj.status = 'checked'
+    if obj.status != 'on_check':
+        return JsonResponse({'ok': False, 'error': 'Dokumen belum dikirim untuk dicek'}, status=400)
+    obj.status = 'uptodate'
     obj.tanggal_cek = timezone.localdate()
     obj.catatan_perbaikan = ''
     obj.save()
-    return JsonResponse({'ok': True, 'status': 'checked',
+    return JsonResponse({'ok': True, 'status': 'uptodate',
                          'tanggal_cek': obj.tanggal_cek.strftime('%d %b %Y')})
 
 
 @login_required
 @require_can_edit
 def setting_revisi(request, pk):
-    """Checker kembalikan ke draft dengan catatan perbaikan (AJAX POST)."""
+    """Checker kembalikan dengan catatan: on_check → perlu_perbaikan (AJAX POST)."""
     if request.method != 'POST':
         return JsonResponse({'ok': False}, status=405)
     obj = get_object_or_404(SettingRele, pk=pk)
@@ -126,11 +148,11 @@ def setting_revisi(request, pk):
     catatan = request.POST.get('catatan', '').strip()
     if not catatan:
         return JsonResponse({'ok': False, 'error': 'Catatan perbaikan wajib diisi'}, status=400)
-    obj.status = 'draft'
+    obj.status = 'perlu_perbaikan'
     obj.catatan_perbaikan = catatan
     obj.tanggal_cek = None
     obj.save()
-    return JsonResponse({'ok': True, 'status': 'draft', 'catatan': catatan})
+    return JsonResponse({'ok': True, 'status': 'perlu_perbaikan', 'catatan': catatan})
 
 
 @login_required
