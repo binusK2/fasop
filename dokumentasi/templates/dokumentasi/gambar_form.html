@@ -1,17 +1,96 @@
 {% extends 'base.html' %}
-{% block title %}{% if is_edit %}Edit Gambar{% else %}Tambah Gambar{% endif %} — FASOP{% endblock %}
+{% block title %}{% if is_edit %}Edit Gambar{% else %}Tambah Gambar / Wiring Diagram{% endif %} — FASOP{% endblock %}
+{% block page_title %}{% if is_edit %}Edit Gambar{% else %}Tambah Gambar / Wiring{% endif %}{% endblock %}
 
 {% block content %}
 <style>
-  .field-label { font-size:12px;font-weight:600;color:#64748b;margin-bottom:5px;display:block; }
-  .field-label .req { color:#ef4444;margin-left:2px; }
-  .field-hint { font-size:11px;color:#94a3b8;margin-top:4px; }
-  .section-bar { display:flex;align-items:center;gap:8px;margin-bottom:16px; }
-  .section-bar .bar { width:4px;height:18px;border-radius:3px;flex-shrink:0; }
-  .section-bar span:last-child { font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#475569; }
-  #device-info-box { font-size:12px;color:#475569;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:7px 12px;margin-top:6px; }
+  .fl { font-size:11.5px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px;display:block; }
+  .fl .req { color:#ef4444;margin-left:2px; }
+  .fhint { font-size:11px;color:#94a3b8;margin-top:4px; }
+
+  .sec-bar { display:flex;align-items:center;gap:8px;margin-bottom:18px;padding-bottom:12px;border-bottom:1px solid #f1f5f9; }
+  .sec-bar .bar { width:4px;height:20px;border-radius:3px;flex-shrink:0; }
+  .sec-bar span { font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#1e293b; }
+
+  /* ── Device info box ── */
+  #device-info-box {
+    background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;
+    padding:12px 14px;margin-top:8px;display:none;
+  }
+  .dib-row { display:flex;align-items:center;gap:6px;margin-bottom:4px;font-size:12px; }
+  .dib-row:last-child { margin-bottom:0; }
+  .dib-lbl { font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#94a3b8;width:76px;flex-shrink:0; }
+  .dib-val { color:#1e293b;font-weight:500; }
+  .dib-val.mono { font-family:monospace;font-size:11.5px;color:#3b82f6; }
+
+  /* ── Upload zone ── */
+  .upload-zone {
+    border:2px dashed #cbd5e1;border-radius:14px;
+    padding:36px 24px;text-align:center;cursor:pointer;
+    transition:border-color .2s,background .2s;
+    background:#fafafa;position:relative;
+  }
+  .upload-zone:hover, .upload-zone.drag-over {
+    border-color:#3b82f6;background:#eff6ff;
+  }
+  .upload-zone .uz-icon { font-size:40px;color:#cbd5e1;margin-bottom:10px;display:block;transition:color .2s; }
+  .upload-zone:hover .uz-icon, .upload-zone.drag-over .uz-icon { color:#3b82f6; }
+  .upload-zone .uz-title { font-size:14px;font-weight:700;color:#475569;margin-bottom:4px; }
+  .upload-zone .uz-sub { font-size:11.5px;color:#94a3b8; }
+
+  /* ── File preview ── */
+  #file-preview {
+    margin-top:14px;border-radius:12px;border:1px solid #e2e8f0;
+    background:#fff;overflow:hidden;display:none;
+  }
+  .fp-header {
+    display:flex;align-items:center;justify-content:space-between;
+    padding:10px 14px;background:#f8fafc;border-bottom:1px solid #f1f5f9;
+  }
+  .fp-header span { font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.4px; }
+  .fp-body { padding:14px; }
+  .fp-img { width:100%;max-height:360px;object-fit:contain;border-radius:8px;background:#f8fafc;border:1px solid #f1f5f9; }
+  .fp-file-row {
+    display:flex;align-items:center;gap:12px;
+    padding:12px 14px;background:#f8fafc;border-radius:10px;
+  }
+  .fp-ext {
+    width:44px;height:44px;border-radius:8px;display:flex;align-items:center;justify-content:center;
+    font-size:11px;font-weight:800;color:#fff;flex-shrink:0;
+  }
+  .fp-fname { font-size:13px;font-weight:600;color:#1e293b;word-break:break-all; }
+  .fp-fsize { font-size:11px;color:#94a3b8;margin-top:2px; }
+
+  /* ── Current file (edit) ── */
+  .current-file-box {
+    display:flex;align-items:center;gap:10px;
+    padding:10px 14px;background:#eff6ff;border:1px solid #bfdbfe;
+    border-radius:10px;margin-bottom:10px;
+  }
+  .current-file-box a { font-size:12.5px;font-weight:600;color:#2563eb;text-decoration:none; }
+  .current-file-box a:hover { text-decoration:underline; }
+  .current-file-box .cf-sub { font-size:11px;color:#93c5fd;margin-top:1px; }
+
+  /* ── Current image preview (edit) ── */
+  .current-img-wrap {
+    border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;
+    margin-bottom:12px;background:#f8fafc;
+  }
+  .current-img-wrap img { width:100%;max-height:300px;object-fit:contain;display:block;padding:8px; }
+  .current-img-caption {
+    padding:8px 12px;background:#f8fafc;border-top:1px solid #f1f5f9;
+    font-size:11px;color:#94a3b8;display:flex;align-items:center;justify-content:space-between;
+  }
+
+  /* ── Info row (right panel) ── */
+  .info-row { display:flex;justify-content:space-between;align-items:center;
+              padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:12px; }
+  .info-row:last-child { border-bottom:none; }
+  .info-row .lbl { color:#94a3b8;font-weight:600; }
+  .info-row .val { color:#1e293b;font-weight:600; }
 </style>
 
+{# ── Breadcrumb ── #}
 <div class="d-flex align-items-center gap-2 mb-4">
   <a href="{% url 'gambar_rele_list' %}" class="btn btn-sm btn-outline-secondary">
     <i class="bi bi-arrow-left me-1"></i>Kembali
@@ -20,6 +99,7 @@
   <a href="{% url 'gambar_rele_detail' obj.pk %}" class="btn btn-sm btn-outline-primary">
     <i class="bi bi-eye me-1"></i>Lihat Detail
   </a>
+  <span style="font-size:11px;color:#94a3b8;margin-left:4px;">{{ obj.nomor }}</span>
   {% endif %}
 </div>
 
@@ -27,106 +107,223 @@
 {% csrf_token %}
 <div class="row g-3">
 
-  {# ── Kiri ── #}
+  {# ══ KIRI col-8 ══ #}
   <div class="col-lg-8">
+
+    {# ── Card: Identitas Gambar ── #}
     <div class="card mb-3">
-      <div class="card-body px-4 py-3">
-        <div class="section-bar">
-          <span class="bar" style="background:#8b5cf6;"></span>
-          <span>Informasi Gambar</span>
+      <div class="card-body px-4 py-4">
+        <div class="sec-bar">
+          <span class="bar" style="background:#3b82f6;"></span>
+          <span>Identitas Gambar</span>
         </div>
+
         <div class="row g-3">
+
+          {# Perangkat #}
           <div class="col-12">
-            <label class="field-label">Perangkat <span class="req">*</span></label>
+            <label class="fl">Perangkat <span class="req">*</span></label>
             {{ form.device }}
-            <div id="device-info-box" style="display:none;"></div>
-            {% if form.device.errors %}<div class="text-danger" style="font-size:11.5px;">{{ form.device.errors.0 }}</div>{% endif %}
+            {% if form.device.errors %}<div class="text-danger" style="font-size:11.5px;margin-top:4px;">{{ form.device.errors.0 }}</div>{% endif %}
+            <div id="device-info-box">
+              <div class="dib-row">
+                <span class="dib-lbl">Lokasi</span>
+                <span class="dib-val" id="dib-lokasi">—</span>
+              </div>
+              <div class="dib-row">
+                <span class="dib-lbl">Jenis</span>
+                <span class="dib-val" id="dib-jenis">—</span>
+              </div>
+              <div class="dib-row" id="dib-row-merk" style="display:none;">
+                <span class="dib-lbl">Merk / Tipe</span>
+                <span class="dib-val" id="dib-merk">—</span>
+              </div>
+              <div class="dib-row" id="dib-row-sn" style="display:none;">
+                <span class="dib-lbl">S/N</span>
+                <span class="dib-val mono" id="dib-sn">—</span>
+              </div>
+              <div class="dib-row" id="dib-row-ip" style="display:none;">
+                <span class="dib-lbl">IP Address</span>
+                <span class="dib-val mono" id="dib-ip">—</span>
+              </div>
+            </div>
           </div>
+
+          {# Judul #}
           <div class="col-12">
-            <label class="field-label">Judul <span class="req">*</span></label>
+            <label class="fl">Judul <span class="req">*</span></label>
             {{ form.judul }}
-            {% if form.judul.errors %}<div class="text-danger" style="font-size:11.5px;">{{ form.judul.errors.0 }}</div>{% endif %}
+            {% if form.judul.errors %}<div class="text-danger" style="font-size:11.5px;margin-top:4px;">{{ form.judul.errors.0 }}</div>{% endif %}
           </div>
-          <div class="col-md-4">
-            <label class="field-label">Tipe Gambar <span class="req">*</span></label>
+
+          {# Tipe gambar + Nomor gambar #}
+          <div class="col-md-6">
+            <label class="fl">Tipe Gambar <span class="req">*</span></label>
             {{ form.tipe }}
           </div>
+          <div class="col-md-6">
+            <label class="fl">Nomor Gambar</label>
+            {{ form.nomor_gambar }}
+            <p class="fhint">Misal: DS-TELLO-WD-001</p>
+          </div>
+
+          {# Tanggal + Versi + Skala #}
           <div class="col-md-4">
-            <label class="field-label">Tanggal <span class="req">*</span></label>
+            <label class="fl">Tanggal <span class="req">*</span></label>
             {{ form.tanggal }}
-            {% if form.tanggal.errors %}<div class="text-danger" style="font-size:11.5px;">{{ form.tanggal.errors.0 }}</div>{% endif %}
+            {% if form.tanggal.errors %}<div class="text-danger" style="font-size:11.5px;margin-top:4px;">{{ form.tanggal.errors.0 }}</div>{% endif %}
           </div>
           <div class="col-md-4">
-            <label class="field-label">Versi</label>
+            <label class="fl">Versi / Revisi</label>
             {{ form.versi }}
           </div>
-          <div class="col-12">
-            <label class="field-label">Keterangan</label>
-            {{ form.keterangan }}
+          <div class="col-md-4">
+            <label class="fl">Skala</label>
+            {{ form.skala }}
+            <p class="fhint">Misal: 1:100 / NTS / A3</p>
           </div>
-          <div class="col-12">
-            <label class="field-label">File Gambar</label>
-            {% if is_edit and obj.file_gambar %}
-            <div class="mb-2" style="font-size:12px;color:#475569;">
-              <i class="bi bi-paperclip me-1"></i>File saat ini:
-              <a href="{{ obj.file_gambar.url }}" target="_blank" class="text-primary">
-                {{ obj.file_gambar.name|cut:"dokumentasi/gambar/" }}
-              </a>
-              <span class="text-muted ms-1">(upload baru untuk mengganti)</span>
-            </div>
-            {% endif %}
-            {{ form.file_gambar }}
-            <div class="field-hint">Format: .pdf .jpg .jpeg .png .dwg .dxf .svg .zip</div>
-          </div>
+
         </div>
       </div>
     </div>
+
+    {# ── Card: Upload File / Gambar ── #}
+    <div class="card mb-3">
+      <div class="card-body px-4 py-4">
+        <div class="sec-bar">
+          <span class="bar" style="background:#f59e0b;"></span>
+          <span>File / Gambar</span>
+        </div>
+
+        {# Jika edit dan ada file gambar — image preview atau file info #}
+        {% if is_edit and obj.file_gambar %}
+          {% if obj.is_image %}
+          <div class="current-img-wrap mb-3">
+            <img src="{{ obj.file_gambar.url }}" alt="{{ obj.judul }}">
+            <div class="current-img-caption">
+              <span><i class="bi bi-image me-1"></i>{{ obj.file_gambar.name|cut:"dokumentasi/gambar/" }}</span>
+              <a href="{{ obj.file_gambar.url }}" target="_blank" style="color:#3b82f6;font-size:11px;">
+                <i class="bi bi-arrow-up-right-square me-1"></i>Buka
+              </a>
+            </div>
+          </div>
+          {% else %}
+          <div class="current-file-box mb-3">
+            <i class="bi bi-file-earmark-check" style="font-size:22px;color:#2563eb;flex-shrink:0;"></i>
+            <div style="flex:1;min-width:0;">
+              <a href="{{ obj.file_gambar.url }}" target="_blank">
+                {{ obj.file_gambar.name|cut:"dokumentasi/gambar/" }}
+              </a>
+              <div class="cf-sub">Upload file baru untuk mengganti</div>
+            </div>
+            <span style="font-size:10px;font-weight:700;background:#dbeafe;color:#2563eb;padding:2px 8px;border-radius:20px;white-space:nowrap;">
+              .{{ obj.file_ext|upper }}
+            </span>
+          </div>
+          {% endif %}
+        {% endif %}
+
+        {# Drop zone #}
+        <div class="upload-zone" id="drop-zone" onclick="document.getElementById('id_file_gambar').click()">
+          <i class="bi bi-cloud-arrow-up uz-icon"></i>
+          <div class="uz-title">Klik atau seret file ke sini</div>
+          <div class="uz-sub">PDF · JPG · JPEG · PNG · DWG · DXF · SVG · ZIP</div>
+          {{ form.file_gambar }}
+        </div>
+
+        {# Preview area #}
+        <div id="file-preview">
+          <div class="fp-header">
+            <span>File dipilih</span>
+            <button type="button" onclick="clearFile()" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:18px;line-height:1;padding:0;">×</button>
+          </div>
+          <div class="fp-body" id="fp-body"></div>
+        </div>
+
+      </div>
+    </div>
+
+    {# ── Card: Keterangan ── #}
+    <div class="card mb-3">
+      <div class="card-body px-4 py-4">
+        <div class="sec-bar">
+          <span class="bar" style="background:#64748b;"></span>
+          <span>Keterangan</span>
+        </div>
+        <label class="fl">Catatan / Sumber / Referensi</label>
+        {{ form.keterangan }}
+      </div>
+    </div>
+
   </div>
 
-  {# ── Kanan ── #}
+  {# ══ KANAN col-4 ══ #}
   <div class="col-lg-4">
+
+    {# ── Card: Verifikasi ── #}
     <div class="card mb-3">
-      <div class="card-body px-4 py-3">
-        <div class="section-bar">
+      <div class="card-body px-4 py-4">
+        <div class="sec-bar">
           <span class="bar" style="background:#10b981;"></span>
           <span>Verifikasi</span>
         </div>
         <div class="row g-3">
           <div class="col-12">
-            <label class="field-label">Checker</label>
+            <label class="fl">Checker</label>
             {{ form.checker }}
           </div>
           <div class="col-12">
-            <label class="field-label">Tanggal Cek</label>
+            <label class="fl">Tanggal Cek</label>
             {{ form.tanggal_cek }}
           </div>
         </div>
       </div>
     </div>
 
+    {# ── Card: Submit ── #}
+    <div class="card mb-3">
+      <div class="card-body px-4 py-3">
+        <button type="submit" class="btn btn-primary w-100 py-2" style="font-weight:700;">
+          <i class="bi bi-{% if is_edit %}floppy{% else %}plus-lg{% endif %} me-2"></i>
+          {% if is_edit %}Simpan Perubahan{% else %}Simpan Gambar{% endif %}
+        </button>
+        <a href="{% if is_edit %}{% url 'gambar_rele_detail' obj.pk %}{% else %}{% url 'gambar_rele_list' %}{% endif %}"
+           class="btn btn-outline-secondary w-100 mt-2">Batal</a>
+      </div>
+    </div>
+
+    {# ── Card: Info Dokumen (edit only) ── #}
     {% if is_edit %}
-    <div class="card border-0 shadow-sm" style="background:#f8fafc;">
-      <div class="card-body px-4 py-3" style="font-size:12px;color:#64748b;">
-        <div class="fw-semibold mb-2" style="font-size:11px;text-transform:uppercase;letter-spacing:.6px;">Info Dokumen</div>
-        <div><span class="text-muted">Nomor:</span> <span class="font-monospace text-primary fw-semibold">{{ obj.nomor }}</span></div>
-        {% if obj.created_by %}<div class="mt-1"><span class="text-muted">Dibuat oleh:</span> {{ obj.created_by.get_full_name|default:obj.created_by.username }}</div>{% endif %}
-        <div class="mt-1"><span class="text-muted">Dibuat pada:</span> {{ obj.created_at|date:"d M Y H:i" }}</div>
+    <div class="card" style="background:#f8fafc;border:1px solid #e2e8f0;">
+      <div class="card-body px-4 py-3">
+        <div class="sec-bar" style="border-bottom:1px solid #e2e8f0;margin-bottom:12px;padding-bottom:10px;">
+          <span class="bar" style="background:#e2e8f0;"></span>
+          <span style="color:#94a3b8;">Info Dokumen</span>
+        </div>
+        <div class="info-row">
+          <span class="lbl">Nomor</span>
+          <span class="val font-monospace text-primary" style="font-size:12px;">{{ obj.nomor }}</span>
+        </div>
+        {% if obj.created_by %}
+        <div class="info-row">
+          <span class="lbl">Dibuat oleh</span>
+          <span class="val">{{ obj.created_by.get_full_name|default:obj.created_by.username }}</span>
+        </div>
+        {% endif %}
+        <div class="info-row">
+          <span class="lbl">Dibuat pada</span>
+          <span class="val">{{ obj.created_at|date:"d M Y H:i" }}</span>
+        </div>
+        <div class="info-row">
+          <span class="lbl">Diperbarui</span>
+          <span class="val">{{ obj.updated_at|date:"d M Y H:i" }}</span>
+        </div>
       </div>
     </div>
     {% endif %}
+
   </div>
-
 </div>
-
-<div class="d-flex gap-2 mb-4 mt-2">
-  <button type="submit" class="btn btn-warning px-4">
-    <i class="bi bi-{% if is_edit %}floppy{% else %}plus-lg{% endif %} me-1"></i>
-    {% if is_edit %}Simpan Perubahan{% else %}Simpan Gambar{% endif %}
-  </button>
-  <a href="{% if is_edit %}{% url 'gambar_rele_detail' obj.pk %}{% else %}{% url 'gambar_rele_list' %}{% endif %}"
-     class="btn btn-outline-secondary">Batal</a>
-</div>
-
 </form>
 {% endblock %}
 
@@ -137,19 +334,94 @@ const selDevice   = document.getElementById('id_device');
 const infoBox     = document.getElementById('device-info-box');
 const savedDevice = "{{ obj.device_id|default:'' }}";
 
+/* ── Device info box ── */
 function showDeviceInfo(id) {
   const d = ALL_DEVICES.find(x => String(x.id) === String(id));
-  if (d) {
-    infoBox.innerHTML = '<i class="bi bi-geo-alt-fill me-1" style="color:#f59e0b;"></i>'
-      + (d.lokasi ? '<strong>' + d.lokasi + '</strong> · ' : '')
-      + '<span style="color:#94a3b8;">' + (d.jenis || '') + '</span>';
-    infoBox.style.display = 'block';
-  } else {
-    infoBox.style.display = 'none';
-  }
+  if (!d) { infoBox.style.display = 'none'; return; }
+  infoBox.style.display = 'block';
+  document.getElementById('dib-lokasi').textContent = d.lokasi || '—';
+  document.getElementById('dib-jenis').textContent  = d.jenis  || '—';
+
+  const merkTxt = [d.merk, d.type].filter(Boolean).join(' / ');
+  const rowMerk = document.getElementById('dib-row-merk');
+  if (merkTxt) { document.getElementById('dib-merk').textContent = merkTxt; rowMerk.style.display = 'flex'; }
+  else           rowMerk.style.display = 'none';
+
+  const rowSn = document.getElementById('dib-row-sn');
+  if (d.serial_number) { document.getElementById('dib-sn').textContent = d.serial_number; rowSn.style.display = 'flex'; }
+  else                   rowSn.style.display = 'none';
+
+  const rowIp = document.getElementById('dib-row-ip');
+  if (d.ip_address) { document.getElementById('dib-ip').textContent = d.ip_address; rowIp.style.display = 'flex'; }
+  else               rowIp.style.display = 'none';
 }
 
 showDeviceInfo(selDevice.value || savedDevice);
 selDevice.addEventListener('change', function() { showDeviceInfo(this.value); });
+
+/* ── Upload zone ── */
+const dropZone  = document.getElementById('drop-zone');
+const fileInput = document.getElementById('id_file_gambar');
+const preview   = document.getElementById('file-preview');
+const fpBody    = document.getElementById('fp-body');
+
+fileInput.addEventListener('click', e => e.stopPropagation());
+fileInput.style.display = 'none';
+
+fileInput.addEventListener('change', () => {
+  if (fileInput.files.length) renderPreview(fileInput.files[0]);
+});
+
+['dragenter','dragover'].forEach(evt =>
+  dropZone.addEventListener(evt, e => { e.preventDefault(); dropZone.classList.add('drag-over'); })
+);
+['dragleave','drop'].forEach(evt =>
+  dropZone.addEventListener(evt, e => { e.preventDefault(); dropZone.classList.remove('drag-over'); })
+);
+dropZone.addEventListener('drop', e => {
+  const f = e.dataTransfer.files[0];
+  if (!f) return;
+  const dt = new DataTransfer();
+  dt.items.add(f);
+  fileInput.files = dt.files;
+  renderPreview(f);
+});
+
+const EXT_COLOR = {
+  pdf:'#ef4444',
+  jpg:'#10b981', jpeg:'#10b981', png:'#10b981', svg:'#10b981', gif:'#10b981', webp:'#10b981',
+  dwg:'#f59e0b', dxf:'#f59e0b',
+  zip:'#8b5cf6',
+};
+const IMG_EXTS = ['jpg','jpeg','png','gif','svg','webp','bmp'];
+
+function renderPreview(file) {
+  const ext  = file.name.split('.').pop().toLowerCase();
+  const size = file.size < 1024*1024
+    ? (file.size/1024).toFixed(1) + ' KB'
+    : (file.size/1024/1024).toFixed(2) + ' MB';
+
+  if (IMG_EXTS.includes(ext)) {
+    const url = URL.createObjectURL(file);
+    fpBody.innerHTML = `<img src="${url}" class="fp-img" alt="preview">
+      <div style="margin-top:10px;font-size:12px;color:#64748b;text-align:center;">${file.name} · ${size}</div>`;
+  } else {
+    const color = EXT_COLOR[ext] || '#64748b';
+    fpBody.innerHTML = `<div class="fp-file-row">
+      <div class="fp-ext" style="background:${color};">${ext.toUpperCase()}</div>
+      <div>
+        <div class="fp-fname">${file.name}</div>
+        <div class="fp-fsize">${size}</div>
+      </div>
+    </div>`;
+  }
+  preview.style.display = 'block';
+}
+
+function clearFile() {
+  fileInput.value = '';
+  preview.style.display = 'none';
+  fpBody.innerHTML = '';
+}
 </script>
 {% endblock %}

@@ -35,6 +35,19 @@ def _generate_nomor_sr():
     return f'{prefix}{seq:04d}'
 
 
+TIPE_SETTING_CHOICES = (
+    ('oc_ground',    'OC Ground'),
+    ('oc_phase',     'OC Phase'),
+    ('ef',           'Earth Fault (EF)'),
+    ('differential', 'Differential'),
+    ('distance',     'Distance'),
+    ('ds',           'Defense Scheme (DS)'),
+    ('master_trip',  'Master Trip'),
+    ('ufls',         'UFLS'),
+    ('lainnya',      'Lainnya'),
+)
+
+
 class SettingRele(models.Model):
     STATUS_CHOICES = (
         ('draft',   'Draft'),
@@ -44,8 +57,10 @@ class SettingRele(models.Model):
     nomor        = models.CharField(max_length=25, unique=True, editable=False, verbose_name='Nomor')
     device       = models.ForeignKey(Device, on_delete=models.CASCADE, related_name='setting_rele', verbose_name='Perangkat Rele')
     judul        = models.CharField(max_length=200, verbose_name='Judul')
+    tipe_setting = models.CharField(max_length=20, choices=TIPE_SETTING_CHOICES, blank=True, verbose_name='Tipe Setting')
+    penyulang_bay = models.CharField(max_length=100, blank=True, verbose_name='Penyulang / Bay')
     tanggal      = models.DateField(verbose_name='Tanggal')
-    versi        = models.CharField(max_length=50, blank=True, verbose_name='Versi')
+    versi        = models.CharField(max_length=50, blank=True, verbose_name='Versi / Revisi')
     file_setting = models.FileField(upload_to=setting_file_upload, null=True, blank=True, verbose_name='File Setting')
     keterangan   = models.TextField(blank=True, verbose_name='Keterangan')
     checker      = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
@@ -109,21 +124,23 @@ def _generate_nomor_gr():
 
 
 class GambarDevice(models.Model):
-    nomor       = models.CharField(max_length=25, unique=True, editable=False, verbose_name='Nomor')
-    device      = models.ForeignKey(Device, on_delete=models.CASCADE, related_name='gambar_device', verbose_name='Perangkat')
-    judul       = models.CharField(max_length=200, verbose_name='Judul')
-    tipe        = models.CharField(max_length=20, choices=TIPE_GAMBAR_CHOICES, default='wiring', verbose_name='Tipe Gambar')
-    tanggal     = models.DateField(verbose_name='Tanggal')
-    versi       = models.CharField(max_length=50, blank=True, verbose_name='Versi')
-    file_gambar = models.FileField(upload_to=gambar_upload, null=True, blank=True, verbose_name='File Gambar')
-    keterangan  = models.TextField(blank=True, verbose_name='Keterangan')
-    checker     = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
-                                    related_name='gambar_device_checked', verbose_name='Checker')
-    tanggal_cek = models.DateField(null=True, blank=True, verbose_name='Tanggal Cek')
-    created_by  = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
-                                    related_name='gambar_device_dibuat', verbose_name='Dibuat Oleh')
-    created_at  = models.DateTimeField(auto_now_add=True)
-    updated_at  = models.DateTimeField(auto_now=True)
+    nomor        = models.CharField(max_length=25, unique=True, editable=False, verbose_name='Nomor')
+    device       = models.ForeignKey(Device, on_delete=models.CASCADE, related_name='gambar_device', verbose_name='Perangkat')
+    judul        = models.CharField(max_length=200, verbose_name='Judul')
+    tipe         = models.CharField(max_length=20, choices=TIPE_GAMBAR_CHOICES, default='wiring', verbose_name='Tipe Gambar')
+    nomor_gambar = models.CharField(max_length=100, blank=True, verbose_name='Nomor Gambar')
+    skala        = models.CharField(max_length=30, blank=True, verbose_name='Skala', help_text='Contoh: 1:100, NTS, A3')
+    tanggal      = models.DateField(verbose_name='Tanggal')
+    versi        = models.CharField(max_length=50, blank=True, verbose_name='Versi / Revisi')
+    file_gambar  = models.FileField(upload_to=gambar_upload, null=True, blank=True, verbose_name='File Gambar')
+    keterangan   = models.TextField(blank=True, verbose_name='Keterangan')
+    checker      = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
+                                     related_name='gambar_device_checked', verbose_name='Checker')
+    tanggal_cek  = models.DateField(null=True, blank=True, verbose_name='Tanggal Cek')
+    created_by   = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
+                                     related_name='gambar_device_dibuat', verbose_name='Dibuat Oleh')
+    created_at   = models.DateTimeField(auto_now_add=True)
+    updated_at   = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ['-tanggal', '-created_at']

@@ -17,10 +17,14 @@ def _get_device_json(prosis_only=False):
         )
     return json.dumps([
         {
-            'id':    d.id,
-            'nama':  d.nama,
-            'lokasi': d.lokasi or '',
-            'jenis':  d.jenis.name if d.jenis else '',
+            'id':            d.id,
+            'nama':          d.nama,
+            'lokasi':        d.lokasi or '',
+            'jenis':         d.jenis.name if d.jenis else '',
+            'merk':          d.merk or '',
+            'type':          d.type or '',
+            'serial_number': d.serial_number or '',
+            'ip_address':    str(d.ip_address) if d.ip_address else '',
         }
         for d in qs
     ])
