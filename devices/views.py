@@ -984,6 +984,48 @@ def lokasi_list(request):
     })
 
 
+def api_device_links(request):
+    """Kembalikan semua DeviceLink aktif beserta koordinat site masing-masing device."""
+    from .models import DeviceLink
+    site_coords = {sl.nama.strip(): sl for sl in SiteLocation.objects.all()}
+
+    result = []
+    for link in (DeviceLink.objects
+                 .filter(aktif=True)
+                 .select_related('device_a', 'device_a__jenis',
+                                 'device_b', 'device_b__jenis')):
+        loc_a = (link.device_a.lokasi or '').strip()
+        loc_b = (link.device_b.lokasi or '').strip()
+        sl_a  = site_coords.get(loc_a)
+        sl_b  = site_coords.get(loc_b)
+        if not (sl_a and sl_a.has_coords and sl_b and sl_b.has_coords):
+            continue
+        if loc_a == loc_b:
+            continue
+        result.append({
+            'id':    link.pk,
+            'label': link.display_label,
+            'tipe':  link.tipe,
+            'device_a': {
+                'id':    link.device_a.pk,
+                'nama':  link.device_a.nama,
+                'jenis': link.device_a.jenis.name if link.device_a.jenis else '',
+                'lokasi': loc_a,
+            },
+            'device_b': {
+                'id':    link.device_b.pk,
+                'nama':  link.device_b.nama,
+                'jenis': link.device_b.jenis.name if link.device_b.jenis else '',
+                'lokasi': loc_b,
+            },
+            'lat_a': float(sl_a.latitude),
+            'lng_a': float(sl_a.longitude),
+            'lat_b': float(sl_b.latitude),
+            'lng_b': float(sl_b.longitude),
+        })
+    return JsonResponse({'links': result})
+
+
 def api_lokasi_devices(request, lokasi_nama):
     """API endpoint: kembalikan daftar device di suatu lokasi sebagai JSON."""
     if not request.user.is_authenticated:
