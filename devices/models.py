@@ -372,6 +372,16 @@ class DeviceEvent(models.Model):
         verbose_name='Komponen Terkait',
         help_text='Opsional — pilih komponen spesifik dari database'
     )
+    merk_komponen_baru = models.CharField(
+        max_length=100, blank=True,
+        verbose_name='Merk Komponen Baru',
+        help_text='Merk komponen pengganti (isi saat penggantian)'
+    )
+    tipe_komponen_baru = models.CharField(
+        max_length=100, blank=True,
+        verbose_name='Tipe / Model Komponen Baru',
+        help_text='Tipe atau model komponen pengganti'
+    )
     created_at      = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -421,6 +431,52 @@ class DeviceEvent(models.Model):
             return '—'
         return self.dilakukan_oleh.get_full_name() or self.dilakukan_oleh.username
 
+
+class KomponenRusak(models.Model):
+    """
+    Daftar komponen yang telah diganti / rusak, beserta lokasi penyimpanannya.
+    Dibuat otomatis saat mencatat kejadian Penggantian Komponen.
+    """
+    device            = models.ForeignKey(
+        'Device', on_delete=models.CASCADE, related_name='komponen_rusak',
+        verbose_name='Perangkat'
+    )
+    nama_komponen     = models.CharField(max_length=150, verbose_name='Nama Komponen')
+    merk              = models.CharField(max_length=100, blank=True, verbose_name='Merk')
+    tipe              = models.CharField(max_length=100, blank=True, verbose_name='Tipe / Model')
+    komponen_terkait  = models.ForeignKey(
+        'devices.DeviceComponent',
+        on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='riwayat_rusak',
+        verbose_name='Referensi Komponen'
+    )
+    tanggal_rusak     = models.DateField(verbose_name='Tanggal Diganti / Rusak')
+    disimpan_di       = models.CharField(
+        max_length=200, blank=True,
+        verbose_name='Disimpan Di',
+        help_text='Lokasi penyimpanan komponen rusak, misal: Gudang Teknik, Loker B2'
+    )
+    keterangan        = models.TextField(blank=True, verbose_name='Keterangan')
+    event             = models.ForeignKey(
+        'DeviceEvent',
+        on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='komponen_rusak_set',
+        verbose_name='Sumber Kejadian'
+    )
+    created_by        = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='komponen_rusak_dicatat',
+        verbose_name='Dicatat oleh'
+    )
+    created_at        = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name        = 'Komponen Rusak'
+        verbose_name_plural = 'Daftar Komponen Rusak'
+        ordering            = ['-tanggal_rusak', '-created_at']
+
+    def __str__(self):
+        return f'{self.nama_komponen} — {self.device.nama} ({self.tanggal_rusak})'
 
 
 class FiberOptic(models.Model):

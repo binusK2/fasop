@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Device, DeviceType, SiteLocation, ULTG
+from .models import Device, DeviceType, SiteLocation, ULTG, KomponenRusak
 from .models_komponen import (
     GrupTipeKomponen, TipeKomponen,
     DeviceComponent,
@@ -187,3 +187,11 @@ class UserProfileAdmin(admin.ModelAdmin):
 def create_profile(sender, instance, created, **kwargs):
     if created:
         UserProfile.objects.get_or_create(user=instance)
+
+
+@admin.register(KomponenRusak)
+class KomponenRusakAdmin(admin.ModelAdmin):
+    list_display  = ['tanggal_rusak', 'device', 'nama_komponen', 'merk', 'tipe', 'disimpan_di', 'created_by']
+    list_filter   = ['tanggal_rusak', 'device__lokasi']
+    search_fields = ['nama_komponen', 'merk', 'tipe', 'disimpan_di', 'device__nama']
+    date_hierarchy = 'tanggal_rusak'

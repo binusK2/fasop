@@ -1,0 +1,360 @@
+{% extends 'base.html' %}
+{% block title %}Edit BA — FASOP{% endblock %}
+{% block page_title %}Edit Berita Acara{% endblock %}
+
+{% block content %}
+<style>
+    .preview-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .preview-tbl thead th {
+        background: #f1f5f9; font-size: 11px; font-weight: 700;
+        text-transform: uppercase; letter-spacing: .5px; color: #475569;
+        padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center;
+    }
+    .preview-tbl tbody td { padding: 7px 8px; border: 1px solid #e2e8f0; vertical-align: middle; }
+    .preview-tbl tbody tr:nth-child(even) { background: #f8fafc; }
+    .inp-sm { font-size: 12px; padding: 3px 6px; height: auto; }
+    .ev-thumb { width:80px;height:60px;object-fit:cover;border-radius:4px;border:1px solid #e2e8f0; }
+</style>
+
+<!-- Header -->
+<div class="d-flex align-items-center gap-2 mb-3">
+    <a href="{% url 'ba_list' %}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i>
+    </a>
+    <div>
+        <h2 class="mb-0" style="font-size:18px;font-weight:700;">
+            Edit Berita Acara
+            {% if record.jenis == 'pemasangan' %}<span class="badge bg-success ms-2" style="font-size:11px;">Pemasangan</span>
+            {% elif record.jenis == 'pembongkaran' %}<span class="badge bg-warning text-dark ms-2" style="font-size:11px;">Pembongkaran</span>
+            {% elif record.jenis == 'penggantian' %}<span class="badge bg-primary ms-2" style="font-size:11px;">Penggantian</span>
+            {% elif record.jenis == 'gangguan' %}<span class="badge ms-2" style="font-size:11px;background:#7c3aed;">Gangguan</span>
+            {% endif %}
+        </h2>
+        <p class="text-muted mb-0" style="font-size:12px;">
+            Hanya bisa diedit selama status masih <strong>Draft</strong>
+        </p>
+    </div>
+</div>
+
+<form method="post" enctype="multipart/form-data" id="edit-form">
+{% csrf_token %}
+
+<!-- Card 1: Informasi BA -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;margin-bottom:12px;">
+            <i class="bi bi-info-circle me-1"></i>Informasi Berita Acara
+        </div>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label" style="font-size:12px;font-weight:600;">Nomor BA</label>
+                <input type="text" name="nomor_ba" id="nomor_ba_input" class="form-control form-control-sm"
+                       value="{{ nomor_prefix }}" oninput="updateNomorPreview()">
+                <div id="nomor_ba_preview" style="font-size:11px;color:#64748b;margin-top:4px;min-height:16px;">
+                    → {{ record.nomor_ba }}
+                </div>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label" style="font-size:12px;font-weight:600;">Tanggal Pelaksanaan</label>
+                <input type="date" name="tanggal" class="form-control form-control-sm"
+                       value="{{ tanggal_str }}" required>
+            </div>
+            <div class="col-md-5">
+                <label class="form-label" style="font-size:12px;font-weight:600;">Nama Pelaksana</label>
+                <input type="text" name="pelaksana" class="form-control form-control-sm"
+                       value="{{ record.pelaksana }}" required>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label" style="font-size:12px;font-weight:600;">NIP</label>
+                <input type="text" name="nip" class="form-control form-control-sm"
+                       value="{{ record.nip }}">
+            </div>
+            <div class="col-md-8">
+                <label class="form-label" style="font-size:12px;font-weight:600;">Jabatan</label>
+                <input type="text" name="jabatan" class="form-control form-control-sm"
+                       value="{{ record.jabatan }}">
+            </div>
+            <div class="col-12">
+                <label class="form-label" style="font-size:12px;font-weight:600;">Catatan / Keterangan Umum</label>
+                <textarea name="catatan" class="form-control form-control-sm" rows="2">{{ record.catatan }}</textarea>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Card 2: Tabel Baris Data -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;">
+                <i class="bi bi-table me-1"></i>Data
+                {% if record.jenis == 'gangguan' %}Gangguan / Kerusakan
+                {% elif record.jenis == 'pemasangan' %}Perangkat Dipasang
+                {% elif record.jenis == 'pembongkaran' %}Perangkat Dibongkar
+                {% elif record.jenis == 'penggantian' %}Komponen Diganti
+                {% endif %}
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addRow()" style="font-size:12px;">
+                <i class="bi bi-plus-lg me-1"></i>Tambah Baris
+            </button>
+        </div>
+        <div class="table-responsive">
+            <table class="preview-tbl" id="data-tbl">
+                <thead>
+                    <tr>
+                        <th style="width:4%;">No</th>
+                        {% if record.jenis == 'gangguan' %}
+                        <th style="width:11%;">Lokasi</th>
+                        <th style="width:10%;">Tgl Gangguan</th>
+                        <th style="width:10%;">Tgl Perbaikan</th>
+                        <th style="width:10%;">Peralatan</th>
+                        <th style="width:8%;">Tipe</th>
+                        <th style="width:9%;">Serial Number</th>
+                        <th style="width:9%;">Komponen</th>
+                        <th style="width:10%;">Merk / Tipe</th>
+                        <th style="width:13%;">Indikasi Gangguan</th>
+                        <th style="width:13%;">Keterangan</th>
+                        {% elif record.jenis == 'pemasangan' %}
+                        <th style="width:16%;">Nama Perangkat</th>
+                        <th style="width:10%;">Jenis</th>
+                        <th style="width:12%;">Serial Number</th>
+                        <th style="width:14%;">Komponen</th>
+                        <th style="width:14%;">Lokasi Tujuan</th>
+                        <th style="width:16%;">Keterangan</th>
+                        {% elif record.jenis == 'pembongkaran' %}
+                        <th style="width:16%;">Nama Perangkat</th>
+                        <th style="width:10%;">Jenis</th>
+                        <th style="width:12%;">Serial Number</th>
+                        <th style="width:14%;">Komponen</th>
+                        <th style="width:14%;">Lokasi Asal</th>
+                        <th style="width:16%;">Keterangan</th>
+                        {% elif record.jenis == 'penggantian' %}
+                        <th style="width:20%;">Nama Perangkat</th>
+                        <th style="width:12%;">Jenis</th>
+                        <th style="width:18%;">Komponen Lama</th>
+                        <th style="width:18%;">Komponen Baru</th>
+                        <th style="width:20%;">Keterangan</th>
+                        {% endif %}
+                        <th style="width:4%;"></th>
+                    </tr>
+                </thead>
+                <tbody id="data-tbody"></tbody>
+            </table>
+        </div>
+        <div id="empty-msg" class="text-center text-muted py-3" style="font-size:12px;display:none;">
+            <i class="bi bi-info-circle me-1"></i>Tidak ada baris. Klik "+ Tambah Baris".
+        </div>
+    </div>
+</div>
+
+<!-- Card 3: Eviden yang ada -->
+{% if existing_evidens %}
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;margin-bottom:12px;">
+            <i class="bi bi-images me-1"></i>Eviden Saat Ini
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;">
+            {% for ev in existing_evidens %}
+            <div style="display:flex;flex-direction:column;align-items:center;gap:5px;padding:8px;border:1px solid #e2e8f0;border-radius:6px;background:#fafafa;">
+                <img src="{{ ev.gambar.url }}" class="ev-thumb" alt="eviden {{ ev.urutan }}">
+                {% if ev.catatan %}
+                <div style="font-size:11px;color:#64748b;max-width:80px;text-align:center;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;" title="{{ ev.catatan }}">{{ ev.catatan }}</div>
+                {% endif %}
+                <label style="font-size:11px;color:#ef4444;cursor:pointer;display:flex;align-items:center;gap:3px;">
+                    <input type="checkbox" name="delete_eviden[]" value="{{ ev.pk }}" style="accent-color:#ef4444;">
+                    Hapus
+                </label>
+            </div>
+            {% endfor %}
+        </div>
+        <div class="form-text mt-2" style="font-size:11px;">Centang "Hapus" pada foto yang ingin dihapus, lalu simpan.</div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Card 4: Upload Eviden Baru -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;margin-bottom:12px;">
+            <i class="bi bi-cloud-upload me-1"></i>Tambah Eviden Baru <span class="text-muted fw-normal" style="text-transform:none;">(opsional)</span>
+        </div>
+        <div id="eviden-fields"></div>
+        <button type="button" class="btn btn-sm btn-outline-primary mt-2" onclick="addEvidenField()"><i class="bi bi-plus-lg me-1"></i>Tambah Eviden</button>
+        <div class="form-text" style="font-size:11px;">Tambah eviden satu per satu agar foto dan keterangannya sesuai saat ekspor PDF.</div>
+    </div>
+</div>
+
+<!-- Submit -->
+<div class="d-flex justify-content-end gap-2 mb-4">
+    <a href="{% url 'ba_list' %}" class="btn btn-sm btn-outline-secondary">Batal</a>
+    <button type="submit" class="btn btn-sm btn-primary" onclick="return validateForm()">
+        <i class="bi bi-save me-1"></i>Simpan Perubahan
+    </button>
+</div>
+</form>
+
+<script>
+const JENIS        = "{{ record.jenis }}";
+const ROWS         = {{ rows_json|safe }};
+const LOKASI_DEV   = {{ lokasi_device_json|safe }};
+let rowCount       = 0;
+
+/* ── Helpers filter lokasi/peralatan (untuk jenis gangguan) ── */
+function _e(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function onLokasiChange(input, rowId) {
+    const lokasi = input.value.trim();
+    const dl     = document.getElementById(`peralatan-dl-${rowId}`);
+    if (!dl) return;
+    const devs   = LOKASI_DEV[lokasi] || [];
+    dl.innerHTML = devs.map(d => `<option value="${_e(d.nama)}">`).join('');
+    const row    = input.closest('tr');
+    row.querySelector('input[name="peralatan[]"]').value = '';
+    row.querySelector('input[name="merk_tipe[]"]').value = '';
+}
+function onPeralatanChange(input, rowId) {
+    const nama   = input.value.trim();
+    const row    = input.closest('tr');
+    const lokasi = row.querySelector('input[name="lokasi[]"]').value.trim();
+    const devs   = LOKASI_DEV[lokasi] || [];
+    const found  = devs.find(d => d.nama.toLowerCase() === nama.toLowerCase());
+    if (found) {
+        row.querySelector('input[name="tipe[]"]').value = found.tipe || '';
+        row.querySelector('input[name="serial_number[]"]').value = found.serial_number || '';
+        row.querySelector('input[name="merk_tipe[]"]').value = found.merk_tipe || '';
+    }
+}
+
+/* ── Nomor preview ── */
+function updateNomorPreview() {
+    const val = document.getElementById('nomor_ba_input').value.trim();
+    const el  = document.getElementById('nomor_ba_preview');
+    if (val) {
+        const tgl   = document.querySelector('input[name="tanggal"]').value;
+        const tahun = tgl ? tgl.substring(0, 4) : new Date().getFullYear();
+        el.textContent = `→ ${val}.BA/FASOP/UP2BS-MKS/${tahun}`;
+    } else { el.textContent = ''; }
+}
+
+/* ── Build satu <tr> ── */
+function buildRow(data) {
+    rowCount++;
+    const id = rowCount;
+    let cells = '';
+
+    if (JENIS === 'gangguan') {
+        /* Pre-populate datalist peralatan jika lokasi sudah ada */
+        const savedLok   = data.lokasi || '';
+        const savedDevs  = LOKASI_DEV[savedLok] || [];
+        const peralOpts  = savedDevs.map(d => `<option value="${_e(d.nama)}">`).join('');
+        cells = `
+            <td>
+              <datalist id="lokasi-dl-${id}">
+                {% for lok in master_lokasi_list %}<option value="{{ lok }}">{% endfor %}
+              </datalist>
+              <input type="text" name="lokasi[]" list="lokasi-dl-${id}"
+                     class="form-control form-control-sm inp-sm"
+                     value="${esc(savedLok)}"
+                     oninput="onLokasiChange(this,${id})"
+                     onchange="onLokasiChange(this,${id})" required>
+            </td>
+            <td><input type="date"  name="tanggal_gangguan[]"  class="form-control form-control-sm inp-sm" value="${esc(data.tanggal_gangguan||'')}"></td>
+            <td><input type="date"  name="tanggal_perbaikan[]" class="form-control form-control-sm inp-sm" value="${esc(data.tanggal_perbaikan||'')}"></td>
+            <td>
+              <datalist id="peralatan-dl-${id}">${peralOpts}</datalist>
+              <input type="text" name="peralatan[]" list="peralatan-dl-${id}"
+                     class="form-control form-control-sm inp-sm"
+                     value="${esc(data.peralatan||'')}"
+                     oninput="onPeralatanChange(this,${id})"
+                     onchange="onPeralatanChange(this,${id})">
+            </td>
+            <td><input type="text"  name="tipe[]"              class="form-control form-control-sm inp-sm" value="${esc(data.tipe||'')}"></td>
+            <td><input type="text"  name="serial_number[]"     class="form-control form-control-sm inp-sm" value="${esc(data.serial_number||'')}"></td>
+            <td><input type="text"  name="komponen[]"          class="form-control form-control-sm inp-sm" value="${esc(data.komponen||'')}"></td>
+            <td><input type="text"  name="merk_tipe[]"         class="form-control form-control-sm inp-sm" value="${esc(data.merk_tipe||'')}"></td>
+            <td><input type="text"  name="indikasi_gangguan[]" class="form-control form-control-sm inp-sm" value="${esc(data.indikasi_gangguan||'')}"></td>
+            <td><input type="text"  name="keterangan[]"        class="form-control form-control-sm inp-sm" value="${esc(data.keterangan||'')}"></td>`;
+    } else if (JENIS === 'pemasangan') {
+        cells = `
+            <td><input type="text" name="nama[]"           class="form-control form-control-sm inp-sm" value="${esc(data.nama||'')}" required></td>
+            <td><input type="text" name="jenis_perangkat[]"class="form-control form-control-sm inp-sm" value="${esc(data.jenis||'')}"></td>
+            <td><input type="text" name="serial_number[]"  class="form-control form-control-sm inp-sm" value="${esc(data.serial_number||'')}"></td>
+            <td><input type="text" name="komponen[]"       class="form-control form-control-sm inp-sm" value="${esc(data.komponen||'')}"></td>
+            <td><input type="text" name="lokasi_tujuan[]"  class="form-control form-control-sm inp-sm" value="${esc(data.lokasi_tujuan||'')}"></td>
+            <td><input type="text" name="keterangan[]"     class="form-control form-control-sm inp-sm" value="${esc(data.keterangan||'')}"></td>`;
+    } else if (JENIS === 'pembongkaran') {
+        cells = `
+            <td><input type="text" name="nama[]"           class="form-control form-control-sm inp-sm" value="${esc(data.nama||'')}" required></td>
+            <td><input type="text" name="jenis_perangkat[]"class="form-control form-control-sm inp-sm" value="${esc(data.jenis||'')}"></td>
+            <td><input type="text" name="serial_number[]"  class="form-control form-control-sm inp-sm" value="${esc(data.serial_number||'')}"></td>
+            <td><input type="text" name="komponen[]"       class="form-control form-control-sm inp-sm" value="${esc(data.komponen||'')}"></td>
+            <td><input type="text" name="lokasi_asal[]"    class="form-control form-control-sm inp-sm" value="${esc(data.lokasi_asal||'')}"></td>
+            <td><input type="text" name="keterangan[]"     class="form-control form-control-sm inp-sm" value="${esc(data.keterangan||'')}"></td>`;
+    } else if (JENIS === 'penggantian') {
+        cells = `
+            <td><input type="text" name="nama[]"           class="form-control form-control-sm inp-sm" value="${esc(data.nama||'')}" required></td>
+            <td><input type="text" name="jenis_perangkat[]"class="form-control form-control-sm inp-sm" value="${esc(data.jenis||'')}"></td>
+            <td><input type="text" name="komponen_lama[]"  class="form-control form-control-sm inp-sm" value="${esc(data.komponen_lama||'')}"></td>
+            <td><input type="text" name="komponen_baru[]"  class="form-control form-control-sm inp-sm" value="${esc(data.komponen_baru||'')}"></td>
+            <td><input type="text" name="keterangan[]"     class="form-control form-control-sm inp-sm" value="${esc(data.keterangan||'')}"></td>`;
+    }
+
+    const tr = document.createElement('tr');
+    tr.id = `row-${id}`;
+    tr.innerHTML = `
+        <td style="text-align:center;font-weight:600;color:#94a3b8;">${rowCount}</td>
+        ${cells}
+        <td style="text-align:center;">
+            <button type="button" class="btn btn-sm btn-outline-danger" style="font-size:11px;padding:2px 7px;"
+                    onclick="removeRow(${id})"><i class="bi bi-trash"></i></button>
+        </td>`;
+    return tr;
+}
+
+function addRow() {
+    const tbody = document.getElementById('data-tbody');
+    tbody.appendChild(buildRow({}));
+    document.getElementById('empty-msg').style.display = 'none';
+    renumberRows();
+}
+
+function removeRow(id) {
+    const row = document.getElementById(`row-${id}`);
+    if (row) row.remove();
+    renumberRows();
+    if (!document.getElementById('data-tbody').children.length)
+        document.getElementById('empty-msg').style.display = '';
+}
+
+function renumberRows() {
+    document.querySelectorAll('#data-tbody tr').forEach((tr, i) => {
+        tr.cells[0].textContent = i + 1;
+    });
+}
+
+function esc(str) {
+    return String(str).replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function validateForm() {
+    if (!document.getElementById('data-tbody').children.length) {
+        alert('Tambahkan minimal satu baris data.');
+        return false;
+    }
+    return true;
+}
+
+function addEvidenField() {
+    const wrap = document.getElementById('eviden-fields');
+    const idx = wrap.children.length + 1;
+    const div = document.createElement('div');
+    div.className = 'row g-2 mb-2 align-items-center';
+    div.innerHTML = `<div class="col-md-5"><input type="file" name="eviden" class="form-control form-control-sm" accept="image/*"></div>
+                     <div class="col-md-6"><input type="text" name="eviden_catatan[]" class="form-control form-control-sm" placeholder="Keterangan foto ${idx}"></div>
+                     <div class="col-md-1 text-end"><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('.row').remove()"><i class="bi bi-trash"></i></button></div>`;
+    wrap.appendChild(div);
+}
+addEvidenField();
+

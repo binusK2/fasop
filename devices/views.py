@@ -551,11 +551,17 @@ def dashboard(request):
         from notifikasi.models import Notifikasi
         notif_terbaru = (
             Notifikasi.objects
-            .filter(is_read=False)
+            .filter(
+                Q(user=request.user) | Q(user__isnull=True),
+                is_read=False
+            )
             .select_related('device')
             .order_by('-created_at')[:5]
         )
-        notif_unread_total = Notifikasi.objects.filter(is_read=False).count()
+        notif_unread_total = Notifikasi.objects.filter(
+            Q(user=request.user) | Q(user__isnull=True),
+            is_read=False
+        ).count()
     except Exception:
         notif_terbaru      = []
         notif_unread_total = 0
@@ -856,8 +862,11 @@ def device_detail(request, pk):
     tipe_grouped = _get_tipe_grouped()
 
     # Eviden tambahan
-    from devices.models import DeviceEviden
+    from devices.models import DeviceEviden, KomponenRusak
     eviden_list = DeviceEviden.objects.filter(device=device).order_by('uploaded_at')
+
+    # Daftar komponen rusak
+    komponen_rusak_list = KomponenRusak.objects.filter(device=device).order_by('-tanggal_rusak')
 
     # VM children (untuk SERVER SCADA)
     vm_children = device.vm_children.filter(is_deleted=False).order_by('nama')
@@ -885,8 +894,9 @@ def device_detail(request, pk):
         'tipe_grouped':       tipe_grouped,
         'eviden_list':        eviden_list,
         'today_date':         date_type.today().strftime('%Y-%m-%d'),
-        'vm_children':        vm_children,
-        'host_candidates':    host_candidates,
+        'vm_children':          vm_children,
+        'host_candidates':      host_candidates,
+        'komponen_rusak_list':  komponen_rusak_list,
     })
 
 
@@ -1742,16 +1752,19 @@ def device_event_add(request, pk):
     if request.method == 'POST':
         from devices.models import DeviceEvent
         from devices.models_komponen import DeviceComponent
-        tipe          = request.POST.get('tipe', '').strip()
-        tanggal       = request.POST.get('tanggal', '')
-        komponen      = request.POST.get('komponen', '').strip()
+        tipe               = request.POST.get('tipe', '').strip()
+        tanggal            = request.POST.get('tanggal', '')
+        komponen           = request.POST.get('komponen', '').strip()
         komponen_terkait_pk = request.POST.get('komponen_terkait_id', '') or None
-        nilai_lama    = request.POST.get('nilai_lama', '').strip()
-        nilai_baru    = request.POST.get('nilai_baru', '').strip()
-        lokasi_asal   = request.POST.get('lokasi_asal', '').strip()
-        lokasi_tujuan = request.POST.get('lokasi_tujuan', '').strip()
-        catatan       = request.POST.get('catatan', '').strip()
-        foto          = request.FILES.get('foto')
+        nilai_lama         = request.POST.get('nilai_lama', '').strip()
+        nilai_baru         = request.POST.get('nilai_baru', '').strip()
+        lokasi_asal        = request.POST.get('lokasi_asal', '').strip()
+        lokasi_tujuan      = request.POST.get('lokasi_tujuan', '').strip()
+        catatan            = request.POST.get('catatan', '').strip()
+        foto               = request.FILES.get('foto')
+        merk_komponen_baru = request.POST.get('merk_komponen_baru', '').strip()
+        tipe_komponen_baru = request.POST.get('tipe_komponen_baru', '').strip()
+        disimpan_di        = request.POST.get('disimpan_di', '').strip()
 
         komponen_terkait_obj = None
         if komponen_terkait_pk:
@@ -1759,17 +1772,19 @@ def device_event_add(request, pk):
 
         if tipe and tanggal:
             event = DeviceEvent(
-                device        = device,
-                tipe          = tipe,
-                tanggal       = tanggal,
-                komponen      = komponen,
-                komponen_terkait = komponen_terkait_obj,
-                nilai_lama    = nilai_lama,
-                nilai_baru    = nilai_baru,
-                lokasi_asal   = lokasi_asal,
-                lokasi_tujuan = lokasi_tujuan,
-                catatan       = catatan,
-                dilakukan_oleh = request.user,
+                device             = device,
+                tipe               = tipe,
+                tanggal            = tanggal,
+                komponen           = komponen,
+                komponen_terkait   = komponen_terkait_obj,
+                nilai_lama         = nilai_lama,
+                nilai_baru         = nilai_baru,
+                lokasi_asal        = lokasi_asal,
+                lokasi_tujuan      = lokasi_tujuan,
+                catatan            = catatan,
+                dilakukan_oleh     = request.user,
+                merk_komponen_baru = merk_komponen_baru,
+                tipe_komponen_baru = tipe_komponen_baru,
             )
             if foto:
                 event.foto = foto
@@ -1802,6 +1817,25 @@ def device_event_add(request, pk):
                     komponen_terkait_obj.status = 'terpasang'
                     komponen_terkait_obj.tanggal_pasang = _tz.localdate()
                     komponen_terkait_obj.save(update_fields=['status', 'tanggal_pasang', 'updated_at'])
+
+            # Auto-buat KomponenRusak saat penggantian
+            if tipe == 'penggantian':
+                from devices.models import KomponenRusak
+                nama_rusak = komponen or (komponen_terkait_obj.nama if komponen_terkait_obj else '')
+                merk_rusak = komponen_terkait_obj.merk if komponen_terkait_obj else ''
+                tipe_rusak = komponen_terkait_obj.model if komponen_terkait_obj else ''
+                KomponenRusak.objects.create(
+                    device           = device,
+                    nama_komponen    = nama_rusak,
+                    merk             = merk_rusak,
+                    tipe             = tipe_rusak,
+                    komponen_terkait = komponen_terkait_obj,
+                    tanggal_rusak    = tanggal,
+                    disimpan_di      = disimpan_di,
+                    keterangan       = catatan,
+                    event            = event,
+                    created_by       = request.user,
+                )
 
     return redirect('device_view', pk=pk)
 

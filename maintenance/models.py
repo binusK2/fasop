@@ -955,6 +955,7 @@ class BeritaAcaraRecord(models.Model):
         ('pemasangan',   'Pemasangan'),
         ('pembongkaran', 'Pembongkaran'),
         ('penggantian',  'Penggantian'),
+        ('gangguan',     'Gangguan'),
     ]
     TTD_STATUS_CHOICES = [
         ('draft',             'Draft'),

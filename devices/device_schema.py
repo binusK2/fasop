@@ -30,8 +30,12 @@ DEVICE_SCHEMA = {
     ],
 
     "Radio": [
-        {"key": "frekuensi",        "label": "Frekuensi (Rx)",      "type": "text"},
-        {"key": "frekuensi",        "label": "Frekuensi (TX)",      "type": "text"},
+        {"key": "nomor_isr",        "label": "Nomor ISR Radio",     "type": "text",
+         "placeholder": "cth: ISR-123456"},
+        {"key": "frekuensi_rx",     "label": "Frekuensi RX (MHz)",  "type": "text",
+         "placeholder": "cth: 450.500"},
+        {"key": "frekuensi_tx",     "label": "Frekuensi TX (MHz)",  "type": "text",
+         "placeholder": "cth: 455.500"},
         {"key": "Tone_Rx",          "label": "Tone (Rx)",           "type": "text"},
         {"key": "Tone_Tx",          "label": "Tone (TX)",           "type": "text"},
         {"key": "tx_power",         "label": "TX Power (W)",        "type": "number"},
@@ -117,7 +121,7 @@ DEVICE_SCHEMA = {
     ],
     "TELEPROTEKSI": [
         {"key": "komunikasi",       "label": "Port Komunikasi",      "type": "select",
-         "options": ["E1", "E&M", "PLC", ]},
+         "options": ["E1", "E&M", "PLC", "G64"]},
         {"key": "jumlah_Command",        "label": "Jumlah command",    "type": "number"},
         {"key": "Command1",         "label": "command 1",   "type": "select",
          "options": ["Distance", "DEF", "DTT", "StandBy"]},
@@ -295,3 +299,23 @@ DEVICE_SCHEMA = {
     ],
 
 }
+
+# Skema spesifikasi khusus Repeater & Tower
+REPEATER_TOWER_SCHEMA = [
+    {"key": "radio_rx", "label": "Radio Rx", "type": "text"},
+    {"key": "radio_tx", "label": "Radio Tx", "type": "text"},
+    {"key": "tone_rx", "label": "Tone Rx", "type": "text"},
+    {"key": "tone_tx", "label": "Tone Tx", "type": "text"},
+    {"key": "antena_rx", "label": "Antena Rx", "type": "text"},
+    {"key": "antena_tx", "label": "Antena Tx", "type": "text"},
+    {"key": "tipe_tower", "label": "Tipe Tower", "type": "text"},
+    {"key": "tinggi_tower", "label": "Tinggi Tower", "type": "number"},
+]
+
+# Alias nama jenis perangkat untuk menjaga kompatibilitas kapitalisasi / penamaan
+DEVICE_SCHEMA["Repeater"] = REPEATER_TOWER_SCHEMA
+DEVICE_SCHEMA["Tower"] = REPEATER_TOWER_SCHEMA
+DEVICE_SCHEMA["Repeater & Tower"] = REPEATER_TOWER_SCHEMA
+DEVICE_SCHEMA["REPEATER"] = REPEATER_TOWER_SCHEMA
+DEVICE_SCHEMA["TOWER"] = REPEATER_TOWER_SCHEMA
+DEVICE_SCHEMA["REPEATER & TOWER"] = REPEATER_TOWER_SCHEMA

@@ -1,0 +1,366 @@
+{% extends 'base.html' %}
+{% block title %}BA Gangguan Peralatan — FASOP{% endblock %}
+{% block page_title %}Berita Acara Gangguan{% endblock %}
+
+{% block content %}
+<style>
+    .pool-wrap { max-height: 260px; overflow-y: auto; }
+    .pool-wrap thead th { position: sticky; top: 0; background: #f8fafc; z-index: 1; }
+    .preview-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .preview-tbl thead th {
+        background: #f1f5f9; font-size: 11px; font-weight: 700;
+        text-transform: uppercase; letter-spacing: .5px; color: #475569;
+        padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center;
+    }
+    .preview-tbl tbody td { padding: 7px 10px; border: 1px solid #e2e8f0; vertical-align: middle; }
+    .preview-tbl tbody tr:nth-child(even) { background: #f8fafc; }
+    .btn-add  { font-size: 11px; padding: 2px 8px; }
+    .btn-rm   { font-size: 11px; padding: 2px 7px; }
+    .inp-sm   { font-size: 12px; padding: 3px 7px; height: auto; }
+    .td-center { text-align: center; }
+</style>
+
+<!-- Header -->
+<div class="d-flex align-items-center gap-2 mb-3">
+    <a href="javascript:history.back()" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i>
+    </a>
+    <div>
+        <h2 class="mb-0" style="font-size:18px;font-weight:700;">Berita Acara Gangguan / Kerusakan Peralatan</h2>
+        <p class="text-muted mb-0" style="font-size:12px;">Isi informasi, pilih peralatan, lalu ekspor ke PDF</p>
+    </div>
+</div>
+
+<form method="post" enctype="multipart/form-data" id="ba-form">
+{% csrf_token %}
+
+<!-- Card 1: Informasi BA -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;margin-bottom:12px;">
+            <i class="bi bi-info-circle me-1"></i>Informasi Berita Acara
+        </div>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label" style="font-size:12px;font-weight:600;">Nomor BA</label>
+                <input type="text" name="nomor_ba" id="nomor_ba_input" class="form-control form-control-sm"
+                       placeholder="Contoh: 006" oninput="updateNomorPreview()">
+                <div id="nomor_ba_preview" style="font-size:11px;color:#64748b;margin-top:4px;min-height:16px;"></div>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label" style="font-size:12px;font-weight:600;">Tanggal Pelaksanaan</label>
+                <input type="date" name="tanggal" class="form-control form-control-sm"
+                       value="{{ today }}" required>
+            </div>
+            <div class="col-md-5">
+                <label class="form-label" style="font-size:12px;font-weight:600;">Nama Pelaksana</label>
+                <input type="text" name="pelaksana" class="form-control form-control-sm"
+                       placeholder="Nama pelaksana kegiatan" required>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label" style="font-size:12px;font-weight:600;">NIP</label>
+                <input type="text" name="nip" class="form-control form-control-sm"
+                       placeholder="NIP pelaksana">
+            </div>
+            <div class="col-md-8">
+                <label class="form-label" style="font-size:12px;font-weight:600;">Jabatan</label>
+                <input type="text" name="jabatan" class="form-control form-control-sm"
+                       placeholder="Jabatan pelaksana">
+            </div>
+            <div class="col-12">
+                <label class="form-label" style="font-size:12px;font-weight:600;">Catatan / Keterangan Umum <span class="text-muted fw-normal">(opsional)</span></label>
+                <textarea name="catatan" class="form-control form-control-sm" rows="2"
+                          placeholder="Catatan tambahan"></textarea>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Card 2: Eviden -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;margin-bottom:12px;">
+            <i class="bi bi-images me-1"></i>Eviden <span class="text-muted fw-normal" style="text-transform:none;">(opsional)</span>
+        </div>
+        <div class="row g-3">
+            <div class="col-12">
+                <label class="form-label" style="font-size:12px;font-weight:600;">Upload Foto / Gambar Eviden</label>
+                <div id="eviden-fields"></div>
+                <button type="button" class="btn btn-sm btn-outline-primary mt-2" onclick="addEvidenField()">
+                    <i class="bi bi-plus-lg me-1"></i>Tambah Eviden
+                </button>
+                <div class="form-text" style="font-size:11px;">Tambah eviden satu per satu agar foto dan keterangannya sesuai saat ekspor PDF.</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Card 3: Cari & Pilih Peralatan berdasarkan Lokasi -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;margin-bottom:10px;">
+            <i class="bi bi-search me-1"></i>Cari &amp; Pilih Peralatan
+        </div>
+        <div class="row g-2 mb-2">
+            <div class="col-md-4">
+                <select id="filter-lokasi" class="form-select form-select-sm" onchange="filterByLokasi(this.value)">
+                    <option value="">— Pilih Lokasi —</option>
+                    {% for lok in master_lokasi_list %}
+                    <option value="{{ lok }}">{{ lok }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <input type="text" id="filter-nama" class="form-control form-control-sm"
+                       placeholder="Cari nama peralatan..." oninput="applyFilter()">
+            </div>
+            <div class="col-md-4 d-flex align-items-center">
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addManualRow()" style="font-size:12px;white-space:nowrap;">
+                    <i class="bi bi-pencil-square me-1"></i>Tambah Manual
+                </button>
+            </div>
+        </div>
+        <div class="pool-wrap">
+            <table class="preview-tbl" id="device-pool">
+                <thead>
+                    <tr>
+                        <th style="width:5%;"></th>
+                        <th style="width:35%;">Nama Peralatan</th>
+                        <th style="width:30%;">Jenis</th>
+                        <th style="width:30%;">Merk / Tipe</th>
+                    </tr>
+                </thead>
+                <tbody id="pool-tbody">
+                    <tr id="pool-empty">
+                        <td colspan="4" class="text-center text-muted py-3" style="font-size:12px;">
+                            <i class="bi bi-geo-alt d-block mb-1" style="font-size:18px;"></i>
+                            Pilih lokasi di atas untuk menampilkan peralatan.
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Card 4: Daftar Gangguan Dipilih -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;">
+                <i class="bi bi-exclamation-triangle me-1"></i>Data Gangguan / Kerusakan
+                <span id="row-count" class="ms-1 badge bg-danger rounded-pill" style="font-size:10px;background:#7c3aed!important;">0</span>
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table class="preview-tbl">
+                <thead>
+                    <tr>
+                        <th style="width:4%;">No</th>
+                        <th style="width:11%;">Lokasi</th>
+                        <th style="width:10%;">Peralatan</th>
+                        <th style="width:8%;">Tipe</th>
+                        <th style="width:9%;">Serial Number</th>
+                        <th style="width:9%;">Komponen</th>
+                        <th style="width:10%;">Merk / Tipe</th>
+                        <th style="width:9%;">Tgl Gangguan</th>
+                        <th style="width:9%;">Tgl Perbaikan</th>
+                        <th style="width:16%;">Indikasi Gangguan</th>
+                        <th style="width:16%;">Keterangan</th>
+                        <th style="width:4%;"></th>
+                    </tr>
+                </thead>
+                <tbody id="selected-body">
+                    <tr id="empty-row">
+                        <td colspan="11" class="text-center text-muted py-3" style="font-size:12px;">
+                            <i class="bi bi-inbox d-block mb-1" style="font-size:20px;"></i>
+                            Belum ada data. Pilih peralatan di atas atau klik "Tambah Manual".
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="d-flex justify-content-end mt-3">
+            <button type="submit" class="btn btn-primary btn-sm" onclick="return validateForm()">
+                <i class="bi bi-check2-circle me-1"></i>Buat BA
+            </button>
+        </div>
+    </div>
+</div>
+
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/* ── Data dari view ── */
+const LOKASI_DEV = {{ lokasi_device_json|safe }};
+
+let rowNum = 0;
+let currentLokasi = '';
+
+/* ── Nomor preview ── */
+function updateNomorPreview() {
+    const val = document.getElementById('nomor_ba_input').value.trim();
+    const el  = document.getElementById('nomor_ba_preview');
+    if (val) {
+        const tgl   = document.querySelector('input[name="tanggal"]').value;
+        const tahun = tgl ? tgl.substring(0, 4) : new Date().getFullYear();
+        el.textContent = `→ ${val}.BA/FASOP/UP2BS-MKS/${tahun}`;
+    } else { el.textContent = ''; }
+}
+
+/* ── Filter pool berdasarkan lokasi ── */
+function filterByLokasi(lokasi) {
+    currentLokasi = lokasi;
+    buildPool(lokasi);
+    applyFilter();
+}
+
+function buildPool(lokasi) {
+    const tbody = document.getElementById('pool-tbody');
+    const devs  = LOKASI_DEV[lokasi] || [];
+
+    if (!lokasi || !devs.length) {
+        tbody.innerHTML = `<tr id="pool-empty">
+            <td colspan="4" class="text-center text-muted py-3" style="font-size:12px;">
+                <i class="bi bi-geo-alt d-block mb-1" style="font-size:18px;"></i>
+                ${!lokasi ? 'Pilih lokasi di atas untuk menampilkan peralatan.' : 'Tidak ada peralatan terdaftar di lokasi ini.'}
+            </td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = devs.map(d => `
+        <tr class="pool-row"
+            data-nama="${_e(d.nama)}"
+            data-merk="${_e(d.merk_tipe)}">
+            <td class="td-center">
+                <button type="button" class="btn btn-success btn-sm btn-add" onclick="addFromPool('${_e(lokasi)}','${_e(d.nama)}','${_e(d.tipe)}','${_e(d.serial_number)}','${_e(d.merk_tipe)}')">
+                    <i class="bi bi-plus-lg"></i>
+                </button>
+            </td>
+            <td style="font-size:12.5px;">${_e(d.nama)}</td>
+            <td style="font-size:12px;color:#64748b;">—</td>
+            <td style="font-size:12px;color:#64748b;">${_e(d.merk_tipe) || '—'}</td>
+        </tr>`).join('');
+}
+
+function applyFilter() {
+    const q = document.getElementById('filter-nama').value.toLowerCase();
+    document.querySelectorAll('.pool-row').forEach(tr => {
+        const ok = !q || tr.dataset.nama.toLowerCase().includes(q);
+        tr.style.display = ok ? '' : 'none';
+    });
+}
+
+/* ── Tambah dari pool ── */
+function addFromPool(lokasi, nama, tipe, serialNumber, merkTipe) {
+    addRow(lokasi, nama, tipe, serialNumber, '', merkTipe);
+}
+
+/* ── Tambah baris manual (kosong) ── */
+function addManualRow() {
+    addRow('', '', '', '', '', '');
+}
+
+/* ── Core: buat satu baris di tabel Data Gangguan ── */
+function addRow(lokasi, peralatan, tipe, serialNumber, komponen, merkTipe) {
+    rowNum++;
+    const id    = rowNum;
+    const tbody = document.getElementById('selected-body');
+    document.getElementById('empty-row').style.display = 'none';
+
+    const tr = document.createElement('tr');
+    tr.className = 'data-row';
+    tr.id = `sel-row-${id}`;
+    tr.innerHTML = `
+        <td class="td-no td-center" style="font-size:12px;font-weight:600;color:#94a3b8;">—</td>
+        <td><input type="text" name="lokasi[]"
+                   class="form-control form-control-sm inp-sm"
+                   value="${_e(lokasi)}" placeholder="Lokasi" required
+                   list="lokasi-master-dl"></td>
+        <td><input type="text" name="peralatan[]"
+                   class="form-control form-control-sm inp-sm"
+                   value="${_e(peralatan)}" placeholder="Nama peralatan"></td>
+        <td><input type="text" name="tipe[]"
+                   class="form-control form-control-sm inp-sm"
+                   value="${_e(tipe)}" placeholder="Tipe"></td>
+        <td><input type="text" name="serial_number[]"
+                   class="form-control form-control-sm inp-sm"
+                   value="${_e(serialNumber)}" placeholder="Serial number"></td>
+        <td><input type="text" name="komponen[]"
+                   class="form-control form-control-sm inp-sm"
+                   value="${_e(komponen)}" placeholder="Komponen"></td>
+        <td><input type="text" name="merk_tipe[]"
+                   class="form-control form-control-sm inp-sm"
+                   value="${_e(merkTipe)}" placeholder="Merk / Tipe"></td>
+        <td><input type="date" name="tanggal_gangguan[]"
+                   class="form-control form-control-sm inp-sm"></td>
+        <td><input type="date" name="tanggal_perbaikan[]"
+                   class="form-control form-control-sm inp-sm"></td>
+        <td><input type="text" name="indikasi_gangguan[]"
+                   class="form-control form-control-sm inp-sm" placeholder="Indikasi..."></td>
+        <td><input type="text" name="keterangan[]"
+                   class="form-control form-control-sm inp-sm" placeholder="Keterangan..."></td>
+        <td class="td-center">
+            <button type="button" class="btn btn-outline-danger btn-sm btn-rm"
+                    onclick="removeRow(${id})">
+                <i class="bi bi-x"></i>
+            </button>
+        </td>`;
+    tbody.appendChild(tr);
+    renumberRows();
+    updateCount();
+}
+
+function removeRow(id) {
+    const row = document.getElementById(`sel-row-${id}`);
+    if (row) row.remove();
+    renumberRows();
+    updateCount();
+}
+
+function renumberRows() {
+    document.querySelectorAll('#selected-body tr.data-row').forEach((tr, i) => {
+        tr.querySelector('.td-no').textContent = i + 1;
+    });
+}
+
+function updateCount() {
+    const count = document.querySelectorAll('#selected-body tr.data-row').length;
+    document.getElementById('row-count').textContent = count;
+    if (count === 0) document.getElementById('empty-row').style.display = '';
+}
+
+function validateForm() {
+    if (!document.querySelectorAll('#selected-body tr.data-row').length) {
+        alert('Tambahkan minimal satu data gangguan.');
+        return false;
+    }
+    return true;
+}
+
+function _e(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+/* ── Eviden preview ── */
+function addEvidenField() {
+    const wrap = document.getElementById('eviden-fields');
+    const idx = wrap.children.length + 1;
+    const row = document.createElement('div');
+    row.className = 'row g-2 mb-2 align-items-center';
+    row.innerHTML = `
+        <div class="col-md-5"><input type="file" name="eviden" class="form-control form-control-sm" accept="image/*"></div>
+        <div class="col-md-6"><input type="text" name="eviden_catatan[]" class="form-control form-control-sm" placeholder="Keterangan foto ${idx}"></div>
+        <div class="col-md-1 text-end"><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('.row').remove()"><i class="bi bi-trash"></i></button></div>`;
+    wrap.appendChild(row);
+}
+addEvidenField();
+</script>
+
+<!-- Datalist master lokasi (dipakai oleh baris manual) -->
+<datalist id="lokasi-master-dl">
+    {% for lok in master_lokasi_list %}<option value="{{ lok }}">{% endfor %}
+</datalist>
+{% endblock %}
