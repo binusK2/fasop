@@ -4,68 +4,83 @@
 
 {% block content %}
 <style>
-  /* ── Section bar ── */
   .sec-bar { display:flex;align-items:center;gap:8px;margin-bottom:14px;
              padding-bottom:10px;border-bottom:1px solid #f1f5f9; }
   .sec-bar .bar { width:4px;height:18px;border-radius:3px;flex-shrink:0; }
   .sec-bar .ttl { font-size:11.5px;font-weight:700;text-transform:uppercase;
                   letter-spacing:.6px;color:#1e293b; }
 
-  /* ── Info rows ── */
-  .info-grid { display:grid;grid-template-columns:repeat(auto-fill, minmax(160px,1fr));gap:14px 20px; }
+  /* ── Status badges ── */
+  .st-badge {
+    display:inline-flex;align-items:center;gap:5px;
+    padding:5px 14px;border-radius:20px;font-size:12px;font-weight:700;
+  }
+  .st-draft          { background:#f1f5f9;color:#475569;border:1px solid #e2e8f0; }
+  .st-on_check       { background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe; }
+  .st-perlu_perbaikan{ background:#fff7ed;color:#c2410c;border:1px solid #fed7aa; }
+  .st-uptodate       { background:#f0fdf4;color:#166534;border:1px solid #bbf7d0; }
+
+  /* ── Status timeline (right panel) ── */
+  .status-timeline { display:flex;flex-direction:column;gap:0; }
+  .stl-step {
+    display:flex;align-items:flex-start;gap:10px;padding:8px 0;
+    position:relative;
+  }
+  .stl-step:not(:last-child)::after {
+    content:'';position:absolute;left:11px;top:28px;
+    width:2px;height:calc(100% - 12px);background:#e2e8f0;
+  }
+  .stl-dot {
+    width:22px;height:22px;border-radius:50%;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;
+    font-size:10px;z-index:1;position:relative;
+  }
+  .stl-dot.done  { background:#10b981;color:#fff; }
+  .stl-dot.active{ background:#3b82f6;color:#fff; }
+  .stl-dot.idle  { background:#e2e8f0;color:#94a3b8; }
+  .stl-dot.warn  { background:#f97316;color:#fff; }
+  .stl-text { font-size:12px;padding-top:2px; }
+  .stl-text .stl-name { font-weight:700;color:#1e293b; }
+  .stl-text .stl-sub  { font-size:11px;color:#94a3b8;margin-top:1px; }
+
+  /* ── Info grid ── */
+  .info-grid { display:grid;grid-template-columns:repeat(auto-fill, minmax(155px,1fr));gap:14px 20px; }
   .info-cell .lbl { font-size:10.5px;font-weight:700;text-transform:uppercase;
                     letter-spacing:.4px;color:#94a3b8;margin-bottom:3px; }
   .info-cell .val { font-size:13px;color:#1e293b;font-weight:500; }
 
-  /* ── Status badges ── */
-  .badge-checked { background:#dcfce7;color:#166534;border:1px solid #bbf7d0;
-                   padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700; }
-  .badge-draft   { background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;
-                   padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700; }
-
-  /* ── Catatan perbaikan alert ── */
+  /* ── Alert catatan perbaikan ── */
   .revisi-alert {
     background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;
-    padding:14px 18px;margin-bottom:14px;
+    padding:14px 18px;margin-bottom:16px;
   }
   .revisi-alert .ra-head { font-size:12px;font-weight:700;color:#c2410c;
-                           display:flex;align-items:center;gap:6px;margin-bottom:6px; }
+                           display:flex;align-items:center;gap:6px;margin-bottom:7px; }
   .revisi-alert .ra-body { font-size:13px;color:#7c2d12;white-space:pre-wrap;line-height:1.6; }
 
-  /* ── PDF preview ── */
-  .pdf-frame-wrap {
-    border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;
-    background:#f8fafc;
-  }
-  .pdf-frame-wrap iframe {
-    width:100%;height:640px;border:none;display:block;
-  }
+  /* ── Aksi panel ── */
+  .action-divider { border-top:1px solid #f1f5f9;margin:14px 0; }
+
+  /* ── PDF & file preview ── */
+  .pdf-frame-wrap { border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;background:#f8fafc; }
+  .pdf-frame-wrap iframe { width:100%;height:640px;border:none;display:block; }
   .pdf-toolbar {
     display:flex;align-items:center;justify-content:space-between;
     padding:10px 16px;background:#f8fafc;border-bottom:1px solid #e2e8f0;
   }
   .pdf-toolbar .pt-name { font-size:12.5px;font-weight:600;color:#1e293b;
-                          white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:300px; }
-
-  /* ── File non-PDF card ── */
+                          white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:340px; }
   .file-card {
     display:flex;align-items:center;gap:14px;
-    padding:18px;background:#f8fafc;border:1px solid #e2e8f0;
-    border-radius:12px;
+    padding:18px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;
   }
   .file-card .fc-ext {
-    width:52px;height:52px;border-radius:10px;display:flex;align-items:center;
-    justify-content:center;font-size:12px;font-weight:800;color:#fff;flex-shrink:0;
+    width:52px;height:52px;border-radius:10px;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;
+    font-size:12px;font-weight:800;color:#fff;
   }
 
-  /* ── Verifikasi card actions ── */
-  .vcard-section { padding:14px 0;border-bottom:1px solid #f1f5f9; }
-  .vcard-section:last-child { border-bottom:none;padding-bottom:0; }
-  .vcard-lbl { font-size:10.5px;font-weight:700;text-transform:uppercase;
-               letter-spacing:.4px;color:#94a3b8;margin-bottom:4px; }
-  .vcard-val { font-size:13px;color:#1e293b;font-weight:500; }
-
-  /* ── Revisi form (collapse) ── */
+  /* ── Revisi form ── */
   #revisi-form { display:none; }
   #revisi-form.open { display:block; }
 </style>
@@ -91,38 +106,36 @@
         <div style="font-size:17px;font-weight:700;color:#0f172a;margin:3px 0 6px;">{{ obj.judul }}</div>
         <div class="d-flex flex-wrap gap-2 align-items-center" style="font-size:12px;color:#64748b;">
           <span><i class="bi bi-cpu me-1" style="color:#8b5cf6;"></i><strong>{{ obj.device.nama }}</strong></span>
-          {% if obj.device.lokasi %}
-          <span class="text-muted">·</span>
-          <span><i class="bi bi-geo-alt-fill me-1" style="color:#f59e0b;"></i>{{ obj.device.lokasi }}</span>
-          {% endif %}
-          {% if obj.device.jenis %}
-          <span class="text-muted">·</span>
-          <span style="background:#f1f5f9;border:1px solid #e2e8f0;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;color:#475569;">{{ obj.device.jenis.name }}</span>
-          {% endif %}
-          {% if obj.device.merk %}
-          <span class="text-muted">·</span>
-          <span>{{ obj.device.merk }}{% if obj.device.type %} {{ obj.device.type }}{% endif %}</span>
-          {% endif %}
+          {% if obj.device.lokasi %}<span class="text-muted">·</span>
+          <span><i class="bi bi-geo-alt-fill me-1" style="color:#f59e0b;"></i>{{ obj.device.lokasi }}</span>{% endif %}
+          {% if obj.device.jenis %}<span class="text-muted">·</span>
+          <span style="background:#f1f5f9;border:1px solid #e2e8f0;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;color:#475569;">{{ obj.device.jenis.name }}</span>{% endif %}
+          {% if obj.device.merk %}<span class="text-muted">·</span>
+          <span>{{ obj.device.merk }}{% if obj.device.type %} {{ obj.device.type }}{% endif %}</span>{% endif %}
         </div>
       </div>
       <div style="flex-shrink:0;">
-        {% if obj.status == 'checked' %}
-        <span class="badge-checked"><i class="bi bi-patch-check-fill me-1"></i>Sudah Dicek</span>
-        {% else %}
-        <span class="badge-draft"><i class="bi bi-pencil-square me-1"></i>Draft</span>
+        {% if obj.status == 'draft' %}
+        <span class="st-badge st-draft"><i class="bi bi-pencil-square me-1"></i>Draft</span>
+        {% elif obj.status == 'on_check' %}
+        <span class="st-badge st-on_check"><i class="bi bi-hourglass-split me-1"></i>On Check</span>
+        {% elif obj.status == 'perlu_perbaikan' %}
+        <span class="st-badge st-perlu_perbaikan"><i class="bi bi-exclamation-triangle me-1"></i>Perlu Perbaikan</span>
+        {% elif obj.status == 'uptodate' %}
+        <span class="st-badge st-uptodate"><i class="bi bi-patch-check-fill me-1"></i>Up to Date</span>
         {% endif %}
       </div>
     </div>
   </div>
 </div>
 
-{# ── Catatan Perbaikan (muncul kalau ada) ── #}
-{% if obj.catatan_perbaikan %}
+{# ── Alert catatan perbaikan ── #}
+{% if obj.status == 'perlu_perbaikan' and obj.catatan_perbaikan %}
 <div class="revisi-alert" id="revisi-alert-box">
   <div class="ra-head">
     <i class="bi bi-exclamation-triangle-fill"></i>
-    Catatan Perbaikan dari Checker
-    {% if obj.checker %}<span style="font-weight:400;color:#9a3412;"> — {{ obj.checker.get_full_name|default:obj.checker.username }}</span>{% endif %}
+    Catatan Perbaikan
+    {% if obj.checker %}<span style="font-weight:400;color:#9a3412;">— dari {{ obj.checker.get_full_name|default:obj.checker.username }}</span>{% endif %}
   </div>
   <div class="ra-body">{{ obj.catatan_perbaikan }}</div>
 </div>
@@ -141,18 +154,14 @@
           <span class="ttl">Detail Dokumen</span>
         </div>
         <div class="info-grid">
-          {% if obj.tipe_setting %}
-          <div class="info-cell">
+          {% if obj.tipe_setting %}<div class="info-cell">
             <div class="lbl">Tipe Setting</div>
             <div class="val">{{ obj.get_tipe_setting_display }}</div>
-          </div>
-          {% endif %}
-          {% if obj.penyulang_bay %}
-          <div class="info-cell">
+          </div>{% endif %}
+          {% if obj.penyulang_bay %}<div class="info-cell">
             <div class="lbl">Penyulang / Bay</div>
             <div class="val">{{ obj.penyulang_bay }}</div>
-          </div>
-          {% endif %}
+          </div>{% endif %}
           <div class="info-cell">
             <div class="lbl">Tanggal</div>
             <div class="val">{{ obj.tanggal|date:"d M Y" }}</div>
@@ -169,14 +178,7 @@
             <div class="lbl">Dibuat Pada</div>
             <div class="val">{{ obj.created_at|date:"d M Y H:i" }}</div>
           </div>
-          {% if obj.updated_at != obj.created_at %}
-          <div class="info-cell">
-            <div class="lbl">Diperbarui</div>
-            <div class="val">{{ obj.updated_at|date:"d M Y H:i" }}</div>
-          </div>
-          {% endif %}
         </div>
-
         {% if obj.keterangan %}
         <div style="margin-top:16px;padding-top:14px;border-top:1px solid #f1f5f9;">
           <div class="lbl" style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#94a3b8;margin-bottom:5px;">Keterangan</div>
@@ -194,11 +196,8 @@
           <span class="bar" style="background:#f59e0b;"></span>
           <span class="ttl">File Setting</span>
         </div>
-
         {% with ext=obj.file_ext fname=obj.file_setting.name|cut:"dokumentasi/setting/" %}
-
         {% if ext == 'pdf' %}
-        {# ── PDF: preview inline ── #}
         <div class="pdf-frame-wrap">
           <div class="pdf-toolbar">
             <span class="pt-name"><i class="bi bi-file-earmark-pdf me-1" style="color:#ef4444;"></i>{{ fname }}</span>
@@ -209,9 +208,7 @@
           </div>
           <iframe src="{{ obj.file_setting.url }}" title="Preview {{ obj.judul }}"></iframe>
         </div>
-
         {% elif ext in 'jpg,jpeg,png,svg,gif,webp' %}
-        {# ── Gambar ── #}
         <div style="border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;background:#f8fafc;">
           <img src="{{ obj.file_setting.url }}" alt="{{ obj.judul }}"
                style="width:100%;max-height:480px;object-fit:contain;display:block;padding:8px;">
@@ -223,36 +220,26 @@
             </a>
           </div>
         </div>
-
         {% else %}
-        {# ── File lain: card info + download ── #}
         {% with ext_upper=ext|upper %}
         <div class="file-card">
-          {% if ext == 'xlsx' or ext == 'xls' %}
-          <div class="fc-ext" style="background:#16a34a;">{{ ext_upper }}</div>
-          {% elif ext == 'doc' or ext == 'docx' %}
-          <div class="fc-ext" style="background:#2563eb;">{{ ext_upper }}</div>
-          {% elif ext == 'ols' or ext == 'rdb' %}
-          <div class="fc-ext" style="background:#7c3aed;">{{ ext_upper }}</div>
-          {% elif ext == 'csv' %}
-          <div class="fc-ext" style="background:#0891b2;">{{ ext_upper }}</div>
-          {% elif ext == 'zip' %}
-          <div class="fc-ext" style="background:#d97706;">{{ ext_upper }}</div>
-          {% else %}
-          <div class="fc-ext" style="background:#64748b;">{{ ext_upper }}</div>
-          {% endif %}
+          {% if ext == 'xlsx' or ext == 'xls' %}<div class="fc-ext" style="background:#16a34a;">{{ ext_upper }}</div>
+          {% elif ext == 'doc' or ext == 'docx' %}<div class="fc-ext" style="background:#2563eb;">{{ ext_upper }}</div>
+          {% elif ext == 'ols' or ext == 'rdb' %}<div class="fc-ext" style="background:#7c3aed;">{{ ext_upper }}</div>
+          {% elif ext == 'csv' %}<div class="fc-ext" style="background:#0891b2;">{{ ext_upper }}</div>
+          {% elif ext == 'zip' %}<div class="fc-ext" style="background:#d97706;">{{ ext_upper }}</div>
+          {% else %}<div class="fc-ext" style="background:#64748b;">{{ ext_upper }}</div>{% endif %}
           <div style="min-width:0;flex:1;">
             <div style="font-size:13.5px;font-weight:600;color:#1e293b;word-break:break-all;">{{ fname }}</div>
             <div style="font-size:11px;color:#94a3b8;margin-top:2px;">File tidak dapat dipreview di browser</div>
           </div>
           <a href="{{ obj.file_setting.url }}" download="{{ fname }}"
-             class="btn btn-outline-primary" style="font-size:13px;white-space:nowrap;flex-shrink:0;">
+             class="btn btn-outline-primary" style="font-size:13px;flex-shrink:0;">
             <i class="bi bi-download me-1"></i>Download
           </a>
         </div>
         {% endwith %}
         {% endif %}
-
         {% endwith %}
       </div>
     </div>
@@ -263,87 +250,122 @@
   {# ══ KANAN col-4 ══ #}
   <div class="col-lg-4">
 
-    {# ── Card: Verifikasi ── #}
+    {# ── Card: Status & Verifikasi ── #}
     <div class="card mb-3">
       <div class="card-body px-4 py-4">
         <div class="sec-bar">
           <span class="bar" style="background:#10b981;"></span>
-          <span class="ttl">Verifikasi</span>
+          <span class="ttl">Status Dokumen</span>
         </div>
 
-        <div class="vcard-section">
-          <div class="vcard-lbl">Checker</div>
-          <div class="vcard-val">
-            {% if obj.checker %}
-            <i class="bi bi-person-circle me-1" style="color:#10b981;"></i>
-            {{ obj.checker.get_full_name|default:obj.checker.username }}
-            {% else %}
-            <span style="color:#94a3b8;font-style:italic;">Belum ditentukan</span>
-            {% endif %}
-          </div>
-        </div>
-
-        <div class="vcard-section">
-          <div class="vcard-lbl">Tanggal Cek</div>
-          <div class="vcard-val" id="vcard-tanggal-cek">
-            {{ obj.tanggal_cek|date:"d M Y"|default:"—" }}
-          </div>
-        </div>
-
-        <div class="vcard-section">
-          <div class="vcard-lbl">Status</div>
-          <div id="vcard-status-wrap">
-            {% if obj.status == 'checked' %}
-            <span class="badge-checked" id="vcard-status-badge">
-              <i class="bi bi-patch-check-fill me-1"></i>Sudah Dicek
-            </span>
-            {% else %}
-            <span class="badge-draft" id="vcard-status-badge">
-              <i class="bi bi-pencil-square me-1"></i>Draft
-            </span>
-            {% endif %}
-          </div>
-        </div>
-
-        {# ── Aksi Checker (hanya muncul jika user adalah checker) ── #}
-        {% if user_is_checker %}
-        <div class="vcard-section" id="checker-actions">
-          {% if obj.status == 'draft' %}
-          {# Belum dicek — tombol Tandai Sudah Dicek #}
-          <button onclick="doVerify()" id="btn-verify"
-                  class="btn btn-success w-100 mb-2" style="font-size:13px;font-weight:600;">
-            <i class="bi bi-patch-check me-2"></i>Tandai Sudah Dicek
-          </button>
-          <button onclick="toggleRevisiForm()" id="btn-revisi-toggle"
-                  class="btn btn-outline-warning w-100" style="font-size:12px;">
-            <i class="bi bi-arrow-counterclockwise me-1"></i>Beri Catatan Perbaikan
-          </button>
-          {% else %}
-          {# Sudah dicek — tombol kembalikan #}
-          <button onclick="toggleRevisiForm()" id="btn-revisi-toggle"
-                  class="btn btn-outline-secondary w-100" style="font-size:12px;">
-            <i class="bi bi-arrow-counterclockwise me-1"></i>Kembalikan ke Draft
-          </button>
-          {% endif %}
-
-          {# Form catatan perbaikan (hidden by default) #}
-          <div id="revisi-form" class="mt-3">
-            <label style="font-size:11.5px;font-weight:700;color:#64748b;margin-bottom:5px;display:block;">
-              Catatan Perbaikan <span style="color:#ef4444;">*</span>
-            </label>
-            <textarea id="revisi-textarea" class="form-control" rows="4"
-                      placeholder="Tulis catatan perbaikan untuk uploader…"
-                      style="font-size:13px;resize:vertical;"></textarea>
-            <div id="revisi-error" class="text-danger" style="font-size:11.5px;margin-top:4px;display:none;"></div>
-            <div class="d-flex gap-2 mt-2">
-              <button onclick="doRevisi()" class="btn btn-warning flex-fill" style="font-size:13px;font-weight:600;">
-                <i class="bi bi-send me-1"></i>Kirim & Kembalikan
-              </button>
-              <button onclick="toggleRevisiForm()" class="btn btn-outline-secondary" style="font-size:12px;">
-                Batal
-              </button>
+        {# ── Timeline status ── #}
+        <div class="status-timeline mb-3">
+          <div class="stl-step">
+            <div class="stl-dot {% if obj.status == 'draft' %}active{% elif obj.status != 'draft' %}done{% endif %}">
+              {% if obj.status == 'draft' %}<i class="bi bi-pencil"></i>
+              {% else %}<i class="bi bi-check"></i>{% endif %}
+            </div>
+            <div class="stl-text">
+              <div class="stl-name">Draft</div>
+              <div class="stl-sub">Dokumen baru dibuat</div>
             </div>
           </div>
+          <div class="stl-step">
+            <div class="stl-dot {% if obj.status == 'on_check' %}active{% elif obj.status in 'uptodate' %}done{% elif obj.status == 'perlu_perbaikan' %}warn{% else %}idle{% endif %}">
+              {% if obj.status == 'on_check' %}<i class="bi bi-hourglass-split"></i>
+              {% elif obj.status == 'uptodate' %}<i class="bi bi-check"></i>
+              {% elif obj.status == 'perlu_perbaikan' %}<i class="bi bi-exclamation"></i>
+              {% else %}<i class="bi bi-hourglass"></i>{% endif %}
+            </div>
+            <div class="stl-text">
+              <div class="stl-name">On Check</div>
+              <div class="stl-sub">Dikirim ke checker</div>
+            </div>
+          </div>
+          <div class="stl-step">
+            <div class="stl-dot {% if obj.status == 'perlu_perbaikan' %}warn{% elif obj.status == 'uptodate' %}idle{% else %}idle{% endif %}">
+              <i class="bi bi-arrow-counterclockwise"></i>
+            </div>
+            <div class="stl-text">
+              <div class="stl-name">Perlu Perbaikan</div>
+              <div class="stl-sub">Dikembalikan checker</div>
+            </div>
+          </div>
+          <div class="stl-step">
+            <div class="stl-dot {% if obj.status == 'uptodate' %}done{% else %}idle{% endif %}">
+              {% if obj.status == 'uptodate' %}<i class="bi bi-patch-check-fill"></i>
+              {% else %}<i class="bi bi-patch-check"></i>{% endif %}
+            </div>
+            <div class="stl-text">
+              <div class="stl-name">Up to Date</div>
+              <div class="stl-sub">Disetujui checker</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="action-divider"></div>
+
+        {# Checker info #}
+        <div style="font-size:12px;color:#64748b;margin-bottom:6px;">
+          <span style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;">Checker</span><br>
+          <span style="font-size:13px;color:#1e293b;font-weight:500;">
+            {% if obj.checker %}
+            <i class="bi bi-person-circle me-1" style="color:#10b981;"></i>{{ obj.checker.get_full_name|default:obj.checker.username }}
+            {% else %}<span style="color:#94a3b8;font-style:italic;">Belum ditentukan</span>{% endif %}
+          </span>
+        </div>
+        {% if obj.tanggal_cek %}
+        <div style="font-size:12px;color:#64748b;margin-bottom:6px;">
+          <span style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;">Tanggal Cek</span><br>
+          <span id="vcard-tanggal-cek" style="font-size:13px;color:#1e293b;font-weight:500;">{{ obj.tanggal_cek|date:"d M Y" }}</span>
+        </div>
+        {% else %}
+        <div id="vcard-tanggal-cek-wrap" style="font-size:12px;color:#94a3b8;margin-bottom:6px;font-style:italic;">Belum dicek</div>
+        {% endif %}
+
+        <div class="action-divider"></div>
+
+        {# ── Aksi: Uploader kirim ke checker ── #}
+        {% if user_is_uploader and obj.status in 'draft,perlu_perbaikan' and obj.checker %}
+        <button onclick="doSubmit()" id="btn-submit"
+                class="btn btn-primary w-100 mb-2" style="font-size:13px;font-weight:600;">
+          <i class="bi bi-send me-2"></i>Kirim ke Checker
+        </button>
+        <div id="submit-error" class="text-danger" style="font-size:11.5px;display:none;margin-bottom:6px;"></div>
+        {% elif user_is_uploader and obj.status in 'draft,perlu_perbaikan' and not obj.checker %}
+        <div style="font-size:12px;color:#f97316;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:8px 12px;">
+          <i class="bi bi-exclamation-circle me-1"></i>Edit dokumen untuk menentukan checker
+        </div>
+        {% endif %}
+
+        {# ── Aksi: Checker verify / revisi ── #}
+        {% if user_is_checker and obj.status == 'on_check' %}
+        <button onclick="doVerify()" id="btn-verify"
+                class="btn btn-success w-100 mb-2" style="font-size:13px;font-weight:600;">
+          <i class="bi bi-patch-check me-2"></i>Tandai Up to Date
+        </button>
+        <button onclick="toggleRevisiForm()" id="btn-revisi-toggle"
+                class="btn btn-outline-warning w-100" style="font-size:12px;">
+          <i class="bi bi-arrow-counterclockwise me-1"></i>Perlu Perbaikan
+        </button>
+        <div id="revisi-form" class="mt-3">
+          <label style="font-size:11.5px;font-weight:700;color:#64748b;margin-bottom:5px;display:block;">
+            Catatan Perbaikan <span style="color:#ef4444;">*</span>
+          </label>
+          <textarea id="revisi-textarea" class="form-control" rows="4"
+                    placeholder="Tulis catatan untuk uploader…"
+                    style="font-size:13px;resize:vertical;"></textarea>
+          <div id="revisi-error" class="text-danger" style="font-size:11.5px;margin-top:4px;display:none;"></div>
+          <div class="d-flex gap-2 mt-2">
+            <button onclick="doRevisi()" class="btn btn-warning flex-fill" style="font-size:13px;font-weight:600;">
+              <i class="bi bi-send me-1"></i>Kirim Catatan
+            </button>
+            <button onclick="toggleRevisiForm()" class="btn btn-outline-secondary" style="font-size:12px;">Batal</button>
+          </div>
+        </div>
+        {% elif user_is_checker and obj.status == 'uptodate' %}
+        <div style="text-align:center;font-size:12px;color:#16a34a;font-weight:600;padding:6px 0;">
+          <i class="bi bi-patch-check-fill me-1"></i>Dokumen sudah disetujui
         </div>
         {% endif %}
 
@@ -352,30 +374,28 @@
 
     {# ── Card: Info Sistem ── #}
     <div class="card" style="background:#f8fafc;border:1px solid #e2e8f0;">
-      <div class="card-body px-4 py-3">
+      <div class="card-body px-4 py-3" style="font-size:12px;">
         <div class="sec-bar" style="border-bottom:1px solid #e2e8f0;margin-bottom:10px;padding-bottom:8px;">
           <span class="bar" style="background:#e2e8f0;"></span>
           <span class="ttl" style="color:#94a3b8;">Info Sistem</span>
         </div>
-        <div style="font-size:12px;">
-          <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f1f5f9;">
-            <span style="color:#94a3b8;">Nomor</span>
-            <span class="font-monospace text-warning fw-bold">{{ obj.nomor }}</span>
-          </div>
-          {% if obj.created_by %}
-          <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f1f5f9;">
-            <span style="color:#94a3b8;">Upload oleh</span>
-            <span style="color:#1e293b;font-weight:500;">{{ obj.created_by.get_full_name|default:obj.created_by.username }}</span>
-          </div>
-          {% endif %}
-          <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f1f5f9;">
-            <span style="color:#94a3b8;">Upload pada</span>
-            <span style="color:#1e293b;">{{ obj.created_at|date:"d M Y H:i" }}</span>
-          </div>
-          <div style="display:flex;justify-content:space-between;padding:5px 0;">
-            <span style="color:#94a3b8;">Diperbarui</span>
-            <span style="color:#1e293b;">{{ obj.updated_at|date:"d M Y H:i" }}</span>
-          </div>
+        <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f1f5f9;">
+          <span style="color:#94a3b8;">Nomor</span>
+          <span class="font-monospace text-warning fw-bold">{{ obj.nomor }}</span>
+        </div>
+        {% if obj.created_by %}
+        <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f1f5f9;">
+          <span style="color:#94a3b8;">Upload oleh</span>
+          <span style="color:#1e293b;font-weight:500;">{{ obj.created_by.get_full_name|default:obj.created_by.username }}</span>
+        </div>
+        {% endif %}
+        <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f1f5f9;">
+          <span style="color:#94a3b8;">Upload pada</span>
+          <span style="color:#1e293b;">{{ obj.created_at|date:"d M Y H:i" }}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:5px 0;">
+          <span style="color:#94a3b8;">Diperbarui</span>
+          <span style="color:#1e293b;">{{ obj.updated_at|date:"d M Y H:i" }}</span>
         </div>
       </div>
     </div>
@@ -386,15 +406,38 @@
 
 {% block extra_js %}
 <script>
-const CSRF   = document.querySelector('meta[name="csrf-token"]')?.content || '';
+const CSRF       = document.querySelector('meta[name="csrf-token"]')?.content || '';
+const SUBMIT_URL = "{% url 'setting_rele_submit' obj.pk %}";
 const VERIFY_URL = "{% url 'setting_rele_verify' obj.pk %}";
 const REVISI_URL = "{% url 'setting_rele_revisi' obj.pk %}";
 
 function toggleRevisiForm() {
-  const form = document.getElementById('revisi-form');
-  form.classList.toggle('open');
-  if (form.classList.contains('open')) {
-    document.getElementById('revisi-textarea').focus();
+  const f = document.getElementById('revisi-form');
+  f.classList.toggle('open');
+  if (f.classList.contains('open')) document.getElementById('revisi-textarea').focus();
+}
+
+async function doSubmit() {
+  const btn = document.getElementById('btn-submit');
+  const err = document.getElementById('submit-error');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Mengirim…';
+  try {
+    const res  = await fetch(SUBMIT_URL, { method:'POST', headers:{'X-CSRFToken':CSRF} });
+    const data = await res.json();
+    if (!data.ok) {
+      err.textContent = data.error || 'Gagal mengirim';
+      err.style.display = 'block';
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-send me-2"></i>Kirim ke Checker';
+      return;
+    }
+    location.reload();
+  } catch(e) {
+    err.textContent = 'Gagal menghubungi server';
+    err.style.display = 'block';
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-send me-2"></i>Kirim ke Checker';
   }
 }
 
@@ -405,26 +448,14 @@ async function doVerify() {
   try {
     const res  = await fetch(VERIFY_URL, { method:'POST', headers:{'X-CSRFToken':CSRF} });
     const data = await res.json();
-    if (!data.ok) { alert(data.error || 'Gagal'); btn.disabled=false; btn.innerHTML='<i class="bi bi-patch-check me-2"></i>Tandai Sudah Dicek'; return; }
-    // Update UI tanpa reload
-    document.getElementById('vcard-status-badge').outerHTML =
-      '<span class="badge-checked" id="vcard-status-badge"><i class="bi bi-patch-check-fill me-1"></i>Sudah Dicek</span>';
-    document.getElementById('vcard-tanggal-cek').textContent = data.tanggal_cek;
-    document.getElementById('checker-actions').innerHTML =
-      '<div style="font-size:12px;color:#16a34a;font-weight:600;text-align:center;padding:6px 0;">' +
-      '<i class="bi bi-patch-check-fill me-1"></i>Dokumen telah diverifikasi</div>';
-    // Hapus header status badge
-    const headerBadge = document.querySelector('.badge-draft');
-    if (headerBadge) headerBadge.outerHTML = '<span class="badge-checked"><i class="bi bi-patch-check-fill me-1"></i>Sudah Dicek</span>';
-    // Hapus catatan perbaikan jika ada
-    const alertBox = document.getElementById('revisi-alert-box');
-    if (alertBox) alertBox.remove();
-  } catch(e) { alert('Gagal menghubungi server'); btn.disabled=false; btn.innerHTML='<i class="bi bi-patch-check me-2"></i>Tandai Sudah Dicek'; }
+    if (!data.ok) { alert(data.error || 'Gagal'); btn.disabled=false; btn.innerHTML='<i class="bi bi-patch-check me-2"></i>Tandai Up to Date'; return; }
+    location.reload();
+  } catch(e) { alert('Gagal menghubungi server'); btn.disabled=false; btn.innerHTML='<i class="bi bi-patch-check me-2"></i>Tandai Up to Date'; }
 }
 
 async function doRevisi() {
-  const catatan  = document.getElementById('revisi-textarea').value.trim();
-  const errEl    = document.getElementById('revisi-error');
+  const catatan = document.getElementById('revisi-textarea').value.trim();
+  const errEl   = document.getElementById('revisi-error');
   if (!catatan) { errEl.textContent='Catatan tidak boleh kosong'; errEl.style.display='block'; return; }
   errEl.style.display = 'none';
   try {
@@ -433,7 +464,6 @@ async function doRevisi() {
     const res  = await fetch(REVISI_URL, { method:'POST', headers:{'X-CSRFToken':CSRF}, body:form });
     const data = await res.json();
     if (!data.ok) { errEl.textContent=data.error||'Gagal'; errEl.style.display='block'; return; }
-    // Reload untuk tampilkan catatan perbaikan
     location.reload();
   } catch(e) { errEl.textContent='Gagal menghubungi server'; errEl.style.display='block'; }
 }

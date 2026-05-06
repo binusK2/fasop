@@ -9,7 +9,7 @@ class SettingReleForm(forms.ModelForm):
         model = SettingRele
         fields = ['device', 'judul', 'tipe_setting', 'penyulang_bay',
                   'tanggal', 'versi', 'file_setting', 'keterangan',
-                  'checker', 'tanggal_cek', 'status']
+                  'checker', 'tanggal_cek']
         widgets = {
             'device':        forms.Select(attrs={'class': 'form-select', 'id': 'id_device'}),
             'judul':         forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Misal: Setting Rele OC/EF DS Tello Rev.2'}),
@@ -25,7 +25,6 @@ class SettingReleForm(forms.ModelForm):
             'keterangan':    forms.Textarea(attrs={'class': 'form-control', 'rows': 4, 'placeholder': 'Catatan tambahan, acuan, referensi dokumen…'}),
             'checker':       forms.Select(attrs={'class': 'form-select'}),
             'tanggal_cek':   forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
-            'status':        forms.Select(attrs={'class': 'form-select'}),
         }
 
     def __init__(self, *args, **kwargs):

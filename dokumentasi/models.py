@@ -50,8 +50,10 @@ TIPE_SETTING_CHOICES = (
 
 class SettingRele(models.Model):
     STATUS_CHOICES = (
-        ('draft',   'Draft'),
-        ('checked', 'Sudah Dicek'),
+        ('draft',            'Draft'),
+        ('on_check',         'On Check'),
+        ('perlu_perbaikan',  'Perlu Perbaikan'),
+        ('uptodate',         'Up to Date'),
     )
 
     nomor        = models.CharField(max_length=25, unique=True, editable=False, verbose_name='Nomor')
