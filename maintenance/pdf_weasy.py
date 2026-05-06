@@ -318,7 +318,7 @@ def _ctx_rectifier(data, ctx):
     })
 
 
-_TEG_LABEL  = {'48': '48 V', '110': '110 V', '220': '220 V', 'standby': 'Standby'}
+_TEG_LABEL  = {'48': '48 V', '110': '110 V', '220': '220 V'}
 _POL_LABEL  = {'negatif': 'Negatif', 'positif': 'Positif'}
 
 
