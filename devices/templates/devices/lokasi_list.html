@@ -4,250 +4,312 @@
 
 {% block content %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-
 <style>
-    #site-map { height: 480px; z-index: 1; }
-    /* legend */
-    .map-legend {
-        padding:10px 14px;border-top:1px solid #f1f5f9;background:#fafafa;
-        display:flex;align-items:center;gap:16px;flex-wrap:wrap;
-        font-size:11.5px;color:#64748b;
-    }
-    .leg-item { display:flex;align-items:center;gap:5px; }
-    .leg-line {
-        width:28px;height:3px;border-radius:3px;flex-shrink:0;
-    }
-    .leg-line.dashed {
-        background: repeating-linear-gradient(90deg,var(--c) 0,var(--c) 6px,transparent 6px,transparent 10px);
-    }
+  #site-map { height:500px;z-index:1; }
 
-    /* popup */
-    .map-popup-title {
-        font-size:14px;font-weight:700;color:#0f172a;
-        margin-bottom:6px;border-bottom:1px solid #e2e8f0;padding-bottom:6px;
-    }
-    .map-popup-meta   { font-size:11.5px;color:#64748b;margin-bottom:8px; }
-    .map-popup-device-list { max-height:200px;overflow-y:auto;font-size:12px; }
-    .map-popup-device-item {
-        display:flex;align-items:flex-start;gap:6px;
-        padding:5px 0;border-bottom:1px solid #f1f5f9;
-    }
-    .map-popup-device-item:last-child { border-bottom:none; }
-    .map-popup-badge {
-        display:inline-block;padding:1px 7px;border-radius:20px;
-        background:#eff6ff;color:#2563eb;font-size:10.5px;font-weight:600;
-        white-space:nowrap;flex-shrink:0;
-    }
-    .map-popup-badge.filtered { background:#fef3c7;color:#b45309; }
-    .map-popup-link {
-        display:block;margin-top:10px;text-align:center;
-        font-size:12px;color:#3b82f6;font-weight:600;text-decoration:none;
-    }
-    .map-popup-link:hover { text-decoration:underline; }
-    .map-loading { text-align:center;padding:12px;color:#94a3b8;font-size:12.5px; }
+  /* popup */
+  .map-popup-title { font-size:14px;font-weight:700;color:#0f172a;margin-bottom:6px;border-bottom:1px solid #e2e8f0;padding-bottom:6px; }
+  .map-popup-meta  { font-size:11.5px;color:#64748b;margin-bottom:8px; }
+  .map-popup-device-list { max-height:200px;overflow-y:auto;font-size:12px; }
+  .map-popup-device-item { display:flex;align-items:flex-start;gap:6px;padding:5px 0;border-bottom:1px solid #f1f5f9; }
+  .map-popup-device-item:last-child { border-bottom:none; }
+  .map-popup-badge { display:inline-block;padding:1px 7px;border-radius:20px;background:#eff6ff;color:#2563eb;font-size:10.5px;font-weight:600;white-space:nowrap;flex-shrink:0; }
+  .map-popup-badge.filtered { background:#fef3c7;color:#b45309; }
+  .map-popup-link { display:block;margin-top:10px;text-align:center;font-size:12px;color:#3b82f6;font-weight:600;text-decoration:none; }
+  .map-popup-link:hover { text-decoration:underline; }
+  .map-loading { text-align:center;padding:12px;color:#94a3b8;font-size:12.5px; }
 
-    /* site cards */
-    .site-card {
-        border:1px solid var(--border-color);border-radius:12px;
-        background:white;transition:box-shadow .15s,border-color .15s;
-    }
-    .site-card.has-map-pin { cursor:pointer; }
-    .site-card:hover { box-shadow:0 4px 16px rgba(59,130,246,.12);border-color:#bfdbfe; }
-    .pin-badge {
-        display:inline-flex;align-items:center;gap:4px;
-        font-size:10.5px;padding:2px 8px;border-radius:20px;font-weight:600;
-    }
-    .pin-badge.with-pin { background:#ecfdf5;color:#059669; }
-    .pin-badge.no-pin   { background:#f8fafc;color:#94a3b8; }
+  /* site cards */
+  .site-card { border:1px solid var(--border-color);border-radius:12px;background:white;transition:box-shadow .15s,border-color .15s; }
+  .site-card.has-map-pin { cursor:pointer; }
+  .site-card:hover { box-shadow:0 4px 16px rgba(59,130,246,.12);border-color:#bfdbfe; }
+  .pin-badge { display:inline-flex;align-items:center;gap:4px;font-size:10.5px;padding:2px 8px;border-radius:20px;font-weight:600; }
+  .pin-badge.with-pin { background:#ecfdf5;color:#059669; }
+  .pin-badge.no-pin   { background:#f8fafc;color:#94a3b8; }
 
-    /* filter card items */
-    .jenis-item {
-        display:flex;align-items:center;gap:10px;
-        padding:9px 12px;border-radius:9px;cursor:pointer;
-        transition:background .15s,color .15s;
-        border:1.5px solid transparent;
-        margin-bottom:4px;
-        user-select:none;
-    }
-    .jenis-item:hover { background:#f1f5f9; }
-    .jenis-item.active {
-        background:#eff6ff;border-color:#bfdbfe;
-    }
-    .jenis-item .ji-dot {
-        width:9px;height:9px;border-radius:50%;flex-shrink:0;background:#cbd5e1;
-    }
-    .jenis-item.active .ji-dot { background:#3b82f6; }
-    .jenis-item .ji-name {
-        flex:1;font-size:12.5px;font-weight:600;color:#334155;line-height:1.3;
-    }
-    .jenis-item.active .ji-name { color:#1d4ed8; }
-    .jenis-item .ji-count {
-        font-size:11px;font-weight:700;color:#94a3b8;
-        background:#f1f5f9;border-radius:20px;padding:1px 8px;
-        min-width:28px;text-align:center;
-    }
-    .jenis-item.active .ji-count { background:#dbeafe;color:#2563eb; }
+  /* right panel tabs */
+  .rpanel-tabs { display:flex;border-bottom:1px solid #f1f5f9; }
+  .rpanel-tab  { flex:1;padding:10px 8px;font-size:12px;font-weight:700;color:#94a3b8;text-align:center;cursor:pointer;border:none;background:none;border-bottom:2px solid transparent;transition:color .15s,border-color .15s; }
+  .rpanel-tab.active { color:#3b82f6;border-bottom-color:#3b82f6; }
+  .rpanel-tab:hover:not(.active) { color:#475569; }
 
-    .all-item {
-        display:flex;align-items:center;gap:10px;
-        padding:9px 12px;border-radius:9px;cursor:pointer;
-        border:1.5px solid #e2e8f0;background:#f8fafc;
-        margin-bottom:10px;user-select:none;
-        transition:background .15s;
-    }
-    .all-item:hover { background:#f1f5f9; }
-    .all-item.active { background:#0f172a;border-color:#0f172a; }
-    .all-item .ai-label {
-        flex:1;font-size:12.5px;font-weight:700;color:#475569;
-    }
-    .all-item.active .ai-label { color:#fff; }
-    .all-item .ai-count {
-        font-size:11px;font-weight:700;background:#e2e8f0;
-        color:#64748b;border-radius:20px;padding:1px 8px;
-    }
-    .all-item.active .ai-count { background:rgba(255,255,255,.2);color:#fff; }
+  /* jenis filter items */
+  .jenis-item { display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:9px;cursor:pointer;transition:background .15s;border:1.5px solid transparent;margin-bottom:3px;user-select:none; }
+  .jenis-item:hover { background:#f1f5f9; }
+  .jenis-item.active { background:#eff6ff;border-color:#bfdbfe; }
+  .jenis-item .ji-dot { width:9px;height:9px;border-radius:50%;flex-shrink:0;background:#cbd5e1; }
+  .jenis-item.active .ji-dot { background:#3b82f6; }
+  .jenis-item .ji-name { flex:1;font-size:12.5px;font-weight:600;color:#334155;line-height:1.3; }
+  .jenis-item.active .ji-name { color:#1d4ed8; }
+  .jenis-item .ji-count { font-size:11px;font-weight:700;color:#94a3b8;background:#f1f5f9;border-radius:20px;padding:1px 8px;min-width:28px;text-align:center; }
+  .jenis-item.active .ji-count { background:#dbeafe;color:#2563eb; }
+
+  .all-item { display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:9px;cursor:pointer;border:1.5px solid #e2e8f0;background:#f8fafc;margin-bottom:10px;user-select:none;transition:background .15s; }
+  .all-item:hover { background:#f1f5f9; }
+  .all-item.active { background:#0f172a;border-color:#0f172a; }
+  .all-item .ai-label { flex:1;font-size:12.5px;font-weight:700;color:#475569; }
+  .all-item.active .ai-label { color:#fff; }
+  .all-item .ai-count { font-size:11px;font-weight:700;background:#e2e8f0;color:#64748b;border-radius:20px;padding:1px 8px; }
+  .all-item.active .ai-count { background:rgba(255,255,255,.2);color:#fff; }
+
+  /* connect mode */
+  #map-connect-bar {
+    display:none;padding:8px 16px;background:#fef3c7;border-bottom:1px solid #fde68a;
+    font-size:12.5px;color:#92400e;font-weight:600;align-items:center;gap:10px;
+  }
+  #site-map.connect-mode { cursor:crosshair !important; }
+  .marker-selected { filter:drop-shadow(0 0 8px #f59e0b) !important; }
+
+  /* link list */
+  .link-row { display:flex;align-items:flex-start;gap:8px;padding:9px 12px;border-radius:9px;border:1px solid #f1f5f9;margin-bottom:5px;background:#fafafa;transition:background .1s; }
+  .link-row:hover { background:#f1f5f9; }
+  .link-tipe-dot { width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-top:4px; }
+  .link-info { flex:1;min-width:0; }
+  .link-label { font-size:12.5px;font-weight:700;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+  .link-sub   { font-size:11px;color:#94a3b8;margin-top:1px; }
+  .link-actions { display:flex;gap:4px;flex-shrink:0; }
+  .link-btn { background:none;border:1px solid #e2e8f0;border-radius:6px;padding:3px 7px;cursor:pointer;font-size:11px;color:#64748b;transition:background .1s,color .1s; }
+  .link-btn:hover { background:#fff; }
+  .link-btn.del:hover { background:#fef2f2;color:#ef4444;border-color:#fecaca; }
+
+  /* legend */
+  .map-legend { padding:9px 16px;border-top:1px solid #f1f5f9;background:#fafafa;display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-size:11.5px;color:#64748b; }
+  .leg-item { display:flex;align-items:center;gap:5px; }
+  .leg-line { width:24px;height:3px;border-radius:3px;flex-shrink:0; }
 </style>
 
 <!-- Header -->
 <div class="d-flex align-items-center justify-content-between mb-3">
-    <div>
-        <h2 class="mb-0" style="font-size:20px;font-weight:700;">Daftar Site / Lokasi</h2>
-        <p class="text-muted mb-0" style="font-size:13px;">
-            {{ lokasi_data|length }} lokasi &nbsp;·&nbsp;
-            <span id="map-site-count" style="color:#3b82f6;font-weight:600;"></span>
-        </p>
-    </div>
+  <div>
+    <h2 class="mb-0" style="font-size:20px;font-weight:700;">Daftar Site / Lokasi</h2>
+    <p class="text-muted mb-0" style="font-size:13px;">
+      {{ lokasi_data|length }} lokasi &nbsp;·&nbsp;
+      <span id="map-site-count" style="color:#3b82f6;font-weight:600;"></span>
+    </p>
+  </div>
 </div>
 
-<!-- ── MAP + FILTER SIDE BY SIDE ────────────────────────────────── -->
+<!-- MAP + RIGHT PANEL -->
 <div class="row g-3 mb-4">
 
-    <!-- Peta col-8 -->
-    <div class="col-lg-8">
-        <div class="card h-100" style="border-radius:14px;overflow:hidden;border:1px solid var(--border-color);">
-            <div style="padding:10px 16px;border-bottom:1px solid #f1f5f9;
-                        display:flex;align-items:center;justify-content:space-between;">
-                <span style="font-size:13px;font-weight:700;color:#0f172a;">
-                    <i class="bi bi-map-fill me-2" style="color:#3b82f6;"></i>Peta Lokasi Site
-                </span>
-                <span id="map-active-filter" style="font-size:11.5px;color:#92400e;
-                    background:#fef3c7;border:1px solid #fde68a;border-radius:20px;
-                    padding:2px 10px;font-weight:600;display:none;">
-                    <i class="bi bi-funnel-fill me-1" style="font-size:10px;"></i>
-                    <span id="map-active-filter-label"></span>
-                </span>
-            </div>
-            <div id="site-map"></div>
-            <!-- Legend koneksi -->
-            <div class="map-legend" id="link-legend" style="display:none;">
-                <span style="font-weight:700;color:#0f172a;font-size:11.5px;">Koneksi:</span>
-                <span class="leg-item"><span class="leg-line" style="background:#3b82f6;"></span>Fiber Optik</span>
-                <span class="leg-item"><span class="leg-line" style="background:#f59e0b;"></span>Radio / MW</span>
-                <span class="leg-item"><span class="leg-line" style="background:#10b981;"></span>OPGW</span>
-                <span class="leg-item"><span class="leg-line" style="background:#8b5cf6;"></span>Pilot Wire</span>
-                <span class="leg-item"><span class="leg-line" style="background:#94a3b8;"></span>Lainnya</span>
-            </div>
-            <div id="map-no-coord-info"
-                 style="padding:9px 16px;background:#fffbeb;border-top:1px solid #fde68a;
-                        font-size:11.5px;color:#92400e;display:none;">
-                <i class="bi bi-exclamation-triangle me-1"></i>
-                <span id="no-coord-msg"></span> —
-                <a href="/admin/devices/sitelocation/" target="_blank"
-                   style="color:#92400e;font-weight:600;">Admin → Lokasi Site</a>
-            </div>
-        </div>
+  <!-- Peta col-8 -->
+  <div class="col-lg-8">
+    <div class="card h-100" style="border-radius:14px;overflow:hidden;border:1px solid var(--border-color);">
+      <div style="padding:10px 16px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:13px;font-weight:700;color:#0f172a;">
+          <i class="bi bi-map-fill me-2" style="color:#3b82f6;"></i>Peta Lokasi Site
+        </span>
+        <span id="map-active-filter" style="font-size:11.5px;color:#92400e;background:#fef3c7;border:1px solid #fde68a;border-radius:20px;padding:2px 10px;font-weight:600;display:none;">
+          <i class="bi bi-funnel-fill me-1" style="font-size:10px;"></i>
+          <span id="map-active-filter-label"></span>
+        </span>
+      </div>
+      <!-- Connect mode bar -->
+      <div id="map-connect-bar">
+        <i class="bi bi-bezier2"></i>
+        <span id="connect-hint">Klik marker site pertama</span>
+        <button onclick="cancelConnectMode()" style="margin-left:auto;background:none;border:1px solid #fde68a;border-radius:6px;padding:2px 10px;cursor:pointer;font-size:11.5px;color:#92400e;">
+          <i class="bi bi-x me-1"></i>Batal
+        </button>
+      </div>
+      <div id="site-map"></div>
+      <!-- Legend -->
+      <div class="map-legend" id="link-legend" style="display:none;">
+        <span style="font-weight:700;color:#0f172a;font-size:11.5px;">Koneksi:</span>
+        <span class="leg-item"><span class="leg-line" style="background:#3b82f6;"></span>Fiber</span>
+        <span class="leg-item"><span class="leg-line" style="background:#f59e0b;"></span>Radio</span>
+        <span class="leg-item"><span class="leg-line" style="background:#10b981;"></span>OPGW</span>
+        <span class="leg-item"><span class="leg-line" style="background:#8b5cf6;"></span>Pilot Wire</span>
+        <span class="leg-item"><span class="leg-line" style="background:#94a3b8;"></span>Lainnya</span>
+      </div>
+      <div id="map-no-coord-info" style="padding:9px 16px;background:#fffbeb;border-top:1px solid #fde68a;font-size:11.5px;color:#92400e;display:none;">
+        <i class="bi bi-exclamation-triangle me-1"></i><span id="no-coord-msg"></span> —
+        <a href="/admin/devices/sitelocation/" target="_blank" style="color:#92400e;font-weight:600;">Admin → Lokasi Site</a>
+      </div>
     </div>
+  </div>
 
-    <!-- Filter card col-4 -->
-    <div class="col-lg-4">
-        <div class="card h-100" style="border-radius:14px;border:1px solid var(--border-color);">
-            <div style="padding:12px 16px;border-bottom:1px solid #f1f5f9;">
-                <div style="font-size:13px;font-weight:700;color:#0f172a;">
-                    <i class="bi bi-funnel me-2" style="color:#8b5cf6;"></i>Filter Jenis Perangkat
-                </div>
-                <div style="font-size:11.5px;color:#94a3b8;margin-top:2px;">
-                    Klik untuk highlight site di peta
-                </div>
-            </div>
-            <div style="padding:14px 16px;overflow-y:auto;max-height:420px;">
-                <!-- Semua -->
-                <div class="all-item active" id="filter-all" onclick="applyJenisFilter('')">
-                    <i class="bi bi-globe2" style="font-size:14px;color:#94a3b8;"></i>
-                    <span class="ai-label">Semua Jenis</span>
-                    <span class="ai-count" id="count-all">{{ lokasi_data|length }}</span>
-                </div>
-                <!-- Per jenis -->
-                {% for dt in device_types %}
-                <div class="jenis-item" data-jenis="{{ dt.name }}" onclick="applyJenisFilter('{{ dt.name|escapejs }}')">
-                    <span class="ji-dot"></span>
-                    <span class="ji-name">{{ dt.name }}</span>
-                    <span class="ji-count" id="count-{{ forloop.counter }}">—</span>
-                </div>
-                {% endfor %}
-            </div>
+  <!-- Right panel col-4 -->
+  <div class="col-lg-4">
+    <div class="card h-100" style="border-radius:14px;border:1px solid var(--border-color);display:flex;flex-direction:column;">
+
+      <!-- Tabs -->
+      <div class="rpanel-tabs">
+        <button class="rpanel-tab active" onclick="switchTab('filter')" id="tab-btn-filter">
+          <i class="bi bi-funnel me-1"></i>Filter Jenis
+        </button>
+        <button class="rpanel-tab" onclick="switchTab('koneksi')" id="tab-btn-koneksi">
+          <i class="bi bi-bezier2 me-1"></i>Koneksi
+          <span id="koneksi-badge" style="background:#3b82f6;color:#fff;border-radius:20px;font-size:10px;padding:0 6px;margin-left:4px;display:none;">0</span>
+        </button>
+      </div>
+
+      <!-- Tab: Filter -->
+      <div id="tab-filter" style="padding:14px;overflow-y:auto;flex:1;">
+        <div class="all-item active" id="filter-all" onclick="applyJenisFilter('')">
+          <i class="bi bi-globe2" style="font-size:14px;color:#94a3b8;"></i>
+          <span class="ai-label">Semua Jenis</span>
+          <span class="ai-count" id="count-all">{{ lokasi_data|length }}</span>
         </div>
-    </div>
+        {% for dt in device_types %}
+        <div class="jenis-item" data-jenis="{{ dt.name }}" onclick="applyJenisFilter('{{ dt.name|escapejs }}')">
+          <span class="ji-dot"></span>
+          <span class="ji-name">{{ dt.name }}</span>
+          <span class="ji-count" id="count-{{ forloop.counter }}">—</span>
+        </div>
+        {% endfor %}
+      </div>
 
+      <!-- Tab: Koneksi -->
+      <div id="tab-koneksi" style="display:none;flex-direction:column;flex:1;min-height:0;">
+        {% if user_can_edit %}
+        <div style="padding:12px 14px;border-bottom:1px solid #f1f5f9;">
+          <button onclick="startConnectMode()" id="btn-add-link"
+              style="width:100%;padding:8px;border-radius:9px;border:1.5px dashed #bfdbfe;
+                     background:#eff6ff;color:#2563eb;font-size:12.5px;font-weight:700;cursor:pointer;
+                     display:flex;align-items:center;justify-content:center;gap:7px;transition:background .15s;">
+            <i class="bi bi-plus-lg"></i>Tambah Koneksi
+          </button>
+        </div>
+        {% endif %}
+        <div id="link-list" style="padding:12px 14px;overflow-y:auto;flex:1;">
+          <div style="text-align:center;color:#94a3b8;font-size:12px;padding:20px 0;" id="link-empty">
+            <i class="bi bi-bezier2 d-block mb-2" style="font-size:28px;"></i>
+            Belum ada koneksi
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
 </div>
 
-<!-- ── GRID KARTU SITE ────────────────────────────────────────── -->
+<!-- Grid kartu site -->
 <div class="row g-3" id="site-card-grid">
-    {% for l in lokasi_data %}
-    <div class="col-md-4 col-sm-6 site-card-col"
-         data-jenis="{{ l.jenis_list|join:'||' }}">
-        <div class="site-card h-100 {% if l.has_coords %}has-map-pin{% endif %} p-4"
-             data-lokasi="{{ l.lokasi_clean }}"
-             data-lat="{{ l.latitude|default:'' }}"
-             data-lng="{{ l.longitude|default:'' }}"
-             onclick="onCardClick(this)">
-
-            <div class="d-flex align-items-start justify-content-between mb-3">
-                <div style="width:40px;height:40px;background:#eff6ff;border-radius:10px;
-                            display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                    <i class="bi bi-geo-alt-fill" style="color:#3b82f6;font-size:18px;"></i>
-                </div>
-                <div class="d-flex flex-column align-items-end gap-1">
-                    <span style="font-size:11px;background:#f1f5f9;color:#64748b;
-                                 padding:3px 9px;border-radius:20px;font-weight:600;">
-                        {{ l.total_device }} perangkat
-                    </span>
-                    {% if l.has_coords %}
-                    <span class="pin-badge with-pin"><i class="bi bi-pin-map-fill"></i>Ada di peta</span>
-                    {% else %}
-                    <span class="pin-badge no-pin"><i class="bi bi-pin-map"></i>Belum ada pin</span>
-                    {% endif %}
-                </div>
-            </div>
-
-            <div style="font-size:15px;font-weight:700;color:#0f172a;margin-bottom:4px;">{{ l.lokasi_clean }}</div>
-
-            {% if l.maintenance_open %}
-            <div style="font-size:12px;color:#f59e0b;font-weight:500;margin-bottom:12px;">
-                <i class="bi bi-exclamation-circle me-1"></i>{{ l.maintenance_open }} maintenance open
-            </div>
-            {% else %}
-            <div style="font-size:12px;color:#10b981;font-weight:500;margin-bottom:12px;">
-                <i class="bi bi-check-circle me-1"></i>Semua maintenance selesai
-            </div>
-            {% endif %}
-
-            <a href="{% url 'device_list' %}?lokasi={{ l.lokasi_clean }}"
-               class="btn btn-sm btn-outline-primary w-100"
-               onclick="event.stopPropagation()">
-                <i class="bi bi-hdd-rack me-1"></i>Lihat Peralatan
-            </a>
+  {% for l in lokasi_data %}
+  <div class="col-md-4 col-sm-6 site-card-col" data-jenis="{{ l.jenis_list|join:'||' }}">
+    <div class="site-card h-100 {% if l.has_coords %}has-map-pin{% endif %} p-4"
+         data-lokasi="{{ l.lokasi_clean }}"
+         data-lat="{{ l.latitude|default:'' }}"
+         data-lng="{{ l.longitude|default:'' }}"
+         onclick="onCardClick(this)">
+      <div class="d-flex align-items-start justify-content-between mb-3">
+        <div style="width:40px;height:40px;background:#eff6ff;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <i class="bi bi-geo-alt-fill" style="color:#3b82f6;font-size:18px;"></i>
         </div>
-    </div>
-    {% empty %}
-    <div class="col-12">
-        <div class="card">
-            <div class="card-body text-center py-5 text-muted">
-                <i class="bi bi-geo-alt fs-1 d-block mb-2"></i>
-                Belum ada lokasi terdaftar
-            </div>
+        <div class="d-flex flex-column align-items-end gap-1">
+          <span style="font-size:11px;background:#f1f5f9;color:#64748b;padding:3px 9px;border-radius:20px;font-weight:600;">{{ l.total_device }} perangkat</span>
+          {% if l.has_coords %}
+          <span class="pin-badge with-pin"><i class="bi bi-pin-map-fill"></i>Ada di peta</span>
+          {% else %}
+          <span class="pin-badge no-pin"><i class="bi bi-pin-map"></i>Belum ada pin</span>
+          {% endif %}
         </div>
+      </div>
+      <div style="font-size:15px;font-weight:700;color:#0f172a;margin-bottom:4px;">{{ l.lokasi_clean }}</div>
+      {% if l.maintenance_open %}
+      <div style="font-size:12px;color:#f59e0b;font-weight:500;margin-bottom:12px;"><i class="bi bi-exclamation-circle me-1"></i>{{ l.maintenance_open }} maintenance open</div>
+      {% else %}
+      <div style="font-size:12px;color:#10b981;font-weight:500;margin-bottom:12px;"><i class="bi bi-check-circle me-1"></i>Semua maintenance selesai</div>
+      {% endif %}
+      <a href="{% url 'device_list' %}?lokasi={{ l.lokasi_clean }}" class="btn btn-sm btn-outline-primary w-100" onclick="event.stopPropagation()">
+        <i class="bi bi-hdd-rack me-1"></i>Lihat Peralatan
+      </a>
     </div>
-    {% endfor %}
+  </div>
+  {% empty %}
+  <div class="col-12">
+    <div class="card"><div class="card-body text-center py-5 text-muted">
+      <i class="bi bi-geo-alt fs-1 d-block mb-2"></i>Belum ada lokasi terdaftar
+    </div></div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Modal: Buat koneksi -->
+<div class="modal fade" id="modalLink" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:440px;">
+    <div class="modal-content" style="border-radius:14px;border:none;">
+      <div class="modal-header border-0 pb-0">
+        <h6 class="modal-title fw-bold" style="font-size:15px;">
+          <i class="bi bi-bezier2 me-2" style="color:#3b82f6;"></i>Tambah Koneksi
+        </h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" onclick="cancelConnectMode()"></button>
+      </div>
+      <div class="modal-body pt-3">
+        <!-- Site A -->
+        <div class="mb-3">
+          <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#94a3b8;margin-bottom:5px;">Site A — <span id="ml-site-a-name" style="color:#0f172a;"></span></div>
+          <select id="ml-device-a" class="form-select form-select-sm">
+            <option value="">Memuat perangkat…</option>
+          </select>
+        </div>
+        <!-- Site B -->
+        <div class="mb-3">
+          <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#94a3b8;margin-bottom:5px;">Site B — <span id="ml-site-b-name" style="color:#0f172a;"></span></div>
+          <select id="ml-device-b" class="form-select form-select-sm">
+            <option value="">Memuat perangkat…</option>
+          </select>
+        </div>
+        <!-- Tipe -->
+        <div class="mb-3">
+          <label style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#94a3b8;display:block;margin-bottom:5px;">Tipe Koneksi</label>
+          <select id="ml-tipe" class="form-select form-select-sm">
+            <option value="fiber">Fiber Optik</option>
+            <option value="radio">Radio / MW</option>
+            <option value="opgw">OPGW</option>
+            <option value="pilot_wire">Pilot Wire</option>
+            <option value="lainnya">Lainnya</option>
+          </select>
+        </div>
+        <!-- Label -->
+        <div>
+          <label style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#94a3b8;display:block;margin-bottom:5px;">Label <span style="font-weight:400;">(opsional)</span></label>
+          <input id="ml-label" type="text" class="form-control form-control-sm" placeholder="Otomatis dari nama perangkat">
+        </div>
+        <div id="ml-error" style="margin-top:10px;font-size:12px;color:#ef4444;display:none;"></div>
+      </div>
+      <div class="modal-footer border-0 pt-0">
+        <button class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal" onclick="cancelConnectMode()">Batal</button>
+        <button class="btn btn-sm btn-primary px-4" onclick="saveLink()" id="ml-save-btn">
+          <i class="bi bi-check-lg me-1"></i>Simpan
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Edit koneksi -->
+<div class="modal fade" id="modalEditLink" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:380px;">
+    <div class="modal-content" style="border-radius:14px;border:none;">
+      <div class="modal-header border-0 pb-0">
+        <h6 class="modal-title fw-bold">Edit Koneksi</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body pt-3">
+        <input type="hidden" id="el-id">
+        <div class="mb-3">
+          <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Tipe Koneksi</label>
+          <select id="el-tipe" class="form-select form-select-sm">
+            <option value="fiber">Fiber Optik</option>
+            <option value="radio">Radio / MW</option>
+            <option value="opgw">OPGW</option>
+            <option value="pilot_wire">Pilot Wire</option>
+            <option value="lainnya">Lainnya</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:5px;">Label</label>
+          <input id="el-label" type="text" class="form-control form-control-sm" placeholder="Kosong = otomatis">
+        </div>
+      </div>
+      <div class="modal-footer border-0 pt-0">
+        <button class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+        <button class="btn btn-sm btn-primary px-4" onclick="saveEditLink()"><i class="bi bi-check-lg me-1"></i>Simpan</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 {% endblock %}
@@ -256,302 +318,406 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 const SITE_DATA = [
-    {% for l in lokasi_data %}{% if l.has_coords %}
-    {
-        nama:         "{{ l.lokasi_clean|escapejs }}",
-        lat:          {{ l.latitude }},
-        lng:          {{ l.longitude }},
-        total_device: {{ l.total_device }},
-        maint_open:   {{ l.maintenance_open }},
-        jenis_list:   [{% for j in l.jenis_list %}"{{ j|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}],
-    },
-    {% endif %}{% endfor %}
+  {% for l in lokasi_data %}{% if l.has_coords %}
+  { nama:"{{ l.lokasi_clean|escapejs }}", lat:{{ l.latitude }}, lng:{{ l.longitude }},
+    total_device:{{ l.total_device }}, maint_open:{{ l.maintenance_open }},
+    jenis_list:[{% for j in l.jenis_list %}"{{ j|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}] },
+  {% endif %}{% endfor %}
 ];
+const NO_COORD_SITES = [{% for l in lokasi_data %}{% if not l.has_coords %}"{{ l.lokasi_clean|escapejs }}",{% endif %}{% endfor %}];
+const USER_CAN_EDIT = {{ user_can_edit|yesno:"true,false" }};
+const CSRF = document.querySelector('meta[name="csrf-token"]')?.content || '';
 
-const NO_COORD_SITES = [
-    {% for l in lokasi_data %}{% if not l.has_coords %}"{{ l.lokasi_clean|escapejs }}",{% endif %}{% endfor %}
-];
+// ── State ────────────────────────────────────────────────────────
+let map = null, markers = {}, currentJenis = '';
+let allLinks = [], linkLines = {};   // id → L.polyline
+let connectMode = false, connectSiteA = null, connectSiteB = null;
 
-let map = null;
-let markers = {};
-let currentJenis = '';
+const LINK_COLORS = { fiber:'#3b82f6', radio:'#f59e0b', opgw:'#10b981', pilot_wire:'#8b5cf6', lainnya:'#94a3b8' };
 
-// ── Ikon marker ──────────────────────────────────────────────────
-function makeIcon(color) {
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="38" viewBox="0 0 32 44">
-      <path d="M16 1 C8.3 1 2 7.3 2 15 C2 24 16 43 16 43 C16 43 30 24 30 15 C30 7.3 23.7 1 16 1 Z"
-            fill="${color}" stroke="white" stroke-width="2"/>
-      <circle cx="16" cy="15" r="6" fill="white" opacity="0.9"/>
-    </svg>`;
-    return L.divIcon({
-        html: `<div style="filter:drop-shadow(0 2px 6px rgba(0,0,0,0.25))">${svg}</div>`,
-        iconSize:[28,38], iconAnchor:[14,38], popupAnchor:[0,-40], className:'',
-    });
+// ── Icons ────────────────────────────────────────────────────────
+function makeIcon(color, size=28) {
+  const s = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${Math.round(size*1.36)}" viewBox="0 0 32 44">
+    <path d="M16 1 C8.3 1 2 7.3 2 15 C2 24 16 43 16 43 C16 43 30 24 30 15 C30 7.3 23.7 1 16 1 Z"
+          fill="${color}" stroke="white" stroke-width="2"/>
+    <circle cx="16" cy="15" r="6" fill="white" opacity="0.9"/></svg>`;
+  const h = Math.round(size*1.36);
+  return L.divIcon({ html:`<div style="filter:drop-shadow(0 2px 6px rgba(0,0,0,0.25))">${s}</div>`,
+    iconSize:[size,h], iconAnchor:[size/2,h], popupAnchor:[0,-h-2], className:'' });
 }
 const ICON_BLUE   = makeIcon('#3b82f6');
 const ICON_AMBER  = makeIcon('#f59e0b');
 const ICON_ORANGE = makeIcon('#f97316');
+const ICON_GREEN  = makeIcon('#10b981', 32);
 
-// ── Init peta ────────────────────────────────────────────────────
+// ── Map init ─────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-    // Sulawesi default center
-    map = L.map('site-map').setView([-2.2, 120.8], 7);
+  map = L.map('site-map').setView([-2.2, 120.8], 7);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+    { attribution:'© OpenStreetMap © CARTO', subdomains:'abcd', maxZoom:19 }).addTo(map);
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/">CARTO</a>',
-        subdomains: 'abcd', maxZoom: 19,
-    }).addTo(map);
+  SITE_DATA.forEach(site => {
+    const icon   = site.maint_open > 0 ? ICON_AMBER : ICON_BLUE;
+    const marker = L.marker([site.lat, site.lng], { icon, title:site.nama }).addTo(map);
+    marker.on('click', () => onMarkerClick(marker, site));
+    markers[site.nama] = { marker, site };
+  });
 
-    SITE_DATA.forEach(site => {
-        const icon   = site.maint_open > 0 ? ICON_AMBER : ICON_BLUE;
-        const marker = L.marker([site.lat, site.lng], { icon, title: site.nama }).addTo(map);
-        marker.on('click', () => openSitePopup(marker, site));
-        markers[site.nama] = { marker, site };
-    });
+  if (SITE_DATA.length > 1)
+    map.fitBounds(L.featureGroup(Object.values(markers).map(m => m.marker)).getBounds().pad(0.2));
 
-    if (SITE_DATA.length > 1) {
-        map.fitBounds(
-            L.featureGroup(Object.values(markers).map(m => m.marker)).getBounds().pad(0.2)
-        );
-    }
+  if (NO_COORD_SITES.length > 0) {
+    document.getElementById('no-coord-msg').textContent =
+      NO_COORD_SITES.length + ' site belum ada koordinat: ' + NO_COORD_SITES.join(', ');
+    document.getElementById('map-no-coord-info').style.display = 'block';
+  }
 
-    if (NO_COORD_SITES.length > 0) {
-        document.getElementById('no-coord-msg').textContent =
-            NO_COORD_SITES.length + ' site belum ada koordinat: ' + NO_COORD_SITES.join(', ');
-        document.getElementById('map-no-coord-info').style.display = 'block';
-    }
-
-    buildJenisCounts();
-    updateCounter();
+  buildJenisCounts();
+  updateCounter();
+  setTimeout(loadLinks, 300);
 });
 
-// ── Hitung jumlah site per jenis (client-side) ───────────────────
-function buildJenisCounts() {
-    const countMap = {};
-    SITE_DATA.forEach(s => s.jenis_list.forEach(j => {
-        countMap[j] = (countMap[j] || 0) + 1;
-    }));
-    document.querySelectorAll('.jenis-item').forEach((el, i) => {
-        const jenis = el.dataset.jenis;
-        const cnt = countMap[jenis] || 0;
-        const cntEl = document.getElementById('count-' + (i + 1));
-        if (cntEl) cntEl.textContent = cnt;
-        if (cnt === 0) el.style.opacity = '0.45';
-    });
-    document.getElementById('count-all').textContent = '{{ lokasi_data|length }}';
+// ── Marker click: normal popup OR connect-mode selection ─────────
+function onMarkerClick(marker, site) {
+  if (!connectMode) { openSitePopup(marker, site); return; }
+
+  if (!connectSiteA) {
+    connectSiteA = site;
+    marker.setIcon(makeIcon('#10b981', 32));
+    document.getElementById('connect-hint').textContent =
+      `"${site.nama}" dipilih — klik marker site kedua`;
+    return;
+  }
+  if (site.nama === connectSiteA.nama) return;
+  connectSiteB = site;
+  marker.setIcon(makeIcon('#10b981', 32));
+  openLinkModal(connectSiteA, connectSiteB);
 }
 
-// ── Filter jenis ─────────────────────────────────────────────────
+// ── Tab switching ─────────────────────────────────────────────────
+function switchTab(name) {
+  document.getElementById('tab-filter').style.display  = name==='filter'  ? 'block' : 'none';
+  document.getElementById('tab-koneksi').style.display = name==='koneksi' ? 'flex'  : 'none';
+  document.getElementById('tab-btn-filter').classList.toggle('active',  name==='filter');
+  document.getElementById('tab-btn-koneksi').classList.toggle('active', name==='koneksi');
+}
+
+// ── Filter jenis ──────────────────────────────────────────────────
 function applyJenisFilter(jenis) {
-    currentJenis = jenis;
+  currentJenis = jenis;
 
-    // Highlight filter card items
-    document.getElementById('filter-all').classList.toggle('active', !jenis);
-    document.querySelectorAll('.jenis-item').forEach(el => {
-        el.classList.toggle('active', el.dataset.jenis === jenis);
-    });
+  document.getElementById('filter-all').classList.toggle('active', !jenis);
+  document.querySelectorAll('.jenis-item').forEach(el =>
+    el.classList.toggle('active', el.dataset.jenis === jenis));
 
-    // Active filter badge di map header
-    const badge = document.getElementById('map-active-filter');
-    document.getElementById('map-active-filter-label').textContent = jenis;
-    badge.style.display = jenis ? 'inline-flex' : 'none';
+  const badge = document.getElementById('map-active-filter');
+  document.getElementById('map-active-filter-label').textContent = jenis;
+  badge.style.display = jenis ? 'inline-flex' : 'none';
 
-    // Filter site cards
-    document.querySelectorAll('.site-card-col').forEach(col => {
-        if (!jenis) { col.style.display = ''; return; }
-        const list = col.dataset.jenis.split('||').map(s => s.trim().toLowerCase());
-        col.style.display = list.includes(jenis.toLowerCase()) ? '' : 'none';
-    });
+  document.querySelectorAll('.site-card-col').forEach(col => {
+    if (!jenis) { col.style.display = ''; return; }
+    const list = col.dataset.jenis.split('||').map(s => s.trim().toLowerCase());
+    col.style.display = list.includes(jenis.toLowerCase()) ? '' : 'none';
+  });
 
-    // Filter markers
-    let visibleMarkers = [];
-    Object.values(markers).forEach(obj => {
-        if (!jenis) {
-            obj.marker.addTo(map);
-            obj.marker.setIcon(obj.site.maint_open > 0 ? ICON_AMBER : ICON_BLUE);
-            visibleMarkers.push(obj.marker);
-        } else {
-            const has = obj.site.jenis_list.map(j => j.toLowerCase()).includes(jenis.toLowerCase());
-            if (has) {
-                obj.marker.addTo(map);
-                obj.marker.setIcon(ICON_ORANGE);
-                visibleMarkers.push(obj.marker);
-            } else {
-                map.removeLayer(obj.marker);
-            }
-        }
-    });
-
-    // Fit bounds
-    if (jenis && visibleMarkers.length > 1) {
-        map.fitBounds(L.featureGroup(visibleMarkers).getBounds().pad(0.3));
-    } else if (jenis && visibleMarkers.length === 1) {
-        map.setView(visibleMarkers[0].getLatLng(), 13);
-    } else if (!jenis && Object.keys(markers).length > 0) {
-        map.fitBounds(
-            L.featureGroup(Object.values(markers).map(m => m.marker)).getBounds().pad(0.2)
-        );
+  let vis = [];
+  Object.values(markers).forEach(obj => {
+    if (!jenis) { obj.marker.addTo(map); obj.marker.setIcon(obj.site.maint_open>0 ? ICON_AMBER : ICON_BLUE); vis.push(obj.marker); }
+    else {
+      const has = obj.site.jenis_list.map(j=>j.toLowerCase()).includes(jenis.toLowerCase());
+      if (has) { obj.marker.addTo(map); obj.marker.setIcon(ICON_ORANGE); vis.push(obj.marker); }
+      else map.removeLayer(obj.marker);
     }
+  });
 
-    // Re-render koneksi sesuai filter
-    renderLinks(jenis);
+  if (jenis && vis.length > 1) map.fitBounds(L.featureGroup(vis).getBounds().pad(0.3));
+  else if (jenis && vis.length === 1) map.setView(vis[0].getLatLng(), 13);
+  else if (!jenis && Object.keys(markers).length > 0)
+    map.fitBounds(L.featureGroup(Object.values(markers).map(m=>m.marker)).getBounds().pad(0.2));
 
-    updateCounter();
+  renderLinks(jenis);
+  updateCounter();
+}
+
+function buildJenisCounts() {
+  const cm = {};
+  SITE_DATA.forEach(s => s.jenis_list.forEach(j => { cm[j] = (cm[j]||0)+1; }));
+  document.querySelectorAll('.jenis-item').forEach((el, i) => {
+    const c = cm[el.dataset.jenis] || 0;
+    const el2 = document.getElementById('count-'+(i+1));
+    if (el2) el2.textContent = c;
+    if (c === 0) el.style.opacity = '0.45';
+  });
 }
 
 function updateCounter() {
-    const n = Object.values(markers).filter(o => map && map.hasLayer(o.marker)).length;
-    document.getElementById('map-site-count').textContent =
-        n + ' lokasi ada di peta' + (currentJenis ? ' · filter aktif' : '');
+  const n = Object.values(markers).filter(o => map && map.hasLayer(o.marker)).length;
+  document.getElementById('map-site-count').textContent =
+    n + ' lokasi ada di peta' + (currentJenis ? ' · filter aktif' : '');
 }
 
 // ── Popup ────────────────────────────────────────────────────────
 function openSitePopup(marker, site) {
-    const statusHtml = site.maint_open > 0
-        ? `<span style="color:#f59e0b;"><i class="bi bi-exclamation-circle"></i> ${site.maint_open} maintenance open</span>`
-        : `<span style="color:#10b981;"><i class="bi bi-check-circle"></i> Semua selesai</span>`;
-    const filterNote = currentJenis
-        ? `<div style="font-size:11px;color:#92400e;background:#fef3c7;border-radius:6px;
-                       padding:3px 8px;margin-bottom:6px;">
-               <i class="bi bi-funnel-fill me-1"></i>${currentJenis}
-           </div>` : '';
+  const statusHtml = site.maint_open > 0
+    ? `<span style="color:#f59e0b;"><i class="bi bi-exclamation-circle"></i> ${site.maint_open} maintenance open</span>`
+    : `<span style="color:#10b981;"><i class="bi bi-check-circle"></i> Semua selesai</span>`;
+  const filterNote = currentJenis
+    ? `<div style="font-size:11px;color:#92400e;background:#fef3c7;border-radius:6px;padding:3px 8px;margin-bottom:6px;">
+         <i class="bi bi-funnel-fill me-1"></i>${currentJenis}</div>` : '';
 
-    marker.bindPopup(
-        `<div style="min-width:240px;max-width:280px;">
-            <div class="map-popup-title">${site.nama}</div>
-            ${filterNote}
-            <div class="map-popup-meta">${site.total_device} perangkat &nbsp;·&nbsp; ${statusHtml}</div>
-            <div class="map-loading"><i class="bi bi-arrow-repeat"></i> Memuat…</div>
-         </div>`,
-        { maxWidth: 300, minWidth: 240 }
-    ).openPopup();
+  marker.bindPopup(
+    `<div style="min-width:240px;max-width:280px;">
+       <div class="map-popup-title">${site.nama}</div>${filterNote}
+       <div class="map-popup-meta">${site.total_device} perangkat &nbsp;·&nbsp; ${statusHtml}</div>
+       <div class="map-loading"><i class="bi bi-arrow-repeat"></i> Memuat…</div>
+     </div>`, { maxWidth:300, minWidth:240 }
+  ).openPopup();
 
-    let url = `/api/lokasi/${encodeURIComponent(site.nama)}/devices/`;
-    if (currentJenis) url += `?jenis=${encodeURIComponent(currentJenis)}`;
-
-    fetch(url).then(r => r.json()).then(data => {
-        const devs = data.devices || [];
-        let devHtml = devs.length === 0
-            ? `<div class="map-loading" style="color:#94a3b8;">
-                   ${currentJenis ? 'Tidak ada ' + currentJenis : 'Tidak ada perangkat'}
-               </div>`
-            : devs.map(d => {
-                const sub = [d.merk, d.type !== '-' ? d.type : '', d.ip !== '-' ? d.ip : '']
-                            .filter(Boolean).join(' · ');
-                const cls = currentJenis ? 'map-popup-badge filtered' : 'map-popup-badge';
-                return `<div class="map-popup-device-item">
-                    <span class="${cls}">${d.jenis}</span>
-                    <div>
-                        <div style="font-weight:600;color:#0f172a;font-size:12.5px;">${d.nama}</div>
-                        <div style="color:#94a3b8;font-size:11px;">${sub}</div>
-                    </div>
-                </div>`;
-            }).join('');
-
-        let listUrl = `/devices/?lokasi=${encodeURIComponent(site.nama)}`;
-        if (currentJenis) listUrl += `&jenis_name=${encodeURIComponent(currentJenis)}`;
-
-        marker.setPopupContent(`
-            <div style="min-width:240px;max-width:280px;">
-                <div class="map-popup-title">${site.nama}</div>
-                ${filterNote}
-                <div class="map-popup-meta">${site.total_device} perangkat &nbsp;·&nbsp; ${statusHtml}</div>
-                <div class="map-popup-device-list">${devHtml}</div>
-                <a class="map-popup-link" href="${listUrl}">
-                    <i class="bi bi-hdd-rack me-1"></i>Lihat semua peralatan →
-                </a>
-            </div>`);
-    }).catch(() => {
-        marker.setPopupContent(`
-            <div style="min-width:240px;">
-                <div class="map-popup-title">${site.nama}</div>
-                <div class="map-loading" style="color:#ef4444;">
-                    <i class="bi bi-exclamation-triangle me-1"></i>Gagal memuat data
-                </div>
-            </div>`);
-    });
+  let url = `/api/lokasi/${encodeURIComponent(site.nama)}/devices/`;
+  if (currentJenis) url += `?jenis=${encodeURIComponent(currentJenis)}`;
+  fetch(url).then(r=>r.json()).then(data => {
+    const devs = data.devices||[];
+    const devHtml = devs.length===0
+      ? `<div class="map-loading" style="color:#94a3b8;">${currentJenis?'Tidak ada '+currentJenis:'Tidak ada perangkat'}</div>`
+      : devs.map(d => {
+          const sub = [d.merk, d.type!=='-'?d.type:'', d.ip!=='-'?d.ip:''].filter(Boolean).join(' · ');
+          return `<div class="map-popup-device-item">
+            <span class="${currentJenis?'map-popup-badge filtered':'map-popup-badge'}">${d.jenis}</span>
+            <div><div style="font-weight:600;color:#0f172a;font-size:12.5px;">${d.nama}</div>
+            <div style="color:#94a3b8;font-size:11px;">${sub}</div></div></div>`;
+        }).join('');
+    let listUrl = `/devices/?lokasi=${encodeURIComponent(site.nama)}`;
+    if (currentJenis) listUrl += `&jenis_name=${encodeURIComponent(currentJenis)}`;
+    marker.setPopupContent(`
+      <div style="min-width:240px;max-width:280px;">
+        <div class="map-popup-title">${site.nama}</div>${filterNote}
+        <div class="map-popup-meta">${site.total_device} perangkat &nbsp;·&nbsp; ${statusHtml}</div>
+        <div class="map-popup-device-list">${devHtml}</div>
+        <a class="map-popup-link" href="${listUrl}"><i class="bi bi-hdd-rack me-1"></i>Lihat semua →</a>
+      </div>`);
+  }).catch(() => {
+    marker.setPopupContent(`<div style="min-width:220px;">
+      <div class="map-popup-title">${site.nama}</div>
+      <div class="map-loading" style="color:#ef4444;"><i class="bi bi-exclamation-triangle me-1"></i>Gagal memuat</div>
+    </div>`);
+  });
 }
 
-// ── Klik kartu → fly to site ─────────────────────────────────────
+// ── Card click → fly to ───────────────────────────────────────────
 function onCardClick(card) {
-    const lat = parseFloat(card.dataset.lat);
-    const lng = parseFloat(card.dataset.lng);
-    if (!lat || !lng) return;
-    map.flyTo([lat, lng], 14, { duration: 1 });
-    const m = markers[card.dataset.lokasi];
-    if (m) setTimeout(() => m.marker.openPopup(), 900);
+  const lat = parseFloat(card.dataset.lat), lng = parseFloat(card.dataset.lng);
+  if (!lat||!lng) return;
+  map.flyTo([lat,lng], 14, { duration:1 });
+  const m = markers[card.dataset.lokasi];
+  if (m) setTimeout(()=>m.marker.openPopup(), 900);
 }
 
-// ── Koneksi / polylines ──────────────────────────────────────────
-const LINK_COLORS = {
-    fiber:      '#3b82f6',
-    radio:      '#f59e0b',
-    opgw:       '#10b981',
-    pilot_wire: '#8b5cf6',
-    lainnya:    '#94a3b8',
-};
-let allLinks  = [];   // raw data dari API
-let linkLines = [];   // L.polyline objects
-
+// ── Links: load & render ──────────────────────────────────────────
 function loadLinks() {
-    fetch('/api/device-links/')
-        .then(r => r.json())
-        .then(data => {
-            allLinks = data.links || [];
-            renderLinks(currentJenis);
-            if (allLinks.length > 0)
-                document.getElementById('link-legend').style.display = 'flex';
-        })
-        .catch(() => {});
+  fetch('/api/device-links/').then(r=>r.json()).then(data => {
+    allLinks = data.links || [];
+    renderLinks(currentJenis);
+    renderLinkList();
+    if (allLinks.length > 0) document.getElementById('link-legend').style.display = 'flex';
+    const badge = document.getElementById('koneksi-badge');
+    badge.textContent = allLinks.length;
+    badge.style.display = allLinks.length ? 'inline' : 'none';
+  }).catch(()=>{});
 }
 
 function renderLinks(jenisFilter) {
-    // Hapus polyline lama
-    linkLines.forEach(l => map.removeLayer(l));
-    linkLines = [];
-
-    allLinks.forEach(link => {
-        if (jenisFilter) {
-            const matchA = link.device_a.jenis.toLowerCase() === jenisFilter.toLowerCase();
-            const matchB = link.device_b.jenis.toLowerCase() === jenisFilter.toLowerCase();
-            if (!matchA && !matchB) return;
-        }
-        const color = LINK_COLORS[link.tipe] || '#94a3b8';
-        const line  = L.polyline(
-            [[link.lat_a, link.lng_a], [link.lat_b, link.lng_b]],
-            { color, weight: 2.5, opacity: 0.85, smoothFactor: 1 }
-        ).addTo(map);
-
-        line.bindPopup(`
-            <div style="min-width:200px;">
-                <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;
-                            border-bottom:1px solid #f1f5f9;padding-bottom:6px;">
-                    ${link.label}
-                </div>
-                <div style="font-size:11.5px;color:#64748b;margin-bottom:4px;">
-                    <span style="background:${color};color:#fff;padding:1px 7px;border-radius:20px;
-                                 font-size:10.5px;font-weight:600;">${link.tipe.replace('_',' ')}</span>
-                </div>
-                <div style="font-size:12px;margin-top:6px;">
-                    <div style="color:#94a3b8;font-size:10.5px;font-weight:700;text-transform:uppercase;margin-bottom:2px;">Perangkat A</div>
-                    <b>${link.device_a.nama}</b>
-                    <span style="color:#94a3b8;"> · ${link.device_a.lokasi}</span>
-                </div>
-                <div style="font-size:12px;margin-top:4px;">
-                    <div style="color:#94a3b8;font-size:10.5px;font-weight:700;text-transform:uppercase;margin-bottom:2px;">Perangkat B</div>
-                    <b>${link.device_b.nama}</b>
-                    <span style="color:#94a3b8;"> · ${link.device_b.lokasi}</span>
-                </div>
-            </div>`
-        );
-        linkLines.push(line);
-    });
+  Object.values(linkLines).forEach(l => map.removeLayer(l));
+  linkLines = {};
+  allLinks.forEach(link => {
+    if (!link.aktif) return;
+    if (!link.lat_a || !link.lat_b) return;
+    if (jenisFilter) {
+      const ma = link.device_a.jenis.toLowerCase()===jenisFilter.toLowerCase();
+      const mb = link.device_b.jenis.toLowerCase()===jenisFilter.toLowerCase();
+      if (!ma && !mb) return;
+    }
+    const color = LINK_COLORS[link.tipe] || '#94a3b8';
+    const line  = L.polyline([[link.lat_a, link.lng_a],[link.lat_b, link.lng_b]],
+      { color, weight:2.5, opacity:0.85 }).addTo(map);
+    line.bindPopup(`
+      <div style="min-width:200px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;border-bottom:1px solid #f1f5f9;padding-bottom:6px;">${link.label}</div>
+        <div style="margin-bottom:6px;"><span style="background:${color};color:#fff;padding:1px 8px;border-radius:20px;font-size:10.5px;font-weight:600;">${link.tipe.replace('_',' ')}</span></div>
+        <div style="font-size:12px;margin-top:4px;">
+          <div style="color:#94a3b8;font-size:10.5px;font-weight:700;text-transform:uppercase;margin-bottom:2px;">Perangkat A</div>
+          <b>${link.device_a.nama}</b> <span style="color:#94a3b8;">· ${link.device_a.lokasi}</span>
+        </div>
+        <div style="font-size:12px;margin-top:4px;">
+          <div style="color:#94a3b8;font-size:10.5px;font-weight:700;text-transform:uppercase;margin-bottom:2px;">Perangkat B</div>
+          <b>${link.device_b.nama}</b> <span style="color:#94a3b8;">· ${link.device_b.lokasi}</span>
+        </div>
+      </div>`);
+    linkLines[link.id] = line;
+  });
 }
 
-// Panggil loadLinks setelah peta selesai init
-document.addEventListener('DOMContentLoaded', () => {
-    // tunggu sebentar agar map init dulu
-    setTimeout(loadLinks, 300);
-});
+function renderLinkList() {
+  const container = document.getElementById('link-list');
+  const empty     = document.getElementById('link-empty');
+  if (allLinks.length === 0) { empty.style.display='block'; return; }
+  empty.style.display = 'none';
+
+  // Rebuild rows
+  container.querySelectorAll('.link-row').forEach(r => r.remove());
+
+  allLinks.forEach(link => {
+    const color = LINK_COLORS[link.tipe] || '#94a3b8';
+    const row   = document.createElement('div');
+    row.className = 'link-row';
+    row.dataset.id = link.id;
+    row.innerHTML = `
+      <span class="link-tipe-dot" style="background:${color};"></span>
+      <div class="link-info">
+        <div class="link-label" title="${link.label}">${link.label}</div>
+        <div class="link-sub">${link.device_a.lokasi} → ${link.device_b.lokasi} · ${link.tipe.replace('_',' ')}</div>
+      </div>
+      <div class="link-actions">
+        ${USER_CAN_EDIT ? `
+        <button class="link-btn" onclick="openEditLink(${link.id})" title="Edit"><i class="bi bi-pencil"></i></button>
+        <button class="link-btn del" onclick="deleteLink(${link.id})" title="Hapus"><i class="bi bi-trash3"></i></button>` : ''}
+      </div>`;
+    // Click row → highlight line on map
+    row.addEventListener('click', e => {
+      if (e.target.closest('button')) return;
+      const line = linkLines[link.id];
+      if (line) { map.fitBounds(line.getBounds().pad(0.3)); line.openPopup(); }
+    });
+    container.appendChild(row);
+  });
+}
+
+// ── Connect mode ──────────────────────────────────────────────────
+function startConnectMode() {
+  connectMode  = true;
+  connectSiteA = null;
+  connectSiteB = null;
+  document.getElementById('map-connect-bar').style.display = 'flex';
+  document.getElementById('site-map').classList.add('connect-mode');
+  document.getElementById('connect-hint').textContent = 'Klik marker site pertama';
+  switchTab('filter');  // go back to map view
+}
+
+function cancelConnectMode() {
+  connectMode  = false;
+  connectSiteA = null;
+  connectSiteB = null;
+  document.getElementById('map-connect-bar').style.display = 'none';
+  document.getElementById('site-map').classList.remove('connect-mode');
+  // Reset all icons
+  Object.values(markers).forEach(obj =>
+    obj.marker.setIcon(obj.site.maint_open > 0 ? ICON_AMBER : ICON_BLUE));
+}
+
+// ── Link modal ────────────────────────────────────────────────────
+function openLinkModal(siteA, siteB) {
+  document.getElementById('ml-site-a-name').textContent = siteA.nama;
+  document.getElementById('ml-site-b-name').textContent = siteB.nama;
+  document.getElementById('ml-device-a').innerHTML = '<option value="">Memuat…</option>';
+  document.getElementById('ml-device-b').innerHTML = '<option value="">Memuat…</option>';
+  document.getElementById('ml-label').value  = '';
+  document.getElementById('ml-tipe').value   = 'fiber';
+  document.getElementById('ml-error').style.display = 'none';
+
+  const modal = new bootstrap.Modal(document.getElementById('modalLink'));
+  modal.show();
+
+  const loadDevices = (lokasi, selectId) => {
+    fetch(`/api/lokasi/${encodeURIComponent(lokasi)}/devices/`).then(r=>r.json()).then(data => {
+      const sel = document.getElementById(selectId);
+      sel.innerHTML = data.devices.map(d =>
+        `<option value="${d.id}">[${d.jenis}] ${d.nama}</option>`
+      ).join('');
+      if (!sel.options.length) sel.innerHTML = '<option value="">Tidak ada perangkat</option>';
+    });
+  };
+  loadDevices(siteA.nama, 'ml-device-a');
+  loadDevices(siteB.nama, 'ml-device-b');
+}
+
+function saveLink() {
+  const aId  = document.getElementById('ml-device-a').value;
+  const bId  = document.getElementById('ml-device-b').value;
+  const tipe = document.getElementById('ml-tipe').value;
+  const lbl  = document.getElementById('ml-label').value.trim();
+  const err  = document.getElementById('ml-error');
+
+  if (!aId || !bId) { err.textContent = 'Pilih perangkat A dan B terlebih dahulu.'; err.style.display='block'; return; }
+  if (aId === bId)  { err.textContent = 'Perangkat A dan B tidak boleh sama.'; err.style.display='block'; return; }
+
+  const btn = document.getElementById('ml-save-btn');
+  btn.disabled = true; btn.textContent = 'Menyimpan…';
+
+  fetch('/api/device-links/create/', {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', 'X-CSRFToken': CSRF },
+    body: JSON.stringify({ device_a_id:aId, device_b_id:bId, tipe, label:lbl }),
+  }).then(r=>r.json()).then(res => {
+    btn.disabled=false; btn.innerHTML='<i class="bi bi-check-lg me-1"></i>Simpan';
+    if (!res.ok) { err.textContent=res.error||'Gagal menyimpan.'; err.style.display='block'; return; }
+    bootstrap.Modal.getInstance(document.getElementById('modalLink')).hide();
+    cancelConnectMode();
+    allLinks.push(res.link);
+    renderLinks(currentJenis);
+    renderLinkList();
+    document.getElementById('link-legend').style.display = 'flex';
+    const badge = document.getElementById('koneksi-badge');
+    badge.textContent = allLinks.length; badge.style.display='inline';
+    switchTab('koneksi');
+  }).catch(() => {
+    btn.disabled=false; btn.innerHTML='<i class="bi bi-check-lg me-1"></i>Simpan';
+    err.textContent='Terjadi kesalahan.'; err.style.display='block';
+  });
+}
+
+// ── Edit link ─────────────────────────────────────────────────────
+function openEditLink(id) {
+  const link = allLinks.find(l => l.id === id);
+  if (!link) return;
+  document.getElementById('el-id').value    = id;
+  document.getElementById('el-tipe').value  = link.tipe;
+  document.getElementById('el-label').value = link.label === (link.device_a.nama+' → '+link.device_b.nama) ? '' : link.label;
+  new bootstrap.Modal(document.getElementById('modalEditLink')).show();
+}
+
+function saveEditLink() {
+  const id   = parseInt(document.getElementById('el-id').value);
+  const tipe = document.getElementById('el-tipe').value;
+  const lbl  = document.getElementById('el-label').value.trim();
+
+  fetch(`/api/device-links/${id}/update/`, {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', 'X-CSRFToken': CSRF },
+    body: JSON.stringify({ tipe, label:lbl }),
+  }).then(r=>r.json()).then(res => {
+    if (!res.ok) return;
+    bootstrap.Modal.getInstance(document.getElementById('modalEditLink')).hide();
+    const idx = allLinks.findIndex(l=>l.id===id);
+    if (idx>=0) allLinks[idx] = res.link;
+    renderLinks(currentJenis);
+    renderLinkList();
+  });
+}
+
+// ── Delete link ───────────────────────────────────────────────────
+function deleteLink(id) {
+  if (!confirm('Hapus koneksi ini?')) return;
+  fetch(`/api/device-links/${id}/delete/`, {
+    method:'POST',
+    headers:{ 'X-CSRFToken': CSRF },
+  }).then(r=>r.json()).then(res => {
+    if (!res.ok) return;
+    allLinks = allLinks.filter(l=>l.id!==id);
+    renderLinks(currentJenis);
+    renderLinkList();
+    const badge = document.getElementById('koneksi-badge');
+    badge.textContent = allLinks.length; badge.style.display = allLinks.length ? 'inline':'none';
+    if (!allLinks.length) document.getElementById('link-legend').style.display='none';
+  });
+}
 </script>
 {% endblock %}

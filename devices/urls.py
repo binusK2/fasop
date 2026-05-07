@@ -13,7 +13,10 @@ urlpatterns = [
     path('type/<hid:type_id>/', views.device_by_type, name='device_by_type'),
     path('lokasi/', views.lokasi_list, name='lokasi_list'),
     path('api/lokasi/<str:lokasi_nama>/devices/', views.api_lokasi_devices, name='api_lokasi_devices'),
-    path('api/device-links/', views.api_device_links, name='api_device_links'),
+    path('api/device-links/',              views.api_device_links,        name='api_device_links'),
+    path('api/device-links/create/',       views.api_device_link_create,  name='api_device_link_create'),
+    path('api/device-links/<int:pk>/delete/', views.api_device_link_delete, name='api_device_link_delete'),
+    path('api/device-links/<int:pk>/update/', views.api_device_link_update, name='api_device_link_update'),
 
     # Layanan ICON+
     path('layanan-icon/', views.layanan_icon, name='layanan_icon'),
