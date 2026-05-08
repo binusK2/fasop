@@ -40,8 +40,8 @@ def scada_av_upload(request):
                 status        = 'pending',
             )
 
-            # Simpan semua file yang diupload
-            uploaded_files = request.FILES.getlist('files')
+            # Simpan semua file yang diupload (cd['files'] sudah berupa list dari MultipleFileField)
+            uploaded_files = cd['files']
             for f in uploaded_files:
                 ScadaAvFile.objects.create(
                     session  = session,

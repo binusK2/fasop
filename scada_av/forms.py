@@ -1,5 +1,39 @@
 from django import forms
+from django.forms.widgets import FileInput
 from .models import ScadaAvSession, MASTER_CHOICES, INPUT_TYPE_CHOICES, CALC_TYPE_CHOICES
+
+
+class MultipleFileInput(FileInput):
+    """Custom widget untuk upload multiple file — Django 6 memblokir multiple di FileInput bawaan."""
+    allow_multiple_selected = True  # flag Django internal
+
+    def __init__(self, attrs=None):
+        super().__init__(attrs)
+        # Paksa atribut multiple tanpa melewati validasi widget bawaan
+        if self.attrs.get('multiple') is None:
+            self.attrs['multiple'] = True
+
+    def value_from_datadict(self, data, files, name):
+        # Kembalikan list file, bukan single file
+        return files.getlist(name)
+
+
+class MultipleFileField(forms.FileField):
+    """FileField yang menerima list file dari MultipleFileInput."""
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault('widget', MultipleFileInput())
+        super().__init__(*args, **kwargs)
+
+    def clean(self, data, initial=None):
+        # data adalah list of InMemoryUploadedFile
+        if not data:
+            if self.required:
+                raise forms.ValidationError(self.error_messages['required'])
+            return []
+        result = []
+        for f in data:
+            result.append(super().clean(f, initial))
+        return result
 
 _TXT  = 'form-control'
 _SEL  = 'form-select'
@@ -43,11 +77,10 @@ class ScadaAvUploadForm(forms.Form):
         initial='both',
         widget=forms.Select(attrs={'class': _SEL, 'id': 'id_calc_type'}),
     )
-    files = forms.FileField(
+    files = MultipleFileField(
         label='File Input',
-        widget=forms.FileInput(attrs={
+        widget=MultipleFileInput(attrs={
             'class': _TXT,
-            'multiple': True,
             'accept': '.xls,.xlsx,.xml',
         }),
     )
