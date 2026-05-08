@@ -76,6 +76,21 @@
                 </select>
                 <button type="submit" class="btn btn-sm btn-primary">Filter</button>
                 <a href="{% url 'jadwal_list' %}" class="btn btn-sm btn-outline-secondary">Reset</a>
+
+                {# ── View toggle ── #}
+                <div style="display:flex;gap:4px;background:#f1f5f9;border-radius:8px;padding:3px;margin-left:4px;">
+                    <button type="button" id="btnViewDaftar"
+                            onclick="setView('daftar')"
+                            style="border:none;background:#fff;border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;color:#3b82f6;box-shadow:0 1px 3px rgba(0,0,0,0.1);cursor:pointer;transition:all 0.15s;">
+                        <i class="bi bi-list-ul me-1"></i>Daftar
+                    </button>
+                    <button type="button" id="btnViewKalender"
+                            onclick="setView('kalender')"
+                            style="border:none;background:transparent;border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;color:#64748b;cursor:pointer;transition:all 0.15s;">
+                        <i class="bi bi-calendar3 me-1"></i>Kalender
+                    </button>
+                </div>
+
                 <a href="{% url 'export_jadwal_pdf' %}?tahun={{ filter_tahun }}"
                    class="btn btn-sm btn-outline-danger ms-auto" target="_blank">
                     <i class="bi bi-file-earmark-pdf me-1"></i>Export PDF
@@ -89,7 +104,7 @@
     </div>
 
     {# Tabel Jadwal #}
-    <div class="table-card">
+    <div id="viewDaftar" class="table-card">
         <div class="table-responsive">
             <table class="table mb-0">
                 <thead>
@@ -104,8 +119,9 @@
                 <tbody>
                     {% for item in jadwal_data %}
                     {% with j=item.jadwal p=item.progress %}
-                    <tr style="border-top:1px solid #f1f5f9;transition:background 0.12s;"
-                        onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
+                    <tr style="border-top:1px solid #f1f5f9;transition:background 0.12s;{% if item.is_overdue %}background:#fff8f8;{% endif %}"
+                        onmouseover="this.style.background='{% if item.is_overdue %}#fee2e2{% else %}#f8fafc{% endif %}'"
+                        onmouseout="this.style.background='{% if item.is_overdue %}#fff8f8{% else %}''{% endif %}'">
 
                         <td style="padding:12px 16px;">
                             <div style="font-size:13px;font-weight:600;color:#1e293b;">{{ j.lokasi }}</div>
@@ -133,7 +149,11 @@
                         </td>
 
                         <td style="padding:12px 16px;text-align:center;">
-                            {% if j.status == 'done' %}
+                            {% if item.is_overdue %}
+                            <span style="font-size:11.5px;font-weight:700;color:#991b1b;background:#fee2e2;padding:4px 12px;border-radius:20px;border:1px solid #fca5a5;display:inline-flex;align-items:center;gap:4px;">
+                                <i class="bi bi-exclamation-circle-fill" style="font-size:10px;"></i>Terlambat
+                            </span>
+                            {% elif j.status == 'done' %}
                             <span style="font-size:11.5px;font-weight:700;color:#065f46;background:#dcfce7;padding:4px 12px;border-radius:20px;border:1px solid #a7f3d0;">
                                 <i class="bi bi-check-circle-fill me-1" style="font-size:10px;"></i>Selesai
                             </span>
@@ -167,6 +187,65 @@
                     {% endfor %}
                 </tbody>
             </table>
+        </div>
+    </div>
+
+    {# ── VIEW KALENDER ── #}
+    <div id="viewKalender" style="display:none;">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+            {% for bln in kalender_data %}
+            <div style="background:#fff;border:1px solid {% if bln.is_current %}#3b82f6{% else %}#e2e8f0{% endif %};border-radius:12px;overflow:hidden;{% if bln.is_current %}box-shadow:0 0 0 2px rgba(59,130,246,0.2);{% endif %}">
+                {# Header bulan #}
+                <div style="padding:10px 14px 8px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;
+                    background:{% if bln.is_current %}#eff6ff{% elif bln.is_past and bln.entries %}#fff8f8{% elif bln.is_past %}#f8fafc{% else %}#fff{% endif %};">
+                    <span style="font-size:13px;font-weight:700;color:{% if bln.is_current %}#1d4ed8{% else %}#1e293b{% endif %};">
+                        {{ bln.nama }}
+                        {% if bln.is_current %}
+                        <span style="font-size:10px;font-weight:600;color:#3b82f6;background:#dbeafe;padding:1px 6px;border-radius:10px;margin-left:4px;">Bulan ini</span>
+                        {% endif %}
+                    </span>
+                    <span style="font-size:11px;color:#94a3b8;">{{ bln.entries|length }} jadwal</span>
+                </div>
+                {# Entries #}
+                <div style="padding:8px;min-height:70px;">
+                    {% if bln.entries %}
+                        {% for item in bln.entries %}
+                        {% with j=item.jadwal %}
+                        <a href="{% url 'jadwal_detail' j.pk %}" style="text-decoration:none;display:block;margin-bottom:5px;">
+                            <div style="padding:5px 8px;border-radius:7px;font-size:11.5px;
+                                {% if item.is_overdue %}background:#fee2e2;border:1px solid #fca5a5;color:#991b1b;
+                                {% elif j.status == 'done' %}background:#dcfce7;border:1px solid #a7f3d0;color:#065f46;
+                                {% elif j.status == 'in_progress' %}background:#fef3c7;border:1px solid #fde68a;color:#92400e;
+                                {% else %}background:#dbeafe;border:1px solid #bfdbfe;color:#1d4ed8;{% endif %}
+                                transition:filter 0.15s;" onmouseover="this.style.filter='brightness(0.95)'" onmouseout="this.style.filter=''">
+                                <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                    {% if item.is_overdue %}<i class="bi bi-exclamation-circle-fill me-1" style="font-size:10px;"></i>{% elif j.status == 'done' %}<i class="bi bi-check-circle-fill me-1" style="font-size:10px;"></i>{% elif j.status == 'in_progress' %}<i class="bi bi-hourglass-split me-1" style="font-size:10px;"></i>{% else %}<i class="bi bi-clock me-1" style="font-size:10px;"></i>{% endif %}
+                                    {{ j.lokasi }}
+                                </div>
+                                <div style="font-size:10px;opacity:0.7;margin-top:1px;">
+                                    {{ item.progress.selesai }}/{{ item.progress.total }} device · {{ item.progress.pct }}%
+                                </div>
+                            </div>
+                        </a>
+                        {% endwith %}
+                        {% endfor %}
+                    {% else %}
+                    <div style="text-align:center;padding:14px 0;color:#cbd5e1;">
+                        <i class="bi bi-calendar3" style="font-size:20px;display:block;margin-bottom:4px;"></i>
+                        <span style="font-size:11px;">Kosong</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {# Legenda #}
+        <div style="display:flex;gap:16px;margin-top:12px;flex-wrap:wrap;padding:10px 14px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;">
+            <span style="font-size:11px;color:#64748b;font-weight:600;">Keterangan:</span>
+            <span style="font-size:11px;display:flex;align-items:center;gap:5px;"><span style="width:12px;height:12px;border-radius:3px;background:#fee2e2;border:1px solid #fca5a5;display:inline-block;"></span>Terlambat</span>
+            <span style="font-size:11px;display:flex;align-items:center;gap:5px;"><span style="width:12px;height:12px;border-radius:3px;background:#dbeafe;border:1px solid #bfdbfe;display:inline-block;"></span>Terjadwal</span>
+            <span style="font-size:11px;display:flex;align-items:center;gap:5px;"><span style="width:12px;height:12px;border-radius:3px;background:#fef3c7;border:1px solid #fde68a;display:inline-block;"></span>Berjalan</span>
+            <span style="font-size:11px;display:flex;align-items:center;gap:5px;"><span style="width:12px;height:12px;border-radius:3px;background:#dcfce7;border:1px solid #a7f3d0;display:inline-block;"></span>Selesai</span>
         </div>
     </div>
 </div>
@@ -313,6 +392,35 @@
 
 {% block extra_js %}
 <script>
+// ── View toggle Daftar / Kalender ──────────────────────────────────────────
+function setView(mode) {
+    const daftarEl  = document.getElementById('viewDaftar');
+    const kalEl     = document.getElementById('viewKalender');
+    const btnDaftar = document.getElementById('btnViewDaftar');
+    const btnKal    = document.getElementById('btnViewKalender');
+    const activeStyle   = 'background:#fff;border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,0.1);cursor:pointer;transition:all 0.15s;border:none;';
+    const inactiveStyle = 'background:transparent;border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;color:#64748b;cursor:pointer;transition:all 0.15s;border:none;';
+    if (mode === 'daftar') {
+        daftarEl.style.display = '';
+        kalEl.style.display    = 'none';
+        btnDaftar.style.cssText = activeStyle + 'color:#3b82f6;';
+        btnKal.style.cssText    = inactiveStyle;
+        localStorage.setItem('jadwalView', 'daftar');
+    } else {
+        daftarEl.style.display = 'none';
+        kalEl.style.display    = '';
+        btnDaftar.style.cssText = inactiveStyle;
+        btnKal.style.cssText    = activeStyle + 'color:#3b82f6;';
+        localStorage.setItem('jadwalView', 'kalender');
+    }
+}
+
+// Restore last view preference
+document.addEventListener('DOMContentLoaded', function() {
+    const saved = localStorage.getItem('jadwalView');
+    if (saved === 'kalender') setView('kalender');
+});
+
 // Tanggal hari ini dari server
 const TODAY_YEAR  = {{ today_year }};
 const TODAY_MONTH = {{ today_month }};
