@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Hasil Pencarian — FASOP UP2B{% endblock %}
+{% block page_title %}Pencarian{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Hasil Pencarian</h2>
+    {% if query %}
+    <p class="text-muted">Menampilkan {{ total }} hasil untuk "<strong>{{ query }}</strong>"</p>
+    {% endif %}
+</div>
+
+<form method="get" action="{% url 'global_search' %}" class="mb-4">
+    <div style="display:flex;gap:8px;max-width:520px;">
+        <div style="position:relative;flex:1;">
+            <i class="bi bi-search" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:14px;"></i>
+            <input type="text" name="q" value="{{ query }}" placeholder="Cari perangkat, gangguan, pemeliharaan..."
+                   class="form-control"
+                   style="padding-left:36px;height:40px;font-size:13.5px;"
+                   autofocus>
+        </div>
+        <button type="submit" class="btn btn-primary" style="height:40px;padding:0 18px;white-space:nowrap;">
+            <i class="bi bi-search me-1"></i> Cari
+        </button>
+    </div>
+</form>
+
+{% if query %}
+
+{% if not total %}
+<div style="text-align:center;padding:60px 20px;color:#94a3b8;">
+    <i class="bi bi-search" style="font-size:48px;display:block;margin-bottom:16px;opacity:0.4;"></i>
+    <p style="font-size:15px;font-weight:500;color:#64748b;">Tidak ada hasil ditemukan untuk "{{ query }}"</p>
+    <p style="font-size:13px;">Coba kata kunci lain seperti nama perangkat, IP address, atau nomor gangguan.</p>
+</div>
+{% endif %}
+
+{% if devices %}
+<div class="table-card mb-4">
+    <div class="table-header">
+        <h6><i class="bi bi-cpu me-2" style="color:#3b82f6;"></i>Perangkat <span style="font-weight:400;color:#94a3b8;font-size:13px;">({{ devices|length }} hasil)</span></h6>
+    </div>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Nama</th>
+                <th>Jenis</th>
+                <th>Merk / Type</th>
+                <th>IP Address</th>
+                <th>Lokasi</th>
+                <th>Status</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for d in devices %}
+            <tr>
+                <td style="font-weight:500;">{{ d.nama }}</td>
+                <td>{{ d.jenis.name|default:"-" }}</td>
+                <td style="color:#64748b;">{{ d.merk }} {% if d.type %}<span style="color:#94a3b8;">/ {{ d.type }}</span>{% endif %}</td>
+                <td class="mono">{{ d.ip_address|default:"-" }}</td>
+                <td>{{ d.lokasi }}</td>
+                <td>
+                    {% if d.status_operasi == 'operasi' %}
+                    <span class="badge-status" style="background:#dcfce7;color:#166534;">Operasi</span>
+                    {% else %}
+                    <span class="badge-status" style="background:#fee2e2;color:#991b1b;">Tidak Operasi</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="{% url 'device_view' d.pk %}" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-eye me-1"></i>Detail
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{% if gangguan_results %}
+<div class="table-card mb-4">
+    <div class="table-header">
+        <h6><i class="bi bi-exclamation-triangle me-2" style="color:#f59e0b;"></i>Gangguan <span style="font-weight:400;color:#94a3b8;font-size:13px;">({{ gangguan_results|length }} hasil)</span></h6>
+    </div>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>No. Tiket</th>
+                <th>Site</th>
+                <th>Executive Summary</th>
+                <th>Tgl. Gangguan</th>
+                <th>Status</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for g in gangguan_results %}
+            <tr>
+                <td class="mono" style="font-weight:600;color:#3b82f6;">{{ g.nomor_gangguan }}</td>
+                <td>{{ g.site }}</td>
+                <td style="color:#64748b;max-width:300px;" class="text-truncate-2">{{ g.executive_summary }}</td>
+                <td style="color:#64748b;font-size:12.5px;">{{ g.tanggal_gangguan|date:"d M Y" }}</td>
+                <td>
+                    {% if g.status == 'open' %}
+                    <span class="badge-status badge-open">Open</span>
+                    {% elif g.status == 'in_progress' %}
+                    <span class="badge-status" style="background:#dbeafe;color:#1e40af;">In Progress</span>
+                    {% elif g.status == 'resolved' %}
+                    <span class="badge-status" style="background:#dcfce7;color:#166534;">Resolved</span>
+                    {% else %}
+                    <span class="badge-status" style="background:#f1f5f9;color:#64748b;">Closed</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="{% url 'gangguan_detail' g.pk %}" class="btn btn-sm btn-outline-warning">
+                        <i class="bi bi-eye me-1"></i>Detail
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{% if maintenance_results %}
+<div class="table-card mb-4">
+    <div class="table-header">
+        <h6><i class="bi bi-tools me-2" style="color:#10b981;"></i>Pemeliharaan <span style="font-weight:400;color:#94a3b8;font-size:13px;">({{ maintenance_results|length }} hasil)</span></h6>
+    </div>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Perangkat</th>
+                <th>Lokasi</th>
+                <th>Tipe</th>
+                <th>Tanggal</th>
+                <th>Status</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for m in maintenance_results %}
+            <tr>
+                <td style="font-weight:500;">{{ m.device.nama }}</td>
+                <td style="color:#64748b;">{{ m.device.lokasi }}</td>
+                <td>
+                    {% if m.maintenance_type == 'preventive' %}
+                    <span class="badge-status" style="background:#dbeafe;color:#1e40af;">Preventif</span>
+                    {% else %}
+                    <span class="badge-status" style="background:#fef3c7;color:#92400e;">Korektif</span>
+                    {% endif %}
+                </td>
+                <td style="color:#64748b;font-size:12.5px;">{{ m.date|date:"d M Y" }}</td>
+                <td>
+                    {% if m.status == 'done' %}
+                    <span class="badge-status badge-done">Selesai</span>
+                    {% else %}
+                    <span class="badge-status badge-open">Pending</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="{% url 'maintenance_view' m.pk %}" class="btn btn-sm btn-outline-success">
+                        <i class="bi bi-eye me-1"></i>Detail
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{% else %}
+<div style="text-align:center;padding:60px 20px;color:#94a3b8;">
+    <i class="bi bi-search" style="font-size:48px;display:block;margin-bottom:16px;opacity:0.4;"></i>
+    <p style="font-size:14px;">Masukkan kata kunci untuk mencari perangkat, gangguan, atau pemeliharaan.</p>
+</div>
+{% endif %}
+{% endblock %}

@@ -55,6 +55,9 @@ urlpatterns = [
     path('view/<hid:device_pk>/komponen/<hid:komponen_pk>/edit/', views_komponen.komponen_edit, name='komponen_edit'),
     path('view/<hid:device_pk>/komponen/<hid:komponen_pk>/delete/', views_komponen.komponen_delete, name='komponen_delete'),
 
+    # Global Search
+    path('search/', views.global_search, name='global_search'),
+
     # Manajemen Lokasi
     path('lokasi-admin/', views.lokasi_admin, name='lokasi_admin'),
     path('api/lokasi-list/', views.api_lokasi_list, name='api_lokasi_list'),
