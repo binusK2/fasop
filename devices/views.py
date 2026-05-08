@@ -2443,4 +2443,50 @@ def device_wiring(request, pk):
             device.save(update_fields=update_fields)
         from django.http import JsonResponse as _JR
         return _JR({'ok': True})
+
+
+@login_required
+def global_search(request):
+    query = request.GET.get('q', '').strip()
+    devices = []
+    gangguan_results = []
+    maintenance_results = []
+
+    if query:
+        from gangguan.models import Gangguan
+
+        devices = list(
+            Device.objects.filter(is_deleted=False, host__isnull=True).filter(
+                Q(nama__icontains=query) |
+                Q(ip_address__icontains=query) |
+                Q(merk__icontains=query) |
+                Q(serial_number__icontains=query) |
+                Q(lokasi__icontains=query)
+            ).select_related('jenis').order_by('nama')[:30]
+        )
+
+        gangguan_results = list(
+            Gangguan.objects.filter(
+                Q(nomor_gangguan__icontains=query) |
+                Q(site__icontains=query) |
+                Q(executive_summary__icontains=query)
+            ).order_by('-tanggal_gangguan')[:20]
+        )
+
+        maintenance_results = list(
+            Maintenance.objects.filter(
+                Q(device__nama__icontains=query) |
+                Q(device__lokasi__icontains=query)
+            ).select_related('device').order_by('-date')[:20]
+        )
+
+    total = len(devices) + len(gangguan_results) + len(maintenance_results)
+
+    return render(request, 'devices/global_search.html', {
+        'query': query,
+        'devices': devices,
+        'gangguan_results': gangguan_results,
+        'maintenance_results': maintenance_results,
+        'total': total,
+    })
     return render(request, 'devices/device_wiring.html', {'device': device})

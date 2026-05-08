@@ -93,20 +93,50 @@ def jadwal_list(request):
     for j in jadwals:
         j.sync_status()
 
-    # Attach progress ke setiap jadwal
+    today = date_type.today()
+    current_month_start = date_type(today.year, today.month, 1)
+    filter_tahun_int = int(filter_tahun) if filter_tahun else today.year
+
+    # Attach progress + overdue flag ke setiap jadwal
     jadwal_data = []
     for j in jadwals:
         prog = j.get_progress()
-        jadwal_data.append({'jadwal': j, 'progress': prog})
+        period_start = date_type(j.tahun_rencana, j.bulan_rencana, 1)
+        is_overdue = (j.status != 'done') and (period_start < current_month_start)
+        jadwal_data.append({'jadwal': j, 'progress': prog, 'is_overdue': is_overdue})
+
+    # Urutkan: overdue & aktif di atas, selesai (done) di bawah
+    jadwal_data.sort(key=lambda x: (
+        1 if x['jadwal'].status == 'done' else 0,
+        x['jadwal'].tahun_rencana,
+        x['jadwal'].bulan_rencana,
+        x['jadwal'].minggu_rencana,
+        x['jadwal'].lokasi,
+    ))
 
     # Summary
-    semua = JadwalKunjungan.objects.filter(tahun_rencana=int(filter_tahun) if filter_tahun else date_type.today().year)
+    semua = JadwalKunjungan.objects.filter(tahun_rencana=filter_tahun_int)
     summary = {
         'total':       semua.count(),
         'planned':     semua.filter(status='planned').count(),
         'in_progress': semua.filter(status='in_progress').count(),
         'done':        semua.filter(status='done').count(),
     }
+
+    # Data kalender — 12 bulan
+    _BULAN_ID = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+                 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember']
+    kalender_data = []
+    for bulan in range(1, 13):
+        entries = [item for item in jadwal_data if item['jadwal'].bulan_rencana == bulan]
+        period_start = date_type(filter_tahun_int, bulan, 1)
+        kalender_data.append({
+            'bulan': bulan,
+            'nama': _BULAN_ID[bulan],
+            'entries': entries,
+            'is_current': bulan == today.month and filter_tahun_int == today.year,
+            'is_past': period_start < current_month_start,
+        })
 
     # Ranking prioritas lokasi yang belum punya jadwal tahun ini
     lokasi_sudah_dijadwal = set(
@@ -130,6 +160,7 @@ def jadwal_list(request):
 
     return render(request, 'jadwal/jadwal_list.html', {
         'jadwal_data':    jadwal_data,
+        'kalender_data':  kalender_data,
         'summary':        summary,
         'ranking':        ranking,
         'filter_status':  filter_status,
