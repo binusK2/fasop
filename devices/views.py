@@ -1655,6 +1655,12 @@ def export_devices_excel(request):
     if lokasi:
         devices = devices.filter(lokasi=lokasi)
 
+    from health_index.calculator import calculate_hi
+    from devices.models_komponen import DeviceComponent
+
+    # Pre-fetch komponen for all devices in one query
+    devices_list = list(devices.prefetch_related('komponen__tipe_komponen'))
+
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Inventory Peralatan"
@@ -1669,8 +1675,33 @@ def export_devices_excel(request):
         top=Side(style='thin'), bottom=Side(style='thin')
     )
 
+    # HI color fills
+    hi_fills = {
+        'sangat_baik': PatternFill("solid", fgColor="DCFCE7"),   # green ≥85
+        'baik':        PatternFill("solid", fgColor="DBEAFE"),   # blue 70-84
+        'cukup':       PatternFill("solid", fgColor="FEF9C3"),   # yellow 50-69
+        'buruk':       PatternFill("solid", fgColor="FFEDD5"),   # orange 25-49
+        'kritis':      PatternFill("solid", fgColor="FEE2E2"),   # red <25
+    }
+    hi_fonts = {
+        'sangat_baik': Font(bold=True, color="166534"),
+        'baik':        Font(bold=True, color="1E40AF"),
+        'cukup':       Font(bold=True, color="854D0E"),
+        'buruk':       Font(bold=True, color="9A3412"),
+        'kritis':      Font(bold=True, color="991B1B"),
+    }
+
+    def _hi_category_key(score):
+        if score is None:
+            return None
+        if score >= 85: return 'sangat_baik'
+        if score >= 70: return 'baik'
+        if score >= 50: return 'cukup'
+        if score >= 25: return 'buruk'
+        return 'kritis'
+
     # Judul
-    ws.merge_cells('A1:I1')
+    ws.merge_cells('A1:K1')
     title_cell = ws['A1']
     title_cell.value = "INVENTORY PERALATAN FASOP UP2B"
     title_cell.font = Font(bold=True, size=13)
@@ -1678,7 +1709,7 @@ def export_devices_excel(request):
     title_cell.fill = PatternFill("solid", fgColor="EFF6FF")
     ws.row_dimensions[1].height = 28
 
-    ws.merge_cells('A2:I2')
+    ws.merge_cells('A2:K2')
     from datetime import date
     ws['A2'].value = f"Dicetak: {date.today().strftime('%d %B %Y')}"
     ws['A2'].alignment = Alignment(horizontal="center")
@@ -1687,9 +1718,10 @@ def export_devices_excel(request):
 
     ws.row_dimensions[3].height = 6  # spacer
 
-    # Header
-    headers = ['No', 'Nama', 'Jenis', 'Merk', 'Type/Model', 'Serial Number', 'IP Address', 'Lokasi', 'Firmware']
-    col_widths = [5, 25, 15, 15, 18, 20, 16, 20, 15]
+    # Header — 11 columns
+    headers = ['No', 'Nama', 'Jenis', 'Merk', 'Type/Model', 'Serial Number',
+               'IP Address', 'Lokasi', 'Firmware', 'Health Index', 'Kategori HI']
+    col_widths = [5, 25, 15, 15, 18, 20, 16, 20, 15, 13, 16]
 
     for col_idx, (header, width) in enumerate(zip(headers, col_widths), 1):
         cell = ws.cell(row=4, column=col_idx, value=header)
@@ -1703,8 +1735,18 @@ def export_devices_excel(request):
 
     # Data
     alt_fill = PatternFill("solid", fgColor="F8FAFC")
-    for row_idx, d in enumerate(devices, 1):
+    for row_idx, d in enumerate(devices_list, 1):
         ws_row = row_idx + 4
+
+        # Calculate HI
+        try:
+            hi_result = calculate_hi(d, save_snapshot=False)
+            hi_score = hi_result.get('score')
+            hi_label = hi_result.get('kategori', {}).get('label', '-') if hi_result else '-'
+        except Exception:
+            hi_score = None
+            hi_label = '-'
+
         row_data = [
             row_idx,
             d.nama,
@@ -1715,17 +1757,115 @@ def export_devices_excel(request):
             str(d.ip_address),
             d.lokasi,
             d.firmware_version or '-',
+            hi_score if hi_score is not None else '-',
+            hi_label,
         ]
         for col_idx, value in enumerate(row_data, 1):
             cell = ws.cell(row=ws_row, column=col_idx, value=value)
             cell.border = thin_border
-            cell.alignment = center_align if col_idx == 1 else Alignment(vertical="center")
-            if row_idx % 2 == 0:
+            cell.alignment = center_align if col_idx in (1, 10, 11) else Alignment(vertical="center")
+            if row_idx % 2 == 0 and col_idx not in (10, 11):
                 cell.fill = alt_fill
+
+        # Color-code HI cells (col 10 & 11)
+        cat_key = _hi_category_key(hi_score)
+        if cat_key:
+            for col_idx in (10, 11):
+                cell = ws.cell(row=ws_row, column=col_idx)
+                cell.fill = hi_fills[cat_key]
+                cell.font = hi_fonts[cat_key]
+
         ws.row_dimensions[ws_row].height = 18
 
     # Freeze panes
     ws.freeze_panes = 'A5'
+
+    # ── Sheet 2: Komponen Perangkat ────────────────────────────
+    ws2 = wb.create_sheet("Komponen Perangkat")
+
+    ws2.merge_cells('A1:L1')
+    ws2['A1'].value = "KOMPONEN PERANGKAT FASOP UP2B"
+    ws2['A1'].font = Font(bold=True, size=13)
+    ws2['A1'].alignment = Alignment(horizontal="center", vertical="center")
+    ws2['A1'].fill = PatternFill("solid", fgColor="F5F3FF")
+    ws2.row_dimensions[1].height = 28
+
+    ws2.merge_cells('A2:L2')
+    ws2['A2'].value = f"Dicetak: {date.today().strftime('%d %B %Y')}"
+    ws2['A2'].alignment = Alignment(horizontal="center")
+    ws2['A2'].font = Font(size=10, italic=True, color="64748B")
+    ws2.row_dimensions[2].height = 18
+    ws2.row_dimensions[3].height = 6  # spacer
+
+    k_headers = ['No', 'Perangkat', 'Lokasi', 'Jenis', 'Nama Komponen',
+                 'Tipe', 'Posisi', 'Merk', 'Model/Type', 'Serial Number', 'Status', 'Keterangan']
+    k_widths   = [5,    25,          18,       15,     22,
+                  18,    15,      14,      18,          20,              12,       30]
+
+    k_header_fill = PatternFill("solid", fgColor="2D1B69")
+    k_header_font = Font(bold=True, color="FFFFFF", size=11)
+
+    for col_idx, (hdr, width) in enumerate(zip(k_headers, k_widths), 1):
+        cell = ws2.cell(row=4, column=col_idx, value=hdr)
+        cell.font = k_header_font
+        cell.fill = k_header_fill
+        cell.alignment = header_align
+        cell.border = thin_border
+        ws2.column_dimensions[get_column_letter(col_idx)].width = width
+    ws2.row_dimensions[4].height = 22
+
+    k_alt_fill = PatternFill("solid", fgColor="FAF5FF")
+    k_row = 5
+    k_no  = 1
+    status_fills = {
+        'Baik':     PatternFill("solid", fgColor="DCFCE7"),
+        'Rusak':    PatternFill("solid", fgColor="FEE2E2"),
+        'Degraded': PatternFill("solid", fgColor="FEF9C3"),
+    }
+    status_fonts = {
+        'Baik':     Font(bold=True, color="166534"),
+        'Rusak':    Font(bold=True, color="991B1B"),
+        'Degraded': Font(bold=True, color="854D0E"),
+    }
+
+    for d in devices_list:
+        komponents = list(d.komponen.all())
+        if not komponents:
+            continue
+        for k in komponents:
+            tipe_nama = k.tipe_komponen.nama if k.tipe_komponen else '-'
+            row_data2 = [
+                k_no,
+                d.nama,
+                d.lokasi,
+                d.jenis.name if d.jenis else '-',
+                k.nama,
+                tipe_nama,
+                k.posisi or '-',
+                k.merk or '-',
+                k.model or '-',
+                k.serial_number or '-',
+                k.status or '-',
+                k.keterangan or '',
+            ]
+            use_alt = (k_no % 2 == 0)
+            for col_idx, value in enumerate(row_data2, 1):
+                cell = ws2.cell(row=k_row, column=col_idx, value=value)
+                cell.border = thin_border
+                cell.alignment = center_align if col_idx == 1 else Alignment(vertical="center", wrap_text=(col_idx == 12))
+                if use_alt and col_idx != 11:
+                    cell.fill = k_alt_fill
+            # Color status cell (col 11)
+            st = k.status or ''
+            if st in status_fills:
+                ws2.cell(row=k_row, column=11).fill = status_fills[st]
+                ws2.cell(row=k_row, column=11).font = status_fonts[st]
+                ws2.cell(row=k_row, column=11).alignment = center_align
+            ws2.row_dimensions[k_row].height = 18
+            k_row += 1
+            k_no  += 1
+
+    ws2.freeze_panes = 'A5'
 
     # Response
     response = HttpResponse(
