@@ -45,7 +45,7 @@ class ScadaAvUploadForm(forms.Form):
     )
     files = forms.FileField(
         label='File Input',
-        widget=forms.ClearableFileInput(attrs={
+        widget=forms.FileInput(attrs={
             'class': _TXT,
             'multiple': True,
             'accept': '.xls,.xlsx,.xml',
