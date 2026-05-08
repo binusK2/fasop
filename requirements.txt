@@ -16,6 +16,10 @@ reportlab==4.4.10             # Ekspor PDF laporan pemeliharaan
 
 # ── Excel Export ──────────────────────────────────────────────────
 openpyxl==3.1.5
+
+# ── SCADA Availability (spectrum7_av) ─────────────────────────────
+pandas>=2.0.0                 # Kalkulasi RTU AV & RCD success rate
+xlsxwriter>=3.2.0             # Export Excel dari spectrum7_av
 et_xmlfile==2.0.0
 
 # ── Security ──────────────────────────────────────────────────────

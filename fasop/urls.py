@@ -57,6 +57,9 @@ urlpatterns = [
     # Dokumentasi — Setting Rele & Gambar/Wiring Diagram
     path('dokumentasi/', include('dokumentasi.urls')),
 
+    # SCADA Availability — RTU Availability & RCD Success Rate
+    path('scada-av/', include('scada_av.urls')),
+
     # Public FO page — tanpa login (QR scan)
     path('fo/public/<str:token>/', fo_public, name='fo_public'),
 

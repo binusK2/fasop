@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+{% block title %}{{ session.nama }} — SCADA AV{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+
+  <!-- Header -->
+  <div class="d-flex align-items-start justify-content-between mb-4">
+    <div class="d-flex align-items-center gap-3">
+      <a href="{% url 'scada_av_list' %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left"></i>
+      </a>
+      <div>
+        <h5 class="mb-0 fw-bold" style="color:#1e3a5f;">{{ session.nama }}</h5>
+        <small class="text-muted">
+          {{ session.periode_awal }} s/d {{ session.periode_akhir }}
+          &nbsp;·&nbsp; {{ session.get_master_display }}
+          &nbsp;·&nbsp; {{ session.get_calc_type_display }}
+          {% if session.durasi_hitung %}&nbsp;·&nbsp; {{ session.durasi_hitung }}s{% endif %}
+        </small>
+      </div>
+    </div>
+    <div class="d-flex gap-2">
+      <span class="badge bg-{{ session.status_color }} align-self-center">{{ session.get_status_display }}</span>
+      {% if session.status == 'done' %}
+      <a href="{% url 'scada_av_download' session.pk %}" class="btn btn-success btn-sm">
+        <i class="bi bi-file-earmark-excel me-1"></i>Download Excel
+      </a>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if session.status == 'error' %}
+  <div class="alert alert-danger">
+    <strong><i class="bi bi-exclamation-triangle me-1"></i>Kalkulasi Error:</strong>
+    <pre class="mb-0 mt-1" style="font-size:12px;white-space:pre-wrap;">{{ session.error_message }}</pre>
+  </div>
+  {% endif %}
+
+  <!-- File yang diupload -->
+  <div class="card shadow-sm mb-3">
+    <div class="card-body px-4 py-3">
+      <div class="d-flex align-items-center gap-2 mb-2">
+        <span style="width:5px;height:16px;background:#64748b;border-radius:3px;display:inline-block;"></span>
+        <h6 class="mb-0 fw-bold text-uppercase" style="font-size:11px;color:#64748b;letter-spacing:.5px;">File yang Diupload</h6>
+      </div>
+      <div class="d-flex flex-wrap gap-2">
+        {% for f in session.files.all %}
+        <span class="badge bg-light text-dark border" style="font-size:11px;">
+          <i class="bi bi-file-earmark me-1"></i>{{ f.filename }}
+          <span class="text-muted">({{ f.ukuran_kb }} KB)</span>
+        </span>
+        {% empty %}
+        <span class="text-muted" style="font-size:12px;">—</span>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- ── RTU Availability ─────────────────────────────────────────── -->
+  {% if rtu_results %}
+  <div class="card shadow-sm mb-3">
+    <div class="card-body px-4 py-3">
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <div class="d-flex align-items-center gap-2">
+          <span style="width:5px;height:18px;background:#3b82f6;border-radius:3px;display:inline-block;"></span>
+          <h6 class="mb-0 fw-bold text-uppercase" style="font-size:11px;color:#64748b;letter-spacing:.5px;">
+            <i class="bi bi-router me-1" style="color:#3b82f6;"></i>RTU Availability
+          </h6>
+        </div>
+        {% if rtu_avg_av is not None %}
+        <div style="font-size:13px;">
+          Rata-rata RTU AV: <strong style="color:{% if rtu_avg_av >= 99 %}#16a34a{% elif rtu_avg_av >= 95 %}#2563eb{% elif rtu_avg_av >= 90 %}#d97706{% else %}#dc2626{% endif %};">{{ rtu_avg_av }}%</strong>
+        </div>
+        {% endif %}
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm table-bordered align-middle mb-0" style="font-size:12px;">
+          <thead style="background:#1e3a5f;color:#fff;font-size:11px;text-align:center;">
+            <tr>
+              <th>RTU</th>
+              <th>Nama</th>
+              <th>Downtime</th>
+              <th>Total Downtime</th>
+              <th>RTU AV (%)</th>
+              <th>Link AV (%)</th>
+              <th>Overall (%)</th>
+              <th>RTU DT</th>
+              <th>Link DT</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in rtu_results %}
+            <tr{% if forloop.counter|divisibleby:2 %} style="background:#f8fafc;"{% endif %}>
+              <td style="font-family:monospace;font-weight:700;color:#1e40af;">{{ r.rtu }}</td>
+              <td>{{ r.long_name|default:"—" }}</td>
+              <td style="text-align:center;">{{ r.downtime_occurences }}</td>
+              <td style="text-align:center;font-family:monospace;">{{ r.total_downtime_hms }}</td>
+              <!-- RTU AV -->
+              <td style="text-align:center;">
+                <span class="badge bg-{{ r.av_color }}" style="font-size:11px;">{{ r.rtu_av_pct }}%</span>
+              </td>
+              <td style="text-align:center;font-weight:600;">{{ r.link_av_pct }}%</td>
+              <td style="text-align:center;font-weight:600;">{{ r.overall_pct }}%</td>
+              <td style="text-align:center;font-family:monospace;font-size:11px;color:#dc2626;">{{ r.rtu_downtime_s|floatformat:0 }}s</td>
+              <td style="text-align:center;font-family:monospace;font-size:11px;color:#d97706;">{{ r.link_downtime_s|floatformat:0 }}s</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="9" class="text-center text-muted py-3">Tidak ada data RTU.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ── RCD Summary ──────────────────────────────────────────────── -->
+  {% if rcd_summary %}
+  <div class="card shadow-sm mb-3">
+    <div class="card-body px-4 py-3">
+      <div class="d-flex align-items-center gap-2 mb-3">
+        <span style="width:5px;height:18px;background:#10b981;border-radius:3px;display:inline-block;"></span>
+        <h6 class="mb-0 fw-bold text-uppercase" style="font-size:11px;color:#64748b;letter-spacing:.5px;">
+          <i class="bi bi-toggles me-1" style="color:#10b981;"></i>RCD Success Rate — Summary
+        </h6>
+      </div>
+      <div class="row g-3 mb-3">
+        <!-- Big number: Success Rate -->
+        {% with sr=rcd_summary.success_pct %}
+        <div class="col-md-3">
+          <div style="background:#f0fdf4;border:2px solid #6ee7b7;border-radius:12px;padding:16px;text-align:center;">
+            <div style="font-size:11px;font-weight:700;color:#064e3b;text-transform:uppercase;letter-spacing:.4px;">Success Rate</div>
+            <div style="font-size:32px;font-weight:800;color:{% if sr >= 98 %}#16a34a{% elif sr >= 95 %}#2563eb{% elif sr >= 90 %}#d97706{% else %}#dc2626{% endif %};">{{ sr }}%</div>
+            <div style="font-size:11px;color:#6b7280;">{{ rcd_summary.total_success }} / {{ rcd_summary.total_valid }}</div>
+          </div>
+        </div>
+        {% endwith %}
+        <div class="col-md-3">
+          <div style="background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:12px;padding:14px;text-align:center;">
+            <div style="font-size:11px;font-weight:700;color:#1e40af;text-transform:uppercase;">Close Rate</div>
+            <div style="font-size:24px;font-weight:700;color:#1d4ed8;">{{ rcd_summary.success_close_pct }}%</div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div style="background:#fff7ed;border:1.5px solid #fed7aa;border-radius:12px;padding:14px;text-align:center;">
+            <div style="font-size:11px;font-weight:700;color:#9a3412;text-transform:uppercase;">Open Rate</div>
+            <div style="font-size:24px;font-weight:700;color:#ea580c;">{{ rcd_summary.success_open_pct }}%</div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;padding:14px;">
+            <div class="d-flex justify-content-between mb-1">
+              <span style="font-size:11px;color:#64748b;">Total RC</span>
+              <strong style="font-size:12px;">{{ rcd_summary.total_count }}</strong>
+            </div>
+            <div class="d-flex justify-content-between mb-1">
+              <span style="font-size:11px;color:#64748b;">Valid</span>
+              <strong style="font-size:12px;">{{ rcd_summary.total_valid }}</strong>
+            </div>
+            <div class="d-flex justify-content-between mb-1">
+              <span style="font-size:11px;color:#64748b;">Repetisi</span>
+              <strong style="font-size:12px;">{{ rcd_summary.total_reps }}</strong>
+            </div>
+            <div class="d-flex justify-content-between">
+              <span style="font-size:11px;color:#64748b;">Unused</span>
+              <strong style="font-size:12px;">{{ rcd_summary.total_marked_unused }}</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Per-bay table -->
+      {% if rcd_bays %}
+      <div class="table-responsive">
+        <table class="table table-sm table-bordered align-middle mb-0" style="font-size:12px;">
+          <thead style="background:#064e3b;color:#fff;font-size:11px;text-align:center;">
+            <tr>
+              <th>GI (B1)</th>
+              <th>Bay (B3)</th>
+              <th>Jumlah RC</th>
+              <th>Sukses</th>
+              <th>Gagal</th>
+              <th>Success Rate</th>
+              <th>Close S/F</th>
+              <th>Open S/F</th>
+              <th>Kontribusi</th>
+              <th>Reduksi</th>
+              <th>Tag</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for b in rcd_bays %}
+            <tr{% if forloop.counter|divisibleby:2 %} style="background:#f0fdf4;"{% endif %}>
+              <td style="font-weight:600;">{{ b.station }}</td>
+              <td>{{ b.bay_b3 }}</td>
+              <td style="text-align:center;">{{ b.occurences }}</td>
+              <td style="text-align:center;color:#16a34a;font-weight:600;">{{ b.success }}</td>
+              <td style="text-align:center;color:#dc2626;font-weight:600;">{{ b.failed }}</td>
+              <td style="text-align:center;">
+                {% if b.success_pct >= 95 %}
+                  <span class="badge bg-success" style="font-size:11px;">{{ b.success_pct }}%</span>
+                {% elif b.success_pct >= 80 %}
+                  <span class="badge bg-warning text-dark" style="font-size:11px;">{{ b.success_pct }}%</span>
+                {% else %}
+                  <span class="badge bg-danger" style="font-size:11px;">{{ b.success_pct }}%</span>
+                {% endif %}
+              </td>
+              <td style="text-align:center;font-size:11px;">{{ b.close_success }}/{{ b.close_failed }}</td>
+              <td style="text-align:center;font-size:11px;">{{ b.open_success }}/{{ b.open_failed }}</td>
+              <td style="text-align:center;font-size:11px;">{{ b.contribution_pct }}%</td>
+              <td style="text-align:center;font-size:11px;color:#dc2626;">{{ b.reduction_pct }}%</td>
+              <td style="text-align:center;">
+                {% if b.tagging %}<span class="badge bg-danger" style="font-size:10px;">{{ b.tagging }}</span>{% else %}—{% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

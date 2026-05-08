@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block title %}Upload & Hitung — SCADA AV{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+
+  <div class="d-flex align-items-center mb-4">
+    <a href="{% url 'scada_av_list' %}" class="btn btn-outline-secondary btn-sm me-3">
+      <i class="bi bi-arrow-left"></i>
+    </a>
+    <div>
+      <h5 class="mb-0 fw-bold" style="color:#1e3a5f;">
+        <i class="bi bi-upload me-2" style="color:#3b82f6;"></i>Upload File &amp; Kalkulasi
+      </h5>
+      <small class="text-muted">Upload file historis SCADA kemudian jalankan kalkulasi</small>
+    </div>
+  </div>
+
+  <div class="row justify-content-center">
+    <div class="col-lg-7">
+      <form method="post" enctype="multipart/form-data" id="uploadForm">
+        {% csrf_token %}
+
+        <!-- Info Sesi -->
+        <div class="card shadow-sm mb-3">
+          <div class="card-body px-4 py-3">
+            <div class="d-flex align-items-center gap-2 mb-3">
+              <span style="width:5px;height:18px;background:#3b82f6;border-radius:3px;display:inline-block;"></span>
+              <h6 class="mb-0 fw-bold text-uppercase" style="font-size:11px;color:#64748b;letter-spacing:.5px;">Info Sesi</h6>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-semibold" style="font-size:12px;">{{ form.nama.label }}</label>
+              {{ form.nama }}
+              {% if form.nama.errors %}<div class="text-danger" style="font-size:11px;">{{ form.nama.errors.0 }}</div>{% endif %}
+            </div>
+            <div class="mb-2">
+              <label class="form-label fw-semibold" style="font-size:12px;">{{ form.keterangan.label }}</label>
+              {{ form.keterangan }}
+            </div>
+          </div>
+        </div>
+
+        <!-- Periode -->
+        <div class="card shadow-sm mb-3">
+          <div class="card-body px-4 py-3">
+            <div class="d-flex align-items-center gap-2 mb-3">
+              <span style="width:5px;height:18px;background:#10b981;border-radius:3px;display:inline-block;"></span>
+              <h6 class="mb-0 fw-bold text-uppercase" style="font-size:11px;color:#64748b;letter-spacing:.5px;">Periode Kalkulasi</h6>
+            </div>
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label fw-semibold" style="font-size:12px;">{{ form.periode_awal.label }}</label>
+                {{ form.periode_awal }}
+                {% if form.periode_awal.errors %}<div class="text-danger" style="font-size:11px;">{{ form.periode_awal.errors.0 }}</div>{% endif %}
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-semibold" style="font-size:12px;">{{ form.periode_akhir.label }}</label>
+                {{ form.periode_akhir }}
+                {% if form.periode_akhir.errors %}<div class="text-danger" style="font-size:11px;">{{ form.periode_akhir.errors.0 }}</div>{% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Konfigurasi -->
+        <div class="card shadow-sm mb-3">
+          <div class="card-body px-4 py-3">
+            <div class="d-flex align-items-center gap-2 mb-3">
+              <span style="width:5px;height:18px;background:#f59e0b;border-radius:3px;display:inline-block;"></span>
+              <h6 class="mb-0 fw-bold text-uppercase" style="font-size:11px;color:#64748b;letter-spacing:.5px;">Konfigurasi</h6>
+            </div>
+            <div class="row g-3">
+              <div class="col-md-4">
+                <label class="form-label fw-semibold" style="font-size:12px;">{{ form.master.label }}</label>
+                {{ form.master }}
+              </div>
+              <div class="col-md-4">
+                <label class="form-label fw-semibold" style="font-size:12px;">{{ form.input_type.label }}</label>
+                {{ form.input_type }}
+                <div class="text-muted mt-1" style="font-size:10px;" id="inputTypeHint"></div>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label fw-semibold" style="font-size:12px;">{{ form.calc_type.label }}</label>
+                {{ form.calc_type }}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Upload File -->
+        <div class="card shadow-sm mb-4">
+          <div class="card-body px-4 py-3">
+            <div class="d-flex align-items-center gap-2 mb-3">
+              <span style="width:5px;height:18px;background:#8b5cf6;border-radius:3px;display:inline-block;"></span>
+              <h6 class="mb-0 fw-bold text-uppercase" style="font-size:11px;color:#64748b;letter-spacing:.5px;">File Input</h6>
+            </div>
+            <label class="form-label fw-semibold" style="font-size:12px;">{{ form.files.label }}</label>
+            {{ form.files }}
+            {% if form.files.errors %}<div class="text-danger" style="font-size:11px;">{{ form.files.errors.0 }}</div>{% endif %}
+            <div class="text-muted mt-2" style="font-size:11px;">
+              Format didukung: <strong>.xls, .xlsx, .xml</strong> — bisa pilih lebih dari satu file sekaligus.
+            </div>
+            <div id="fileList" class="mt-2"></div>
+
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger mt-2 py-2" style="font-size:12px;">{{ form.non_field_errors }}</div>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+          <a href="{% url 'scada_av_list' %}" class="btn btn-secondary">Batal</a>
+          <button type="submit" class="btn btn-primary px-4" id="submitBtn">
+            <i class="bi bi-play-circle me-1"></i>Upload &amp; Hitung
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+// Tampilkan nama file yang dipilih
+document.querySelector('input[name=files]').addEventListener('change', function(e) {
+  const list = document.getElementById('fileList');
+  list.innerHTML = '';
+  [...e.target.files].forEach(f => {
+    const badge = document.createElement('span');
+    badge.className = 'badge bg-light text-dark border me-1 mb-1';
+    badge.style.fontSize = '11px';
+    badge.innerHTML = `<i class="bi bi-file-earmark me-1"></i>${f.name} (${(f.size/1024).toFixed(1)} KB)`;
+    list.appendChild(badge);
+  });
+});
+
+// Sesuaikan calc_type saat input_type berubah
+const inputType = document.getElementById('id_input_type');
+const calcType  = document.getElementById('id_calc_type');
+const hint      = document.getElementById('inputTypeHint');
+
+const hints = {
+  'soe':   'Bisa kalkulasi RTU + RCD sekaligus.',
+  'avrs':  'Hanya untuk RTU Availability.',
+  'avrcd': 'Hanya untuk RCD Success Rate.',
+};
+
+function syncCalcType() {
+  const v = inputType.value;
+  hint.textContent = hints[v] || '';
+  if (v === 'avrs') {
+    calcType.value = 'rtu';
+    [...calcType.options].forEach(o => o.disabled = o.value !== 'rtu');
+  } else if (v === 'avrcd') {
+    calcType.value = 'rcd';
+    [...calcType.options].forEach(o => o.disabled = o.value !== 'rcd');
+  } else {
+    [...calcType.options].forEach(o => o.disabled = false);
+  }
+}
+inputType.addEventListener('change', syncCalcType);
+syncCalcType();
+
+// Disable submit saat loading
+document.getElementById('uploadForm').addEventListener('submit', function() {
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Menghitung...';
+});
+</script>
+{% endblock %}

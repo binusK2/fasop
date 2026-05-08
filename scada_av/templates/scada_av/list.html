@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}SCADA Availability{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+
+  <!-- Header -->
+  <div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+      <h5 class="mb-0 fw-bold" style="color:#1e3a5f;">
+        <i class="bi bi-activity me-2" style="color:#3b82f6;"></i>SCADA Availability
+      </h5>
+      <small class="text-muted">Riwayat kalkulasi RTU Availability &amp; RCD Success Rate</small>
+    </div>
+    <a href="{% url 'scada_av_upload' %}" class="btn btn-primary btn-sm">
+      <i class="bi bi-upload me-1"></i>Upload &amp; Hitung
+    </a>
+  </div>
+
+  <!-- Table -->
+  <div class="card shadow-sm">
+    <div class="card-body p-0">
+      {% if sessions %}
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0" style="font-size:13px;">
+          <thead style="background:#1e3a5f;color:#fff;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;">
+            <tr>
+              <th class="px-3 py-2">Nama Sesi</th>
+              <th class="py-2">Periode</th>
+              <th class="py-2">Master</th>
+              <th class="py-2">Kalkulasi</th>
+              <th class="py-2">Status</th>
+              <th class="py-2">Durasi</th>
+              <th class="py-2">File</th>
+              <th class="py-2">Oleh</th>
+              <th class="py-2">Tanggal</th>
+              <th class="py-2"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for s in sessions %}
+            <tr>
+              <td class="px-3 fw-600">
+                <a href="{% url 'scada_av_detail' s.pk %}" class="text-decoration-none text-dark fw-bold">{{ s.nama }}</a>
+                {% if s.keterangan %}<div class="text-muted" style="font-size:11px;">{{ s.keterangan|truncatechars:50 }}</div>{% endif %}
+              </td>
+              <td style="white-space:nowrap;font-family:monospace;font-size:12px;">
+                {{ s.periode_awal }}<br><span class="text-muted">s/d {{ s.periode_akhir }}</span>
+              </td>
+              <td><span class="badge bg-secondary">{{ s.get_master_display }}</span></td>
+              <td>
+                {% if s.calc_type == 'both' %}
+                  <span class="badge bg-primary me-1">RTU</span><span class="badge bg-success">RCD</span>
+                {% elif s.calc_type == 'rtu' %}
+                  <span class="badge bg-primary">RTU</span>
+                {% else %}
+                  <span class="badge bg-success">RCD</span>
+                {% endif %}
+              </td>
+              <td>
+                <span class="badge bg-{{ s.status_color }}">{{ s.get_status_display }}</span>
+              </td>
+              <td class="text-muted" style="font-size:12px;">
+                {% if s.durasi_hitung %}{{ s.durasi_hitung }}s{% else %}—{% endif %}
+              </td>
+              <td class="text-center text-muted" style="font-size:12px;">{{ s.files.count }}</td>
+              <td style="font-size:12px;">{{ s.dibuat_oleh.get_full_name|default:s.dibuat_oleh.username|default:"—" }}</td>
+              <td style="font-size:11px;white-space:nowrap;" class="text-muted">{{ s.dibuat_pada|date:"d M Y H:i" }}</td>
+              <td>
+                {% if s.status == 'done' %}
+                <a href="{% url 'scada_av_download' s.pk %}" class="btn btn-outline-success btn-sm" title="Download Excel">
+                  <i class="bi bi-file-earmark-excel"></i>
+                </a>
+                {% endif %}
+                <a href="{% url 'scada_av_detail' s.pk %}" class="btn btn-outline-primary btn-sm ms-1" title="Detail">
+                  <i class="bi bi-eye"></i>
+                </a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="text-center py-5 text-muted">
+        <i class="bi bi-inbox" style="font-size:40px;"></i>
+        <div class="mt-2">Belum ada kalkulasi. <a href="{% url 'scada_av_upload' %}">Upload file sekarang</a>.</div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

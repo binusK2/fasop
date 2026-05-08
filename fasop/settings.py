@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     'device_mon',
     'common_enemy',
     'dokumentasi',
+    'scada_av',
 ]
 
 MIDDLEWARE = [
