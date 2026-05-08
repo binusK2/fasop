@@ -1,0 +1,218 @@
+{% extends "opsis/opsis_base.html" %}
+{% block title %}Beban Trafo — OPSIS{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4">
+  <div>
+    <h5 class="mb-0 fw-bold" style="color:#1e3a5f;">
+      <i class="bi bi-lightning-charge-fill me-2" style="color:#f59e0b;"></i>Beban Trafo
+    </h5>
+    <small class="text-muted">Data realtime dari ALL_TRANS_DATA — BAY LIKE 'TRF%'</small>
+  </div>
+  <div class="d-flex align-items-center gap-3">
+    <!-- Total beban -->
+    <div style="background:#1e3a5f;color:#fff;border-radius:10px;padding:8px 20px;text-align:center;">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;opacity:.7;">Total Beban</div>
+      <div style="font-size:22px;font-weight:800;" id="totalMW">{{ total_mw|floatformat:2 }}</div>
+      <div style="font-size:10px;opacity:.7;">MW</div>
+    </div>
+    <!-- Auto refresh indicator -->
+    <div class="text-center">
+      <div style="font-size:10px;color:#94a3b8;">Update otomatis</div>
+      <div id="refreshCountdown" style="font-size:18px;font-weight:700;color:#3b82f6;">30</div>
+      <div style="font-size:10px;color:#94a3b8;">detik</div>
+    </div>
+  </div>
+</div>
+
+<!-- Grid per GI -->
+<div id="trafoGrid">
+{% for site, trafo_list in grouped.items %}
+<div class="card shadow-sm mb-3" data-site="{{ site }}">
+  <div class="card-body px-4 py-3">
+    <!-- Site header -->
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <div class="d-flex align-items-center gap-2">
+        <span style="width:5px;height:18px;background:#f59e0b;border-radius:3px;display:inline-block;"></span>
+        <h6 class="mb-0 fw-bold" style="font-size:13px;color:#1e293b;">{{ site }}</h6>
+        <span class="badge bg-secondary" style="font-size:10px;">{{ trafo_list|length }} trafo</span>
+      </div>
+      <div style="font-size:13px;font-weight:700;color:#1e3a5f;">
+        Total: <span class="site-total" data-site="{{ site }}">{{ site_totals|dictsort:site }}
+        {# fallback: hitung langsung #}
+        {% with total=0 %}{% for t in trafo_list %}{% if t.p %}{{ total|add:t.p }}{% endif %}{% endfor %}{% endwith %}
+        {{ site_totals|default_if_none:0 }}</span> MW
+      </div>
+    </div>
+
+    <!-- Tabel trafo dalam site ini -->
+    <div class="table-responsive">
+      <table class="table table-sm table-bordered align-middle mb-0" style="font-size:12px;">
+        <thead style="background:#1e3a5f;color:#fff;font-size:11px;text-align:center;">
+          <tr>
+            <th style="width:20%;">Bay (Trafo)</th>
+            <th style="width:20%;">P (MW)</th>
+            <th style="width:20%;">Q (MVAR)</th>
+            <th style="width:20%;">V (kV)</th>
+            <th style="width:20%;">I (A)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for t in trafo_list %}
+          <tr{% if forloop.counter|divisibleby:2 %} style="background:#fffbeb;"{% endif %}>
+            <td style="font-weight:700;color:#1e40af;font-family:monospace;">{{ t.bay }}</td>
+            <td style="text-align:center;">
+              {% if t.p is not None %}
+                {% if t.p > 0 %}
+                  <span style="font-weight:700;color:#16a34a;">{{ t.p|floatformat:2 }}</span>
+                {% else %}
+                  <span style="color:#94a3b8;">{{ t.p|floatformat:2 }}</span>
+                {% endif %}
+              {% else %}
+                <span style="color:#e5e7eb;">—</span>
+              {% endif %}
+            </td>
+            <td style="text-align:center;font-family:monospace;">
+              {{ t.q|floatformat:2|default:"—" }}
+            </td>
+            <td style="text-align:center;font-family:monospace;">
+              {{ t.v|floatformat:2|default:"—" }}
+            </td>
+            <td style="text-align:center;font-family:monospace;">
+              {{ t.i|floatformat:2|default:"—" }}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr style="background:#fef3c7;font-weight:700;">
+            <td>Total</td>
+            <td style="text-align:center;color:#92400e;">
+              {% with total=0 %}
+              {{ site_totals|default_if_none:"—" }}
+              {% endwith %}
+              <!-- render via JS -->
+              <span class="site-p-total" data-site="{{ site }}"></span>
+            </td>
+            <td colspan="3"></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+</div>
+{% empty %}
+<div class="text-center py-5 text-muted">
+  <i class="bi bi-exclamation-circle" style="font-size:36px;"></i>
+  <div class="mt-2">Tidak ada data trafo. Periksa koneksi MSSQL.</div>
+</div>
+{% endfor %}
+</div>
+
+<script>
+// ── Data awal dari Django template ──────────────────────────────────
+const initialData = {
+  rows: [
+    {% for site, trafo_list in grouped.items %}{% for t in trafo_list %}
+    {site:"{{ t.site|escapejs }}", bay:"{{ t.bay|escapejs }}", p:{{ t.p|default:"null" }}, q:{{ t.q|default:"null" }}, v:{{ t.v|default:"null" }}, i:{{ t.i|default:"null" }}},
+    {% endfor %}{% endfor %}
+  ],
+  site_totals: {
+    {% for site, total in site_totals.items %}"{{ site|escapejs }}": {{ total }},{% endfor %}
+  },
+  total_mw: {{ total_mw|floatformat:2 }}
+};
+
+// ── Render tabel dari data JSON ──────────────────────────────────────
+function renderGrid(data) {
+  // Group by site
+  const grouped = {};
+  data.rows.forEach(r => {
+    if (!grouped[r.site]) grouped[r.site] = [];
+    grouped[r.site].push(r);
+  });
+
+  // Update total MW header
+  document.getElementById('totalMW').textContent = data.total_mw.toFixed(2);
+
+  // Build HTML
+  let html = '';
+  Object.entries(grouped).sort().forEach(([site, rows]) => {
+    const siteTotal = data.site_totals[site] ?? 0;
+    html += `
+    <div class="card shadow-sm mb-3">
+      <div class="card-body px-4 py-3">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+          <div class="d-flex align-items-center gap-2">
+            <span style="width:5px;height:18px;background:#f59e0b;border-radius:3px;display:inline-block;"></span>
+            <h6 class="mb-0 fw-bold" style="font-size:13px;color:#1e293b;">${site}</h6>
+            <span class="badge bg-secondary" style="font-size:10px;">${rows.length} trafo</span>
+          </div>
+          <div style="font-size:13px;font-weight:700;color:#1e3a5f;">Total: ${siteTotal.toFixed(2)} MW</div>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-sm table-bordered align-middle mb-0" style="font-size:12px;">
+            <thead style="background:#1e3a5f;color:#fff;font-size:11px;text-align:center;">
+              <tr>
+                <th style="width:20%;">Bay (Trafo)</th>
+                <th style="width:20%;">P (MW)</th>
+                <th style="width:20%;">Q (MVAR)</th>
+                <th style="width:20%;">V (kV)</th>
+                <th style="width:20%;">I (A)</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map((t, idx) => {
+                const bg = (idx+1)%2===0 ? 'background:#fffbeb;' : '';
+                const pVal = t.p !== null ? (t.p > 0
+                  ? `<span style="font-weight:700;color:#16a34a;">${t.p.toFixed(2)}</span>`
+                  : `<span style="color:#94a3b8;">${t.p.toFixed(2)}</span>`)
+                  : '<span style="color:#e5e7eb;">—</span>';
+                return `<tr style="${bg}">
+                  <td style="font-weight:700;color:#1e40af;font-family:monospace;">${t.bay}</td>
+                  <td style="text-align:center;">${pVal}</td>
+                  <td style="text-align:center;font-family:monospace;">${t.q !== null ? t.q.toFixed(2) : '—'}</td>
+                  <td style="text-align:center;font-family:monospace;">${t.v !== null ? t.v.toFixed(2) : '—'}</td>
+                  <td style="text-align:center;font-family:monospace;">${t.i !== null ? t.i.toFixed(2) : '—'}</td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+            <tfoot>
+              <tr style="background:#fef3c7;font-weight:700;">
+                <td>Total</td>
+                <td style="text-align:center;color:#92400e;">${siteTotal.toFixed(2)}</td>
+                <td colspan="3"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>`;
+  });
+  document.getElementById('trafoGrid').innerHTML = html || '<div class="text-center py-5 text-muted"><i class="bi bi-exclamation-circle" style="font-size:36px;"></i><div class="mt-2">Tidak ada data trafo.</div></div>';
+}
+
+// ── Auto-refresh setiap 30 detik ──────────────────────────────────────
+let countdown = 30;
+const cdEl = document.getElementById('refreshCountdown');
+
+async function fetchAndRender() {
+  try {
+    const res  = await fetch("{% url 'opsis_api_beban_trafo' %}");
+    const data = await res.json();
+    renderGrid(data);
+  } catch(e) {
+    console.warn('Refresh beban trafo gagal:', e);
+  }
+}
+
+setInterval(() => {
+  countdown--;
+  cdEl.textContent = countdown;
+  if (countdown <= 0) {
+    countdown = 30;
+    fetchAndRender();
+  }
+}, 1000);
+</script>
+{% endblock %}

@@ -595,3 +595,52 @@ def rangkuman(request):
         'start_date':      start_date,
         'end_date':        end_date,
     })
+
+
+
+# ── Beban Trafo ───────────────────────────────────────────────────────────────
+
+@login_required
+def beban_trafo(request):
+    """Halaman monitoring beban trafo dari ALL_TRANS_DATA."""
+    rows = mssql.get_beban_trafo()
+
+    # Kelompokkan per GI (site)
+    grouped = {}
+    for r in rows:
+        site = r['site'] or 'Unknown'
+        grouped.setdefault(site, []).append(r)
+
+    # Hitung total P per site
+    site_totals = {
+        site: round(sum(r['p'] for r in trafo_list if r['p'] is not None), 2)
+        for site, trafo_list in grouped.items()
+    }
+
+    total_mw = round(sum(site_totals.values()), 2)
+
+    return render(request, 'opsis/beban_trafo.html', {
+        'pembangkit_list': _pembangkit_aktif(),
+        'grouped':         grouped,
+        'site_totals':     site_totals,
+        'total_mw':        total_mw,
+    })
+
+
+@login_required
+def api_beban_trafo(request):
+    """API JSON untuk refresh otomatis halaman beban trafo."""
+    rows = mssql.get_beban_trafo()
+    grouped = {}
+    for r in rows:
+        site = r['site'] or 'Unknown'
+        grouped.setdefault(site, []).append(r)
+    site_totals = {
+        site: round(sum(r['p'] for r in lst if r['p'] is not None), 2)
+        for site, lst in grouped.items()
+    }
+    return JsonResponse({
+        'rows':        rows,
+        'site_totals': site_totals,
+        'total_mw':    round(sum(site_totals.values()), 2),
+    })

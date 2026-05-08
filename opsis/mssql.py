@@ -38,6 +38,10 @@ def _freq_tbl():
     """Tabel frekuensi SYS_FREQ_HIS — untuk Frekuensi Sistem."""
     return getattr(settings, 'MSSQL_FREQ_TABLE', 'dbo.SYS_FREQ_HIS')
 
+def _trafo_tbl():
+    """Tabel beban trafo ALL_TRANS_DATA."""
+    return getattr(settings, 'MSSQL_TRAFO_TABLE', 'dbo.ALL_TRANS_DATA')
+
 
 def _parse_host_port(host_setting, default_port=1433):
     """Parse 'host,port' atau 'host' dari setting MSSQL_HOST."""
@@ -509,6 +513,73 @@ def get_beban_trend():
         logger.error('get_beban_trend error: %s', e)
         return []
 
+
+
+# ── Beban Trafo ──────────────────────────────────────────────────────
+
+def get_beban_trafo():
+    """
+    Ambil data beban semua trafo dari ALL_TRANS_DATA (BAY LIKE 'TRF%').
+
+    Returns:
+        list of dict:
+            site  : str  — nama GI
+            bay   : str  — nama bay trafo (TRF52-1 dll)
+            p     : float|None — beban aktif (MW)
+            q     : float|None — beban reaktif (MVAR)
+            v     : float|None — tegangan (kV)
+            i     : float|None — arus (A)
+
+    Dikelompokkan di view berdasarkan site.
+    """
+    if _DUMMY_MODE or not getattr(settings, 'MSSQL_HOST', ''):
+        return _dummy_beban_trafo()
+
+    try:
+        conn   = _get_connection()
+        cursor = conn.cursor()
+        tbl    = _trafo_tbl()
+        cursor.execute(
+            f"""
+            SELECT RTRIM(SITE), RTRIM(BAY), P, Q, V, I
+            FROM {tbl} WITH (NOLOCK)
+            WHERE BAY LIKE 'TRF%'
+            ORDER BY SITE, BAY
+            """
+        )
+        rows = cursor.fetchall()
+        conn.close()
+        return [
+            {
+                'site': (row[0] or '').strip(),
+                'bay':  (row[1] or '').strip(),
+                'p':    float(row[2]) if row[2] is not None else None,
+                'q':    float(row[3]) if row[3] is not None else None,
+                'v':    float(row[4]) if row[4] is not None else None,
+                'i':    float(row[5]) if row[5] is not None else None,
+            }
+            for row in rows
+        ]
+    except Exception as e:
+        logger.error('get_beban_trafo error: %s', e)
+        return _dummy_beban_trafo()
+
+
+def _dummy_beban_trafo():
+    import random
+    sites = ['GI PALOPO', 'GI MAKASSAR', 'GI MAROS', 'GI PARE-PARE']
+    result = []
+    for site in sites:
+        for n in range(1, random.randint(2, 5)):
+            result.append({
+                'site': site,
+                'bay':  f'TRF{random.randint(10,60)}-{n}',
+                'p':    round(random.uniform(5, 60), 2),
+                'q':    round(random.uniform(1, 20), 2),
+                'v':    round(random.uniform(145, 155), 2),
+                'i':    round(random.uniform(50, 300), 2),
+            })
+    return result
 
 
 # ─────────────────────────────────────────────────────────────────────────────
