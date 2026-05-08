@@ -1,0 +1,200 @@
+{% comment %}
+FREQUENCY RELAY DETAIL SECTION — include dari maintenance_detail
+Variabel: freq_relay_detail, fr_settings, fr_aux
+{% endcomment %}
+
+{% if freq_relay_detail %}
+{% with fr=freq_relay_detail %}
+
+<!-- ── Visual Inspection ──────────────────────────────────── -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="d-flex align-items-center gap-2 mb-3">
+            <span style="width:5px;height:18px;background:#10b981;border-radius:3px;display:inline-block;"></span>
+            <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#64748b;">
+                <i class="bi bi-eye me-1" style="color:#10b981;"></i>Visual Inspection &amp; Info Relay
+            </h6>
+        </div>
+        <div class="row g-3">
+            <!-- Visual Inspection badges -->
+            {% for label, val in fr_vi_list %}
+            <div class="col-md-2">
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:10px;
+                    {% if val == 'Normal' %}background:#f0fdf4;border:1.5px solid #6ee7b7;
+                    {% elif val == 'Abnormal' %}background:#fef2f2;border:1.5px solid #fca5a5;
+                    {% else %}background:#f8fafc;border:1.5px solid #e2e8f0;{% endif %}">
+                    <span style="font-size:12px;font-weight:600;color:#334155;">{{ label }}</span>
+                    {% if val == 'Normal' %}
+                    <span style="font-size:11px;font-weight:700;color:#065f46;background:#dcfce7;padding:2px 8px;border-radius:20px;">&#10003; Normal</span>
+                    {% elif val == 'Abnormal' %}
+                    <span style="font-size:11px;font-weight:700;color:#991b1b;background:#fee2e2;padding:2px 8px;border-radius:20px;">&#9888; Abnormal</span>
+                    {% else %}<span style="font-size:12px;color:#94a3b8;">&#8212;</span>{% endif %}
+                </div>
+            </div>
+            {% endfor %}
+
+            <!-- Fungsi & Target -->
+            <div class="col-md-3">
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;">
+                    <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:5px;">Fungsi</div>
+                    {% if fr.fungsi %}
+                    <span style="display:inline-block;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700;background:#dbeafe;color:#1d4ed8;">{{ fr.fungsi }}</span>
+                    {% else %}<div style="font-size:14px;color:#94a3b8;">—</div>{% endif %}
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;">
+                    <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:5px;">Target</div>
+                    <div style="font-size:13px;font-weight:700;color:#1e293b;">{{ fr.target_proteksi|default:"—" }}</div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;">
+                    <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:5px;">Rasio VT</div>
+                    <div style="font-size:13px;font-weight:700;color:#1e293b;font-family:'JetBrains Mono',monospace;">
+                        {{ fr.rasio_vt|default:"—" }}{% if fr.rasio_vt_sek %} / {{ fr.rasio_vt_sek }}{% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;">
+                    <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:5px;">*Vblock</div>
+                    <div style="font-size:13px;font-weight:700;color:#1e293b;font-family:'JetBrains Mono',monospace;">{{ fr.vblock|default:"—" }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Measurement ────────────────────────────────────────── -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="d-flex align-items-center gap-2 mb-3">
+            <span style="width:5px;height:18px;background:#6366f1;border-radius:3px;display:inline-block;"></span>
+            <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#64748b;">Measurement Tegangan &amp; Frekuensi</h6>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm table-bordered align-middle mb-0" style="font-size:13px;">
+                <thead style="background:#eff6ff;font-size:11px;font-weight:700;color:#1e40af;">
+                    <tr>
+                        <th style="width:15%;">Parameter</th>
+                        <th style="width:20%;text-align:center;">Nilai Ukur</th>
+                        <th style="width:25%;text-align:center;">Target</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for label, val, target in fr_meas_list %}
+                    <tr{% if forloop.counter|divisibleby:2 %} style="background:#f8fafc;"{% endif %}>
+                        <td style="font-weight:600;color:#475569;">{{ label }}</td>
+                        <td style="text-align:center;font-family:'JetBrains Mono',monospace;font-weight:700;color:#0f172a;">{{ val|default:"—" }}</td>
+                        <td style="text-align:center;font-size:11px;color:#3b82f6;font-weight:600;">{{ target|default:"—" }}</td>
+                        <td style="font-size:11px;color:#94a3b8;"></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ── Setting Relay F1–F7 ────────────────────────────────── -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="d-flex align-items-center gap-2 mb-3">
+            <span style="width:5px;height:18px;background:#f59e0b;border-radius:3px;display:inline-block;"></span>
+            <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#64748b;">Setting Relay &amp; Common RL</h6>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm table-bordered align-middle mb-0" style="font-size:12px;">
+                <thead>
+                    <tr style="background:#1e3a5f;color:white;font-size:11px;text-align:center;">
+                        <th rowspan="2" style="vertical-align:middle;width:7%;">Tahap</th>
+                        <th rowspan="2" style="vertical-align:middle;width:13%;">Frek (Hz)</th>
+                        <th rowspan="2" style="vertical-align:middle;width:10%;">Waktu (s)</th>
+                        <th colspan="3" style="background:#1d4ed8;">Common (+) RL Belakang Rele</th>
+                        <th colspan="2" style="background:#065f46;">Common (−) Selektor Switch</th>
+                    </tr>
+                    <tr style="font-size:10px;text-align:center;">
+                        <th style="background:#1d4ed8;color:white;width:8%;">RL</th>
+                        <th style="background:#1d4ed8;color:white;width:15%;">Teg vDC (+)</th>
+                        <th style="background:#1d4ed8;color:white;width:12%;">Pin (+)</th>
+                        <th style="background:#065f46;color:white;width:15%;">Teg vDC (−)</th>
+                        <th style="background:#065f46;color:white;width:12%;">Pin (−)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in fr_settings %}
+                    <tr{% if forloop.counter|divisibleby:2 %} style="background:#f8fafc;"{% endif %}>
+                        <td style="text-align:center;font-weight:700;background:#dbeafe;color:#1e40af;">{{ s.tahap }}/T{{ s.n }}</td>
+                        <td style="text-align:center;font-family:'JetBrains Mono',monospace;font-weight:700;">
+                            {% if s.frek_hz %}{{ s.frek_hz }} Hz{% else %}<span style="color:#94a3b8;">—</span>{% endif %}
+                        </td>
+                        <td style="text-align:center;font-family:'JetBrains Mono',monospace;font-weight:700;">
+                            {% if s.waktu_s %}{{ s.waktu_s }} s{% else %}<span style="color:#94a3b8;">—</span>{% endif %}
+                        </td>
+                        <td style="text-align:center;background:#eff6ff;font-weight:600;">{{ s.rl|default:"—" }}</td>
+                        <td style="text-align:center;background:#eff6ff;font-family:'JetBrains Mono',monospace;">{{ s.pos_vdc|default:"—" }}</td>
+                        <td style="text-align:center;background:#eff6ff;font-family:'JetBrains Mono',monospace;">{{ s.pos_pin|default:"—" }}</td>
+                        <td style="text-align:center;background:#f0fdf4;font-family:'JetBrains Mono',monospace;">{{ s.neg_vdc|default:"—" }}</td>
+                        <td style="text-align:center;background:#f0fdf4;font-family:'JetBrains Mono',monospace;">{{ s.neg_pin|default:"—" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ── Setting AUX RL ─────────────────────────────────────── -->
+{% with has_aux=False %}
+{% for a in fr_aux %}{% if a.rl or a.tf or a.led %}{% with has_aux=True %}{% endwith %}{% endif %}{% endfor %}
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="d-flex align-items-center gap-2 mb-3">
+            <span style="width:5px;height:18px;background:#8b5cf6;border-radius:3px;display:inline-block;"></span>
+            <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#64748b;">Setting AUX RL</h6>
+        </div>
+        <div class="row g-3">
+            <div class="col-md-6">
+                <table class="table table-sm table-bordered align-middle mb-0" style="font-size:12px;">
+                    <thead style="background:#f5f3ff;font-size:11px;font-weight:700;color:#5b21b6;text-align:center;">
+                        <tr><th style="width:28%;">RL</th><th>TF</th><th>LED</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for a in fr_aux %}
+                        <tr{% if forloop.counter|divisibleby:2 %} style="background:#faf5ff;"{% endif %}>
+                            <td style="text-align:center;background:#ede9fe;font-weight:600;font-family:'JetBrains Mono',monospace;">{{ a.rl|default:"—" }}</td>
+                            <td style="font-family:'JetBrains Mono',monospace;">{{ a.tf|default:"—" }}</td>
+                            <td>{{ a.led|default:"—" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="col-md-6">
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px;height:100%;">
+                    <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:8px;">Catatan Saran / Perbaikan</div>
+                    <div class="mb-2">
+                        <span style="font-size:11px;font-weight:600;color:#475569;">Supply DC:</span>
+                        <span style="font-size:13px;font-weight:700;color:#1e293b;font-family:'JetBrains Mono',monospace;margin-left:6px;">{{ fr.supply_dc|default:"—" }}</span>
+                    </div>
+                    <div class="mb-3">
+                        <span style="font-size:11px;font-weight:600;color:#475569;">Selektor:</span>
+                        <span style="font-size:13px;font-weight:700;color:#1e293b;font-family:'JetBrains Mono',monospace;margin-left:6px;">{{ fr.selektor|default:"—" }}</span>
+                    </div>
+                    {% if fr.catatan %}
+                    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:10px;">
+                        <div style="font-size:11px;font-weight:600;color:#64748b;margin-bottom:4px;">Catatan:</div>
+                        <p style="font-size:13px;color:#334155;margin:0;white-space:pre-wrap;">{{ fr.catatan }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endwith %}
+
+{% endwith %}
+{% endif %}

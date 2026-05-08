@@ -38,6 +38,11 @@ _TEMPLATE_MAP = {
     'GATEWAY SAS':         'maintenance/pdf/sas.html',
     'ROIP':                'maintenance/pdf/roip.html',
     'UPS':                 'maintenance/pdf/ups.html',
+    'UFLS':            'maintenance/pdf/ufls.html',
+    'UFR ISLAND':      'maintenance/pdf/ufls.html',
+    'OFGS':            'maintenance/pdf/ufls.html',
+    'CDSAS':           'maintenance/pdf/ufls.html',
+    'FREQUENCY RELAY': 'maintenance/pdf/ufls.html',
 }
 
 _CORRECTIVE_TEMPLATE = 'maintenance/pdf/corrective.html'
@@ -57,6 +62,11 @@ _TITLES = {
     'GATEWAY SAS':  'Formulir Pemeliharaan Peralatan Gateway SAS',
     'ROIP':         'Formulir Pemeliharaan Peralatan RoIP',
     'UPS':          'Formulir Pemeliharaan Peralatan UPS',
+    'UFLS':            'Form Checklist Frequency Relay — UFLS',
+    'UFR ISLAND':      'Form Checklist Frequency Relay — UFR Island',
+    'OFGS':            'Form Checklist Frequency Relay — OFGS',
+    'CDSAS':           'Form Checklist Frequency Relay — CDSAS',
+    'FREQUENCY RELAY': 'Form Checklist Frequency Relay',
 }
 
 _CORRECTIVE_TITLE = 'Laporan Corrective Maintenance'
@@ -83,6 +93,11 @@ _DOC_CODES = {
     'GATEWAY SAS':         '',
     'ROIP':                '',
     'UPS':                 '',
+    'UFLS':            '',
+    'UFR ISLAND':      '',
+    'OFGS':            '',
+    'CDSAS':           '',
+    'FREQUENCY RELAY': '',
 }
 
 
@@ -514,6 +529,66 @@ def _ctx_ups(data, ctx):
 
 
 _CTX_BUILDERS['UPS'] = _ctx_ups
+
+
+def _ctx_freq_relay(data, ctx):
+    fr = data.get('freq_relay', {})
+    settings = []
+    for n in range(1, 8):
+        settings.append({
+            'tahap':   f'F{n}',
+            'frek_hz': fr.get(f'f{n}_hz'),
+            'waktu_s': fr.get(f'f{n}_s'),
+            'rl_no':   fr.get(f'f{n}_rl', ''),
+            'pos_vdc': fr.get(f'f{n}_pos_vdc', ''),
+            'pos_pin': fr.get(f'f{n}_pos_pin', ''),
+            'neg_vdc': fr.get(f'f{n}_neg_vdc', ''),
+            'neg_pin': fr.get(f'f{n}_neg_pin', ''),
+        })
+    aux_rl = []
+    for n in range(1, 8):
+        aux_rl.append({
+            'rl':  fr.get(f'aux{n}_rl', ''),
+            'tf':  fr.get(f'aux{n}_tf', ''),
+            'led': fr.get(f'aux{n}_led', ''),
+        })
+    ctx.update({
+        'ufls': {
+            'healthy':  fr.get('healthy', ''),
+            'frek_oor': fr.get('frek_oor', ''),
+            'alarm':    fr.get('alarm', ''),
+            'fungsi':          fr.get('fungsi', ''),
+            'target_proteksi': fr.get('target_proteksi', ''),
+            'rasio_vt':        fr.get('rasio_vt', ''),
+            'rasio_vt_sekunder': fr.get('rasio_vt_sek', ''),
+            'vblock':          fr.get('vblock', ''),
+            'measurement': {
+                'v_an':  fr.get('v_an', ''), 'v_bn':  fr.get('v_bn', ''),
+                'v_cn':  fr.get('v_cn', ''), 'v_ab':  fr.get('v_ab', ''),
+                'v_bc':  fr.get('v_bc', ''), 'v_ac':  fr.get('v_ac', ''),
+                'frekuensi': fr.get('frekuensi', ''),
+                'v_an_target':  fr.get('target_v_an', ''),
+                'v_bn_target':  fr.get('target_v_bn', ''),
+                'v_cn_target':  fr.get('target_v_cn', ''),
+                'v_ab_target':  fr.get('target_v_ab', ''),
+                'v_bc_target':  fr.get('target_v_bc', ''),
+                'v_ac_target':  fr.get('target_v_ac', ''),
+                'frekuensi_target': fr.get('target_frekuensi', ''),
+            },
+            'settings': settings,
+            'aux_rl':   aux_rl,
+            'supply_dc': fr.get('supply_dc', ''),
+            'selektor':  fr.get('selektor', ''),
+            'catatan':   fr.get('catatan', ''),
+        }
+    })
+
+
+_CTX_BUILDERS['UFLS']            = _ctx_freq_relay
+_CTX_BUILDERS['UFR ISLAND']      = _ctx_freq_relay
+_CTX_BUILDERS['OFGS']            = _ctx_freq_relay
+_CTX_BUILDERS['CDSAS']           = _ctx_freq_relay
+_CTX_BUILDERS['FREQUENCY RELAY'] = _ctx_freq_relay
 
 
 def _ctx_corrective(data, ctx):

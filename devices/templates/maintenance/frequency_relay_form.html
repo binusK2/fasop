@@ -1,0 +1,321 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}{% if is_edit %}Edit{% else %}Form{% endif %} Maintenance Frequency Relay — {{ device.nama }}{% endblock %}
+{% block page_title %}Form Maintenance Frequency Relay (UFLS / UFR Island / OFGS / CDSAS){% endblock %}
+
+{% block content %}
+
+<div class="d-flex align-items-center gap-2 mb-3">
+    {% if is_edit %}
+    <a href="{% url 'maintenance_view' maintenance.id %}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Kembali ke Detail
+    </a>
+    {% else %}
+    <a href="{% url 'device_view' device.id %}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Kembali ke Perangkat
+    </a>
+    {% endif %}
+</div>
+
+{% include 'maintenance/_device_banner.html' with banner_icon='bi-activity' banner_icon_color='#6ee7b7' banner_icon_bg='rgba(16,185,129,0.2)' %}
+
+<form method="post" enctype="multipart/form-data" id="fr-form"
+    {% if is_edit %}action="{% url 'maintenance_edit' maintenance.id %}"{% endif %}>
+{% csrf_token %}
+
+<!-- ══ 1. INFORMASI MAINTENANCE ══════════════════════════════ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-title-bar">
+            <span class="bar" style="background:#3b82f6;"></span>
+            <span>Informasi Maintenance</span>
+        </div>
+        <div class="row g-3 align-items-start">
+            <div class="col-md-2">
+                <label class="form-label fw-semibold">Jenis Maintenance</label>
+                <div style="display:flex;align-items:center;gap:6px;background:#eff6ff;color:#1d4ed8;border:1.5px solid #bfdbfe;border-radius:8px;padding:8px 12px;font-size:13px;font-weight:700;">
+                    <i class="bi bi-shield-check" style="font-size:14px;"></i> Preventive
+                </div>
+                <input type="hidden" name="maintenance_type" value="Preventive">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-semibold">Tanggal</label>
+                {{ maintenance_form.date }}
+            </div>
+            {% include 'maintenance/_pelaksana_tag_input.html' %}
+        </div>
+        <div class="row g-3 mt-1">
+            <div class="col-md-8">
+                <label class="form-label fw-semibold">Deskripsi / Keluhan</label>
+                {{ maintenance_form.description }}
+            </div>
+            <div class="col-md-4">
+                <label class="form-label fw-semibold">Foto Dokumentasi</label>
+                {{ maintenance_form.photo }}
+                <div class="form-text">Format: JPG, PNG. Maks 10MB.</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ 2. VISUAL INSPECTION & INFO RELAY ══════════════════════ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-title-bar">
+            <span class="bar" style="background:#10b981;"></span>
+            <span>Visual Inspection &amp; Info Relay</span>
+        </div>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <div style="background:#f0fdf4;border:1px solid #a7f3d0;border-radius:10px;padding:14px;">
+                    <div style="font-size:11px;font-weight:700;color:#065f46;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">
+                        <i class="bi bi-eye me-1"></i>Visual Inspection
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label mb-1" style="font-size:12px;font-weight:600;">Healthy</label>
+                        {{ detail_form.healthy }}
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label mb-1" style="font-size:12px;font-weight:600;">Frek Out of Range</label>
+                        {{ detail_form.frek_oor }}
+                    </div>
+                    <div>
+                        <label class="form-label mb-1" style="font-size:12px;font-weight:600;">Alarm</label>
+                        {{ detail_form.alarm }}
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-8">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Fungsi *</label>
+                        {{ detail_form.fungsi }}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Target Proteksi *</label>
+                        {{ detail_form.target_proteksi }}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Rasio VT Primer</label>
+                        {{ detail_form.rasio_vt }}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Rasio VT Sekunder</label>
+                        {{ detail_form.rasio_vt_sek }}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">*Vblock</label>
+                        {{ detail_form.vblock }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ 3. MEASUREMENT ═══════════════════════════════════════ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-title-bar">
+            <span class="bar" style="background:#6366f1;"></span>
+            <span>Measurement Tegangan &amp; Frekuensi</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm table-bordered align-middle mb-0" style="font-size:12px;">
+                <thead style="background:#eff6ff;font-size:11px;">
+                    <tr>
+                        <th style="width:15%;">Parameter</th>
+                        <th style="width:20%;">Nilai Ukur</th>
+                        <th style="width:25%;">Target</th>
+                        <th style="width:40%;">Keterangan</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td class="fw-semibold text-muted">V An</td><td>{{ detail_form.v_an }}</td><td>{{ detail_form.target_v_an }}</td><td class="text-muted" style="font-size:11px;">kV — P/L*</td></tr>
+                    <tr style="background:#f8fafc;"><td class="fw-semibold text-muted">V Bn</td><td>{{ detail_form.v_bn }}</td><td>{{ detail_form.target_v_bn }}</td><td class="text-muted" style="font-size:11px;">kV — P/L*</td></tr>
+                    <tr><td class="fw-semibold text-muted">V Cn</td><td>{{ detail_form.v_cn }}</td><td>{{ detail_form.target_v_cn }}</td><td class="text-muted" style="font-size:11px;">kV — P/L*</td></tr>
+                    <tr style="background:#f8fafc;"><td class="fw-semibold text-muted">V AB</td><td>{{ detail_form.v_ab }}</td><td>{{ detail_form.target_v_ab }}</td><td class="text-muted" style="font-size:11px;">kV — P/L*</td></tr>
+                    <tr><td class="fw-semibold text-muted">V BC</td><td>{{ detail_form.v_bc }}</td><td>{{ detail_form.target_v_bc }}</td><td class="text-muted" style="font-size:11px;">kV — P/L*</td></tr>
+                    <tr style="background:#f8fafc;"><td class="fw-semibold text-muted">V AC</td><td>{{ detail_form.v_ac }}</td><td>{{ detail_form.target_v_ac }}</td><td class="text-muted" style="font-size:11px;">kV — P/L*</td></tr>
+                    <tr><td class="fw-semibold text-muted">Frekuensi</td><td>{{ detail_form.frekuensi }}</td><td>{{ detail_form.target_frekuensi }}</td><td class="text-muted" style="font-size:11px;">Hz</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <p class="form-text mt-1">*) P = Power Trafo &nbsp;|&nbsp; L = Line &nbsp;|&nbsp; UVLS = Under Voltage Load Shedding (135 kV; 0.15)</p>
+    </div>
+</div>
+
+<!-- ══ 4. SETTING RELAY F1–F7 ══════════════════════════════ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-title-bar">
+            <span class="bar" style="background:#f59e0b;"></span>
+            <span>Setting Relay &amp; Common RL (F1 – F7)</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm table-bordered align-middle mb-0" style="font-size:12px;">
+                <thead>
+                    <tr style="background:#1e3a5f;color:white;font-size:11px;text-align:center;">
+                        <th rowspan="2" style="vertical-align:middle;width:6%;">Tahap</th>
+                        <th rowspan="2" style="vertical-align:middle;width:13%;">Frek (Hz)</th>
+                        <th rowspan="2" style="vertical-align:middle;width:10%;">Waktu (s)</th>
+                        <th colspan="3" style="background:#1d4ed8;">Common (+) RL Belakang Rele</th>
+                        <th colspan="2" style="background:#065f46;">Common (−) Selektor Switch</th>
+                    </tr>
+                    <tr style="font-size:10px;text-align:center;">
+                        <th style="background:#1d4ed8;color:white;width:8%;">RL No</th>
+                        <th style="background:#1d4ed8;color:white;width:15%;">Teg vDC (+)</th>
+                        <th style="background:#1d4ed8;color:white;width:12%;">Pin (+)</th>
+                        <th style="background:#065f46;color:white;width:15%;">Teg vDC (−)</th>
+                        <th style="background:#065f46;color:white;width:12%;">Pin (−)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="text-align:center;font-weight:700;background:#dbeafe;color:#1e40af;">F1/T1</td>
+                        <td>{{ detail_form.f1_hz }}</td><td>{{ detail_form.f1_s }}</td>
+                        <td style="background:#eff6ff;">{{ detail_form.f1_rl }}</td>
+                        <td style="background:#eff6ff;">{{ detail_form.f1_pos_vdc }}</td>
+                        <td style="background:#eff6ff;">{{ detail_form.f1_pos_pin }}</td>
+                        <td style="background:#f0fdf4;">{{ detail_form.f1_neg_vdc }}</td>
+                        <td style="background:#f0fdf4;">{{ detail_form.f1_neg_pin }}</td>
+                    </tr>
+                    <tr style="background:#f8fafc;">
+                        <td style="text-align:center;font-weight:700;background:#dbeafe;color:#1e40af;">F2/T2</td>
+                        <td>{{ detail_form.f2_hz }}</td><td>{{ detail_form.f2_s }}</td>
+                        <td style="background:#eff6ff;">{{ detail_form.f2_rl }}</td>
+                        <td style="background:#eff6ff;">{{ detail_form.f2_pos_vdc }}</td>
+                        <td style="background:#eff6ff;">{{ detail_form.f2_pos_pin }}</td>
+                        <td style="background:#f0fdf4;">{{ detail_form.f2_neg_vdc }}</td>
+                        <td style="background:#f0fdf4;">{{ detail_form.f2_neg_pin }}</td>
+                    </tr>
+                    <tr>
+                        <td style="text-align:center;font-weight:700;background:#dbeafe;color:#1e40af;">F3/T3</td>
+                        <td>{{ detail_form.f3_hz }}</td><td>{{ detail_form.f3_s }}</td>
+                        <td style="background:#eff6ff;">{{ detail_form.f3_rl }}</td>
+                        <td style="background:#eff6ff;">{{ detail_form.f3_pos_vdc }}</td>
+                        <td style="background:#eff6ff;">{{ detail_form.f3_pos_pin }}</td>
+                        <td style="background:#f0fdf4;">{{ detail_form.f3_neg_vdc }}</td>
+                        <td style="background:#f0fdf4;">{{ detail_form.f3_neg_pin }}</td>
+                    </tr>
+                    <tr style="background:#f8fafc;">
+                        <td style="text-align:center;font-weight:700;background:#dbeafe;color:#1e40af;">F4/T4</td>
+                        <td>{{ detail_form.f4_hz }}</td><td>{{ detail_form.f4_s }}</td>
+                        <td style="background:#eff6ff;">{{ detail_form.f4_rl }}</td>
+                        <td style="background:#eff6ff;">{{ detail_form.f4_pos_vdc }}</td>
+                        <td style="background:#eff6ff;">{{ detail_form.f4_pos_pin }}</td>
+                        <td style="background:#f0fdf4;">{{ detail_form.f4_neg_vdc }}</td>
+                        <td style="background:#f0fdf4;">{{ detail_form.f4_neg_pin }}</td>
+                    </tr>
+                    <tr>
+                        <td style="text-align:center;font-weight:700;background:#dbeafe;color:#1e40af;">F5/T5</td>
+                        <td>{{ detail_form.f5_hz }}</td><td>{{ detail_form.f5_s }}</td>
+                        <td style="background:#eff6ff;">{{ detail_form.f5_rl }}</td>
+                        <td style="background:#eff6ff;">{{ detail_form.f5_pos_vdc }}</td>
+                        <td style="background:#eff6ff;">{{ detail_form.f5_pos_pin }}</td>
+                        <td style="background:#f0fdf4;">{{ detail_form.f5_neg_vdc }}</td>
+                        <td style="background:#f0fdf4;">{{ detail_form.f5_neg_pin }}</td>
+                    </tr>
+                    <tr style="background:#f8fafc;">
+                        <td style="text-align:center;font-weight:700;background:#dbeafe;color:#1e40af;">F6/T6</td>
+                        <td>{{ detail_form.f6_hz }}</td><td>{{ detail_form.f6_s }}</td>
+                        <td style="background:#eff6ff;">{{ detail_form.f6_rl }}</td>
+                        <td style="background:#eff6ff;">{{ detail_form.f6_pos_vdc }}</td>
+                        <td style="background:#eff6ff;">{{ detail_form.f6_pos_pin }}</td>
+                        <td style="background:#f0fdf4;">{{ detail_form.f6_neg_vdc }}</td>
+                        <td style="background:#f0fdf4;">{{ detail_form.f6_neg_pin }}</td>
+                    </tr>
+                    <tr>
+                        <td style="text-align:center;font-weight:700;background:#dbeafe;color:#1e40af;">F7/T7</td>
+                        <td>{{ detail_form.f7_hz }}</td><td>{{ detail_form.f7_s }}</td>
+                        <td style="background:#eff6ff;">{{ detail_form.f7_rl }}</td>
+                        <td style="background:#eff6ff;">{{ detail_form.f7_pos_vdc }}</td>
+                        <td style="background:#eff6ff;">{{ detail_form.f7_pos_pin }}</td>
+                        <td style="background:#f0fdf4;">{{ detail_form.f7_neg_vdc }}</td>
+                        <td style="background:#f0fdf4;">{{ detail_form.f7_neg_pin }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ══ 5. SETTING AUX RL & CATATAN ══════════════════════════ -->
+<div class="row g-3 mb-3">
+    <div class="col-md-5">
+        <div class="card h-100">
+            <div class="card-body px-4 py-3">
+                <div class="section-title-bar">
+                    <span class="bar" style="background:#8b5cf6;"></span>
+                    <span>Setting AUX RL</span>
+                </div>
+                <table class="table table-sm table-bordered align-middle mb-0" style="font-size:12px;">
+                    <thead style="background:#f5f3ff;font-size:11px;text-align:center;">
+                        <tr>
+                            <th style="width:28%;">RL</th>
+                            <th>TF</th>
+                            <th>LED</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td style="background:#ede9fe;">{{ detail_form.aux1_rl }}</td><td>{{ detail_form.aux1_tf }}</td><td>{{ detail_form.aux1_led }}</td></tr>
+                        <tr style="background:#faf5ff;"><td style="background:#ede9fe;">{{ detail_form.aux2_rl }}</td><td>{{ detail_form.aux2_tf }}</td><td>{{ detail_form.aux2_led }}</td></tr>
+                        <tr><td style="background:#ede9fe;">{{ detail_form.aux3_rl }}</td><td>{{ detail_form.aux3_tf }}</td><td>{{ detail_form.aux3_led }}</td></tr>
+                        <tr style="background:#faf5ff;"><td style="background:#ede9fe;">{{ detail_form.aux4_rl }}</td><td>{{ detail_form.aux4_tf }}</td><td>{{ detail_form.aux4_led }}</td></tr>
+                        <tr><td style="background:#ede9fe;">{{ detail_form.aux5_rl }}</td><td>{{ detail_form.aux5_tf }}</td><td>{{ detail_form.aux5_led }}</td></tr>
+                        <tr style="background:#faf5ff;"><td style="background:#ede9fe;">{{ detail_form.aux6_rl }}</td><td>{{ detail_form.aux6_tf }}</td><td>{{ detail_form.aux6_led }}</td></tr>
+                        <tr><td style="background:#ede9fe;">{{ detail_form.aux7_rl }}</td><td>{{ detail_form.aux7_tf }}</td><td>{{ detail_form.aux7_led }}</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-7">
+        <div class="card h-100">
+            <div class="card-body px-4 py-3">
+                <div class="section-title-bar">
+                    <span class="bar" style="background:#ef4444;"></span>
+                    <span>Catatan / Saran Perbaikan</span>
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">*Supply DC</label>
+                        {{ detail_form.supply_dc }}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">*Selektor</label>
+                        {{ detail_form.selektor }}
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label fw-semibold">Catatan / Saran</label>
+                        {{ detail_form.catatan }}
+                    </div>
+                </div>
+                <p class="form-text mt-2" style="font-size:11px;">*) coret yang tidak perlu</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Submit -->
+<div class="d-flex justify-content-end gap-2 mb-4">
+    {% if is_edit %}
+    <a href="{% url 'maintenance_view' maintenance.id %}" class="btn btn-outline-secondary">Batal</a>
+    {% else %}
+    <a href="{% url 'device_view' device.id %}" class="btn btn-outline-secondary">Batal</a>
+    {% endif %}
+    <button type="submit" class="btn btn-primary px-4">
+        <i class="bi bi-floppy me-1"></i>
+        {% if is_edit %}Simpan Perubahan{% else %}Simpan Data Pemeliharaan{% endif %}
+    </button>
+</div>
+
+</form>
+
+<style>
+.section-title-bar { display:flex; align-items:center; gap:8px; margin-bottom:14px; }
+.section-title-bar .bar { width:4px; height:18px; border-radius:3px; flex-shrink:0; }
+.section-title-bar > span:last-child { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.6px; color:#475569; }
+</style>
+
+{% endblock %}

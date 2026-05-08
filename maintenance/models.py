@@ -846,6 +846,150 @@ class MaintenanceSAS(models.Model):
 
 
 # ─────────────────────────────────────────────────────────────
+# DETAIL FREQUENCY RELAY (UFLS / UFR ISLAND / OFGS / CDSAS)
+# ─────────────────────────────────────────────────────────────
+class MaintenanceFrequencyRelay(models.Model):
+
+    FUNGSI_CHOICES = [
+        ('UFLS',       'UFLS'),
+        ('UFR ISLAND', 'UFR ISLAND'),
+        ('OFGS',       'OFGS'),
+        ('CDSAS',      'CDSAS'),
+    ]
+    TARGET_CHOICES = [
+        ('TRAFO',        'TRAFO'),
+        ('LINE',         'LINE'),
+        ('TRAFO / LINE', 'TRAFO / LINE'),
+    ]
+    VI_CHOICES = [
+        ('Normal',   'Normal'),
+        ('Abnormal', 'Abnormal'),
+    ]
+
+    maintenance = models.OneToOneField(
+        Maintenance, on_delete=models.CASCADE,
+        related_name='maintenancefrequencyrelay'
+    )
+
+    # ── Visual Inspection ─────────────────────────────────────
+    healthy  = models.CharField(max_length=10, blank=True, choices=VI_CHOICES, verbose_name='Healthy')
+    frek_oor = models.CharField(max_length=10, blank=True, choices=VI_CHOICES, verbose_name='Frek Out of Range')
+    alarm    = models.CharField(max_length=10, blank=True, choices=VI_CHOICES, verbose_name='Alarm')
+
+    # ── Info Relay ────────────────────────────────────────────
+    fungsi          = models.CharField(max_length=20, blank=True, choices=FUNGSI_CHOICES, verbose_name='Fungsi')
+    target_proteksi = models.CharField(max_length=20, blank=True, choices=TARGET_CHOICES, verbose_name='Target Proteksi')
+    rasio_vt        = models.CharField(max_length=30, blank=True, verbose_name='Rasio VT (Primer)')
+    rasio_vt_sek    = models.CharField(max_length=30, blank=True, verbose_name='Rasio VT (Sekunder)')
+    vblock          = models.CharField(max_length=30, blank=True, verbose_name='*Vblock')
+
+    # ── Measurement ───────────────────────────────────────────
+    v_an      = models.CharField(max_length=15, blank=True, verbose_name='V An (kV)')
+    v_bn      = models.CharField(max_length=15, blank=True, verbose_name='V Bn (kV)')
+    v_cn      = models.CharField(max_length=15, blank=True, verbose_name='V Cn (kV)')
+    v_ab      = models.CharField(max_length=15, blank=True, verbose_name='V AB (kV)')
+    v_bc      = models.CharField(max_length=15, blank=True, verbose_name='V BC (kV)')
+    v_ac      = models.CharField(max_length=15, blank=True, verbose_name='V AC (kV)')
+    frekuensi = models.CharField(max_length=15, blank=True, verbose_name='Frekuensi (Hz)')
+
+    target_v_an      = models.CharField(max_length=30, blank=True, verbose_name='Target V An')
+    target_v_bn      = models.CharField(max_length=30, blank=True, verbose_name='Target V Bn')
+    target_v_cn      = models.CharField(max_length=30, blank=True, verbose_name='Target V Cn')
+    target_v_ab      = models.CharField(max_length=30, blank=True, verbose_name='Target V AB')
+    target_v_bc      = models.CharField(max_length=30, blank=True, verbose_name='Target V BC')
+    target_v_ac      = models.CharField(max_length=30, blank=True, verbose_name='Target V AC')
+    target_frekuensi = models.CharField(max_length=30, blank=True, verbose_name='Target Frekuensi')
+
+    # ── Setting Relay F1–F7 ───────────────────────────────────
+    f1_hz = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True, verbose_name='F1 Frekuensi (Hz)')
+    f1_s  = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, verbose_name='F1 Waktu (s)')
+    f1_rl      = models.CharField(max_length=10, blank=True, verbose_name='F1 RL No')
+    f1_pos_vdc = models.CharField(max_length=15, blank=True, verbose_name='F1 Common(+) vDC')
+    f1_pos_pin = models.CharField(max_length=15, blank=True, verbose_name='F1 Common(+) Pin')
+    f1_neg_vdc = models.CharField(max_length=15, blank=True, verbose_name='F1 Common(−) vDC')
+    f1_neg_pin = models.CharField(max_length=15, blank=True, verbose_name='F1 Common(−) Pin')
+
+    f2_hz = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True, verbose_name='F2 Frekuensi (Hz)')
+    f2_s  = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, verbose_name='F2 Waktu (s)')
+    f2_rl = models.CharField(max_length=10, blank=True)
+    f2_pos_vdc = models.CharField(max_length=15, blank=True)
+    f2_pos_pin = models.CharField(max_length=15, blank=True)
+    f2_neg_vdc = models.CharField(max_length=15, blank=True)
+    f2_neg_pin = models.CharField(max_length=15, blank=True)
+
+    f3_hz = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True, verbose_name='F3 Frekuensi (Hz)')
+    f3_s  = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, verbose_name='F3 Waktu (s)')
+    f3_rl = models.CharField(max_length=10, blank=True)
+    f3_pos_vdc = models.CharField(max_length=15, blank=True)
+    f3_pos_pin = models.CharField(max_length=15, blank=True)
+    f3_neg_vdc = models.CharField(max_length=15, blank=True)
+    f3_neg_pin = models.CharField(max_length=15, blank=True)
+
+    f4_hz = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True, verbose_name='F4 Frekuensi (Hz)')
+    f4_s  = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, verbose_name='F4 Waktu (s)')
+    f4_rl = models.CharField(max_length=10, blank=True)
+    f4_pos_vdc = models.CharField(max_length=15, blank=True)
+    f4_pos_pin = models.CharField(max_length=15, blank=True)
+    f4_neg_vdc = models.CharField(max_length=15, blank=True)
+    f4_neg_pin = models.CharField(max_length=15, blank=True)
+
+    f5_hz = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True, verbose_name='F5 Frekuensi (Hz)')
+    f5_s  = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, verbose_name='F5 Waktu (s)')
+    f5_rl = models.CharField(max_length=10, blank=True)
+    f5_pos_vdc = models.CharField(max_length=15, blank=True)
+    f5_pos_pin = models.CharField(max_length=15, blank=True)
+    f5_neg_vdc = models.CharField(max_length=15, blank=True)
+    f5_neg_pin = models.CharField(max_length=15, blank=True)
+
+    f6_hz = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True, verbose_name='F6 Frekuensi (Hz)')
+    f6_s  = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, verbose_name='F6 Waktu (s)')
+    f6_rl = models.CharField(max_length=10, blank=True)
+    f6_pos_vdc = models.CharField(max_length=15, blank=True)
+    f6_pos_pin = models.CharField(max_length=15, blank=True)
+    f6_neg_vdc = models.CharField(max_length=15, blank=True)
+    f6_neg_pin = models.CharField(max_length=15, blank=True)
+
+    f7_hz = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True, verbose_name='F7 Frekuensi (Hz)')
+    f7_s  = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, verbose_name='F7 Waktu (s)')
+    f7_rl = models.CharField(max_length=10, blank=True)
+    f7_pos_vdc = models.CharField(max_length=15, blank=True)
+    f7_pos_pin = models.CharField(max_length=15, blank=True)
+    f7_neg_vdc = models.CharField(max_length=15, blank=True)
+    f7_neg_pin = models.CharField(max_length=15, blank=True)
+
+    # ── Setting AUX RL (7 baris) ──────────────────────────────
+    aux1_rl  = models.CharField(max_length=20, blank=True)
+    aux1_tf  = models.CharField(max_length=50, blank=True)
+    aux1_led = models.CharField(max_length=50, blank=True)
+    aux2_rl  = models.CharField(max_length=20, blank=True)
+    aux2_tf  = models.CharField(max_length=50, blank=True)
+    aux2_led = models.CharField(max_length=50, blank=True)
+    aux3_rl  = models.CharField(max_length=20, blank=True)
+    aux3_tf  = models.CharField(max_length=50, blank=True)
+    aux3_led = models.CharField(max_length=50, blank=True)
+    aux4_rl  = models.CharField(max_length=20, blank=True)
+    aux4_tf  = models.CharField(max_length=50, blank=True)
+    aux4_led = models.CharField(max_length=50, blank=True)
+    aux5_rl  = models.CharField(max_length=20, blank=True)
+    aux5_tf  = models.CharField(max_length=50, blank=True)
+    aux5_led = models.CharField(max_length=50, blank=True)
+    aux6_rl  = models.CharField(max_length=20, blank=True)
+    aux6_tf  = models.CharField(max_length=50, blank=True)
+    aux6_led = models.CharField(max_length=50, blank=True)
+    aux7_rl  = models.CharField(max_length=20, blank=True)
+    aux7_tf  = models.CharField(max_length=50, blank=True)
+    aux7_led = models.CharField(max_length=50, blank=True)
+
+    # ── Catatan ───────────────────────────────────────────────
+    supply_dc = models.CharField(max_length=100, blank=True, verbose_name='*Supply DC')
+    selektor  = models.CharField(max_length=100, blank=True, verbose_name='*Selektor')
+    catatan   = models.TextField(blank=True, verbose_name='Catatan / Saran Perbaikan')
+
+    class Meta:
+        verbose_name = 'Maintenance Frequency Relay (UFLS/UFR/OFGS/CDSAS)'
+
+
+# ─────────────────────────────────────────────────────────────
 # DETAIL RoIP (Radio over IP)
 # ─────────────────────────────────────────────────────────────
 class MaintenanceRoIP(models.Model):

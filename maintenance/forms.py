@@ -683,3 +683,72 @@ class MaintenanceUPSForm(forms.ModelForm):
             # Catatan
             'catatan': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }
+
+
+# ─────────────────────────────────────────────────────────────
+# FORM FREQUENCY RELAY (UFLS / UFR ISLAND / OFGS / CDSAS)
+# ─────────────────────────────────────────────────────────────
+_VI_SEL = forms.Select(attrs={'class': 'form-select form-select-sm'})
+_FR_TXT = forms.TextInput(attrs={'class': 'form-control form-control-sm'})
+_FR_NUM = forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any'})
+_FR_SEL = forms.Select(attrs={'class': 'form-select form-select-sm'})
+
+
+class MaintenanceFrequencyRelayForm(forms.ModelForm):
+    class Meta:
+        from .models import MaintenanceFrequencyRelay
+        model = MaintenanceFrequencyRelay
+        exclude = ['maintenance']
+        widgets = {
+            # Visual Inspection
+            'healthy':  _VI_SEL,
+            'frek_oor': _VI_SEL,
+            'alarm':    _VI_SEL,
+            # Info Relay
+            'fungsi':          _FR_SEL,
+            'target_proteksi': _FR_SEL,
+            'rasio_vt':        _FR_TXT,
+            'rasio_vt_sek':    _FR_TXT,
+            'vblock':          _FR_TXT,
+            # Measurement
+            'v_an': _FR_TXT, 'v_bn': _FR_TXT, 'v_cn': _FR_TXT,
+            'v_ab': _FR_TXT, 'v_bc': _FR_TXT, 'v_ac': _FR_TXT,
+            'frekuensi': _FR_TXT,
+            'target_v_an': _FR_TXT, 'target_v_bn': _FR_TXT, 'target_v_cn': _FR_TXT,
+            'target_v_ab': _FR_TXT, 'target_v_bc': _FR_TXT, 'target_v_ac': _FR_TXT,
+            'target_frekuensi': _FR_TXT,
+            # Setting Relay F1-F7
+            'f1_hz': _FR_NUM, 'f1_s': _FR_NUM, 'f1_rl': _FR_TXT,
+            'f1_pos_vdc': _FR_TXT, 'f1_pos_pin': _FR_TXT,
+            'f1_neg_vdc': _FR_TXT, 'f1_neg_pin': _FR_TXT,
+            'f2_hz': _FR_NUM, 'f2_s': _FR_NUM, 'f2_rl': _FR_TXT,
+            'f2_pos_vdc': _FR_TXT, 'f2_pos_pin': _FR_TXT,
+            'f2_neg_vdc': _FR_TXT, 'f2_neg_pin': _FR_TXT,
+            'f3_hz': _FR_NUM, 'f3_s': _FR_NUM, 'f3_rl': _FR_TXT,
+            'f3_pos_vdc': _FR_TXT, 'f3_pos_pin': _FR_TXT,
+            'f3_neg_vdc': _FR_TXT, 'f3_neg_pin': _FR_TXT,
+            'f4_hz': _FR_NUM, 'f4_s': _FR_NUM, 'f4_rl': _FR_TXT,
+            'f4_pos_vdc': _FR_TXT, 'f4_pos_pin': _FR_TXT,
+            'f4_neg_vdc': _FR_TXT, 'f4_neg_pin': _FR_TXT,
+            'f5_hz': _FR_NUM, 'f5_s': _FR_NUM, 'f5_rl': _FR_TXT,
+            'f5_pos_vdc': _FR_TXT, 'f5_pos_pin': _FR_TXT,
+            'f5_neg_vdc': _FR_TXT, 'f5_neg_pin': _FR_TXT,
+            'f6_hz': _FR_NUM, 'f6_s': _FR_NUM, 'f6_rl': _FR_TXT,
+            'f6_pos_vdc': _FR_TXT, 'f6_pos_pin': _FR_TXT,
+            'f6_neg_vdc': _FR_TXT, 'f6_neg_pin': _FR_TXT,
+            'f7_hz': _FR_NUM, 'f7_s': _FR_NUM, 'f7_rl': _FR_TXT,
+            'f7_pos_vdc': _FR_TXT, 'f7_pos_pin': _FR_TXT,
+            'f7_neg_vdc': _FR_TXT, 'f7_neg_pin': _FR_TXT,
+            # AUX RL
+            'aux1_rl': _FR_TXT, 'aux1_tf': _FR_TXT, 'aux1_led': _FR_TXT,
+            'aux2_rl': _FR_TXT, 'aux2_tf': _FR_TXT, 'aux2_led': _FR_TXT,
+            'aux3_rl': _FR_TXT, 'aux3_tf': _FR_TXT, 'aux3_led': _FR_TXT,
+            'aux4_rl': _FR_TXT, 'aux4_tf': _FR_TXT, 'aux4_led': _FR_TXT,
+            'aux5_rl': _FR_TXT, 'aux5_tf': _FR_TXT, 'aux5_led': _FR_TXT,
+            'aux6_rl': _FR_TXT, 'aux6_tf': _FR_TXT, 'aux6_led': _FR_TXT,
+            'aux7_rl': _FR_TXT, 'aux7_tf': _FR_TXT, 'aux7_led': _FR_TXT,
+            # Catatan
+            'supply_dc': _FR_TXT,
+            'selektor':  _FR_TXT,
+            'catatan':   forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        }

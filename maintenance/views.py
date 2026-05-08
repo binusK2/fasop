@@ -1,8 +1,8 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from devices.permissions import require_can_edit, require_can_delete, is_viewer_only
-from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset, MaintenanceRTU, MaintenanceSAS, MaintenanceRoIP, MaintenanceUPS, BeritaAcaraRecord, BeritaAcaraEviden
-from .forms import MaintenanceForm, MaintenancePLCForm, MaintenanceRouterForm, MaintenanceRadioForm, MaintenanceVoIPForm, MaintenanceMuxForm, MaintenanceRectifierForm, MaintenanceTeleproteksiForm, MaintenanceGensetForm, MaintenanceRTUForm, MaintenanceSASForm, MaintenanceRoIPForm, MaintenanceUPSForm
+from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset, MaintenanceRTU, MaintenanceSAS, MaintenanceRoIP, MaintenanceUPS, MaintenanceFrequencyRelay, BeritaAcaraRecord, BeritaAcaraEviden
+from .forms import MaintenanceForm, MaintenancePLCForm, MaintenanceRouterForm, MaintenanceRadioForm, MaintenanceVoIPForm, MaintenanceMuxForm, MaintenanceRectifierForm, MaintenanceTeleproteksiForm, MaintenanceGensetForm, MaintenanceRTUForm, MaintenanceSASForm, MaintenanceRoIPForm, MaintenanceUPSForm, MaintenanceFrequencyRelayForm
 from devices.models import Device, DeviceType
 from gangguan.models import Gangguan
 from inspection.models import InspectionCatuDaya
@@ -43,6 +43,11 @@ DEVICE_FORM_MAP = {
     'ROIP':   (MaintenanceRoIPForm, 'maintenance/roip_form.html'),
     'RoIP':   (MaintenanceRoIPForm, 'maintenance/roip_form.html'),
     'UPS':    (MaintenanceUPSForm,  'maintenance/ups_form.html'),
+    'UFLS':            (MaintenanceFrequencyRelayForm, 'maintenance/frequency_relay_form.html'),
+    'UFR ISLAND':      (MaintenanceFrequencyRelayForm, 'maintenance/frequency_relay_form.html'),
+    'OFGS':            (MaintenanceFrequencyRelayForm, 'maintenance/frequency_relay_form.html'),
+    'CDSAS':           (MaintenanceFrequencyRelayForm, 'maintenance/frequency_relay_form.html'),
+    'FREQUENCY RELAY': (MaintenanceFrequencyRelayForm, 'maintenance/frequency_relay_form.html'),
 }
 
 DEFAULT_TEMPLATE = 'maintenance/maintenance_form.html'
@@ -234,8 +239,9 @@ def maintenance_detail(request, pk):
     genset_detail = None
     rtu_detail    = None
     sas_detail    = None
-    roip_detail   = None
-    ups_detail    = None
+    roip_detail         = None
+    ups_detail          = None
+    freq_relay_detail   = None
 
     if device_type == 'PLC':
         try:
@@ -307,6 +313,12 @@ def maintenance_detail(request, pk):
         try:
             ups_detail = maintenance.maintenanceups
         except MaintenanceUPS.DoesNotExist:
+            pass
+
+    elif device_type in ('UFLS', 'UFR ISLAND', 'OFGS', 'CDSAS', 'FREQUENCY RELAY'):
+        try:
+            freq_relay_detail = maintenance.maintenancefrequencyrelay
+        except MaintenanceFrequencyRelay.DoesNotExist:
             pass
 
     # Checklist peralatan terpasang untuk template radio
@@ -540,6 +552,44 @@ def maintenance_detail(request, pk):
             for c in (ups_detail.bat_cells or [])
             if isinstance(c.get('cell'), int)
         ] if ups_detail else [],
+        'freq_relay_detail': freq_relay_detail,
+        'fr_vi_list': [
+            ('Healthy',           freq_relay_detail.healthy  if freq_relay_detail else ''),
+            ('Frek Out of Range', freq_relay_detail.frek_oor if freq_relay_detail else ''),
+            ('Alarm',             freq_relay_detail.alarm    if freq_relay_detail else ''),
+        ] if freq_relay_detail else [],
+        'fr_meas_list': [
+            ('V An',      freq_relay_detail.v_an       if freq_relay_detail else '', freq_relay_detail.target_v_an       if freq_relay_detail else ''),
+            ('V Bn',      freq_relay_detail.v_bn       if freq_relay_detail else '', freq_relay_detail.target_v_bn       if freq_relay_detail else ''),
+            ('V Cn',      freq_relay_detail.v_cn       if freq_relay_detail else '', freq_relay_detail.target_v_cn       if freq_relay_detail else ''),
+            ('V AB',      freq_relay_detail.v_ab       if freq_relay_detail else '', freq_relay_detail.target_v_ab       if freq_relay_detail else ''),
+            ('V BC',      freq_relay_detail.v_bc       if freq_relay_detail else '', freq_relay_detail.target_v_bc       if freq_relay_detail else ''),
+            ('V AC',      freq_relay_detail.v_ac       if freq_relay_detail else '', freq_relay_detail.target_v_ac       if freq_relay_detail else ''),
+            ('Frekuensi', freq_relay_detail.frekuensi  if freq_relay_detail else '', freq_relay_detail.target_frekuensi if freq_relay_detail else ''),
+        ] if freq_relay_detail else [],
+        'fr_settings': ([
+            {
+                'n':       n,
+                'tahap':   f'F{n}',
+                'frek_hz': getattr(freq_relay_detail, f'f{n}_hz', None),
+                'waktu_s': getattr(freq_relay_detail, f'f{n}_s', None),
+                'rl':      getattr(freq_relay_detail, f'f{n}_rl', ''),
+                'pos_vdc': getattr(freq_relay_detail, f'f{n}_pos_vdc', ''),
+                'pos_pin': getattr(freq_relay_detail, f'f{n}_pos_pin', ''),
+                'neg_vdc': getattr(freq_relay_detail, f'f{n}_neg_vdc', ''),
+                'neg_pin': getattr(freq_relay_detail, f'f{n}_neg_pin', ''),
+            }
+            for n in range(1, 8)
+        ]) if freq_relay_detail else [],
+        'fr_aux': ([
+            {
+                'n':   n,
+                'rl':  getattr(freq_relay_detail, f'aux{n}_rl', ''),
+                'tf':  getattr(freq_relay_detail, f'aux{n}_tf', ''),
+                'led': getattr(freq_relay_detail, f'aux{n}_led', ''),
+            }
+            for n in range(1, 8)
+        ]) if freq_relay_detail else [],
     })
 
 
@@ -1385,7 +1435,7 @@ def export_maintenance_pdf(request, pk):
 
     # ── Ambil detail sesuai jenis ──────────────────────────────────
     router_detail = plc_detail = radio_detail = None
-    voip_detail = mux_detail = rect_detail = tp_detail = genset_detail = rtu_detail = sas_detail = roip_detail = ups_detail = None
+    voip_detail = mux_detail = rect_detail = tp_detail = genset_detail = rtu_detail = sas_detail = roip_detail = ups_detail = freq_relay_detail = None
 
     def _try(fn):
         try: return fn()
@@ -1415,6 +1465,8 @@ def export_maintenance_pdf(request, pk):
         roip_detail = _try(lambda: maintenance.maintenanceroip)
     elif device_kind == 'UPS':
         ups_detail = _try(lambda: maintenance.maintenanceups)
+    elif device_kind in ('UFLS', 'UFR ISLAND', 'OFGS', 'CDSAS', 'FREQUENCY RELAY'):
+        freq_relay_detail = _try(lambda: maintenance.maintenancefrequencyrelay)
 
     # Corrective detail
     corrective_detail = None
@@ -1806,6 +1858,41 @@ def export_maintenance_pdf(request, pk):
             'test_ping_master':  _g(roip_detail, 'test_ping_master'),
             'catatan':           _g(roip_detail, 'catatan', ''),
         } if roip_detail else {},
+
+        'freq_relay': {
+            'healthy':   _g(freq_relay_detail, 'healthy', ''),
+            'frek_oor':  _g(freq_relay_detail, 'frek_oor', ''),
+            'alarm':     _g(freq_relay_detail, 'alarm', ''),
+            'fungsi':    _g(freq_relay_detail, 'fungsi', ''),
+            'target_proteksi': _g(freq_relay_detail, 'target_proteksi', ''),
+            'rasio_vt':        _g(freq_relay_detail, 'rasio_vt', ''),
+            'rasio_vt_sek':    _g(freq_relay_detail, 'rasio_vt_sek', ''),
+            'vblock':          _g(freq_relay_detail, 'vblock', ''),
+            'v_an': _g(freq_relay_detail, 'v_an', ''), 'v_bn': _g(freq_relay_detail, 'v_bn', ''),
+            'v_cn': _g(freq_relay_detail, 'v_cn', ''), 'v_ab': _g(freq_relay_detail, 'v_ab', ''),
+            'v_bc': _g(freq_relay_detail, 'v_bc', ''), 'v_ac': _g(freq_relay_detail, 'v_ac', ''),
+            'frekuensi': _g(freq_relay_detail, 'frekuensi', ''),
+            'target_v_an': _g(freq_relay_detail, 'target_v_an', ''),
+            'target_v_bn': _g(freq_relay_detail, 'target_v_bn', ''),
+            'target_v_cn': _g(freq_relay_detail, 'target_v_cn', ''),
+            'target_v_ab': _g(freq_relay_detail, 'target_v_ab', ''),
+            'target_v_bc': _g(freq_relay_detail, 'target_v_bc', ''),
+            'target_v_ac': _g(freq_relay_detail, 'target_v_ac', ''),
+            'target_frekuensi': _g(freq_relay_detail, 'target_frekuensi', ''),
+            **{f'f{n}_hz':      _g(freq_relay_detail, f'f{n}_hz') for n in range(1, 8)},
+            **{f'f{n}_s':       _g(freq_relay_detail, f'f{n}_s') for n in range(1, 8)},
+            **{f'f{n}_rl':      _g(freq_relay_detail, f'f{n}_rl', '') for n in range(1, 8)},
+            **{f'f{n}_pos_vdc': _g(freq_relay_detail, f'f{n}_pos_vdc', '') for n in range(1, 8)},
+            **{f'f{n}_pos_pin': _g(freq_relay_detail, f'f{n}_pos_pin', '') for n in range(1, 8)},
+            **{f'f{n}_neg_vdc': _g(freq_relay_detail, f'f{n}_neg_vdc', '') for n in range(1, 8)},
+            **{f'f{n}_neg_pin': _g(freq_relay_detail, f'f{n}_neg_pin', '') for n in range(1, 8)},
+            **{f'aux{n}_rl':  _g(freq_relay_detail, f'aux{n}_rl', '') for n in range(1, 8)},
+            **{f'aux{n}_tf':  _g(freq_relay_detail, f'aux{n}_tf', '') for n in range(1, 8)},
+            **{f'aux{n}_led': _g(freq_relay_detail, f'aux{n}_led', '') for n in range(1, 8)},
+            'supply_dc': _g(freq_relay_detail, 'supply_dc', ''),
+            'selektor':  _g(freq_relay_detail, 'selektor', ''),
+            'catatan':   _g(freq_relay_detail, 'catatan', ''),
+        } if freq_relay_detail else {},
 
         'ups': {
             'ups_merk':          _g(ups_detail, 'ups_merk', ''),
