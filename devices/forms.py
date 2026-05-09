@@ -28,7 +28,6 @@ class DeviceForm(forms.ModelForm):
         ip = self.cleaned_data.get('ip_address', '').strip()
         if not ip or ip == '-':
             return None
-        # Validate IP format using Django's validator
         from django.core.validators import validate_ipv46_address
         from django.core.exceptions import ValidationError as DjangoValidationError
         try:
@@ -36,6 +35,21 @@ class DeviceForm(forms.ModelForm):
         except DjangoValidationError:
             raise forms.ValidationError('Masukkan alamat IP yang valid (contoh: 192.168.1.1)')
         return ip
+
+    def clean(self):
+        cleaned = super().clean()
+        ip     = cleaned.get('ip_address')
+        lokasi = cleaned.get('lokasi')
+        if ip and lokasi:
+            qs = Device.objects.filter(ip_address=ip, lokasi__iexact=lokasi)
+            if self.instance and self.instance.pk:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                self.add_error(
+                    'ip_address',
+                    f'IP {ip} sudah digunakan perangkat lain di lokasi {lokasi.upper()}.'
+                )
+        return cleaned
 
     def clean_lokasi(self):
         lokasi = self.cleaned_data.get('lokasi')
