@@ -688,14 +688,14 @@
 
         {% with url_name=request.resolver_match.url_name %}
         <button class="sidebar-link sidebar-group-toggle w-100 text-start border-0
-            {% if 'gangguan' in url_name and url_name != 'ba_gangguan' or 'ce_' in url_name %}active open{% endif %}"
+            {% if 'gangguan' in url_name and url_name != 'ba_gangguan' or url_name|slice:":3" == 'ce_' %}active open{% endif %}"
             data-target="submenu-gangguan" type="button">
             <span class="si-icon"><i class="bi bi-exclamation-triangle"></i></span>
             Gangguan
             <i class="bi bi-chevron-right sidebar-toggle-btn ms-auto"></i>
         </button>
 
-        <div class="sidebar-submenu {% if 'gangguan' in url_name and url_name != 'ba_gangguan' or 'ce_' in url_name %}open{% endif %}"
+        <div class="sidebar-submenu {% if 'gangguan' in url_name and url_name != 'ba_gangguan' or url_name|slice:":3" == 'ce_' %}open{% endif %}"
              id="submenu-gangguan">
             <a href="{% url 'gangguan_create' %}"
                class="sidebar-link {% if url_name == 'gangguan_create' %}active{% endif %}">
@@ -708,7 +708,7 @@
                 History Gangguan
             </a>
             <a href="{% url 'ce_list' %}"
-               class="sidebar-link {% if 'ce_' in url_name %}active{% endif %}">
+               class="sidebar-link {% if url_name|slice:":3" == 'ce_' %}active{% endif %}">
                 <span class="si-icon"><i class="bi bi-bug"></i></span>
                 Common Enemy
             </a>
