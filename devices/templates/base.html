@@ -488,6 +488,7 @@
 
         /* ---- MISC ---- */
         .mono { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
         .text-truncate-2 {
             display: -webkit-box;
             -webkit-line-clamp: 2;
@@ -687,14 +688,14 @@
 
         {% with url_name=request.resolver_match.url_name %}
         <button class="sidebar-link sidebar-group-toggle w-100 text-start border-0
-            {% if 'gangguan' in url_name and url_name != 'ba_gangguan' or 'ce_' in url_name %}active open{% endif %}"
+            {% if 'gangguan' in url_name and url_name != 'ba_gangguan' or url_name|slice:":3" == 'ce_' %}active open{% endif %}"
             data-target="submenu-gangguan" type="button">
             <span class="si-icon"><i class="bi bi-exclamation-triangle"></i></span>
             Gangguan
             <i class="bi bi-chevron-right sidebar-toggle-btn ms-auto"></i>
         </button>
 
-        <div class="sidebar-submenu {% if 'gangguan' in url_name and url_name != 'ba_gangguan' or 'ce_' in url_name %}open{% endif %}"
+        <div class="sidebar-submenu {% if 'gangguan' in url_name and url_name != 'ba_gangguan' or url_name|slice:":3" == 'ce_' %}open{% endif %}"
              id="submenu-gangguan">
             <a href="{% url 'gangguan_create' %}"
                class="sidebar-link {% if url_name == 'gangguan_create' %}active{% endif %}">
@@ -707,7 +708,7 @@
                 History Gangguan
             </a>
             <a href="{% url 'ce_list' %}"
-               class="sidebar-link {% if 'ce_' in url_name %}active{% endif %}">
+               class="sidebar-link {% if url_name|slice:":3" == 'ce_' %}active{% endif %}">
                 <span class="si-icon"><i class="bi bi-bug"></i></span>
                 Common Enemy
             </a>
@@ -870,18 +871,27 @@
         <span class="topbar-title">{% block page_title %}{% endblock %}</span>
 
         {# ── Global Search ── #}
-        <form method="get" action="{% url 'global_search' %}" class="topbar-search d-none d-md-flex" style="flex:1;max-width:300px;">
-            <div style="position:relative;width:100%;">
-                <i class="bi bi-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:13px;pointer-events:none;"></i>
-                <input type="text" id="topbar-search-input" name="q"
-                       placeholder="Cari perangkat, gangguan..."
-                       autocomplete="off"
-                       style="width:100%;height:34px;padding:0 32px 0 32px;border:1px solid var(--border-color);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;background:#f8fafc;color:var(--text-primary);outline:none;transition:border-color 0.15s,box-shadow 0.15s;"
-                       onfocus="this.style.borderColor='var(--accent)';this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)';this.style.background='#fff';"
-                       onblur="this.style.borderColor='var(--border-color)';this.style.boxShadow='none';this.style.background='#f8fafc';">
-                <kbd style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:#f1f5f9;border:1px solid #e2e8f0;border-radius:4px;font-size:10px;color:#94a3b8;padding:1px 5px;font-family:'DM Sans',sans-serif;line-height:1.6;pointer-events:none;" id="search-kbd">/</kbd>
+        <div class="topbar-search d-none d-md-flex" style="flex:1;max-width:320px;position:relative;">
+            <form method="get" action="{% url 'global_search' %}" style="width:100%;" id="topbar-search-form">
+                <div style="position:relative;width:100%;">
+                    <i class="bi bi-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:13px;pointer-events:none;"></i>
+                    <input type="text" id="topbar-search-input" name="q"
+                           placeholder="Cari perangkat..."
+                           autocomplete="off"
+                           style="width:100%;height:34px;padding:0 32px 0 32px;border:1px solid var(--border-color);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;background:#f8fafc;color:var(--text-primary);outline:none;transition:border-color 0.15s,box-shadow 0.15s;"
+                           onfocus="this.style.borderColor='var(--accent)';this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)';this.style.background='#fff';"
+                           onblur="this.style.borderColor='var(--border-color)';this.style.boxShadow='none';this.style.background='#f8fafc';">
+                    <kbd style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:#f1f5f9;border:1px solid #e2e8f0;border-radius:4px;font-size:10px;color:#94a3b8;padding:1px 5px;font-family:'DM Sans',sans-serif;line-height:1.6;pointer-events:none;" id="search-kbd">/</kbd>
+                </div>
+            </form>
+            {# Dropdown live search #}
+            <div id="search-dropdown"
+                 style="display:none;position:absolute;top:calc(100% + 6px);left:0;right:0;
+                        background:#fff;border:1px solid #e2e8f0;border-radius:12px;
+                        box-shadow:0 8px 24px rgba(0,0,0,0.1);z-index:9999;overflow:hidden;">
+                <div id="search-dropdown-body"></div>
             </div>
-        </form>
+        </div>
 
         <div class="topbar-right">
             {% if user_is_viewer %}
@@ -967,26 +977,125 @@ document.addEventListener('DOMContentLoaded', function () {
     // document.getElementById('topbar-date').textContent = d.toLocaleDateString('id-ID', opts);
 
 
-    // Keyboard shortcut "/" to focus search
-    document.addEventListener('keydown', function(e) {
-        if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
-            e.preventDefault();
-            const inp = document.getElementById('topbar-search-input');
-            if (inp) { inp.focus(); inp.select(); }
+    // ── Live search dropdown ──────────────────────────────────────────────────
+    (function() {
+        const inp      = document.getElementById('topbar-search-input');
+        const dropdown = document.getElementById('search-dropdown');
+        const body     = document.getElementById('search-dropdown-body');
+        const kbd      = document.getElementById('search-kbd');
+        const SEARCH_API = '{% url "global_search_api" %}';
+        const SEARCH_URL = '{% url "global_search" %}';
+        let timer = null;
+
+        if (!inp) return;
+
+        // Keyboard shortcut "/"
+        document.addEventListener('keydown', function(e) {
+            if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+                e.preventDefault();
+                inp.focus(); inp.select();
+            }
+            if (e.key === 'Escape') { closeDropdown(); inp.blur(); }
+        });
+
+        inp.addEventListener('focus', function() {
+            if (kbd) kbd.style.display = 'none';
+            if (inp.value.trim().length >= 2) openDropdown();
+        });
+
+        inp.addEventListener('blur', function() {
+            if (kbd) kbd.style.display = '';
+            setTimeout(closeDropdown, 180);
+        });
+
+        inp.addEventListener('input', function() {
+            clearTimeout(timer);
+            const q = inp.value.trim();
+            if (q.length < 2) { closeDropdown(); return; }
+            timer = setTimeout(() => fetchResults(q), 280);
+        });
+
+        function openDropdown()  { dropdown.style.display = ''; }
+        function closeDropdown() { dropdown.style.display = 'none'; }
+
+        function fetchResults(q) {
+            body.innerHTML = '<div style="padding:16px;text-align:center;color:#94a3b8;font-size:13px;"><i class="bi bi-arrow-repeat" style="animation:spin 0.8s linear infinite;display:inline-block;margin-right:6px;"></i>Mencari...</div>';
+            openDropdown();
+            fetch(SEARCH_API + '?q=' + encodeURIComponent(q))
+                .then(r => r.json())
+                .then(data => renderDropdown(data, q))
+                .catch(() => {
+                    body.innerHTML = '<div style="padding:14px 16px;font-size:13px;color:#ef4444;">Gagal memuat hasil.</div>';
+                });
         }
-        if (e.key === 'Escape') {
-            const inp = document.getElementById('topbar-search-input');
-            if (inp && document.activeElement === inp) inp.blur();
+
+        function renderDropdown(data, q) {
+            const { results, total } = data;
+            if (!results.length) {
+                body.innerHTML = `<div style="padding:20px 16px;text-align:center;color:#94a3b8;">
+                    <i class="bi bi-search" style="font-size:20px;display:block;margin-bottom:6px;opacity:0.5;"></i>
+                    <span style="font-size:13px;">Tidak ada hasil untuk "<strong style="color:#475569;">${escHtml(q)}</strong>"</span>
+                </div>`;
+                return;
+            }
+
+            let html = '';
+            results.forEach(d => {
+                const statusDot = d.status_operasi === 'operasi'
+                    ? '<span style="width:7px;height:7px;border-radius:50%;background:#10b981;flex-shrink:0;display:inline-block;"></span>'
+                    : '<span style="width:7px;height:7px;border-radius:50%;background:#ef4444;flex-shrink:0;display:inline-block;"></span>';
+                const statusLabel = d.status_operasi === 'operasi'
+                    ? '<span style="font-size:10.5px;font-weight:700;color:#065f46;">Operasi</span>'
+                    : '<span style="font-size:10.5px;font-weight:700;color:#991b1b;">Tidak Operasi</span>';
+                const fotoEl = d.foto_url
+                    ? `<img src="${escHtml(d.foto_url)}" style="width:36px;height:36px;object-fit:cover;border-radius:7px;border:1px solid #e2e8f0;flex-shrink:0;">`
+                    : `<div style="width:36px;height:36px;border-radius:7px;background:#f1f5f9;border:1px dashed #cbd5e1;flex-shrink:0;display:flex;align-items:center;justify-content:center;"><i class="bi bi-camera" style="color:#cbd5e1;font-size:12px;"></i></div>`;
+                const jenisEl = d.jenis
+                    ? `<span style="font-size:10px;background:#eff6ff;color:#2563eb;padding:2px 7px;border-radius:20px;font-weight:500;white-space:nowrap;">${escHtml(d.jenis)}</span>`
+                    : '';
+
+                html += `<a href="${escHtml(d.url)}" style="display:flex;align-items:center;gap:10px;padding:9px 14px;text-decoration:none;border-bottom:1px solid #f1f5f9;transition:background 0.1s;"
+                            onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
+                    ${fotoEl}
+                    <div style="flex:1;min-width:0;">
+                        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                            <span style="font-size:13px;font-weight:600;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(d.nama)}</span>
+                            ${jenisEl}
+                        </div>
+                        <div style="font-size:11.5px;color:#64748b;margin-top:2px;display:flex;gap:8px;flex-wrap:wrap;">
+                            <span><i class="bi bi-geo-alt" style="font-size:10px;"></i> ${escHtml(d.lokasi)}</span>
+                            ${d.ip_address ? `<span style="font-family:'JetBrains Mono',monospace;">${escHtml(d.ip_address)}</span>` : ''}
+                        </div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">${statusDot}${statusLabel}</div>
+                </a>`;
+            });
+
+            if (total > 5) {
+                html += `<a href="${SEARCH_URL}?q=${encodeURIComponent(q)}"
+                            style="display:flex;align-items:center;justify-content:center;gap:6px;
+                                   padding:10px 14px;font-size:12.5px;font-weight:600;color:#3b82f6;
+                                   text-decoration:none;border-top:1px solid #e2e8f0;
+                                   background:#f8fafc;transition:background 0.1s;"
+                            onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background='#f8fafc'">
+                    <i class="bi bi-list-ul"></i>
+                    Tampilkan semua ${total} hasil
+                    <i class="bi bi-arrow-right" style="font-size:11px;"></i>
+                </a>`;
+            }
+
+            body.innerHTML = html;
         }
-    });
-    document.getElementById('topbar-search-input')?.addEventListener('focus', function() {
-        const kbd = document.getElementById('search-kbd');
-        if (kbd) kbd.style.display = 'none';
-    });
-    document.getElementById('topbar-search-input')?.addEventListener('blur', function() {
-        const kbd = document.getElementById('search-kbd');
-        if (kbd) kbd.style.display = '';
-    });
+
+        function escHtml(str) {
+            return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+        // Close when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!inp.closest('.topbar-search').contains(e.target)) closeDropdown();
+        });
+    })();
 
     // Tanggal & Jam di topbar
     function updateClock() {

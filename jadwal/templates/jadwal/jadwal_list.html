@@ -79,15 +79,15 @@
 
                 {# ── View toggle ── #}
                 <div style="display:flex;gap:4px;background:#f1f5f9;border-radius:8px;padding:3px;margin-left:4px;">
-                    <button type="button" id="btnViewDaftar"
-                            onclick="setView('daftar')"
-                            style="border:none;background:#fff;border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;color:#3b82f6;box-shadow:0 1px 3px rgba(0,0,0,0.1);cursor:pointer;transition:all 0.15s;">
-                        <i class="bi bi-list-ul me-1"></i>Daftar
-                    </button>
                     <button type="button" id="btnViewKalender"
                             onclick="setView('kalender')"
-                            style="border:none;background:transparent;border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;color:#64748b;cursor:pointer;transition:all 0.15s;">
+                            style="border:none;background:#fff;border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;color:#3b82f6;box-shadow:0 1px 3px rgba(0,0,0,0.1);cursor:pointer;transition:all 0.15s;">
                         <i class="bi bi-calendar3 me-1"></i>Kalender
+                    </button>
+                    <button type="button" id="btnViewDaftar"
+                            onclick="setView('daftar')"
+                            style="border:none;background:transparent;border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;color:#64748b;cursor:pointer;transition:all 0.15s;">
+                        <i class="bi bi-list-ul me-1"></i>Daftar
                     </button>
                 </div>
 
@@ -104,7 +104,7 @@
     </div>
 
     {# Tabel Jadwal #}
-    <div id="viewDaftar" class="table-card">
+    <div id="viewDaftar" class="table-card" style="display:none;">
         <div class="table-responsive">
             <table class="table mb-0">
                 <thead>
@@ -191,7 +191,7 @@
     </div>
 
     {# ── VIEW KALENDER ── #}
-    <div id="viewKalender" style="display:none;">
+    <div id="viewKalender">
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
             {% for bln in kalender_data %}
             <div style="background:#fff;border:1px solid {% if bln.is_current %}#3b82f6{% else %}#e2e8f0{% endif %};border-radius:12px;overflow:hidden;{% if bln.is_current %}box-shadow:0 0 0 2px rgba(59,130,246,0.2);{% endif %}">
@@ -415,10 +415,11 @@ function setView(mode) {
     }
 }
 
-// Restore last view preference
+// Restore last view preference — default kalender
 document.addEventListener('DOMContentLoaded', function() {
     const saved = localStorage.getItem('jadwalView');
-    if (saved === 'kalender') setView('kalender');
+    if (saved === 'daftar') setView('daftar');
+    // else: kalender sudah aktif dari HTML (default)
 });
 
 // Tanggal hari ini dari server
