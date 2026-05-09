@@ -57,6 +57,7 @@ urlpatterns = [
 
     # Global Search
     path('search/', views.global_search, name='global_search'),
+    path('search/api/', views.global_search_api, name='global_search_api'),
 
     # Manajemen Lokasi
     path('lokasi-admin/', views.lokasi_admin, name='lokasi_admin'),

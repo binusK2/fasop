@@ -2489,4 +2489,41 @@ def global_search(request):
         'maintenance_results': maintenance_results,
         'total': total,
     })
-    return render(request, 'devices/device_wiring.html', {'device': device})
+
+
+@login_required
+def global_search_api(request):
+    """Live search API — max 5 perangkat, dipakai oleh dropdown topbar."""
+    from django.urls import reverse as _rev
+    query = request.GET.get('q', '').strip()
+    if len(query) < 2:
+        return JsonResponse({'results': [], 'total': 0, 'query': query})
+
+    qs = (
+        Device.objects.filter(is_deleted=False, host__isnull=True)
+        .filter(
+            Q(nama__icontains=query) |
+            Q(ip_address__icontains=query) |
+            Q(merk__icontains=query) |
+            Q(serial_number__icontains=query) |
+            Q(lokasi__icontains=query)
+        )
+        .select_related('jenis')
+        .order_by('nama')
+    )
+    total = qs.count()
+    results = []
+    for d in qs[:5]:
+        results.append({
+            'id':             d.pk,
+            'nama':           d.nama,
+            'jenis':          d.jenis.name if d.jenis else '',
+            'merk':           d.merk or '',
+            'type':           d.type or '',
+            'ip_address':     d.ip_address or '',
+            'lokasi':         d.lokasi or '',
+            'status_operasi': d.status_operasi,
+            'foto_url':       d.foto.url if d.foto else '',
+            'url':            _rev('device_view', args=[d.pk]),
+        })
+    return JsonResponse({'results': results, 'total': total, 'query': query})
