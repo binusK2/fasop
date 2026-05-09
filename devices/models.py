@@ -48,7 +48,7 @@ class Device(models.Model):
     type = models.CharField(max_length=100, blank=True, null=True)
     serial_number = models.CharField(max_length=100, blank=True, null=True)
     firmware_version = models.CharField(max_length=100, blank=True, null=True)
-    ip_address = models.GenericIPAddressField(blank=True, null=True, unique=True)
+    ip_address = models.GenericIPAddressField(blank=True, null=True)
     lokasi = models.CharField(max_length=150)
     STATUS_CHOICES = (
         ('operasi', 'Operasi'),
@@ -107,6 +107,15 @@ class Device(models.Model):
         verbose_name='Host Server (untuk VM)',
         help_text='Isi jika perangkat ini adalah VM di dalam server fisik',
     )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['ip_address', 'lokasi'],
+                condition=models.Q(ip_address__isnull=False),
+                name='unique_ip_per_lokasi',
+            )
+        ]
 
     def __str__(self):
         return self.nama
