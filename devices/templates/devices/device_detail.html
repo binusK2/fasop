@@ -1181,17 +1181,14 @@ function addEvidenRow() {
 </div>
 {% endif %}
 
-{# ── Log Perubahan — hanya admin ──────────────────────────────── #}
-{% if request.user.is_superuser or request.user.profile.is_asisten_manager %}
+{# ── Log Perubahan — admin, AM, dan teknisi ────────────────────── #}
+{% if request.user.is_superuser or request.user.profile.is_asisten_manager or request.user.profile.is_technician %}
 {% if device_logs %}
 <div class="table-card mt-3">
     <div class="table-header" style="display:flex;align-items:center;justify-content:space-between;">
         <h6 class="mb-0">
             <i class="bi bi-clock-history me-1" style="color:#8b5cf6;"></i>
             Log Perubahan
-            <span style="font-size:11px;font-weight:500;color:#94a3b8;margin-left:6px;">
-                — hanya terlihat oleh admin
-            </span>
         </h6>
         <span style="font-size:11px;background:#f5f3ff;color:#7c3aed;padding:3px 10px;border-radius:20px;font-weight:600;">
             {{ device_logs|length }} entri
