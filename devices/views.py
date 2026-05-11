@@ -8,7 +8,7 @@ from devices.permissions import (
 from .models import Device, DeviceType, Icon, SiteLocation, DeviceLog, DeviceEvent
 from .forms import DeviceForm, IconForm
 from django.db.models import Count, Q
-from django.db.models.functions import TruncMonth, Lower, Trim
+from django.db.models.functions import TruncMonth, Lower, Trim, ExtractYear, ExtractMonth
 from maintenance.models import Maintenance
 from django.utils.timezone import now
 from django.http import HttpResponse, JsonResponse
@@ -319,17 +319,18 @@ def dashboard(request):
             },
         },
     ]
-    _maintained_ids = set(
-        Maintenance.objects.filter(status='Done').values_list('device_id', flat=True)
-    )
+    # Batch: total devices per jenis
     _type_agg = {}
-    for _dev in _asset_qs.select_related('jenis'):
-        _jname = (_dev.jenis.name if _dev.jenis else 'Lainnya').strip()
-        if _jname not in _type_agg:
-            _type_agg[_jname] = {'total': 0, 'maintained': 0}
-        _type_agg[_jname]['total'] += 1
-        if _dev.id in _maintained_ids:
-            _type_agg[_jname]['maintained'] += 1
+    for row in _asset_qs.values('jenis__name').annotate(total=Count('id')):
+        jname = (row['jenis__name'] or 'Lainnya').strip()
+        _type_agg.setdefault(jname, {'total': 0, 'maintained': 0})
+        _type_agg[jname]['total'] = row['total']
+    # Batch: devices with at least one Done maintenance per jenis
+    for row in (_asset_qs.filter(maintenance__status='Done')
+                .values('jenis__name').annotate(maintained=Count('id', distinct=True))):
+        jname = (row['jenis__name'] or 'Lainnya').strip()
+        if jname in _type_agg:
+            _type_agg[jname]['maintained'] = row['maintained']
 
     kelompok_data = []
     for _kg in _KELOMPOK_CFG:
@@ -422,26 +423,29 @@ def dashboard(request):
         .order_by('-tanggal_gangguan')[:5]
     )
 
-    # ── Health Index summary ─────────────────────────────────────
-    from health_index.calculator import calculate_hi
+    # ── Health Index summary — baca dari HISnapshot, hindari kalkulasi per-device ─
+    from health_index.models import HISnapshot
+    _snap_this  = {s['device_id']: s['score'] for s in HISnapshot.objects.filter(
+        bulan=today.month, tahun=today.year).values('device_id', 'score')}
+    _prev       = (today.replace(day=1) - relativedelta(months=1))
+    _snap_prev  = {s['device_id']: s['score'] for s in HISnapshot.objects.filter(
+        bulan=_prev.month, tahun=_prev.year).values('device_id', 'score')}
+    _snap_scores = {**_snap_prev, **_snap_this}  # this month takes precedence
+
     hi_summary = {'sangat_baik': 0, 'baik': 0, 'cukup': 0, 'buruk': 0, 'kritis': 0}
     hi_buruk_list = []
     for dev in Device.objects.filter(is_deleted=False).select_related('jenis'):
-        hi = calculate_hi(dev, save_snapshot=False)
-        s = hi['score']
-        if s >= 85:
-            hi_summary['sangat_baik'] += 1
-        elif s >= 70:
-            hi_summary['baik'] += 1
-        elif s >= 50:
-            hi_summary['cukup'] += 1
+        s = _snap_scores.get(dev.id, 75)
+        if s >= 85:   hi_summary['sangat_baik'] += 1
+        elif s >= 70: hi_summary['baik'] += 1
+        elif s >= 50: hi_summary['cukup'] += 1
         elif s >= 25:
             hi_summary['buruk'] += 1
-            hi_buruk_list.append({'device': dev, 'hi': hi})
+            hi_buruk_list.append({'device': dev, 'hi': {'score': s}})
         else:
             hi_summary['kritis'] += 1
-            hi_buruk_list.append({'device': dev, 'hi': hi})
-    hi_buruk_list.sort(key=lambda x: x['hi']['score'])  # terburuk di atas
+            hi_buruk_list.append({'device': dev, 'hi': {'score': s}})
+    hi_buruk_list.sort(key=lambda x: x['hi']['score'])
     hi_buruk_list = hi_buruk_list[:12]
     hi_summary_json = _json.dumps(hi_summary)
 
@@ -544,10 +548,37 @@ def dashboard(request):
             )
             .order_by('bulan_rencana', 'lokasi')[:5]
         )
-        jadwal_terdekat = [
-            {'jadwal': j, 'progress': j.get_progress()}
-            for j in jadwal_terdekat
-        ]
+        # Batch progress for these ≤5 jadwals
+        from django.db.models import Count as _JCount
+        from django.db.models.functions import Upper as _JUpper
+        from jadwal.models import JADWAL_EXCLUDED_JENIS as _JEX
+        _jt_list = list(jadwal_terdekat)
+        if _jt_list:
+            _jt_lok = {j.lokasi.upper() for j in _jt_list}
+            _jt_dev = {r['lu']: r['c'] for r in Device.objects.filter(
+                is_deleted=False, host__isnull=True).exclude(jenis__name__in=_JEX)
+                .annotate(lu=_JUpper('lokasi')).filter(lu__in=_jt_lok)
+                .values('lu').annotate(c=_JCount('id'))}
+            _jt_done = {(r['lu'], r['yr'], r['mo']): r['s'] for r in
+                Maintenance.objects.filter(maintenance_type='Preventive',
+                    device__is_deleted=False, device__host__isnull=True)
+                .exclude(device__jenis__name__in=_JEX)
+                .annotate(lu=_JUpper('device__lokasi'),
+                    yr=ExtractYear('date'), mo=ExtractMonth('date'))
+                .filter(lu__in=_jt_lok).values('lu', 'yr', 'mo')
+                .annotate(s=_JCount('device_id', distinct=True))}
+            jadwal_terdekat = []
+            for j in _jt_list:
+                lu = j.lokasi.upper()
+                total   = _jt_dev.get(lu, 0)
+                selesai = _jt_done.get((lu, j.tahun_rencana, j.bulan_rencana), 0)
+                pct     = round(selesai / total * 100) if total else 0
+                jadwal_terdekat.append({'jadwal': j, 'progress': {
+                    'total': total, 'selesai': selesai,
+                    'belum': total - selesai, 'pct': pct,
+                }})
+        else:
+            jadwal_terdekat = []
     except Exception:
         jadwal_terdekat = []
 

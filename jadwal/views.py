@@ -2,7 +2,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from devices.permissions import require_can_edit, require_can_delete
 from django.http import JsonResponse
-from django.db.models import Q, Avg
+from django.db.models import Q, Avg, Count, Max
+from django.db.models.functions import Upper, ExtractYear, ExtractMonth
 from django.utils import timezone
 from datetime import date as date_type
 import calendar
@@ -81,29 +82,76 @@ def jadwal_list(request):
     filter_tahun  = request.GET.get('tahun', str(date_type.today().year))
     search        = request.GET.get('q', '').strip()
 
-    jadwals = JadwalKunjungan.objects.select_related('created_by').all()
+    jadwals_qs = JadwalKunjungan.objects.select_related('created_by').all()
     if filter_status:
-        jadwals = jadwals.filter(status=filter_status)
+        jadwals_qs = jadwals_qs.filter(status=filter_status)
     if filter_tahun:
-        jadwals = jadwals.filter(tahun_rencana=int(filter_tahun))
+        jadwals_qs = jadwals_qs.filter(tahun_rencana=int(filter_tahun))
     if search:
-        jadwals = jadwals.filter(lokasi__icontains=search)
-
-    # Sync status otomatis
-    for j in jadwals:
-        j.sync_status()
+        jadwals_qs = jadwals_qs.filter(lokasi__icontains=search)
 
     today = date_type.today()
     current_month_start = date_type(today.year, today.month, 1)
     filter_tahun_int = int(filter_tahun) if filter_tahun else today.year
 
-    # Attach progress + overdue flag ke setiap jadwal
+    jadwals = list(jadwals_qs)  # evaluate queryset once
+
+    # Batch 1: device count per lokasi (upper-cased for case-insensitive match)
+    _dev_count_map = {
+        row['lu']: row['cnt']
+        for row in Device.objects.filter(is_deleted=False, host__isnull=True)
+            .exclude(jenis__name__in=JADWAL_EXCLUDED_JENIS)
+            .annotate(lu=Upper('lokasi'))
+            .values('lu').annotate(cnt=Count('id'))
+    }
+
+    # Batch 2: distinct devices with Preventive maintenance per (lokasi_upper, year, month)
+    _selesai_map = {
+        (row['lu'], row['yr'], row['mo']): row['selesai']
+        for row in Maintenance.objects.filter(
+                maintenance_type='Preventive',
+                device__is_deleted=False,
+                device__host__isnull=True,
+            )
+            .exclude(device__jenis__name__in=JADWAL_EXCLUDED_JENIS)
+            .annotate(
+                lu=Upper('device__lokasi'),
+                yr=ExtractYear('date'),
+                mo=ExtractMonth('date'),
+            )
+            .values('lu', 'yr', 'mo')
+            .annotate(selesai=Count('device_id', distinct=True))
+    }
+
+    # Compute progress + sync status in Python — no per-jadwal DB queries
     jadwal_data = []
+    to_update = []
     for j in jadwals:
-        prog = j.get_progress()
+        lokasi_up = j.lokasi.upper()
+        total = _dev_count_map.get(lokasi_up, 0)
+        if total == 0:
+            prog = {'total': 0, 'selesai': 0, 'belum': 0, 'pct': 0, 'status_auto': 'planned'}
+        else:
+            selesai = _selesai_map.get((lokasi_up, j.tahun_rencana, j.bulan_rencana), 0)
+            pct = round(selesai / total * 100)
+            if selesai == 0:       status_auto = 'planned'
+            elif selesai >= total: status_auto = 'done'
+            else:                  status_auto = 'in_progress'
+            prog = {
+                'total': total, 'selesai': selesai,
+                'belum': total - selesai, 'pct': pct, 'status_auto': status_auto,
+            }
+
+        if prog['status_auto'] != j.status and j.status != 'done':
+            j.status = prog['status_auto']
+            to_update.append(j)
+
         period_start = date_type(j.tahun_rencana, j.bulan_rencana, 1)
         is_overdue = (j.status != 'done') and (period_start < current_month_start)
         jadwal_data.append({'jadwal': j, 'progress': prog, 'is_overdue': is_overdue})
+
+    if to_update:
+        JadwalKunjungan.objects.bulk_update(to_update, ['status', 'updated_at'])
 
     # Urutkan: overdue & aktif di atas, selesai (done) di bawah
     jadwal_data.sort(key=lambda x: (
@@ -114,13 +162,14 @@ def jadwal_list(request):
         x['jadwal'].lokasi,
     ))
 
-    # Summary
+    # Summary — single aggregated query
     semua = JadwalKunjungan.objects.filter(tahun_rencana=filter_tahun_int)
+    _scounts = dict(semua.values('status').annotate(cnt=Count('id')).values_list('status', 'cnt'))
     summary = {
-        'total':       semua.count(),
-        'planned':     semua.filter(status='planned').count(),
-        'in_progress': semua.filter(status='in_progress').count(),
-        'done':        semua.filter(status='done').count(),
+        'total':       sum(_scounts.values()),
+        'planned':     _scounts.get('planned', 0),
+        'in_progress': _scounts.get('in_progress', 0),
+        'done':        _scounts.get('done', 0),
     }
 
     # Data kalender — 12 bulan
@@ -138,20 +187,58 @@ def jadwal_list(request):
             'is_past': period_start < current_month_start,
         })
 
-    # Ranking prioritas lokasi yang belum punya jadwal tahun ini
+    # Ranking prioritas lokasi yang belum punya jadwal tahun ini — batch queries
     lokasi_sudah_dijadwal = set(
-        JadwalKunjungan.objects
-        .filter(tahun_rencana=date_type.today().year)
-        .values_list('lokasi', flat=True)
+        JadwalKunjungan.objects.filter(tahun_rencana=today.year).values_list('lokasi', flat=True)
     )
     lokasi_belum = [l for l in _get_lokasi_list() if l not in lokasi_sudah_dijadwal]
+
     ranking = []
-    for lok in lokasi_belum:
-        dev_count = Device.objects.filter(lokasi__iexact=lok, is_deleted=False).count()
-        prioritas = _hitung_prioritas(lok)
-        ranking.append({'lokasi': lok, 'prioritas': prioritas, 'device_count': dev_count})
-    ranking.sort(key=lambda x: x['prioritas'], reverse=True)
-    ranking = ranking[:8]
+    if lokasi_belum:
+        from dateutil.relativedelta import relativedelta as _rd
+        from health_index.models import HISnapshot
+
+        # Batch: device count per lokasi
+        _rank_dev_map = {
+            row['lu']: row['cnt']
+            for row in Device.objects.filter(is_deleted=False)
+                .annotate(lu=Upper('lokasi')).values('lu').annotate(cnt=Count('id'))
+        }
+        # Batch: last preventive PM per lokasi
+        _rank_pm_map = {
+            row['lu']: row['last_date']
+            for row in Maintenance.objects.filter(maintenance_type='Preventive', status='Done')
+                .annotate(lu=Upper('device__lokasi')).values('lu').annotate(last_date=Max('date'))
+        }
+        # Batch: avg HI score from this month's snapshots per lokasi
+        _rank_hi_map = {
+            row['lu']: row['avg_s']
+            for row in HISnapshot.objects.filter(bulan=today.month, tahun=today.year)
+                .annotate(lu=Upper('device__lokasi')).values('lu').annotate(avg_s=Avg('score'))
+        }
+
+        for lok in lokasi_belum:
+            lok_up = lok.upper()
+            dev_count = _rank_dev_map.get(lok_up, 0)
+            if dev_count == 0:
+                continue
+            last_pm_date = _rank_pm_map.get(lok_up)
+            if last_pm_date is None:
+                bulan_lalu = 24
+            else:
+                if hasattr(last_pm_date, 'date'):
+                    last_pm_date = last_pm_date.date()
+                rd = _rd(today, last_pm_date)
+                bulan_lalu = rd.years * 12 + rd.months
+            skor_umur   = min(bulan_lalu / 24 * 100, 100)
+            avg_hi      = _rank_hi_map.get(lok_up) or 75
+            skor_hi     = 100 - avg_hi
+            skor_device = min(dev_count / 30 * 100, 100)
+            prioritas   = min(round(skor_umur * 0.40 + skor_hi * 0.35 + skor_device * 0.25), 100)
+            ranking.append({'lokasi': lok, 'prioritas': prioritas, 'device_count': dev_count})
+
+        ranking.sort(key=lambda x: x['prioritas'], reverse=True)
+        ranking = ranking[:8]
 
     # Daftar tahun untuk filter
     tahun_list = list(range(date_type.today().year - 2, date_type.today().year + 3))
