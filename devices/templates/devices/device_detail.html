@@ -1329,8 +1329,9 @@ function loadDevKomponen() {
 
     const qrContainer = document.getElementById('qr-container');
     if (qrContainer) {
+        const publicUrl = window.location.protocol + '//' + window.location.host + '/public/{{ device.public_token }}/';
         new QRCode(qrContainer, {
-            text: window.location.href,
+            text: publicUrl,
             width: 110,
             height: 110,
             colorDark: '#0f172a',
