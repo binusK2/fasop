@@ -9,7 +9,7 @@ DEVICE_GROUP_CONFIG = {
         'color': '#3b82f6',
         'types': [
             'router', 'switch', 'teleproteksi', 'roip',
-            'voip', 'multiplexer', 'plc', 'radio', 'server telkom', 'master clock',
+            'voip', 'multiplexer', 'plc', 'radio', 'microwave', 'server telkom', 'master clock',
             'ht', 'pheriperal telkom', 'peripheral telkom', 'pabx',
             'repeater', 'tower', 'repeater & tower',
         ],
@@ -20,7 +20,7 @@ DEVICE_GROUP_CONFIG = {
         'color': '#10b981',
         'types': [
             'rtu', 'sas', 'ups', 'server scada', 'vm scada', 'ied bcu', 'clock server', 'serial server', 'router sas', 'switch sas', 'inverter sas',
-            'pheriperal scada', 'peripheral scada',
+            'pheriperal scada', 'peripheral scada', 'gps',
         ],
     },
     'prosis': {
@@ -35,15 +35,15 @@ DEVICE_GROUP_CONFIG = {
 
 # Urutan dalam group
 DEVICE_TYPE_ORDER_IN_GROUP = [
-    "ROUTER", "SWITCH", "RADIO", "VOIP", "MULTIPLEXER",
+    "ROUTER", "SWITCH", "RADIO", "MICROWAVE", "VOIP", "MULTIPLEXER",
     "PLC", "TELEPROTEKSI", "ROIP", "SERVER TELKOM", "MASTER CLOCK", "HT", "PABX", "PHERIPERAL TELKOM", "PERIPHERAL TELKOM",
     "REPEATER", "TOWER", "REPEATER & TOWER",
-    "RTU", "SAS", "SERVER SCADA", "VM SCADA", "UPS",
+    "RTU", "SAS", "SERVER SCADA", "VM SCADA", "UPS", "GPS",
     "IED BCU", "CLOCK SERVER", "SERIAL SERVER", "ROUTER SAS", "SWITCH SAS", "INVERTER SAS",
     "PHERIPERAL SCADA", "PERIPHERAL SCADA",
 
-    "RELE DEFENSE SCHEME", "MASTER TRIP", "UFLS", "DFR", "SERVER PROSIS", 
-    "Catu Daya", "Workstation PC", "GPS", "GENSET",
+    "RELE DEFENSE SCHEME", "MASTER TRIP", "UFLS", "DFR", "SERVER PROSIS",
+    "Catu Daya", "Workstation PC", "GENSET",
 ]
 
 
