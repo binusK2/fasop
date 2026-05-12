@@ -299,6 +299,7 @@ def dashboard(request):
                 'router', 'switch', 'teleproteksi', 'roip', 'voip',
                 'multiplexer', 'plc', 'radio', 'server telkom',
                 'master clock', 'ht', 'pheriperal telkom', 'peripheral telkom',
+                'microwave', 'gps',
             },
         },
         {
