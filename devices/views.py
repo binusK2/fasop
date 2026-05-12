@@ -447,7 +447,7 @@ def dashboard(request):
             hi_summary['kritis'] += 1
             hi_buruk_list.append({'device': dev, 'hi': {'score': s}})
     hi_buruk_list.sort(key=lambda x: x['hi']['score'])
-    hi_buruk_list = hi_buruk_list[:12]
+    hi_buruk_list = hi_buruk_list[:5]
     hi_summary_json = _json.dumps(hi_summary)
 
     # ── Common Enemy aktif ────────────────────────────────────────
@@ -456,7 +456,7 @@ def dashboard(request):
         CommonEnemy.objects
         .filter(status__in=['open', 'in_progress'])
         .select_related('peralatan', 'sub_kategori')
-        .order_by('tingkat_keparahan', '-tanggal_laporan')[:10]
+        .order_by('tingkat_keparahan', '-tanggal_laporan')[:5]
     )
     ce_open_total = CommonEnemy.objects.filter(status__in=['open', 'in_progress']).count()
 
