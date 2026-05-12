@@ -300,22 +300,50 @@ DEVICE_SCHEMA = {
 
 }
 
-# Skema spesifikasi khusus Repeater & Tower
-REPEATER_TOWER_SCHEMA = [
-    {"key": "radio_rx", "label": "Radio Rx", "type": "text"},
-    {"key": "radio_tx", "label": "Radio Tx", "type": "text"},
-    {"key": "tone_rx", "label": "Tone Rx", "type": "text"},
-    {"key": "tone_tx", "label": "Tone Tx", "type": "text"},
-    {"key": "antena_rx", "label": "Antena Rx", "type": "text"},
-    {"key": "antena_tx", "label": "Antena Tx", "type": "text"},
-    {"key": "tipe_tower", "label": "Tipe Tower", "type": "text"},
-    {"key": "tinggi_tower", "label": "Tinggi Tower", "type": "number"},
-]
+    "REPEATER": [
+        {"key": "tipe_repeater",    "label": "Tipe Repeater",          "type": "select",
+         "options": ["Active Analog", "Active Digital", "Passive (Flat Plate)"]},
+        {"key": "nomor_isr",        "label": "Nomor ISR",              "type": "text",
+         "placeholder": "cth: ISR-123456"},
+        {"key": "frekuensi_rx",     "label": "Frekuensi RX (MHz)",     "type": "text",
+         "placeholder": "cth: 450.500"},
+        {"key": "frekuensi_tx",     "label": "Frekuensi TX (MHz)",     "type": "text",
+         "placeholder": "cth: 455.500"},
+        {"key": "tone_rx",          "label": "Tone RX",                "type": "text"},
+        {"key": "tone_tx",          "label": "Tone TX",                "type": "text"},
+        {"key": "tx_power",         "label": "TX Power (W)",           "type": "number"},
+        {"key": "gain",             "label": "Gain (dB)",              "type": "number"},
+        {"key": "jenis_antena",     "label": "Jenis Antena",           "type": "select",
+         "options": ["Omnidirectional", "Directional (Yagi)", "Parabolic", "Panel"]},
+        {"key": "tinggi_antena",    "label": "Tinggi Antena (m)",      "type": "number"},
+        {"key": "tegangan_supply",  "label": "Tegangan Supply",        "type": "select",
+         "options": ["12 VDC", "24 VDC", "48 VDC", "220 VAC"]},
+    ],
 
-# Alias nama jenis perangkat untuk menjaga kompatibilitas kapitalisasi / penamaan
-DEVICE_SCHEMA["Repeater"] = REPEATER_TOWER_SCHEMA
-DEVICE_SCHEMA["Tower"] = REPEATER_TOWER_SCHEMA
-DEVICE_SCHEMA["Repeater & Tower"] = REPEATER_TOWER_SCHEMA
-DEVICE_SCHEMA["REPEATER"] = REPEATER_TOWER_SCHEMA
-DEVICE_SCHEMA["TOWER"] = REPEATER_TOWER_SCHEMA
-DEVICE_SCHEMA["REPEATER & TOWER"] = REPEATER_TOWER_SCHEMA
+    "TOWER": [
+        {"key": "tipe_tower",       "label": "Tipe Tower",             "type": "select",
+         "options": ["SST (Self Supporting Tower)", "Guyed Wire Mast", "Monopole", "Rooftop"]},
+        {"key": "tinggi_tower",     "label": "Tinggi Tower (m)",       "type": "number"},
+        {"key": "kapasitas_beban",  "label": "Kapasitas Beban (kg)",   "type": "number"},
+        {"key": "jumlah_kaki",      "label": "Jumlah Kaki",            "type": "select",
+         "options": ["1 Kaki (Monopole)", "3 Kaki", "4 Kaki"]},
+        {"key": "material",         "label": "Material",               "type": "select",
+         "options": ["Baja Galvanis", "Baja Cat", "Aluminium", "Fiberglass"]},
+        {"key": "proteksi_petir",   "label": "Lightning Rod",          "type": "select",
+         "options": ["Ada", "Tidak Ada"]},
+        {"key": "grounding",        "label": "Sistem Grounding",       "type": "select",
+         "options": ["Ada", "Tidak Ada"]},
+        {"key": "lampu_halangan",   "label": "Lampu Halangan (Obstacle Light)", "type": "select",
+         "options": ["Ada", "Tidak Ada"]},
+        {"key": "cat_anti_karat",   "label": "Proteksi Anti-Karat",   "type": "select",
+         "options": ["Galvanis", "Cat Epoxy", "Cat Biasa", "Tidak Ada"]},
+        {"key": "terakhir_inspeksi","label": "Terakhir Inspeksi Sipil","type": "date"},
+    ],
+
+}
+
+# Alias untuk backward compat (nama gabungan lama)
+DEVICE_SCHEMA["Repeater"] = DEVICE_SCHEMA["REPEATER"]
+DEVICE_SCHEMA["Tower"]    = DEVICE_SCHEMA["TOWER"]
+DEVICE_SCHEMA["Repeater & Tower"] = DEVICE_SCHEMA["REPEATER"]
+DEVICE_SCHEMA["REPEATER & TOWER"] = DEVICE_SCHEMA["REPEATER"]
