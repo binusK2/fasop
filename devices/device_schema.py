@@ -298,8 +298,6 @@ DEVICE_SCHEMA = {
         {"key": "waktu_setting" , "label": "Waktu Setting (detik)", "type": "text",},
     ],
 
-}
-
     "REPEATER": [
         {"key": "tipe_repeater",    "label": "Tipe Repeater",          "type": "select",
          "options": ["Active Analog", "Active Digital", "Passive (Flat Plate)"]},
