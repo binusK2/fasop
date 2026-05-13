@@ -23,10 +23,35 @@ from .device_schema import DEVICE_SCHEMA
 
 @login_required
 def device_list(request):
+    SESSION_KEY = f'devlist_filter_{request.user.pk}'
+
+    # Reset: hapus session filter, redirect balik
+    if 'reset' in request.GET:
+        request.session.pop(SESSION_KEY, None)
+        jenis_param = request.GET.get('jenis', '')
+        url = '/devices/'
+        if jenis_param:
+            url += f'?jenis={jenis_param}'
+        return redirect(url)
+
+    # Jika form filter di-submit → pakai GET dan simpan ke session
+    if '_filter' in request.GET:
+        saved = {
+            'q':      request.GET.get('q', ''),
+            'lokasi': request.GET.get('lokasi', ''),
+            'status': request.GET.get('status_operasi', ''),
+            'merk':   request.GET.get('merk', ''),
+        }
+        request.session[SESSION_KEY] = saved
+        request.session.modified = True
+    else:
+        saved = request.session.get(SESSION_KEY, {})
+
     jenis_id       = request.GET.get('jenis')
-    search         = request.GET.get('q') or ''
-    lokasi         = request.GET.get('lokasi')
-    status_operasi = request.GET.get('status_operasi')
+    search         = saved.get('q', '')
+    lokasi         = saved.get('lokasi', '')
+    status_operasi = saved.get('status', '')
+    merk           = saved.get('merk', '')
     sort           = request.GET.get('sort', 'nama')
     direction      = request.GET.get('dir', 'asc')
 
@@ -57,6 +82,9 @@ def device_list(request):
     if status_operasi:
         devices = devices.filter(status_operasi=status_operasi)
 
+    if merk:
+        devices = devices.filter(merk__iexact=merk)
+
     # Sorting
     SORT_FIELDS = {
         'nama': 'nama',
@@ -83,6 +111,14 @@ def device_list(request):
         .order_by('lokasi_clean')
     )
 
+    # Merk list — jika jenis dipilih, filter merk sesuai jenis itu
+    _merk_qs = Device.objects.filter(is_deleted=False, host__isnull=True).exclude(merk__isnull=True).exclude(merk__exact='')
+    if jenis_id:
+        _merk_qs = _merk_qs.filter(jenis_id=jenis_id)
+    merk_list = _merk_qs.values_list('merk', flat=True).distinct().order_by('merk')
+
+    filter_active = bool(search or lokasi or status_operasi or merk)
+
     return render(request, 'devices/device_list.html', {
         'devices':          devices,
         'search':           search,
@@ -90,6 +126,9 @@ def device_list(request):
         'lokasi_list':      lokasi_list,
         'selected_lokasi':  lokasi,
         'selected_status':  status_operasi,
+        'selected_merk':    merk,
+        'merk_list':        merk_list,
+        'filter_active':    filter_active,
         'current_sort':     sort,
         'current_dir':      direction,
     })
