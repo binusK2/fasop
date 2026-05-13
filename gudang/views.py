@@ -226,7 +226,9 @@ def sparepart_create(request):
     if request.method == 'POST':
         try:
             sp = Sparepart(
+                tipe_item          = request.POST.get('tipe_item', 'material'),
                 nama               = request.POST.get('nama', '').strip(),
+                jenis_perangkat_id = request.POST.get('jenis_perangkat_id') or None,
                 kategori           = request.POST.get('kategori', '').strip(),
                 branch_id          = request.POST.get('branch_id') or None,
                 merk               = request.POST.get('merk', '').strip(),
@@ -257,10 +259,12 @@ def sparepart_create(request):
         except Exception as e:
             messages.error(request, f'Gagal menyimpan: {e}')
 
-    from devices.models import Branch
+    from devices.models import Branch, DeviceType
     return render(request, 'gudang/sparepart_form.html', {
-        'satuan_choices': Sparepart.SATUAN_CHOICES,
-        'branch_list':    Branch.objects.all(),
+        'satuan_choices':  Sparepart.SATUAN_CHOICES,
+        'tipe_choices':    Sparepart.TIPE_CHOICES,
+        'branch_list':     Branch.objects.all(),
+        'device_types':    DeviceType.objects.all().order_by('name'),
         'mode': 'create',
     })
 
@@ -275,7 +279,9 @@ def sparepart_edit(request, pk):
 
     if request.method == 'POST':
         try:
+            sp.tipe_item          = request.POST.get('tipe_item', 'material')
             sp.nama               = request.POST.get('nama', '').strip()
+            sp.jenis_perangkat_id = request.POST.get('jenis_perangkat_id') or None
             sp.kategori           = request.POST.get('kategori', '').strip()
             sp.branch_id          = request.POST.get('branch_id') or None
             sp.merk               = request.POST.get('merk', '').strip()
@@ -292,12 +298,14 @@ def sparepart_edit(request, pk):
         except Exception as e:
             messages.error(request, f'Gagal menyimpan: {e}')
 
-    from devices.models import Branch
+    from devices.models import Branch, DeviceType
     return render(request, 'gudang/sparepart_form.html', {
-        'sp':             sp,
-        'satuan_choices': Sparepart.SATUAN_CHOICES,
-        'branch_list':    Branch.objects.all(),
-        'mode':           'edit',
+        'sp':              sp,
+        'satuan_choices':  Sparepart.SATUAN_CHOICES,
+        'tipe_choices':    Sparepart.TIPE_CHOICES,
+        'branch_list':     Branch.objects.all(),
+        'device_types':    DeviceType.objects.all().order_by('name'),
+        'mode':            'edit',
     })
 
 

@@ -88,6 +88,10 @@ class Sparepart(models.Model):
     Spare part dan komponen yang tersimpan di gudang.
     Stok dihitung otomatis dari mutasi masuk - keluar.
     """
+    TIPE_CHOICES = (
+        ('material',  'Material / Komponen'),
+        ('peralatan', 'Peralatan'),
+    )
     SATUAN_CHOICES = (
         ('pcs',   'pcs'),
         ('unit',  'unit'),
@@ -97,8 +101,17 @@ class Sparepart(models.Model):
         ('box',   'box'),
     )
 
-    nama                = models.CharField(max_length=150, verbose_name='Nama Spare Part')
-    kategori            = models.CharField(max_length=100, verbose_name='Kategori',
+    tipe_item           = models.CharField(
+        max_length=20, choices=TIPE_CHOICES, default='material',
+        verbose_name='Tipe Item',
+    )
+    nama                = models.CharField(max_length=150, verbose_name='Nama')
+    jenis_perangkat     = models.ForeignKey(
+        'devices.DeviceType', on_delete=models.SET_NULL, null=True, blank=True,
+        verbose_name='Jenis Perangkat', related_name='sparepart_set',
+        help_text='Diisi jika tipe item adalah Peralatan',
+    )
+    kategori            = models.CharField(max_length=100, blank=True, verbose_name='Kategori',
                                            help_text='Contoh: SFP, Kabel, Baterai, Power Supply')
     branch              = models.ForeignKey(
         'devices.Branch', on_delete=models.SET_NULL, null=True, blank=True,
