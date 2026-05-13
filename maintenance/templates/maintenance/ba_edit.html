@@ -358,3 +358,16 @@ function addEvidenField() {
 }
 addEvidenField();
 
+/* ── Inisialisasi tabel dari data existing ── */
+(function initRows() {
+    if (ROWS && ROWS.length) {
+        const tbody = document.getElementById('data-tbody');
+        ROWS.forEach(row => tbody.appendChild(buildRow(row)));
+        renumberRows();
+    } else {
+        document.getElementById('empty-msg').style.display = '';
+    }
+})();
+</script>
+{% endblock %}
+
