@@ -5,7 +5,7 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('gudang', '0002_alter_sparepart_options'),
+        ('gudang', '0002_alter_sparepart_lokasi_penyimpanan'),
         ('devices', '0049_komponenrusak_branch'),
     ]
 
