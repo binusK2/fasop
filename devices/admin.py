@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Device, DeviceType, SiteLocation, ULTG, KomponenRusak
+from .models import Device, DeviceType, SiteLocation, ULTG, KomponenRusak, Branch
 from .models_komponen import (
     GrupTipeKomponen, TipeKomponen,
     DeviceComponent,
@@ -155,11 +155,25 @@ class ULTGAdmin(admin.ModelAdmin):
         return super().formfield_for_manytomany(db_field, request, **kwargs)
 
 
+@admin.register(Branch)
+class BranchAdmin(admin.ModelAdmin):
+    list_display   = ['nama', 'kode', 'jumlah_lokasi', 'keterangan']
+    search_fields  = ['nama', 'kode']
+    list_display_links = ['nama']
+
+    def jumlah_lokasi(self, obj):
+        return obj.lokasi_set.count()
+    jumlah_lokasi.short_description = 'Jumlah Lokasi'
+
+
 @admin.register(SiteLocation)
 class SiteLocationAdmin(admin.ModelAdmin):
-    list_display  = ['nama', 'latitude', 'longitude', 'has_coords', 'keterangan']
-    search_fields = ['nama']
+    list_display       = ['nama', 'branch', 'latitude', 'longitude', 'has_coords', 'keterangan']
+    list_filter        = ['branch']
+    search_fields      = ['nama']
     list_display_links = ['nama']
+    list_editable      = ['branch']
+    autocomplete_fields = []
 
     def has_coords(self, obj):
         return obj.has_coords
