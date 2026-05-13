@@ -38,17 +38,26 @@
                     </select>
                 </div>
 
-                <div class="col-md-6">
+                <div class="col-md-4">
                     <label class="form-label fw-600">Kategori <span class="text-danger">*</span></label>
                     <input type="text" name="kategori" class="form-control form-control-sm"
                            value="{{ sp.kategori|default:'' }}"
                            placeholder="SFP, Kabel, Baterai, Power Supply, ..." required>
                 </div>
-                <div class="col-md-6">
-                    <label class="form-label fw-600">Lokasi di Gudang <span class="text-danger">*</span></label>
+                <div class="col-md-4">
+                    <label class="form-label fw-600">Branch / Gudang</label>
+                    <select name="branch_id" class="form-select form-select-sm">
+                        <option value="">— Pilih Branch —</option>
+                        {% for br in branch_list %}
+                        <option value="{{ br.pk }}" {% if sp.branch_id == br.pk %}selected{% endif %}>{{ br.nama }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-600">Lokasi di Gudang</label>
                     <input type="text" name="lokasi_penyimpanan" class="form-control form-control-sm"
                            value="{{ sp.lokasi_penyimpanan|default:'' }}"
-                           placeholder="Rak B3, Laci 2 Lemari Komponen, ..." required>
+                           placeholder="Rak B3, Laci 2 Lemari Komponen, ...">
                 </div>
 
                 <div class="col-md-4">

@@ -472,6 +472,10 @@ class KomponenRusak(models.Model):
     nama_komponen     = models.CharField(max_length=150, verbose_name='Nama Komponen')
     merk              = models.CharField(max_length=100, blank=True, verbose_name='Merk')
     tipe              = models.CharField(max_length=100, blank=True, verbose_name='Tipe / Model')
+    branch            = models.ForeignKey(
+        'Branch', on_delete=models.SET_NULL, null=True, blank=True,
+        verbose_name='Disimpan di Branch', related_name='komponen_rusak_set',
+    )
     komponen_terkait  = models.ForeignKey(
         'devices.DeviceComponent',
         on_delete=models.SET_NULL, null=True, blank=True,

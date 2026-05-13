@@ -75,4 +75,7 @@ urlpatterns = [
 
     # API komponen berdasarkan device
     path('api/device/<int:device_pk>/komponen/', views_komponen.api_komponen_by_device, name='api_komponen_by_device'),
+
+    # Komponen Rusak → Gudang
+    path('komponen-rusak/<int:pk>/kirim-gudang/', views.kirim_ke_gudang, name='kirim_ke_gudang'),
 ]
