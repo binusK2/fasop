@@ -165,6 +165,21 @@ class ULTG(models.Model):
         return list(self.lokasi.values_list('nama', flat=True))
 
 
+class Branch(models.Model):
+    """Pengelompokan lokasi berdasarkan unit/wilayah (UP2B, PB Kendari, dll)."""
+    nama       = models.CharField(max_length=100, unique=True, verbose_name='Nama Branch')
+    kode       = models.CharField(max_length=20, blank=True, verbose_name='Kode')
+    keterangan = models.TextField(blank=True, verbose_name='Keterangan')
+
+    class Meta:
+        verbose_name        = 'Branch'
+        verbose_name_plural = 'Branch'
+        ordering            = ['nama']
+
+    def __str__(self):
+        return self.nama
+
+
 class SiteLocation(models.Model):
     """Menyimpan koordinat GPS untuk setiap site/lokasi peralatan."""
     nama = models.CharField(
@@ -173,8 +188,12 @@ class SiteLocation(models.Model):
         verbose_name='Nama Site',
         help_text='Harus sama persis dengan nilai lokasi pada data Device'
     )
-    latitude = models.FloatField(verbose_name='Latitude', null=True, blank=True)
-    longitude = models.FloatField(verbose_name='Longitude', null=True, blank=True)
+    branch     = models.ForeignKey(
+        'Branch', on_delete=models.SET_NULL, null=True, blank=True,
+        verbose_name='Branch', related_name='lokasi_set'
+    )
+    latitude   = models.FloatField(verbose_name='Latitude', null=True, blank=True)
+    longitude  = models.FloatField(verbose_name='Longitude', null=True, blank=True)
     keterangan = models.TextField(blank=True, null=True, verbose_name='Keterangan')
 
     class Meta:

@@ -41,7 +41,16 @@
                 <input type="text" name="q" class="form-control form-control-sm"
                        placeholder="Nama / IP perangkat" value="{{ search }}">
             </div>
-            <div class="col-md-3">
+            <div class="col-md-2">
+                <label class="form-label mb-1" style="font-size:12px;">Branch</label>
+                <select name="branch" class="form-select form-select-sm">
+                    <option value="">Semua Branch</option>
+                    {% for b in branch_list %}
+                    <option value="{{ b.pk }}" {% if b.pk|stringformat:"s" == selected_branch %}selected{% endif %}>{{ b.nama }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
                 <label class="form-label mb-1" style="font-size:12px;">Lokasi</label>
                 <select name="lokasi" class="form-select form-select-sm select-lokasi" data-placeholder="Semua Lokasi">
                     <option value="">Semua Lokasi</option>

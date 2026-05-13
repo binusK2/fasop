@@ -5,7 +5,7 @@ from devices.permissions import (
     require_can_delete, require_can_edit, require_can_manage_lokasi,
     can_delete, can_edit, can_manage_lokasi, is_viewer_only
 )
-from .models import Device, DeviceType, Icon, SiteLocation, DeviceLog, DeviceEvent
+from .models import Device, DeviceType, Icon, SiteLocation, DeviceLog, DeviceEvent, Branch
 from .forms import DeviceForm, IconForm
 from django.db.models import Count, Q
 from django.db.models.functions import TruncMonth, Lower, Trim, ExtractYear, ExtractMonth
@@ -41,6 +41,7 @@ def device_list(request):
             'lokasi': request.GET.get('lokasi', ''),
             'status': request.GET.get('status_operasi', ''),
             'merk':   request.GET.get('merk', ''),
+            'branch': request.GET.get('branch', ''),
         }
         request.session[SESSION_KEY] = saved
         request.session.modified = True
@@ -52,6 +53,7 @@ def device_list(request):
     lokasi         = saved.get('lokasi', '')
     status_operasi = saved.get('status', '')
     merk           = saved.get('merk', '')
+    branch_id      = saved.get('branch', '')
     sort           = request.GET.get('sort', 'nama')
     direction      = request.GET.get('dir', 'asc')
 
@@ -85,6 +87,11 @@ def device_list(request):
     if merk:
         devices = devices.filter(merk__iexact=merk)
 
+    if branch_id:
+        # Filter lokasi yang masuk ke branch ini
+        _branch_lokasi = SiteLocation.objects.filter(branch_id=branch_id).values_list('nama', flat=True)
+        devices = devices.filter(lokasi__in=_branch_lokasi)
+
     # Sorting
     SORT_FIELDS = {
         'nama': 'nama',
@@ -117,7 +124,8 @@ def device_list(request):
         _merk_qs = _merk_qs.filter(jenis_id=jenis_id)
     merk_list = _merk_qs.values_list('merk', flat=True).distinct().order_by('merk')
 
-    filter_active = bool(search or lokasi or status_operasi or merk)
+    branch_list   = Branch.objects.all()
+    filter_active = bool(search or lokasi or status_operasi or merk or branch_id)
 
     return render(request, 'devices/device_list.html', {
         'devices':          devices,
@@ -128,6 +136,8 @@ def device_list(request):
         'selected_status':  status_operasi,
         'selected_merk':    merk,
         'merk_list':        merk_list,
+        'branch_list':      branch_list,
+        'selected_branch':  branch_id,
         'filter_active':    filter_active,
         'current_sort':     sort,
         'current_dir':      direction,
@@ -622,6 +632,35 @@ def dashboard(request):
     except Exception:
         jadwal_terdekat = []
 
+    # ── Statistik per Branch ─────────────────────────────────────
+    branch_stats = []
+    for br in Branch.objects.prefetch_related('lokasi_set'):
+        _br_lokasi = list(br.lokasi_set.values_list('nama', flat=True))
+        if not _br_lokasi:
+            branch_stats.append({
+                'branch': br, 'total': 0, 'operasi': 0,
+                'pm_done': 0, 'pm_total': 0, 'pm_pct': 0,
+            })
+            continue
+        _br_qs = Device.objects.filter(
+            is_deleted=False, host__isnull=True, lokasi__in=_br_lokasi
+        )
+        _br_total   = _br_qs.count()
+        _br_operasi = _br_qs.filter(status_operasi='operasi').count()
+        _br_pm_done = Maintenance.objects.filter(
+            device__in=_br_qs, maintenance_type='Preventive',
+            date__year=today.year, date__month=today.month,
+        ).values('device_id').distinct().count()
+        _br_pm_pct  = round(_br_pm_done / _br_total * 100) if _br_total else 0
+        branch_stats.append({
+            'branch':   br,
+            'total':    _br_total,
+            'operasi':  _br_operasi,
+            'pm_done':  _br_pm_done,
+            'pm_total': _br_total,
+            'pm_pct':   _br_pm_pct,
+        })
+
     # ── Notifikasi terbaru belum dibaca ───────────────────────────
     try:
         from notifikasi.models import Notifikasi
@@ -672,6 +711,8 @@ def dashboard(request):
         # common enemy
         'ce_open_list':      ce_open_list,
         'ce_open_total':     ce_open_total,
+        # branch
+        'branch_stats':      branch_stats,
         # jadwal & notifikasi
         'jadwal_terdekat':   jadwal_terdekat,
         'notif_terbaru':     notif_terbaru,
