@@ -1,17 +1,17 @@
 {% extends 'base.html' %}
-{% block title %}Spare Part — FASOP{% endblock %}
-{% block page_title %}Spare Part Gudang{% endblock %}
+{% block title %}Material & Spare Part — FASOP{% endblock %}
+{% block page_title %}Material & Spare Part{% endblock %}
 
 {% block content %}
 
 <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
     <div>
-        <h2 class="mb-0" style="font-size:20px;font-weight:700;">Spare Part Gudang</h2>
+        <h2 class="mb-0" style="font-size:20px;font-weight:700;">Material &amp; Spare Part</h2>
         <p class="text-muted mb-0" style="font-size:13px;">{{ total }} item terdaftar</p>
     </div>
     {% if can_manage %}
     <a href="{% url 'gudang:sparepart_create' %}" class="btn btn-primary btn-sm">
-        <i class="bi bi-plus-lg me-1"></i>Tambah Spare Part
+        <i class="bi bi-plus-lg me-1"></i>Tambah Item
     </a>
     {% endif %}
 </div>
@@ -45,16 +45,25 @@
 <div class="card mb-3">
     <div class="card-body py-2 px-3">
         <form method="get" class="row g-2 align-items-end">
-            <div class="col-md-5">
+            <div class="col-md-4">
                 <label class="form-label">Cari</label>
                 <input type="text" name="q" class="form-control form-control-sm"
                        placeholder="Nama, kategori, merk, part number..." value="{{ q }}">
             </div>
-            <div class="col-md-3">
+            <div class="col-md-2">
+                <label class="form-label">Branch</label>
+                <select name="branch" class="form-select form-select-sm">
+                    <option value="">Semua Branch</option>
+                    {% for br in branch_list %}
+                    <option value="{{ br.pk }}" {% if filter_branch == br.pk|stringformat:"s" %}selected{% endif %}>{{ br.nama }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
                 <label class="form-label">Filter Stok</label>
                 <select name="stok" class="form-select form-select-sm">
                     <option value="">Semua</option>
-                    <option value="kritis" {% if filter_stok == 'kritis' %}selected{% endif %}>Stok Kritis / Minimum</option>
+                    <option value="kritis" {% if filter_stok == 'kritis' %}selected{% endif %}>Stok Kritis</option>
                     <option value="habis"  {% if filter_stok == 'habis' %}selected{% endif %}>Stok Habis</option>
                 </select>
             </div>
@@ -69,14 +78,16 @@
 <!-- TABLE -->
 <div class="table-card">
     <div class="table-header">
-        <h6 class="mb-0"><i class="bi bi-list-ul me-1"></i>Daftar Spare Part</h6>
+        <h6 class="mb-0"><i class="bi bi-list-ul me-1"></i>Daftar Material &amp; Spare Part</h6>
     </div>
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0" style="font-size:13px;">
             <thead>
                 <tr>
                     <th>Nama</th>
-                    <th>Kategori</th>
+                    <th>Tipe</th>
+                    <th>Kategori / Jenis</th>
+                    <th>Branch</th>
                     <th>Merk / Part No.</th>
                     <th>Lokasi Gudang</th>
                     <th class="text-center">Stok</th>
@@ -93,7 +104,25 @@
                         {{ sp.nama }}
                     </a>
                 </td>
-                <td><span class="badge bg-light text-dark border">{{ sp.kategori }}</span></td>
+                <td>
+                    {% if sp.tipe_item == 'peralatan' %}
+                    <span class="badge" style="background:#fef3c7;color:#92400e;font-size:11px;">🖥️ Peralatan</span>
+                    {% else %}
+                    <span class="badge" style="background:#f0fdf4;color:#166534;font-size:11px;">📦 Material</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if sp.tipe_item == 'peralatan' and sp.jenis_perangkat %}
+                    <span class="badge bg-light text-dark border">{{ sp.jenis_perangkat.name }}</span>
+                    {% elif sp.kategori %}
+                    <span class="badge bg-light text-dark border">{{ sp.kategori }}</span>
+                    {% else %}<span class="text-muted">—</span>{% endif %}
+                </td>
+                <td>
+                    {% if sp.branch %}
+                    <span class="badge" style="background:#eff6ff;color:#1d4ed8;font-size:11px;">{{ sp.branch.nama }}</span>
+                    {% else %}<span class="text-muted" style="font-size:12px;">—</span>{% endif %}
+                </td>
                 <td>
                     {% if sp.merk %}{{ sp.merk }}{% endif %}
                     {% if sp.part_number %}<span class="text-muted font-monospace"> {{ sp.part_number }}</span>{% endif %}

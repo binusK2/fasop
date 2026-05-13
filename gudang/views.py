@@ -159,7 +159,8 @@ def alat_delete(request, pk):
 
 @login_required
 def sparepart_list(request):
-    qs = Sparepart.objects.filter(is_deleted=False)
+    from devices.models import Branch
+    qs = Sparepart.objects.filter(is_deleted=False).select_related('branch')
 
     q = request.GET.get('q', '').strip()
     if q:
@@ -169,6 +170,10 @@ def sparepart_list(request):
             Q(merk__icontains=q) |
             Q(part_number__icontains=q)
         )
+
+    filter_branch = request.GET.get('branch', '').strip()
+    if filter_branch:
+        qs = qs.filter(branch_id=filter_branch)
 
     filter_stok = request.GET.get('stok', '').strip()
 
@@ -183,16 +188,18 @@ def sparepart_list(request):
     elif filter_stok == 'habis':
         items = [i for i in items if i['stok'] <= 0]
 
-    total       = Sparepart.objects.filter(is_deleted=False).count()
+    total        = Sparepart.objects.filter(is_deleted=False).count()
     kritis_count = sum(1 for i in items if i['kritis'])
 
     return render(request, 'gudang/sparepart_list.html', {
-        'items':        items,
-        'q':            q,
-        'filter_stok':  filter_stok,
-        'total':        total,
-        'kritis_count': kritis_count,
-        'can_manage':   can_manage(request.user),
+        'items':          items,
+        'q':              q,
+        'filter_stok':    filter_stok,
+        'filter_branch':  filter_branch,
+        'branch_list':    Branch.objects.all(),
+        'total':          total,
+        'kritis_count':   kritis_count,
+        'can_manage':     can_manage(request.user),
     })
 
 
@@ -219,8 +226,11 @@ def sparepart_create(request):
     if request.method == 'POST':
         try:
             sp = Sparepart(
+                tipe_item          = request.POST.get('tipe_item', 'material'),
                 nama               = request.POST.get('nama', '').strip(),
+                jenis_perangkat_id = request.POST.get('jenis_perangkat_id') or None,
                 kategori           = request.POST.get('kategori', '').strip(),
+                branch_id          = request.POST.get('branch_id') or None,
                 merk               = request.POST.get('merk', '').strip(),
                 part_number        = request.POST.get('part_number', '').strip(),
                 satuan             = request.POST.get('satuan', 'pcs'),
@@ -249,8 +259,12 @@ def sparepart_create(request):
         except Exception as e:
             messages.error(request, f'Gagal menyimpan: {e}')
 
+    from devices.models import Branch, DeviceType
     return render(request, 'gudang/sparepart_form.html', {
-        'satuan_choices': Sparepart.SATUAN_CHOICES,
+        'satuan_choices':  Sparepart.SATUAN_CHOICES,
+        'tipe_choices':    Sparepart.TIPE_CHOICES,
+        'branch_list':     Branch.objects.all(),
+        'device_types':    DeviceType.objects.all().order_by('name'),
         'mode': 'create',
     })
 
@@ -265,8 +279,11 @@ def sparepart_edit(request, pk):
 
     if request.method == 'POST':
         try:
+            sp.tipe_item          = request.POST.get('tipe_item', 'material')
             sp.nama               = request.POST.get('nama', '').strip()
+            sp.jenis_perangkat_id = request.POST.get('jenis_perangkat_id') or None
             sp.kategori           = request.POST.get('kategori', '').strip()
+            sp.branch_id          = request.POST.get('branch_id') or None
             sp.merk               = request.POST.get('merk', '').strip()
             sp.part_number        = request.POST.get('part_number', '').strip()
             sp.satuan             = request.POST.get('satuan', 'pcs')
@@ -281,10 +298,14 @@ def sparepart_edit(request, pk):
         except Exception as e:
             messages.error(request, f'Gagal menyimpan: {e}')
 
+    from devices.models import Branch, DeviceType
     return render(request, 'gudang/sparepart_form.html', {
-        'sp':             sp,
-        'satuan_choices': Sparepart.SATUAN_CHOICES,
-        'mode':           'edit',
+        'sp':              sp,
+        'satuan_choices':  Sparepart.SATUAN_CHOICES,
+        'tipe_choices':    Sparepart.TIPE_CHOICES,
+        'branch_list':     Branch.objects.all(),
+        'device_types':    DeviceType.objects.all().order_by('name'),
+        'mode':            'edit',
     })
 
 

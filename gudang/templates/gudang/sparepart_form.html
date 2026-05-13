@@ -1,106 +1,201 @@
 {% extends 'base.html' %}
-{% block title %}{% if mode == 'edit' %}Edit{% else %}Tambah{% endif %} Spare Part — FASOP{% endblock %}
-{% block page_title %}{% if mode == 'edit' %}Edit{% else %}Tambah{% endif %} Spare Part{% endblock %}
+{% block title %}{% if mode == 'edit' %}Edit{% else %}Tambah{% endif %} Material & Spare Part — FASOP{% endblock %}
+{% block page_title %}{% if mode == 'edit' %}Edit{% else %}Tambah{% endif %} Material & Spare Part{% endblock %}
 
 {% block content %}
+<style>
+    .tipe-btn { cursor:pointer; border:2px solid #e2e8f0; border-radius:10px; padding:14px 20px;
+                transition:all .15s; background:#fff; text-align:center; }
+    .tipe-btn:hover { border-color:#3b82f6; background:#eff6ff; }
+    .tipe-btn.active { border-color:#3b82f6; background:#eff6ff; }
+    .tipe-btn .icon { font-size:28px; margin-bottom:6px; }
+    .tipe-btn .label { font-size:13px; font-weight:700; color:#1e293b; }
+    .tipe-btn .sub   { font-size:11px; color:#64748b; margin-top:2px; }
+    .section-label { font-size:10.5px; font-weight:700; text-transform:uppercase;
+                     letter-spacing:.6px; color:#94a3b8; margin-bottom:12px; }
+</style>
 
-<div class="mb-3">
-    <a href="{% url 'gudang:sparepart_list' %}" class="text-muted text-decoration-none" style="font-size:13px;">
-        <i class="bi bi-arrow-left me-1"></i>Kembali ke Daftar Spare Part
+<div class="d-flex align-items-center gap-2 mb-3">
+    <a href="{% url 'gudang:sparepart_list' %}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i>
     </a>
+    <div>
+        <h2 class="mb-0" style="font-size:18px;font-weight:700;">
+            {% if mode == 'edit' %}Edit: {{ sp.nama }}{% else %}Tambah Material / Spare Part{% endif %}
+        </h2>
+        <p class="text-muted mb-0" style="font-size:12px;">Gudang Material &amp; Spare Part</p>
+    </div>
 </div>
 
-<div class="table-card" style="max-width:720px;">
-    <div class="table-header">
-        <h6 class="mb-0">
-            <i class="bi bi-archive me-1"></i>
-            {% if mode == 'edit' %}Edit: {{ sp.nama }}{% else %}Tambah Spare Part Baru{% endif %}
-        </h6>
-    </div>
-    <div class="p-4">
-        <form method="post" enctype="multipart/form-data">
-            {% csrf_token %}
-            <div class="row g-3" style="font-size:13px;">
+<form method="post" enctype="multipart/form-data" id="sp-form">
+{% csrf_token %}
+<input type="hidden" name="tipe_item" id="hidden_tipe" value="{{ sp.tipe_item|default:'material' }}">
 
-                <div class="col-md-8">
-                    <label class="form-label fw-600">Nama Spare Part <span class="text-danger">*</span></label>
-                    <input type="text" name="nama" class="form-control form-control-sm"
-                           value="{{ sp.nama|default:'' }}" required>
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label fw-600">Satuan <span class="text-danger">*</span></label>
-                    <select name="satuan" class="form-select form-select-sm" required>
-                        {% for val, label in satuan_choices %}
-                        <option value="{{ val }}" {% if sp.satuan == val %}selected{% elif not sp and val == 'pcs' %}selected{% endif %}>
-                            {{ label }}
-                        </option>
-                        {% endfor %}
-                    </select>
-                </div>
-
-                <div class="col-md-6">
-                    <label class="form-label fw-600">Kategori <span class="text-danger">*</span></label>
-                    <input type="text" name="kategori" class="form-control form-control-sm"
-                           value="{{ sp.kategori|default:'' }}"
-                           placeholder="SFP, Kabel, Baterai, Power Supply, ..." required>
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label fw-600">Lokasi di Gudang <span class="text-danger">*</span></label>
-                    <input type="text" name="lokasi_penyimpanan" class="form-control form-control-sm"
-                           value="{{ sp.lokasi_penyimpanan|default:'' }}"
-                           placeholder="Rak B3, Laci 2 Lemari Komponen, ..." required>
-                </div>
-
-                <div class="col-md-4">
-                    <label class="form-label fw-600">Merk</label>
-                    <input type="text" name="merk" class="form-control form-control-sm"
-                           value="{{ sp.merk|default:'' }}">
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label fw-600">Part Number</label>
-                    <input type="text" name="part_number" class="form-control form-control-sm"
-                           value="{{ sp.part_number|default:'' }}">
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label fw-600">Stok Minimum</label>
-                    <input type="number" name="stok_minimum" class="form-control form-control-sm"
-                           min="0" value="{{ sp.stok_minimum|default:'0' }}">
-                    <div class="form-text">Alert jika stok ≤ nilai ini</div>
-                </div>
-
-                {% if mode == 'create' %}
-                <div class="col-md-4">
-                    <label class="form-label fw-600">Stok Awal</label>
-                    <input type="number" name="stok_awal" class="form-control form-control-sm" min="0" value="0">
-                    <div class="form-text">Opsional — dicatat sebagai mutasi masuk pertama</div>
-                </div>
-                {% endif %}
-
-                <div class="col-12">
-                    <label class="form-label fw-600">Keterangan</label>
-                    <textarea name="keterangan" class="form-control form-control-sm" rows="3">{{ sp.keterangan|default:'' }}</textarea>
-                </div>
-
-                <div class="col-12">
-                    <label class="form-label fw-600">Foto</label>
-                    {% if sp.foto %}
-                    <div class="mb-2">
-                        <img src="{{ sp.foto.url }}" style="height:80px;border-radius:6px;" alt="foto">
-                        <span class="text-muted ms-2" style="font-size:12px;">Foto saat ini</span>
-                    </div>
-                    {% endif %}
-                    <input type="file" name="foto" class="form-control form-control-sm" accept="image/*">
-                </div>
-
-                <div class="col-12 d-flex gap-2 pt-2">
-                    <button type="submit" class="btn btn-primary btn-sm">
-                        <i class="bi bi-check-lg me-1"></i>Simpan
-                    </button>
-                    <a href="{% url 'gudang:sparepart_list' %}" class="btn btn-outline-secondary btn-sm">Batal</a>
+<!-- ── Tipe Item ─────────────────────────────────────────── -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-label"><i class="bi bi-grid me-1"></i>Tipe Item</div>
+        <div class="row g-3">
+            <div class="col-6 col-md-3">
+                <div class="tipe-btn {% if sp.tipe_item != 'peralatan' %}active{% endif %}"
+                     id="btn-material" onclick="setTipe('material')">
+                    <div class="icon">📦</div>
+                    <div class="label">Material / Komponen</div>
+                    <div class="sub">Kabel, SFP, Baterai,<br>PCB, aksesori, dll</div>
                 </div>
             </div>
-        </form>
+            <div class="col-6 col-md-3">
+                <div class="tipe-btn {% if sp.tipe_item == 'peralatan' %}active{% endif %}"
+                     id="btn-peralatan" onclick="setTipe('peralatan')">
+                    <div class="icon">🖥️</div>
+                    <div class="label">Peralatan</div>
+                    <div class="sub">Unit perangkat cadangan<br>Router, Radio, RTU, dll</div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
+<!-- ── Identitas Item ────────────────────────────────────── -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-label"><i class="bi bi-tag me-1"></i>Identitas Item</div>
+        <div class="row g-3" style="font-size:13px;">
+
+            <!-- Jenis Perangkat — hanya tampil jika Peralatan -->
+            <div class="col-md-6" id="row-jenis" style="display:{% if sp.tipe_item == 'peralatan' %}block{% else %}none{% endif %};">
+                <label class="form-label fw-600">Jenis Perangkat <span class="text-danger">*</span></label>
+                <select name="jenis_perangkat_id" id="jenis_perangkat_id" class="form-select form-select-sm">
+                    <option value="">— Pilih Jenis —</option>
+                    {% for dt in device_types %}
+                    <option value="{{ dt.pk }}" {% if sp.jenis_perangkat_id == dt.pk %}selected{% endif %}>{{ dt.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label fw-600">Nama <span class="text-danger">*</span></label>
+                <input type="text" name="nama" class="form-control form-control-sm"
+                       value="{{ sp.nama|default:'' }}" required
+                       placeholder="{% if sp.tipe_item == 'peralatan' %}Misal: Router Cisco 887 — Cadangan{% else %}Misal: SFP 1G Multi-Mode, Baterai 12V 38Ah{% endif %}">
+            </div>
+
+            <!-- Kategori — hanya tampil jika Material -->
+            <div class="col-md-6" id="row-kategori" style="display:{% if sp.tipe_item == 'peralatan' %}none{% else %}block{% endif %};">
+                <label class="form-label fw-600">Kategori</label>
+                <input type="text" name="kategori" class="form-control form-control-sm"
+                       value="{{ sp.kategori|default:'' }}"
+                       placeholder="SFP, Kabel, Baterai, Power Supply, PCB, ...">
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label fw-600">Merk / Brand</label>
+                <input type="text" name="merk" class="form-control form-control-sm"
+                       value="{{ sp.merk|default:'' }}" placeholder="Cisco, Huawei, Yuasa, ...">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-600">Part Number / Model</label>
+                <input type="text" name="part_number" class="form-control form-control-sm"
+                       value="{{ sp.part_number|default:'' }}" placeholder="SFP-GIG-SX, 887VA, ...">
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Lokasi & Stok ─────────────────────────────────────── -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-label"><i class="bi bi-geo-alt me-1"></i>Lokasi Penyimpanan &amp; Stok</div>
+        <div class="row g-3" style="font-size:13px;">
+            <div class="col-md-4">
+                <label class="form-label fw-600">Branch / Gudang <span class="text-danger">*</span></label>
+                <select name="branch_id" class="form-select form-select-sm" required>
+                    <option value="">— Pilih Branch —</option>
+                    {% for br in branch_list %}
+                    <option value="{{ br.pk }}" {% if sp.branch_id == br.pk %}selected{% endif %}>{{ br.nama }}</option>
+                    {% endfor %}
+                </select>
+                <div class="form-text">UP2B, PB Kendari, PB Palu, atau PB Luwuk</div>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label fw-600">Lokasi Spesifik di Gudang</label>
+                <input type="text" name="lokasi_penyimpanan" class="form-control form-control-sm"
+                       value="{{ sp.lokasi_penyimpanan|default:'' }}"
+                       placeholder="Rak A-3, Lemari B Laci 2, ...">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label fw-600">Satuan</label>
+                <select name="satuan" class="form-select form-select-sm">
+                    {% for val, label in satuan_choices %}
+                    <option value="{{ val }}" {% if sp.satuan == val %}selected{% elif not sp.satuan and val == 'pcs' %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label fw-600">Stok Minimum</label>
+                <input type="number" name="stok_minimum" class="form-control form-control-sm"
+                       min="0" value="{{ sp.stok_minimum|default:'0' }}">
+                <div class="form-text">Alert jika ≤ ini</div>
+            </div>
+
+            {% if mode == 'create' %}
+            <div class="col-md-3">
+                <label class="form-label fw-600">Stok Awal</label>
+                <input type="number" name="stok_awal" class="form-control form-control-sm" min="0" value="0">
+                <div class="form-text">Opsional — dicatat sebagai mutasi masuk pertama</div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- ── Keterangan & Foto ──────────────────────────────────── -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-label"><i class="bi bi-card-text me-1"></i>Keterangan &amp; Foto</div>
+        <div class="row g-3" style="font-size:13px;">
+            <div class="col-md-8">
+                <label class="form-label fw-600">Keterangan</label>
+                <textarea name="keterangan" class="form-control form-control-sm" rows="3"
+                          placeholder="Kondisi, spesifikasi tambahan, catatan penting...">{{ sp.keterangan|default:'' }}</textarea>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label fw-600">Foto</label>
+                {% if sp.foto %}
+                <div class="mb-2">
+                    <img src="{{ sp.foto.url }}" style="height:80px;border-radius:6px;object-fit:cover;" alt="foto">
+                    <div class="text-muted mt-1" style="font-size:11px;">Foto saat ini</div>
+                </div>
+                {% endif %}
+                <input type="file" name="foto" class="form-control form-control-sm" accept="image/*">
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Submit ─────────────────────────────────────────────── -->
+<div class="d-flex gap-2 mb-4">
+    <button type="submit" class="btn btn-primary btn-sm px-4">
+        <i class="bi bi-check-lg me-1"></i>Simpan
+    </button>
+    <a href="{% url 'gudang:sparepart_list' %}" class="btn btn-outline-secondary btn-sm">Batal</a>
+</div>
+</form>
+
+<script>
+function setTipe(val) {
+    document.getElementById('hidden_tipe').value = val;
+
+    document.getElementById('btn-material').classList.toggle('active', val === 'material');
+    document.getElementById('btn-peralatan').classList.toggle('active', val === 'peralatan');
+
+    document.getElementById('row-jenis').style.display    = val === 'peralatan' ? 'block' : 'none';
+    document.getElementById('row-kategori').style.display = val === 'material'  ? 'block' : 'none';
+
+    const namaInput = document.querySelector('input[name="nama"]');
+    namaInput.placeholder = val === 'peralatan'
+        ? 'Misal: Router Cisco 887 — Cadangan'
+        : 'Misal: SFP 1G Multi-Mode, Baterai 12V 38Ah';
+}
+</script>
 {% endblock %}

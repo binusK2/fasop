@@ -1094,12 +1094,16 @@ function addEvidenRow() {
                                             </div>
                                             <div class="col-12">
                                                 <label style="font-size:11.5px;font-weight:600;color:#78350f;display:block;margin-bottom:4px;">
-                                                    <i class="bi bi-box-seam me-1"></i>Disimpan Di <span style="font-weight:400;color:#92400e;">(komponen lama)</span>
+                                                    <i class="bi bi-diagram-2 me-1"></i>Simpan ke Branch <span style="font-weight:400;color:#92400e;">(komponen lama)</span>
                                                 </label>
-                                                <input type="text" name="disimpan_di" class="form-control form-control-sm"
-                                                       placeholder="Misal: Gudang Teknik, Loker B2, Ruang Spare Part">
+                                                <select name="branch_id" class="form-select form-select-sm">
+                                                    <option value="">— Pilih Branch Penyimpanan —</option>
+                                                    {% for br in all_branches %}
+                                                    <option value="{{ br.pk }}">{{ br.nama }}</option>
+                                                    {% endfor %}
+                                                </select>
                                                 <div style="font-size:10px;color:#92400e;margin-top:3px;">
-                                                    <i class="bi bi-info-circle me-1"></i>Komponen lama akan otomatis masuk ke daftar komponen rusak.
+                                                    <i class="bi bi-info-circle me-1"></i>Komponen lama otomatis masuk daftar komponen rusak. Pilih branch untuk kirim ke gudang.
                                                 </div>
                                             </div>
                                         </div>
@@ -1152,8 +1156,9 @@ function addEvidenRow() {
                     <th style="padding:8px 14px;font-weight:600;color:#991b1b;text-align:left;">Nama Komponen</th>
                     <th style="padding:8px 14px;font-weight:600;color:#991b1b;text-align:left;">Merk</th>
                     <th style="padding:8px 14px;font-weight:600;color:#991b1b;text-align:left;">Tipe / Model</th>
-                    <th style="padding:8px 14px;font-weight:600;color:#991b1b;text-align:left;">Disimpan Di</th>
+                    <th style="padding:8px 14px;font-weight:600;color:#991b1b;text-align:left;">Branch Gudang</th>
                     <th style="padding:8px 14px;font-weight:600;color:#991b1b;text-align:left;">Keterangan</th>
+                    <th style="padding:8px 14px;"></th>
                 </tr>
             </thead>
             <tbody>
@@ -1164,7 +1169,11 @@ function addEvidenRow() {
                     <td style="padding:8px 14px;color:#475569;">{{ kr.merk|default:"—" }}</td>
                     <td style="padding:8px 14px;color:#475569;">{{ kr.tipe|default:"—" }}</td>
                     <td style="padding:8px 14px;">
-                        {% if kr.disimpan_di %}
+                        {% if kr.branch %}
+                        <span style="background:#eff6ff;color:#1d4ed8;padding:2px 9px;border-radius:5px;font-size:11.5px;font-weight:600;">
+                            <i class="bi bi-diagram-2 me-1"></i>{{ kr.branch.nama }}
+                        </span>
+                        {% elif kr.disimpan_di %}
                         <span style="background:#fef3c7;color:#92400e;padding:2px 9px;border-radius:5px;font-size:11.5px;">
                             <i class="bi bi-box-seam me-1"></i>{{ kr.disimpan_di }}
                         </span>
@@ -1172,7 +1181,19 @@ function addEvidenRow() {
                         <span style="color:#cbd5e1;">—</span>
                         {% endif %}
                     </td>
-                    <td style="padding:8px 14px;color:#64748b;max-width:200px;">{{ kr.keterangan|default:"—"|truncatechars:60 }}</td>
+                    <td style="padding:8px 14px;color:#64748b;max-width:180px;">{{ kr.keterangan|default:"—"|truncatechars:50 }}</td>
+                    <td style="padding:8px 10px;white-space:nowrap;">
+                        {% if kr.mutasi_sparepart.exists %}
+                        <span style="font-size:11px;color:#10b981;font-weight:600;">
+                            <i class="bi bi-check-circle me-1"></i>Di Gudang
+                        </span>
+                        {% else %}
+                        <a href="{% url 'kirim_ke_gudang' kr.pk %}"
+                           style="font-size:11px;padding:3px 8px;" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-box-arrow-in-down me-1"></i>Kirim ke Gudang
+                        </a>
+                        {% endif %}
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>

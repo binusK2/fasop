@@ -1014,6 +1014,7 @@ def device_detail(request, pk):
         'vm_children':          vm_children,
         'host_candidates':      host_candidates,
         'komponen_rusak_list':  komponen_rusak_list,
+        'all_branches':         Branch.objects.all(),
     })
 
 
@@ -2139,6 +2140,7 @@ def device_event_add(request, pk):
         merk_komponen_baru = request.POST.get('merk_komponen_baru', '').strip()
         tipe_komponen_baru = request.POST.get('tipe_komponen_baru', '').strip()
         disimpan_di        = request.POST.get('disimpan_di', '').strip()
+        branch_id_event    = request.POST.get('branch_id', '') or None
 
         komponen_terkait_obj = None
         if komponen_terkait_pk:
@@ -2206,12 +2208,74 @@ def device_event_add(request, pk):
                     komponen_terkait = komponen_terkait_obj,
                     tanggal_rusak    = tanggal,
                     disimpan_di      = disimpan_di,
+                    branch_id        = branch_id_event,
                     keterangan       = catatan,
                     event            = event,
                     created_by       = request.user,
                 )
 
     return redirect('device_view', pk=pk)
+
+
+@login_required
+def kirim_ke_gudang(request, pk):
+    """
+    Form untuk mengirim KomponenRusak ke gudang spare part.
+    GET : tampilkan form pilih Sparepart (atau buat baru) + branch
+    POST: buat MutasiSparepart masuk + link ke KomponenRusak
+    """
+    from devices.models import KomponenRusak
+    from gudang.models import Sparepart, MutasiSparepart
+    from django.contrib import messages as dj_messages
+
+    kr = get_object_or_404(KomponenRusak, pk=pk)
+
+    if request.method == 'POST':
+        mode        = request.POST.get('mode', 'existing')  # 'existing' or 'new'
+        jumlah      = int(request.POST.get('jumlah', 1) or 1)
+        keperluan   = request.POST.get('keperluan', '').strip() or f'Dari penggantian komponen: {kr.nama_komponen}'
+        branch_id   = request.POST.get('branch_id') or None
+
+        if mode == 'new':
+            sp = Sparepart.objects.create(
+                nama               = request.POST.get('nama_baru', kr.nama_komponen).strip(),
+                kategori           = request.POST.get('kategori_baru', 'Komponen Bekas').strip(),
+                merk               = request.POST.get('merk_baru', kr.merk).strip(),
+                part_number        = request.POST.get('part_number_baru', '').strip(),
+                satuan             = 'pcs',
+                lokasi_penyimpanan = '',
+                branch_id          = branch_id,
+                keterangan         = f'Dari komponen rusak: {kr.device.nama} ({kr.tanggal_rusak})',
+                created_by         = request.user,
+            )
+        else:
+            sp_id = request.POST.get('sparepart_id')
+            sp = get_object_or_404(Sparepart, pk=sp_id, is_deleted=False)
+
+        MutasiSparepart.objects.create(
+            sparepart             = sp,
+            tipe                  = 'masuk',
+            jumlah                = jumlah,
+            keperluan             = keperluan,
+            sumber_komponen_rusak = kr,
+            dilakukan_oleh        = request.user,
+        )
+
+        # Update branch di KomponenRusak jika belum diset
+        if branch_id and not kr.branch_id:
+            kr.branch_id = branch_id
+            kr.save(update_fields=['branch'])
+
+        dj_messages.success(request, f'Komponen "{kr.nama_komponen}" berhasil dikirim ke gudang spare part.')
+        return redirect('device_view', pk=kr.device_id)
+
+    # GET
+    sparepart_list_all = Sparepart.objects.filter(is_deleted=False).order_by('kategori', 'nama')
+    return render(request, 'devices/kirim_ke_gudang.html', {
+        'kr':                kr,
+        'sparepart_list':    sparepart_list_all,
+        'all_branches':      Branch.objects.all(),
+    })
 
 
 @login_required
