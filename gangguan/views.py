@@ -7,6 +7,7 @@ from .models import Gangguan, GangguanLog
 from .forms import GangguanForm, GangguanLogForm
 from devices.models import Device
 from devices.permissions import require_can_delete, require_can_edit, is_viewer_only
+from auditlog.utils import log_action as _audit
 
 
 @login_required
@@ -173,6 +174,9 @@ def gangguan_create(request):
                 )
             except Exception:
                 pass
+            _audit(request, 'create', 'gangguan', 'Gangguan',
+                   gangguan.pk, f'{gangguan.nomor_gangguan} — {gangguan.site}',
+                   f'Severity: {gangguan.get_tingkat_keparahan_display()} | {gangguan.executive_summary[:80]}')
             return redirect('gangguan_detail', pk=gangguan.pk)
     else:
         # Nilai default
@@ -328,6 +332,9 @@ def gangguan_update(request, pk):
             except Exception:
                 updated.pelaksana_names = []
             updated.save()
+            _audit(request, 'update', 'gangguan', 'Gangguan',
+                   gangguan.pk, f'{gangguan.nomor_gangguan} — {gangguan.site}',
+                   '')
             return redirect('gangguan_detail', pk=gangguan.pk)
     else:
         form = GangguanForm(instance=gangguan)
@@ -411,6 +418,9 @@ def gangguan_update_status(request, pk):
                     )
                 except Exception:
                     pass
+        _audit(request, 'status', 'gangguan', 'Gangguan',
+               gangguan.pk, f'{gangguan.nomor_gangguan} — {gangguan.site}',
+               f'Status: {old_status} → {gangguan.status}')
     return redirect('gangguan_detail', pk=pk)
 
 

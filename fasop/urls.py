@@ -60,6 +60,9 @@ urlpatterns = [
     # SCADA Availability — RTU Availability & RCD Success Rate
     path('scada-av/', include('scada_av.urls')),
 
+    # Audit Log — superuser only
+    path('audit-log/', include('auditlog.urls')),
+
     # Public FO page — tanpa login (QR scan)
     path('fo/public/<str:token>/', fo_public, name='fo_public'),
 

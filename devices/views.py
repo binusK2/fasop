@@ -19,6 +19,7 @@ from datetime import date as date_type
 from dateutil.relativedelta import relativedelta
 import json
 from .device_schema import DEVICE_SCHEMA
+from auditlog.utils import log_action as _audit
 
 
 @login_required
@@ -187,6 +188,9 @@ def device_create(request):
             # Audit log
             from devices.device_audit import log_create
             log_create(device, request.user)
+            _audit(request, 'create', 'devices', 'Peralatan',
+                   device.pk, device.nama,
+                   f'{device.jenis} | {device.lokasi}')
             return redirect('device_view', pk=device.pk)
     else:
         initial = {}
@@ -260,6 +264,9 @@ def device_update(request, pk):
 
             # Audit log — bandingkan sebelum vs sesudah
             log_edit(device_before, dev, request.user)
+            _audit(request, 'update', 'devices', 'Peralatan',
+                   dev.pk, dev.nama,
+                   f'{dev.jenis} | {dev.lokasi}')
             return redirect('device_view', pk=device.pk)
     else:
         form = DeviceForm(instance=device)
@@ -280,6 +287,9 @@ def device_delete(request, pk):
     device = get_object_or_404(Device, pk=pk)
     from devices.device_audit import log_delete
     log_delete(device, request.user)
+    _audit(request, 'delete', 'devices', 'Peralatan',
+           device.pk, device.nama,
+           f'{device.jenis} | {device.lokasi}')
     jenis_id = device.jenis_id
     device.is_deleted = True
     device.deleted_by = request.user
@@ -2213,6 +2223,10 @@ def device_event_add(request, pk):
                     event            = event,
                     created_by       = request.user,
                 )
+
+            _audit(request, 'other', 'devices', 'Event Peralatan',
+                   event.pk, f'{tipe.title()} — {device.nama}',
+                   f'Komponen: {komponen} | Catatan: {catatan}')
 
     return redirect('device_view', pk=pk)
 
