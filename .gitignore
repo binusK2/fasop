@@ -61,4 +61,4 @@ build/
 .mcp.json
 .claude/
 .claude-*/
-.claude/worktrees/
+.claude/worktrees/backups/
