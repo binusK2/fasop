@@ -754,53 +754,54 @@ class MaintenanceFrequencyRelayForm(forms.ModelForm):
         }
 
 
-class MaintenanceMasterTripForm(forms.ModelForm):
-    _T  = forms.widgets.TextInput(attrs={'class': 'form-control form-control-sm'})
-    _S  = forms.widgets.Select(attrs={'class': 'form-select form-select-sm'})
-    _TA = forms.Textarea(attrs={'class': 'form-control', 'rows': 3})
+_MT_TXT = forms.TextInput(attrs={'class': 'form-control form-control-sm'})
+_MT_SEL = forms.Select(attrs={'class': 'form-select form-select-sm'})
+_MT_TA  = forms.Textarea(attrs={'class': 'form-control', 'rows': 3})
 
+
+class MaintenanceMasterTripForm(forms.ModelForm):
     class Meta:
         model   = MaintenanceMasterTrip
         exclude = ['maintenance']
         widgets = {
             # Visual Inspection
-            'healthy': _S, 'trip_led': _S, 'alarm': _S,
+            'healthy': _MT_SEL, 'trip_led': _MT_SEL, 'alarm': _MT_SEL,
             # Info
-            'merek': _T, 'no_seri': _T, 'target': _T, 'fungsi': _T, 'rasio_ct': _T,
+            'merek': _MT_TXT, 'no_seri': _MT_TXT, 'target': _MT_TXT, 'fungsi': _MT_TXT, 'rasio_ct': _MT_TXT,
             # Measurement
-            'i_a': _T, 'i_b': _T, 'i_c': _T,
-            'v_a': _T, 'v_b': _T, 'v_c': _T, 'frekuensi': _T,
+            'i_a': _MT_TXT, 'i_b': _MT_TXT, 'i_c': _MT_TXT,
+            'v_a': _MT_TXT, 'v_b': _MT_TXT, 'v_c': _MT_TXT, 'frekuensi': _MT_TXT,
             # Setting relay
-            'setting_i': _T, 'waktu_i': _T, 'setting_ii': _T, 'waktu_ii': _T,
-            'under_power': _T, 'waktu_under': _T, 'over_power': _T, 'waktu_over': _T,
+            'setting_i': _MT_TXT, 'waktu_i': _MT_TXT, 'setting_ii': _MT_TXT, 'waktu_ii': _MT_TXT,
+            'under_power': _MT_TXT, 'waktu_under': _MT_TXT, 'over_power': _MT_TXT, 'waktu_over': _MT_TXT,
             # Common Positif RL
-            'p1_rl': _T, 'p1_vdc': _T, 'p1_pin': _T, 'p1_tahap_vdc': _T, 'p1_tahap_pin': _T,
-            'p2_rl': _T, 'p2_vdc': _T, 'p2_pin': _T, 'p2_tahap_vdc': _T, 'p2_tahap_pin': _T,
-            'p3_rl': _T, 'p3_vdc': _T, 'p3_pin': _T, 'p3_tahap_vdc': _T, 'p3_tahap_pin': _T,
-            'p4_rl': _T, 'p4_vdc': _T, 'p4_pin': _T, 'p4_tahap_vdc': _T, 'p4_tahap_pin': _T,
-            'p5_rl': _T, 'p5_vdc': _T, 'p5_pin': _T, 'p5_tahap_vdc': _T, 'p5_tahap_pin': _T,
-            'p6_rl': _T, 'p6_vdc': _T, 'p6_pin': _T, 'p6_tahap_vdc': _T, 'p6_tahap_pin': _T,
+            'p1_rl': _MT_TXT, 'p1_vdc': _MT_TXT, 'p1_pin': _MT_TXT, 'p1_tahap_vdc': _MT_TXT, 'p1_tahap_pin': _MT_TXT,
+            'p2_rl': _MT_TXT, 'p2_vdc': _MT_TXT, 'p2_pin': _MT_TXT, 'p2_tahap_vdc': _MT_TXT, 'p2_tahap_pin': _MT_TXT,
+            'p3_rl': _MT_TXT, 'p3_vdc': _MT_TXT, 'p3_pin': _MT_TXT, 'p3_tahap_vdc': _MT_TXT, 'p3_tahap_pin': _MT_TXT,
+            'p4_rl': _MT_TXT, 'p4_vdc': _MT_TXT, 'p4_pin': _MT_TXT, 'p4_tahap_vdc': _MT_TXT, 'p4_tahap_pin': _MT_TXT,
+            'p5_rl': _MT_TXT, 'p5_vdc': _MT_TXT, 'p5_pin': _MT_TXT, 'p5_tahap_vdc': _MT_TXT, 'p5_tahap_pin': _MT_TXT,
+            'p6_rl': _MT_TXT, 'p6_vdc': _MT_TXT, 'p6_pin': _MT_TXT, 'p6_tahap_vdc': _MT_TXT, 'p6_tahap_pin': _MT_TXT,
             # Common Negatif RL
-            'n1_rl': _T, 'n1_vdc': _T, 'n1_pin': _T, 'n1_tahap_vdc': _T, 'n1_tahap_pin': _T,
-            'n2_rl': _T, 'n2_vdc': _T, 'n2_pin': _T, 'n2_tahap_vdc': _T, 'n2_tahap_pin': _T,
-            'n3_rl': _T, 'n3_vdc': _T, 'n3_pin': _T, 'n3_tahap_vdc': _T, 'n3_tahap_pin': _T,
-            'n4_rl': _T, 'n4_vdc': _T, 'n4_pin': _T, 'n4_tahap_vdc': _T, 'n4_tahap_pin': _T,
-            'n5_rl': _T, 'n5_vdc': _T, 'n5_pin': _T, 'n5_tahap_vdc': _T, 'n5_tahap_pin': _T,
-            'n6_rl': _T, 'n6_vdc': _T, 'n6_pin': _T, 'n6_tahap_vdc': _T, 'n6_tahap_pin': _T,
+            'n1_rl': _MT_TXT, 'n1_vdc': _MT_TXT, 'n1_pin': _MT_TXT, 'n1_tahap_vdc': _MT_TXT, 'n1_tahap_pin': _MT_TXT,
+            'n2_rl': _MT_TXT, 'n2_vdc': _MT_TXT, 'n2_pin': _MT_TXT, 'n2_tahap_vdc': _MT_TXT, 'n2_tahap_pin': _MT_TXT,
+            'n3_rl': _MT_TXT, 'n3_vdc': _MT_TXT, 'n3_pin': _MT_TXT, 'n3_tahap_vdc': _MT_TXT, 'n3_tahap_pin': _MT_TXT,
+            'n4_rl': _MT_TXT, 'n4_vdc': _MT_TXT, 'n4_pin': _MT_TXT, 'n4_tahap_vdc': _MT_TXT, 'n4_tahap_pin': _MT_TXT,
+            'n5_rl': _MT_TXT, 'n5_vdc': _MT_TXT, 'n5_pin': _MT_TXT, 'n5_tahap_vdc': _MT_TXT, 'n5_tahap_pin': _MT_TXT,
+            'n6_rl': _MT_TXT, 'n6_vdc': _MT_TXT, 'n6_pin': _MT_TXT, 'n6_tahap_vdc': _MT_TXT, 'n6_tahap_pin': _MT_TXT,
             # AUX RL/BO
-            'aux1_rl': _T, 'aux1_tf': _T, 'aux1_led': _T,
-            'aux2_rl': _T, 'aux2_tf': _T, 'aux2_led': _T,
-            'aux3_rl': _T, 'aux3_tf': _T, 'aux3_led': _T,
-            'aux4_rl': _T, 'aux4_tf': _T, 'aux4_led': _T,
-            'aux5_rl': _T, 'aux5_tf': _T, 'aux5_led': _T,
-            'aux6_rl': _T, 'aux6_tf': _T, 'aux6_led': _T,
+            'aux1_rl': _MT_TXT, 'aux1_tf': _MT_TXT, 'aux1_led': _MT_TXT,
+            'aux2_rl': _MT_TXT, 'aux2_tf': _MT_TXT, 'aux2_led': _MT_TXT,
+            'aux3_rl': _MT_TXT, 'aux3_tf': _MT_TXT, 'aux3_led': _MT_TXT,
+            'aux4_rl': _MT_TXT, 'aux4_tf': _MT_TXT, 'aux4_led': _MT_TXT,
+            'aux5_rl': _MT_TXT, 'aux5_tf': _MT_TXT, 'aux5_led': _MT_TXT,
+            'aux6_rl': _MT_TXT, 'aux6_tf': _MT_TXT, 'aux6_led': _MT_TXT,
             # Status Kesiapan + Test COMM
-            'dev1_nama': _T, 'dev1_gi': _T, 'dev1_ready': _S, 'dev1_comm': _S,
-            'dev2_nama': _T, 'dev2_gi': _T, 'dev2_ready': _S, 'dev2_comm': _S,
-            'dev3_nama': _T, 'dev3_gi': _T, 'dev3_ready': _S, 'dev3_comm': _S,
-            'dev4_nama': _T, 'dev4_gi': _T, 'dev4_ready': _S, 'dev4_comm': _S,
-            'dev5_nama': _T, 'dev5_gi': _T, 'dev5_ready': _S, 'dev5_comm': _S,
-            'dev6_nama': _T, 'dev6_gi': _T, 'dev6_ready': _S, 'dev6_comm': _S,
+            'dev1_nama': _MT_TXT, 'dev1_gi': _MT_TXT, 'dev1_ready': _MT_SEL, 'dev1_comm': _MT_SEL,
+            'dev2_nama': _MT_TXT, 'dev2_gi': _MT_TXT, 'dev2_ready': _MT_SEL, 'dev2_comm': _MT_SEL,
+            'dev3_nama': _MT_TXT, 'dev3_gi': _MT_TXT, 'dev3_ready': _MT_SEL, 'dev3_comm': _MT_SEL,
+            'dev4_nama': _MT_TXT, 'dev4_gi': _MT_TXT, 'dev4_ready': _MT_SEL, 'dev4_comm': _MT_SEL,
+            'dev5_nama': _MT_TXT, 'dev5_gi': _MT_TXT, 'dev5_ready': _MT_SEL, 'dev5_comm': _MT_SEL,
+            'dev6_nama': _MT_TXT, 'dev6_gi': _MT_TXT, 'dev6_ready': _MT_SEL, 'dev6_comm': _MT_SEL,
             # Catatan
-            'supply_dc': _T, 'selektor': _T, 'catatan': _TA,
+            'supply_dc': _MT_TXT, 'selektor': _MT_TXT, 'catatan': _MT_TA,
         }
