@@ -1168,6 +1168,123 @@ class MaintenanceMasterTrip(models.Model):
 
 
 # ─────────────────────────────────────────────────────────────
+# MAINTENANCE DFR (Digital Fault Recorder / PMU)
+# ─────────────────────────────────────────────────────────────
+
+class MaintenanceDFR(models.Model):
+
+    YA_TDK  = [('Ya', 'Ya'), ('Tidak', 'Tidak')]
+    NRM_ABN = [('Normal', 'Normal'), ('Abnormal', 'Abnormal')]
+    TDWN    = [('Terdownload', 'Terdownload'), ('Tidak', 'Tidak')]
+    VISUAL  = [('Sangat Baik', 'Sangat Baik'), ('Baik', 'Baik'), ('Kurang Baik', 'Kurang Baik'), ('Jelek', 'Jelek')]
+    GPS_CH  = [('Terhubung', 'Terhubung'), ('No Koneksi', 'No Koneksi')]
+    ALARM   = [('Baik', 'Baik'), ('Ada Alarm', 'Ada Alarm')]
+
+    maintenance = models.OneToOneField(
+        Maintenance, on_delete=models.CASCADE,
+        related_name='maintenancedfr',
+    )
+
+    # ── Header DFR-specific ──────────────────────────────────────
+    bay_feeder_1 = models.CharField(max_length=100, blank=True, verbose_name='BAY/FEEDER 1')
+    bay_feeder_2 = models.CharField(max_length=100, blank=True, verbose_name='BAY/FEEDER 2')
+    rasio_ct_1   = models.CharField(max_length=50,  blank=True, verbose_name='Rasio CT 1')
+    rasio_ct_2   = models.CharField(max_length=50,  blank=True, verbose_name='Rasio CT 2')
+    rasio_pt_1   = models.CharField(max_length=50,  blank=True, verbose_name='Rasio PT 1')
+    rasio_pt_2   = models.CharField(max_length=50,  blank=True, verbose_name='Rasio PT 2')
+    suhu_ruangan = models.CharField(max_length=20,  blank=True, verbose_name='Suhu Ruangan (°C)')
+    kelembaban   = models.CharField(max_length=20,  blank=True, verbose_name='Kelembaban (%)')
+
+    # ── I. Pengecekan Panel DFR ──────────────────────────────────
+    kartu_kontrol = models.CharField(max_length=30, blank=True, default='Terisi',
+                                     choices=[('Terisi','Terisi'),('Tidak','Tidak')])
+    outdoor_panel = models.CharField(max_length=30, blank=True, default='Bersih',
+                                     choices=[('Bersih','Bersih'),('Kotor','Kotor')])
+    indoor_panel  = models.CharField(max_length=30, blank=True, default='Bersih',
+                                     choices=[('Bersih','Bersih'),('Kotor','Kotor')])
+    type_dfr      = models.CharField(max_length=50,  blank=True, verbose_name='Type DFR')
+    sn_dfr        = models.CharField(max_length=100, blank=True, verbose_name='SN DFR')
+    merk_dfr      = models.CharField(max_length=100, blank=True, verbose_name='Merk DFR')
+    tergrounding  = models.CharField(max_length=5, blank=True, default='Ya', choices=YA_TDK,
+                                     verbose_name='Tergrounding')
+
+    # ── II. GPS dan Display DFR ──────────────────────────────────
+    kondisi_gps = models.CharField(max_length=15, blank=True, default='Terhubung', choices=GPS_CH,
+                                   verbose_name='Kondisi Koneksi GPS')
+    kondisi_lcd = models.CharField(max_length=10, blank=True, default='Normal', choices=NRM_ABN,
+                                   verbose_name='Kondisi LCD dan Keypad')
+    waktu_dfr   = models.CharField(max_length=30, blank=True, default='Sesuai',
+                                   choices=[('Sesuai','Sesuai'),('Tidak Sesuai','Tidak Sesuai')],
+                                   verbose_name='Pengecekan Waktu DFR')
+
+    # ── III. Disturbance Fault Recorder ─────────────────────────
+    dfr_aktif      = models.CharField(max_length=5,  blank=True, default='Ya', choices=YA_TDK,
+                                      verbose_name='DFR Aktif')
+    fisik_alarm    = models.CharField(max_length=15, blank=True, default='Baik', choices=ALARM,
+                                      verbose_name='Pemeriksaan Fisik & Alarm')
+    fungsi_rekaman = models.CharField(max_length=10, blank=True, default='Normal', choices=NRM_ABN,
+                                      verbose_name='Pemeriksaan Fungsi Rekaman')
+
+    # ── IV. Jenis Media Komunikasi ───────────────────────────────
+    visual_5r     = models.CharField(max_length=15, blank=True, default='Baik', choices=VISUAL,
+                                     verbose_name='Visual & 5R')
+    front_port_ip = models.CharField(max_length=50, blank=True, verbose_name='Front Port IP')
+    rear_port_ip  = models.CharField(max_length=50, blank=True, verbose_name='Rear Port IP')
+    # Fiber Optic
+    fo_tx = models.CharField(max_length=10, blank=True, default='Normal', choices=NRM_ABN, verbose_name='FO Tx')
+    fo_rx = models.CharField(max_length=10, blank=True, default='Normal', choices=NRM_ABN, verbose_name='FO Rx')
+    # Converter FO to Ethernet
+    conv_tx = models.CharField(max_length=10, blank=True, default='Normal', choices=NRM_ABN, verbose_name='Converter Tx')
+    conv_rx = models.CharField(max_length=10, blank=True, default='Normal', choices=NRM_ABN, verbose_name='Converter Rx')
+    # LAN Cable Ethernet
+    lan_tx = models.CharField(max_length=10, blank=True, default='Normal', choices=NRM_ABN, verbose_name='LAN Tx')
+    lan_rx = models.CharField(max_length=10, blank=True, default='Normal', choices=NRM_ABN, verbose_name='LAN Rx')
+    # Ping Test
+    ping_server_1      = models.CharField(max_length=10, blank=True, verbose_name='Ping Server #1 (ms)')
+    ping_server_2      = models.CharField(max_length=10, blank=True, verbose_name='Ping Server #2 (ms)')
+    ping_server_status = models.CharField(max_length=10, blank=True, default='Normal', choices=NRM_ABN,
+                                          verbose_name='Ping Server Status')
+    ping_dfr_1         = models.CharField(max_length=10, blank=True, verbose_name='Ping DFR #1 (ms)')
+    ping_dfr_2         = models.CharField(max_length=10, blank=True, verbose_name='Ping DFR #2 (ms)')
+    ping_dfr_status    = models.CharField(max_length=10, blank=True, default='Normal', choices=NRM_ABN,
+                                          verbose_name='Ping DFR Status')
+
+    # ── V. Software / Backup / Power ────────────────────────────
+    software_config  = models.CharField(max_length=15, blank=True, default='Terdownload', choices=TDWN,
+                                        verbose_name='Software/Config Terdownload')
+    rekaman_gangguan = models.CharField(max_length=15, blank=True, default='Terdownload', choices=TDWN,
+                                        verbose_name='Rekaman Gangguan Terdownload')
+    v_input_power    = models.CharField(max_length=20, blank=True, verbose_name='Tegangan Input Power (VDC)')
+    v_backup         = models.CharField(max_length=20, blank=True, verbose_name='Tegangan Backup (VDC)')
+    kapasitas_memory = models.CharField(max_length=30, blank=True, verbose_name='Kapasitas Memory DFR')
+    catatan_khusus   = models.TextField(blank=True, verbose_name='Catatan Khusus DFR')
+    pmu_id           = models.CharField(max_length=100, blank=True, verbose_name='PMU ID')
+
+    # ── Pengukuran BAY 1 ─────────────────────────────────────────
+    # Analog Input DFR
+    bay1_dfr_v_r = models.CharField(max_length=20, blank=True); bay1_dfr_v_s = models.CharField(max_length=20, blank=True); bay1_dfr_v_t = models.CharField(max_length=20, blank=True); bay1_dfr_v_n = models.CharField(max_length=20, blank=True)
+    bay1_dfr_i_r = models.CharField(max_length=20, blank=True); bay1_dfr_i_s = models.CharField(max_length=20, blank=True); bay1_dfr_i_t = models.CharField(max_length=20, blank=True); bay1_dfr_i_n = models.CharField(max_length=20, blank=True)
+    bay1_dfr_hz  = models.CharField(max_length=20, blank=True)
+    # IED Meter Pembanding
+    bay1_ied_v_r = models.CharField(max_length=20, blank=True); bay1_ied_v_s = models.CharField(max_length=20, blank=True); bay1_ied_v_t = models.CharField(max_length=20, blank=True); bay1_ied_v_n = models.CharField(max_length=20, blank=True)
+    bay1_ied_i_r = models.CharField(max_length=20, blank=True); bay1_ied_i_s = models.CharField(max_length=20, blank=True); bay1_ied_i_t = models.CharField(max_length=20, blank=True); bay1_ied_i_n = models.CharField(max_length=20, blank=True)
+    bay1_ied_hz  = models.CharField(max_length=20, blank=True)
+
+    # ── Pengukuran BAY 2 ─────────────────────────────────────────
+    # Analog Input DFR
+    bay2_dfr_v_r = models.CharField(max_length=20, blank=True); bay2_dfr_v_s = models.CharField(max_length=20, blank=True); bay2_dfr_v_t = models.CharField(max_length=20, blank=True); bay2_dfr_v_n = models.CharField(max_length=20, blank=True)
+    bay2_dfr_i_r = models.CharField(max_length=20, blank=True); bay2_dfr_i_s = models.CharField(max_length=20, blank=True); bay2_dfr_i_t = models.CharField(max_length=20, blank=True); bay2_dfr_i_n = models.CharField(max_length=20, blank=True)
+    bay2_dfr_hz  = models.CharField(max_length=20, blank=True)
+    # IED Meter Pembanding
+    bay2_ied_v_r = models.CharField(max_length=20, blank=True); bay2_ied_v_s = models.CharField(max_length=20, blank=True); bay2_ied_v_t = models.CharField(max_length=20, blank=True); bay2_ied_v_n = models.CharField(max_length=20, blank=True)
+    bay2_ied_i_r = models.CharField(max_length=20, blank=True); bay2_ied_i_s = models.CharField(max_length=20, blank=True); bay2_ied_i_t = models.CharField(max_length=20, blank=True); bay2_ied_i_n = models.CharField(max_length=20, blank=True)
+    bay2_ied_hz  = models.CharField(max_length=20, blank=True)
+
+    class Meta:
+        verbose_name = 'Maintenance DFR'
+
+
+# ─────────────────────────────────────────────────────────────
 # BERITA ACARA RECORD (histori BA yang sudah dibuat)
 # ─────────────────────────────────────────────────────────────
 

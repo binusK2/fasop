@@ -1013,6 +1013,11 @@
         {% include 'maintenance/master_trip_detail_section.html' %}
         {% endif %}
 
+        <!-- ═══════════════ DETAIL DFR ═══════════════ -->
+        {% if dfr_detail %}
+        {% include 'maintenance/dfr_detail_section.html' %}
+        {% endif %}
+
         <!-- ═══════════════ DETAIL RTU ═══════════════ -->
         {% if rtu_detail %}
         <div class="card mb-3">
