@@ -1008,6 +1008,11 @@
         {% include 'maintenance/frequency_relay_detail_section.html' %}
         {% endif %}
 
+        <!-- ═══════════════ DETAIL MASTER TRIP ═══════════════ -->
+        {% if master_trip_detail %}
+        {% include 'maintenance/master_trip_detail_section.html' %}
+        {% endif %}
+
         <!-- ═══════════════ DETAIL RTU ═══════════════ -->
         {% if rtu_detail %}
         <div class="card mb-3">
