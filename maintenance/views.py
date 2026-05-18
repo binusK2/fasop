@@ -1,8 +1,8 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from devices.permissions import require_can_edit, require_can_delete, is_viewer_only
-from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset, MaintenanceRTU, MaintenanceSAS, MaintenanceRoIP, MaintenanceUPS, MaintenanceFrequencyRelay, MaintenanceMasterTrip, BeritaAcaraRecord, BeritaAcaraEviden
-from .forms import MaintenanceForm, MaintenancePLCForm, MaintenanceRouterForm, MaintenanceRadioForm, MaintenanceVoIPForm, MaintenanceMuxForm, MaintenanceRectifierForm, MaintenanceTeleproteksiForm, MaintenanceGensetForm, MaintenanceRTUForm, MaintenanceSASForm, MaintenanceRoIPForm, MaintenanceUPSForm, MaintenanceFrequencyRelayForm, MaintenanceMasterTripForm
+from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset, MaintenanceRTU, MaintenanceSAS, MaintenanceRoIP, MaintenanceUPS, MaintenanceFrequencyRelay, MaintenanceMasterTrip, MaintenanceDFR, BeritaAcaraRecord, BeritaAcaraEviden
+from .forms import MaintenanceForm, MaintenancePLCForm, MaintenanceRouterForm, MaintenanceRadioForm, MaintenanceVoIPForm, MaintenanceMuxForm, MaintenanceRectifierForm, MaintenanceTeleproteksiForm, MaintenanceGensetForm, MaintenanceRTUForm, MaintenanceSASForm, MaintenanceRoIPForm, MaintenanceUPSForm, MaintenanceFrequencyRelayForm, MaintenanceMasterTripForm, MaintenanceDFRForm
 from devices.models import Device, DeviceType
 from gangguan.models import Gangguan
 from inspection.models import InspectionCatuDaya
@@ -52,7 +52,8 @@ DEVICE_FORM_MAP = {
     'MASTER TRIP':     (MaintenanceMasterTripForm, 'maintenance/master_trip_form.html'),
     'Master Trip':     (MaintenanceMasterTripForm, 'maintenance/master_trip_form.html'),
     'RELE DEFENSE SCHEME': (MaintenanceMasterTripForm, 'maintenance/master_trip_form.html'),
-    'DFR':             (MaintenanceMasterTripForm, 'maintenance/master_trip_form.html'),
+    'DFR':             (MaintenanceDFRForm, 'maintenance/dfr_form.html'),
+    'PMU':             (MaintenanceDFRForm, 'maintenance/dfr_form.html'),
 }
 
 DEFAULT_TEMPLATE = 'maintenance/maintenance_form.html'
@@ -335,10 +336,17 @@ def maintenance_detail(request, pk):
             pass
 
     master_trip_detail = None
-    if device_type in ('MASTER TRIP', 'Master Trip', 'RELE DEFENSE SCHEME', 'DFR'):
+    if device_type in ('MASTER TRIP', 'Master Trip', 'RELE DEFENSE SCHEME'):
         try:
             master_trip_detail = maintenance.maintenancemastertrip
         except MaintenanceMasterTrip.DoesNotExist:
+            pass
+
+    dfr_detail = None
+    if device_type in ('DFR', 'PMU'):
+        try:
+            dfr_detail = maintenance.maintenancedfr
+        except MaintenanceDFR.DoesNotExist:
             pass
 
     # Checklist peralatan terpasang untuk template radio
@@ -610,6 +618,28 @@ def maintenance_detail(request, pk):
             }
             for n in range(1, 8)
         ]) if freq_relay_detail else [],
+        # DFR
+        'dfr_detail': dfr_detail,
+        'dfr_panel_checks': [
+            ('Isi Kartu Kontrol', dfr_detail.kartu_kontrol if dfr_detail else '', 'Terisi'),
+            ('Outdoor Panel',     dfr_detail.outdoor_panel  if dfr_detail else '', 'Bersih'),
+            ('Indoor Panel',      dfr_detail.indoor_panel   if dfr_detail else '', 'Bersih'),
+            ('Tergrounding',      dfr_detail.tergrounding   if dfr_detail else '', 'Ya'),
+        ] if dfr_detail else [],
+        'dfr_gps_checks': [
+            ('Koneksi GPS',   dfr_detail.kondisi_gps if dfr_detail else '', 'Terhubung'),
+            ('LCD & Keypad',  dfr_detail.kondisi_lcd if dfr_detail else '', 'Normal'),
+            ('Waktu DFR',     dfr_detail.waktu_dfr   if dfr_detail else '', 'Sesuai'),
+        ] if dfr_detail else [],
+        'dfr_dfr_checks': [
+            ('DFR Aktif',       dfr_detail.dfr_aktif      if dfr_detail else '', 'Ya'),
+            ('Fisik & Alarm',   dfr_detail.fisik_alarm    if dfr_detail else '', 'Baik'),
+            ('Fungsi Rekaman',  dfr_detail.fungsi_rekaman if dfr_detail else '', 'Normal'),
+        ] if dfr_detail else [],
+        'dfr_v_checks': [
+            ('Software/Config',   dfr_detail.software_config  if dfr_detail else '', 'Terdownload'),
+            ('Rekaman Gangguan',  dfr_detail.rekaman_gangguan if dfr_detail else '', 'Terdownload'),
+        ] if dfr_detail else [],
         # Master Trip
         'master_trip_detail': master_trip_detail,
         'mt_pos_rows': ([
@@ -688,6 +718,8 @@ def maintenance_edit(request, pk):
                 detail_instance = maintenance.maintenanceups
             elif detail_form_class.__name__ == 'MaintenanceMasterTripForm':
                 detail_instance = maintenance.maintenancemastertrip
+            elif detail_form_class.__name__ == 'MaintenanceDFRForm':
+                detail_instance = maintenance.maintenancedfr
         except Exception:
             pass
 

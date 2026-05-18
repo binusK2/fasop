@@ -1,5 +1,5 @@
 from django import forms
-from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset, MaintenanceRTU, MaintenanceSAS, MaintenanceRoIP, MaintenanceUPS, MaintenanceMasterTrip
+from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset, MaintenanceRTU, MaintenanceSAS, MaintenanceRoIP, MaintenanceUPS, MaintenanceMasterTrip, MaintenanceDFR
 
 
 # ─── Widget helpers ───────────────────────────────────────────────────
@@ -804,4 +804,59 @@ class MaintenanceMasterTripForm(forms.ModelForm):
             'dev6_nama': _MT_TXT, 'dev6_gi': _MT_TXT, 'dev6_ready': _MT_SEL, 'dev6_comm': _MT_SEL,
             # Catatan
             'supply_dc': _MT_TXT, 'selektor': _MT_TXT, 'catatan': _MT_TA,
+        }
+
+
+_DFR_TXT = forms.TextInput(attrs={'class': 'form-control form-control-sm'})
+_DFR_SEL = forms.Select(attrs={'class': 'form-select form-select-sm'})
+_DFR_TA  = forms.Textarea(attrs={'class': 'form-control', 'rows': 3})
+
+
+class MaintenanceDFRForm(forms.ModelForm):
+    class Meta:
+        model   = MaintenanceDFR
+        exclude = ['maintenance']
+        widgets = {
+            # Header
+            'bay_feeder_1': _DFR_TXT, 'bay_feeder_2': _DFR_TXT,
+            'rasio_ct_1':   _DFR_TXT, 'rasio_ct_2':   _DFR_TXT,
+            'rasio_pt_1':   _DFR_TXT, 'rasio_pt_2':   _DFR_TXT,
+            'suhu_ruangan': _DFR_TXT, 'kelembaban':   _DFR_TXT,
+            # Section I
+            'kartu_kontrol': _DFR_SEL, 'outdoor_panel': _DFR_SEL,
+            'indoor_panel':  _DFR_SEL, 'tergrounding':  _DFR_SEL,
+            'type_dfr': _DFR_TXT, 'sn_dfr': _DFR_TXT, 'merk_dfr': _DFR_TXT,
+            # Section II
+            'kondisi_gps': _DFR_SEL, 'kondisi_lcd': _DFR_SEL, 'waktu_dfr': _DFR_SEL,
+            # Section III
+            'dfr_aktif': _DFR_SEL, 'fisik_alarm': _DFR_SEL, 'fungsi_rekaman': _DFR_SEL,
+            # Section IV
+            'visual_5r': _DFR_SEL,
+            'front_port_ip': _DFR_TXT, 'rear_port_ip': _DFR_TXT,
+            'fo_tx': _DFR_SEL, 'fo_rx': _DFR_SEL,
+            'conv_tx': _DFR_SEL, 'conv_rx': _DFR_SEL,
+            'lan_tx': _DFR_SEL, 'lan_rx': _DFR_SEL,
+            'ping_server_1': _DFR_TXT, 'ping_server_2': _DFR_TXT, 'ping_server_status': _DFR_SEL,
+            'ping_dfr_1':    _DFR_TXT, 'ping_dfr_2':    _DFR_TXT, 'ping_dfr_status':    _DFR_SEL,
+            # Section V
+            'software_config': _DFR_SEL, 'rekaman_gangguan': _DFR_SEL,
+            'v_input_power': _DFR_TXT, 'v_backup': _DFR_TXT,
+            'kapasitas_memory': _DFR_TXT, 'pmu_id': _DFR_TXT,
+            'catatan_khusus': _DFR_TA,
+            # Bay 1 DFR
+            'bay1_dfr_v_r': _DFR_TXT, 'bay1_dfr_v_s': _DFR_TXT, 'bay1_dfr_v_t': _DFR_TXT, 'bay1_dfr_v_n': _DFR_TXT,
+            'bay1_dfr_i_r': _DFR_TXT, 'bay1_dfr_i_s': _DFR_TXT, 'bay1_dfr_i_t': _DFR_TXT, 'bay1_dfr_i_n': _DFR_TXT,
+            'bay1_dfr_hz':  _DFR_TXT,
+            # Bay 1 IED
+            'bay1_ied_v_r': _DFR_TXT, 'bay1_ied_v_s': _DFR_TXT, 'bay1_ied_v_t': _DFR_TXT, 'bay1_ied_v_n': _DFR_TXT,
+            'bay1_ied_i_r': _DFR_TXT, 'bay1_ied_i_s': _DFR_TXT, 'bay1_ied_i_t': _DFR_TXT, 'bay1_ied_i_n': _DFR_TXT,
+            'bay1_ied_hz':  _DFR_TXT,
+            # Bay 2 DFR
+            'bay2_dfr_v_r': _DFR_TXT, 'bay2_dfr_v_s': _DFR_TXT, 'bay2_dfr_v_t': _DFR_TXT, 'bay2_dfr_v_n': _DFR_TXT,
+            'bay2_dfr_i_r': _DFR_TXT, 'bay2_dfr_i_s': _DFR_TXT, 'bay2_dfr_i_t': _DFR_TXT, 'bay2_dfr_i_n': _DFR_TXT,
+            'bay2_dfr_hz':  _DFR_TXT,
+            # Bay 2 IED
+            'bay2_ied_v_r': _DFR_TXT, 'bay2_ied_v_s': _DFR_TXT, 'bay2_ied_v_t': _DFR_TXT, 'bay2_ied_v_n': _DFR_TXT,
+            'bay2_ied_i_r': _DFR_TXT, 'bay2_ied_i_s': _DFR_TXT, 'bay2_ied_i_t': _DFR_TXT, 'bay2_ied_i_n': _DFR_TXT,
+            'bay2_ied_hz':  _DFR_TXT,
         }
