@@ -99,7 +99,7 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        qs = Device.objects.filter(is_deleted=False, host__isnull=True).select_related('jenis', 'lokasi')
+        qs = Device.objects.filter(is_deleted=False, host__isnull=True).select_related('jenis')
 
         if options['jenis']:
             qs = qs.filter(jenis__name__in=options['jenis'])
