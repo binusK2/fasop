@@ -17,6 +17,7 @@ from django.utils import timezone as dj_timezone
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from datetime import date
+from auditlog.utils import log_action as _audit
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -166,6 +167,10 @@ def maintenance_create(request, device_id):
                 detail.maintenance = maintenance
                 detail.save()
 
+            _audit(request, 'create', 'maintenance', 'Maintenance',
+                   maintenance.pk,
+                   f'{device.nama} — {maintenance.date}',
+                   f'{maintenance.maintenance_type} | Status: {maintenance.status}')
             return redirect('maintenance_list')
     else:
         mform = MaintenanceForm()
@@ -217,6 +222,10 @@ def maintenance_update_status(request, pk):
                 )
             except Exception:
                 pass
+        _audit(request, 'status', 'maintenance', 'Maintenance',
+               maintenance.pk,
+               f'{maintenance.device.nama} — {maintenance.date}',
+               f'Status: {old_status} → {maintenance.status}')
     return redirect('maintenance_list')
 
 
@@ -658,6 +667,10 @@ def maintenance_edit(request, pk):
                 detail = dform.save(commit=False)
                 detail.maintenance = maintenance
                 detail.save()
+            _audit(request, 'update', 'maintenance', 'Maintenance',
+                   maintenance.pk,
+                   f'{device.nama} — {maintenance.date}',
+                   f'{maintenance.maintenance_type}')
             return redirect('maintenance_view', pk=pk)
     else:
         mform = MaintenanceForm(instance=maintenance)
@@ -689,6 +702,10 @@ def maintenance_edit(request, pk):
 @require_can_delete
 def maintenance_delete(request, pk):
     maintenance = get_object_or_404(Maintenance, pk=pk)
+    _audit(request, 'delete', 'maintenance', 'Maintenance',
+           maintenance.pk,
+           f'{maintenance.device.nama} — {maintenance.date}',
+           f'{maintenance.maintenance_type}')
     maintenance.delete()
     return redirect('maintenance_list')
 
@@ -1980,6 +1997,10 @@ def maintenance_sign(request, pk):
         maintenance.save(update_fields=['signed_by', 'signed_at', 'catatan_am'])
         from django.contrib import messages
         messages.success(request, 'Laporan berhasil ditandatangani.')
+        _audit(request, 'sign', 'maintenance', 'Maintenance',
+               maintenance.pk,
+               f'{maintenance.device.nama} — {maintenance.date}',
+               f'TTD AM: {request.user.get_full_name() or request.user.username}')
 
     return redirect('maintenance_view', pk=pk)
 
@@ -2004,6 +2025,10 @@ def maintenance_catatan_am_edit(request, pk):
         maintenance.save(update_fields=['catatan_am'])
         from django.contrib import messages
         messages.success(request, 'Catatan berhasil diperbarui.')
+        _audit(request, 'update', 'maintenance', 'Catatan AM',
+               maintenance.pk,
+               f'{maintenance.device.nama} — {maintenance.date}',
+               'Edit catatan AM setelah TTD')
 
     return redirect('maintenance_view', pk=pk)
 

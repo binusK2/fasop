@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     'common_enemy',
     'dokumentasi',
     'scada_av',
+    'auditlog',
 ]
 
 MIDDLEWARE = [

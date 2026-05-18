@@ -3,6 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db.models import Q, Sum
 from django.http import JsonResponse
+from auditlog.utils import log_action as _audit
 from datetime import date
 
 from .models import AlatUji, Sparepart, MutasiSparepart
@@ -97,6 +98,8 @@ def alat_create(request):
                 alat.foto = request.FILES['foto']
             alat.save()
             messages.success(request, f'Alat "{alat.nama}" berhasil ditambahkan.')
+            _audit(request, 'create', 'gudang', 'Alat Uji', alat.pk, alat.nama,
+                   f'Kategori: {alat.kategori} | Kondisi: {alat.kondisi}')
             return redirect('gudang:alat_detail', pk=alat.pk)
         except Exception as e:
             messages.error(request, f'Gagal menyimpan: {e}')
@@ -131,6 +134,8 @@ def alat_edit(request, pk):
                 alat.foto = request.FILES['foto']
             alat.save()
             messages.success(request, f'Alat "{alat.nama}" berhasil diperbarui.')
+            _audit(request, 'update', 'gudang', 'Alat Uji', alat.pk, alat.nama,
+                   f'Kondisi: {alat.kondisi}')
             return redirect('gudang:alat_detail', pk=alat.pk)
         except Exception as e:
             messages.error(request, f'Gagal menyimpan: {e}')
@@ -150,6 +155,7 @@ def alat_delete(request, pk):
     alat.is_deleted = True
     alat.save()
     messages.success(request, f'Alat "{alat.nama}" dihapus.')
+    _audit(request, 'delete', 'gudang', 'Alat Uji', alat.pk, alat.nama, '')
     return redirect('gudang:alat_list')
 
 
@@ -255,6 +261,9 @@ def sparepart_create(request):
                 )
 
             messages.success(request, f'Spare part "{sp.nama}" berhasil ditambahkan.')
+            _audit(request, 'create', 'gudang', 'Material/Spare Part',
+                   sp.pk, sp.nama,
+                   f'Tipe: {sp.tipe_item} | Branch: {sp.branch}')
             return redirect('gudang:sparepart_detail', pk=sp.pk)
         except Exception as e:
             messages.error(request, f'Gagal menyimpan: {e}')
@@ -294,6 +303,9 @@ def sparepart_edit(request, pk):
                 sp.foto = request.FILES['foto']
             sp.save()
             messages.success(request, f'Spare part "{sp.nama}" berhasil diperbarui.')
+            _audit(request, 'update', 'gudang', 'Material/Spare Part',
+                   sp.pk, sp.nama,
+                   f'Tipe: {sp.tipe_item} | Branch: {sp.branch}')
             return redirect('gudang:sparepart_detail', pk=sp.pk)
         except Exception as e:
             messages.error(request, f'Gagal menyimpan: {e}')
@@ -317,6 +329,7 @@ def sparepart_delete(request, pk):
     sp.is_deleted = True
     sp.save()
     messages.success(request, f'Spare part "{sp.nama}" dihapus.')
+    _audit(request, 'delete', 'gudang', 'Material/Spare Part', sp.pk, sp.nama, '')
     return redirect('gudang:sparepart_list')
 
 
@@ -361,6 +374,9 @@ def mutasi_create(request, pk):
 
         label = 'masuk' if tipe == 'masuk' else 'keluar'
         messages.success(request, f'Mutasi {label} {jumlah} {sp.satuan} berhasil dicatat.')
+        _audit(request, 'mutasi', 'gudang', 'Mutasi Spare Part',
+               sp.pk, sp.nama,
+               f'{tipe.title()} {jumlah} {sp.satuan} — {keperluan}')
         return redirect('gudang:sparepart_detail', pk=pk)
 
     # GET — ambil data untuk dropdown gangguan & maintenance
