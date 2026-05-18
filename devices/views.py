@@ -649,7 +649,7 @@ def dashboard(request):
         if not _br_lokasi:
             branch_stats.append({
                 'branch': br, 'total': 0, 'operasi': 0,
-                'pm_done': 0, 'pm_total': 0, 'pm_pct': 0,
+                'pm_done': 0, 'pm_pct': 0, 'by_jenis': [],
             })
             continue
         _br_qs = Device.objects.filter(
@@ -662,13 +662,20 @@ def dashboard(request):
             date__year=today.year, date__month=today.month,
         ).values('device_id').distinct().count()
         _br_pm_pct  = round(_br_pm_done / _br_total * 100) if _br_total else 0
+
+        by_jenis = list(
+            _br_qs.values('jenis__name')
+            .annotate(count=Count('id'))
+            .order_by('-count')
+        )
+
         branch_stats.append({
             'branch':   br,
             'total':    _br_total,
             'operasi':  _br_operasi,
             'pm_done':  _br_pm_done,
-            'pm_total': _br_total,
             'pm_pct':   _br_pm_pct,
+            'by_jenis': by_jenis,
         })
 
     # ── Notifikasi terbaru belum dibaca ───────────────────────────
