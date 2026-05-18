@@ -1065,7 +1065,7 @@ BULAN_ID = ['Januari','Februari','Maret','April','Mei','Juni',
 BA_GRUP_MAP = {
     'TELEKOMUNIKASI': [
         'Router','Switch','Radio','VoIP','Multiplexer','PLC','Teleproteksi','RoIP',
-        'Server Telkom','Master Clock','PABX','Catu Daya',
+        'Server Telkom','PABX','Catu Daya',
     ],
     'SCADA': [
         'RTU','SAS','Server SCADA','UPS','IED BCU','Clock Server',
