@@ -677,6 +677,7 @@ def dashboard(request):
             'pm_pct':   _br_pm_pct,
             'by_jenis': by_jenis,
         })
+    branch_stats.sort(key=lambda x: x['total'], reverse=True)
 
     # ── Notifikasi terbaru belum dibaca ───────────────────────────
     try:

@@ -484,7 +484,7 @@
     <i class="bi bi-diagram-2" style="color:#3b82f6;"></i> Distribusi Peralatan per Branch
 </div>
 <div class="row g-3 mb-4">
-    {% for bs in branch_stats %}
+    {% for bs in branch_stats|slice:":10" %}
     <div class="col-xl-3 col-md-6">
         <div class="stat-card" style="border-left:3px solid #3b82f6;flex-direction:column;align-items:stretch;gap:0;padding:0;overflow:hidden;">
 
