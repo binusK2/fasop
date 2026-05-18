@@ -6,12 +6,14 @@ from django.utils import timezone
 # - SAS peripheral (form-nya bergabung dalam form SAS)
 # - VM SCADA (bukan aset fisik mandiri)
 # - HT dan Peripheral Telkom (tidak masuk jadwal HAR)
+# - Master Clock (tidak masuk lingkup pemeliharaan rutin)
 JADWAL_EXCLUDED_JENIS = {
     'IED BCU', 'CLOCK SERVER', 'SERIAL SERVER',
     'ROUTER SAS', 'SWITCH SAS', 'INVERTER SAS',
     'VM SCADA',
     'HT', 'PHERIPERAL TELKOM', 'PERIPHERAL TELKOM',
     'GPS', 'MICROWAVE', 'TOWER',
+    'MASTER CLOCK',
 }
 
 

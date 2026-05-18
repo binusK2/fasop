@@ -1,0 +1,367 @@
+{% extends 'base.html' %}
+{% block title %}{% if is_edit %}Edit{% else %}Form{% endif %} Maintenance Master Trip — {{ device.nama }}{% endblock %}
+{% block page_title %}Form Pemeliharaan Master Trip / Rele Defense Scheme{% endblock %}
+
+{% block content %}
+
+<div class="d-flex align-items-center gap-2 mb-3">
+    {% if is_edit %}
+    <a href="{% url 'maintenance_view' maintenance.id %}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Kembali ke Detail
+    </a>
+    {% else %}
+    <a href="{% url 'device_view' device.id %}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Kembali ke Perangkat
+    </a>
+    {% endif %}
+</div>
+
+{% include 'maintenance/_device_banner.html' with banner_icon='bi-shield-fill-exclamation' banner_icon_color='#fca5a5' banner_icon_bg='rgba(239,68,68,0.15)' %}
+
+<form method="post" enctype="multipart/form-data" id="mt-form"
+    {% if is_edit %}action="{% url 'maintenance_edit' maintenance.id %}"{% endif %}>
+{% csrf_token %}
+
+<!-- ══ 1. INFORMASI MAINTENANCE ══════════════════════════════ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-title-bar">
+            <span class="bar" style="background:#3b82f6;"></span>
+            <span>Informasi Maintenance</span>
+        </div>
+        <div class="row g-3 align-items-start">
+            <div class="col-md-2">
+                <label class="form-label fw-semibold">Jenis Maintenance</label>
+                <div style="display:flex;align-items:center;gap:6px;background:#eff6ff;color:#1d4ed8;border:1.5px solid #bfdbfe;border-radius:8px;padding:8px 12px;font-size:13px;font-weight:700;">
+                    <i class="bi bi-shield-check" style="font-size:14px;"></i> Preventive
+                </div>
+                <input type="hidden" name="maintenance_type" value="Preventive">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-semibold">Tanggal</label>
+                {{ maintenance_form.date }}
+            </div>
+            {% include 'maintenance/_pelaksana_tag_input.html' %}
+        </div>
+        <div class="row g-3 mt-1">
+            <div class="col-md-8">
+                <label class="form-label fw-semibold">Deskripsi / Keluhan</label>
+                {{ maintenance_form.description }}
+            </div>
+            <div class="col-md-4">
+                <label class="form-label fw-semibold">Foto Dokumentasi</label>
+                {{ maintenance_form.photo }}
+                <div class="form-text">Format: JPG, PNG. Maks 10MB.</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ 2. VISUAL INSPECTION & INFO RELAY ══════════════════════ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-title-bar">
+            <span class="bar" style="background:#10b981;"></span>
+            <span>Visual Inspection &amp; Info Relay</span>
+        </div>
+        <div class="row g-3">
+            <!-- Visual Inspection box -->
+            <div class="col-md-3">
+                <div style="background:#f0fdf4;border:1px solid #a7f3d0;border-radius:10px;padding:14px;">
+                    <div style="font-size:11px;font-weight:700;color:#065f46;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">
+                        <i class="bi bi-eye me-1"></i>Visual Inspection
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label mb-1" style="font-size:12px;font-weight:600;">Healthy</label>
+                        {{ detail_form.healthy }}
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label mb-1" style="font-size:12px;font-weight:600;">Trip LED</label>
+                        {{ detail_form.trip_led }}
+                    </div>
+                    <div>
+                        <label class="form-label mb-1" style="font-size:12px;font-weight:600;">Alarm</label>
+                        {{ detail_form.alarm }}
+                    </div>
+                </div>
+            </div>
+            <!-- Info Relay -->
+            <div class="col-md-9">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Merek</label>
+                        {{ detail_form.merek }}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">No. Seri</label>
+                        {{ detail_form.no_seri }}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Rasio CT</label>
+                        {{ detail_form.rasio_ct }}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Target (Trafo / Penyulang)</label>
+                        {{ detail_form.target }}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Fungsi * <small class="text-muted">(OLS / OGS / UPLS)</small></label>
+                        {{ detail_form.fungsi }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ 3. MEASUREMENT ═══════════════════════════════════════ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-title-bar">
+            <span class="bar" style="background:#6366f1;"></span>
+            <span>Measurement Arus &amp; Tegangan</span>
+        </div>
+        <div class="row g-3">
+            <div class="col-md-6">
+                <table class="table table-sm table-bordered align-middle mb-0" style="font-size:12px;">
+                    <thead style="background:#eff6ff;font-size:11px;">
+                        <tr><th>Parameter</th><th>Nilai Ukur</th><th>Satuan</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td class="fw-semibold text-muted">I A</td><td>{{ detail_form.i_a }}</td><td class="text-muted">A</td></tr>
+                        <tr style="background:#f8fafc;"><td class="fw-semibold text-muted">I B</td><td>{{ detail_form.i_b }}</td><td class="text-muted">A</td></tr>
+                        <tr><td class="fw-semibold text-muted">I C</td><td>{{ detail_form.i_c }}</td><td class="text-muted">A</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="col-md-6">
+                <table class="table table-sm table-bordered align-middle mb-0" style="font-size:12px;">
+                    <thead style="background:#eff6ff;font-size:11px;">
+                        <tr><th>Parameter</th><th>Nilai Ukur</th><th>Satuan</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td class="fw-semibold text-muted">V A</td><td>{{ detail_form.v_a }}</td><td class="text-muted">kV</td></tr>
+                        <tr style="background:#f8fafc;"><td class="fw-semibold text-muted">V B</td><td>{{ detail_form.v_b }}</td><td class="text-muted">kV</td></tr>
+                        <tr><td class="fw-semibold text-muted">V C</td><td>{{ detail_form.v_c }}</td><td class="text-muted">kV</td></tr>
+                        <tr style="background:#f8fafc;"><td class="fw-semibold text-muted">Frekuensi</td><td>{{ detail_form.frekuensi }}</td><td class="text-muted">Hz</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ 4. SETTING RELAY ══════════════════════════════════════ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-title-bar">
+            <span class="bar" style="background:#f59e0b;"></span>
+            <span>Setting Relay</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm table-bordered align-middle mb-0" style="font-size:12px;">
+                <thead style="background:#fffbeb;font-size:11px;">
+                    <tr>
+                        <th style="width:25%;">Parameter</th>
+                        <th style="width:30%;">Setting (A / kV)</th>
+                        <th style="width:30%;">Waktu (s)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="fw-semibold text-muted">I &gt;</td>
+                        <td>{{ detail_form.setting_i }}</td>
+                        <td>{{ detail_form.waktu_i }}</td>
+                    </tr>
+                    <tr style="background:#f8fafc;">
+                        <td class="fw-semibold text-muted">I &gt;&gt;</td>
+                        <td>{{ detail_form.setting_ii }}</td>
+                        <td>{{ detail_form.waktu_ii }}</td>
+                    </tr>
+                    <tr>
+                        <td class="fw-semibold text-muted">Under Power</td>
+                        <td>{{ detail_form.under_power }}</td>
+                        <td>{{ detail_form.waktu_under }}</td>
+                    </tr>
+                    <tr style="background:#f8fafc;">
+                        <td class="fw-semibold text-muted">Over Power</td>
+                        <td>{{ detail_form.over_power }}</td>
+                        <td>{{ detail_form.waktu_over }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ══ 5. COMMON RL ══════════════════════════════════════════ -->
+<div class="row g-3 mb-3">
+    <!-- Common Positif RL -->
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-body px-4 py-3">
+                <div class="section-title-bar">
+                    <span class="bar" style="background:#1d4ed8;"></span>
+                    <span>Common Positif RL (Belakang RELE)</span>
+                </div>
+                <table class="table table-sm table-bordered align-middle mb-0" style="font-size:11px;">
+                    <thead style="background:#dbeafe;font-size:10px;text-align:center;">
+                        <tr>
+                            <th>RL/DO</th>
+                            <th>= VDC</th>
+                            <th>Pin</th>
+                            <th>Tahap VDC</th>
+                            <th>Pin</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for i in "123456" %}{% with n=forloop.counter %}
+                        <tr {% if forloop.even %}style="background:#f8fafc;"{% endif %}>
+                            <td style="background:#eff6ff;">{% if n == 1 %}{{ detail_form.p1_rl }}{% elif n == 2 %}{{ detail_form.p2_rl }}{% elif n == 3 %}{{ detail_form.p3_rl }}{% elif n == 4 %}{{ detail_form.p4_rl }}{% elif n == 5 %}{{ detail_form.p5_rl }}{% else %}{{ detail_form.p6_rl }}{% endif %}</td>
+                            <td>{% if n == 1 %}{{ detail_form.p1_vdc }}{% elif n == 2 %}{{ detail_form.p2_vdc }}{% elif n == 3 %}{{ detail_form.p3_vdc }}{% elif n == 4 %}{{ detail_form.p4_vdc }}{% elif n == 5 %}{{ detail_form.p5_vdc }}{% else %}{{ detail_form.p6_vdc }}{% endif %}</td>
+                            <td>{% if n == 1 %}{{ detail_form.p1_pin }}{% elif n == 2 %}{{ detail_form.p2_pin }}{% elif n == 3 %}{{ detail_form.p3_pin }}{% elif n == 4 %}{{ detail_form.p4_pin }}{% elif n == 5 %}{{ detail_form.p5_pin }}{% else %}{{ detail_form.p6_pin }}{% endif %}</td>
+                            <td>{% if n == 1 %}{{ detail_form.p1_tahap_vdc }}{% elif n == 2 %}{{ detail_form.p2_tahap_vdc }}{% elif n == 3 %}{{ detail_form.p3_tahap_vdc }}{% elif n == 4 %}{{ detail_form.p4_tahap_vdc }}{% elif n == 5 %}{{ detail_form.p5_tahap_vdc }}{% else %}{{ detail_form.p6_tahap_vdc }}{% endif %}</td>
+                            <td>{% if n == 1 %}{{ detail_form.p1_tahap_pin }}{% elif n == 2 %}{{ detail_form.p2_tahap_pin }}{% elif n == 3 %}{{ detail_form.p3_tahap_pin }}{% elif n == 4 %}{{ detail_form.p4_tahap_pin }}{% elif n == 5 %}{{ detail_form.p5_tahap_pin }}{% else %}{{ detail_form.p6_tahap_pin }}{% endif %}</td>
+                        </tr>
+                        {% endwith %}{% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <!-- Common Negatif RL -->
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-body px-4 py-3">
+                <div class="section-title-bar">
+                    <span class="bar" style="background:#065f46;"></span>
+                    <span>Common Negatif RL (Selektor Switch)</span>
+                </div>
+                <table class="table table-sm table-bordered align-middle mb-0" style="font-size:11px;">
+                    <thead style="background:#d1fae5;font-size:10px;text-align:center;">
+                        <tr>
+                            <th>RL/DO</th>
+                            <th>= VDC</th>
+                            <th>Pin</th>
+                            <th>Tahap VDC</th>
+                            <th>Pin</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td style="background:#f0fdf4;">{{ detail_form.n1_rl }}</td><td>{{ detail_form.n1_vdc }}</td><td>{{ detail_form.n1_pin }}</td><td>{{ detail_form.n1_tahap_vdc }}</td><td>{{ detail_form.n1_tahap_pin }}</td></tr>
+                        <tr style="background:#f8fafc;"><td style="background:#f0fdf4;">{{ detail_form.n2_rl }}</td><td>{{ detail_form.n2_vdc }}</td><td>{{ detail_form.n2_pin }}</td><td>{{ detail_form.n2_tahap_vdc }}</td><td>{{ detail_form.n2_tahap_pin }}</td></tr>
+                        <tr><td style="background:#f0fdf4;">{{ detail_form.n3_rl }}</td><td>{{ detail_form.n3_vdc }}</td><td>{{ detail_form.n3_pin }}</td><td>{{ detail_form.n3_tahap_vdc }}</td><td>{{ detail_form.n3_tahap_pin }}</td></tr>
+                        <tr style="background:#f8fafc;"><td style="background:#f0fdf4;">{{ detail_form.n4_rl }}</td><td>{{ detail_form.n4_vdc }}</td><td>{{ detail_form.n4_pin }}</td><td>{{ detail_form.n4_tahap_vdc }}</td><td>{{ detail_form.n4_tahap_pin }}</td></tr>
+                        <tr><td style="background:#f0fdf4;">{{ detail_form.n5_rl }}</td><td>{{ detail_form.n5_vdc }}</td><td>{{ detail_form.n5_pin }}</td><td>{{ detail_form.n5_tahap_vdc }}</td><td>{{ detail_form.n5_tahap_pin }}</td></tr>
+                        <tr style="background:#f8fafc;"><td style="background:#f0fdf4;">{{ detail_form.n6_rl }}</td><td>{{ detail_form.n6_vdc }}</td><td>{{ detail_form.n6_pin }}</td><td>{{ detail_form.n6_tahap_vdc }}</td><td>{{ detail_form.n6_tahap_pin }}</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ 6. AUX RL/BO + STATUS KESIAPAN ════════════════════════ -->
+<div class="row g-3 mb-3">
+    <!-- AUX RL/BO -->
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body px-4 py-3">
+                <div class="section-title-bar">
+                    <span class="bar" style="background:#8b5cf6;"></span>
+                    <span>Setting AUX RL/BO</span>
+                </div>
+                <table class="table table-sm table-bordered align-middle mb-0" style="font-size:11px;">
+                    <thead style="background:#f5f3ff;font-size:10px;text-align:center;">
+                        <tr><th>RL/DO</th><th>TF</th><th>LED</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td style="background:#ede9fe;">{{ detail_form.aux1_rl }}</td><td>{{ detail_form.aux1_tf }}</td><td>{{ detail_form.aux1_led }}</td></tr>
+                        <tr style="background:#faf5ff;"><td style="background:#ede9fe;">{{ detail_form.aux2_rl }}</td><td>{{ detail_form.aux2_tf }}</td><td>{{ detail_form.aux2_led }}</td></tr>
+                        <tr><td style="background:#ede9fe;">{{ detail_form.aux3_rl }}</td><td>{{ detail_form.aux3_tf }}</td><td>{{ detail_form.aux3_led }}</td></tr>
+                        <tr style="background:#faf5ff;"><td style="background:#ede9fe;">{{ detail_form.aux4_rl }}</td><td>{{ detail_form.aux4_tf }}</td><td>{{ detail_form.aux4_led }}</td></tr>
+                        <tr><td style="background:#ede9fe;">{{ detail_form.aux5_rl }}</td><td>{{ detail_form.aux5_tf }}</td><td>{{ detail_form.aux5_led }}</td></tr>
+                        <tr style="background:#faf5ff;"><td style="background:#ede9fe;">{{ detail_form.aux6_rl }}</td><td>{{ detail_form.aux6_tf }}</td><td>{{ detail_form.aux6_led }}</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <!-- Status Kesiapan -->
+    <div class="col-md-8">
+        <div class="card h-100">
+            <div class="card-body px-4 py-3">
+                <div class="section-title-bar">
+                    <span class="bar" style="background:#ef4444;"></span>
+                    <span>Status Kesiapan Device &amp; Sinyal Trip pada Target</span>
+                </div>
+                <table class="table table-sm table-bordered align-middle mb-0" style="font-size:11px;">
+                    <thead style="background:#fee2e2;font-size:10px;text-align:center;">
+                        <tr>
+                            <th style="text-align:left;">Device (MT/RELE)</th>
+                            <th>GI / Bay</th>
+                            <th>READY/NOT</th>
+                            <th>TEST COMM</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>{{ detail_form.dev1_nama }}</td><td>{{ detail_form.dev1_gi }}</td><td style="text-align:center;">{{ detail_form.dev1_ready }}</td><td style="text-align:center;">{{ detail_form.dev1_comm }}</td></tr>
+                        <tr style="background:#f8fafc;"><td>{{ detail_form.dev2_nama }}</td><td>{{ detail_form.dev2_gi }}</td><td style="text-align:center;">{{ detail_form.dev2_ready }}</td><td style="text-align:center;">{{ detail_form.dev2_comm }}</td></tr>
+                        <tr><td>{{ detail_form.dev3_nama }}</td><td>{{ detail_form.dev3_gi }}</td><td style="text-align:center;">{{ detail_form.dev3_ready }}</td><td style="text-align:center;">{{ detail_form.dev3_comm }}</td></tr>
+                        <tr style="background:#f8fafc;"><td>{{ detail_form.dev4_nama }}</td><td>{{ detail_form.dev4_gi }}</td><td style="text-align:center;">{{ detail_form.dev4_ready }}</td><td style="text-align:center;">{{ detail_form.dev4_comm }}</td></tr>
+                        <tr><td>{{ detail_form.dev5_nama }}</td><td>{{ detail_form.dev5_gi }}</td><td style="text-align:center;">{{ detail_form.dev5_ready }}</td><td style="text-align:center;">{{ detail_form.dev5_comm }}</td></tr>
+                        <tr style="background:#f8fafc;"><td>{{ detail_form.dev6_nama }}</td><td>{{ detail_form.dev6_gi }}</td><td style="text-align:center;">{{ detail_form.dev6_ready }}</td><td style="text-align:center;">{{ detail_form.dev6_comm }}</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ 7. CATATAN ════════════════════════════════════════════ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-title-bar">
+            <span class="bar" style="background:#64748b;"></span>
+            <span>Catatan / Saran Perbaikan</span>
+        </div>
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label fw-semibold">*Supply DC</label>
+                {{ detail_form.supply_dc }}
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-semibold">*Selektor</label>
+                {{ detail_form.selektor }}
+            </div>
+            <div class="col-md-6">
+                <label class="form-label fw-semibold">Catatan / Saran</label>
+                {{ detail_form.catatan }}
+            </div>
+        </div>
+        <p class="form-text mt-1" style="font-size:11px;">*) coret yang tidak perlu</p>
+    </div>
+</div>
+
+<!-- Submit -->
+<div class="d-flex justify-content-end gap-2 mb-4">
+    {% if is_edit %}
+    <a href="{% url 'maintenance_view' maintenance.id %}" class="btn btn-outline-secondary">Batal</a>
+    {% else %}
+    <a href="{% url 'device_view' device.id %}" class="btn btn-outline-secondary">Batal</a>
+    {% endif %}
+    <button type="submit" class="btn btn-primary px-4">
+        <i class="bi bi-floppy me-1"></i>
+        {% if is_edit %}Simpan Perubahan{% else %}Simpan Data Pemeliharaan{% endif %}
+    </button>
+</div>
+
+</form>
+
+<style>
+.section-title-bar { display:flex; align-items:center; gap:8px; margin-bottom:14px; }
+.section-title-bar .bar { width:4px; height:18px; border-radius:3px; flex-shrink:0; }
+.section-title-bar > span:last-child { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.6px; color:#475569; }
+</style>
+
+{% endblock %}

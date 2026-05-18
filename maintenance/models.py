@@ -1084,6 +1084,89 @@ class MaintenanceUPS(models.Model):
         verbose_name = 'Maintenance UPS'
 
 
+class MaintenanceMasterTrip(models.Model):
+
+    VI  = [('normal', 'Normal'), ('abnormal', 'Abnormal')]
+    RDY = [('READY', 'READY'), ('NOT', 'NOT')]
+    CMM = [('OK', 'OK'), ('NOT', 'NOT')]
+
+    maintenance = models.OneToOneField(
+        Maintenance, on_delete=models.CASCADE,
+        related_name='maintenancemastertrip',
+    )
+
+    # ── Visual Inspection ───────────────────────────────────────
+    healthy  = models.CharField(max_length=20, choices=VI, default='normal', blank=True)
+    trip_led = models.CharField(max_length=20, choices=VI, default='normal', blank=True, verbose_name='Trip LED')
+    alarm    = models.CharField(max_length=20, choices=VI, default='normal', blank=True)
+
+    # ── Info Relay ──────────────────────────────────────────────
+    merek    = models.CharField(max_length=100, blank=True)
+    no_seri  = models.CharField(max_length=100, blank=True, verbose_name='No. Seri')
+    target   = models.CharField(max_length=150, blank=True, verbose_name='Target (Trafo/Penyulang)')
+    fungsi   = models.CharField(max_length=100, blank=True, verbose_name='Fungsi')
+    rasio_ct = models.CharField(max_length=50,  blank=True, verbose_name='Rasio CT')
+
+    # ── Measurement ─────────────────────────────────────────────
+    i_a = models.CharField(max_length=20, blank=True, verbose_name='I A (A)')
+    i_b = models.CharField(max_length=20, blank=True, verbose_name='I B (A)')
+    i_c = models.CharField(max_length=20, blank=True, verbose_name='I C (A)')
+    v_a = models.CharField(max_length=20, blank=True, verbose_name='V A (kV)')
+    v_b = models.CharField(max_length=20, blank=True, verbose_name='V B (kV)')
+    v_c = models.CharField(max_length=20, blank=True, verbose_name='V C (kV)')
+    frekuensi = models.CharField(max_length=20, blank=True, verbose_name='Frekuensi (Hz)')
+
+    # ── Setting Relay ────────────────────────────────────────────
+    setting_i     = models.CharField(max_length=20, blank=True, verbose_name='I> (A)')
+    waktu_i       = models.CharField(max_length=20, blank=True, verbose_name='Waktu I> (s)')
+    setting_ii    = models.CharField(max_length=20, blank=True, verbose_name='I>> (A)')
+    waktu_ii      = models.CharField(max_length=20, blank=True, verbose_name='Waktu I>> (s)')
+    under_power   = models.CharField(max_length=20, blank=True, verbose_name='Under Power (kV)')
+    waktu_under   = models.CharField(max_length=20, blank=True, verbose_name='Waktu Under (s)')
+    over_power    = models.CharField(max_length=20, blank=True, verbose_name='Over Power (kV)')
+    waktu_over    = models.CharField(max_length=20, blank=True, verbose_name='Waktu Over (s)')
+
+    # ── Common Positif RL – Belakang RELE (6 baris) ─────────────
+    p1_rl = models.CharField(max_length=20, blank=True); p1_vdc = models.CharField(max_length=20, blank=True); p1_pin = models.CharField(max_length=20, blank=True); p1_tahap_vdc = models.CharField(max_length=20, blank=True); p1_tahap_pin = models.CharField(max_length=20, blank=True)
+    p2_rl = models.CharField(max_length=20, blank=True); p2_vdc = models.CharField(max_length=20, blank=True); p2_pin = models.CharField(max_length=20, blank=True); p2_tahap_vdc = models.CharField(max_length=20, blank=True); p2_tahap_pin = models.CharField(max_length=20, blank=True)
+    p3_rl = models.CharField(max_length=20, blank=True); p3_vdc = models.CharField(max_length=20, blank=True); p3_pin = models.CharField(max_length=20, blank=True); p3_tahap_vdc = models.CharField(max_length=20, blank=True); p3_tahap_pin = models.CharField(max_length=20, blank=True)
+    p4_rl = models.CharField(max_length=20, blank=True); p4_vdc = models.CharField(max_length=20, blank=True); p4_pin = models.CharField(max_length=20, blank=True); p4_tahap_vdc = models.CharField(max_length=20, blank=True); p4_tahap_pin = models.CharField(max_length=20, blank=True)
+    p5_rl = models.CharField(max_length=20, blank=True); p5_vdc = models.CharField(max_length=20, blank=True); p5_pin = models.CharField(max_length=20, blank=True); p5_tahap_vdc = models.CharField(max_length=20, blank=True); p5_tahap_pin = models.CharField(max_length=20, blank=True)
+    p6_rl = models.CharField(max_length=20, blank=True); p6_vdc = models.CharField(max_length=20, blank=True); p6_pin = models.CharField(max_length=20, blank=True); p6_tahap_vdc = models.CharField(max_length=20, blank=True); p6_tahap_pin = models.CharField(max_length=20, blank=True)
+
+    # ── Common Negatif RL – Selektor Switch (6 baris) ───────────
+    n1_rl = models.CharField(max_length=20, blank=True); n1_vdc = models.CharField(max_length=20, blank=True); n1_pin = models.CharField(max_length=20, blank=True); n1_tahap_vdc = models.CharField(max_length=20, blank=True); n1_tahap_pin = models.CharField(max_length=20, blank=True)
+    n2_rl = models.CharField(max_length=20, blank=True); n2_vdc = models.CharField(max_length=20, blank=True); n2_pin = models.CharField(max_length=20, blank=True); n2_tahap_vdc = models.CharField(max_length=20, blank=True); n2_tahap_pin = models.CharField(max_length=20, blank=True)
+    n3_rl = models.CharField(max_length=20, blank=True); n3_vdc = models.CharField(max_length=20, blank=True); n3_pin = models.CharField(max_length=20, blank=True); n3_tahap_vdc = models.CharField(max_length=20, blank=True); n3_tahap_pin = models.CharField(max_length=20, blank=True)
+    n4_rl = models.CharField(max_length=20, blank=True); n4_vdc = models.CharField(max_length=20, blank=True); n4_pin = models.CharField(max_length=20, blank=True); n4_tahap_vdc = models.CharField(max_length=20, blank=True); n4_tahap_pin = models.CharField(max_length=20, blank=True)
+    n5_rl = models.CharField(max_length=20, blank=True); n5_vdc = models.CharField(max_length=20, blank=True); n5_pin = models.CharField(max_length=20, blank=True); n5_tahap_vdc = models.CharField(max_length=20, blank=True); n5_tahap_pin = models.CharField(max_length=20, blank=True)
+    n6_rl = models.CharField(max_length=20, blank=True); n6_vdc = models.CharField(max_length=20, blank=True); n6_pin = models.CharField(max_length=20, blank=True); n6_tahap_vdc = models.CharField(max_length=20, blank=True); n6_tahap_pin = models.CharField(max_length=20, blank=True)
+
+    # ── Setting AUX RL/BO (6 baris) ─────────────────────────────
+    aux1_rl = models.CharField(max_length=30, blank=True); aux1_tf = models.CharField(max_length=30, blank=True); aux1_led = models.CharField(max_length=30, blank=True)
+    aux2_rl = models.CharField(max_length=30, blank=True); aux2_tf = models.CharField(max_length=30, blank=True); aux2_led = models.CharField(max_length=30, blank=True)
+    aux3_rl = models.CharField(max_length=30, blank=True); aux3_tf = models.CharField(max_length=30, blank=True); aux3_led = models.CharField(max_length=30, blank=True)
+    aux4_rl = models.CharField(max_length=30, blank=True); aux4_tf = models.CharField(max_length=30, blank=True); aux4_led = models.CharField(max_length=30, blank=True)
+    aux5_rl = models.CharField(max_length=30, blank=True); aux5_tf = models.CharField(max_length=30, blank=True); aux5_led = models.CharField(max_length=30, blank=True)
+    aux6_rl = models.CharField(max_length=30, blank=True); aux6_tf = models.CharField(max_length=30, blank=True); aux6_led = models.CharField(max_length=30, blank=True)
+
+    # ── Status Kesiapan & Test COMM – Target (6 device) ─────────
+    dev1_nama  = models.CharField(max_length=100, blank=True); dev1_gi = models.CharField(max_length=100, blank=True); dev1_ready = models.CharField(max_length=5, choices=RDY, default='READY', blank=True); dev1_comm = models.CharField(max_length=3, choices=CMM, default='OK', blank=True)
+    dev2_nama  = models.CharField(max_length=100, blank=True); dev2_gi = models.CharField(max_length=100, blank=True); dev2_ready = models.CharField(max_length=5, choices=RDY, default='READY', blank=True); dev2_comm = models.CharField(max_length=3, choices=CMM, default='OK', blank=True)
+    dev3_nama  = models.CharField(max_length=100, blank=True); dev3_gi = models.CharField(max_length=100, blank=True); dev3_ready = models.CharField(max_length=5, choices=RDY, default='READY', blank=True); dev3_comm = models.CharField(max_length=3, choices=CMM, default='OK', blank=True)
+    dev4_nama  = models.CharField(max_length=100, blank=True); dev4_gi = models.CharField(max_length=100, blank=True); dev4_ready = models.CharField(max_length=5, choices=RDY, default='READY', blank=True); dev4_comm = models.CharField(max_length=3, choices=CMM, default='OK', blank=True)
+    dev5_nama  = models.CharField(max_length=100, blank=True); dev5_gi = models.CharField(max_length=100, blank=True); dev5_ready = models.CharField(max_length=5, choices=RDY, default='READY', blank=True); dev5_comm = models.CharField(max_length=3, choices=CMM, default='OK', blank=True)
+    dev6_nama  = models.CharField(max_length=100, blank=True); dev6_gi = models.CharField(max_length=100, blank=True); dev6_ready = models.CharField(max_length=5, choices=RDY, default='READY', blank=True); dev6_comm = models.CharField(max_length=3, choices=CMM, default='OK', blank=True)
+
+    # ── Catatan ──────────────────────────────────────────────────
+    supply_dc = models.CharField(max_length=50, blank=True, verbose_name='*Supply DC')
+    selektor  = models.CharField(max_length=50, blank=True, verbose_name='*Selektor')
+    catatan   = models.TextField(blank=True, verbose_name='Catatan / Saran Perbaikan')
+
+    class Meta:
+        verbose_name = 'Maintenance Master Trip'
+
+
 # ─────────────────────────────────────────────────────────────
 # BERITA ACARA RECORD (histori BA yang sudah dibuat)
 # ─────────────────────────────────────────────────────────────

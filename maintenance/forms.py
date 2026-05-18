@@ -1,5 +1,5 @@
 from django import forms
-from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset, MaintenanceRTU, MaintenanceSAS, MaintenanceRoIP, MaintenanceUPS
+from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset, MaintenanceRTU, MaintenanceSAS, MaintenanceRoIP, MaintenanceUPS, MaintenanceMasterTrip
 
 
 # ─── Widget helpers ───────────────────────────────────────────────────
@@ -751,4 +751,56 @@ class MaintenanceFrequencyRelayForm(forms.ModelForm):
             'supply_dc': _FR_TXT,
             'selektor':  _FR_TXT,
             'catatan':   forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        }
+
+
+class MaintenanceMasterTripForm(forms.ModelForm):
+    _T  = forms.widgets.TextInput(attrs={'class': 'form-control form-control-sm'})
+    _S  = forms.widgets.Select(attrs={'class': 'form-select form-select-sm'})
+    _TA = forms.Textarea(attrs={'class': 'form-control', 'rows': 3})
+
+    class Meta:
+        model   = MaintenanceMasterTrip
+        exclude = ['maintenance']
+        widgets = {
+            # Visual Inspection
+            'healthy': _S, 'trip_led': _S, 'alarm': _S,
+            # Info
+            'merek': _T, 'no_seri': _T, 'target': _T, 'fungsi': _T, 'rasio_ct': _T,
+            # Measurement
+            'i_a': _T, 'i_b': _T, 'i_c': _T,
+            'v_a': _T, 'v_b': _T, 'v_c': _T, 'frekuensi': _T,
+            # Setting relay
+            'setting_i': _T, 'waktu_i': _T, 'setting_ii': _T, 'waktu_ii': _T,
+            'under_power': _T, 'waktu_under': _T, 'over_power': _T, 'waktu_over': _T,
+            # Common Positif RL
+            'p1_rl': _T, 'p1_vdc': _T, 'p1_pin': _T, 'p1_tahap_vdc': _T, 'p1_tahap_pin': _T,
+            'p2_rl': _T, 'p2_vdc': _T, 'p2_pin': _T, 'p2_tahap_vdc': _T, 'p2_tahap_pin': _T,
+            'p3_rl': _T, 'p3_vdc': _T, 'p3_pin': _T, 'p3_tahap_vdc': _T, 'p3_tahap_pin': _T,
+            'p4_rl': _T, 'p4_vdc': _T, 'p4_pin': _T, 'p4_tahap_vdc': _T, 'p4_tahap_pin': _T,
+            'p5_rl': _T, 'p5_vdc': _T, 'p5_pin': _T, 'p5_tahap_vdc': _T, 'p5_tahap_pin': _T,
+            'p6_rl': _T, 'p6_vdc': _T, 'p6_pin': _T, 'p6_tahap_vdc': _T, 'p6_tahap_pin': _T,
+            # Common Negatif RL
+            'n1_rl': _T, 'n1_vdc': _T, 'n1_pin': _T, 'n1_tahap_vdc': _T, 'n1_tahap_pin': _T,
+            'n2_rl': _T, 'n2_vdc': _T, 'n2_pin': _T, 'n2_tahap_vdc': _T, 'n2_tahap_pin': _T,
+            'n3_rl': _T, 'n3_vdc': _T, 'n3_pin': _T, 'n3_tahap_vdc': _T, 'n3_tahap_pin': _T,
+            'n4_rl': _T, 'n4_vdc': _T, 'n4_pin': _T, 'n4_tahap_vdc': _T, 'n4_tahap_pin': _T,
+            'n5_rl': _T, 'n5_vdc': _T, 'n5_pin': _T, 'n5_tahap_vdc': _T, 'n5_tahap_pin': _T,
+            'n6_rl': _T, 'n6_vdc': _T, 'n6_pin': _T, 'n6_tahap_vdc': _T, 'n6_tahap_pin': _T,
+            # AUX RL/BO
+            'aux1_rl': _T, 'aux1_tf': _T, 'aux1_led': _T,
+            'aux2_rl': _T, 'aux2_tf': _T, 'aux2_led': _T,
+            'aux3_rl': _T, 'aux3_tf': _T, 'aux3_led': _T,
+            'aux4_rl': _T, 'aux4_tf': _T, 'aux4_led': _T,
+            'aux5_rl': _T, 'aux5_tf': _T, 'aux5_led': _T,
+            'aux6_rl': _T, 'aux6_tf': _T, 'aux6_led': _T,
+            # Status Kesiapan + Test COMM
+            'dev1_nama': _T, 'dev1_gi': _T, 'dev1_ready': _S, 'dev1_comm': _S,
+            'dev2_nama': _T, 'dev2_gi': _T, 'dev2_ready': _S, 'dev2_comm': _S,
+            'dev3_nama': _T, 'dev3_gi': _T, 'dev3_ready': _S, 'dev3_comm': _S,
+            'dev4_nama': _T, 'dev4_gi': _T, 'dev4_ready': _S, 'dev4_comm': _S,
+            'dev5_nama': _T, 'dev5_gi': _T, 'dev5_ready': _S, 'dev5_comm': _S,
+            'dev6_nama': _T, 'dev6_gi': _T, 'dev6_ready': _S, 'dev6_comm': _S,
+            # Catatan
+            'supply_dc': _T, 'selektor': _T, 'catatan': _TA,
         }

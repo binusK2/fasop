@@ -1,8 +1,8 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from devices.permissions import require_can_edit, require_can_delete, is_viewer_only
-from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset, MaintenanceRTU, MaintenanceSAS, MaintenanceRoIP, MaintenanceUPS, MaintenanceFrequencyRelay, BeritaAcaraRecord, BeritaAcaraEviden
-from .forms import MaintenanceForm, MaintenancePLCForm, MaintenanceRouterForm, MaintenanceRadioForm, MaintenanceVoIPForm, MaintenanceMuxForm, MaintenanceRectifierForm, MaintenanceTeleproteksiForm, MaintenanceGensetForm, MaintenanceRTUForm, MaintenanceSASForm, MaintenanceRoIPForm, MaintenanceUPSForm, MaintenanceFrequencyRelayForm
+from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset, MaintenanceRTU, MaintenanceSAS, MaintenanceRoIP, MaintenanceUPS, MaintenanceFrequencyRelay, MaintenanceMasterTrip, BeritaAcaraRecord, BeritaAcaraEviden
+from .forms import MaintenanceForm, MaintenancePLCForm, MaintenanceRouterForm, MaintenanceRadioForm, MaintenanceVoIPForm, MaintenanceMuxForm, MaintenanceRectifierForm, MaintenanceTeleproteksiForm, MaintenanceGensetForm, MaintenanceRTUForm, MaintenanceSASForm, MaintenanceRoIPForm, MaintenanceUPSForm, MaintenanceFrequencyRelayForm, MaintenanceMasterTripForm
 from devices.models import Device, DeviceType
 from gangguan.models import Gangguan
 from inspection.models import InspectionCatuDaya
@@ -49,6 +49,10 @@ DEVICE_FORM_MAP = {
     'OFGS':            (MaintenanceFrequencyRelayForm, 'maintenance/frequency_relay_form.html'),
     'CDSAS':           (MaintenanceFrequencyRelayForm, 'maintenance/frequency_relay_form.html'),
     'FREQUENCY RELAY': (MaintenanceFrequencyRelayForm, 'maintenance/frequency_relay_form.html'),
+    'MASTER TRIP':     (MaintenanceMasterTripForm, 'maintenance/master_trip_form.html'),
+    'Master Trip':     (MaintenanceMasterTripForm, 'maintenance/master_trip_form.html'),
+    'RELE DEFENSE SCHEME': (MaintenanceMasterTripForm, 'maintenance/master_trip_form.html'),
+    'DFR':             (MaintenanceMasterTripForm, 'maintenance/master_trip_form.html'),
 }
 
 DEFAULT_TEMPLATE = 'maintenance/maintenance_form.html'
@@ -330,6 +334,13 @@ def maintenance_detail(request, pk):
         except MaintenanceFrequencyRelay.DoesNotExist:
             pass
 
+    master_trip_detail = None
+    if device_type in ('MASTER TRIP', 'Master Trip', 'RELE DEFENSE SCHEME', 'DFR'):
+        try:
+            master_trip_detail = maintenance.maintenancemastertrip
+        except MaintenanceMasterTrip.DoesNotExist:
+            pass
+
     # Checklist peralatan terpasang untuk template radio
     radio_checklist = []
     if radio_detail:
@@ -599,6 +610,37 @@ def maintenance_detail(request, pk):
             }
             for n in range(1, 8)
         ]) if freq_relay_detail else [],
+        # Master Trip
+        'master_trip_detail': master_trip_detail,
+        'mt_pos_rows': ([
+            {'n': n, 'rl': getattr(master_trip_detail, f'p{n}_rl', ''),
+             'vdc': getattr(master_trip_detail, f'p{n}_vdc', ''),
+             'pin': getattr(master_trip_detail, f'p{n}_pin', ''),
+             'tahap_vdc': getattr(master_trip_detail, f'p{n}_tahap_vdc', ''),
+             'tahap_pin': getattr(master_trip_detail, f'p{n}_tahap_pin', '')}
+            for n in range(1, 7)
+        ]) if master_trip_detail else [],
+        'mt_neg_rows': ([
+            {'n': n, 'rl': getattr(master_trip_detail, f'n{n}_rl', ''),
+             'vdc': getattr(master_trip_detail, f'n{n}_vdc', ''),
+             'pin': getattr(master_trip_detail, f'n{n}_pin', ''),
+             'tahap_vdc': getattr(master_trip_detail, f'n{n}_tahap_vdc', ''),
+             'tahap_pin': getattr(master_trip_detail, f'n{n}_tahap_pin', '')}
+            for n in range(1, 7)
+        ]) if master_trip_detail else [],
+        'mt_aux_rows': ([
+            {'n': n, 'rl': getattr(master_trip_detail, f'aux{n}_rl', ''),
+             'tf': getattr(master_trip_detail, f'aux{n}_tf', ''),
+             'led': getattr(master_trip_detail, f'aux{n}_led', '')}
+            for n in range(1, 7)
+        ]) if master_trip_detail else [],
+        'mt_dev_rows': ([
+            {'n': n, 'nama': getattr(master_trip_detail, f'dev{n}_nama', ''),
+             'gi': getattr(master_trip_detail, f'dev{n}_gi', ''),
+             'ready': getattr(master_trip_detail, f'dev{n}_ready', ''),
+             'comm': getattr(master_trip_detail, f'dev{n}_comm', '')}
+            for n in range(1, 7)
+        ]) if master_trip_detail else [],
     })
 
 
@@ -644,6 +686,8 @@ def maintenance_edit(request, pk):
                 detail_instance = maintenance.maintenanceroip
             elif detail_form_class.__name__ == 'MaintenanceUPSForm':
                 detail_instance = maintenance.maintenanceups
+            elif detail_form_class.__name__ == 'MaintenanceMasterTripForm':
+                detail_instance = maintenance.maintenancemastertrip
         except Exception:
             pass
 
@@ -1065,7 +1109,7 @@ BULAN_ID = ['Januari','Februari','Maret','April','Mei','Juni',
 BA_GRUP_MAP = {
     'TELEKOMUNIKASI': [
         'Router','Switch','Radio','VoIP','Multiplexer','PLC','Teleproteksi','RoIP',
-        'Server Telkom','Master Clock','PABX','Catu Daya',
+        'Server Telkom','PABX','Catu Daya',
     ],
     'SCADA': [
         'RTU','SAS','Server SCADA','UPS','IED BCU','Clock Server',
