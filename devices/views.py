@@ -1,4 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
+from django.core.paginator import Paginator
 from fasop.hashids_helper import encode as _hid
 from django.contrib.auth.decorators import login_required
 from devices.permissions import (
@@ -105,7 +106,11 @@ def device_list(request):
     order_field = SORT_FIELDS.get(sort, 'nama')
     if direction == 'desc':
         order_field = '-' + order_field
-    devices = devices.order_by(order_field)
+    devices = devices.select_related('jenis').order_by(order_field)
+
+    paginator  = Paginator(devices, 50)
+    page_num   = request.GET.get('page', 1)
+    page_obj   = paginator.get_page(page_num)
 
     lokasi_list = (
         Device.objects
@@ -129,7 +134,9 @@ def device_list(request):
     filter_active = bool(search or lokasi or status_operasi or merk or branch_id)
 
     return render(request, 'devices/device_list.html', {
-        'devices':          devices,
+        'devices':          page_obj,
+        'page_obj':         page_obj,
+        'paginator':        paginator,
         'search':           search,
         'selected_jenis':   jenis_id,
         'lokasi_list':      lokasi_list,
