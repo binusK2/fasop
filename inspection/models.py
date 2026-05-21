@@ -377,6 +377,13 @@ class InspectionTelecom(models.Model):
 class PengujianTelecom(models.Model):
     """Header satu sesi pengujian telekomunikasi per lokasi."""
 
+    JENIS_FORM_CHOICES = (
+        ('radio', 'Radio'),
+        ('voip',  'VoIP'),
+        ('all',   'Radio & VoIP'),
+    )
+    jenis       = models.CharField(max_length=10, choices=JENIS_FORM_CHOICES, default='all',
+                                   verbose_name='Jenis Pengujian')
     tanggal     = models.DateField(default=timezone.now, verbose_name='Tanggal Pengujian')
     lokasi      = models.CharField(max_length=100, blank=True, verbose_name='Lokasi / GI')
     dibuat_oleh = models.ForeignKey(User, on_delete=models.SET_NULL,

@@ -236,6 +236,11 @@ class UserProfile(models.Model):
         verbose_name='ULTG', related_name='operators',
         help_text='Untuk role Operator — ULTG yang dilayani. Inspeksi hanya menampilkan lokasi ULTG ini.'
     )
+    branch = models.ForeignKey(
+        'Branch', on_delete=models.SET_NULL, null=True, blank=True,
+        verbose_name='Branch', related_name='dispatchers',
+        help_text='Untuk role Dispatcher — Branch yang dilayani. Pengujian hanya menampilkan lokasi dalam branch ini.'
+    )
 
     class Meta:
         verbose_name = 'Profil Pengguna'

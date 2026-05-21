@@ -149,6 +149,17 @@
             border-radius: 20px;
         }
 
+        /* Sub-link static (indented child, no toggle) */
+        .sidebar-sublink {
+            padding-left: 28px !important;
+            font-size: 12.5px !important;
+            color: #64748b;
+        }
+        .sidebar-sublink.active {
+            color: white !important;
+        }
+        .sidebar-sublink:not(.active) { color: #64748b !important; }
+
         /* Submenu */
         .sidebar-submenu {
             margin-left: 12px;
@@ -810,10 +821,20 @@
             Inservice Inspection
         </a>
         {% endif %}
-        <a href="{% url 'pengujian_telecom_form' %}"
-           class="sidebar-link {% if 'pengujian_telecom' in request.resolver_match.url_name %}active{% endif %}">
+        <a href="{% url 'pengujian_telecom_dashboard' %}"
+           class="sidebar-link {% if request.resolver_match.url_name == 'pengujian_telecom_dashboard' or request.resolver_match.url_name == 'pengujian_telecom_form' or request.resolver_match.url_name == 'pengujian_telecom_list' or request.resolver_match.url_name == 'pengujian_telecom_detail' %}active{% endif %}">
             <span class="si-icon"><i class="bi bi-broadcast"></i></span>
             Pengujian Telekomunikasi
+        </a>
+        <a href="{% url 'pengujian_radio_form' %}"
+           class="sidebar-link sidebar-sublink {% if request.resolver_match.url_name == 'pengujian_radio_form' %}active{% endif %}">
+            <span class="si-icon"><i class="bi bi-reception-4"></i></span>
+            Pengujian Radio
+        </a>
+        <a href="{% url 'pengujian_voip_form' %}"
+           class="sidebar-link sidebar-sublink {% if request.resolver_match.url_name == 'pengujian_voip_form' %}active{% endif %}">
+            <span class="si-icon"><i class="bi bi-telephone-fill"></i></span>
+            Pengujian VoIP
         </a>
     </div>
 
