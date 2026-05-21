@@ -3,7 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
 from django.utils import timezone
 from django.db.models import Count, Q
-from .models import Inspection, InspectionCatuDaya, InspectionDefenseScheme, InspectionMasterTrip, InspectionUFLS
+from .models import Inspection, InspectionCatuDaya, InspectionDefenseScheme, InspectionMasterTrip, InspectionUFLS, InspectionTelecom
 from devices.models import Device, DeviceType, SiteLocation
 from datetime import date
 import openpyxl
@@ -18,7 +18,12 @@ INSPECTABLE_JENIS = {
     'RELE DEFENSE SCHEME': 'defense_scheme',
     'MASTER TRIP':         'master_trip',
     'UFLS':                'ufls',
+    'Radio':               'telecom',
+    'VoIP':                'telecom',
 }
+
+# Jenis khusus Dispatcher
+TELECOM_JENIS = {'Radio', 'VoIP'}
 
 
 def require_operator(view_func):
@@ -35,11 +40,11 @@ def require_operator(view_func):
             role = request.user.profile.role
         except Exception:
             role = ''
-        if role in ('operator', 'technician', 'asisten_manager'):
+        if role in ('operator', 'technician', 'asisten_manager', 'dispatcher'):
             return view_func(request, *args, **kwargs)
         from django.shortcuts import render
         return render(request, '403.html',
-                      {'message': 'Halaman ini hanya untuk Operator.'}, status=403)
+                      {'message': 'Halaman ini hanya untuk Operator / Dispatcher.'}, status=403)
     return wrapper
 
 
@@ -104,7 +109,19 @@ def inspection_lokasi(request):
 @require_operator
 def inspection_device_list(request, lokasi):
     """Daftar perangkat inspectable di lokasi tertentu."""
-    jenis_names = list(INSPECTABLE_JENIS.keys())
+    try:
+        role = request.user.profile.role
+    except Exception:
+        role = ''
+
+    # Dispatcher hanya lihat Radio & VoIP; role lain hanya lihat non-telecom
+    if request.user.is_superuser or role == 'asisten_manager':
+        jenis_names = list(INSPECTABLE_JENIS.keys())
+    elif role == 'dispatcher':
+        jenis_names = list(TELECOM_JENIS)
+    else:
+        jenis_names = [j for j in INSPECTABLE_JENIS if j not in TELECOM_JENIS]
+
     devices = (
         Device.objects
         .filter(is_deleted=False, jenis__name__in=jenis_names, lokasi=lokasi)
@@ -243,6 +260,14 @@ def inspection_form(request, device_pk):
                 sumber_dc         = gf('sumber_dc'),
             )
 
+        elif jenis_key == 'telecom':
+            InspectionTelecom.objects.create(
+                inspection        = insp,
+                hasil_komunikasi  = g('hasil_komunikasi'),
+                kualitas_suara    = g('kualitas_suara'),
+                catatan_pengujian = g('catatan_pengujian'),
+            )
+
         # ── Notifikasi ke AM jika ada kondisi Alarm/Tidak Normal ─────
         _kirim_notif_jika_perlu(insp, jenis_key, request.POST)
 
@@ -276,6 +301,11 @@ def _kirim_notif_jika_perlu(insp, jenis_key, post_data):
         if post_data.get('indikator_led') == 'tidak_normal':
             perlu_notif = True
             pesan_detail.append(f'Indikator LED {jenis_key.upper()}: TIDAK NORMAL')
+
+    elif jenis_key == 'telecom':
+        if post_data.get('hasil_komunikasi') == 'tidak_normal':
+            perlu_notif = True
+            pesan_detail.append('Pengujian Telekomunikasi: TIDAK NORMAL')
 
     if not perlu_notif:
         return
@@ -381,6 +411,9 @@ def inspection_riwayat(request, pk):
                 ('Posisi Selektor',   detail.posisi_selektor,   'on_aktif', False),
                 ('Kondisi Kabel LAN', detail.kondisi_kabel_lan, 'terpasang', True),
             ]
+        elif insp.jenis == 'telecom':
+            detail = insp.detail_telecom
+
     except Exception:
         pass
 

@@ -24,6 +24,7 @@ class Inspection(models.Model):
         ('defense_scheme', 'Rele Defense Scheme'),
         ('master_trip',    'Master Trip'),
         ('ufls',           'UFLS'),
+        ('telecom',        'Pengujian Telekomunikasi'),
     )
 
     device      = models.ForeignKey(Device, on_delete=models.CASCADE,
@@ -329,3 +330,42 @@ class InspectionUFLS(models.Model):
 
     def __str__(self):
         return f'UFLS — {self.inspection}'
+
+# ─────────────────────────────────────────────────────────────────────
+# DETAIL PENGUJIAN TELEKOMUNIKASI (Radio & VoIP — Dispatcher)
+# ─────────────────────────────────────────────────────────────────────
+class InspectionTelecom(models.Model):
+
+    HASIL_CHOICES = (
+        ('normal',       'Normal'),
+        ('tidak_normal', 'Tidak Normal'),
+    )
+    KUALITAS_CHOICES = (
+        ('baik',  'Baik'),
+        ('cukup', 'Cukup'),
+        ('buruk', 'Buruk'),
+    )
+
+    inspection = models.OneToOneField(
+        Inspection, on_delete=models.CASCADE,
+        related_name='detail_telecom'
+    )
+
+    # Hasil pengujian utama
+    hasil_komunikasi = models.CharField(
+        max_length=15, blank=True, choices=HASIL_CHOICES,
+        verbose_name='Hasil Pengujian Komunikasi',
+    )
+    kualitas_suara = models.CharField(
+        max_length=10, blank=True, choices=KUALITAS_CHOICES,
+        verbose_name='Kualitas Suara',
+    )
+    catatan_pengujian = models.TextField(
+        blank=True, verbose_name='Catatan Pengujian',
+    )
+
+    class Meta:
+        verbose_name = 'Detail Pengujian Telekomunikasi'
+
+    def __str__(self):
+        return f'Telecom — {self.inspection}'

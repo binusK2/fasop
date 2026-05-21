@@ -12,13 +12,13 @@
 
 <!-- DEVICE BANNER -->
 <div class="card mb-4" style="background:linear-gradient(135deg,#0f172a 0%,
-    {% if jenis_key == 'catu_daya' %}#7c2d12{% else %}#4a1d96{% endif %} 100%);border:none;">
+    {% if jenis_key == 'catu_daya' %}#7c2d12{% elif jenis_key == 'telecom' %}#0c4a6e{% else %}#4a1d96{% endif %} 100%);border:none;">
     <div class="card-body py-3 px-4">
         <div class="d-flex align-items-center gap-4 flex-wrap">
             <div style="width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;
-                background:{% if jenis_key == 'catu_daya' %}rgba(251,146,60,0.2){% else %}rgba(167,139,250,0.2){% endif %};">
-                <i class="bi bi-{% if jenis_key == 'catu_daya' %}battery-charging-fill{% else %}shield-fill{% endif %}"
-                   style="font-size:20px;color:{% if jenis_key == 'catu_daya' %}#fdba74{% else %}#c4b5fd{% endif %};"></i>
+                background:{% if jenis_key == 'catu_daya' %}rgba(251,146,60,0.2){% elif jenis_key == 'telecom' %}rgba(56,189,248,0.2){% else %}rgba(167,139,250,0.2){% endif %};">
+                <i class="bi bi-{% if jenis_key == 'catu_daya' %}battery-charging-fill{% elif jenis_key == 'telecom' %}telephone-fill{% else %}shield-fill{% endif %}"
+                   style="font-size:20px;color:{% if jenis_key == 'catu_daya' %}#fdba74{% elif jenis_key == 'telecom' %}#7dd3fc{% else %}#c4b5fd{% endif %};"></i>
             </div>
             <div>
                 <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;">Inservice Inspection</div>
@@ -411,6 +411,53 @@
 
 {% endif %}
 
+{% if jenis_key == 'telecom' %}
+<!-- ══ PENGUJIAN TELEKOMUNIKASI ══════════════════════════════════ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="stb"><span class="stb-bar" style="background:#0ea5e9;"></span><span>Hasil Pengujian Komunikasi</span></div>
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label fw-semibold">Status Komunikasi <span class="text-danger">*</span></label>
+                <div class="d-flex gap-2">
+                    <button type="button" class="toggle-opt flex-fill"
+                            onclick="setToggle('hasil_komunikasi','normal')">
+                        <i class="bi bi-check-circle me-1"></i>Normal
+                    </button>
+                    <button type="button" class="toggle-opt toggle-alarm flex-fill"
+                            onclick="setToggle('hasil_komunikasi','tidak_normal')">
+                        <i class="bi bi-exclamation-triangle me-1"></i>Tidak Normal
+                    </button>
+                </div>
+                <input type="hidden" name="hasil_komunikasi" id="hasil_komunikasi">
+                <div class="form-text">Hasil pengujian panggilan / komunikasi dua arah</div>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label fw-semibold">Kualitas Suara</label>
+                <div class="d-flex gap-2">
+                    <button type="button" class="toggle-opt flex-fill"
+                            onclick="setToggle('kualitas_suara','baik')">
+                        <i class="bi bi-volume-up me-1"></i>Baik
+                    </button>
+                    <button type="button" class="toggle-opt toggle-warn flex-fill"
+                            onclick="setToggle('kualitas_suara','cukup')">Cukup</button>
+                    <button type="button" class="toggle-opt toggle-alarm flex-fill"
+                            onclick="setToggle('kualitas_suara','buruk')">
+                        <i class="bi bi-volume-mute me-1"></i>Buruk
+                    </button>
+                </div>
+                <input type="hidden" name="kualitas_suara" id="kualitas_suara">
+            </div>
+            <div class="col-12">
+                <label class="form-label fw-semibold">Catatan Pengujian</label>
+                <textarea name="catatan_pengujian" class="form-control" rows="3"
+                          placeholder="Kendala, informasi tambahan, lawan komunikasi..."></textarea>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <!-- FOTO & CATATAN -->
 <div class="card mb-3">
     <div class="card-body px-4 py-3">
@@ -495,6 +542,13 @@ document.getElementById('insp-form').addEventListener('submit', function(e) {
     if (!relayVal) {
         e.preventDefault();
         alert('Kondisi Relay wajib dipilih (Normal/Alarm).');
+        return;
+    }
+    {% elif jenis_key == 'telecom' %}
+    const hasilKom = document.getElementById('hasil_komunikasi')?.value;
+    if (!hasilKom) {
+        e.preventDefault();
+        alert('Status Komunikasi wajib dipilih (Normal/Tidak Normal).');
         return;
     }
     {% endif %}

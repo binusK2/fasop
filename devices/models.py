@@ -213,6 +213,7 @@ class UserProfile(models.Model):
     ROLE_CHOICES = (
         ('viewer',           'Viewer (Hanya Lihat)'),
         ('operator',         'Operator'),
+        ('dispatcher',       'Dispatcher — Pengujian Telekomunikasi'),
         ('technician',       'Teknisi / Engineer'),
         ('asisten_manager',  'Asisten Manager Operasi'),
         ('opsis',            'Opsis — Monitoring Pembangkit'),
@@ -258,6 +259,10 @@ class UserProfile(models.Model):
     @property
     def is_operator(self):
         return self.role == 'operator'
+
+    @property
+    def is_dispatcher(self):
+        return self.role == 'dispatcher'
 
     # ── Permission shortcuts ──────────────────────────────────────
     @property
