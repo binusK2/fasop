@@ -1,6 +1,10 @@
 {% extends 'base.html' %}
-{% block title %}Pengujian Telekomunikasi — FASOP{% endblock %}
-{% block page_title %}Pengujian Telekomunikasi{% endblock %}
+{% block title %}
+{% if jenis == 'radio' %}Pengujian Radio{% elif jenis == 'voip' %}Pengujian VoIP{% else %}Pengujian Telekomunikasi{% endif %}
+ — FASOP{% endblock %}
+{% block page_title %}
+{% if jenis == 'radio' %}Pengujian Radio{% elif jenis == 'voip' %}Pengujian VoIP{% else %}Pengujian Telekomunikasi{% endif %}
+{% endblock %}
 
 {% block content %}
 
@@ -9,16 +13,29 @@
     <div class="card-body py-3 px-4">
         <div class="d-flex align-items-center gap-3">
             <div style="width:46px;height:46px;background:rgba(59,130,246,0.2);border-radius:12px;display:flex;align-items:center;justify-content:center;">
+                {% if jenis == 'radio' %}
+                <i class="bi bi-reception-4" style="font-size:22px;color:#93c5fd;"></i>
+                {% elif jenis == 'voip' %}
+                <i class="bi bi-telephone-fill" style="font-size:22px;color:#c4b5fd;"></i>
+                {% else %}
                 <i class="bi bi-broadcast" style="font-size:22px;color:#93c5fd;"></i>
+                {% endif %}
             </div>
             <div>
-                <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;">Modul</div>
-                <div style="font-size:18px;font-weight:700;color:#f1f5f9;">Pengujian Telekomunikasi</div>
-                <div style="font-size:12px;color:#94a3b8;">Pengujian seluruh perangkat Radio &amp; VoIP</div>
+                <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;">Form Pengujian</div>
+                <div style="font-size:18px;font-weight:700;color:#f1f5f9;">
+                    {% if jenis == 'radio' %}Pengujian Radio
+                    {% elif jenis == 'voip' %}Pengujian VoIP
+                    {% else %}Pengujian Radio &amp; VoIP{% endif %}
+                </div>
+                <div style="font-size:12px;color:#94a3b8;">
+                    {% if branch_nama %}<i class="bi bi-building me-1"></i>{{ branch_nama }} &nbsp;·&nbsp; {% endif %}
+                    {% if jenis == 'radio' %}Perangkat Radio{% elif jenis == 'voip' %}Perangkat VoIP{% else %}Semua perangkat Radio &amp; VoIP{% endif %}
+                </div>
             </div>
             <div class="ms-auto">
-                <a href="{% url 'pengujian_telecom_list' %}" class="btn btn-sm btn-outline-light">
-                    <i class="bi bi-clock-history me-1"></i>Riwayat
+                <a href="{% url 'pengujian_telecom_dashboard' %}" class="btn btn-sm btn-outline-light">
+                    <i class="bi bi-speedometer2 me-1"></i>Dashboard
                 </a>
             </div>
         </div>
@@ -56,19 +73,19 @@
     </div>
 </div>
 
-<!-- TABEL RADIO -->
 {% if radio_devices %}
+<!-- TABEL RADIO -->
 <div class="card mb-4">
     <div class="card-header d-flex align-items-center gap-2" style="background:#eff6ff;">
         <span style="font-size:12px;padding:3px 12px;border-radius:20px;font-weight:700;background:#dbeafe;color:#1d4ed8;">
             <i class="bi bi-reception-4 me-1"></i>Radio
         </span>
         <span class="text-muted" style="font-size:12px;">{{ radio_devices|length }} perangkat</span>
-        <div class="ms-auto d-flex gap-3">
-            <button type="button" class="btn btn-xs btn-outline-success" style="font-size:11px;padding:2px 10px;" onclick="setAllHasil('radio','normal')">
+        <div class="ms-auto d-flex gap-2">
+            <button type="button" class="btn btn-outline-success btn-sm" style="font-size:11px;padding:2px 10px;" onclick="setAllHasil('radio','normal')">
                 Semua Normal
             </button>
-            <button type="button" class="btn btn-xs btn-outline-danger" style="font-size:11px;padding:2px 10px;" onclick="setAllHasil('radio','tidak_normal')">
+            <button type="button" class="btn btn-outline-danger btn-sm" style="font-size:11px;padding:2px 10px;" onclick="setAllHasil('radio','tidak_normal')">
                 Semua Tidak Normal
             </button>
         </div>
@@ -80,7 +97,7 @@
                     <tr>
                         <th style="width:36px;padding:10px 12px;">#</th>
                         <th style="padding:10px 12px;">Nama Perangkat</th>
-                        <th style="padding:10px 12px;min-width:120px;">GI / Lokasi</th>
+                        <th style="padding:10px 12px;min-width:110px;">GI / Lokasi</th>
                         <th style="width:220px;padding:10px 12px;">Hasil Pengujian</th>
                         <th style="min-width:180px;padding:10px 12px;">Catatan</th>
                     </tr>
@@ -98,19 +115,17 @@
                         <td style="padding:10px 12px;">
                             <div class="d-flex gap-3 align-items-center">
                                 <div class="form-check form-check-inline mb-0">
-                                    <input class="form-check-input radio-hasil" type="radio"
-                                           name="hasil_{{ device.pk }}"
-                                           id="n_{{ device.pk }}" value="normal" checked
-                                           data-row="{{ device.pk }}"
+                                    <input class="form-check-input" type="radio"
+                                           name="hasil_{{ device.pk }}" id="n_{{ device.pk }}"
+                                           value="normal" checked data-row="{{ device.pk }}"
                                            onchange="updateRowStyle({{ device.pk }}, this.value)">
                                     <label class="form-check-label" for="n_{{ device.pk }}"
                                            style="font-size:12px;color:#166534;font-weight:600;">Normal</label>
                                 </div>
                                 <div class="form-check form-check-inline mb-0">
-                                    <input class="form-check-input radio-hasil" type="radio"
-                                           name="hasil_{{ device.pk }}"
-                                           id="tn_{{ device.pk }}" value="tidak_normal"
-                                           data-row="{{ device.pk }}"
+                                    <input class="form-check-input" type="radio"
+                                           name="hasil_{{ device.pk }}" id="tn_{{ device.pk }}"
+                                           value="tidak_normal" data-row="{{ device.pk }}"
                                            onchange="updateRowStyle({{ device.pk }}, this.value)">
                                     <label class="form-check-label" for="tn_{{ device.pk }}"
                                            style="font-size:12px;color:#991b1b;font-weight:600;">Tidak Normal</label>
@@ -119,8 +134,7 @@
                         </td>
                         <td style="padding:8px 12px;">
                             <input type="text" name="catatan_{{ device.pk }}"
-                                   class="form-control form-control-sm" placeholder="Catatan…"
-                                   style="font-size:12px;">
+                                   class="form-control form-control-sm" placeholder="Catatan…" style="font-size:12px;">
                         </td>
                     </tr>
                     {% endfor %}
@@ -131,19 +145,19 @@
 </div>
 {% endif %}
 
-<!-- TABEL VOIP -->
 {% if voip_devices %}
+<!-- TABEL VOIP -->
 <div class="card mb-4">
     <div class="card-header d-flex align-items-center gap-2" style="background:#fdf4ff;">
         <span style="font-size:12px;padding:3px 12px;border-radius:20px;font-weight:700;background:#f3e8ff;color:#7e22ce;">
             <i class="bi bi-telephone-fill me-1"></i>VoIP
         </span>
         <span class="text-muted" style="font-size:12px;">{{ voip_devices|length }} perangkat</span>
-        <div class="ms-auto d-flex gap-3">
-            <button type="button" class="btn btn-xs btn-outline-success" style="font-size:11px;padding:2px 10px;" onclick="setAllHasil('voip','normal')">
+        <div class="ms-auto d-flex gap-2">
+            <button type="button" class="btn btn-outline-success btn-sm" style="font-size:11px;padding:2px 10px;" onclick="setAllHasil('voip','normal')">
                 Semua Normal
             </button>
-            <button type="button" class="btn btn-xs btn-outline-danger" style="font-size:11px;padding:2px 10px;" onclick="setAllHasil('voip','tidak_normal')">
+            <button type="button" class="btn btn-outline-danger btn-sm" style="font-size:11px;padding:2px 10px;" onclick="setAllHasil('voip','tidak_normal')">
                 Semua Tidak Normal
             </button>
         </div>
@@ -155,7 +169,7 @@
                     <tr>
                         <th style="width:36px;padding:10px 12px;">#</th>
                         <th style="padding:10px 12px;">Nama Perangkat</th>
-                        <th style="padding:10px 12px;min-width:120px;">GI / Lokasi</th>
+                        <th style="padding:10px 12px;min-width:110px;">GI / Lokasi</th>
                         <th style="width:220px;padding:10px 12px;">Hasil Pengujian</th>
                         <th style="min-width:180px;padding:10px 12px;">Catatan</th>
                     </tr>
@@ -173,19 +187,17 @@
                         <td style="padding:10px 12px;">
                             <div class="d-flex gap-3 align-items-center">
                                 <div class="form-check form-check-inline mb-0">
-                                    <input class="form-check-input radio-hasil" type="radio"
-                                           name="hasil_{{ device.pk }}"
-                                           id="n_{{ device.pk }}" value="normal" checked
-                                           data-row="{{ device.pk }}"
+                                    <input class="form-check-input" type="radio"
+                                           name="hasil_{{ device.pk }}" id="n_{{ device.pk }}"
+                                           value="normal" checked data-row="{{ device.pk }}"
                                            onchange="updateRowStyle({{ device.pk }}, this.value)">
                                     <label class="form-check-label" for="n_{{ device.pk }}"
                                            style="font-size:12px;color:#166534;font-weight:600;">Normal</label>
                                 </div>
                                 <div class="form-check form-check-inline mb-0">
-                                    <input class="form-check-input radio-hasil" type="radio"
-                                           name="hasil_{{ device.pk }}"
-                                           id="tn_{{ device.pk }}" value="tidak_normal"
-                                           data-row="{{ device.pk }}"
+                                    <input class="form-check-input" type="radio"
+                                           name="hasil_{{ device.pk }}" id="tn_{{ device.pk }}"
+                                           value="tidak_normal" data-row="{{ device.pk }}"
                                            onchange="updateRowStyle({{ device.pk }}, this.value)">
                                     <label class="form-check-label" for="tn_{{ device.pk }}"
                                            style="font-size:12px;color:#991b1b;font-weight:600;">Tidak Normal</label>
@@ -194,8 +206,7 @@
                         </td>
                         <td style="padding:8px 12px;">
                             <input type="text" name="catatan_{{ device.pk }}"
-                                   class="form-control form-control-sm" placeholder="Catatan…"
-                                   style="font-size:12px;">
+                                   class="form-control form-control-sm" placeholder="Catatan…" style="font-size:12px;">
                         </td>
                     </tr>
                     {% endfor %}
@@ -210,15 +221,14 @@
 <div class="card mb-4">
     <div class="card-body text-center py-5 text-muted" style="font-size:13px;">
         <i class="bi bi-inbox" style="font-size:40px;color:#cbd5e1;display:block;margin-bottom:8px;"></i>
-        Belum ada perangkat Radio atau VoIP terdaftar di sistem.
+        Belum ada perangkat{% if jenis == 'radio' %} Radio{% elif jenis == 'voip' %} VoIP{% else %} Radio atau VoIP{% endif %} terdaftar{% if branch_nama %} di branch {{ branch_nama }}{% endif %}.
     </div>
 </div>
 {% endif %}
 
-<!-- TOMBOL SIMPAN -->
 {% if radio_devices or voip_devices %}
 <div class="d-flex justify-content-end gap-2 mt-2 mb-4">
-    <a href="{% url 'pengujian_telecom_list' %}" class="btn btn-outline-secondary">
+    <a href="{% url 'pengujian_telecom_dashboard' %}" class="btn btn-outline-secondary">
         <i class="bi bi-x-circle me-1"></i>Batal
     </a>
     <button type="submit" class="btn btn-primary">
@@ -228,7 +238,6 @@
 {% endif %}
 
 </form>
-
 {% endblock %}
 
 {% block extra_js %}
@@ -237,7 +246,6 @@ function updateRowStyle(pk, val) {
     const row = document.getElementById('row-' + pk);
     if (row) row.style.background = val === 'tidak_normal' ? '#fef2f2' : '';
 }
-
 function setAllHasil(group, val) {
     const tbody = document.getElementById('tbody-' + group);
     if (!tbody) return;

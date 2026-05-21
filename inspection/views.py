@@ -1260,34 +1260,72 @@ def _require_dispatcher_or_above(view_func):
     return wrapper
 
 
-@login_required
-@_require_dispatcher_or_above
-def pengujian_telecom_form(request):
-    """Form batch pengujian — semua perangkat Radio & VoIP sekaligus."""
-    radio_devices = (
+def _get_branch_lokasi(user):
+    """Return list of lokasi names scoped to dispatcher's branch; None = no filter."""
+    try:
+        profile = user.profile
+        if profile.role == 'dispatcher' and profile.branch:
+            return list(
+                SiteLocation.objects
+                .filter(branch=profile.branch)
+                .values_list('nama', flat=True)
+            )
+    except Exception:
+        pass
+    return None  # no branch filter
+
+
+def _filter_by_branch(qs, user):
+    """Apply branch-based lokasi filter for dispatcher users."""
+    lokasi_list = _get_branch_lokasi(user)
+    if lokasi_list is not None:
+        qs = qs.filter(lokasi__in=lokasi_list)
+    return qs
+
+
+def _pengujian_form_impl(request, jenis):
+    """Shared implementation for pengujian form (radio / voip / all)."""
+    radio_qs = (
         Device.objects
         .filter(is_deleted=False, jenis__name='Radio')
         .select_related('jenis')
         .order_by('lokasi', 'nama')
     )
-    voip_devices = (
+    voip_qs = (
         Device.objects
         .filter(is_deleted=False, jenis__name='VoIP')
         .select_related('jenis')
         .order_by('lokasi', 'nama')
     )
-    all_devices = list(radio_devices) + list(voip_devices)
+    # Filter by dispatcher's branch
+    radio_qs = _filter_by_branch(radio_qs, request.user)
+    voip_qs  = _filter_by_branch(voip_qs, request.user)
+
+    # Jenis-specific selection
+    if jenis == 'radio':
+        active_devices = list(radio_qs)
+        radio_devices  = active_devices
+        voip_devices   = []
+    elif jenis == 'voip':
+        active_devices = list(voip_qs)
+        radio_devices  = []
+        voip_devices   = active_devices
+    else:  # 'all'
+        radio_devices  = list(radio_qs)
+        voip_devices   = list(voip_qs)
+        active_devices = radio_devices + voip_devices
 
     if request.method == 'POST':
         tanggal = request.POST.get('tanggal') or date.today()
         catatan = request.POST.get('catatan', '')
         pengujian = PengujianTelecom.objects.create(
+            jenis=jenis,
             tanggal=tanggal,
             lokasi='',
             dibuat_oleh=request.user,
             catatan=catatan,
         )
-        for d in all_devices:
+        for d in active_devices:
             hasil = request.POST.get(f'hasil_{d.pk}', 'normal')
             cat   = request.POST.get(f'catatan_{d.pk}', '')
             PengujianTelecomItem.objects.create(
@@ -1297,20 +1335,111 @@ def pengujian_telecom_form(request):
                 catatan=cat,
             )
         from django.contrib import messages
-        messages.success(request, 'Pengujian telekomunikasi berhasil disimpan.')
+        messages.success(request, 'Pengujian berhasil disimpan.')
         return redirect('pengujian_telecom_detail', pk=pengujian.pk)
+
+    # Branch info for display
+    try:
+        branch_nama = request.user.profile.branch.nama if request.user.profile.branch else None
+    except Exception:
+        branch_nama = None
 
     return render(request, 'inspection/pengujian_telecom_form.html', {
         'radio_devices': radio_devices,
         'voip_devices':  voip_devices,
+        'jenis':         jenis,
+        'branch_nama':   branch_nama,
         'today':         date.today().isoformat(),
     })
 
 
 @login_required
-def pengujian_telecom_list(request):
-    """Daftar semua sesi pengujian."""
+@_require_dispatcher_or_above
+def pengujian_telecom_form(request):
+    return _pengujian_form_impl(request, jenis='all')
+
+
+@login_required
+@_require_dispatcher_or_above
+def pengujian_radio_form(request):
+    return _pengujian_form_impl(request, jenis='radio')
+
+
+@login_required
+@_require_dispatcher_or_above
+def pengujian_voip_form(request):
+    return _pengujian_form_impl(request, jenis='voip')
+
+
+@login_required
+def pengujian_telecom_dashboard(request):
+    """Dashboard hasil pengujian telekomunikasi."""
     from django.db.models import Count, Q as Qlocal
+    from django.utils import timezone as tz
+    from datetime import timedelta
+
+    today      = date.today()
+    week_start = today - timedelta(days=today.weekday())
+    month_start = today.replace(day=1)
+
+    base_qs = PengujianTelecom.objects.all()
+    try:
+        role = request.user.profile.role
+    except Exception:
+        role = ''
+    if role == 'dispatcher':
+        base_qs = base_qs.filter(dibuat_oleh=request.user)
+
+    def _stats(qs):
+        agg = qs.annotate(
+            tn=Count('items', filter=Qlocal(items__hasil='tidak_normal'))
+        ).aggregate(
+            total_sesi=Count('id'),
+            total_perangkat=Count('items'),
+            total_tidak_normal=Count('items', filter=Qlocal(items__hasil='tidak_normal')),
+        )
+        return agg
+
+    stats_hari_ini  = _stats(base_qs.filter(tanggal=today))
+    stats_minggu    = _stats(base_qs.filter(tanggal__gte=week_start))
+    stats_bulan     = _stats(base_qs.filter(tanggal__gte=month_start))
+    stats_semua     = _stats(base_qs)
+
+    # Recent 10 sessions with annotation
+    recent = (
+        base_qs
+        .select_related('dibuat_oleh')
+        .annotate(
+            total_device=Count('items'),
+            total_tidak_normal=Count('items', filter=Qlocal(items__hasil='tidak_normal')),
+        )
+        .order_by('-tanggal', '-created_at')[:10]
+    )
+
+    # Per-jenis breakdown (bulan ini)
+    radio_bulan = _stats(base_qs.filter(tanggal__gte=month_start, jenis='radio'))
+    voip_bulan  = _stats(base_qs.filter(tanggal__gte=month_start, jenis='voip'))
+    all_bulan   = _stats(base_qs.filter(tanggal__gte=month_start, jenis='all'))
+
+    return render(request, 'inspection/pengujian_telecom_dashboard.html', {
+        'stats_hari_ini': stats_hari_ini,
+        'stats_minggu':   stats_minggu,
+        'stats_bulan':    stats_bulan,
+        'stats_semua':    stats_semua,
+        'radio_bulan':    radio_bulan,
+        'voip_bulan':     voip_bulan,
+        'all_bulan':      all_bulan,
+        'recent':         recent,
+        'today':          today,
+    })
+
+
+@login_required
+def pengujian_telecom_list(request):
+    """Daftar semua sesi pengujian, bisa difilter by jenis."""
+    from django.db.models import Count, Q as Qlocal
+    jenis_filter = request.GET.get('jenis', '')
+
     qs = (
         PengujianTelecom.objects
         .select_related('dibuat_oleh')
@@ -1326,8 +1455,12 @@ def pengujian_telecom_list(request):
         role = ''
     if role == 'dispatcher':
         qs = qs.filter(dibuat_oleh=request.user)
+    if jenis_filter in ('radio', 'voip', 'all'):
+        qs = qs.filter(jenis=jenis_filter)
+
     return render(request, 'inspection/pengujian_telecom_list.html', {
         'pengujian_list': qs,
+        'jenis_filter':   jenis_filter,
     })
 
 

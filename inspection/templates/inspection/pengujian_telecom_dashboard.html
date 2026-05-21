@@ -1,0 +1,279 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard Pengujian Telekomunikasi — FASOP{% endblock %}
+{% block page_title %}Pengujian Telekomunikasi{% endblock %}
+
+{% block content %}
+
+<!-- HEADER -->
+<div class="card mb-4" style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);border:none;">
+    <div class="card-body py-3 px-4">
+        <div class="d-flex align-items-center gap-3">
+            <div style="width:46px;height:46px;background:rgba(59,130,246,0.2);border-radius:12px;display:flex;align-items:center;justify-content:center;">
+                <i class="bi bi-speedometer2" style="font-size:22px;color:#93c5fd;"></i>
+            </div>
+            <div>
+                <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;">Dashboard</div>
+                <div style="font-size:18px;font-weight:700;color:#f1f5f9;">Pengujian Telekomunikasi</div>
+                <div style="font-size:12px;color:#94a3b8;">Rekapitulasi hasil pengujian Radio &amp; VoIP</div>
+            </div>
+            <div class="ms-auto d-flex gap-2">
+                <a href="{% url 'pengujian_radio_form' %}" class="btn btn-sm" style="background:#1d4ed8;color:#fff;font-size:12px;">
+                    <i class="bi bi-reception-4 me-1"></i>Pengujian Radio
+                </a>
+                <a href="{% url 'pengujian_voip_form' %}" class="btn btn-sm" style="background:#7e22ce;color:#fff;font-size:12px;">
+                    <i class="bi bi-telephone-fill me-1"></i>Pengujian VoIP
+                </a>
+                <a href="{% url 'pengujian_telecom_list' %}" class="btn btn-sm btn-outline-light" style="font-size:12px;">
+                    <i class="bi bi-clock-history me-1"></i>Riwayat
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if messages %}
+{% for msg in messages %}
+<div class="alert alert-{{ msg.tags|default:'info' }} alert-dismissible fade show" role="alert">
+    {{ msg }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endfor %}
+{% endif %}
+
+<!-- STAT CARDS — HARI INI -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="card text-center h-100" style="border:none;background:#f0fdf4;">
+            <div class="card-body py-3">
+                <div style="font-size:28px;font-weight:800;color:#166534;">{{ stats_hari_ini.total_sesi|default:0 }}</div>
+                <div style="font-size:11px;color:#166534;font-weight:600;">Sesi Hari Ini</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card text-center h-100" style="border:none;background:#eff6ff;">
+            <div class="card-body py-3">
+                <div style="font-size:28px;font-weight:800;color:#1d4ed8;">{{ stats_hari_ini.total_perangkat|default:0 }}</div>
+                <div style="font-size:11px;color:#1d4ed8;font-weight:600;">Perangkat Diuji Hari Ini</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card text-center h-100" style="border:none;{% if stats_hari_ini.total_tidak_normal %}background:#fef2f2;{% else %}background:#f0fdf4;{% endif %}">
+            <div class="card-body py-3">
+                <div style="font-size:28px;font-weight:800;{% if stats_hari_ini.total_tidak_normal %}color:#991b1b;{% else %}color:#166534;{% endif %}">{{ stats_hari_ini.total_tidak_normal|default:0 }}</div>
+                <div style="font-size:11px;{% if stats_hari_ini.total_tidak_normal %}color:#991b1b;{% else %}color:#166534;{% endif %}font-weight:600;">Tidak Normal Hari Ini</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card text-center h-100" style="border:none;background:#fdf4ff;">
+            <div class="card-body py-3">
+                <div style="font-size:28px;font-weight:800;color:#7e22ce;">{{ stats_bulan.total_sesi|default:0 }}</div>
+                <div style="font-size:11px;color:#7e22ce;font-weight:600;">Sesi Bulan Ini</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- STAT CARDS — MINGGU & BULAN -->
+<div class="row g-3 mb-4">
+    <!-- Minggu ini -->
+    <div class="col-md-4">
+        <div class="card h-100" style="border:none;border-left:4px solid #3b82f6;">
+            <div class="card-body py-3 px-4">
+                <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;margin-bottom:8px;">Minggu Ini</div>
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span style="font-size:22px;font-weight:700;color:#1e3a5f;">{{ stats_minggu.total_sesi|default:0 }}</span>
+                        <span style="font-size:12px;color:#64748b;margin-left:4px;">sesi</span>
+                    </div>
+                    <div class="text-end">
+                        <div style="font-size:13px;font-weight:600;color:#475569;">{{ stats_minggu.total_perangkat|default:0 }} perangkat</div>
+                        <div style="font-size:12px;{% if stats_minggu.total_tidak_normal %}color:#991b1b;{% else %}color:#166534;{% endif %}font-weight:600;">
+                            {{ stats_minggu.total_tidak_normal|default:0 }} tidak normal
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Bulan ini -->
+    <div class="col-md-4">
+        <div class="card h-100" style="border:none;border-left:4px solid #8b5cf6;">
+            <div class="card-body py-3 px-4">
+                <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;margin-bottom:8px;">Bulan Ini</div>
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span style="font-size:22px;font-weight:700;color:#1e3a5f;">{{ stats_bulan.total_sesi|default:0 }}</span>
+                        <span style="font-size:12px;color:#64748b;margin-left:4px;">sesi</span>
+                    </div>
+                    <div class="text-end">
+                        <div style="font-size:13px;font-weight:600;color:#475569;">{{ stats_bulan.total_perangkat|default:0 }} perangkat</div>
+                        <div style="font-size:12px;{% if stats_bulan.total_tidak_normal %}color:#991b1b;{% else %}color:#166534;{% endif %}font-weight:600;">
+                            {{ stats_bulan.total_tidak_normal|default:0 }} tidak normal
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Semua waktu -->
+    <div class="col-md-4">
+        <div class="card h-100" style="border:none;border-left:4px solid #64748b;">
+            <div class="card-body py-3 px-4">
+                <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;margin-bottom:8px;">Total Keseluruhan</div>
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span style="font-size:22px;font-weight:700;color:#1e3a5f;">{{ stats_semua.total_sesi|default:0 }}</span>
+                        <span style="font-size:12px;color:#64748b;margin-left:4px;">sesi</span>
+                    </div>
+                    <div class="text-end">
+                        <div style="font-size:13px;font-weight:600;color:#475569;">{{ stats_semua.total_perangkat|default:0 }} perangkat</div>
+                        <div style="font-size:12px;{% if stats_semua.total_tidak_normal %}color:#991b1b;{% else %}color:#166534;{% endif %}font-weight:600;">
+                            {{ stats_semua.total_tidak_normal|default:0 }} tidak normal
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- BREAKDOWN BULAN INI PER JENIS -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card h-100" style="border:1.5px solid #dbeafe;">
+            <div class="card-header" style="background:#eff6ff;border-bottom:1px solid #dbeafe;font-size:12px;font-weight:700;color:#1d4ed8;">
+                <i class="bi bi-reception-4 me-1"></i>Radio — Bulan Ini
+            </div>
+            <div class="card-body text-center py-3">
+                <div style="font-size:24px;font-weight:800;color:#1d4ed8;">{{ radio_bulan.total_sesi|default:0 }}</div>
+                <div style="font-size:11px;color:#64748b;">sesi · {{ radio_bulan.total_perangkat|default:0 }} perangkat</div>
+                {% if radio_bulan.total_tidak_normal %}
+                <div class="mt-1" style="font-size:12px;color:#991b1b;font-weight:600;">{{ radio_bulan.total_tidak_normal }} tidak normal</div>
+                {% else %}
+                <div class="mt-1" style="font-size:12px;color:#166534;font-weight:600;">Semua normal</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100" style="border:1.5px solid #f3e8ff;">
+            <div class="card-header" style="background:#fdf4ff;border-bottom:1px solid #f3e8ff;font-size:12px;font-weight:700;color:#7e22ce;">
+                <i class="bi bi-telephone-fill me-1"></i>VoIP — Bulan Ini
+            </div>
+            <div class="card-body text-center py-3">
+                <div style="font-size:24px;font-weight:800;color:#7e22ce;">{{ voip_bulan.total_sesi|default:0 }}</div>
+                <div style="font-size:11px;color:#64748b;">sesi · {{ voip_bulan.total_perangkat|default:0 }} perangkat</div>
+                {% if voip_bulan.total_tidak_normal %}
+                <div class="mt-1" style="font-size:12px;color:#991b1b;font-weight:600;">{{ voip_bulan.total_tidak_normal }} tidak normal</div>
+                {% else %}
+                <div class="mt-1" style="font-size:12px;color:#166534;font-weight:600;">Semua normal</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100" style="border:1.5px solid #e2e8f0;">
+            <div class="card-header" style="background:#f8fafc;border-bottom:1px solid #e2e8f0;font-size:12px;font-weight:700;color:#475569;">
+                <i class="bi bi-broadcast me-1"></i>Radio &amp; VoIP — Bulan Ini
+            </div>
+            <div class="card-body text-center py-3">
+                <div style="font-size:24px;font-weight:800;color:#475569;">{{ all_bulan.total_sesi|default:0 }}</div>
+                <div style="font-size:11px;color:#64748b;">sesi · {{ all_bulan.total_perangkat|default:0 }} perangkat</div>
+                {% if all_bulan.total_tidak_normal %}
+                <div class="mt-1" style="font-size:12px;color:#991b1b;font-weight:600;">{{ all_bulan.total_tidak_normal }} tidak normal</div>
+                {% else %}
+                <div class="mt-1" style="font-size:12px;color:#166534;font-weight:600;">Semua normal</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SESI TERBARU -->
+<div class="card">
+    <div class="card-header d-flex align-items-center justify-content-between" style="background:#f8fafc;font-size:13px;font-weight:700;">
+        <span><i class="bi bi-clock-history me-1 text-primary"></i>Sesi Terbaru</span>
+        <a href="{% url 'pengujian_telecom_list' %}" style="font-size:12px;font-weight:400;">Lihat Semua →</a>
+    </div>
+    <div class="card-body p-0">
+        {% if recent %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle" style="font-size:13px;">
+                <thead style="background:#f1f5f9;">
+                    <tr>
+                        <th style="padding:10px 16px;">Tanggal</th>
+                        <th style="padding:10px 16px;">Jenis</th>
+                        <th style="padding:10px 16px;">Dibuat Oleh</th>
+                        <th style="padding:10px 16px;text-align:center;">Perangkat</th>
+                        <th style="padding:10px 16px;text-align:center;">Tidak Normal</th>
+                        <th style="padding:10px 16px;width:90px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in recent %}
+                    <tr {% if p.total_tidak_normal %}style="background:#fffbeb;"{% endif %}>
+                        <td style="padding:10px 16px;font-weight:600;">{{ p.tanggal|date:"d M Y" }}</td>
+                        <td style="padding:10px 16px;">
+                            {% if p.jenis == 'radio' %}
+                            <span style="font-size:11px;padding:2px 10px;border-radius:12px;background:#dbeafe;color:#1d4ed8;font-weight:700;">
+                                <i class="bi bi-reception-4 me-1"></i>Radio
+                            </span>
+                            {% elif p.jenis == 'voip' %}
+                            <span style="font-size:11px;padding:2px 10px;border-radius:12px;background:#f3e8ff;color:#7e22ce;font-weight:700;">
+                                <i class="bi bi-telephone-fill me-1"></i>VoIP
+                            </span>
+                            {% else %}
+                            <span style="font-size:11px;padding:2px 10px;border-radius:12px;background:#f1f5f9;color:#475569;font-weight:700;">
+                                <i class="bi bi-broadcast me-1"></i>Semua
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td style="padding:10px 16px;color:#64748b;">
+                            {{ p.dibuat_oleh.get_full_name|default:p.dibuat_oleh.username|default:"—" }}
+                        </td>
+                        <td style="padding:10px 16px;text-align:center;">
+                            <span style="font-size:12px;padding:2px 10px;border-radius:12px;background:#f1f5f9;color:#475569;font-weight:600;">
+                                {{ p.total_device }}
+                            </span>
+                        </td>
+                        <td style="padding:10px 16px;text-align:center;">
+                            {% if p.total_tidak_normal %}
+                            <span style="font-size:12px;padding:2px 10px;border-radius:12px;background:#fef2f2;color:#991b1b;font-weight:700;">
+                                {{ p.total_tidak_normal }}
+                            </span>
+                            {% else %}
+                            <span style="font-size:12px;padding:2px 10px;border-radius:12px;background:#f0fdf4;color:#166534;font-weight:600;">0</span>
+                            {% endif %}
+                        </td>
+                        <td style="padding:10px 16px;">
+                            <a href="{% url 'pengujian_telecom_detail' p.pk %}"
+                               class="btn btn-outline-primary" style="font-size:11px;padding:3px 10px;">
+                                <i class="bi bi-eye me-1"></i>Detail
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5">
+            <i class="bi bi-inbox" style="font-size:40px;color:#cbd5e1;"></i>
+            <div class="mt-2 text-muted" style="font-size:13px;">Belum ada data pengujian.</div>
+            <div class="d-flex gap-2 justify-content-center mt-3">
+                <a href="{% url 'pengujian_radio_form' %}" class="btn btn-sm btn-primary">
+                    <i class="bi bi-reception-4 me-1"></i>Mulai Pengujian Radio
+                </a>
+                <a href="{% url 'pengujian_voip_form' %}" class="btn btn-sm" style="background:#7e22ce;color:#fff;">
+                    <i class="bi bi-telephone-fill me-1"></i>Mulai Pengujian VoIP
+                </a>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}

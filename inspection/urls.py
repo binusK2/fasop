@@ -16,8 +16,11 @@ urlpatterns = [
     path('api/last/',                     views.inspection_api_last,     name='inspection_api_last'),
 
     # Pengujian Telekomunikasi (Dispatcher)
-    path('pengujian-telecom/',                          views.pengujian_telecom_form,   name='pengujian_telecom_form'),
-    path('pengujian-telecom/riwayat/',                  views.pengujian_telecom_list,   name='pengujian_telecom_list'),
-    path('pengujian-telecom/riwayat/<int:pk>/',         views.pengujian_telecom_detail, name='pengujian_telecom_detail'),
-    path('pengujian-telecom/riwayat/<int:pk>/delete/',  views.pengujian_telecom_delete, name='pengujian_telecom_delete'),
+    path('pengujian-telecom/',                          views.pengujian_telecom_dashboard, name='pengujian_telecom_dashboard'),
+    path('pengujian-telecom/baru/',                     views.pengujian_telecom_form,      name='pengujian_telecom_form'),
+    path('pengujian-radio/baru/',                       views.pengujian_radio_form,         name='pengujian_radio_form'),
+    path('pengujian-voip/baru/',                        views.pengujian_voip_form,          name='pengujian_voip_form'),
+    path('pengujian-telecom/riwayat/',                  views.pengujian_telecom_list,       name='pengujian_telecom_list'),
+    path('pengujian-telecom/riwayat/<int:pk>/',         views.pengujian_telecom_detail,     name='pengujian_telecom_detail'),
+    path('pengujian-telecom/riwayat/<int:pk>/delete/',  views.pengujian_telecom_delete,     name='pengujian_telecom_delete'),
 ]
