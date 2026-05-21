@@ -1,5 +1,5 @@
 from django import forms
-from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset, MaintenanceRTU, MaintenanceSAS, MaintenanceRoIP, MaintenanceUPS, MaintenanceMasterTrip, MaintenanceDFR
+from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset, MaintenanceRTU, MaintenanceSAS, MaintenanceRTUGeneric, MaintenanceRoIP, MaintenanceUPS, MaintenanceMasterTrip, MaintenanceDFR
 
 
 # ─── Widget helpers ───────────────────────────────────────────────────
@@ -593,6 +593,55 @@ class MaintenanceSASForm(forms.ModelForm):
             'inv_teg_output':  forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': 'V'}),
             'inv_arus_output': forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': 'A'}),
             # Power Supply — 110VDC/48VDC
+            'ps_teg_input':    forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': 'V'}),
+            'ps_arus_input':   forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': 'A'}),
+            'ps_teg_output':   forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': 'V'}),
+            'ps_arus_output':  forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': 'A'}),
+        }
+
+
+# ─────────────────────────────────────────────────────────────────────
+# FORM DETAIL RTU GENERIC (selain Siemens AK3) — field identik SASForm
+# ─────────────────────────────────────────────────────────────────────
+class MaintenanceRTUGenericForm(forms.ModelForm):
+
+    class Meta:
+        model   = MaintenanceRTUGeneric
+        exclude = ['maintenance']
+        widgets = {
+            'spek_merk':       forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
+            'spek_type':       forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
+            'spek_cpu':        forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
+            'spek_ram':        forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
+            'spek_gpu':        forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
+            'spek_storage':    forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
+            'spek_firmware':   forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
+            'spek_config_ver': forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
+            'spek_ip':         forms.TextInput(attrs={'class': 'form-control form-control-sm', 'placeholder': '192.168.x.x/24'}),
+            'modul_io':        forms.Textarea(attrs={'class': 'form-control form-control-sm', 'rows': 8, 'placeholder': 'Daftar modul/card/terminal yang terpasang...'}),
+            'kondisi_server':  forms.Select(attrs=_SAS_SEL),
+            'kondisi_panel':   forms.Select(attrs=_SAS_SEL),
+            'exhaust_fan':     forms.Select(attrs=_SAS_SEL),
+            'temp_ruangan':    forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': '°C'}),
+            'temp_peralatan':  forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': '°C'}),
+            'peri_eth_switch': forms.Select(attrs=_SAS_SEL),
+            'peri_gps':        forms.Select(attrs=_SAS_SEL),
+            'peri_eth_serial': forms.Select(attrs=_SAS_SEL),
+            'peri_router':     forms.Select(attrs=_SAS_SEL),
+            'jumlah_bay':      forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'min': '0', 'placeholder': 'Bay'}),
+            'peri_keterangan': forms.Textarea(attrs={'class': 'form-control form-control-sm', 'rows': 3}),
+            'perf_cpu':        forms.TextInput(attrs={'class': 'form-control form-control-sm', 'placeholder': 'misal 45%'}),
+            'perf_ram':        forms.TextInput(attrs={'class': 'form-control form-control-sm', 'placeholder': 'misal 60%'}),
+            'perf_storage':    forms.TextInput(attrs={'class': 'form-control form-control-sm', 'placeholder': 'misal 30%'}),
+            'indikasi_alarm':  forms.Select(attrs=_SAS_SEL),
+            'komm_master':     forms.Select(attrs=_SAS_SEL),
+            'komm_ied':        forms.Select(attrs=_SAS_SEL),
+            'time_sync':       forms.Select(attrs=_SAS_SEL),
+            'inv_kondisi':     forms.Select(attrs=_SAS_SEL),
+            'inv_teg_input':   forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': 'V'}),
+            'inv_arus_input':  forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': 'A'}),
+            'inv_teg_output':  forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': 'V'}),
+            'inv_arus_output': forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': 'A'}),
             'ps_teg_input':    forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': 'V'}),
             'ps_arus_input':   forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': 'A'}),
             'ps_teg_output':   forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': 'V'}),

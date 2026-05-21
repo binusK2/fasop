@@ -1,8 +1,8 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from devices.permissions import require_can_edit, require_can_delete, is_viewer_only
-from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset, MaintenanceRTU, MaintenanceSAS, MaintenanceRoIP, MaintenanceUPS, MaintenanceFrequencyRelay, MaintenanceMasterTrip, MaintenanceDFR, BeritaAcaraRecord, BeritaAcaraEviden
-from .forms import MaintenanceForm, MaintenancePLCForm, MaintenanceRouterForm, MaintenanceRadioForm, MaintenanceVoIPForm, MaintenanceMuxForm, MaintenanceRectifierForm, MaintenanceTeleproteksiForm, MaintenanceGensetForm, MaintenanceRTUForm, MaintenanceSASForm, MaintenanceRoIPForm, MaintenanceUPSForm, MaintenanceFrequencyRelayForm, MaintenanceMasterTripForm, MaintenanceDFRForm
+from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset, MaintenanceRTU, MaintenanceSAS, MaintenanceRTUGeneric, MaintenanceRoIP, MaintenanceUPS, MaintenanceFrequencyRelay, MaintenanceMasterTrip, MaintenanceDFR, BeritaAcaraRecord, BeritaAcaraEviden
+from .forms import MaintenanceForm, MaintenancePLCForm, MaintenanceRouterForm, MaintenanceRadioForm, MaintenanceVoIPForm, MaintenanceMuxForm, MaintenanceRectifierForm, MaintenanceTeleproteksiForm, MaintenanceGensetForm, MaintenanceRTUForm, MaintenanceSASForm, MaintenanceRTUGenericForm, MaintenanceRoIPForm, MaintenanceUPSForm, MaintenanceFrequencyRelayForm, MaintenanceMasterTripForm, MaintenanceDFRForm
 from devices.models import Device, DeviceType
 from gangguan.models import Gangguan
 from inspection.models import InspectionCatuDaya
@@ -61,7 +61,7 @@ DEFAULT_TEMPLATE = 'maintenance/maintenance_form.html'
 
 def _build_sas_context(dform):
     """Build extra context rows untuk template sas_form.html."""
-    if dform is None or dform.__class__.__name__ != 'MaintenanceSASForm':
+    if dform is None or dform.__class__.__name__ not in ('MaintenanceSASForm', 'MaintenanceRTUGenericForm'):
         return {}
     return {
         'spek_items': [
@@ -90,11 +90,21 @@ def _build_sas_context(dform):
     }
 
 
+def _is_ak3_rtu(device):
+    """True jika RTU adalah Siemens AK3 — pakai form RTU khusus AK3."""
+    t = (device.type or '').upper()
+    m = (device.merk or '').upper()
+    return 'AK3' in t or 'AK3' in m
+
+
 def _get_detail_form_config(device):
     """Return (FormClass, template) berdasarkan jenis perangkat."""
     if not device.jenis:
         return None, DEFAULT_TEMPLATE
     key = device.jenis.name.strip().upper()
+    # RTU selain AK3 → pakai form generic (tampilan serupa SAS, data di RTUGeneric)
+    if key == 'RTU' and not _is_ak3_rtu(device):
+        return MaintenanceRTUGenericForm, 'maintenance/sas_form.html'
     form_class, template = DEVICE_FORM_MAP.get(key, (None, DEFAULT_TEMPLATE))
     return form_class, template
 
@@ -306,10 +316,16 @@ def maintenance_detail(request, pk):
             pass
 
     elif device_type == 'RTU':
-        try:
-            rtu_detail = maintenance.maintenancertu
-        except MaintenanceRTU.DoesNotExist:
-            pass
+        if _is_ak3_rtu(maintenance.device):
+            try:
+                rtu_detail = maintenance.maintenancertu
+            except MaintenanceRTU.DoesNotExist:
+                pass
+        else:
+            try:
+                sas_detail = maintenance.maintenancertugeneric
+            except MaintenanceRTUGeneric.DoesNotExist:
+                pass
 
     elif device_type in ('SAS', 'SERVER SCADA', 'GATEWAY SAS'):
         try:
@@ -712,6 +728,8 @@ def maintenance_edit(request, pk):
                 detail_instance = maintenance.maintenancertu
             elif detail_form_class.__name__ == 'MaintenanceSASForm':
                 detail_instance = maintenance.maintenancesas
+            elif detail_form_class.__name__ == 'MaintenanceRTUGenericForm':
+                detail_instance = maintenance.maintenancertugeneric
             elif detail_form_class.__name__ == 'MaintenanceRoIPForm':
                 detail_instance = maintenance.maintenanceroip
             elif detail_form_class.__name__ == 'MaintenanceUPSForm':
@@ -1551,7 +1569,11 @@ def export_maintenance_pdf(request, pk):
     elif device_kind == 'GENSET':
         genset_detail = _try(lambda: maintenance.maintenancegenset)
     elif device_kind == 'RTU':
-        rtu_detail = _try(lambda: maintenance.maintenancertu)
+        if _is_ak3_rtu(device):
+            rtu_detail = _try(lambda: maintenance.maintenancertu)
+        else:
+            sas_detail = _try(lambda: maintenance.maintenancertugeneric)
+            device_kind = 'RTU_GENERIC'
     elif device_kind in ('SAS', 'SERVER SCADA', 'GATEWAY SAS'):
         sas_detail = _try(lambda: maintenance.maintenancesas)
     elif device_kind in ('ROIP',):
