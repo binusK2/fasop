@@ -90,11 +90,21 @@ def _build_sas_context(dform):
     }
 
 
+def _is_ak3_rtu(device):
+    """True jika RTU adalah Siemens AK3 — pakai form RTU khusus AK3."""
+    t = (device.type or '').upper()
+    m = (device.merk or '').upper()
+    return 'AK3' in t or 'AK3' in m
+
+
 def _get_detail_form_config(device):
     """Return (FormClass, template) berdasarkan jenis perangkat."""
     if not device.jenis:
         return None, DEFAULT_TEMPLATE
     key = device.jenis.name.strip().upper()
+    # RTU selain AK3 → pakai form SAS (generic embedded controller)
+    if key == 'RTU' and not _is_ak3_rtu(device):
+        return MaintenanceSASForm, 'maintenance/sas_form.html'
     form_class, template = DEVICE_FORM_MAP.get(key, (None, DEFAULT_TEMPLATE))
     return form_class, template
 
@@ -306,10 +316,16 @@ def maintenance_detail(request, pk):
             pass
 
     elif device_type == 'RTU':
-        try:
-            rtu_detail = maintenance.maintenancertu
-        except MaintenanceRTU.DoesNotExist:
-            pass
+        if _is_ak3_rtu(maintenance.device):
+            try:
+                rtu_detail = maintenance.maintenancertu
+            except MaintenanceRTU.DoesNotExist:
+                pass
+        else:
+            try:
+                sas_detail = maintenance.maintenancesas
+            except MaintenanceSAS.DoesNotExist:
+                pass
 
     elif device_type in ('SAS', 'SERVER SCADA', 'GATEWAY SAS'):
         try:
