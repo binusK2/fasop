@@ -1,30 +1,38 @@
 {% extends 'base.html' %}
-{% block title %}Pengujian Telecom — {{ lokasi }}{% endblock %}
+{% block title %}Pengujian Telekomunikasi — FASOP{% endblock %}
 {% block page_title %}Pengujian Telekomunikasi{% endblock %}
 
 {% block content %}
-
-<div class="d-flex align-items-center gap-2 mb-3">
-    <a href="{% url 'pengujian_telecom_lokasi' %}" class="btn btn-sm btn-outline-secondary">
-        <i class="bi bi-arrow-left me-1"></i>Pilih Lokasi
-    </a>
-</div>
 
 <!-- HEADER -->
 <div class="card mb-4" style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);border:none;">
     <div class="card-body py-3 px-4">
         <div class="d-flex align-items-center gap-3">
-            <div style="width:42px;height:42px;background:rgba(59,130,246,0.2);border-radius:10px;display:flex;align-items:center;justify-content:center;">
-                <i class="bi bi-broadcast" style="font-size:20px;color:#93c5fd;"></i>
+            <div style="width:46px;height:46px;background:rgba(59,130,246,0.2);border-radius:12px;display:flex;align-items:center;justify-content:center;">
+                <i class="bi bi-broadcast" style="font-size:22px;color:#93c5fd;"></i>
             </div>
             <div>
-                <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;">Lokasi</div>
-                <div style="font-size:18px;font-weight:700;color:#f1f5f9;">{{ lokasi }}</div>
-                <div style="font-size:12px;color:#94a3b8;">Form Pengujian Radio &amp; VoIP</div>
+                <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;">Modul</div>
+                <div style="font-size:18px;font-weight:700;color:#f1f5f9;">Pengujian Telekomunikasi</div>
+                <div style="font-size:12px;color:#94a3b8;">Pengujian seluruh perangkat Radio &amp; VoIP</div>
+            </div>
+            <div class="ms-auto">
+                <a href="{% url 'pengujian_telecom_list' %}" class="btn btn-sm btn-outline-light">
+                    <i class="bi bi-clock-history me-1"></i>Riwayat
+                </a>
             </div>
         </div>
     </div>
 </div>
+
+{% if messages %}
+{% for msg in messages %}
+<div class="alert alert-{{ msg.tags|default:'info' }} alert-dismissible fade show" role="alert">
+    {{ msg }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endfor %}
+{% endif %}
 
 <form method="post" id="pengujianForm">
 {% csrf_token %}
@@ -48,63 +56,70 @@
     </div>
 </div>
 
-<!-- TABLE RADIO -->
-{% with radio_devices=devices|dictsort:"jenis.name" %}
-{% regroup devices by jenis.name as device_groups %}
-{% for group in device_groups %}
+<!-- TABEL RADIO -->
+{% if radio_devices %}
 <div class="card mb-4">
-    <div class="card-header d-flex align-items-center gap-2" style="background:#f8fafc;">
-        <span style="font-size:12px;padding:3px 12px;border-radius:20px;font-weight:700;
-            {% if group.grouper == 'Radio' %}background:#eff6ff;color:#1d4ed8;{% else %}background:#fdf4ff;color:#7e22ce;{% endif %}">
-            <i class="bi {% if group.grouper == 'Radio' %}bi-reception-4{% else %}bi-telephone-fill{% endif %} me-1"></i>
-            {{ group.grouper }}
+    <div class="card-header d-flex align-items-center gap-2" style="background:#eff6ff;">
+        <span style="font-size:12px;padding:3px 12px;border-radius:20px;font-weight:700;background:#dbeafe;color:#1d4ed8;">
+            <i class="bi bi-reception-4 me-1"></i>Radio
         </span>
-        <span class="text-muted" style="font-size:12px;">{{ group.list|length }} perangkat</span>
+        <span class="text-muted" style="font-size:12px;">{{ radio_devices|length }} perangkat</span>
+        <div class="ms-auto d-flex gap-3">
+            <button type="button" class="btn btn-xs btn-outline-success" style="font-size:11px;padding:2px 10px;" onclick="setAllHasil('radio','normal')">
+                Semua Normal
+            </button>
+            <button type="button" class="btn btn-xs btn-outline-danger" style="font-size:11px;padding:2px 10px;" onclick="setAllHasil('radio','tidak_normal')">
+                Semua Tidak Normal
+            </button>
+        </div>
     </div>
     <div class="card-body p-0">
         <div class="table-responsive">
             <table class="table table-sm mb-0 align-middle" style="font-size:13px;">
                 <thead style="background:#f1f5f9;">
                     <tr>
-                        <th style="width:40px;padding:10px 12px;">#</th>
+                        <th style="width:36px;padding:10px 12px;">#</th>
                         <th style="padding:10px 12px;">Nama Perangkat</th>
-                        <th style="padding:10px 12px;">Merk / Tipe</th>
-                        <th style="width:200px;padding:10px 12px;">Hasil Pengujian</th>
-                        <th style="padding:10px 12px;">Catatan</th>
+                        <th style="padding:10px 12px;min-width:120px;">GI / Lokasi</th>
+                        <th style="width:220px;padding:10px 12px;">Hasil Pengujian</th>
+                        <th style="min-width:180px;padding:10px 12px;">Catatan</th>
                     </tr>
                 </thead>
-                <tbody>
-                    {% for device in group.list %}
-                    <tr>
+                <tbody id="tbody-radio">
+                    {% for device in radio_devices %}
+                    <tr id="row-{{ device.pk }}">
                         <td class="text-muted" style="padding:10px 12px;">{{ forloop.counter }}</td>
                         <td style="padding:10px 12px;font-weight:600;">{{ device.nama }}</td>
-                        <td style="padding:10px 12px;color:#64748b;">{{ device.merk|default:"—" }} {{ device.type|default:"" }}</td>
+                        <td style="padding:10px 12px;">
+                            <span style="font-size:11px;padding:2px 8px;border-radius:12px;background:#f1f5f9;color:#475569;">
+                                {{ device.lokasi|default:"—" }}
+                            </span>
+                        </td>
                         <td style="padding:10px 12px;">
                             <div class="d-flex gap-3 align-items-center">
                                 <div class="form-check form-check-inline mb-0">
-                                    <input class="form-check-input hasil-radio" type="radio"
+                                    <input class="form-check-input radio-hasil" type="radio"
                                            name="hasil_{{ device.pk }}"
-                                           id="normal_{{ device.pk }}"
-                                           value="normal" checked
+                                           id="n_{{ device.pk }}" value="normal" checked
+                                           data-row="{{ device.pk }}"
                                            onchange="updateRowStyle({{ device.pk }}, this.value)">
-                                    <label class="form-check-label" for="normal_{{ device.pk }}"
+                                    <label class="form-check-label" for="n_{{ device.pk }}"
                                            style="font-size:12px;color:#166534;font-weight:600;">Normal</label>
                                 </div>
                                 <div class="form-check form-check-inline mb-0">
-                                    <input class="form-check-input hasil-radio" type="radio"
+                                    <input class="form-check-input radio-hasil" type="radio"
                                            name="hasil_{{ device.pk }}"
-                                           id="tidak_normal_{{ device.pk }}"
-                                           value="tidak_normal"
+                                           id="tn_{{ device.pk }}" value="tidak_normal"
+                                           data-row="{{ device.pk }}"
                                            onchange="updateRowStyle({{ device.pk }}, this.value)">
-                                    <label class="form-check-label" for="tidak_normal_{{ device.pk }}"
+                                    <label class="form-check-label" for="tn_{{ device.pk }}"
                                            style="font-size:12px;color:#991b1b;font-weight:600;">Tidak Normal</label>
                                 </div>
                             </div>
                         </td>
                         <td style="padding:8px 12px;">
                             <input type="text" name="catatan_{{ device.pk }}"
-                                   class="form-control form-control-sm"
-                                   placeholder="Catatan…"
+                                   class="form-control form-control-sm" placeholder="Catatan…"
                                    style="font-size:12px;">
                         </td>
                     </tr>
@@ -114,18 +129,103 @@
         </div>
     </div>
 </div>
-{% endfor %}
-{% endwith %}
+{% endif %}
+
+<!-- TABEL VOIP -->
+{% if voip_devices %}
+<div class="card mb-4">
+    <div class="card-header d-flex align-items-center gap-2" style="background:#fdf4ff;">
+        <span style="font-size:12px;padding:3px 12px;border-radius:20px;font-weight:700;background:#f3e8ff;color:#7e22ce;">
+            <i class="bi bi-telephone-fill me-1"></i>VoIP
+        </span>
+        <span class="text-muted" style="font-size:12px;">{{ voip_devices|length }} perangkat</span>
+        <div class="ms-auto d-flex gap-3">
+            <button type="button" class="btn btn-xs btn-outline-success" style="font-size:11px;padding:2px 10px;" onclick="setAllHasil('voip','normal')">
+                Semua Normal
+            </button>
+            <button type="button" class="btn btn-xs btn-outline-danger" style="font-size:11px;padding:2px 10px;" onclick="setAllHasil('voip','tidak_normal')">
+                Semua Tidak Normal
+            </button>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-sm mb-0 align-middle" style="font-size:13px;">
+                <thead style="background:#f1f5f9;">
+                    <tr>
+                        <th style="width:36px;padding:10px 12px;">#</th>
+                        <th style="padding:10px 12px;">Nama Perangkat</th>
+                        <th style="padding:10px 12px;min-width:120px;">GI / Lokasi</th>
+                        <th style="width:220px;padding:10px 12px;">Hasil Pengujian</th>
+                        <th style="min-width:180px;padding:10px 12px;">Catatan</th>
+                    </tr>
+                </thead>
+                <tbody id="tbody-voip">
+                    {% for device in voip_devices %}
+                    <tr id="row-{{ device.pk }}">
+                        <td class="text-muted" style="padding:10px 12px;">{{ forloop.counter }}</td>
+                        <td style="padding:10px 12px;font-weight:600;">{{ device.nama }}</td>
+                        <td style="padding:10px 12px;">
+                            <span style="font-size:11px;padding:2px 8px;border-radius:12px;background:#f1f5f9;color:#475569;">
+                                {{ device.lokasi|default:"—" }}
+                            </span>
+                        </td>
+                        <td style="padding:10px 12px;">
+                            <div class="d-flex gap-3 align-items-center">
+                                <div class="form-check form-check-inline mb-0">
+                                    <input class="form-check-input radio-hasil" type="radio"
+                                           name="hasil_{{ device.pk }}"
+                                           id="n_{{ device.pk }}" value="normal" checked
+                                           data-row="{{ device.pk }}"
+                                           onchange="updateRowStyle({{ device.pk }}, this.value)">
+                                    <label class="form-check-label" for="n_{{ device.pk }}"
+                                           style="font-size:12px;color:#166534;font-weight:600;">Normal</label>
+                                </div>
+                                <div class="form-check form-check-inline mb-0">
+                                    <input class="form-check-input radio-hasil" type="radio"
+                                           name="hasil_{{ device.pk }}"
+                                           id="tn_{{ device.pk }}" value="tidak_normal"
+                                           data-row="{{ device.pk }}"
+                                           onchange="updateRowStyle({{ device.pk }}, this.value)">
+                                    <label class="form-check-label" for="tn_{{ device.pk }}"
+                                           style="font-size:12px;color:#991b1b;font-weight:600;">Tidak Normal</label>
+                                </div>
+                            </div>
+                        </td>
+                        <td style="padding:8px 12px;">
+                            <input type="text" name="catatan_{{ device.pk }}"
+                                   class="form-control form-control-sm" placeholder="Catatan…"
+                                   style="font-size:12px;">
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if not radio_devices and not voip_devices %}
+<div class="card mb-4">
+    <div class="card-body text-center py-5 text-muted" style="font-size:13px;">
+        <i class="bi bi-inbox" style="font-size:40px;color:#cbd5e1;display:block;margin-bottom:8px;"></i>
+        Belum ada perangkat Radio atau VoIP terdaftar di sistem.
+    </div>
+</div>
+{% endif %}
 
 <!-- TOMBOL SIMPAN -->
+{% if radio_devices or voip_devices %}
 <div class="d-flex justify-content-end gap-2 mt-2 mb-4">
-    <a href="{% url 'pengujian_telecom_lokasi' %}" class="btn btn-outline-secondary">
+    <a href="{% url 'pengujian_telecom_list' %}" class="btn btn-outline-secondary">
         <i class="bi bi-x-circle me-1"></i>Batal
     </a>
     <button type="submit" class="btn btn-primary">
         <i class="bi bi-check-circle me-1"></i>Simpan Pengujian
     </button>
 </div>
+{% endif %}
 
 </form>
 
@@ -133,13 +233,18 @@
 
 {% block extra_js %}
 <script>
-function updateRowStyle(devicePk, val) {
-    const row = document.getElementById('normal_' + devicePk).closest('tr');
-    if (val === 'tidak_normal') {
-        row.style.background = '#fef2f2';
-    } else {
-        row.style.background = '';
-    }
+function updateRowStyle(pk, val) {
+    const row = document.getElementById('row-' + pk);
+    if (row) row.style.background = val === 'tidak_normal' ? '#fef2f2' : '';
+}
+
+function setAllHasil(group, val) {
+    const tbody = document.getElementById('tbody-' + group);
+    if (!tbody) return;
+    tbody.querySelectorAll('input[type=radio][value="' + val + '"]').forEach(function(el) {
+        el.checked = true;
+        updateRowStyle(el.dataset.row, val);
+    });
 }
 </script>
 {% endblock %}

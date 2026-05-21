@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}Detail Pengujian — {{ pengujian.lokasi }}{% endblock %}
+{% block title %}Detail Pengujian Telekomunikasi{% endblock %}
 {% block page_title %}Pengujian Telekomunikasi{% endblock %}
 
 {% block content %}
@@ -19,15 +19,15 @@
             </div>
             <div>
                 <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;">Detail Pengujian</div>
-                <div style="font-size:18px;font-weight:700;color:#f1f5f9;">{{ pengujian.lokasi }}</div>
+                <div style="font-size:18px;font-weight:700;color:#f1f5f9;">Pengujian Telekomunikasi</div>
                 <div style="font-size:12px;color:#94a3b8;">
                     {{ pengujian.tanggal|date:"d M Y" }}
                     &nbsp;·&nbsp;
                     {{ pengujian.dibuat_oleh.get_full_name|default:pengujian.dibuat_oleh.username|default:"—" }}
                 </div>
             </div>
-            <div class="ms-auto d-flex gap-2">
-                {% if user.is_superuser or user.profile.role == 'asisten_manager' or pengujian.dibuat_oleh == user %}
+            <div class="ms-auto">
+                {% if user.is_superuser or pengujian.dibuat_oleh == user %}
                 <form method="post" action="{% url 'pengujian_telecom_delete' pengujian.pk %}"
                       onsubmit="return confirm('Hapus data pengujian ini?')">
                     {% csrf_token %}
@@ -56,6 +56,8 @@
 {% endfor %}
 {% endif %}
 
+{% with ada_tidak_normal_radio=False ada_tidak_normal_voip=False %}
+
 <!-- RADIO -->
 {% if radio_items %}
 <div class="card mb-4">
@@ -64,16 +66,21 @@
             <i class="bi bi-reception-4 me-1"></i>Radio
         </span>
         <span class="text-muted" style="font-size:12px;">{{ radio_items|length }} perangkat</span>
+        {% for item in radio_items %}{% if item.hasil == 'tidak_normal' %}
+        <span class="ms-auto" style="font-size:11px;padding:2px 10px;border-radius:12px;background:#fef2f2;color:#991b1b;font-weight:600;">
+            <i class="bi bi-exclamation-triangle me-1"></i>Ada Tidak Normal
+        </span>
+        {% endif %}{% endfor %}
     </div>
     <div class="card-body p-0">
         <div class="table-responsive">
             <table class="table table-sm mb-0 align-middle" style="font-size:13px;">
                 <thead style="background:#f1f5f9;">
                     <tr>
-                        <th style="width:40px;padding:10px 12px;">#</th>
+                        <th style="width:36px;padding:10px 12px;">#</th>
                         <th style="padding:10px 12px;">Nama Perangkat</th>
-                        <th style="padding:10px 12px;">Merk / Tipe</th>
-                        <th style="width:160px;padding:10px 12px;">Hasil</th>
+                        <th style="padding:10px 12px;">GI / Lokasi</th>
+                        <th style="width:150px;padding:10px 12px;">Hasil</th>
                         <th style="padding:10px 12px;">Catatan</th>
                     </tr>
                 </thead>
@@ -82,7 +89,11 @@
                     <tr style="{% if item.hasil == 'tidak_normal' %}background:#fef2f2;{% endif %}">
                         <td class="text-muted" style="padding:10px 12px;">{{ forloop.counter }}</td>
                         <td style="padding:10px 12px;font-weight:600;">{{ item.device.nama }}</td>
-                        <td style="padding:10px 12px;color:#64748b;">{{ item.device.merk|default:"—" }} {{ item.device.type|default:"" }}</td>
+                        <td style="padding:10px 12px;">
+                            <span style="font-size:11px;padding:2px 8px;border-radius:12px;background:#f1f5f9;color:#475569;">
+                                {{ item.device.lokasi|default:"—" }}
+                            </span>
+                        </td>
                         <td style="padding:10px 12px;">
                             <span style="font-size:11px;padding:3px 10px;border-radius:20px;font-weight:700;
                                 {% if item.hasil == 'normal' %}background:#f0fdf4;color:#166534;{% else %}background:#fef2f2;color:#991b1b;{% endif %}">
@@ -107,16 +118,21 @@
             <i class="bi bi-telephone-fill me-1"></i>VoIP
         </span>
         <span class="text-muted" style="font-size:12px;">{{ voip_items|length }} perangkat</span>
+        {% for item in voip_items %}{% if item.hasil == 'tidak_normal' %}
+        <span class="ms-auto" style="font-size:11px;padding:2px 10px;border-radius:12px;background:#fef2f2;color:#991b1b;font-weight:600;">
+            <i class="bi bi-exclamation-triangle me-1"></i>Ada Tidak Normal
+        </span>
+        {% endif %}{% endfor %}
     </div>
     <div class="card-body p-0">
         <div class="table-responsive">
             <table class="table table-sm mb-0 align-middle" style="font-size:13px;">
                 <thead style="background:#f1f5f9;">
                     <tr>
-                        <th style="width:40px;padding:10px 12px;">#</th>
+                        <th style="width:36px;padding:10px 12px;">#</th>
                         <th style="padding:10px 12px;">Nama Perangkat</th>
-                        <th style="padding:10px 12px;">Merk / Tipe</th>
-                        <th style="width:160px;padding:10px 12px;">Hasil</th>
+                        <th style="padding:10px 12px;">GI / Lokasi</th>
+                        <th style="width:150px;padding:10px 12px;">Hasil</th>
                         <th style="padding:10px 12px;">Catatan</th>
                     </tr>
                 </thead>
@@ -125,7 +141,11 @@
                     <tr style="{% if item.hasil == 'tidak_normal' %}background:#fef2f2;{% endif %}">
                         <td class="text-muted" style="padding:10px 12px;">{{ forloop.counter }}</td>
                         <td style="padding:10px 12px;font-weight:600;">{{ item.device.nama }}</td>
-                        <td style="padding:10px 12px;color:#64748b;">{{ item.device.merk|default:"—" }} {{ item.device.type|default:"" }}</td>
+                        <td style="padding:10px 12px;">
+                            <span style="font-size:11px;padding:2px 8px;border-radius:12px;background:#f1f5f9;color:#475569;">
+                                {{ item.device.lokasi|default:"—" }}
+                            </span>
+                        </td>
                         <td style="padding:10px 12px;">
                             <span style="font-size:11px;padding:3px 10px;border-radius:20px;font-weight:700;
                                 {% if item.hasil == 'normal' %}background:#f0fdf4;color:#166534;{% else %}background:#fef2f2;color:#991b1b;{% endif %}">
@@ -141,6 +161,8 @@
     </div>
 </div>
 {% endif %}
+
+{% endwith %}
 
 {% if not radio_items and not voip_items %}
 <div class="text-center py-5 text-muted" style="font-size:13px;">

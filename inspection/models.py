@@ -378,7 +378,7 @@ class PengujianTelecom(models.Model):
     """Header satu sesi pengujian telekomunikasi per lokasi."""
 
     tanggal     = models.DateField(default=timezone.now, verbose_name='Tanggal Pengujian')
-    lokasi      = models.CharField(max_length=100, verbose_name='Lokasi / GI')
+    lokasi      = models.CharField(max_length=100, blank=True, verbose_name='Lokasi / GI')
     dibuat_oleh = models.ForeignKey(User, on_delete=models.SET_NULL,
                                     null=True, blank=True,
                                     related_name='pengujian_telecom',

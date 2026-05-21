@@ -1262,45 +1262,32 @@ def _require_dispatcher_or_above(view_func):
 
 @login_required
 @_require_dispatcher_or_above
-def pengujian_telecom_lokasi(request):
-    """Pilih lokasi sebelum mengisi form pengujian."""
-    lokasi_qs = (
+def pengujian_telecom_form(request):
+    """Form batch pengujian — semua perangkat Radio & VoIP sekaligus."""
+    radio_devices = (
         Device.objects
-        .filter(is_deleted=False, jenis__name__in=['Radio', 'VoIP'])
-        .exclude(lokasi__isnull=True).exclude(lokasi='')
-        .values_list('lokasi', flat=True)
-        .distinct().order_by('lokasi')
-    )
-    return render(request, 'inspection/pengujian_telecom_lokasi.html', {
-        'lokasi_list': list(lokasi_qs),
-    })
-
-
-@login_required
-@_require_dispatcher_or_above
-def pengujian_telecom_form(request, lokasi):
-    """Form batch pengujian untuk satu lokasi."""
-    devices = (
-        Device.objects
-        .filter(is_deleted=False, jenis__name__in=['Radio', 'VoIP'], lokasi=lokasi)
+        .filter(is_deleted=False, jenis__name='Radio')
         .select_related('jenis')
-        .order_by('jenis__name', 'nama')
+        .order_by('lokasi', 'nama')
     )
-    if not devices.exists():
-        from django.contrib import messages
-        messages.warning(request, f'Tidak ada perangkat Radio/VoIP di lokasi {lokasi}.')
-        return redirect('pengujian_telecom_lokasi')
+    voip_devices = (
+        Device.objects
+        .filter(is_deleted=False, jenis__name='VoIP')
+        .select_related('jenis')
+        .order_by('lokasi', 'nama')
+    )
+    all_devices = list(radio_devices) + list(voip_devices)
 
     if request.method == 'POST':
         tanggal = request.POST.get('tanggal') or date.today()
         catatan = request.POST.get('catatan', '')
         pengujian = PengujianTelecom.objects.create(
             tanggal=tanggal,
-            lokasi=lokasi,
+            lokasi='',
             dibuat_oleh=request.user,
             catatan=catatan,
         )
-        for d in devices:
+        for d in all_devices:
             hasil = request.POST.get(f'hasil_{d.pk}', 'normal')
             cat   = request.POST.get(f'catatan_{d.pk}', '')
             PengujianTelecomItem.objects.create(
@@ -1314,16 +1301,25 @@ def pengujian_telecom_form(request, lokasi):
         return redirect('pengujian_telecom_detail', pk=pengujian.pk)
 
     return render(request, 'inspection/pengujian_telecom_form.html', {
-        'lokasi':   lokasi,
-        'devices':  devices,
-        'today':    date.today().isoformat(),
+        'radio_devices': radio_devices,
+        'voip_devices':  voip_devices,
+        'today':         date.today().isoformat(),
     })
 
 
 @login_required
 def pengujian_telecom_list(request):
     """Daftar semua sesi pengujian."""
-    qs = PengujianTelecom.objects.select_related('dibuat_oleh').all()
+    from django.db.models import Count, Q as Qlocal
+    qs = (
+        PengujianTelecom.objects
+        .select_related('dibuat_oleh')
+        .annotate(
+            total_device=Count('items'),
+            total_tidak_normal=Count('items', filter=Qlocal(items__hasil='tidak_normal')),
+        )
+        .all()
+    )
     try:
         role = request.user.profile.role
     except Exception:

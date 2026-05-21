@@ -18,7 +18,7 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('tanggal', models.DateField(default=django.utils.timezone.now, verbose_name='Tanggal Pengujian')),
-                ('lokasi', models.CharField(max_length=100, verbose_name='Lokasi / GI')),
+                ('lokasi', models.CharField(blank=True, max_length=100, verbose_name='Lokasi / GI')),
                 ('catatan', models.TextField(blank=True, verbose_name='Catatan Umum')),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
                 ('dibuat_oleh', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='pengujian_telecom', to=settings.AUTH_USER_MODEL, verbose_name='Dibuat Oleh')),
