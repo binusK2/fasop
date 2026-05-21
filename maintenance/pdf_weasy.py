@@ -33,6 +33,7 @@ _TEMPLATE_MAP = {
     'TELEPROTEKSI':        'maintenance/pdf/teleproteksi.html',
     'GENSET':              'maintenance/pdf/genset.html',
     'RTU':                 'maintenance/pdf/rtu.html',
+    'RTU_GENERIC':         'maintenance/pdf/sas.html',
     'SAS':                 'maintenance/pdf/sas.html',
     'SERVER SCADA':        'maintenance/pdf/sas.html',
     'GATEWAY SAS':         'maintenance/pdf/sas.html',
@@ -57,6 +58,7 @@ _TITLES = {
     'RECTIFIER':    'Formulir Pemeliharaan Peralatan Rectifier dan Battery',
     'CATU DAYA':    'Formulir Pemeliharaan Peralatan Rectifier dan Battery',
     'RTU':          'Formulir Pemeliharaan Peralatan RTU AK3',
+    'RTU_GENERIC':  'Formulir Pemeliharaan Peralatan RTU',
     'SAS':          'Formulir Pemeliharaan Peralatan SAS / Server SCADA',
     'SERVER SCADA': 'Formulir Pemeliharaan Peralatan Server SCADA',
     'GATEWAY SAS':  'Formulir Pemeliharaan Peralatan Gateway SAS',
@@ -88,6 +90,7 @@ _DOC_CODES = {
     'VOIP':                '',
     'GENSET':              '',
     'RTU':                 '',
+    'RTU_GENERIC':         '',
     'SAS':                 '',
     'SERVER SCADA':        '',
     'GATEWAY SAS':         '',
@@ -484,6 +487,7 @@ def _ctx_sas(data, ctx):
 _CTX_BUILDERS['SAS'] = _ctx_sas
 _CTX_BUILDERS['SERVER SCADA'] = _ctx_sas
 _CTX_BUILDERS['GATEWAY SAS'] = _ctx_sas
+_CTX_BUILDERS['RTU_GENERIC'] = _ctx_sas
 
 
 def _ctx_roip(data, ctx):
