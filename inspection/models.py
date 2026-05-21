@@ -369,3 +369,51 @@ class InspectionTelecom(models.Model):
 
     def __str__(self):
         return f'Telecom — {self.inspection}'
+
+
+# ─────────────────────────────────────────────────────────────────────
+# PENGUJIAN TELEKOMUNIKASI — Batch form (Dispatcher)
+# ─────────────────────────────────────────────────────────────────────
+class PengujianTelecom(models.Model):
+    """Header satu sesi pengujian telekomunikasi per lokasi."""
+
+    tanggal     = models.DateField(default=timezone.now, verbose_name='Tanggal Pengujian')
+    lokasi      = models.CharField(max_length=100, verbose_name='Lokasi / GI')
+    dibuat_oleh = models.ForeignKey(User, on_delete=models.SET_NULL,
+                                    null=True, blank=True,
+                                    related_name='pengujian_telecom',
+                                    verbose_name='Dibuat Oleh')
+    catatan     = models.TextField(blank=True, verbose_name='Catatan Umum')
+    created_at  = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-tanggal', '-created_at']
+        verbose_name = 'Pengujian Telekomunikasi'
+        verbose_name_plural = 'Pengujian Telekomunikasi'
+
+    def __str__(self):
+        return f'{self.lokasi} — {self.tanggal}'
+
+
+class PengujianTelecomItem(models.Model):
+    """Satu baris hasil pengujian per perangkat Radio / VoIP."""
+
+    HASIL_CHOICES = (
+        ('normal',       'Normal'),
+        ('tidak_normal', 'Tidak Normal'),
+    )
+
+    pengujian = models.ForeignKey(PengujianTelecom, on_delete=models.CASCADE,
+                                  related_name='items')
+    device    = models.ForeignKey(Device, on_delete=models.CASCADE,
+                                  related_name='pengujian_telecom_items')
+    hasil     = models.CharField(max_length=15, choices=HASIL_CHOICES,
+                                 default='normal', verbose_name='Hasil')
+    catatan   = models.TextField(blank=True, verbose_name='Catatan')
+
+    class Meta:
+        ordering = ['device__jenis__name', 'device__nama']
+        verbose_name = 'Item Pengujian Telekomunikasi'
+
+    def __str__(self):
+        return f'{self.device.nama} — {self.get_hasil_display()}'

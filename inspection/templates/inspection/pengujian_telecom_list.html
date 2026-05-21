@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+{% block title %}Riwayat Pengujian Telekomunikasi — FASOP{% endblock %}
+{% block page_title %}Pengujian Telekomunikasi{% endblock %}
+
+{% block content %}
+
+<!-- HEADER -->
+<div class="card mb-4" style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);border:none;">
+    <div class="card-body py-3 px-4">
+        <div class="d-flex align-items-center gap-3">
+            <div style="width:46px;height:46px;background:rgba(59,130,246,0.2);border-radius:12px;display:flex;align-items:center;justify-content:center;">
+                <i class="bi bi-clock-history" style="font-size:22px;color:#93c5fd;"></i>
+            </div>
+            <div>
+                <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;">Riwayat</div>
+                <div style="font-size:18px;font-weight:700;color:#f1f5f9;">Pengujian Telekomunikasi</div>
+                <div style="font-size:12px;color:#94a3b8;">Daftar sesi pengujian Radio &amp; VoIP</div>
+            </div>
+            <div class="ms-auto">
+                <a href="{% url 'pengujian_telecom_lokasi' %}" class="btn btn-sm btn-primary">
+                    <i class="bi bi-plus-circle me-1"></i>Pengujian Baru
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if messages %}
+{% for msg in messages %}
+<div class="alert alert-{{ msg.tags|default:'info' }} alert-dismissible fade show" role="alert">
+    {{ msg }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endfor %}
+{% endif %}
+
+<div class="card">
+    <div class="card-body p-0">
+        {% if pengujian_list %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle" style="font-size:13px;">
+                <thead style="background:#f1f5f9;">
+                    <tr>
+                        <th style="padding:12px 16px;">#</th>
+                        <th style="padding:12px 16px;">Tanggal</th>
+                        <th style="padding:12px 16px;">Lokasi</th>
+                        <th style="padding:12px 16px;">Dibuat Oleh</th>
+                        <th style="padding:12px 16px;">Catatan</th>
+                        <th style="padding:12px 16px;width:120px;">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in pengujian_list %}
+                    <tr>
+                        <td style="padding:12px 16px;color:#94a3b8;">{{ forloop.counter }}</td>
+                        <td style="padding:12px 16px;font-weight:600;">{{ p.tanggal|date:"d M Y" }}</td>
+                        <td style="padding:12px 16px;">
+                            <span style="font-size:12px;padding:3px 10px;border-radius:20px;background:#eff6ff;color:#1d4ed8;font-weight:600;">
+                                {{ p.lokasi }}
+                            </span>
+                        </td>
+                        <td style="padding:12px 16px;color:#64748b;">
+                            {{ p.dibuat_oleh.get_full_name|default:p.dibuat_oleh.username|default:"—" }}
+                        </td>
+                        <td style="padding:12px 16px;color:#64748b;">{{ p.catatan|default:"—"|truncatechars:50 }}</td>
+                        <td style="padding:12px 16px;">
+                            <a href="{% url 'pengujian_telecom_detail' p.pk %}"
+                               class="btn btn-xs btn-outline-primary" style="font-size:11px;padding:3px 10px;">
+                                <i class="bi bi-eye me-1"></i>Detail
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5">
+            <i class="bi bi-inbox" style="font-size:40px;color:#cbd5e1;"></i>
+            <div class="mt-2 text-muted" style="font-size:13px;">Belum ada data pengujian.</div>
+            <a href="{% url 'pengujian_telecom_lokasi' %}" class="btn btn-sm btn-primary mt-3">
+                <i class="bi bi-plus-circle me-1"></i>Mulai Pengujian
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}

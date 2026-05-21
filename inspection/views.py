@@ -3,7 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
 from django.utils import timezone
 from django.db.models import Count, Q
-from .models import Inspection, InspectionCatuDaya, InspectionDefenseScheme, InspectionMasterTrip, InspectionUFLS, InspectionTelecom
+from .models import Inspection, InspectionCatuDaya, InspectionDefenseScheme, InspectionMasterTrip, InspectionUFLS, InspectionTelecom, PengujianTelecom, PengujianTelecomItem
 from devices.models import Device, DeviceType, SiteLocation
 from datetime import date
 import openpyxl
@@ -1233,3 +1233,132 @@ def inspection_export(request):
     resp['Content-Disposition'] = f'attachment; filename="Laporan_Inspeksi_{date.today().strftime("%Y%m%d")}.xlsx"'
     wb.save(resp)
     return resp
+
+
+# ─────────────────────────────────────────────────────────────────────
+# PENGUJIAN TELEKOMUNIKASI
+# ─────────────────────────────────────────────────────────────────────
+
+def _require_dispatcher_or_above(view_func):
+    """Dispatcher, AM, superuser."""
+    from functools import wraps
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            from django.contrib.auth.views import redirect_to_login
+            return redirect_to_login(request.get_full_path())
+        if request.user.is_superuser:
+            return view_func(request, *args, **kwargs)
+        try:
+            role = request.user.profile.role
+        except Exception:
+            role = ''
+        if role in ('dispatcher', 'asisten_manager'):
+            return view_func(request, *args, **kwargs)
+        return render(request, '403.html',
+                      {'message': 'Halaman ini hanya untuk Dispatcher / Asisten Manager.'}, status=403)
+    return wrapper
+
+
+@login_required
+@_require_dispatcher_or_above
+def pengujian_telecom_lokasi(request):
+    """Pilih lokasi sebelum mengisi form pengujian."""
+    lokasi_qs = (
+        Device.objects
+        .filter(is_deleted=False, jenis__name__in=['Radio', 'VoIP'])
+        .exclude(lokasi__isnull=True).exclude(lokasi='')
+        .values_list('lokasi', flat=True)
+        .distinct().order_by('lokasi')
+    )
+    return render(request, 'inspection/pengujian_telecom_lokasi.html', {
+        'lokasi_list': list(lokasi_qs),
+    })
+
+
+@login_required
+@_require_dispatcher_or_above
+def pengujian_telecom_form(request, lokasi):
+    """Form batch pengujian untuk satu lokasi."""
+    devices = (
+        Device.objects
+        .filter(is_deleted=False, jenis__name__in=['Radio', 'VoIP'], lokasi=lokasi)
+        .select_related('jenis')
+        .order_by('jenis__name', 'nama')
+    )
+    if not devices.exists():
+        from django.contrib import messages
+        messages.warning(request, f'Tidak ada perangkat Radio/VoIP di lokasi {lokasi}.')
+        return redirect('pengujian_telecom_lokasi')
+
+    if request.method == 'POST':
+        tanggal = request.POST.get('tanggal') or date.today()
+        catatan = request.POST.get('catatan', '')
+        pengujian = PengujianTelecom.objects.create(
+            tanggal=tanggal,
+            lokasi=lokasi,
+            dibuat_oleh=request.user,
+            catatan=catatan,
+        )
+        for d in devices:
+            hasil = request.POST.get(f'hasil_{d.pk}', 'normal')
+            cat   = request.POST.get(f'catatan_{d.pk}', '')
+            PengujianTelecomItem.objects.create(
+                pengujian=pengujian,
+                device=d,
+                hasil=hasil,
+                catatan=cat,
+            )
+        from django.contrib import messages
+        messages.success(request, 'Pengujian telekomunikasi berhasil disimpan.')
+        return redirect('pengujian_telecom_detail', pk=pengujian.pk)
+
+    return render(request, 'inspection/pengujian_telecom_form.html', {
+        'lokasi':   lokasi,
+        'devices':  devices,
+        'today':    date.today().isoformat(),
+    })
+
+
+@login_required
+def pengujian_telecom_list(request):
+    """Daftar semua sesi pengujian."""
+    qs = PengujianTelecom.objects.select_related('dibuat_oleh').all()
+    try:
+        role = request.user.profile.role
+    except Exception:
+        role = ''
+    if role == 'dispatcher':
+        qs = qs.filter(dibuat_oleh=request.user)
+    return render(request, 'inspection/pengujian_telecom_list.html', {
+        'pengujian_list': qs,
+    })
+
+
+@login_required
+def pengujian_telecom_detail(request, pk):
+    """Detail satu sesi pengujian."""
+    pengujian = get_object_or_404(PengujianTelecom, pk=pk)
+    items = pengujian.items.select_related('device', 'device__jenis').all()
+
+    radio_items = [i for i in items if i.device.jenis.name == 'Radio']
+    voip_items  = [i for i in items if i.device.jenis.name == 'VoIP']
+
+    return render(request, 'inspection/pengujian_telecom_detail.html', {
+        'pengujian':   pengujian,
+        'radio_items': radio_items,
+        'voip_items':  voip_items,
+    })
+
+
+@login_required
+@_require_dispatcher_or_above
+def pengujian_telecom_delete(request, pk):
+    """Hapus satu sesi pengujian (POST only)."""
+    pengujian = get_object_or_404(PengujianTelecom, pk=pk)
+    if request.method == 'POST':
+        pengujian.delete()
+        from django.contrib import messages
+        messages.success(request, 'Data pengujian berhasil dihapus.')
+        return redirect('pengujian_telecom_list')
+    return redirect('pengujian_telecom_detail', pk=pk)

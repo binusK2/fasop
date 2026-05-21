@@ -51,6 +51,13 @@ def is_operator(user):
     return p.is_operator if p else False
 
 
+def is_dispatcher(user):
+    if user.is_superuser:
+        return False
+    p = get_profile(user)
+    return p.is_dispatcher if p else False
+
+
 def require_can_edit(view_func):
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):

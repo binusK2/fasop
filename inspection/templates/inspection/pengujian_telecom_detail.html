@@ -1,0 +1,152 @@
+{% extends 'base.html' %}
+{% block title %}Detail Pengujian — {{ pengujian.lokasi }}{% endblock %}
+{% block page_title %}Pengujian Telekomunikasi{% endblock %}
+
+{% block content %}
+
+<div class="d-flex align-items-center gap-2 mb-3">
+    <a href="{% url 'pengujian_telecom_list' %}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Riwayat
+    </a>
+</div>
+
+<!-- HEADER -->
+<div class="card mb-4" style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);border:none;">
+    <div class="card-body py-3 px-4">
+        <div class="d-flex align-items-center gap-3">
+            <div style="width:42px;height:42px;background:rgba(59,130,246,0.2);border-radius:10px;display:flex;align-items:center;justify-content:center;">
+                <i class="bi bi-broadcast" style="font-size:20px;color:#93c5fd;"></i>
+            </div>
+            <div>
+                <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;">Detail Pengujian</div>
+                <div style="font-size:18px;font-weight:700;color:#f1f5f9;">{{ pengujian.lokasi }}</div>
+                <div style="font-size:12px;color:#94a3b8;">
+                    {{ pengujian.tanggal|date:"d M Y" }}
+                    &nbsp;·&nbsp;
+                    {{ pengujian.dibuat_oleh.get_full_name|default:pengujian.dibuat_oleh.username|default:"—" }}
+                </div>
+            </div>
+            <div class="ms-auto d-flex gap-2">
+                {% if user.is_superuser or user.profile.role == 'asisten_manager' or pengujian.dibuat_oleh == user %}
+                <form method="post" action="{% url 'pengujian_telecom_delete' pengujian.pk %}"
+                      onsubmit="return confirm('Hapus data pengujian ini?')">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                        <i class="bi bi-trash me-1"></i>Hapus
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if pengujian.catatan %}
+<div class="alert alert-light border mb-4" style="font-size:13px;">
+    <i class="bi bi-chat-left-text me-1 text-primary"></i><strong>Catatan Umum:</strong> {{ pengujian.catatan }}
+</div>
+{% endif %}
+
+{% if messages %}
+{% for msg in messages %}
+<div class="alert alert-{{ msg.tags|default:'info' }} alert-dismissible fade show" role="alert">
+    {{ msg }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endfor %}
+{% endif %}
+
+<!-- RADIO -->
+{% if radio_items %}
+<div class="card mb-4">
+    <div class="card-header d-flex align-items-center gap-2" style="background:#eff6ff;">
+        <span style="font-size:12px;padding:3px 12px;border-radius:20px;font-weight:700;background:#dbeafe;color:#1d4ed8;">
+            <i class="bi bi-reception-4 me-1"></i>Radio
+        </span>
+        <span class="text-muted" style="font-size:12px;">{{ radio_items|length }} perangkat</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-sm mb-0 align-middle" style="font-size:13px;">
+                <thead style="background:#f1f5f9;">
+                    <tr>
+                        <th style="width:40px;padding:10px 12px;">#</th>
+                        <th style="padding:10px 12px;">Nama Perangkat</th>
+                        <th style="padding:10px 12px;">Merk / Tipe</th>
+                        <th style="width:160px;padding:10px 12px;">Hasil</th>
+                        <th style="padding:10px 12px;">Catatan</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in radio_items %}
+                    <tr style="{% if item.hasil == 'tidak_normal' %}background:#fef2f2;{% endif %}">
+                        <td class="text-muted" style="padding:10px 12px;">{{ forloop.counter }}</td>
+                        <td style="padding:10px 12px;font-weight:600;">{{ item.device.nama }}</td>
+                        <td style="padding:10px 12px;color:#64748b;">{{ item.device.merk|default:"—" }} {{ item.device.type|default:"" }}</td>
+                        <td style="padding:10px 12px;">
+                            <span style="font-size:11px;padding:3px 10px;border-radius:20px;font-weight:700;
+                                {% if item.hasil == 'normal' %}background:#f0fdf4;color:#166534;{% else %}background:#fef2f2;color:#991b1b;{% endif %}">
+                                {{ item.get_hasil_display }}
+                            </span>
+                        </td>
+                        <td style="padding:10px 12px;color:#64748b;">{{ item.catatan|default:"—" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- VoIP -->
+{% if voip_items %}
+<div class="card mb-4">
+    <div class="card-header d-flex align-items-center gap-2" style="background:#fdf4ff;">
+        <span style="font-size:12px;padding:3px 12px;border-radius:20px;font-weight:700;background:#f3e8ff;color:#7e22ce;">
+            <i class="bi bi-telephone-fill me-1"></i>VoIP
+        </span>
+        <span class="text-muted" style="font-size:12px;">{{ voip_items|length }} perangkat</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-sm mb-0 align-middle" style="font-size:13px;">
+                <thead style="background:#f1f5f9;">
+                    <tr>
+                        <th style="width:40px;padding:10px 12px;">#</th>
+                        <th style="padding:10px 12px;">Nama Perangkat</th>
+                        <th style="padding:10px 12px;">Merk / Tipe</th>
+                        <th style="width:160px;padding:10px 12px;">Hasil</th>
+                        <th style="padding:10px 12px;">Catatan</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in voip_items %}
+                    <tr style="{% if item.hasil == 'tidak_normal' %}background:#fef2f2;{% endif %}">
+                        <td class="text-muted" style="padding:10px 12px;">{{ forloop.counter }}</td>
+                        <td style="padding:10px 12px;font-weight:600;">{{ item.device.nama }}</td>
+                        <td style="padding:10px 12px;color:#64748b;">{{ item.device.merk|default:"—" }} {{ item.device.type|default:"" }}</td>
+                        <td style="padding:10px 12px;">
+                            <span style="font-size:11px;padding:3px 10px;border-radius:20px;font-weight:700;
+                                {% if item.hasil == 'normal' %}background:#f0fdf4;color:#166534;{% else %}background:#fef2f2;color:#991b1b;{% endif %}">
+                                {{ item.get_hasil_display }}
+                            </span>
+                        </td>
+                        <td style="padding:10px 12px;color:#64748b;">{{ item.catatan|default:"—" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if not radio_items and not voip_items %}
+<div class="text-center py-5 text-muted" style="font-size:13px;">
+    <i class="bi bi-inbox" style="font-size:40px;color:#cbd5e1;display:block;margin-bottom:8px;"></i>
+    Tidak ada item pengujian.
+</div>
+{% endif %}
+
+{% endblock %}
