@@ -138,8 +138,6 @@ def _ctx_router(data, ctx):
         'pengukuran_items': [
             {'label': 'Tegangan Input', 'value': _v(u.get('tegangan_input')), 'standar': '24/48/220 V'},
             {'label': 'Suhu Perangkat', 'value': _v(u.get('suhu_perangkat')), 'standar': '< 60 °C'},
-            {'label': 'CPU Load',       'value': _v(u.get('cpu_load')),       'standar': '< 80 %'},
-            {'label': 'Memory Usage',   'value': _v(u.get('memory_usage')),   'standar': '< 80 %'},
         ],
         'port':              data.get('port', {}),
         'sfp_ports':         data.get('sfp_ports', []),

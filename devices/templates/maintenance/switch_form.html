@@ -99,40 +99,12 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
+            <div class="col-md-6">
                 <div class="measure-card">
                     <div class="measure-label">Suhu Perangkat</div>
                     <div class="input-group">
                         {{ detail_form.suhu_perangkat }}
                         <span class="input-group-text measure-unit">°C</span>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="measure-card">
-                    <div class="measure-label">CPU Load</div>
-                    <div class="input-group">
-                        {{ detail_form.cpu_load }}
-                        <span class="input-group-text measure-unit">%</span>
-                    </div>
-                    <div id="cpu-bar-wrap" style="margin-top:8px;display:none;">
-                        <div style="height:5px;background:#e2e8f0;border-radius:3px;overflow:hidden;">
-                            <div id="cpu-bar" style="height:100%;border-radius:3px;transition:width 0.3s;"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="measure-card">
-                    <div class="measure-label">Memory Usage</div>
-                    <div class="input-group">
-                        {{ detail_form.memory_usage }}
-                        <span class="input-group-text measure-unit">%</span>
-                    </div>
-                    <div id="mem-bar-wrap" style="margin-top:8px;display:none;">
-                        <div style="height:5px;background:#e2e8f0;border-radius:3px;overflow:hidden;">
-                            <div id="mem-bar" style="height:100%;border-radius:3px;transition:width 0.3s;"></div>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -367,32 +339,6 @@ function renderChecklist() {
     });
 }
 
-// Progress bar CPU & Memory
-function updateBar(inputName, barId, wrapId) {
-    const input = document.querySelector(`[name="${inputName}"]`);
-    if (!input) return;
-    input.addEventListener('input', () => {
-        const val = parseFloat(input.value) || 0;
-        const bar  = document.getElementById(barId);
-        const wrap = document.getElementById(wrapId);
-        if (val > 0 && val <= 100) {
-            wrap.style.display = 'block';
-            bar.style.width = val + '%';
-            bar.style.background = val > 80 ? '#ef4444' : val > 60 ? '#f59e0b' : '#10b981';
-        } else {
-            wrap.style.display = 'none';
-        }
-    });
-    // Init
-    const val = parseFloat(input.value) || 0;
-    if (val > 0) {
-        document.getElementById(wrapId).style.display = 'block';
-        const bar = document.getElementById(barId);
-        bar.style.width = val + '%';
-        bar.style.background = val > 80 ? '#ef4444' : val > 60 ? '#f59e0b' : '#10b981';
-    }
-}
-
 // Progress bar utilisasi port
 function updatePortBar() {
     const a = parseFloat(document.querySelector('[name="jumlah_port_aktif"]')?.value) || 0;
@@ -483,8 +429,6 @@ btnClear?.addEventListener('click', () => {
 
 document.addEventListener('DOMContentLoaded', () => {
     renderChecklist();
-    updateBar('cpu_load',     'cpu-bar', 'cpu-bar-wrap');
-    updateBar('memory_usage', 'mem-bar', 'mem-bar-wrap');
     document.querySelector('[name="jumlah_port_aktif"]')?.addEventListener('input', updatePortBar);
     document.querySelector('[name="jumlah_port_total"]')?.addEventListener('input', updatePortBar);
     updatePortBar();
