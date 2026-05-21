@@ -201,7 +201,7 @@ def user_permissions(request):
             'user_is_opsis':          False,
         }
 
-    from devices.permissions import can_edit, can_delete, can_manage_lokasi, is_viewer_only, is_operator
+    from devices.permissions import can_edit, can_delete, can_manage_lokasi, is_viewer_only, is_operator, is_dispatcher
     try:
         _is_opsis = request.user.profile.role == 'opsis'
     except Exception:
@@ -212,5 +212,6 @@ def user_permissions(request):
         'user_can_manage_lokasi': can_manage_lokasi(request.user),
         'user_is_viewer':         is_viewer_only(request.user),
         'user_is_operator':       is_operator(request.user),
+        'user_is_dispatcher':     is_dispatcher(request.user),
         'user_is_opsis':          _is_opsis,
     }

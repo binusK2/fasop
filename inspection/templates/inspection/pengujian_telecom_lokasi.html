@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+{% block title %}Pengujian Telekomunikasi — FASOP{% endblock %}
+{% block page_title %}Pengujian Telekomunikasi{% endblock %}
+
+{% block content %}
+
+<div class="card mb-4" style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);border:none;">
+    <div class="card-body py-3 px-4">
+        <div class="d-flex align-items-center gap-3">
+            <div style="width:46px;height:46px;background:rgba(59,130,246,0.2);border-radius:12px;display:flex;align-items:center;justify-content:center;">
+                <i class="bi bi-broadcast" style="font-size:22px;color:#93c5fd;"></i>
+            </div>
+            <div>
+                <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;">Modul</div>
+                <div style="font-size:18px;font-weight:700;color:#f1f5f9;">Pengujian Telekomunikasi</div>
+                <div style="font-size:12px;color:#94a3b8;">Pilih Gardu Induk / Lokasi untuk memulai pengujian Radio &amp; VoIP</div>
+            </div>
+            <div class="ms-auto">
+                <a href="{% url 'pengujian_telecom_list' %}" class="btn btn-sm btn-outline-light">
+                    <i class="bi bi-clock-history me-1"></i>Riwayat
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if messages %}
+{% for msg in messages %}
+<div class="alert alert-{{ msg.tags|default:'info' }} alert-dismissible fade show" role="alert">
+    {{ msg }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endfor %}
+{% endif %}
+
+<div class="card mb-4">
+    <div class="card-body px-4 py-4">
+        <label class="form-label fw-bold mb-2" style="font-size:13px;">
+            <i class="bi bi-geo-alt-fill me-1 text-primary"></i>Pilih Gardu Induk / Lokasi
+        </label>
+        <div class="d-flex gap-2 align-items-center flex-wrap">
+            <select id="lokasi-select" class="form-select" style="max-width:360px;font-size:13px;">
+                <option value="">— Pilih Lokasi —</option>
+                {% for lok in lokasi_list %}
+                <option value="{% url 'pengujian_telecom_form' lok %}">{{ lok }}</option>
+                {% endfor %}
+            </select>
+            <button onclick="goLokasi()" class="btn btn-primary" style="font-size:13px;">
+                <i class="bi bi-arrow-right-circle me-1"></i>Mulai Pengujian
+            </button>
+        </div>
+        {% if not lokasi_list %}
+        <div class="mt-3 text-muted" style="font-size:12px;">
+            <i class="bi bi-info-circle me-1"></i>Belum ada perangkat Radio atau VoIP terdaftar di sistem.
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function goLokasi() {
+    const sel = document.getElementById('lokasi-select');
+    if (sel.value) window.location.href = sel.value;
+}
+document.getElementById('lokasi-select').addEventListener('change', function() {
+    if (this.value) window.location.href = this.value;
+});
+</script>
+{% endblock %}

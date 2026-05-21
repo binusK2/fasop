@@ -14,4 +14,11 @@ urlpatterns = [
     path('export/',                       views.inspection_export,       name='inspection_export'),
     path('export/ultg/',                  views.inspection_export_ultg,  name='inspection_export_ultg'),
     path('api/last/',                     views.inspection_api_last,     name='inspection_api_last'),
+
+    # Pengujian Telekomunikasi (Dispatcher)
+    path('pengujian-telecom/',                           views.pengujian_telecom_lokasi, name='pengujian_telecom_lokasi'),
+    path('pengujian-telecom/form/<str:lokasi>/',         views.pengujian_telecom_form,   name='pengujian_telecom_form'),
+    path('pengujian-telecom/riwayat/',                   views.pengujian_telecom_list,   name='pengujian_telecom_list'),
+    path('pengujian-telecom/riwayat/<int:pk>/',          views.pengujian_telecom_detail, name='pengujian_telecom_detail'),
+    path('pengujian-telecom/riwayat/<int:pk>/delete/',   views.pengujian_telecom_delete, name='pengujian_telecom_delete'),
 ]
