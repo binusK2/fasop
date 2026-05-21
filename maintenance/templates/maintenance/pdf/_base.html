@@ -124,7 +124,7 @@
     {# Baris 2: logo Danantara (kiri) + judul (tengah) + teks unit + logo PLN (kanan) #}
     <div class="header-row2">
         <div style="flex:0 0 auto;">{% if logo_danantara %}<img src="{{ logo_danantara }}" class="logo-danantara" alt="Danantara">{% endif %}</div>
-        <div style="flex:1; text-align:center; font-weight:bold; font-size:8.5pt; color:#0F172A; padding:0 4mm;">{{ title }}</div>
+        <div style="flex:1; text-align:center; padding:0 4mm;">{% block header_title %}<span style="font-weight:bold; font-size:8.5pt; color:#0F172A;">{{ title }}</span>{% endblock %}</div>
         <div style="flex:0 0 auto; display:flex; align-items:center;">
             <div class="header-unit">UIP3B Sulawesi<br>UP2B Sistem Makassar</div>
             {% if logo_pln %}<img src="{{ logo_pln }}" class="logo-pln" alt="PLN">{% endif %}
@@ -164,6 +164,8 @@
 {% if info.catatan_am %}
 <table><tr><td class="lbl-blue" style="width:18%;">Catatan Asisten Manager</td><td>{{ info.catatan_am }}</td></tr></table>
 {% endif %}
+
+{% block info_extra %}{% endblock %}
 
 {# ── KONTEN KHUSUS PER JENIS ── #}
 {% block content %}{% endblock %}

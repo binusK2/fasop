@@ -1,454 +1,276 @@
 {# maintenance/templates/maintenance/pdf/ufls.html #}
 {# Form Checklist Frequency Relay — UFLS / UFR ISLAND / OFGS / CDSAS #}
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<style>
-    @page { size: A4; margin: 10mm 12mm 15mm 12mm; }
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: Helvetica, Arial, sans-serif; font-size: 7pt; color: #0F172A; line-height: 1.3; }
+{% extends 'maintenance/pdf/_base.html' %}
 
-    /* ── HEADER ── */
-    .hdr-wrap { margin-bottom: 1mm; }
-    .hdr-row1 { display: flex; align-items: flex-start; gap: 2mm; }
-    .hdr-row1-img { flex: 1; line-height: 0; }
-    .hdr-row1-img img { width: 100%; display: block; }
-    .hdr-row2 {
-        display: flex; justify-content: space-between; align-items: center;
-        padding: 1mm 0 1mm 0;
-    }
-    .hdr-row2 img.logo-pln { height: 11mm; display: block; }
-    .hdr-row2 img.logo-danantara { height: 6mm; display: block; }
-    .hdr-unit {
-        text-align: right; font-size: 6.5pt; font-weight: bold;
-        color: #1A3A5C; line-height: 1.4; margin-right: 2mm;
-    }
-    .hdr-title-line { border-bottom: 1.2pt solid #DC2626; margin-bottom: 2mm; }
-
-    /* ── JUDUL FORM ── */
-    .form-title {
-        text-align: center; font-size: 9pt; font-weight: bold;
-        color: #0F172A; letter-spacing: 0.5px; margin-bottom: 0.5mm;
-    }
-    .form-subtitle {
-        text-align: center; font-size: 8pt; font-weight: bold;
-        color: #1A3A5C; margin-bottom: 2mm;
-    }
-    .form-subtitle span { text-decoration: underline; }
-
-    /* ── TABLE DASAR ── */
-    table { width: 100%; border-collapse: collapse; font-size: 7pt; }
-    td, th { border: 0.4pt solid #64748B; padding: 1.8pt 3pt; vertical-align: middle; }
-    .lbl { background: #DBEAFE; font-weight: bold; white-space: nowrap; }
-    .lbl2 { background: #E0F2FE; font-weight: bold; }
-    .sec-hdr {
-        background: #1A3A5C; color: white; font-weight: bold;
-        font-size: 7pt; padding: 2.5pt 5pt; margin-top: 1.5mm; margin-bottom: 0;
-    }
-    .alt { background: #F8FAFC; }
-    .center { text-align: center; }
-    .bold { font-weight: bold; }
-    .ok  { background: #DCFCE7; color: #166534; font-weight: bold; text-align: center; }
-    .nok { background: #FEE2E2; color: #991B1B; font-weight: bold; text-align: center; }
-    .val { color: #2563EB; font-weight: bold; text-align: center; font-family: Courier, monospace; }
-    .underline-field {
-        border-bottom: 0.5pt solid #0F172A; min-width: 20mm;
-        display: inline-block; min-height: 4mm;
-    }
-    .blank { background: #fff; min-height: 5mm; }
-
-    /* ── LAYOUT DUA KOLOM ── */
-    .two-col { display: flex; gap: 1.5mm; }
-    .two-col > div { flex: 1; }
-    .three-col { display: flex; gap: 1mm; }
-    .three-col > div { flex: 1; }
-
-    /* ── VISUAL INSPECTION ── */
-    .vi-tbl td { padding: 1.5pt 3pt; }
-    .vi-label { width: 45%; font-size: 6.5pt; }
-    .vi-chk { width: 38%; font-size: 6pt; color: #1A3A5C; }
-    .vi-status { width: 17%; font-size: 6pt; }
-    .chk-box {
-        display: inline-block; width: 5pt; height: 5pt;
-        border: 0.5pt solid #0F172A; margin-right: 1pt; vertical-align: middle;
-    }
-    .chk-filled { background: #1A3A5C; }
-
-    /* ── INFO PERANGKAT ── */
-    .info-lbl { width: 30%; font-size: 6.5pt; background: #DBEAFE; font-weight: bold; }
-    .info-val { font-size: 6.5pt; }
-
-    /* ── SETTING RELAY ── */
-    .sr-no  { width: 8%; text-align: center; font-weight: bold; background: #DBEAFE; }
-    .sr-hz  { width: 22%; font-family: Courier, monospace; font-size: 6.5pt; text-align: center; }
-    .sr-s   { width: 16%; font-family: Courier, monospace; font-size: 6.5pt; text-align: center; }
-    .sr-ind { width: 14%; font-size: 6pt; color: #64748B; text-align: center; }
-    .rl-vdc { width: 28%; font-size: 6.5pt; font-family: Courier, monospace; }
-    .rl-pin { font-size: 6.5pt; }
-
-    /* ── AUX RL ── */
-    .aux-lbl { width: 12%; font-size: 6.5pt; background: #DBEAFE; font-weight: bold; text-align: center; }
-    .aux-val { width: 22%; font-size: 6.5pt; }
-    .aux-led { width: 12%; font-size: 6pt; text-align: center; background: #FEF9C3; }
-
-    /* ── PENGESAHAN ── */
-    .peng { margin-top: 5mm; page-break-inside: avoid; }
-    .peng-hdr { background: #1A3A5C; color: white; font-weight: bold; font-size: 7pt; text-align: center; padding: 3pt; border: 0.4pt solid #64748B; }
-    .peng-sub { text-align: center; font-size: 6.5pt; font-weight: bold; color: #1A3A5C; padding: 3pt; border: 0.4pt solid #64748B; border-top: none; }
-    .ttd-area { min-height: 24mm; border: 0.4pt solid #64748B; border-top: none; padding: 2mm; text-align: center; }
-    .ttd-area .sig-img { display: block; max-width: 30mm; max-height: 16mm; margin: 0 auto; }
-    .ttd-name { font-size: 7.5pt; color: #0F172A; margin-top: 1mm; font-weight: bold; text-align: center; border-top: 0.5pt solid #0F172A; padding-top: 1.5mm; }
-
-    /* ── FOOTER ── */
-    .footer-line {
-        border-top: 0.5pt solid #94A3B8; margin-top: 4mm; padding-top: 1.5mm;
-        position: fixed; bottom: 0; left: 0; right: 0;
-    }
-    .footer-content { display: flex; justify-content: space-between; font-size: 5.5pt; color: #94A3B8; }
-</style>
-</head>
-<body>
-
-{# ── HEADER ── #}
-<div class="hdr-wrap">
-    <div class="hdr-row1">
-        <div class="hdr-row1-img">
-            {% if header_pln %}<img src="{{ header_pln }}" alt="">{% endif %}
-        </div>
-    </div>
-    <div class="hdr-row2">
-        <div style="flex:0 0 auto;">
-            {% if logo_danantara %}<img src="{{ logo_danantara }}" class="logo-danantara" alt="Danantara">{% endif %}
-        </div>
-        <div style="flex:1; text-align:center;">
-            <div class="form-title">FORM CHECKLIST FREQUENCY RELAY</div>
-            <div class="form-subtitle">
-                ( <span>UFLS</span> / <span>UFR ISLAND</span> / <span>OFGS</span> / <span>CDSAS</span> )
-            </div>
-        </div>
-        <div style="flex:0 0 auto; display:flex; align-items:center;">
-            <div class="hdr-unit">UIP3B Sulawesi<br>UP2B Sistem Makassar</div>
-            {% if logo_pln %}<img src="{{ logo_pln }}" class="logo-pln" alt="PLN">{% endif %}
-        </div>
-    </div>
+{% block header_title %}
+<div style="font-weight:bold; font-size:9pt; color:#0F172A; line-height:1.5;">FORM CHECKLIST FREQUENCY RELAY</div>
+<div style="font-size:7.5pt; font-weight:bold; color:#1A3A5C;">
+    ( <span style="text-decoration:underline;">UFLS</span> &nbsp;/&nbsp;
+    <span style="text-decoration:underline;">UFR ISLAND</span> &nbsp;/&nbsp;
+    <span style="text-decoration:underline;">OFGS</span> &nbsp;/&nbsp;
+    <span style="text-decoration:underline;">CDSAS</span> )
 </div>
-<div class="hdr-title-line"></div>
+{% endblock %}
 
-{# ── BLOK ATAS: VISUAL INSPECTION + INFO PERANGKAT ── #}
-<div class="two-col" style="gap:1.5mm; margin-bottom:1.5mm;">
+{% block extra_css %}
+.chk-box {
+    display: inline-block; width: 5pt; height: 5pt;
+    border: 0.5pt solid #0F172A; margin-right: 1.5pt;
+    vertical-align: middle;
+}
+.chk-filled { background: #1A3A5C; }
+.vi-label  { width: 36%; font-weight: bold; background: #E0F2FE; font-size: 6.5pt; }
+.vi-chk    { width: 42%; font-size: 6pt; color: #1A3A5C; }
+.vi-status { width: 22%; font-size: 6.5pt; font-weight: bold; text-align: center; }
+.meas-par  { background: #E0F2FE; font-weight: bold; font-size: 6.5pt; width: 32%; }
+.val       { color: #2563EB; font-weight: bold; text-align: center; font-family: Courier, monospace; }
+.val-small { color: #2563EB; font-weight: bold; text-align: center; font-family: Courier, monospace; font-size: 6pt; }
+.blank-cell { background: #fff; }
+.sr-tahap  { width: 8%; text-align: center; font-weight: bold; background: #DBEAFE; font-size: 6.5pt; }
+.sr-hz     { width: 11%; font-family: Courier, monospace; text-align: center; font-size: 6.5pt; }
+.sr-s      { width: 10%; font-family: Courier, monospace; text-align: center; font-size: 6.5pt; }
+.sr-ind    { width: 9%; text-align: center; font-size: 5.5pt; color: #64748B; }
+.sr-rl     { width: 6%; text-align: center; font-weight: bold; background: #EFF6FF; font-size: 6.5pt; }
+.sr-teg-p  { width: 12%; text-align: center; background: #EFF6FF; font-family: Courier, monospace; font-size: 6.5pt; }
+.sr-pin-p  { width: 7%;  text-align: center; background: #EFF6FF; font-family: Courier, monospace; font-size: 6.5pt; }
+.sr-teg-n  { width: 12%; text-align: center; background: #F0FDF4; font-family: Courier, monospace; font-size: 6.5pt; }
+.sr-pin-n  { width: 7%;  text-align: center; background: #F0FDF4; font-family: Courier, monospace; font-size: 6.5pt; }
+.aux-rl    { width: 20%; text-align: center; font-weight: bold; background: #DBEAFE; font-size: 6.5pt; }
+.aux-tf    { text-align: center; font-family: Courier, monospace; font-size: 6.5pt; }
+.aux-led   { text-align: center; font-size: 6.5pt; background: #FEF9C3; }
+{% endblock %}
 
-    {# Kiri: Visual Inspection #}
-    <div style="flex:0 0 42%;">
-        <table class="vi-tbl">
+{% block info_extra %}
+<table>
+    <tr>
+        <td class="lbl" style="width:18%;">Rasio VT</td>
+        <td style="width:32%;" class="vb">{{ ufls.rasio_vt|default:"" }}{% if ufls.rasio_vt and ufls.rasio_vt_sekunder %} / {% endif %}{{ ufls.rasio_vt_sekunder|default:"" }}</td>
+        <td class="lbl" style="width:18%;">Target Proteksi</td>
+        <td style="width:32%;" class="vb">{{ ufls.target_proteksi|default:"TRAFO / LINE" }}</td>
+    </tr>
+    <tr class="alt">
+        <td class="lbl">Fungsi</td>
+        <td class="vb">{{ ufls.fungsi|default:"UFLS / UFR ISLAND / OFGS" }}</td>
+        <td class="lbl">*Vblock</td>
+        <td class="vb">{{ ufls.vblock|default:"" }}</td>
+    </tr>
+</table>
+{% endblock %}
+
+{% block content %}
+
+{# ── II. VISUAL INSPECTION + MEASUREMENT ── #}
+<div class="two-col" style="gap:2mm; margin-top:0;">
+    <div style="flex:0 0 44%;">
+
+        {# Visual Inspection #}
+        <div class="sec">II.&nbsp;&nbsp;VISUAL INSPECTION</div>
+        <table>
             <tr>
-                <td colspan="3" style="background:#1A3A5C; color:white; font-weight:bold; font-size:7pt; text-align:center; padding:2pt;">
-                    Visual Inspection
-                </td>
-            </tr>
-            <tr>
-                <td class="vi-label lbl2">Healthy</td>
+                <td class="vi-label">Healthy</td>
                 <td class="vi-chk">
                     {% if ufls.healthy == 'Normal' %}<span class="chk-box chk-filled"></span>{% else %}<span class="chk-box"></span>{% endif %}
-                    Normal &nbsp;
+                    Normal &nbsp;&nbsp;
                     {% if ufls.healthy == 'Abnormal' %}<span class="chk-box chk-filled"></span>{% else %}<span class="chk-box"></span>{% endif %}
                     Abnormal
                 </td>
                 <td class="vi-status {% if ufls.healthy == 'Normal' %}ok{% elif ufls.healthy == 'Abnormal' %}nok{% endif %}">
-                    {{ ufls.healthy|default:"" }}
+                    {{ ufls.healthy|default:"—" }}
                 </td>
             </tr>
             <tr class="alt">
-                <td class="vi-label lbl2">Frek Out of Range</td>
+                <td class="vi-label">Frek Out of Range</td>
                 <td class="vi-chk">
                     {% if ufls.frek_oor == 'Normal' %}<span class="chk-box chk-filled"></span>{% else %}<span class="chk-box"></span>{% endif %}
-                    Normal &nbsp;
+                    Normal &nbsp;&nbsp;
                     {% if ufls.frek_oor == 'Abnormal' %}<span class="chk-box chk-filled"></span>{% else %}<span class="chk-box"></span>{% endif %}
                     Abnormal
                 </td>
                 <td class="vi-status {% if ufls.frek_oor == 'Normal' %}ok{% elif ufls.frek_oor == 'Abnormal' %}nok{% endif %}">
-                    {{ ufls.frek_oor|default:"" }}
+                    {{ ufls.frek_oor|default:"—" }}
                 </td>
             </tr>
             <tr>
-                <td class="vi-label lbl2">Alarm</td>
+                <td class="vi-label">Alarm</td>
                 <td class="vi-chk">
                     {% if ufls.alarm == 'Normal' %}<span class="chk-box chk-filled"></span>{% else %}<span class="chk-box"></span>{% endif %}
-                    Normal &nbsp;
+                    Normal &nbsp;&nbsp;
                     {% if ufls.alarm == 'Abnormal' %}<span class="chk-box chk-filled"></span>{% else %}<span class="chk-box"></span>{% endif %}
                     Abnormal
                 </td>
                 <td class="vi-status {% if ufls.alarm == 'Normal' %}ok{% elif ufls.alarm == 'Abnormal' %}nok{% endif %}">
-                    {{ ufls.alarm|default:"" }}
+                    {{ ufls.alarm|default:"—" }}
                 </td>
             </tr>
         </table>
 
         {# Measurement #}
-        <table style="margin-top:1mm;">
-            <tr>
-                <td colspan="4" style="background:#1A3A5C; color:white; font-weight:bold; font-size:7pt; text-align:center; padding:2pt;">
-                    Measurement
-                </td>
-            </tr>
-            <tr style="background:#DBEAFE; font-weight:bold; font-size:6.5pt;">
-                <td style="width:32%;">Parameter</td>
-                <td style="width:18%;" class="center">Nilai</td>
-                <td style="width:25%;" class="center">Target</td>
-                <td style="width:25%;" class="center">Pos. Selektor</td>
-            </tr>
-            {% with meas=ufls.measurement %}
-            <tr>
-                <td class="lbl2" style="font-size:6.5pt;">V An</td>
-                <td class="val">{% if meas.v_an %}{{ meas.v_an }}{% else %}&nbsp;{% endif %}</td>
-                <td class="val" style="font-size:6pt;">{% if meas.v_an_target %}{{ meas.v_an_target }}{% else %}P/L*...{% endif %}</td>
-                <td class="blank"></td>
-            </tr>
-            <tr class="alt">
-                <td class="lbl2" style="font-size:6.5pt;">V Bn</td>
-                <td class="val">{% if meas.v_bn %}{{ meas.v_bn }}{% else %}&nbsp;{% endif %}</td>
-                <td class="val" style="font-size:6pt;">{% if meas.v_bn_target %}{{ meas.v_bn_target }}{% else %}P/L*...{% endif %}</td>
-                <td class="blank"></td>
-            </tr>
-            <tr>
-                <td class="lbl2" style="font-size:6.5pt;">V Cn</td>
-                <td class="val">{% if meas.v_cn %}{{ meas.v_cn }}{% else %}&nbsp;{% endif %}</td>
-                <td class="val" style="font-size:6pt;">{% if meas.v_cn_target %}{{ meas.v_cn_target }}{% else %}P/L*...{% endif %}</td>
-                <td class="blank"></td>
-            </tr>
-            <tr class="alt">
-                <td class="lbl2" style="font-size:6.5pt;">V AB</td>
-                <td class="val">{% if meas.v_ab %}{{ meas.v_ab }}{% else %}&nbsp;{% endif %}</td>
-                <td class="val" style="font-size:6pt;">{% if meas.v_ab_target %}{{ meas.v_ab_target }}{% else %}P/L*...{% endif %}</td>
-                <td class="blank"></td>
-            </tr>
-            <tr>
-                <td class="lbl2" style="font-size:6.5pt;">V BC</td>
-                <td class="val">{% if meas.v_bc %}{{ meas.v_bc }}{% else %}&nbsp;{% endif %}</td>
-                <td class="val" style="font-size:6pt;">{% if meas.v_bc_target %}{{ meas.v_bc_target }}{% else %}P/L*...{% endif %}</td>
-                <td class="blank"></td>
-            </tr>
-            <tr class="alt">
-                <td class="lbl2" style="font-size:6.5pt;">V AC</td>
-                <td class="val">{% if meas.v_ac %}{{ meas.v_ac }}{% else %}&nbsp;{% endif %}</td>
-                <td class="val" style="font-size:6pt;">{% if meas.v_ac_target %}{{ meas.v_ac_target }}{% else %}P/L*...{% endif %}</td>
-                <td class="blank"></td>
-            </tr>
-            <tr>
-                <td class="lbl2" style="font-size:6.5pt;">Frekuensi</td>
-                <td class="val">{% if meas.frekuensi %}{{ meas.frekuensi }}{% else %}&nbsp;{% endif %}</td>
-                <td class="val" style="font-size:6pt;">{% if meas.frekuensi_target %}{{ meas.frekuensi_target }}{% else %}P/L*...{% endif %}</td>
-                <td class="blank"></td>
-            </tr>
-            {% endwith %}
-        </table>
-    </div>
-
-    {# Kanan: Info Perangkat #}
-    <div style="flex:1;">
+        <div class="sec" style="margin-top:1.5mm;">III.&nbsp;&nbsp;PENGUKURAN</div>
+        {% with m=ufls.measurement %}
         <table>
+            <tr style="background:#DBEAFE; font-weight:bold; font-size:6.5pt;">
+                <td class="meas-par">Parameter</td>
+                <td style="width:18%; text-align:center;">Nilai</td>
+                <td style="width:25%; text-align:center;">Target</td>
+                <td style="width:25%; text-align:center;">Pos. Selektor</td>
+            </tr>
             <tr>
-                <td class="info-lbl" style="width:32%;">Lokasi / Tanggal</td>
-                <td class="info-val" colspan="3">
-                    <span class="val">{{ info.lokasi|default:"" }}</span>
-                    &nbsp;/&nbsp;
-                    <span class="val">{{ info.date|default:"" }}</span>
-                </td>
+                <td class="meas-par">V An</td>
+                <td class="val" style="width:18%;border-top:none;">{{ m.v_an|default:"&nbsp;" }}</td>
+                <td class="val-small" style="width:25%;border-top:none;">{{ m.v_an_target|default:"P/L*…" }}</td>
+                <td class="blank-cell" style="width:25%;border-top:none;"></td>
             </tr>
             <tr class="alt">
-                <td class="info-lbl">Merek</td>
-                <td class="info-val val" colspan="3">{{ info.merk|default:"" }}</td>
+                <td class="meas-par">V Bn</td>
+                <td class="val">{{ m.v_bn|default:"&nbsp;" }}</td>
+                <td class="val-small">{{ m.v_bn_target|default:"P/L*…" }}</td>
+                <td class="blank-cell"></td>
             </tr>
             <tr>
-                <td class="info-lbl">Type</td>
-                <td class="info-val val" style="width:28%;">{{ info.type|default:"" }}</td>
-                <td class="info-lbl" style="width:20%;">Rasio VT</td>
-                <td class="info-val val">{{ ufls.rasio_vt|default:"" }}&nbsp;/&nbsp;{{ ufls.rasio_vt_sekunder|default:"" }}</td>
+                <td class="meas-par">V Cn</td>
+                <td class="val">{{ m.v_cn|default:"&nbsp;" }}</td>
+                <td class="val-small">{{ m.v_cn_target|default:"P/L*…" }}</td>
+                <td class="blank-cell"></td>
             </tr>
             <tr class="alt">
-                <td class="info-lbl">No. Seri</td>
-                <td class="info-val val" colspan="3">{{ info.serial_number|default:"" }}</td>
+                <td class="meas-par">V AB</td>
+                <td class="val">{{ m.v_ab|default:"&nbsp;" }}</td>
+                <td class="val-small">{{ m.v_ab_target|default:"P/L*…" }}</td>
+                <td class="blank-cell"></td>
             </tr>
             <tr>
-                <td class="info-lbl">Target</td>
-                <td class="info-val val" colspan="3">{{ ufls.target_proteksi|default:"TRAFO / LINE" }}</td>
+                <td class="meas-par">V BC</td>
+                <td class="val">{{ m.v_bc|default:"&nbsp;" }}</td>
+                <td class="val-small">{{ m.v_bc_target|default:"P/L*…" }}</td>
+                <td class="blank-cell"></td>
             </tr>
             <tr class="alt">
-                <td class="info-lbl">Fungsi*</td>
-                <td class="info-val val" style="width:28%;">{{ ufls.fungsi|default:"UFLS / ISLAND / OFGS" }}</td>
-                <td class="info-lbl" style="width:20%;">*Vblock</td>
-                <td class="info-val val">{{ ufls.vblock|default:"" }}</td>
+                <td class="meas-par">V AC</td>
+                <td class="val">{{ m.v_ac|default:"&nbsp;" }}</td>
+                <td class="val-small">{{ m.v_ac_target|default:"P/L*…" }}</td>
+                <td class="blank-cell"></td>
             </tr>
             <tr>
-                <td class="info-lbl">IP Address</td>
-                <td class="info-val val" colspan="3">{{ info.ip_address|default:"" }}</td>
+                <td class="meas-par">Frekuensi</td>
+                <td class="val">{{ m.frekuensi|default:"&nbsp;" }}</td>
+                <td class="val-small">{{ m.frekuensi_target|default:"P/L*…" }}</td>
+                <td class="blank-cell"></td>
+            </tr>
+        </table>
+        {% endwith %}
+
+        {# Supply DC + Selektor #}
+        <table style="margin-top:1.5mm;">
+            <tr>
+                <td class="lbl" style="width:45%; font-size:6.5pt;">*Supply DC</td>
+                <td class="vb" style="font-size:6.5pt;">{{ ufls.supply_dc|default:"" }}</td>
+            </tr>
+            <tr class="alt">
+                <td class="lbl" style="font-size:6.5pt;">*Selektor</td>
+                <td class="vb" style="font-size:6.5pt;">{{ ufls.selektor|default:"" }}</td>
             </tr>
         </table>
 
-        {# Setting Relay — kolom kanan bawah #}
-        <div style="margin-top:1mm;">
-            <table>
-                <tr>
-                    <td colspan="8" style="background:#1A3A5C; color:white; font-weight:bold; font-size:7pt; text-align:center; padding:2pt;">
-                        Setting Relay
-                    </td>
-                    <td colspan="4" style="background:#0E4D92; color:white; font-weight:bold; font-size:6.5pt; text-align:center; padding:2pt;">
-                        Common (+) RL Belakang Rele
-                    </td>
-                    <td colspan="3" style="background:#166534; color:white; font-weight:bold; font-size:6.5pt; text-align:center; padding:2pt;">
-                        Common (−) Selektor Switch
-                    </td>
-                </tr>
-                <tr style="background:#DBEAFE; font-weight:bold; font-size:6pt; text-align:center;">
-                    <td style="width:7%;">Tahap</td>
-                    <td style="width:14%;">Frek (Hz)</td>
-                    <td style="width:11%;">Waktu (s)</td>
-                    <td style="width:8%;">Indikasi</td>
-                    {# Common Positif #}
-                    <td style="width:4%;">RL</td>
-                    <td style="width:12%; background:#BFDBFE;">Teg (vDC)</td>
-                    <td style="width:8%; background:#BFDBFE;">Pin</td>
-                    <td style="width:4%; background:#BFDBFE;"></td>
-                    {# Common Negatif #}
-                    <td style="width:12%; background:#BBF7D0;">Teg (vDC)</td>
-                    <td style="width:8%; background:#BBF7D0;">Pin</td>
-                    <td style="width:12%; background:#BBF7D0;"></td>
-                </tr>
+    </div>{# end kiri #}
 
-                {% for s in ufls.settings %}
-                <tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %} style="font-size:6.5pt;">
-                    <td class="center bold" style="background:#DBEAFE;">{{ s.tahap|default:"F"|add:forloop.counter }}/T{{ forloop.counter }}</td>
-                    <td class="val">{{ s.frek_hz|default:"" }}</td>
-                    <td class="val">{{ s.waktu_s|default:"" }}</td>
-                    <td class="center" style="font-size:5.5pt; color:#64748B;">O&nbsp;...&nbsp;S</td>
-                    {# Common Positif #}
-                    <td class="center" style="font-size:6pt; font-weight:bold; background:#EFF6FF;">{{ s.rl_no|default:"" }}</td>
-                    <td class="val" style="background:#EFF6FF;">{{ s.pos_vdc|default:"" }}</td>
-                    <td class="val" style="background:#EFF6FF;">{{ s.pos_pin|default:"" }}</td>
-                    <td style="background:#EFF6FF;"></td>
-                    {# Common Negatif #}
-                    <td class="val" style="background:#F0FDF4;">{{ s.neg_vdc|default:"" }}</td>
-                    <td class="val" style="background:#F0FDF4;">{{ s.neg_pin|default:"" }}</td>
-                    <td style="background:#F0FDF4;"></td>
-                </tr>
-                {% empty %}
-                {% for i in "1234567" %}
-                <tr{% cycle "" ' class="alt"' %} style="font-size:6.5pt;">
-                    <td class="center bold" style="background:#DBEAFE;">F{{ forloop.counter }}/T{{ forloop.counter }}</td>
-                    <td class="blank" style="height:6mm;"></td>
-                    <td class="blank"></td>
-                    <td class="center" style="font-size:5.5pt; color:#64748B;">O&nbsp;...&nbsp;S</td>
-                    <td class="blank" style="background:#EFF6FF;"></td>
-                    <td class="blank" style="background:#EFF6FF;"></td>
-                    <td class="blank" style="background:#EFF6FF;"></td>
-                    <td style="background:#EFF6FF;"></td>
-                    <td class="blank" style="background:#F0FDF4;"></td>
-                    <td class="blank" style="background:#F0FDF4;"></td>
-                    <td style="background:#F0FDF4;"></td>
-                </tr>
-                {% endfor %}
-                {% endfor %}
-            </table>
-        </div>
+    <div style="flex:1;">
+
+        {# Setting Relay #}
+        <div class="sec">IV.&nbsp;&nbsp;SETTING RELAY</div>
+        <table>
+            <tr style="font-size:6pt; text-align:center; font-weight:bold;">
+                <td class="sr-tahap" rowspan="2">Tahap</td>
+                <td class="sr-hz" rowspan="2">Frek<br>(Hz)</td>
+                <td class="sr-s" rowspan="2">Waktu<br>(s)</td>
+                <td class="sr-ind" rowspan="2">Indikasi</td>
+                <td colspan="3" style="background:#BFDBFE; text-align:center;">Common (+) RL Belakang Rele</td>
+                <td colspan="2" style="background:#BBF7D0; text-align:center;">Common (−) Selektor Switch</td>
+            </tr>
+            <tr style="font-size:6pt; text-align:center; font-weight:bold;">
+                <td style="width:6%; background:#DBEAFE;">RL</td>
+                <td style="width:12%; background:#BFDBFE;">Teg (vDC)</td>
+                <td style="width:7%;  background:#BFDBFE;">Pin</td>
+                <td style="width:12%; background:#BBF7D0;">Teg (vDC)</td>
+                <td style="width:7%;  background:#BBF7D0;">Pin</td>
+            </tr>
+            {% for s in ufls.settings %}
+            <tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %}>
+                <td class="sr-tahap">{{ s.tahap }}/T{{ forloop.counter }}</td>
+                <td class="sr-hz" style="color:#2563EB; font-weight:bold;">{{ s.frek_hz|default:"&nbsp;" }}</td>
+                <td class="sr-s"  style="color:#2563EB; font-weight:bold;">{{ s.waktu_s|default:"&nbsp;" }}</td>
+                <td class="sr-ind">O &hellip; S</td>
+                <td class="sr-rl">{{ s.rl_no|default:"&nbsp;" }}</td>
+                <td class="sr-teg-p" style="color:#2563EB; font-weight:bold;">{{ s.pos_vdc|default:"&nbsp;" }}</td>
+                <td class="sr-pin-p" style="color:#2563EB; font-weight:bold;">{{ s.pos_pin|default:"&nbsp;" }}</td>
+                <td class="sr-teg-n" style="color:#16a34a; font-weight:bold;">{{ s.neg_vdc|default:"&nbsp;" }}</td>
+                <td class="sr-pin-n" style="color:#16a34a; font-weight:bold;">{{ s.neg_pin|default:"&nbsp;" }}</td>
+            </tr>
+            {% empty %}
+            {% for i in "1234567" %}
+            <tr{% cycle "" ' class="alt"' %} style="height:5.5mm;">
+                <td class="sr-tahap">F{{ forloop.counter }}/T{{ forloop.counter }}</td>
+                <td class="sr-hz blank-cell"></td>
+                <td class="sr-s blank-cell"></td>
+                <td class="sr-ind">O &hellip; S</td>
+                <td class="sr-rl blank-cell"></td>
+                <td class="sr-teg-p blank-cell"></td>
+                <td class="sr-pin-p blank-cell"></td>
+                <td class="sr-teg-n blank-cell"></td>
+                <td class="sr-pin-n blank-cell"></td>
+            </tr>
+            {% endfor %}
+            {% endfor %}
+        </table>
 
         {# Setting AUX RL + Catatan #}
-        <div class="two-col" style="gap:1.5mm; margin-top:1mm;">
-            <div style="flex:0 0 42%;">
+        <div class="two-col" style="gap:2mm; margin-top:1.5mm;">
+            <div style="flex:0 0 45%;">
+                <div class="sec">V.&nbsp;&nbsp;SETTING AUX RL</div>
                 <table>
-                    <tr>
-                        <td colspan="4" style="background:#1A3A5C; color:white; font-weight:bold; font-size:7pt; text-align:center; padding:2pt;">
-                            Setting AUX RL
-                        </td>
-                    </tr>
-                    <tr style="background:#DBEAFE; font-weight:bold; font-size:6pt; text-align:center;">
-                        <td style="width:20%;">RL</td>
-                        <td style="width:40%;">TF</td>
-                        <td style="width:40%;">LED</td>
+                    <tr style="background:#DBEAFE; font-weight:bold; font-size:6.5pt; text-align:center;">
+                        <td style="width:25%;">RL</td>
+                        <td style="width:37.5%;">TF</td>
+                        <td style="width:37.5%;">LED</td>
                     </tr>
                     {% for aux in ufls.aux_rl %}
-                    <tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %} style="font-size:6.5pt; height:5.5mm;">
-                        <td class="center bold" style="background:#DBEAFE;">{{ aux.rl|default:"RL...." }}</td>
-                        <td class="val">{{ aux.tf|default:"" }}</td>
-                        <td class="val">{{ aux.led|default:"" }}</td>
+                    <tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %} style="height:5.5mm;">
+                        <td class="aux-rl">{{ aux.rl|default:"RL …" }}</td>
+                        <td class="aux-tf" style="color:#2563EB; font-weight:bold;">{{ aux.tf|default:"&nbsp;" }}</td>
+                        <td class="aux-led">{{ aux.led|default:"&nbsp;" }}</td>
                     </tr>
                     {% empty %}
                     {% for i in "1234567" %}
                     <tr{% cycle "" ' class="alt"' %} style="height:5.5mm;">
-                        <td class="blank" style="background:#EFF6FF; font-size:6.5pt; font-weight:bold; text-align:center;">RL....</td>
-                        <td class="blank"></td>
-                        <td class="blank"></td>
+                        <td class="aux-rl">RL …</td>
+                        <td class="aux-tf blank-cell"></td>
+                        <td class="aux-led blank-cell"></td>
                     </tr>
                     {% endfor %}
                     {% endfor %}
                 </table>
             </div>
             <div style="flex:1;">
+                <div class="sec">VI.&nbsp;&nbsp;CATATAN / SARAN PERBAIKAN</div>
                 <table>
-                    <tr>
-                        <td colspan="2" style="background:#1A3A5C; color:white; font-weight:bold; font-size:7pt; text-align:center; padding:2pt;">
-                            Catatan / Saran Perbaikan
-                        </td>
-                    </tr>
-                    <tr style="height:18mm;">
-                        <td colspan="2" style="vertical-align:top; font-size:6.5pt; padding:2pt;">
-                            {{ ufls.catatan|default:"" }}
-                        </td>
-                    </tr>
-                    <tr>
-                        <td class="lbl2" style="width:40%; font-size:6.5pt;">*Supply DC</td>
-                        <td class="val" style="font-size:6.5pt;">{{ ufls.supply_dc|default:"" }}</td>
-                    </tr>
-                    <tr class="alt">
-                        <td class="lbl2" style="font-size:6.5pt;">*Selektor</td>
-                        <td class="val" style="font-size:6.5pt;">{{ ufls.selektor|default:"" }}</td>
+                    <tr style="height:28mm;">
+                        <td style="vertical-align:top; font-size:6.5pt; padding:3pt;">{{ ufls.catatan|default:"" }}</td>
                     </tr>
                 </table>
-                <p style="font-size:5.5pt; color:#94A3B8; margin-top:1mm; font-style:italic;">
-                    *) coret yang tidak perlu
-                </p>
             </div>
         </div>
-    </div>
-</div>
 
-{# ── PENGESAHAN — hanya Asisten Manager Fasilitas Operasi ── #}
-<div class="peng">
-    <div style="display:flex; gap:0;">
-        <div style="flex:0 0 40%;">
-            <div class="peng-hdr">Mengetahui,</div>
-            <div class="peng-sub">Asisten Manager Fasilitas Operasi</div>
-            <div class="ttd-area">
-                {% if sig_am %}
-                    <img src="{{ sig_am }}" class="sig-img" alt="TTD AM">
-                {% else %}
-                    <div style="height:16mm;"></div>
-                {% endif %}
-                <div class="ttd-name">
-                    {% if signed_by %}{{ signed_by }}{% else %}( &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ){% endif %}
-                </div>
-            </div>
+        {# Keterangan #}
+        <div style="margin-top:2mm; font-size:5.5pt; color:#64748B; font-style:italic; line-height:1.5;">
+            <strong style="font-style:normal; color:#475569;">Keterangan:</strong><br>
+            &bull; P/L* = Pilih salah satu sesuai target proteksi (P = Power Trafo, L = Line)<br>
+            &bull; UVLS = <em>Under Voltage Load Shedding</em> (135 kV; 0.15)<br>
+            &bull; Indikasi O&hellip;S = Tampilan selektor relai (O = Off, S = On)<br>
+            &bull; Common (+) RL = Tegangan positif di belakang rele (relay coil)<br>
+            &bull; Common (&minus;) = Tegangan negatif pada selektor switch<br>
+            &bull; *Vblock = Tegangan blok (pengunci) selektor
         </div>
-        <div style="flex:1; padding-left:4mm; padding-top:8mm;">
-            <p style="font-size:6pt; color:#64748B; font-style:italic;">
-                Keterangan:<br>
-                &bull; P/L* = Pilih salah satu sesuai target proteksi (P = Power Trafo, L = Line)<br>
-                &bull; UVLS = <i>Under Voltage Load Shedding</i> (135 kV; 0.15)<br>
-                &bull; Indikasi O...S = Tampilan selektor relai (O = Off, S = On)<br>
-                &bull; Common (+) RL = Tegangan positif di belakang rele (relay coil)<br>
-                &bull; Common (−) = Tegangan negatif pada selektor switch<br>
-                &bull; *Vblock = Tegangan blok (pengunci) selektor
-            </p>
-        </div>
-    </div>
+
+    </div>{# end kanan #}
 </div>
 
-{# ── FOOTER ── #}
-<div class="footer-line">
-    <div class="footer-content">
-        <span>Jl. Letjen Hertasning Blok B, Pandang, Panakkukang, Makassar 90222 &nbsp;|&nbsp; www.pln.co.id &nbsp;|&nbsp; T 0411 440066</span>
-        <span>Dicetak: {{ print_by|default:"" }} — {{ print_date|default:"" }}</span>
-    </div>
-</div>
-
-</body>
-</html>
+{% endblock %}
