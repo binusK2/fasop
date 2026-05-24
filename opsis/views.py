@@ -586,14 +586,40 @@ def rangkuman(request):
         'total_hari':     len(ringkasan),
     }
 
+    # ── Beban Trafo snapshot (realtime) ─────────────────────────────
+    trafo_rows = mssql.get_beban_trafo()
+    _trafo_grouped = {}
+    for r in trafo_rows:
+        site = r['site'] or 'Unknown'
+        _trafo_grouped.setdefault(site, []).append(r)
+    trafo_sites = []
+    trafo_total_mw = 0.0
+    for site in sorted(_trafo_grouped):
+        lst   = _trafo_grouped[site]
+        total = round(sum(r['p'] for r in lst if r['p'] is not None), 2)
+        p_vals = [r['p'] for r in lst if r['p'] is not None]
+        trafo_sites.append({
+            'site':   site,
+            'tlist':  lst,
+            'total':  total,
+            'avg':    round(sum(p_vals) / len(p_vals), 2) if p_vals else None,
+            'max':    round(max(p_vals), 2) if p_vals else None,
+            'min':    round(min(p_vals), 2) if p_vals else None,
+            'count':  len(lst),
+        })
+        trafo_total_mw += total
+    trafo_total_mw = round(trafo_total_mw, 2)
+
     pembangkit_list = _pembangkit_aktif()
     return render(request, 'opsis/rangkuman.html', {
-        'pembangkit_list': pembangkit_list,
-        'ringkasan':       ringkasan,
-        'summary':         summary,
-        'periode':         periode,
-        'start_date':      start_date,
-        'end_date':        end_date,
+        'pembangkit_list':  pembangkit_list,
+        'ringkasan':        ringkasan,
+        'summary':          summary,
+        'periode':          periode,
+        'start_date':       start_date,
+        'end_date':         end_date,
+        'trafo_sites':    trafo_sites,
+        'trafo_total_mw': trafo_total_mw,
     })
 
 
