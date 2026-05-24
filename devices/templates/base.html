@@ -841,9 +841,17 @@
     {% if not user_is_operator and not user_is_dispatcher %}
     <div class="sidebar-section">
         <div class="sidebar-section-label">Real Time</div>
-        <a href="http://up2bmakassar.scadamks.my.id/" target="_blank" class="sidebar-link">
+        <div class="sidebar-link" style="cursor:default;opacity:.7;pointer-events:none;font-weight:700;font-size:12px;">
             <span class="si-icon"><i class="bi bi-speedometer2"></i></span>
             Status Peralatan
+        </div>
+        <a href="{% url 'dm_dashboard' %}" class="sidebar-link sidebar-sublink {% if 'device_mon' in request.resolver_match.app_name|default:'' or request.resolver_match.url_name|default:''|slice:':3' == 'dm_' %}active{% endif %}">
+            <span class="si-icon"><i class="bi bi-hdd-network"></i></span>
+            SCADA
+        </a>
+        <a href="{% url 'opsis_dashboard' %}" class="sidebar-link sidebar-sublink {% if 'opsis' in request.resolver_match.app_name|default:'' or request.resolver_match.url_name|default:''|slice:':6' == 'opsis_' %}active{% endif %}">
+            <span class="si-icon"><i class="bi bi-bar-chart-line"></i></span>
+            OPSIS
         </a>
     </div>
     {% endif %}
