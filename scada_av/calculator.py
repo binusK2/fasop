@@ -234,8 +234,10 @@ def run_full_calculation(session_id: int):
         session.save(update_fields=['status', 'durasi_hitung'])
 
     except Exception as exc:
+        import traceback as _tb
+        tb_str = _tb.format_exc()
         logger.exception(f'[ScadaAV] Kalkulasi gagal — session {session_id}: {exc}')
         session.status        = 'error'
-        session.error_message = str(exc)
+        session.error_message = tb_str
         session.save(update_fields=['status', 'error_message'])
         raise
