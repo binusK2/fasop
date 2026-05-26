@@ -66,13 +66,22 @@
               <td class="text-center text-muted" style="font-size:12px;">{{ s.files.count }}</td>
               <td style="font-size:12px;">{{ s.dibuat_oleh.get_full_name|default:s.dibuat_oleh.username|default:"—" }}</td>
               <td style="font-size:11px;white-space:nowrap;" class="text-muted">{{ s.dibuat_pada|date:"d M Y H:i" }}</td>
-              <td>
+              <td class="d-flex gap-1 py-2">
                 {% if s.status == 'done' %}
                 <a href="{% url 'scada_av_download' s.pk %}" class="btn btn-outline-success btn-sm" title="Download Excel">
                   <i class="bi bi-file-earmark-excel"></i>
                 </a>
                 {% endif %}
-                <a href="{% url 'scada_av_detail' s.pk %}" class="btn btn-outline-primary btn-sm ms-1" title="Detail">
+                {% if s.status == 'error' or s.status == 'done' %}
+                <form method="post" action="{% url 'scada_av_retry' s.pk %}"
+                      onsubmit="return confirm('Hitung ulang sesi ini?')">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-outline-warning btn-sm" title="Hitung Ulang">
+                    <i class="bi bi-arrow-clockwise"></i>
+                  </button>
+                </form>
+                {% endif %}
+                <a href="{% url 'scada_av_detail' s.pk %}" class="btn btn-outline-primary btn-sm" title="Detail">
                   <i class="bi bi-eye"></i>
                 </a>
               </td>

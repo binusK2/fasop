@@ -110,57 +110,142 @@
 
 {% if ringkasan %}
 
-<!-- Summary cards -->
-<div class="sum-grid">
-    <div class="sum-card" style="border-color:rgba(52,211,153,.3);">
-        <div class="sum-label"><i class="bi bi-lightning-charge-fill me-1" style="color:#34d399;"></i>Beban Puncak</div>
-        <div class="sum-val" style="color:#34d399;">
-            {{ summary.puncak_mw|default:"—" }}<span class="sum-unit">MW</span>
+<!-- ── Rangkuman Beban Kit ──────────────────────────────────────────── -->
+<div class="chart-card" style="margin-bottom:16px;">
+    <div class="chart-head">
+        <div class="chart-title"><i class="bi bi-lightning-charge-fill me-1" style="color:#34d399;"></i>Rangkuman Beban Kit</div>
+        <span style="font-size:11px; color:var(--muted);">{{ ringkasan|length }} hari</span>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; margin-bottom:16px;">
+        <div style="background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.2);border-radius:10px;padding:12px;text-align:center;">
+            <div style="font-size:10px;font-weight:700;color:#34d399;text-transform:uppercase;letter-spacing:.3px;">Beban Puncak</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;color:#34d399;">{{ summary.puncak_mw|default:"—" }}</div>
+            <div style="font-size:10px;color:var(--muted);">MW</div>
+        </div>
+        <div style="background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.2);border-radius:10px;padding:12px;text-align:center;">
+            <div style="font-size:10px;font-weight:700;color:#60a5fa;text-transform:uppercase;letter-spacing:.3px;">Rata-rata Beban</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;color:#60a5fa;">{{ summary.avg_beban|default:"—" }}</div>
+            <div style="font-size:10px;color:var(--muted);">MW</div>
+        </div>
+        <div style="background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.2);border-radius:10px;padding:12px;text-align:center;">
+            <div style="font-size:10px;font-weight:700;color:#a78bfa;text-transform:uppercase;letter-spacing:.3px;">Rata-rata Hz</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;color:#a78bfa;">{{ summary.avg_hz|default:"—" }}</div>
+            <div style="font-size:10px;color:var(--muted);">Hz</div>
+        </div>
+        <div style="background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.2);border-radius:10px;padding:12px;text-align:center;">
+            <div style="font-size:10px;font-weight:700;color:#fbbf24;text-transform:uppercase;letter-spacing:.3px;">Min Frekuensi</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;color:#fbbf24;">{{ summary.min_hz|default:"—" }}</div>
+            <div style="font-size:10px;color:var(--muted);">Hz</div>
+        </div>
+        <div style="background:{% if summary.total_abnormal > 0 %}rgba(248,113,113,.08){% else %}rgba(52,211,153,.08){% endif %};border:1px solid {% if summary.total_abnormal > 0 %}rgba(248,113,113,.2){% else %}rgba(52,211,153,.2){% endif %};border-radius:10px;padding:12px;text-align:center;">
+            <div style="font-size:10px;font-weight:700;color:{% if summary.total_abnormal > 0 %}#f87171{% else %}#34d399{% endif %};text-transform:uppercase;letter-spacing:.3px;">Durasi Abnormal</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;color:{% if summary.total_abnormal > 0 %}#f87171{% else %}#34d399{% endif %};">{{ summary.abnormal_menit|default:"0" }}</div>
+            <div style="font-size:10px;color:var(--muted);">menit ({{ summary.total_abnormal }} dtk)</div>
         </div>
     </div>
-    <div class="sum-card">
-        <div class="sum-label"><i class="bi bi-graph-up me-1" style="color:#60a5fa;"></i>Rata-rata Beban</div>
-        <div class="sum-val" style="color:#60a5fa;">
-            {{ summary.avg_beban|default:"—" }}<span class="sum-unit">MW</span>
+
+    {% if ringkasan|length > 1 %}
+    <div style="margin-top:12px;">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;">
+            <i class="bi bi-bar-chart-fill me-1" style="color:#34d399;"></i>Trend Beban Puncak Harian
+        </div>
+        <div style="position:relative; height:160px;">
+            <canvas id="chart-puncak"></canvas>
         </div>
     </div>
-    <div class="sum-card">
-        <div class="sum-label"><i class="bi bi-activity me-1" style="color:#a78bfa;"></i>Rata-rata Frekuensi</div>
-        <div class="sum-val" style="color:#a78bfa;">
-            {{ summary.avg_hz|default:"—" }}<span class="sum-unit">Hz</span>
-        </div>
-    </div>
-    <div class="sum-card">
-        <div class="sum-label"><i class="bi bi-arrow-down-circle me-1" style="color:#fbbf24;"></i>Frekuensi Minimum</div>
-        <div class="sum-val" style="color:#fbbf24;">
-            {{ summary.min_hz|default:"—" }}<span class="sum-unit">Hz</span>
-        </div>
-    </div>
-    <div class="sum-card" style="{% if summary.total_abnormal > 0 %}border-color:rgba(248,113,113,.3);{% endif %}">
-        <div class="sum-label"><i class="bi bi-exclamation-triangle me-1" style="color:#f87171;"></i>Durasi Abnormal</div>
-        <div class="sum-val" style="color:{% if summary.total_abnormal > 0 %}#f87171{% else %}#34d399{% endif %};">
-            {{ summary.abnormal_menit|default:"0" }}<span class="sum-unit">menit</span>
-        </div>
-        <div style="font-size:11px; color:var(--muted); margin-top:4px;">{{ summary.total_abnormal }} detik total</div>
-    </div>
+    {% endif %}
 </div>
 
-<!-- Chart beban puncak harian -->
-{% if ringkasan|length > 1 %}
-<div class="chart-card">
+<!-- ── Rangkuman Beban Trafo ────────────────────────────────────────── -->
+{% if trafo_sites %}
+<div class="chart-card" style="margin-bottom:16px;">
     <div class="chart-head">
-        <div class="chart-title"><i class="bi bi-bar-chart-fill me-1" style="color:#34d399;"></i>Trend Beban Puncak Harian</div>
+        <div class="chart-title"><i class="bi bi-lightning-charge me-1" style="color:#f59e0b;"></i>Rangkuman Beban Trafo <span style="font-size:10px;font-weight:400;color:var(--muted);">(snapshot realtime)</span></div>
+        <span style="font-size:13px;font-weight:700;color:#f59e0b;">{{ trafo_total_mw|floatformat:2 }} MW</span>
     </div>
-    <div style="position:relative; height:180px;">
-        <canvas id="chart-puncak"></canvas>
+
+    <!-- Summary per site -->
+    <div class="rk-table-wrap" style="margin-bottom:16px;">
+        <table class="rk-table">
+            <thead>
+                <tr>
+                    <th style="text-align:left;">GI / Site</th>
+                    <th>Jumlah Trafo</th>
+                    <th style="color:#f59e0b;">Total Beban (MW)</th>
+                    <th>Rata-rata (MW)</th>
+                    <th>Maks (MW)</th>
+                    <th>Min (MW)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in trafo_sites %}
+                <tr>
+                    <td style="font-weight:700;">{{ s.site }}</td>
+                    <td>{{ s.count }}</td>
+                    <td style="color:#f59e0b;font-family:'JetBrains Mono',monospace;font-weight:700;">
+                        {{ s.total|floatformat:2 }} MW
+                    </td>
+                    <td class="muted">{% if s.avg is not None %}{{ s.avg|floatformat:2 }}{% else %}—{% endif %}</td>
+                    <td class="ok">{% if s.max is not None %}{{ s.max|floatformat:2 }}{% else %}—{% endif %}</td>
+                    <td class="warn">{% if s.min is not None %}{{ s.min|floatformat:2 }}{% else %}—{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr style="border-top:2px solid #1e2d45;">
+                    <td style="font-weight:700;color:#f59e0b;">TOTAL</td>
+                    <td style="font-family:'JetBrains Mono',monospace;font-weight:700;">
+                        {% for s in trafo_sites %}{{ s.count }}{% if not forloop.last %}+{% endif %}{% endfor %}
+                    </td>
+                    <td style="font-family:'JetBrains Mono',monospace;font-weight:700;color:#f59e0b;">{{ trafo_total_mw|floatformat:2 }} MW</td>
+                    <td colspan="3"></td>
+                </tr>
+            </tfoot>
+        </table>
     </div>
+
+    <!-- Per-trafo detail per site -->
+    {% for s in trafo_sites %}
+    <div style="margin-bottom:14px;">
+        <div style="font-size:11px;font-weight:700;color:#f59e0b;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;">
+            <i class="bi bi-lightning-charge-fill me-1"></i>{{ s.site }}
+            <span style="color:var(--muted);font-weight:400;">— {{ s.count }} unit · total {{ s.total|floatformat:2 }} MW</span>
+        </div>
+        <div class="rk-table-wrap">
+            <table class="rk-table" style="font-size:11px;">
+                <thead>
+                    <tr>
+                        <th style="text-align:left;">Bay / Trafo</th>
+                        <th style="color:#f59e0b;">P — Daya Aktif (MW)</th>
+                        <th>Q — Reaktif (MVAR)</th>
+                        <th>V — Tegangan (kV)</th>
+                        <th>I — Arus (A)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for t in s.tlist %}
+                    <tr>
+                        <td style="font-weight:700;color:#60a5fa;font-family:'JetBrains Mono',monospace;">{{ t.bay }}</td>
+                        <td class="{% if t.p is not None and t.p > 0 %}ok{% else %}muted{% endif %}">
+                            {% if t.p is not None %}{{ t.p|floatformat:2 }}{% else %}—{% endif %}
+                        </td>
+                        <td class="muted">{% if t.q is not None %}{{ t.q|floatformat:2 }}{% else %}—{% endif %}</td>
+                        <td class="muted">{% if t.v is not None %}{{ t.v|floatformat:2 }}{% else %}—{% endif %}</td>
+                        <td class="muted">{% if t.i is not None %}{{ t.i|floatformat:1 }}{% else %}—{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endfor %}
 </div>
 {% endif %}
 
 <!-- Tabel per hari -->
 <div class="chart-card">
     <div class="chart-head">
-        <div class="chart-title"><i class="bi bi-table me-1" style="color:#60a5fa;"></i>Detail per Hari</div>
+        <div class="chart-title"><i class="bi bi-table me-1" style="color:#60a5fa;"></i>Detail per Hari — Beban Kit &amp; Frekuensi</div>
         <span style="font-size:11px; color:var(--muted);">{{ ringkasan|length }} hari data</span>
     </div>
     <div class="rk-table-wrap">

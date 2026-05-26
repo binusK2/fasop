@@ -1,10 +1,12 @@
 import logging
+import traceback
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import HttpResponse, JsonResponse
+from django.views.decorators.http import require_POST
 
-from .models import ScadaAvSession, ScadaAvFile
+from .models import ScadaAvSession, ScadaAvFile, RtuAvResult, RcdSummary, RcdBayResult
 from .forms import ScadaAvUploadForm
 from .calculator import run_full_calculation
 
@@ -40,7 +42,6 @@ def scada_av_upload(request):
                 status        = 'pending',
             )
 
-            # Simpan semua file yang diupload (cd['files'] sudah berupa list dari MultipleFileField)
             uploaded_files = cd['files']
             for f in uploaded_files:
                 ScadaAvFile.objects.create(
@@ -50,9 +51,9 @@ def scada_av_upload(request):
                     ukuran   = f.size,
                 )
 
-            # Jalankan kalkulasi langsung (synchronous)
             try:
                 run_full_calculation(session.pk)
+                session.refresh_from_db()
                 messages.success(request, f'Kalkulasi selesai dalam {session.durasi_hitung:.1f}s.')
             except Exception as exc:
                 session.refresh_from_db()
@@ -63,6 +64,38 @@ def scada_av_upload(request):
         form = ScadaAvUploadForm()
 
     return render(request, 'scada_av/upload.html', {'form': form})
+
+
+# ── Retry ─────────────────────────────────────────────────────────────────────
+
+@login_required
+@require_POST
+def scada_av_retry(request, pk):
+    """Hapus hasil lama dan jalankan ulang kalkulasi untuk sesi yang sama."""
+    session = get_object_or_404(ScadaAvSession, pk=pk)
+
+    # Hapus hasil sebelumnya agar tidak double
+    session.rtu_results.all().delete()
+    session.rcd_bay_results.all().delete()
+    try:
+        session.rcd_summary.delete()
+    except Exception:
+        pass
+
+    session.status        = 'pending'
+    session.error_message = ''
+    session.durasi_hitung = 0
+    session.save(update_fields=['status', 'error_message', 'durasi_hitung'])
+
+    try:
+        run_full_calculation(session.pk)
+        session.refresh_from_db()
+        messages.success(request, f'Kalkulasi ulang selesai dalam {session.durasi_hitung:.1f}s.')
+    except Exception as exc:
+        session.refresh_from_db()
+        messages.error(request, f'Kalkulasi gagal: {session.error_message or str(exc)}')
+
+    return redirect('scada_av_detail', pk=session.pk)
 
 
 # ── Detail ────────────────────────────────────────────────────────────────────
@@ -78,11 +111,14 @@ def scada_av_detail(request, pk):
     rcd_summary = getattr(session, 'rcd_summary', None) if session.has_rcd else None
     rcd_bays    = session.rcd_bay_results.all() if session.has_rcd else None
 
-    # Summary RTU
     rtu_avg_av = None
     if rtu_results and rtu_results.exists():
         vals = [r.rtu_availability for r in rtu_results]
         rtu_avg_av = round(sum(vals) / len(vals) * 100, 2)
+
+    # Deteksi kalkulasi selesai tapi hasil kosong
+    rtu_empty = session.has_rtu and session.status == 'done' and not (rtu_results and rtu_results.exists())
+    rcd_empty = session.has_rcd and session.status == 'done' and rcd_summary is None
 
     ctx = {
         'session':    session,
@@ -90,6 +126,8 @@ def scada_av_detail(request, pk):
         'rcd_summary': rcd_summary,
         'rcd_bays':    rcd_bays,
         'rtu_avg_av':  rtu_avg_av,
+        'rtu_empty':   rtu_empty,
+        'rcd_empty':   rcd_empty,
     }
     return render(request, 'scada_av/detail.html', ctx)
 
@@ -102,11 +140,12 @@ def scada_av_download(request, pk):
     import openpyxl
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
     from openpyxl.utils import get_column_letter
+    from io import BytesIO
 
     session = get_object_or_404(ScadaAvSession, pk=pk)
 
     wb = openpyxl.Workbook()
-    wb.remove(wb.active)  # hapus sheet kosong
+    wb.remove(wb.active)
 
     header_fill  = PatternFill('solid', fgColor='1E3A5F')
     header_font  = Font(bold=True, color='FFFFFF', size=11)
@@ -135,7 +174,8 @@ def scada_av_download(request, pk):
         ws.row_dimensions[1].height = 26
 
     # ── Sheet RTU ─────────────────────────────────────────────────────────────
-    if session.has_rtu and session.rtu_results.exists():
+    rtu_qs = session.rtu_results.all()
+    if session.has_rtu and rtu_qs.exists():
         ws = wb.create_sheet('RTU Availability')
         _title_row(ws, f'RTU AVAILABILITY — {session.nama}  ({session.periode_awal} s/d {session.periode_akhir})', 9)
         headers = ['No','RTU','Nama Lengkap','Jumlah Downtime','Total Downtime',
@@ -144,7 +184,7 @@ def scada_av_download(request, pk):
                    13,         13,            13,             16]
         _apply_header(ws, headers, widths, row=2)
         ws.freeze_panes = 'A3'
-        for i, r in enumerate(session.rtu_results.all(), 1):
+        for i, r in enumerate(rtu_qs, 1):
             row = i + 2
             vals = [i, r.rtu, r.long_name, r.downtime_occurences, r.total_downtime_hms,
                     r.rtu_av_pct, r.link_av_pct, r.overall_pct, _fmt_hms(r.rtu_downtime_s)]
@@ -157,7 +197,8 @@ def scada_av_download(request, pk):
             ws.row_dimensions[row].height = 18
 
     # ── Sheet RCD Bay ─────────────────────────────────────────────────────────
-    if session.has_rcd and session.rcd_bay_results.exists():
+    bay_qs = session.rcd_bay_results.all()
+    if session.has_rcd and bay_qs.exists():
         ws2 = wb.create_sheet('RCD Bay')
         _title_row(ws2, f'RCD SUCCESS RATE (BAY) — {session.nama}', 12)
         h2 = ['No','GI (B1)','B2','Bay (B3)','Jumlah RC','Sukses','Gagal',
@@ -166,7 +207,7 @@ def scada_av_download(request, pk):
               16,              12,            12,            13,           13]
         _apply_header(ws2, h2, w2, row=2)
         ws2.freeze_panes = 'A3'
-        for i, b in enumerate(session.rcd_bay_results.all(), 1):
+        for i, b in enumerate(bay_qs, 1):
             row = i + 2
             vals = [i, b.station, b.bay_b2, b.bay_b3, b.occurences, b.success, b.failed,
                     b.success_pct, b.open_success, b.open_failed, b.close_success, b.close_failed]
@@ -184,15 +225,15 @@ def scada_av_download(request, pk):
         ws3 = wb.create_sheet('RCD Summary')
         _title_row(ws3, f'RCD SUMMARY — {session.nama}', 2)
         rows_data = [
-            ('Total RC', rcd_sum.total_count),
-            ('Valid RC', rcd_sum.total_valid),
-            ('Sukses', rcd_sum.total_success),
-            ('Gagal', rcd_sum.total_failed),
-            ('Repetisi', rcd_sum.total_reps),
-            ('Unused', rcd_sum.total_marked_unused),
-            ('Success Rate', f'{rcd_sum.success_pct}%'),
+            ('Total RC',           rcd_sum.total_count),
+            ('Valid RC',           rcd_sum.total_valid),
+            ('Sukses',             rcd_sum.total_success),
+            ('Gagal',              rcd_sum.total_failed),
+            ('Repetisi',           rcd_sum.total_reps),
+            ('Unused',             rcd_sum.total_marked_unused),
+            ('Success Rate',       f'{rcd_sum.success_pct}%'),
             ('Close Success Rate', f'{rcd_sum.success_close_pct}%'),
-            ('Open Success Rate', f'{rcd_sum.success_open_pct}%'),
+            ('Open Success Rate',  f'{rcd_sum.success_open_pct}%'),
         ]
         for i, (label, val) in enumerate(rows_data, 1):
             r = i + 1
@@ -205,19 +246,25 @@ def scada_av_download(request, pk):
         pass
 
     if not wb.sheetnames:
-        wb.create_sheet('Kosong')
+        ws_k = wb.create_sheet('Tidak Ada Data')
+        ws_k['A1'] = 'Tidak ada hasil kalkulasi yang tersimpan untuk sesi ini.'
 
-    response = HttpResponse(
-        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    )
+    # Tulis ke buffer dulu agar Content-Length bisa dihitung dengan benar
+    buf = BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
     fname = f'scada_av_{session.pk}_{session.periode_awal}_{session.periode_akhir}.xlsx'
+    response = HttpResponse(
+        buf.read(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
     response['Content-Disposition'] = f'attachment; filename="{fname}"'
-    wb.save(response)
     return response
 
 
 def _fmt_hms(seconds: float) -> str:
-    total = int(seconds)
+    total = int(seconds or 0)
     h, rem = divmod(total, 3600)
     m, s   = divmod(rem, 60)
     return f'{h:02d}:{m:02d}:{s:02d}'

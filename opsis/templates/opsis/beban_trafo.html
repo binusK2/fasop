@@ -33,6 +33,23 @@
   </div>
 </div>
 
+<style>
+.trafo-table { width:100%; border-collapse:collapse; font-size:13px; }
+.trafo-table thead tr { background:#1e3a5f; color:#fff; }
+.trafo-table thead th {
+  padding:9px 12px; font-size:11px; font-weight:700; text-transform:uppercase;
+  letter-spacing:.4px; white-space:nowrap; border:1px solid #2d4a70;
+}
+.trafo-table thead th.center { text-align:center; }
+.trafo-table tbody td {
+  padding:8px 12px; border:1px solid #e2e8f0; vertical-align:middle;
+}
+.trafo-table tfoot td {
+  padding:8px 12px; border:1px solid #e2e8f0;
+  background:#fef3c7; font-weight:700; font-size:12px;
+}
+</style>
+
 <script>
 // ── Data awal dari Django template ──────────────────────────────────
 const initialData = {
@@ -57,55 +74,74 @@ function renderGrid(data) {
   });
 
   // Update total MW header
-  document.getElementById('totalMW').textContent = data.total_mw.toFixed(2);
+  document.getElementById('totalMW').textContent = parseFloat(data.total_mw).toFixed(2);
+
+  function fmtNum(v, dec) {
+    if (v === null || v === undefined) return '<span style="color:#cbd5e1;">—</span>';
+    return parseFloat(v).toFixed(dec);
+  }
 
   // Build HTML
   let html = '';
   Object.entries(grouped).sort().forEach(([site, rows]) => {
     const siteTotal = data.site_totals[site] ?? 0;
+    const trafoCount = rows.length;
     html += `
     <div class="card shadow-sm mb-3">
-      <div class="card-body px-4 py-3">
-        <div class="d-flex align-items-center justify-content-between mb-3">
-          <div class="d-flex align-items-center gap-2">
-            <span style="width:5px;height:18px;background:#f59e0b;border-radius:3px;display:inline-block;"></span>
-            <h6 class="mb-0 fw-bold" style="font-size:13px;color:#1e293b;">${site}</h6>
-            <span class="badge bg-secondary" style="font-size:10px;">${rows.length} trafo</span>
-          </div>
-          <div style="font-size:13px;font-weight:700;color:#1e3a5f;">Total: ${siteTotal.toFixed(2)} MW</div>
+      <div class="card-header d-flex align-items-center justify-content-between py-2 px-4"
+           style="background:#1e3a5f;border-radius:8px 8px 0 0;">
+        <div class="d-flex align-items-center gap-2">
+          <i class="bi bi-lightning-charge-fill" style="color:#f59e0b;font-size:14px;"></i>
+          <span class="fw-bold" style="color:#fff;font-size:14px;">${site}</span>
+          <span class="badge" style="background:rgba(255,255,255,.15);color:#fff;font-size:10px;">${trafoCount} trafo</span>
         </div>
+        <div style="font-size:13px;font-weight:700;color:#fbbf24;">
+          Total: ${siteTotal.toFixed(2)} MW
+        </div>
+      </div>
+      <div class="card-body p-0">
         <div class="table-responsive">
-          <table class="table table-sm table-bordered align-middle mb-0" style="font-size:12px;">
-            <thead style="background:#1e3a5f;color:#fff;font-size:11px;text-align:center;">
+          <table class="trafo-table">
+            <thead>
               <tr>
-                <th style="width:20%;">Bay (Trafo)</th>
-                <th style="width:20%;">P (MW)</th>
-                <th style="width:20%;">Q (MVAR)</th>
-                <th style="width:20%;">V (kV)</th>
-                <th style="width:20%;">I (A)</th>
+                <th style="width:40px;">No.</th>
+                <th style="width:220px;">Bay / Trafo</th>
+                <th class="center" style="width:130px;">Daya Aktif P<br><span style="font-weight:400;font-size:10px;opacity:.8;">(MW)</span></th>
+                <th class="center" style="width:130px;">Daya Reaktif Q<br><span style="font-weight:400;font-size:10px;opacity:.8;">(MVAR)</span></th>
+                <th class="center" style="width:110px;">Tegangan V<br><span style="font-weight:400;font-size:10px;opacity:.8;">(kV)</span></th>
+                <th class="center" style="width:110px;">Arus I<br><span style="font-weight:400;font-size:10px;opacity:.8;">(A)</span></th>
               </tr>
             </thead>
             <tbody>
               ${rows.map((t, idx) => {
-                const bg = (idx+1)%2===0 ? 'background:#fffbeb;' : '';
-                const pVal = t.p !== null ? (t.p > 0
-                  ? `<span style="font-weight:700;color:#16a34a;">${t.p.toFixed(2)}</span>`
-                  : `<span style="color:#94a3b8;">${t.p.toFixed(2)}</span>`)
-                  : '<span style="color:#e5e7eb;">—</span>';
+                const bg = (idx % 2 === 1) ? 'background:#fffbeb;' : '';
+                let pDisplay;
+                if (t.p === null) {
+                  pDisplay = '<span style="color:#cbd5e1;">—</span>';
+                } else if (t.p > 0) {
+                  pDisplay = `<span style="font-weight:700;color:#16a34a;font-family:monospace;">${t.p.toFixed(2)}</span>`;
+                } else {
+                  pDisplay = `<span style="color:#94a3b8;font-family:monospace;">${t.p.toFixed(2)}</span>`;
+                }
                 return `<tr style="${bg}">
-                  <td style="font-weight:700;color:#1e40af;font-family:monospace;">${t.bay}</td>
-                  <td style="text-align:center;">${pVal}</td>
-                  <td style="text-align:center;font-family:monospace;">${t.q !== null ? t.q.toFixed(2) : '—'}</td>
-                  <td style="text-align:center;font-family:monospace;">${t.v !== null ? t.v.toFixed(2) : '—'}</td>
-                  <td style="text-align:center;font-family:monospace;">${t.i !== null ? t.i.toFixed(2) : '—'}</td>
+                  <td style="text-align:center;color:#94a3b8;font-size:11px;">${idx+1}</td>
+                  <td>
+                    <span style="font-weight:700;color:#1e40af;font-family:monospace;font-size:13px;">${t.bay}</span>
+                  </td>
+                  <td style="text-align:center;">${pDisplay}</td>
+                  <td style="text-align:center;font-family:monospace;color:#7c3aed;">${fmtNum(t.q,2)}</td>
+                  <td style="text-align:center;font-family:monospace;color:#0369a1;">${fmtNum(t.v,2)}</td>
+                  <td style="text-align:center;font-family:monospace;color:#b45309;">${fmtNum(t.i,1)}</td>
                 </tr>`;
               }).join('')}
             </tbody>
             <tfoot>
-              <tr style="background:#fef3c7;font-weight:700;">
-                <td>Total</td>
-                <td style="text-align:center;color:#92400e;">${siteTotal.toFixed(2)}</td>
-                <td colspan="3"></td>
+              <tr>
+                <td colspan="2" style="color:#92400e;">
+                  <i class="bi bi-sigma me-1"></i>Total ${trafoCount} trafo
+                </td>
+                <td style="text-align:center;color:#15803d;font-family:monospace;">${siteTotal.toFixed(2)} MW</td>
+                <td colspan="3" style="color:#64748b;font-size:11px;text-align:center;">—</td>
               </tr>
             </tfoot>
           </table>
@@ -113,7 +149,11 @@ function renderGrid(data) {
       </div>
     </div>`;
   });
-  document.getElementById('trafoGrid').innerHTML = html || '<div class="text-center py-5 text-muted"><i class="bi bi-exclamation-circle" style="font-size:36px;"></i><div class="mt-2">Tidak ada data trafo.</div></div>';
+
+  document.getElementById('trafoGrid').innerHTML = html ||
+    '<div class="text-center py-5 text-muted">' +
+    '<i class="bi bi-exclamation-circle" style="font-size:36px;"></i>' +
+    '<div class="mt-2">Tidak ada data trafo.</div></div>';
 }
 
 // ── Render awal dari data server ─────────────────────────────────────
