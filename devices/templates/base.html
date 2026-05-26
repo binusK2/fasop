@@ -822,37 +822,37 @@
         </a>
         {% endif %}
         <a href="{% url 'pengujian_telecom_dashboard' %}"
-           class="sidebar-link {% if request.resolver_match.url_name == 'pengujian_telecom_dashboard' or request.resolver_match.url_name == 'pengujian_telecom_form' or request.resolver_match.url_name == 'pengujian_telecom_list' or request.resolver_match.url_name == 'pengujian_telecom_detail' %}active{% endif %}">
+           class="sidebar-link {% if request.resolver_match.url_name == 'pengujian_telecom_dashboard' or request.resolver_match.url_name == 'pengujian_telecom_form' or request.resolver_match.url_name == 'pengujian_telecom_list' or request.resolver_match.url_name == 'pengujian_telecom_detail' or request.resolver_match.url_name == 'pengujian_radio_form' or request.resolver_match.url_name == 'pengujian_voip_form' %}active{% endif %}">
             <span class="si-icon"><i class="bi bi-broadcast"></i></span>
             Pengujian Telekomunikasi
-        </a>
-        <a href="{% url 'pengujian_radio_form' %}"
-           class="sidebar-link sidebar-sublink {% if request.resolver_match.url_name == 'pengujian_radio_form' %}active{% endif %}">
-            <span class="si-icon"><i class="bi bi-reception-4"></i></span>
-            Pengujian Radio
-        </a>
-        <a href="{% url 'pengujian_voip_form' %}"
-           class="sidebar-link sidebar-sublink {% if request.resolver_match.url_name == 'pengujian_voip_form' %}active{% endif %}">
-            <span class="si-icon"><i class="bi bi-telephone-fill"></i></span>
-            Pengujian VoIP
         </a>
     </div>
 
     {% if not user_is_operator and not user_is_dispatcher %}
     <div class="sidebar-section">
         <div class="sidebar-section-label">Real Time</div>
-        <div class="sidebar-link" style="cursor:default;opacity:.7;pointer-events:none;font-weight:700;font-size:12px;">
+        {% with url_name=request.resolver_match.url_name|default:'' %}
+        <button class="sidebar-link sidebar-group-toggle w-100 text-start border-0
+            {% if url_name|slice:':3' == 'dm_' or url_name|slice:':6' == 'opsis_' %}active open{% endif %}"
+            data-target="submenu-status-peralatan" type="button">
             <span class="si-icon"><i class="bi bi-speedometer2"></i></span>
             Status Peralatan
+            <i class="bi bi-chevron-right sidebar-toggle-btn ms-auto"></i>
+        </button>
+        <div class="sidebar-submenu {% if url_name|slice:':3' == 'dm_' or url_name|slice:':6' == 'opsis_' %}open{% endif %}"
+             id="submenu-status-peralatan">
+            <a href="{% url 'dm_dashboard' %}"
+               class="sidebar-link {% if url_name|slice:':3' == 'dm_' %}active{% endif %}">
+                <span class="si-icon"><i class="bi bi-hdd-network"></i></span>
+                Device Monitoring
+            </a>
+            <a href="{% url 'opsis_dashboard' %}"
+               class="sidebar-link {% if url_name|slice:':6' == 'opsis_' %}active{% endif %}">
+                <span class="si-icon"><i class="bi bi-bar-chart-line"></i></span>
+                OPSIS
+            </a>
         </div>
-        <a href="{% url 'dm_dashboard' %}" class="sidebar-link sidebar-sublink {% if 'device_mon' in request.resolver_match.app_name|default:'' or request.resolver_match.url_name|default:''|slice:':3' == 'dm_' %}active{% endif %}">
-            <span class="si-icon"><i class="bi bi-hdd-network"></i></span>
-            SCADA
-        </a>
-        <a href="{% url 'opsis_dashboard' %}" class="sidebar-link sidebar-sublink {% if 'opsis' in request.resolver_match.app_name|default:'' or request.resolver_match.url_name|default:''|slice:':6' == 'opsis_' %}active{% endif %}">
-            <span class="si-icon"><i class="bi bi-bar-chart-line"></i></span>
-            OPSIS
-        </a>
+        {% endwith %}
     </div>
     {% endif %}
 
