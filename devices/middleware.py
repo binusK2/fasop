@@ -124,6 +124,45 @@ class OpsisAccessMiddleware:
         return self.get_response(request)
 
 
+class DispatcherAccessMiddleware:
+    """
+    Middleware untuk role Dispatcher — hanya bisa akses:
+    - /inspection/pengujian-* (Pengujian Telekomunikasi)
+    - /profile/, /logout/, /login/, /ganti-password/
+    - /static/, /media/, /notifikasi/
+    Semua URL lain → redirect ke pengujian_telecom_dashboard.
+    """
+
+    ALLOWED_PREFIXES = (
+        '/inspection/pengujian-',
+        '/static/',
+        '/media/',
+        '/logout/',
+        '/login/',
+        '/ganti-password/',
+        '/notifikasi/',
+        '/maintenance/profile/',
+    )
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if request.user.is_authenticated and not request.user.is_superuser:
+            try:
+                role = request.user.profile.role
+            except Exception:
+                role = ''
+
+            if role == 'dispatcher':
+                path = request.path
+                allowed = any(path.startswith(p) for p in self.ALLOWED_PREFIXES)
+                if not allowed:
+                    return redirect('pengujian_telecom_dashboard')
+
+        return self.get_response(request)
+
+
 class SingleSessionMiddleware:
     """
     Middleware single active session per user.

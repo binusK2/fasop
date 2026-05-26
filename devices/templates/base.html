@@ -523,10 +523,17 @@
 
     <div class="sidebar-section">
         <div class="sidebar-section-label">Utama</div>
+        {% if user_is_dispatcher %}
+        <a href="{% url 'pengujian_telecom_dashboard' %}" class="sidebar-link {% if request.resolver_match.url_name == 'pengujian_telecom_dashboard' %}active{% endif %}">
+            <span class="si-icon"><i class="bi bi-grid-1x2"></i></span>
+            Dashboard
+        </a>
+        {% else %}
         <a href="{% url 'dashboard' %}" class="sidebar-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
             <span class="si-icon"><i class="bi bi-grid-1x2"></i></span>
             Dashboard
         </a>
+        {% endif %}
     </div>
 
     {% if not user_is_operator and not user_is_dispatcher %}
