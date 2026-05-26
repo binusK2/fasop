@@ -68,6 +68,7 @@ MIDDLEWARE = [
     'devices.middleware.ForcePasswordChangeMiddleware',
     'devices.middleware.OpsisAccessMiddleware',
     'devices.middleware.OperatorAccessMiddleware',
+    'devices.middleware.DispatcherAccessMiddleware',
     'devices.middleware.SingleSessionMiddleware',
 ]
 
