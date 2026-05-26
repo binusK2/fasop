@@ -521,20 +521,15 @@
         
     </div>
 
+    {% if not user_is_dispatcher %}
     <div class="sidebar-section">
         <div class="sidebar-section-label">Utama</div>
-        {% if user_is_dispatcher %}
-        <a href="{% url 'pengujian_telecom_dashboard' %}" class="sidebar-link {% if request.resolver_match.url_name == 'pengujian_telecom_dashboard' %}active{% endif %}">
-            <span class="si-icon"><i class="bi bi-grid-1x2"></i></span>
-            Dashboard
-        </a>
-        {% else %}
         <a href="{% url 'dashboard' %}" class="sidebar-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
             <span class="si-icon"><i class="bi bi-grid-1x2"></i></span>
             Dashboard
         </a>
-        {% endif %}
     </div>
+    {% endif %}
 
     {% if not user_is_operator and not user_is_dispatcher %}
     <div class="sidebar-section">
@@ -891,6 +886,8 @@
                     <span style="background:#f1f5f9;color:#64748b;font-size:9.5px;padding:1px 6px;border-radius:10px;font-weight:700;">OPERATOR</span>
                     {% elif user.profile.role == 'opsis' %}
                     <span style="background:#dbeafe;color:#1d4ed8;font-size:9.5px;padding:1px 6px;border-radius:10px;font-weight:700;">OPSIS</span>
+                    {% elif user.profile.role == 'dispatcher' %}
+                    <span style="background:#fef3c7;color:#92400e;font-size:9.5px;padding:1px 6px;border-radius:10px;font-weight:700;">DISPATCHER</span>
                     {% else %}
                     <span style="background:#dcfce7;color:#166534;font-size:9.5px;padding:1px 6px;border-radius:10px;font-weight:700;">ENGINEER</span>
                     {% endif %}
