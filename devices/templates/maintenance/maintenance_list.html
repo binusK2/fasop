@@ -188,18 +188,13 @@
 
                 <td style="text-align:center;padding:14px 12px;">
                     <div class="d-flex gap-1 justify-content-center">
-                        <a href="{% url 'maintenance_view' m.id %}" class="btn btn-sm btn-outline-primary" title="Detail" style="border-radius:8px;padding:4px 10px;">
+                        <a href="{% url 'export_maintenance_pdf' m.id %}?preview=1" target="_blank"
+                            class="btn btn-sm btn-outline-danger" title="Preview PDF" style="border-radius:8px;padding:4px 10px;">
+                            <i class="bi bi-file-earmark-pdf"></i>
+                        </a>
+                        <a href="{% url 'maintenance_view' m.id %}" class="btn btn-sm btn-outline-primary" title="Detail Maintenance" style="border-radius:8px;padding:4px 10px;">
                             <i class="bi bi-eye"></i>
                         </a>
-                        {% if m.status == 'Open' %}
-                        <form method="post" action="{% url 'maintenance_update_status' m.id %}" style="display:inline;">
-                            {% csrf_token %}
-                            <input type="hidden" name="status" value="Done">
-                            <button class="btn btn-sm btn-outline-success" title="Tandai Done" style="border-radius:8px;padding:4px 10px;">
-                                <i class="bi bi-check-lg"></i>
-                            </button>
-                        </form>
-                        {% endif %}
                         {% if user_can_delete %}
                         <button class="btn btn-sm btn-outline-danger" title="Hapus" style="border-radius:8px;padding:4px 10px;"
                                 onclick="confirmDelete('{% url 'maintenance_delete' m.id %}', '{{ m.device }} — {{ m.date|date:'d M Y' }}')">
