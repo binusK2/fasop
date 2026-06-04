@@ -1660,8 +1660,7 @@ def export_maintenance_pdf(request, pk):
         'pengukuran': {
             'tegangan_input': _g(router_detail, 'tegangan_input'),
             'suhu_perangkat': _g(router_detail, 'suhu_perangkat'),
-            'cpu_load':       _g(router_detail, 'cpu_load'),
-            'memory_usage':   _g(router_detail, 'memory_usage'),
+
         } if router_detail else {},
         'port': {
             'jumlah_port_aktif': _g(router_detail, 'jumlah_port_aktif'),

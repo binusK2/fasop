@@ -727,30 +727,6 @@
                             {% if router_detail.suhu_perangkat %}<div style="font-size:11px;color:#94a3b8;">°C</div>{% endif %}
                         </div>
                     </div>
-                    <div class="col-md-3">
-                        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;text-align:center;">
-                            <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">CPU Load</div>
-                            <div style="font-size:22px;font-weight:700;font-family:'JetBrains Mono',monospace;{% if router_detail.cpu_load > 80 %}color:#ef4444;{% elif router_detail.cpu_load > 60 %}color:#f59e0b;{% else %}color:#10b981;{% endif %}">{{ router_detail.cpu_load|default:"—" }}</div>
-                            {% if router_detail.cpu_load %}
-                            <div style="font-size:11px;color:#94a3b8;margin-bottom:4px;">%</div>
-                            <div style="height:4px;background:#e2e8f0;border-radius:2px;overflow:hidden;">
-                                <div style="height:100%;border-radius:2px;width:{{ router_detail.cpu_load }}%;{% if router_detail.cpu_load > 80 %}background:#ef4444;{% elif router_detail.cpu_load > 60 %}background:#f59e0b;{% else %}background:#10b981;{% endif %}"></div>
-                            </div>
-                            {% endif %}
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;text-align:center;">
-                            <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Memory Usage</div>
-                            <div style="font-size:22px;font-weight:700;font-family:'JetBrains Mono',monospace;{% if router_detail.memory_usage > 80 %}color:#ef4444;{% elif router_detail.memory_usage > 60 %}color:#f59e0b;{% else %}color:#10b981;{% endif %}">{{ router_detail.memory_usage|default:"—" }}</div>
-                            {% if router_detail.memory_usage %}
-                            <div style="font-size:11px;color:#94a3b8;margin-bottom:4px;">%</div>
-                            <div style="height:4px;background:#e2e8f0;border-radius:2px;overflow:hidden;">
-                                <div style="height:100%;border-radius:2px;width:{{ router_detail.memory_usage }}%;{% if router_detail.memory_usage > 80 %}background:#ef4444;{% elif router_detail.memory_usage > 60 %}background:#f59e0b;{% else %}background:#10b981;{% endif %}"></div>
-                            </div>
-                            {% endif %}
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
