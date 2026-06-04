@@ -766,7 +766,7 @@ function addEvidenRow() {
                     <th style="text-align:center;font-size:11px;color:#64748b;padding:10px 12px;">TANGGAL</th>
                     <th style="text-align:center;font-size:11px;color:#64748b;padding:10px 12px;">TIPE</th>
                     <th style="text-align:center;font-size:11px;color:#64748b;padding:10px 12px;">PELAKSANA</th>
-                    <th style="font-size:11px;color:#64748b;padding:10px 12px;">DESKRIPSI</th>
+                    <th style="font-size:11px;color:#64748b;padding:10px 12px;">CATATAN AM</th>
                     <th style="text-align:center;font-size:11px;color:#64748b;padding:10px 12px;">STATUS</th>
                     <th style="text-align:center;font-size:11px;color:#64748b;padding:10px 12px;">AKSI</th>
                 </tr>
@@ -811,19 +811,34 @@ function addEvidenRow() {
                     </td>
 
                     <td style="padding:14px 12px;font-size:12.5px;color:#475569;max-width:200px;">
-                        {{ m.description|default:"—"|truncatechars:80 }}
+                        {% if m.catatan_am %}
+                        {{ m.catatan_am|truncatechars:80 }}
+                        {% else %}
+                        <span style="color:#cbd5e1;">—</span>
+                        {% endif %}
                     </td>
 
                     <td style="text-align:center;padding:14px 12px;">
-                        {% if m.status == 'Done' %}
-                        <span style="font-size:11.5px;font-weight:700;color:#065f46;background:#dcfce7;padding:4px 12px;border-radius:20px;border:1px solid #a7f3d0;display:inline-flex;align-items:center;gap:4px;">
-                            <i class="bi bi-check-circle-fill" style="font-size:11px;"></i> Done
-                        </span>
-                        {% else %}
-                        <span style="font-size:11.5px;font-weight:700;color:#1d4ed8;background:#dbeafe;padding:4px 12px;border-radius:20px;border:1px solid #bfdbfe;display:inline-flex;align-items:center;gap:4px;">
-                            <i class="bi bi-hourglass-split" style="font-size:11px;"></i> Open
-                        </span>
-                        {% endif %}
+                        <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+                            {% if m.status == 'Done' %}
+                            <span style="font-size:11.5px;font-weight:700;color:#065f46;background:#dcfce7;padding:3px 10px;border-radius:20px;border:1px solid #a7f3d0;display:inline-flex;align-items:center;gap:4px;">
+                                <i class="bi bi-check-circle-fill" style="font-size:10px;"></i> Done
+                            </span>
+                            {% else %}
+                            <span style="font-size:11.5px;font-weight:700;color:#1d4ed8;background:#dbeafe;padding:3px 10px;border-radius:20px;border:1px solid #bfdbfe;display:inline-flex;align-items:center;gap:4px;">
+                                <i class="bi bi-hourglass-split" style="font-size:10px;"></i> Open
+                            </span>
+                            {% endif %}
+                            {% if m.signed_by %}
+                            <span style="font-size:10.5px;font-weight:600;color:#065f46;background:#f0fdf4;padding:2px 8px;border-radius:20px;border:1px solid #bbf7d0;display:inline-flex;align-items:center;gap:3px;">
+                                <i class="bi bi-patch-check-fill" style="font-size:9px;"></i> TTD
+                            </span>
+                            {% else %}
+                            <span style="font-size:10.5px;color:#94a3b8;background:#f8fafc;padding:2px 8px;border-radius:20px;border:1px solid #e2e8f0;display:inline-flex;align-items:center;gap:3px;">
+                                <i class="bi bi-pen" style="font-size:9px;"></i> Belum TTD
+                            </span>
+                            {% endif %}
+                        </div>
                     </td>
 
                     <td style="text-align:center;padding:14px 12px;">
