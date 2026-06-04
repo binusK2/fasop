@@ -108,6 +108,36 @@
                     </div>
                 </div>
             </div>
+            {% if device.jenis.name|upper != 'SWITCH' %}
+            <div class="col-md-3">
+                <div class="measure-card">
+                    <div class="measure-label">CPU Load</div>
+                    <div class="input-group">
+                        {{ detail_form.cpu_load }}
+                        <span class="input-group-text measure-unit">%</span>
+                    </div>
+                    <div id="cpu-bar-wrap" style="margin-top:8px;display:none;">
+                        <div style="height:5px;background:#e2e8f0;border-radius:3px;overflow:hidden;">
+                            <div id="cpu-bar" style="height:100%;border-radius:3px;transition:width 0.3s;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="measure-card">
+                    <div class="measure-label">Memory Usage</div>
+                    <div class="input-group">
+                        {{ detail_form.memory_usage }}
+                        <span class="input-group-text measure-unit">%</span>
+                    </div>
+                    <div id="mem-bar-wrap" style="margin-top:8px;display:none;">
+                        <div style="height:5px;background:#e2e8f0;border-radius:3px;overflow:hidden;">
+                            <div id="mem-bar" style="height:100%;border-radius:3px;transition:width 0.3s;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
         </div>
     </div>
 </div>
@@ -430,7 +460,10 @@ btnClear?.addEventListener('click', () => {
 
 document.addEventListener('DOMContentLoaded', () => {
     renderChecklist();
-
+    {% if device.jenis.name|upper != 'SWITCH' %}
+    updateBar('cpu_load',     'cpu-bar', 'cpu-bar-wrap');
+    updateBar('memory_usage', 'mem-bar', 'mem-bar-wrap');
+    {% endif %}
     document.querySelector('[name="jumlah_port_aktif"]')?.addEventListener('input', updatePortBar);
     document.querySelector('[name="jumlah_port_total"]')?.addEventListener('input', updatePortBar);
     updatePortBar();

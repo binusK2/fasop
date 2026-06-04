@@ -119,6 +119,9 @@ class MaintenanceRouterForm(forms.ModelForm):
             # Pengukuran
             'tegangan_input': forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. 220.5'}),
             'suhu_perangkat': forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. 45.0'}),
+            'cpu_load':       forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': '0–100'}),
+            'memory_usage':   forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': '0–100'}),
+
             # Port — status_routing juga pakai Select
             'jumlah_port_aktif':  forms.NumberInput(attrs={'class': 'form-control', 'min': '0'}),
             'jumlah_port_total':  forms.NumberInput(attrs={'class': 'form-control', 'min': '0'}),
