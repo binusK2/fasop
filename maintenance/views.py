@@ -2068,7 +2068,9 @@ def export_maintenance_pdf(request, pk):
     clean_date = dj_timezone.localtime(maintenance.date).strftime('%d-%m-%Y_%H.%M')
     filename = f"LAPORAN_PEMELIHARAAN_{device.nama}_{clean_date}.pdf".replace(' ', '_')
     response = HttpResponse(buffer, content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    is_preview = request.GET.get('preview') == '1'
+    disposition = 'inline' if is_preview else 'attachment'
+    response['Content-Disposition'] = f'{disposition}; filename="{filename}"'
     return response
 
 
