@@ -1,6 +1,6 @@
-{% comment %}SAS DETAIL SECTION — include dari maintenance_detail{% endcomment %}
+{% comment %}SAS / RTU GENERIC DETAIL SECTION — include dari maintenance_detail{% endcomment %}
 
-{% if sas_detail %}
+{% if sas_detail or is_rtu_generic %}
 {% with s=sas_detail %}
 
 <style>
@@ -18,8 +18,16 @@
     <div class="card-body px-4 py-3">
         <div class="d-flex align-items-center gap-2 mb-3">
             <span style="width:5px;height:18px;background:#3b82f6;border-radius:3px;display:inline-block;"></span>
-            <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#64748b;">Spesifikasi</h6>
+            <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#64748b;">
+                <i class="bi bi-cpu me-1" style="color:#3b82f6;"></i>
+                {% if is_rtu_generic %}Spesifikasi RTU{% else %}Spesifikasi{% endif %}
+            </h6>
         </div>
+        {% if not s %}
+        <div class="text-muted" style="font-size:12.5px;padding:8px 0;">
+            <i class="bi bi-info-circle me-1"></i>Data detail RTU belum diisi. Klik <b>Edit</b> untuk mengisi data pemeliharaan RTU.
+        </div>
+        {% else %}
         <div class="row g-3">
             <div class="col-md-6">
                 <table class="sdt">
@@ -43,9 +51,11 @@
             </div>
             {% endif %}
         </div>
+        {% endif %}{# end if s #}
     </div>
 </div>
 
+{% if s %}
 <!-- ── Kondisi & Performa (status badges) ─────────────── -->
 <div class="card mb-3">
     <div class="card-body px-4 py-3">
@@ -201,6 +211,7 @@
         </div>
     </div>
 </div>
+{% endif %}{# end if s — hides data cards when no record yet #}
 
 {% endwith %}
 {% endif %}

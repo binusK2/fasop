@@ -479,10 +479,13 @@ def maintenance_detail(request, pk):
     except Exception:
         health_index = None
 
+    is_rtu_generic = device_type == 'RTU' and not _is_ak3_rtu(maintenance.device)
+
     return render(request, 'maintenance/maintenance_detail.html', {
         'maintenance':      maintenance,
         'health_index':     health_index,
         'device_type':      device_type,
+        'is_rtu_generic':   is_rtu_generic,
         'plc_detail':       plc_detail,
         'router_detail':    router_detail,
         'radio_detail':     radio_detail,
@@ -536,7 +539,7 @@ def maintenance_detail(request, pk):
         'sas_detail':    sas_detail,
         # (label, val, ok_val, nok_val)
         'sas_kondisi_rows': [
-            ('Kondisi Server/Gateway', sas_detail.kondisi_server,  'BERSIH', 'TIDAK BERSIH'),
+            ('Kondisi RTU' if is_rtu_generic else 'Kondisi Server/Gateway', sas_detail.kondisi_server,  'BERSIH', 'TIDAK BERSIH'),
             ('Kondisi Panel',          sas_detail.kondisi_panel,   'BERSIH', 'TIDAK BERSIH'),
             ('Exhaust Fan',            sas_detail.exhaust_fan,     'ADA, BERFUNGSI', 'ADA, TIDAK BERFUNGSI'),
             ('Indikasi Alarm/Error',   sas_detail.indikasi_alarm,  'TIDAK ADA', 'ADA'),
