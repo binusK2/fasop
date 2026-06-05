@@ -307,7 +307,10 @@
     {# ── Simpan ── #}
     <div class="cf-card">
         <div class="cf-body">
-            <button type="submit" class="btn btn-primary w-100 mb-2">
+                <button type="button" class="btn btn-outline-secondary btn-print-hide" onclick="window.print()" title="Cetak form ini sebagai PDF">
+        <i class="bi bi-printer me-1"></i>Cetak Form
+    </button>
+<button type="submit" class="btn btn-primary btn-print-hide w-100 mb-2">
                 <i class="bi bi-{% if is_edit %}floppy{% else %}check-lg{% endif %} me-1"></i>
                 {% if is_edit %}Simpan Perubahan{% else %}Simpan Corrective{% endif %}
             </button>

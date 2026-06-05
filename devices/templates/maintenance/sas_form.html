@@ -321,7 +321,10 @@
     {% else %}
     <a href="{% url 'device_view' device.id %}" class="btn btn-outline-secondary"><i class="bi bi-x me-1"></i>Batal</a>
     {% endif %}
-    <button type="submit" class="btn btn-primary px-4" id="btn-submit">
+        <button type="button" class="btn btn-outline-secondary btn-print-hide" onclick="window.print()" title="Cetak form ini sebagai PDF">
+        <i class="bi bi-printer me-1"></i>Cetak Form
+    </button>
+<button type="submit" class="btn btn-primary btn-print-hide px-4" id="btn-submit">
         <i class="bi bi-floppy me-1"></i>{% if is_edit %}Simpan Perubahan{% else %}Simpan Maintenance{% endif %}
     </button>
 </div>
