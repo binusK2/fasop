@@ -55,6 +55,7 @@ _TITLES = {
     'RADIO':        'Formulir Pemeliharaan Peralatan Radio Komunikasi',
     'VOIP':         'Formulir Pemeliharaan Peralatan VoIP',
     'MULTIPLEXER':  'Formulir Pemeliharaan Peralatan Multiplexer',
+    'GENSET':       'Formulir Pemeliharaan Peralatan Genset',
     'RECTIFIER':    'Formulir Pemeliharaan Peralatan Rectifier dan Battery',
     'CATU DAYA':    'Formulir Pemeliharaan Peralatan Rectifier dan Battery',
     'RTU':          'Formulir Pemeliharaan Peralatan RTU AK3',

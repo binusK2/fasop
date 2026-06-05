@@ -1,14 +1,31 @@
 {% extends 'maintenance/pdf/_base.html' %}
+{% block extra_css %}
+@page { margin: 8mm 10mm 14mm 10mm; }
+body  { font-size: 7pt; }
+table { font-size: 7pt; }
+td, th { padding: 1.5pt 3pt; }
+.sec  { padding: 2pt 5pt; margin-top: 1.5mm; font-size: 7pt; }
+.two-col { gap: 1.5mm; }
+.peng { margin-top: 4mm; }
+.ttd  { min-height: 20mm; }
+{% endblock %}
+
 {% block content %}
 
+{# ── II. PERANGKAT PENDUKUNG ── #}
 <div class="sec">II.&nbsp;&nbsp;PERANGKAT PENDUKUNG</div>
 <table>
+    <colgroup>
+        <col style="width:22%"><col style="width:12%">
+        <col style="width:22%"><col style="width:12%">
+        <col style="width:16%"><col>
+    </colgroup>
     <tr>
-        <td class="lbl" style="width:22%;">Air Accu</td>
-        <td style="width:12%;">{% if genset.air_accu %}{{ genset.air_accu }} %{% else %}-{% endif %}</td>
-        <td class="lbl" style="width:22%;">Tegangan Batere</td>
-        <td style="width:12%;">{% if genset.tegangan_batere %}{{ genset.tegangan_batere }} VDC{% else %}-{% endif %}</td>
-        <td class="lbl" style="width:16%;">Arus Pengisian</td>
+        <td class="lbl" rowspan="2" style="vertical-align:middle;">Air Accu</td>
+        <td rowspan="2" style="vertical-align:middle;">{% if genset.air_accu %}{{ genset.air_accu }} %{% else %}-{% endif %}</td>
+        <td class="lbl">Tegangan Batere</td>
+        <td>{% if genset.tegangan_batere %}{{ genset.tegangan_batere }} VDC{% else %}-{% endif %}</td>
+        <td class="lbl">Arus Pengisian</td>
         <td>{% if genset.arus_pengisian %}{{ genset.arus_pengisian }} A{% else %}-{% endif %}</td>
     </tr>
     <tr>
@@ -16,18 +33,23 @@
         <td>{% if genset.tegangan_charger %}{{ genset.tegangan_charger }} VDC{% else %}-{% endif %}</td>
         <td class="lbl">Arus Beban Charger</td>
         <td>{% if genset.arus_beban_charger %}{{ genset.arus_beban_charger }} A{% else %}-{% endif %}</td>
-        <td></td><td></td>
     </tr>
 </table>
 
+{# ── III. PERANGKAT UTAMA GENSET ── #}
 <div class="sec">III.&nbsp;&nbsp;PERANGKAT UTAMA GENSET</div>
 <table>
+    <colgroup>
+        <col style="width:22%"><col style="width:12%">
+        <col style="width:22%"><col style="width:12%">
+        <col style="width:16%"><col>
+    </colgroup>
     <tr>
-        <td class="lbl" style="width:22%;">Air Radiator</td>
-        <td style="width:12%;">{% if genset.radiator %}{{ genset.radiator }} %{% else %}-{% endif %}</td>
-        <td class="lbl" style="width:22%;">MCB</td>
-        <td style="width:12%;">{{ genset.mcb|default:"-" }}</td>
-        <td class="lbl" style="width:16%;">Pelumas</td>
+        <td class="lbl" rowspan="2" style="vertical-align:middle;">Air Radiator</td>
+        <td rowspan="2" style="vertical-align:middle;">{% if genset.radiator %}{{ genset.radiator }} %{% else %}-{% endif %}</td>
+        <td class="lbl">MCB</td>
+        <td>{{ genset.mcb|default:"-" }}</td>
+        <td class="lbl">Pelumas</td>
         <td>{{ genset.pelumas|default:"-" }}</td>
     </tr>
     <tr>
@@ -35,11 +57,14 @@
         <td>{% if genset.tangki_bbm_sebelum %}{{ genset.tangki_bbm_sebelum }} %{% else %}-{% endif %}</td>
         <td class="lbl">Tangki BBM Sesudah</td>
         <td>{% if genset.tangki_bbm_sesudah %}{{ genset.tangki_bbm_sesudah }} %{% else %}-{% endif %}</td>
+    </tr>
+    <tr class="alt">
         <td class="lbl">BBM Terpakai</td>
-        <td>{% if genset.bbm_terpakai is not None %}{{ genset.bbm_terpakai }} %{% else %}-{% endif %}</td>
+        <td colspan="5">{% if genset.bbm_terpakai is not None %}{{ genset.bbm_terpakai }} %{% else %}-{% endif %}</td>
     </tr>
 </table>
 
+{# ── IV. PENGUJIAN ── #}
 <div class="sec">IV.&nbsp;&nbsp;PENGUJIAN (Transisi: {% if genset.waktu_transisi %}{{ genset.waktu_transisi }} detik{% else %}-{% endif %})</div>
 <table>
     <tr>
@@ -62,6 +87,7 @@
     {% endfor %}
 </table>
 
+{# ── V & VI ── #}
 <div class="two-col">
     <div>
         <div class="sec">V.&nbsp;&nbsp;MDF CUBICLE</div>
@@ -85,9 +111,10 @@
     </div>
 </div>
 
+{# Catatan: page-break sebelum section ini → catatan + TTD pindah ke halaman 2 #}
 {% if catatan %}
-<div class="sec">VII.&nbsp;&nbsp;CATATAN</div>
-<table><tr><td style="min-height:8mm;">{{ catatan }}</td></tr></table>
+<div class="sec" style="page-break-before:always;">VII.&nbsp;&nbsp;CATATAN</div>
+<table><tr><td style="min-height:10mm;">{{ catatan }}</td></tr></table>
 {% endif %}
 
 {% endblock %}
