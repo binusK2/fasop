@@ -1,4 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.clickjacking import xframe_options_exempt
 from devices.permissions import require_can_edit, require_can_delete, is_viewer_only
@@ -187,6 +188,8 @@ def maintenance_create(request, device_id):
                    maintenance.pk,
                    f'{device.nama} — {maintenance.date}',
                    f'{maintenance.maintenance_type} | Status: {maintenance.status}')
+            if request.POST.get('next') == 'pdf':
+                return redirect(f"{reverse('export_maintenance_pdf', args=[maintenance.pk])}?preview=1")
             return redirect('maintenance_list')
     else:
         mform = MaintenanceForm()
@@ -770,6 +773,8 @@ def maintenance_edit(request, pk):
                    maintenance.pk,
                    f'{device.nama} — {maintenance.date}',
                    f'{maintenance.maintenance_type}')
+            if request.POST.get('next') == 'pdf':
+                return redirect(f"{reverse('export_maintenance_pdf', args=[maintenance.pk])}?preview=1")
             return redirect('maintenance_view', pk=pk)
     else:
         mform = MaintenanceForm(instance=maintenance)
