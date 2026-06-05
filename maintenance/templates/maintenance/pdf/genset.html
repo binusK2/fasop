@@ -1,26 +1,13 @@
 {% extends 'maintenance/pdf/_base.html' %}
 {% block extra_css %}
-@page { margin: 5mm 7mm 11mm 7mm; }
-body  { font-size: 6.2pt; line-height: 1.15; }
-table { font-size: 6.2pt; }
-td, th { padding: 0.8pt 2pt; }
-.sec  { padding: 1pt 4pt; margin-top: 0.8mm; font-size: 6.2pt; }
-.two-col { gap: 1mm; }
-/* Header kompres */
-.header-row2 { padding: 0.5mm 0 1mm 0; }
-.header-row2 img.logo-pln { height: 9mm; }
-.header-row2 img.logo-danantara { height: 5mm; }
-.header-unit { font-size: 5.5pt; }
-.header-title-line { margin-bottom: 1mm; }
-/* Pengesahan kompres */
-.peng { margin-top: 2mm; page-break-inside: avoid; }
-.peng-hdr > div { padding: 2pt; font-size: 6pt; }
-.peng-sub > div { padding: 2pt; font-size: 6pt; }
-.ttd  { min-height: 14mm; }
-.ttd > div { padding: 2mm; }
-.peng-bot > div { padding: 2pt; font-size: 6pt; }
-.footer-line { margin-top: 2mm; }
-.footer-content { font-size: 5pt; }
+@page { margin: 7mm 10mm 13mm 10mm; }
+body  { font-size: 7pt; }
+table { font-size: 7pt; }
+td, th { padding: 1.5pt 3pt; }
+.sec  { padding: 2pt 5pt; margin-top: 1.5mm; font-size: 7pt; }
+.two-col { gap: 1.5mm; }
+.peng { margin-top: 4mm; }
+.ttd  { min-height: 18mm; }
 {% endblock %}
 
 {% block content %}
