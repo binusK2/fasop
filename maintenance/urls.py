@@ -16,6 +16,7 @@ urlpatterns = [
     path('berita-acara/excel/', views.berita_acara_excel, name='berita_acara_excel'),
     path('berita-acara/pdf/', views.berita_acara_pdf, name='berita_acara_pdf'),
     path('export-pdf/<hid:pk>/', views.export_maintenance_pdf, name='export_maintenance_pdf'),
+    path('blank-pdf/<hid:device_id>/', views.blank_maintenance_pdf, name='blank_maintenance_pdf'),
     path('sign/<hid:pk>/', views.maintenance_sign, name='maintenance_sign'),
     path('catatan-am/<hid:pk>/', views.maintenance_catatan_am_edit, name='maintenance_catatan_am_edit'),
     path('profile/', views.profile_view, name='profile_view'),

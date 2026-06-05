@@ -1540,6 +1540,62 @@ def berita_acara_pdf(request):
 
 
 # ─────────────────────────────────────────────────────────────────────
+# BLANK FORM PDF — formulir kosong tanpa data, langsung dari device
+# ─────────────────────────────────────────────────────────────────────
+@login_required
+@xframe_options_exempt
+def blank_maintenance_pdf(request, device_id):
+    """Render PDF formulir kosong untuk perangkat tertentu — tidak perlu simpan data."""
+    from io import BytesIO
+    try:
+        from .pdf_weasy import build_pdf_weasy as build_pdf
+    except (ImportError, OSError):
+        return HttpResponse('WeasyPrint tidak tersedia.', status=500)
+
+    device = get_object_or_404(Device, pk=device_id)
+    device_kind = device.jenis.name.strip().upper() if device.jenis else 'GENERIC'
+
+    data = {
+        'device_kind':      device_kind,
+        'maintenance_type': 'Preventive',
+        'print_date':       dj_timezone.localtime(dj_timezone.now()).strftime('%d %B %Y  %H:%M'),
+        'print_by':         request.user.get_full_name() or request.user.username,
+        'signatures':       {},
+        'info': {
+            'device_name':      device.nama,
+            'device_type':      str(device.jenis) if device.jenis else '-',
+            'lokasi':           device.lokasi or '-',
+            'ip_address':       device.ip_address or '-',
+            'serial_number':    device.serial_number or '-',
+            'merk':             device.merk or '-',
+            'type':             device.type or '-',
+            'date':             '______________________',
+            'maintenance_type': 'Preventive',
+            'technician':       '',
+            'status':           '-',
+            'description':      '',
+            'catatan_am':       '',
+            'signed_by':        '',
+        },
+        # semua field detail kosong — template akan tampilkan "-" atau kosong
+        'fisik': {}, 'pengukuran': {}, 'port': {}, 'sfp_ports': [],
+        'catatan_tambahan': '',
+        'plc': {}, 'radio': {}, 'voip': {}, 'mux': {}, 'rectifier': {},
+        'tp': {}, 'genset': {}, 'rtu': {}, 'sas': {}, 'roip': {}, 'ups': {},
+        'freq_relay': {}, 'corrective': {},
+    }
+
+    buffer = BytesIO()
+    build_pdf(data, buffer)
+    buffer.seek(0)
+
+    filename = f"FORMULIR_{device.nama}_{device_kind}.pdf".replace(' ', '_')
+    response = HttpResponse(buffer, content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="{filename}"'
+    return response
+
+
+# ─────────────────────────────────────────────────────────────────────
 # EXPORT PDF LAPORAN PEMELIHARAAN
 # ─────────────────────────────────────────────────────────────────────
 @login_required

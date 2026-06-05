@@ -287,7 +287,11 @@
     {% else %}
     <a href="{% url 'device_view' device.id %}" class="btn btn-outline-secondary"><i class="bi bi-x me-1"></i>Batal</a>
     {% endif %}
-        <button type="submit" name="next" value="pdf" class="btn btn-outline-secondary btn-print-hide" title="Simpan lalu buka PDF">
+        <a href="{% url 'blank_maintenance_pdf' device.id %}" target="_blank"
+        class="btn btn-outline-secondary btn-print-hide" title="Cetak formulir kosong tanpa simpan data">
+        <i class="bi bi-file-earmark-pdf me-1"></i>Cetak Formulir
+    </a>
+    <button type="submit" name="next" value="pdf" class="btn btn-outline-secondary btn-print-hide" title="Simpan lalu buka PDF">
         <i class="bi bi-printer me-1"></i>Simpan &amp; Cetak PDF
     </button>
 <button type="submit" class="btn btn-primary btn-print-hide px-4" id="btn-submit">
