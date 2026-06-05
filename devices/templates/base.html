@@ -497,6 +497,24 @@
             #main-content { margin-left: 0; }
         }
 
+        /* ---- PRINT ---- */
+        @media print {
+            #sidebar, #topbar, .no-print, .btn-print-hide { display: none !important; }
+            #main-content { margin-left: 0 !important; padding: 8px !important; }
+            .container-fluid { padding: 0 !important; }
+            .card { border: 1px solid #dee2e6 !important; box-shadow: none !important; break-inside: avoid; margin-bottom: 8pt !important; }
+            .card-body { padding: 8pt !important; }
+            body { font-size: 10pt; color: #000 !important; background: #fff !important; }
+            a { color: #000 !important; text-decoration: none !important; }
+            /* Toggle button yang sudah dipilih tetap terlihat */
+            .toggle-btn:not(.selected) { display: none !important; }
+            .toggle-btn.selected { border: 1.5pt solid #333 !important; font-size: 9pt !important; padding: 2pt 8pt !important; }
+            /* Input field tampilkan value */
+            input, select, textarea { border: 1pt solid #999 !important; background: #fff !important; }
+            /* Sembunyikan field JS hidden */
+            .js-hidden-field { display: none !important; }
+        }
+
         /* ---- MISC ---- */
         .mono { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; }
         @keyframes spin { to { transform: rotate(360deg); } }
