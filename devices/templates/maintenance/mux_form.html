@@ -238,6 +238,7 @@
                         <div class="psu-toggle-wrap" id="psu1-wrap">
                             <button type="button" class="toggle-btn ok" onclick="setPSU('psu1','OK')">✓ OK</button>
                             <button type="button" class="toggle-btn nok" onclick="setPSU('psu1','NOK')">✗ NOK</button>
+                            <button type="button" class="toggle-btn na" onclick="setPSU('psu1','Tidak Terpasang')">— Tdk Terpasang</button>
                         </div>
                     </div>
                 </div>
@@ -260,6 +261,7 @@
                         <div class="psu-toggle-wrap" id="psu2-wrap">
                             <button type="button" class="toggle-btn ok" onclick="setPSU('psu2','OK')">✓ OK</button>
                             <button type="button" class="toggle-btn nok" onclick="setPSU('psu2','NOK')">✗ NOK</button>
+                            <button type="button" class="toggle-btn na" onclick="setPSU('psu2','Tidak Terpasang')">— Tdk Terpasang</button>
                         </div>
                     </div>
                 </div>
@@ -282,6 +284,7 @@
                         <div class="psu-toggle-wrap" id="fan-wrap">
                             <button type="button" class="toggle-btn ok" onclick="setPSU('fan','OK')">✓ OK</button>
                             <button type="button" class="toggle-btn nok" onclick="setPSU('fan','NOK')">✗ NOK</button>
+                            <button type="button" class="toggle-btn na" onclick="setPSU('fan','Tidak Terpasang')">— Tdk Terpasang</button>
                         </div>
                     </div>
                 </div>
@@ -327,6 +330,9 @@
 .toggle-btn.nok:hover { background:#fee2e2;color:#991b1b;border-color:#fca5a5; }
 .toggle-btn.ok.selected  { background:#10b981;border-color:#10b981;color:#fff; }
 .toggle-btn.nok.selected { background:#ef4444;border-color:#ef4444;color:#fff; }
+.toggle-btn.na  { background:#fff;border-color:#e2e8f0;color:#9ca3af; }
+.toggle-btn.na:hover  { background:#f1f5f9;color:#475569;border-color:#cbd5e1; }
+.toggle-btn.na.selected  { background:#94a3b8;border-color:#94a3b8;color:#fff; }
 </style>
 <script>
 function setPSU(fieldName, value) {
@@ -342,7 +348,8 @@ function setPSU(fieldName, value) {
         w.querySelectorAll('.toggle-btn').forEach(btn => {
             btn.classList.toggle('selected',
                 (btn.classList.contains('ok')  && value === 'OK') ||
-                (btn.classList.contains('nok') && value === 'NOK')
+                (btn.classList.contains('nok') && value === 'NOK') ||
+                (btn.classList.contains('na')  && value === 'Tidak Terpasang')
             );
         });
     }
