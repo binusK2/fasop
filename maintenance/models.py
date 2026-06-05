@@ -226,6 +226,15 @@ class MaintenanceVoIP(models.Model):
     ps_status       = models.CharField(max_length=3, choices=STATUS_CHECK, blank=True,
                                         verbose_name='Status Power Supply')
 
+    # Pengujian Perangkat
+    PENGUJIAN_CHOICES = (
+        ('Normal',       'Normal'),
+        ('Putus-Putus',  'Putus-Putus'),
+        ('Gangguan',     'Gangguan'),
+    )
+    pengujian_perangkat = models.CharField(max_length=15, blank=True, choices=PENGUJIAN_CHOICES,
+                                            verbose_name='Pengujian Perangkat')
+
     # Catatan
     catatan         = models.TextField(blank=True, verbose_name='Catatan')
 
@@ -238,7 +247,7 @@ class MaintenanceVoIP(models.Model):
 # ─────────────────────────────────────────────────────────────────────
 class MaintenanceMux(models.Model):
 
-    STATUS_CHECK = (('OK', 'OK'), ('NOK', 'NOK'),)
+    STATUS_CHECK = (('OK', 'OK'), ('NOK', 'NOK'), ('Tidak Terpasang', 'Tidak Terpasang'),)
     KEBERSIHAN_CHOICES = (('Bersih', 'Bersih'), ('Kotor', 'Kotor'),)
     LAMPU_CHOICES = (
         ('Menyala', 'Menyala'),
@@ -302,19 +311,19 @@ class MaintenanceMux(models.Model):
     slot_h_isian      = models.TextField(blank=True, verbose_name='Slot H Isian')
 
     # PSU 1
-    psu1_status       = models.CharField(max_length=3, choices=STATUS_CHECK, blank=True)
+    psu1_status       = models.CharField(max_length=20, choices=STATUS_CHECK, blank=True)
     psu1_temp1        = models.FloatField(null=True, blank=True, verbose_name='PSU1 Temp Sensor 1 (°C)')
     psu1_temp2        = models.FloatField(null=True, blank=True, verbose_name='PSU1 Temp Sensor 2 (°C)')
     psu1_temp3        = models.FloatField(null=True, blank=True, verbose_name='PSU1 Temp Sensor 3 (°C)')
 
     # PSU 2
-    psu2_status       = models.CharField(max_length=3, choices=STATUS_CHECK, blank=True)
+    psu2_status       = models.CharField(max_length=20, choices=STATUS_CHECK, blank=True)
     psu2_temp1        = models.FloatField(null=True, blank=True, verbose_name='PSU2 Temp Sensor 1 (°C)')
     psu2_temp2        = models.FloatField(null=True, blank=True, verbose_name='PSU2 Temp Sensor 2 (°C)')
     psu2_temp3        = models.FloatField(null=True, blank=True, verbose_name='PSU2 Temp Sensor 3 (°C)')
 
     # FAN
-    fan_status        = models.CharField(max_length=3, choices=STATUS_CHECK, blank=True)
+    fan_status        = models.CharField(max_length=20, choices=STATUS_CHECK, blank=True)
 
     # Catatan
     catatan           = models.TextField(blank=True, verbose_name='Catatan')

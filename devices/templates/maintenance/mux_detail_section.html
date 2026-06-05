@@ -148,6 +148,7 @@ Menggunakan: mux_detail (MaintenanceMux), mux_checklist
                         <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;">Status</div>
                         {% if status == 'OK' %}<span style="font-size:13px;font-weight:700;color:#065f46;background:#dcfce7;padding:3px 12px;border-radius:20px;">✓ OK</span>
                         {% elif status == 'NOK' %}<span style="font-size:13px;font-weight:700;color:#991b1b;background:#fee2e2;padding:3px 12px;border-radius:20px;">✗ NOK</span>
+                        {% elif status == 'Tidak Terpasang' %}<span style="font-size:11.5px;font-weight:700;color:#64748b;background:#f1f5f9;padding:3px 10px;border-radius:20px;border:1px solid #e2e8f0;">— Tidak Terpasang</span>
                         {% else %}<span style="color:#94a3b8;font-size:16px;">—</span>{% endif %}
                     </div>
                 </div>

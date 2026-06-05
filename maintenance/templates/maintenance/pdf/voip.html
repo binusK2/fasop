@@ -9,11 +9,11 @@
 <div class="two-col">
     <div>
         <div class="sec">III.&nbsp;&nbsp;CHECKLIST STATUS (1/2)</div>
-        <table>{% for i in checks_left %}<tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %}><td style="width:70%;">{{ i.label }}</td><td class="{% if i.value == 'OK' %}ok{% elif i.value == 'NOK' %}nok{% else %}vg{% endif %}">{{ i.value|default:"-" }}</td></tr>{% endfor %}</table>
+        <table>{% for i in checks_left %}<tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %}><td style="width:70%;">{{ i.label }}</td><td class="{% if i.value == 'OK' or i.value == 'Normal' %}ok{% elif i.value == 'NOK' or i.value == 'Gangguan' %}nok{% elif i.value == 'Putus-Putus' %}na{% else %}vg{% endif %}">{{ i.value|default:"-" }}</td></tr>{% endfor %}</table>
     </div>
     <div>
         <div class="sec">CHECKLIST STATUS (2/2)</div>
-        <table>{% for i in checks_right %}<tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %}><td style="width:70%;">{{ i.label }}</td><td class="{% if i.value == 'OK' %}ok{% elif i.value == 'NOK' %}nok{% else %}vg{% endif %}">{{ i.value|default:"-" }}</td></tr>{% endfor %}</table>
+        <table>{% for i in checks_right %}<tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %}><td style="width:70%;">{{ i.label }}</td><td class="{% if i.value == 'OK' or i.value == 'Normal' %}ok{% elif i.value == 'NOK' or i.value == 'Gangguan' %}nok{% elif i.value == 'Putus-Putus' %}na{% else %}vg{% endif %}">{{ i.value|default:"-" }}</td></tr>{% endfor %}</table>
     </div>
 </div>
 <div class="sec">IV.&nbsp;&nbsp;TEGANGAN INPUT PSU</div>

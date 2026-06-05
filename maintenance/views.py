@@ -472,6 +472,7 @@ def maintenance_detail(request, pk):
             ('NTP Server',             voip_detail.ntp_server),
             ('Web Config',             voip_detail.webconfig),
             ('Status Power Supply',    voip_detail.ps_status),
+            ('Pengujian Perangkat',    voip_detail.pengujian_perangkat),
         ]
 
     try:
@@ -1721,8 +1722,9 @@ def export_maintenance_pdf(request, pk):
             'webconfig':         _g(voip_detail, 'webconfig', ''),
             'ps_merk':           _g(voip_detail, 'ps_merk', ''),
             'ps_tegangan_input': _g(voip_detail, 'ps_tegangan_input'),
-            'ps_status':         _g(voip_detail, 'ps_status', ''),
-            'catatan':           _g(voip_detail, 'catatan', ''),
+            'ps_status':             _g(voip_detail, 'ps_status', ''),
+            'pengujian_perangkat':   _g(voip_detail, 'pengujian_perangkat', ''),
+            'catatan':               _g(voip_detail, 'catatan', ''),
         } if voip_detail else {},
 
         'mux': {

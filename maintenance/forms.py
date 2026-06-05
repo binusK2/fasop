@@ -215,6 +215,8 @@ class MaintenanceVoIPForm(forms.ModelForm):
             'ps_merk':           forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. Huawei, Delta, APC'}),
             'ps_tegangan_input': forms.NumberInput(attrs={'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. 220.5'}),
             'ps_status':         forms.Select(choices=[('', '—'), ('OK', 'OK'), ('NOK', 'NOK')], attrs={'class': 'form-select'}),
+            # Pengujian Perangkat
+            'pengujian_perangkat': forms.Select(choices=[('', '— Pilih —'), ('Normal', 'Normal'), ('Putus-Putus', 'Putus-Putus'), ('Gangguan', 'Gangguan')], attrs={'class': 'form-select'}),
             # Catatan
             'catatan':           forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }
@@ -270,33 +272,33 @@ class MaintenanceMuxForm(forms.ModelForm):
             'hs2_rx':        forms.NumberInput(attrs={'class':'form-control','step':'any','placeholder':'dBm'}),
             'hs2_bandwidth': forms.TextInput(attrs={'class':'form-control','placeholder':'e.g. 10G'}),
             # Slot A-H
-            'slot_a_modul': forms.Select(choices=[('', '— Pilih Modul —'), ('V35D', 'V35D'), ('6V35D', '6V35D'), ('SWITCH', 'SWITCH'), ('E1Q', 'E1Q'), ('16E1Q', '16E1Q'), ('G64', 'G64'), ('FOHW', 'FOHW'), ('DSL', 'DSL'), ('E1 G703', 'E1 G703'), ('E&M', 'E&M'), ('FXO', 'FXO'), ('FXO10', 'FXO10'), ('FXS4', 'FXS4'), ('FXS10', 'FXS10')], attrs={'class':'form-select'}),
+            'slot_a_modul': forms.Select(choices=[('', '— Pilih Modul —'), ('Tidak Terpasang', 'Tidak Terpasang'), ('V35D', 'V35D'), ('6V35D', '6V35D'), ('SWITCH', 'SWITCH'), ('E1Q', 'E1Q'), ('16E1Q', '16E1Q'), ('G64', 'G64'), ('FOHW', 'FOHW'), ('DSL', 'DSL'), ('E1 G703', 'E1 G703'), ('E&M', 'E&M'), ('FXO', 'FXO'), ('FXO10', 'FXO10'), ('FXS4', 'FXS4'), ('FXS10', 'FXS10')], attrs={'class':'form-select'}),
             'slot_a_isian': forms.Textarea(attrs={'class':'form-control','rows':2,'placeholder':'e.g. Port 1 kosong, Port 2 active'}),
-            'slot_b_modul': forms.Select(choices=[('', '— Pilih Modul —'), ('V35D', 'V35D'), ('6V35D', '6V35D'), ('SWITCH', 'SWITCH'), ('E1Q', 'E1Q'), ('16E1Q', '16E1Q'), ('G64', 'G64'), ('FOHW', 'FOHW'), ('DSL', 'DSL'), ('E1 G703', 'E1 G703'), ('E&M', 'E&M'), ('FXO', 'FXO'), ('FXO10', 'FXO10'), ('FXS4', 'FXS4'), ('FXS10', 'FXS10')], attrs={'class':'form-select'}),
+            'slot_b_modul': forms.Select(choices=[('', '— Pilih Modul —'), ('Tidak Terpasang', 'Tidak Terpasang'), ('V35D', 'V35D'), ('6V35D', '6V35D'), ('SWITCH', 'SWITCH'), ('E1Q', 'E1Q'), ('16E1Q', '16E1Q'), ('G64', 'G64'), ('FOHW', 'FOHW'), ('DSL', 'DSL'), ('E1 G703', 'E1 G703'), ('E&M', 'E&M'), ('FXO', 'FXO'), ('FXO10', 'FXO10'), ('FXS4', 'FXS4'), ('FXS10', 'FXS10')], attrs={'class':'form-select'}),
             'slot_b_isian': forms.Textarea(attrs={'class':'form-control','rows':2,'placeholder':'e.g. Port 1 kosong, Port 2 active'}),
-            'slot_c_modul': forms.Select(choices=[('', '— Pilih Modul —'), ('V35D', 'V35D'), ('6V35D', '6V35D'), ('SWITCH', 'SWITCH'), ('E1Q', 'E1Q'), ('16E1Q', '16E1Q'), ('G64', 'G64'), ('FOHW', 'FOHW'), ('DSL', 'DSL'), ('E1 G703', 'E1 G703'), ('E&M', 'E&M'), ('FXO', 'FXO'), ('FXO10', 'FXO10'), ('FXS4', 'FXS4'), ('FXS10', 'FXS10')], attrs={'class':'form-select'}),
+            'slot_c_modul': forms.Select(choices=[('', '— Pilih Modul —'), ('Tidak Terpasang', 'Tidak Terpasang'), ('V35D', 'V35D'), ('6V35D', '6V35D'), ('SWITCH', 'SWITCH'), ('E1Q', 'E1Q'), ('16E1Q', '16E1Q'), ('G64', 'G64'), ('FOHW', 'FOHW'), ('DSL', 'DSL'), ('E1 G703', 'E1 G703'), ('E&M', 'E&M'), ('FXO', 'FXO'), ('FXO10', 'FXO10'), ('FXS4', 'FXS4'), ('FXS10', 'FXS10')], attrs={'class':'form-select'}),
             'slot_c_isian': forms.Textarea(attrs={'class':'form-control','rows':2,'placeholder':'e.g. Port 1 kosong, Port 2 active'}),
-            'slot_d_modul': forms.Select(choices=[('', '— Pilih Modul —'), ('V35D', 'V35D'), ('6V35D', '6V35D'), ('SWITCH', 'SWITCH'), ('E1Q', 'E1Q'), ('16E1Q', '16E1Q'), ('G64', 'G64'), ('FOHW', 'FOHW'), ('DSL', 'DSL'), ('E1 G703', 'E1 G703'), ('E&M', 'E&M'), ('FXO', 'FXO'), ('FXO10', 'FXO10'), ('FXS4', 'FXS4'), ('FXS10', 'FXS10')], attrs={'class':'form-select'}),
+            'slot_d_modul': forms.Select(choices=[('', '— Pilih Modul —'), ('Tidak Terpasang', 'Tidak Terpasang'), ('V35D', 'V35D'), ('6V35D', '6V35D'), ('SWITCH', 'SWITCH'), ('E1Q', 'E1Q'), ('16E1Q', '16E1Q'), ('G64', 'G64'), ('FOHW', 'FOHW'), ('DSL', 'DSL'), ('E1 G703', 'E1 G703'), ('E&M', 'E&M'), ('FXO', 'FXO'), ('FXO10', 'FXO10'), ('FXS4', 'FXS4'), ('FXS10', 'FXS10')], attrs={'class':'form-select'}),
             'slot_d_isian': forms.Textarea(attrs={'class':'form-control','rows':2,'placeholder':'e.g. Port 1 kosong, Port 2 active'}),
-            'slot_e_modul': forms.Select(choices=[('', '— Pilih Modul —'), ('V35D', 'V35D'), ('6V35D', '6V35D'), ('SWITCH', 'SWITCH'), ('E1Q', 'E1Q'), ('16E1Q', '16E1Q'), ('G64', 'G64'), ('FOHW', 'FOHW'), ('DSL', 'DSL'), ('E1 G703', 'E1 G703'), ('E&M', 'E&M'), ('FXO', 'FXO'), ('FXO10', 'FXO10'), ('FXS4', 'FXS4'), ('FXS10', 'FXS10')], attrs={'class':'form-select'}),
+            'slot_e_modul': forms.Select(choices=[('', '— Pilih Modul —'), ('Tidak Terpasang', 'Tidak Terpasang'), ('V35D', 'V35D'), ('6V35D', '6V35D'), ('SWITCH', 'SWITCH'), ('E1Q', 'E1Q'), ('16E1Q', '16E1Q'), ('G64', 'G64'), ('FOHW', 'FOHW'), ('DSL', 'DSL'), ('E1 G703', 'E1 G703'), ('E&M', 'E&M'), ('FXO', 'FXO'), ('FXO10', 'FXO10'), ('FXS4', 'FXS4'), ('FXS10', 'FXS10')], attrs={'class':'form-select'}),
             'slot_e_isian': forms.Textarea(attrs={'class':'form-control','rows':2,'placeholder':'e.g. Port 1 kosong, Port 2 active'}),
-            'slot_f_modul': forms.Select(choices=[('', '— Pilih Modul —'), ('V35D', 'V35D'), ('6V35D', '6V35D'), ('SWITCH', 'SWITCH'), ('E1Q', 'E1Q'), ('16E1Q', '16E1Q'), ('G64', 'G64'), ('FOHW', 'FOHW'), ('DSL', 'DSL'), ('E1 G703', 'E1 G703'), ('E&M', 'E&M'), ('FXO', 'FXO'), ('FXO10', 'FXO10'), ('FXS4', 'FXS4'), ('FXS10', 'FXS10')], attrs={'class':'form-select'}),
+            'slot_f_modul': forms.Select(choices=[('', '— Pilih Modul —'), ('Tidak Terpasang', 'Tidak Terpasang'), ('V35D', 'V35D'), ('6V35D', '6V35D'), ('SWITCH', 'SWITCH'), ('E1Q', 'E1Q'), ('16E1Q', '16E1Q'), ('G64', 'G64'), ('FOHW', 'FOHW'), ('DSL', 'DSL'), ('E1 G703', 'E1 G703'), ('E&M', 'E&M'), ('FXO', 'FXO'), ('FXO10', 'FXO10'), ('FXS4', 'FXS4'), ('FXS10', 'FXS10')], attrs={'class':'form-select'}),
             'slot_f_isian': forms.Textarea(attrs={'class':'form-control','rows':2,'placeholder':'e.g. Port 1 kosong, Port 2 active'}),
-            'slot_g_modul': forms.Select(choices=[('', '— Pilih Modul —'), ('V35D', 'V35D'), ('6V35D', '6V35D'), ('SWITCH', 'SWITCH'), ('E1Q', 'E1Q'), ('16E1Q', '16E1Q'), ('G64', 'G64'), ('FOHW', 'FOHW'), ('DSL', 'DSL'), ('E1 G703', 'E1 G703'), ('E&M', 'E&M'), ('FXO', 'FXO'), ('FXO10', 'FXO10'), ('FXS4', 'FXS4'), ('FXS10', 'FXS10')], attrs={'class':'form-select'}),
+            'slot_g_modul': forms.Select(choices=[('', '— Pilih Modul —'), ('Tidak Terpasang', 'Tidak Terpasang'), ('V35D', 'V35D'), ('6V35D', '6V35D'), ('SWITCH', 'SWITCH'), ('E1Q', 'E1Q'), ('16E1Q', '16E1Q'), ('G64', 'G64'), ('FOHW', 'FOHW'), ('DSL', 'DSL'), ('E1 G703', 'E1 G703'), ('E&M', 'E&M'), ('FXO', 'FXO'), ('FXO10', 'FXO10'), ('FXS4', 'FXS4'), ('FXS10', 'FXS10')], attrs={'class':'form-select'}),
             'slot_g_isian': forms.Textarea(attrs={'class':'form-control','rows':2,'placeholder':'e.g. Port 1 kosong, Port 2 active'}),
-            'slot_h_modul': forms.Select(choices=[('', '— Pilih Modul —'), ('V35D', 'V35D'), ('6V35D', '6V35D'), ('SWITCH', 'SWITCH'), ('E1Q', 'E1Q'), ('16E1Q', '16E1Q'), ('G64', 'G64'), ('FOHW', 'FOHW'), ('DSL', 'DSL'), ('E1 G703', 'E1 G703'), ('E&M', 'E&M'), ('FXO', 'FXO'), ('FXO10', 'FXO10'), ('FXS4', 'FXS4'), ('FXS10', 'FXS10')], attrs={'class':'form-select'}),
+            'slot_h_modul': forms.Select(choices=[('', '— Pilih Modul —'), ('Tidak Terpasang', 'Tidak Terpasang'), ('V35D', 'V35D'), ('6V35D', '6V35D'), ('SWITCH', 'SWITCH'), ('E1Q', 'E1Q'), ('16E1Q', '16E1Q'), ('G64', 'G64'), ('FOHW', 'FOHW'), ('DSL', 'DSL'), ('E1 G703', 'E1 G703'), ('E&M', 'E&M'), ('FXO', 'FXO'), ('FXO10', 'FXO10'), ('FXS4', 'FXS4'), ('FXS10', 'FXS10')], attrs={'class':'form-select'}),
             'slot_h_isian': forms.Textarea(attrs={'class':'form-control','rows':2,'placeholder':'e.g. Port 1 kosong, Port 2 active'}),
             # PSU
-            'psu1_status': forms.Select(choices=[('','—'),('OK','OK'),('NOK','NOK')], attrs={'class':'form-select'}),
+            'psu1_status': forms.Select(choices=[('','—'),('OK','OK'),('NOK','NOK'),('Tidak Terpasang','Tidak Terpasang')], attrs={'class':'form-select'}),
             'psu1_temp1':  forms.NumberInput(attrs={'class':'form-control','step':'any','placeholder':'°C'}),
             'psu1_temp2':  forms.NumberInput(attrs={'class':'form-control','step':'any','placeholder':'°C'}),
             'psu1_temp3':  forms.NumberInput(attrs={'class':'form-control','step':'any','placeholder':'°C'}),
-            'psu2_status': forms.Select(choices=[('','—'),('OK','OK'),('NOK','NOK')], attrs={'class':'form-select'}),
+            'psu2_status': forms.Select(choices=[('','—'),('OK','OK'),('NOK','NOK'),('Tidak Terpasang','Tidak Terpasang')], attrs={'class':'form-select'}),
             'psu2_temp1':  forms.NumberInput(attrs={'class':'form-control','step':'any','placeholder':'°C'}),
             'psu2_temp2':  forms.NumberInput(attrs={'class':'form-control','step':'any','placeholder':'°C'}),
             'psu2_temp3':  forms.NumberInput(attrs={'class':'form-control','step':'any','placeholder':'°C'}),
             # FAN + catatan
-            'fan_status': forms.Select(choices=[('','—'),('OK','OK'),('NOK','NOK')], attrs={'class':'form-select'}),
+            'fan_status': forms.Select(choices=[('','—'),('OK','OK'),('NOK','NOK'),('Tidak Terpasang','Tidak Terpasang')], attrs={'class':'form-select'}),
             'catatan':    forms.Textarea(attrs={'class':'form-control','rows':3}),
         }
 

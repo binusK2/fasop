@@ -16,7 +16,7 @@
 <div class="sec">IV.&nbsp;&nbsp;STATUS PSU & FAN</div>
 <table>
     <tr class="lbl"><th>Unit</th><th>Status</th><th>Temp Sensor (°C)</th></tr>
-    {% for p in psu_data %}<tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %}><td class="vb">{{ p.label }}</td><td class="{% if p.status == 'OK' %}ok{% elif p.status == 'NOK' %}nok{% else %}vg{% endif %}">{{ p.status|default:"-" }}</td><td class="vg">{{ p.temps|default:"-" }}</td></tr>{% endfor %}
+    {% for p in psu_data %}<tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %}><td class="vb">{{ p.label }}</td><td class="{% if p.status == 'OK' %}ok{% elif p.status == 'NOK' %}nok{% elif p.status == 'Tidak Terpasang' %}na{% else %}vg{% endif %}">{{ p.status|default:"-" }}</td><td class="vg">{{ p.temps|default:"-" }}</td></tr>{% endfor %}
 </table>
 
 {% if slots %}

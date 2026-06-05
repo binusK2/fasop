@@ -56,6 +56,7 @@ _TITLES = {
     'VOIP':         'Formulir Pemeliharaan Peralatan VoIP',
     'MULTIPLEXER':  'Formulir Pemeliharaan Peralatan Multiplexer',
     'GENSET':       'Formulir Pemeliharaan Peralatan Genset',
+    'TELEPROTEKSI': 'Formulir Pemeliharaan Peralatan Teleproteksi',
     'RECTIFIER':    'Formulir Pemeliharaan Peralatan Rectifier dan Battery',
     'CATU DAYA':    'Formulir Pemeliharaan Peralatan Rectifier dan Battery',
     'RTU':          'Formulir Pemeliharaan Peralatan RTU AK3',
@@ -213,6 +214,7 @@ def _ctx_voip(data, ctx):
         ('NTP Server',              v.get('ntp_server', '')),
         ('Web Config',              v.get('webconfig', '')),
         ('Status Power Supply',     v.get('ps_status', '')),
+        ('Pengujian Perangkat',     v.get('pengujian_perangkat', '')),
     ]
     ctx.update({
         'voip': v,
