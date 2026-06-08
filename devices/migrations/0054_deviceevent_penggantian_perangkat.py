@@ -33,7 +33,7 @@ class Migration(migrations.Migration):
                     ('penambahan',            'Penambahan Komponen'),
                     ('modifikasi',            'Modifikasi Konfigurasi'),
                 ],
-                max_length=20, verbose_name='Tipe Kejadian',
+                max_length=25, verbose_name='Tipe Kejadian',
             ),
         ),
     ]

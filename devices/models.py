@@ -379,7 +379,7 @@ class DeviceEvent(models.Model):
     device          = models.ForeignKey(
         'Device', on_delete=models.CASCADE, related_name='events'
     )
-    tipe            = models.CharField(max_length=20, choices=TIPE_CHOICES, verbose_name='Tipe Kejadian')
+    tipe            = models.CharField(max_length=25, choices=TIPE_CHOICES, verbose_name='Tipe Kejadian')
     tanggal         = models.DateField(verbose_name='Tanggal Kejadian')
     komponen        = models.CharField(max_length=150, blank=True, verbose_name='Komponen',
                                        help_text='Contoh: PSU, Modul CPU, Battery Bank')
