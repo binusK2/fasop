@@ -422,6 +422,18 @@ class DeviceEvent(models.Model):
         help_text='Tipe atau model komponen pengganti'
     )
 
+    # ── Alasan Penggantian / Pembongkaran ─────────────────────
+    ALASAN_CHOICES = (
+        ('rusak',     'Rusak / Tidak Berfungsi'),
+        ('kinerja',   'Kinerja Menurun'),
+        ('lifetime',  'Habis Masa Pakai'),
+        ('preventif', 'Pemeliharaan Preventif'),
+        ('lainnya',   'Lainnya'),
+    )
+    alasan_penggantian = models.CharField(
+        max_length=20, blank=True, choices=ALASAN_CHOICES,
+        verbose_name='Alasan Penggantian / Pembongkaran')
+
     # ── Penambahan Komponen ───────────────────────────────────
     serial_komponen_baru = models.CharField(
         max_length=100, blank=True, verbose_name='Serial Number Komponen Baru')
@@ -543,6 +555,16 @@ class KomponenRusak(models.Model):
         related_name='riwayat_rusak',
         verbose_name='Referensi Komponen'
     )
+    ALASAN_CHOICES = (
+        ('rusak',     'Rusak / Tidak Berfungsi'),
+        ('kinerja',   'Kinerja Menurun'),
+        ('lifetime',  'Habis Masa Pakai'),
+        ('preventif', 'Pemeliharaan Preventif'),
+        ('lainnya',   'Lainnya'),
+    )
+    alasan_penggantian = models.CharField(
+        max_length=20, blank=True, choices=ALASAN_CHOICES,
+        verbose_name='Alasan Penggantian')
     tanggal_rusak     = models.DateField(verbose_name='Tanggal Diganti / Rusak')
     disimpan_di       = models.CharField(
         max_length=200, blank=True,
@@ -608,6 +630,16 @@ class ItemBongkar(models.Model):
     lokasi_penyimpanan = models.CharField(max_length=200, blank=True,
                                           verbose_name='Lokasi Spesifik di Gudang')
 
+    ALASAN_CHOICES = (
+        ('rusak',     'Rusak / Tidak Berfungsi'),
+        ('kinerja',   'Kinerja Menurun'),
+        ('lifetime',  'Habis Masa Pakai'),
+        ('preventif', 'Pemeliharaan Preventif'),
+        ('lainnya',   'Lainnya'),
+    )
+    alasan_penggantian = models.CharField(
+        max_length=20, blank=True, choices=ALASAN_CHOICES,
+        verbose_name='Alasan Pembongkaran / Penggantian')
     tanggal_bongkar    = models.DateField(verbose_name='Tanggal Pembongkaran')
     status             = models.CharField(max_length=20, choices=STATUS_CHOICES,
                                           default='di_gudang', verbose_name='Status')

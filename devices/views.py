@@ -2185,6 +2185,7 @@ def device_event_add(request, pk):
         config_aspek         = request.POST.get('config_aspek', '').strip()
         item_bongkar_id      = request.POST.get('item_bongkar_id', '') or None
         tipe_komponen_id     = request.POST.get('tipe_komponen_id', '') or None
+        alasan_penggantian   = request.POST.get('alasan_penggantian', '').strip()
         komponen_relokasi_raw = request.POST.getlist('komponen_relokasi_ids')
 
         komponen_terkait_obj = None
@@ -2218,6 +2219,7 @@ def device_event_add(request, pk):
                 pembongkaran_tipe    = pembongkaran_tipe if tipe == 'pembongkaran' else '',
                 config_aspek         = config_aspek if tipe == 'modifikasi' else '',
                 komponen_relokasi_ids = komponen_relokasi_ids,
+                alasan_penggantian   = alasan_penggantian if tipe in ('penggantian', 'penggantian_perangkat', 'pembongkaran') else '',
             )
             if foto:
                 event.foto = foto
@@ -2261,12 +2263,23 @@ def device_event_add(request, pk):
                     lokasi_penyimpanan = disimpan_di,
                     tanggal_bongkar    = tanggal,
                     event_bongkar      = event,
+                    alasan_penggantian = alasan_penggantian,
                     catatan            = catatan,
                     created_by         = request.user,
                 )
                 if komponen_terkait_obj:
-                    komponen_terkait_obj.status = 'tidak_ada'
-                    komponen_terkait_obj.save(update_fields=['status', 'updated_at'])
+                    # Jika alasan rusak/kinerja → tandai rusak; lainnya → tidak_ada
+                    new_status = 'rusak' if alasan_penggantian in ('rusak', 'kinerja') else 'tidak_ada'
+                    komponen_terkait_obj.status = new_status
+                    if alasan_penggantian:
+                        label = dict(DeviceEvent.ALASAN_CHOICES).get(alasan_penggantian, alasan_penggantian)
+                        komponen_terkait_obj.keterangan = (
+                            (komponen_terkait_obj.keterangan + '\n' if komponen_terkait_obj.keterangan else '')
+                            + f'Dibongkar ({tanggal}): {label}'
+                        )
+                        komponen_terkait_obj.save(update_fields=['status', 'keterangan', 'updated_at'])
+                    else:
+                        komponen_terkait_obj.save(update_fields=['status', 'updated_at'])
 
             # ── PEMASANGAN KEMBALI — link ke ItemBongkar ──────────────
             elif tipe == 'pemasangan':
@@ -2344,6 +2357,7 @@ def device_event_add(request, pk):
                     lokasi_penyimpanan = lokasi_simpan,
                     tanggal_bongkar    = tanggal,
                     event_bongkar      = event,
+                    alasan_penggantian = alasan_penggantian,
                     catatan            = catatan,
                     created_by         = request.user,
                 )
@@ -2365,6 +2379,13 @@ def device_event_add(request, pk):
                 if lokasi_lama_baru:
                     device.lokasi = lokasi_lama_baru
                     update_fields.append('lokasi')
+                if alasan_penggantian:
+                    label = dict(DeviceEvent.ALASAN_CHOICES).get(alasan_penggantian, alasan_penggantian)
+                    device.keterangan = (
+                        (device.keterangan + '\n' if device.keterangan else '')
+                        + f'Diganti ({tanggal}): {label}'
+                    )
+                    update_fields.append('keterangan')
                 device.save(update_fields=update_fields)
 
                 # Audit untuk device baru
@@ -2376,22 +2397,33 @@ def device_event_add(request, pk):
                 from devices.models import KomponenRusak
                 nama_rusak = komponen or (komponen_terkait_obj.nama if komponen_terkait_obj else '')
                 KomponenRusak.objects.create(
-                    device           = device,
-                    nama_komponen    = nama_rusak,
-                    merk             = komponen_terkait_obj.merk if komponen_terkait_obj else '',
-                    tipe             = komponen_terkait_obj.model if komponen_terkait_obj else '',
-                    komponen_terkait = komponen_terkait_obj,
-                    tanggal_rusak    = tanggal,
-                    disimpan_di      = disimpan_di,
-                    branch_id        = branch_id_event,
-                    keterangan       = catatan,
-                    event            = event,
-                    created_by       = request.user,
+                    device             = device,
+                    nama_komponen      = nama_rusak,
+                    merk               = komponen_terkait_obj.merk if komponen_terkait_obj else '',
+                    tipe               = komponen_terkait_obj.model if komponen_terkait_obj else '',
+                    komponen_terkait   = komponen_terkait_obj,
+                    tanggal_rusak      = tanggal,
+                    disimpan_di        = disimpan_di,
+                    branch_id          = branch_id_event,
+                    alasan_penggantian = alasan_penggantian,
+                    keterangan         = catatan,
+                    event              = event,
+                    created_by         = request.user,
                 )
                 if komponen_terkait_obj:
-                    komponen_terkait_obj.status = 'diganti'
+                    # Status komponen: rusak jika alasan rusak/kinerja, diganti untuk kasus lain
+                    new_status = 'rusak' if alasan_penggantian in ('rusak', 'kinerja') else 'diganti'
+                    komponen_terkait_obj.status = new_status
                     komponen_terkait_obj.tanggal_ganti = _tz.localdate()
-                    komponen_terkait_obj.save(update_fields=['status', 'tanggal_ganti', 'updated_at'])
+                    if alasan_penggantian:
+                        label = dict(DeviceEvent.ALASAN_CHOICES).get(alasan_penggantian, alasan_penggantian)
+                        komponen_terkait_obj.keterangan = (
+                            (komponen_terkait_obj.keterangan + '\n' if komponen_terkait_obj.keterangan else '')
+                            + f'Diganti ({tanggal}): {label}'
+                        )
+                        komponen_terkait_obj.save(update_fields=['status', 'tanggal_ganti', 'keterangan', 'updated_at'])
+                    else:
+                        komponen_terkait_obj.save(update_fields=['status', 'tanggal_ganti', 'updated_at'])
 
             _audit(request, 'other', 'devices', 'Event Peralatan',
                    event.pk, f'{tipe.title()} — {device.nama}',
