@@ -2348,6 +2348,25 @@ def device_event_add(request, pk):
                     created_by         = request.user,
                 )
 
+                # Update lokasi & status perangkat lama → pindah ke gudang
+                from devices.models import Branch as _Branch
+                lokasi_lama_baru = lokasi_simpan or ''
+                if branch_simpan:
+                    try:
+                        br = _Branch.objects.get(pk=branch_simpan)
+                        lokasi_lama_baru = f'GUDANG {br.nama.upper()}' + (f' — {lokasi_simpan}' if lokasi_simpan else '')
+                    except _Branch.DoesNotExist:
+                        pass
+                elif lokasi_simpan:
+                    lokasi_lama_baru = f'GUDANG — {lokasi_simpan}'
+
+                update_fields = ['status_operasi']
+                device.status_operasi = 'tidak_operasi'
+                if lokasi_lama_baru:
+                    device.lokasi = lokasi_lama_baru
+                    update_fields.append('lokasi')
+                device.save(update_fields=update_fields)
+
                 # Audit untuk device baru
                 from devices.device_audit import log_create as _log_create
                 _log_create(new_device, request.user)
