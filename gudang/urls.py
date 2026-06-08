@@ -21,5 +21,6 @@ urlpatterns = [
 
     # Peralatan / Komponen Bongkar
     path('bongkar/',                 views.bongkar_list,          name='bongkar_list'),
-    path('bongkar/<int:pk>/status/', views.bongkar_update_status, name='bongkar_update_status'),
+    path('bongkar/<int:pk>/status/',         views.bongkar_update_status,   name='bongkar_update_status'),
+    path('bongkar/<int:pk>/pasang-kembali/', views.bongkar_pasang_kembali,  name='bongkar_pasang_kembali'),
 ]

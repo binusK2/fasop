@@ -434,18 +434,84 @@ def bongkar_list(request):
 
     all_branches = Branch.objects.all().order_by('nama')
 
+    # Lokasi list untuk dropdown pasang kembali
+    from devices.context_processors import lokasi_list as _lokasi_fn
+    master_lokasi = _lokasi_fn(request).get('master_lokasi_list', [])
+
     return render(request, 'gudang/bongkar_list.html', {
-        'item_list':     qs,
-        'total':         total,
-        'di_gudang':     di_gudang,
-        'dipasang':      dipasang,
-        'dibuang':       dibuang,
-        'all_branches':  all_branches,
-        'status_filter': status_filter,
-        'tipe_filter':   tipe_filter,
-        'branch_filter': branch_filter,
-        'q':             q,
+        'item_list':          qs,
+        'total':              total,
+        'di_gudang':          di_gudang,
+        'dipasang':           dipasang,
+        'dibuang':            dibuang,
+        'all_branches':       all_branches,
+        'status_filter':      status_filter,
+        'tipe_filter':        tipe_filter,
+        'branch_filter':      branch_filter,
+        'q':                  q,
+        'master_lokasi_list': master_lokasi,
     })
+
+
+@login_required
+def bongkar_pasang_kembali(request, pk):
+    """Pasang kembali item bongkar — update device + ItemBongkar status."""
+    from devices.models import ItemBongkar, DeviceEvent
+    from devices.models import Branch
+    item = get_object_or_404(ItemBongkar, pk=pk, status='di_gudang')
+
+    if request.method == 'POST':
+        lokasi_baru = request.POST.get('lokasi_baru', '').strip()
+        nama_baru   = request.POST.get('nama_baru', '').strip()
+        ip_baru     = request.POST.get('ip_baru', '').strip() or None
+        tanggal     = request.POST.get('tanggal', '') or str(date.today())
+        catatan     = request.POST.get('catatan', '').strip()
+
+        device = item.device_asal
+
+        # Update device
+        update_fields = ['status_operasi']
+        device.status_operasi = 'operasi'
+        if lokasi_baru:
+            device.lokasi = lokasi_baru
+            update_fields.append('lokasi')
+        if nama_baru and nama_baru != device.nama:
+            device.nama = nama_baru
+            update_fields.append('nama')
+        if ip_baru is not None:
+            device.ip_address = ip_baru or None
+            update_fields.append('ip_address')
+        device.save(update_fields=update_fields)
+
+        # Buat DeviceEvent pemasangan kembali
+        event = DeviceEvent.objects.create(
+            device           = device,
+            tipe             = 'pemasangan',
+            tanggal          = tanggal,
+            lokasi_asal      = item.lokasi_penyimpanan or (item.branch.nama if item.branch else ''),
+            lokasi_tujuan    = lokasi_baru,
+            catatan          = catatan or f'Dipasang kembali dari gudang bongkar',
+            dilakukan_oleh   = request.user,
+            item_bongkar_ref = item,
+        )
+
+        # Update ItemBongkar
+        item.status      = 'dipasang_kembali'
+        item.event_pasang = event
+        item.save(update_fields=['status', 'event_pasang'])
+
+        # Update komponen terkait jika ada
+        if item.komponen_terkait:
+            from django.utils import timezone as _tz
+            item.komponen_terkait.status       = 'terpasang'
+            item.komponen_terkait.tanggal_pasang = _tz.localdate()
+            item.komponen_terkait.save(update_fields=['status', 'tanggal_pasang', 'updated_at'])
+
+        messages.success(request, f'"{item.nama}" berhasil dipasang kembali di {lokasi_baru}.')
+        return redirect('gudang:bongkar_list')
+
+    # GET — tampilkan modal via context (redirect back with ?modal=pk)
+    return redirect('gudang:bongkar_list')
 
 
 @login_required
