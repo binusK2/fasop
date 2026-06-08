@@ -2499,7 +2499,10 @@ def kirim_ke_gudang(request, pk):
                 created_by         = request.user,
             )
         else:
-            sp_id = request.POST.get('sparepart_id')
+            sp_id = request.POST.get('sparepart_id', '').strip()
+            if not sp_id:
+                dj_messages.error(request, 'Pilih spare part tujuan terlebih dahulu, atau gunakan opsi "Buat spare part baru".')
+                return redirect('kirim_ke_gudang', pk=kr.pk)
             sp = get_object_or_404(Sparepart, pk=sp_id, is_deleted=False)
 
         MutasiSparepart.objects.create(
