@@ -127,9 +127,15 @@
                         {% if not item.merk and not item.model_tipe %}—{% endif %}
                         {% if item.alasan_penggantian %}
                         <div style="margin-top:3px;">
+                            {% if item.alasan_penggantian == 'improvement' %}
+                            <span style="background:#dbeafe;color:#1d4ed8;padding:1px 7px;border-radius:4px;font-size:10.5px;font-weight:600;">
+                                <i class="bi bi-arrow-up-circle me-1"></i>{{ item.get_alasan_penggantian_display }}
+                            </span>
+                            {% else %}
                             <span style="background:#fee2e2;color:#991b1b;padding:1px 7px;border-radius:4px;font-size:10.5px;font-weight:600;">
                                 <i class="bi bi-exclamation-circle me-1"></i>{{ item.get_alasan_penggantian_display }}
                             </span>
+                            {% endif %}
                         </div>
                         {% endif %}
                     </td>

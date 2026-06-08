@@ -424,11 +424,12 @@ class DeviceEvent(models.Model):
 
     # ── Alasan Penggantian / Pembongkaran ─────────────────────
     ALASAN_CHOICES = (
-        ('rusak',     'Rusak / Tidak Berfungsi'),
-        ('kinerja',   'Kinerja Menurun'),
-        ('lifetime',  'Habis Masa Pakai'),
-        ('preventif', 'Pemeliharaan Preventif'),
-        ('lainnya',   'Lainnya'),
+        ('rusak',       'Rusak / Tidak Berfungsi'),
+        ('kinerja',     'Kinerja Menurun'),
+        ('improvement', 'Improvement / Upgrade Kehandalan'),
+        ('lifetime',    'Habis Masa Pakai'),
+        ('preventif',   'Pemeliharaan Preventif'),
+        ('lainnya',     'Lainnya'),
     )
     alasan_penggantian = models.CharField(
         max_length=20, blank=True, choices=ALASAN_CHOICES,
@@ -556,11 +557,12 @@ class KomponenRusak(models.Model):
         verbose_name='Referensi Komponen'
     )
     ALASAN_CHOICES = (
-        ('rusak',     'Rusak / Tidak Berfungsi'),
-        ('kinerja',   'Kinerja Menurun'),
-        ('lifetime',  'Habis Masa Pakai'),
-        ('preventif', 'Pemeliharaan Preventif'),
-        ('lainnya',   'Lainnya'),
+        ('rusak',       'Rusak / Tidak Berfungsi'),
+        ('kinerja',     'Kinerja Menurun'),
+        ('improvement', 'Improvement / Upgrade Kehandalan'),
+        ('lifetime',    'Habis Masa Pakai'),
+        ('preventif',   'Pemeliharaan Preventif'),
+        ('lainnya',     'Lainnya'),
     )
     alasan_penggantian = models.CharField(
         max_length=20, blank=True, choices=ALASAN_CHOICES,
@@ -631,11 +633,12 @@ class ItemBongkar(models.Model):
                                           verbose_name='Lokasi Spesifik di Gudang')
 
     ALASAN_CHOICES = (
-        ('rusak',     'Rusak / Tidak Berfungsi'),
-        ('kinerja',   'Kinerja Menurun'),
-        ('lifetime',  'Habis Masa Pakai'),
-        ('preventif', 'Pemeliharaan Preventif'),
-        ('lainnya',   'Lainnya'),
+        ('rusak',       'Rusak / Tidak Berfungsi'),
+        ('kinerja',     'Kinerja Menurun'),
+        ('improvement', 'Improvement / Upgrade Kehandalan'),
+        ('lifetime',    'Habis Masa Pakai'),
+        ('preventif',   'Pemeliharaan Preventif'),
+        ('lainnya',     'Lainnya'),
     )
     alasan_penggantian = models.CharField(
         max_length=20, blank=True, choices=ALASAN_CHOICES,
