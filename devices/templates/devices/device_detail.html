@@ -918,6 +918,38 @@ function addEvidenRow() {
                 </div>
                 {% endif %}
 
+                {% elif ev.tipe == 'penggantian_perangkat' %}
+                {# Perangkat baru #}
+                {% if ev.perangkat_pengganti %}
+                <div style="margin-bottom:6px;">
+                    <div style="font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Perangkat Pengganti</div>
+                    <a href="{% url 'device_view' ev.perangkat_pengganti.pk %}"
+                       style="display:inline-flex;align-items:center;gap:8px;background:#dcfce7;border:1px solid #86efac;border-radius:8px;padding:6px 12px;text-decoration:none;">
+                        <i class="bi bi-hdd-stack" style="color:#166534;"></i>
+                        <div>
+                            <div style="font-size:12.5px;font-weight:700;color:#166534;">{{ ev.perangkat_pengganti.nama }}</div>
+                            <div style="font-size:11px;color:#16a34a;">
+                                {{ ev.perangkat_pengganti.merk }}{% if ev.perangkat_pengganti.type %} — {{ ev.perangkat_pengganti.type }}{% endif %}
+                                {% if ev.perangkat_pengganti.serial_number %} · SN: {{ ev.perangkat_pengganti.serial_number }}{% endif %}
+                            </div>
+                        </div>
+                        <i class="bi bi-arrow-up-right-circle" style="color:#166534;font-size:12px;"></i>
+                    </a>
+                </div>
+                {% endif %}
+                {# Perangkat lama disimpan di mana #}
+                {% if ev.item_bongkar_set.exists %}
+                {% with ib=ev.item_bongkar_set.first %}
+                <div style="font-size:11.5px;color:#64748b;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                    <span style="color:#94a3b8;">Perangkat lama →</span>
+                    {% if ib.branch %}<span style="background:#eff6ff;color:#1d4ed8;padding:2px 9px;border-radius:5px;font-size:11px;"><i class="bi bi-diagram-2 me-1"></i>{{ ib.branch.nama }}</span>{% endif %}
+                    {% if ib.lokasi_penyimpanan %}<span style="background:#f8fafc;color:#475569;padding:2px 9px;border-radius:5px;font-size:11px;">{{ ib.lokasi_penyimpanan }}</span>{% endif %}
+                    {% if not ib.branch and not ib.lokasi_penyimpanan %}<span style="color:#cbd5e1;">Lokasi belum ditentukan</span>{% endif %}
+                    <span style="background:{{ ib.status_bg }};color:{{ ib.status_color }};padding:2px 9px;border-radius:5px;font-size:11px;font-weight:600;">{{ ib.get_status_display }}</span>
+                </div>
+                {% endwith %}
+                {% endif %}
+
                 {% elif ev.tipe == 'pembongkaran' %}
                 {% if ev.pembongkaran_tipe %}
                 <div style="font-size:12px;color:#991b1b;margin-bottom:3px;font-weight:600;">
@@ -1071,6 +1103,7 @@ function addEvidenRow() {
                                 <option value="">— Pilih —</option>
                                 <option value="relokasi">🗺️ Relokasi / Pindah Lokasi</option>
                                 <option value="penggantian">🔧 Penggantian Komponen</option>
+                                <option value="penggantian_perangkat">🔄 Penggantian Perangkat</option>
                                 <option value="pembongkaran">📦 Pembongkaran</option>
                                 <option value="pemasangan">🔩 Pemasangan Kembali</option>
                                 <option value="penambahan">➕ Penambahan Komponen</option>
@@ -1240,6 +1273,77 @@ function addEvidenRow() {
                                             <i class="bi bi-info-circle me-1"></i>
                                             Item yang dibongkar akan masuk otomatis ke halaman <strong>Gudang → Peralatan Bongkar</strong>.
                                         </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {# ── Field Penggantian Perangkat ── #}
+                        <div id="fieldPenggantianPerangkat" style="display:none;" class="col-12">
+                            <div style="background:#fef2f2;border:1.5px solid #fca5a5;border-radius:10px;padding:14px;">
+                                <div style="font-size:12px;font-weight:700;color:#dc2626;margin-bottom:12px;">
+                                    <i class="bi bi-hdd-stack me-1"></i>Detail Perangkat Pengganti (Baru)
+                                </div>
+                                <div class="row g-2">
+                                    <div class="col-6">
+                                        <label style="font-size:11.5px;font-weight:600;color:#7f1d1d;display:block;margin-bottom:4px;">Nama Perangkat Baru <span style="color:red;">*</span></label>
+                                        <input type="text" name="pp_nama" class="form-control form-control-sm"
+                                               placeholder="Nama perangkat pengganti"
+                                               value="{{ device.nama }}">
+                                    </div>
+                                    <div class="col-6">
+                                        <label style="font-size:11.5px;font-weight:600;color:#7f1d1d;display:block;margin-bottom:4px;">Merk</label>
+                                        <input type="text" name="pp_merk" class="form-control form-control-sm"
+                                               placeholder="Merk perangkat baru"
+                                               value="{{ device.merk }}">
+                                    </div>
+                                    <div class="col-6">
+                                        <label style="font-size:11.5px;font-weight:600;color:#7f1d1d;display:block;margin-bottom:4px;">Type / Model</label>
+                                        <input type="text" name="pp_type" class="form-control form-control-sm"
+                                               placeholder="Type atau model perangkat baru"
+                                               value="{{ device.type|default:'' }}">
+                                    </div>
+                                    <div class="col-6">
+                                        <label style="font-size:11.5px;font-weight:600;color:#7f1d1d;display:block;margin-bottom:4px;">Serial Number</label>
+                                        <input type="text" name="pp_serial" class="form-control form-control-sm"
+                                               placeholder="Serial number perangkat baru">
+                                    </div>
+                                    <div class="col-12">
+                                        <label style="font-size:11.5px;font-weight:600;color:#7f1d1d;display:block;margin-bottom:4px;">Lokasi Pemasangan</label>
+                                        <select name="pp_lokasi" class="form-select form-select-sm">
+                                            {% for lok in master_lokasi_list %}
+                                            <option value="{{ lok }}" {% if device.lokasi == lok %}selected{% endif %}>{{ lok }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-12">
+                                        <div style="background:#fff;border-radius:6px;padding:8px 10px;font-size:10.5px;color:#dc2626;">
+                                            <i class="bi bi-info-circle me-1"></i>
+                                            Perangkat baru akan otomatis didaftarkan sebagai device dengan jenis yang sama.
+                                            Perangkat lama akan masuk ke <strong>Gudang Bongkar</strong>.
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {# Lokasi simpan perangkat lama #}
+                            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px;margin-top:10px;">
+                                <div style="font-size:12px;font-weight:700;color:#475569;margin-bottom:10px;">
+                                    <i class="bi bi-box-arrow-down me-1"></i>Penyimpanan Perangkat Lama ({{ device.nama }})
+                                </div>
+                                <div class="row g-2">
+                                    <div class="col-6">
+                                        <label style="font-size:11.5px;font-weight:600;color:#475569;display:block;margin-bottom:4px;">Branch Penyimpanan</label>
+                                        <select name="branch_id" class="form-select form-select-sm">
+                                            <option value="">— Pilih Branch —</option>
+                                            {% for br in all_branches %}
+                                            <option value="{{ br.pk }}">{{ br.nama }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-6">
+                                        <label style="font-size:11.5px;font-weight:600;color:#475569;display:block;margin-bottom:4px;">Lokasi Spesifik</label>
+                                        <input type="text" name="disimpan_di" class="form-control form-control-sm"
+                                               placeholder="Misal: Rak B3, Gudang Lt.1">
                                     </div>
                                 </div>
                             </div>
@@ -1585,22 +1689,24 @@ function addEvidenRow() {
 function toggleEventFields() {
     const tipe           = document.getElementById('evTipe').value;
     const isRelokasi     = tipe === 'relokasi';
-    const isKomponen     = ['penggantian','pembongkaran','pemasangan','modifikasi'].includes(tipe);
-    const isPenggantian  = tipe === 'penggantian';
-    const isPembongkaran = tipe === 'pembongkaran';
-    const isPemasangan   = tipe === 'pemasangan';
-    const isPenambahan   = tipe === 'penambahan';
-    const isModifikasi   = tipe === 'modifikasi';
+    const isKomponen              = ['penggantian','pembongkaran','pemasangan','modifikasi'].includes(tipe);
+    const isPenggantian           = tipe === 'penggantian';
+    const isPenggantianPerangkat  = tipe === 'penggantian_perangkat';
+    const isPembongkaran          = tipe === 'pembongkaran';
+    const isPemasangan            = tipe === 'pemasangan';
+    const isPenambahan            = tipe === 'penambahan';
+    const isModifikasi            = tipe === 'modifikasi';
 
-    document.getElementById('fieldRelokasi').style.display    = isRelokasi    ? 'block' : 'none';
-    document.getElementById('fieldKomponen').style.display    = isKomponen    ? 'block' : 'none';
-    document.getElementById('fieldPenggantian').style.display = isPenggantian ? 'block' : 'none';
-    document.getElementById('fieldPembongkaran').style.display = isPembongkaran ? 'block' : 'none';
-    document.getElementById('fieldPemasangan').style.display  = isPemasangan  ? 'block' : 'none';
-    document.getElementById('fieldPenambahan').style.display  = isPenambahan  ? 'block' : 'none';
-    document.getElementById('fieldModifikasi').style.display  = isModifikasi  ? 'block' : 'none';
+    document.getElementById('fieldRelokasi').style.display              = isRelokasi             ? 'block' : 'none';
+    document.getElementById('fieldKomponen').style.display              = isKomponen             ? 'block' : 'none';
+    document.getElementById('fieldPenggantian').style.display           = isPenggantian          ? 'block' : 'none';
+    document.getElementById('fieldPenggantianPerangkat').style.display  = isPenggantianPerangkat ? 'block' : 'none';
+    document.getElementById('fieldPembongkaran').style.display          = isPembongkaran         ? 'block' : 'none';
+    document.getElementById('fieldPemasangan').style.display            = isPemasangan           ? 'block' : 'none';
+    document.getElementById('fieldPenambahan').style.display            = isPenambahan           ? 'block' : 'none';
+    document.getElementById('fieldModifikasi').style.display            = isModifikasi           ? 'block' : 'none';
 
-    // Tampilkan dev-komponen-terkait-wrapper untuk penggantian & pembongkaran saja
+    // Tampilkan dev-komponen-terkait-wrapper untuk penggantian komponen & pembongkaran & pemasangan saja
     const showKomponDB = isPenggantian || isPembongkaran || isPemasangan;
     const wrapper = document.getElementById('dev-komponen-terkait-wrapper');
     if (wrapper) wrapper.style.display = showKomponDB ? 'block' : 'none';

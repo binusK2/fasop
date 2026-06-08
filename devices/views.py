@@ -2307,6 +2307,51 @@ def device_event_add(request, pk):
                 event.komponen_terkait = new_komp
                 event.save(update_fields=['komponen_terkait'])
 
+            # ── PENGGANTIAN PERANGKAT — buat Device baru + ItemBongkar ──
+            elif tipe == 'penggantian_perangkat':
+                nama_baru   = request.POST.get('pp_nama', '').strip() or device.nama
+                merk_baru   = request.POST.get('pp_merk', '').strip() or device.merk
+                type_baru   = request.POST.get('pp_type', '').strip()
+                sn_baru     = request.POST.get('pp_serial', '').strip()
+                lokasi_baru = request.POST.get('pp_lokasi', '').strip() or device.lokasi
+                branch_simpan = request.POST.get('branch_id', '') or None
+                lokasi_simpan = disimpan_di
+
+                # Buat Device baru sebagai pengganti
+                new_device = Device.objects.create(
+                    nama          = nama_baru,
+                    jenis         = device.jenis,
+                    merk          = merk_baru,
+                    type          = type_baru or device.type,
+                    serial_number = sn_baru,
+                    lokasi        = lokasi_baru,
+                    status_operasi = 'aktif',
+                    created_by    = request.user,
+                    keterangan    = f'Menggantikan: {device.nama} (terpasang {tanggal})',
+                )
+                event.perangkat_pengganti = new_device
+                event.save(update_fields=['perangkat_pengganti'])
+
+                # Catat perangkat lama ke ItemBongkar
+                ItemBongkar.objects.create(
+                    tipe               = 'perangkat',
+                    nama               = device.nama,
+                    merk               = device.merk or '',
+                    model_tipe         = device.type or '',
+                    serial_number      = device.serial_number or '',
+                    device_asal        = device,
+                    branch_id          = branch_simpan,
+                    lokasi_penyimpanan = lokasi_simpan,
+                    tanggal_bongkar    = tanggal,
+                    event_bongkar      = event,
+                    catatan            = catatan,
+                    created_by         = request.user,
+                )
+
+                # Audit untuk device baru
+                from devices.device_audit import log_create as _log_create
+                _log_create(new_device, request.user)
+
             # ── PENGGANTIAN — buat KomponenRusak ─────────────────────
             elif tipe == 'penggantian':
                 from devices.models import KomponenRusak

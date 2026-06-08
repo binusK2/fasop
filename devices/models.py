@@ -367,12 +367,13 @@ class DeviceEvent(models.Model):
     relokasi, penggantian komponen, pembongkaran, pemasangan, penambahan, modifikasi.
     """
     TIPE_CHOICES = (
-        ('relokasi',     'Relokasi / Pindah Lokasi'),
-        ('penggantian',  'Penggantian Komponen'),
-        ('pembongkaran', 'Pembongkaran'),
-        ('pemasangan',   'Pemasangan Kembali'),
-        ('penambahan',   'Penambahan Komponen'),
-        ('modifikasi',   'Modifikasi Konfigurasi'),
+        ('relokasi',              'Relokasi / Pindah Lokasi'),
+        ('penggantian',           'Penggantian Komponen'),
+        ('penggantian_perangkat', 'Penggantian Perangkat'),
+        ('pembongkaran',          'Pembongkaran'),
+        ('pemasangan',            'Pemasangan Kembali'),
+        ('penambahan',            'Penambahan Komponen'),
+        ('modifikasi',            'Modifikasi Konfigurasi'),
     )
 
     device          = models.ForeignKey(
@@ -456,6 +457,12 @@ class DeviceEvent(models.Model):
         null=True, blank=True, related_name='pemasangan_events',
         verbose_name='Item Bongkar yang Dipasang')
 
+    # ── Penggantian Perangkat ─────────────────────────────────
+    perangkat_pengganti = models.ForeignKey(
+        'devices.Device', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='menggantikan_event',
+        verbose_name='Perangkat Pengganti (baru)')
+
     # ── Relokasi — komponen ikut pindah ───────────────────────
     komponen_relokasi_ids = models.JSONField(
         default=list, blank=True,
@@ -474,34 +481,37 @@ class DeviceEvent(models.Model):
     @property
     def tipe_icon(self):
         return {
-            'relokasi':     'bi-geo-alt',
-            'penggantian':  'bi-arrow-repeat',
-            'pembongkaran': 'bi-box-arrow-down',
-            'pemasangan':   'bi-box-arrow-in-up',
-            'penambahan':   'bi-plus-circle',
-            'modifikasi':   'bi-sliders',
+            'relokasi':              'bi-geo-alt',
+            'penggantian':           'bi-arrow-repeat',
+            'penggantian_perangkat': 'bi-hdd-stack',
+            'pembongkaran':          'bi-box-arrow-down',
+            'pemasangan':            'bi-box-arrow-in-up',
+            'penambahan':            'bi-plus-circle',
+            'modifikasi':            'bi-sliders',
         }.get(self.tipe, 'bi-circle')
 
     @property
     def tipe_color(self):
         return {
-            'relokasi':     '#3b82f6',
-            'penggantian':  '#f59e0b',
-            'pembongkaran': '#ef4444',
-            'pemasangan':   '#10b981',
-            'penambahan':   '#8b5cf6',
-            'modifikasi':   '#06b6d4',
+            'relokasi':              '#3b82f6',
+            'penggantian':           '#f59e0b',
+            'penggantian_perangkat': '#dc2626',
+            'pembongkaran':          '#ef4444',
+            'pemasangan':            '#10b981',
+            'penambahan':            '#8b5cf6',
+            'modifikasi':            '#06b6d4',
         }.get(self.tipe, '#94a3b8')
 
     @property
     def tipe_bg(self):
         return {
-            'relokasi':     '#dbeafe',
-            'penggantian':  '#fef3c7',
-            'pembongkaran': '#fee2e2',
-            'pemasangan':   '#dcfce7',
-            'penambahan':   '#f5f3ff',
-            'modifikasi':   '#cffafe',
+            'relokasi':              '#dbeafe',
+            'penggantian':           '#fef3c7',
+            'penggantian_perangkat': '#fee2e2',
+            'pembongkaran':          '#fee2e2',
+            'pemasangan':            '#dcfce7',
+            'penambahan':            '#f5f3ff',
+            'modifikasi':            '#cffafe',
         }.get(self.tipe, '#f1f5f9')
 
     @property
