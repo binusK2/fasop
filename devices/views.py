@@ -2429,24 +2429,34 @@ def device_event_add(request, pk):
                     else:
                         komponen_terkait_obj.save(update_fields=['status', 'tanggal_ganti', 'updated_at'])
 
-                # Buat DeviceComponent baru untuk komponen pengganti
-                if merk_komponen_baru or tipe_komponen_baru or serial_komponen_baru:
-                    new_komp = DeviceComponent.objects.create(
-                        device           = device,
-                        nama             = nama_rusak or merk_komponen_baru or 'Komponen Baru',
-                        tipe_komponen    = komponen_terkait_obj.tipe_komponen if komponen_terkait_obj else None,
-                        posisi           = komponen_terkait_obj.posisi if komponen_terkait_obj else posisi_komponen_baru,
-                        merk             = merk_komponen_baru,
-                        model            = tipe_komponen_baru,
-                        serial_number    = serial_komponen_baru,
-                        status           = 'terpasang',
-                        tanggal_pasang   = tanggal,
-                        keterangan       = f'Menggantikan: {komponen_terkait_obj.merk or ""} {komponen_terkait_obj.model or ""}'.strip() if komponen_terkait_obj else '',
-                        created_by       = request.user,
-                    )
-                    # Link event ke komponen baru
-                    event.komponen_terkait = new_komp
-                    event.save(update_fields=['komponen_terkait'])
+                # Buat DeviceComponent baru untuk komponen pengganti — selalu dibuat
+                # Gunakan data baru jika diisi, fallback ke data lama
+                nama_komp_baru  = nama_rusak or (komponen_terkait_obj.nama if komponen_terkait_obj else 'Komponen Baru')
+                merk_final      = merk_komponen_baru or (komponen_terkait_obj.merk  if komponen_terkait_obj else '')
+                model_final     = tipe_komponen_baru  or (komponen_terkait_obj.model if komponen_terkait_obj else '')
+                serial_final    = serial_komponen_baru
+                posisi_final    = (komponen_terkait_obj.posisi if komponen_terkait_obj else posisi_komponen_baru) or posisi_komponen_baru
+                ket_baru        = (
+                    f'Menggantikan: {komponen_terkait_obj.merk or ""} {komponen_terkait_obj.model or ""}'
+                    + (f' SN:{komponen_terkait_obj.serial_number}' if komponen_terkait_obj and komponen_terkait_obj.serial_number else '')
+                ).strip() if komponen_terkait_obj else ''
+
+                new_komp = DeviceComponent.objects.create(
+                    device           = device,
+                    nama             = nama_komp_baru,
+                    tipe_komponen    = komponen_terkait_obj.tipe_komponen if komponen_terkait_obj else None,
+                    posisi           = posisi_final,
+                    merk             = merk_final,
+                    model            = model_final,
+                    serial_number    = serial_final,
+                    status           = 'terpasang',
+                    tanggal_pasang   = tanggal,
+                    keterangan       = ket_baru,
+                    created_by       = request.user,
+                )
+                # Link event ke komponen baru
+                event.komponen_terkait = new_komp
+                event.save(update_fields=['komponen_terkait'])
 
             _audit(request, 'other', 'devices', 'Event Peralatan',
                    event.pk, f'{tipe.title()} — {device.nama}',
