@@ -1115,7 +1115,8 @@ function addEvidenRow() {
                 </h6>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form method="post" action="{% url 'device_event_add' device.id %}" enctype="multipart/form-data">
+            <form method="post" action="{% url 'device_event_add' device.id %}" enctype="multipart/form-data"
+                  id="formEventAdd" onsubmit="return validateEventForm(this)">
                 {% csrf_token %}
                 <div class="modal-body" style="padding:20px;">
 
@@ -1243,7 +1244,7 @@ function addEvidenRow() {
                                                 <label style="font-size:11.5px;font-weight:600;color:#78350f;display:block;margin-bottom:4px;">
                                                     <i class="bi bi-question-circle me-1"></i>Alasan Penggantian <span style="color:red;">*</span>
                                                 </label>
-                                                <select name="alasan_penggantian" class="form-select form-select-sm" required>
+                                                <select name="alasan_penggantian" class="form-select form-select-sm" id="alasanPenggantianKomponen">
                                                     <option value="">— Pilih Alasan —</option>
                                                     <option value="rusak">Rusak / Tidak Berfungsi</option>
                                                     <option value="kinerja">Kinerja Menurun</option>
@@ -1297,7 +1298,7 @@ function addEvidenRow() {
                                         <label style="font-size:11.5px;font-weight:600;color:#7f1d1d;display:block;margin-bottom:4px;">
                                             <i class="bi bi-question-circle me-1"></i>Alasan Pembongkaran <span style="color:red;">*</span>
                                         </label>
-                                        <select name="alasan_penggantian" class="form-select form-select-sm" required>
+                                        <select name="alasan_penggantian" class="form-select form-select-sm" id="alasanPembongkaran">
                                             <option value="">— Pilih Alasan —</option>
                                             <option value="rusak">Rusak / Tidak Berfungsi</option>
                                             <option value="kinerja">Kinerja Menurun</option>
@@ -1390,7 +1391,7 @@ function addEvidenRow() {
                                         <label style="font-size:11.5px;font-weight:600;color:#475569;display:block;margin-bottom:4px;">
                                             <i class="bi bi-question-circle me-1"></i>Alasan Penggantian Perangkat <span style="color:red;">*</span>
                                         </label>
-                                        <select name="alasan_penggantian" class="form-select form-select-sm" required>
+                                        <select name="alasan_penggantian" class="form-select form-select-sm" id="alasanPenggantianPerangkat">
                                             <option value="">— Pilih Alasan —</option>
                                             <option value="rusak">Rusak / Tidak Berfungsi</option>
                                             <option value="kinerja">Kinerja Menurun</option>
@@ -1784,6 +1785,62 @@ function toggleEventFields() {
 
     if (isKomponen) { loadDevKomponen(); }
 }
+
+// ── Validasi form event sebelum submit ────────────────────────────────────
+function validateEventForm(form) {
+    const tipe = document.getElementById('evTipe').value;
+    if (!tipe) {
+        alert('Pilih tipe kejadian terlebih dahulu.');
+        return false;
+    }
+
+    // Disable select alasan yang tidak relevan agar tidak ikut terkirim
+    const alasanIds = {
+        'penggantian':          'alasanPenggantianKomponen',
+        'pembongkaran':         'alasanPembongkaran',
+        'penggantian_perangkat':'alasanPenggantianPerangkat',
+    };
+    Object.entries(alasanIds).forEach(function([t, id]) {
+        var el = document.getElementById(id);
+        if (el) el.disabled = (t !== tipe);
+    });
+
+    // Validasi alasan wajib untuk penggantian komponen, pembongkaran, penggantian perangkat
+    if (tipe === 'penggantian') {
+        const alasan = document.getElementById('alasanPenggantianKomponen');
+        if (alasan && !alasan.value) {
+            alasan.focus();
+            alasan.style.borderColor = '#ef4444';
+            alert('Pilih alasan penggantian komponen.');
+            return false;
+        }
+    }
+    if (tipe === 'pembongkaran') {
+        const alasan = document.getElementById('alasanPembongkaran');
+        if (alasan && !alasan.value) {
+            alasan.focus();
+            alasan.style.borderColor = '#ef4444';
+            alert('Pilih alasan pembongkaran.');
+            return false;
+        }
+    }
+    if (tipe === 'penggantian_perangkat') {
+        const alasan = document.getElementById('alasanPenggantianPerangkat');
+        if (alasan && !alasan.value) {
+            alasan.focus();
+            alasan.style.borderColor = '#ef4444';
+            alert('Pilih alasan penggantian perangkat.');
+            return false;
+        }
+    }
+    return true;
+}
+
+// Reset border merah saat alasan dipilih
+['alasanPenggantianKomponen','alasanPembongkaran','alasanPenggantianPerangkat'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.addEventListener('change', function() { this.style.borderColor = ''; });
+});
 
 // ── AJAX: Load komponen untuk device detail event form ──────
 function loadDevKomponen() {
