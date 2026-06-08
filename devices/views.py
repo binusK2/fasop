@@ -2175,9 +2175,11 @@ def device_event_add(request, pk):
         lokasi_tujuan        = request.POST.get('lokasi_tujuan', '').strip()
         catatan              = request.POST.get('catatan', '').strip()
         foto                 = request.FILES.get('foto')
-        merk_komponen_baru   = request.POST.get('merk_komponen_baru', '').strip()
-        tipe_komponen_baru   = request.POST.get('tipe_komponen_baru', '').strip()
-        serial_komponen_baru = request.POST.get('serial_komponen_baru', '').strip()
+        # getlist karena field name sama dipakai di fieldPenggantian & fieldPenambahan
+        # ambil nilai pertama yang tidak kosong
+        merk_komponen_baru   = next((v.strip() for v in request.POST.getlist('merk_komponen_baru')   if v.strip()), '')
+        tipe_komponen_baru   = next((v.strip() for v in request.POST.getlist('tipe_komponen_baru')   if v.strip()), '')
+        serial_komponen_baru = next((v.strip() for v in request.POST.getlist('serial_komponen_baru') if v.strip()), '')
         posisi_komponen_baru = request.POST.get('posisi_komponen_baru', '').strip()
         disimpan_di          = request.POST.get('disimpan_di', '').strip()
         branch_id_event      = request.POST.get('branch_id', '') or None
