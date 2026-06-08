@@ -809,6 +809,11 @@
             <span class="si-icon"><i class="bi bi-archive"></i></span>
             Material & Spare Part
         </a>
+        <a href="{% url 'gudang:bongkar_list' %}"
+           class="sidebar-link {% if 'bongkar' in request.resolver_match.url_name %}active{% endif %}">
+            <span class="si-icon"><i class="bi bi-box-arrow-down"></i></span>
+            Peralatan Bongkar
+        </a>
     </div>
 
     <div class="sidebar-section">

@@ -420,6 +420,47 @@ class DeviceEvent(models.Model):
         verbose_name='Tipe / Model Komponen Baru',
         help_text='Tipe atau model komponen pengganti'
     )
+
+    # ── Penambahan Komponen ───────────────────────────────────
+    serial_komponen_baru = models.CharField(
+        max_length=100, blank=True, verbose_name='Serial Number Komponen Baru')
+    posisi_komponen_baru = models.CharField(
+        max_length=50, blank=True, verbose_name='Posisi / Slot Komponen Baru')
+
+    # ── Pembongkaran ──────────────────────────────────────────
+    PEMBONGKARAN_TIPE_CHOICES = (('komponen', 'Komponen'), ('perangkat', 'Perangkat'))
+    pembongkaran_tipe = models.CharField(
+        max_length=10, blank=True, choices=PEMBONGKARAN_TIPE_CHOICES,
+        verbose_name='Tipe Pembongkaran')
+
+    # ── Modifikasi Konfigurasi ────────────────────────────────
+    CONFIG_ASPEK_CHOICES = (
+        ('ip_address',   'IP Address / Routing'),
+        ('vlan',         'VLAN / Switching'),
+        ('protokol',     'Protokol Komunikasi'),
+        ('firmware',     'Firmware / Software'),
+        ('ntp',          'NTP / Sinkronisasi Waktu'),
+        ('port',         'Konfigurasi Port / Interface'),
+        ('acl',          'ACL / Access Control'),
+        ('credential',   'Password / Credential'),
+        ('parameter',    'Parameter Operasi'),
+        ('lainnya',      'Lainnya'),
+    )
+    config_aspek = models.CharField(
+        max_length=20, blank=True, choices=CONFIG_ASPEK_CHOICES,
+        verbose_name='Aspek Konfigurasi')
+
+    # ── Pemasangan Kembali ────────────────────────────────────
+    item_bongkar_ref = models.ForeignKey(
+        'devices.ItemBongkar', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='pemasangan_events',
+        verbose_name='Item Bongkar yang Dipasang')
+
+    # ── Relokasi — komponen ikut pindah ───────────────────────
+    komponen_relokasi_ids = models.JSONField(
+        default=list, blank=True,
+        verbose_name='ID Komponen yang Direlokasi')
+
     created_at      = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -519,6 +560,76 @@ class KomponenRusak(models.Model):
 
     def __str__(self):
         return f'{self.nama_komponen} — {self.device.nama} ({self.tanggal_rusak})'
+
+
+class ItemBongkar(models.Model):
+    """
+    Item (perangkat atau komponen) yang telah dibongkar dan disimpan di gudang/branch.
+    Dibuat otomatis saat mencatat kejadian Pembongkaran.
+    Diperbarui saat dilakukan Pemasangan Kembali.
+    """
+    TIPE_CHOICES = (
+        ('perangkat', 'Perangkat'),
+        ('komponen',  'Komponen'),
+    )
+    STATUS_CHOICES = (
+        ('di_gudang',        'Di Gudang'),
+        ('dipasang_kembali', 'Dipasang Kembali'),
+        ('dibuang',          'Dibuang / Dihapus'),
+    )
+
+    tipe               = models.CharField(max_length=10, choices=TIPE_CHOICES, verbose_name='Tipe Item')
+    nama               = models.CharField(max_length=150, verbose_name='Nama')
+    merk               = models.CharField(max_length=100, blank=True, verbose_name='Merk')
+    model_tipe         = models.CharField(max_length=100, blank=True, verbose_name='Model / Tipe')
+    serial_number      = models.CharField(max_length=100, blank=True, verbose_name='Serial Number')
+
+    device_asal        = models.ForeignKey(
+        'Device', on_delete=models.CASCADE,
+        related_name='item_bongkar', verbose_name='Perangkat Asal')
+    komponen_terkait   = models.ForeignKey(
+        'devices.DeviceComponent', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='item_bongkar',
+        verbose_name='Referensi Komponen')
+
+    branch             = models.ForeignKey(
+        'Branch', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='item_bongkar', verbose_name='Disimpan di Branch')
+    lokasi_penyimpanan = models.CharField(max_length=200, blank=True,
+                                          verbose_name='Lokasi Spesifik di Gudang')
+
+    tanggal_bongkar    = models.DateField(verbose_name='Tanggal Pembongkaran')
+    status             = models.CharField(max_length=20, choices=STATUS_CHOICES,
+                                          default='di_gudang', verbose_name='Status')
+
+    event_bongkar      = models.ForeignKey(
+        'DeviceEvent', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='item_bongkar_set', verbose_name='Event Pembongkaran')
+    event_pasang       = models.ForeignKey(
+        'DeviceEvent', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='item_pasang_set', verbose_name='Event Pemasangan Kembali')
+
+    catatan            = models.TextField(blank=True, verbose_name='Catatan')
+    created_by         = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='item_bongkar_dicatat', verbose_name='Dicatat oleh')
+    created_at         = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name        = 'Item Bongkar'
+        verbose_name_plural = 'Daftar Item Bongkar'
+        ordering            = ['-tanggal_bongkar', '-created_at']
+
+    def __str__(self):
+        return f'{self.get_tipe_display()}: {self.nama} dari {self.device_asal.nama}'
+
+    @property
+    def status_color(self):
+        return {'di_gudang': '#f59e0b', 'dipasang_kembali': '#10b981', 'dibuang': '#94a3b8'}.get(self.status, '#94a3b8')
+
+    @property
+    def status_bg(self):
+        return {'di_gudang': '#fef3c7', 'dipasang_kembali': '#dcfce7', 'dibuang': '#f1f5f9'}.get(self.status, '#f1f5f9')
 
 
 class FiberOptic(models.Model):

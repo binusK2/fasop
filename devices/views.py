@@ -993,10 +993,10 @@ def device_detail(request, pk):
     health_index = calculate_hi(device)
 
     # Audit log
-    from devices.models import DeviceLog, DeviceEvent
+    from devices.models import DeviceLog, DeviceEvent, ItemBongkar
     device_logs     = DeviceLog.objects.filter(device=device).order_by('-created_at')
     last_update_log = device_logs.first()
-    device_events   = DeviceEvent.objects.filter(device=device).order_by('-tanggal', '-created_at')
+    device_events   = DeviceEvent.objects.filter(device=device).order_by('-tanggal', '-created_at').select_related('item_bongkar_ref', 'komponen_terkait')
 
     # Komponen perangkat
     from devices.views_komponen import get_komponen_for_device, _get_tipe_grouped
@@ -1009,6 +1009,14 @@ def device_detail(request, pk):
 
     # Daftar komponen rusak
     komponen_rusak_list = KomponenRusak.objects.filter(device=device).order_by('-tanggal_rusak')
+
+    # Item bongkar — untuk dropdown pemasangan kembali
+    item_bongkar_list = ItemBongkar.objects.filter(
+        device_asal=device, status='di_gudang'
+    ).select_related('branch', 'komponen_terkait').order_by('-tanggal_bongkar')
+
+    # Semua item bongkar device (termasuk yang sudah dipasang kembali)
+    item_bongkar_all = ItemBongkar.objects.filter(device_asal=device).select_related('branch').order_by('-tanggal_bongkar')
 
     # VM children (untuk SERVER SCADA)
     vm_children = device.vm_children.filter(is_deleted=False).order_by('nama')
@@ -1039,6 +1047,8 @@ def device_detail(request, pk):
         'vm_children':          vm_children,
         'host_candidates':      host_candidates,
         'komponen_rusak_list':  komponen_rusak_list,
+        'item_bongkar_list':    item_bongkar_list,
+        'item_bongkar_all':     item_bongkar_all,
         'all_branches':         Branch.objects.all(),
     })
 
@@ -2147,89 +2157,165 @@ def export_icon_excel(request):
 @require_can_edit
 def device_event_add(request, pk):
     """Tambah event kejadian fisik peralatan."""
+    import json as _json
     device = get_object_or_404(Device, pk=pk)
 
     if request.method == 'POST':
-        from devices.models import DeviceEvent
+        from devices.models import DeviceEvent, ItemBongkar
         from devices.models_komponen import DeviceComponent
-        tipe               = request.POST.get('tipe', '').strip()
-        tanggal            = request.POST.get('tanggal', '')
-        komponen           = request.POST.get('komponen', '').strip()
-        komponen_terkait_pk = request.POST.get('komponen_terkait_id', '') or None
-        nilai_lama         = request.POST.get('nilai_lama', '').strip()
-        nilai_baru         = request.POST.get('nilai_baru', '').strip()
-        lokasi_asal        = request.POST.get('lokasi_asal', '').strip()
-        lokasi_tujuan      = request.POST.get('lokasi_tujuan', '').strip()
-        catatan            = request.POST.get('catatan', '').strip()
-        foto               = request.FILES.get('foto')
-        merk_komponen_baru = request.POST.get('merk_komponen_baru', '').strip()
-        tipe_komponen_baru = request.POST.get('tipe_komponen_baru', '').strip()
-        disimpan_di        = request.POST.get('disimpan_di', '').strip()
-        branch_id_event    = request.POST.get('branch_id', '') or None
+        from django.utils import timezone as _tz
+
+        tipe                 = request.POST.get('tipe', '').strip()
+        tanggal              = request.POST.get('tanggal', '')
+        komponen             = request.POST.get('komponen', '').strip()
+        komponen_terkait_pk  = request.POST.get('komponen_terkait_id', '') or None
+        nilai_lama           = request.POST.get('nilai_lama', '').strip()
+        nilai_baru           = request.POST.get('nilai_baru', '').strip()
+        lokasi_asal          = request.POST.get('lokasi_asal', '').strip()
+        lokasi_tujuan        = request.POST.get('lokasi_tujuan', '').strip()
+        catatan              = request.POST.get('catatan', '').strip()
+        foto                 = request.FILES.get('foto')
+        merk_komponen_baru   = request.POST.get('merk_komponen_baru', '').strip()
+        tipe_komponen_baru   = request.POST.get('tipe_komponen_baru', '').strip()
+        serial_komponen_baru = request.POST.get('serial_komponen_baru', '').strip()
+        posisi_komponen_baru = request.POST.get('posisi_komponen_baru', '').strip()
+        disimpan_di          = request.POST.get('disimpan_di', '').strip()
+        branch_id_event      = request.POST.get('branch_id', '') or None
+        pembongkaran_tipe    = request.POST.get('pembongkaran_tipe', 'komponen').strip()
+        config_aspek         = request.POST.get('config_aspek', '').strip()
+        item_bongkar_id      = request.POST.get('item_bongkar_id', '') or None
+        tipe_komponen_id     = request.POST.get('tipe_komponen_id', '') or None
+        komponen_relokasi_raw = request.POST.getlist('komponen_relokasi_ids')
 
         komponen_terkait_obj = None
         if komponen_terkait_pk:
             komponen_terkait_obj = DeviceComponent.objects.filter(pk=komponen_terkait_pk).first()
 
+        komponen_relokasi_ids = []
+        for v in komponen_relokasi_raw:
+            try:
+                komponen_relokasi_ids.append(int(v))
+            except (ValueError, TypeError):
+                pass
+
         if tipe and tanggal:
             event = DeviceEvent(
-                device             = device,
-                tipe               = tipe,
-                tanggal            = tanggal,
-                komponen           = komponen,
-                komponen_terkait   = komponen_terkait_obj,
-                nilai_lama         = nilai_lama,
-                nilai_baru         = nilai_baru,
-                lokasi_asal        = lokasi_asal,
-                lokasi_tujuan      = lokasi_tujuan,
-                catatan            = catatan,
-                dilakukan_oleh     = request.user,
-                merk_komponen_baru = merk_komponen_baru,
-                tipe_komponen_baru = tipe_komponen_baru,
+                device               = device,
+                tipe                 = tipe,
+                tanggal              = tanggal,
+                komponen             = komponen,
+                komponen_terkait     = komponen_terkait_obj,
+                nilai_lama           = nilai_lama,
+                nilai_baru           = nilai_baru,
+                lokasi_asal          = lokasi_asal,
+                lokasi_tujuan        = lokasi_tujuan,
+                catatan              = catatan,
+                dilakukan_oleh       = request.user,
+                merk_komponen_baru   = merk_komponen_baru,
+                tipe_komponen_baru   = tipe_komponen_baru,
+                serial_komponen_baru = serial_komponen_baru,
+                posisi_komponen_baru = posisi_komponen_baru,
+                pembongkaran_tipe    = pembongkaran_tipe if tipe == 'pembongkaran' else '',
+                config_aspek         = config_aspek if tipe == 'modifikasi' else '',
+                komponen_relokasi_ids = komponen_relokasi_ids,
             )
             if foto:
                 event.foto = foto
             event.save()
 
-            # Auto-update lokasi device jika relokasi
+            # ── RELOKASI ──────────────────────────────────────────────
             if tipe == 'relokasi' and lokasi_tujuan:
                 old_lokasi = device.lokasi
                 device.lokasi = lokasi_tujuan.upper()
                 device.save(update_fields=['lokasi'])
-                # Catat di audit log
                 from devices.device_audit import log_edit
                 import copy
                 d_before = copy.copy(device)
                 d_before.lokasi = old_lokasi
-                device_copy = copy.copy(device)
-                log_edit(d_before, device_copy, request.user)
+                log_edit(d_before, copy.copy(device), request.user)
 
-            # Auto-update status DeviceComponent
-            if komponen_terkait_obj:
-                from django.utils import timezone as _tz
-                if tipe == 'penggantian':
-                    komponen_terkait_obj.status = 'diganti'
-                    komponen_terkait_obj.tanggal_ganti = _tz.localdate()
-                    komponen_terkait_obj.save(update_fields=['status', 'tanggal_ganti', 'updated_at'])
-                elif tipe == 'pembongkaran':
+            # ── PEMBONGKARAN — buat ItemBongkar ───────────────────────
+            elif tipe == 'pembongkaran':
+                if pembongkaran_tipe == 'perangkat':
+                    nama_b  = device.nama
+                    merk_b  = device.merk or ''
+                    model_b = device.type or ''
+                    sn_b    = device.serial_number or ''
+                    komp_b  = None
+                else:
+                    nama_b  = komponen or (komponen_terkait_obj.nama if komponen_terkait_obj else '')
+                    merk_b  = komponen_terkait_obj.merk if komponen_terkait_obj else ''
+                    model_b = komponen_terkait_obj.model if komponen_terkait_obj else ''
+                    sn_b    = komponen_terkait_obj.serial_number if komponen_terkait_obj else ''
+                    komp_b  = komponen_terkait_obj
+
+                item_b = ItemBongkar.objects.create(
+                    tipe               = pembongkaran_tipe,
+                    nama               = nama_b,
+                    merk               = merk_b,
+                    model_tipe         = model_b,
+                    serial_number      = sn_b,
+                    device_asal        = device,
+                    komponen_terkait   = komp_b,
+                    branch_id          = branch_id_event,
+                    lokasi_penyimpanan = disimpan_di,
+                    tanggal_bongkar    = tanggal,
+                    event_bongkar      = event,
+                    catatan            = catatan,
+                    created_by         = request.user,
+                )
+                if komponen_terkait_obj:
                     komponen_terkait_obj.status = 'tidak_ada'
                     komponen_terkait_obj.save(update_fields=['status', 'updated_at'])
-                elif tipe in ('pemasangan', 'penambahan'):
+
+            # ── PEMASANGAN KEMBALI — link ke ItemBongkar ──────────────
+            elif tipe == 'pemasangan':
+                if item_bongkar_id:
+                    try:
+                        item_b = ItemBongkar.objects.get(pk=item_bongkar_id, device_asal=device)
+                        item_b.status = 'dipasang_kembali'
+                        item_b.event_pasang = event
+                        item_b.save(update_fields=['status', 'event_pasang'])
+                        event.item_bongkar_ref = item_b
+                        event.save(update_fields=['item_bongkar_ref'])
+                        if item_b.komponen_terkait:
+                            item_b.komponen_terkait.status = 'terpasang'
+                            item_b.komponen_terkait.tanggal_pasang = _tz.localdate()
+                            item_b.komponen_terkait.save(update_fields=['status', 'tanggal_pasang', 'updated_at'])
+                    except ItemBongkar.DoesNotExist:
+                        pass
+                elif komponen_terkait_obj:
                     komponen_terkait_obj.status = 'terpasang'
                     komponen_terkait_obj.tanggal_pasang = _tz.localdate()
                     komponen_terkait_obj.save(update_fields=['status', 'tanggal_pasang', 'updated_at'])
 
-            # Auto-buat KomponenRusak saat penggantian
-            if tipe == 'penggantian':
+            # ── PENAMBAHAN — buat DeviceComponent baru ────────────────
+            elif tipe == 'penambahan':
+                new_komp = DeviceComponent.objects.create(
+                    device         = device,
+                    nama           = komponen or merk_komponen_baru or 'Komponen Baru',
+                    merk           = merk_komponen_baru,
+                    model          = tipe_komponen_baru,
+                    serial_number  = serial_komponen_baru,
+                    posisi         = posisi_komponen_baru,
+                    tipe_komponen_id = int(tipe_komponen_id) if tipe_komponen_id else None,
+                    status         = 'terpasang',
+                    tanggal_pasang = tanggal,
+                    created_by     = request.user,
+                    keterangan     = catatan,
+                )
+                event.komponen_terkait = new_komp
+                event.save(update_fields=['komponen_terkait'])
+
+            # ── PENGGANTIAN — buat KomponenRusak ─────────────────────
+            elif tipe == 'penggantian':
                 from devices.models import KomponenRusak
                 nama_rusak = komponen or (komponen_terkait_obj.nama if komponen_terkait_obj else '')
-                merk_rusak = komponen_terkait_obj.merk if komponen_terkait_obj else ''
-                tipe_rusak = komponen_terkait_obj.model if komponen_terkait_obj else ''
                 KomponenRusak.objects.create(
                     device           = device,
                     nama_komponen    = nama_rusak,
-                    merk             = merk_rusak,
-                    tipe             = tipe_rusak,
+                    merk             = komponen_terkait_obj.merk if komponen_terkait_obj else '',
+                    tipe             = komponen_terkait_obj.model if komponen_terkait_obj else '',
                     komponen_terkait = komponen_terkait_obj,
                     tanggal_rusak    = tanggal,
                     disimpan_di      = disimpan_di,
@@ -2238,6 +2324,10 @@ def device_event_add(request, pk):
                     event            = event,
                     created_by       = request.user,
                 )
+                if komponen_terkait_obj:
+                    komponen_terkait_obj.status = 'diganti'
+                    komponen_terkait_obj.tanggal_ganti = _tz.localdate()
+                    komponen_terkait_obj.save(update_fields=['status', 'tanggal_ganti', 'updated_at'])
 
             _audit(request, 'other', 'devices', 'Event Peralatan',
                    event.pk, f'{tipe.title()} — {device.nama}',

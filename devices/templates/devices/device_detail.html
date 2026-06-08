@@ -908,43 +908,97 @@ function addEvidenRow() {
                 {# Detail per tipe #}
                 {% if ev.tipe == 'relokasi' %}
                 <div style="font-size:12.5px;color:#475569;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                    <span style="background:#fee2e2;color:#991b1b;padding:2px 9px;border-radius:5px;font-size:12px;">
-                        {{ ev.lokasi_asal|default:"—" }}
-                    </span>
+                    <span style="background:#fee2e2;color:#991b1b;padding:2px 9px;border-radius:5px;font-size:12px;">{{ ev.lokasi_asal|default:"—" }}</span>
                     <i class="bi bi-arrow-right" style="color:#94a3b8;"></i>
-                    <span style="background:#dcfce7;color:#065f46;padding:2px 9px;border-radius:5px;font-size:12px;">
-                        {{ ev.lokasi_tujuan|default:"—" }}
+                    <span style="background:#dcfce7;color:#065f46;padding:2px 9px;border-radius:5px;font-size:12px;">{{ ev.lokasi_tujuan|default:"—" }}</span>
+                </div>
+                {% if ev.komponen_relokasi_ids %}
+                <div style="font-size:11.5px;color:#3b82f6;margin-top:4px;">
+                    <i class="bi bi-cpu me-1"></i>{{ ev.komponen_relokasi_ids|length }} komponen ikut direlokasi
+                </div>
+                {% endif %}
+
+                {% elif ev.tipe == 'pembongkaran' %}
+                {% if ev.pembongkaran_tipe %}
+                <div style="font-size:12px;color:#991b1b;margin-bottom:3px;font-weight:600;">
+                    <i class="bi bi-box-arrow-down me-1"></i>
+                    {{ ev.pembongkaran_tipe|capfirst }} dibongkar
+                </div>
+                {% endif %}
+                {% if ev.komponen %}
+                <div style="font-size:12px;color:#475569;margin-bottom:3px;"><span style="font-weight:600;">Item:</span> {{ ev.komponen }}</div>
+                {% endif %}
+                {% if ev.item_bongkar_set.exists %}
+                {% with ib=ev.item_bongkar_set.first %}
+                <div style="font-size:11.5px;margin-top:4px;display:flex;gap:6px;flex-wrap:wrap;">
+                    {% if ib.branch %}
+                    <span style="background:#eff6ff;color:#1d4ed8;padding:2px 9px;border-radius:5px;">
+                        <i class="bi bi-diagram-2 me-1"></i>{{ ib.branch.nama }}
+                    </span>
+                    {% endif %}
+                    {% if ib.lokasi_penyimpanan %}
+                    <span style="background:#f8fafc;color:#475569;padding:2px 9px;border-radius:5px;">
+                        <i class="bi bi-geo-alt me-1"></i>{{ ib.lokasi_penyimpanan }}
+                    </span>
+                    {% endif %}
+                    <span style="background:{{ ib.status_bg }};color:{{ ib.status_color }};padding:2px 9px;border-radius:5px;font-weight:600;">
+                        {{ ib.get_status_display }}
                     </span>
                 </div>
+                {% endwith %}
+                {% endif %}
+
+                {% elif ev.tipe == 'pemasangan' %}
+                {% if ev.item_bongkar_ref %}
+                <div style="font-size:12px;color:#065f46;margin-bottom:3px;">
+                    <i class="bi bi-box-arrow-in-up me-1"></i>
+                    Dari gudang: <strong>{{ ev.item_bongkar_ref.nama }}</strong>
+                    {% if ev.item_bongkar_ref.merk %} — {{ ev.item_bongkar_ref.merk }}{% endif %}
+                </div>
+                {% elif ev.komponen %}
+                <div style="font-size:12px;color:#475569;margin-bottom:3px;"><span style="font-weight:600;">Komponen:</span> {{ ev.komponen }}</div>
+                {% endif %}
+
+                {% elif ev.tipe == 'penambahan' %}
+                <div style="font-size:12px;color:#6d28d9;margin-bottom:3px;font-weight:600;">
+                    <i class="bi bi-plus-circle me-1"></i>{{ ev.komponen|default:"Komponen baru ditambahkan" }}
+                </div>
+                {% if ev.merk_komponen_baru or ev.tipe_komponen_baru or ev.serial_komponen_baru %}
+                <div style="font-size:11.5px;color:#5b21b6;display:flex;gap:6px;flex-wrap:wrap;margin-top:3px;">
+                    {% if ev.merk_komponen_baru %}<span style="background:#f5f3ff;padding:2px 8px;border-radius:5px;"><i class="bi bi-tag me-1"></i>{{ ev.merk_komponen_baru }}</span>{% endif %}
+                    {% if ev.tipe_komponen_baru %}<span style="background:#f5f3ff;padding:2px 8px;border-radius:5px;"><i class="bi bi-cpu me-1"></i>{{ ev.tipe_komponen_baru }}</span>{% endif %}
+                    {% if ev.serial_komponen_baru %}<span style="background:#f5f3ff;padding:2px 8px;border-radius:5px;font-family:monospace;">SN: {{ ev.serial_komponen_baru }}</span>{% endif %}
+                    {% if ev.posisi_komponen_baru %}<span style="background:#f5f3ff;padding:2px 8px;border-radius:5px;"><i class="bi bi-grid me-1"></i>{{ ev.posisi_komponen_baru }}</span>{% endif %}
+                </div>
+                {% endif %}
+
+                {% elif ev.tipe == 'modifikasi' %}
+                {% if ev.config_aspek %}
+                <div style="font-size:12px;color:#0e7490;margin-bottom:3px;font-weight:600;">
+                    <i class="bi bi-sliders me-1"></i>{{ ev.get_config_aspek_display }}
+                </div>
+                {% endif %}
+                {% if ev.nilai_lama or ev.nilai_baru %}
+                <div style="font-size:12px;color:#475569;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                    {% if ev.nilai_lama %}<span style="background:#fee2e2;color:#991b1b;padding:2px 9px;border-radius:5px;text-decoration:line-through;font-size:11.5px;">{{ ev.nilai_lama }}</span>{% endif %}
+                    {% if ev.nilai_baru %}<i class="bi bi-arrow-right" style="color:#94a3b8;font-size:11px;"></i><span style="background:#dcfce7;color:#065f46;padding:2px 9px;border-radius:5px;font-size:11.5px;">{{ ev.nilai_baru }}</span>{% endif %}
+                </div>
+                {% endif %}
+
                 {% elif ev.komponen %}
                 <div style="font-size:12.5px;color:#475569;margin-bottom:3px;">
                     <span style="font-weight:600;">Komponen:</span> {{ ev.komponen }}
                 </div>
                 {% if ev.nilai_lama or ev.nilai_baru %}
                 <div style="font-size:12px;color:#475569;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                    {% if ev.nilai_lama %}
-                    <span style="background:#fee2e2;color:#991b1b;padding:2px 9px;border-radius:5px;
-                                 text-decoration:line-through;font-size:11.5px;">{{ ev.nilai_lama }}</span>
-                    {% endif %}
-                    {% if ev.nilai_baru %}
-                    <i class="bi bi-arrow-right" style="color:#94a3b8;font-size:11px;"></i>
-                    <span style="background:#dcfce7;color:#065f46;padding:2px 9px;border-radius:5px;
-                                 font-size:11.5px;">{{ ev.nilai_baru }}</span>
-                    {% endif %}
+                    {% if ev.nilai_lama %}<span style="background:#fee2e2;color:#991b1b;padding:2px 9px;border-radius:5px;text-decoration:line-through;font-size:11.5px;">{{ ev.nilai_lama }}</span>{% endif %}
+                    {% if ev.nilai_baru %}<i class="bi bi-arrow-right" style="color:#94a3b8;font-size:11px;"></i><span style="background:#dcfce7;color:#065f46;padding:2px 9px;border-radius:5px;font-size:11.5px;">{{ ev.nilai_baru }}</span>{% endif %}
                 </div>
                 {% endif %}
                 {% if ev.tipe == 'penggantian' and ev.merk_komponen_baru or ev.tipe_komponen_baru %}
                 <div style="font-size:11.5px;color:#92400e;margin-top:4px;display:flex;gap:8px;flex-wrap:wrap;">
-                    {% if ev.merk_komponen_baru %}
-                    <span style="background:#fef3c7;padding:2px 8px;border-radius:5px;">
-                        <i class="bi bi-tag me-1"></i>{{ ev.merk_komponen_baru }}
-                    </span>
-                    {% endif %}
-                    {% if ev.tipe_komponen_baru %}
-                    <span style="background:#fef3c7;padding:2px 8px;border-radius:5px;">
-                        <i class="bi bi-cpu me-1"></i>{{ ev.tipe_komponen_baru }}
-                    </span>
-                    {% endif %}
+                    {% if ev.merk_komponen_baru %}<span style="background:#fef3c7;padding:2px 8px;border-radius:5px;"><i class="bi bi-tag me-1"></i>{{ ev.merk_komponen_baru }}</span>{% endif %}
+                    {% if ev.tipe_komponen_baru %}<span style="background:#fef3c7;padding:2px 8px;border-radius:5px;"><i class="bi bi-cpu me-1"></i>{{ ev.tipe_komponen_baru }}</span>{% endif %}
                 </div>
                 {% endif %}
                 {% endif %}
@@ -1050,6 +1104,28 @@ function addEvidenRow() {
                                         {% endfor %}
                                     </select>
                                 </div>
+                                {# Komponen yang ikut direlokasi #}
+                                {% if komponen_list %}
+                                <div class="col-12">
+                                    <label style="font-size:12px;font-weight:600;color:#3b82f6;display:block;margin-bottom:5px;">
+                                        <i class="bi bi-cpu me-1"></i>Komponen yang Ikut Direlokasi
+                                        <span style="font-weight:400;color:#64748b;">(opsional — centang yang ikut pindah)</span>
+                                    </label>
+                                    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;max-height:140px;overflow-y:auto;">
+                                        {% for komp in komponen_list %}
+                                        <div style="display:flex;align-items:center;gap:8px;padding:4px 0;">
+                                            <input type="checkbox" name="komponen_relokasi_ids" value="{{ komp.pk }}"
+                                                   id="komp_relok_{{ komp.pk }}" style="width:14px;height:14px;">
+                                            <label for="komp_relok_{{ komp.pk }}" style="font-size:12px;color:#334155;cursor:pointer;margin:0;">
+                                                {{ komp.nama }}
+                                                {% if komp.merk %}<span style="color:#94a3b8;"> — {{ komp.merk }}</span>{% endif %}
+                                                {% if komp.posisi %}<span style="background:#e0f2fe;color:#0369a1;font-size:10px;padding:1px 6px;border-radius:4px;margin-left:4px;">{{ komp.posisi }}</span>{% endif %}
+                                            </label>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                {% endif %}
                                 <div class="col-12">
                                     <div style="background:#dbeafe;border-radius:8px;padding:8px 12px;font-size:11.5px;color:#1d4ed8;">
                                         <i class="bi bi-info-circle me-1"></i>
@@ -1122,6 +1198,153 @@ function addEvidenRow() {
                                                 </div>
                                             </div>
                                         </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {# ── Field Pembongkaran ── #}
+                        <div id="fieldPembongkaran" style="display:none;" class="col-12">
+                            <div style="background:#fee2e2;border-radius:10px;padding:12px 14px;">
+                                <div style="font-size:11.5px;font-weight:700;color:#991b1b;margin-bottom:10px;">
+                                    <i class="bi bi-box-arrow-down me-1"></i>Detail Pembongkaran
+                                </div>
+                                <div class="row g-2">
+                                    <div class="col-12">
+                                        <label style="font-size:11.5px;font-weight:600;color:#7f1d1d;display:block;margin-bottom:4px;">Yang Dibongkar</label>
+                                        <div style="display:flex;gap:12px;">
+                                            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;font-weight:600;color:#334155;">
+                                                <input type="radio" name="pembongkaran_tipe" value="komponen" checked> Komponen Saja
+                                            </label>
+                                            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;font-weight:600;color:#334155;">
+                                                <input type="radio" name="pembongkaran_tipe" value="perangkat"> Seluruh Perangkat
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <label style="font-size:11.5px;font-weight:600;color:#7f1d1d;display:block;margin-bottom:4px;">Simpan ke Branch</label>
+                                        <select name="branch_id" class="form-select form-select-sm" id="bongkarBranchSelect">
+                                            <option value="">— Pilih Branch Penyimpanan —</option>
+                                            {% for br in all_branches %}
+                                            <option value="{{ br.pk }}">{{ br.nama }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-6">
+                                        <label style="font-size:11.5px;font-weight:600;color:#7f1d1d;display:block;margin-bottom:4px;">Lokasi Spesifik di Gudang</label>
+                                        <input type="text" name="disimpan_di" class="form-control form-control-sm"
+                                               placeholder="Misal: Rak B3, Loker 2, Gudang Lt.1">
+                                    </div>
+                                    <div class="col-12">
+                                        <div style="font-size:10.5px;color:#991b1b;background:#fff;border-radius:6px;padding:6px 10px;">
+                                            <i class="bi bi-info-circle me-1"></i>
+                                            Item yang dibongkar akan masuk otomatis ke halaman <strong>Gudang → Peralatan Bongkar</strong>.
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {# ── Field Pemasangan Kembali ── #}
+                        <div id="fieldPemasangan" style="display:none;" class="col-12">
+                            <div style="background:#dcfce7;border-radius:10px;padding:12px 14px;">
+                                <div style="font-size:11.5px;font-weight:700;color:#166534;margin-bottom:10px;">
+                                    <i class="bi bi-box-arrow-in-up me-1"></i>Pasang Kembali dari Gudang Bongkar
+                                </div>
+                                {% if item_bongkar_list %}
+                                <div class="col-12">
+                                    <label style="font-size:11.5px;font-weight:600;color:#166534;display:block;margin-bottom:4px;">
+                                        Pilih Item yang Akan Dipasang Kembali
+                                    </label>
+                                    <select name="item_bongkar_id" class="form-select form-select-sm">
+                                        <option value="">— Pilih item dari gudang (opsional) —</option>
+                                        {% for ib in item_bongkar_list %}
+                                        <option value="{{ ib.pk }}">
+                                            [{{ ib.get_tipe_display }}] {{ ib.nama }}
+                                            {% if ib.merk %} — {{ ib.merk }}{% endif %}
+                                            {% if ib.branch %} ({{ ib.branch.nama }}){% endif %}
+                                            • {{ ib.tanggal_bongkar|date:"d M Y" }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                    <div style="font-size:10.5px;color:#166534;margin-top:3px;">
+                                        <i class="bi bi-info-circle me-1"></i>Status item di gudang akan otomatis berubah menjadi "Dipasang Kembali".
+                                    </div>
+                                </div>
+                                {% else %}
+                                <div style="font-size:12px;color:#166534;padding:4px 0;">
+                                    <i class="bi bi-info-circle me-1"></i>
+                                    Belum ada item di gudang bongkar untuk perangkat ini.
+                                    Isi nama komponen di atas secara manual.
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        {# ── Field Penambahan Komponen ── #}
+                        <div id="fieldPenambahan" style="display:none;" class="col-12">
+                            <div style="background:#f5f3ff;border-radius:10px;padding:12px 14px;">
+                                <div style="font-size:11.5px;font-weight:700;color:#6d28d9;margin-bottom:10px;">
+                                    <i class="bi bi-plus-circle me-1"></i>Detail Komponen Baru
+                                </div>
+                                <div class="row g-2">
+                                    <div class="col-6">
+                                        <label style="font-size:11.5px;font-weight:600;color:#5b21b6;display:block;margin-bottom:4px;">Nama Komponen <span style="color:red;">*</span></label>
+                                        <input type="text" name="komponen" class="form-control form-control-sm"
+                                               placeholder="Misal: PSU 1, Modul SFP A, Baterai Bank">
+                                    </div>
+                                    <div class="col-6">
+                                        <label style="font-size:11.5px;font-weight:600;color:#5b21b6;display:block;margin-bottom:4px;">Posisi / Slot</label>
+                                        <input type="text" name="posisi_komponen_baru" class="form-control form-control-sm"
+                                               placeholder="Misal: Slot A, Bay 1, Port 3">
+                                    </div>
+                                    <div class="col-6">
+                                        <label style="font-size:11.5px;font-weight:600;color:#5b21b6;display:block;margin-bottom:4px;">Merk</label>
+                                        <input type="text" name="merk_komponen_baru" class="form-control form-control-sm"
+                                               placeholder="Misal: Huawei, Siemens, Delta">
+                                    </div>
+                                    <div class="col-6">
+                                        <label style="font-size:11.5px;font-weight:600;color:#5b21b6;display:block;margin-bottom:4px;">Model / Tipe</label>
+                                        <input type="text" name="tipe_komponen_baru" class="form-control form-control-sm"
+                                               placeholder="Misal: PSU-4850, SFP-10G-LR">
+                                    </div>
+                                    <div class="col-12">
+                                        <label style="font-size:11.5px;font-weight:600;color:#5b21b6;display:block;margin-bottom:4px;">Serial Number</label>
+                                        <input type="text" name="serial_komponen_baru" class="form-control form-control-sm"
+                                               placeholder="Serial number komponen baru">
+                                    </div>
+                                    <div class="col-12">
+                                        <div style="font-size:10.5px;color:#6d28d9;background:#fff;border-radius:6px;padding:6px 10px;">
+                                            <i class="bi bi-info-circle me-1"></i>
+                                            Komponen ini akan otomatis ditambahkan ke daftar komponen perangkat.
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {# ── Field Modifikasi Konfigurasi ── #}
+                        <div id="fieldModifikasi" style="display:none;" class="col-12">
+                            <div style="background:#cffafe;border-radius:10px;padding:12px 14px;">
+                                <div style="font-size:11.5px;font-weight:700;color:#0e7490;margin-bottom:10px;">
+                                    <i class="bi bi-sliders me-1"></i>Detail Modifikasi Konfigurasi
+                                </div>
+                                <div class="row g-2">
+                                    <div class="col-12">
+                                        <label style="font-size:11.5px;font-weight:600;color:#0e7490;display:block;margin-bottom:4px;">Aspek Konfigurasi</label>
+                                        <select name="config_aspek" class="form-select form-select-sm">
+                                            <option value="">— Pilih aspek yang diubah —</option>
+                                            <option value="ip_address">IP Address / Routing</option>
+                                            <option value="vlan">VLAN / Switching</option>
+                                            <option value="protokol">Protokol Komunikasi</option>
+                                            <option value="firmware">Firmware / Software</option>
+                                            <option value="ntp">NTP / Sinkronisasi Waktu</option>
+                                            <option value="port">Konfigurasi Port / Interface</option>
+                                            <option value="acl">ACL / Access Control</option>
+                                            <option value="credential">Password / Credential</option>
+                                            <option value="parameter">Parameter Operasi</option>
+                                            <option value="lainnya">Lainnya</option>
+                                        </select>
                                     </div>
                                 </div>
                             </div>
@@ -1208,6 +1431,60 @@ function addEvidenRow() {
                             <i class="bi bi-box-arrow-in-down me-1"></i>Kirim ke Gudang
                         </a>
                         {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{# ── Daftar Item Bongkar ────────────────────────────────────────── #}
+{% if item_bongkar_all %}
+<div class="table-card mt-3">
+    <div class="table-header" style="display:flex;align-items:center;justify-content:space-between;">
+        <h6 class="mb-0">
+            <i class="bi bi-box-arrow-down me-1" style="color:#ef4444;"></i>
+            Item Bongkar
+            <span style="font-size:11px;font-weight:400;color:#94a3b8;margin-left:6px;">{{ item_bongkar_all|length }} item</span>
+        </h6>
+        <a href="{% url 'gudang:bongkar_list' %}" style="font-size:11px;color:#3b82f6;">Lihat semua →</a>
+    </div>
+    <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
+            <thead>
+                <tr style="background:#fef2f2;border-bottom:1px solid #fecaca;">
+                    <th style="padding:8px 14px;font-weight:600;color:#991b1b;">Tanggal</th>
+                    <th style="padding:8px 14px;font-weight:600;color:#991b1b;">Tipe</th>
+                    <th style="padding:8px 14px;font-weight:600;color:#991b1b;">Nama</th>
+                    <th style="padding:8px 14px;font-weight:600;color:#991b1b;">Merk / Model</th>
+                    <th style="padding:8px 14px;font-weight:600;color:#991b1b;">Lokasi Simpan</th>
+                    <th style="padding:8px 14px;font-weight:600;color:#991b1b;">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ib in item_bongkar_all %}
+                <tr style="border-bottom:1px solid #fef2f2;">
+                    <td style="padding:8px 14px;color:#64748b;white-space:nowrap;">{{ ib.tanggal_bongkar|date:"d M Y" }}</td>
+                    <td style="padding:8px 14px;">
+                        {% if ib.tipe == 'perangkat' %}
+                        <span style="background:#fee2e2;color:#991b1b;padding:1px 7px;border-radius:20px;font-size:11px;font-weight:600;">Perangkat</span>
+                        {% else %}
+                        <span style="background:#fef3c7;color:#92400e;padding:1px 7px;border-radius:20px;font-size:11px;font-weight:600;">Komponen</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding:8px 14px;font-weight:600;color:#1e293b;">{{ ib.nama|default:"—" }}</td>
+                    <td style="padding:8px 14px;color:#475569;">{{ ib.merk|default:"" }}{% if ib.model_tipe %} / {{ ib.model_tipe }}{% endif %}</td>
+                    <td style="padding:8px 14px;">
+                        {% if ib.branch %}<span style="background:#eff6ff;color:#1d4ed8;padding:1px 7px;border-radius:5px;font-size:11.5px;"><i class="bi bi-diagram-2 me-1"></i>{{ ib.branch.nama }}</span>{% endif %}
+                        {% if ib.lokasi_penyimpanan %}<div style="font-size:10.5px;color:#64748b;">{{ ib.lokasi_penyimpanan }}</div>{% endif %}
+                        {% if not ib.branch and not ib.lokasi_penyimpanan %}<span style="color:#cbd5e1;">—</span>{% endif %}
+                    </td>
+                    <td style="padding:8px 14px;">
+                        <span style="background:{{ ib.status_bg }};color:{{ ib.status_color }};padding:2px 9px;border-radius:20px;font-size:11.5px;font-weight:600;">
+                            {{ ib.get_status_display }}
+                        </span>
                     </td>
                 </tr>
                 {% endfor %}
@@ -1308,12 +1585,25 @@ function addEvidenRow() {
 function toggleEventFields() {
     const tipe           = document.getElementById('evTipe').value;
     const isRelokasi     = tipe === 'relokasi';
-    const isKomponen     = ['penggantian','penambahan','pembongkaran','pemasangan','modifikasi'].includes(tipe);
+    const isKomponen     = ['penggantian','pembongkaran','pemasangan','modifikasi'].includes(tipe);
     const isPenggantian  = tipe === 'penggantian';
+    const isPembongkaran = tipe === 'pembongkaran';
+    const isPemasangan   = tipe === 'pemasangan';
+    const isPenambahan   = tipe === 'penambahan';
+    const isModifikasi   = tipe === 'modifikasi';
 
     document.getElementById('fieldRelokasi').style.display    = isRelokasi    ? 'block' : 'none';
     document.getElementById('fieldKomponen').style.display    = isKomponen    ? 'block' : 'none';
     document.getElementById('fieldPenggantian').style.display = isPenggantian ? 'block' : 'none';
+    document.getElementById('fieldPembongkaran').style.display = isPembongkaran ? 'block' : 'none';
+    document.getElementById('fieldPemasangan').style.display  = isPemasangan  ? 'block' : 'none';
+    document.getElementById('fieldPenambahan').style.display  = isPenambahan  ? 'block' : 'none';
+    document.getElementById('fieldModifikasi').style.display  = isModifikasi  ? 'block' : 'none';
+
+    // Tampilkan dev-komponen-terkait-wrapper untuk penggantian & pembongkaran saja
+    const showKomponDB = isPenggantian || isPembongkaran || isPemasangan;
+    const wrapper = document.getElementById('dev-komponen-terkait-wrapper');
+    if (wrapper) wrapper.style.display = showKomponDB ? 'block' : 'none';
 
     if (isKomponen) { loadDevKomponen(); }
 }

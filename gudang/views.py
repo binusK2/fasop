@@ -391,3 +391,72 @@ def mutasi_create(request, pk):
         'gangguan_list':    gangguan_list,
         'maintenance_list': maintenance_list,
     })
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# PERALATAN / KOMPONEN BONGKAR
+# ════════════════════════════════════════════════════════════════════════════
+
+@login_required
+def bongkar_list(request):
+    """Daftar semua item (perangkat/komponen) yang telah dibongkar."""
+    from devices.models import ItemBongkar
+    from devices.models import Branch
+
+    qs = ItemBongkar.objects.select_related(
+        'device_asal', 'device_asal__jenis', 'branch',
+        'komponen_terkait', 'created_by', 'event_bongkar', 'event_pasang'
+    ).order_by('-tanggal_bongkar', '-created_at')
+
+    # Filter
+    status_filter = request.GET.get('status', '')
+    tipe_filter   = request.GET.get('tipe', '')
+    branch_filter = request.GET.get('branch', '')
+    q             = request.GET.get('q', '').strip()
+
+    if status_filter:
+        qs = qs.filter(status=status_filter)
+    if tipe_filter:
+        qs = qs.filter(tipe=tipe_filter)
+    if branch_filter:
+        qs = qs.filter(branch_id=branch_filter)
+    if q:
+        qs = qs.filter(
+            Q(nama__icontains=q) | Q(merk__icontains=q) |
+            Q(serial_number__icontains=q) | Q(device_asal__nama__icontains=q)
+        )
+
+    # Stats
+    total       = qs.count()
+    di_gudang   = qs.filter(status='di_gudang').count()
+    dipasang    = qs.filter(status='dipasang_kembali').count()
+    dibuang     = qs.filter(status='dibuang').count()
+
+    all_branches = Branch.objects.all().order_by('nama')
+
+    return render(request, 'gudang/bongkar_list.html', {
+        'item_list':     qs,
+        'total':         total,
+        'di_gudang':     di_gudang,
+        'dipasang':      dipasang,
+        'dibuang':       dibuang,
+        'all_branches':  all_branches,
+        'status_filter': status_filter,
+        'tipe_filter':   tipe_filter,
+        'branch_filter': branch_filter,
+        'q':             q,
+    })
+
+
+@login_required
+def bongkar_update_status(request, pk):
+    """Update status item bongkar: dibuang atau reset ke di_gudang."""
+    from devices.models import ItemBongkar
+    item = get_object_or_404(ItemBongkar, pk=pk)
+    if request.method == 'POST':
+        new_status = request.POST.get('status', '')
+        if new_status in ('dibuang', 'di_gudang'):
+            item.status = new_status
+            item.save(update_fields=['status'])
+            messages.success(request, f'Status item "{item.nama}" diperbarui ke {item.get_status_display()}.')
+    return redirect('gudang:bongkar_list')

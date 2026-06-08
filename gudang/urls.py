@@ -18,4 +18,8 @@ urlpatterns = [
     path('sparepart/<hid:pk>/edit/',        views.sparepart_edit,   name='sparepart_edit'),
     path('sparepart/<hid:pk>/hapus/',       views.sparepart_delete, name='sparepart_delete'),
     path('sparepart/<hid:pk>/mutasi/',      views.mutasi_create,    name='mutasi_create'),
+
+    # Peralatan / Komponen Bongkar
+    path('bongkar/',                 views.bongkar_list,          name='bongkar_list'),
+    path('bongkar/<int:pk>/status/', views.bongkar_update_status, name='bongkar_update_status'),
 ]
