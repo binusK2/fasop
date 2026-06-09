@@ -330,16 +330,104 @@ const typeData = {{ type_json|safe }};
     });
 })();
 
-// Warna bar merk
-merkData.forEach((d, i) => {
-    const el = document.getElementById('mbar_' + i);
-    if (el) el.style.background = PALETTE[i % PALETTE.length];
-});
+// Chart horizontal bar — Merk
+(function() {
+    const ctx = document.getElementById('chartMerk');
+    if (!ctx || merkData.length === 0) return;
+    const labels  = merkData.map(d => d.label);
+    const values  = merkData.map(d => d.jumlah);
+    const colors  = merkData.map((_, i) => PALETTE[i % PALETTE.length]);
+    const colorsA = merkData.map((_, i) => PALETTE[i % PALETTE.length] + 'cc');
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Jumlah',
+                data: values,
+                backgroundColor: colorsA,
+                borderColor: colors,
+                borderWidth: 1.5,
+                borderRadius: 6,
+                borderSkipped: false,
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#0f172a',
+                    padding: 10,
+                    cornerRadius: 8,
+                    callbacks: {
+                        label: c => `  ${c.parsed.x} perangkat`
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { color: '#f1f5f9' },
+                    ticks: { font: { size: 11 }, color: '#94a3b8' }
+                },
+                y: {
+                    grid: { display: false },
+                    ticks: { font: { size: 12, weight: '500' }, color: '#334155' }
+                }
+            }
+        }
+    });
+})();
 
-// Warna bar type
-typeData.forEach((d, i) => {
-    const el = document.getElementById('tbar_' + i);
-    if (el) el.style.background = PALETTE[(i + 2) % PALETTE.length];
-});
+// Chart horizontal bar — Type/Model
+(function() {
+    const ctx = document.getElementById('chartType');
+    if (!ctx || typeData.length === 0) return;
+    const labels  = typeData.map(d => d.label);
+    const values  = typeData.map(d => d.jumlah);
+    const colors  = typeData.map((_, i) => PALETTE[(i + 2) % PALETTE.length]);
+    const colorsA = typeData.map((_, i) => PALETTE[(i + 2) % PALETTE.length] + 'cc');
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Jumlah',
+                data: values,
+                backgroundColor: colorsA,
+                borderColor: colors,
+                borderWidth: 1.5,
+                borderRadius: 6,
+                borderSkipped: false,
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#0f172a',
+                    padding: 10,
+                    cornerRadius: 8,
+                    callbacks: {
+                        label: c => `  ${c.parsed.x} perangkat`
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { color: '#f1f5f9' },
+                    ticks: { font: { size: 11 }, color: '#94a3b8' }
+                },
+                y: {
+                    grid: { display: false },
+                    ticks: { font: { size: 12, weight: '500' }, color: '#334155' }
+                }
+            }
+        }
+    });
+})();
 </script>
 {% endblock %}
