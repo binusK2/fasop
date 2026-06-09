@@ -3413,9 +3413,26 @@ def ba_list(request):
         .select_related('profile')
         .order_by('profile__display_name', 'first_name')
     )
+    # Role flags untuk template — lebih aman dari property chain
+    try:
+        user_role = request.user.profile.role
+    except Exception:
+        user_role = ''
+    is_am         = request.user.is_superuser or (user_role == 'asisten_manager')
+    is_technician = user_role == 'technician'
+    # BA yang menunggu TTD dari user ini (engineer)
+    pending_ttd_saya = records.filter(
+        ttd_status='menunggu_engineer', ttd_req_to=request.user
+    ).count() if is_technician else 0
+    # BA yang menunggu TTD AM
+    pending_ttd_am = records.filter(ttd_status='signed_engineer').count() if is_am else 0
     return render(request, 'maintenance/ba_list.html', {
-        'records':   records,
-        'engineers': engineers,
+        'records':          records,
+        'engineers':        engineers,
+        'is_am':            is_am,
+        'is_technician':    is_technician,
+        'pending_ttd_saya': pending_ttd_saya,
+        'pending_ttd_am':   pending_ttd_am,
     })
 
 
@@ -3434,7 +3451,26 @@ def ba_request_sign(request, pk):
             record.ttd_req_to = eng
             record.ttd_status = 'menunggu_engineer'
             record.save(update_fields=['ttd_req_to', 'ttd_status'])
-            dj_messages.success(request, f'Permintaan TTD dikirim ke {eng.profile.get_display_name()}.')
+            eng_name = eng.profile.get_display_name() if hasattr(eng, 'profile') else eng.get_full_name() or eng.username
+            dj_messages.success(request, f'Permintaan TTD dikirim ke {eng_name}.')
+            # Kirim notifikasi ke engineer
+            try:
+                from notifikasi.views import notif_ke_user
+                ba_url = '/maintenance/ba/'
+                notif_ke_user(
+                    user   = eng,
+                    tipe   = 'ba_ttd_engineer',
+                    judul  = f'Permintaan TTD Berita Acara',
+                    pesan  = (
+                        f'Anda diminta menandatangani Berita Acara '
+                        f'{record.get_jenis_display()} — {record.nomor_ba or "(tanpa nomor)"}. '
+                        f'Silakan buka halaman Berita Acara untuk menandatangani.'
+                    ),
+                    level  = 'info',
+                    url    = ba_url,
+                )
+            except Exception:
+                pass
         except Exception:
             dj_messages.error(request, 'Engineer tidak valid.')
     return redirect('ba_list')
@@ -3444,6 +3480,14 @@ def ba_request_sign(request, pk):
 def ba_sign_engineer(request, pk):
     from django.contrib import messages as dj_messages
     record = get_object_or_404(BeritaAcaraRecord, pk=pk)
+    # Hanya engineer yang diminta yang boleh TTD
+    try:
+        user_role = request.user.profile.role
+    except Exception:
+        user_role = ''
+    if user_role not in ('technician',) and not request.user.is_superuser:
+        dj_messages.error(request, 'Hanya Engineer / Teknisi yang dapat menandatangani bagian ini.')
+        return redirect('ba_list')
     if record.ttd_status != 'menunggu_engineer' or record.ttd_req_to_id != request.user.pk:
         dj_messages.error(request, 'Anda tidak dapat menandatangani BA ini.')
         return redirect('ba_list')
@@ -3453,6 +3497,23 @@ def ba_sign_engineer(request, pk):
         record.ttd_status      = 'signed_engineer'
         record.save(update_fields=['ttd_engineer', 'ttd_engineer_at', 'ttd_status'])
         dj_messages.success(request, 'Berita Acara berhasil Anda tandatangani.')
+        # Kirim notifikasi ke semua AM bahwa BA siap TTD AM
+        try:
+            from notifikasi.views import notif_ke_am
+            eng_name = request.user.profile.get_display_name() if hasattr(request.user, 'profile') else request.user.get_full_name() or request.user.username
+            notif_ke_am(
+                tipe  = 'ba_ttd_am',
+                judul = f'Berita Acara Siap TTD AM',
+                pesan = (
+                    f'Engineer {eng_name} telah menandatangani Berita Acara '
+                    f'{record.get_jenis_display()} — {record.nomor_ba or "(tanpa nomor)"}. '
+                    f'BA ini menunggu tanda tangan Asisten Manager.'
+                ),
+                level = 'info',
+                url   = '/maintenance/ba/',
+            )
+        except Exception:
+            pass
     return redirect('ba_list')
 
 

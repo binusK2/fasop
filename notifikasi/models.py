@@ -14,6 +14,8 @@ class Notifikasi(models.Model):
         ('gangguan_selesai',    'Gangguan Selesai — Perlu Review'),
         ('gangguan_baru',       'Gangguan Baru Dibuat'),
         ('corrective_selesai',  'Corrective Selesai'),
+        ('ba_ttd_engineer',     'BA — Permintaan TTD Engineer'),
+        ('ba_ttd_am',           'BA — Menunggu TTD AM'),
     )
 
     LEVEL_CHOICES = (

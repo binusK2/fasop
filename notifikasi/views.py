@@ -108,6 +108,25 @@ def notifikasi_delete_read(request):
 
 
 # ── Helper: kirim notif ke semua AM ──────────────────────────────────────────
+def notif_ke_user(user, tipe, judul, pesan, level='info', url='', device=None):
+    """
+    Buat notifikasi untuk satu user spesifik.
+    Dipanggil misalnya saat engineer diminta TTD BA.
+    """
+    try:
+        from notifikasi.models import Notifikasi
+        sudah_ada = Notifikasi.objects.filter(
+            user=user, tipe=tipe, judul=judul, is_read=False
+        ).exists()
+        if not sudah_ada:
+            Notifikasi.objects.create(
+                user=user, tipe=tipe, judul=judul,
+                pesan=pesan, level=level, url=url, device=device,
+            )
+    except Exception:
+        pass
+
+
 def notif_ke_am(tipe, judul, pesan, level='info', url='', device=None):
     """
     Buat notifikasi untuk semua user AM dan superuser.
