@@ -65,6 +65,7 @@ urlpatterns = [
 
     # Distribusi Status per Jenis
     path('distribusi-jenis/', views.distribusi_jenis, name='distribusi_jenis'),
+    path('distribusi-jenis/<int:jenis_id>/', views.distribusi_jenis_detail, name='distribusi_jenis_detail'),
 
     # Peta Jaringan
     path('peta-jaringan/', views.peta_jaringan, name='peta_jaringan'),

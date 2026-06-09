@@ -801,6 +801,74 @@ def distribusi_jenis(request):
     })
 
 
+def distribusi_jenis_detail(request, jenis_id):
+    """Halaman drill-down distribusi merk & type untuk satu jenis perangkat."""
+    jenis_obj = get_object_or_404(DeviceType, pk=jenis_id)
+
+    devices_qs = Device.objects.filter(is_deleted=False, jenis_id=jenis_id)
+    total = devices_qs.count()
+    operasi_count = devices_qs.filter(status_operasi='operasi').count()
+    tidak_count   = devices_qs.filter(status_operasi='tidak_operasi').count()
+
+    # ── Sebaran per Merk ──────────────────────────────────────────────────────
+    merk_qs = (
+        devices_qs
+        .values('merk')
+        .annotate(jumlah=Count('id'))
+        .order_by('-jumlah')
+    )
+    merk_data = [
+        {
+            'label': r['merk'] or '—',
+            'jumlah': r['jumlah'],
+            'pct': round(r['jumlah'] / total * 100) if total else 0,
+        }
+        for r in merk_qs
+    ]
+
+    # ── Sebaran per Tipe/Model ────────────────────────────────────────────────
+    type_qs = (
+        devices_qs
+        .values('type')
+        .annotate(jumlah=Count('id'))
+        .order_by('-jumlah')
+    )
+    type_data = [
+        {
+            'label': r['type'] or '—',
+            'jumlah': r['jumlah'],
+            'pct': round(r['jumlah'] / total * 100) if total else 0,
+        }
+        for r in type_qs
+    ]
+
+    # ── Daftar perangkat (tabel bawah) ────────────────────────────────────────
+    device_list = devices_qs.select_related('lokasi').order_by('nama')
+
+    # JSON untuk chart
+    merk_json = json.dumps([{'label': d['label'], 'jumlah': d['jumlah']} for d in merk_data])
+    type_json = json.dumps([{'label': d['label'], 'jumlah': d['jumlah']} for d in type_data])
+
+    PALETTE = [
+        '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444',
+        '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#64748b',
+    ]
+
+    return render(request, 'devices/distribusi_jenis_detail.html', {
+        'jenis':          jenis_obj,
+        'total':          total,
+        'operasi_count':  operasi_count,
+        'tidak_count':    tidak_count,
+        'pct_operasi':    round(operasi_count / total * 100) if total else 0,
+        'merk_data':      merk_data,
+        'type_data':      type_data,
+        'device_list':    device_list,
+        'merk_json':      merk_json,
+        'type_json':      type_json,
+        'palette_json':   json.dumps(PALETTE),
+    })
+
+
 def _dashboard_operator(request):
     """Dashboard khusus role Operator — fokus Inservice Inspection."""
     from inspection.models import Inspection, InspectionCatuDaya, InspectionDefenseScheme

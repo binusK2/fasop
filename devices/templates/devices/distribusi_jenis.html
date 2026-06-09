@@ -56,7 +56,8 @@
 <div class="row g-3">
     {% for d in jenis_data %}
     <div class="col-sm-6 col-md-4 col-xl-3">
-        <div class="jenis-card">
+        <a href="{% url 'distribusi_jenis_detail' d.id %}" style="text-decoration:none;display:block;height:100%;">
+        <div class="jenis-card" style="cursor:pointer;">
 
             <!-- Badge jenis dengan warna accent -->
             <div class="d-flex align-items-start justify-content-between mb-1">
@@ -64,11 +65,9 @@
                       style="background:{{ d.color }}22;color:{{ d.color }};">
                     {{ d.name }}
                 </span>
-                <a href="{% url 'device_list' %}?jenis={{ d.id }}"
-                   style="font-size:11px;color:#94a3b8;text-decoration:none;"
-                   title="Lihat daftar perangkat">
-                    <i class="bi bi-arrow-up-right-square"></i>
-                </a>
+                <span style="font-size:11px;color:#94a3b8;" title="Lihat distribusi merk & tipe">
+                    <i class="bi bi-pie-chart-fill"></i>
+                </span>
             </div>
 
             <!-- Total besar di tengah atas chart -->
@@ -110,6 +109,7 @@
             </div>
 
         </div>
+        </a>
     </div>
     {% empty %}
     <div class="col-12 text-center py-5 text-muted">
