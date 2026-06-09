@@ -843,7 +843,7 @@ def distribusi_jenis_detail(request, jenis_id):
     ]
 
     # ── Daftar perangkat (tabel bawah) ────────────────────────────────────────
-    device_list = devices_qs.select_related('lokasi').order_by('nama')
+    device_list = devices_qs.order_by('nama')
 
     # JSON untuk chart
     merk_json = json.dumps([{'label': d['label'], 'jumlah': d['jumlah']} for d in merk_data])
