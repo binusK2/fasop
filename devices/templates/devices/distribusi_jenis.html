@@ -56,8 +56,8 @@
 <div class="row g-3">
     {% for d in jenis_data %}
     <div class="col-sm-6 col-md-4 col-xl-3">
-        <a href="{% url 'distribusi_jenis_detail' d.id %}" style="text-decoration:none;display:block;height:100%;">
-        <div class="jenis-card" style="cursor:pointer;">
+        {% if d.id %}<a href="{% url 'distribusi_jenis_detail' d.id %}" style="text-decoration:none;display:block;height:100%;">{% endif %}
+        <div class="jenis-card" {% if d.id %}style="cursor:pointer;"{% endif %}>
 
             <!-- Badge jenis dengan warna accent -->
             <div class="d-flex align-items-start justify-content-between mb-1">
@@ -109,7 +109,7 @@
             </div>
 
         </div>
-        </a>
+        {% if d.id %}</a>{% endif %}
     </div>
     {% empty %}
     <div class="col-12 text-center py-5 text-muted">
