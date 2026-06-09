@@ -134,7 +134,7 @@
                 <i class="bi bi-bar-chart-fill" style="color:#3b82f6;"></i>Sebaran per Merk
             </div>
             {% if merk_data %}
-            <canvas id="chartMerk"></canvas>
+            <div id="wrapMerk" style="position:relative;width:100%;"><canvas id="chartMerk"></canvas></div>
             {% else %}
             <div style="font-size:13px;color:#94a3b8;">Belum ada data merk.</div>
             {% endif %}
@@ -148,7 +148,7 @@
         <i class="bi bi-diagram-3-fill" style="color:#8b5cf6;"></i>Sebaran per Tipe / Model
     </div>
     {% if type_data %}
-    <canvas id="chartType"></canvas>
+    <div id="wrapType" style="position:relative;width:100%;"><canvas id="chartType"></canvas></div>
     {% else %}
     <div style="font-size:13px;color:#94a3b8;">Belum ada data tipe.</div>
     {% endif %}
@@ -252,9 +252,10 @@ function makeBarChart(canvasId, data, paletteOffset) {
     const bg     = data.map((_, i) => PALETTE[(i + paletteOffset) % PALETTE.length] + 'dd');
     const border = data.map((_, i) => PALETTE[(i + paletteOffset) % PALETTE.length]);
 
-    // Tinggi dinamis: min 200px, 36px per bar
-    const h = Math.max(200, data.length * 36);
-    ctx.style.height = h + 'px';
+    // Set tinggi di wrapper, bukan canvas langsung
+    const h = Math.max(160, data.length * 42);
+    const wrap = ctx.parentElement;
+    if (wrap) wrap.style.height = h + 'px';
 
     new Chart(ctx, {
         type: 'bar',
