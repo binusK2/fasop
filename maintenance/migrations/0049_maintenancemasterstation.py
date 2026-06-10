@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('maintenance', '0048_alter_maintenancedfr_catatan_khusus_and_more'),
+        ('maintenance', '0047_maintenancemux_status_tidak_terpasang'),
     ]
 
     operations = [
