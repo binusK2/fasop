@@ -1,0 +1,280 @@
+{% comment %}MASTER STATION / WORKSTATION SCADA DETAIL SECTION — include dari maintenance_detail{% endcomment %}
+
+{% if ms_detail %}
+{% with s=ms_detail %}
+
+<style>
+.msd { border-collapse:collapse; width:100%; font-size:12.5px; }
+.msd th { background:#1e293b; color:#fff; padding:6px 10px; font-size:11px; font-weight:700; border:1px solid #334155; text-align:left; }
+.msd td { padding:6px 10px; border:1px solid #e2e8f0; vertical-align:middle; }
+.msd tr:nth-child(even) td { background:#f8fafc; }
+.msd .vval { font-family:'JetBrains Mono',monospace; font-weight:700; color:#0f172a; }
+.msd .vunit { font-size:10.5px; color:#94a3b8; }
+</style>
+
+{% include "maintenance/_section_header.html" with color="#3b82f6" icon="bi-cpu" label="Spesifikasi" only %}
+
+<!-- ── Spesifikasi ── -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="d-flex align-items-center gap-2 mb-3">
+            <span style="width:5px;height:18px;background:#10b981;border-radius:3px;display:inline-block;"></span>
+            <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#64748b;">
+                <i class="bi bi-cpu me-1" style="color:#10b981;"></i>Spesifikasi
+            </h6>
+        </div>
+        <table class="msd" style="width:55%;">
+            <tbody>
+                {% if s.spek_merk %}<tr><td style="width:42%;font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;">Merk</td><td class="vval">{{ s.spek_merk }}</td></tr>{% endif %}
+                {% if s.spek_type %}<tr><td style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;">Type</td><td class="vval">{{ s.spek_type }}</td></tr>{% endif %}
+                {% if s.spek_os %}<tr><td style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;">Operating System</td><td class="vval">{{ s.spek_os }}</td></tr>{% endif %}
+                {% if s.spek_firmware %}<tr><td style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;">Firmware Version</td><td class="vval">{{ s.spek_firmware }}</td></tr>{% endif %}
+                {% if s.spek_config_ver %}<tr><td style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;">Config Version</td><td class="vval">{{ s.spek_config_ver }}</td></tr>{% endif %}
+                {% if s.spek_ip %}<tr><td style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;">IP Address</td><td class="vval" style="color:#3b82f6;">{{ s.spek_ip }}</td></tr>{% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ── Kondisi Peralatan ── -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="d-flex align-items-center gap-2 mb-3">
+            <span style="width:5px;height:18px;background:#f59e0b;border-radius:3px;display:inline-block;"></span>
+            <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#64748b;">
+                <i class="bi bi-thermometer-half me-1" style="color:#f59e0b;"></i>Kondisi Peralatan
+            </h6>
+        </div>
+
+        {% comment %} Helper macro badge {% endcomment %}
+        {% with bersih_ok="BERSIH" bersih_nok="TIDAK BERSIH" %}
+        <div class="row g-2 mb-3">
+
+            {% comment %} Server/Workstation {% endcomment %}
+            <div class="col-md-3 col-sm-6">
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 13px;border-radius:10px;
+                    {% if s.kondisi_server == 'BERSIH' %}background:#f0fdf4;border:1.5px solid #6ee7b7;{% elif s.kondisi_server %}background:#fef2f2;border:1.5px solid #fca5a5;{% else %}background:#f8fafc;border:1.5px solid #e2e8f0;{% endif %}">
+                    <span style="font-size:12px;font-weight:600;color:#334155;">Server / WS</span>
+                    {% if s.kondisi_server == 'BERSIH' %}<span style="font-size:11px;font-weight:700;color:#065f46;background:#dcfce7;padding:2px 9px;border-radius:20px;">&#10003; Bersih</span>
+                    {% elif s.kondisi_server %}<span style="font-size:11px;font-weight:700;color:#991b1b;background:#fee2e2;padding:2px 9px;border-radius:20px;">&#10007; {{ s.kondisi_server }}</span>
+                    {% else %}<span style="color:#94a3b8;">&#8212;</span>{% endif %}
+                </div>
+            </div>
+
+            {% comment %} Panel {% endcomment %}
+            <div class="col-md-3 col-sm-6">
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 13px;border-radius:10px;
+                    {% if s.kondisi_panel == 'BERSIH' %}background:#f0fdf4;border:1.5px solid #6ee7b7;{% elif s.kondisi_panel %}background:#fef2f2;border:1.5px solid #fca5a5;{% else %}background:#f8fafc;border:1.5px solid #e2e8f0;{% endif %}">
+                    <span style="font-size:12px;font-weight:600;color:#334155;">Panel</span>
+                    {% if s.kondisi_panel == 'BERSIH' %}<span style="font-size:11px;font-weight:700;color:#065f46;background:#dcfce7;padding:2px 9px;border-radius:20px;">&#10003; Bersih</span>
+                    {% elif s.kondisi_panel %}<span style="font-size:11px;font-weight:700;color:#991b1b;background:#fee2e2;padding:2px 9px;border-radius:20px;">&#10007; {{ s.kondisi_panel }}</span>
+                    {% else %}<span style="color:#94a3b8;">&#8212;</span>{% endif %}
+                </div>
+            </div>
+
+            {% comment %} Kondisi Sebelum {% endcomment %}
+            <div class="col-md-3 col-sm-6">
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 13px;border-radius:10px;
+                    {% if s.kondisi_sebelum == 'PC/SB/TR/ON' %}background:#f0fdf4;border:1.5px solid #6ee7b7;{% elif s.kondisi_sebelum %}background:#fef2f2;border:1.5px solid #fca5a5;{% else %}background:#f8fafc;border:1.5px solid #e2e8f0;{% endif %}">
+                    <span style="font-size:12px;font-weight:600;color:#334155;">Kondisi Sebelum</span>
+                    {% if s.kondisi_sebelum %}<span style="font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;
+                        {% if s.kondisi_sebelum == 'PC/SB/TR/ON' %}color:#065f46;background:#dcfce7;">&#10003;{% else %}color:#991b1b;background:#fee2e2;">&#10007;{% endif %}
+                        {{ s.kondisi_sebelum }}</span>
+                    {% else %}<span style="color:#94a3b8;">&#8212;</span>{% endif %}
+                </div>
+            </div>
+
+            {% comment %} Kondisi Sesudah {% endcomment %}
+            <div class="col-md-3 col-sm-6">
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 13px;border-radius:10px;
+                    {% if s.kondisi_sesudah == 'PC/SB/TR/ON' %}background:#f0fdf4;border:1.5px solid #6ee7b7;{% elif s.kondisi_sesudah %}background:#fef2f2;border:1.5px solid #fca5a5;{% else %}background:#f8fafc;border:1.5px solid #e2e8f0;{% endif %}">
+                    <span style="font-size:12px;font-weight:600;color:#334155;">Kondisi Sesudah</span>
+                    {% if s.kondisi_sesudah %}<span style="font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;
+                        {% if s.kondisi_sesudah == 'PC/SB/TR/ON' %}color:#065f46;background:#dcfce7;">&#10003;{% else %}color:#991b1b;background:#fee2e2;">&#10007;{% endif %}
+                        {{ s.kondisi_sesudah }}</span>
+                    {% else %}<span style="color:#94a3b8;">&#8212;</span>{% endif %}
+                </div>
+            </div>
+        </div>
+        {% endwith %}
+
+        <!-- Temperatur -->
+        <div class="row g-3 mb-3">
+            <div class="col-md-3 col-6">
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;">
+                    <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Temp. Ruangan</div>
+                    <div style="font-size:20px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;">
+                        {{ s.temp_ruangan|default:"—" }}{% if s.temp_ruangan is not None %}<span style="font-size:13px;font-weight:500;color:#64748b;"> °C</span>{% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;">
+                    <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Temp. Peralatan</div>
+                    <div style="font-size:20px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;">
+                        {{ s.temp_peralatan|default:"—" }}{% if s.temp_peralatan is not None %}<span style="font-size:13px;font-weight:500;color:#64748b;"> °C</span>{% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Power Supply -->
+            <div class="col-md-3 col-6">
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;">
+                    <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Power Supply</div>
+                    {% if s.power_supply %}
+                    <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;
+                        {% if s.power_supply == 'ADA, BERFUNGSI' %}background:#dcfce7;color:#15803d;">&#10003;{% elif s.power_supply == 'ADA, TIDAK BERFUNGSI' %}background:#fee2e2;color:#b91c1c;">&#10007;{% else %}background:#fef3c7;color:#d97706;">&#8722;{% endif %}
+                        {{ s.power_supply }}</span>
+                    {% if s.power_supply_jml %}<div style="font-size:11px;color:#64748b;margin-top:4px;">Jumlah: <b>{{ s.power_supply_jml }}</b></div>{% endif %}
+                    {% else %}<span style="color:#94a3b8;">&#8212;</span>{% endif %}
+                </div>
+            </div>
+
+            <!-- Fan Processor -->
+            <div class="col-md-3 col-6">
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;">
+                    <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Fan Processor</div>
+                    {% if s.fan_processor %}
+                    <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;
+                        {% if s.fan_processor == 'ADA, BERFUNGSI' %}background:#dcfce7;color:#15803d;">&#10003;{% elif s.fan_processor == 'ADA, TIDAK BERFUNGSI' %}background:#fee2e2;color:#b91c1c;">&#10007;{% else %}background:#fef3c7;color:#d97706;">&#8722;{% endif %}
+                        {{ s.fan_processor }}</span>
+                    {% if s.fan_processor_jml %}<div style="font-size:11px;color:#64748b;margin-top:4px;">Jumlah: <b>{{ s.fan_processor_jml }}</b></div>{% endif %}
+                    {% else %}<span style="color:#94a3b8;">&#8212;</span>{% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Performa Peralatan ── -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="d-flex align-items-center gap-2 mb-3">
+            <span style="width:5px;height:18px;background:#06b6d4;border-radius:3px;display:inline-block;"></span>
+            <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#64748b;">
+                <i class="bi bi-speedometer2 me-1" style="color:#06b6d4;"></i>Performa Peralatan
+            </h6>
+        </div>
+        <div class="row g-3 mb-3">
+            {% if s.cpu_merk %}
+            <div class="col-md-4">
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 14px;">
+                    <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">CPU — Merk / Jumlah</div>
+                    <div style="font-size:14px;font-weight:700;color:#0f172a;">{{ s.cpu_merk }}</div>
+                </div>
+            </div>
+            {% endif %}
+            {% if s.ram_merk or s.ram_kapasitas %}
+            <div class="col-md-4">
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 14px;">
+                    <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">RAM</div>
+                    {% if s.ram_merk %}<div style="font-size:13px;font-weight:700;color:#0f172a;">{{ s.ram_merk }}</div>{% endif %}
+                    {% if s.ram_kapasitas %}<div style="font-size:12px;color:#64748b;margin-top:2px;">{{ s.ram_kapasitas }}</div>{% endif %}
+                </div>
+            </div>
+            {% endif %}
+            {% if s.storage_merk or s.storage_kapasitas %}
+            <div class="col-md-4">
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 14px;">
+                    <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Storage</div>
+                    {% if s.storage_merk %}<div style="font-size:13px;font-weight:700;color:#0f172a;">{{ s.storage_merk }}</div>{% endif %}
+                    {% if s.storage_kapasitas %}<div style="font-size:12px;color:#64748b;margin-top:2px;">{{ s.storage_kapasitas }}</div>{% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="row g-2">
+            {% comment %} VGA Card {% endcomment %}
+            {% if s.vga_merk or s.vga_kondisi %}
+            <div class="col-md-4 col-sm-6">
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 13px;border-radius:10px;background:#f8fafc;border:1.5px solid #e2e8f0;">
+                    <span style="font-size:12px;font-weight:600;color:#334155;">VGA Card{% if s.vga_merk %} — {{ s.vga_merk }}{% endif %}</span>
+                    {% if s.vga_kondisi == 'OK' %}<span style="font-size:11px;font-weight:700;color:#065f46;background:#dcfce7;padding:2px 9px;border-radius:20px;">OK</span>
+                    {% elif s.vga_kondisi == 'NOK' %}<span style="font-size:11px;font-weight:700;color:#991b1b;background:#fee2e2;padding:2px 9px;border-radius:20px;">NOK</span>
+                    {% else %}<span style="color:#94a3b8;">&#8212;</span>{% endif %}
+                </div>
+            </div>
+            {% endif %}
+            {% comment %} Indikasi Alarm {% endcomment %}
+            <div class="col-md-4 col-sm-6">
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 13px;border-radius:10px;
+                    {% if s.indikasi_alarm == 'TIDAK ADA' %}background:#f0fdf4;border:1.5px solid #6ee7b7;{% elif s.indikasi_alarm == 'ADA' %}background:#fef2f2;border:1.5px solid #fca5a5;{% else %}background:#f8fafc;border:1.5px solid #e2e8f0;{% endif %}">
+                    <span style="font-size:12px;font-weight:600;color:#334155;">Indikasi Alarm / Error</span>
+                    {% if s.indikasi_alarm == 'TIDAK ADA' %}<span style="font-size:11px;font-weight:700;color:#065f46;background:#dcfce7;padding:2px 9px;border-radius:20px;">&#10003; Tidak Ada</span>
+                    {% elif s.indikasi_alarm == 'ADA' %}<span style="font-size:11px;font-weight:700;color:#991b1b;background:#fee2e2;padding:2px 9px;border-radius:20px;">&#9888; Ada</span>
+                    {% else %}<span style="color:#94a3b8;">&#8212;</span>{% endif %}
+                </div>
+            </div>
+            {% comment %} Time Sync {% endcomment %}
+            <div class="col-md-4 col-sm-6">
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 13px;border-radius:10px;
+                    {% if s.time_sync == 'OK' %}background:#f0fdf4;border:1.5px solid #6ee7b7;{% elif s.time_sync == 'NOK' %}background:#fef2f2;border:1.5px solid #fca5a5;{% else %}background:#f8fafc;border:1.5px solid #e2e8f0;{% endif %}">
+                    <span style="font-size:12px;font-weight:600;color:#334155;">Time Synchronization</span>
+                    {% if s.time_sync == 'OK' %}<span style="font-size:11px;font-weight:700;color:#065f46;background:#dcfce7;padding:2px 9px;border-radius:20px;">&#10003; OK</span>
+                    {% elif s.time_sync == 'NOK' %}<span style="font-size:11px;font-weight:700;color:#991b1b;background:#fee2e2;padding:2px 9px;border-radius:20px;">&#10007; NOK</span>
+                    {% else %}<span style="color:#94a3b8;">&#8212;</span>{% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Komunikasi ── -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="d-flex align-items-center gap-2 mb-3">
+            <span style="width:5px;height:18px;background:#8b5cf6;border-radius:3px;display:inline-block;"></span>
+            <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#64748b;">
+                <i class="bi bi-ethernet me-1" style="color:#8b5cf6;"></i>Komunikasi
+            </h6>
+        </div>
+        <div class="row g-3">
+            <!-- Copper -->
+            <div class="col-md-4">
+                <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:12px 14px;">
+                    <div style="font-size:11px;font-weight:700;color:#1d4ed8;margin-bottom:8px;">Copper</div>
+                    <div class="d-flex align-items-center justify-content-between">
+                        <span style="font-size:12px;color:#475569;">Jumlah</span>
+                        <span style="font-size:16px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#0f172a;">{{ s.copper_jumlah|default:"—" }}</span>
+                    </div>
+                    <div class="d-flex align-items-center justify-content-between mt-1">
+                        <span style="font-size:12px;color:#475569;">Kondisi</span>
+                        {% if s.copper_kondisi == 'OK' %}<span style="font-size:11px;font-weight:700;color:#065f46;background:#dcfce7;padding:2px 9px;border-radius:20px;">OK</span>
+                        {% elif s.copper_kondisi == 'ALARM' %}<span style="font-size:11px;font-weight:700;color:#991b1b;background:#fee2e2;padding:2px 9px;border-radius:20px;">ALARM</span>
+                        {% else %}<span style="color:#94a3b8;">&#8212;</span>{% endif %}
+                    </div>
+                </div>
+            </div>
+            <!-- FO -->
+            <div class="col-md-4">
+                <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px 14px;">
+                    <div style="font-size:11px;font-weight:700;color:#15803d;margin-bottom:8px;">Fiber Optik (FO)</div>
+                    <div class="d-flex align-items-center justify-content-between">
+                        <span style="font-size:12px;color:#475569;">Jumlah</span>
+                        <span style="font-size:16px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#0f172a;">{{ s.fo_jumlah|default:"—" }}</span>
+                    </div>
+                    <div class="d-flex align-items-center justify-content-between mt-1">
+                        <span style="font-size:12px;color:#475569;">Kondisi</span>
+                        {% if s.fo_kondisi == 'OK' %}<span style="font-size:11px;font-weight:700;color:#065f46;background:#dcfce7;padding:2px 9px;border-radius:20px;">OK</span>
+                        {% elif s.fo_kondisi == 'ALARM' %}<span style="font-size:11px;font-weight:700;color:#991b1b;background:#fee2e2;padding:2px 9px;border-radius:20px;">ALARM</span>
+                        {% else %}<span style="color:#94a3b8;">&#8212;</span>{% endif %}
+                    </div>
+                </div>
+            </div>
+            <!-- Komunikasi lainnya -->
+            {% if s.komm_1 or s.komm_2 %}
+            <div class="col-md-4">
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;">
+                    <div style="font-size:11px;font-weight:700;color:#475569;margin-bottom:8px;">Komunikasi Lainnya</div>
+                    {% if s.komm_1 %}<div style="font-size:12px;color:#334155;margin-bottom:4px;"><span style="color:#94a3b8;">1.</span> {{ s.komm_1 }}</div>{% endif %}
+                    {% if s.komm_2 %}<div style="font-size:12px;color:#334155;"><span style="color:#94a3b8;">2.</span> {{ s.komm_2 }}</div>{% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% endwith %}
+{% endif %}

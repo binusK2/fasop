@@ -889,6 +889,10 @@
         {% include 'maintenance/roip_detail_section.html' %}
         {% endif %}
 
+        {% if ms_detail %}
+        {% include 'maintenance/master_station_detail_section.html' %}
+        {% endif %}
+
         <!-- ═══════════════ DETAIL UPS ═══════════════ -->
         {% if ups_detail %}
         <div class="card mb-3">
