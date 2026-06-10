@@ -37,6 +37,8 @@ _TEMPLATE_MAP = {
     'SAS':                 'maintenance/pdf/sas.html',
     'SERVER SCADA':        'maintenance/pdf/sas.html',
     'GATEWAY SAS':         'maintenance/pdf/sas.html',
+    'MASTER STATION':      'maintenance/pdf/master_station.html',
+    'WORKSTATION SCADA':   'maintenance/pdf/master_station.html',
     'ROIP':                'maintenance/pdf/roip.html',
     'UPS':                 'maintenance/pdf/ups.html',
     'UFLS':            'maintenance/pdf/ufls.html',
@@ -61,9 +63,11 @@ _TITLES = {
     'CATU DAYA':    'Formulir Pemeliharaan Peralatan Rectifier dan Battery',
     'RTU':          'Formulir Pemeliharaan Peralatan RTU AK3',
     'RTU_GENERIC':  'Formulir Pemeliharaan Peralatan RTU',
-    'SAS':          'Formulir Pemeliharaan Peralatan SAS / Server SCADA',
-    'SERVER SCADA': 'Formulir Pemeliharaan Peralatan Server SCADA',
-    'GATEWAY SAS':  'Formulir Pemeliharaan Peralatan Gateway SAS',
+    'SAS':               'Formulir Pemeliharaan Peralatan SAS / Server SCADA',
+    'SERVER SCADA':      'Formulir Pemeliharaan Peralatan Server SCADA',
+    'GATEWAY SAS':       'Formulir Pemeliharaan Peralatan Gateway SAS',
+    'MASTER STATION':    'Formulir Pemeliharaan Server / Workstation Master Station',
+    'WORKSTATION SCADA': 'Formulir Pemeliharaan Server / Workstation SCADA',
     'ROIP':         'Formulir Pemeliharaan Peralatan RoIP',
     'UPS':          'Formulir Pemeliharaan Peralatan UPS',
     'UFLS':            'Form Checklist Frequency Relay — UFLS',
@@ -96,6 +100,8 @@ _DOC_CODES = {
     'SAS':                 '',
     'SERVER SCADA':        '',
     'GATEWAY SAS':         '',
+    'MASTER STATION':      'UP2B_FML_04_1002',
+    'WORKSTATION SCADA':   'UP2B_FML_04_1002',
     'ROIP':                '',
     'UPS':                 '',
     'UFLS':            '',
@@ -496,6 +502,12 @@ _CTX_BUILDERS['RTU_GENERIC'] = _ctx_sas
 def _ctx_roip(data, ctx):
     ctx.update({'roip': data.get('roip', {})})
 
+
+def _ctx_master_station(data, ctx):
+    ctx.update({'ms': data.get('ms', {})})
+
+_CTX_BUILDERS['MASTER STATION']    = _ctx_master_station
+_CTX_BUILDERS['WORKSTATION SCADA'] = _ctx_master_station
 
 _CTX_BUILDERS['ROIP'] = _ctx_roip
 

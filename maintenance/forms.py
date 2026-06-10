@@ -1,5 +1,5 @@
 from django import forms
-from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset, MaintenanceRTU, MaintenanceSAS, MaintenanceRTUGeneric, MaintenanceRoIP, MaintenanceUPS, MaintenanceMasterTrip, MaintenanceDFR
+from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset, MaintenanceRTU, MaintenanceSAS, MaintenanceRTUGeneric, MaintenanceRoIP, MaintenanceUPS, MaintenanceMasterTrip, MaintenanceDFR, MaintenanceMasterStation
 
 
 # ─── Widget helpers ───────────────────────────────────────────────────
@@ -910,4 +910,53 @@ class MaintenanceDFRForm(forms.ModelForm):
             'bay2_ied_v_r': _DFR_TXT, 'bay2_ied_v_s': _DFR_TXT, 'bay2_ied_v_t': _DFR_TXT, 'bay2_ied_v_n': _DFR_TXT,
             'bay2_ied_i_r': _DFR_TXT, 'bay2_ied_i_s': _DFR_TXT, 'bay2_ied_i_t': _DFR_TXT, 'bay2_ied_i_n': _DFR_TXT,
             'bay2_ied_hz':  _DFR_TXT,
+        }
+
+# ─────────────────────────────────────────────────────────────────────
+# MASTER STATION / WORKSTATION SCADA
+# ─────────────────────────────────────────────────────────────────────
+_MS_SEL = {'class': 'form-select form-select-sm', 'style': 'display:none;'}
+_MS_TXT = forms.TextInput(attrs={'class': 'form-control form-control-sm'})
+_MS_NUM = forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'min': '0'})
+
+class MaintenanceMasterStationForm(forms.ModelForm):
+    class Meta:
+        model   = MaintenanceMasterStation
+        exclude = ['maintenance']
+        widgets = {
+            # Spesifikasi
+            'spek_merk':         forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
+            'spek_type':         forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
+            'spek_os':           forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
+            'spek_firmware':     forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
+            'spek_config_ver':   forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
+            'spek_ip':           forms.TextInput(attrs={'class': 'form-control form-control-sm', 'placeholder': '192.168.x.x'}),
+            # Kondisi
+            'kondisi_server':    forms.Select(attrs=_MS_SEL),
+            'kondisi_panel':     forms.Select(attrs=_MS_SEL),
+            'temp_ruangan':      forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': '°C'}),
+            'temp_peralatan':    forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': '°C'}),
+            'kondisi_sebelum':   forms.Select(attrs=_MS_SEL),
+            'kondisi_sesudah':   forms.Select(attrs=_MS_SEL),
+            'power_supply':      forms.Select(attrs=_MS_SEL),
+            'power_supply_jml':  forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'min': '0', 'placeholder': 'Jumlah'}),
+            'fan_processor':     forms.Select(attrs=_MS_SEL),
+            'fan_processor_jml': forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'min': '0', 'placeholder': 'Jumlah'}),
+            # Performa
+            'cpu_merk':          forms.TextInput(attrs={'class': 'form-control form-control-sm', 'placeholder': 'Merk / Jumlah'}),
+            'ram_merk':          forms.TextInput(attrs={'class': 'form-control form-control-sm', 'placeholder': 'Merk / Jumlah'}),
+            'ram_kapasitas':     forms.TextInput(attrs={'class': 'form-control form-control-sm', 'placeholder': 'Kapasitas / Terpakai'}),
+            'storage_merk':      forms.TextInput(attrs={'class': 'form-control form-control-sm', 'placeholder': 'Merk / Jumlah'}),
+            'storage_kapasitas': forms.TextInput(attrs={'class': 'form-control form-control-sm', 'placeholder': 'Kapasitas / Terpakai'}),
+            'vga_merk':          forms.TextInput(attrs={'class': 'form-control form-control-sm', 'placeholder': 'Merk'}),
+            'vga_kondisi':       forms.Select(attrs=_MS_SEL),
+            'indikasi_alarm':    forms.Select(attrs=_MS_SEL),
+            'time_sync':         forms.Select(attrs=_MS_SEL),
+            # Komunikasi
+            'copper_jumlah':     forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'min': '0'}),
+            'copper_kondisi':    forms.Select(attrs=_MS_SEL),
+            'fo_jumlah':         forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'min': '0'}),
+            'fo_kondisi':        forms.Select(attrs=_MS_SEL),
+            'komm_1':            forms.TextInput(attrs={'class': 'form-control form-control-sm', 'placeholder': 'Komunikasi 1'}),
+            'komm_2':            forms.TextInput(attrs={'class': 'form-control form-control-sm', 'placeholder': 'Komunikasi 2'}),
         }

@@ -1428,6 +1428,70 @@ class BeritaAcaraRecord(models.Model):
         return f'{self.get_jenis_display()} — {self.nomor_ba or "(tanpa nomor)"}'
 
 
+class MaintenanceMasterStation(models.Model):
+
+    BERSIH_CHOICES = (('BERSIH', 'Bersih'), ('TIDAK BERSIH', 'Tidak Bersih'),)
+    OK_NOK         = (('OK', 'OK'), ('NOK', 'NOK'),)
+    OK_ALARM       = (('OK', 'OK'), ('ALARM', 'Alarm'),)
+    ADA_CHOICES    = (('ADA', 'Ada'), ('TIDAK ADA', 'Tidak Ada'),)
+    KONDISI_CHOICES = (
+        ('PC/SB/TR/ON', 'PC / SB / TR / ON'),
+        ('NC/OFF',      'NC / OFF'),
+    )
+    FAN_PS_CHOICES = (
+        ('ADA, BERFUNGSI',       'Ada, Berfungsi'),
+        ('ADA, TIDAK BERFUNGSI', 'Ada, Tidak Berfungsi'),
+        ('TIDAK ADA',            'Tidak Ada'),
+    )
+
+    maintenance = models.OneToOneField(
+        Maintenance, on_delete=models.CASCADE,
+        related_name='maintenancemasterstation'
+    )
+
+    # ── Spesifikasi ──────────────────────────────────────────────────────
+    spek_merk         = models.CharField(max_length=100, blank=True, default='', verbose_name='Merk')
+    spek_type         = models.CharField(max_length=100, blank=True, default='', verbose_name='Type')
+    spek_os           = models.CharField(max_length=100, blank=True, default='', verbose_name='Operating System')
+    spek_firmware     = models.CharField(max_length=100, blank=True, default='', verbose_name='Firmware Version')
+    spek_config_ver   = models.CharField(max_length=100, blank=True, default='', verbose_name='Configuration Version')
+    spek_ip           = models.CharField(max_length=50,  blank=True, default='', verbose_name='IP Address')
+
+    # ── Kondisi Peralatan ─────────────────────────────────────────────────
+    kondisi_server    = models.CharField(max_length=20, blank=True, default='', choices=BERSIH_CHOICES, verbose_name='Server / Workstation')
+    kondisi_panel     = models.CharField(max_length=20, blank=True, default='', choices=BERSIH_CHOICES, verbose_name='Panel')
+    temp_ruangan      = models.FloatField(null=True, blank=True, verbose_name='Temperatur Ruangan (°C)')
+    temp_peralatan    = models.FloatField(null=True, blank=True, verbose_name='Temperatur Peralatan (°C)')
+    kondisi_sebelum   = models.CharField(max_length=20, blank=True, default='', choices=KONDISI_CHOICES, verbose_name='Kondisi Sebelum')
+    kondisi_sesudah   = models.CharField(max_length=20, blank=True, default='', choices=KONDISI_CHOICES, verbose_name='Kondisi Sesudah')
+    power_supply      = models.CharField(max_length=30, blank=True, default='', choices=FAN_PS_CHOICES, verbose_name='Power Supply')
+    power_supply_jml  = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name='Jumlah Power Supply')
+    fan_processor     = models.CharField(max_length=30, blank=True, default='', choices=FAN_PS_CHOICES, verbose_name='Fan Processor')
+    fan_processor_jml = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name='Jumlah Fan Processor')
+
+    # ── Performa Peralatan ────────────────────────────────────────────────
+    cpu_merk          = models.CharField(max_length=100, blank=True, default='', verbose_name='CPU Merk/Jumlah')
+    ram_merk          = models.CharField(max_length=100, blank=True, default='', verbose_name='RAM Merk/Jumlah')
+    ram_kapasitas     = models.CharField(max_length=100, blank=True, default='', verbose_name='RAM Kapasitas/Terpakai')
+    storage_merk      = models.CharField(max_length=100, blank=True, default='', verbose_name='Storage Merk/Jumlah')
+    storage_kapasitas = models.CharField(max_length=100, blank=True, default='', verbose_name='Storage Kapasitas/Terpakai')
+    vga_merk          = models.CharField(max_length=100, blank=True, default='', verbose_name='VGA Card Merk')
+    vga_kondisi       = models.CharField(max_length=10,  blank=True, default='', choices=OK_NOK,  verbose_name='VGA Card Kondisi')
+    indikasi_alarm    = models.CharField(max_length=15,  blank=True, default='', choices=ADA_CHOICES, verbose_name='Indikasi Alarm/Error')
+    time_sync         = models.CharField(max_length=10,  blank=True, default='', choices=OK_NOK,  verbose_name='Time Synchronization')
+
+    # ── Komunikasi ────────────────────────────────────────────────────────
+    copper_jumlah     = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name='Copper — Jumlah')
+    copper_kondisi    = models.CharField(max_length=10, blank=True, default='', choices=OK_ALARM, verbose_name='Copper — Kondisi')
+    fo_jumlah         = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name='FO — Jumlah')
+    fo_kondisi        = models.CharField(max_length=10, blank=True, default='', choices=OK_ALARM, verbose_name='FO — Kondisi')
+    komm_1            = models.CharField(max_length=200, blank=True, default='', verbose_name='Komunikasi 1')
+    komm_2            = models.CharField(max_length=200, blank=True, default='', verbose_name='Komunikasi 2')
+
+    class Meta:
+        verbose_name = 'Maintenance Master Station'
+
+
 class BeritaAcaraEviden(models.Model):
     ba      = models.ForeignKey(BeritaAcaraRecord, on_delete=models.CASCADE, related_name='evidens')
     gambar  = models.ImageField(upload_to=ba_eviden_upload)

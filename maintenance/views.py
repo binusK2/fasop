@@ -3,8 +3,8 @@ from django.urls import reverse
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.clickjacking import xframe_options_exempt
 from devices.permissions import require_can_edit, require_can_delete, is_viewer_only
-from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset, MaintenanceRTU, MaintenanceSAS, MaintenanceRTUGeneric, MaintenanceRoIP, MaintenanceUPS, MaintenanceFrequencyRelay, MaintenanceMasterTrip, MaintenanceDFR, BeritaAcaraRecord, BeritaAcaraEviden
-from .forms import MaintenanceForm, MaintenancePLCForm, MaintenanceRouterForm, MaintenanceRadioForm, MaintenanceVoIPForm, MaintenanceMuxForm, MaintenanceRectifierForm, MaintenanceTeleproteksiForm, MaintenanceGensetForm, MaintenanceRTUForm, MaintenanceSASForm, MaintenanceRTUGenericForm, MaintenanceRoIPForm, MaintenanceUPSForm, MaintenanceFrequencyRelayForm, MaintenanceMasterTripForm, MaintenanceDFRForm
+from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset, MaintenanceRTU, MaintenanceSAS, MaintenanceRTUGeneric, MaintenanceRoIP, MaintenanceUPS, MaintenanceFrequencyRelay, MaintenanceMasterTrip, MaintenanceDFR, MaintenanceMasterStation, BeritaAcaraRecord, BeritaAcaraEviden
+from .forms import MaintenanceForm, MaintenancePLCForm, MaintenanceRouterForm, MaintenanceRadioForm, MaintenanceVoIPForm, MaintenanceMuxForm, MaintenanceRectifierForm, MaintenanceTeleproteksiForm, MaintenanceGensetForm, MaintenanceRTUForm, MaintenanceSASForm, MaintenanceRTUGenericForm, MaintenanceRoIPForm, MaintenanceUPSForm, MaintenanceFrequencyRelayForm, MaintenanceMasterTripForm, MaintenanceDFRForm, MaintenanceMasterStationForm
 from devices.models import Device, DeviceType
 from gangguan.models import Gangguan
 from inspection.models import InspectionCatuDaya
@@ -56,6 +56,10 @@ DEVICE_FORM_MAP = {
     'RELE DEFENSE SCHEME': (MaintenanceMasterTripForm, 'maintenance/master_trip_form.html'),
     'DFR':             (MaintenanceDFRForm, 'maintenance/dfr_form.html'),
     'PMU':             (MaintenanceDFRForm, 'maintenance/dfr_form.html'),
+    'Master Station':    (MaintenanceMasterStationForm, 'maintenance/master_station_form.html'),
+    'MASTER STATION':    (MaintenanceMasterStationForm, 'maintenance/master_station_form.html'),
+    'Workstation SCADA': (MaintenanceMasterStationForm, 'maintenance/master_station_form.html'),
+    'WORKSTATION SCADA': (MaintenanceMasterStationForm, 'maintenance/master_station_form.html'),
 }
 
 DEFAULT_TEMPLATE = 'maintenance/maintenance_form.html'
@@ -88,6 +92,22 @@ def _build_sas_context(dform):
             (dform['komm_master'],    'Komunikasi ke Master Station'),
             (dform['komm_ied'],       'Komunikasi ke IED'),
             (dform['time_sync'],      'Time Synchronization'),
+        ],
+    }
+
+
+def _build_ms_context(dform):
+    """Build extra context untuk template master_station_form.html."""
+    if dform is None or dform.__class__.__name__ != 'MaintenanceMasterStationForm':
+        return {}
+    return {
+        'spek_items': [
+            ('Merk',                  dform['spek_merk']),
+            ('Type',                  dform['spek_type']),
+            ('Operating System',      dform['spek_os']),
+            ('Firmware Version',      dform['spek_firmware']),
+            ('Configuration Version', dform['spek_config_ver']),
+            ('IP Address',            dform['spek_ip']),
         ],
     }
 
@@ -202,6 +222,7 @@ def maintenance_create(request, device_id):
             slot_fields.append((letter, dform['slot_' + l + '_modul'], dform['slot_' + l + '_isian']))
 
     sas_ctx = _build_sas_context(dform)
+    ms_ctx  = _build_ms_context(dform)
 
     return render(request, template, {
         'maintenance_form': mform,
@@ -209,6 +230,7 @@ def maintenance_create(request, device_id):
         'device':           device,
         'slot_fields':      slot_fields,
         **sas_ctx,
+        **ms_ctx,
     })
 
 
@@ -353,6 +375,13 @@ def maintenance_detail(request, pk):
         try:
             freq_relay_detail = maintenance.maintenancefrequencyrelay
         except MaintenanceFrequencyRelay.DoesNotExist:
+            pass
+
+    ms_detail = None
+    if device_type in ('Master Station', 'MASTER STATION', 'Workstation SCADA', 'WORKSTATION SCADA'):
+        try:
+            ms_detail = maintenance.maintenancemasterstation
+        except MaintenanceMasterStation.DoesNotExist:
             pass
 
     master_trip_detail = None
@@ -542,6 +571,7 @@ def maintenance_detail(request, pk):
         'genset_detail': genset_detail,
         'rtu_detail':    rtu_detail,
         'sas_detail':    sas_detail,
+        'ms_detail':     ms_detail,
         # (label, val, ok_val, nok_val)
         'sas_kondisi_rows': [
             ('Kondisi RTU' if is_rtu_generic else 'Kondisi Server/Gateway', sas_detail.kondisi_server,  'BERSIH', 'TIDAK BERSIH'),
@@ -746,6 +776,8 @@ def maintenance_edit(request, pk):
                 detail_instance = maintenance.maintenancemastertrip
             elif detail_form_class.__name__ == 'MaintenanceDFRForm':
                 detail_instance = maintenance.maintenancedfr
+            elif detail_form_class.__name__ == 'MaintenanceMasterStationForm':
+                detail_instance = maintenance.maintenancemasterstation
         except Exception:
             pass
 
@@ -787,6 +819,7 @@ def maintenance_edit(request, pk):
             slot_fields_edit.append((letter, dform['slot_' + l + '_modul'], dform['slot_' + l + '_isian']))
 
     sas_ctx = _build_sas_context(dform)
+    ms_ctx  = _build_ms_context(dform)
 
     return render(request, edit_template, {
         'maintenance_form': mform,
@@ -797,6 +830,7 @@ def maintenance_edit(request, pk):
         'slot_fields':      slot_fields_edit,
         'pelaksana_names_json': json.dumps(maintenance.pelaksana_names or []),
         **sas_ctx,
+        **ms_ctx,
     })
 
 # ─────────────────────────────────────────────────────────────────────
@@ -1650,6 +1684,10 @@ def export_maintenance_pdf(request, pk):
     elif device_kind in ('UFLS', 'UFR ISLAND', 'OFGS', 'CDSAS', 'FREQUENCY RELAY'):
         freq_relay_detail = _try(lambda: maintenance.maintenancefrequencyrelay)
 
+    ms_detail = None
+    if device_kind in ('MASTER STATION', 'WORKSTATION SCADA'):
+        ms_detail = _try(lambda: maintenance.maintenancemasterstation)
+
     # Corrective detail
     corrective_detail = None
     if maintenance.maintenance_type == 'Corrective':
@@ -2018,6 +2056,40 @@ def export_maintenance_pdf(request, pk):
             'ps_teg_output':   _g(sas_detail, 'ps_teg_output'),
             'ps_arus_output':  _g(sas_detail, 'ps_arus_output'),
         } if sas_detail else {},
+
+        'ms': {
+            'spek_merk':         _g(ms_detail, 'spek_merk', ''),
+            'spek_type':         _g(ms_detail, 'spek_type', ''),
+            'spek_os':           _g(ms_detail, 'spek_os', ''),
+            'spek_firmware':     _g(ms_detail, 'spek_firmware', ''),
+            'spek_config_ver':   _g(ms_detail, 'spek_config_ver', ''),
+            'spek_ip':           _g(ms_detail, 'spek_ip', ''),
+            'kondisi_server':    _g(ms_detail, 'kondisi_server', ''),
+            'kondisi_panel':     _g(ms_detail, 'kondisi_panel', ''),
+            'temp_ruangan':      _g(ms_detail, 'temp_ruangan'),
+            'temp_peralatan':    _g(ms_detail, 'temp_peralatan'),
+            'kondisi_sebelum':   _g(ms_detail, 'kondisi_sebelum', ''),
+            'kondisi_sesudah':   _g(ms_detail, 'kondisi_sesudah', ''),
+            'power_supply':      _g(ms_detail, 'power_supply', ''),
+            'power_supply_jml':  _g(ms_detail, 'power_supply_jml'),
+            'fan_processor':     _g(ms_detail, 'fan_processor', ''),
+            'fan_processor_jml': _g(ms_detail, 'fan_processor_jml'),
+            'cpu_merk':          _g(ms_detail, 'cpu_merk', ''),
+            'ram_merk':          _g(ms_detail, 'ram_merk', ''),
+            'ram_kapasitas':     _g(ms_detail, 'ram_kapasitas', ''),
+            'storage_merk':      _g(ms_detail, 'storage_merk', ''),
+            'storage_kapasitas': _g(ms_detail, 'storage_kapasitas', ''),
+            'vga_merk':          _g(ms_detail, 'vga_merk', ''),
+            'vga_kondisi':       _g(ms_detail, 'vga_kondisi', ''),
+            'indikasi_alarm':    _g(ms_detail, 'indikasi_alarm', ''),
+            'time_sync':         _g(ms_detail, 'time_sync', ''),
+            'copper_jumlah':     _g(ms_detail, 'copper_jumlah'),
+            'copper_kondisi':    _g(ms_detail, 'copper_kondisi', ''),
+            'fo_jumlah':         _g(ms_detail, 'fo_jumlah'),
+            'fo_kondisi':        _g(ms_detail, 'fo_kondisi', ''),
+            'komm_1':            _g(ms_detail, 'komm_1', ''),
+            'komm_2':            _g(ms_detail, 'komm_2', ''),
+        } if ms_detail else {},
 
         'roip': {
             'kondisi_fisik':    _g(roip_detail, 'kondisi_fisik', ''),

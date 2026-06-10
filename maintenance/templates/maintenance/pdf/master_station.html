@@ -1,0 +1,152 @@
+{% extends 'maintenance/pdf/_base.html' %}
+{% block extra_css %}
+@page { margin: 8mm 10mm 14mm 10mm; }
+body  { font-size: 7pt; }
+table { font-size: 7pt; }
+td, th { padding: 1.5pt 3pt; }
+.sec  { padding: 2pt 5pt; margin-top: 1.5mm; font-size: 7pt; }
+.two-col { gap: 1.5mm; }
+.peng { margin-top: 4mm; }
+.ttd  { min-height: 20mm; }
+.bersih { background:#DCFCE7; color:#166534; font-weight:bold; text-align:center; }
+.kotor  { background:#FEE2E2; color:#991B1B; font-weight:bold; text-align:center; }
+.ok     { background:#DCFCE7; color:#166534; font-weight:bold; text-align:center; }
+.nok    { background:#FEE2E2; color:#991B1B; font-weight:bold; text-align:center; }
+.alarm  { background:#FEE2E2; color:#991B1B; font-weight:bold; text-align:center; }
+.ada    { background:#DCFCE7; color:#166534; font-weight:bold; text-align:center; }
+.tdk    { background:#FEF9C3; color:#854D0E; font-weight:bold; text-align:center; }
+.mn     { font-family:Courier,monospace; font-weight:bold; text-align:right; padding-right:3pt; }
+{% endblock %}
+
+{% block content %}
+
+{# ── SPESIFIKASI ── #}
+<div class="sec">II.&nbsp;&nbsp;SPESIFIKASI PERALATAN</div>
+<table style="width:60%;">
+    <tr><td class="lbl" style="width:38%;">Merk</td><td>{{ ms.spek_merk|default:"-" }}</td></tr>
+    <tr class="alt"><td class="lbl">Type</td><td>{{ ms.spek_type|default:"-" }}</td></tr>
+    <tr><td class="lbl">Operating System</td><td>{{ ms.spek_os|default:"-" }}</td></tr>
+    <tr class="alt"><td class="lbl">Firmware Version</td><td>{{ ms.spek_firmware|default:"-" }}</td></tr>
+    <tr><td class="lbl">Configuration Version</td><td>{{ ms.spek_config_ver|default:"-" }}</td></tr>
+    <tr class="alt"><td class="lbl">IP Address</td><td>{{ ms.spek_ip|default:"-" }}</td></tr>
+</table>
+
+{# ── KONDISI PERALATAN ── #}
+<div class="sec">III.&nbsp;&nbsp;KONDISI PERALATAN</div>
+<table style="width:100%;">
+    <thead>
+        <tr style="background:#f1f5f9;">
+            <th style="width:28%;">Parameter</th>
+            <th style="width:18%;text-align:center;">Nilai</th>
+            <th style="width:28%;">Parameter</th>
+            <th style="width:26%;text-align:center;">Nilai</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td class="lbl">Server / Workstation</td>
+            <td class="{% if ms.kondisi_server == 'BERSIH' %}bersih{% elif ms.kondisi_server %}kotor{% endif %}">{{ ms.kondisi_server|default:"-" }}</td>
+            <td class="lbl">Panel</td>
+            <td class="{% if ms.kondisi_panel == 'BERSIH' %}bersih{% elif ms.kondisi_panel %}kotor{% endif %}">{{ ms.kondisi_panel|default:"-" }}</td>
+        </tr>
+        <tr class="alt">
+            <td class="lbl">Temp. Ruangan</td>
+            <td class="mn">{% if ms.temp_ruangan is not None %}{{ ms.temp_ruangan }} °C{% else %}-{% endif %}</td>
+            <td class="lbl">Temp. Peralatan</td>
+            <td class="mn">{% if ms.temp_peralatan is not None %}{{ ms.temp_peralatan }} °C{% else %}-{% endif %}</td>
+        </tr>
+        <tr>
+            <td class="lbl">Kondisi Sebelum</td>
+            <td class="{% if ms.kondisi_sebelum == 'PC/SB/TR/ON' %}ok{% elif ms.kondisi_sebelum %}nok{% endif %}">{{ ms.kondisi_sebelum|default:"-" }}</td>
+            <td class="lbl">Kondisi Sesudah</td>
+            <td class="{% if ms.kondisi_sesudah == 'PC/SB/TR/ON' %}ok{% elif ms.kondisi_sesudah %}nok{% endif %}">{{ ms.kondisi_sesudah|default:"-" }}</td>
+        </tr>
+        <tr class="alt">
+            <td class="lbl">Power Supply</td>
+            <td class="{% if ms.power_supply == 'ADA, BERFUNGSI' %}ok{% elif ms.power_supply == 'ADA, TIDAK BERFUNGSI' %}nok{% elif ms.power_supply %}tdk{% endif %}">
+                {{ ms.power_supply|default:"-" }}{% if ms.power_supply_jml %} ({{ ms.power_supply_jml }}){% endif %}
+            </td>
+            <td class="lbl">Fan Processor</td>
+            <td class="{% if ms.fan_processor == 'ADA, BERFUNGSI' %}ok{% elif ms.fan_processor == 'ADA, TIDAK BERFUNGSI' %}nok{% elif ms.fan_processor %}tdk{% endif %}">
+                {{ ms.fan_processor|default:"-" }}{% if ms.fan_processor_jml %} ({{ ms.fan_processor_jml }}){% endif %}
+            </td>
+        </tr>
+    </tbody>
+</table>
+
+{# ── PERFORMA PERALATAN ── #}
+<div class="sec">IV.&nbsp;&nbsp;PERFORMA PERALATAN</div>
+<table style="width:100%;">
+    <thead>
+        <tr style="background:#f1f5f9;">
+            <th style="width:22%;">Komponen</th>
+            <th style="width:28%;">Merk / Jumlah</th>
+            <th style="width:28%;">Kapasitas / Terpakai</th>
+            <th style="width:22%;text-align:center;">Kondisi</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td class="lbl">CPU</td>
+            <td>{{ ms.cpu_merk|default:"-" }}</td>
+            <td>-</td>
+            <td>-</td>
+        </tr>
+        <tr class="alt">
+            <td class="lbl">RAM</td>
+            <td>{{ ms.ram_merk|default:"-" }}</td>
+            <td>{{ ms.ram_kapasitas|default:"-" }}</td>
+            <td>-</td>
+        </tr>
+        <tr>
+            <td class="lbl">Storage</td>
+            <td>{{ ms.storage_merk|default:"-" }}</td>
+            <td>{{ ms.storage_kapasitas|default:"-" }}</td>
+            <td>-</td>
+        </tr>
+        <tr class="alt">
+            <td class="lbl">VGA Card</td>
+            <td>{{ ms.vga_merk|default:"-" }}</td>
+            <td>-</td>
+            <td class="{% if ms.vga_kondisi == 'OK' %}ok{% elif ms.vga_kondisi == 'NOK' %}nok{% endif %}">{{ ms.vga_kondisi|default:"-" }}</td>
+        </tr>
+    </tbody>
+</table>
+
+<div class="two-col" style="margin-top:1.5mm;">
+    <table style="width:100%;">
+        <tr><td class="lbl" style="width:50%;">Indikasi Alarm / Error</td>
+            <td class="{% if ms.indikasi_alarm == 'TIDAK ADA' %}ok{% elif ms.indikasi_alarm == 'ADA' %}alarm{% endif %}">{{ ms.indikasi_alarm|default:"-" }}</td></tr>
+        <tr class="alt"><td class="lbl">Time Synchronization</td>
+            <td class="{% if ms.time_sync == 'OK' %}ok{% elif ms.time_sync == 'NOK' %}nok{% endif %}">{{ ms.time_sync|default:"-" }}</td></tr>
+    </table>
+</div>
+
+{# ── KOMUNIKASI ── #}
+<div class="sec">V.&nbsp;&nbsp;KOMUNIKASI</div>
+<table style="width:100%;">
+    <thead>
+        <tr style="background:#f1f5f9;">
+            <th style="width:30%;">Media</th>
+            <th style="width:20%;text-align:center;">Jumlah</th>
+            <th style="width:20%;text-align:center;">Kondisi</th>
+            <th style="width:30%;">Keterangan</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td class="lbl">Copper</td>
+            <td class="mn">{{ ms.copper_jumlah|default:"-" }}</td>
+            <td class="{% if ms.copper_kondisi == 'OK' %}ok{% elif ms.copper_kondisi == 'ALARM' %}alarm{% endif %}">{{ ms.copper_kondisi|default:"-" }}</td>
+            <td>{{ ms.komm_1|default:"-" }}</td>
+        </tr>
+        <tr class="alt">
+            <td class="lbl">Fiber Optik (FO)</td>
+            <td class="mn">{{ ms.fo_jumlah|default:"-" }}</td>
+            <td class="{% if ms.fo_kondisi == 'OK' %}ok{% elif ms.fo_kondisi == 'ALARM' %}alarm{% endif %}">{{ ms.fo_kondisi|default:"-" }}</td>
+            <td>{{ ms.komm_2|default:"-" }}</td>
+        </tr>
+    </tbody>
+</table>
+
+{% endblock %}

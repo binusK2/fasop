@@ -1,0 +1,395 @@
+{% extends 'base.html' %}
+{% block title %}{% if is_edit %}Edit{% else %}Form{% endif %} Maintenance Master Station — {{ device.nama }}{% endblock %}
+{% block page_title %}{% if is_edit %}Edit{% else %}Form{% endif %} Maintenance Master Station{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center gap-2 mb-3">
+    {% if is_edit %}
+    <a href="{% url 'maintenance_view' maintenance.id %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Kembali ke Detail</a>
+    {% else %}
+    <a href="{% url 'device_view' device.id %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Kembali ke Perangkat</a>
+    {% endif %}
+</div>
+
+{% include 'maintenance/_device_banner.html' with banner_icon='bi-pc-display' banner_icon_color='#6ee7b7' banner_icon_bg='rgba(16,185,129,0.2)' %}
+
+<form method="post" enctype="multipart/form-data" id="ms-form"
+    {% if is_edit %}action="{% url 'maintenance_edit' maintenance.id %}"{% endif %}>
+{% csrf_token %}
+
+<style>
+.ms-sec {
+    font-size: 13px; font-weight: 700; color: #0f172a;
+    padding: 6px 0 10px; margin-bottom: 14px;
+    border-bottom: 2px solid var(--c, #e2e8f0);
+    display: flex; align-items: center; gap: 8px;
+}
+.ms-sec::before { content:''; width:4px; height:16px; border-radius:3px; background:var(--c,#94a3b8); }
+.ms-card {
+    background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px;
+    padding: 12px 14px; height: 100%;
+}
+.ms-lbl { font-size: 11px; font-weight: 600; color: #64748b; margin-bottom: 6px; }
+.ms-tog-wrap { display: flex; flex-wrap: wrap; gap: 5px; }
+.ms-tog {
+    font-size: 11px; font-weight: 600; padding: 4px 10px;
+    border-radius: 6px; border: 1.5px solid #e2e8f0;
+    background: #fff; cursor: pointer; transition: all .15s;
+}
+.ms-tog.ok   { color:#16a34a; }
+.ms-tog.nok  { color:#dc2626; }
+.ms-tog.warn { color:#d97706; }
+.ms-tog.active.ok   { background:#dcfce7; border-color:#16a34a; }
+.ms-tog.active.nok  { background:#fee2e2; border-color:#dc2626; }
+.ms-tog.active.warn { background:#fef3c7; border-color:#d97706; }
+.ms-row-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 0; border-bottom: 1px solid #f1f5f9;
+}
+.ms-row-lbl { font-size: 12px; font-weight: 600; color: #475569; min-width: 140px; }
+.ms-unit { background: #f1f5f9; border-color: #e2e8f0; font-size: 11px; }
+</style>
+
+<!-- ══ 1. INFORMASI MAINTENANCE ══ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-title-bar">
+            <span class="bar" style="background:#3b82f6;"></span><span>Informasi Maintenance</span>
+        </div>
+        <div class="row g-3 align-items-start">
+            <div class="col-md-2">
+                <label class="form-label fw-semibold">Jenis Maintenance</label>
+                <div style="display:flex;align-items:center;gap:6px;background:#eff6ff;color:#1d4ed8;border:1.5px solid #bfdbfe;border-radius:8px;padding:8px 12px;font-size:13px;font-weight:700;">
+                    <i class="bi bi-shield-check" style="font-size:14px;"></i> Preventive
+                </div>
+                <input type="hidden" name="maintenance_type" value="Preventive">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-semibold">Tanggal</label>
+                {{ maintenance_form.date }}
+            </div>
+            {% include 'maintenance/_pelaksana_tag_input.html' %}
+        </div>
+        <div class="row g-3 mt-1">
+            <div class="col-md-8">
+                <label class="form-label fw-semibold">Deskripsi / Keterangan</label>
+                {{ maintenance_form.description }}
+            </div>
+            <div class="col-md-4">
+                <label class="form-label fw-semibold">Foto Dokumentasi</label>
+                {{ maintenance_form.photo }}
+                <div class="form-text">Format: JPG, PNG. Maks 10MB.</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ 2. SPESIFIKASI ══ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="ms-sec" style="--c:#10b981;">Spesifikasi</div>
+        <div class="row g-3">
+            <div class="col-md-6">
+                <table style="width:100%;border-collapse:collapse;">
+                    {% for label, field in spek_items %}
+                    <tr>
+                        <td style="padding:4px 8px 4px 0;font-size:12px;font-weight:600;color:#475569;white-space:nowrap;width:175px;">{{ label }}</td>
+                        <td style="padding:4px 0;">{{ field }}</td>
+                    </tr>
+                    {% endfor %}
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ 3. KONDISI PERALATAN ══ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="ms-sec" style="--c:#f59e0b;">Kondisi Peralatan</div>
+        <div class="row g-3">
+
+            <!-- Server/Workstation -->
+            <div class="col-md-3 col-6">
+                <div class="ms-card">
+                    <div class="ms-lbl">Server / Workstation</div>
+                    <div id="field-kondisi_server" style="display:none;">{{ detail_form.kondisi_server }}</div>
+                    <div class="ms-tog-wrap">
+                        <button type="button" class="ms-tog ok"  data-f="kondisi_server" data-v="BERSIH">&#10003; Bersih</button>
+                        <button type="button" class="ms-tog nok" data-f="kondisi_server" data-v="TIDAK BERSIH">&#10007; Tdk Bersih</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel -->
+            <div class="col-md-3 col-6">
+                <div class="ms-card">
+                    <div class="ms-lbl">Panel</div>
+                    <div id="field-kondisi_panel" style="display:none;">{{ detail_form.kondisi_panel }}</div>
+                    <div class="ms-tog-wrap">
+                        <button type="button" class="ms-tog ok"  data-f="kondisi_panel" data-v="BERSIH">&#10003; Bersih</button>
+                        <button type="button" class="ms-tog nok" data-f="kondisi_panel" data-v="TIDAK BERSIH">&#10007; Tdk Bersih</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Temperatur -->
+            <div class="col-md-2 col-6">
+                <div class="ms-card">
+                    <div class="ms-lbl">Temp. Ruangan</div>
+                    <div class="input-group input-group-sm">{{ detail_form.temp_ruangan }}<span class="input-group-text ms-unit">°C</span></div>
+                </div>
+            </div>
+            <div class="col-md-2 col-6">
+                <div class="ms-card">
+                    <div class="ms-lbl">Temp. Peralatan</div>
+                    <div class="input-group input-group-sm">{{ detail_form.temp_peralatan }}<span class="input-group-text ms-unit">°C</span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-3 mt-1">
+            <!-- Kondisi Sebelum -->
+            <div class="col-md-3 col-6">
+                <div class="ms-card">
+                    <div class="ms-lbl">Kondisi Sebelum</div>
+                    <div id="field-kondisi_sebelum" style="display:none;">{{ detail_form.kondisi_sebelum }}</div>
+                    <div class="ms-tog-wrap">
+                        <button type="button" class="ms-tog ok"  data-f="kondisi_sebelum" data-v="PC/SB/TR/ON">&#10003; PC/SB/TR/ON</button>
+                        <button type="button" class="ms-tog nok" data-f="kondisi_sebelum" data-v="NC/OFF">&#10007; NC/OFF</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Kondisi Sesudah -->
+            <div class="col-md-3 col-6">
+                <div class="ms-card">
+                    <div class="ms-lbl">Kondisi Sesudah</div>
+                    <div id="field-kondisi_sesudah" style="display:none;">{{ detail_form.kondisi_sesudah }}</div>
+                    <div class="ms-tog-wrap">
+                        <button type="button" class="ms-tog ok"  data-f="kondisi_sesudah" data-v="PC/SB/TR/ON">&#10003; PC/SB/TR/ON</button>
+                        <button type="button" class="ms-tog nok" data-f="kondisi_sesudah" data-v="NC/OFF">&#10007; NC/OFF</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Power Supply -->
+            <div class="col-md-4">
+                <div class="ms-card">
+                    <div class="ms-lbl">Power Supply</div>
+                    <div id="field-power_supply" style="display:none;">{{ detail_form.power_supply }}</div>
+                    <div class="ms-tog-wrap mb-2">
+                        <button type="button" class="ms-tog ok"   data-f="power_supply" data-v="ADA, BERFUNGSI">&#10003; Berfungsi</button>
+                        <button type="button" class="ms-tog nok"  data-f="power_supply" data-v="ADA, TIDAK BERFUNGSI">&#10007; Tdk Berfungsi</button>
+                        <button type="button" class="ms-tog warn" data-f="power_supply" data-v="TIDAK ADA">&#8722; Tidak Ada</button>
+                    </div>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text ms-unit">Jumlah</span>
+                        {{ detail_form.power_supply_jml }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Fan Processor -->
+            <div class="col-md-4">
+                <div class="ms-card">
+                    <div class="ms-lbl">Fan Processor</div>
+                    <div id="field-fan_processor" style="display:none;">{{ detail_form.fan_processor }}</div>
+                    <div class="ms-tog-wrap mb-2">
+                        <button type="button" class="ms-tog ok"   data-f="fan_processor" data-v="ADA, BERFUNGSI">&#10003; Berfungsi</button>
+                        <button type="button" class="ms-tog nok"  data-f="fan_processor" data-v="ADA, TIDAK BERFUNGSI">&#10007; Tdk Berfungsi</button>
+                        <button type="button" class="ms-tog warn" data-f="fan_processor" data-v="TIDAK ADA">&#8722; Tidak Ada</button>
+                    </div>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text ms-unit">Jumlah</span>
+                        {{ detail_form.fan_processor_jml }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ 4. PERFORMA PERALATAN ══ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="ms-sec" style="--c:#06b6d4;">Performa Peralatan</div>
+        <div class="row g-3 mb-3">
+            <!-- CPU -->
+            <div class="col-md-4">
+                <div class="ms-card">
+                    <div class="ms-lbl">CPU — Merk / Jumlah</div>
+                    {{ detail_form.cpu_merk }}
+                </div>
+            </div>
+            <!-- RAM -->
+            <div class="col-md-4">
+                <div class="ms-card">
+                    <div class="ms-lbl">RAM — Merk / Jumlah</div>
+                    {{ detail_form.ram_merk }}
+                    <div style="margin-top:6px;">
+                    <div class="ms-lbl">RAM — Kapasitas / Terpakai</div>
+                    {{ detail_form.ram_kapasitas }}
+                    </div>
+                </div>
+            </div>
+            <!-- Storage -->
+            <div class="col-md-4">
+                <div class="ms-card">
+                    <div class="ms-lbl">Storage — Merk / Jumlah</div>
+                    {{ detail_form.storage_merk }}
+                    <div style="margin-top:6px;">
+                    <div class="ms-lbl">Storage — Kapasitas / Terpakai</div>
+                    {{ detail_form.storage_kapasitas }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-3">
+            <!-- VGA Card -->
+            <div class="col-md-4">
+                <div class="ms-card">
+                    <div class="ms-lbl">VGA Card — Merk</div>
+                    {{ detail_form.vga_merk }}
+                    <div style="margin-top:8px;">
+                    <div class="ms-lbl">VGA Card — Kondisi</div>
+                    <div id="field-vga_kondisi" style="display:none;">{{ detail_form.vga_kondisi }}</div>
+                    <div class="ms-tog-wrap">
+                        <button type="button" class="ms-tog ok"  data-f="vga_kondisi" data-v="OK">&#10003; OK</button>
+                        <button type="button" class="ms-tog nok" data-f="vga_kondisi" data-v="NOK">&#10007; NOK</button>
+                    </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Indikasi Alarm -->
+            <div class="col-md-4">
+                <div class="ms-card">
+                    <div class="ms-lbl">Indikasi Alarm / Error</div>
+                    <div id="field-indikasi_alarm" style="display:none;">{{ detail_form.indikasi_alarm }}</div>
+                    <div class="ms-tog-wrap">
+                        <button type="button" class="ms-tog ok"  data-f="indikasi_alarm" data-v="TIDAK ADA">&#10003; Tidak Ada</button>
+                        <button type="button" class="ms-tog nok" data-f="indikasi_alarm" data-v="ADA">&#9888; Ada</button>
+                    </div>
+                </div>
+            </div>
+            <!-- Time Sync -->
+            <div class="col-md-4">
+                <div class="ms-card">
+                    <div class="ms-lbl">Time Synchronization</div>
+                    <div id="field-time_sync" style="display:none;">{{ detail_form.time_sync }}</div>
+                    <div class="ms-tog-wrap">
+                        <button type="button" class="ms-tog ok"  data-f="time_sync" data-v="OK">&#10003; OK</button>
+                        <button type="button" class="ms-tog nok" data-f="time_sync" data-v="NOK">&#10007; NOK</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ 5. KOMUNIKASI ══ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="ms-sec" style="--c:#8b5cf6;">Komunikasi</div>
+        <div class="row g-3">
+
+            <!-- Copper -->
+            <div class="col-md-4">
+                <div class="ms-card">
+                    <div class="ms-lbl">Copper</div>
+                    <div class="row g-2 align-items-center mb-2">
+                        <div class="col-4"><div class="ms-lbl" style="margin:0;">Jumlah</div></div>
+                        <div class="col-8">{{ detail_form.copper_jumlah }}</div>
+                    </div>
+                    <div class="ms-lbl">Kondisi</div>
+                    <div id="field-copper_kondisi" style="display:none;">{{ detail_form.copper_kondisi }}</div>
+                    <div class="ms-tog-wrap">
+                        <button type="button" class="ms-tog ok"  data-f="copper_kondisi" data-v="OK">&#10003; OK</button>
+                        <button type="button" class="ms-tog nok" data-f="copper_kondisi" data-v="ALARM">&#9888; Alarm</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FO -->
+            <div class="col-md-4">
+                <div class="ms-card">
+                    <div class="ms-lbl">Fiber Optik (FO)</div>
+                    <div class="row g-2 align-items-center mb-2">
+                        <div class="col-4"><div class="ms-lbl" style="margin:0;">Jumlah</div></div>
+                        <div class="col-8">{{ detail_form.fo_jumlah }}</div>
+                    </div>
+                    <div class="ms-lbl">Kondisi</div>
+                    <div id="field-fo_kondisi" style="display:none;">{{ detail_form.fo_kondisi }}</div>
+                    <div class="ms-tog-wrap">
+                        <button type="button" class="ms-tog ok"  data-f="fo_kondisi" data-v="OK">&#10003; OK</button>
+                        <button type="button" class="ms-tog nok" data-f="fo_kondisi" data-v="ALARM">&#9888; Alarm</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Komunikasi lainnya -->
+            <div class="col-md-4">
+                <div class="ms-card">
+                    <div class="ms-lbl">Komunikasi Lainnya</div>
+                    <div class="mb-2">
+                        <label class="form-label mb-1" style="font-size:11px;color:#94a3b8;">1.</label>
+                        {{ detail_form.komm_1 }}
+                    </div>
+                    <div>
+                        <label class="form-label mb-1" style="font-size:11px;color:#94a3b8;">2.</label>
+                        {{ detail_form.komm_2 }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ TOMBOL SIMPAN ══ -->
+<div class="d-flex gap-2 justify-content-end mb-4">
+    {% if is_edit %}
+    <a href="{% url 'maintenance_view' maintenance.id %}" class="btn btn-outline-secondary">Batal</a>
+    {% else %}
+    <a href="{% url 'device_view' device.id %}" class="btn btn-outline-secondary">Batal</a>
+    {% endif %}
+    <button type="submit" name="next" value="list"  class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Simpan</button>
+    <button type="submit" name="next" value="pdf"   class="btn btn-outline-success"><i class="bi bi-file-earmark-pdf me-1"></i>Simpan &amp; PDF</button>
+</div>
+
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // Init semua toggle dari nilai form yang sudah ada (mode edit)
+    document.querySelectorAll('[id^="field-"]').forEach(function(wrap) {
+        var sel = wrap.querySelector('select');
+        if (!sel) return;
+        var fieldName = wrap.id.replace('field-', '');
+        var curVal = sel.value;
+        if (curVal) {
+            var btn = document.querySelector('.ms-tog[data-f="' + fieldName + '"][data-v="' + curVal + '"]');
+            if (btn) btn.classList.add('active');
+        }
+    });
+
+    // Klik toggle
+    document.querySelectorAll('.ms-tog').forEach(function(btn) {
+        btn.addEventListener('click', function () {
+            var field = this.dataset.f;
+            var val   = this.dataset.v;
+            // Deactivate semua tombol field ini
+            document.querySelectorAll('.ms-tog[data-f="' + field + '"]').forEach(function(b) {
+                b.classList.remove('active');
+            });
+            this.classList.add('active');
+            // Update hidden select
+            var sel = document.querySelector('#field-' + field + ' select');
+            if (sel) sel.value = val;
+        });
+    });
+});
+</script>
+{% endblock %}
