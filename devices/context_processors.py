@@ -19,7 +19,7 @@ DEVICE_GROUP_CONFIG = {
         'icon': 'bi-diagram-3',
         'color': '#10b981',
         'types': [
-            'rtu', 'sas', 'ups', 'server scada', 'vm scada', 'ied bcu', 'clock server', 'serial server', 'router sas', 'switch sas', 'inverter sas',
+            'rtu', 'sas', 'ups', 'master station', 'vm scada', 'workstation scada', 'ied bcu', 'clock server', 'serial server', 'router sas', 'switch sas', 'inverter sas',
             'pheriperal scada', 'peripheral scada', 'gps',
         ],
     },
@@ -38,7 +38,7 @@ DEVICE_TYPE_ORDER_IN_GROUP = [
     "ROUTER", "SWITCH", "RADIO", "MICROWAVE", "VOIP", "MULTIPLEXER",
     "PLC", "TELEPROTEKSI", "ROIP", "SERVER TELKOM", "MASTER CLOCK", "HT", "PABX", "PHERIPERAL TELKOM", "PERIPHERAL TELKOM",
     "REPEATER", "TOWER", "REPEATER & TOWER",
-    "RTU", "SAS", "SERVER SCADA", "VM SCADA", "UPS", "GPS",
+    "RTU", "SAS", "Master Station", "VM SCADA", "Workstation SCADA", "UPS", "GPS",
     "IED BCU", "CLOCK SERVER", "SERIAL SERVER", "ROUTER SAS", "SWITCH SAS", "INVERTER SAS",
     "PHERIPERAL SCADA", "PERIPHERAL SCADA",
 
