@@ -1064,7 +1064,7 @@ def device_detail(request, pk):
     from devices.models import DeviceLog, DeviceEvent, ItemBongkar
     device_logs     = DeviceLog.objects.filter(device=device).order_by('-created_at')
     last_update_log = device_logs.first()
-    device_events   = DeviceEvent.objects.filter(device=device).order_by('-tanggal', '-created_at').select_related('item_bongkar_ref', 'komponen_terkait')
+    device_events   = DeviceEvent.objects.filter(device=device).order_by('-tanggal', '-created_at').select_related('item_bongkar_ref', 'komponen_terkait').prefetch_related('item_bongkar_set', 'item_bongkar_set__branch')
 
     # Komponen perangkat
     from devices.views_komponen import get_komponen_for_device, _get_tipe_grouped
@@ -2256,6 +2256,12 @@ def device_event_add(request, pk):
         item_bongkar_id      = request.POST.get('item_bongkar_id', '') or None
         tipe_komponen_id     = request.POST.get('tipe_komponen_id', '') or None
         alasan_penggantian   = request.POST.get('alasan_penggantian', '').strip()
+        # Pembongkaran pakai field terpisah (nama berbeda) agar tidak bentrok
+        # dengan field penggantian komponen yang ada di form yang sama
+        if tipe == 'pembongkaran':
+            branch_id_event    = request.POST.get('bongkar_branch_id', '') or None
+            disimpan_di        = request.POST.get('bongkar_disimpan_di', '').strip()
+            alasan_penggantian = request.POST.get('bongkar_alasan', '').strip()
         komponen_relokasi_raw = request.POST.getlist('komponen_relokasi_ids')
 
         komponen_terkait_obj = None
@@ -2337,6 +2343,22 @@ def device_event_add(request, pk):
                     catatan            = catatan,
                     created_by         = request.user,
                 )
+                # Jika seluruh perangkat dibongkar, update lokasi device
+                # ke nama branch penyimpanan (atau kosongkan jika tidak ada branch)
+                if pembongkaran_tipe == 'perangkat':
+                    from devices.models import Branch
+                    old_lokasi = device.lokasi
+                    if branch_id_event:
+                        try:
+                            br_obj = Branch.objects.get(pk=branch_id_event)
+                            new_lokasi = f'Gudang {br_obj.nama}'
+                        except Branch.DoesNotExist:
+                            new_lokasi = disimpan_di or ''
+                    else:
+                        new_lokasi = disimpan_di or ''
+                    if new_lokasi != old_lokasi:
+                        device.lokasi = new_lokasi
+                        device.save(update_fields=['lokasi'])
                 if komponen_terkait_obj:
                     # Jika alasan rusak/kinerja → tandai rusak; lainnya → tidak_ada
                     new_status = 'rusak' if alasan_penggantian in ('rusak', 'kinerja') else 'tidak_ada'

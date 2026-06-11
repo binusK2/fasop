@@ -1334,7 +1334,7 @@ function addEvidenRow() {
                                         <label style="font-size:11.5px;font-weight:600;color:#7f1d1d;display:block;margin-bottom:4px;">
                                             <i class="bi bi-question-circle me-1"></i>Alasan Pembongkaran <span style="color:red;">*</span>
                                         </label>
-                                        <select name="alasan_penggantian" class="form-select form-select-sm" id="alasanPembongkaran">
+                                        <select name="bongkar_alasan" class="form-select form-select-sm" id="alasanPembongkaran">
                                             <option value="">— Pilih Alasan —</option>
                                             <option value="rusak">Rusak / Tidak Berfungsi</option>
                                             <option value="kinerja">Kinerja Menurun</option>
@@ -1349,7 +1349,7 @@ function addEvidenRow() {
                                     </div>
                                     <div class="col-6">
                                         <label style="font-size:11.5px;font-weight:600;color:#7f1d1d;display:block;margin-bottom:4px;">Simpan ke Branch</label>
-                                        <select name="branch_id" class="form-select form-select-sm" id="bongkarBranchSelect">
+                                        <select name="bongkar_branch_id" class="form-select form-select-sm" id="bongkarBranchSelect">
                                             <option value="">— Pilih Branch Penyimpanan —</option>
                                             {% for br in all_branches %}
                                             <option value="{{ br.pk }}">{{ br.nama }}</option>
@@ -1358,7 +1358,7 @@ function addEvidenRow() {
                                     </div>
                                     <div class="col-6">
                                         <label style="font-size:11.5px;font-weight:600;color:#7f1d1d;display:block;margin-bottom:4px;">Lokasi Spesifik di Gudang</label>
-                                        <input type="text" name="disimpan_di" class="form-control form-control-sm"
+                                        <input type="text" name="bongkar_disimpan_di" class="form-control form-control-sm"
                                                placeholder="Misal: Rak B3, Loker 2, Gudang Lt.1">
                                     </div>
                                     <div class="col-12">
