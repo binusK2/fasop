@@ -171,17 +171,20 @@
             <div style="height:5px;background:#e2e8f0;border-radius:3px;overflow:hidden;margin-bottom:10px;">
                 {% if grp.total %}<div style="height:100%;background:linear-gradient(90deg,#10b981,#34d399);border-radius:3px;width:{% widthratio grp.maintained grp.total 100 %}%;"></div>{% endif %}
             </div>
-            <!-- Jenis list -->
+            <!-- Jenis list — dual bar PM status -->
             {% if grp.types %}
-            <div style="display:flex;flex-direction:column;gap:3px;">
+            <div style="display:flex;flex-direction:column;gap:5px;">
                 {% for t in grp.types %}
-                <div style="display:flex;align-items:center;justify-content:space-between;font-size:11px;">
-                    <span style="color:#475569;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:65%;">{{ t.name }}</span>
-                    <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
-                        <div style="width:60px;height:4px;background:#e2e8f0;border-radius:2px;overflow:hidden;">
-                            {% if t.total %}<div style="height:100%;background:{{ grp.color }};opacity:.7;border-radius:2px;width:{% widthratio t.total grp.total 100 %}%;"></div>{% endif %}
+                <div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;font-size:11px;margin-bottom:2px;">
+                        <span style="color:#475569;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:65%;">{{ t.name }}</span>
+                        <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">
+                            <span style="font-weight:600;color:#1e293b;">{{ t.maintained|default:0 }}/{{ t.total }}</span>
                         </div>
-                        <span style="font-weight:600;color:#1e293b;min-width:18px;text-align:right;">{{ t.total }}</span>
+                    </div>
+                    <!-- dual bar: hijau=sudah PM, abu=belum PM -->
+                    <div style="height:4px;background:#e2e8f0;border-radius:2px;overflow:hidden;">
+                        {% if t.total %}<div style="height:100%;background:#10b981;border-radius:2px;width:{% widthratio t.maintained t.total 100 %}%;"></div>{% endif %}
                     </div>
                 </div>
                 {% endfor %}
