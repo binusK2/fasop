@@ -211,7 +211,31 @@ class KomponenRusakAdmin(admin.ModelAdmin):
     date_hierarchy = 'tanggal_rusak'
 
 
-from .models import DeviceLink
+from .models import DeviceLink, ItemBongkar
+
+@admin.register(ItemBongkar)
+class ItemBongkarAdmin(admin.ModelAdmin):
+    list_display   = ['device_asal', 'tipe', 'nama', 'branch', 'tanggal_bongkar', 'status', 'created_by']
+    list_filter    = ['tipe', 'status', 'branch', 'tanggal_bongkar']
+    search_fields  = ['device_asal__nama', 'nama', 'merk', 'serial_number', 'alasan_penggantian']
+    readonly_fields = ['created_at', 'event_bongkar', 'event_pasang']
+    date_hierarchy = 'tanggal_bongkar'
+    fieldsets = [
+        ('Identitas', {'fields': [
+            'device_asal', 'tipe', 'komponen_terkait',
+            'nama', 'merk', 'model_tipe', 'serial_number',
+        ]}),
+        ('Pembongkaran', {'fields': [
+            'tanggal_bongkar', 'alasan_penggantian', 'branch', 'status',
+            'event_bongkar',
+        ]}),
+        ('Pemasangan Kembali', {'fields': [
+            'event_pasang',
+        ], 'classes': ['collapse']}),
+        ('Audit', {'fields': [
+            'created_by', 'created_at',
+        ], 'classes': ['collapse']}),
+    ]
 
 @admin.register(DeviceLink)
 class DeviceLinkAdmin(admin.ModelAdmin):
