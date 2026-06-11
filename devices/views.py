@@ -670,29 +670,11 @@ def dashboard(request):
         ).values('device_id').distinct().count()
         _br_pm_pct  = round(_br_pm_done / _br_total * 100) if _br_total else 0
 
-        _by_jenis_qs = list(
+        by_jenis = list(
             _br_qs.values('jenis__name')
             .annotate(count=Count('id'))
             .order_by('-count')
         )
-        # PM done bulan ini per jenis
-        _pm_by_jenis = dict(
-            Maintenance.objects.filter(
-                device__in=_br_qs, maintenance_type='Preventive',
-                date__year=today.year, date__month=today.month,
-            ).values('device__jenis__name')
-            .annotate(pm_count=Count('device_id', distinct=True))
-            .values_list('device__jenis__name', 'pm_count')
-        )
-        by_jenis = [
-            {
-                'jenis__name': j['jenis__name'],
-                'count':       j['count'],
-                'pm_done':     _pm_by_jenis.get(j['jenis__name'], 0),
-                'pm_pct':      round(_pm_by_jenis.get(j['jenis__name'], 0) / j['count'] * 100) if j['count'] else 0,
-            }
-            for j in _by_jenis_qs
-        ]
 
         branch_stats.append({
             'branch':   br,
