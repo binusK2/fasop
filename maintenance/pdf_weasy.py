@@ -39,6 +39,9 @@ _TEMPLATE_MAP = {
     'GATEWAY SAS':         'maintenance/pdf/sas.html',
     'MASTER STATION':      'maintenance/pdf/master_station.html',
     'WORKSTATION SCADA':   'maintenance/pdf/master_station.html',
+    'SERVER TELKOM':       'maintenance/pdf/master_station.html',
+    'SERVER PROSIS':       'maintenance/pdf/master_station.html',
+    'WORKSTATION PC':      'maintenance/pdf/master_station.html',
     'ROIP':                'maintenance/pdf/roip.html',
     'UPS':                 'maintenance/pdf/ups.html',
     'UFLS':            'maintenance/pdf/ufls.html',
@@ -68,6 +71,9 @@ _TITLES = {
     'GATEWAY SAS':       'Formulir Pemeliharaan Peralatan Gateway SAS',
     'MASTER STATION':    'Formulir Pemeliharaan Server / Workstation Master Station',
     'WORKSTATION SCADA': 'Formulir Pemeliharaan Server / Workstation SCADA',
+    'SERVER TELKOM':     'Formulir Pemeliharaan Server Telkom',
+    'SERVER PROSIS':     'Formulir Pemeliharaan Server Prosis',
+    'WORKSTATION PC':    'Formulir Pemeliharaan Workstation PC',
     'ROIP':         'Formulir Pemeliharaan Peralatan RoIP',
     'UPS':          'Formulir Pemeliharaan Peralatan UPS',
     'UFLS':            'Form Checklist Frequency Relay — UFLS',
@@ -102,6 +108,9 @@ _DOC_CODES = {
     'GATEWAY SAS':         '',
     'MASTER STATION':      'UP2B_FML_04_1002',
     'WORKSTATION SCADA':   'UP2B_FML_04_1002',
+    'SERVER TELKOM':       'UP2B_FML_04_1002',
+    'SERVER PROSIS':       'UP2B_FML_04_1002',
+    'WORKSTATION PC':      'UP2B_FML_04_1002',
     'ROIP':                '',
     'UPS':                 '',
     'UFLS':            '',
@@ -508,6 +517,9 @@ def _ctx_master_station(data, ctx):
 
 _CTX_BUILDERS['MASTER STATION']    = _ctx_master_station
 _CTX_BUILDERS['WORKSTATION SCADA'] = _ctx_master_station
+_CTX_BUILDERS['SERVER TELKOM']     = _ctx_master_station
+_CTX_BUILDERS['SERVER PROSIS']     = _ctx_master_station
+_CTX_BUILDERS['WORKSTATION PC']    = _ctx_master_station
 
 _CTX_BUILDERS['ROIP'] = _ctx_roip
 
