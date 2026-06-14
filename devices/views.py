@@ -1404,6 +1404,37 @@ def layanan_icon(request):
         if i.kondisi_operasional
     ))
 
+    # Chart: tren gangguan per bulan (Icon+)
+    try:
+        tahun_icon = int(request.GET.get('tahun', now().year))
+    except (ValueError, TypeError):
+        tahun_icon = now().year
+
+    monthly_icon = [0] * 12
+    for row in (
+        Gangguan.objects
+        .filter(layanan_icon__isnull=False, tanggal_gangguan__year=tahun_icon)
+        .values('tanggal_gangguan__month')
+        .annotate(total=Count('id'))
+    ):
+        monthly_icon[row['tanggal_gangguan__month'] - 1] = row['total']
+
+    top_icon_gangguan = list(
+        Gangguan.objects
+        .filter(layanan_icon__isnull=False)
+        .values('layanan_icon__name', 'layanan_icon_id')
+        .annotate(total=Count('id'))
+        .order_by('-total')[:5]
+    )
+
+    tahun_icon_list = [
+        d.year for d in Gangguan.objects
+        .filter(layanan_icon__isnull=False)
+        .dates('tanggal_gangguan', 'year', order='DESC')
+    ]
+    if now().year not in tahun_icon_list:
+        tahun_icon_list.insert(0, now().year)
+
     return render(request, 'devices/layanan_icon.html', {
         'icons':                icons,
         'search':               search,
@@ -1415,6 +1446,10 @@ def layanan_icon(request):
         'sort_by':              sort_by,
         'sort_dir':             sort_dir,
         'total_gangguan_aktif': total_gangguan_aktif,
+        'tahun_icon':           tahun_icon,
+        'tahun_icon_list':      tahun_icon_list,
+        'monthly_icon':         monthly_icon,
+        'top_icon_gangguan':    top_icon_gangguan,
     })
 
 
@@ -1476,6 +1511,37 @@ def fiber_optic_list(request):
         status__in=('open', 'in_progress')
     ).count()
 
+    # Chart: tren gangguan per bulan (FO)
+    try:
+        tahun_fo = int(request.GET.get('tahun', now().year))
+    except (ValueError, TypeError):
+        tahun_fo = now().year
+
+    monthly_fo = [0] * 12
+    for row in (
+        Gangguan.objects
+        .filter(fiber_optic__isnull=False, tanggal_gangguan__year=tahun_fo)
+        .values('tanggal_gangguan__month')
+        .annotate(total=Count('id'))
+    ):
+        monthly_fo[row['tanggal_gangguan__month'] - 1] = row['total']
+
+    top_fo_gangguan = list(
+        Gangguan.objects
+        .filter(fiber_optic__isnull=False)
+        .values('fiber_optic__nama', 'fiber_optic_id')
+        .annotate(total=Count('id'))
+        .order_by('-total')[:5]
+    )
+
+    tahun_fo_list = [
+        d.year for d in Gangguan.objects
+        .filter(fiber_optic__isnull=False)
+        .dates('tanggal_gangguan', 'year', order='DESC')
+    ]
+    if now().year not in tahun_fo_list:
+        tahun_fo_list.insert(0, now().year)
+
     return render(request, 'devices/fiber_optic_list.html', {
         'fo_list':           fo_list,
         'search':            search,
@@ -1488,6 +1554,10 @@ def fiber_optic_list(request):
         'total_perbaikan':   total_perbaikan,
         'total_aktif':       total_aktif,
         'STATUS_CHOICES':    FiberOptic.STATUS_CHOICES,
+        'tahun_fo':          tahun_fo,
+        'tahun_fo_list':     tahun_fo_list,
+        'monthly_fo':        monthly_fo,
+        'top_fo_gangguan':   top_fo_gangguan,
     })
 
 

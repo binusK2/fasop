@@ -84,6 +84,67 @@
     </div>
 </div>
 
+<!-- CHART GANGGUAN -->
+<div class="card mb-3" style="border-radius:12px;border:1px solid #e2e8f0;">
+    <div class="card-body p-3">
+        <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+            <h6 style="font-size:13px;font-weight:700;color:#1e293b;margin:0;">
+                <i class="bi bi-bar-chart-line me-2" style="color:#ef4444;"></i>
+                Tren Gangguan Layanan ICON+ per Bulan
+                <span style="font-size:11px;font-weight:500;color:#94a3b8;margin-left:6px;">({{ tahun_icon }})</span>
+            </h6>
+            <form method="get" class="d-flex align-items-center gap-2">
+                {% if search %}<input type="hidden" name="q" value="{{ search }}">{% endif %}
+                {% if selected_kondisi %}<input type="hidden" name="kondisi" value="{{ selected_kondisi }}">{% endif %}
+                <input type="hidden" name="sort" value="{{ sort_by }}">
+                <input type="hidden" name="dir" value="{{ sort_dir }}">
+                <label style="font-size:11px;font-weight:600;color:#64748b;margin:0;white-space:nowrap;">Tahun:</label>
+                <select name="tahun" class="form-select form-select-sm" style="width:90px;" onchange="this.form.submit()">
+                    {% for y in tahun_icon_list %}<option value="{{ y }}" {% if y == tahun_icon %}selected{% endif %}>{{ y }}</option>{% endfor %}
+                </select>
+            </form>
+        </div>
+        <div class="row g-3 align-items-start">
+            <div class="col-lg-8 col-md-7">
+                <div style="position:relative;height:180px;">
+                    <canvas id="iconGangguanChart"></canvas>
+                </div>
+            </div>
+            <div class="col-lg-4 col-md-5">
+                <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">
+                    <i class="bi bi-trophy-fill me-1" style="color:#f59e0b;"></i>Sering Terjadi Gangguan
+                </div>
+                {% if top_icon_gangguan %}
+                {% with max_top=top_icon_gangguan.0.total %}
+                <div style="display:flex;flex-direction:column;gap:9px;">
+                    {% for item in top_icon_gangguan %}
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <span style="flex-shrink:0;width:20px;height:20px;border-radius:50%;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;
+                            {% if forloop.counter == 1 %}background:#f59e0b;color:#fff;{% elif forloop.counter == 2 %}background:#94a3b8;color:#fff;{% elif forloop.counter == 3 %}background:#b45309;color:#fff;{% else %}background:#e2e8f0;color:#64748b;{% endif %}">
+                            {{ forloop.counter }}
+                        </span>
+                        <div style="flex:1;min-width:0;">
+                            <div style="font-size:12px;font-weight:600;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ item.layanan_icon__name }}</div>
+                            <div style="height:4px;background:#f1f5f9;border-radius:2px;margin-top:3px;overflow:hidden;">
+                                {% if max_top %}<div style="height:100%;background:#ef4444;border-radius:2px;width:{% widthratio item.total max_top 100 %}%;"></div>{% endif %}
+                            </div>
+                        </div>
+                        <span style="flex-shrink:0;font-weight:800;color:#ef4444;font-size:13px;">{{ item.total }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endwith %}
+                {% else %}
+                <div style="text-align:center;padding:24px 0;color:#94a3b8;">
+                    <i class="bi bi-check-circle-fill" style="font-size:26px;color:#10b981;display:block;margin-bottom:6px;"></i>
+                    <span style="font-size:12px;">Belum ada tiket gangguan</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- TABLE -->
 <div class="table-card">
     <div class="table-responsive">
@@ -287,6 +348,42 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+(function(){
+    const data   = [{{ monthly_icon|join:"," }}];
+    const labels = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'];
+    new Chart(document.getElementById('iconGangguanChart'), {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Gangguan',
+                data: data,
+                backgroundColor: data.map(v => v > 0 ? 'rgba(239,68,68,0.15)' : 'rgba(241,245,249,0.8)'),
+                borderColor:     data.map(v => v > 0 ? '#ef4444' : '#e2e8f0'),
+                borderWidth: 1.5,
+                borderRadius: 4,
+                borderSkipped: false,
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: { callbacks: {
+                    title: (i) => labels[i[0].dataIndex],
+                    label: (i) => ' ' + i.raw + ' gangguan',
+                }}
+            },
+            scales: {
+                x: { grid: { display: false }, ticks: { font: { size: 11 }, color: '#64748b' } },
+                y: { beginAtZero: true, ticks: { precision: 0, font: { size: 10 }, color: '#94a3b8' }, grid: { color: '#f8fafc' } }
+            }
+        }
+    });
+})();
+</script>
 <style>
 .table-card { background:#fff;border-radius:12px;border:1px solid #e2e8f0;overflow:hidden; }
 .table { margin-bottom:0; }
