@@ -1089,11 +1089,13 @@ def device_detail(request, pk):
     # VM children (untuk SERVER SCADA)
     vm_children = device.vm_children.filter(is_deleted=False).order_by('nama')
 
-    # Kandidat host server untuk form tambah VM (SERVER SCADA yg bukan VM)
+    # Kandidat host server untuk form tambah VM (Master Station / Server SCADA fisik)
     host_candidates = Device.objects.filter(
         is_deleted=False,
         host__isnull=True,
-        jenis__name__icontains='server scada',
+    ).filter(
+        Q(jenis__name__icontains='master station') |
+        Q(jenis__name__icontains='server scada'),   # backward compat nama lama
     ).exclude(pk=device.pk)
 
     return render(request, 'devices/device_detail.html', {
