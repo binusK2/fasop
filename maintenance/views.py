@@ -60,6 +60,12 @@ DEVICE_FORM_MAP = {
     'MASTER STATION':    (MaintenanceMasterStationForm, 'maintenance/master_station_form.html'),
     'Workstation SCADA': (MaintenanceMasterStationForm, 'maintenance/master_station_form.html'),
     'WORKSTATION SCADA': (MaintenanceMasterStationForm, 'maintenance/master_station_form.html'),
+    'Server Telkom':     (MaintenanceMasterStationForm, 'maintenance/master_station_form.html'),
+    'SERVER TELKOM':     (MaintenanceMasterStationForm, 'maintenance/master_station_form.html'),
+    'Server Prosis':     (MaintenanceMasterStationForm, 'maintenance/master_station_form.html'),
+    'SERVER PROSIS':     (MaintenanceMasterStationForm, 'maintenance/master_station_form.html'),
+    'Workstation PC':    (MaintenanceMasterStationForm, 'maintenance/master_station_form.html'),
+    'WORKSTATION PC':    (MaintenanceMasterStationForm, 'maintenance/master_station_form.html'),
 }
 
 DEFAULT_TEMPLATE = 'maintenance/maintenance_form.html'
@@ -378,7 +384,13 @@ def maintenance_detail(request, pk):
             pass
 
     ms_detail = None
-    if device_type in ('Master Station', 'MASTER STATION', 'Workstation SCADA', 'WORKSTATION SCADA'):
+    if device_type in (
+        'Master Station', 'MASTER STATION',
+        'Workstation SCADA', 'WORKSTATION SCADA',
+        'Server Telkom', 'SERVER TELKOM',
+        'Server Prosis', 'SERVER PROSIS',
+        'Workstation PC', 'WORKSTATION PC',
+    ):
         try:
             ms_detail = maintenance.maintenancemasterstation
         except MaintenanceMasterStation.DoesNotExist:
@@ -1685,7 +1697,7 @@ def export_maintenance_pdf(request, pk):
         freq_relay_detail = _try(lambda: maintenance.maintenancefrequencyrelay)
 
     ms_detail = None
-    if device_kind in ('MASTER STATION', 'WORKSTATION SCADA'):
+    if device_kind in ('MASTER STATION', 'WORKSTATION SCADA', 'SERVER TELKOM', 'SERVER PROSIS', 'WORKSTATION PC'):
         ms_detail = _try(lambda: maintenance.maintenancemasterstation)
 
     # Corrective detail
