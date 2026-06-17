@@ -47,22 +47,28 @@ sudo systemctl restart gunicorn && sudo systemctl reload nginx
 
 ### App Structure
 
-Each of the 20+ Django apps follows a standard layout (`models.py`, `views.py`, `forms.py`, `urls.py`, `templates/<app>/`). Key apps:
+Each of the 14 `INSTALLED_APPS` Django apps follows a standard layout (`models.py`, `views.py`, `forms.py`, `urls.py`, `templates/<app>/`). Key apps:
 
 | App | Responsibility |
 |---|---|
-| `devices/` | Core asset inventory (Device, FiberOptic, SiteLocation), dashboard, wiring diagram editor |
-| `maintenance/` | Preventive/corrective maintenance, Berita Acara, digital signature workflow, PDF export |
-| `gangguan/` | Fault ticket CRUD, status workflow, public status page |
+| `devices/` | Core asset inventory (Device, FiberOptic, SiteLocation), dashboard, wiring diagram editor, device audit trail (DeviceLog/DeviceEvent), single-session + login auditing (`signals.py`) |
+| `maintenance/` | Preventive/corrective maintenance, Berita Acara (BA), digital signature workflow, PDF export (WeasyPrint, `pdf_weasy.py`) |
+| `gangguan/` | Fault ticket CRUD, status workflow, public status page (token-based, no login) |
 | `opsis/` | Real-time power monitoring dashboard, MSSQL historian, data collection cron commands |
-| `health_index/` | Equipment health scoring (0–100) |
+| `health_index/` | Equipment health scoring (0–100), computed (not stored) from 9 weighted factors |
 | `inspection/` | Inservice inspection for Operator role |
-| `gudang/` | Warehouse / spare parts inventory |
-| `device_mon/` | RTU status monitoring |
-| `scada_av/` | SCADA/RTU availability and RCD success rate |
-| `api/` | REST API for n8n / Google Sheets integrations |
-| `auditlog/` | Superuser audit logging |
+| `gudang/` | Warehouse / spare parts inventory; stock level is computed from `MutasiSparepart`, not a stored field |
+| `device_mon/` | RTU UP/DOWN status monitoring (`collect_rtu` cron command) |
+| `scada_av/` | SCADA/RTU availability and RCD success rate; wraps the `spectrum7_av/` calculation library |
+| `notifikasi/` | In-app notification center (per-user + broadcast); other apps push notifications via `notif_ke_user()` / `notif_ke_am()` helpers |
+| `jadwal/` | Monthly preventive-maintenance visit scheduling per location, with HI/age/device-count priority ranking |
+| `common_enemy/` | Cross-cutting multi-site issue tickets (SCADA/telkom/prosis), auto-numbered `CE-YYYYMM-XXXX` |
+| `dokumentasi/` | Relay setting & wiring-diagram document repository with uploader→checker approval workflow |
+| `auditlog/` | Custom (not django-auditlog) superuser audit log; entries are created by explicit `log_action()` calls in views, not signals |
+| `api/` | REST API for n8n / Google Sheets integrations (no models — not in `INSTALLED_APPS`, but `urls.py` is still wired into `fasop/urls.py` at `/api/v1/`) |
 | `fasop/` | Root settings, URL routing, Hashids helper, URL converters |
+
+`spectrum7_av/` is a custom (in-house, not vendored) SCADA availability calculation library — RTU/RCD/SOE metrics from OFDB historian exports. It is not a Django app and isn't in `INSTALLED_APPS`; only `scada_av/calculator.py` imports it.
 
 All app URLs are included in `fasop/urls.py`. Django Admin is at `/secure-panel/`.
 
@@ -87,9 +93,9 @@ Always use `encode()`/`decode()` when building or reading URLs that contain PKs.
 ### Two-Database Architecture
 
 - **PostgreSQL** — primary database for all application data plus collected OPSIS snapshots (`SnapLive`, `SnapFreq`).
-- **MSSQL** — read-only SCADA historian (`opsis/mssql.py`). If unreachable, the OPSIS dashboard falls back to PostgreSQL automatically. Never write to MSSQL.
+- **MSSQL** — read-only SCADA historian (`opsis/mssql.py`). Never write to MSSQL.
 
-MSSQL connection is established per-request in `opsis/mssql.py` with a 30-second timeout and a TCP reachability pre-check.
+MSSQL connection is established per-request in `opsis/mssql.py` with a TCP reachability pre-check (`_tcp_ping()`) before querying. If `MSSQL_HOST` is unset, or the host is unreachable, the relevant function (e.g. `get_live_data()`) returns dummy/empty data instead of raising — there is no generic fallback-to-PostgreSQL query path, each function degrades independently.
 
 ### Middleware Stack (order matters)
 
@@ -124,6 +130,28 @@ Roles are stored in `UserProfile` (ForeignKey to User). Middleware enforces rout
 
 `Maintenance` objects follow a status machine: **Draft → Diminta TTD → TTD Teknisi → Selesai (AM Approved)**. Digital signatures (PNG, stored in `UserProfile`) are embedded into PDF exports via ReportLab/WeasyPrint (`maintenance/pdf_weasy.py`).
 
+`BeritaAcaraRecord` (BA) is a related but separate workflow under the same app: covers `pemasangan`/`pembongkaran`/`penggantian`/`gangguan`/`penormalan`/`lainnya` field reports, with its own TTD pair (`ttd_pa_*`, `ttd_technician_*`) and optional photo evidence (`BeritaAcaraEviden`). A BA can either be generated as a PDF from structured `rows_data` (JSONField), or attached directly as a finished document via `file_upload` (skip PDF generation entirely — see `maintenance/views.py::ba_upload`). `nomor_ba` is manually entered and checked for uniqueness, not auto-numbered like the IDs below.
+
+### Cross-Cutting Patterns
+
+- **Auto-numbered IDs** — several apps generate monthly-reset sequence numbers in `save()`/a `generate_nomor_*()` helper instead of using the PK: `gangguan.Gangguan.nomor_gangguan` (`GNG-YYYYMM-XXXX`), `common_enemy.CommonEnemy.nomor_ce` (`CE-YYYYMM-XXXX`), `dokumentasi.SettingRele`/`GambarDevice` (`SR-`/`GR-YYYYMM-XXXX`). Follow this pattern for any new document/ticket model rather than inventing a new scheme.
+- **Computed-not-stored metrics** — health score (`health_index/calculator.py`, 9 weighted factors via `registry.py`), warehouse stock (`gudang.Sparepart` — `stok_sekarang` derives from summing `MutasiSparepart.masuk`/`keluar`), and SCADA availability (`scada_av` — float 0–1, computed offline per session) are all properties/calculators, not editable model fields. Periodic snapshots (`HISnapshot`, `SnapLive`, `SnapFreq`) persist point-in-time values for history/trend charts.
+- **Notification fan-out** — to notify users from any app, call `notifikasi.views.notif_ke_user()` / `notif_ke_am()` rather than creating `Notifikasi` rows directly; `user=None` broadcasts to everyone (`Q(user=user) | Q(user__isnull=True)` scoping).
+- **Device-level audit trail vs. global audit log are different systems** — `devices.DeviceLog` (per-field diffs, auto on device edit) and `devices.signals.py` (login/logout + single-session enforcement) are separate from the `auditlog` app, which only gets entries when a view explicitly calls `auditlog.utils.log_action()`. Don't assume one implies the other when adding a new mutating view.
+- **Uploader → checker approval workflow** — `dokumentasi.SettingRele` (`draft → on_check → uptodate`/`perlu_perbaikan`) is the reference implementation if a similar review/approval flow is needed elsewhere; permission is `created_by == request.user` (uploader) vs `checker == request.user` (reviewer), both bypassed for superuser.
+
+### Management Commands
+
+| Command | App | Purpose |
+|---|---|---|
+| `collect_live` | opsis | Cron, every minute — MW/MVAR from MSSQL → `SnapLive` |
+| `collect_freq` | opsis | Cron, every minute — Hz from MSSQL → `SnapFreq` |
+| `collect_rtu` | device_mon | Cron, every minute — RTU UP/DOWN from MSSQL `RTU_ALL_STATE` → `RTU`/`RTULog`; supports `--dry-run` |
+| `generate_rename_plan` | devices | One-off — builds a device-rename plan for review before applying |
+| `apply_rename_plan` | devices | One-off — applies a previously generated rename plan |
+| `audit_device_names` | devices | One-off — reports naming inconsistencies across `Device` |
+| `fix_notif_urls` | notifikasi | One-off — repairs malformed notification links |
+
 ---
 
 ## Coding Conventions
@@ -150,7 +178,7 @@ style(module): description
 refactor(module): description
 chore: description
 ```
-Modules: `opsis`, `devices`, `maintenance`, `gangguan`, `gudang`, `inspection`, etc.
+Modules: `opsis`, `devices`, `maintenance`, `gangguan`, `gudang`, `inspection`, `health_index`, `notifikasi`, `jadwal`, `common_enemy`, `dokumentasi`, `scada_av`, `device_mon`, `auditlog`, `api`, etc.
 
 ### Branching
 - Never push directly to `main`
@@ -177,7 +205,7 @@ DB_PASSWORD=
 DB_HOST=localhost
 DB_PORT=5432
 
-# MSSQL SCADA historian (optional — OPSIS falls back to PostgreSQL if absent)
+# MSSQL SCADA historian (optional — OPSIS returns dummy/empty data if absent or unreachable)
 MSSQL_HOST=192.168.x.x,1433
 MSSQL_DB=
 MSSQL_USER=
