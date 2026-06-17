@@ -1,0 +1,107 @@
+{% extends 'base.html' %}
+{% block title %}Upload Berita Acara — FASOP{% endblock %}
+{% block page_title %}Upload Berita Acara{% endblock %}
+
+{% block content %}
+
+<!-- Header -->
+<div class="d-flex align-items-center gap-2 mb-3">
+    <a href="{% url 'ba_list' %}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i>
+    </a>
+    <div>
+        <h2 class="mb-0" style="font-size:18px;font-weight:700;">Upload Berita Acara</h2>
+        <p class="text-muted mb-0" style="font-size:12px;">Upload dokumen BA yang sudah jadi (gangguan, penormalan, atau lainnya) tanpa perlu generate ulang PDF</p>
+    </div>
+</div>
+
+<form method="post" enctype="multipart/form-data" id="ba-upload-form">
+{% csrf_token %}
+
+<!-- Card 1: Informasi BA -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;margin-bottom:12px;">
+            <i class="bi bi-info-circle me-1"></i>Informasi Berita Acara
+        </div>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label" style="font-size:12px;font-weight:600;">Perihal / Jenis BA</label>
+                <select name="jenis" class="form-select form-select-sm" required>
+                    <option value="">— Pilih perihal —</option>
+                    {% for value, label in jenis_choices %}
+                    <option value="{{ value }}" {% if form_data.jenis == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label" style="font-size:12px;font-weight:600;">Nomor BA</label>
+                <input type="text" name="nomor_ba" id="nomor_ba_input" class="form-control form-control-sm"
+                       placeholder="Contoh: 001" value="{{ form_data.nomor_ba|default:'' }}" oninput="updateNomorPreview()" required>
+                <div id="nomor_ba_preview" style="font-size:11px;color:#64748b;margin-top:4px;min-height:16px;"></div>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label" style="font-size:12px;font-weight:600;">Tanggal BA</label>
+                <input type="date" name="tanggal" class="form-control form-control-sm"
+                       value="{{ form_data.tanggal|default:today }}" required>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label" style="font-size:12px;font-weight:600;">Nama Pengupload</label>
+                <input type="text" name="pelaksana" class="form-control form-control-sm"
+                       placeholder="Nama yang mengupload / melaksanakan" value="{{ form_data.pelaksana|default:'' }}" required>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label" style="font-size:12px;font-weight:600;">NIP <span class="text-muted fw-normal">(opsional)</span></label>
+                <input type="text" name="nip" class="form-control form-control-sm"
+                       placeholder="NIP" value="{{ form_data.nip|default:'' }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label" style="font-size:12px;font-weight:600;">Jabatan <span class="text-muted fw-normal">(opsional)</span></label>
+                <input type="text" name="jabatan" class="form-control form-control-sm"
+                       placeholder="Jabatan" value="{{ form_data.jabatan|default:'' }}">
+            </div>
+            <div class="col-12">
+                <label class="form-label" style="font-size:12px;font-weight:600;">Catatan / Keterangan <span class="text-muted fw-normal">(opsional)</span></label>
+                <textarea name="catatan" class="form-control form-control-sm" rows="2"
+                          placeholder="Catatan tambahan">{{ form_data.catatan|default:'' }}</textarea>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Card 2: File BA -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;margin-bottom:12px;">
+            <i class="bi bi-cloud-arrow-up me-1"></i>File Berita Acara
+        </div>
+        <label class="form-label" style="font-size:12px;font-weight:600;">Upload File BA (PDF / gambar hasil scan)</label>
+        <input type="file" name="file_upload" class="form-control form-control-sm" accept=".pdf,image/*" required>
+        <div class="form-text" style="font-size:11px;">Dokumen BA yang sudah ditandatangani / sudah jadi. File ini akan langsung tersedia untuk dilihat dan diunduh di Daftar BA.</div>
+    </div>
+</div>
+
+<div class="d-flex justify-content-end">
+    <button type="submit" class="btn btn-primary btn-sm">
+        <i class="bi bi-cloud-arrow-up me-1"></i>Upload BA
+    </button>
+</div>
+
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function updateNomorPreview() {
+    const nomor = document.getElementById('nomor_ba_input').value.trim();
+    const tgl   = document.querySelector('input[name="tanggal"]').value;
+    const tahun = tgl ? tgl.substring(0, 4) : new Date().getFullYear();
+    const el    = document.getElementById('nomor_ba_preview');
+    el.innerHTML = nomor
+        ? `<span style="color:#475569;"><i class="bi bi-eye" style="font-size:10px;"></i> Format: <strong>${nomor}.BA/FASOP/UP2BS-MKS/${tahun}</strong></span>`
+        : '';
+}
+document.querySelector('input[name="tanggal"]').addEventListener('change', updateNomorPreview);
+updateNomorPreview();
+</script>
+{% endblock %}
