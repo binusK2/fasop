@@ -1377,12 +1377,21 @@ def ba_eviden_upload(instance, filename):
     return f'ba_eviden/{instance.ba.jenis}_{instance.urutan}_{tgl}{ext}'
 
 
+def ba_file_upload(instance, filename):
+    ext = os.path.splitext(filename)[1].lower() or '.pdf'
+    nomor_slug = re.sub(r'[^\w]+', '_', instance.nomor_ba or 'BA').strip('_')[:40]
+    tgl = timezone.localtime(timezone.now()).strftime('%Y%m%d_%H%M%S')
+    return f'ba_upload/{nomor_slug}_{tgl}{ext}'
+
+
 class BeritaAcaraRecord(models.Model):
     JENIS_CHOICES = [
         ('pemasangan',   'Pemasangan'),
         ('pembongkaran', 'Pembongkaran'),
         ('penggantian',  'Penggantian'),
         ('gangguan',     'Gangguan'),
+        ('penormalan',   'Penormalan'),
+        ('lainnya',      'Lainnya'),
     ]
     TTD_STATUS_CHOICES = [
         ('draft',             'Draft'),
@@ -1398,6 +1407,11 @@ class BeritaAcaraRecord(models.Model):
     jabatan    = models.CharField(max_length=200, blank=True)
     catatan    = models.TextField(blank=True)
     rows_data  = models.JSONField(default=list)
+    file_upload = models.FileField(
+        upload_to=ba_file_upload, blank=True, null=True,
+        verbose_name='File BA (Upload)',
+        help_text='Dokumen BA yang sudah jadi (hasil upload langsung, tanpa generate PDF)',
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, blank=True,

@@ -3629,6 +3629,15 @@ def ba_export(request, pk):
     import re as _re2
     record = get_object_or_404(BeritaAcaraRecord, pk=pk)
 
+    if record.file_upload:
+        import os as _os
+        from django.http import FileResponse
+        return FileResponse(
+            record.file_upload.open('rb'),
+            as_attachment=True,
+            filename=_os.path.basename(record.file_upload.name),
+        )
+
     import base64 as _b64
     eviden_list = []
     for ev in record.evidens.all():
@@ -3863,6 +3872,10 @@ def ba_delete(request, pk):
 def ba_preview(request, pk):
     import re as _re2
     record = get_object_or_404(BeritaAcaraRecord, pk=pk)
+
+    if record.file_upload:
+        from django.http import FileResponse
+        return FileResponse(record.file_upload.open('rb'))
 
     import base64 as _b64
     eviden_list = []
@@ -4143,4 +4156,81 @@ def ba_gangguan(request):
     return render(request, 'maintenance/ba_gangguan.html', {
         'today':              date.today().isoformat(),
         'lokasi_device_json': _json.dumps(lok_dev_map, ensure_ascii=False),
+    })
+
+
+# Perihal yang tersedia khusus untuk flow upload BA (dokumen sudah jadi).
+# Pemasangan/Pembongkaran/Penggantian sudah punya flow generate-PDF tersendiri.
+BA_UPLOAD_JENIS_CHOICES = [
+    ('gangguan',   'Gangguan'),
+    ('penormalan', 'Penormalan'),
+    ('lainnya',    'Lainnya'),
+]
+
+
+@login_required
+def ba_upload(request):
+    from django.contrib import messages as dj_messages
+
+    if request.method == 'POST':
+        jenis       = request.POST.get('jenis', '').strip()
+        nomor_input = request.POST.get('nomor_ba', '').strip()
+        tanggal     = request.POST.get('tanggal', '').strip()
+        pelaksana   = request.POST.get('pelaksana', '').strip()
+        nip         = request.POST.get('nip', '').strip()
+        jabatan     = request.POST.get('jabatan', '').strip()
+        catatan     = request.POST.get('catatan', '').strip()
+        file_upload = request.FILES.get('file_upload')
+
+        errors = []
+        if jenis not in dict(BA_UPLOAD_JENIS_CHOICES):
+            errors.append('Perihal / jenis BA tidak valid.')
+        if not tanggal:
+            errors.append('Tanggal BA wajib diisi.')
+        if not pelaksana:
+            errors.append('Nama pengupload wajib diisi.')
+        if not file_upload:
+            errors.append('File BA wajib diupload.')
+
+        tahun, _hari, _bulan_tahun, _fname = _ba_extra_ctx(tanggal, nomor_input)
+        nomor_ba = f'{nomor_input}.BA/FASOP/UP2BS-MKS/{tahun}' if nomor_input else ''
+
+        if not nomor_input:
+            errors.append('Nomor BA wajib diisi.')
+        elif BeritaAcaraRecord.objects.filter(nomor_ba=nomor_ba).exists():
+            errors.append(f'Nomor BA "{nomor_ba}" sudah digunakan oleh BA lain. Gunakan nomor yang berbeda.')
+
+        if errors:
+            for e in errors:
+                dj_messages.error(request, e)
+            return render(request, 'maintenance/ba_upload.html', {
+                'today':        date.today().isoformat(),
+                'jenis_choices': BA_UPLOAD_JENIS_CHOICES,
+                'form_data':    request.POST,
+            })
+
+        from datetime import datetime as _dt
+        try:
+            tanggal_date = _dt.strptime(tanggal, '%Y-%m-%d').date()
+        except (ValueError, TypeError):
+            tanggal_date = date.today()
+
+        record = BeritaAcaraRecord.objects.create(
+            jenis=jenis,
+            nomor_ba=nomor_ba,
+            tanggal=tanggal_date,
+            pelaksana=pelaksana,
+            nip=nip,
+            jabatan=jabatan,
+            catatan=catatan,
+            rows_data=[],
+            file_upload=file_upload,
+            created_by=request.user,
+        )
+        dj_messages.success(request, f'Berita Acara "{record.nomor_ba}" berhasil diupload.')
+        return redirect('ba_list')
+
+    return render(request, 'maintenance/ba_upload.html', {
+        'today':         date.today().isoformat(),
+        'jenis_choices': BA_UPLOAD_JENIS_CHOICES,
     })
