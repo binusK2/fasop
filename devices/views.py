@@ -1091,11 +1091,10 @@ def device_detail(request, pk):
 
     # Kandidat host server untuk form tambah VM (Master Station / Server SCADA fisik)
     host_candidates = Device.objects.filter(
-        is_deleted=False,
-        host__isnull=True,
-    ).filter(
         Q(jenis__name__icontains='master station') |
         Q(jenis__name__icontains='server scada'),   # backward compat nama lama
+        is_deleted=False,
+        host__isnull=True,
     ).exclude(pk=device.pk)
 
     return render(request, 'devices/device_detail.html', {

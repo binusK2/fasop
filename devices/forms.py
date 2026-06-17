@@ -72,11 +72,10 @@ class DeviceForm(forms.ModelForm):
         # host: tampilkan server fisik yang bisa menjadi host VM (bukan VM itu sendiri)
         self.fields['host'].required = False
         self.fields['host'].queryset = Device.objects.filter(
-            is_deleted=False,
-            host__isnull=True,
-        ).filter(
             Q(jenis__name__icontains='master station') |
             Q(jenis__name__icontains='server scada'),   # backward compat nama lama
+            is_deleted=False,
+            host__isnull=True,
         )
         self.fields['host'].widget.attrs.update({'class': 'form-select'})
         self.fields['host'].empty_label = '— Bukan VM (perangkat fisik) —'
