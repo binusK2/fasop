@@ -4159,15 +4159,6 @@ def ba_gangguan(request):
     })
 
 
-# Perihal yang tersedia khusus untuk flow upload BA (dokumen sudah jadi).
-# Pemasangan/Pembongkaran/Penggantian sudah punya flow generate-PDF tersendiri.
-BA_UPLOAD_JENIS_CHOICES = [
-    ('gangguan',   'Gangguan'),
-    ('penormalan', 'Penormalan'),
-    ('lainnya',    'Lainnya'),
-]
-
-
 @login_required
 def ba_upload(request):
     from django.contrib import messages as dj_messages
@@ -4183,7 +4174,7 @@ def ba_upload(request):
         file_upload = request.FILES.get('file_upload')
 
         errors = []
-        if jenis not in dict(BA_UPLOAD_JENIS_CHOICES):
+        if jenis not in dict(BeritaAcaraRecord.JENIS_CHOICES):
             errors.append('Perihal / jenis BA tidak valid.')
         if not tanggal:
             errors.append('Tanggal BA wajib diisi.')
@@ -4205,7 +4196,7 @@ def ba_upload(request):
                 dj_messages.error(request, e)
             return render(request, 'maintenance/ba_upload.html', {
                 'today':        date.today().isoformat(),
-                'jenis_choices': BA_UPLOAD_JENIS_CHOICES,
+                'jenis_choices': BeritaAcaraRecord.JENIS_CHOICES,
                 'form_data':    request.POST,
             })
 
@@ -4232,5 +4223,5 @@ def ba_upload(request):
 
     return render(request, 'maintenance/ba_upload.html', {
         'today':         date.today().isoformat(),
-        'jenis_choices': BA_UPLOAD_JENIS_CHOICES,
+        'jenis_choices': BeritaAcaraRecord.JENIS_CHOICES,
     })
