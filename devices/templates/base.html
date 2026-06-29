@@ -846,11 +846,13 @@
             Inservice Inspection
         </a>
         {% endif %}
+        {% if not user_is_operator %}
         <a href="{% url 'pengujian_telecom_dashboard' %}"
            class="sidebar-link {% if request.resolver_match.url_name == 'pengujian_telecom_dashboard' or request.resolver_match.url_name == 'pengujian_telecom_form' or request.resolver_match.url_name == 'pengujian_telecom_list' or request.resolver_match.url_name == 'pengujian_telecom_detail' or request.resolver_match.url_name == 'pengujian_radio_form' or request.resolver_match.url_name == 'pengujian_voip_form' %}active{% endif %}">
             <span class="si-icon"><i class="bi bi-broadcast"></i></span>
             Pengujian Telekomunikasi
         </a>
+        {% endif %}
     </div>
 
     {% if not user_is_operator and not user_is_dispatcher %}
