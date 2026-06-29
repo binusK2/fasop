@@ -46,7 +46,7 @@ class OperatorAccessMiddleware:
     """
     Middleware untuk role Operator — hanya bisa akses:
     - Dashboard (/)
-    - Inspection (/inspection/...)
+    - Inspection (/inspection/...) KECUALI /inspection/pengujian-* (milik Dispatcher)
     - Logout, login, password change, static, media
     Semua URL lain → redirect ke inspection_lokasi.
     """
@@ -60,6 +60,11 @@ class OperatorAccessMiddleware:
         '/login/',
         '/ganti-password/',
         '/notifikasi/',
+    )
+
+    # Prefix yang TIDAK boleh diakses operator meski masuk ALLOWED_PREFIXES
+    BLOCKED_PREFIXES = (
+        '/inspection/pengujian-',
     )
 
     # Exact URL yang boleh (dashboard)
@@ -77,9 +82,13 @@ class OperatorAccessMiddleware:
 
             if role == 'operator':
                 path = request.path
+                blocked = any(path.startswith(p) for p in self.BLOCKED_PREFIXES)
                 allowed = (
-                    any(path.startswith(p) for p in self.ALLOWED_PREFIXES)
-                    or path in self.ALLOWED_EXACT
+                    not blocked
+                    and (
+                        any(path.startswith(p) for p in self.ALLOWED_PREFIXES)
+                        or path in self.ALLOWED_EXACT
+                    )
                 )
                 if not allowed:
                     return redirect('inspection_lokasi')
