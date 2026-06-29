@@ -187,6 +187,12 @@ class SingleSessionMiddleware:
             if path.startswith('/static/') or path.startswith('/media/'):
                 return self.get_response(request)
 
+            # Admin panel dikecualikan — Django admin merotasi session key setelah
+            # password change (update_session_auth_hash), sehingga stored_key
+            # tidak cocok dan menyebabkan admin ter-logout.
+            if path.startswith('/secure-panel/'):
+                return self.get_response(request)
+
             try:
                 logout_url = reverse('logout')
                 login_url  = reverse('login')
