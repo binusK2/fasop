@@ -1,0 +1,225 @@
+{% extends "opsis/opsis_base.html" %}
+{% block title %}Beban KTT — OPSIS{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4">
+  <div>
+    <h5 class="mb-0 fw-bold" style="color:#e2e8f0;">
+      <i class="bi bi-building-fill-up me-2" style="color:#10b981;"></i>Beban KTT
+    </h5>
+    <small style="color:#64748b;">Konsumen Tegangan Tinggi — data realtime dari IND_LOAD</small>
+  </div>
+  <div class="d-flex align-items-center gap-3">
+    <!-- Total beban -->
+    <div style="background:#0f2d1f;border:1px solid #166534;color:#fff;border-radius:10px;padding:8px 20px;text-align:center;">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#86efac;">Total Beban</div>
+      <div style="font-size:22px;font-weight:800;font-family:'JetBrains Mono',monospace;color:#4ade80;" id="totalMW">{{ total_mw|floatformat:2 }}</div>
+      <div style="font-size:10px;color:#86efac;">MW</div>
+    </div>
+    <!-- Jumlah konsumen -->
+    <div style="background:#131f35;border:1px solid #1e2d45;color:#fff;border-radius:10px;padding:8px 20px;text-align:center;">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#94a3b8;">Konsumen</div>
+      <div style="font-size:22px;font-weight:800;font-family:'JetBrains Mono',monospace;color:#60a5fa;" id="jumlahKonsumen">{{ jumlah }}</div>
+      <div style="font-size:10px;color:#94a3b8;">unit</div>
+    </div>
+    <!-- Auto refresh indicator -->
+    <div class="text-center">
+      <div style="font-size:10px;color:#64748b;">Update otomatis</div>
+      <div id="refreshCountdown" style="font-size:18px;font-weight:700;color:#3b82f6;">30</div>
+      <div style="font-size:10px;color:#64748b;">detik</div>
+    </div>
+  </div>
+</div>
+
+<!-- Tabel KTT -->
+<div class="card" style="background:#131f35;border:1px solid #1e2d45;border-radius:12px;overflow:hidden;">
+  <div class="card-header d-flex align-items-center justify-content-between py-2 px-4"
+       style="background:#0d1b2e;border-bottom:1px solid #1e2d45;">
+    <div class="d-flex align-items-center gap-2">
+      <span class="live-dot"></span>
+      <span style="font-size:12px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;">Data Realtime</span>
+    </div>
+    <span style="font-size:11px;color:#64748b;">Sumber: dbo.IND_LOAD</span>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="ktt-table" id="kttTable">
+        <thead>
+          <tr>
+            <th style="width:50px;text-align:center;">No.</th>
+            <th>Nama Konsumen (ANALOG)</th>
+            <th style="width:180px;text-align:center;">Beban (VALUE)<br><span style="font-weight:400;font-size:10px;opacity:.7;">MW</span></th>
+            <th style="width:160px;text-align:center;">Proporsi</th>
+          </tr>
+        </thead>
+        <tbody id="kttBody">
+          {% for row in rows %}
+          <tr>
+            <td style="text-align:center;color:#64748b;font-size:11px;">{{ forloop.counter }}</td>
+            <td>
+              <span style="font-weight:600;color:#e2e8f0;font-size:13px;">{{ row.analog }}</span>
+            </td>
+            <td style="text-align:center;">
+              {% if row.value is not None %}
+                {% if row.value > 0 %}
+                  <span style="font-weight:700;color:#4ade80;font-family:'JetBrains Mono',monospace;font-size:14px;">{{ row.value|floatformat:3 }}</span>
+                {% else %}
+                  <span style="color:#64748b;font-family:'JetBrains Mono',monospace;">{{ row.value|floatformat:3 }}</span>
+                {% endif %}
+              {% else %}
+                <span style="color:#475569;">—</span>
+              {% endif %}
+            </td>
+            <td style="padding:8px 16px;">
+              {% if row.value and total_mw > 0 %}
+              {% widthratio row.value total_mw 100 as pct %}
+              <div style="display:flex;align-items:center;gap:8px;">
+                <div style="flex:1;height:6px;background:#1e2d45;border-radius:3px;overflow:hidden;">
+                  <div style="width:{{ pct }}%;height:100%;background:linear-gradient(90deg,#10b981,#34d399);border-radius:3px;"></div>
+                </div>
+                <span style="font-size:11px;color:#64748b;font-family:'JetBrains Mono',monospace;min-width:35px;">{{ pct }}%</span>
+              </div>
+              {% else %}
+              <span style="color:#475569;font-size:11px;">—</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="4" style="text-align:center;padding:40px;color:#64748b;">
+              <i class="bi bi-exclamation-circle" style="font-size:28px;display:block;margin-bottom:8px;"></i>
+              Tidak ada data KTT tersedia.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        {% if rows %}
+        <tfoot>
+          <tr>
+            <td colspan="2" style="color:#86efac;font-weight:700;padding:10px 16px;">
+              <i class="bi bi-sigma me-1"></i>Total {{ jumlah }} konsumen
+            </td>
+            <td style="text-align:center;color:#4ade80;font-weight:700;font-family:'JetBrains Mono',monospace;font-size:14px;">
+              {{ total_mw|floatformat:2 }}
+            </td>
+            <td style="text-align:center;color:#64748b;font-size:11px;">100%</td>
+          </tr>
+        </tfoot>
+        {% endif %}
+      </table>
+    </div>
+  </div>
+</div>
+
+<style>
+.ktt-table { width:100%; border-collapse:collapse; font-size:13px; }
+.ktt-table thead tr { background:#0d1b2e; }
+.ktt-table thead th {
+  padding:10px 16px; font-size:11px; font-weight:700; text-transform:uppercase;
+  letter-spacing:.4px; white-space:nowrap; border-bottom:1px solid #1e2d45;
+  color:#64748b;
+}
+.ktt-table tbody td {
+  padding:9px 16px; border-bottom:1px solid #1a2840; vertical-align:middle;
+  color:#e2e8f0;
+}
+.ktt-table tbody tr:hover td { background:rgba(59,130,246,.06); }
+.ktt-table tfoot td {
+  padding:10px 16px; border-top:2px solid #1e2d45;
+  background:#0d1b2e;
+}
+</style>
+
+<script>
+let countdown = 30;
+const cdEl = document.getElementById('refreshCountdown');
+
+async function fetchAndRender() {
+  try {
+    const res  = await fetch("{% url 'opsis_api_beban_ktt' %}");
+    const data = await res.json();
+    renderTable(data);
+    setLastUpdate();
+  } catch(e) {
+    console.warn('Refresh beban KTT gagal:', e);
+  }
+}
+
+function renderTable(data) {
+  const rows     = data.rows || [];
+  const totalMW  = parseFloat(data.total_mw || 0);
+  const jumlah   = data.jumlah || 0;
+
+  document.getElementById('totalMW').textContent       = totalMW.toFixed(2);
+  document.getElementById('jumlahKonsumen').textContent = jumlah;
+
+  if (!rows.length) {
+    document.getElementById('kttBody').innerHTML =
+      '<tr><td colspan="4" style="text-align:center;padding:40px;color:#64748b;">' +
+      '<i class="bi bi-exclamation-circle" style="font-size:28px;display:block;margin-bottom:8px;"></i>' +
+      'Tidak ada data KTT tersedia.</td></tr>';
+    return;
+  }
+
+  let tbodyHtml = '';
+  rows.forEach((r, idx) => {
+    const pct = totalMW > 0 && r.value !== null
+      ? Math.round(r.value / totalMW * 100)
+      : 0;
+
+    let valHtml;
+    if (r.value === null) {
+      valHtml = '<span style="color:#475569;">—</span>';
+    } else if (r.value > 0) {
+      valHtml = `<span style="font-weight:700;color:#4ade80;font-family:'JetBrains Mono',monospace;font-size:14px;">${r.value.toFixed(3)}</span>`;
+    } else {
+      valHtml = `<span style="color:#64748b;font-family:'JetBrains Mono',monospace;">${r.value.toFixed(3)}</span>`;
+    }
+
+    const barHtml = pct > 0
+      ? `<div style="display:flex;align-items:center;gap:8px;">
+           <div style="flex:1;height:6px;background:#1e2d45;border-radius:3px;overflow:hidden;">
+             <div style="width:${pct}%;height:100%;background:linear-gradient(90deg,#10b981,#34d399);border-radius:3px;"></div>
+           </div>
+           <span style="font-size:11px;color:#64748b;font-family:'JetBrains Mono',monospace;min-width:35px;">${pct}%</span>
+         </div>`
+      : '<span style="color:#475569;font-size:11px;">—</span>';
+
+    tbodyHtml += `<tr>
+      <td style="text-align:center;color:#64748b;font-size:11px;">${idx + 1}</td>
+      <td><span style="font-weight:600;color:#e2e8f0;font-size:13px;">${r.analog || '—'}</span></td>
+      <td style="text-align:center;">${valHtml}</td>
+      <td style="padding:9px 16px;">${barHtml}</td>
+    </tr>`;
+  });
+
+  const table  = document.getElementById('kttTable');
+  const tbody  = document.getElementById('kttBody');
+  const existingTfoot = table.querySelector('tfoot');
+  if (existingTfoot) existingTfoot.remove();
+
+  tbody.innerHTML = tbodyHtml;
+
+  const tfoot = document.createElement('tfoot');
+  tfoot.innerHTML = `<tr>
+    <td colspan="2" style="color:#86efac;font-weight:700;padding:10px 16px;">
+      <i class="bi bi-sigma me-1"></i>Total ${jumlah} konsumen
+    </td>
+    <td style="text-align:center;color:#4ade80;font-weight:700;font-family:'JetBrains Mono',monospace;font-size:14px;">
+      ${totalMW.toFixed(2)}
+    </td>
+    <td style="text-align:center;color:#64748b;font-size:11px;">100%</td>
+  </tr>`;
+  table.appendChild(tfoot);
+}
+
+setInterval(() => {
+  countdown--;
+  cdEl.textContent = countdown;
+  if (countdown <= 0) {
+    countdown = 30;
+    fetchAndRender();
+  }
+}, 1000);
+</script>
+{% endblock %}

@@ -653,6 +653,46 @@ def beban_trafo(request):
     })
 
 
+def _split_ktt(rows):
+    """Pisahkan IND_TOTAL dari baris konsumen. Return (consumers, total_mw)."""
+    consumers = []
+    total_mw  = None
+    for r in rows:
+        if r['analog'].upper() == 'IND_TOTAL':
+            total_mw = r['value']
+        else:
+            consumers.append(r)
+    # Fallback: hitung manual jika IND_TOTAL tidak ada di data
+    if total_mw is None:
+        total_mw = sum(r['value'] for r in consumers if r['value'] is not None)
+    return consumers, round(total_mw, 2) if total_mw is not None else 0
+
+
+@login_required
+def beban_ktt(request):
+    """Halaman monitoring beban KTT (konsumen tegangan tinggi) dari IND_LOAD."""
+    all_rows = mssql.get_beban_ktt()
+    rows, total_mw = _split_ktt(all_rows)
+    return render(request, 'opsis/beban_ktt.html', {
+        'pembangkit_list': _pembangkit_aktif(),
+        'rows':            rows,
+        'total_mw':        total_mw,
+        'jumlah':          len(rows),
+    })
+
+
+@login_required
+def api_beban_ktt(request):
+    """API JSON untuk refresh otomatis halaman beban KTT."""
+    all_rows = mssql.get_beban_ktt()
+    rows, total_mw = _split_ktt(all_rows)
+    return JsonResponse({
+        'rows':     rows,
+        'total_mw': total_mw,
+        'jumlah':   len(rows),
+    })
+
+
 @login_required
 def api_beban_trafo(request):
     """API JSON untuk refresh otomatis halaman beban trafo."""

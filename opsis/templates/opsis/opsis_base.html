@@ -60,11 +60,11 @@ body { font-family:'DM Sans', sans-serif; background:var(--body-bg); color:var(-
     width: var(--sb-w);
     background: var(--sb-bg);
     border-right: 1px solid var(--sb-border);
-    display: flex;
-    flex-direction: column;
+    display: block;
     flex-shrink: 0;
     transition: width .25s ease;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
 }
 .sidebar.collapsed { width: 52px; }
 
@@ -229,9 +229,21 @@ body { font-family:'DM Sans', sans-serif; background:var(--body-bg); color:var(-
             <i class="bi bi-lightning-charge-fill sb-icon"></i>
             <span class="sb-label">Beban Trafo</span>
         </a>
+        <a href="/opsis/beban-ktt/" class="sb-link {% if request.resolver_match.url_name == 'opsis_beban_ktt' %}active{% endif %}">
+            <i class="bi bi-building-fill-up sb-icon"></i>
+            <span class="sb-label">Beban KTT</span>
+        </a>
 
         {% if pembangkit_list %}
-        <div class="sb-section-label" style="margin-top:8px;">Pembangkit</div>
+        <button id="btn-pb-toggle" onclick="togglePembangkit()"
+                style="display:flex;align-items:center;justify-content:space-between;
+                       width:100%;background:none;border:none;cursor:pointer;
+                       padding:14px 14px 6px;margin-top:8px;">
+            <span class="sb-section-label" style="margin:0;padding:0;">Pembangkit</span>
+            <i class="bi bi-chevron-up" id="pb-chevron"
+               style="font-size:11px;color:var(--muted);transition:transform .2s;"></i>
+        </button>
+        <div id="pb-list">
         {% for p in pembangkit_list %}
         <a href="/opsis/{{ p.pk }}/" class="sb-link {% if request.resolver_match.url_name == 'opsis_pembangkit' and active_pk == p.pk %}active{% endif %}"
            data-pembangkit="{{ p.kode }}">
@@ -239,6 +251,7 @@ body { font-family:'DM Sans', sans-serif; background:var(--body-bg); color:var(-
             <span class="sb-label">{{ p.nama }}</span>
         </a>
         {% endfor %}
+        </div>
         {% endif %}
     </div>
 
@@ -272,6 +285,28 @@ document.getElementById('btn-collapse').addEventListener('click', () => {
     localStorage.setItem('opsis_sb_collapsed', collapsed ? '1' : '0');
     applySidebar();
 });
+
+// Pembangkit list collapse/expand
+const pbList    = document.getElementById('pb-list');
+const pbChevron = document.getElementById('pb-chevron');
+let pbCollapsed = localStorage.getItem('opsis_pb_collapsed') === '1';
+
+function applyPbState() {
+    if (!pbList) return;
+    if (pbCollapsed) {
+        pbList.style.display = 'none';
+        if (pbChevron) pbChevron.style.transform = 'rotate(180deg)';
+    } else {
+        pbList.style.display = 'block';
+        if (pbChevron) pbChevron.style.transform = 'rotate(0deg)';
+    }
+}
+function togglePembangkit() {
+    pbCollapsed = !pbCollapsed;
+    localStorage.setItem('opsis_pb_collapsed', pbCollapsed ? '1' : '0');
+    applyPbState();
+}
+applyPbState();
 
 // Update last-update timestamp
 function setLastUpdate() {

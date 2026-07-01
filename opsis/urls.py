@@ -17,4 +17,6 @@ urlpatterns = [
     path('rangkuman/',            views.rangkuman,           name='opsis_rangkuman'),
     path('beban-trafo/',          views.beban_trafo,         name='opsis_beban_trafo'),
     path('api/beban-trafo/',      views.api_beban_trafo,     name='opsis_api_beban_trafo'),
+    path('beban-ktt/',            views.beban_ktt,           name='opsis_beban_ktt'),
+    path('api/beban-ktt/',        views.api_beban_ktt,       name='opsis_api_beban_ktt'),
 ]
