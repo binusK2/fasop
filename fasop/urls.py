@@ -21,6 +21,7 @@ from django.contrib.auth import views as auth_views
 from django.conf.urls.static import static
 from django.views.defaults import page_not_found
 from devices.views import fo_public
+from fasop import pwa_views
 from fasop.converters import HashIdConverter
 
 register_converter(HashIdConverter, 'hid')
@@ -65,6 +66,11 @@ urlpatterns = [
 
     # Public FO page — tanpa login (QR scan)
     path('fo/public/<str:token>/', fo_public, name='fo_public'),
+
+    # PWA — service worker (scope root), manifest, & halaman offline
+    path('service-worker.js', pwa_views.service_worker, name='service_worker'),
+    path('manifest.webmanifest', pwa_views.manifest, name='pwa_manifest'),
+    path('offline/', pwa_views.offline, name='pwa_offline'),
 
     path('login/', auth_views.LoginView.as_view(template_name='registration/login.html'), name='login'),
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),

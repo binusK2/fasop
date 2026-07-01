@@ -1,0 +1,56 @@
+{% load static %}{
+  "name": "FASOP Inspeksi UP2B",
+  "short_name": "FASOP Inspeksi",
+  "description": "Inservice Inspection & Operator — FASOP UP2B Sistem Makassar (PT PLN Persero UIP3B Sulawesi)",
+  "lang": "id",
+  "dir": "ltr",
+  "start_url": "/inspection/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait-primary",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "categories": ["business", "productivity", "utilities"],
+  "icons": [
+    {
+      "src": "{% static 'favicon/android-chrome-192x192.png' %}",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "{% static 'favicon/android-chrome-512x512.png' %}",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "{% static 'favicon/android-chrome-192x192.png' %}",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "{% static 'favicon/android-chrome-512x512.png' %}",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "{% static 'favicon/apple-touch-icon.png' %}",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Inservice Inspection",
+      "short_name": "Inspeksi",
+      "description": "Buka daftar lokasi untuk inspeksi",
+      "url": "/inspection/?source=pwa",
+      "icons": [{ "src": "{% static 'favicon/android-chrome-192x192.png' %}", "sizes": "192x192" }]
+    }
+  ]
+}

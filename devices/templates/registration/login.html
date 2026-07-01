@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+{% load static %}<!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
@@ -293,6 +293,14 @@
             .card { width: 92vw; padding: 36px 28px 32px; }
         }
     </style>
+
+    <!-- PWA -->
+    <link rel="apple-touch-icon" sizes="180x180" href="{% static 'favicon/apple-touch-icon.png' %}">
+    <link rel="manifest" href="{% url 'pwa_manifest' %}">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="FASOP Inspeksi">
 </head>
 <body>
 
@@ -354,5 +362,13 @@
     <div class="card-footer">PT PLN (Persero) - UP2B Sistem Makassar</div>
 </div>
 
+    <script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+            navigator.serviceWorker.register('{% url "service_worker" %}', { scope: '/' })
+                .catch(function () {});
+        });
+    }
+    </script>
 </body>
 </html>
