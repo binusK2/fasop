@@ -82,55 +82,27 @@
 .ctbl .alt{background:#f8fafc;}
 .ctbl .sr-tot td{background:#1e3a8a;color:#fff;font-weight:bold;}
 </style>
-<div class="two-col" style="margin-top:1mm;align-items:flex-start;">
-    <div style="flex:1;min-width:0;">
-        <table class="ctbl">
-            <thead><tr>
-                <th class="th-n">#</th>
-                <th class="th-f">V Float</th>
-                <th class="th-d">VD 0 Jam</th>
-                <th class="th-d">VD 1 Jam</th>
-                <th class="th-d">VD 2 Jam</th>
-                <th class="th-d">VD 3 Jam</th>
-            </tr></thead>
-            <tbody>
-                {% for c in fmt_cells_left %}
-                <tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %}>
-                    <td class="cn">{{ c.num }}</td>
-                    {% for v in c.vals %}<td>{{ v }}</td>{% endfor %}
-                </tr>
-                {% endfor %}
-            </tbody>
-            {% if fmt_cells_left %}
-            <tfoot>
-                <tr class="sr-tot"><td>&#x2211;</td>{% for v in fmt_vtotal_vals %}<td>{{ v }}</td>{% endfor %}</tr>
-            </tfoot>
-            {% endif %}
-        </table>
-    </div>
-    {% if fmt_cells_right %}
-    <div style="flex:1;min-width:0;">
-        <table class="ctbl">
-            <thead><tr>
-                <th class="th-n">#</th>
-                <th class="th-f">V Float</th>
-                <th class="th-d">VD 0 Jam</th>
-                <th class="th-d">VD 1 Jam</th>
-                <th class="th-d">VD 2 Jam</th>
-                <th class="th-d">VD 3 Jam</th>
-            </tr></thead>
-            <tbody>
-                {% for c in fmt_cells_right %}
-                <tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %}>
-                    <td class="cn">{{ c.num }}</td>
-                    {% for v in c.vals %}<td>{{ v }}</td>{% endfor %}
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    {% endif %}
-</div>
+<table class="ctbl" style="margin-top:1mm;">
+    <thead><tr>
+        <th class="th-n">#</th>
+        <th class="th-f">V Float</th>
+        <th class="th-d">VD 0 Jam</th>
+        <th class="th-d">VD 1 Jam</th>
+        <th class="th-d">VD 2 Jam</th>
+        <th class="th-d">VD 3 Jam</th>
+    </tr></thead>
+    <tbody>
+        {% for c in fmt_cells %}
+        <tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %}>
+            <td class="cn">{{ c.num }}</td>
+            {% for v in c.vals %}<td>{{ v }}</td>{% endfor %}
+        </tr>
+        {% endfor %}
+    </tbody>
+    <tfoot>
+        <tr class="sr-tot"><td>&#x2211;</td>{% for v in fmt_vtotal_vals %}<td>{{ v }}</td>{% endfor %}</tr>
+    </tfoot>
+</table>
 {% endif %}
 
 {% if catatan %}

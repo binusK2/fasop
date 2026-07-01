@@ -42,6 +42,10 @@ def _trafo_tbl():
     """Tabel beban trafo ALL_TRANS_DATA."""
     return getattr(settings, 'MSSQL_TRAFO_TABLE', 'dbo.ALL_TRANS_DATA')
 
+def _ktt_tbl():
+    """Tabel beban KTT (konsumen tegangan tinggi) IND_LOAD."""
+    return getattr(settings, 'MSSQL_KTT_TABLE', 'dbo.IND_LOAD')
+
 
 def _parse_host_port(host_setting, default_port=1433):
     """Parse 'host,port' atau 'host' dari setting MSSQL_HOST."""
@@ -580,6 +584,64 @@ def _dummy_beban_trafo():
                 'i':    round(random.uniform(50, 300), 2),
             })
     return result
+
+
+# ── Beban KTT (Konsumen Tegangan Tinggi) ─────────────────────────────────────
+
+def get_beban_ktt():
+    """
+    Ambil data beban semua konsumen tegangan tinggi dari IND_LOAD.
+
+    Returns:
+        list of dict:
+            id     : int   — ID baris
+            analog : str   — nama/kode konsumen (kolom ANALOG)
+            value  : float|None — nilai beban (kolom VALUE)
+    """
+    if _DUMMY_MODE or not getattr(settings, 'MSSQL_HOST', ''):
+        return _dummy_beban_ktt()
+
+    try:
+        conn   = _get_connection()
+        cursor = conn.cursor()
+        tbl    = _ktt_tbl()
+        cursor.execute(
+            f"""
+            SELECT ID, RTRIM(ANALOG), VALUE
+            FROM {tbl} WITH (NOLOCK)
+            ORDER BY ANALOG
+            """
+        )
+        rows = cursor.fetchall()
+        conn.close()
+        return [
+            {
+                'id':     row[0],
+                'analog': (row[1] or '').strip(),
+                'value':  float(row[2]) if row[2] is not None else None,
+            }
+            for row in rows
+        ]
+    except Exception as e:
+        logger.error('get_beban_ktt error: %s', e)
+        return _dummy_beban_ktt()
+
+
+def _dummy_beban_ktt():
+    import random
+    consumers = [
+        'PT SEMEN TONASA', 'PT VALE INDONESIA', 'PT INDUSTRI KAPAL',
+        'PT PABRIK KERTAS', 'PT PETROKIMIA', 'PT SMELTER NIKEL',
+        'PT ALUMINUM SULAWESI', 'PT ENERGI MAJU',
+    ]
+    return [
+        {
+            'id':     i + 1,
+            'analog': name,
+            'value':  round(random.uniform(5, 120), 3),
+        }
+        for i, name in enumerate(consumers)
+    ]
 
 
 # ─────────────────────────────────────────────────────────────────────────────
