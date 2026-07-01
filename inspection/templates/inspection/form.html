@@ -465,21 +465,13 @@
         <div class="row g-3">
             <div class="col-md-6">
                 <label class="form-label fw-semibold">Foto Dokumentasi</label>
-                <!-- Input file tersembunyi. TANPA atribut capture, agar HP menampilkan
-                     pemilih aplikasi: pengguna bebas memilih kamera bawaan, kamera
-                     timestamp, aplikasi kamera lain, atau galeri. -->
-                <input type="file" name="foto" id="foto-input" accept="image/*" class="d-none">
-                <div class="d-flex gap-2">
-                    <button type="button" class="btn btn-outline-primary flex-fill" onclick="openFoto('camera')">
-                        <i class="bi bi-camera-fill me-1"></i>Ambil Foto (Kamera)
-                    </button>
-                    <button type="button" class="btn btn-outline-secondary flex-fill" onclick="openFoto('gallery')">
-                        <i class="bi bi-images me-1"></i>Pilih dari Galeri
-                    </button>
-                </div>
+                <!-- Satu kolom upload. TANPA atribut capture, agar saat diklik HP
+                     menampilkan pemilih: galeri, kamera bawaan, atau aplikasi
+                     kamera lain (mis. kamera timestamp) yang terpasang. -->
+                <input type="file" name="foto" id="foto-input" accept="image/*" class="form-control">
                 <div class="form-text">
-                    Tombol <b>Kamera</b> membuka pemilih aplikasi kamera di HP
-                    (kamera bawaan / kamera timestamp). JPG, PNG — Maks 10MB.
+                    Klik untuk memilih: galeri, kamera bawaan, atau aplikasi kamera lain.
+                    JPG, PNG — Maks 10MB.
                 </div>
                 <!-- Preview foto terpilih -->
                 <div id="foto-preview-wrap" class="mt-2" style="display:none;">
@@ -533,20 +525,11 @@
 <script>
 const hiddenFields = {};
 
-// ── Foto: pilih sumber kamera atau galeri ──────────────────────────────
+// ── Foto: preview + validasi ukuran ────────────────────────────────────
+// Kolom upload memakai input file standar tanpa atribut "capture" agar saat
+// diklik HP menampilkan pemilih bawaannya (galeri / kamera bawaan / aplikasi
+// kamera lain seperti kamera timestamp).
 const fotoInput = document.getElementById('foto-input');
-
-function openFoto(source) {
-    if (!fotoInput) return;
-    // PENTING: jangan pakai atribut "capture".
-    // capture="environment"/"user" memaksa satu kamera bawaan langsung terbuka
-    // (di sebagian HP malah kamera depan) dan MELEWATI pemilih aplikasi Android.
-    // Dengan menghapus capture, HP menampilkan chooser sehingga pengguna bisa
-    // memilih aplikasi kamera mana pun yang terpasang (kamera bawaan, kamera
-    // timestamp, dll.) atau galeri.
-    fotoInput.removeAttribute('capture');
-    fotoInput.click();
-}
 
 function clearFoto() {
     if (!fotoInput) return;
