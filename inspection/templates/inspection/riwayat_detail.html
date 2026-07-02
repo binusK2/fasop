@@ -170,31 +170,38 @@
     </div>
 </div>
 
-{% elif insp.jenis == 'defense_scheme' or insp.jenis == 'master_trip' or insp.jenis == 'ufls' %}
-<!-- RELAY DETAIL: Defense Scheme / Master Trip / UFLS -->
+{% elif insp.jenis == 'defense_scheme' or insp.jenis == 'master_trip' or insp.jenis == 'ufls' or insp.jenis == 'dfr' or insp.jenis == 'server_ads' %}
+<!-- KONDISI LINGKUNGAN -->
 <div class="card mb-3">
     <div class="card-body px-4 py-3">
         <div class="d-flex align-items-center gap-2 mb-3">
-            <span style="width:5px;height:18px;background:#8b5cf6;border-radius:3px;display:inline-block;"></span>
-            <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;color:#64748b;">Kondisi Panel</h6>
+            <span style="width:5px;height:18px;background:#0ea5e9;border-radius:3px;display:inline-block;"></span>
+            <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;color:#64748b;">Kondisi Lingkungan</h6>
         </div>
         <div class="row g-3">
             <div class="col-md-2 col-6">
                 <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;text-align:center;">
-                    <div style="font-size:10.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:5px;">Suhu Ruangan</div>
+                    <div style="font-size:10.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:5px;">Suhu</div>
                     <div style="font-size:20px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;">{{ detail.suhu_ruangan|default:"—" }}</div>
                     {% if detail.suhu_ruangan %}<div style="font-size:10px;color:#94a3b8;">°C</div>{% endif %}
                 </div>
             </div>
-            {% for label,val,ok_val,alarm in relay_panel_rows %}
+            <div class="col-md-2 col-6">
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;text-align:center;">
+                    <div style="font-size:10.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:5px;">Kelembapan</div>
+                    <div style="font-size:20px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;">{{ detail.kelembapan|default:"—" }}</div>
+                    {% if detail.kelembapan %}<div style="font-size:10px;color:#94a3b8;">%</div>{% endif %}
+                </div>
+            </div>
+            {% for row in env_rows %}
             <div class="col-md-2 col-6">
                 <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;">
-                    <div style="font-size:10.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;">{{ label }}</div>
-                    {% if val %}
-                        {% if val == ok_val %}
-                        <span style="background:#dcfce7;color:#166534;padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;">✓ {{ val|title }}</span>
+                    <div style="font-size:10.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;">{{ row.label }}</div>
+                    {% if row.val %}
+                        {% if row.ok %}
+                        <span style="background:#dcfce7;color:#166534;padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;">✓ {{ row.display }}</span>
                         {% else %}
-                        <span style="background:{% if alarm %}#fee2e2{% else %}#fef9c3{% endif %};color:{% if alarm %}#991b1b{% else %}#854d0e{% endif %};padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;">{% if alarm %}⚠ {% endif %}{{ val|title }}</span>
+                        <span style="background:{{ row.bg }};color:{{ row.fg }};padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;">{{ row.display }}</span>
                         {% endif %}
                     {% else %}<span style="color:#94a3b8;font-size:12px;">—</span>{% endif %}
                 </div>
@@ -204,40 +211,147 @@
     </div>
 </div>
 
+{% if relay_rows %}
+<!-- KONDISI RELAY -->
 <div class="card mb-3">
     <div class="card-body px-4 py-3">
         <div class="d-flex align-items-center gap-2 mb-3">
-            <span style="width:5px;height:18px;background:#6366f1;border-radius:3px;display:inline-block;"></span>
-            <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;color:#64748b;">Kondisi Rele & Pengukuran</h6>
+            <span style="width:5px;height:18px;background:#8b5cf6;border-radius:3px;display:inline-block;"></span>
+            <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;color:#64748b;">Kondisi Relay</h6>
         </div>
         <div class="row g-3">
-            {% for label,val,ok_val,alarm in relay_kondisi_rows %}
+            {% for row in relay_rows %}
             <div class="col-md-2 col-6">
                 <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;">
-                    <div style="font-size:10.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;">{{ label }}</div>
-                    {% if val %}
-                        {% if val == ok_val %}
-                        <span style="background:#dcfce7;color:#166534;padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;">✓ {{ val|title }}</span>
+                    <div style="font-size:10.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;">{{ row.label }}</div>
+                    {% if row.val %}
+                        {% if row.ok %}
+                        <span style="background:#dcfce7;color:#166534;padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;">✓ {{ row.display }}</span>
                         {% else %}
-                        <span style="background:{% if alarm %}#fee2e2{% else %}#fef9c3{% endif %};color:{% if alarm %}#991b1b{% else %}#854d0e{% endif %};padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;">{% if alarm %}⚠ {% endif %}{{ val|title }}</span>
+                        <span style="background:{{ row.bg }};color:{{ row.fg }};padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;">{{ row.display }}</span>
                         {% endif %}
                     {% else %}<span style="color:#94a3b8;font-size:12px;">—</span>{% endif %}
                 </div>
             </div>
             {% endfor %}
-            <div class="col-md-2 col-6">
-                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;text-align:center;">
-                    <div style="font-size:10.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:5px;">Sumber DC</div>
-                    <div style="font-size:20px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;">{{ detail.sumber_dc|default:"—" }}</div>
-                    {% if detail.sumber_dc %}<div style="font-size:10px;color:#94a3b8;">V</div>{% endif %}
-                </div>
-            </div>
         </div>
         {% if detail.catatan_relay %}
         <div class="mt-2" style="font-size:12px;color:#64748b;"><i class="bi bi-chat-text me-1"></i>{{ detail.catatan_relay }}</div>
         {% endif %}
     </div>
 </div>
+{% endif %}
+
+{% if led_rows %}
+<!-- INDIKATOR LED / ALARM -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="d-flex align-items-center gap-2 mb-3">
+            <span style="width:5px;height:18px;background:#10b981;border-radius:3px;display:inline-block;"></span>
+            <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;color:#64748b;">Indikator LED / Alarm</h6>
+        </div>
+        <div class="row g-3">
+            {% for row in led_rows %}
+            <div class="col-md-2 col-6">
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;">
+                    <div style="font-size:10.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;">{{ row.label }}</div>
+                    {% if row.val %}
+                        {% if row.ok %}
+                        <span style="background:#dcfce7;color:#166534;padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;">✓ {{ row.display }}</span>
+                        {% else %}
+                        <span style="background:{{ row.bg }};color:{{ row.fg }};padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;">{{ row.display }}</span>
+                        {% endif %}
+                    {% else %}<span style="color:#94a3b8;font-size:12px;">—</span>{% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% if detail.catatan_led %}
+        <div class="mt-2" style="font-size:12px;color:#64748b;"><i class="bi bi-chat-text me-1"></i>{{ detail.catatan_led }}</div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+{% if dfr_rows %}
+<!-- KONDISI DFR -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="d-flex align-items-center gap-2 mb-3">
+            <span style="width:5px;height:18px;background:#8b5cf6;border-radius:3px;display:inline-block;"></span>
+            <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;color:#64748b;">Kondisi DFR</h6>
+        </div>
+        <div class="row g-3">
+            {% for row in dfr_rows %}
+            <div class="col-md-2 col-6">
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;">
+                    <div style="font-size:10.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;">{{ row.label }}</div>
+                    {% if row.val %}
+                        {% if row.ok %}
+                        <span style="background:#dcfce7;color:#166534;padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;">✓ {{ row.display }}</span>
+                        {% else %}
+                        <span style="background:{{ row.bg }};color:{{ row.fg }};padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;">{{ row.display }}</span>
+                        {% endif %}
+                    {% else %}<span style="color:#94a3b8;font-size:12px;">—</span>{% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if ads_rows %}
+<!-- STATUS PERALATAN SERVER ADS -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="d-flex align-items-center gap-2 mb-3">
+            <span style="width:5px;height:18px;background:#10b981;border-radius:3px;display:inline-block;"></span>
+            <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;color:#64748b;">Status Peralatan</h6>
+        </div>
+        <div class="row g-3">
+            {% for row in ads_rows %}
+            <div class="col-md-2 col-6">
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;">
+                    <div style="font-size:10.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;">{{ row.label }}</div>
+                    {% if row.val %}
+                        {% if row.ok %}
+                        <span style="background:#dcfce7;color:#166534;padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;">✓ {{ row.display }}</span>
+                        {% else %}
+                        <span style="background:{{ row.bg }};color:{{ row.fg }};padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;">{{ row.display }}</span>
+                        {% endif %}
+                    {% else %}<span style="color:#94a3b8;font-size:12px;">—</span>{% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if detail_rows %}
+<!-- PENGUKURAN -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="d-flex align-items-center gap-2 mb-3">
+            <span style="width:5px;height:18px;background:#6366f1;border-radius:3px;display:inline-block;"></span>
+            <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;color:#64748b;">Pengukuran</h6>
+        </div>
+        <div class="row g-3">
+            {% for label,val,unit in detail_rows %}
+            <div class="col-md-2">
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px;text-align:center;">
+                    <div style="font-size:10.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:5px;">{{ label }}</div>
+                    <div style="font-size:20px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;">{{ val|default:"—" }}</div>
+                    {% if val %}<div style="font-size:10px;color:#94a3b8;">{{ unit }}</div>{% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
 {% elif insp.jenis == 'telecom' %}
 <!-- TELECOM DETAIL -->
 <div class="card mb-3">
@@ -300,9 +414,9 @@
 
 {% if insp.foto %}
 <div class="card mb-3">
-    <div class="card-body px-4 py-3">
+    <div class="card-body px-4 py-3 text-center">
         <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:10px;">Foto Dokumentasi</div>
-        <img src="{{ insp.foto.url }}" alt="Foto" style="max-width:400px;border-radius:10px;border:1px solid #e2e8f0;">
+        <img src="{{ insp.foto.url }}" alt="Foto" style="max-width:400px;width:100%;border-radius:10px;border:1px solid #e2e8f0;">
     </div>
 </div>
 {% endif %}
