@@ -3,7 +3,10 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
 from django.utils import timezone
 from django.db.models import Count, Q
-from .models import Inspection, InspectionCatuDaya, InspectionDefenseScheme, InspectionMasterTrip, InspectionUFLS, InspectionTelecom, PengujianTelecom, PengujianTelecomItem
+from .models import (Inspection, InspectionCatuDaya, InspectionDefenseScheme,
+                     InspectionMasterTrip, InspectionUFLS, InspectionDFR,
+                     InspectionServerADS, InspectionTelecom,
+                     PengujianTelecom, PengujianTelecomItem)
 from devices.models import Device, DeviceType, SiteLocation
 from datetime import date
 import openpyxl
@@ -18,6 +21,8 @@ INSPECTABLE_JENIS = {
     'RELE DEFENSE SCHEME': 'defense_scheme',
     'MASTER TRIP':         'master_trip',
     'UFLS':                'ufls',
+    'DFR':                 'dfr',
+    'SERVER ADS':          'server_ads',
     'Radio':               'telecom',
     'VoIP':                'telecom',
 }
@@ -219,6 +224,7 @@ def inspection_form(request, device_pk):
             InspectionDefenseScheme.objects.create(
                 inspection        = insp,
                 suhu_ruangan      = gf('suhu_ruangan'),
+                kelembapan        = gf('kelembapan'),
                 kebersihan_panel  = g('kebersihan_panel'),
                 lampu_panel       = g('lampu_panel'),
                 kondisi_relay     = g('kondisi_relay'),
@@ -234,6 +240,7 @@ def inspection_form(request, device_pk):
             InspectionMasterTrip.objects.create(
                 inspection        = insp,
                 suhu_ruangan      = gf('suhu_ruangan'),
+                kelembapan        = gf('kelembapan'),
                 kebersihan_panel  = g('kebersihan_panel'),
                 lampu_panel       = g('lampu_panel'),
                 kondisi_relay     = g('kondisi_relay'),
@@ -249,6 +256,7 @@ def inspection_form(request, device_pk):
             InspectionUFLS.objects.create(
                 inspection        = insp,
                 suhu_ruangan      = gf('suhu_ruangan'),
+                kelembapan        = gf('kelembapan'),
                 kebersihan_panel  = g('kebersihan_panel'),
                 lampu_panel       = g('lampu_panel'),
                 kondisi_relay     = g('kondisi_relay'),
@@ -258,6 +266,35 @@ def inspection_form(request, device_pk):
                 posisi_selektor   = g('posisi_selektor'),
                 kondisi_kabel_lan = g('kondisi_kabel_lan'),
                 sumber_dc         = gf('sumber_dc'),
+            )
+
+        elif jenis_key == 'dfr':
+            InspectionDFR.objects.create(
+                inspection         = insp,
+                suhu_ruangan       = gf('suhu_ruangan'),
+                kelembapan         = gf('kelembapan'),
+                kebersihan_ruangan = g('kebersihan_ruangan'),
+                lampu_penerangan   = g('lampu_penerangan'),
+                kondisi_dfr        = g('kondisi_dfr'),
+                healthy_status     = g('healthy_status'),
+                indikasi_led_alarm = g('indikasi_led_alarm'),
+                status_indikator   = g('status_indikator'),
+                kondisi_kabel_lan  = g('kondisi_kabel_lan'),
+            )
+
+        elif jenis_key == 'server_ads':
+            InspectionServerADS.objects.create(
+                inspection            = insp,
+                suhu_ruangan          = gf('suhu_ruangan'),
+                kelembapan            = gf('kelembapan'),
+                kebersihan_ruangan    = g('kebersihan_ruangan'),
+                lampu_penerangan      = g('lampu_penerangan'),
+                peralatan_server_ads  = g('peralatan_server_ads'),
+                tampilan_hmi          = g('tampilan_hmi'),
+                peralatan_gateway_ic3 = g('peralatan_gateway_ic3'),
+                kondisi_switch_lan    = g('kondisi_switch_lan'),
+                peralatan_power_supply= g('peralatan_power_supply'),
+                fan_panel             = g('fan_panel'),
             )
 
         elif jenis_key == 'telecom':
@@ -275,9 +312,12 @@ def inspection_form(request, device_pk):
 
     # GET — tampilkan form
     return render(request, 'inspection/form.html', {
-        'device':    device,
-        'jenis_key': jenis_key,
+        'device':      device,
+        'jenis_key':   jenis_key,
         'jenis_label': dict(Inspection.JENIS_CHOICES).get(jenis_key, ''),
+        'dev_merk':    device.merk or '—',
+        'dev_type':    device.type or '—',
+        'dev_ip':      str(device.ip_address) if device.ip_address else '—',
     })
 
 
