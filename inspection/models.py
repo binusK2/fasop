@@ -182,14 +182,21 @@ class InspectionDefenseScheme(models.Model):
         ('nyala', 'Nyala'),
         ('mati',  'Mati'),
     )
+    STATUS_IND_CHOICES = (
+        ('normal',       'Normal'),
+        ('tidak_normal', 'Tidak Normal'),
+    )
+    BLOK_SKEMA_CHOICES = (
+        ('on',  'ON'),
+        ('off', 'OFF'),
+    )
     SELEKTOR_CHOICES = (
-        ('on_aktif',    'ON / Aktif'),
-        ('off_nonaktif','OFF / Nonaktif'),
+        ('blok', 'Blok'),
+        ('on',   'ON'),
     )
     KABEL_LAN_CHOICES = (
-        ('terpasang',      'Terpasang'),
-        ('terlepas',       'Terlepas'),
-        ('tidak_tersedia', 'Tidak Tersedia'),
+        ('normal',   'Normal'),
+        ('terlepas', 'Terlepas'),
     )
 
     inspection = models.OneToOneField(
@@ -207,6 +214,9 @@ class InspectionDefenseScheme(models.Model):
     relay_healthy     = models.CharField(max_length=15, blank=True, choices=KONDISI_RELAY_CHOICES, verbose_name='Relay Healthy')
     indikator_led     = models.CharField(max_length=15, blank=True, choices=LED_CHOICES, verbose_name='Indikasi LED')
     catatan_relay     = models.CharField(max_length=300, blank=True, verbose_name='Catatan Relay')
+    # Indikator LED / Alarm
+    status_indikator      = models.CharField(max_length=15, blank=True, choices=STATUS_IND_CHOICES, verbose_name='Status Indikator')
+    selektor_blok_skema   = models.CharField(max_length=5, blank=True, choices=BLOK_SKEMA_CHOICES, verbose_name='Selektor Blok Skema')
     # Selektor & Kabel
     posisi_selektor   = models.CharField(max_length=15, blank=True, choices=SELEKTOR_CHOICES, verbose_name='Posisi Selektor Target')
     kondisi_kabel_lan = models.CharField(max_length=20, blank=True, choices=KABEL_LAN_CHOICES, verbose_name='Kondisi Kabel LAN')
@@ -242,13 +252,12 @@ class InspectionMasterTrip(models.Model):
         ('mati',  'Mati'),
     )
     SELEKTOR_CHOICES = (
-        ('on_aktif',    'ON / Aktif'),
-        ('off_nonaktif','OFF / Nonaktif'),
+        ('blok', 'Blok'),
+        ('on',   'ON'),
     )
     KABEL_LAN_CHOICES = (
-        ('terpasang',      'Terpasang'),
-        ('terlepas',       'Terlepas'),
-        ('tidak_tersedia', 'Tidak Tersedia'),
+        ('normal',   'Normal'),
+        ('terlepas', 'Terlepas'),
     )
 
     inspection = models.OneToOneField(

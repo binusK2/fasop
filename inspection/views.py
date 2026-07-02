@@ -232,18 +232,19 @@ def inspection_form(request, device_pk):
 
         elif jenis_key == 'defense_scheme':
             InspectionDefenseScheme.objects.create(
-                inspection        = insp,
-                suhu_ruangan      = gf('suhu_ruangan'),
-                kelembapan        = gf('kelembapan'),
-                kebersihan_panel  = g('kebersihan_panel'),
-                lampu_panel       = g('lampu_panel'),
-                kondisi_relay     = g('kondisi_relay'),
-                relay_healthy     = g('relay_healthy'),
-                indikator_led     = g('indikator_led'),
-                catatan_relay     = g('catatan_relay'),
-                posisi_selektor   = g('posisi_selektor'),
-                kondisi_kabel_lan = g('kondisi_kabel_lan'),
-                sumber_dc         = gf('sumber_dc'),
+                inspection          = insp,
+                suhu_ruangan        = gf('suhu_ruangan'),
+                kelembapan          = gf('kelembapan'),
+                kebersihan_panel    = g('kebersihan_panel'),
+                lampu_panel         = g('lampu_panel'),
+                kondisi_relay       = g('kondisi_relay'),
+                relay_healthy       = g('relay_healthy'),
+                indikator_led       = g('indikator_led'),
+                catatan_relay       = g('catatan_relay'),
+                status_indikator    = g('status_indikator'),
+                selektor_blok_skema = g('selektor_blok_skema'),
+                posisi_selektor     = g('posisi_selektor'),
+                kondisi_kabel_lan   = g('kondisi_kabel_lan'),
             )
 
         elif jenis_key == 'master_trip':
@@ -390,8 +391,11 @@ def inspection_riwayat(request, pk):
     detail_rows = []
     rectifier_rows = []
     bank_rows = []
-    relay_panel_rows = []
-    relay_kondisi_rows = []
+    env_rows = []
+    relay_rows = []
+    led_rows = []
+    dfr_rows = []
+    ads_rows = []
 
     def mk_row(label, val, ok_val, ok_display, nok_display=None, alarm=False):
         is_ok = (val == ok_val)
@@ -441,26 +445,86 @@ def inspection_riwayat(request, pk):
                 mk_row('Kondisi Baterai', detail.kondisi_baterai,
                        'bersih', 'Bersih', 'Kotor'),
             ]
-        elif insp.jenis in ('defense_scheme', 'master_trip', 'ufls'):
-            if insp.jenis == 'defense_scheme':
-                detail = insp.detail_defense_scheme
-            elif insp.jenis == 'master_trip':
-                detail = insp.detail_master_trip
-            else:
-                detail = insp.detail_ufls
 
-            # (label, val, ok_val, alarm)
-            relay_panel_rows = [
-                ('Kebersihan Panel', detail.kebersihan_panel,  'bersih', False),
-                ('Lampu Panel',      detail.lampu_panel,       'nyala',  True),
+        elif insp.jenis == 'defense_scheme':
+            detail = insp.detail_defense_scheme
+            env_rows = [
+                mk_row('Kebersihan', detail.kebersihan_panel, 'bersih', 'Bersih', 'Kotor'),
+                mk_row('Lampu Penerangan', detail.lampu_panel, 'nyala', 'Nyala', 'Mati', alarm=True),
             ]
-            relay_kondisi_rows = [
-                ('Kondisi Rele',      detail.kondisi_relay,     'normal', True),
-                ('Relay Healthy',     detail.relay_healthy,     'normal', True),
-                ('Indikasi LED',      detail.indikator_led,     'normal', True),
-                ('Posisi Selektor',   detail.posisi_selektor,   'on_aktif', False),
-                ('Kondisi Kabel LAN', detail.kondisi_kabel_lan, 'terpasang', True),
+            relay_rows = [
+                mk_row('Status Relay', detail.kondisi_relay, 'normal', 'Normal', 'Alarm', alarm=True),
             ]
+            led_rows = [
+                mk_row('Status Indikator', detail.status_indikator, 'normal', 'Normal', 'Tidak Normal', alarm=True),
+                mk_row('Selector Blok Skema', detail.selektor_blok_skema, 'on', 'ON', 'OFF'),
+                mk_row('Selector Target', detail.posisi_selektor, 'on', 'ON', 'Blok'),
+                mk_row('Kondisi Kabel LAN', detail.kondisi_kabel_lan, 'normal', 'Normal', 'Terlepas', alarm=True),
+            ]
+
+        elif insp.jenis == 'master_trip':
+            detail = insp.detail_master_trip
+            env_rows = [
+                mk_row('Kebersihan', detail.kebersihan_panel, 'bersih', 'Bersih', 'Kotor'),
+                mk_row('Lampu Penerangan', detail.lampu_panel, 'nyala', 'Nyala', 'Mati', alarm=True),
+            ]
+            relay_rows = [
+                mk_row('Status Relay', detail.kondisi_relay, 'normal', 'Normal', 'Alarm', alarm=True),
+                mk_row('Selektor Target', detail.posisi_selektor, 'on', 'ON', 'Blok'),
+                mk_row('Kondisi Kabel LAN', detail.kondisi_kabel_lan, 'normal', 'Normal', 'Terlepas', alarm=True),
+            ]
+            led_rows = [
+                mk_row('Status Indikator', detail.indikator_led, 'normal', 'Normal', 'Tidak Normal', alarm=True),
+            ]
+
+        elif insp.jenis == 'ufls':
+            detail = insp.detail_ufls
+            env_rows = [
+                mk_row('Kebersihan', detail.kebersihan_panel, 'bersih', 'Bersih', 'Kotor'),
+                mk_row('Lampu Penerangan', detail.lampu_panel, 'nyala', 'Nyala', 'Mati', alarm=True),
+            ]
+            relay_rows = [
+                mk_row('Status Relay', detail.kondisi_relay, 'normal', 'Normal', 'Alarm', alarm=True),
+            ]
+            led_rows = [
+                mk_row('Status Indikator', detail.indikator_led, 'normal', 'Normal', 'Tidak Normal', alarm=True),
+            ]
+            if detail.sumber_dc is not None:
+                detail_rows = [('Sumber DC', detail.sumber_dc, 'V')]
+
+        elif insp.jenis == 'dfr':
+            detail = insp.detail_dfr
+            env_rows = [
+                mk_row('Kebersihan', detail.kebersihan_ruangan, 'bersih', 'Bersih', 'Kotor'),
+                mk_row('Lampu Penerangan', detail.lampu_penerangan, 'baik', 'Baik',
+                       detail.get_lampu_penerangan_display() if detail.lampu_penerangan else '—', alarm=True),
+            ]
+            dfr_rows = [
+                mk_row('Kondisi DFR', detail.kondisi_dfr, 'normal', 'Normal', 'Faulty', alarm=True),
+                mk_row('Healthy Status', detail.healthy_status, 'healthy', 'Healthy',
+                       detail.get_healthy_status_display() if detail.healthy_status else '—', alarm=True),
+                mk_row('Indikasi LED Alarm', detail.indikasi_led_alarm, 'tidak_ada', 'Tidak Ada', 'Ada', alarm=True),
+                mk_row('Status Indikator', detail.status_indikator, 'normal', 'Normal', 'Tidak Normal', alarm=True),
+                mk_row('Kondisi Kabel LAN', detail.kondisi_kabel_lan, 'normal', 'Normal', 'Terlepas', alarm=True),
+            ]
+
+        elif insp.jenis == 'server_ads':
+            detail = insp.detail_server_ads
+            env_rows = [
+                mk_row('Kebersihan', detail.kebersihan_ruangan, 'bersih', 'Bersih', 'Kotor'),
+                mk_row('Lampu Penerangan', detail.lampu_penerangan, 'baik', 'Baik',
+                       detail.get_lampu_penerangan_display() if detail.lampu_penerangan else '—', alarm=True),
+            ]
+            ads_rows = [
+                mk_row('Peralatan Server ADS', detail.peralatan_server_ads, 'normal', 'Normal', 'Tidak Normal', alarm=True),
+                mk_row('Tampilan HMI', detail.tampilan_hmi, 'normal', 'Normal',
+                       detail.get_tampilan_hmi_display() if detail.tampilan_hmi else '—', alarm=True),
+                mk_row('Peralatan Gateway IC3 ADS', detail.peralatan_gateway_ic3, 'normal', 'Normal', 'Tidak Normal', alarm=True),
+                mk_row('Kondisi Switch Kabel LAN', detail.kondisi_switch_lan, 'normal', 'Normal', 'Mati', alarm=True),
+                mk_row('Peralatan Power Supply', detail.peralatan_power_supply, 'normal', 'Normal', 'Tidak Normal', alarm=True),
+                mk_row('Fan Panel', detail.fan_panel, 'nyala', 'Nyala', 'Mati', alarm=True),
+            ]
+
         elif insp.jenis == 'telecom':
             detail = insp.detail_telecom
 
@@ -468,13 +532,16 @@ def inspection_riwayat(request, pk):
         pass
 
     return render(request, 'inspection/riwayat_detail.html', {
-        'insp':              insp,
-        'detail':            detail,
-        'detail_rows':       detail_rows,
-        'rectifier_rows':    rectifier_rows,
-        'bank_rows':         bank_rows,
-        'relay_panel_rows':  relay_panel_rows,
-        'relay_kondisi_rows':relay_kondisi_rows,
+        'insp':           insp,
+        'detail':         detail,
+        'detail_rows':    detail_rows,
+        'rectifier_rows': rectifier_rows,
+        'bank_rows':      bank_rows,
+        'env_rows':       env_rows,
+        'relay_rows':     relay_rows,
+        'led_rows':       led_rows,
+        'dfr_rows':       dfr_rows,
+        'ads_rows':       ads_rows,
     })
 
 

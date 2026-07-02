@@ -211,21 +211,17 @@
         <div class="stb"><span class="stb-bar" style="background:#0ea5e9;"></span><span>Kondisi Lingkungan</span></div>
         <div class="row g-3">
             <div class="col-md-3">
-                <div class="mcard">
-                    <div class="mlabel">Suhu</div>
-                    <div class="input-group">
-                        <input type="number" step="any" name="suhu_ruangan" class="form-control" placeholder="e.g. 25">
-                        <span class="input-group-text munit">°C</span>
-                    </div>
+                <label class="form-label fw-semibold">Suhu</label>
+                <div class="input-group">
+                    <input type="number" step="any" name="suhu_ruangan" class="form-control" placeholder="e.g. 25">
+                    <span class="input-group-text">°C</span>
                 </div>
             </div>
             <div class="col-md-3">
-                <div class="mcard">
-                    <div class="mlabel">Kelembapan</div>
-                    <div class="input-group">
-                        <input type="number" step="any" name="kelembapan" class="form-control" placeholder="e.g. 60">
-                        <span class="input-group-text munit">%</span>
-                    </div>
+                <label class="form-label fw-semibold">Kelembapan</label>
+                <div class="input-group">
+                    <input type="number" step="any" name="kelembapan" class="form-control" placeholder="e.g. 60">
+                    <span class="input-group-text">%</span>
                 </div>
             </div>
             <div class="col-md-3">
@@ -278,39 +274,45 @@
     <div class="card-body px-4 py-3">
         <div class="stb"><span class="stb-bar" style="background:#10b981;"></span><span>Indikator LED / Alarm</span></div>
         <div class="row g-3">
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <label class="form-label fw-semibold">Status Indikator</label>
                 <div class="d-flex gap-2">
-                    <button type="button" class="toggle-opt flex-fill" onclick="setToggle('indikator_led','normal')">
+                    <button type="button" class="toggle-opt flex-fill" onclick="setToggle('status_indikator','normal')">
                         <i class="bi bi-lightbulb me-1"></i>Normal
                     </button>
-                    <button type="button" class="toggle-opt toggle-alarm flex-fill" onclick="setToggle('indikator_led','tidak_normal')">
+                    <button type="button" class="toggle-opt toggle-alarm flex-fill" onclick="setToggle('status_indikator','tidak_normal')">
                         <i class="bi bi-lightbulb-off me-1"></i>Tidak Normal
                     </button>
                 </div>
-                <input type="hidden" name="indikator_led" id="indikator_led">
+                <input type="hidden" name="status_indikator" id="status_indikator">
             </div>
-            <div class="col-md-8">
+            <div class="col-md-3">
+                <label class="form-label fw-semibold">Selector Blok Skema</label>
+                <div class="d-flex gap-2">
+                    <button type="button" class="toggle-opt flex-fill" onclick="setToggle('selektor_blok_skema','on')"><i class="bi bi-toggle-on me-1"></i>ON</button>
+                    <button type="button" class="toggle-opt toggle-warn flex-fill" onclick="setToggle('selektor_blok_skema','off')"><i class="bi bi-toggle-off me-1"></i>OFF</button>
+                </div>
+                <input type="hidden" name="selektor_blok_skema" id="selektor_blok_skema">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-semibold">Selector Target</label>
+                <div class="d-flex gap-2">
+                    <button type="button" class="toggle-opt toggle-warn flex-fill" onclick="setToggle('posisi_selektor','blok')"><i class="bi bi-slash-circle me-1"></i>Blok</button>
+                    <button type="button" class="toggle-opt flex-fill" onclick="setToggle('posisi_selektor','on')"><i class="bi bi-toggle-on me-1"></i>ON</button>
+                </div>
+                <input type="hidden" name="posisi_selektor" id="posisi_selektor">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-semibold">Kondisi Kabel LAN</label>
+                <div class="d-flex gap-2">
+                    <button type="button" class="toggle-opt flex-fill" onclick="setToggle('kondisi_kabel_lan','normal')"><i class="bi bi-ethernet me-1"></i>Normal</button>
+                    <button type="button" class="toggle-opt toggle-alarm flex-fill" onclick="setToggle('kondisi_kabel_lan','terlepas')"><i class="bi bi-plug me-1"></i>Terlepas</button>
+                </div>
+                <input type="hidden" name="kondisi_kabel_lan" id="kondisi_kabel_lan">
+            </div>
+            <div class="col-12">
                 <label class="form-label fw-semibold">Catatan LED/Alarm</label>
                 <input type="text" name="catatan_led" class="form-control" placeholder="Keterangan indikator LED/alarm...">
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Sumber DC -->
-<div class="card mb-3">
-    <div class="card-body px-4 py-3">
-        <div class="stb"><span class="stb-bar" style="background:#6366f1;"></span><span>Pengukuran</span></div>
-        <div class="row g-3">
-            <div class="col-md-3">
-                <div class="mcard">
-                    <div class="mlabel">Sumber DC</div>
-                    <div class="input-group">
-                        <input type="number" step="any" name="sumber_dc" class="form-control" placeholder="e.g. 110">
-                        <span class="input-group-text munit">V</span>
-                    </div>
-                </div>
             </div>
         </div>
     </div>
@@ -325,21 +327,17 @@
         <div class="stb"><span class="stb-bar" style="background:#0ea5e9;"></span><span>Kondisi Lingkungan</span></div>
         <div class="row g-3">
             <div class="col-md-3">
-                <div class="mcard">
-                    <div class="mlabel">Suhu</div>
-                    <div class="input-group">
-                        <input type="number" step="any" name="suhu_ruangan" class="form-control" placeholder="e.g. 25">
-                        <span class="input-group-text munit">°C</span>
-                    </div>
+                <label class="form-label fw-semibold">Suhu</label>
+                <div class="input-group">
+                    <input type="number" step="any" name="suhu_ruangan" class="form-control" placeholder="e.g. 25">
+                    <span class="input-group-text">°C</span>
                 </div>
             </div>
             <div class="col-md-3">
-                <div class="mcard">
-                    <div class="mlabel">Kelembapan</div>
-                    <div class="input-group">
-                        <input type="number" step="any" name="kelembapan" class="form-control" placeholder="e.g. 60">
-                        <span class="input-group-text munit">%</span>
-                    </div>
+                <label class="form-label fw-semibold">Kelembapan</label>
+                <div class="input-group">
+                    <input type="number" step="any" name="kelembapan" class="form-control" placeholder="e.g. 60">
+                    <span class="input-group-text">%</span>
                 </div>
             </div>
             <div class="col-md-3">
@@ -379,7 +377,23 @@
                 </div>
                 <input type="hidden" name="kondisi_relay" id="kondisi_relay">
             </div>
-            <div class="col-md-8">
+            <div class="col-md-4">
+                <label class="form-label fw-semibold">Selektor Target</label>
+                <div class="d-flex gap-2">
+                    <button type="button" class="toggle-opt toggle-warn flex-fill" onclick="setToggle('posisi_selektor','blok')"><i class="bi bi-slash-circle me-1"></i>Blok</button>
+                    <button type="button" class="toggle-opt flex-fill" onclick="setToggle('posisi_selektor','on')"><i class="bi bi-toggle-on me-1"></i>ON</button>
+                </div>
+                <input type="hidden" name="posisi_selektor" id="posisi_selektor">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label fw-semibold">Kondisi Kabel LAN</label>
+                <div class="d-flex gap-2">
+                    <button type="button" class="toggle-opt flex-fill" onclick="setToggle('kondisi_kabel_lan','normal')"><i class="bi bi-ethernet me-1"></i>Normal</button>
+                    <button type="button" class="toggle-opt toggle-alarm flex-fill" onclick="setToggle('kondisi_kabel_lan','terlepas')"><i class="bi bi-plug me-1"></i>Terlepas</button>
+                </div>
+                <input type="hidden" name="kondisi_kabel_lan" id="kondisi_kabel_lan">
+            </div>
+            <div class="col-12">
                 <label class="form-label fw-semibold">Catatan Relay</label>
                 <input type="text" name="catatan_relay" class="form-control" placeholder="Keterangan kondisi relay...">
             </div>
@@ -412,24 +426,6 @@
     </div>
 </div>
 
-<!-- Sumber DC -->
-<div class="card mb-3">
-    <div class="card-body px-4 py-3">
-        <div class="stb"><span class="stb-bar" style="background:#6366f1;"></span><span>Pengukuran</span></div>
-        <div class="row g-3">
-            <div class="col-md-3">
-                <div class="mcard">
-                    <div class="mlabel">Sumber DC</div>
-                    <div class="input-group">
-                        <input type="number" step="any" name="sumber_dc" class="form-control" placeholder="e.g. 110">
-                        <span class="input-group-text munit">V</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
 {% elif jenis_key == 'ufls' %}
 <!-- ══ UFLS ══════════════════════════════════════════════════ -->
 
@@ -439,21 +435,17 @@
         <div class="stb"><span class="stb-bar" style="background:#0ea5e9;"></span><span>Kondisi Lingkungan</span></div>
         <div class="row g-3">
             <div class="col-md-3">
-                <div class="mcard">
-                    <div class="mlabel">Suhu</div>
-                    <div class="input-group">
-                        <input type="number" step="any" name="suhu_ruangan" class="form-control" placeholder="e.g. 25">
-                        <span class="input-group-text munit">°C</span>
-                    </div>
+                <label class="form-label fw-semibold">Suhu</label>
+                <div class="input-group">
+                    <input type="number" step="any" name="suhu_ruangan" class="form-control" placeholder="e.g. 25">
+                    <span class="input-group-text">°C</span>
                 </div>
             </div>
             <div class="col-md-3">
-                <div class="mcard">
-                    <div class="mlabel">Kelembapan</div>
-                    <div class="input-group">
-                        <input type="number" step="any" name="kelembapan" class="form-control" placeholder="e.g. 60">
-                        <span class="input-group-text munit">%</span>
-                    </div>
+                <label class="form-label fw-semibold">Kelembapan</label>
+                <div class="input-group">
+                    <input type="number" step="any" name="kelembapan" class="form-control" placeholder="e.g. 60">
+                    <span class="input-group-text">%</span>
                 </div>
             </div>
             <div class="col-md-3">
@@ -553,21 +545,17 @@
         <div class="stb"><span class="stb-bar" style="background:#0ea5e9;"></span><span>Kondisi Lingkungan</span></div>
         <div class="row g-3">
             <div class="col-md-3">
-                <div class="mcard">
-                    <div class="mlabel">Suhu</div>
-                    <div class="input-group">
-                        <input type="number" step="any" name="suhu_ruangan" class="form-control" placeholder="e.g. 25">
-                        <span class="input-group-text munit">°C</span>
-                    </div>
+                <label class="form-label fw-semibold">Suhu</label>
+                <div class="input-group">
+                    <input type="number" step="any" name="suhu_ruangan" class="form-control" placeholder="e.g. 25">
+                    <span class="input-group-text">°C</span>
                 </div>
             </div>
             <div class="col-md-3">
-                <div class="mcard">
-                    <div class="mlabel">Kelembapan</div>
-                    <div class="input-group">
-                        <input type="number" step="any" name="kelembapan" class="form-control" placeholder="e.g. 60">
-                        <span class="input-group-text munit">%</span>
-                    </div>
+                <label class="form-label fw-semibold">Kelembapan</label>
+                <div class="input-group">
+                    <input type="number" step="any" name="kelembapan" class="form-control" placeholder="e.g. 60">
+                    <span class="input-group-text">%</span>
                 </div>
             </div>
             <div class="col-md-3">
@@ -650,21 +638,17 @@
         <div class="stb"><span class="stb-bar" style="background:#0ea5e9;"></span><span>Kondisi Lingkungan</span></div>
         <div class="row g-3">
             <div class="col-md-3">
-                <div class="mcard">
-                    <div class="mlabel">Suhu</div>
-                    <div class="input-group">
-                        <input type="number" step="any" name="suhu_ruangan" class="form-control" placeholder="e.g. 25">
-                        <span class="input-group-text munit">°C</span>
-                    </div>
+                <label class="form-label fw-semibold">Suhu</label>
+                <div class="input-group">
+                    <input type="number" step="any" name="suhu_ruangan" class="form-control" placeholder="e.g. 25">
+                    <span class="input-group-text">°C</span>
                 </div>
             </div>
             <div class="col-md-3">
-                <div class="mcard">
-                    <div class="mlabel">Kelembapan</div>
-                    <div class="input-group">
-                        <input type="number" step="any" name="kelembapan" class="form-control" placeholder="e.g. 60">
-                        <span class="input-group-text munit">%</span>
-                    </div>
+                <label class="form-label fw-semibold">Kelembapan</label>
+                <div class="input-group">
+                    <input type="number" step="any" name="kelembapan" class="form-control" placeholder="e.g. 60">
+                    <span class="input-group-text">%</span>
                 </div>
             </div>
             <div class="col-md-3">
