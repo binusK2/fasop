@@ -29,6 +29,12 @@
                 <div style="font-size:13px;color:#cbd5e1;">{{ jenis_label }}</div></div>
             <div><div style="font-size:11px;color:#94a3b8;text-transform:uppercase;font-weight:600;">Lokasi</div>
                 <div style="font-size:13px;color:#cbd5e1;">{{ device.lokasi|default:"—" }}</div></div>
+            <div><div style="font-size:11px;color:#94a3b8;text-transform:uppercase;font-weight:600;">Merk</div>
+                <div style="font-size:13px;color:#cbd5e1;">{{ dev_merk }}</div></div>
+            <div><div style="font-size:11px;color:#94a3b8;text-transform:uppercase;font-weight:600;">Type</div>
+                <div style="font-size:13px;color:#cbd5e1;">{{ dev_type }}</div></div>
+            <div><div style="font-size:11px;color:#94a3b8;text-transform:uppercase;font-weight:600;">IP</div>
+                <div style="font-size:13px;color:#cbd5e1;font-family:monospace;">{{ dev_ip }}</div></div>
         </div>
     </div>
 </div>
@@ -199,6 +205,49 @@
 {% elif jenis_key == 'defense_scheme' %}
 <!-- ══ RELE DEFENSE SCHEME ═══════════════════════════════════ -->
 
+<!-- Kondisi Lingkungan -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="stb"><span class="stb-bar" style="background:#0ea5e9;"></span><span>Kondisi Lingkungan</span></div>
+        <div class="row g-3">
+            <div class="col-md-3">
+                <div class="mcard">
+                    <div class="mlabel">Suhu</div>
+                    <div class="input-group">
+                        <input type="number" step="any" name="suhu_ruangan" class="form-control" placeholder="e.g. 25">
+                        <span class="input-group-text munit">°C</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="mcard">
+                    <div class="mlabel">Kelembapan</div>
+                    <div class="input-group">
+                        <input type="number" step="any" name="kelembapan" class="form-control" placeholder="e.g. 60">
+                        <span class="input-group-text munit">%</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-semibold">Kebersihan</label>
+                <div class="d-flex gap-2">
+                    <button type="button" class="toggle-opt flex-fill" onclick="setToggle('kebersihan_panel','bersih')"><i class="bi bi-check-circle me-1"></i>Bersih</button>
+                    <button type="button" class="toggle-opt toggle-warn flex-fill" onclick="setToggle('kebersihan_panel','kotor')"><i class="bi bi-exclamation me-1"></i>Kotor</button>
+                </div>
+                <input type="hidden" name="kebersihan_panel" id="kebersihan_panel">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-semibold">Lampu Penerangan</label>
+                <div class="d-flex gap-2">
+                    <button type="button" class="toggle-opt flex-fill" onclick="setToggle('lampu_panel','nyala')"><i class="bi bi-lightbulb-fill me-1"></i>Nyala</button>
+                    <button type="button" class="toggle-opt toggle-alarm flex-fill" onclick="setToggle('lampu_panel','mati')"><i class="bi bi-lightbulb-off me-1"></i>Mati</button>
+                </div>
+                <input type="hidden" name="lampu_panel" id="lampu_panel">
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Kondisi Relay -->
 <div class="card mb-3">
     <div class="card-body px-4 py-3">
@@ -269,6 +318,49 @@
 
 {% elif jenis_key == 'master_trip' %}
 <!-- ══ RELE MASTER TRIP ═══════════════════════════════════ -->
+
+<!-- Kondisi Lingkungan -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="stb"><span class="stb-bar" style="background:#0ea5e9;"></span><span>Kondisi Lingkungan</span></div>
+        <div class="row g-3">
+            <div class="col-md-3">
+                <div class="mcard">
+                    <div class="mlabel">Suhu</div>
+                    <div class="input-group">
+                        <input type="number" step="any" name="suhu_ruangan" class="form-control" placeholder="e.g. 25">
+                        <span class="input-group-text munit">°C</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="mcard">
+                    <div class="mlabel">Kelembapan</div>
+                    <div class="input-group">
+                        <input type="number" step="any" name="kelembapan" class="form-control" placeholder="e.g. 60">
+                        <span class="input-group-text munit">%</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-semibold">Kebersihan</label>
+                <div class="d-flex gap-2">
+                    <button type="button" class="toggle-opt flex-fill" onclick="setToggle('kebersihan_panel','bersih')"><i class="bi bi-check-circle me-1"></i>Bersih</button>
+                    <button type="button" class="toggle-opt toggle-warn flex-fill" onclick="setToggle('kebersihan_panel','kotor')"><i class="bi bi-exclamation me-1"></i>Kotor</button>
+                </div>
+                <input type="hidden" name="kebersihan_panel" id="kebersihan_panel">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-semibold">Lampu Penerangan</label>
+                <div class="d-flex gap-2">
+                    <button type="button" class="toggle-opt flex-fill" onclick="setToggle('lampu_panel','nyala')"><i class="bi bi-lightbulb-fill me-1"></i>Nyala</button>
+                    <button type="button" class="toggle-opt toggle-alarm flex-fill" onclick="setToggle('lampu_panel','mati')"><i class="bi bi-lightbulb-off me-1"></i>Mati</button>
+                </div>
+                <input type="hidden" name="lampu_panel" id="lampu_panel">
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- Kondisi Relay -->
 <div class="card mb-3">
@@ -341,6 +433,49 @@
 {% elif jenis_key == 'ufls' %}
 <!-- ══ UFLS ══════════════════════════════════════════════════ -->
 
+<!-- Kondisi Lingkungan -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="stb"><span class="stb-bar" style="background:#0ea5e9;"></span><span>Kondisi Lingkungan</span></div>
+        <div class="row g-3">
+            <div class="col-md-3">
+                <div class="mcard">
+                    <div class="mlabel">Suhu</div>
+                    <div class="input-group">
+                        <input type="number" step="any" name="suhu_ruangan" class="form-control" placeholder="e.g. 25">
+                        <span class="input-group-text munit">°C</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="mcard">
+                    <div class="mlabel">Kelembapan</div>
+                    <div class="input-group">
+                        <input type="number" step="any" name="kelembapan" class="form-control" placeholder="e.g. 60">
+                        <span class="input-group-text munit">%</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-semibold">Kebersihan</label>
+                <div class="d-flex gap-2">
+                    <button type="button" class="toggle-opt flex-fill" onclick="setToggle('kebersihan_panel','bersih')"><i class="bi bi-check-circle me-1"></i>Bersih</button>
+                    <button type="button" class="toggle-opt toggle-warn flex-fill" onclick="setToggle('kebersihan_panel','kotor')"><i class="bi bi-exclamation me-1"></i>Kotor</button>
+                </div>
+                <input type="hidden" name="kebersihan_panel" id="kebersihan_panel">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-semibold">Lampu Penerangan</label>
+                <div class="d-flex gap-2">
+                    <button type="button" class="toggle-opt flex-fill" onclick="setToggle('lampu_panel','nyala')"><i class="bi bi-lightbulb-fill me-1"></i>Nyala</button>
+                    <button type="button" class="toggle-opt toggle-alarm flex-fill" onclick="setToggle('lampu_panel','mati')"><i class="bi bi-lightbulb-off me-1"></i>Mati</button>
+                </div>
+                <input type="hidden" name="lampu_panel" id="lampu_panel">
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Kondisi Relay -->
 <div class="card mb-3">
     <div class="card-body px-4 py-3">
@@ -404,6 +539,208 @@
                         <span class="input-group-text munit">V</span>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% elif jenis_key == 'dfr' %}
+<!-- ══ DFR ════════════════════════════════════════════════════ -->
+
+<!-- Kondisi Lingkungan -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="stb"><span class="stb-bar" style="background:#0ea5e9;"></span><span>Kondisi Lingkungan</span></div>
+        <div class="row g-3">
+            <div class="col-md-3">
+                <div class="mcard">
+                    <div class="mlabel">Suhu</div>
+                    <div class="input-group">
+                        <input type="number" step="any" name="suhu_ruangan" class="form-control" placeholder="e.g. 25">
+                        <span class="input-group-text munit">°C</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="mcard">
+                    <div class="mlabel">Kelembapan</div>
+                    <div class="input-group">
+                        <input type="number" step="any" name="kelembapan" class="form-control" placeholder="e.g. 60">
+                        <span class="input-group-text munit">%</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-semibold">Kebersihan</label>
+                <div class="d-flex gap-2">
+                    <button type="button" class="toggle-opt flex-fill" onclick="setToggle('kebersihan_ruangan','bersih')"><i class="bi bi-check-circle me-1"></i>Bersih</button>
+                    <button type="button" class="toggle-opt toggle-warn flex-fill" onclick="setToggle('kebersihan_ruangan','kotor')"><i class="bi bi-exclamation me-1"></i>Kotor</button>
+                </div>
+                <input type="hidden" name="kebersihan_ruangan" id="kebersihan_ruangan">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-semibold">Lampu Penerangan</label>
+                <div class="d-flex gap-2 flex-wrap">
+                    <button type="button" class="toggle-opt flex-fill" onclick="setToggle('lampu_penerangan','baik')"><i class="bi bi-lightbulb-fill me-1"></i>Baik</button>
+                    <button type="button" class="toggle-opt toggle-warn flex-fill" onclick="setToggle('lampu_penerangan','redup')">Redup</button>
+                    <button type="button" class="toggle-opt toggle-alarm flex-fill" onclick="setToggle('lampu_penerangan','tidak_berfungsi')">Mati</button>
+                </div>
+                <input type="hidden" name="lampu_penerangan" id="lampu_penerangan">
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Kondisi DFR -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="stb"><span class="stb-bar" style="background:#8b5cf6;"></span><span>Kondisi DFR</span></div>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label fw-semibold">Kondisi DFR</label>
+                <div class="d-flex gap-2">
+                    <button type="button" class="toggle-opt flex-fill" onclick="setToggle('kondisi_dfr','normal')"><i class="bi bi-check-circle me-1"></i>Normal</button>
+                    <button type="button" class="toggle-opt toggle-alarm flex-fill" onclick="setToggle('kondisi_dfr','faulty')"><i class="bi bi-x-circle me-1"></i>Faulty</button>
+                </div>
+                <input type="hidden" name="kondisi_dfr" id="kondisi_dfr">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label fw-semibold">Healthy Status</label>
+                <div class="d-flex gap-2">
+                    <button type="button" class="toggle-opt flex-fill" onclick="setToggle('healthy_status','healthy')"><i class="bi bi-heart-pulse me-1"></i>Healthy</button>
+                    <button type="button" class="toggle-opt toggle-warn flex-fill" onclick="setToggle('healthy_status','alarm')">Alarm</button>
+                    <button type="button" class="toggle-opt toggle-alarm flex-fill" onclick="setToggle('healthy_status','faulty')">Faulty</button>
+                </div>
+                <input type="hidden" name="healthy_status" id="healthy_status">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label fw-semibold">Indikasi LED Alarm</label>
+                <div class="d-flex gap-2">
+                    <button type="button" class="toggle-opt toggle-alarm flex-fill" onclick="setToggle('indikasi_led_alarm','ada')"><i class="bi bi-bell me-1"></i>Ada</button>
+                    <button type="button" class="toggle-opt flex-fill" onclick="setToggle('indikasi_led_alarm','tidak_ada')"><i class="bi bi-bell-slash me-1"></i>Tidak Ada</button>
+                </div>
+                <input type="hidden" name="indikasi_led_alarm" id="indikasi_led_alarm">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label fw-semibold">Status Indikator</label>
+                <div class="d-flex gap-2">
+                    <button type="button" class="toggle-opt flex-fill" onclick="setToggle('status_indikator','normal')"><i class="bi bi-check-circle me-1"></i>Normal</button>
+                    <button type="button" class="toggle-opt toggle-alarm flex-fill" onclick="setToggle('status_indikator','tidak_normal')"><i class="bi bi-exclamation-triangle me-1"></i>Tidak Normal</button>
+                </div>
+                <input type="hidden" name="status_indikator" id="status_indikator">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label fw-semibold">Kondisi Kabel LAN</label>
+                <div class="d-flex gap-2">
+                    <button type="button" class="toggle-opt flex-fill" onclick="setToggle('kondisi_kabel_lan','normal')"><i class="bi bi-ethernet me-1"></i>Normal</button>
+                    <button type="button" class="toggle-opt toggle-alarm flex-fill" onclick="setToggle('kondisi_kabel_lan','terlepas')"><i class="bi bi-plug me-1"></i>Terlepas</button>
+                </div>
+                <input type="hidden" name="kondisi_kabel_lan" id="kondisi_kabel_lan">
+            </div>
+        </div>
+    </div>
+</div>
+
+{% elif jenis_key == 'server_ads' %}
+<!-- ══ SERVER ADS ══════════════════════════════════════════════ -->
+
+<!-- Kondisi Lingkungan -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="stb"><span class="stb-bar" style="background:#0ea5e9;"></span><span>Kondisi Lingkungan</span></div>
+        <div class="row g-3">
+            <div class="col-md-3">
+                <div class="mcard">
+                    <div class="mlabel">Suhu</div>
+                    <div class="input-group">
+                        <input type="number" step="any" name="suhu_ruangan" class="form-control" placeholder="e.g. 25">
+                        <span class="input-group-text munit">°C</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="mcard">
+                    <div class="mlabel">Kelembapan</div>
+                    <div class="input-group">
+                        <input type="number" step="any" name="kelembapan" class="form-control" placeholder="e.g. 60">
+                        <span class="input-group-text munit">%</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-semibold">Kebersihan</label>
+                <div class="d-flex gap-2">
+                    <button type="button" class="toggle-opt flex-fill" onclick="setToggle('kebersihan_ruangan','bersih')"><i class="bi bi-check-circle me-1"></i>Bersih</button>
+                    <button type="button" class="toggle-opt toggle-warn flex-fill" onclick="setToggle('kebersihan_ruangan','kotor')"><i class="bi bi-exclamation me-1"></i>Kotor</button>
+                </div>
+                <input type="hidden" name="kebersihan_ruangan" id="kebersihan_ruangan">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-semibold">Lampu Penerangan</label>
+                <div class="d-flex gap-2 flex-wrap">
+                    <button type="button" class="toggle-opt flex-fill" onclick="setToggle('lampu_penerangan','baik')"><i class="bi bi-lightbulb-fill me-1"></i>Baik</button>
+                    <button type="button" class="toggle-opt toggle-warn flex-fill" onclick="setToggle('lampu_penerangan','redup')">Redup</button>
+                    <button type="button" class="toggle-opt toggle-alarm flex-fill" onclick="setToggle('lampu_penerangan','tidak_berfungsi')">Mati</button>
+                </div>
+                <input type="hidden" name="lampu_penerangan" id="lampu_penerangan">
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Peralatan Server ADS -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="stb"><span class="stb-bar" style="background:#10b981;"></span><span>Status Peralatan</span></div>
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label fw-semibold">Peralatan Server ADS</label>
+                <div class="d-flex gap-2">
+                    <button type="button" class="toggle-opt flex-fill" onclick="setToggle('peralatan_server_ads','normal')"><i class="bi bi-check-circle me-1"></i>Normal</button>
+                    <button type="button" class="toggle-opt toggle-alarm flex-fill" onclick="setToggle('peralatan_server_ads','tidak_normal')"><i class="bi bi-exclamation-triangle me-1"></i>Tidak Normal</button>
+                </div>
+                <input type="hidden" name="peralatan_server_ads" id="peralatan_server_ads">
+            </div>
+            <div class="col-md-6">
+                <label class="form-label fw-semibold">Tampilan HMI</label>
+                <div class="d-flex gap-2">
+                    <button type="button" class="toggle-opt flex-fill" onclick="setToggle('tampilan_hmi','normal')"><i class="bi bi-display me-1"></i>Normal</button>
+                    <button type="button" class="toggle-opt toggle-alarm flex-fill" onclick="setToggle('tampilan_hmi','tidak_normal')">Tidak Normal</button>
+                    <button type="button" class="toggle-opt toggle-warn flex-fill" onclick="setToggle('tampilan_hmi','tidak_tersedia')">Tidak Tersedia</button>
+                </div>
+                <input type="hidden" name="tampilan_hmi" id="tampilan_hmi">
+            </div>
+            <div class="col-md-6">
+                <label class="form-label fw-semibold">Peralatan Gateway IC3 ADS</label>
+                <div class="d-flex gap-2">
+                    <button type="button" class="toggle-opt flex-fill" onclick="setToggle('peralatan_gateway_ic3','normal')"><i class="bi bi-check-circle me-1"></i>Normal</button>
+                    <button type="button" class="toggle-opt toggle-alarm flex-fill" onclick="setToggle('peralatan_gateway_ic3','tidak_normal')"><i class="bi bi-exclamation-triangle me-1"></i>Tidak Normal</button>
+                </div>
+                <input type="hidden" name="peralatan_gateway_ic3" id="peralatan_gateway_ic3">
+            </div>
+            <div class="col-md-6">
+                <label class="form-label fw-semibold">Kondisi Switch Kabel LAN</label>
+                <div class="d-flex gap-2">
+                    <button type="button" class="toggle-opt flex-fill" onclick="setToggle('kondisi_switch_lan','normal')"><i class="bi bi-ethernet me-1"></i>Normal</button>
+                    <button type="button" class="toggle-opt toggle-alarm flex-fill" onclick="setToggle('kondisi_switch_lan','mati')"><i class="bi bi-x-circle me-1"></i>Mati</button>
+                </div>
+                <input type="hidden" name="kondisi_switch_lan" id="kondisi_switch_lan">
+            </div>
+            <div class="col-md-6">
+                <label class="form-label fw-semibold">Peralatan Power Supply</label>
+                <div class="d-flex gap-2">
+                    <button type="button" class="toggle-opt flex-fill" onclick="setToggle('peralatan_power_supply','normal')"><i class="bi bi-plug-fill me-1"></i>Normal</button>
+                    <button type="button" class="toggle-opt toggle-alarm flex-fill" onclick="setToggle('peralatan_power_supply','tidak_normal')"><i class="bi bi-exclamation-triangle me-1"></i>Tidak Normal</button>
+                </div>
+                <input type="hidden" name="peralatan_power_supply" id="peralatan_power_supply">
+            </div>
+            <div class="col-md-6">
+                <label class="form-label fw-semibold">Fan Panel</label>
+                <div class="d-flex gap-2">
+                    <button type="button" class="toggle-opt flex-fill" onclick="setToggle('fan_panel','nyala')"><i class="bi bi-fan me-1"></i>Nyala</button>
+                    <button type="button" class="toggle-opt toggle-alarm flex-fill" onclick="setToggle('fan_panel','mati')"><i class="bi bi-x-circle me-1"></i>Mati</button>
+                </div>
+                <input type="hidden" name="fan_panel" id="fan_panel">
             </div>
         </div>
     </div>

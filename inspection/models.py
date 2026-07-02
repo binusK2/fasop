@@ -24,6 +24,8 @@ class Inspection(models.Model):
         ('defense_scheme', 'Rele Defense Scheme'),
         ('master_trip',    'Master Trip'),
         ('ufls',           'UFLS'),
+        ('dfr',            'DFR'),
+        ('server_ads',     'Server ADS'),
         ('telecom',        'Pengujian Telekomunikasi'),
     )
 
@@ -195,8 +197,9 @@ class InspectionDefenseScheme(models.Model):
         related_name='detail_defense_scheme'
     )
 
-    # Panel
+    # Panel / Kondisi Lingkungan
     suhu_ruangan      = models.FloatField(null=True, blank=True, verbose_name='Suhu Ruangan (°C)')
+    kelembapan        = models.FloatField(null=True, blank=True, verbose_name='Kelembapan (%)')
     kebersihan_panel  = models.CharField(max_length=10, blank=True, choices=KEBERSIHAN_CHOICES, verbose_name='Kebersihan Panel')
     lampu_panel       = models.CharField(max_length=10, blank=True, choices=LAMPU_CHOICES, verbose_name='Lampu Panel')
     # Kondisi Rele
@@ -253,8 +256,9 @@ class InspectionMasterTrip(models.Model):
         related_name='detail_master_trip'
     )
 
-    # Panel
+    # Panel / Kondisi Lingkungan
     suhu_ruangan      = models.FloatField(null=True, blank=True, verbose_name='Suhu Ruangan (°C)')
+    kelembapan        = models.FloatField(null=True, blank=True, verbose_name='Kelembapan (%)')
     kebersihan_panel  = models.CharField(max_length=10, blank=True, choices=KEBERSIHAN_CHOICES, verbose_name='Kebersihan Panel')
     lampu_panel       = models.CharField(max_length=10, blank=True, choices=LAMPU_CHOICES, verbose_name='Lampu Panel')
     # Kondisi Rele
@@ -310,8 +314,9 @@ class InspectionUFLS(models.Model):
         related_name='detail_ufls'
     )
 
-    # Panel
+    # Panel / Kondisi Lingkungan
     suhu_ruangan      = models.FloatField(null=True, blank=True, verbose_name='Suhu Ruangan (°C)')
+    kelembapan        = models.FloatField(null=True, blank=True, verbose_name='Kelembapan (%)')
     kebersihan_panel  = models.CharField(max_length=10, blank=True, choices=KEBERSIHAN_CHOICES, verbose_name='Kebersihan Panel')
     lampu_panel       = models.CharField(max_length=10, blank=True, choices=LAMPU_CHOICES, verbose_name='Lampu Panel')
     # Kondisi Rele
@@ -330,6 +335,125 @@ class InspectionUFLS(models.Model):
 
     def __str__(self):
         return f'UFLS — {self.inspection}'
+
+# ─────────────────────────────────────────────────────────────────────
+# DETAIL DFR
+# ─────────────────────────────────────────────────────────────────────
+class InspectionDFR(models.Model):
+
+    KONDISI_CHOICES = (
+        ('normal', 'Normal'),
+        ('faulty', 'Faulty'),
+    )
+    HEALTHY_CHOICES = (
+        ('healthy', 'Healthy'),
+        ('faulty',  'Faulty'),
+        ('alarm',   'Alarm'),
+    )
+    LED_ALARM_CHOICES = (
+        ('ada',      'Ada'),
+        ('tidak_ada','Tidak Ada'),
+    )
+    STATUS_IND_CHOICES = (
+        ('normal',       'Normal'),
+        ('tidak_normal', 'Tidak Normal'),
+    )
+    KABEL_LAN_CHOICES = (
+        ('normal',   'Normal'),
+        ('terlepas', 'Terlepas'),
+    )
+    KEBERSIHAN_CHOICES = (
+        ('bersih', 'Bersih'),
+        ('kotor',  'Kotor'),
+    )
+    LAMPU_CHOICES = (
+        ('baik',           'Baik'),
+        ('tidak_berfungsi','Tidak Berfungsi'),
+        ('redup',          'Redup'),
+    )
+
+    inspection = models.OneToOneField(
+        Inspection, on_delete=models.CASCADE,
+        related_name='detail_dfr'
+    )
+
+    # Kondisi Lingkungan
+    suhu_ruangan      = models.FloatField(null=True, blank=True, verbose_name='Suhu Ruangan (°C)')
+    kelembapan        = models.FloatField(null=True, blank=True, verbose_name='Kelembapan (%)')
+    kebersihan_ruangan= models.CharField(max_length=10, blank=True, choices=KEBERSIHAN_CHOICES, verbose_name='Kebersihan')
+    lampu_penerangan  = models.CharField(max_length=20, blank=True, choices=LAMPU_CHOICES, verbose_name='Lampu Penerangan')
+
+    # Kondisi DFR
+    kondisi_dfr       = models.CharField(max_length=15, blank=True, choices=KONDISI_CHOICES, verbose_name='Kondisi DFR')
+    healthy_status    = models.CharField(max_length=10, blank=True, choices=HEALTHY_CHOICES, verbose_name='Healthy Status')
+    indikasi_led_alarm= models.CharField(max_length=10, blank=True, choices=LED_ALARM_CHOICES, verbose_name='Indikasi LED Alarm')
+    status_indikator  = models.CharField(max_length=15, blank=True, choices=STATUS_IND_CHOICES, verbose_name='Status Indikator')
+    kondisi_kabel_lan = models.CharField(max_length=10, blank=True, choices=KABEL_LAN_CHOICES, verbose_name='Kondisi Kabel LAN')
+
+    class Meta:
+        verbose_name = 'Detail Inspeksi DFR'
+
+    def __str__(self):
+        return f'DFR — {self.inspection}'
+
+
+# ─────────────────────────────────────────────────────────────────────
+# DETAIL SERVER ADS
+# ─────────────────────────────────────────────────────────────────────
+class InspectionServerADS(models.Model):
+
+    NORMAL_CHOICES = (
+        ('normal',       'Normal'),
+        ('tidak_normal', 'Tidak Normal'),
+    )
+    HMI_CHOICES = (
+        ('normal',         'Normal'),
+        ('tidak_normal',   'Tidak Normal'),
+        ('tidak_tersedia', 'Tidak Tersedia'),
+    )
+    SWITCH_CHOICES = (
+        ('normal', 'Normal'),
+        ('mati',   'Mati'),
+    )
+    FAN_CHOICES = (
+        ('nyala', 'Nyala'),
+        ('mati',  'Mati'),
+    )
+    KEBERSIHAN_CHOICES = (
+        ('bersih', 'Bersih'),
+        ('kotor',  'Kotor'),
+    )
+    LAMPU_CHOICES = (
+        ('baik',           'Baik'),
+        ('tidak_berfungsi','Tidak Berfungsi'),
+        ('redup',          'Redup'),
+    )
+
+    inspection = models.OneToOneField(
+        Inspection, on_delete=models.CASCADE,
+        related_name='detail_server_ads'
+    )
+
+    # Kondisi Lingkungan
+    suhu_ruangan        = models.FloatField(null=True, blank=True, verbose_name='Suhu Ruangan (°C)')
+    kelembapan          = models.FloatField(null=True, blank=True, verbose_name='Kelembapan (%)')
+    kebersihan_ruangan  = models.CharField(max_length=10, blank=True, choices=KEBERSIHAN_CHOICES, verbose_name='Kebersihan')
+    lampu_penerangan    = models.CharField(max_length=20, blank=True, choices=LAMPU_CHOICES, verbose_name='Lampu Penerangan')
+
+    # Peralatan
+    peralatan_server_ads  = models.CharField(max_length=15, blank=True, choices=NORMAL_CHOICES, verbose_name='Peralatan Server ADS')
+    tampilan_hmi          = models.CharField(max_length=20, blank=True, choices=HMI_CHOICES, verbose_name='Tampilan HMI')
+    peralatan_gateway_ic3 = models.CharField(max_length=15, blank=True, choices=NORMAL_CHOICES, verbose_name='Peralatan Gateway IC3 ADS')
+    kondisi_switch_lan    = models.CharField(max_length=10, blank=True, choices=SWITCH_CHOICES, verbose_name='Kondisi Switch Kabel LAN')
+    peralatan_power_supply= models.CharField(max_length=15, blank=True, choices=NORMAL_CHOICES, verbose_name='Peralatan Power Supply')
+    fan_panel             = models.CharField(max_length=10, blank=True, choices=FAN_CHOICES, verbose_name='Fan Panel')
+
+    class Meta:
+        verbose_name = 'Detail Inspeksi Server ADS'
+
+    def __str__(self):
+        return f'Server ADS — {self.inspection}'
+
 
 # ─────────────────────────────────────────────────────────────────────
 # DETAIL PENGUJIAN TELEKOMUNIKASI (Radio & VoIP — Dispatcher)
