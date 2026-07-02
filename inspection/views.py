@@ -166,6 +166,16 @@ def inspection_form(request, device_pk):
         return render(request, '403.html',
                       {'message': f'Perangkat jenis "{jenis_name}" belum didukung untuk inspeksi.'})
 
+    # Radio & VoIP hanya untuk Dispatcher (via pengujian telecom), bukan inservice inspection
+    if jenis_name in TELECOM_JENIS:
+        try:
+            role = request.user.profile.role
+        except Exception:
+            role = ''
+        if not (request.user.is_superuser or role in ('dispatcher', 'asisten_manager')):
+            return render(request, '403.html',
+                          {'message': 'Inspeksi Radio dan VoIP hanya dilakukan oleh Dispatcher melalui menu Pengujian Telekomunikasi.'}, status=403)
+
     if request.method == 'POST':
         # ── Simpan Inspection induk ──────────────────────────────────
         insp = Inspection.objects.create(
