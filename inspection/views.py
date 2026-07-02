@@ -31,6 +31,34 @@ INSPECTABLE_JENIS = {
 TELECOM_JENIS = {'Radio', 'VoIP'}
 
 
+def _is_alarm_inspection(insp):
+    """True bila hasil satu inspeksi menunjukkan kondisi alarm/tidak normal,
+    berdasarkan field yang benar-benar diisi lewat form.html untuk masing-masing jenis."""
+    try:
+        if insp.jenis == 'catu_daya':
+            return insp.detail_catu_daya.kondisi_rectifier == 'alarm'
+        if insp.jenis == 'defense_scheme':
+            d = insp.detail_defense_scheme
+            return d.kondisi_relay == 'alarm' or d.status_indikator == 'tidak_normal'
+        if insp.jenis in ('master_trip', 'ufls'):
+            d = insp.detail_master_trip if insp.jenis == 'master_trip' else insp.detail_ufls
+            return d.kondisi_relay == 'alarm' or d.indikator_led == 'tidak_normal'
+        if insp.jenis == 'dfr':
+            d = insp.detail_dfr
+            return (d.kondisi_dfr == 'faulty' or d.healthy_status in ('faulty', 'alarm')
+                    or d.indikasi_led_alarm == 'ada' or d.status_indikator == 'tidak_normal')
+        if insp.jenis == 'server_ads':
+            d = insp.detail_server_ads
+            return (d.peralatan_server_ads == 'tidak_normal' or d.tampilan_hmi == 'tidak_normal'
+                    or d.peralatan_gateway_ic3 == 'tidak_normal' or d.kondisi_switch_lan == 'mati'
+                    or d.peralatan_power_supply == 'tidak_normal' or d.fan_panel == 'mati')
+        if insp.jenis == 'telecom':
+            return insp.detail_telecom.hasil_komunikasi == 'tidak_normal'
+    except Exception:
+        pass
+    return False
+
+
 def require_operator(view_func):
     """Decorator: hanya operator, AM, superuser yang boleh akses."""
     from functools import wraps
@@ -238,8 +266,6 @@ def inspection_form(request, device_pk):
                 kebersihan_panel    = g('kebersihan_panel'),
                 lampu_panel         = g('lampu_panel'),
                 kondisi_relay       = g('kondisi_relay'),
-                relay_healthy       = g('relay_healthy'),
-                indikator_led       = g('indikator_led'),
                 catatan_relay       = g('catatan_relay'),
                 status_indikator    = g('status_indikator'),
                 selektor_blok_skema = g('selektor_blok_skema'),
@@ -255,7 +281,6 @@ def inspection_form(request, device_pk):
                 kebersihan_panel  = g('kebersihan_panel'),
                 lampu_panel       = g('lampu_panel'),
                 kondisi_relay     = g('kondisi_relay'),
-                relay_healthy     = g('relay_healthy'),
                 indikator_led     = g('indikator_led'),
                 catatan_relay     = g('catatan_relay'),
                 posisi_selektor   = g('posisi_selektor'),
@@ -271,7 +296,6 @@ def inspection_form(request, device_pk):
                 kebersihan_panel  = g('kebersihan_panel'),
                 lampu_panel       = g('lampu_panel'),
                 kondisi_relay     = g('kondisi_relay'),
-                relay_healthy     = g('relay_healthy'),
                 indikator_led     = g('indikator_led'),
                 catatan_relay     = g('catatan_relay'),
                 posisi_selektor   = g('posisi_selektor'),
@@ -345,6 +369,14 @@ def _kirim_notif_jika_perlu(insp, jenis_key, post_data):
             perlu_notif = True
             pesan_detail.append('Kondisi keseluruhan: KOTOR')
 
+    elif jenis_key == 'defense_scheme':
+        if post_data.get('kondisi_relay') == 'alarm':
+            perlu_notif = True
+            pesan_detail.append('Kondisi Relay Defense Scheme: ALARM')
+        if post_data.get('status_indikator') == 'tidak_normal':
+            perlu_notif = True
+            pesan_detail.append('Status Indikator Defense Scheme: TIDAK NORMAL')
+
     elif jenis_key in ('master_trip', 'ufls'):
         if post_data.get('kondisi_relay') == 'alarm':
             perlu_notif = True
@@ -352,6 +384,37 @@ def _kirim_notif_jika_perlu(insp, jenis_key, post_data):
         if post_data.get('indikator_led') == 'tidak_normal':
             perlu_notif = True
             pesan_detail.append(f'Indikator LED {jenis_key.upper()}: TIDAK NORMAL')
+
+    elif jenis_key == 'dfr':
+        if post_data.get('kondisi_dfr') == 'faulty':
+            perlu_notif = True
+            pesan_detail.append('Kondisi DFR: FAULTY')
+        if post_data.get('healthy_status') in ('faulty', 'alarm'):
+            perlu_notif = True
+            pesan_detail.append(f"Healthy Status DFR: {post_data.get('healthy_status').upper()}")
+        if post_data.get('indikasi_led_alarm') == 'ada':
+            perlu_notif = True
+            pesan_detail.append('Indikasi LED Alarm DFR: ADA')
+        if post_data.get('status_indikator') == 'tidak_normal':
+            perlu_notif = True
+            pesan_detail.append('Status Indikator DFR: TIDAK NORMAL')
+
+    elif jenis_key == 'server_ads':
+        for field, label in (
+            ('peralatan_server_ads',   'Peralatan Server ADS'),
+            ('tampilan_hmi',           'Tampilan HMI'),
+            ('peralatan_gateway_ic3',  'Peralatan Gateway IC3 ADS'),
+            ('peralatan_power_supply', 'Peralatan Power Supply'),
+        ):
+            if post_data.get(field) == 'tidak_normal':
+                perlu_notif = True
+                pesan_detail.append(f'{label}: TIDAK NORMAL')
+        if post_data.get('kondisi_switch_lan') == 'mati':
+            perlu_notif = True
+            pesan_detail.append('Kondisi Switch Kabel LAN: MATI')
+        if post_data.get('fan_panel') == 'mati':
+            perlu_notif = True
+            pesan_detail.append('Fan Panel: MATI')
 
     elif jenis_key == 'telecom':
         if post_data.get('hasil_komunikasi') == 'tidak_normal':
@@ -572,20 +635,7 @@ def inspection_riwayat_device(request, device_pk):
 
     inspeksi_list = []
     for insp in inspeksi_qs:
-        status = 'normal'
-        try:
-            if insp.jenis == 'catu_daya':
-                d = insp.detail_catu_daya
-                if d.kondisi_rectifier == 'alarm': status = 'alarm'
-            elif insp.jenis in ('defense_scheme', 'master_trip', 'ufls'):
-                if insp.jenis == 'defense_scheme': d = insp.detail_defense_scheme
-                elif insp.jenis == 'master_trip':  d = insp.detail_master_trip
-                else:                              d = insp.detail_ufls
-                if d.kondisi_relay == 'faulty' or d.indikator_led == 'faulty':
-                    status = 'alarm'
-        except Exception:
-            pass
-        insp.status_kondisi = status
+        insp.status_kondisi = 'alarm' if _is_alarm_inspection(insp) else 'normal'
         inspeksi_list.append(insp)
 
     # ── Trend 30 hari ─────────────────────────────────────────────
@@ -658,26 +708,10 @@ def inspection_api_last(request):
     if not insp:
         return JsonResponse({'has_alarm': False})
 
-    has_alarm = False
-    warning   = ''
     detail    = f'Tanggal: {insp.tanggal.strftime("%d %b %Y %H:%M")} · Jenis: {insp.get_jenis_display()}'
-    try:
-        if insp.jenis == 'catu_daya':
-            d = insp.detail_catu_daya
-            if d.kondisi_rectifier == 'alarm':
-                has_alarm = True
-                warning   = f'Inspeksi terakhir ({insp.tanggal.strftime("%d %b %Y")}) — Rectifier ALARM'
-        elif insp.jenis in ('defense_scheme', 'master_trip', 'ufls'):
-            attr = 'detail_defense_scheme' if insp.jenis == 'defense_scheme' else f'detail_{insp.jenis}'
-            d = getattr(insp, attr)
-            if d.kondisi_relay == 'faulty':
-                has_alarm = True
-                warning   = f'Inspeksi terakhir ({insp.tanggal.strftime("%d %b %Y")}) — Kondisi Relay FAULTY'
-            elif d.indikator_led == 'faulty':
-                has_alarm = True
-                warning   = f'Inspeksi terakhir ({insp.tanggal.strftime("%d %b %Y")}) — Indikasi LED FAULTY'
-    except Exception:
-        pass
+    has_alarm = _is_alarm_inspection(insp)
+    warning   = (f'Inspeksi terakhir ({insp.tanggal.strftime("%d %b %Y")}) mendeteksi kondisi tidak normal'
+                 if has_alarm else '')
 
     if insp.is_flagged:
         has_alarm = True
@@ -873,17 +907,7 @@ def inspection_export_ultg(request):
         belum       = total - terinspeksi
 
         # Hitung alarm
-        alarm = 0
-        for insp in insp_qs.select_related('device'):
-            try:
-                if jenis_key == 'catu_daya':
-                    if insp.detail_catu_daya.kondisi_rectifier == 'alarm': alarm += 1
-                else:
-                    attr = 'detail_defense_scheme' if jenis_key == 'defense_scheme' else f'detail_{jenis_key}'
-                    d = getattr(insp, attr)
-                    if d.kondisi_relay == 'faulty' or d.indikator_led == 'faulty': alarm += 1
-            except Exception:
-                pass
+        alarm = sum(1 for insp in insp_qs.select_related('device') if _is_alarm_inspection(insp))
         flag_n = insp_qs.filter(is_flagged=True).count()
         abnormal = alarm + flag_n
 
@@ -939,9 +963,9 @@ def inspection_export_ultg(request):
         else:
             headers = ['No','Nama Perangkat','Lokasi','Tgl Inspeksi','Operator',
                        'Suhu Ruangan (°C)','Kebersihan Panel','Lampu Panel',
-                       'Kondisi Rele','Relay Healthy','Indikasi LED',
+                       'Kondisi Rele','Status Indikator',
                        'Posisi Selektor','Kabel LAN','Sumber DC (V)','Status']
-            col_w  = [4,28,22,14,16,14,16,14,14,14,14,16,14,14,12]
+            col_w  = [4,28,22,14,16,14,16,14,14,14,16,14,14,12]
 
         ncols = len(headers)
         last_col = get_column_letter(ncols + 1)
@@ -1007,15 +1031,17 @@ def inspection_export_ultg(request):
                     try:
                         attr = 'detail_defense_scheme' if jenis_key == 'defense_scheme' else f'detail_{jenis_key}'
                         d = getattr(insp, attr)
-                        is_alarm = d.kondisi_relay == 'faulty' or d.indikator_led == 'faulty'
+                        is_alarm = _is_alarm_inspection(insp)
+                        status_field = 'status_indikator' if jenis_key == 'defense_scheme' else 'indikator_led'
+                        status_display_fn = f'get_{status_field}_display'
+                        status_val = getattr(d, status_field)
                         row_vals = [
                             ri, dev.nama, dev.lokasi or '—', tgl_str, op_str,
                             d.suhu_ruangan if d.suhu_ruangan is not None else '—',
                             d.get_kebersihan_panel_display() if d.kebersihan_panel else '—',
                             d.get_lampu_panel_display() if d.lampu_panel else '—',
                             d.get_kondisi_relay_display() if d.kondisi_relay else '—',
-                            d.get_relay_healthy_display() if d.relay_healthy else '—',
-                            d.get_indikator_led_display() if d.indikator_led else '—',
+                            getattr(d, status_display_fn)() if status_val else '—',
                             d.get_posisi_selektor_display() if d.posisi_selektor else '—',
                             d.get_kondisi_kabel_lan_display() if d.kondisi_kabel_lan else '—',
                             d.sumber_dc if d.sumber_dc is not None else '—',
@@ -1077,7 +1103,9 @@ def inspection_dashboard(request):
     from datetime import timedelta
 
     today = date.today()
-    INSPECTABLE = ['Catu Daya', 'RELE DEFENSE SCHEME', 'MASTER TRIP', 'UFLS']
+    # Jenis perangkat yang dihitung di dashboard — semua jenis dengan form inservice
+    # inspection sendiri (Radio/VoIP dikecualikan, dihitung lewat dashboard Pengujian Telekomunikasi).
+    INSPECTABLE = ['Catu Daya', 'RELE DEFENSE SCHEME', 'MASTER TRIP', 'UFLS', 'DFR', 'SERVER PROSIS']
 
     # ── Stat global ──────────────────────────────────────────────
     insp_today      = Inspection.objects.filter(tanggal__date=today).count()
@@ -1085,16 +1113,12 @@ def inspection_dashboard(request):
     insp_total      = Inspection.objects.count()
 
     # Alarm total bulan ini
-    alarm_bulan = 0
-    for insp in Inspection.objects.filter(tanggal__year=today.year, tanggal__month=today.month).select_related('device'):
-        try:
-            if insp.jenis == 'catu_daya':
-                if insp.detail_catu_daya.kondisi_rectifier == 'alarm': alarm_bulan += 1
-            elif insp.jenis in ('defense_scheme','master_trip','ufls'):
-                d = getattr(insp, f'detail_{insp.jenis}' if insp.jenis != 'defense_scheme' else 'detail_defense_scheme')
-                if d.kondisi_relay == 'faulty' or d.indikator_led == 'faulty': alarm_bulan += 1
-        except Exception:
-            pass
+    alarm_bulan = sum(
+        1 for insp in Inspection.objects.filter(
+            tanggal__year=today.year, tanggal__month=today.month
+        ).select_related('device')
+        if _is_alarm_inspection(insp)
+    )
 
     # Device total inspectable
     total_device_inspectable = Device.objects.filter(
@@ -1129,17 +1153,12 @@ def inspection_dashboard(request):
         insp_hari = Inspection.objects.filter(device__in=devs, tanggal__date=today).count()
 
         # Alarm bulan ini di ULTG ini
-        alarm_ultg = 0
-        for insp in Inspection.objects.filter(device__in=devs, tanggal__year=today.year, tanggal__month=today.month):
-            try:
-                if insp.jenis == 'catu_daya':
-                    if insp.detail_catu_daya.kondisi_rectifier == 'alarm': alarm_ultg += 1
-                elif insp.jenis in ('defense_scheme','master_trip','ufls'):
-                    attr = 'detail_defense_scheme' if insp.jenis == 'defense_scheme' else f'detail_{insp.jenis}'
-                    d = getattr(insp, attr)
-                    if d.kondisi_relay == 'faulty' or d.indikator_led == 'faulty': alarm_ultg += 1
-            except Exception:
-                pass
+        alarm_ultg = sum(
+            1 for insp in Inspection.objects.filter(
+                device__in=devs, tanggal__year=today.year, tanggal__month=today.month
+            )
+            if _is_alarm_inspection(insp)
+        )
 
         ultg_stats.append({
             'ultg':    ultg,
@@ -1179,17 +1198,7 @@ def inspection_dashboard(request):
     # ── Alarm terbaru ─────────────────────────────────────────────
     alarm_list = []
     for insp in Inspection.objects.select_related('device','device__jenis','operator').order_by('-tanggal')[:100]:
-        is_alarm = False
-        try:
-            if insp.jenis == 'catu_daya':
-                is_alarm = insp.detail_catu_daya.kondisi_rectifier == 'alarm'
-            elif insp.jenis in ('defense_scheme','master_trip','ufls'):
-                attr = 'detail_defense_scheme' if insp.jenis == 'defense_scheme' else f'detail_{insp.jenis}'
-                d = getattr(insp, attr)
-                is_alarm = d.kondisi_relay == 'faulty' or d.indikator_led == 'faulty'
-        except Exception:
-            pass
-        if is_alarm:
+        if _is_alarm_inspection(insp):
             alarm_list.append(insp)
             if len(alarm_list) >= 10:
                 break
@@ -1304,7 +1313,7 @@ def inspection_export(request):
                 kondisi_utama = d.get_kondisi_relay_display() if d.kondisi_relay else '—'
                 nilai_utama   = f"DC: {d.sumber_dc or '—'} V"
                 status        = 'ALARM' if d.kondisi_relay == 'alarm' else \
-                                ('Tidak Normal' if d.indikator_led == 'tidak_normal' else 'Normal')
+                                ('Tidak Normal' if d.status_indikator == 'tidak_normal' else 'Normal')
             elif insp.jenis == 'master_trip':
                 d = insp.detail_master_trip
                 kondisi_utama = d.get_kondisi_relay_display() if d.kondisi_relay else '—'
@@ -1317,6 +1326,21 @@ def inspection_export(request):
                 nilai_utama   = f"DC: {d.sumber_dc or '—'} V"
                 status        = 'ALARM' if d.kondisi_relay == 'alarm' else \
                                 ('Tidak Normal' if d.indikator_led == 'tidak_normal' else 'Normal')
+            elif insp.jenis == 'dfr':
+                d = insp.detail_dfr
+                kondisi_utama = d.get_kondisi_dfr_display() if d.kondisi_dfr else '—'
+                nilai_utama   = d.get_healthy_status_display() if d.healthy_status else '—'
+                status        = 'ALARM' if _is_alarm_inspection(insp) else 'Normal'
+            elif insp.jenis == 'server_ads':
+                d = insp.detail_server_ads
+                kondisi_utama = d.get_peralatan_server_ads_display() if d.peralatan_server_ads else '—'
+                nilai_utama   = d.get_tampilan_hmi_display() if d.tampilan_hmi else '—'
+                status        = 'ALARM' if _is_alarm_inspection(insp) else 'Normal'
+            elif insp.jenis == 'telecom':
+                d = insp.detail_telecom
+                kondisi_utama = d.get_hasil_komunikasi_display() if d.hasil_komunikasi else '—'
+                nilai_utama   = d.get_kualitas_suara_display() if d.kualitas_suara else '—'
+                status        = 'ALARM' if _is_alarm_inspection(insp) else 'Normal'
         except Exception:
             kondisi_utama = nilai_utama = status = '—'
 

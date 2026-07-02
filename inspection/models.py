@@ -168,11 +168,7 @@ class InspectionDefenseScheme(models.Model):
 
     KONDISI_RELAY_CHOICES = (
         ('normal', 'Normal'),
-        ('faulty', 'Faulty'),
-    )
-    LED_CHOICES = (
-        ('normal', 'Normal'),
-        ('faulty', 'Faulty'),
+        ('alarm',  'Alarm'),
     )
     KEBERSIHAN_CHOICES = (
         ('bersih', 'Bersih'),
@@ -211,8 +207,6 @@ class InspectionDefenseScheme(models.Model):
     lampu_panel       = models.CharField(max_length=10, blank=True, choices=LAMPU_CHOICES, verbose_name='Lampu Panel')
     # Kondisi Rele
     kondisi_relay     = models.CharField(max_length=15, blank=True, choices=KONDISI_RELAY_CHOICES, verbose_name='Kondisi Rele')
-    relay_healthy     = models.CharField(max_length=15, blank=True, choices=KONDISI_RELAY_CHOICES, verbose_name='Relay Healthy')
-    indikator_led     = models.CharField(max_length=15, blank=True, choices=LED_CHOICES, verbose_name='Indikasi LED')
     catatan_relay     = models.CharField(max_length=300, blank=True, verbose_name='Catatan Relay')
     # Indikator LED / Alarm
     status_indikator      = models.CharField(max_length=15, blank=True, choices=STATUS_IND_CHOICES, verbose_name='Status Indikator')
@@ -237,11 +231,11 @@ class InspectionMasterTrip(models.Model):
 
     KONDISI_RELAY_CHOICES = (
         ('normal', 'Normal'),
-        ('faulty', 'Faulty'),
+        ('alarm',  'Alarm'),
     )
     LED_CHOICES = (
-        ('normal', 'Normal'),
-        ('faulty', 'Faulty'),
+        ('normal',       'Normal'),
+        ('tidak_normal', 'Tidak Normal'),
     )
     KEBERSIHAN_CHOICES = (
         ('bersih', 'Bersih'),
@@ -272,8 +266,7 @@ class InspectionMasterTrip(models.Model):
     lampu_panel       = models.CharField(max_length=10, blank=True, choices=LAMPU_CHOICES, verbose_name='Lampu Panel')
     # Kondisi Rele
     kondisi_relay     = models.CharField(max_length=15, blank=True, choices=KONDISI_RELAY_CHOICES, verbose_name='Kondisi Rele')
-    relay_healthy     = models.CharField(max_length=15, blank=True, choices=KONDISI_RELAY_CHOICES, verbose_name='Relay Healthy')
-    indikator_led     = models.CharField(max_length=15, blank=True, choices=LED_CHOICES, verbose_name='Indikasi LED')
+    indikator_led     = models.CharField(max_length=15, blank=True, choices=LED_CHOICES, verbose_name='Status Indikator')
     catatan_relay     = models.CharField(max_length=300, blank=True, verbose_name='Catatan Relay')
     # Selektor & Kabel
     posisi_selektor   = models.CharField(max_length=15, blank=True, choices=SELEKTOR_CHOICES, verbose_name='Posisi Selektor Target')
@@ -294,11 +287,11 @@ class InspectionUFLS(models.Model):
 
     KONDISI_RELAY_CHOICES = (
         ('normal', 'Normal'),
-        ('faulty', 'Faulty'),
+        ('alarm',  'Alarm'),
     )
     LED_CHOICES = (
-        ('normal', 'Normal'),
-        ('faulty', 'Faulty'),
+        ('normal',       'Normal'),
+        ('tidak_normal', 'Tidak Normal'),
     )
     KEBERSIHAN_CHOICES = (
         ('bersih', 'Bersih'),
@@ -330,8 +323,7 @@ class InspectionUFLS(models.Model):
     lampu_panel       = models.CharField(max_length=10, blank=True, choices=LAMPU_CHOICES, verbose_name='Lampu Panel')
     # Kondisi Rele
     kondisi_relay     = models.CharField(max_length=15, blank=True, choices=KONDISI_RELAY_CHOICES, verbose_name='Kondisi Rele')
-    relay_healthy     = models.CharField(max_length=15, blank=True, choices=KONDISI_RELAY_CHOICES, verbose_name='Relay Healthy')
-    indikator_led     = models.CharField(max_length=15, blank=True, choices=LED_CHOICES, verbose_name='Indikasi LED')
+    indikator_led     = models.CharField(max_length=15, blank=True, choices=LED_CHOICES, verbose_name='Status Indikator')
     catatan_relay     = models.CharField(max_length=300, blank=True, verbose_name='Catatan Relay')
     # Selektor & Kabel
     posisi_selektor   = models.CharField(max_length=15, blank=True, choices=SELEKTOR_CHOICES, verbose_name='Posisi Selektor Target')
