@@ -232,18 +232,19 @@ def inspection_form(request, device_pk):
 
         elif jenis_key == 'defense_scheme':
             InspectionDefenseScheme.objects.create(
-                inspection        = insp,
-                suhu_ruangan      = gf('suhu_ruangan'),
-                kelembapan        = gf('kelembapan'),
-                kebersihan_panel  = g('kebersihan_panel'),
-                lampu_panel       = g('lampu_panel'),
-                kondisi_relay     = g('kondisi_relay'),
-                relay_healthy     = g('relay_healthy'),
-                indikator_led     = g('indikator_led'),
-                catatan_relay     = g('catatan_relay'),
-                posisi_selektor   = g('posisi_selektor'),
-                kondisi_kabel_lan = g('kondisi_kabel_lan'),
-                sumber_dc         = gf('sumber_dc'),
+                inspection          = insp,
+                suhu_ruangan        = gf('suhu_ruangan'),
+                kelembapan          = gf('kelembapan'),
+                kebersihan_panel    = g('kebersihan_panel'),
+                lampu_panel         = g('lampu_panel'),
+                kondisi_relay       = g('kondisi_relay'),
+                relay_healthy       = g('relay_healthy'),
+                indikator_led       = g('indikator_led'),
+                catatan_relay       = g('catatan_relay'),
+                status_indikator    = g('status_indikator'),
+                selektor_blok_skema = g('selektor_blok_skema'),
+                posisi_selektor     = g('posisi_selektor'),
+                kondisi_kabel_lan   = g('kondisi_kabel_lan'),
             )
 
         elif jenis_key == 'master_trip':
