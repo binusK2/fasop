@@ -22,7 +22,7 @@ INSPECTABLE_JENIS = {
     'MASTER TRIP':         'master_trip',
     'UFLS':                'ufls',
     'DFR':                 'dfr',
-    'SERVER ADS':          'server_ads',
+    'SERVER PROSIS':       'server_ads',
     'Radio':               'telecom',
     'VoIP':                'telecom',
 }
