@@ -404,19 +404,26 @@
     </div>
 </div>
 
-<!-- Sumber DC -->
+<!-- Selektor & Kabel LAN -->
 <div class="card mb-3">
     <div class="card-body px-4 py-3">
-        <div class="stb"><span class="stb-bar" style="background:#6366f1;"></span><span>Pengukuran</span></div>
+        <div class="stb"><span class="stb-bar" style="background:#6366f1;"></span><span>Selektor & Kabel</span></div>
         <div class="row g-3">
-            <div class="col-md-3">
-                <div class="mcard">
-                    <div class="mlabel">Sumber DC</div>
-                    <div class="input-group">
-                        <input type="number" step="any" name="sumber_dc" class="form-control" placeholder="e.g. 110">
-                        <span class="input-group-text munit">V</span>
-                    </div>
+            <div class="col-md-4">
+                <label class="form-label fw-semibold">Selektor Target</label>
+                <div class="d-flex gap-2">
+                    <button type="button" class="toggle-opt toggle-warn flex-fill" onclick="setToggle('posisi_selektor','blok')"><i class="bi bi-slash-circle me-1"></i>Blok</button>
+                    <button type="button" class="toggle-opt flex-fill" onclick="setToggle('posisi_selektor','on')"><i class="bi bi-toggle-on me-1"></i>ON</button>
                 </div>
+                <input type="hidden" name="posisi_selektor" id="posisi_selektor">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label fw-semibold">Kondisi Kabel LAN</label>
+                <div class="d-flex gap-2">
+                    <button type="button" class="toggle-opt flex-fill" onclick="setToggle('kondisi_kabel_lan','normal')"><i class="bi bi-ethernet me-1"></i>Normal</button>
+                    <button type="button" class="toggle-opt toggle-alarm flex-fill" onclick="setToggle('kondisi_kabel_lan','terlepas')"><i class="bi bi-plug me-1"></i>Terlepas</button>
+                </div>
+                <input type="hidden" name="kondisi_kabel_lan" id="kondisi_kabel_lan">
             </div>
         </div>
     </div>

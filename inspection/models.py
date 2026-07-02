@@ -242,13 +242,12 @@ class InspectionMasterTrip(models.Model):
         ('mati',  'Mati'),
     )
     SELEKTOR_CHOICES = (
-        ('on_aktif',    'ON / Aktif'),
-        ('off_nonaktif','OFF / Nonaktif'),
+        ('blok', 'Blok'),
+        ('on',   'ON'),
     )
     KABEL_LAN_CHOICES = (
-        ('terpasang',      'Terpasang'),
-        ('terlepas',       'Terlepas'),
-        ('tidak_tersedia', 'Tidak Tersedia'),
+        ('normal',   'Normal'),
+        ('terlepas', 'Terlepas'),
     )
 
     inspection = models.OneToOneField(
