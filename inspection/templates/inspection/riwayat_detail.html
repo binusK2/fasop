@@ -4,429 +4,38 @@
 
 {% block content %}
 
-<div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
-    <a href="{% url 'inspection_riwayat_device' insp.device.pk %}" class="btn btn-sm btn-outline-secondary">
-        <i class="bi bi-arrow-left me-1"></i>Kembali ke Riwayat
-    </a>
-    <div class="ms-auto d-flex gap-2">
-        {% if not user_is_operator %}
-            {% if insp.is_flagged %}
-            <form method="post" action="{% url 'inspection_unflag' insp.pk %}" class="d-inline">
+<!-- MODAL DELETE -->
+{% if request.user.is_superuser %}
+<div class="modal fade" id="modalDelete" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header" style="background:#fee2e2;border-bottom:1px solid #fecaca;">
+                <h5 class="modal-title" style="font-size:14px;font-weight:700;color:#991b1b;">
+                    <i class="bi bi-trash me-2"></i>Hapus Inspeksi
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'inspection_delete' insp.pk %}">
                 {% csrf_token %}
-                <button class="btn btn-sm btn-outline-warning">
-                    <i class="bi bi-flag-fill me-1"></i>Hapus Flag
-                </button>
+                <div class="modal-body">
+                    <p style="font-size:13px;color:#334155;margin-bottom:0;">
+                        Yakin ingin menghapus hasil inspeksi perangkat
+                        <strong>{{ insp.device.nama }}</strong>
+                        tanggal <strong>{{ insp.tanggal|date:"d M Y H:i" }}</strong>?
+                        <br><span style="color:#dc2626;font-size:12px;">Tindakan ini tidak dapat dibatalkan.</span>
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-sm btn-danger px-4">
+                        <i class="bi bi-trash me-1"></i>Hapus
+                    </button>
+                </div>
             </form>
-            {% else %}
-            <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalFlag">
-                <i class="bi bi-flag me-1"></i>Flag Inspeksi
-            </button>
-            {% endif %}
-        {% endif %}
-        {% if request.user.is_superuser %}
-        <button class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#modalDelete">
-            <i class="bi bi-trash me-1"></i>Hapus Inspeksi
-        </button>
-        {% endif %}
-    </div>
-</div>
-
-{% if messages %}
-{% for msg in messages %}
-<div class="alert alert-{{ msg.tags }} alert-dismissible fade show" role="alert">
-    {{ msg }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-</div>
-{% endfor %}
-{% endif %}
-
-{% if insp.is_flagged %}
-<div class="alert d-flex align-items-start gap-3 mb-3" style="background:#fef9c3;border:1.5px solid #fde68a;border-radius:10px;">
-    <i class="bi bi-flag-fill" style="color:#f59e0b;font-size:18px;flex-shrink:0;margin-top:2px;"></i>
-    <div>
-        <div style="font-size:12px;font-weight:700;color:#92400e;margin-bottom:3px;">
-            Inspeksi ini diflag oleh {{ insp.flagged_by.get_full_name|default:insp.flagged_by.username }}
-            pada {{ insp.flagged_at|date:"d M Y H:i" }}
-        </div>
-        {% if insp.flag_catatan %}
-        <div style="font-size:12.5px;color:#78350f;">{{ insp.flag_catatan }}</div>
-        {% endif %}
-    </div>
-</div>
-{% endif %}
-
-<!-- HEADER -->
-<div class="card mb-4" style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);border:none;">
-    <div class="card-body py-3 px-4">
-        <div class="d-flex align-items-center gap-4 flex-wrap">
-            <div>
-                <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;">Perangkat</div>
-                <div style="font-size:16px;font-weight:700;color:#f1f5f9;">{{ insp.device.nama }}</div>
-            </div>
-            <div class="vr" style="background:rgba(255,255,255,0.1);width:1px;align-self:stretch;"></div>
-            <div><div style="font-size:11px;color:#94a3b8;text-transform:uppercase;font-weight:600;">Jenis</div>
-                <div style="font-size:13px;color:#cbd5e1;">{{ insp.get_jenis_display }}</div></div>
-            <div><div style="font-size:11px;color:#94a3b8;text-transform:uppercase;font-weight:600;">Tanggal</div>
-                <div style="font-size:13px;color:#cbd5e1;">{{ insp.tanggal|date:"d M Y H:i" }}</div></div>
-            <div><div style="font-size:11px;color:#94a3b8;text-transform:uppercase;font-weight:600;">Operator</div>
-                <div style="font-size:13px;color:#cbd5e1;">{{ insp.operator.get_full_name|default:insp.operator.username|default:"—" }}</div></div>
-        </div>
-    </div>
-</div>
-
-{% if detail %}
-
-{% if insp.jenis == 'catu_daya' %}
-<!-- CATU DAYA DETAIL -->
-<!-- Rectifier -->
-<div class="card mb-3">
-    <div class="card-body px-4 py-3">
-        <div class="d-flex align-items-center gap-2 mb-3">
-            <span style="width:5px;height:18px;background:#f97316;border-radius:3px;display:inline-block;"></span>
-            <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;color:#64748b;">Rectifier</h6>
-        </div>
-        <div class="row g-3">
-            {% for row in rectifier_rows %}
-            <div class="col-md-3 col-6">
-                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;">
-                    <div style="font-size:10.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;">{{ row.label }}</div>
-                    {% if row.val %}
-                        {% if row.ok %}
-                        <span style="background:#dcfce7;color:#166534;padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;">✓ {{ row.display }}</span>
-                        {% else %}
-                        <span style="background:{{ row.bg }};color:{{ row.fg }};padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;">{{ row.display }}</span>
-                        {% endif %}
-                    {% else %}
-                    <span style="color:#94a3b8;font-size:12px;">—</span>
-                    {% endif %}
-                </div>
-            </div>
-            {% endfor %}
-        </div>
-        {% if detail.catatan_rectifier %}<div class="mt-2" style="font-size:12px;color:#64748b;"><i class="bi bi-chat-text me-1"></i>{{ detail.catatan_rectifier }}</div>{% endif %}
-    </div>
-</div>
-
-<!-- Bank Baterai -->
-<div class="card mb-3">
-    <div class="card-body px-4 py-3">
-        <div class="d-flex align-items-center gap-2 mb-3">
-            <span style="width:5px;height:18px;background:#10b981;border-radius:3px;display:inline-block;"></span>
-            <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;color:#64748b;">Bank Baterai</h6>
-        </div>
-        <div class="row g-3">
-            {% for row in bank_rows %}
-            <div class="col-md-3 col-6">
-                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;">
-                    <div style="font-size:10.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;">{{ row.label }}</div>
-                    {% if row.val %}
-                        {% if row.ok %}
-                        <span style="background:#dcfce7;color:#166534;padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;">✓ {{ row.display }}</span>
-                        {% else %}
-                        <span style="background:{{ row.bg }};color:{{ row.fg }};padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;">{{ row.display }}</span>
-                        {% endif %}
-                    {% else %}
-                    <span style="color:#94a3b8;font-size:12px;">—</span>
-                    {% endif %}
-                </div>
-            </div>
-            {% endfor %}
-        </div>
-        {% if detail.catatan_baterai %}<div class="mt-2" style="font-size:12px;color:#64748b;"><i class="bi bi-chat-text me-1"></i>{{ detail.catatan_baterai }}</div>{% endif %}
-    </div>
-</div>
-
-<!-- Kondisi Keseluruhan -->
-<div class="card mb-3">
-    <div class="card-body px-4 py-3">
-        <div class="d-flex align-items-center gap-2 mb-2">
-            <span style="width:5px;height:18px;background:#f59e0b;border-radius:3px;display:inline-block;"></span>
-            <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;color:#64748b;">Kondisi Keseluruhan</h6>
-        </div>
-        {% if detail.kondisi_keseluruhan == 'bersih' %}
-        <span style="background:#dcfce7;color:#166534;padding:4px 14px;border-radius:20px;font-size:12px;font-weight:700;">✓ Bersih</span>
-        {% elif detail.kondisi_keseluruhan == 'kotor' %}
-        <span style="background:#fef9c3;color:#854d0e;padding:4px 14px;border-radius:20px;font-size:12px;font-weight:700;">Kotor</span>
-        {% else %}<span style="color:#94a3b8;">—</span>{% endif %}
-    </div>
-</div>
-
-<div class="card mb-3">
-    <div class="card-body px-4 py-3">
-        <div class="d-flex align-items-center gap-2 mb-3">
-            <span style="width:5px;height:18px;background:#6366f1;border-radius:3px;display:inline-block;"></span>
-            <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;color:#64748b;">Hasil Pengukuran</h6>
-        </div>
-        <div class="row g-3">
-            {% for label,val,unit in detail_rows %}
-            <div class="col-md-2">
-                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px;text-align:center;">
-                    <div style="font-size:10.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:5px;">{{ label }}</div>
-                    <div style="font-size:20px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;">{{ val|default:"—" }}</div>
-                    {% if val %}<div style="font-size:10px;color:#94a3b8;">{{ unit }}</div>{% endif %}
-                </div>
-            </div>
-            {% endfor %}
-        </div>
-    </div>
-</div>
-
-{% elif insp.jenis == 'defense_scheme' or insp.jenis == 'master_trip' or insp.jenis == 'ufls' or insp.jenis == 'dfr' or insp.jenis == 'server_ads' %}
-<!-- KONDISI LINGKUNGAN -->
-<div class="card mb-3">
-    <div class="card-body px-4 py-3">
-        <div class="d-flex align-items-center gap-2 mb-3">
-            <span style="width:5px;height:18px;background:#0ea5e9;border-radius:3px;display:inline-block;"></span>
-            <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;color:#64748b;">Kondisi Lingkungan</h6>
-        </div>
-        <div class="row g-3">
-            <div class="col-md-2 col-6">
-                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;text-align:center;">
-                    <div style="font-size:10.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:5px;">Suhu</div>
-                    <div style="font-size:20px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;">{{ detail.suhu_ruangan|default:"—" }}</div>
-                    {% if detail.suhu_ruangan %}<div style="font-size:10px;color:#94a3b8;">°C</div>{% endif %}
-                </div>
-            </div>
-            <div class="col-md-2 col-6">
-                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;text-align:center;">
-                    <div style="font-size:10.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:5px;">Kelembapan</div>
-                    <div style="font-size:20px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;">{{ detail.kelembapan|default:"—" }}</div>
-                    {% if detail.kelembapan %}<div style="font-size:10px;color:#94a3b8;">%</div>{% endif %}
-                </div>
-            </div>
-            {% for row in env_rows %}
-            <div class="col-md-2 col-6">
-                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;">
-                    <div style="font-size:10.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;">{{ row.label }}</div>
-                    {% if row.val %}
-                        {% if row.ok %}
-                        <span style="background:#dcfce7;color:#166534;padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;">✓ {{ row.display }}</span>
-                        {% else %}
-                        <span style="background:{{ row.bg }};color:{{ row.fg }};padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;">{{ row.display }}</span>
-                        {% endif %}
-                    {% else %}<span style="color:#94a3b8;font-size:12px;">—</span>{% endif %}
-                </div>
-            </div>
-            {% endfor %}
-        </div>
-    </div>
-</div>
-
-{% if relay_rows %}
-<!-- KONDISI RELAY -->
-<div class="card mb-3">
-    <div class="card-body px-4 py-3">
-        <div class="d-flex align-items-center gap-2 mb-3">
-            <span style="width:5px;height:18px;background:#8b5cf6;border-radius:3px;display:inline-block;"></span>
-            <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;color:#64748b;">Kondisi Relay</h6>
-        </div>
-        <div class="row g-3">
-            {% for row in relay_rows %}
-            <div class="col-md-2 col-6">
-                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;">
-                    <div style="font-size:10.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;">{{ row.label }}</div>
-                    {% if row.val %}
-                        {% if row.ok %}
-                        <span style="background:#dcfce7;color:#166534;padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;">✓ {{ row.display }}</span>
-                        {% else %}
-                        <span style="background:{{ row.bg }};color:{{ row.fg }};padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;">{{ row.display }}</span>
-                        {% endif %}
-                    {% else %}<span style="color:#94a3b8;font-size:12px;">—</span>{% endif %}
-                </div>
-            </div>
-            {% endfor %}
-        </div>
-        {% if detail.catatan_relay %}
-        <div class="mt-2" style="font-size:12px;color:#64748b;"><i class="bi bi-chat-text me-1"></i>{{ detail.catatan_relay }}</div>
-        {% endif %}
-    </div>
-</div>
-{% endif %}
-
-{% if led_rows %}
-<!-- INDIKATOR LED / ALARM -->
-<div class="card mb-3">
-    <div class="card-body px-4 py-3">
-        <div class="d-flex align-items-center gap-2 mb-3">
-            <span style="width:5px;height:18px;background:#10b981;border-radius:3px;display:inline-block;"></span>
-            <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;color:#64748b;">Indikator LED / Alarm</h6>
-        </div>
-        <div class="row g-3">
-            {% for row in led_rows %}
-            <div class="col-md-2 col-6">
-                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;">
-                    <div style="font-size:10.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;">{{ row.label }}</div>
-                    {% if row.val %}
-                        {% if row.ok %}
-                        <span style="background:#dcfce7;color:#166534;padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;">✓ {{ row.display }}</span>
-                        {% else %}
-                        <span style="background:{{ row.bg }};color:{{ row.fg }};padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;">{{ row.display }}</span>
-                        {% endif %}
-                    {% else %}<span style="color:#94a3b8;font-size:12px;">—</span>{% endif %}
-                </div>
-            </div>
-            {% endfor %}
         </div>
     </div>
 </div>
 {% endif %}
-
-{% if dfr_rows %}
-<!-- KONDISI DFR -->
-<div class="card mb-3">
-    <div class="card-body px-4 py-3">
-        <div class="d-flex align-items-center gap-2 mb-3">
-            <span style="width:5px;height:18px;background:#8b5cf6;border-radius:3px;display:inline-block;"></span>
-            <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;color:#64748b;">Kondisi DFR</h6>
-        </div>
-        <div class="row g-3">
-            {% for row in dfr_rows %}
-            <div class="col-md-2 col-6">
-                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;">
-                    <div style="font-size:10.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;">{{ row.label }}</div>
-                    {% if row.val %}
-                        {% if row.ok %}
-                        <span style="background:#dcfce7;color:#166534;padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;">✓ {{ row.display }}</span>
-                        {% else %}
-                        <span style="background:{{ row.bg }};color:{{ row.fg }};padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;">{{ row.display }}</span>
-                        {% endif %}
-                    {% else %}<span style="color:#94a3b8;font-size:12px;">—</span>{% endif %}
-                </div>
-            </div>
-            {% endfor %}
-        </div>
-    </div>
-</div>
-{% endif %}
-
-{% if ads_rows %}
-<!-- STATUS PERALATAN SERVER ADS -->
-<div class="card mb-3">
-    <div class="card-body px-4 py-3">
-        <div class="d-flex align-items-center gap-2 mb-3">
-            <span style="width:5px;height:18px;background:#10b981;border-radius:3px;display:inline-block;"></span>
-            <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;color:#64748b;">Status Peralatan</h6>
-        </div>
-        <div class="row g-3">
-            {% for row in ads_rows %}
-            <div class="col-md-2 col-6">
-                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;">
-                    <div style="font-size:10.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;">{{ row.label }}</div>
-                    {% if row.val %}
-                        {% if row.ok %}
-                        <span style="background:#dcfce7;color:#166534;padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;">✓ {{ row.display }}</span>
-                        {% else %}
-                        <span style="background:{{ row.bg }};color:{{ row.fg }};padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;">{{ row.display }}</span>
-                        {% endif %}
-                    {% else %}<span style="color:#94a3b8;font-size:12px;">—</span>{% endif %}
-                </div>
-            </div>
-            {% endfor %}
-        </div>
-    </div>
-</div>
-{% endif %}
-
-{% if detail_rows %}
-<!-- PENGUKURAN -->
-<div class="card mb-3">
-    <div class="card-body px-4 py-3">
-        <div class="d-flex align-items-center gap-2 mb-3">
-            <span style="width:5px;height:18px;background:#6366f1;border-radius:3px;display:inline-block;"></span>
-            <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;color:#64748b;">Pengukuran</h6>
-        </div>
-        <div class="row g-3">
-            {% for label,val,unit in detail_rows %}
-            <div class="col-md-2">
-                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px;text-align:center;">
-                    <div style="font-size:10.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:5px;">{{ label }}</div>
-                    <div style="font-size:20px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;">{{ val|default:"—" }}</div>
-                    {% if val %}<div style="font-size:10px;color:#94a3b8;">{{ unit }}</div>{% endif %}
-                </div>
-            </div>
-            {% endfor %}
-        </div>
-    </div>
-</div>
-{% endif %}
-
-{% elif insp.jenis == 'telecom' %}
-<!-- TELECOM DETAIL -->
-<div class="card mb-3">
-    <div class="card-body px-4 py-3">
-        <div class="d-flex align-items-center gap-2 mb-3">
-            <span style="width:5px;height:18px;background:#0ea5e9;border-radius:3px;display:inline-block;"></span>
-            <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;color:#64748b;">Hasil Pengujian Telekomunikasi</h6>
-        </div>
-        <div class="row g-3">
-            <div class="col-md-4 col-6">
-                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;">
-                    <div style="font-size:10.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:8px;">Status Komunikasi</div>
-                    {% if detail.hasil_komunikasi == 'normal' %}
-                    <span style="background:#dcfce7;color:#166534;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;">
-                        <i class="bi bi-check-circle me-1"></i>Normal
-                    </span>
-                    {% elif detail.hasil_komunikasi == 'tidak_normal' %}
-                    <span style="background:#fee2e2;color:#991b1b;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;">
-                        <i class="bi bi-exclamation-triangle me-1"></i>Tidak Normal
-                    </span>
-                    {% else %}
-                    <span style="color:#94a3b8;font-size:12px;">—</span>
-                    {% endif %}
-                </div>
-            </div>
-            <div class="col-md-4 col-6">
-                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;">
-                    <div style="font-size:10.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:8px;">Kualitas Suara</div>
-                    {% if detail.kualitas_suara == 'baik' %}
-                    <span style="background:#dcfce7;color:#166534;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;">
-                        <i class="bi bi-volume-up me-1"></i>Baik
-                    </span>
-                    {% elif detail.kualitas_suara == 'cukup' %}
-                    <span style="background:#fef9c3;color:#854d0e;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;">Cukup</span>
-                    {% elif detail.kualitas_suara == 'buruk' %}
-                    <span style="background:#fee2e2;color:#991b1b;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;">
-                        <i class="bi bi-volume-mute me-1"></i>Buruk
-                    </span>
-                    {% else %}
-                    <span style="color:#94a3b8;font-size:12px;">—</span>
-                    {% endif %}
-                </div>
-            </div>
-            {% if detail.catatan_pengujian %}
-            <div class="col-12">
-                <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;padding:12px 14px;">
-                    <div style="font-size:10.5px;font-weight:700;color:#0369a1;text-transform:uppercase;margin-bottom:6px;">
-                        <i class="bi bi-chat-text me-1"></i>Catatan Pengujian
-                    </div>
-                    <div style="font-size:13px;color:#0f172a;">{{ detail.catatan_pengujian }}</div>
-                </div>
-            </div>
-            {% endif %}
-        </div>
-    </div>
-</div>
-{% endif %} {# end if insp.jenis #}
-
-{% endif %} {# end if detail #}
-
-{% if insp.foto %}
-<div class="card mb-3">
-    <div class="card-body px-4 py-3 text-center">
-        <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:10px;">Foto Dokumentasi</div>
-        <img src="{{ insp.foto.url }}" alt="Foto" style="max-width:400px;width:100%;border-radius:10px;border:1px solid #e2e8f0;">
-    </div>
-</div>
-{% endif %}
-
-{% if insp.catatan %}
-<div class="card mb-3">
-    <div class="card-body px-4 py-3">
-        <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;">Catatan</div>
-        <p style="font-size:13.5px;color:#334155;margin:0;">{{ insp.catatan }}</p>
-    </div>
-</div>
-{% endif %}
-
 
 {% if not user_is_operator and not insp.is_flagged %}
 <!-- Modal Flag -->
@@ -462,36 +71,554 @@
 </div>
 {% endif %}
 
-{% if request.user.is_superuser %}
-<div class="modal fade" id="modalDelete" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header" style="background:#fee2e2;border-bottom:1px solid #fecaca;">
-                <h5 class="modal-title" style="font-size:14px;font-weight:700;color:#991b1b;">
-                    <i class="bi bi-trash me-2"></i>Hapus Inspeksi
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <form method="post" action="{% url 'inspection_delete' insp.pk %}">
-                {% csrf_token %}
-                <div class="modal-body">
-                    <p style="font-size:13px;color:#334155;margin-bottom:0;">
-                        Yakin ingin menghapus hasil inspeksi perangkat
-                        <strong>{{ insp.device.nama }}</strong>
-                        tanggal <strong>{{ insp.tanggal|date:"d M Y H:i" }}</strong>?
-                        <br><span style="color:#dc2626;font-size:12px;">Tindakan ini tidak dapat dibatalkan.</span>
-                    </p>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
-                    <button type="submit" class="btn btn-sm btn-danger px-4">
-                        <i class="bi bi-trash me-1"></i>Hapus
-                    </button>
-                </div>
-            </form>
+{% if messages %}
+{% for msg in messages %}
+<div class="alert alert-{{ msg.tags }} alert-dismissible fade show" role="alert">
+    {{ msg }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endfor %}
+{% endif %}
+
+{% if insp.is_flagged %}
+<div class="alert d-flex align-items-start gap-3 mb-3" style="background:#fef9c3;border:1.5px solid #fde68a;border-radius:10px;">
+    <i class="bi bi-flag-fill" style="color:#f59e0b;font-size:18px;flex-shrink:0;margin-top:2px;"></i>
+    <div>
+        <div style="font-size:12px;font-weight:700;color:#92400e;margin-bottom:3px;">
+            Inspeksi ini diflag oleh {{ insp.flagged_by.get_full_name|default:insp.flagged_by.username }}
+            pada {{ insp.flagged_at|date:"d M Y H:i" }}
         </div>
+        {% if insp.flag_catatan %}
+        <div style="font-size:12.5px;color:#78350f;">{{ insp.flag_catatan }}</div>
+        {% endif %}
     </div>
 </div>
 {% endif %}
 
+<!-- ═══════════════ DARK BANNER ═══════════════ -->
+<div class="card mb-4" style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);border:none;overflow:visible;">
+    <div class="card-body py-0 px-0">
+
+        <!-- Top row: device identity + actions -->
+        <div class="d-flex align-items-center gap-3 px-4 py-3 flex-wrap" style="border-bottom:1px solid rgba(255,255,255,0.07);">
+            <!-- Device icon -->
+            <div style="width:42px;height:42px;background:rgba(59,130,246,0.2);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <i class="bi bi-clipboard2-check-fill" style="font-size:20px;color:#93c5fd;"></i>
+            </div>
+            <!-- Device name + jenis -->
+            <div>
+                <div style="font-size:17px;font-weight:700;color:#f1f5f9;line-height:1.2;">{{ insp.device.nama }}</div>
+                <div class="d-flex align-items-center gap-2 mt-1">
+                    {% if insp.device.jenis %}
+                    <span style="font-size:11px;background:rgba(59,130,246,0.25);color:#93c5fd;padding:2px 8px;border-radius:20px;font-weight:500;">{{ insp.device.jenis }}</span>
+                    {% endif %}
+                    <span style="font-size:11px;color:#64748b;">{{ insp.device.lokasi }}</span>
+                </div>
+            </div>
+
+            <!-- Meta items -->
+            <div class="d-flex gap-4 flex-wrap ms-md-2">
+                <div>
+                    <div style="font-size:10px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Tanggal</div>
+                    <div style="font-size:13px;font-weight:700;color:#e2e8f0;">{{ insp.tanggal|date:"d M Y" }}</div>
+                    <div style="font-size:11.5px;color:#94a3b8;">{{ insp.tanggal|date:"H:i" }} WITA</div>
+                </div>
+                <div>
+                    <div style="font-size:10px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Jenis</div>
+                    <span style="font-size:11px;background:rgba(14,165,233,0.2);color:#7dd3fc;padding:2px 9px;border-radius:20px;font-weight:600;">{{ insp.get_jenis_display }}</span>
+                </div>
+                <div>
+                    <div style="font-size:10px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Operator</div>
+                    <div style="font-size:13px;color:#e2e8f0;">{{ insp.operator.get_full_name|default:insp.operator.username|default:"—" }}</div>
+                </div>
+                <div>
+                    <div style="font-size:10px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Status</div>
+                    {% if insp.is_flagged %}
+                    <span style="font-size:11.5px;font-weight:700;color:#92400e;background:#fef3c7;padding:3px 10px;border-radius:20px;">
+                        <i class="bi bi-flag-fill me-1"></i>Diflag
+                    </span>
+                    {% else %}
+                    <span style="font-size:11.5px;font-weight:700;color:#065f46;background:#dcfce7;padding:3px 10px;border-radius:20px;">&#10003; Normal</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Actions (pushed to right) -->
+            <div class="d-flex gap-2 ms-auto flex-wrap align-items-center">
+                <a href="{% url 'inspection_riwayat_device' insp.device.pk %}" class="btn btn-sm" style="background:rgba(255,255,255,0.08);color:#cbd5e1;border:1px solid rgba(255,255,255,0.12);font-size:12px;">
+                    <i class="bi bi-arrow-left me-1"></i>Kembali
+                </a>
+                {% if not user_is_operator %}
+                    {% if insp.is_flagged %}
+                    <form method="post" action="{% url 'inspection_unflag' insp.pk %}" class="m-0">
+                        {% csrf_token %}
+                        <button class="btn btn-sm" style="background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.3);font-size:12px;">
+                            <i class="bi bi-flag-fill me-1"></i>Hapus Flag
+                        </button>
+                    </form>
+                    {% else %}
+                    <button type="button" class="btn btn-sm" data-bs-toggle="modal" data-bs-target="#modalFlag"
+                        style="background:rgba(239,68,68,0.15);color:#fca5a5;border:1px solid rgba(239,68,68,0.3);font-size:12px;">
+                        <i class="bi bi-flag me-1"></i>Flag Inspeksi
+                    </button>
+                    {% endif %}
+                {% endif %}
+                {% if request.user.is_superuser %}
+                <div style="width:1px;height:24px;background:rgba(255,255,255,0.12);flex-shrink:0;"></div>
+                <button class="btn btn-sm" data-bs-toggle="modal" data-bs-target="#modalDelete" style="background:rgba(239,68,68,0.15);color:#fca5a5;border:1px solid rgba(239,68,68,0.3);font-size:12px;">
+                    <i class="bi bi-trash me-1"></i>Hapus
+                </button>
+                {% endif %}
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<div class="row g-3">
+
+    <!-- PANEL KIRI: DEVICE DETAIL + FOTO -->
+    <div class="col-md-4">
+
+        <!-- Device Info Card -->
+        <div class="card mb-3">
+            <div class="card-body px-4 py-3">
+                <table style="width:100%;border-collapse:collapse;">
+                    {% if insp.device.merk %}
+                    <tr>
+                        <td style="font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;padding:6px 0;width:45%;">Merk</td>
+                        <td style="font-size:13px;color:#334155;padding:6px 0;">{{ insp.device.merk }}</td>
+                    </tr>
+                    {% endif %}
+                    {% if insp.device.type %}
+                    <tr>
+                        <td style="font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;padding:6px 0;">Model / Type</td>
+                        <td style="font-size:13px;color:#334155;padding:6px 0;">{{ insp.device.type }}</td>
+                    </tr>
+                    {% endif %}
+                    {% if insp.device.serial_number %}
+                    <tr>
+                        <td style="font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;padding:6px 0;">Serial Number</td>
+                        <td style="font-size:12px;color:#334155;padding:6px 0;font-family:'JetBrains Mono',monospace;">{{ insp.device.serial_number }}</td>
+                    </tr>
+                    {% endif %}
+                    {% if insp.device.firmware_version %}
+                    <tr>
+                        <td style="font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;padding:6px 0;">Firmware</td>
+                        <td style="font-size:12px;color:#334155;padding:6px 0;font-family:'JetBrains Mono',monospace;">{{ insp.device.firmware_version }}</td>
+                    </tr>
+                    {% endif %}
+                    <tr>
+                        <td style="font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;padding:6px 0;">IP Address</td>
+                        <td style="font-size:12px;color:#334155;padding:6px 0;font-family:'JetBrains Mono',monospace;">{{ insp.device.ip_address|default:"—" }}</td>
+                    </tr>
+                    <tr>
+                        <td style="font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;padding:6px 0;">Lokasi</td>
+                        <td style="font-size:13px;color:#334155;padding:6px 0;">{{ insp.device.lokasi|default:"—" }}</td>
+                    </tr>
+                </table>
+                <div class="pt-2 mt-1" style="border-top:1px solid #f1f5f9;">
+                    <a href="{% url 'device_view' insp.device.id %}"
+                       style="font-size:12px;color:#3b82f6;text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:4px;">
+                        <i class="bi bi-box-arrow-up-right" style="font-size:11px;"></i>
+                        Lihat Detail Perangkat
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Foto Dokumentasi -->
+        <div class="card">
+            <div class="card-body px-4 py-3">
+                <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">Foto Dokumentasi</div>
+                {% if insp.foto %}
+                <img src="{{ insp.foto.url }}" class="img-fluid rounded" style="max-height:220px;width:100%;object-fit:cover;border-radius:8px;cursor:pointer;"
+                     onclick="openLightbox('{{ insp.foto.url }}')">
+                {% else %}
+                <div class="d-flex align-items-center justify-content-center rounded"
+                     style="height:140px;background:#f1f5f9;color:#94a3b8;border-radius:8px;">
+                    <div class="text-center">
+                        <i class="bi bi-image fs-2 d-block mb-1"></i>
+                        <span style="font-size:12px;">Tidak ada foto</span>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+    </div>
+
+    <!-- DETAIL TEKNIS -->
+    <div class="col-md-8">
+
+        {% if detail %}
+
+        {% if insp.jenis == 'catu_daya' %}
+        <!-- CATU DAYA DETAIL -->
+        <!-- Rectifier -->
+        <div class="card mb-3">
+            <div class="card-body px-4 py-3">
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <span style="width:5px;height:18px;background:#f97316;border-radius:3px;display:inline-block;"></span>
+                    <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;color:#64748b;">Rectifier</h6>
+                </div>
+                <div class="row g-3">
+                    {% for row in rectifier_rows %}
+                    <div class="col-md-3 col-6">
+                        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;">
+                            <div style="font-size:10.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;">{{ row.label }}</div>
+                            {% if row.val %}
+                                {% if row.ok %}
+                                <span style="background:#dcfce7;color:#166534;padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;">✓ {{ row.display }}</span>
+                                {% else %}
+                                <span style="background:{{ row.bg }};color:{{ row.fg }};padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;">{{ row.display }}</span>
+                                {% endif %}
+                            {% else %}
+                            <span style="color:#94a3b8;font-size:12px;">—</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% if detail.catatan_rectifier %}<div class="mt-2" style="font-size:12px;color:#64748b;"><i class="bi bi-chat-text me-1"></i>{{ detail.catatan_rectifier }}</div>{% endif %}
+            </div>
+        </div>
+
+        <!-- Bank Baterai -->
+        <div class="card mb-3">
+            <div class="card-body px-4 py-3">
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <span style="width:5px;height:18px;background:#10b981;border-radius:3px;display:inline-block;"></span>
+                    <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;color:#64748b;">Bank Baterai</h6>
+                </div>
+                <div class="row g-3">
+                    {% for row in bank_rows %}
+                    <div class="col-md-3 col-6">
+                        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;">
+                            <div style="font-size:10.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;">{{ row.label }}</div>
+                            {% if row.val %}
+                                {% if row.ok %}
+                                <span style="background:#dcfce7;color:#166534;padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;">✓ {{ row.display }}</span>
+                                {% else %}
+                                <span style="background:{{ row.bg }};color:{{ row.fg }};padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;">{{ row.display }}</span>
+                                {% endif %}
+                            {% else %}
+                            <span style="color:#94a3b8;font-size:12px;">—</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% if detail.catatan_baterai %}<div class="mt-2" style="font-size:12px;color:#64748b;"><i class="bi bi-chat-text me-1"></i>{{ detail.catatan_baterai }}</div>{% endif %}
+            </div>
+        </div>
+
+        <!-- Kondisi Keseluruhan -->
+        <div class="card mb-3">
+            <div class="card-body px-4 py-3">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <span style="width:5px;height:18px;background:#f59e0b;border-radius:3px;display:inline-block;"></span>
+                    <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;color:#64748b;">Kondisi Keseluruhan</h6>
+                </div>
+                {% if detail.kondisi_keseluruhan == 'bersih' %}
+                <span style="background:#dcfce7;color:#166534;padding:4px 14px;border-radius:20px;font-size:12px;font-weight:700;">✓ Bersih</span>
+                {% elif detail.kondisi_keseluruhan == 'kotor' %}
+                <span style="background:#fef9c3;color:#854d0e;padding:4px 14px;border-radius:20px;font-size:12px;font-weight:700;">Kotor</span>
+                {% else %}<span style="color:#94a3b8;">—</span>{% endif %}
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-body px-4 py-3">
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <span style="width:5px;height:18px;background:#6366f1;border-radius:3px;display:inline-block;"></span>
+                    <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;color:#64748b;">Hasil Pengukuran</h6>
+                </div>
+                <div class="row g-3">
+                    {% for label,val,unit in detail_rows %}
+                    <div class="col-md-3">
+                        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px;text-align:center;">
+                            <div style="font-size:10.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:5px;">{{ label }}</div>
+                            <div style="font-size:20px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;">{{ val|default:"—" }}</div>
+                            {% if val %}<div style="font-size:10px;color:#94a3b8;">{{ unit }}</div>{% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        {% elif insp.jenis == 'defense_scheme' or insp.jenis == 'master_trip' or insp.jenis == 'ufls' or insp.jenis == 'dfr' or insp.jenis == 'server_ads' %}
+        <!-- KONDISI LINGKUNGAN -->
+        <div class="card mb-3">
+            <div class="card-body px-4 py-3">
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <span style="width:5px;height:18px;background:#0ea5e9;border-radius:3px;display:inline-block;"></span>
+                    <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;color:#64748b;">Kondisi Lingkungan</h6>
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-3 col-6">
+                        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;text-align:center;">
+                            <div style="font-size:10.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:5px;">Suhu</div>
+                            <div style="font-size:20px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;">{{ detail.suhu_ruangan|default:"—" }}</div>
+                            {% if detail.suhu_ruangan %}<div style="font-size:10px;color:#94a3b8;">°C</div>{% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-3 col-6">
+                        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;text-align:center;">
+                            <div style="font-size:10.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:5px;">Kelembapan</div>
+                            <div style="font-size:20px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;">{{ detail.kelembapan|default:"—" }}</div>
+                            {% if detail.kelembapan %}<div style="font-size:10px;color:#94a3b8;">%</div>{% endif %}
+                        </div>
+                    </div>
+                    {% for row in env_rows %}
+                    <div class="col-md-3 col-6">
+                        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;">
+                            <div style="font-size:10.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;">{{ row.label }}</div>
+                            {% if row.val %}
+                                {% if row.ok %}
+                                <span style="background:#dcfce7;color:#166534;padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;">✓ {{ row.display }}</span>
+                                {% else %}
+                                <span style="background:{{ row.bg }};color:{{ row.fg }};padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;">{{ row.display }}</span>
+                                {% endif %}
+                            {% else %}<span style="color:#94a3b8;font-size:12px;">—</span>{% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        {% if relay_rows %}
+        <!-- KONDISI RELAY -->
+        <div class="card mb-3">
+            <div class="card-body px-4 py-3">
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <span style="width:5px;height:18px;background:#8b5cf6;border-radius:3px;display:inline-block;"></span>
+                    <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;color:#64748b;">Kondisi Relay</h6>
+                </div>
+                <div class="row g-3">
+                    {% for row in relay_rows %}
+                    <div class="col-md-3 col-6">
+                        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;">
+                            <div style="font-size:10.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;">{{ row.label }}</div>
+                            {% if row.val %}
+                                {% if row.ok %}
+                                <span style="background:#dcfce7;color:#166534;padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;">✓ {{ row.display }}</span>
+                                {% else %}
+                                <span style="background:{{ row.bg }};color:{{ row.fg }};padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;">{{ row.display }}</span>
+                                {% endif %}
+                            {% else %}<span style="color:#94a3b8;font-size:12px;">—</span>{% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% if detail.catatan_relay %}
+                <div class="mt-2" style="font-size:12px;color:#64748b;"><i class="bi bi-chat-text me-1"></i>{{ detail.catatan_relay }}</div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if led_rows %}
+        <!-- INDIKATOR LED / ALARM -->
+        <div class="card mb-3">
+            <div class="card-body px-4 py-3">
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <span style="width:5px;height:18px;background:#10b981;border-radius:3px;display:inline-block;"></span>
+                    <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;color:#64748b;">Indikator LED / Alarm</h6>
+                </div>
+                <div class="row g-3">
+                    {% for row in led_rows %}
+                    <div class="col-md-3 col-6">
+                        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;">
+                            <div style="font-size:10.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;">{{ row.label }}</div>
+                            {% if row.val %}
+                                {% if row.ok %}
+                                <span style="background:#dcfce7;color:#166534;padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;">✓ {{ row.display }}</span>
+                                {% else %}
+                                <span style="background:{{ row.bg }};color:{{ row.fg }};padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;">{{ row.display }}</span>
+                                {% endif %}
+                            {% else %}<span style="color:#94a3b8;font-size:12px;">—</span>{% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if dfr_rows %}
+        <!-- KONDISI DFR -->
+        <div class="card mb-3">
+            <div class="card-body px-4 py-3">
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <span style="width:5px;height:18px;background:#8b5cf6;border-radius:3px;display:inline-block;"></span>
+                    <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;color:#64748b;">Kondisi DFR</h6>
+                </div>
+                <div class="row g-3">
+                    {% for row in dfr_rows %}
+                    <div class="col-md-3 col-6">
+                        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;">
+                            <div style="font-size:10.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;">{{ row.label }}</div>
+                            {% if row.val %}
+                                {% if row.ok %}
+                                <span style="background:#dcfce7;color:#166534;padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;">✓ {{ row.display }}</span>
+                                {% else %}
+                                <span style="background:{{ row.bg }};color:{{ row.fg }};padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;">{{ row.display }}</span>
+                                {% endif %}
+                            {% else %}<span style="color:#94a3b8;font-size:12px;">—</span>{% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if ads_rows %}
+        <!-- STATUS PERALATAN SERVER ADS -->
+        <div class="card mb-3">
+            <div class="card-body px-4 py-3">
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <span style="width:5px;height:18px;background:#10b981;border-radius:3px;display:inline-block;"></span>
+                    <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;color:#64748b;">Status Peralatan</h6>
+                </div>
+                <div class="row g-3">
+                    {% for row in ads_rows %}
+                    <div class="col-md-3 col-6">
+                        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;">
+                            <div style="font-size:10.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;">{{ row.label }}</div>
+                            {% if row.val %}
+                                {% if row.ok %}
+                                <span style="background:#dcfce7;color:#166534;padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;">✓ {{ row.display }}</span>
+                                {% else %}
+                                <span style="background:{{ row.bg }};color:{{ row.fg }};padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;">{{ row.display }}</span>
+                                {% endif %}
+                            {% else %}<span style="color:#94a3b8;font-size:12px;">—</span>{% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if detail_rows %}
+        <!-- PENGUKURAN -->
+        <div class="card mb-3">
+            <div class="card-body px-4 py-3">
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <span style="width:5px;height:18px;background:#6366f1;border-radius:3px;display:inline-block;"></span>
+                    <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;color:#64748b;">Pengukuran</h6>
+                </div>
+                <div class="row g-3">
+                    {% for label,val,unit in detail_rows %}
+                    <div class="col-md-3">
+                        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px;text-align:center;">
+                            <div style="font-size:10.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:5px;">{{ label }}</div>
+                            <div style="font-size:20px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;">{{ val|default:"—" }}</div>
+                            {% if val %}<div style="font-size:10px;color:#94a3b8;">{{ unit }}</div>{% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% elif insp.jenis == 'telecom' %}
+        <!-- TELECOM DETAIL -->
+        <div class="card mb-3">
+            <div class="card-body px-4 py-3">
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <span style="width:5px;height:18px;background:#0ea5e9;border-radius:3px;display:inline-block;"></span>
+                    <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;color:#64748b;">Hasil Pengujian Telekomunikasi</h6>
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-4 col-6">
+                        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;">
+                            <div style="font-size:10.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:8px;">Status Komunikasi</div>
+                            {% if detail.hasil_komunikasi == 'normal' %}
+                            <span style="background:#dcfce7;color:#166534;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;">
+                                <i class="bi bi-check-circle me-1"></i>Normal
+                            </span>
+                            {% elif detail.hasil_komunikasi == 'tidak_normal' %}
+                            <span style="background:#fee2e2;color:#991b1b;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;">
+                                <i class="bi bi-exclamation-triangle me-1"></i>Tidak Normal
+                            </span>
+                            {% else %}
+                            <span style="color:#94a3b8;font-size:12px;">—</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-4 col-6">
+                        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;">
+                            <div style="font-size:10.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:8px;">Kualitas Suara</div>
+                            {% if detail.kualitas_suara == 'baik' %}
+                            <span style="background:#dcfce7;color:#166534;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;">
+                                <i class="bi bi-volume-up me-1"></i>Baik
+                            </span>
+                            {% elif detail.kualitas_suara == 'cukup' %}
+                            <span style="background:#fef9c3;color:#854d0e;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;">Cukup</span>
+                            {% elif detail.kualitas_suara == 'buruk' %}
+                            <span style="background:#fee2e2;color:#991b1b;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;">
+                                <i class="bi bi-volume-mute me-1"></i>Buruk
+                            </span>
+                            {% else %}
+                            <span style="color:#94a3b8;font-size:12px;">—</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% if detail.catatan_pengujian %}
+                    <div class="col-12">
+                        <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;padding:12px 14px;">
+                            <div style="font-size:10.5px;font-weight:700;color:#0369a1;text-transform:uppercase;margin-bottom:6px;">
+                                <i class="bi bi-chat-text me-1"></i>Catatan Pengujian
+                            </div>
+                            <div style="font-size:13px;color:#0f172a;">{{ detail.catatan_pengujian }}</div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %} {# end if insp.jenis #}
+
+        {% endif %} {# end if detail #}
+
+        {% if insp.catatan %}
+        <div class="card mb-3">
+            <div class="card-body px-4 py-3">
+                <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;">Catatan</div>
+                <p style="font-size:13.5px;color:#334155;margin:0;">{{ insp.catatan }}</p>
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+
+</div>
+
+{# ── Lightbox Modal ──────────────────────────────────────────────── #}
+<div id="lightbox" onclick="closeLightbox()"
+     style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:9999;align-items:center;justify-content:center;">
+    <img id="lightbox-img" src="" style="max-width:92vw;max-height:92vh;border-radius:10px;box-shadow:0 8px 40px rgba(0,0,0,0.5);">
+    <button onclick="closeLightbox()" style="position:fixed;top:18px;right:22px;background:none;border:none;color:#fff;font-size:28px;cursor:pointer;">✕</button>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function openLightbox(url) {
+    document.getElementById('lightbox-img').src = url;
+    document.getElementById('lightbox').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+function closeLightbox() {
+    document.getElementById('lightbox').style.display = 'none';
+    document.body.style.overflow = '';
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
+</script>
 {% endblock %}
