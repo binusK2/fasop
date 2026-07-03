@@ -31,9 +31,16 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
     margin-bottom: 16px;
 }
 .chart-title { font-size: 13px; font-weight: 700; color: var(--text); }
+
+/* ── Mobile ── */
+@media (max-width: 576px) {
+    .live-metrics { grid-template-columns: 1fr !important; }
+}
 
 .range-btns { display: flex; gap: 4px; }
 .btn-range {

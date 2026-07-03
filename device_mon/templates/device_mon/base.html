@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}Device Monitor{% endblock %} — UP2B Makassar</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
@@ -61,6 +62,23 @@ body {
     padding:4px 10px; cursor:pointer; font-family:inherit; transition:.15s;
 }
 .btn-logout:hover { border-color:#1d4ed8; color:var(--text); }
+
+.btn-menu {
+    display: none; align-items: center; justify-content: center;
+    background: none; border: none; color: var(--text);
+    font-size: 20px; cursor: pointer; padding: 4px 8px;
+    border-radius: 6px; line-height: 1;
+}
+.btn-menu:hover { background: var(--sb-border); }
+
+.sb-backdrop {
+    display: none;
+    position: fixed;
+    inset: var(--top-h) 0 0 0;
+    background: rgba(0,0,0,.5);
+    z-index: 150;
+}
+.sb-backdrop.show { display: block; }
 
 /* ── Layout ── */
 .layout { display:flex; flex:1; overflow:hidden; }
@@ -182,8 +200,11 @@ body {
     padding: 16px 20px;
     margin-bottom: 16px;
 }
-.chart-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+.chart-head { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
 .chart-title { font-size:12px; font-weight:700; color:var(--text); text-transform:uppercase; letter-spacing:.4px; }
+
+/* ── Table scroll wrapper (mobile) ── */
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
 /* ── Live dot ── */
 .live-dot {
@@ -194,7 +215,7 @@ body {
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
 
 /* ── Gangguan tabel ── */
-.gangguan-table { width:100%; border-collapse:collapse; font-size:12px; }
+.gangguan-table { width:100%; min-width:480px; border-collapse:collapse; font-size:12px; }
 .gangguan-table th {
     text-align:left; padding:8px 12px;
     font-size:10px; font-weight:700; text-transform:uppercase;
@@ -206,6 +227,25 @@ body {
 .gangguan-table tr:hover td { background:rgba(29,78,216,.05); }
 .tag-down { display:inline-block; background:rgba(239,68,68,.12); color:#f87171; font-size:10px; font-weight:700; padding:2px 7px; border-radius:4px; }
 .tag-up   { display:inline-block; background:rgba(16,185,129,.12); color:#10b981; font-size:10px; font-weight:700; padding:2px 7px; border-radius:4px; }
+
+/* ── Mobile ── */
+@media (max-width: 768px) {
+    .btn-menu { display: flex; }
+    .sidebar {
+        position: fixed;
+        top: var(--top-h);
+        bottom: 0;
+        left: 0;
+        z-index: 200;
+        width: 240px !important;
+        transform: translateX(-100%);
+        box-shadow: 4px 0 24px rgba(0,0,0,.4);
+    }
+    .sidebar.mobile-open { transform: translateX(0); }
+    .sb-toggle { display: none; }
+    .main-content { padding: 14px 12px; }
+    .topbar-clock { display: none; }
+}
 </style>
 {% block extra_head %}{% endblock %}
 </head>
@@ -213,6 +253,9 @@ body {
 
 <!-- Topbar -->
 <div class="topbar">
+    <button class="btn-menu" id="btn-menu" aria-label="Buka menu">
+        <i class="bi bi-list"></i>
+    </button>
     <div class="topbar-brand">
         <i class="bi bi-router-fill" style="color:#3b82f6;"></i>
         <span>Device Monitor</span>
@@ -232,6 +275,9 @@ body {
         </form>
     </div>
 </div>
+
+<!-- Backdrop mobile -->
+<div class="sb-backdrop" id="sb-backdrop"></div>
 
 <!-- Layout -->
 <div class="layout">
@@ -293,6 +339,27 @@ document.getElementById('btn-collapse').addEventListener('click', () => {
     collapsed = !collapsed;
     localStorage.setItem('dm_sb_collapsed', collapsed ? '1' : '0');
     applySidebar();
+});
+
+// Sidebar mobile (hamburger + backdrop)
+const btnMenu    = document.getElementById('btn-menu');
+const sbBackdrop = document.getElementById('sb-backdrop');
+function openMobileSidebar() {
+    sidebar.classList.add('mobile-open');
+    sbBackdrop.classList.add('show');
+}
+function closeMobileSidebar() {
+    sidebar.classList.remove('mobile-open');
+    sbBackdrop.classList.remove('show');
+}
+if (btnMenu) {
+    btnMenu.addEventListener('click', () => {
+        sidebar.classList.contains('mobile-open') ? closeMobileSidebar() : openMobileSidebar();
+    });
+}
+if (sbBackdrop) sbBackdrop.addEventListener('click', closeMobileSidebar);
+document.querySelectorAll('.sb-link').forEach(link => {
+    link.addEventListener('click', () => { if (window.innerWidth <= 768) closeMobileSidebar(); });
 });
 </script>
 {% block extra_js %}{% endblock %}

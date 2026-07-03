@@ -8,7 +8,7 @@
 /* ── Stat bar ringkas ── */
 .stat-bar {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     gap: 10px;
     margin-bottom: 14px;
 }
@@ -143,6 +143,7 @@
                 Semua <i class="bi bi-arrow-right"></i>
             </a>
         </div>
+        <div class="table-scroll">
         <table class="gangguan-table">
             <thead>
                 <tr>
@@ -155,6 +156,7 @@
                 <tr><td colspan="3" style="text-align:center; color:var(--muted); padding:16px;">Memuat...</td></tr>
             </tbody>
         </table>
+        </div>
     </div>
 
 </div>
