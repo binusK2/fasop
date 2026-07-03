@@ -125,6 +125,14 @@ def get_current_hz():
     # WHERE TIME >= ... agar pakai index TIME, hindari full scan tabel besar
     sql  = f"SELECT TOP 1 F FROM {freq} WITH (NOLOCK) WHERE TIME >= DATEADD(minute, -5, GETDATE()) ORDER BY TIME DESC"
 
+    # TCP ping sekali sebelum masuk loop — fail fast tanpa menunggu ODBC timeout
+    host = getattr(settings, 'MSSQL_HOST', '')
+    if not host:
+        return None
+    ok, _, _ = _tcp_ping(host, timeout=2)
+    if not ok:
+        return None
+
     for attempt in range(2):  # 1 retry jika koneksi mati
         try:
             if _hz_conn is None:
