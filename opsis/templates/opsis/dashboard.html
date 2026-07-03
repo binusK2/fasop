@@ -88,9 +88,17 @@
 }
 .chart-head {
     display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 8px;
     margin-bottom: 12px;
 }
 .chart-title { font-size: 12px; font-weight: 700; color: var(--text); }
+
+/* ── Mobile ── */
+@media (max-width: 576px) {
+    .summary-bar { grid-template-columns: 1fr !important; }
+    .komposisi-row { flex-direction: column; }
+    .komposisi-row .komposisi-chart-wrap { align-self: center; }
+}
 
 .dummy-notice {
     background: rgba(245,158,11,.08);
@@ -127,7 +135,7 @@
 </div>
 
 <!-- Summary bar: Frekuensi Sistem + Beban Kit + Beban KTT -->
-<div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; margin-bottom:16px;">
+<div class="summary-bar" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:16px; margin-bottom:16px;">
 
     <!-- Card Hz — nilai live saja -->
     <div class="hz-card" id="hz-card">
@@ -268,11 +276,11 @@
         <div class="chart-title"><i class="bi bi-pie-chart-fill me-1" style="color:#a78bfa;"></i>Komposisi Pembangkit</div>
         <span id="komposisi-updated" style="font-size:11px; color:var(--muted);">memuat...</span>
     </div>
-    <div style="display:flex; align-items:center; gap:24px;">
-        <div style="position:relative; height:160px; width:160px; flex-shrink:0;">
+    <div class="komposisi-row" style="display:flex; align-items:center; gap:24px; flex-wrap:wrap;">
+        <div class="komposisi-chart-wrap" style="position:relative; height:160px; width:160px; flex-shrink:0;">
             <canvas id="chart-komposisi"></canvas>
         </div>
-        <div id="komposisi-legend" style="flex:1; display:flex; flex-direction:column; gap:8px; min-width:0;">
+        <div id="komposisi-legend" style="flex:1; display:flex; flex-direction:column; gap:8px; min-width:200px;">
             <div style="font-size:11px; color:var(--muted); font-style:italic;">Memuat data...</div>
         </div>
     </div>

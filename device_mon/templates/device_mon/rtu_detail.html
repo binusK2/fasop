@@ -12,6 +12,7 @@
     margin-bottom: 16px;
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 20px;
 }
 .hero-state-circle {
@@ -139,6 +140,7 @@
         </div>
         <span style="font-size:11px;color:var(--muted);" id="log-count">—</span>
     </div>
+    <div class="table-scroll">
     <table class="gangguan-table" id="tbl-logs">
         <thead>
             <tr>
@@ -153,6 +155,7 @@
             <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px;">Memuat...</td></tr>
         </tbody>
     </table>
+    </div>
 </div>
 {% endblock %}
 
