@@ -976,7 +976,8 @@
             <span style="background:#f1f5f9;border:1px solid #e2e8f0;color:#475569;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;display:flex;align-items:center;gap:5px;"><i class="bi bi-eye" style="font-size:11px;"></i>VIEW ONLY</span>
             {% endif %}
 
-            {# ── Bell Notifikasi ── #}
+            {# ── Bell Notifikasi (disembunyikan untuk role Operator — notifikasi peralatan hanya untuk teknisi) ── #}
+            {% if not user_is_operator %}
             <a href="{% url 'notifikasi_list' %}" class="text-decoration-none"
                style="position:relative;display:inline-flex;align-items:center;justify-content:center;
                       width:34px;height:34px;border-radius:8px;color:#64748b;
@@ -1003,6 +1004,7 @@
                              border:1.5px solid #fff;"></span>
                 {% endif %}
             </a>
+            {% endif %}
 
             {# ── Jam & Tanggal ── #}
             <div style="display:flex;align-items:center;gap:8px;
@@ -1224,6 +1226,7 @@ document.addEventListener('DOMContentLoaded', function () {
 </script>
 {% block extra_js %}{% endblock %}
 
+{% if not user_is_operator %}
 <script>
 // ── Polling notifikasi tiap 60 detik ─────────────────────────────────────────
 (function pollNotif() {
@@ -1245,6 +1248,20 @@ document.addEventListener('DOMContentLoaded', function () {
     }, 60000);
 })();
 </script>
+{% endif %}
+
+<!-- ── Bantuan WhatsApp (khusus Operator) ──────────────────────────────────── -->
+{% if user_is_operator %}
+<a href="https://wa.me/6283845511608?text={{ 'Halo, saya Operator FASOP butuh bantuan terkait inspeksi.'|urlencode }}"
+   target="_blank" rel="noopener" class="text-decoration-none"
+   style="position:fixed;left:18px;bottom:18px;z-index:2000;
+          display:inline-flex;align-items:center;gap:8px;padding:11px 16px;border-radius:30px;
+          background:#25D366;color:#fff;font-size:13px;font-weight:600;
+          font-family:'DM Sans',sans-serif;
+          box-shadow:0 6px 18px rgba(37,211,102,0.4);">
+    <i class="bi bi-whatsapp" style="font-size:16px;"></i>Butuh Bantuan?
+</a>
+{% endif %}
 
 <!-- ── PWA: Install button ─────────────────────────────────────────────────── -->
 {% if user_is_operator %}
