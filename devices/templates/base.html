@@ -1250,6 +1250,19 @@ document.addEventListener('DOMContentLoaded', function () {
 </script>
 {% endif %}
 
+<!-- ── Bantuan WhatsApp (khusus Operator) ──────────────────────────────────── -->
+{% if user_is_operator %}
+<a href="https://wa.me/6283845511608?text={{ 'Halo, saya Operator FASOP butuh bantuan terkait inspeksi.'|urlencode }}"
+   target="_blank" rel="noopener" class="text-decoration-none"
+   style="position:fixed;left:18px;bottom:18px;z-index:2000;
+          display:inline-flex;align-items:center;gap:8px;padding:11px 16px;border-radius:30px;
+          background:#25D366;color:#fff;font-size:13px;font-weight:600;
+          font-family:'DM Sans',sans-serif;
+          box-shadow:0 6px 18px rgba(37,211,102,0.4);">
+    <i class="bi bi-whatsapp" style="font-size:16px;"></i>Butuh Bantuan?
+</a>
+{% endif %}
+
 <!-- ── PWA: Install button ─────────────────────────────────────────────────── -->
 {% if user_is_operator %}
 <button id="pwa-install-btn" type="button"
