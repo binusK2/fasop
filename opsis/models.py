@@ -34,6 +34,28 @@ class Pembangkit(models.Model):
         return self.nama
 
 
+class Trafo(models.Model):
+    """
+    Registry trafo (GI + bay) yang diikutkan dalam perhitungan Beban Trafo.
+    Auto-terdaftar (aktif=True) saat pertama kali muncul di ALL_TRANS_DATA
+    (lihat opsis.views._trafo_aktif_saja); nonaktifkan dari admin untuk
+    mengeluarkan trafo tertentu dari tampilan/perhitungan tanpa hapus data.
+    """
+    site   = models.CharField(max_length=100, verbose_name='Site (GI)')
+    bay    = models.CharField(max_length=50, verbose_name='Bay (Tag MSSQL)')
+    urutan = models.PositiveIntegerField(default=0, verbose_name='Urutan Tampil')
+    aktif  = models.BooleanField(default=True, verbose_name='Aktif')
+
+    class Meta:
+        unique_together = ('site', 'bay')
+        ordering = ['urutan', 'site', 'bay']
+        verbose_name = 'Trafo'
+        verbose_name_plural = 'Trafo'
+
+    def __str__(self):
+        return f'{self.site} — {self.bay}'
+
+
 class SnapFreq(models.Model):
     """
     Snapshot frekuensi sistem per detik dari SYS_FREQ_HIS.
