@@ -676,6 +676,20 @@ def beban_trafo(request):
     })
 
 
+KTT_NAME_MAP = {
+    'IND_ANTAM':  'ANTAM',
+    'IND_CERIA':  'CERIA',
+    'IND_TNASA':  'TONASA SEMEN',
+    'IND_BSOWA':  'BOSOWA SEMEN',
+    'IND_SMLTR4': 'HUADI 4',
+    'IND_INDOF':  'INDOFOOD',
+    'IND_HUADI':  'HUADI 1',
+    'IND_HUADI2': 'HUADI 2',
+    'IND_HUADI3': 'HUADI 3',
+    'IND_SMLTR5': 'HUADI 5',
+}
+
+
 def _split_ktt(rows):
     """Pisahkan IND_TOTAL dari baris konsumen. Return (consumers, total_mw)."""
     consumers = []
@@ -684,6 +698,7 @@ def _split_ktt(rows):
         if r['analog'].upper() == 'IND_TOTAL':
             total_mw = r['value']
         else:
+            r['nama'] = KTT_NAME_MAP.get(r['analog'].upper(), r['analog'])
             consumers.append(r)
     # Fallback: hitung manual jika IND_TOTAL tidak ada di data
     if total_mw is None:

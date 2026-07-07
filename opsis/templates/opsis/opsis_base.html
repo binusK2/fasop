@@ -276,6 +276,11 @@ body { font-family:'DM Sans', sans-serif; background:var(--body-bg); color:var(-
             <i class="bi bi-calendar2-week sb-icon"></i>
             <span class="sb-label">Rangkuman</span>
         </a>
+        {% endif %}
+        <a href="/opsis/up2d/" class="sb-link {% if request.resolver_match.url_name == 'opsis_up2d' %}active{% endif %}">
+            <i class="bi bi-diagram-3-fill sb-icon"></i>
+            <span class="sb-label">Dashboard UP2D</span>
+        </a>
         <a href="/opsis/beban-trafo/" class="sb-link {% if request.resolver_match.url_name == 'opsis_beban_trafo' %}active{% endif %}">
             <i class="bi bi-lightning-charge-fill sb-icon"></i>
             <span class="sb-label">Beban Trafo</span>
@@ -283,11 +288,6 @@ body { font-family:'DM Sans', sans-serif; background:var(--body-bg); color:var(-
         <a href="/opsis/beban-ktt/" class="sb-link {% if request.resolver_match.url_name == 'opsis_beban_ktt' %}active{% endif %}">
             <i class="bi bi-building-fill-up sb-icon"></i>
             <span class="sb-label">Beban KTT</span>
-        </a>
-        {% endif %}
-        <a href="/opsis/up2d/" class="sb-link {% if request.resolver_match.url_name == 'opsis_up2d' %}active{% endif %}">
-            <i class="bi bi-diagram-3-fill sb-icon"></i>
-            <span class="sb-label">Dashboard UP2D</span>
         </a>
 
         {% if pembangkit_list and request.user.profile.role != 'up2d' %}
