@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Pembangkit, SnapLive, SnapUnit, SnapFreq
+from .models import Pembangkit, SnapLive, SnapUnit, SnapFreq, Trafo
 
 
 @admin.register(Pembangkit)
@@ -14,6 +14,15 @@ class PembangkitAdmin(admin.ModelAdmin):
             'fields': ('tag_frekuensi', 'tag_mw', 'tag_mvar'),
         }),
     )
+
+
+@admin.register(Trafo)
+class TrafoAdmin(admin.ModelAdmin):
+    list_display   = ('urutan', 'site', 'bay', 'aktif')
+    list_editable  = ('urutan', 'aktif')
+    list_filter    = ('site', 'aktif')
+    list_display_links = ('bay',)
+    search_fields  = ('site', 'bay')
 
 
 @admin.register(SnapFreq)

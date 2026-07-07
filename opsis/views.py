@@ -4,12 +4,31 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.utils import timezone
 from django.conf import settings
-from .models import Pembangkit, SnapLive, SnapFreq
+from .models import Pembangkit, SnapLive, SnapFreq, Trafo
 from . import mssql
 
 
 def _pembangkit_aktif():
     return list(Pembangkit.objects.filter(aktif=True))
+
+
+def _trafo_aktif_saja(rows):
+    """
+    Filter hasil mssql.get_beban_trafo() agar hanya trafo yang aktif
+    di admin (opsis.Trafo) yang ikut ditampilkan/dihitung. Trafo baru
+    yang belum terdaftar otomatis didaftarkan sebagai aktif=True supaya
+    tidak hilang dari tampilan sebelum sempat dikonfigurasi.
+    """
+    existing = {(t.site, t.bay): t.aktif for t in Trafo.objects.all()}
+    result = []
+    for r in rows:
+        key = (r['site'], r['bay'])
+        if key not in existing:
+            Trafo.objects.get_or_create(site=r['site'], bay=r['bay'])
+            existing[key] = True
+        if existing[key]:
+            result.append(r)
+    return result
 
 
 @login_required
@@ -610,7 +629,7 @@ def rangkuman(request):
     }
 
     # ── Beban Trafo snapshot (realtime) ─────────────────────────────
-    trafo_rows = mssql.get_beban_trafo()
+    trafo_rows = _trafo_aktif_saja(mssql.get_beban_trafo())
     _trafo_grouped = {}
     for r in trafo_rows:
         site = r['site'] or 'Unknown'
@@ -652,7 +671,7 @@ def rangkuman(request):
 @login_required
 def beban_trafo(request):
     """Halaman monitoring beban trafo dari ALL_TRANS_DATA."""
-    rows = mssql.get_beban_trafo()
+    rows = _trafo_aktif_saja(mssql.get_beban_trafo())
 
     # Kelompokkan per GI (site)
     grouped = {}
@@ -734,7 +753,7 @@ def api_beban_ktt(request):
 @login_required
 def api_beban_trafo(request):
     """API JSON untuk refresh otomatis halaman beban trafo."""
-    rows = mssql.get_beban_trafo()
+    rows = _trafo_aktif_saja(mssql.get_beban_trafo())
     grouped = {}
     for r in rows:
         site = r['site'] or 'Unknown'
