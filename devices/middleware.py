@@ -137,6 +137,7 @@ class Up2dAccessMiddleware:
     """
     Middleware untuk role UP2D — hanya bisa akses:
     - /opsis/up2d/
+    - /opsis/beban-trafo/, /opsis/beban-ktt/ (halaman detail dari card up2d)
     - API OPSIS yang dibutuhkan dashboard UP2D
     - /login/, /logout/, /ganti-password/
     - static, media
@@ -145,6 +146,8 @@ class Up2dAccessMiddleware:
 
     ALLOWED_EXACT = (
         '/opsis/up2d/',
+        '/opsis/beban-trafo/',
+        '/opsis/beban-ktt/',
     )
     ALLOWED_PREFIXES = (
         '/opsis/api/hz/',
