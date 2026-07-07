@@ -133,6 +133,55 @@ class OpsisAccessMiddleware:
         return self.get_response(request)
 
 
+class Up2dAccessMiddleware:
+    """
+    Middleware untuk role UP2D — hanya bisa akses:
+    - /opsis/up2d/
+    - API OPSIS yang dibutuhkan dashboard UP2D
+    - /login/, /logout/, /ganti-password/
+    - static, media
+    Semua URL lain → redirect ke /opsis/up2d/.
+    """
+
+    ALLOWED_EXACT = (
+        '/opsis/up2d/',
+    )
+    ALLOWED_PREFIXES = (
+        '/opsis/api/hz/',
+        '/opsis/api/hz-sultra/',
+        '/opsis/api/hz-baubau/',
+        '/opsis/api/freq/',
+        '/opsis/api/beban-trafo/',
+        '/opsis/api/beban-ktt/',
+        '/static/',
+        '/media/',
+        '/logout/',
+        '/login/',
+        '/ganti-password/',
+    )
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if request.user.is_authenticated and not request.user.is_superuser:
+            try:
+                role = request.user.profile.role
+            except Exception:
+                role = ''
+
+            if role == 'up2d':
+                path = request.path
+                allowed = (
+                    path in self.ALLOWED_EXACT
+                    or any(path.startswith(p) for p in self.ALLOWED_PREFIXES)
+                )
+                if not allowed:
+                    return redirect('/opsis/up2d/')
+
+        return self.get_response(request)
+
+
 class DispatcherAccessMiddleware:
     """
     Middleware untuk role Dispatcher — hanya bisa akses:

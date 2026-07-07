@@ -652,6 +652,44 @@ def _dummy_beban_ktt():
     ]
 
 
+# ── Frekuensi Area (Sultra / Baubau) ─────────────────────────────────────────
+
+def _get_area_freq(table, site, bay):
+    """
+    Ambil nilai F terbaru dari tabel TRANS_xxx_RT untuk SITE dan BAY tertentu.
+    Tabel RT biasanya menyimpan satu baris per titik ukur (realtime snapshot).
+    """
+    if _DUMMY_MODE or not getattr(settings, 'MSSQL_HOST', ''):
+        import random
+        return round(50 + random.uniform(-0.08, 0.08), 3)
+    try:
+        conn   = _get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            f"SELECT TOP 1 F FROM {table} WITH (NOLOCK) "
+            "WHERE RTRIM(SITE) = ? AND RTRIM(BAY) = ?",
+            (site, bay)
+        )
+        row = cursor.fetchone()
+        conn.close()
+        return float(row[0]) if row and row[0] is not None else None
+    except Exception as e:
+        logger.error('_get_area_freq %s error: %s', table, e)
+        return None
+
+
+def get_freq_sultra():
+    """Frekuensi sistem Sultra dari TRANS_KDNEW5_RT (GI KENDARI NEW / COMMON)."""
+    tbl = getattr(settings, 'MSSQL_FREQ_SULTRA_TABLE', 'dbo.TRANS_KDNEW5_RT')
+    return _get_area_freq(tbl, 'GI KENDARI NEW', 'COMMON')
+
+
+def get_freq_baubau():
+    """Frekuensi sistem Baubau dari TRANS_BAUBAU5_RT (GI BAUBAU / COMMON)."""
+    tbl = getattr(settings, 'MSSQL_FREQ_BAUBAU_TABLE', 'dbo.TRANS_BABAU5_RT')
+    return _get_area_freq(tbl, 'GI BAUBAU', 'COMMON')
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # RTU State — untuk device_mon app
 # ─────────────────────────────────────────────────────────────────────────────

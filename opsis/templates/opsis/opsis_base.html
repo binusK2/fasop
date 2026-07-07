@@ -267,6 +267,7 @@ body { font-family:'DM Sans', sans-serif; background:var(--body-bg); color:var(-
         </div>
 
         <div class="sb-section-label">Menu</div>
+        {% if request.user.profile.role != 'up2d' %}
         <a href="/opsis/" class="sb-link {% if request.resolver_match.url_name == 'opsis_dashboard' %}active{% endif %}">
             <i class="bi bi-grid-3x3-gap-fill sb-icon"></i>
             <span class="sb-label">Dashboard</span>
@@ -283,8 +284,13 @@ body { font-family:'DM Sans', sans-serif; background:var(--body-bg); color:var(-
             <i class="bi bi-building-fill-up sb-icon"></i>
             <span class="sb-label">Beban KTT</span>
         </a>
+        {% endif %}
+        <a href="/opsis/up2d/" class="sb-link {% if request.resolver_match.url_name == 'opsis_up2d' %}active{% endif %}">
+            <i class="bi bi-diagram-3-fill sb-icon"></i>
+            <span class="sb-label">Dashboard UP2D</span>
+        </a>
 
-        {% if pembangkit_list %}
+        {% if pembangkit_list and request.user.profile.role != 'up2d' %}
         <button id="btn-pb-toggle" onclick="togglePembangkit()"
                 style="display:flex;align-items:center;justify-content:space-between;
                        width:100%;background:none;border:none;cursor:pointer;
