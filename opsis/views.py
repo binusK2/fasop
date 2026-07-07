@@ -36,6 +36,15 @@ def pembangkit_detail(request, pk):
 
 
 @login_required
+def up2d(request):
+    """Dashboard UP2D — Frekuensi Sistem, Beban Trafo, Beban KTT."""
+    pembangkit_list = _pembangkit_aktif()
+    return render(request, 'opsis/up2d.html', {
+        'pembangkit_list': pembangkit_list,
+    })
+
+
+@login_required
 def api_live(request):
     """JSON: nilai live semua pembangkit aktif. Dipanggil setiap 5 detik."""
     pembangkit_list = _pembangkit_aktif()
@@ -264,6 +273,20 @@ def export_beban(request):
 def api_hz(request):
     """Hz terkini — ringan, dipanggil tiap 1 detik dari dashboard."""
     hz = mssql.get_current_hz()
+    return JsonResponse({'hz': hz})
+
+
+@login_required
+def api_hz_sultra(request):
+    """Hz terkini Sultra dari TRANS_KDNEW5_RT (GI KENDARI NEW / COMMON)."""
+    hz = mssql.get_freq_sultra()
+    return JsonResponse({'hz': hz})
+
+
+@login_required
+def api_hz_baubau(request):
+    """Hz terkini Baubau dari TRANS_BAUBAU5_RT (GI BAUBAU / COMMON)."""
+    hz = mssql.get_freq_baubau()
     return JsonResponse({'hz': hz})
 
 
@@ -596,8 +619,8 @@ def rangkuman(request):
     trafo_total_mw = 0.0
     for site in sorted(_trafo_grouped):
         lst   = _trafo_grouped[site]
-        total = round(sum(r['p'] for r in lst if r['p'] is not None), 2)
-        p_vals = [r['p'] for r in lst if r['p'] is not None]
+        total = round(sum(abs(r['p']) for r in lst if r['p'] is not None), 2)
+        p_vals = [abs(r['p']) for r in lst if r['p'] is not None]
         trafo_sites.append({
             'site':   site,
             'tlist':  lst,
@@ -637,9 +660,9 @@ def beban_trafo(request):
         site = r['site'] or 'Unknown'
         grouped.setdefault(site, []).append(r)
 
-    # Hitung total P per site
+    # Hitung total P per site — abs() agar nilai negatif tidak kurangi total
     site_totals = {
-        site: round(sum(r['p'] for r in trafo_list if r['p'] is not None), 2)
+        site: round(sum(abs(r['p']) for r in trafo_list if r['p'] is not None), 2)
         for site, trafo_list in grouped.items()
     }
 
@@ -702,7 +725,7 @@ def api_beban_trafo(request):
         site = r['site'] or 'Unknown'
         grouped.setdefault(site, []).append(r)
     site_totals = {
-        site: round(sum(r['p'] for r in lst if r['p'] is not None), 2)
+        site: round(sum(abs(r['p']) for r in lst if r['p'] is not None), 2)
         for site, lst in grouped.items()
     }
     return JsonResponse({

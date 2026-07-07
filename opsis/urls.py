@@ -3,12 +3,15 @@ from . import views
 
 urlpatterns = [
     path('',              views.dashboard,         name='opsis_dashboard'),
+    path('up2d/',         views.up2d,              name='opsis_up2d'),
     path('<int:pk>/',     views.pembangkit_detail, name='opsis_pembangkit'),
     path('api/live/',     views.api_live,          name='opsis_api_live'),
     path('api/trend/<int:pk>/', views.api_trend,   name='opsis_api_trend'),
     path('api/freq/',            views.api_freq,     name='opsis_api_freq'),
     path('api/beban/',           views.api_beban,    name='opsis_api_beban'),
-    path('api/hz/',              views.api_hz,       name='opsis_api_hz'),
+    path('api/hz/',              views.api_hz,          name='opsis_api_hz'),
+    path('api/hz-sultra/',       views.api_hz_sultra,   name='opsis_api_hz_sultra'),
+    path('api/hz-baubau/',       views.api_hz_baubau,   name='opsis_api_hz_baubau'),
     path('api/ping/',            views.api_ping,     name='opsis_api_ping'),
     path('api/diagnose/',       views.api_diagnose, name='opsis_api_diagnose'),
     path('api/history/<int:pk>/', views.api_history,        name='opsis_api_history'),

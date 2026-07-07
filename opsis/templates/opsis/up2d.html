@@ -1,0 +1,509 @@
+{% extends "opsis/opsis_base.html" %}
+
+{% block title %}Dashboard UP2D{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+.chart-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-bd);
+    border-radius: 14px;
+    padding: 16px 20px;
+}
+.chart-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 12px;
+}
+.chart-title { font-size: 12px; font-weight: 700; color: var(--text); }
+
+/* 5 card berjejer dalam satu baris */
+.summary-row {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 16px;
+    margin-bottom: 16px;
+}
+@media (max-width: 1200px) {
+    .summary-row { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 700px) {
+    .summary-row { grid-template-columns: repeat(2, 1fr); }
+}
+
+.hz-card {
+    background: var(--card-bg);
+    border-radius: 14px;
+    padding: 18px 20px;
+    min-width: 0;
+}
+.hz-card-label {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .4px; color: var(--muted); margin-bottom: 6px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.hz-card-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 24px; font-weight: 700; line-height: 1.1;
+}
+.hz-card-sub {
+    font-size: 10px; color: var(--muted); margin-top: 4px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:20px; display:flex; align-items:center; justify-content:space-between;">
+    <div>
+        <div style="font-size:20px; font-weight:800; color:#fff; margin-bottom:2px;">Dashboard UP2D</div>
+        <div style="font-size:12px; color:var(--muted);"><span class="live-dot"></span>Nilai diperbarui otomatis</div>
+    </div>
+</div>
+
+<!-- 5 card berjejer: 3 frekuensi + 2 beban -->
+<div class="summary-row">
+
+    <!-- Frekuensi Sistem (SYS_FREQ_HIS) -->
+    <div class="hz-card" style="border:1px solid rgba(96,165,250,.3);">
+        <div class="hz-card-label">
+            <i class="bi bi-activity me-1" style="color:#60a5fa;"></i>Frekuensi Sistem
+        </div>
+        <div class="hz-card-val" style="color:#60a5fa;" id="sys-hz">
+            —<span style="font-size:12px; font-weight:400; color:var(--muted); margin-left:4px;">Hz</span>
+        </div>
+        <div class="hz-card-sub">SYS_FREQ_HIS · 1 dtk</div>
+    </div>
+
+    <!-- Frekuensi Sultra (TRANS_KDNEW5_RT) -->
+    <div class="hz-card" style="border:1px solid rgba(167,139,250,.3);">
+        <div class="hz-card-label">
+            <i class="bi bi-reception-4 me-1" style="color:#a78bfa;"></i>Frekuensi Sultra
+        </div>
+        <div class="hz-card-val" style="color:#a78bfa;" id="hz-sultra">
+            —<span style="font-size:12px; font-weight:400; color:var(--muted); margin-left:4px;">Hz</span>
+        </div>
+        <div class="hz-card-sub">GI KENDARI NEW · 5 dtk</div>
+    </div>
+
+    <!-- Frekuensi Baubau (TRANS_BAUBAU5_RT) -->
+    <div class="hz-card" style="border:1px solid rgba(34,211,238,.3);">
+        <div class="hz-card-label">
+            <i class="bi bi-reception-4 me-1" style="color:#22d3ee;"></i>Frekuensi Baubau
+        </div>
+        <div class="hz-card-val" style="color:#22d3ee;" id="hz-baubau">
+            —<span style="font-size:12px; font-weight:400; color:var(--muted); margin-left:4px;">Hz</span>
+        </div>
+        <div class="hz-card-sub">GI BAUBAU · 5 dtk</div>
+    </div>
+
+    <!-- Beban Trafo total -->
+    <div class="hz-card" style="border:1px solid rgba(245,158,11,.3);">
+        <div class="hz-card-label">
+            <i class="bi bi-lightning-charge me-1" style="color:#f59e0b;"></i>Beban Trafo
+            <a href="{% url 'opsis_beban_trafo' %}" style="font-size:10px; color:#f59e0b; text-decoration:none;
+               border:1px solid rgba(245,158,11,.3); padding:1px 6px; border-radius:4px; margin-left:4px; font-weight:600;">
+                Detail
+            </a>
+        </div>
+        <div class="hz-card-val" style="color:#f59e0b;" id="trafo-card-mw">
+            —<span style="font-size:12px; font-weight:400; color:var(--muted); margin-left:4px;">MW</span>
+        </div>
+        <div class="hz-card-sub">&nbsp;</div>
+    </div>
+
+    <!-- Beban KTT total -->
+    <div class="hz-card" style="border:1px solid rgba(16,185,129,.3);">
+        <div class="hz-card-label">
+            <i class="bi bi-building-fill-up me-1" style="color:#10b981;"></i>Beban KTT
+            <a href="{% url 'opsis_beban_ktt' %}" style="font-size:10px; color:#10b981; text-decoration:none;
+               border:1px solid rgba(16,185,129,.3); padding:1px 6px; border-radius:4px; margin-left:4px; font-weight:600;">
+                Detail
+            </a>
+        </div>
+        <div class="hz-card-val" style="color:#10b981;" id="ktt-total-mw">
+            —<span style="font-size:12px; font-weight:400; color:var(--muted); margin-left:4px;">MW</span>
+        </div>
+        <div class="hz-card-sub" id="ktt-jumlah">— konsumen</div>
+    </div>
+
+</div>
+
+<!-- Chart Frekuensi Sistem — 30 Menit Terakhir -->
+<div class="chart-card" style="margin-bottom:16px;">
+    <div class="chart-head">
+        <div class="chart-title"><i class="bi bi-activity me-1" style="color:#60a5fa;"></i>Frekuensi Sistem — 30 Menit Terakhir</div>
+        <div style="display:flex; align-items:center; gap:10px;">
+            <span id="freq-updated" style="font-size:11px; color:var(--muted);">memuat...</span>
+            <a id="btn-dl-freq" href="/opsis/export/frekuensi/" target="_blank"
+               style="font-size:11px; color:#60a5fa; text-decoration:none; border:1px solid rgba(96,165,250,.3);
+                      padding:2px 8px; border-radius:5px; white-space:nowrap;">
+                <i class="bi bi-download me-1"></i>Excel
+            </a>
+        </div>
+    </div>
+    <div style="position:relative; height:200px;">
+        <canvas id="chart-freq-hari"></canvas>
+    </div>
+    <div style="display:flex; gap:16px; margin-top:8px; font-size:10px; color:var(--muted);">
+        <span><span style="display:inline-block;width:20px;height:2px;background:#ef4444;margin-right:4px;vertical-align:middle;"></span>Referensi 50 Hz</span>
+    </div>
+</div>
+
+<!-- Chart Beban Trafo per GI -->
+<div class="chart-card" style="margin-bottom:16px;">
+    <div class="chart-head">
+        <div class="chart-title"><i class="bi bi-lightning-charge me-1" style="color:#f59e0b;"></i>Beban Trafo — per GI</div>
+        <div style="display:flex; align-items:center; gap:10px;">
+            <span id="trafo-total-mw" style="font-size:13px; font-weight:700; color:#f59e0b;">— MW</span>
+            <span id="trafo-updated" style="font-size:11px; color:var(--muted);">memuat...</span>
+            <a href="{% url 'opsis_beban_trafo' %}" style="font-size:11px; color:#f59e0b; text-decoration:none;
+               border:1px solid rgba(245,158,11,.3); padding:2px 8px; border-radius:5px; white-space:nowrap;">
+                <i class="bi bi-table me-1"></i>Detail
+            </a>
+        </div>
+    </div>
+    <div style="position:relative; height:200px;">
+        <canvas id="chart-trafo"></canvas>
+    </div>
+</div>
+
+<!-- Chart Beban KTT -->
+<div class="chart-card" style="margin-bottom:20px;">
+    <div class="chart-head">
+        <div class="chart-title"><i class="bi bi-building-fill-up me-1" style="color:#10b981;"></i>Beban KTT — Konsumen Tegangan Tinggi</div>
+        <div style="display:flex; align-items:center; gap:10px;">
+            <span id="ktt-updated" style="font-size:11px; color:var(--muted);">memuat...</span>
+            <a href="{% url 'opsis_beban_ktt' %}" style="font-size:11px; color:#10b981; text-decoration:none;
+               border:1px solid rgba(16,185,129,.3); padding:2px 8px; border-radius:5px; white-space:nowrap;">
+                <i class="bi bi-table me-1"></i>Detail
+            </a>
+        </div>
+    </div>
+    <div style="position:relative; height:220px;">
+        <canvas id="chart-ktt"></canvas>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+Chart.defaults.color = '#64748b';
+Chart.defaults.font.family = 'DM Sans';
+
+const tooltipOpts = {
+    enabled: true,
+    backgroundColor: 'rgba(15,23,42,.9)',
+    titleColor: '#94a3b8',
+    bodyColor: '#f1f5f9',
+    borderColor: '#334155',
+    borderWidth: 1,
+    padding: 8,
+    displayColors: false,
+};
+
+function fmtHz(val) {
+    return val !== null && val !== undefined
+        ? parseFloat(val).toFixed(3)
+        : '—';
+}
+
+function hzHtml(val, color) {
+    return fmtHz(val)
+        + `<span style="font-size:14px;font-weight:400;color:var(--muted);margin-left:4px;">Hz</span>`;
+}
+
+// ── Frekuensi Sistem — poll 1 detik ──────────────────────────────────
+async function pollHz() {
+    try {
+        const r = await fetch('/opsis/api/hz/');
+        if (!r.ok) return;
+        const d = await r.json();
+        const el = document.getElementById('sys-hz');
+        if (el) el.innerHTML = hzHtml(d.hz);
+        setLastUpdate();
+    } catch (e) {}
+}
+pollHz();
+setInterval(pollHz, 1000);
+
+// ── Frekuensi Sultra — poll 5 detik ──────────────────────────────────
+async function pollHzSultra() {
+    try {
+        const r = await fetch('/opsis/api/hz-sultra/');
+        if (!r.ok) return;
+        const d = await r.json();
+        const el = document.getElementById('hz-sultra');
+        if (el) el.innerHTML = hzHtml(d.hz);
+    } catch (e) {}
+}
+pollHzSultra();
+setInterval(pollHzSultra, 5000);
+
+// ── Frekuensi Baubau — poll 5 detik ──────────────────────────────────
+async function pollHzBaubau() {
+    try {
+        const r = await fetch('/opsis/api/hz-baubau/');
+        if (!r.ok) return;
+        const d = await r.json();
+        const el = document.getElementById('hz-baubau');
+        if (el) el.innerHTML = hzHtml(d.hz);
+    } catch (e) {}
+}
+pollHzBaubau();
+setInterval(pollHzBaubau, 5000);
+
+// ── Chart Frekuensi Sistem 30 Menit Terakhir ─────────────────────────
+let chartFreqHari = null;
+
+function initFreqHariChart(rows) {
+    const ctx = document.getElementById('chart-freq-hari').getContext('2d');
+    const n = rows.length;
+    chartFreqHari = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: rows.map(r => r.timestamp),
+            datasets: [
+                {
+                    label: 'Frekuensi',
+                    data: rows.map(r => r.hz),
+                    borderColor: '#60a5fa',
+                    backgroundColor: 'rgba(96,165,250,.07)',
+                    borderWidth: 1.5, pointRadius: 0, tension: 0.1, fill: true,
+                    order: 1,
+                },
+                {
+                    label: '50 Hz',
+                    data: new Array(n).fill(50),
+                    borderColor: '#ef4444',
+                    borderWidth: 1.5, borderDash: [5, 4],
+                    pointRadius: 0, fill: false, tension: 0,
+                    order: 0,
+                }
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            animation: false,
+            interaction: { intersect: false, mode: 'index' },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    ...tooltipOpts,
+                    callbacks: {
+                        label: ctx => ctx.datasetIndex === 0
+                            ? `${(ctx.parsed.y ?? 0).toFixed(3)} Hz`
+                            : '50.000 Hz (referensi)'
+                    }
+                }
+            },
+            scales: {
+                x: { grid: { color: '#1e2d45' }, ticks: { maxTicksLimit: 10 } },
+                y: {
+                    grid: { color: '#1e2d45' },
+                    suggestedMin: 49.8, suggestedMax: 50.2,
+                    ticks: { callback: v => v.toFixed(2) },
+                    title: { display: true, text: 'Hz', color: '#64748b' }
+                }
+            }
+        },
+    });
+}
+
+async function loadFreqHariChart() {
+    try {
+        const r = await fetch('/opsis/api/freq/?menit=30');
+        if (!r.ok) return;
+        const d = await r.json();
+        const el = document.getElementById('freq-updated');
+        if (el) el.textContent = new Date().toLocaleTimeString('id-ID');
+        if (!d.rows || !d.rows.length) return;
+        const n = d.rows.length;
+        if (!chartFreqHari) {
+            initFreqHariChart(d.rows);
+        } else {
+            chartFreqHari.data.labels = d.rows.map(r => r.timestamp);
+            chartFreqHari.data.datasets[0].data = d.rows.map(r => r.hz);
+            chartFreqHari.data.datasets[1].data = new Array(n).fill(50);
+            chartFreqHari.update('none');
+        }
+    } catch (e) {}
+}
+
+loadFreqHariChart();
+setInterval(loadFreqHariChart, 5000);
+
+// ── Chart Beban Trafo per GI (bar) ────────────────────────────────────
+let chartTrafo = null;
+
+async function loadTrafoChart() {
+    try {
+        const r = await fetch("{% url 'opsis_api_beban_trafo' %}");
+        if (!r.ok) return;
+        const d = await r.json();
+
+        const siteTotals = d.site_totals || {};
+        const sites = Object.keys(siteTotals).sort();
+        const values = sites.map(s => siteTotals[s] || 0);
+        const totalMw = d.total_mw || 0;
+
+        const cardEl = document.getElementById('trafo-card-mw');
+        if (cardEl) cardEl.innerHTML = parseFloat(totalMw).toFixed(2)
+            + '<span style="font-size:12px;font-weight:400;color:var(--muted);margin-left:4px;">MW</span>';
+        const hdrEl = document.getElementById('trafo-total-mw');
+        if (hdrEl) hdrEl.textContent = parseFloat(totalMw).toFixed(2) + ' MW';
+        const updEl = document.getElementById('trafo-updated');
+        if (updEl) updEl.textContent = new Date().toLocaleTimeString('id-ID');
+
+        if (!sites.length) return;
+
+        const maxVal = Math.max(...values);
+        const bgColors = values.map(v => {
+            if (v >= maxVal * 0.8) return 'rgba(245,158,11,.75)';
+            if (v >= maxVal * 0.5) return 'rgba(251,191,36,.65)';
+            return 'rgba(254,215,170,.7)';
+        });
+
+        if (!chartTrafo) {
+            const ctx = document.getElementById('chart-trafo').getContext('2d');
+            chartTrafo = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: sites,
+                    datasets: [{
+                        label: 'Beban Trafo (MW)',
+                        data: values,
+                        backgroundColor: bgColors,
+                        borderColor: '#f59e0b',
+                        borderWidth: 1,
+                        borderRadius: 4,
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    animation: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            ...tooltipOpts,
+                            callbacks: { label: ctx => `${ctx.parsed.y.toFixed(2)} MW` }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: '#1e2d45' },
+                            ticks: { color: '#94a3b8', font: { size: 11 }, maxRotation: 30 }
+                        },
+                        y: {
+                            grid: { color: '#1e2d45' }, grace: '10%',
+                            title: { display: true, text: 'MW', color: '#64748b' },
+                            ticks: { callback: v => v.toFixed(0), color: '#94a3b8' }
+                        }
+                    }
+                }
+            });
+        } else {
+            chartTrafo.data.labels = sites;
+            chartTrafo.data.datasets[0].data = values;
+            chartTrafo.data.datasets[0].backgroundColor = bgColors;
+            chartTrafo.update('none');
+        }
+    } catch (e) {}
+}
+
+loadTrafoChart();
+setInterval(loadTrafoChart, 30000);
+
+// ── Chart Beban KTT (bar per konsumen) ───────────────────────────────
+let chartKtt = null;
+
+async function loadKttChart() {
+    try {
+        const r = await fetch("{% url 'opsis_api_beban_ktt' %}");
+        if (!r.ok) return;
+        const d = await r.json();
+
+        const rows   = (d.rows || []).filter(r => r.value !== null && r.value > 0)
+                                     .sort((a, b) => b.value - a.value);
+        const labels = rows.map(r => r.analog);
+        const values = rows.map(r => r.value);
+        const total  = d.total_mw || 0;
+        const jumlah = d.jumlah  || 0;
+
+        const kttMwEl  = document.getElementById('ktt-total-mw');
+        const kttJmlEl = document.getElementById('ktt-jumlah');
+        if (kttMwEl)  kttMwEl.innerHTML  = parseFloat(total).toFixed(2)
+            + '<span style="font-size:12px;font-weight:400;color:var(--muted);margin-left:4px;">MW</span>';
+        if (kttJmlEl) kttJmlEl.textContent = jumlah + ' konsumen';
+
+        const updEl = document.getElementById('ktt-updated');
+        if (updEl) updEl.textContent = new Date().toLocaleTimeString('id-ID');
+
+        if (!rows.length) return;
+
+        const maxVal = Math.max(...values);
+        const bgColors = values.map(v => {
+            const ratio = v / maxVal;
+            if (ratio >= 0.8) return 'rgba(16,185,129,.85)';
+            if (ratio >= 0.5) return 'rgba(52,211,153,.75)';
+            return 'rgba(110,231,183,.65)';
+        });
+
+        if (!chartKtt) {
+            const ctx = document.getElementById('chart-ktt').getContext('2d');
+            chartKtt = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [{
+                        label: 'Beban KTT (MW)',
+                        data: values,
+                        backgroundColor: bgColors,
+                        borderColor: '#10b981',
+                        borderWidth: 1,
+                        borderRadius: 4,
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    animation: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            ...tooltipOpts,
+                            callbacks: { label: ctx => `${ctx.parsed.y.toFixed(3)} MW` }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: '#1e2d45' },
+                            ticks: { color: '#94a3b8', font: { size: 10 }, maxRotation: 30 }
+                        },
+                        y: {
+                            grid: { color: '#1e2d45' }, grace: '10%',
+                            title: { display: true, text: 'MW', color: '#64748b' },
+                            ticks: { callback: v => v.toFixed(1), color: '#94a3b8' }
+                        }
+                    }
+                }
+            });
+        } else {
+            chartKtt.data.labels = labels;
+            chartKtt.data.datasets[0].data = values;
+            chartKtt.data.datasets[0].backgroundColor = bgColors;
+            chartKtt.update('none');
+        }
+    } catch (e) {}
+}
+
+loadKttChart();
+setInterval(loadKttChart, 30000);
+
+// Update href tombol download frekuensi dengan tanggal hari ini
+(function () {
+    const today = new Date().toLocaleDateString('sv');
+    const dlFreq = document.getElementById('btn-dl-freq');
+    if (dlFreq) dlFreq.href = `/opsis/export/frekuensi/?tanggal=${today}`;
+})();
+</script>
+{% endblock %}

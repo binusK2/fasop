@@ -217,6 +217,7 @@ class UserProfile(models.Model):
         ('technician',       'Teknisi / Engineer'),
         ('asisten_manager',  'Asisten Manager Operasi'),
         ('opsis',            'Opsis — Monitoring Pembangkit'),
+        ('up2d',             'UP2D — Dashboard Beban Sistem'),
     )
     user         = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     role         = models.CharField(max_length=30, choices=ROLE_CHOICES, default='technician', verbose_name='Peran')

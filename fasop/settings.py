@@ -67,6 +67,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'devices.middleware.ForcePasswordChangeMiddleware',
     'devices.middleware.OpsisAccessMiddleware',
+    'devices.middleware.Up2dAccessMiddleware',
     'devices.middleware.OperatorAccessMiddleware',
     'devices.middleware.DispatcherAccessMiddleware',
     'devices.middleware.SingleSessionMiddleware',
