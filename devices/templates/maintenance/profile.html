@@ -187,12 +187,21 @@
                             <span style="font-size:10px;font-weight:700;background:#dbeafe;color:#1d4ed8;padding:2px 8px;border-radius:20px;">AM</span>
                             {% elif ap.role == 'operator' %}
                             <span style="font-size:10px;font-weight:700;background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:20px;">Operator</span>
+                            {% elif ap.role == 'opsis' %}
+                            <span style="font-size:10px;font-weight:700;background:#ede9fe;color:#5b21b6;padding:2px 8px;border-radius:20px;">Opsis</span>
+                            {% elif ap.role == 'up2d' %}
+                            <span style="font-size:10px;font-weight:700;background:#cffafe;color:#155e75;padding:2px 8px;border-radius:20px;">UP2D</span>
                             {% elif ap.role == 'technician' %}
                             <span style="font-size:10px;font-weight:700;background:#dcfce7;color:#065f46;padding:2px 8px;border-radius:20px;">Teknisi</span>
                             {% else %}
                             <span style="font-size:10px;font-weight:700;background:#f1f5f9;color:#475569;padding:2px 8px;border-radius:20px;">{{ ap.get_role_display }}</span>
                             {% endif %}
                             <div style="width:8px;height:8px;background:#10b981;border-radius:50%;display:inline-block;margin-left:6px;"></div>
+                            {% if ap.session_count > 1 %}
+                            <div style="font-size:10px;color:#64748b;margin-top:3px;white-space:nowrap;">
+                                {{ ap.session_count }} sesi aktif
+                            </div>
+                            {% endif %}
                         </div>
                     </div>
                     {% endfor %}
