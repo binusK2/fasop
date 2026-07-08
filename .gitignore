@@ -62,3 +62,11 @@ build/
 .claude/
 .claude-*/
 .claude/worktrees/backups/
+.clone/
+
+# ── Local dev artefacts (jangan pernah commit) ─────────────────────────
+cookies.txt
+data.json
+backups/
+rename_log.csv
+rename_plan.csv
