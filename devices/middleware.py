@@ -227,8 +227,11 @@ class DispatcherAccessMiddleware:
 class SingleSessionMiddleware:
     """
     Middleware single active session per user.
-    Dikecualikan untuk role Operator — operator ULTG dipakai bersama.
+    Dikecualikan untuk role Operator, Opsis, dan UP2D — akun-akun ini
+    dipakai bersama di beberapa perangkat/layar monitoring sekaligus.
     """
+
+    MULTI_SESSION_ROLES = ('operator', 'opsis', 'up2d')
 
     def __init__(self, get_response):
         self.get_response = get_response
@@ -255,8 +258,8 @@ class SingleSessionMiddleware:
             if path not in (logout_url, login_url):
                 try:
                     profile = request.user.profile
-                    # ── Operator ULTG dikecualikan dari single-session ──
-                    if profile.role == 'operator':
+                    # ── Operator/Opsis/UP2D dikecualikan dari single-session ──
+                    if profile.role in self.MULTI_SESSION_ROLES:
                         return self.get_response(request)
 
                     current_key = request.session.session_key or ''

@@ -2315,27 +2315,31 @@ def profile_view(request):
 
     # ── Data eksklusif superuser ──────────────────────────────────
     if request.user.is_superuser:
+        from collections import Counter
         from django.contrib.auth.models import User as AuthUser
         from django.contrib.sessions.models import Session
         from django.utils import timezone
 
-        # Pengguna yang sedang aktif (session valid + active_session_key cocok)
+        # Pengguna yang sedang aktif — hitung jumlah session valid per user,
+        # karena role operator/opsis/up2d boleh login di beberapa perangkat
+        # sekaligus (tidak single-session), jadi tidak cukup ditandai on/off.
         now = timezone.now()
         valid_sessions = Session.objects.filter(expire_date__gt=now)
-        active_user_ids = set()
+        session_counts = Counter()
         for s in valid_sessions:
             data = s.get_decoded()
             uid  = data.get('_auth_user_id')
             if uid:
-                active_user_ids.add(int(uid))
+                session_counts[int(uid)] += 1
 
         active_profiles = (
             UserProfile.objects
-            .filter(user_id__in=active_user_ids)
-            .exclude(active_session_key='')
+            .filter(user_id__in=session_counts.keys())
             .select_related('user')
             .order_by('user__username')
         )
+        for ap in active_profiles:
+            ap.session_count = session_counts.get(ap.user_id, 1)
 
         # Log login/logout terbaru (100 record)
         login_logs = (
