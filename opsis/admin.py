@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Pembangkit, SnapLive, SnapUnit, SnapFreq, Trafo
+from .models import Pembangkit, SnapLive, SnapUnit, SnapFreq, SnapFreqArea, Trafo
 
 
 @admin.register(Pembangkit)
@@ -30,6 +30,15 @@ class SnapFreqAdmin(admin.ModelAdmin):
     list_display   = ('waktu', 'hz')
     date_hierarchy = 'waktu'
     readonly_fields = ('waktu', 'hz')
+    ordering       = ('-waktu',)
+
+
+@admin.register(SnapFreqArea)
+class SnapFreqAreaAdmin(admin.ModelAdmin):
+    list_display   = ('waktu', 'area', 'hz')
+    list_filter    = ('area',)
+    date_hierarchy = 'waktu'
+    readonly_fields = ('area', 'waktu', 'hz')
     ordering       = ('-waktu',)
 
 
