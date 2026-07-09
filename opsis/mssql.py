@@ -596,6 +596,65 @@ def _dummy_beban_trafo():
     return result
 
 
+def get_beban_trafo_ibt():
+    """
+    Ambil data beban trafo IBT (Inter Bus Transformer) dari ALL_TRANS_DATA
+    (BAY LIKE 'TRF65%' atau 'TRF54%'). Tabel sama dengan Beban Trafo
+    Distribusi, cuma titik BAY yang diambil beda.
+
+    Returns: sama seperti get_beban_trafo() — list of dict site/bay/p/q/v/i.
+    Dikelompokkan di view berdasarkan site.
+    """
+    if _DUMMY_MODE or not getattr(settings, 'MSSQL_HOST', ''):
+        return _dummy_beban_trafo_ibt()
+
+    try:
+        conn   = _get_connection()
+        cursor = conn.cursor()
+        tbl    = _trafo_tbl()
+        cursor.execute(
+            f"""
+            SELECT RTRIM(SITE), RTRIM(BAY), P, Q, V, I
+            FROM {tbl} WITH (NOLOCK)
+            WHERE BAY LIKE 'TRF65%' OR BAY LIKE 'TRF54%'
+            ORDER BY SITE, BAY
+            """
+        )
+        rows = cursor.fetchall()
+        conn.close()
+        return [
+            {
+                'site': (row[0] or '').strip(),
+                'bay':  (row[1] or '').strip(),
+                'p':    float(row[2]) if row[2] is not None else None,
+                'q':    float(row[3]) if row[3] is not None else None,
+                'v':    float(row[4]) if row[4] is not None else None,
+                'i':    float(row[5]) if row[5] is not None else None,
+            }
+            for row in rows
+        ]
+    except Exception as e:
+        logger.error('get_beban_trafo_ibt error: %s', e)
+        return _dummy_beban_trafo_ibt()
+
+
+def _dummy_beban_trafo_ibt():
+    import random
+    sites = ['GI PALOPO', 'GI MAKASSAR', 'GI MAROS', 'GI PARE-PARE']
+    result = []
+    for site in sites:
+        for n in range(1, random.randint(2, 4)):
+            result.append({
+                'site': site,
+                'bay':  f'TRF65-{n}',
+                'p':    round(random.uniform(20, 150), 2),
+                'q':    round(random.uniform(5, 50), 2),
+                'v':    round(random.uniform(145, 155), 2),
+                'i':    round(random.uniform(100, 500), 2),
+            })
+    return result
+
+
 # ── Beban KTT (Konsumen Tegangan Tinggi) ─────────────────────────────────────
 
 def get_beban_ktt():

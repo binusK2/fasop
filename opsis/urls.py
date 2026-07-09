@@ -8,7 +8,7 @@ urlpatterns = [
     path('api/live/',     views.api_live,          name='opsis_api_live'),
     path('api/trend/<int:pk>/', views.api_trend,   name='opsis_api_trend'),
     path('api/freq/',            views.api_freq,     name='opsis_api_freq'),
-    path('api/beban/',           views.api_beban,    name='opsis_api_beban'),
+    path('api/beban/',           views.api_beban,       name='opsis_api_beban'),
     path('api/hz/',              views.api_hz,          name='opsis_api_hz'),
     path('api/hz-sultra/',       views.api_hz_sultra,   name='opsis_api_hz_sultra'),
     path('api/hz-baubau/',       views.api_hz_baubau,   name='opsis_api_hz_baubau'),
@@ -22,6 +22,8 @@ urlpatterns = [
     path('rangkuman/',            views.rangkuman,           name='opsis_rangkuman'),
     path('beban-trafo/',          views.beban_trafo,         name='opsis_beban_trafo'),
     path('api/beban-trafo/',      views.api_beban_trafo,     name='opsis_api_beban_trafo'),
+    path('beban-trafo-ibt/',      views.beban_trafo_ibt,     name='opsis_beban_trafo_ibt'),
+    path('api/beban-trafo-ibt/',  views.api_beban_trafo_ibt, name='opsis_api_beban_trafo_ibt'),
     path('beban-ktt/',            views.beban_ktt,           name='opsis_beban_ktt'),
     path('api/beban-ktt/',        views.api_beban_ktt,       name='opsis_api_beban_ktt'),
 ]
