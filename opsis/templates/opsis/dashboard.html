@@ -115,6 +115,21 @@
     background: var(--card-bg);
     border: 1px solid rgba(96,165,250,.3);
     border-radius: 14px; padding: 18px 20px;
+    min-width: 0;
+}
+
+/* Baris 5 kartu frekuensi */
+.summary-row-freq {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 16px;
+    margin-bottom: 16px;
+}
+@media (max-width: 1200px) {
+    .summary-row-freq { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 700px) {
+    .summary-row-freq { grid-template-columns: repeat(2, 1fr); }
 }
 </style>
 {% endblock %}
@@ -123,7 +138,7 @@
 <div style="margin-bottom:20px; display:flex; align-items:center; justify-content:space-between;">
     <div>
         <div style="font-size:20px; font-weight:800; color:#fff; margin-bottom:2px;">Dashboard Pembangkit</div>
-        <div style="font-size:12px; color:var(--muted);"><span class="live-dot"></span>Nilai diperbarui setiap 5 detik</div>
+        <div style="font-size:12px; color:var(--muted);"><span class="live-dot"></span>Frekuensi tiap 1 detik · Beban tiap 2 detik</div>
     </div>
     <div style="font-size:12px; color:var(--muted);">
         {{ pembangkit_list|length }} pembangkit aktif
@@ -135,18 +150,62 @@
     Menampilkan data simulasi — koneksi MSSQL belum dikonfigurasi.
 </div>
 
-<!-- Summary bar: Frekuensi Sistem + Beban Kit + Beban KTT -->
-<div class="summary-bar" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:16px; margin-bottom:16px;">
+<!-- Baris 1: 5 kartu frekuensi -->
+<div class="summary-row-freq">
 
-    <!-- Card Hz — nilai live saja -->
-    <div class="hz-card" id="hz-card">
-        <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); margin-bottom:6px;">
+    <!-- Frekuensi Sistem (SYS_FREQ_HIS) -->
+    <div class="hz-card" id="hz-card" style="border-color:rgba(96,165,250,.3);">
+        <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); margin-bottom:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
             <i class="bi bi-activity me-1" style="color:#60a5fa;"></i>Frekuensi Sistem
         </div>
-        <div style="font-family:'JetBrains Mono',monospace; font-size:28px; font-weight:700; color:#60a5fa;" id="sys-hz">
-            —<span style="font-size:14px; font-weight:400; color:var(--muted); margin-left:4px;">Hz</span>
+        <div style="font-family:'JetBrains Mono',monospace; font-size:26px; font-weight:700; color:#60a5fa;" id="sys-hz">
+            —<span style="font-size:13px; font-weight:400; color:var(--muted); margin-left:4px;">Hz</span>
         </div>
     </div>
+
+    <!-- Frekuensi Sultra (TRANS_KDNEW5_RT) -->
+    <div class="hz-card" style="border-color:rgba(167,139,250,.3);">
+        <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); margin-bottom:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+            <i class="bi bi-reception-4 me-1" style="color:#a78bfa;"></i>Frekuensi Sultra
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace; font-size:26px; font-weight:700; color:#a78bfa;" id="hz-sultra">
+            —<span style="font-size:13px; font-weight:400; color:var(--muted); margin-left:4px;">Hz</span>
+        </div>
+    </div>
+
+    <!-- Frekuensi Sulteng (TRANS_TLISE5_RT) -->
+    <div class="hz-card" style="border-color:rgba(244,114,182,.3);">
+        <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); margin-bottom:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+            <i class="bi bi-reception-4 me-1" style="color:#f472b6;"></i>Frekuensi Sulteng
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace; font-size:26px; font-weight:700; color:#f472b6;" id="hz-sulteng">
+            —<span style="font-size:13px; font-weight:400; color:var(--muted); margin-left:4px;">Hz</span>
+        </div>
+    </div>
+
+    <!-- Frekuensi Baubau (TRANS_BAUBAU5_RT) -->
+    <div class="hz-card" style="border-color:rgba(34,211,238,.3);">
+        <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); margin-bottom:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+            <i class="bi bi-reception-4 me-1" style="color:#22d3ee;"></i>Frekuensi Baubau
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace; font-size:26px; font-weight:700; color:#22d3ee;" id="hz-baubau">
+            —<span style="font-size:13px; font-weight:400; color:var(--muted); margin-left:4px;">Hz</span>
+        </div>
+    </div>
+
+    <!-- Frekuensi Luwuk (TRANS_LUWUK5_RT) -->
+    <div class="hz-card" style="border-color:rgba(251,146,60,.3);">
+        <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); margin-bottom:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+            <i class="bi bi-reception-4 me-1" style="color:#fb923c;"></i>Frekuensi Luwuk
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace; font-size:26px; font-weight:700; color:#fb923c;" id="hz-luwuk">
+            —<span style="font-size:13px; font-weight:400; color:var(--muted); margin-left:4px;">Hz</span>
+        </div>
+    </div>
+</div>
+
+<!-- Baris 2: 3 kartu beban -->
+<div class="summary-bar" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:16px; margin-bottom:16px;">
 
     <!-- Beban Kit total -->
     <div style="background:var(--card-bg); border:1px solid rgba(52,211,153,.3); border-radius:14px; padding:18px 20px;">
@@ -171,6 +230,17 @@
             —<span style="font-size:14px; font-weight:400; color:var(--muted); margin-left:4px;">MW</span>
         </div>
         <div style="font-size:11px; color:var(--muted); margin-top:4px;" id="ktt-jumlah">— konsumen</div>
+    </div>
+
+    <!-- Beban Trafo Distribusi total -->
+    <div style="background:var(--card-bg); border:1px solid rgba(245,158,11,.3); border-radius:14px; padding:18px 20px;">
+        <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); margin-bottom:6px;">
+            <i class="bi bi-lightning-charge me-1" style="color:#f59e0b;"></i>Beban Trafo Distribusi
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace; font-size:28px; font-weight:700; color:#f59e0b;" id="trafo-distribusi-mw">
+            —<span style="font-size:14px; font-weight:400; color:var(--muted); margin-left:4px;">MW</span>
+        </div>
+        <div style="font-size:11px; color:var(--muted); margin-top:4px;" id="trafo-distribusi-updated">&nbsp;</div>
     </div>
 </div>
 
@@ -218,7 +288,7 @@
 <!-- Chart Beban Trafo per GI -->
 <div class="chart-card" style="margin-bottom:16px;">
     <div class="chart-head">
-        <div class="chart-title"><i class="bi bi-lightning-charge me-1" style="color:#f59e0b;"></i>Beban Trafo — per GI</div>
+        <div class="chart-title"><i class="bi bi-lightning-charge me-1" style="color:#f59e0b;"></i>Beban Trafo Distribusi — per GI</div>
         <div style="display:flex; align-items:center; gap:10px;">
             <span id="trafo-total-mw" style="font-size:13px;font-weight:700;color:#f59e0b;">— MW</span>
             <span id="trafo-updated" style="font-size:11px; color:var(--muted);">memuat...</span>
@@ -482,7 +552,7 @@ async function pollLive() {
     } catch (e) {}
 }
 pollLive();
-setInterval(pollLive, 5000);
+setInterval(pollLive, 2000);
 
 // ── Hz polling (1 detik) — endpoint ringan khusus Hz ─────────────────
 async function pollHz() {
@@ -498,6 +568,29 @@ async function pollHz() {
 }
 pollHz();
 setInterval(pollHz, 1000);
+
+// ── Hz area (Sultra / Sulteng / Baubau / Luwuk) — poll 1 detik ───────
+function pollAreaHz(url, elId) {
+    return async function () {
+        try {
+            const r = await fetch(url);
+            if (!r.ok) return;
+            const d = await r.json();
+            const el = document.getElementById(elId);
+            if (el) el.innerHTML =
+                (d.hz !== null ? parseFloat(d.hz).toFixed(3) : '—')
+                + '<span style="font-size:13px;font-weight:400;color:var(--muted);margin-left:4px;">Hz</span>';
+        } catch (e) {}
+    };
+}
+const pollHzSultra = pollAreaHz('/opsis/api/hz-sultra/', 'hz-sultra');
+const pollHzSulteng = pollAreaHz('/opsis/api/hz-sulteng/', 'hz-sulteng');
+const pollHzBaubau  = pollAreaHz('/opsis/api/hz-baubau/', 'hz-baubau');
+const pollHzLuwuk   = pollAreaHz('/opsis/api/hz-luwuk/', 'hz-luwuk');
+[pollHzSultra, pollHzSulteng, pollHzBaubau, pollHzLuwuk].forEach(fn => {
+    fn();
+    setInterval(fn, 1000);
+});
 
 // ── Plugin garis vertikal (puncak siang/malam) ───────────────────────
 // Cari label terdekat ke target (toleransi ±5 menit) supaya tetap tampil
@@ -793,6 +886,13 @@ async function loadTrafoChart() {
         const updEl = document.getElementById('trafo-updated');
         if (updEl) updEl.textContent = new Date().toLocaleTimeString('id-ID');
 
+        // Kartu ringkasan "Beban Trafo Distribusi" — sumber data sama persis
+        const cardEl = document.getElementById('trafo-distribusi-mw');
+        if (cardEl) cardEl.innerHTML = parseFloat(totalMw).toFixed(2)
+            + '<span style="font-size:14px;font-weight:400;color:var(--muted);margin-left:4px;">MW</span>';
+        const cardUpdEl = document.getElementById('trafo-distribusi-updated');
+        if (cardUpdEl) cardUpdEl.textContent = new Date().toLocaleTimeString('id-ID');
+
         if (!sites.length) return;
 
         const maxVal = Math.max(...values);
@@ -852,7 +952,7 @@ async function loadTrafoChart() {
 }
 
 loadTrafoChart();
-setInterval(loadTrafoChart, 30000); // refresh tiap 30 detik
+setInterval(loadTrafoChart, 2000); // refresh tiap 2 detik
 
 // ── Chart Beban KTT (bar horizontal per konsumen) ─────────────────────
 let chartKtt = null;
@@ -950,7 +1050,7 @@ async function loadKttChart() {
 }
 
 loadKttChart();
-setInterval(loadKttChart, 5000); // refresh tiap 5 detik
+setInterval(loadKttChart, 2000); // refresh tiap 2 detik
 
 // ── Tombol download — update href dengan tanggal hari ini ─────────────
 (function () {

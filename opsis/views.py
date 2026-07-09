@@ -310,6 +310,20 @@ def api_hz_baubau(request):
 
 
 @login_required
+def api_hz_sulteng(request):
+    """Hz terkini Sulteng dari TRANS_TLISE5_RT (GI TALISE 150 / COMMON)."""
+    hz = mssql.get_freq_sulteng()
+    return JsonResponse({'hz': hz})
+
+
+@login_required
+def api_hz_luwuk(request):
+    """Hz terkini Luwuk dari TRANS_LUWUK5_RT (GI LUWUK / COMMON)."""
+    hz = mssql.get_freq_luwuk()
+    return JsonResponse({'hz': hz})
+
+
+@login_required
 def api_freq(request):
     """
     Chart frekuensi sistem.
@@ -670,7 +684,7 @@ def rangkuman(request):
 
 @login_required
 def beban_trafo(request):
-    """Halaman monitoring beban trafo dari ALL_TRANS_DATA."""
+    """Halaman monitoring beban trafo distribusi dari ALL_TRANS_DATA (BAY TRF52%/TRF42%)."""
     rows = _trafo_aktif_saja(mssql.get_beban_trafo())
 
     # Kelompokkan per GI (site)

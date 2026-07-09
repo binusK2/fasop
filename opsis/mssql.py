@@ -531,7 +531,9 @@ def get_beban_trend():
 
 def get_beban_trafo():
     """
-    Ambil data beban semua trafo dari ALL_TRANS_DATA (BAY LIKE 'TRF%').
+    Ambil data beban trafo DISTRIBUSI dari ALL_TRANS_DATA
+    (BAY LIKE 'TRF52%' atau 'TRF42%'). Trafo IBT (transmisi) belum termasuk —
+    akan jadi fitur terpisah nantinya.
 
     Returns:
         list of dict:
@@ -555,7 +557,7 @@ def get_beban_trafo():
             f"""
             SELECT RTRIM(SITE), RTRIM(BAY), P, Q, V, I
             FROM {tbl} WITH (NOLOCK)
-            WHERE BAY LIKE 'TRF%'
+            WHERE BAY LIKE 'TRF52%' OR BAY LIKE 'TRF42%'
             ORDER BY SITE, BAY
             """
         )
@@ -688,6 +690,18 @@ def get_freq_baubau():
     """Frekuensi sistem Baubau dari TRANS_BAUBAU5_RT (GI BAUBAU / COMMON)."""
     tbl = getattr(settings, 'MSSQL_FREQ_BAUBAU_TABLE', 'dbo.TRANS_BABAU5_RT')
     return _get_area_freq(tbl, 'GI BAUBAU', 'COMMON')
+
+
+def get_freq_sulteng():
+    """Frekuensi sistem Sulteng dari TRANS_TLISE5_RT (GI TALISE 150 / COMMON)."""
+    tbl = getattr(settings, 'MSSQL_FREQ_SULTENG_TABLE', 'dbo.TRANS_TLISE5_RT')
+    return _get_area_freq(tbl, 'GI TALISE 150', 'COMMON')
+
+
+def get_freq_luwuk():
+    """Frekuensi sistem Luwuk dari TRANS_LUWUK5_RT (GI LUWUK / COMMON)."""
+    tbl = getattr(settings, 'MSSQL_FREQ_LUWUK_TABLE', 'dbo.TRANS_LUWUK5_RT')
+    return _get_area_freq(tbl, 'GI LUWUK', 'COMMON')
 
 
 # ─────────────────────────────────────────────────────────────────────────────

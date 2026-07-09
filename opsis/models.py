@@ -75,6 +75,36 @@ class SnapFreq(models.Model):
         return f"{self.waktu:%Y-%m-%d %H:%M:%S} — {self.hz} Hz"
 
 
+AREA_FREQ_CHOICES = [
+    ('sultra',  'Sultra — GI Kendari New'),
+    ('sulteng', 'Sulteng — GI Talise 150'),
+    ('baubau',  'Baubau — GI Baubau'),
+    ('luwuk',   'Luwuk — GI Luwuk'),
+]
+
+
+class SnapFreqArea(models.Model):
+    """
+    Snapshot frekuensi per area (Sultra/Sulteng/Baubau/Luwuk) dari tabel
+    realtime TRANS_xxx_RT (snapshot nilai terkini, bukan historian per detik
+    seperti SYS_FREQ_HIS). Disimpan via 'collect_freq' — satu baris per area
+    setiap kali command jalan (tiap menit sesuai jadwal cron).
+    Auto-purge: data > 30 hari dihapus otomatis saat collect berjalan.
+    """
+    area  = models.CharField(max_length=10, choices=AREA_FREQ_CHOICES, db_index=True)
+    waktu = models.DateTimeField(db_index=True)  # timezone-aware
+    hz    = models.FloatField()
+
+    class Meta:
+        unique_together = ('area', 'waktu')
+        ordering = ['-waktu']
+        verbose_name = 'Snapshot Frekuensi Area'
+        verbose_name_plural = 'Snapshots Frekuensi Area'
+
+    def __str__(self):
+        return f"{self.area} @ {self.waktu:%Y-%m-%d %H:%M:%S} — {self.hz} Hz"
+
+
 class SnapLive(models.Model):
     """
     Snapshot data realtime KIT_REALTIME yang disimpan ke PostgreSQL tiap N menit
