@@ -70,3 +70,7 @@ data.json
 backups/
 rename_log.csv
 rename_plan.csv
+
+# ── Live Streaming — hasil generate & file rekaman (berisi secret) ─────
+deploy/mediamtx.generated.yml
+streaming_recordings/
