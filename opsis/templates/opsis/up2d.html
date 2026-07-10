@@ -136,15 +136,13 @@
         <div class="chart-title"><i class="bi bi-activity me-1" style="color:#60a5fa;"></i>Frekuensi Sistem — 30 Menit Terakhir</div>
         <div style="display:flex; align-items:center; gap:10px;">
             <span id="freq-updated" style="font-size:11px; color:var(--muted);">memuat...</span>
+            <input type="date" id="dl-freq-tgl" title="Pilih tanggal data frekuensi (maks. 10 hari ke belakang)"
+                   style="font-size:11px; color:#60a5fa; background:transparent; color-scheme:dark;
+                          border:1px solid rgba(96,165,250,.3); padding:1px 6px; border-radius:5px;">
             <a id="btn-dl-freq" href="/opsis/export/frekuensi/" target="_blank"
                style="font-size:11px; color:#60a5fa; text-decoration:none; border:1px solid rgba(96,165,250,.3);
                       padding:2px 8px; border-radius:5px; white-space:nowrap;">
                 <i class="bi bi-download me-1"></i>Excel
-            </a>
-            <a href="/opsis/export/frekuensi/?hari=10" target="_blank"
-               style="font-size:11px; color:#60a5fa; text-decoration:none; border:1px solid rgba(96,165,250,.3);
-                      padding:2px 8px; border-radius:5px; white-space:nowrap;">
-                <i class="bi bi-download me-1"></i>Excel 10 Hari
             </a>
         </div>
     </div>
@@ -516,11 +514,20 @@ async function loadKttChart() {
 loadKttChart();
 setInterval(loadKttChart, 5000);
 
-// Update href tombol download frekuensi dengan tanggal hari ini
+// Tombol download frekuensi — bisa pilih tanggal (maks. 10 hari ke belakang)
 (function () {
     const today = new Date().toLocaleDateString('sv');
-    const dlFreq = document.getElementById('btn-dl-freq');
+    const dlFreq  = document.getElementById('btn-dl-freq');
+    const tglFreq = document.getElementById('dl-freq-tgl');
     if (dlFreq) dlFreq.href = `/opsis/export/frekuensi/?tanggal=${today}`;
+    if (tglFreq && dlFreq) {
+        tglFreq.value = today;
+        tglFreq.max   = today;
+        tglFreq.min   = new Date(Date.now() - 9 * 86400000).toLocaleDateString('sv');
+        tglFreq.addEventListener('change', () => {
+            dlFreq.href = `/opsis/export/frekuensi/?tanggal=${tglFreq.value || today}`;
+        });
+    }
 })();
 </script>
 {% endblock %}
