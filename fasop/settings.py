@@ -247,3 +247,16 @@ WEBRTC_ICE_SERVERS = config(
     default='[{"urls":"stun:stun.l.google.com:19302"}]',
 )
 
+# Rekaman live streaming — MediaMTX menulis file MP4 ke direktori ini (lihat
+# recordPath di deploy/mediamtx.yml, HARUS sama persis dan dapat dibaca oleh
+# proses Django/gunicorn — satu server yang sama atau shared mount).
+# Retensi: dihapus otomatis oleh cron `manage.py purge_old_recordings`
+# (lihat CLAUDE.md) N hari setelah sesi live diakhiri.
+STREAMING_RECORDINGS_ROOT = config(
+    'STREAMING_RECORDINGS_ROOT',
+    default=str(BASE_DIR / 'streaming_recordings'),
+)
+STREAMING_RECORDING_RETENTION_DAYS = config(
+    'STREAMING_RECORDING_RETENTION_DAYS', default=7, cast=int,
+)
+

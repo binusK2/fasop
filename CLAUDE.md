@@ -47,7 +47,7 @@ sudo systemctl restart gunicorn && sudo systemctl reload nginx
 
 ### App Structure
 
-Each of the 14 `INSTALLED_APPS` Django apps follows a standard layout (`models.py`, `views.py`, `forms.py`, `urls.py`, `templates/<app>/`). Key apps:
+Each of the 15 `INSTALLED_APPS` Django apps follows a standard layout (`models.py`, `views.py`, `forms.py`, `urls.py`, `templates/<app>/`). Key apps:
 
 | App | Responsibility |
 |---|---|
@@ -65,6 +65,7 @@ Each of the 14 `INSTALLED_APPS` Django apps follows a standard layout (`models.p
 | `common_enemy/` | Cross-cutting multi-site issue tickets (SCADA/telkom/prosis), auto-numbered `CE-YYYYMM-XXXX` |
 | `dokumentasi/` | Relay setting & wiring-diagram document repository with uploader→checker approval workflow |
 | `auditlog/` | Custom (not django-auditlog) superuser audit log; entries are created by explicit `log_action()` calls in views, not signals |
+| `streaming/` | Field maintenance live streaming (WebRTC WHIP/WHEP via MediaMTX, `deploy/mediamtx.yml`); Teknisi broadcasts, Teknisi/AM view, only AM can join as Pengawas for 2-way talkback; recordings kept 7 days (`purge_old_recordings` cron) |
 | `api/` | REST API for n8n / Google Sheets integrations (no models — not in `INSTALLED_APPS`, but `urls.py` is still wired into `fasop/urls.py` at `/api/v1/`) |
 | `fasop/` | Root settings, URL routing, Hashids helper, URL converters |
 
@@ -151,6 +152,7 @@ Roles are stored in `UserProfile` (ForeignKey to User). Middleware enforces rout
 | `apply_rename_plan` | devices | One-off — applies a previously generated rename plan |
 | `audit_device_names` | devices | One-off — reports naming inconsistencies across `Device` |
 | `fix_notif_urls` | notifikasi | One-off — repairs malformed notification links |
+| `purge_old_recordings` | streaming | Cron, daily — deletes `LiveSession` recording files past `STREAMING_RECORDING_RETENTION_DAYS` (default 7 days since `ended_at`); supports `--dry-run` |
 
 ---
 

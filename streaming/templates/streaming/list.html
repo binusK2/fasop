@@ -77,6 +77,7 @@
                     <th>Pengawas</th>
                     <th>Mulai</th>
                     <th>Selesai</th>
+                    <th></th>
                 </tr>
             </thead>
             <tbody>
@@ -87,9 +88,18 @@
                     <td>{{ session.pengawas.profile.get_display_name|default:"—" }}</td>
                     <td>{{ session.started_at|date:"d/m H:i" }}</td>
                     <td>{{ session.ended_at|date:"d/m H:i"|default:"—" }}</td>
+                    <td class="text-end">
+                        {% if session.has_recording %}
+                        <a href="{% url 'streaming:recording' pk=session.pk %}" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-play-circle-fill me-1"></i>Putar Rekaman
+                        </a>
+                        {% else %}
+                        <span class="text-muted" style="font-size:11px;">Tidak ada rekaman</span>
+                        {% endif %}
+                    </td>
                 </tr>
             {% empty %}
-                <tr><td colspan="5" class="text-center text-muted py-3">Belum ada riwayat.</td></tr>
+                <tr><td colspan="6" class="text-center text-muted py-3">Belum ada riwayat.</td></tr>
             {% endfor %}
             </tbody>
         </table>

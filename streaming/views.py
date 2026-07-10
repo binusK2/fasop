@@ -1,8 +1,16 @@
 import json
+import os
+import re
 
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponseForbidden, JsonResponse
+from django.http import (
+    Http404,
+    HttpResponseForbidden,
+    HttpResponseNotFound,
+    JsonResponse,
+    StreamingHttpResponse,
+)
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
@@ -175,3 +183,95 @@ def mediamtx_auth_webhook(request):
     if allowed:
         return JsonResponse({'ok': True})
     return HttpResponseForbidden('not allowed')
+
+
+@csrf_exempt
+def mediamtx_record_webhook(request):
+    """
+    Dipanggil oleh hook `runOnRecordSegmentComplete` MediaMTX (lihat
+    deploy/mediamtx.yml) setiap file rekaman selesai ditulis ke disk.
+    Server-to-server, divalidasi via shared secret sama seperti auth webhook.
+
+    Body JSON: {path, segment_path} — path = nama path MediaMTX (video_path
+    milik LiveSession), segment_path = path absolut file MP4 di disk.
+    """
+    if request.method != 'POST':
+        return HttpResponseForbidden('method not allowed')
+    if not settings.MEDIAMTX_AUTH_SECRET or request.GET.get('key') != settings.MEDIAMTX_AUTH_SECRET:
+        return HttpResponseForbidden('invalid secret')
+
+    try:
+        payload = json.loads(request.body.decode('utf-8'))
+    except (ValueError, UnicodeDecodeError):
+        return HttpResponseForbidden('bad payload')
+
+    path = payload.get('path', '')
+    segment_path = payload.get('segment_path', '')
+    if not path.startswith('live-') or path.endswith('-talk') or not segment_path:
+        # Cuma rekam path video utama — talkback tidak direkam.
+        return JsonResponse({'ok': True})
+
+    stream_key = path[len('live-'):]
+    session = LiveSession.objects.filter(stream_key=stream_key).first()
+    if not session:
+        return HttpResponseForbidden('unknown session')
+
+    session.recording_path = segment_path
+    session.save(update_fields=['recording_path'])
+    return JsonResponse({'ok': True})
+
+
+@login_required
+@require_streaming_access
+def session_recording(request, pk):
+    session = get_object_or_404(LiveSession, pk=pk)
+    if not session.has_recording:
+        raise Http404('Rekaman belum tersedia untuk sesi ini.')
+    return render(request, 'streaming/playback.html', {'session': session})
+
+
+_RANGE_RE = re.compile(r'bytes\s*=\s*(\d+)-(\d*)', re.I)
+
+
+@login_required
+@require_streaming_access
+def serve_recording(request, pk):
+    """
+    Serve file rekaman dengan dukungan HTTP Range agar video bisa di-seek
+    di player, bukan cuma diputar berurutan dari awal.
+    """
+    session = get_object_or_404(LiveSession, pk=pk)
+    if not session.has_recording or not os.path.isfile(session.recording_path):
+        return HttpResponseNotFound('Rekaman tidak ditemukan.')
+
+    file_path = session.recording_path
+    file_size = os.path.getsize(file_path)
+    range_header = request.META.get('HTTP_RANGE', '')
+    range_match = _RANGE_RE.match(range_header)
+
+    if range_match:
+        start = int(range_match.group(1))
+        end = int(range_match.group(2)) if range_match.group(2) else file_size - 1
+        end = min(end, file_size - 1)
+        length = max(0, end - start + 1)
+
+        def stream():
+            with open(file_path, 'rb') as f:
+                f.seek(start)
+                remaining = length
+                while remaining > 0:
+                    chunk = f.read(min(65536, remaining))
+                    if not chunk:
+                        break
+                    remaining -= len(chunk)
+                    yield chunk
+
+        resp = StreamingHttpResponse(stream(), status=206, content_type='video/mp4')
+        resp['Content-Range'] = f'bytes {start}-{end}/{file_size}'
+        resp['Content-Length'] = str(length)
+    else:
+        resp = StreamingHttpResponse(open(file_path, 'rb'), content_type='video/mp4')
+        resp['Content-Length'] = str(file_size)
+
+    resp['Accept-Ranges'] = 'bytes'
+    return resp

@@ -46,10 +46,28 @@ authHTTPExclude:
 # ── Path ─────────────────────────────────────────────────────────────
 # Path dibuat otomatis saat publish pertama (nama path = stream_key acak
 # dari Django) — tidak perlu didaftarkan satu per satu secara manual.
+#
+# Rekaman: hanya path video utama (live-<key>) yang direkam — talkback
+# (live-<key>-talk, cuma audio pengawas) sengaja TIDAK direkam. Retensi 7
+# hari ditangani di sisi Django lewat cron `manage.py purge_old_recordings`
+# (bukan recordDeleteAfter MediaMTX) supaya konsisten dengan field
+# LiveSession.recording_path — jangan aktifkan auto-delete di kedua sisi
+# sekaligus, nanti dobel/rebutan hapus file yang sama.
 paths:
+  "~^live-.+-talk$":
+    record: no
+
   all_others:
-    # Opsional: rekam otomatis tiap sesi live sebagai arsip/bukti pemeliharaan.
-    # Aktifkan kalau dibutuhkan, lalu hubungkan file hasilnya ke model
-    # LiveSession / BeritaAcaraEviden dari sisi Django kalau perlu diarsipkan resmi.
-    # record: yes
-    # recordPath: /var/lib/fasop-streaming/recordings/%path/%Y-%m-%d_%H-%M-%S-%f
+    record: yes
+    recordPath: /var/lib/fasop-streaming/recordings/%path/%Y-%m-%d_%H-%M-%S-%f
+    recordFormat: fmp4
+    recordSegmentDuration: 24h   # sesi live jarang >24h; 1 segmen ≈ 1 rekaman per sesi
+
+    # Panggil balik Django tiap segmen rekaman selesai ditulis, supaya
+    # LiveSession.recording_path terisi dan halaman "Putar Rekaman" aktif.
+    # key= harus sama persis dengan MEDIAMTX_AUTH_SECRET di .env Django.
+    # $MTX_PATH & $MTX_SEGMENT_PATH disediakan MediaMTX saat hook ini jalan.
+    runOnRecordSegmentComplete: >
+      curl -s -X POST "http://127.0.0.1:8000/streaming/webhook/mediamtx-record/?key=isi-MEDIAMTX_AUTH_SECRET-yang-sama-dengan-env-django"
+      -H "Content-Type: application/json"
+      -d "{\"path\":\"$MTX_PATH\",\"segment_path\":\"$MTX_SEGMENT_PATH\"}"
