@@ -110,8 +110,9 @@ def api_trend(request, pk):
 @login_required
 def export_frekuensi(request):
     """
-    Download rekap frekuensi sistem harian dari PostgreSQL (SnapLive).
-    ?tanggal=YYYY-MM-DD  (default: hari ini)
+    Download rekap frekuensi sistem harian dari PostgreSQL (SnapFreq).
+    ?tanggal=YYYY-MM-DD  (default: hari ini) — bisa pilih tanggal histori
+    selama data masih ada (retensi SnapFreq 30 hari).
     Format: Excel (.xlsx)
     """
     import openpyxl
@@ -119,14 +120,14 @@ def export_frekuensi(request):
     from django.db.models import Avg
     from django.http import HttpResponse
 
+    tz_local = timezone.get_current_timezone()
+
     # Parse tanggal
     tanggal_str = request.GET.get('tanggal', '')
     try:
         tanggal = datetime.date.fromisoformat(tanggal_str)
     except ValueError:
-        tanggal = timezone.now().astimezone(timezone.get_current_timezone()).date()
-
-    tz_local = timezone.get_current_timezone()
+        tanggal = timezone.now().astimezone(tz_local).date()
 
     # Ambil dari SnapFreq (per detik, retensi 30 hari)
     rows = SnapFreq.objects.filter(waktu__date=tanggal).order_by('waktu')
