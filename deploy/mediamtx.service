@@ -1,0 +1,32 @@
+# deploy/mediamtx.service — contoh systemd unit untuk menjalankan MediaMTX
+# sebagai service, terpisah dari gunicorn/Django.
+#
+# WAJIB disesuaikan dulu sebelum dipakai (baris ExecStart, User, Group,
+# WorkingDirectory) — nilai di bawah cuma contoh.
+#
+# Install:
+#   sudo cp deploy/mediamtx.service /etc/systemd/system/mediamtx.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now mediamtx
+#   sudo systemctl status mediamtx
+#
+# Config yang dipakai HARUS hasil generate dari setup_streaming.sh
+# (deploy/mediamtx.generated.yml), BUKAN deploy/mediamtx.yml (itu template,
+# masih ada placeholder secret yang belum terisi).
+
+[Unit]
+Description=MediaMTX - media server Live Streaming FASOP
+After=network.target
+
+[Service]
+Type=simple
+User=fasop
+Group=fasop
+WorkingDirectory=/opt/mediamtx
+ExecStart=/opt/mediamtx/mediamtx /home/user/fasop/deploy/mediamtx.generated.yml
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

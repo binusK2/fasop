@@ -38,6 +38,12 @@ class LiveSession(models.Model):
     started_at   = models.DateTimeField(auto_now_add=True)
     ended_at     = models.DateTimeField(null=True, blank=True)
 
+    # Path absolut file rekaman di disk (ditulis MediaMTX, didaftarkan lewat
+    # webhook streaming.views.mediamtx_record_webhook). Kosong = belum/tidak
+    # ada rekaman. Dihapus otomatis oleh manage.py purge_old_recordings
+    # setelah STREAMING_RECORDING_RETENTION_DAYS hari sejak ended_at.
+    recording_path = models.CharField(max_length=500, blank=True, editable=False, verbose_name='Path Rekaman')
+
     class Meta:
         ordering = ['-started_at']
         verbose_name = 'Sesi Live Streaming'
@@ -67,6 +73,10 @@ class LiveSession(models.Model):
     def talkback_path(self):
         """Path MediaMTX untuk audio talkback: publish oleh pengawas, dibaca hanya teknisi."""
         return f'live-{self.stream_key}-talk'
+
+    @property
+    def has_recording(self):
+        return bool(self.recording_path)
 
     def assign_pengawas(self, user):
         self.pengawas = user
