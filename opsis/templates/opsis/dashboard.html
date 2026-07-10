@@ -318,10 +318,10 @@
     </div>
 </div>
 
-<!-- Chart Beban Trafo IBT per GI -->
+<!-- Chart Beban Trafo IBT per trafo, dikelompokkan per GI -->
 <div class="chart-card" style="margin-bottom:16px;">
     <div class="chart-head">
-        <div class="chart-title"><i class="bi bi-lightning-charge me-1" style="color:#818cf8;"></i>Beban Trafo IBT — per GI</div>
+        <div class="chart-title"><i class="bi bi-lightning-charge me-1" style="color:#818cf8;"></i>Beban Trafo IBT — per Trafo</div>
         <div style="display:flex; align-items:center; gap:10px;">
             <span id="trafo-ibt-total-mw" style="font-size:13px;font-weight:700;color:#818cf8;">— MW</span>
             <span id="trafo-ibt-chart-updated" style="font-size:11px; color:var(--muted);">memuat...</span>
@@ -987,8 +987,12 @@ async function loadTrafoChart() {
 loadTrafoChart();
 setInterval(loadTrafoChart, 2000); // refresh tiap 2 detik
 
-// ── Chart Beban Trafo IBT per GI (bar horizontal) ─────────────────────
+// ── Chart Beban Trafo IBT per GI (grouped bar: 1 label per SITE, 1 bar per trafo) ──
 let chartTrafoIbt = null;
+const IBT_BAR_COLORS = [
+    'rgba(129,140,248,.85)', 'rgba(99,102,241,.85)', 'rgba(165,180,252,.85)',
+    'rgba(67,56,202,.85)',   'rgba(199,210,254,.85)', 'rgba(55,48,163,.85)',
+];
 
 async function loadTrafoIbtChart() {
     try {
@@ -996,9 +1000,7 @@ async function loadTrafoIbtChart() {
         if (!r.ok) return;
         const d = await r.json();
 
-        const siteTotals = d.site_totals || {};
-        const sites = Object.keys(siteTotals).sort();
-        const values = sites.map(s => siteTotals[s] || 0);
+        const rows = d.rows || [];
         const totalMw = d.total_mw || 0;
 
         const totalEl = document.getElementById('trafo-ibt-total-mw');
@@ -1014,14 +1016,32 @@ async function loadTrafoIbtChart() {
         const cardUpdEl = document.getElementById('trafo-ibt-updated');
         if (cardUpdEl) cardUpdEl.textContent = new Date().toLocaleTimeString('id-ID');
 
+        // Kelompokkan per SITE — site sama cukup 1 label, tiap trafo/baris SQL jadi bar sendiri
+        const grouped = {};
+        rows.forEach(row => {
+            const site = row.site || 'Unknown';
+            (grouped[site] = grouped[site] || []).push(row);
+        });
+        const sites = Object.keys(grouped).sort();
         if (!sites.length) return;
 
-        const maxVal = Math.max(...values);
-        const bgColors = values.map(v => {
-            if (v >= maxVal * 0.8) return 'rgba(129,140,248,.75)';
-            if (v >= maxVal * 0.5) return 'rgba(165,180,252,.65)';
-            return 'rgba(199,210,254,.7)';
-        });
+        const maxTrafo = Math.max(...sites.map(s => grouped[s].length));
+        const datasets = [];
+        for (let k = 0; k < maxTrafo; k++) {
+            datasets.push({
+                label: 'Trafo ' + (k + 1),
+                data: sites.map(s => {
+                    const t = grouped[s][k];
+                    return (t && t.p !== null && t.p !== undefined) ? Math.abs(t.p) : null;
+                }),
+                bayNames: sites.map(s => grouped[s][k] ? grouped[s][k].bay : ''),
+                backgroundColor: IBT_BAR_COLORS[k % IBT_BAR_COLORS.length],
+                borderColor: '#818cf8',
+                borderWidth: 1,
+                borderRadius: 3,
+                skipNull: true,
+            });
+        }
 
         if (!chartTrafoIbt) {
             const ctx = document.getElementById('chart-trafo-ibt').getContext('2d');
@@ -1029,14 +1049,7 @@ async function loadTrafoIbtChart() {
                 type: 'bar',
                 data: {
                     labels: sites,
-                    datasets: [{
-                        label: 'Beban Trafo IBT (MW)',
-                        data: values,
-                        backgroundColor: bgColors,
-                        borderColor: '#818cf8',
-                        borderWidth: 1,
-                        borderRadius: 4,
-                    }]
+                    datasets: datasets
                 },
                 options: {
                     responsive: true, maintainAspectRatio: false,
@@ -1046,7 +1059,10 @@ async function loadTrafoIbtChart() {
                         tooltip: {
                             ...tooltipOpts,
                             callbacks: {
-                                label: ctx => `${ctx.parsed.y.toFixed(2)} MW`
+                                label: ctx => {
+                                    const bay = (ctx.dataset.bayNames || [])[ctx.dataIndex] || ctx.dataset.label;
+                                    return `${bay}: ${ctx.parsed.y.toFixed(2)} MW`;
+                                }
                             }
                         }
                     },
@@ -1065,8 +1081,7 @@ async function loadTrafoIbtChart() {
             });
         } else {
             chartTrafoIbt.data.labels = sites;
-            chartTrafoIbt.data.datasets[0].data = values;
-            chartTrafoIbt.data.datasets[0].backgroundColor = bgColors;
+            chartTrafoIbt.data.datasets = datasets;
             chartTrafoIbt.update('none');
         }
     } catch (e) {}
