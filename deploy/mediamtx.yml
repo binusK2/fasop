@@ -20,9 +20,21 @@
 # ─────────────────────────────────────────────────────────────────────────
 
 # ── WebRTC (WHIP/WHEP) ──────────────────────────────────────────────
+# TLS: DUA opsi, pilih SATU saja.
+#   A) MediaMTX yang pegang TLS langsung -> webrtcEncryption: "strict" +
+#      webrtcServerCert/webrtcServerKey (butuh cert sendiri buat MediaMTX).
+#   B) (DIREKOMENDASIKAN kalau nginx+cert buat Django sudah ada) -> nginx
+#      yang terima HTTPS lalu reverse-proxy ke MediaMTX di localhost:8889.
+#      webrtcEncryption TETAP "no" di sini karena nginx yang urus TLS-nya.
+#      Lihat deploy/nginx-mediamtx.conf.example.
 webrtcAddress: :8889
-webrtcEncryption: "no"          # production: set "strict" + webrtcServerCert/webrtcServerKey (TLS wajib untuk getUserMedia di HP)
-webrtcAllowOrigin: "*"          # production: ganti ke origin FASOP, mis. https://fasop.pln-uip3bsulawesi.internal
+webrtcEncryption: "no"
+webrtcAllowOrigin: "https://GANTI-KE-DOMAIN-FASOP-PRODUKSI"   # origin browser tempat FASOP dibuka (BUKAN domain MediaMTX-nya kalau pakai opsi B)
+
+# 1 port UDP tetap untuk semua koneksi media WebRTC — jauh lebih gampang
+# dibuka sekali di firewall daripada range port UDP acak (default MediaMTX
+# tanpa ini pakai port acak per koneksi).
+webrtcICEUDPMuxAddress: :8189
 
 # STUN/TURN — WAJIB isi TURN valid di production. HP teknisi di lapangan
 # umumnya di belakang CGNAT operator seluler sehingga WebRTC sering gagal
