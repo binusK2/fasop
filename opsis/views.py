@@ -110,8 +110,10 @@ def api_trend(request, pk):
 @login_required
 def export_frekuensi(request):
     """
-    Download rekap frekuensi sistem harian dari PostgreSQL (SnapLive).
-    ?tanggal=YYYY-MM-DD  (default: hari ini)
+    Download rekap frekuensi sistem dari PostgreSQL (SnapFreq).
+    ?tanggal=YYYY-MM-DD  → satu hari, data per detik (default: hari ini)
+    ?hari=N              → N hari terakhir (2–30), agregat per menit
+                           + sheet rekap harian
     Format: Excel (.xlsx)
     """
     import openpyxl
@@ -119,14 +121,23 @@ def export_frekuensi(request):
     from django.db.models import Avg
     from django.http import HttpResponse
 
+    tz_local = timezone.get_current_timezone()
+
+    # Mode histori multi-hari (?hari=N)
+    try:
+        jml_hari = int(request.GET.get('hari', ''))
+    except ValueError:
+        jml_hari = None
+    if jml_hari is not None:
+        jml_hari = min(max(jml_hari, 2), 30)
+        return _export_frekuensi_histori(jml_hari, tz_local)
+
     # Parse tanggal
     tanggal_str = request.GET.get('tanggal', '')
     try:
         tanggal = datetime.date.fromisoformat(tanggal_str)
     except ValueError:
-        tanggal = timezone.now().astimezone(timezone.get_current_timezone()).date()
-
-    tz_local = timezone.get_current_timezone()
+        tanggal = timezone.now().astimezone(tz_local).date()
 
     # Ambil dari SnapFreq (per detik, retensi 30 hari)
     rows = SnapFreq.objects.filter(waktu__date=tanggal).order_by('waktu')
@@ -204,6 +215,135 @@ def export_frekuensi(request):
 
     # Response
     filename = f'Frekuensi_{tanggal}.xlsx'
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    wb.save(response)
+    return response
+
+
+def _export_frekuensi_histori(jml_hari, tz_local):
+    """
+    Export histori frekuensi N hari terakhir dari SnapFreq.
+    Data per detik diagregasi per menit (rata-rata/min/max) supaya ukuran
+    file wajar (per detik × 10 hari ≈ 864rb baris), plus sheet rekap harian.
+    """
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from django.db.models import Avg, Min, Max
+    from django.db.models.functions import TruncMinute
+    from django.http import HttpResponse
+
+    akhir = timezone.now().astimezone(tz_local).date()
+    awal  = akhir - datetime.timedelta(days=jml_hari - 1)
+
+    per_menit = list(
+        SnapFreq.objects
+        .filter(waktu__date__gte=awal, waktu__date__lte=akhir)
+        .annotate(menit=TruncMinute('waktu', tzinfo=tz_local))
+        .values('menit')
+        .annotate(rata=Avg('hz'), terendah=Min('hz'), tertinggi=Max('hz'))
+        .order_by('menit')
+    )
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = f'Frekuensi {jml_hari} Hari'
+
+    # Style — sama dengan export harian
+    hdr_fill = PatternFill('solid', fgColor='0F172A')
+    hdr_font = Font(bold=True, color='60A5FA', size=10)
+    thin     = Side(style='thin', color='1E293B')
+    border   = Border(left=thin, right=thin, top=thin, bottom=thin)
+    center   = Alignment(horizontal='center', vertical='center')
+    abn_fill = PatternFill('solid', fgColor='2D1A1A')
+
+    headers = ['No', 'Tanggal', 'Waktu', 'Rata-rata (Hz)', 'Min (Hz)', 'Max (Hz)', 'Status']
+    ws.append(headers)
+    for col, _ in enumerate(headers, 1):
+        cell = ws.cell(1, col)
+        cell.font = hdr_font
+        cell.fill = hdr_fill
+        cell.border = border
+        cell.alignment = center
+
+    for col_letter, width in zip('ABCDEFG', (6, 14, 10, 16, 14, 14, 18)):
+        ws.column_dimensions[col_letter].width = width
+
+    # Batas frekuensi normal PLN: 49.5 – 50.5 Hz
+    batas_bawah, batas_atas = 49.5, 50.5
+
+    rekap = {}  # tanggal → {'vals': [...], 'abnormal': n}
+    for i, m in enumerate(per_menit, 1):
+        menit_lokal = m['menit'].astimezone(tz_local)
+        rata      = round(m['rata'], 4)      if m['rata']      is not None else None
+        terendah  = round(m['terendah'], 4)  if m['terendah']  is not None else None
+        tertinggi = round(m['tertinggi'], 4) if m['tertinggi'] is not None else None
+
+        abnormal = False
+        if terendah is None:
+            status = '—'
+        elif terendah < batas_bawah and tertinggi > batas_atas:
+            status, abnormal = '⚠ Rendah & Tinggi', True
+        elif terendah < batas_bawah:
+            status, abnormal = '⚠ Rendah', True
+        elif tertinggi > batas_atas:
+            status, abnormal = '⚠ Tinggi', True
+        else:
+            status = '✓ Normal'
+
+        ws.append([
+            i,
+            menit_lokal.strftime('%Y-%m-%d'),
+            menit_lokal.strftime('%H:%M'),
+            rata,
+            terendah,
+            tertinggi,
+            status,
+        ])
+
+        if abnormal:
+            for col in range(1, 8):
+                ws.cell(i + 1, col).fill = abn_fill
+        for col in range(1, 8):
+            ws.cell(i + 1, col).border = border
+            ws.cell(i + 1, col).alignment = center
+
+        d = rekap.setdefault(menit_lokal.date(), {'vals': [], 'abnormal': 0})
+        if rata is not None:
+            d['vals'].append((rata, terendah, tertinggi))
+        if abnormal:
+            d['abnormal'] += 1
+
+    # Sheet rekap harian
+    ws2 = wb.create_sheet('Rekap Harian')
+    headers2 = ['Tanggal', 'Rata-rata (Hz)', 'Min (Hz)', 'Max (Hz)', 'Menit Abnormal', 'Jumlah Menit Data']
+    ws2.append(headers2)
+    for col, _ in enumerate(headers2, 1):
+        cell = ws2.cell(1, col)
+        cell.font = hdr_font
+        cell.fill = hdr_fill
+        cell.border = border
+        cell.alignment = center
+    for col_letter, width in zip('ABCDEF', (14, 16, 14, 14, 16, 18)):
+        ws2.column_dimensions[col_letter].width = width
+
+    for r, (tgl, d) in enumerate(sorted(rekap.items()), 2):
+        vals = d['vals']
+        ws2.append([
+            tgl.strftime('%Y-%m-%d'),
+            round(sum(v[0] for v in vals) / len(vals), 4) if vals else None,
+            round(min(v[1] for v in vals), 4) if vals else None,
+            round(max(v[2] for v in vals), 4) if vals else None,
+            d['abnormal'],
+            len(vals),
+        ])
+        for col in range(1, 7):
+            ws2.cell(r, col).border = border
+            ws2.cell(r, col).alignment = center
+
+    filename = f'Frekuensi_{jml_hari}hari_{awal}_sd_{akhir}.xlsx'
     response = HttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
