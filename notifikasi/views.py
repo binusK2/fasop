@@ -160,3 +160,34 @@ def notif_ke_am(tipe, judul, pesan, level='info', url='', device=None):
                 )
     except Exception:
         pass
+
+
+def notif_ke_teknisi(tipe, judul, pesan, level='info', url='', device=None, exclude_user=None):
+    """
+    Buat notifikasi untuk semua user Teknisi (mis. saat rekan teknisi mulai live streaming).
+    exclude_user: dilewati agar user yang memicu event tidak menotif dirinya sendiri.
+    """
+    try:
+        from django.contrib.auth.models import User
+        from notifikasi.models import Notifikasi
+
+        teknisi_users = User.objects.filter(profile__role='technician')
+        if exclude_user is not None:
+            teknisi_users = teknisi_users.exclude(pk=exclude_user.pk)
+
+        for user in teknisi_users:
+            sudah_ada = Notifikasi.objects.filter(
+                user=user, tipe=tipe, judul=judul, is_read=False
+            ).exists()
+            if not sudah_ada:
+                Notifikasi.objects.create(
+                    user   = user,
+                    tipe   = tipe,
+                    judul  = judul,
+                    pesan  = pesan,
+                    level  = level,
+                    url    = url,
+                    device = device,
+                )
+    except Exception:
+        pass

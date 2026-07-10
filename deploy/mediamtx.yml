@@ -1,0 +1,55 @@
+# ─────────────────────────────────────────────────────────────────────────
+# MediaMTX — media server WebRTC (WHIP publish / WHEP playback) untuk fitur
+# Live Streaming FASOP (app `streaming`). Proses TERPISAH dari Django/gunicorn
+# — jalankan sebagai service sendiri (systemd), bukan bagian dari runserver.
+#
+# Install   : unduh binary rilis dari https://github.com/bluenviron/mediamtx
+# Jalankan  : ./mediamtx /path/ke/deploy/mediamtx.yml
+# Cek versi : nama-nama key di bawah mengikuti skema mediamtx.yml versi rilis
+#             yang dipakai — cocokkan dengan mediamtx.yml default bawaan
+#             binary yang diunduh sebelum deploy, karena key bisa berubah
+#             antar versi.
+#
+# Alur akses (lihat streaming/models.py & streaming/views.py di kode Django):
+#   - Teknisi publish video   -> path live-<stream_key>       (WHIP)
+#   - Viewer  baca video      -> path live-<stream_key>       (WHEP)
+#   - Pengawas (AM) publish   -> path live-<stream_key>-talk  (WHIP, audio only)
+#   - Teknisi baca talkback   -> path live-<stream_key>-talk  (WHEP)
+#   Semua permintaan publish/read divalidasi MediaMTX ke Django lewat
+#   authHTTPAddress di bawah — Django yang jadi sumber kebenaran token.
+# ─────────────────────────────────────────────────────────────────────────
+
+# ── WebRTC (WHIP/WHEP) ──────────────────────────────────────────────
+webrtcAddress: :8889
+webrtcEncryption: "no"          # production: set "strict" + webrtcServerCert/webrtcServerKey (TLS wajib untuk getUserMedia di HP)
+webrtcAllowOrigin: "*"          # production: ganti ke origin FASOP, mis. https://fasop.pln-uip3bsulawesi.internal
+
+# STUN/TURN — WAJIB isi TURN valid di production. HP teknisi di lapangan
+# umumnya di belakang CGNAT operator seluler sehingga WebRTC sering gagal
+# connect tanpa TURN relay. Pasang coturn terpisah, lalu isi kredensial yang
+# SAMA di sini dan di WEBRTC_ICE_SERVERS pada .env Django.
+webrtcICEServers2:
+  - url: stun:stun.l.google.com:19302
+  - url: turn:media.fasop.internal:3478
+    username: fasop
+    password: isi-password-turn-yang-sama-dengan-coturn-dan-env-django
+
+# ── Auth eksternal — MediaMTX minta izin ke Django untuk tiap publish/read ──
+authMethod: http
+# key= harus sama persis dengan MEDIAMTX_AUTH_SECRET di .env Django
+authHTTPAddress: http://127.0.0.1:8000/streaming/webhook/mediamtx-auth/?key=isi-MEDIAMTX_AUTH_SECRET-yang-sama-dengan-env-django
+authHTTPExclude:
+  - action: api
+  - action: metrics
+  - action: pprof
+
+# ── Path ─────────────────────────────────────────────────────────────
+# Path dibuat otomatis saat publish pertama (nama path = stream_key acak
+# dari Django) — tidak perlu didaftarkan satu per satu secara manual.
+paths:
+  all_others:
+    # Opsional: rekam otomatis tiap sesi live sebagai arsip/bukti pemeliharaan.
+    # Aktifkan kalau dibutuhkan, lalu hubungkan file hasilnya ke model
+    # LiveSession / BeritaAcaraEviden dari sisi Django kalau perlu diarsipkan resmi.
+    # record: yes
+    # recordPath: /var/lib/fasop-streaming/recordings/%path/%Y-%m-%d_%H-%M-%S-%f

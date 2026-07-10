@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     'dokumentasi',
     'scada_av',
     'auditlog',
+    'streaming',
 ]
 
 MIDDLEWARE = [
@@ -224,4 +225,25 @@ MSSQL_FREQ_TABLE = config('MSSQL_FREQ_TABLE', default='dbo.SYS_FREQ_HIS')
 MSSQL_TRAFO_TABLE= config('MSSQL_TRAFO_TABLE',default='dbo.ALL_TRANS_DATA')  # Beban Trafo
 MSSQL_DRIVER     = config('MSSQL_DRIVER',     default='ODBC Driver 17 for SQL Server')
 
+# -------------------------------------------------------------------
+# MediaMTX — media server WebRTC (WHIP/WHEP) untuk fitur Live Streaming
+# lihat deploy/mediamtx.yml untuk contoh konfigurasi server-nya.
+# Set di .env server:
+#   MEDIAMTX_WHIP_URL=https://media.fasop.local:8889   # publish (teknisi/pengawas)
+#   MEDIAMTX_WHEP_URL=https://media.fasop.local:8889   # playback (viewer)
+#   MEDIAMTX_AUTH_SECRET=isi-dengan-string-acak-yang-kuat
+# -------------------------------------------------------------------
+MEDIAMTX_WHIP_URL    = config('MEDIAMTX_WHIP_URL',    default='http://localhost:8889')
+MEDIAMTX_WHEP_URL    = config('MEDIAMTX_WHEP_URL',    default='http://localhost:8889')
+MEDIAMTX_AUTH_SECRET = config('MEDIAMTX_AUTH_SECRET', default='')
+
+# STUN/TURN untuk WebRTC (WHIP/WHEP) — WAJIB isi TURN di production karena HP
+# teknisi di lapangan umumnya di belakang CGNAT operator seluler.
+# Format JSON, contoh:
+#   WEBRTC_ICE_SERVERS=[{"urls":"stun:stun.l.google.com:19302"},
+#     {"urls":"turn:media.fasop.local:3478","username":"fasop","credential":"isi-password-turn"}]
+WEBRTC_ICE_SERVERS = config(
+    'WEBRTC_ICE_SERVERS',
+    default='[{"urls":"stun:stun.l.google.com:19302"}]',
+)
 

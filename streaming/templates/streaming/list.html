@@ -1,0 +1,122 @@
+{% extends 'base.html' %}
+{% block title %}Live Streaming — FASOP{% endblock %}
+{% block page_title %}Live Streaming{% endblock %}
+
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+    <div>
+        <h2 class="mb-0" style="font-size:20px;font-weight:700;">Live Streaming Pemeliharaan</h2>
+        <p class="text-muted mb-0" style="font-size:13px;">Siaran langsung dari lapangan — Teknisi mengirim video, Asisten Manager bisa jadi pengawas dengan komunikasi 2 arah.</p>
+    </div>
+    {% if can_start %}
+    <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalMulaiLive">
+        <i class="bi bi-camera-video-fill me-1"></i>Mulai Live
+    </button>
+    {% endif %}
+</div>
+
+{% if messages %}
+{% for message in messages %}
+<div class="alert alert-{{ message.tags }} py-2" style="font-size:13px;">{{ message }}</div>
+{% endfor %}
+{% endif %}
+
+<div class="card mb-3">
+    <div class="card-body py-2 px-3">
+        <h6 class="mb-0"><span class="live-dot"></span>Sedang Live ({{ active_sessions|length }})</h6>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0" style="font-size:13px;">
+            <thead>
+                <tr>
+                    <th>Judul</th>
+                    <th>Teknisi</th>
+                    <th>Pengawas</th>
+                    <th>Mulai</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for session in active_sessions %}
+                <tr>
+                    <td>{{ session.judul }}</td>
+                    <td>{{ session.teknisi.profile.get_display_name|default:session.teknisi.username }}</td>
+                    <td>
+                        {% if session.pengawas %}
+                            <span class="badge" style="background:#dcfce7;color:#10b981;">{{ session.pengawas.profile.get_display_name|default:session.pengawas.username }}</span>
+                        {% else %}
+                            <span class="text-muted">Belum ada</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ session.started_at|date:"d/m H:i" }}</td>
+                    <td class="text-end">
+                        <a href="{% url 'streaming:detail' pk=session.pk %}" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-eye-fill me-1"></i>Tonton
+                        </a>
+                    </td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="5" class="text-center text-muted py-3">Tidak ada sesi live saat ini.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body py-2 px-3">
+        <h6 class="mb-0">Riwayat Live</h6>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0" style="font-size:13px;">
+            <thead>
+                <tr>
+                    <th>Judul</th>
+                    <th>Teknisi</th>
+                    <th>Pengawas</th>
+                    <th>Mulai</th>
+                    <th>Selesai</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for session in recent_sessions %}
+                <tr>
+                    <td>{{ session.judul }}</td>
+                    <td>{{ session.teknisi.profile.get_display_name|default:session.teknisi.username }}</td>
+                    <td>{{ session.pengawas.profile.get_display_name|default:"—" }}</td>
+                    <td>{{ session.started_at|date:"d/m H:i" }}</td>
+                    <td>{{ session.ended_at|date:"d/m H:i"|default:"—" }}</td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="5" class="text-center text-muted py-3">Belum ada riwayat.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% if can_start %}
+<div class="modal fade" id="modalMulaiLive" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="post" action="{% url 'streaming:start' %}" class="modal-content">
+            {% csrf_token %}
+            <div class="modal-header">
+                <h5 class="modal-title">Mulai Live Streaming</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <label class="form-label">Judul / Lokasi Pemeliharaan</label>
+                <input type="text" name="judul" class="form-control" placeholder="Mis. Pemeliharaan RTU Gardu Induk Sungguminasa" maxlength="200">
+                <div class="form-text">Kosongkan untuk pakai judul default. Kamera akan diminta izin akses setelah ini.</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
+                <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-camera-video-fill me-1"></i>Mulai</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

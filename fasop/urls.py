@@ -64,6 +64,9 @@ urlpatterns = [
     # Audit Log — superuser only
     path('audit-log/', include('auditlog.urls')),
 
+    # Live Streaming — pemeliharaan lapangan (role Teknisi & Asisten Manager)
+    path('streaming/', include('streaming.urls')),
+
     # Public FO page — tanpa login (QR scan)
     path('fo/public/<str:token>/', fo_public, name='fo_public'),
 
