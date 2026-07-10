@@ -1057,6 +1057,7 @@ async function loadTrafoIbtChart() {
                 options: {
                     responsive: true, maintainAspectRatio: false,
                     animation: false,
+                    layout: { padding: { top: 20 } },
                     plugins: {
                         legend: { display: false },
                         tooltip: {
@@ -1067,6 +1068,14 @@ async function loadTrafoIbtChart() {
                                     return `${bay}: ${ctx.parsed.y.toFixed(2)} MW`;
                                 }
                             }
+                        },
+                        datalabels: {
+                            display: ctx => ctx.dataset.data[ctx.dataIndex] != null,
+                            anchor: 'end',
+                            align: 'top',
+                            color: '#c7d2fe',
+                            font: { size: 9, weight: '700' },
+                            formatter: v => v != null ? v.toFixed(2) + ' MW' : '',
                         }
                     },
                     scales: {
@@ -1154,7 +1163,7 @@ async function loadKttChart() {
                         tooltip: {
                             ...tooltipOpts,
                             callbacks: {
-                                label: ctx => `${ctx.parsed.y.toFixed(3)} MW`
+                                label: ctx => `${ctx.parsed.y.toFixed(2)} MW`
                             }
                         },
                         datalabels: {
@@ -1163,7 +1172,7 @@ async function loadKttChart() {
                             align: 'top',
                             color: '#6ee7b7',
                             font: { size: 10, weight: '700' },
-                            formatter: v => v.toFixed(3),
+                            formatter: v => v.toFixed(2) + ' MW',
                         }
                     },
                     scales: {
