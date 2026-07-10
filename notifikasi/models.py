@@ -16,6 +16,7 @@ class Notifikasi(models.Model):
         ('corrective_selesai',  'Corrective Selesai'),
         ('ba_ttd_engineer',     'BA — Permintaan TTD Engineer'),
         ('ba_ttd_am',           'BA — Menunggu TTD AM'),
+        ('live_dimulai',        'Live Streaming Dimulai'),
     )
 
     LEVEL_CHOICES = (

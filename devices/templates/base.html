@@ -865,15 +865,15 @@
     {% if not user_is_operator and not user_is_dispatcher %}
     <div class="sidebar-section">
         <div class="sidebar-section-label">Real Time</div>
-        {% with url_name=request.resolver_match.url_name|default:'' %}
+        {% with url_name=request.resolver_match.url_name|default:'' app_name=request.resolver_match.app_name|default:'' %}
         <button class="sidebar-link sidebar-group-toggle w-100 text-start border-0
-            {% if url_name|slice:':3' == 'dm_' or url_name|slice:':6' == 'opsis_' %}active open{% endif %}"
+            {% if url_name|slice:':3' == 'dm_' or url_name|slice:':6' == 'opsis_' or app_name == 'streaming' %}active open{% endif %}"
             data-target="submenu-status-peralatan" type="button">
             <span class="si-icon"><i class="bi bi-speedometer2"></i></span>
-            Status Peralatan
+            Monitoring
             <i class="bi bi-chevron-right sidebar-toggle-btn ms-auto"></i>
         </button>
-        <div class="sidebar-submenu {% if url_name|slice:':3' == 'dm_' or url_name|slice:':6' == 'opsis_' %}open{% endif %}"
+        <div class="sidebar-submenu {% if url_name|slice:':3' == 'dm_' or url_name|slice:':6' == 'opsis_' or app_name == 'streaming' %}open{% endif %}"
              id="submenu-status-peralatan">
             <a href="{% url 'dm_dashboard' %}"
                class="sidebar-link {% if url_name|slice:':3' == 'dm_' %}active{% endif %}">
@@ -885,6 +885,13 @@
                 <span class="si-icon"><i class="bi bi-bar-chart-line"></i></span>
                 OPSIS
             </a>
+            {% if request.user.is_superuser or request.user.profile.is_technician or request.user.profile.is_asisten_manager %}
+            <a href="{% url 'streaming:list' %}"
+               class="sidebar-link {% if app_name == 'streaming' %}active{% endif %}">
+                <span class="si-icon"><i class="bi bi-camera-video-fill" style="color:#ef4444;"></i></span>
+                Live Streaming
+            </a>
+            {% endif %}
         </div>
         {% endwith %}
     </div>

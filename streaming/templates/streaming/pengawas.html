@@ -1,0 +1,132 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Live — {{ session.judul }}{% endblock %}
+{% block page_title %}Live Streaming — Pengawas{% endblock %}
+
+{% block extra_head %}
+<style>
+.video-wrap { background:#0f172a; border-radius:12px; overflow:hidden; position:relative; aspect-ratio:16/9; }
+.video-wrap video { width:100%; height:100%; object-fit:cover; }
+.live-badge { position:absolute; top:12px; left:12px; background:#ef4444; color:#fff; font-size:11px; font-weight:700; padding:3px 10px; border-radius:20px; letter-spacing:.5px; }
+.mic-badge { position:absolute; top:12px; right:12px; background:rgba(16,185,129,.9); color:#fff; font-size:11px; font-weight:700; padding:3px 10px; border-radius:20px; display:none; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+    <div>
+        <h2 class="mb-0" style="font-size:20px;font-weight:700;">{{ session.judul }}</h2>
+        <p class="text-muted mb-0" style="font-size:13px;">Teknisi: {{ session.teknisi.profile.get_display_name|default:session.teknisi.username }} · Anda pengawas sesi ini — bisa bicara langsung ke teknisi.</p>
+    </div>
+    <a href="{% url 'streaming:list' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i>Kembali</a>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-8">
+        <div class="video-wrap mb-3">
+            {% if session.is_live %}<span class="live-badge">LIVE</span>{% endif %}
+            <span class="mic-badge" id="badge-mic"><i class="bi bi-mic-fill me-1"></i>Mic Aktif</span>
+            <video id="remote-video" autoplay playsinline></video>
+        </div>
+
+        <div class="d-flex gap-2 flex-wrap">
+            <button type="button" id="btn-mic-on" class="btn btn-success btn-sm"><i class="bi bi-mic-fill me-1"></i>Aktifkan Mic Talkback</button>
+            <button type="button" id="btn-mic-off" class="btn btn-outline-danger btn-sm" disabled><i class="bi bi-mic-mute-fill me-1"></i>Matikan Mic</button>
+        </div>
+        <div id="status-msg" class="text-muted mt-2" style="font-size:12px;"></div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-body">
+                <h6><i class="bi bi-info-circle me-1"></i>Info Sesi</h6>
+                <p class="mb-1" style="font-size:13px;">Status: <strong>{{ session.get_status_display }}</strong></p>
+                <p class="mb-0" style="font-size:13px;">Mic talkback hanya terdengar oleh teknisi yang live, tidak oleh viewer lain.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'streaming/webrtc.js' %}"></script>
+<script>
+const ICE_SERVERS  = JSON.parse('{{ ice_servers_json|escapejs }}');
+const WHIP_URL      = '{{ whip_url }}';
+const WHEP_URL      = '{{ whep_url }}';
+const VIDEO_PATH    = '{{ session.video_path }}';
+const TALKBACK_PATH = '{{ session.talkback_path }}';
+const VIEW_TOKEN    = '{{ session.view_token }}';
+const PENGAWAS_KEY  = '{{ session.pengawas_key }}';
+const IS_LIVE       = {{ session.is_live|yesno:"true,false" }};
+
+const remoteVideo = document.getElementById('remote-video');
+const statusMsg   = document.getElementById('status-msg');
+const btnMicOn     = document.getElementById('btn-mic-on');
+const btnMicOff     = document.getElementById('btn-mic-off');
+const badgeMic       = document.getElementById('badge-mic');
+
+let playPc = null, playResource = null;
+let micStream = null, micPc = null, micResource = null;
+
+async function startWatching() {
+    if (!IS_LIVE) {
+        statusMsg.textContent = 'Sesi sudah berakhir.';
+        return;
+    }
+    statusMsg.textContent = 'Menghubungkan ke siaran...';
+    try {
+        const { pc, resourceUrl } = await whepPlay(WHEP_URL, VIDEO_PATH, VIEW_TOKEN, remoteVideo, ICE_SERVERS);
+        playPc = pc;
+        playResource = resourceUrl;
+        statusMsg.textContent = 'Terhubung.';
+    } catch (err) {
+        console.error(err);
+        statusMsg.textContent = 'Belum bisa terhubung — teknisi mungkin belum mulai kirim video. Mencoba lagi...';
+        setTimeout(startWatching, 4000);
+    }
+}
+
+async function startTalkback() {
+    btnMicOn.disabled = true;
+    statusMsg.textContent = 'Meminta akses mikrofon...';
+    try {
+        micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const { pc, resourceUrl } = await whipPublish(WHIP_URL, TALKBACK_PATH, PENGAWAS_KEY, micStream, ICE_SERVERS);
+        micPc = pc;
+        micResource = resourceUrl;
+        badgeMic.style.display = 'inline-block';
+        btnMicOff.disabled = false;
+        statusMsg.textContent = 'Mic talkback aktif — teknisi bisa mendengar Anda.';
+    } catch (err) {
+        console.error(err);
+        statusMsg.textContent = 'Gagal aktifkan mic: ' + err.message;
+        btnMicOn.disabled = false;
+    }
+}
+
+async function stopTalkback() {
+    btnMicOff.disabled = true;
+    await whipWhepStop(micPc, micResource);
+    micPc = null;
+    micResource = null;
+    if (micStream) {
+        micStream.getTracks().forEach(t => t.stop());
+        micStream = null;
+    }
+    badgeMic.style.display = 'none';
+    btnMicOn.disabled = false;
+    statusMsg.textContent = 'Mic talkback dimatikan.';
+}
+
+btnMicOn.addEventListener('click', startTalkback);
+btnMicOff.addEventListener('click', stopTalkback);
+startWatching();
+window.addEventListener('beforeunload', () => {
+    if (playPc) whipWhepStop(playPc, playResource);
+    if (micPc) whipWhepStop(micPc, micResource);
+});
+</script>
+{% endblock %}
