@@ -163,9 +163,12 @@ def export_frekuensi(request):
     # Batas frekuensi normal PLN: 49.5 – 50.5 Hz
     batas_bawah, batas_atas = 49.5, 50.5
 
+    data_hz = []  # (hz, waktu_lokal) — untuk ringkasan min/max beserta jamnya
     for i, row in enumerate(rows, 1):
         waktu_lokal = row.waktu.astimezone(tz_local)
         hz = round(row.hz, 4) if row.hz is not None else None
+        if hz is not None:
+            data_hz.append((hz, waktu_lokal))
         if hz is None:
             status = '—'
         elif hz < batas_bawah:
@@ -178,7 +181,7 @@ def export_frekuensi(request):
         ws.append([
             i,
             waktu_lokal.strftime('%Y-%m-%d'),
-            waktu_lokal.strftime('%H:%M'),
+            waktu_lokal.strftime('%H:%M:%S'),
             hz,
             status,
         ])
@@ -193,15 +196,16 @@ def export_frekuensi(request):
             ws.cell(i + 1, col).alignment = center
 
     # Summary baris terakhir
-    if rows.exists():
-        hz_vals = [r.hz for r in rows if r.hz is not None]
-        if hz_vals:
-            ws.append([])
-            ws.append(['', '', 'Rata-rata', round(sum(hz_vals)/len(hz_vals), 4), ''])
-            ws.append(['', '', 'Minimum',   round(min(hz_vals), 4), ''])
-            ws.append(['', '', 'Maksimum',  round(max(hz_vals), 4), ''])
-            abnormal = sum(1 for h in hz_vals if h < batas_bawah or h > batas_atas)
-            ws.append(['', '', 'Abnormal',  abnormal, f'dari {len(hz_vals)} data'])
+    if data_hz:
+        hz_vals = [h for h, _ in data_hz]
+        min_hz, min_waktu = min(data_hz, key=lambda x: x[0])
+        max_hz, max_waktu = max(data_hz, key=lambda x: x[0])
+        ws.append([])
+        ws.append(['', '', 'Rata-rata', round(sum(hz_vals)/len(hz_vals), 4), ''])
+        ws.append(['', '', 'Minimum',   min_hz, f"pukul {min_waktu.strftime('%H:%M:%S')}"])
+        ws.append(['', '', 'Maksimum',  max_hz, f"pukul {max_waktu.strftime('%H:%M:%S')}"])
+        abnormal = sum(1 for h in hz_vals if h < batas_bawah or h > batas_atas)
+        ws.append(['', '', 'Abnormal',  abnormal, f'dari {len(hz_vals)} data'])
 
     # Response
     filename = f'Frekuensi_{tanggal}.xlsx'
