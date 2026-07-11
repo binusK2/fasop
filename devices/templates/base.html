@@ -1259,15 +1259,17 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <!-- ── Bantuan WhatsApp (khusus Operator) ──────────────────────────────────── -->
 {% if user_is_operator %}
-<a href="https://wa.me/6283845511608?text={{ 'Halo, saya Operator FASOP butuh bantuan terkait inspeksi.'|urlencode }}"
+{% with wa_msg="Halo, saya "|add:user_display_name|add:", Operator FASOP butuh bantuan terkait inspeksi." %}
+<a href="https://wa.me/6285156357878?text={{ wa_msg|urlencode }}"
    target="_blank" rel="noopener" class="text-decoration-none"
-   style="position:fixed;left:18px;bottom:18px;z-index:2000;
+   style="position:fixed;right:18px;bottom:86px;z-index:2000;
           display:inline-flex;align-items:center;gap:8px;padding:11px 16px;border-radius:30px;
           background:#25D366;color:#fff;font-size:13px;font-weight:600;
           font-family:'DM Sans',sans-serif;
           box-shadow:0 6px 18px rgba(37,211,102,0.4);">
     <i class="bi bi-whatsapp" style="font-size:16px;"></i>Butuh Bantuan?
 </a>
+{% endwith %}
 {% endif %}
 
 <!-- ── PWA: Install button ─────────────────────────────────────────────────── -->
