@@ -1649,7 +1649,7 @@ def blank_maintenance_pdf(request, device_id):
         # semua field detail kosong — template akan tampilkan "-" atau kosong
         'fisik': {}, 'pengukuran': {}, 'port': {}, 'sfp_ports': [],
         'catatan_tambahan': '',
-        'plc': {}, 'radio': {}, 'voip': {}, 'mux': {}, 'rectifier': {},
+        'plc': {}, 'radio': {}, 'repeater': {}, 'voip': {}, 'mux': {}, 'rectifier': {},
         'tp': {}, 'genset': {}, 'rtu': {}, 'sas': {}, 'roip': {}, 'ups': {},
         'freq_relay': {}, 'corrective': {},
     }
@@ -1681,7 +1681,7 @@ def export_maintenance_pdf(request, pk):
     device_kind = device.jenis.name.strip().upper() if device.jenis else 'GENERIC'
 
     # ── Ambil detail sesuai jenis ──────────────────────────────────
-    router_detail = plc_detail = radio_detail = None
+    router_detail = plc_detail = radio_detail = repeater_detail = None
     voip_detail = mux_detail = rect_detail = tp_detail = genset_detail = rtu_detail = sas_detail = roip_detail = ups_detail = freq_relay_detail = None
 
     def _try(fn):
@@ -1694,6 +1694,8 @@ def export_maintenance_pdf(request, pk):
         plc_detail = _try(lambda: maintenance.maintenanceplc)
     elif device_kind == 'RADIO':
         radio_detail = _try(lambda: maintenance.maintenanceradio)
+    elif device_kind in ('REPEATER', 'REPEATER & TOWER'):
+        repeater_detail = _try(lambda: maintenance.maintenancerepeater)
     elif device_kind == 'VOIP':
         voip_detail = _try(lambda: maintenance.maintenancevoip)
     elif device_kind == 'MULTIPLEXER':
@@ -1844,6 +1846,31 @@ def export_maintenance_pdf(request, pk):
             'frekuensi_rx':     _g(radio_detail, 'frekuensi_rx'),
             'catatan':          _g(radio_detail, 'catatan', ''),
         } if radio_detail else {},
+
+        'repeater': {
+            'suhu_ruangan':     _g(repeater_detail, 'suhu_ruangan'),
+            'kebersihan':       _g(repeater_detail, 'kebersihan', ''),
+            'lampu_penerangan': _g(repeater_detail, 'lampu_penerangan', ''),
+            'ada_radio_tx':     _g(repeater_detail, 'ada_radio_tx', ''),
+            'ada_radio_rx':     _g(repeater_detail, 'ada_radio_rx', ''),
+            'ada_battery':      _g(repeater_detail, 'ada_battery', ''),
+            'merk_battery':     _g(repeater_detail, 'merk_battery', ''),
+            'ada_power_supply': _g(repeater_detail, 'ada_power_supply', ''),
+            'merk_power_supply':_g(repeater_detail, 'merk_power_supply', ''),
+            'jenis_antena':     _g(repeater_detail, 'jenis_antena', ''),
+            'merk_radio_tx':    _g(repeater_detail, 'merk_radio_tx', ''),
+            'tipe_radio_tx':    _g(repeater_detail, 'tipe_radio_tx', ''),
+            'swr_tx':           _g(repeater_detail, 'swr_tx', ''),
+            'power_tx':         _g(repeater_detail, 'power_tx'),
+            'frekuensi_tx':     _g(repeater_detail, 'frekuensi_tx'),
+            'merk_radio_rx':    _g(repeater_detail, 'merk_radio_rx', ''),
+            'tipe_radio_rx':    _g(repeater_detail, 'tipe_radio_rx', ''),
+            'swr_rx':           _g(repeater_detail, 'swr_rx', ''),
+            'frekuensi_rx':     _g(repeater_detail, 'frekuensi_rx'),
+            'tegangan_battery': _g(repeater_detail, 'tegangan_battery'),
+            'tegangan_psu':     _g(repeater_detail, 'tegangan_psu'),
+            'catatan':          _g(repeater_detail, 'catatan', ''),
+        } if repeater_detail else {},
 
         'voip': {
             'ip_address':        _g(voip_detail, 'ip_address', ''),
