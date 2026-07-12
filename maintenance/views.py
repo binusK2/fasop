@@ -3,8 +3,8 @@ from django.urls import reverse
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.clickjacking import xframe_options_exempt
 from devices.permissions import require_can_edit, require_can_delete, is_viewer_only
-from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset, MaintenanceRTU, MaintenanceSAS, MaintenanceRTUGeneric, MaintenanceRoIP, MaintenanceUPS, MaintenanceFrequencyRelay, MaintenanceMasterTrip, MaintenanceDFR, MaintenanceMasterStation, BeritaAcaraRecord, BeritaAcaraEviden
-from .forms import MaintenanceForm, MaintenancePLCForm, MaintenanceRouterForm, MaintenanceRadioForm, MaintenanceVoIPForm, MaintenanceMuxForm, MaintenanceRectifierForm, MaintenanceTeleproteksiForm, MaintenanceGensetForm, MaintenanceRTUForm, MaintenanceSASForm, MaintenanceRTUGenericForm, MaintenanceRoIPForm, MaintenanceUPSForm, MaintenanceFrequencyRelayForm, MaintenanceMasterTripForm, MaintenanceDFRForm, MaintenanceMasterStationForm
+from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceRepeater, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset, MaintenanceRTU, MaintenanceSAS, MaintenanceRTUGeneric, MaintenanceRoIP, MaintenanceUPS, MaintenanceFrequencyRelay, MaintenanceMasterTrip, MaintenanceDFR, MaintenanceMasterStation, BeritaAcaraRecord, BeritaAcaraEviden
+from .forms import MaintenanceForm, MaintenancePLCForm, MaintenanceRouterForm, MaintenanceRadioForm, MaintenanceRepeaterForm, MaintenanceVoIPForm, MaintenanceMuxForm, MaintenanceRectifierForm, MaintenanceTeleproteksiForm, MaintenanceGensetForm, MaintenanceRTUForm, MaintenanceSASForm, MaintenanceRTUGenericForm, MaintenanceRoIPForm, MaintenanceUPSForm, MaintenanceFrequencyRelayForm, MaintenanceMasterTripForm, MaintenanceDFRForm, MaintenanceMasterStationForm
 from devices.models import Device, DeviceType
 from gangguan.models import Gangguan
 from inspection.models import InspectionCatuDaya
@@ -31,6 +31,8 @@ DEVICE_FORM_MAP = {
     'ROUTER': (MaintenanceRouterForm, 'maintenance/router_form.html'),
     'SWITCH': (MaintenanceRouterForm, 'maintenance/switch_form.html'),
     'RADIO': (MaintenanceRadioForm, 'maintenance/radio_form.html'),
+    'REPEATER': (MaintenanceRepeaterForm, 'maintenance/repeater_form.html'),
+    'REPEATER & TOWER': (MaintenanceRepeaterForm, 'maintenance/repeater_form.html'),
     'VOIP':        (MaintenanceVoIPForm,  'maintenance/voip_form.html'),
     'MULTIPLEXER':  (MaintenanceMuxForm,        'maintenance/mux_form.html'),
     'RECTIFIER':    (MaintenanceRectifierForm,   'maintenance/rectifier_form.html'),
@@ -288,6 +290,7 @@ def maintenance_detail(request, pk):
     plc_detail    = None
     router_detail = None
     radio_detail  = None
+    repeater_detail = None
     voip_detail   = None
     mux_detail    = None
     rect_detail   = None
@@ -315,6 +318,12 @@ def maintenance_detail(request, pk):
         try:
             radio_detail = maintenance.maintenanceradio
         except MaintenanceRadio.DoesNotExist:
+            pass
+
+    elif device_type in ('REPEATER', 'REPEATER & TOWER'):
+        try:
+            repeater_detail = maintenance.maintenancerepeater
+        except MaintenanceRepeater.DoesNotExist:
             pass
 
     elif device_type == 'VOIP':
@@ -417,6 +426,16 @@ def maintenance_detail(request, pk):
             ('ada_radio',        'Radio',         radio_detail.ada_radio),
             ('ada_battery',      'Battery',       radio_detail.ada_battery),
             ('ada_power_supply', 'Power Supply',  radio_detail.ada_power_supply),
+        ]
+
+    # Checklist peralatan terpasang untuk template repeater
+    repeater_checklist = []
+    if repeater_detail:
+        repeater_checklist = [
+            ('ada_radio_tx',     'Radio TX',      repeater_detail.ada_radio_tx),
+            ('ada_radio_rx',     'Radio RX',      repeater_detail.ada_radio_rx),
+            ('ada_battery',      'Battery',       repeater_detail.ada_battery),
+            ('ada_power_supply', 'Power Supply',  repeater_detail.ada_power_supply),
         ]
 
     # Checklist fisik untuk template router
@@ -535,6 +554,8 @@ def maintenance_detail(request, pk):
         'plc_detail':       plc_detail,
         'router_detail':    router_detail,
         'radio_detail':     radio_detail,
+        'repeater_detail':    repeater_detail,
+        'repeater_checklist': repeater_checklist,
         'voip_detail':      voip_detail,
         'voip_checklist':   voip_checklist,
         'mux_detail':       mux_detail,
@@ -764,6 +785,8 @@ def maintenance_edit(request, pk):
                 detail_instance = maintenance.maintenancerouter
             elif detail_form_class.__name__ == 'MaintenanceRadioForm':
                 detail_instance = maintenance.maintenanceradio
+            elif detail_form_class.__name__ == 'MaintenanceRepeaterForm':
+                detail_instance = maintenance.maintenancerepeater
             elif detail_form_class.__name__ == 'MaintenanceVoIPForm':
                 detail_instance = maintenance.maintenancevoip
             elif detail_form_class.__name__ == 'MaintenanceMuxForm':

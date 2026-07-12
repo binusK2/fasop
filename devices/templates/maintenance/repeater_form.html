@@ -1,0 +1,461 @@
+{% extends 'base.html' %}
+{% block title %}{% if is_edit %}Edit{% else %}Form{% endif %} Maintenance Repeater — {{ device.nama }}{% endblock %}
+{% block page_title %}{% if is_edit %}Edit{% else %}Form{% endif %} Maintenance Repeater{% endblock %}
+
+{% block content %}
+
+<div class="d-flex align-items-center gap-2 mb-3">
+    {% if is_edit %}
+    <a href="{% url 'maintenance_view' maintenance.id %}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Kembali ke Detail
+    </a>
+    {% else %}
+    <a href="{% url 'device_view' device.id %}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Kembali ke Perangkat
+    </a>
+    {% endif %}
+</div>
+
+{% include 'maintenance/_device_banner.html' with banner_icon='bi-broadcast-pin' banner_icon_color='#93c5fd' banner_icon_bg='rgba(59,130,246,0.2)' %}
+
+<div class="alert alert-info d-flex align-items-start gap-2 mb-3" style="font-size:13px;">
+    <i class="bi bi-info-circle mt-1"></i>
+    <div>Repeater terdiri dari 2 unit radio yang berpasangan — <strong>Radio TX</strong> dan <strong>Radio RX</strong>.
+    Merk/Tipe di data perangkat hanya mencatat 1 unit, jadi lengkapi identitas kedua unit di bawah.</div>
+</div>
+
+<form method="post" enctype="multipart/form-data"
+    {% if is_edit %}action="{% url 'maintenance_edit' maintenance.id %}"{% endif %}>
+{% csrf_token %}
+
+<!-- ══ 1. INFORMASI MAINTENANCE ══════════════════════════════ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-title-bar">
+            <span class="bar" style="background:#3b82f6;"></span>
+            <span>Informasi Maintenance</span>
+        </div>
+        <!-- Baris 1: Jenis, Tanggal, Pelaksana -->
+        <div class="row g-3 align-items-start">
+            <div class="col-md-2">
+                <label class="form-label fw-semibold">Jenis Maintenance</label>
+                <div style="display:flex;align-items:center;gap:6px;background:#eff6ff;
+                            color:#1d4ed8;border:1.5px solid #bfdbfe;border-radius:8px;
+                            padding:8px 12px;font-size:13px;font-weight:700;white-space:nowrap;">
+                    <i class="bi bi-shield-check" style="font-size:14px;"></i> Preventive
+                </div>
+                <!-- hidden untuk submit tetap terkirim meski select disabled -->
+                <input type="hidden" name="maintenance_type" value="Preventive">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-semibold">Tanggal</label>
+                {{ maintenance_form.date }}
+            </div>
+            {% include 'maintenance/_pelaksana_tag_input.html' %}
+        </div>
+        <!-- Baris 2: Deskripsi & Foto -->
+        <div class="row g-3 mt-1">
+            <div class="col-md-8">
+                <label class="form-label fw-semibold">Deskripsi / Keluhan</label>
+                {{ maintenance_form.description }}
+            </div>
+            <div class="col-md-4">
+                <label class="form-label fw-semibold">Foto Dokumentasi</label>
+                {{ maintenance_form.photo }}
+                <div class="form-text">Format: JPG, PNG. Maks 10MB.</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ 2. KONDISI RUANGAN ════════════════════════════════════ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-title-bar">
+            <span class="bar" style="background:#8b5cf6;"></span>
+            <span>Kondisi Ruangan</span>
+        </div>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <div class="measure-card">
+                    <div class="measure-label">Suhu Ruangan</div>
+                    <div class="input-group">
+                        {{ detail_form.suhu_ruangan }}
+                        <span class="input-group-text measure-unit">°C</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="measure-card">
+                    <div class="measure-label">Kebersihan</div>
+                    {{ detail_form.kebersihan }}
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="measure-card">
+                    <div class="measure-label">Lampu Penerangan</div>
+                    {{ detail_form.lampu_penerangan }}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ 3. PERALATAN TERPASANG ════════════════════════════════ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-title-bar">
+            <span class="bar" style="background:#10b981;"></span>
+            <span>Peralatan Terpasang</span>
+            <span style="font-size:11px;color:#94a3b8;margin-left:4px;">— Pilih OK / NOK</span>
+        </div>
+
+        <div class="row g-2" id="checklist-container">
+            <!-- Dirender oleh JS -->
+        </div>
+
+        <!-- Jenis Antena -->
+        <div class="row g-3 mt-1">
+            <div class="col-md-4">
+                <div class="measure-card">
+                    <div class="measure-label">Jenis Antena</div>
+                    {{ detail_form.jenis_antena }}
+                </div>
+            </div>
+        </div>
+
+        <!-- Merk Battery & PSU -->
+        <div class="row g-3 mt-1">
+            <div class="col-md-4">
+                <div class="measure-card">
+                    <div class="measure-label">Merk Battery</div>
+                    {{ detail_form.merk_battery }}
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="measure-card">
+                    <div class="measure-label">Merk Power Supply</div>
+                    {{ detail_form.merk_power_supply }}
+                </div>
+            </div>
+        </div>
+
+        <!-- Hidden Django fields -->
+        <div style="display:none;">
+            <div id="field-ada_radio_tx">{{ detail_form.ada_radio_tx }}</div>
+            <div id="field-ada_radio_rx">{{ detail_form.ada_radio_rx }}</div>
+            <div id="field-ada_battery">{{ detail_form.ada_battery }}</div>
+            <div id="field-ada_power_supply">{{ detail_form.ada_power_supply }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ 4. UNIT RADIO TX ═══════════════════════════════════════ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-title-bar">
+            <span class="bar" style="background:#3b82f6;"></span>
+            <span class="tx-rx-header tx" style="margin:0;"><i class="bi bi-arrow-up-circle-fill"></i> Unit Radio TX</span>
+        </div>
+
+        <div class="row g-3 mb-3">
+            <div class="col-md-6">
+                <div class="measure-card">
+                    <div class="measure-label">Merk Radio TX</div>
+                    {{ detail_form.merk_radio_tx }}
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="measure-card">
+                    <div class="measure-label">Tipe/Model Radio TX</div>
+                    {{ detail_form.tipe_radio_tx }}
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-3">
+            <div class="col-md-4">
+                <div class="measure-card" id="swr-tx-card">
+                    <div class="measure-label">SWR TX</div>
+                    <div class="input-group">
+                        {{ detail_form.swr_tx }}
+                        <span class="input-group-text measure-unit" id="swr-tx-unit">—</span>
+                    </div>
+                    <div class="measure-hint">
+                        &lt; 1,5 = Baik &nbsp;|&nbsp; 1,5 – 2 = Perlu Perhatian &nbsp;|&nbsp; &gt; 2 = Buruk
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="measure-card">
+                    <div class="measure-label">Power TX</div>
+                    <div class="input-group">
+                        {{ detail_form.power_tx }}
+                        <span class="input-group-text measure-unit">W</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="measure-card">
+                    <div class="measure-label">Frekuensi TX / Tone</div>
+                    <div class="input-group">
+                        {{ detail_form.frekuensi_tx }}
+                        <span class="input-group-text measure-unit">MHz</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ 5. UNIT RADIO RX ═══════════════════════════════════════ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-title-bar">
+            <span class="bar" style="background:#10b981;"></span>
+            <span class="tx-rx-header rx" style="margin:0;"><i class="bi bi-arrow-down-circle-fill"></i> Unit Radio RX</span>
+        </div>
+
+        <div class="row g-3 mb-3">
+            <div class="col-md-6">
+                <div class="measure-card">
+                    <div class="measure-label">Merk Radio RX</div>
+                    {{ detail_form.merk_radio_rx }}
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="measure-card">
+                    <div class="measure-label">Tipe/Model Radio RX</div>
+                    {{ detail_form.tipe_radio_rx }}
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-3">
+            <div class="col-md-4">
+                <div class="measure-card" id="swr-rx-card">
+                    <div class="measure-label">SWR RX</div>
+                    <div class="input-group">
+                        {{ detail_form.swr_rx }}
+                        <span class="input-group-text measure-unit" id="swr-rx-unit">—</span>
+                    </div>
+                    <div class="measure-hint">
+                        &lt; 1,5 = Baik &nbsp;|&nbsp; 1,5 – 2 = Perlu Perhatian &nbsp;|&nbsp; &gt; 2 = Buruk
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="measure-card">
+                    <div class="measure-label">Frekuensi RX / Tone</div>
+                    <div class="input-group">
+                        {{ detail_form.frekuensi_rx }}
+                        <span class="input-group-text measure-unit">MHz</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ 6. TEGANGAN ════════════════════════════════════════════ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-title-bar">
+            <span class="bar" style="background:#f59e0b;"></span>
+            <span>Tegangan</span>
+        </div>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <div class="measure-card">
+                    <div class="measure-label">Tegangan Battery</div>
+                    <div class="input-group">
+                        {{ detail_form.tegangan_battery }}
+                        <span class="input-group-text measure-unit">V</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="measure-card">
+                    <div class="measure-label">Tegangan Power Supply</div>
+                    <div class="input-group">
+                        {{ detail_form.tegangan_psu }}
+                        <span class="input-group-text measure-unit">V</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ 7. CATATAN ════════════════════════════════════════════ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-title-bar">
+            <span class="bar" style="background:#64748b;"></span>
+            <span>Catatan Tambahan</span>
+        </div>
+        {{ detail_form.catatan }}
+    </div>
+</div>
+
+<!-- ERROR -->
+{% if maintenance_form.errors or detail_form.errors %}
+<div class="alert alert-danger">
+    <i class="bi bi-exclamation-triangle me-2"></i>
+    <strong>Mohon perbaiki error berikut:</strong>
+    {{ maintenance_form.errors }}{% if detail_form %}{{ detail_form.errors }}{% endif %}
+</div>
+{% endif %}
+
+<!-- SUBMIT -->
+<div class="d-flex gap-2 justify-content-end pb-4">
+    {% if is_edit %}
+    <a href="{% url 'maintenance_view' maintenance.id %}" class="btn btn-outline-secondary">
+        <i class="bi bi-x me-1"></i>Batal
+    </a>
+    {% else %}
+    <a href="{% url 'device_view' device.id %}" class="btn btn-outline-secondary">
+        <i class="bi bi-x me-1"></i>Batal
+    </a>
+    {% endif %}
+        <a href="{% url 'blank_maintenance_pdf' device.id %}" target="_blank"
+        class="btn btn-outline-secondary btn-print-hide" title="Cetak formulir kosong tanpa simpan data">
+        <i class="bi bi-file-earmark-pdf me-1"></i>Cetak Formulir
+    </a>
+    <button type="submit" name="next" value="pdf" class="btn btn-outline-secondary btn-print-hide" title="Simpan lalu buka PDF">
+        <i class="bi bi-printer me-1"></i>Simpan &amp; Cetak PDF
+    </button>
+<button type="submit" class="btn btn-primary btn-print-hide px-4">
+        <i class="bi bi-floppy me-1"></i>
+        {% if is_edit %}Simpan Perubahan{% else %}Simpan Maintenance{% endif %}
+    </button>
+</div>
+
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<style>
+.section-title-bar { display:flex;align-items:center;gap:8px;margin-bottom:14px; }
+.section-title-bar .bar { width:5px;height:18px;border-radius:3px;flex-shrink:0; }
+.section-title-bar > span:nth-child(2) { font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#475569; }
+
+.measure-card { background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px; }
+.measure-label { font-size:11.5px;font-weight:700;color:#64748b;margin-bottom:7px;text-transform:uppercase;letter-spacing:0.4px; }
+.measure-unit { background:#e2e8f0;border-color:#e2e8f0 !important;font-size:12px;font-weight:700;color:#475569;min-width:48px;justify-content:center; }
+.measure-hint { font-size:11px;color:#94a3b8;margin-top:5px; }
+
+.tx-rx-header { font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;display:flex;align-items:center;gap:6px; }
+.tx-rx-header.tx { color:#3b82f6; }
+.tx-rx-header.rx { color:#10b981; }
+
+/* Checklist toggle */
+.checklist-card { background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:11px 13px;transition:border-color 0.15s,background 0.15s;height:100%; }
+.checklist-card.status-ok  { border-color:#10b981;background:#f0fdf4; }
+.checklist-card.status-nok { border-color:#ef4444;background:#fef2f2; }
+.checklist-label { font-size:12.5px;font-weight:600;color:#334155;margin-bottom:9px;display:flex;align-items:center;gap:6px; }
+.checklist-toggle { display:flex;gap:6px; }
+.toggle-btn { flex:1;padding:5px 0;border-radius:6px;font-size:12px;font-weight:700;border:1.5px solid transparent;cursor:pointer;transition:all 0.12s; }
+.toggle-btn.ok  { background:#fff;border-color:#d1fae5;color:#9ca3af; }
+.toggle-btn.nok { background:#fff;border-color:#fee2e2;color:#9ca3af; }
+.toggle-btn.ok:hover  { background:#d1fae5;color:#065f46;border-color:#6ee7b7; }
+.toggle-btn.nok:hover { background:#fee2e2;color:#991b1b;border-color:#fca5a5; }
+.toggle-btn.ok.selected  { background:#10b981;border-color:#10b981;color:#fff; }
+.toggle-btn.nok.selected { background:#ef4444;border-color:#ef4444;color:#fff; }
+</style>
+
+<script>
+const CHECKLIST = [
+    { id: 'ada_radio_tx',     label: 'Radio TX' },
+    { id: 'ada_radio_rx',     label: 'Radio RX' },
+    { id: 'ada_battery',      label: 'Battery' },
+    { id: 'ada_power_supply', label: 'Power Supply' },
+];
+
+function setStatus(fieldName, value) {
+    const card = document.getElementById('card-' + fieldName);
+    if (card) {
+        card.classList.toggle('status-ok',  value === 'OK');
+        card.classList.toggle('status-nok', value === 'NOK');
+        const icon = card.querySelector('.status-icon');
+        if (icon) icon.textContent = value === 'OK' ? '✓' : value === 'NOK' ? '✗' : '';
+        card.querySelectorAll('.toggle-btn').forEach(btn => {
+            btn.classList.toggle('selected',
+                (btn.classList.contains('ok') && value === 'OK') ||
+                (btn.classList.contains('nok') && value === 'NOK')
+            );
+        });
+    }
+    // Fix: RadioSelect renders <input type="radio">, bukan <select>
+    const wrap = document.getElementById('field-' + fieldName);
+    if (wrap) {
+        const radio = wrap.querySelector(`input[value="${value}"]`);
+        if (radio) radio.checked = true;
+    }
+}
+
+function renderChecklist() {
+    const container = document.getElementById('checklist-container');
+    if (!container) return;
+    container.innerHTML = '';
+    CHECKLIST.forEach(({ id, label }) => {
+        const col = document.createElement('div');
+        col.className = 'col-md-3 col-sm-6';
+        col.innerHTML = `
+            <div class="checklist-card" id="card-${id}">
+                <div class="checklist-label"><span class="status-icon"></span>${label}</div>
+                <div class="checklist-toggle">
+                    <button type="button" class="toggle-btn ok" onclick="setStatus('${id}','OK')">✓ OK</button>
+                    <button type="button" class="toggle-btn nok" onclick="setStatus('${id}','NOK')">✗ NOK</button>
+                </div>
+            </div>`;
+        container.appendChild(col);
+    });
+    // Fix: baca nilai dari radio input yang sudah ter-check (saat edit)
+    CHECKLIST.forEach(({ id }) => {
+        const wrap = document.getElementById('field-' + id);
+        if (!wrap) return;
+        const checked = wrap.querySelector('input[type="radio"]:checked');
+        if (checked) setStatus(id, checked.value);
+    });
+}
+
+/* SWR real-time color feedback — dipakai untuk SWR TX & SWR RX */
+function bindSwrColor(inputId, cardId, unitId) {
+    const inp  = document.getElementById(inputId);
+    const card = document.getElementById(cardId);
+    const unit = document.getElementById(unitId);
+    if (!inp || !card) return;
+    function update() {
+        const v = parseFloat(inp.value);
+        if (isNaN(v)) {
+            card.style.border = '';
+            card.style.background = '';
+            if (unit) { unit.textContent = '—'; unit.style.color = ''; }
+            return;
+        }
+        if (v < 1.5) {
+            card.style.border = '1.5px solid #6ee7b7';
+            card.style.background = '#f0fdf4';
+            if (unit) { unit.textContent = 'Baik'; unit.style.color = '#065f46'; }
+        } else if (v <= 2) {
+            card.style.border = '1.5px solid #fde68a';
+            card.style.background = '#fffbeb';
+            if (unit) { unit.textContent = 'Perhatian'; unit.style.color = '#92400e'; }
+        } else {
+            card.style.border = '1.5px solid #fca5a5';
+            card.style.background = '#fef2f2';
+            if (unit) { unit.textContent = 'Buruk'; unit.style.color = '#991b1b'; }
+        }
+    }
+    inp.addEventListener('input', update);
+    update();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    renderChecklist();
+    bindSwrColor('id_swr_tx', 'swr-tx-card', 'swr-tx-unit');
+    bindSwrColor('id_swr_rx', 'swr-rx-card', 'swr-rx-unit');
+});
+</script>
+{% endblock %}
