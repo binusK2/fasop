@@ -36,6 +36,28 @@ function _resolveResourceUrl(baseUrl, locationHeader) {
     }
 }
 
+/** Susun ulang codec preference video transceiver supaya H.264 diutamakan (MP4-compatible). */
+function _preferH264(pc) {
+    if (typeof RTCRtpSender === 'undefined' || !RTCRtpSender.getCapabilities) return;
+    const caps = RTCRtpSender.getCapabilities('video');
+    if (!caps || !caps.codecs || !caps.codecs.length) return;
+
+    const h264 = caps.codecs.filter((c) => /h264/i.test(c.mimeType));
+    if (!h264.length) return;
+    const others = caps.codecs.filter((c) => !/h264/i.test(c.mimeType));
+
+    const videoTransceiver = pc.getTransceivers().find(
+        (t) => t.sender && t.sender.track && t.sender.track.kind === 'video'
+    );
+    if (videoTransceiver && videoTransceiver.setCodecPreferences) {
+        try {
+            videoTransceiver.setCodecPreferences([...h264, ...others]);
+        } catch (e) {
+            // Browser lama / tidak dukung — biarkan default (bisa jadi VP8, rekaman jadi audio-only).
+        }
+    }
+}
+
 /**
  * Publish local media stream ke MediaMTX via WHIP.
  * Return { pc, resourceUrl } — simpan resourceUrl untuk dipakai saat stop().
@@ -43,6 +65,11 @@ function _resolveResourceUrl(baseUrl, locationHeader) {
 async function whipPublish(baseUrl, path, token, stream, iceServers) {
     const pc = new RTCPeerConnection({ iceServers: iceServers || [] });
     stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+
+    // Prioritaskan H.264 untuk video — MediaMTX tidak bisa merekam VP8 ke
+    // dalam MP4 (skip diam-diam, hasil rekaman jadi audio-only). Tidak
+    // berpengaruh ke live/WHEP, cuma menentukan codec yang dipakai encoder.
+    _preferH264(pc);
 
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
