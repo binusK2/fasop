@@ -12,6 +12,23 @@ bash deploy/setup_streaming.sh
 ```
 Aman dijalankan berulang kali.
 
+## Keterbatasan diketahui: rekaman audio-only (belum ada video)
+
+Browser default kirim video WebRTC pakai codec **VP8**, tapi recorder
+fMP4 MediaMTX v1.19.2 **belum mengimplementasi VP8** (`// TODO` di source
+code-nya) — video track di-skip diam-diam, hasil rekaman cuma berisi
+audio (Opus). Live streaming & talkback TIDAK terpengaruh, cuma rekaman-
+nya yang tidak ada videonya.
+
+**Sudah dicoba & di-revert:** memaksa browser pakai H.264 (yang didukung
+recorder) lewat `RTCRtpTransceiver.setCodecPreferences()` — video codec-nya
+berhasil ganti H.264, tapi malah merusak WHEP (viewer connect tapi video
+tidak muncul sama sekali). Diputuskan revert karena live streaming lebih
+prioritas daripada rekaman lengkap. Kalau mau digali lagi nanti: cek kenapa
+MediaMTX WHEP gagal kirim video H.264 ke viewer padahal publish-nya
+sukses — kemungkinan butuh konfigurasi profil H.264 spesifik atau versi
+MediaMTX lebih baru yang sudah dukung VP8 di recorder-nya.
+
 ## Otomatis oleh `setup_streaming.sh`
 
 - [ ] `.env` → `MEDIAMTX_AUTH_SECRET` (di-generate acak kalau belum ada)

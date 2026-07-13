@@ -115,15 +115,6 @@ async function startPublish() {
         localVideo.srcObject = localStream;
         await populateCameras();
 
-        // DIAGNOSTIK SEMENTARA — hapus setelah masalah codec H.264/VP8 selesai.
-        if (typeof RTCRtpSender !== 'undefined' && RTCRtpSender.getCapabilities) {
-            const vcaps = RTCRtpSender.getCapabilities('video');
-            const list = (vcaps && vcaps.codecs || []).map((c) => c.mimeType).join(', ');
-            alert('DEBUG codec video didukung browser ini:\n' + list);
-        } else {
-            alert('DEBUG: RTCRtpSender.getCapabilities TIDAK TERSEDIA di browser ini.');
-        }
-
         statusMsg.textContent = 'Menghubungkan ke media server...';
         const { pc, resourceUrl } = await whipPublish(WHIP_URL, VIDEO_PATH, STREAM_KEY, localStream, ICE_SERVERS);
         publishPc = pc;

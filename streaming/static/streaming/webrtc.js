@@ -37,45 +37,19 @@ function _resolveResourceUrl(baseUrl, locationHeader) {
 }
 
 /**
- * Batasi offer video HANYA ke H.264 (bukan cuma "diutamakan") — recorder
- * MediaMTX belum mengimplementasi VP8 (skip diam-diam, rekaman jadi
- * audio-only). Reorder biasa (VP8 tetap ada sebagai opsi) ternyata masih
- * bisa berujung VP8 kepilih; dengan cuma H.264 di daftar, tidak ada celah
- * fallback. Trade-off: kehilangan RTX (retransmission) untuk video —
- * dampaknya minor di jaringan lokal/TURN yang dipakai FASOP.
- */
-function _preferH264(pc) {
-    if (typeof RTCRtpSender === 'undefined' || !RTCRtpSender.getCapabilities) return;
-    const caps = RTCRtpSender.getCapabilities('video');
-    if (!caps || !caps.codecs || !caps.codecs.length) return;
-
-    const h264 = caps.codecs.filter((c) => /h264/i.test(c.mimeType));
-    if (!h264.length) return;
-
-    const videoTransceiver = pc.getTransceivers().find(
-        (t) => t.sender && t.sender.track && t.sender.track.kind === 'video'
-    );
-    if (videoTransceiver && videoTransceiver.setCodecPreferences) {
-        try {
-            videoTransceiver.setCodecPreferences(h264);
-        } catch (e) {
-            // Browser lama / tidak dukung — biarkan default (bisa jadi VP8, rekaman jadi audio-only).
-        }
-    }
-}
-
-/**
  * Publish local media stream ke MediaMTX via WHIP.
  * Return { pc, resourceUrl } — simpan resourceUrl untuk dipakai saat stop().
+ *
+ * CATATAN: sempat dicoba paksa codec H.264 (recorder MediaMTX tidak
+ * mengimplementasi VP8, rekaman jadi audio-only) tapi malah merusak live
+ * viewing (WHEP tersambung tapi video tidak muncul) — direvert, live
+ * streaming (fitur utama) lebih prioritas daripada rekaman video lengkap.
+ * Rekaman untuk sementara audio-only; investigasi kenapa H.264 WHEP
+ * gagal di MediaMTX adalah follow-up terpisah, bukan blocker.
  */
 async function whipPublish(baseUrl, path, token, stream, iceServers) {
     const pc = new RTCPeerConnection({ iceServers: iceServers || [] });
     stream.getTracks().forEach((track) => pc.addTrack(track, stream));
-
-    // Prioritaskan H.264 untuk video — MediaMTX tidak bisa merekam VP8 ke
-    // dalam MP4 (skip diam-diam, hasil rekaman jadi audio-only). Tidak
-    // berpengaruh ke live/WHEP, cuma menentukan codec yang dipakai encoder.
-    _preferH264(pc);
 
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
