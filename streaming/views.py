@@ -246,6 +246,8 @@ def serve_recording(request, pk):
 
     file_path = session.recording_path
     file_size = os.path.getsize(file_path)
+    safe_judul = re.sub(r'[^A-Za-z0-9]+', '-', session.judul).strip('-') or 'live'
+    download_name = f'{safe_judul}-{session.started_at:%Y%m%d-%H%M}.mp4'
     range_header = request.META.get('HTTP_RANGE', '')
     range_match = _RANGE_RE.match(range_header)
 
@@ -274,4 +276,5 @@ def serve_recording(request, pk):
         resp['Content-Length'] = str(file_size)
 
     resp['Accept-Ranges'] = 'bytes'
+    resp['Content-Disposition'] = f'inline; filename="{download_name}"'
     return resp
