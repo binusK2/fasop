@@ -17,7 +17,7 @@
 #   - TURN server (coturn): belum ada di repo ini sama sekali, infrastruktur
 #     terpisah yang perlu disiapkan sendiri.
 #   - MEDIAMTX_WHIP_URL / MEDIAMTX_WHEP_URL: alamat publik MediaMTX.
-#   - webrtcAllowOrigin, TLS (webrtcEncryption) untuk production.
+#   - webrtcAllowOrigins, TLS (webrtcEncryption) untuk production.
 #   - authHTTPAddress / runOnRecordSegmentComplete kalau MediaMTX ada di
 #     server terpisah dari Django (bukan 127.0.0.1:8000).
 # ─────────────────────────────────────────────────────────────────────
@@ -100,7 +100,7 @@ echo "    Kalau belum ada, install dulu. Setelah coturn jalan, isi kredensial"
 echo "    yang SAMA PERSIS di 2 tempat:"
 echo "      - $ENV_FILE                 -> WEBRTC_ICE_SERVERS"
 echo "      - $OUTPUT -> webrtcICEServers2 (password:)"
-echo "    Buka juga port UDP TURN (3478) + port media MediaMTX (webrtcICEUDPMuxAddress, 8189) di firewall."
+echo "    Buka juga port UDP TURN (3478) + port media MediaMTX (webrtcLocalUDPAddress, 8189) di firewall."
 echo ""
 echo " 2. TLS untuk MediaMTX (kalau domain+cert FASOP sudah ada, pakai opsi B ini):"
 echo "    -> Setup nginx reverse-proxy ke MediaMTX pakai domain+cert yang sudah"
@@ -108,7 +108,7 @@ echo "       ada — lihat panduan lengkap di deploy/nginx-mediamtx.conf.example
 echo "       (perlu subdomain baru, mis. media.domain-anda, + sertifikatnya)."
 echo "    -> Lalu $ENV_FILE -> MEDIAMTX_WHIP_URL / MEDIAMTX_WHEP_URL diisi"
 echo "       https://media.domain-anda (BUKAN localhost/127.0.0.1)."
-echo "    -> Lalu $OUTPUT -> webrtcAllowOrigin diisi origin Django FASOP"
+echo "    -> Lalu $OUTPUT -> webrtcAllowOrigins diisi origin Django FASOP"
 echo "       (mis. https://fasop.domain-anda, BUKAN domain media-nya)."
 echo ""
 echo " 3. authHTTPAddress & runOnRecordSegmentComplete di $OUTPUT"

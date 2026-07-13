@@ -30,9 +30,9 @@ sudah lengkap, tidak akan menimpa yang sudah benar.
 | DNS + sertifikat (mis. certbot) | subdomain baru khusus MediaMTX, mis. `media.domain-anda` | dibutuhkan kalau pakai jalur TLS via nginx (opsi B di `deploy/mediamtx.yml`, lihat baris berikutnya) |
 | nginx | `deploy/nginx-mediamtx.conf.example` → copy ke `sites-available/`, isi `server_name` & path cert, `nginx -t && systemctl reload nginx` | reverse-proxy TLS ke MediaMTX pakai domain+cert yang **sudah ada** — cara termudah kalau nginx+cert untuk Django sudah jalan (tidak perlu urus cert terpisah untuk MediaMTX) |
 | `.env` | `MEDIAMTX_WHIP_URL`, `MEDIAMTX_WHEP_URL` | isi `https://media.domain-anda` (domain subdomain MediaMTX di atas), bukan `localhost` |
-| `deploy/mediamtx.generated.yml` | `webrtcAllowOrigin` | isi origin **Django FASOP** (mis. `https://fasop.domain-anda`) — beda dengan domain MediaMTX-nya sendiri |
+| `deploy/mediamtx.generated.yml` | `webrtcAllowOrigins` | isi origin **Django FASOP** (mis. `https://fasop.domain-anda`) — beda dengan domain MediaMTX-nya sendiri |
 | `deploy/mediamtx.generated.yml` | `authHTTPAddress`, `runOnRecordSegmentComplete` | ganti dari `127.0.0.1:8000` **hanya kalau** MediaMTX di server **terpisah** dari Django/gunicorn |
-| Firewall server | buka port TCP 8889 (kalau tidak lewat nginx), UDP 8189 (`webrtcICEUDPMuxAddress`), UDP 3478 (TURN) | tanpa ini WebRTC gagal connect meski semua config sudah benar |
+| Firewall server | buka port TCP 8889 (kalau tidak lewat nginx), UDP 8189 (`webrtcLocalUDPAddress`), UDP 3478 (TURN) | tanpa ini WebRTC gagal connect meski semua config sudah benar |
 | `deploy/mediamtx.service` | `User`, `Group`, `WorkingDirectory`, `ExecStart` | lalu `sudo systemctl enable --now mediamtx` |
 
 ## Kenapa TURN penting (jangan di-skip)
