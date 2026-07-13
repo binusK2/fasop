@@ -9,15 +9,25 @@
 # bukan fasop.id/media) — MediaMTX menaruh nama path (live-<key>) langsung
 # di root URL, jadi tidak bisa "dibelokkan" lewat prefix path.
 #
+# File ini adalah target state SETELAH certbot beres — JANGAN dipasang
+# langsung, ssl_certificate di bawah menunjuk file yang belum ada sebelum
+# certbot jalan (nginx -t akan gagal). Pakai deploy/nginx-mediamtx-temp.conf.example
+# dulu untuk langkah 1-2 di bawah.
+#
 # Sebelum pakai:
-#   1. Tambah DNS A record untuk subdomain ini -> IP server yang sama.
-#   2. Terbitkan sertifikat untuk subdomain ini juga:
-#        sudo certbot --nginx -d media.GANTI-DOMAIN-FASOP
-#      (kalau sertifikat existing wildcard, lewati langkah ini.)
-#   3. Copy/adaptasi file ini ke /etc/nginx/sites-available/, sesuaikan
-#      server_name & path cert, lalu:
+#   1. Tambah DNS A record untuk subdomain ini -> IP publik server yang sama
+#      (cek: dig +short media.GANTI-DOMAIN-FASOP  harus sama dengan
+#      curl -4 ifconfig.me).
+#   2. Pasang config SEMENTARA dulu (port 80 saja, tanpa SSL — certbot
+#      butuh ini sudah listen sebelum bisa verifikasi domain):
+#        sudo cp deploy/nginx-mediamtx-temp.conf.example /etc/nginx/sites-available/mediamtx
 #        sudo ln -s /etc/nginx/sites-available/mediamtx /etc/nginx/sites-enabled/
 #        sudo nginx -t && sudo systemctl reload nginx
+#      Lalu jalankan certbot — dia akan OTOMATIS menambahkan blok SSL ke
+#      file yang sama (tidak perlu copy file INI secara manual lagi):
+#        sudo certbot --nginx -d media.GANTI-DOMAIN-FASOP
+#   3. Cek hasil akhirnya sudah mirip isi file ini:
+#        sudo nginx -t && cat /etc/nginx/sites-available/mediamtx
 #   4. Set di .env Django:
 #        MEDIAMTX_WHIP_URL=https://media.GANTI-DOMAIN-FASOP
 #        MEDIAMTX_WHEP_URL=https://media.GANTI-DOMAIN-FASOP
