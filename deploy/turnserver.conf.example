@@ -28,20 +28,24 @@ user=fasop:GANTI-PASSWORD-TURN-YANG-SAMA-DENGAN-MEDIAMTX-DAN-ENV-DJANGO
 lt-cred-mech
 fingerprint
 
-# Kalau server ini di belakang NAT/punya floating IP (umum di VPS cloud),
-# WAJIB isi supaya klien dapat alamat yang benar untuk relay:
-#   external-ip=<IP_PUBLIK>/<IP_PRIVAT_INTERNAL>
-# Kalau server punya IP publik langsung di NIC-nya, baris ini boleh dikosongkan.
-# external-ip=
+# Server ini di belakang NAT (kantor/on-premise, tidak punya IP publik
+# langsung di NIC-nya) -> WAJIB isi, format PUBLIK/PRIVAT:
+external-ip=GANTI-IP-PUBLIK/GANTI-IP-PRIVAT-SERVER-INI
 
-# Range port UDP untuk relay media — buka semua ini di firewall.
+# Range port UDP untuk relay media — dipersempit (100 port, bukan default
+# 49152-65535) supaya permintaan port forwarding ke tim jaringan lebih kecil
+# dan gampang di-approve. 100 port cukup untuk beberapa sesi live bersamaan.
+# Firewall/tim jaringan: buka UDP 3478 + range ini ke IP privat server ini.
 min-port=49152
-max-port=65535
+max-port=49251
 
 # ── Hardening — WAJIB, jangan dihapus ──────────────────────────────────
 # Cegah TURN server ini disalahgunakan jadi proxy ke jaringan internal PLN
 # (SSRF) — TURN relay publik tanpa ini bisa dipakai orang luar buat akses
-# IP privat/internal lewat server ini.
+# IP privat/internal lewat server ini. MediaMTX yang di-relay ke sini ADA
+# di jaringan privat juga (server yang sama) — makanya ditambah pengecualian
+# eksplisit lewat allowed-peer-ip di bawah, WAJIB diisi sebelum enable.
+allowed-peer-ip=GANTI-IP-PRIVAT-SERVER-INI   # sama dengan bagian kedua external-ip di atas — izin khusus MediaMTX di server ini, JANGAN buka seluruh subnet
 denied-peer-ip=0.0.0.0-0.255.255.255
 denied-peer-ip=10.0.0.0-10.255.255.255
 denied-peer-ip=100.64.0.0-100.127.255.255
