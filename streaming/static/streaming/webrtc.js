@@ -36,7 +36,14 @@ function _resolveResourceUrl(baseUrl, locationHeader) {
     }
 }
 
-/** Susun ulang codec preference video transceiver supaya H.264 diutamakan (MP4-compatible). */
+/**
+ * Batasi offer video HANYA ke H.264 (bukan cuma "diutamakan") — recorder
+ * MediaMTX belum mengimplementasi VP8 (skip diam-diam, rekaman jadi
+ * audio-only). Reorder biasa (VP8 tetap ada sebagai opsi) ternyata masih
+ * bisa berujung VP8 kepilih; dengan cuma H.264 di daftar, tidak ada celah
+ * fallback. Trade-off: kehilangan RTX (retransmission) untuk video —
+ * dampaknya minor di jaringan lokal/TURN yang dipakai FASOP.
+ */
 function _preferH264(pc) {
     if (typeof RTCRtpSender === 'undefined' || !RTCRtpSender.getCapabilities) return;
     const caps = RTCRtpSender.getCapabilities('video');
@@ -44,14 +51,13 @@ function _preferH264(pc) {
 
     const h264 = caps.codecs.filter((c) => /h264/i.test(c.mimeType));
     if (!h264.length) return;
-    const others = caps.codecs.filter((c) => !/h264/i.test(c.mimeType));
 
     const videoTransceiver = pc.getTransceivers().find(
         (t) => t.sender && t.sender.track && t.sender.track.kind === 'video'
     );
     if (videoTransceiver && videoTransceiver.setCodecPreferences) {
         try {
-            videoTransceiver.setCodecPreferences([...h264, ...others]);
+            videoTransceiver.setCodecPreferences(h264);
         } catch (e) {
             // Browser lama / tidak dukung — biarkan default (bisa jadi VP8, rekaman jadi audio-only).
         }
