@@ -103,6 +103,21 @@ def session_detail(request, pk):
 
 @login_required
 @require_streaming_access
+def session_status(request, pk):
+    """
+    JSON ringan untuk di-poll halaman broadcaster — supaya tahu kapan
+    pengawas gabung SETELAH halaman sudah dibuka (dicek sekali saat render
+    saja tidak cukup, alur normalnya pengawas gabung belakangan).
+    """
+    session = get_object_or_404(LiveSession, pk=pk)
+    return JsonResponse({
+        'is_live': session.is_live,
+        'has_pengawas': session.pengawas_id is not None,
+    })
+
+
+@login_required
+@require_streaming_access
 @require_POST
 def join_pengawas(request, pk):
     session = get_object_or_404(LiveSession, pk=pk)
