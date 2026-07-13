@@ -190,16 +190,21 @@ async function stopPublish() {
     exitLiveView();
 }
 
+let lastTalkbackAttempt = 0;
+const TALKBACK_RETRY_MS = 15000; // jangan coba tiap 5 detik — pengawas mungkin belum aktifkan mic-nya
+
 async function startTalkbackListener() {
     talkbackStarted = true;
+    lastTalkbackAttempt = Date.now();
     try {
         const audioEl = document.getElementById('talkback-audio');
         await whepPlay(WHEP_URL, TALKBACK_PATH, STREAM_KEY, audioEl, ICE_SERVERS);
         const badgeTalk = document.getElementById('badge-talk');
         if (badgeTalk) badgeTalk.style.display = 'inline-block';
     } catch (e) {
-        // Pengawas belum publish talkback — wajar, tidak dianggap error fatal.
-        // Reset supaya poll berikutnya bisa coba lagi.
+        // Pengawas sudah gabung tapi belum aktifkan mic — wajar, bukan error
+        // fatal. Reset supaya poll berikutnya BOLEH coba lagi (dibatasi
+        // TALKBACK_RETRY_MS supaya tidak membanjiri MediaMTX tiap 5 detik).
         console.warn('Talkback belum aktif:', e.message);
         talkbackStarted = false;
     }
@@ -215,7 +220,8 @@ async function pollStatus() {
             if (statusPollTimer) { clearInterval(statusPollTimer); statusPollTimer = null; }
             return;
         }
-        if (data.has_pengawas && !talkbackStarted) startTalkbackListener();
+        const canRetryTalkback = Date.now() - lastTalkbackAttempt >= TALKBACK_RETRY_MS;
+        if (data.has_pengawas && !talkbackStarted && canRetryTalkback) startTalkbackListener();
         viewerCountEl.textContent = data.viewer_count;
     } catch (e) { /* koneksi sempat putus — coba lagi di polling berikutnya */ }
 }
