@@ -13,17 +13,23 @@ from django.http import (
 )
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from notifikasi.views import notif_ke_am, notif_ke_teknisi
 
-from .models import LiveSession
+from .models import LiveSession, LiveViewerHeartbeat
 from .permissions import (
     can_join_as_pengawas,
     can_start_stream,
     require_streaming_access,
 )
+
+# Heartbeat penonton dianggap basi (tidak lagi nonton) setelah sekian detik
+# tanpa ping baru — harus lebih besar dari interval kirim di viewer.html
+# (10 detik) supaya toleran jaringan lambat, tapi tetap terasa "real-time".
+VIEWER_HEARTBEAT_STALE_SECONDS = 20
 
 
 @login_required
@@ -105,15 +111,29 @@ def session_detail(request, pk):
 @require_streaming_access
 def session_status(request, pk):
     """
-    JSON ringan untuk di-poll halaman broadcaster — supaya tahu kapan
-    pengawas gabung SETELAH halaman sudah dibuka (dicek sekali saat render
-    saja tidak cukup, alur normalnya pengawas gabung belakangan).
+    JSON ringan untuk di-poll halaman broadcaster & viewer — supaya tahu
+    kapan pengawas gabung / sesi berakhir SETELAH halaman sudah dibuka
+    (dicek sekali saat render saja tidak cukup untuk kejadian yang terjadi
+    belakangan, semua page ini tidak pakai websocket).
     """
     session = get_object_or_404(LiveSession, pk=pk)
+    batas = timezone.now() - timezone.timedelta(seconds=VIEWER_HEARTBEAT_STALE_SECONDS)
+    viewer_count = LiveViewerHeartbeat.objects.filter(session=session, last_seen__gte=batas).count()
     return JsonResponse({
         'is_live': session.is_live,
         'has_pengawas': session.pengawas_id is not None,
+        'viewer_count': viewer_count,
     })
+
+
+@login_required
+@require_streaming_access
+@require_POST
+def session_heartbeat(request, pk):
+    """Dipanggil berkala oleh viewer.html/pengawas.html selama nonton — dasar hitung penonton aktif."""
+    session = get_object_or_404(LiveSession, pk=pk)
+    LiveViewerHeartbeat.objects.update_or_create(session=session, user=request.user)
+    return JsonResponse({'ok': True})
 
 
 @login_required

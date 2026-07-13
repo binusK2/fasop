@@ -9,6 +9,7 @@ urlpatterns = [
     path('mulai/', views.start_session, name='start'),
     path('<hid:pk>/', views.session_detail, name='detail'),
     path('<hid:pk>/status/', views.session_status, name='status'),
+    path('<hid:pk>/heartbeat/', views.session_heartbeat, name='heartbeat'),
     path('<hid:pk>/gabung-pengawas/', views.join_pengawas, name='join_pengawas'),
     path('<hid:pk>/selesai/', views.end_session, name='end'),
     path('<hid:pk>/rekaman/', views.session_recording, name='recording'),

@@ -5,44 +5,48 @@
 
 {% block extra_head %}
 <style>
-.video-wrap { background:#0f172a; border-radius:12px; overflow:hidden; position:relative; aspect-ratio:16/9; }
+.video-wrap { background:#0f172a; border-radius:12px; overflow:hidden; position:relative; aspect-ratio:16/9; transition:height .2s ease; }
 .video-wrap video { width:100%; height:100%; object-fit:cover; }
+.video-wrap.is-live { aspect-ratio:unset; height:min(78vh, 640px); }
 .live-badge { position:absolute; top:12px; left:12px; background:#ef4444; color:#fff; font-size:11px; font-weight:700; padding:3px 10px; border-radius:20px; letter-spacing:.5px; }
-.talk-badge { position:absolute; top:12px; right:12px; background:rgba(16,185,129,.9); color:#fff; font-size:11px; font-weight:700; padding:3px 10px; border-radius:20px; }
+.talk-badge { position:absolute; top:12px; left:100px; background:rgba(16,185,129,.9); color:#fff; font-size:11px; font-weight:700; padding:3px 10px; border-radius:20px; }
+.viewer-badge { position:absolute; top:12px; right:12px; background:rgba(15,23,42,.75); color:#e2e8f0; font-size:11px; font-weight:700; padding:3px 10px; border-radius:20px; }
+.end-live-btn { position:absolute; bottom:12px; right:12px; opacity:.55; transition:opacity .15s; }
+.end-live-btn:hover, .end-live-btn:focus { opacity:1; }
 </style>
 {% endblock %}
 
 {% block content %}
 
-<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2" id="page-header">
     <div>
         <h2 class="mb-0" style="font-size:20px;font-weight:700;">{{ session.judul }}</h2>
         <p class="text-muted mb-0" style="font-size:13px;">Anda live sebagai Teknisi. Pengawas: {% if session.pengawas %}{{ session.pengawas.profile.get_display_name|default:session.pengawas.username }}{% else %}belum ada{% endif %}</p>
     </div>
-    <a href="{% url 'streaming:list' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i>Kembali</a>
+    <a href="{% url 'streaming:list' %}" class="btn btn-outline-secondary btn-sm" id="btn-back"><i class="bi bi-arrow-left me-1"></i>Kembali</a>
 </div>
 
 <div class="row g-3">
-    <div class="col-lg-8">
-        <div class="video-wrap mb-3">
+    <div class="col-lg-8" id="col-video">
+        <div class="video-wrap mb-3" id="video-wrap">
             <span class="live-badge" id="badge-status">BELUM MULAI</span>
             <span class="talk-badge" id="badge-talk" style="display:none;"><i class="bi bi-mic-fill me-1"></i>Talkback Aktif</span>
+            <span class="viewer-badge" id="badge-viewers" style="display:none;"><i class="bi bi-eye-fill me-1"></i><span id="viewer-count">0</span> menonton</span>
             <video id="local-video" autoplay muted playsinline></video>
+
+            <button type="button" id="btn-end-live" class="btn btn-danger btn-sm end-live-btn" style="display:none;">
+                <i class="bi bi-x-circle me-1"></i>Akhiri Live
+            </button>
         </div>
 
-        <div class="d-flex gap-2 flex-wrap">
+        <div class="d-flex gap-2 flex-wrap" id="pre-live-controls">
             <select id="camera-select" class="form-select form-select-sm" style="max-width:220px;"></select>
             <button type="button" id="btn-start" class="btn btn-primary btn-sm"><i class="bi bi-broadcast me-1"></i>Mulai Kirim</button>
-            <button type="button" id="btn-stop" class="btn btn-outline-danger btn-sm" disabled><i class="bi bi-stop-fill me-1"></i>Berhenti Kirim</button>
-            <form method="post" action="{% url 'streaming:end' pk=session.pk %}" onsubmit="return confirm('Akhiri sesi live ini?');" class="ms-auto">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-danger btn-sm"><i class="bi bi-x-circle me-1"></i>Akhiri Live</button>
-            </form>
         </div>
         <div id="status-msg" class="text-muted mt-2" style="font-size:12px;"></div>
     </div>
 
-    <div class="col-lg-4">
+    <div class="col-lg-4" id="col-info">
         <div class="card">
             <div class="card-body">
                 <h6><i class="bi bi-info-circle me-1"></i>Info Sesi</h6>
@@ -57,6 +61,11 @@
         </div>
     </div>
 </div>
+
+<!-- Form akhiri live disembunyikan, di-submit lewat JS dari tombol di overlay video -->
+<form method="post" action="{% url 'streaming:end' pk=session.pk %}" id="end-form" style="display:none;">
+    {% csrf_token %}
+</form>
 
 <audio id="talkback-audio" autoplay></audio>
 
@@ -78,14 +87,21 @@ let localStream   = null;
 let publishPc      = null;
 let publishResource = null;
 let talkbackStarted = false;
-let pengawasPollTimer = null;
+let statusPollTimer = null;
 
-const localVideo   = document.getElementById('local-video');
-const cameraSelect = document.getElementById('camera-select');
-const btnStart      = document.getElementById('btn-start');
-const btnStop        = document.getElementById('btn-stop');
-const badgeStatus    = document.getElementById('badge-status');
-const statusMsg       = document.getElementById('status-msg');
+const localVideo     = document.getElementById('local-video');
+const videoWrap        = document.getElementById('video-wrap');
+const cameraSelect      = document.getElementById('camera-select');
+const btnStart           = document.getElementById('btn-start');
+const btnEndLive          = document.getElementById('btn-end-live');
+const preLiveControls      = document.getElementById('pre-live-controls');
+const colInfo                = document.getElementById('col-info');
+const colVideo                = document.getElementById('col-video');
+const badgeStatus              = document.getElementById('badge-status');
+const badgeViewers               = document.getElementById('badge-viewers');
+const viewerCountEl                = document.getElementById('viewer-count');
+const statusMsg                      = document.getElementById('status-msg');
+const endForm                          = document.getElementById('end-form');
 
 async function populateCameras() {
     try {
@@ -110,6 +126,26 @@ async function getLocalStream() {
     return navigator.mediaDevices.getUserMedia(constraints);
 }
 
+/** Sembunyikan kontrol pra-live & fokuskan tampilan ke video begitu live —
+ *  supaya tombol "Mulai Kirim" dkk tidak kepencet tidak sengaja saat sedang siaran. */
+function focusOnLiveView() {
+    preLiveControls.style.display = 'none';
+    colInfo.style.display = 'none';
+    colVideo.className = 'col-12';
+    videoWrap.classList.add('is-live');
+    btnEndLive.style.display = 'inline-block';
+    badgeViewers.style.display = 'inline-block';
+}
+
+function exitLiveView() {
+    preLiveControls.style.display = 'flex';
+    colInfo.style.display = '';
+    colVideo.className = 'col-lg-8';
+    videoWrap.classList.remove('is-live');
+    btnEndLive.style.display = 'none';
+    badgeViewers.style.display = 'none';
+}
+
 async function startPublish() {
     btnStart.disabled = true;
     statusMsg.textContent = 'Meminta akses kamera...';
@@ -126,10 +162,10 @@ async function startPublish() {
         badgeStatus.textContent = 'LIVE';
         badgeStatus.style.background = '#ef4444';
         statusMsg.textContent = 'Video terkirim.';
-        btnStop.disabled = false;
+        focusOnLiveView();
 
         if (HAS_PENGAWAS) startTalkbackListener();
-        pengawasPollTimer = setInterval(pollForPengawas, 5000);
+        statusPollTimer = setInterval(pollStatus, 5000);
     } catch (err) {
         console.error(err);
         statusMsg.textContent = 'Gagal mulai kirim: ' + err.message;
@@ -138,8 +174,7 @@ async function startPublish() {
 }
 
 async function stopPublish() {
-    btnStop.disabled = true;
-    if (pengawasPollTimer) { clearInterval(pengawasPollTimer); pengawasPollTimer = null; }
+    if (statusPollTimer) { clearInterval(statusPollTimer); statusPollTimer = null; }
     await whipWhepStop(publishPc, publishResource);
     publishPc = null;
     publishResource = null;
@@ -152,6 +187,7 @@ async function stopPublish() {
     badgeStatus.style.background = '#ef4444';
     statusMsg.textContent = 'Pengiriman video dihentikan.';
     btnStart.disabled = false;
+    exitLiveView();
 }
 
 async function startTalkbackListener() {
@@ -169,24 +205,27 @@ async function startTalkbackListener() {
     }
 }
 
-/** Poll berkala — pengawas bisa gabung KAPAN SAJA setelah teknisi mulai live,
- *  bukan cuma yang sudah ada saat halaman ini pertama dibuka. */
-async function pollForPengawas() {
-    if (talkbackStarted) return;
+/** Poll berkala selama live: deteksi pengawas baru gabung + update jumlah penonton. */
+async function pollStatus() {
     try {
         const resp = await fetch(STATUS_URL);
         if (!resp.ok) return;
         const data = await resp.json();
         if (!data.is_live) {
-            if (pengawasPollTimer) { clearInterval(pengawasPollTimer); pengawasPollTimer = null; }
+            if (statusPollTimer) { clearInterval(statusPollTimer); statusPollTimer = null; }
             return;
         }
-        if (data.has_pengawas) startTalkbackListener();
+        if (data.has_pengawas && !talkbackStarted) startTalkbackListener();
+        viewerCountEl.textContent = data.viewer_count;
     } catch (e) { /* koneksi sempat putus — coba lagi di polling berikutnya */ }
 }
 
 btnStart.addEventListener('click', startPublish);
-btnStop.addEventListener('click', stopPublish);
+btnEndLive.addEventListener('click', () => {
+    if (!confirm('Akhiri sesi live ini?')) return;
+    stopPublish();
+    endForm.submit();
+});
 navigator.mediaDevices.enumerateDevices().then(() => populateCameras());
 window.addEventListener('beforeunload', () => { if (publishPc) whipWhepStop(publishPc, publishResource); });
 </script>

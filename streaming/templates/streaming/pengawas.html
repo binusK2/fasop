@@ -60,7 +60,10 @@ const VIDEO_PATH    = '{{ session.video_path }}';
 const TALKBACK_PATH = '{{ session.talkback_path }}';
 const VIEW_TOKEN    = '{{ session.view_token }}';
 const PENGAWAS_KEY  = '{{ session.pengawas_key }}';
-const IS_LIVE       = {{ session.is_live|yesno:"true,false" }};
+let   IS_LIVE       = {{ session.is_live|yesno:"true,false" }};
+const STATUS_URL    = '{% url "streaming:status" pk=session.pk %}';
+const HEARTBEAT_URL = '{% url "streaming:heartbeat" pk=session.pk %}';
+const CSRF_TOKEN    = document.querySelector('meta[name="csrf-token"]').content;
 
 const remoteVideo = document.getElementById('remote-video');
 const statusMsg   = document.getElementById('status-msg');
@@ -70,9 +73,10 @@ const badgeMic       = document.getElementById('badge-mic');
 
 let playPc = null, playResource = null;
 let micStream = null, micPc = null, micResource = null;
+let watchTimer = null, statusPollTimer = null, heartbeatTimer = null, ended = false;
 
 async function startWatching() {
-    if (!IS_LIVE) {
+    if (!IS_LIVE || ended) {
         statusMsg.textContent = 'Sesi sudah berakhir.';
         return;
     }
@@ -84,9 +88,44 @@ async function startWatching() {
         statusMsg.textContent = 'Terhubung.';
     } catch (err) {
         console.error(err);
+        if (ended) return;
         statusMsg.textContent = 'Belum bisa terhubung — teknisi mungkin belum mulai kirim video. Mencoba lagi...';
-        setTimeout(startWatching, 4000);
+        watchTimer = setTimeout(startWatching, 4000);
     }
+}
+
+function handleSessionEnded() {
+    ended = true;
+    IS_LIVE = false;
+    if (watchTimer) { clearTimeout(watchTimer); watchTimer = null; }
+    if (statusPollTimer) { clearInterval(statusPollTimer); statusPollTimer = null; }
+    if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
+    whipWhepStop(playPc, playResource);
+    playPc = null;
+    playResource = null;
+    remoteVideo.srcObject = null;
+    if (micPc) stopTalkback();
+    btnMicOn.disabled = true;
+    statusMsg.textContent = 'Live telah berakhir.';
+    const liveBadge = document.querySelector('.live-badge');
+    if (liveBadge) liveBadge.remove();
+}
+
+async function pollStatus() {
+    if (ended) return;
+    try {
+        const resp = await fetch(STATUS_URL);
+        if (!resp.ok) return;
+        const data = await resp.json();
+        if (!data.is_live) handleSessionEnded();
+    } catch (e) { /* koneksi sempat putus — coba lagi di polling berikutnya */ }
+}
+
+async function sendHeartbeat() {
+    if (ended) return;
+    try {
+        await fetch(HEARTBEAT_URL, { method: 'POST', headers: { 'X-CSRFToken': CSRF_TOKEN } });
+    } catch (e) { /* tidak fatal, coba lagi di interval berikutnya */ }
 }
 
 async function startTalkback() {
@@ -124,6 +163,11 @@ async function stopTalkback() {
 btnMicOn.addEventListener('click', startTalkback);
 btnMicOff.addEventListener('click', stopTalkback);
 startWatching();
+if (IS_LIVE) {
+    sendHeartbeat();
+    statusPollTimer = setInterval(pollStatus, 5000);
+    heartbeatTimer = setInterval(sendHeartbeat, 10000);
+}
 window.addEventListener('beforeunload', () => {
     if (playPc) whipWhepStop(playPc, playResource);
     if (micPc) whipWhepStop(micPc, micResource);
