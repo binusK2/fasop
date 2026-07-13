@@ -87,3 +87,21 @@ class LiveSession(models.Model):
         self.status = 'ended'
         self.ended_at = timezone.now()
         self.save(update_fields=['status', 'ended_at'])
+
+
+class LiveViewerHeartbeat(models.Model):
+    """
+    Dipakai untuk hitung penonton aktif secara perkiraan — browser viewer
+    (viewer.html/pengawas.html) kirim heartbeat berkala selama nonton.
+    Baris ini dianggap "aktif" kalau last_seen dalam beberapa detik terakhir
+    (lihat streaming.views.session_status) — tidak perlu event "berhenti
+    nonton" eksplisit, cukup biarkan basi kalau tab ditutup.
+    """
+    session   = models.ForeignKey(LiveSession, on_delete=models.CASCADE, related_name='viewer_heartbeats')
+    user      = models.ForeignKey(User, on_delete=models.CASCADE)
+    last_seen = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('session', 'user')
+        verbose_name = 'Heartbeat Penonton'
+        verbose_name_plural = 'Heartbeat Penonton'
