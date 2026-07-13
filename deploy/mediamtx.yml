@@ -21,20 +21,21 @@
 
 # ── WebRTC (WHIP/WHEP) ──────────────────────────────────────────────
 # TLS: DUA opsi, pilih SATU saja.
-#   A) MediaMTX yang pegang TLS langsung -> webrtcEncryption: "strict" +
+#   A) MediaMTX yang pegang TLS langsung -> webrtcEncryption: true +
 #      webrtcServerCert/webrtcServerKey (butuh cert sendiri buat MediaMTX).
 #   B) (DIREKOMENDASIKAN kalau nginx+cert buat Django sudah ada) -> nginx
 #      yang terima HTTPS lalu reverse-proxy ke MediaMTX di localhost:8889.
-#      webrtcEncryption TETAP "no" di sini karena nginx yang urus TLS-nya.
+#      webrtcEncryption TETAP false di sini karena nginx yang urus TLS-nya.
 #      Lihat deploy/nginx-mediamtx.conf.example.
+webrtc: true
 webrtcAddress: :8889
-webrtcEncryption: "no"
-webrtcAllowOrigin: "https://GANTI-KE-DOMAIN-FASOP-PRODUKSI"   # origin browser tempat FASOP dibuka (BUKAN domain MediaMTX-nya kalau pakai opsi B)
+webrtcEncryption: false
+webrtcAllowOrigins: ["https://GANTI-KE-DOMAIN-FASOP-PRODUKSI"]   # origin browser tempat FASOP dibuka (BUKAN domain MediaMTX-nya kalau pakai opsi B) — array, bukan string tunggal
 
 # 1 port UDP tetap untuk semua koneksi media WebRTC — jauh lebih gampang
 # dibuka sekali di firewall daripada range port UDP acak (default MediaMTX
 # tanpa ini pakai port acak per koneksi).
-webrtcICEUDPMuxAddress: :8189
+webrtcLocalUDPAddress: :8189
 
 # STUN/TURN — WAJIB isi TURN valid di production. HP teknisi di lapangan
 # umumnya di belakang CGNAT operator seluler sehingga WebRTC sering gagal
@@ -67,13 +68,15 @@ authHTTPExclude:
 # sekaligus, nanti dobel/rebutan hapus file yang sama.
 paths:
   "~^live-.+-talk$":
-    record: no
+    record: false
 
   all_others:
-    record: yes
+    record: true
     recordPath: /var/lib/fasop-streaming/recordings/%path/%Y-%m-%d_%H-%M-%S-%f
     recordFormat: fmp4
     recordSegmentDuration: 24h   # sesi live jarang >24h; 1 segmen ≈ 1 rekaman per sesi
+    recordDeleteAfter: 0s        # WAJIB 0s (disabled) — retensi ditangani Django (purge_old_recordings),
+                                  # default MediaMTX 1d akan hapus duluan sebelum retensi 7 hari kita jalan
 
     # Panggil balik Django tiap segmen rekaman selesai ditulis, supaya
     # LiveSession.recording_path terisi dan halaman "Putar Rekaman" aktif.
