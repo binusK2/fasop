@@ -1,0 +1,61 @@
+# deploy/nginx-mediamtx.conf.example
+#
+# Reverse proxy nginx untuk MediaMTX (WHIP publish / WHEP playback), supaya
+# bisa pakai domain + sertifikat TLS yang SUDAH ADA (tidak perlu setup TLS
+# terpisah di MediaMTX sendiri — lihat komentar webrtcEncryption di
+# deploy/mediamtx.generated.yml, opsi B).
+#
+# WAJIB SUBDOMAIN TERPISAH dari domain FASOP utama (mis. media.fasop.id,
+# bukan fasop.id/media) — MediaMTX menaruh nama path (live-<key>) langsung
+# di root URL, jadi tidak bisa "dibelokkan" lewat prefix path.
+#
+# Sebelum pakai:
+#   1. Tambah DNS A record untuk subdomain ini -> IP server yang sama.
+#   2. Terbitkan sertifikat untuk subdomain ini juga:
+#        sudo certbot --nginx -d media.GANTI-DOMAIN-FASOP
+#      (kalau sertifikat existing wildcard, lewati langkah ini.)
+#   3. Copy/adaptasi file ini ke /etc/nginx/sites-available/, sesuaikan
+#      server_name & path cert, lalu:
+#        sudo ln -s /etc/nginx/sites-available/mediamtx /etc/nginx/sites-enabled/
+#        sudo nginx -t && sudo systemctl reload nginx
+#   4. Set di .env Django:
+#        MEDIAMTX_WHIP_URL=https://media.GANTI-DOMAIN-FASOP
+#        MEDIAMTX_WHEP_URL=https://media.GANTI-DOMAIN-FASOP
+#   5. Set webrtcAllowOrigin di mediamtx.generated.yml ke origin DJANGO
+#      (mis. https://fasop.GANTI-DOMAIN — domain tempat FASOP dibuka di
+#      browser), BUKAN domain media ini — itu yang dicek MediaMTX dari
+#      header Origin request WHIP/WHEP yang datang dari browser.
+
+server {
+    listen 443 ssl http2;
+    server_name media.GANTI-DOMAIN-FASOP;
+
+    ssl_certificate     /etc/letsencrypt/live/media.GANTI-DOMAIN-FASOP/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/media.GANTI-DOMAIN-FASOP/privkey.pem;
+
+    # SDP offer/answer kecil, tapi kasih ruang lebih supaya aman.
+    client_max_body_size 1m;
+
+    location / {
+        proxy_pass http://127.0.0.1:8889;
+        proxy_http_version 1.1;
+
+        # WHIP/WHEP pakai POST (mulai sesi), PATCH (trickle ICE — tidak
+        # dipakai FASOP tapi endpoint tetap ada), DELETE (stop sesi).
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        # Origin header DITERUSKAN apa adanya (default nginx) — MediaMTX
+        # butuh ini untuk cek webrtcAllowOrigin.
+
+        proxy_read_timeout 30s;
+        proxy_send_timeout 30s;
+    }
+}
+
+server {
+    listen 80;
+    server_name media.GANTI-DOMAIN-FASOP;
+    return 301 https://$host$request_uri;
+}
