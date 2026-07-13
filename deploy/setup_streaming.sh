@@ -63,9 +63,14 @@ if [[ -z "$RECORDINGS_ROOT" ]]; then
     set_env "STREAMING_RECORDINGS_ROOT" "$RECORDINGS_ROOT"
 fi
 mkdir -p "$RECORDINGS_ROOT"
-echo "  [ok] $RECORDINGS_ROOT siap"
-echo "  [!] pastikan user yang menjalankan MediaMTX bisa MENULIS ke sini,"
-echo "      dan user yang menjalankan gunicorn bisa MEMBACA-nya."
+echo "  [ok] $RECORDINGS_ROOT siap (dibuat sebagai user $(whoami))"
+echo "  [!] Direktori ini dibuat sebagai user $(whoami), tapi MediaMTX kemungkinan"
+echo "      jalan sebagai user LAIN (lihat User= di mediamtx.service, langkah 4)."
+echo "      Kalau beda, WAJIB jalankan setelah mediamtx.service diisi:"
+echo "        sudo chown -R <user-mediamtx>:<group-mediamtx> $RECORDINGS_ROOT"
+echo "      Tanpa ini, rekaman gagal DIAM-DIAM (live streaming tetap normal,"
+echo "      cuma rekamannya yang tidak pernah tersimpan — cek journalctl -u mediamtx"
+echo "      untuk error 'permission denied' kalau curiga)."
 
 echo
 echo "=== 3/4: Render deploy/mediamtx.generated.yml ==="

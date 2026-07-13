@@ -41,6 +41,19 @@ sudo systemctl status mediamtx   # pastikan "active (running)", BUKAN restart lo
 (`restart counter is at N`, N besar) tanpa pesan jelas, cek
 `journalctl -xeu mediamtx` — biasanya path di `ExecStart` salah/tidak ada.
 
+**Gotcha lain (rekaman diam-diam gagal):** direktori `STREAMING_RECORDINGS_ROOT`
+dibuat oleh `setup_streaming.sh` sebagai user yang menjalankan script itu
+(sering `root`), tapi `mediamtx.service` jalan sebagai `User=fasop` (baris
+35 di atas) — MediaMTX akan gagal `mkdir` di dalamnya (`permission denied`
+di `journalctl -u mediamtx`) tanpa mempengaruhi live streaming sama sekali
+(video/live tetap jalan normal, cuma rekaman yang diam-diam tidak pernah
+tersimpan). Samakan kepemilikan folder dengan user service **setelah**
+`User`/`Group` di `mediamtx.service` diisi:
+```bash
+sudo chown -R fasop:fasop "$(grep STREAMING_RECORDINGS_ROOT .env | cut -d= -f2)"
+```
+(ganti `fasop` sesuai `User`/`Group` yang benar-benar diisi di langkah atas)
+
 ### 2. TURN server (coturn) — wajib untuk HP teknisi di lapangan
 ```bash
 which turnserver ; systemctl status coturn   # cek dulu, mungkin sudah ada
