@@ -12,22 +12,50 @@ bash deploy/setup_streaming.sh
 ```
 Aman dijalankan berulang kali.
 
-## Keterbatasan diketahui: rekaman audio-only (belum ada video)
+## Rekaman: kenapa sebelumnya audio-only, dan cara video-nya masuk
 
 Browser default kirim video WebRTC pakai codec **VP8**, tapi recorder
-fMP4 MediaMTX v1.19.2 **belum mengimplementasi VP8** (`// TODO` di source
-code-nya) — video track di-skip diam-diam, hasil rekaman cuma berisi
-audio (Opus). Live streaming & talkback TIDAK terpengaruh, cuma rekaman-
-nya yang tidak ada videonya.
+fMP4 MediaMTX **belum mengimplementasi VP8** (`// TODO` di source code-nya
+`internal/recorder/format_fmp4.go` — sudah dicek ulang sampai branch `main`
+terbaru, jadi ini BUKAN soal versi MediaMTX kurang baru, dan format
+`mpegts` juga sama-sama tidak dukung VP8/VP9). Tanpa penanganan khusus,
+video track di-skip diam-diam dan hasil rekaman cuma berisi audio (Opus).
 
-**Sudah dicoba & di-revert:** memaksa browser pakai H.264 (yang didukung
-recorder) lewat `RTCRtpTransceiver.setCodecPreferences()` — video codec-nya
-berhasil ganti H.264, tapi malah merusak WHEP (viewer connect tapi video
-tidak muncul sama sekali). Diputuskan revert karena live streaming lebih
-prioritas daripada rekaman lengkap. Kalau mau digali lagi nanti: cek kenapa
-MediaMTX WHEP gagal kirim video H.264 ke viewer padahal publish-nya
-sukses — kemungkinan butuh konfigurasi profil H.264 spesifik atau versi
-MediaMTX lebih baru yang sudah dukung VP8 di recorder-nya.
+**Sudah dicoba & di-revert (jangan diulangi):** memaksa browser pakai H.264
+langsung lewat `RTCRtpTransceiver.setCodecPreferences()` di sisi publish —
+codec berhasil ganti ke H.264, tapi malah merusak WHEP live viewing (viewer
+connect tapi video tidak muncul sama sekali). Live viewing jauh lebih
+prioritas daripada rekaman, jadi opsi ini ditinggalkan.
+
+**Solusi yang dipakai — transcode di server, browser tidak disentuh:**
+begitu path video mentah (`live-<key>`) mulai dipublish, MediaMTX
+menjalankan `ffmpeg` **lokal** (`runOnReady` di `deploy/mediamtx.yml`) yang
+menarik feed RTSP mentah dari MediaMTX sendiri lewat loopback (sama sekali
+tidak lewat WebRTC/browser — live viewing yang sudah stabil tidak
+tersentuh), transcode ke H.264, lalu republish ke path baru `live-<key>-rec`.
+Hanya path `-rec` itu yang direkam (`recordFormat: fmp4`) — jadi sekarang
+videonya ikut masuk. Prasyarat: **ffmpeg harus terinstal di server**
+(`sudo apt install -y ffmpeg`, dicek otomatis oleh `setup_streaming.sh`
+langkah 2b). Proses ffmpeg per sesi otomatis dihentikan MediaMTX begitu
+live berakhir — tidak perlu cleanup manual. Beban CPU per sesi live ringan
+(`libx264 preset veryfast`) tapi tetap nyata (real-time encode) — untuk
+skala FASOP (maks 2-3 live bersamaan) harusnya tidak masalah, pantau CPU
+server kalau nanti jumlah live bersamaan naik jauh.
+
+**Kalau setelah deploy rekaman masih audio-only,** urutan cek:
+1. `which ffmpeg` di server — kalau kosong, itu penyebabnya, install lalu
+   restart mediamtx (`sudo systemctl restart mediamtx`) supaya `runOnReady`
+   berikutnya bisa menjalankan ffmpeg.
+2. `journalctl -u mediamtx --no-pager | grep -i ffmpeg` — cari error dari
+   proses ffmpeg itu sendiri (mis. gagal connect ke RTSP loopback).
+3. Cek file di `STREAMING_RECORDINGS_ROOT/live-<key>-rec/...` benar-benar
+   ada — kalau foldernya `live-<key>` (tanpa `-rec`), berarti
+   `mediamtx.generated.yml` di server belum ter-update ke versi terbaru
+   (`git pull` lagi, render ulang `setup_streaming.sh`, restart mediamtx).
+4. Django log untuk `mediamtx_auth_webhook` menolak `action=publish` atau
+   `action=read` dari `ip=127.0.0.1` — kalau ditolak, sesi live-nya
+   kemungkinan sudah tidak `status='live'` di database saat ffmpeg mencoba
+   connect (race condition kecil, jarang terjadi).
 
 ## Otomatis oleh `setup_streaming.sh`
 
