@@ -30,6 +30,15 @@ fingerprint
 
 # Server ini di belakang NAT (kantor/on-premise, tidak punya IP publik
 # langsung di NIC-nya) -> WAJIB isi, format PUBLIK/PRIVAT:
+#
+# JANGAN ambil IP publik dari `curl ifconfig.me` kalau firewall kantor
+# pakai SD-WAN multi-WAN-link (mis. FortiGate dengan beberapa virtual WAN
+# link) — ifconfig.me bisa kasih IP BEDA tiap kali dipanggil (SD-WAN pilih
+# link keluar berbeda-beda per koneksi), bukan IP yang benar-benar dipakai
+# untuk trafik MASUK. IP yang benar = IP di WAN interface spesifik yang
+# di-dedikasikan buat Virtual IP/DNAT ke server ini (cek di FortiGate:
+# Network > Interfaces, WAN yang dipasangi VIP untuk UDP 3478 & range di
+# bawah, BUKAN SD-WAN zone gabungan).
 external-ip=GANTI-IP-PUBLIK/GANTI-IP-PRIVAT-SERVER-INI
 
 # Range port UDP untuk relay media — dipersempit (100 port, bukan default

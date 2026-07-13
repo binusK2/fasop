@@ -87,6 +87,23 @@ ke IP privat server ini (range port sudah dipersempit di
 `turnserver.conf.example`, jangan pakai default 49152-65535 — permintaan ke
 tim jaringan jadi lebih besar tanpa perlu).
 
+**Gotcha besar — jaringan FortiGate/SD-WAN multi-WAN-link:** kalau kantor
+pakai FortiGate dengan beberapa virtual WAN link (SD-WAN), **JANGAN** ambil
+IP publik dari `curl ifconfig.me` — hasilnya bisa beda tiap kali dipanggil
+(pernah kejadian 3 IP beda dalam hitungan detik: `.128`, `.55`, `.51`)
+karena SD-WAN pilih link keluar berbeda-beda per koneksi, ini bukan IP
+publik yang dipakai untuk trafik MASUK. Gejalanya di produksi: video live
+tersambung tapi tidak pernah muncul, log MediaMTX penuh `deadline exceeded
+while waiting connection` berulang setiap ~5 detik.
+
+IP yang benar untuk `external-ip` = IP di WAN interface SPESIFIK yang
+di-dedikasikan admin FortiGate untuk Virtual IP (VIP)/DNAT ke server ini —
+cek di FortiGate: **Network > Interfaces** (WAN fisik/logical yang dipasangi
+VIP, bukan SD-WAN zone gabungan). Setup di FortiGate: buat 2 Virtual IP
+(UDP 3478 dan UDP 49152-49251, keduanya map ke IP privat server ini) di WAN
+interface itu, lalu Firewall Policy (incoming = WAN itu, destination = kedua
+VIP, action ACCEPT, NAT off — VIP yang urus translasinya).
+
 Setelah coturn jalan, isi kredensial yang **sama persis** di 2 tempat lain:
 - `.env` → `WEBRTC_ICE_SERVERS`
 - `deploy/mediamtx.generated.yml` → `webrtcICEServers2` (`password:`)
