@@ -30,7 +30,7 @@ sudah lengkap, tidak akan menimpa yang sudah benar.
 | `.env` | `MEDIAMTX_WHIP_URL`, `MEDIAMTX_WHEP_URL` | isi `https://media.domain-anda` (domain subdomain MediaMTX di atas), bukan `localhost` |
 | `deploy/mediamtx.generated.yml` | `webrtcAllowOrigins` | isi origin **Django FASOP** (mis. `https://fasop.domain-anda`) — beda dengan domain MediaMTX-nya sendiri |
 | `deploy/mediamtx.generated.yml` | `authHTTPAddress`, `runOnRecordSegmentComplete` | ganti dari `127.0.0.1:8000` **hanya kalau** MediaMTX di server **terpisah** dari Django/gunicorn |
-| Firewall server | buka port TCP 8889 (kalau tidak lewat nginx), UDP 8189 (`webrtcLocalUDPAddress`), UDP 3478 (TURN) | tanpa ini WebRTC gagal connect meski semua config sudah benar |
+| Firewall / port forwarding (kalau server di belakang NAT, mis. on-premise kantor) | teruskan dari IP publik ke IP privat server ini: **TCP 443** (HTTPS nginx), **UDP 3478** (TURN signaling), **UDP 49152-49251** (TURN relay, sudah dipersempit di `turnserver.conf.example`) | tanpa ini WebRTC gagal connect dari luar meski semua config sudah benar. Port MediaMTX sendiri (8189) SENGAJA tidak perlu dibuka — semua media dipaksa lewat TURN relay supaya daftar port yang perlu diminta ke tim jaringan lebih pendek |
 | `deploy/mediamtx.service` | `User`, `Group`, `WorkingDirectory`, `ExecStart` | lalu `sudo systemctl enable --now mediamtx` |
 
 ## Kenapa TURN penting (jangan di-skip)
