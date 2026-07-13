@@ -1,0 +1,65 @@
+# deploy/turnserver.conf.example — contoh config coturn (TURN server) untuk
+# fitur Live Streaming FASOP. WAJIB ada supaya HP teknisi di lapangan (di
+# belakang CGNAT operator seluler) bisa connect WebRTC.
+#
+# Install:
+#   sudo apt update && sudo apt install -y coturn
+#   sudo cp deploy/turnserver.conf.example /etc/turnserver.conf
+#   sudo nano /etc/turnserver.conf   # isi realm, password, external-ip (kalau perlu)
+#   sudo nano /etc/default/coturn    # pastikan baris TURNSERVER_ENABLED=1 (uncomment)
+#   sudo systemctl enable --now coturn
+#   sudo systemctl status coturn
+#
+# Setelah jalan, isi kredensial yang SAMA PERSIS di 2 tempat lain:
+#   - .env Django              -> WEBRTC_ICE_SERVERS
+#   - deploy/mediamtx.generated.yml -> webrtcICEServers2 (password:)
+#
+# Firewall: buka UDP 3478 (signaling TURN) + range UDP min-port..max-port
+# di bawah (relay media) — tanpa ini TURN tidak bisa dipakai dari luar.
+
+listening-port=3478
+
+# WAJIB ganti — realm bebas asal konsisten, password harus KUAT & RAHASIA.
+realm=fasop.internal
+user=fasop:GANTI-PASSWORD-TURN-YANG-SAMA-DENGAN-MEDIAMTX-DAN-ENV-DJANGO
+
+# Long-term credential mechanism (username/password statis, cocok untuk
+# skala kecil FASOP — tidak perlu integrasi REST API/secret rotation).
+lt-cred-mech
+fingerprint
+
+# Kalau server ini di belakang NAT/punya floating IP (umum di VPS cloud),
+# WAJIB isi supaya klien dapat alamat yang benar untuk relay:
+#   external-ip=<IP_PUBLIK>/<IP_PRIVAT_INTERNAL>
+# Kalau server punya IP publik langsung di NIC-nya, baris ini boleh dikosongkan.
+# external-ip=
+
+# Range port UDP untuk relay media — buka semua ini di firewall.
+min-port=49152
+max-port=65535
+
+# ── Hardening — WAJIB, jangan dihapus ──────────────────────────────────
+# Cegah TURN server ini disalahgunakan jadi proxy ke jaringan internal PLN
+# (SSRF) — TURN relay publik tanpa ini bisa dipakai orang luar buat akses
+# IP privat/internal lewat server ini.
+denied-peer-ip=0.0.0.0-0.255.255.255
+denied-peer-ip=10.0.0.0-10.255.255.255
+denied-peer-ip=100.64.0.0-100.127.255.255
+denied-peer-ip=127.0.0.0-127.255.255.255
+denied-peer-ip=169.254.0.0-169.254.255.255
+denied-peer-ip=172.16.0.0-172.31.255.255
+denied-peer-ip=192.0.0.0-192.0.0.255
+denied-peer-ip=192.0.2.0-192.0.2.255
+denied-peer-ip=192.88.99.0-192.88.99.255
+denied-peer-ip=192.168.0.0-192.168.255.255
+denied-peer-ip=198.18.0.0-198.19.255.255
+denied-peer-ip=198.51.100.0-198.51.100.255
+denied-peer-ip=203.0.113.0-203.0.113.255
+denied-peer-ip=240.0.0.0-255.255.255.255
+
+# Matikan CLI admin telnet (tidak dipakai FASOP, kurangi permukaan serang).
+no-cli
+
+# Logging secukupnya untuk troubleshooting awal.
+verbose
+log-file=/var/log/turnserver.log

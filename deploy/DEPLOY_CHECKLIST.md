@@ -22,9 +22,7 @@ sudah lengkap, tidak akan menimpa yang sudah benar.
 
 | File | Yang diisi | Kenapa manual |
 |---|---|---|
-| File | Yang diisi | Kenapa manual |
-|---|---|---|
-| coturn (server terpisah, di luar repo ini) | install + realm + kredensial TURN | infrastruktur baru — belum ada sama sekali di repo ini, perlu dicek/disiapkan sendiri (lihat "Kenapa TURN penting" di bawah) |
+| coturn | `apt install coturn`, lalu `deploy/turnserver.conf.example` → copy ke `/etc/turnserver.conf`, isi `realm`/password, `systemctl enable --now coturn` | infrastruktur baru — belum ada sama sekali di server, perlu diinstall (lihat "Kenapa TURN penting" di bawah) |
 | `.env` | `WEBRTC_ICE_SERVERS` (isi kredensial TURN) | dipakai sisi Django/browser saat bikin koneksi WebRTC |
 | `deploy/mediamtx.generated.yml` | `webrtcICEServers2` → `password:` TURN | **harus sama persis** dengan `WEBRTC_ICE_SERVERS` di atas & config coturn |
 | DNS + sertifikat (mis. certbot) | subdomain baru khusus MediaMTX, mis. `media.domain-anda` | dibutuhkan kalau pakai jalur TLS via nginx (opsi B di `deploy/mediamtx.yml`, lihat baris berikutnya) |
