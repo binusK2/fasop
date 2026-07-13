@@ -4,6 +4,11 @@
 # WAJIB disesuaikan dulu sebelum dipakai (baris ExecStart, User, Group,
 # WorkingDirectory) — nilai di bawah cuma contoh.
 #
+# ExecStart WAJIB pakai path absolut lokasi repo FASOP di server ini
+# (cek dengan: pwd, saat berada di root repo) — SALAH SATU PENYEBAB UMUM
+# service gagal start (restart loop terus-menerus) adalah path ini masih
+# placeholder atau ke-copy dari server/lingkungan lain.
+#
 # Install:
 #   sudo cp deploy/mediamtx.service /etc/systemd/system/mediamtx.service
 #   sudo systemctl daemon-reload
@@ -23,7 +28,7 @@ Type=simple
 User=fasop
 Group=fasop
 WorkingDirectory=/opt/mediamtx
-ExecStart=/opt/mediamtx/mediamtx /home/user/fasop/deploy/mediamtx.generated.yml
+ExecStart=/opt/mediamtx/mediamtx /GANTI/PATH/KE/REPO/FASOP/deploy/mediamtx.generated.yml
 Restart=on-failure
 RestartSec=5
 NoNewPrivileges=true
