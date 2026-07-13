@@ -26,7 +26,7 @@
     <div class="col-lg-8">
         <div class="video-wrap mb-3">
             <span class="live-badge" id="badge-status">BELUM MULAI</span>
-            {% if session.pengawas %}<span class="talk-badge" id="badge-talk" style="display:none;"><i class="bi bi-mic-fill me-1"></i>Talkback Aktif</span>{% endif %}
+            <span class="talk-badge" id="badge-talk" style="display:none;"><i class="bi bi-mic-fill me-1"></i>Talkback Aktif</span>
             <video id="local-video" autoplay muted playsinline></video>
         </div>
 
@@ -72,10 +72,13 @@ const VIDEO_PATH     = '{{ session.video_path }}';
 const STREAM_KEY     = '{{ session.stream_key }}';
 const HAS_PENGAWAS   = {{ session.pengawas_id|yesno:"true,false" }};
 const TALKBACK_PATH  = '{{ session.talkback_path }}';
+const STATUS_URL     = '{% url "streaming:status" pk=session.pk %}';
 
 let localStream   = null;
 let publishPc      = null;
 let publishResource = null;
+let talkbackStarted = false;
+let pengawasPollTimer = null;
 
 const localVideo   = document.getElementById('local-video');
 const cameraSelect = document.getElementById('camera-select');
@@ -126,6 +129,7 @@ async function startPublish() {
         btnStop.disabled = false;
 
         if (HAS_PENGAWAS) startTalkbackListener();
+        pengawasPollTimer = setInterval(pollForPengawas, 5000);
     } catch (err) {
         console.error(err);
         statusMsg.textContent = 'Gagal mulai kirim: ' + err.message;
@@ -135,6 +139,7 @@ async function startPublish() {
 
 async function stopPublish() {
     btnStop.disabled = true;
+    if (pengawasPollTimer) { clearInterval(pengawasPollTimer); pengawasPollTimer = null; }
     await whipWhepStop(publishPc, publishResource);
     publishPc = null;
     publishResource = null;
@@ -150,6 +155,7 @@ async function stopPublish() {
 }
 
 async function startTalkbackListener() {
+    talkbackStarted = true;
     try {
         const audioEl = document.getElementById('talkback-audio');
         await whepPlay(WHEP_URL, TALKBACK_PATH, STREAM_KEY, audioEl, ICE_SERVERS);
@@ -157,8 +163,26 @@ async function startTalkbackListener() {
         if (badgeTalk) badgeTalk.style.display = 'inline-block';
     } catch (e) {
         // Pengawas belum publish talkback — wajar, tidak dianggap error fatal.
+        // Reset supaya poll berikutnya bisa coba lagi.
         console.warn('Talkback belum aktif:', e.message);
+        talkbackStarted = false;
     }
+}
+
+/** Poll berkala — pengawas bisa gabung KAPAN SAJA setelah teknisi mulai live,
+ *  bukan cuma yang sudah ada saat halaman ini pertama dibuka. */
+async function pollForPengawas() {
+    if (talkbackStarted) return;
+    try {
+        const resp = await fetch(STATUS_URL);
+        if (!resp.ok) return;
+        const data = await resp.json();
+        if (!data.is_live) {
+            if (pengawasPollTimer) { clearInterval(pengawasPollTimer); pengawasPollTimer = null; }
+            return;
+        }
+        if (data.has_pengawas) startTalkbackListener();
+    } catch (e) { /* koneksi sempat putus — coba lagi di polling berikutnya */ }
 }
 
 btnStart.addEventListener('click', startPublish);
