@@ -35,6 +35,7 @@
             <button type="button" id="btn-mic-off" class="btn btn-outline-danger btn-sm" disabled><i class="bi bi-mic-mute-fill me-1"></i>Matikan Mic</button>
         </div>
         <div id="status-msg" class="text-muted mt-2" style="font-size:12px;"></div>
+        <div id="mic-status-msg" class="text-muted" style="font-size:12px;"></div>
     </div>
 
     <div class="col-lg-4">
@@ -67,6 +68,7 @@ const CSRF_TOKEN    = document.querySelector('meta[name="csrf-token"]').content;
 
 const remoteVideo = document.getElementById('remote-video');
 const statusMsg   = document.getElementById('status-msg');
+const micStatusMsg = document.getElementById('mic-status-msg');
 const btnMicOn     = document.getElementById('btn-mic-on');
 const btnMicOff     = document.getElementById('btn-mic-off');
 const badgeMic       = document.getElementById('badge-mic');
@@ -128,9 +130,16 @@ async function sendHeartbeat() {
     } catch (e) { /* tidak fatal, coba lagi di interval berikutnya */ }
 }
 
+/**
+ * CATATAN: pakai micStatusMsg (elemen terpisah dari statusMsg video) —
+ * sebelumnya keduanya berbagi satu elemen teks, jadi begitu mic diaktifkan
+ * pesan "Terhubung." milik video langsung tertimpa pesan mic dan terlihat
+ * seperti video ikut putus/reconnect padahal koneksi video (playPc) sama
+ * sekali tidak disentuh oleh startTalkback/stopTalkback di bawah ini.
+ */
 async function startTalkback() {
     btnMicOn.disabled = true;
-    statusMsg.textContent = 'Meminta akses mikrofon...';
+    micStatusMsg.textContent = 'Meminta akses mikrofon...';
     try {
         micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
         const { pc, resourceUrl } = await whipPublish(WHIP_URL, TALKBACK_PATH, PENGAWAS_KEY, micStream, ICE_SERVERS);
@@ -138,10 +147,10 @@ async function startTalkback() {
         micResource = resourceUrl;
         badgeMic.style.display = 'inline-block';
         btnMicOff.disabled = false;
-        statusMsg.textContent = 'Mic talkback aktif — teknisi bisa mendengar Anda.';
+        micStatusMsg.textContent = 'Mic talkback aktif — teknisi bisa mendengar Anda.';
     } catch (err) {
         console.error(err);
-        statusMsg.textContent = 'Gagal aktifkan mic: ' + err.message;
+        micStatusMsg.textContent = 'Gagal aktifkan mic: ' + err.message;
         btnMicOn.disabled = false;
     }
 }
@@ -157,7 +166,7 @@ async function stopTalkback() {
     }
     badgeMic.style.display = 'none';
     btnMicOn.disabled = false;
-    statusMsg.textContent = 'Mic talkback dimatikan.';
+    micStatusMsg.textContent = 'Mic talkback dimatikan.';
 }
 
 btnMicOn.addEventListener('click', startTalkback);
@@ -168,7 +177,7 @@ if (IS_LIVE) {
     statusPollTimer = setInterval(pollStatus, 5000);
     heartbeatTimer = setInterval(sendHeartbeat, 10000);
 }
-window.addEventListener('beforeunload', () => {
+window.addEventListener('pagehide', () => {
     if (playPc) whipWhepStop(playPc, playResource);
     if (micPc) whipWhepStop(micPc, micResource);
 });

@@ -110,12 +110,22 @@ async function whepPlay(baseUrl, path, token, mediaEl, iceServers) {
     return { pc, resourceUrl: _resolveResourceUrl(baseUrl, resp.headers.get('Location')) };
 }
 
-/** Hentikan koneksi WHIP/WHEP: tutup RTCPeerConnection + DELETE resource di server. */
+/**
+ * Hentikan koneksi WHIP/WHEP: tutup RTCPeerConnection + DELETE resource di server.
+ *
+ * `keepalive: true` PENTING — tanpa ini, kalau dipanggil dari handler
+ * unload/pagehide (mis. saat pindah halaman viewer -> pengawas), browser
+ * membatalkan fetch DELETE begitu navigasi mulai sehingga sesi WHEP lama
+ * tidak pernah ditutup di server (MediaMTX) dan baru hilang sendiri setelah
+ * timeout ICE. Selama menunggu timeout itu, koneksi WHEP baru di halaman
+ * berikutnya bisa gagal dapat alokasi relay TURN (pool port dipersempit ke
+ * 100 port) sehingga status tampak "terhubung" tapi video tidak tampil.
+ */
 async function whipWhepStop(pc, resourceUrl) {
     if (pc) {
         try { pc.close(); } catch (e) { /* noop */ }
     }
     if (resourceUrl) {
-        try { await fetch(resourceUrl, { method: 'DELETE' }); } catch (e) { /* noop */ }
+        try { await fetch(resourceUrl, { method: 'DELETE', keepalive: true }); } catch (e) { /* noop */ }
     }
 }
