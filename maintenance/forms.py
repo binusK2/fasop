@@ -1,5 +1,5 @@
 from django import forms
-from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset, MaintenanceRTU, MaintenanceSAS, MaintenanceRTUGeneric, MaintenanceRoIP, MaintenanceUPS, MaintenanceMasterTrip, MaintenanceDFR, MaintenanceMasterStation
+from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceRepeater, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset, MaintenanceRTU, MaintenanceSAS, MaintenanceRTUGeneric, MaintenanceRoIP, MaintenanceUPS, MaintenanceMasterTrip, MaintenanceDFR, MaintenanceMasterStation
 
 
 # ─── Widget helpers ───────────────────────────────────────────────────
@@ -185,6 +185,84 @@ class MaintenanceRadioForm(forms.ModelForm):
             'frekuensi_rx': forms.NumberInput(attrs={
                 'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. 156.800'
             }),
+            'catatan': forms.Textarea(attrs={
+                'class': 'form-control', 'rows': 3, 'placeholder': 'Catatan tambahan...'
+            }),
+        }
+
+
+# ─────────────────────────────────────────────────────────────
+# FORM DETAIL REPEATER (Radio TX + Radio RX)
+# ─────────────────────────────────────────────────────────────
+class MaintenanceRepeaterForm(forms.ModelForm):
+
+    class Meta:
+        model   = MaintenanceRepeater
+        exclude = ['maintenance']
+        widgets = {
+            # Kondisi ruangan
+            'suhu_ruangan': forms.NumberInput(attrs={
+                'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. 28.5'
+            }),
+            'kebersihan': forms.Select(attrs={'class': 'form-select'}),
+            'lampu_penerangan': forms.Select(attrs={'class': 'form-select'}),
+
+            # Peralatan terpasang
+            'ada_radio_tx':     OK_NOK_WIDGET,
+            'ada_radio_rx':     OK_NOK_WIDGET,
+            'ada_battery':      OK_NOK_WIDGET,
+            'merk_battery': forms.TextInput(attrs={
+                'class': 'form-control', 'placeholder': 'e.g. Yuasa, GS, Panasonic'
+            }),
+            'ada_power_supply': OK_NOK_WIDGET,
+            'merk_power_supply': forms.TextInput(attrs={
+                'class': 'form-control', 'placeholder': 'e.g. Huawei, Eltek, Delta'
+            }),
+            'jenis_antena': forms.Select(attrs={'class': 'form-select'}),
+
+            # Identitas unit Radio TX
+            'merk_radio_tx': forms.TextInput(attrs={
+                'class': 'form-control', 'placeholder': 'e.g. Motorola, Hytera'
+            }),
+            'tipe_radio_tx': forms.TextInput(attrs={
+                'class': 'form-control', 'placeholder': 'e.g. CDR700'
+            }),
+
+            # Identitas unit Radio RX
+            'merk_radio_rx': forms.TextInput(attrs={
+                'class': 'form-control', 'placeholder': 'e.g. Motorola, Hytera'
+            }),
+            'tipe_radio_rx': forms.TextInput(attrs={
+                'class': 'form-control', 'placeholder': 'e.g. CDR700'
+            }),
+
+            # Pengukuran umum
+            'tegangan_battery': forms.NumberInput(attrs={
+                'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. 12.5'
+            }),
+            'tegangan_psu': forms.NumberInput(attrs={
+                'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. 13.8'
+            }),
+
+            # Pengukuran unit TX
+            'swr_tx': forms.NumberInput(attrs={
+                'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. 1.2', 'id': 'id_swr_tx'
+            }),
+            'power_tx': forms.NumberInput(attrs={
+                'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. 5.0'
+            }),
+            'frekuensi_tx': forms.NumberInput(attrs={
+                'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. 156.800'
+            }),
+
+            # Pengukuran unit RX
+            'swr_rx': forms.NumberInput(attrs={
+                'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. 1.2', 'id': 'id_swr_rx'
+            }),
+            'frekuensi_rx': forms.NumberInput(attrs={
+                'class': 'form-control', 'step': 'any', 'placeholder': 'e.g. 156.800'
+            }),
+
             'catatan': forms.Textarea(attrs={
                 'class': 'form-control', 'rows': 3, 'placeholder': 'Catatan tambahan...'
             }),

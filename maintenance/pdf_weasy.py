@@ -24,6 +24,8 @@ _TEMPLATE_MAP = {
     'SWITCH':              'maintenance/pdf/router.html',
     'PLC':                 'maintenance/pdf/plc.html',
     'RADIO':               'maintenance/pdf/radio.html',
+    'REPEATER':            'maintenance/pdf/repeater.html',
+    'REPEATER & TOWER':    'maintenance/pdf/repeater.html',
     'VOIP':                'maintenance/pdf/voip.html',
     'MULTIPLEXER':         'maintenance/pdf/multiplexer.html',
     'RECTIFIER':           'maintenance/pdf/rectifier.html',
@@ -58,6 +60,8 @@ _TITLES = {
     'SWITCH':       'Formulir Pemeliharaan Peralatan Switch',
     'PLC':          'Formulir Pemeliharaan Peralatan PLC',
     'RADIO':        'Formulir Pemeliharaan Peralatan Radio Komunikasi',
+    'REPEATER':     'Formulir Pemeliharaan Peralatan Repeater',
+    'REPEATER & TOWER': 'Formulir Pemeliharaan Peralatan Repeater',
     'VOIP':         'Formulir Pemeliharaan Peralatan VoIP',
     'MULTIPLEXER':  'Formulir Pemeliharaan Peralatan Multiplexer',
     'GENSET':       'Formulir Pemeliharaan Peralatan Genset',
@@ -217,6 +221,46 @@ def _ctx_radio(data, ctx):
             {'label': 'Tegangan Power Supply','value': _v(r.get('tegangan_psu')),     'standar': '13.5-14 V'},
             {'label': 'Frekuensi TX / Tone',  'value': _v(r.get('frekuensi_tx')),    'standar': 'MHz'},
             {'label': 'Frekuensi RX / Tone',  'value': _v(r.get('frekuensi_rx')),    'standar': 'MHz'},
+        ],
+        'catatan': r.get('catatan', ''),
+    })
+
+
+def _ctx_repeater(data, ctx):
+    r = data.get('repeater', {})
+    ctx.update({
+        'env_items': [
+            {'label': 'Suhu Ruangan',     'value': f"{r['suhu_ruangan']} °C" if r.get('suhu_ruangan') else '-'},
+            {'label': 'Kebersihan',        'value': _v(r.get('kebersihan'))},
+            {'label': 'Lampu Penerangan',  'value': _v(r.get('lampu_penerangan'))},
+            {'label': 'Jenis Antena',      'value': _v(r.get('jenis_antena'))},
+        ],
+        'equip_items': [
+            {'label': 'Radio TX',     'value': r.get('ada_radio_tx', '')},
+            {'label': 'Radio RX',     'value': r.get('ada_radio_rx', '')},
+            {'label': 'Battery',      'value': r.get('ada_battery', '')},
+            {'label': 'Power Supply', 'value': r.get('ada_power_supply', '')},
+        ],
+        'merk_items': [
+            {'label': 'Merk Battery',      'value': _v(r.get('merk_battery'))},
+            {'label': 'Merk Power Supply', 'value': _v(r.get('merk_power_supply'))},
+        ],
+        'tx_items': [
+            {'label': 'Merk Radio TX',        'value': _v(r.get('merk_radio_tx'))},
+            {'label': 'Tipe/Model Radio TX',  'value': _v(r.get('tipe_radio_tx'))},
+            {'label': 'SWR TX',                'value': _v(r.get('swr_tx')),     'standar': '-'},
+            {'label': 'Power TX',              'value': _v(r.get('power_tx')),   'standar': 'W'},
+            {'label': 'Frekuensi TX / Tone',   'value': _v(r.get('frekuensi_tx')), 'standar': 'MHz'},
+        ],
+        'rx_items': [
+            {'label': 'Merk Radio RX',        'value': _v(r.get('merk_radio_rx'))},
+            {'label': 'Tipe/Model Radio RX',  'value': _v(r.get('tipe_radio_rx'))},
+            {'label': 'SWR RX',                'value': _v(r.get('swr_rx')),     'standar': '-'},
+            {'label': 'Frekuensi RX / Tone',   'value': _v(r.get('frekuensi_rx')), 'standar': 'MHz'},
+        ],
+        'pengukuran_items': [
+            {'label': 'Tegangan Battery',      'value': _v(r.get('tegangan_battery')), 'standar': '>= 11 V'},
+            {'label': 'Tegangan Power Supply', 'value': _v(r.get('tegangan_psu')),     'standar': '13.5-14 V'},
         ],
         'catatan': r.get('catatan', ''),
     })
@@ -403,6 +447,7 @@ def _ctx_teleproteksi(data, ctx):
 _CTX_BUILDERS = {
     'ROUTER': _ctx_router, 'SWITCH': _ctx_router,
     'PLC': _ctx_plc, 'RADIO': _ctx_radio, 'VOIP': _ctx_voip,
+    'REPEATER': _ctx_repeater, 'REPEATER & TOWER': _ctx_repeater,
     'MULTIPLEXER': _ctx_multiplexer,
     'RECTIFIER': _ctx_rectifier, 'CATU DAYA': _ctx_rectifier,
     'CATUDAYA': _ctx_rectifier, 'RECTIFIER & BATTERY': _ctx_rectifier,

@@ -192,6 +192,81 @@ class MaintenanceRadio(models.Model):
 
 
 # ─────────────────────────────────────────────────────────────────────
+# DETAIL REPEATER
+# Repeater fisiknya terdiri dari 2 unit radio terpisah (TX & RX) yang
+# saling berpasangan, jadi field pengukuran & identitas perangkat
+# (merk/tipe) digandakan per unit — beda dengan Device.merk/type yang
+# cuma menampung identitas 1 unit.
+# ─────────────────────────────────────────────────────────────────────
+class MaintenanceRepeater(models.Model):
+
+    STATUS_CHECK = (
+        ('OK', 'OK'),
+        ('NOK', 'NOK'),
+    )
+
+    KEBERSIHAN_CHOICES = (
+        ('Bersih', 'Bersih'),
+        ('Kotor', 'Kotor'),
+    )
+
+    LAMPU_CHOICES = (
+        ('Menyala', 'Menyala'),
+        ('Tidak Menyala', 'Tidak Menyala'),
+        ('Redup', 'Redup'),
+        ('Tidak Ada', 'Tidak Ada'),
+    )
+
+    ANTENA_CHOICES = (
+        ('Directional', 'Directional'),
+        ('Bidirectional', 'Bidirectional'),
+    )
+
+    maintenance = models.OneToOneField(Maintenance, on_delete=models.CASCADE)
+
+    # Kondisi ruangan
+    suhu_ruangan        = models.FloatField(null=True, blank=True, verbose_name='Suhu Ruangan (°C)')
+    kebersihan          = models.CharField(max_length=10, choices=KEBERSIHAN_CHOICES, blank=True)
+    lampu_penerangan    = models.CharField(max_length=15, choices=LAMPU_CHOICES, blank=True)
+
+    # Peralatan terpasang (checklist keberadaan)
+    ada_radio_tx        = models.CharField(max_length=3, choices=STATUS_CHECK, blank=True, verbose_name='Radio TX')
+    ada_radio_rx        = models.CharField(max_length=3, choices=STATUS_CHECK, blank=True, verbose_name='Radio RX')
+    ada_battery         = models.CharField(max_length=3, choices=STATUS_CHECK, blank=True, verbose_name='Battery')
+    merk_battery        = models.CharField(max_length=100, blank=True, verbose_name='Merk Battery')
+    ada_power_supply    = models.CharField(max_length=3, choices=STATUS_CHECK, blank=True, verbose_name='Power Supply')
+    merk_power_supply   = models.CharField(max_length=100, blank=True, verbose_name='Merk Power Supply')
+    jenis_antena        = models.CharField(max_length=15, choices=ANTENA_CHOICES, blank=True, verbose_name='Jenis Antena')
+
+    # Identitas unit Radio TX (beda dari Device.merk/type yang cuma 1 unit)
+    merk_radio_tx       = models.CharField(max_length=100, blank=True, verbose_name='Merk Radio TX')
+    tipe_radio_tx       = models.CharField(max_length=100, blank=True, verbose_name='Tipe/Model Radio TX')
+
+    # Identitas unit Radio RX
+    merk_radio_rx       = models.CharField(max_length=100, blank=True, verbose_name='Merk Radio RX')
+    tipe_radio_rx       = models.CharField(max_length=100, blank=True, verbose_name='Tipe/Model Radio RX')
+
+    # Pengukuran umum
+    tegangan_battery    = models.FloatField(null=True, blank=True, verbose_name='Tegangan Battery (V)')
+    tegangan_psu        = models.FloatField(null=True, blank=True, verbose_name='Tegangan Power Supply (V)')
+
+    # Pengukuran unit TX
+    swr_tx              = models.FloatField(null=True, blank=True, verbose_name='SWR TX')
+    power_tx            = models.FloatField(null=True, blank=True, verbose_name='Power TX (W)')
+    frekuensi_tx        = models.FloatField(null=True, blank=True, verbose_name='Frekuensi TX / Tone (MHz)')
+
+    # Pengukuran unit RX
+    swr_rx              = models.FloatField(null=True, blank=True, verbose_name='SWR RX')
+    frekuensi_rx        = models.FloatField(null=True, blank=True, verbose_name='Frekuensi RX / Tone (MHz)')
+
+    # Catatan
+    catatan             = models.TextField(blank=True, verbose_name='Catatan')
+
+    class Meta:
+        verbose_name = 'Maintenance Repeater'
+
+
+# ─────────────────────────────────────────────────────────────────────
 # DETAIL VOIP
 # ─────────────────────────────────────────────────────────────────────
 class MaintenanceVoIP(models.Model):

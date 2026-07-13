@@ -678,6 +678,231 @@
         </div>
         {% endif %}
 
+        <!-- ═══════════════ DETAIL REPEATER (Radio TX + Radio RX) ═══════════════ -->
+        {% if repeater_detail %}
+        <div class="card mb-3">
+            <div class="card-body px-4 py-3">
+
+                <!-- Kondisi Ruangan -->
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <span style="width:5px;height:18px;background:#8b5cf6;border-radius:3px;display:inline-block;"></span>
+                    <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#64748b;">Kondisi Ruangan</h6>
+                </div>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-4">
+                        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;">
+                            <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Suhu Ruangan</div>
+                            <div style="font-size:20px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;">
+                                {{ repeater_detail.suhu_ruangan|default:"—" }}
+                                {% if repeater_detail.suhu_ruangan %}<span style="font-size:13px;font-weight:500;color:#64748b;"> °C</span>{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;">
+                            <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Kebersihan</div>
+                            <div style="font-size:15px;font-weight:700;
+                                {% if repeater_detail.kebersihan == 'Bersih' %}color:#10b981;{% elif repeater_detail.kebersihan == 'Kotor' %}color:#ef4444;{% else %}color:#94a3b8;{% endif %}">
+                                {% if repeater_detail.kebersihan == 'Bersih' %}✓ {% elif repeater_detail.kebersihan == 'Kotor' %}✗ {% endif %}
+                                {{ repeater_detail.kebersihan|default:"—" }}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;">
+                            <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Lampu Penerangan</div>
+                            <div style="font-size:15px;font-weight:700;
+                                {% if repeater_detail.lampu_penerangan == 'Menyala' %}color:#10b981;{% elif repeater_detail.lampu_penerangan == 'Tidak Menyala' or repeater_detail.lampu_penerangan == 'Tidak Ada' %}color:#ef4444;{% elif repeater_detail.lampu_penerangan == 'Redup' %}color:#f59e0b;{% else %}color:#94a3b8;{% endif %}">
+                                {{ repeater_detail.lampu_penerangan|default:"—" }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Peralatan Terpasang -->
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <span style="width:5px;height:18px;background:#10b981;border-radius:3px;display:inline-block;"></span>
+                    <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#64748b;">Peralatan Terpasang</h6>
+                </div>
+                <div class="row g-2 mb-4">
+                    {% for field_name, label, val in repeater_checklist %}
+                    <div class="col-md-3 col-sm-6">
+                        <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 13px;border-radius:10px;{% if val == 'OK' %}background:#f0fdf4;border:1.5px solid #6ee7b7;{% elif val == 'NOK' %}background:#fef2f2;border:1.5px solid #fca5a5;{% else %}background:#f8fafc;border:1.5px solid #e2e8f0;{% endif %}">
+                            <span style="font-size:12.5px;font-weight:600;color:#334155;">{{ label }}</span>
+                            {% if val == 'OK' %}
+                                <span style="font-size:11.5px;font-weight:700;color:#065f46;background:#dcfce7;padding:2px 10px;border-radius:20px;">&#10003; OK</span>
+                            {% elif val == 'NOK' %}
+                                <span style="font-size:11.5px;font-weight:700;color:#991b1b;background:#fee2e2;padding:2px 10px;border-radius:20px;">&#10007; NOK</span>
+                            {% else %}
+                                <span style="font-size:12px;color:#94a3b8;font-weight:500;">&#8212;</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+
+                    {% if repeater_detail.merk_battery %}
+                    <div class="col-md-4 col-sm-6">
+                        <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 13px;border-radius:10px;background:#f8fafc;border:1.5px solid #e2e8f0;">
+                            <span style="font-size:12.5px;font-weight:600;color:#334155;">Merk Battery</span>
+                            <span style="font-size:12px;font-weight:600;color:#475569;">{{ repeater_detail.merk_battery }}</span>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% if repeater_detail.merk_power_supply %}
+                    <div class="col-md-4 col-sm-6">
+                        <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 13px;border-radius:10px;background:#f8fafc;border:1.5px solid #e2e8f0;">
+                            <span style="font-size:12.5px;font-weight:600;color:#334155;">Merk Power Supply</span>
+                            <span style="font-size:12px;font-weight:600;color:#475569;">{{ repeater_detail.merk_power_supply }}</span>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% if repeater_detail.jenis_antena %}
+                    <div class="col-md-4 col-sm-6">
+                        <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 13px;border-radius:10px;background:#eff6ff;border:1.5px solid #bfdbfe;">
+                            <span style="font-size:12.5px;font-weight:600;color:#334155;">Jenis Antena</span>
+                            <span style="font-size:11.5px;font-weight:700;color:#1e40af;background:#dbeafe;padding:2px 10px;border-radius:20px;">{{ repeater_detail.jenis_antena }}</span>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Unit Radio TX -->
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <span style="width:5px;height:18px;background:#3b82f6;border-radius:3px;display:inline-block;"></span>
+                    <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#3b82f6;">&#8593; Unit Radio TX</h6>
+                </div>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-3">
+                        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:12px 14px;">
+                            <div style="font-size:11px;font-weight:700;color:#3b82f6;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Merk</div>
+                            <div style="font-size:15px;font-weight:700;color:#1e3a5f;">{{ repeater_detail.merk_radio_tx|default:"—" }}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:12px 14px;">
+                            <div style="font-size:11px;font-weight:700;color:#3b82f6;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Tipe/Model</div>
+                            <div style="font-size:15px;font-weight:700;color:#1e3a5f;">{{ repeater_detail.tipe_radio_tx|default:"—" }}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;">
+                            <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">SWR TX</div>
+                            {% if repeater_detail.swr_tx is not None %}
+                                {% if repeater_detail.swr_tx < 1.5 %}
+                                <div style="font-size:18px;font-weight:700;color:#065f46;font-family:'JetBrains Mono',monospace;">{{ repeater_detail.swr_tx }}</div>
+                                {% elif repeater_detail.swr_tx <= 2 %}
+                                <div style="font-size:18px;font-weight:700;color:#92400e;font-family:'JetBrains Mono',monospace;">{{ repeater_detail.swr_tx }}</div>
+                                {% else %}
+                                <div style="font-size:18px;font-weight:700;color:#991b1b;font-family:'JetBrains Mono',monospace;">{{ repeater_detail.swr_tx }}</div>
+                                {% endif %}
+                            {% else %}
+                                <div style="font-size:20px;font-weight:700;color:#94a3b8;">—</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;">
+                            <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Power TX</div>
+                            <div style="font-size:20px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;">
+                                {{ repeater_detail.power_tx|default:"—" }}
+                                {% if repeater_detail.power_tx %}<span style="font-size:13px;font-weight:500;color:#64748b;"> W</span>{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;">
+                            <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Frekuensi TX / Tone</div>
+                            <div style="font-size:20px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;">
+                                {{ repeater_detail.frekuensi_tx|default:"—" }}
+                                {% if repeater_detail.frekuensi_tx %}<span style="font-size:13px;font-weight:500;color:#64748b;"> MHz</span>{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Unit Radio RX -->
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <span style="width:5px;height:18px;background:#10b981;border-radius:3px;display:inline-block;"></span>
+                    <h6 class="mb-0" style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#10b981;">&#8595; Unit Radio RX</h6>
+                </div>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-3">
+                        <div style="background:#f0fdf4;border:1px solid #a7f3d0;border-radius:10px;padding:12px 14px;">
+                            <div style="font-size:11px;font-weight:700;color:#10b981;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Merk</div>
+                            <div style="font-size:15px;font-weight:700;color:#064e3b;">{{ repeater_detail.merk_radio_rx|default:"—" }}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div style="background:#f0fdf4;border:1px solid #a7f3d0;border-radius:10px;padding:12px 14px;">
+                            <div style="font-size:11px;font-weight:700;color:#10b981;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Tipe/Model</div>
+                            <div style="font-size:15px;font-weight:700;color:#064e3b;">{{ repeater_detail.tipe_radio_rx|default:"—" }}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;">
+                            <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">SWR RX</div>
+                            {% if repeater_detail.swr_rx is not None %}
+                                {% if repeater_detail.swr_rx < 1.5 %}
+                                <div style="font-size:18px;font-weight:700;color:#065f46;font-family:'JetBrains Mono',monospace;">{{ repeater_detail.swr_rx }}</div>
+                                {% elif repeater_detail.swr_rx <= 2 %}
+                                <div style="font-size:18px;font-weight:700;color:#92400e;font-family:'JetBrains Mono',monospace;">{{ repeater_detail.swr_rx }}</div>
+                                {% else %}
+                                <div style="font-size:18px;font-weight:700;color:#991b1b;font-family:'JetBrains Mono',monospace;">{{ repeater_detail.swr_rx }}</div>
+                                {% endif %}
+                            {% else %}
+                                <div style="font-size:20px;font-weight:700;color:#94a3b8;">—</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;">
+                            <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Frekuensi RX / Tone</div>
+                            <div style="font-size:20px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;">
+                                {{ repeater_detail.frekuensi_rx|default:"—" }}
+                                {% if repeater_detail.frekuensi_rx %}<span style="font-size:13px;font-weight:500;color:#64748b;"> MHz</span>{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tegangan -->
+                <div class="d-flex align-items-center gap-3 mb-3">
+                    <div style="flex:1;height:1px;background:#e2e8f0;"></div>
+                    <span style="font-size:11px;font-weight:700;color:#94a3b8;letter-spacing:0.7px;text-transform:uppercase;white-space:nowrap;">Tegangan</span>
+                    <div style="flex:1;height:1px;background:#e2e8f0;"></div>
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;">
+                            <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Tegangan Battery</div>
+                            <div style="font-size:20px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;">
+                                {{ repeater_detail.tegangan_battery|default:"—" }}
+                                {% if repeater_detail.tegangan_battery %}<span style="font-size:13px;font-weight:500;color:#64748b;"> V</span>{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;">
+                            <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Tegangan Power Supply</div>
+                            <div style="font-size:20px;font-weight:700;color:#0f172a;font-family:'JetBrains Mono',monospace;">
+                                {{ repeater_detail.tegangan_psu|default:"—" }}
+                                {% if repeater_detail.tegangan_psu %}<span style="font-size:13px;font-weight:500;color:#64748b;"> V</span>{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {% if repeater_detail.catatan %}
+                <div class="mt-3 pt-3 border-top">
+                    <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Catatan</div>
+                    <div style="font-size:13.5px;color:#334155;">{{ repeater_detail.catatan }}</div>
+                </div>
+                {% endif %}
+
+            </div>
+        </div>
+        {% endif %}
+
         <!-- ═══════════════ DETAIL ROUTER ═══════════════ -->
         {% if router_detail and device_type == 'ROUTER' %}
 
@@ -1303,7 +1528,7 @@
         {% endif %}
 
         <!-- Tidak ada detail khusus -->
-        {% if not plc_detail and not router_detail and not radio_detail and not voip_detail and not mux_detail and not rect_detail and not tp_detail and not genset_detail and not rtu_detail and not sas_detail and not roip_detail and not ups_detail and not freq_relay_detail %}
+        {% if not plc_detail and not router_detail and not radio_detail and not repeater_detail and not voip_detail and not mux_detail and not rect_detail and not tp_detail and not genset_detail and not rtu_detail and not sas_detail and not roip_detail and not ups_detail and not freq_relay_detail %}
             {% if maintenance.maintenance_type == 'Corrective' and maintenance.corrective_detail %}
             {# Detail Corrective ditampilkan di sini, di dalam panel kanan #}
             {% with cd=maintenance.corrective_detail %}
