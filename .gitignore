@@ -73,4 +73,5 @@ rename_plan.csv
 
 # ── Live Streaming — hasil generate & file rekaman (berisi secret) ─────
 deploy/mediamtx.generated.yml
+deploy/mediamtx.service.generated
 streaming_recordings/

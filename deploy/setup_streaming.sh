@@ -78,6 +78,15 @@ sed \
 echo "  [ok] ditulis ke $OUTPUT (sudah di-gitignore — jangan pernah commit, berisi secret)"
 
 echo
+echo "=== 3b/4: Render deploy/mediamtx.service.generated ==="
+SERVICE_TEMPLATE="$SCRIPT_DIR/mediamtx.service"
+SERVICE_OUTPUT="$SCRIPT_DIR/mediamtx.service.generated"
+sed "s#/GANTI/PATH/KE/REPO/FASOP/deploy/mediamtx.generated.yml#$OUTPUT#" \
+    "$SERVICE_TEMPLATE" > "$SERVICE_OUTPUT"
+echo "  [ok] ditulis ke $SERVICE_OUTPUT — path ExecStart sudah otomatis benar ($OUTPUT)."
+echo "       Pakai file INI untuk systemd, bukan deploy/mediamtx.service (itu masih template)."
+
+echo
 echo "=== 4/4: Cron retensi rekaman (purge_old_recordings, harian 03:00) ==="
 PYTHON_BIN="$PROJECT_ROOT/venv/bin/python"
 [[ -x "$PYTHON_BIN" ]] || PYTHON_BIN="$(command -v python3)"
@@ -121,8 +130,9 @@ echo "    -> Kalau di server TERPISAH: ganti ke alamat Django yang benar, dan"
 echo "       pastikan STREAMING_RECORDINGS_ROOT bisa diakses kedua server"
 echo "       (shared mount, bukan folder lokal)."
 echo ""
-echo " 4. Jalankan MediaMTX pakai HASIL GENERATE, bukan template:"
-echo "      ./mediamtx $OUTPUT"
-echo "    Sebaiknya sebagai systemd service — lihat deploy/mediamtx.service"
-echo "    (isi User/ExecStart di situ dulu, lalu systemctl enable --now)."
+echo " 4. Pasang sebagai systemd service pakai HASIL GENERATE ($SERVICE_OUTPUT):"
+echo "      sudo cp $SERVICE_OUTPUT /etc/systemd/system/mediamtx.service"
+echo "      sudo nano /etc/systemd/system/mediamtx.service   # cek/isi User & Group saja, ExecStart sudah benar"
+echo "      sudo systemctl daemon-reload"
+echo "      sudo systemctl enable --now mediamtx"
 echo "════════════════════════════════════════════════════════════════════"
