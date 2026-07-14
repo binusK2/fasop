@@ -92,9 +92,10 @@ authHTTPExclude:
 # suatu saat jumlah live bersamaan naik jauh.
 #
 # authHTTPExclude TIDAK dipakai untuk mengizinkan ffmpeg internal ini —
-# webhook Django (mediamtx_auth_webhook) sendiri yang mengizinkan koneksi
-# loopback (127.0.0.1) khusus untuk path "-rec"/path video mentah dari sesi
-# yang benar-benar sedang live, lihat streaming/views.py.
+# webhook Django (mediamtx_auth_webhook) sendiri yang mengizinkan lewat
+# kredensial RTSP khusus ("mtx-internal" + MEDIAMTX_AUTH_SECRET, BUKAN cek
+# IP — lihat catatan di runOnReady & di streaming/views.py) untuk path
+# "-rec"/path video mentah dari sesi yang benar-benar sedang live.
 #
 # Talkback (live-<key>-talk, cuma audio pengawas) sengaja TIDAK direkam.
 # Retensi 7 hari ditangani di sisi Django lewat cron
@@ -132,10 +133,21 @@ paths:
     # VP8 -> transcode ke H.264 supaya bisa direkam (lihat catatan panjang
     # di atas). -rtsp_transport tcp di kedua sisi supaya round-trip loopback
     # ini tidak butuh port UDP tambahan.
+    #
+    # Kredensial "mtx-internal:...SECRET..." di URL RTSP di bawah WAJIB ada
+    # — Django (mediamtx_auth_webhook) memvalidasi ffmpeg internal ini lewat
+    # kredensial ini, BUKAN lewat cek IP 127.0.0.1. Kalau browser mengakses
+    # MediaMTX lewat reverse proxy di server yang SAMA (mis. Cloudflare
+    # Tunnel ke localhost:8889, seperti setup FASOP), traffic WHIP/WHEP asli
+    # dari browser pun akan tampak datang dari 127.0.0.1 juga — jadi cek IP
+    # saja TIDAK cukup untuk membedakan ffmpeg internal dari browser asli.
+    # key= (password RTSP) harus sama persis dengan MEDIAMTX_AUTH_SECRET di
+    # .env Django — placeholder di bawah otomatis terisi oleh
+    # setup_streaming.sh.
     runOnReady: >
       ffmpeg -nostdin -loglevel warning -rtsp_transport tcp
-      -i rtsp://127.0.0.1:$RTSP_PORT/$MTX_PATH
+      -i rtsp://mtx-internal:isi-MEDIAMTX_AUTH_SECRET-yang-sama-dengan-env-django@127.0.0.1:$RTSP_PORT/$MTX_PATH
       -c:v libx264 -preset veryfast -tune zerolatency -profile:v baseline -pix_fmt yuv420p
       -c:a aac
-      -f rtsp -rtsp_transport tcp rtsp://127.0.0.1:$RTSP_PORT/${MTX_PATH}-rec
+      -f rtsp -rtsp_transport tcp rtsp://mtx-internal:isi-MEDIAMTX_AUTH_SECRET-yang-sama-dengan-env-django@127.0.0.1:$RTSP_PORT/${MTX_PATH}-rec
     runOnReadyRestart: no
