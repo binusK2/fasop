@@ -185,7 +185,6 @@ def mediamtx_auth_webhook(request):
     action = payload.get('action', '')
     path = payload.get('path', '')
     token = payload.get('user', '')
-    ip = payload.get('ip', '')
 
     if action not in ('publish', 'read'):
         # Aksi lain (mis. 'playback', 'api', 'metrics') — izinkan agar tidak
@@ -196,11 +195,15 @@ def mediamtx_auth_webhook(request):
     # video WebRTC dari browser selalu VP8, dan recorder fMP4 MediaMTX belum
     # mengimplementasi VP8 — jadi ffmpeg LOKAL di server yang sama menarik
     # feed RTSP mentah lalu republish sebagai H.264 ke path "<key>-rec" yang
-    # baru direkam. Ini koneksi server-ke-diri-sendiri (loopback), BUKAN
-    # dari browser, jadi tidak bawa token — diizinkan HANYA kalau sumbernya
-    # benar-benar loopback DAN sesinya nyata & sedang live (bukan sembarang
-    # path), supaya tidak membuka celah baca/publish tanpa token dari luar.
-    if action in ('publish', 'read') and ip in ('127.0.0.1', '::1'):
+    # baru direkam. ffmpeg diberi kredensial RTSP khusus ("mtx-internal" +
+    # MEDIAMTX_AUTH_SECRET) yang tidak pernah dibagikan ke browser — SENGAJA
+    # BUKAN dicek lewat IP 127.0.0.1: kalau browser mengakses MediaMTX lewat
+    # reverse proxy di server yang sama (mis. Cloudflare Tunnel ke
+    # localhost:8889, seperti setup FASOP), traffic WHIP/WHEP asli dari
+    # browser pun akan tampak datang dari 127.0.0.1 juga, jadi cek IP saja
+    # bisa salah mengizinkan baca video tanpa token asli.
+    if (settings.MEDIAMTX_AUTH_SECRET and token == 'mtx-internal'
+            and payload.get('pass') == settings.MEDIAMTX_AUTH_SECRET):
         if action == 'read' and path.startswith('live-') and not path.endswith('-talk') and not path.endswith('-rec'):
             stream_key = path[len('live-'):]
             if LiveSession.objects.filter(stream_key=stream_key, status='live').exists():
@@ -209,9 +212,7 @@ def mediamtx_auth_webhook(request):
             stream_key = path[len('live-'):-len('-rec')]
             if LiveSession.objects.filter(stream_key=stream_key, status='live').exists():
                 return JsonResponse({'ok': True})
-        # Tidak cocok pola transcode internal di atas -> lanjut ke pengecekan
-        # token normal di bawah (mis. WHIP/WHEP asli dari browser lewat proxy
-        # lokal, tetap wajib token).
+        return HttpResponseForbidden('not allowed')
 
     session = (
         LiveSession.objects.filter(stream_key=token).first()
