@@ -262,3 +262,19 @@ STREAMING_RECORDING_RETENTION_DAYS = config(
     'STREAMING_RECORDING_RETENTION_DAYS', default=7, cast=int,
 )
 
+# Kalau True, rekaman diserve lewat header X-Accel-Redirect (nginx yang baca
+# & kirim byte file, termasuk Range request untuk seek) alih-alih di-stream
+# manual lewat Django/gunicorn — jauh lebih cepat untuk file besar. WAJIB
+# nginx sudah dikonfigurasi sesuai deploy/nginx-recordings-x-accel.conf.example
+# dulu sebelum diaktifkan (default False supaya aman/tidak mengubah perilaku
+# existing sampai nginx-nya benar-benar siap).
+STREAMING_USE_X_ACCEL_REDIRECT = config(
+    'STREAMING_USE_X_ACCEL_REDIRECT', default=False, cast=bool,
+)
+# Location nginx `internal` yang di-alias ke STREAMING_RECORDINGS_ROOT — lihat
+# deploy/nginx-recordings-x-accel.conf.example. Cuma dipakai kalau
+# STREAMING_USE_X_ACCEL_REDIRECT=True.
+STREAMING_X_ACCEL_REDIRECT_PREFIX = config(
+    'STREAMING_X_ACCEL_REDIRECT_PREFIX', default='/internal-recordings/',
+)
+

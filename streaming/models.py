@@ -44,6 +44,15 @@ class LiveSession(models.Model):
     # setelah STREAMING_RECORDING_RETENTION_DAYS hari sejak ended_at.
     recording_path = models.CharField(max_length=500, blank=True, editable=False, verbose_name='Path Rekaman')
 
+    # Klip audio talkback pengawas — file TERPISAH dari recording_path di
+    # atas (bukan digabung/di-mix jadi satu file dengan video). Pengawas
+    # bisa join/aktifkan-matikan mic kapan saja setelah teknisi live, jadi
+    # mixing real-time ke satu file video berisiko rekaman video utama
+    # terpecah tiap kali mic pengawas toggle — direkam terpisah supaya
+    # pipeline rekaman video (yang sudah stabil) tidak ikut berisiko.
+    # Kosong = tidak ada pengawas/mic tidak pernah diaktifkan sesi ini.
+    talkback_recording_path = models.CharField(max_length=500, blank=True, editable=False, verbose_name='Path Rekaman Audio Pengawas')
+
     class Meta:
         ordering = ['-started_at']
         verbose_name = 'Sesi Live Streaming'
@@ -77,6 +86,10 @@ class LiveSession(models.Model):
     @property
     def has_recording(self):
         return bool(self.recording_path)
+
+    @property
+    def has_talkback_recording(self):
+        return bool(self.talkback_recording_path)
 
     def assign_pengawas(self, user):
         self.pengawas = user

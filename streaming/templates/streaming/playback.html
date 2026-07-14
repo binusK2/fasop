@@ -21,9 +21,24 @@
     <a href="{% url 'streaming:list' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i>Kembali</a>
 </div>
 
+{% if session.has_recording %}
 <div class="video-wrap mb-2">
     <video controls preload="metadata" src="{% url 'streaming:recording_file' pk=session.pk %}"></video>
 </div>
+{% else %}
+<p class="text-muted mb-2">Rekaman video belum/tidak tersedia untuk sesi ini.</p>
+{% endif %}
+
+{% if session.has_talkback_recording %}
+<div class="card mb-2">
+    <div class="card-body">
+        <h6 class="mb-2"><i class="bi bi-mic-fill me-1"></i>Audio Pengawas</h6>
+        <p class="text-muted mb-2" style="font-size:12px;">Rekaman suara pengawas TERPISAH dari video di atas (bukan digabung) — kalau perlu disinkronkan, bandingkan waktu mulai keduanya secara manual.</p>
+        <audio controls preload="metadata" style="width:100%;" src="{% url 'streaming:talkback_recording_file' pk=session.pk %}"></audio>
+    </div>
+</div>
+{% endif %}
+
 <p class="text-muted" style="font-size:12px;">Rekaman otomatis dihapus 7 hari setelah sesi live diakhiri.</p>
 </div>
 

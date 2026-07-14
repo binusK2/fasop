@@ -1,0 +1,67 @@
+# deploy/nginx-recordings-x-accel.conf.example
+#
+# Snippet TAMBAHAN untuk mempercepat halaman "Putar Rekaman" — bukan config
+# nginx yang berdiri sendiri seperti deploy/nginx-mediamtx.conf.example.
+# Tanpa ini, file rekaman diserve dengan cara Django/gunicorn membaca &
+# mengirim byte-nya sendiri (StreamingHttpResponse per 64KB chunk) — jalan,
+# tapi jauh lebih lambat untuk file besar dibanding nginx yang serve
+# langsung dari disk (termasuk menangani HTTP Range request untuk seek).
+#
+# Dengan snippet ini: Django cuma mengecek izin akses (login, role, sesi
+# ini punya rekaman atau tidak) lalu balas header `X-Accel-Redirect` yang
+# bilang ke nginx file MANA yang boleh dikirim — nginx yang benar-benar
+# baca & kirim byte-nya. Django tidak pernah menyentuh isi filenya sendiri
+# di jalur ini.
+#
+# WAJIB ditambahkan ke DALAM server{} block FASOP UTAMA yang sudah ada (yang
+# proxy_pass ke gunicorn di domain fasopup2bmks.id) — JANGAN dibuat server
+# block terpisah, karena X-Accel-Redirect harus datang dari respons Django
+# di domain yang SAMA supaya browser tetap mengirim cookie sesi & tidak
+# kena masalah CORS/domain berbeda.
+#
+# Cara pasang:
+#   1. Cari file config nginx untuk FASOP utama, biasanya:
+#        /etc/nginx/sites-available/fasop  (atau nama serupa)
+#   2. Di DALAM server{} block yang sudah ada (yang punya `location / { proxy_pass
+#      http://127.0.0.1:8000; ... }` ke gunicorn), tambahkan location block
+#      di bawah ini — urutan location di nginx tidak masalah, taruh saja
+#      sebelum atau sesudah location / yang sudah ada:
+#
+#        location /internal-recordings/ {
+#            internal;
+#            alias /home/fasop/fasop/streaming_recordings/;
+#        }
+#
+#      GANTI alias di atas supaya SAMA PERSIS dengan STREAMING_RECORDINGS_ROOT
+#      di .env (termasuk trailing slash "/" di akhir, WAJIB ada di keduanya —
+#      prefix path "/internal-recordings/" di sini juga harus sama persis
+#      dengan STREAMING_X_ACCEL_REDIRECT_PREFIX di .env, kalau tidak diubah
+#      dari default keduanya sudah cocok, tidak perlu apa-apa lagi).
+#
+#   3. `internal;` WAJIB ADA — ini yang membuat nginx menolak akses LANGSUNG
+#      ke /internal-recordings/... dari luar (curl/browser biasa akan dapat
+#      404), path ini HANYA bisa "dipanggil" lewat X-Accel-Redirect internal
+#      dari respons Django setelah izin akses dicek. Tanpa `internal;`,
+#      siapa saja yang tahu/menebak nama file rekaman bisa download langsung
+#      tanpa login — WAJIB jangan dihapus.
+#
+#   4. Cek syntax & reload:
+#        sudo nginx -t && sudo systemctl reload nginx
+#
+#   5. Sanity check dari server SEBELUM mengaktifkan flag di langkah 6 —
+#      request langsung ke path internal ini HARUS dapat 404 (buktinya
+#      "internal;" bekerja):
+#        curl -I https://fasopup2bmks.id/internal-recordings/
+#
+#   6. BARU SETELAH nginx reload sukses & sanity check di atas benar,
+#      aktifkan di .env:
+#        STREAMING_USE_X_ACCEL_REDIRECT=True
+#      lalu restart gunicorn:
+#        sudo systemctl restart gunicorn
+#
+#   7. Test dari halaman "Putar Rekaman" sungguhan — video harus mulai main
+#      lebih cepat dari sebelumnya. Kalau video malah gagal load sama sekali
+#      (bukan cuma lambat), set STREAMING_USE_X_ACCEL_REDIRECT kembali ke
+#      False dulu (rollback instan, tidak perlu ubah nginx) sambil
+#      diperiksa — kemungkinan besar `alias` di langkah 2 tidak cocok
+#      dengan STREAMING_RECORDINGS_ROOT.

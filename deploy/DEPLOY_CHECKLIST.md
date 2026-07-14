@@ -61,6 +61,59 @@ server kalau nanti jumlah live bersamaan naik jauh.
 5. Sesi live-nya kemungkinan sudah tidak `status='live'` di database saat
    ffmpeg mencoba connect (race condition kecil, jarang terjadi).
 
+## Audio pengawas (talkback) — direkam terpisah, bukan digabung ke video
+
+Opus (kodek audio WebRTC) didukung LANGSUNG oleh recorder fMP4 MediaMTX
+(beda dengan VP8 video di atas), jadi path talkback pengawas
+(`live-<key>-talk`) direkam langsung tanpa perlu ffmpeg transcode apa pun —
+tinggal `record: true` di `deploy/mediamtx.yml`.
+
+**SENGAJA tidak di-mix jadi satu file dengan video** — pengawas bisa
+join/aktifkan-matikan mic kapan saja setelah teknisi live, jadi real-time
+mixing ke satu file video berisiko rekaman utama ikut terpecah tiap mic
+di-toggle. Disimpan ke field terpisah `LiveSession.talkback_recording_path`
+dan ditampilkan sebagai `<audio>` player terpisah di halaman "Putar
+Rekaman" (di bawah video, kalau ada).
+
+**Keterbatasan yang diterima:** kalau pengawas toggle mic berkali-kali di
+sesi yang sama, itu jadi beberapa segmen rekaman di disk tapi
+`talkback_recording_path` cuma menyimpan segmen TERAKHIR (field tunggal,
+bukan daftar) — segmen sebelumnya tetap ada di disk (dihapus saat retensi 7
+hari lewat) tapi tidak lagi bisa diputar dari UI. Wajar untuk pemakaian
+normal (mic diaktifkan sekali per sesi).
+
+Setelah `git pull` yang membawa fitur ini, WAJIB migrate dulu (field baru
+di model):
+```bash
+python manage.py migrate
+```
+lalu render ulang & restart seperti biasa:
+```bash
+bash deploy/setup_streaming.sh
+sudo systemctl restart mediamtx
+sudo systemctl restart gunicorn
+```
+
+## Playback lebih cepat (opsional) — nginx X-Accel-Redirect
+
+Rekaman secara default diserve dengan Django/gunicorn membaca & mengirim
+byte file-nya sendiri (`StreamingHttpResponse`) — jalan, tapi lambat untuk
+file besar. Bisa dialihkan supaya nginx yang serve langsung dari disk
+(jauh lebih cepat, termasuk menangani Range request untuk seek) — **opt-in,
+default mati**, tidak mengubah perilaku existing sampai diaktifkan.
+
+Langkah lengkap (termasuk snippet nginx & sanity check): lihat
+`deploy/nginx-recordings-x-accel.conf.example`. Ringkasnya:
+1. Tambahkan location `internal` yang di-alias ke `STREAMING_RECORDINGS_ROOT`
+   ke server block nginx FASOP yang SUDAH ADA (bukan server block baru).
+2. `sudo nginx -t && sudo systemctl reload nginx`.
+3. Set `.env` → `STREAMING_USE_X_ACCEL_REDIRECT=True`, restart gunicorn.
+
+Kalau video malah gagal load sama sekali setelah diaktifkan (bukan cuma
+lambat), set `STREAMING_USE_X_ACCEL_REDIRECT=False` lagi untuk rollback
+instan (tidak perlu ubah nginx) sambil diperiksa — kemungkinan besar
+`alias` di config nginx tidak cocok persis dengan `STREAMING_RECORDINGS_ROOT`.
+
 ## Gotcha besar — `mediamtx.generated.yml` di-generate ULANG DARI NOL
 
 `setup_streaming.sh` **selalu menulis ulang seluruh isi** `mediamtx.generated.yml`

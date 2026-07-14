@@ -67,7 +67,7 @@ Each of the 15 `INSTALLED_APPS` Django apps follows a standard layout (`models.p
 | `common_enemy/` | Cross-cutting multi-site issue tickets (SCADA/telkom/prosis), auto-numbered `CE-YYYYMM-XXXX` |
 | `dokumentasi/` | Relay setting & wiring-diagram document repository with uploader→checker approval workflow |
 | `auditlog/` | Custom (not django-auditlog) superuser audit log; entries are created by explicit `log_action()` calls in views, not signals |
-| `streaming/` | Field maintenance live streaming (WebRTC WHIP/WHEP via MediaMTX, `deploy/mediamtx.yml`); Teknisi broadcasts, Teknisi/AM view, only AM can join as Pengawas for 2-way talkback; recordings kept 7 days (`purge_old_recordings` cron) |
+| `streaming/` | Field maintenance live streaming (WebRTC WHIP/WHEP via MediaMTX, `deploy/mediamtx.yml`); Teknisi broadcasts, Teknisi/AM view, only AM can join as Pengawas for 2-way talkback; teknisi's video is recorded (server-side ffmpeg transcode, see below) and pengawas's talkback audio is recorded as a **separate** clip (`LiveSession.talkback_recording_path`) rather than mixed into one file; recordings kept 7 days (`purge_old_recordings` cron) |
 | `api/` | REST API for n8n / Google Sheets integrations (no models — not in `INSTALLED_APPS`, but `urls.py` is still wired into `fasop/urls.py` at `/api/v1/`) |
 | `fasop/` | Root settings, URL routing, Hashids helper, URL converters |
 
@@ -234,6 +234,9 @@ TURN_USERNAME=                # coturn long-term-credential username (must match
 TURN_PASSWORD=                # coturn long-term-credential password (must match /etc/turnserver.conf)
 STREAMING_RECORDINGS_ROOT=     # must match recordPath's base dir in mediamtx.yml, readable by Django
 STREAMING_RECORDING_RETENTION_DAYS=7
+STREAMING_USE_X_ACCEL_REDIRECT=False   # True = serve recordings via nginx X-Accel-Redirect instead of
+                                        # streaming through Django/gunicorn — see deploy/nginx-recordings-x-accel.conf.example
+STREAMING_X_ACCEL_REDIRECT_PREFIX=/internal-recordings/
 ```
 
 Changing `SECRET_KEY` in production invalidates all Hashids-encoded URLs and active sessions.
@@ -251,6 +254,7 @@ The `streaming` app doesn't add any new pip packages — WebRTC is handled entir
 | **ffmpeg** | Server-side recording transcode: browsers always publish WebRTC video as VP8, but MediaMTX's fMP4 recorder doesn't implement VP8 — a local `ffmpeg` process (spawned by MediaMTX's `runOnReady` hook per live session) reads the raw feed over loopback RTSP and republishes it as H.264 to a separate `<key>-rec` path, which is what actually gets recorded | `apt install ffmpeg` — **hard dependency**, recording produces nothing at all without it (not just audio-only) |
 | **Cloudflare Tunnel** (`cloudflared`) | How the FASOP production deployment exposes MediaMTX's WebRTC HTTP endpoint (`:8889`) to the public internet without opening inbound ports directly; forced to `--protocol http2` in the systemd unit because the default QUIC transport gets mangled by the office network | Already deployed for the main FASOP domain; a second public hostname is added for the media subdomain via the Cloudflare Zero Trust dashboard (Networks → Tunnels → Public Hostname), **not** by editing the local `config.yml` if the tunnel is dashboard-managed |
 | nginx (alternative) | If a domain+cert already exists for FASOP and Cloudflare Tunnel isn't used, nginx can instead reverse-proxy HTTPS to MediaMTX on `localhost:8889` | See `deploy/nginx-mediamtx.conf.example` |
+| nginx (optional, recordings) | Faster recording playback — nginx serves the recording file bytes directly (`X-Accel-Redirect`, including Range requests for seeking) instead of Django/gunicorn streaming them manually. Opt-in, off by default | Add a `location /internal-recordings/ { internal; alias <STREAMING_RECORDINGS_ROOT>/; }` snippet to the **existing** FASOP nginx server block, then set `STREAMING_USE_X_ACCEL_REDIRECT=True` — see `deploy/nginx-recordings-x-accel.conf.example` |
 
 Setup script: `bash deploy/setup_streaming.sh` — idempotent, generates `deploy/mediamtx.generated.yml` (gitignored, contains secrets) from the `deploy/mediamtx.yml` template + `.env`, checks for `ffmpeg`, sets up the `purge_old_recordings` cron. **`mediamtx.generated.yml` is rewritten from scratch on every run** — never hand-edit it directly (origin/TURN values in particular have been lost this way before); all environment-specific values belong in `.env` (see table above) so re-running the script is always safe. Full walkthrough: `deploy/DEPLOY_CHECKLIST.md`.
 

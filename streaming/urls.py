@@ -14,6 +14,7 @@ urlpatterns = [
     path('<hid:pk>/selesai/', views.end_session, name='end'),
     path('<hid:pk>/rekaman/', views.session_recording, name='recording'),
     path('<hid:pk>/rekaman/file/', views.serve_recording, name='recording_file'),
+    path('<hid:pk>/rekaman/pengawas/', views.serve_talkback_recording, name='talkback_recording_file'),
     path('webhook/mediamtx-auth/', views.mediamtx_auth_webhook, name='mediamtx_auth_webhook'),
     path('webhook/mediamtx-record/', views.mediamtx_record_webhook, name='mediamtx_record_webhook'),
 ]
