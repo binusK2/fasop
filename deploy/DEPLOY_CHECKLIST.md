@@ -52,17 +52,43 @@ server kalau nanti jumlah live bersamaan naik jauh.
    ada — kalau foldernya `live-<key>` (tanpa `-rec`), berarti
    `mediamtx.generated.yml` di server belum ter-update ke versi terbaru
    (`git pull` lagi, render ulang `setup_streaming.sh`, restart mediamtx).
-4. Django log untuk `mediamtx_auth_webhook` menolak `action=publish` atau
-   `action=read` dari `ip=127.0.0.1` — kalau ditolak, sesi live-nya
-   kemungkinan sudah tidak `status='live'` di database saat ffmpeg mencoba
-   connect (race condition kecil, jarang terjadi).
+4. `TURN_URL`/`TURN_USERNAME`/`TURN_PASSWORD` di `.env` cocok dengan kredensial
+   `mtx-internal` yang di-generate ke `mediamtx.generated.yml` (bukan ini
+   penyebab paling umum, tapi kalau `mediamtx_auth_webhook` menolak
+   `action=publish`/`action=read` dengan `user=mtx-internal` di log Django,
+   ini penyebabnya — jarang terjadi kecuali `MEDIAMTX_AUTH_SECRET` di `.env`
+   berubah tapi `mediamtx.generated.yml` belum di-render ulang).
+5. Sesi live-nya kemungkinan sudah tidak `status='live'` di database saat
+   ffmpeg mencoba connect (race condition kecil, jarang terjadi).
+
+## Gotcha besar — `mediamtx.generated.yml` di-generate ULANG DARI NOL
+
+`setup_streaming.sh` **selalu menulis ulang seluruh isi** `mediamtx.generated.yml`
+dari template `mediamtx.yml` setiap kali dijalankan. Kalau ada nilai yang
+pernah diisi/diedit **langsung di file `.generated.yml`** (bukan di `.env`),
+edit itu **hilang tertimpa placeholder lagi** lain kali script ini dijalankan
+— dan karena tidak ada pesan error yang jelas, gejalanya baru muncul saat
+live streaming dicoba lagi (CORS `Failed to fetch` kalau origin yang hilang,
+TURN tidak connect dari HP CGNAT kalau kredensial TURN yang hilang).
+
+**Aturan wajib:** isi `FASOP_PUBLIC_ORIGIN`, `TURN_URL`, `TURN_USERNAME`,
+`TURN_PASSWORD` di `.env` (bukan di `mediamtx.generated.yml`), lalu jalankan
+`bash deploy/setup_streaming.sh` — nilainya otomatis disalin ke
+`webrtcAllowOrigins`/`webrtcICEServers2` setiap kali. Script ini akan
+mencetak `[!]` di langkah 2c kalau salah satu variabel itu belum ada di
+`.env`, supaya ketahuan SEBELUM restart, bukan sesudah teknisi coba live
+dan gagal.
 
 ## Otomatis oleh `setup_streaming.sh`
 
 - [ ] `.env` → `MEDIAMTX_AUTH_SECRET` (di-generate acak kalau belum ada)
 - [ ] `.env` → `STREAMING_RECORDINGS_ROOT` (default `<repo>/streaming_recordings` kalau belum diisi)
 - [ ] Direktori rekaman dibuat
-- [ ] `deploy/mediamtx.generated.yml` di-render dari `deploy/mediamtx.yml` (secret & path rekaman terisi)
+- [ ] Cek `ffmpeg` terinstal (dicetak `[!]` kalau belum — TIDAK diinstal otomatis)
+- [ ] `.env` → `FASOP_PUBLIC_ORIGIN`, `TURN_URL`, `TURN_USERNAME`, `TURN_PASSWORD` disalin
+      ke `deploy/mediamtx.generated.yml` kalau sudah diisi (dicetak `[!]` kalau belum)
+- [ ] `deploy/mediamtx.generated.yml` di-render dari `deploy/mediamtx.yml` (secret, path rekaman,
+      origin & TURN — yang sudah ada di `.env` — terisi)
 - [ ] `deploy/mediamtx.service.generated` di-render dari `deploy/mediamtx.service` (path `ExecStart` otomatis benar)
 - [ ] Cron `purge_old_recordings` terpasang (harian 03:00)
 
