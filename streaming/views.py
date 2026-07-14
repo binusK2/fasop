@@ -185,11 +185,33 @@ def mediamtx_auth_webhook(request):
     action = payload.get('action', '')
     path = payload.get('path', '')
     token = payload.get('user', '')
+    ip = payload.get('ip', '')
 
     if action not in ('publish', 'read'):
         # Aksi lain (mis. 'playback', 'api', 'metrics') — izinkan agar tidak
         # memblokir fitur bawaan MediaMTX yang tidak berkaitan dengan sesi live.
         return JsonResponse({'ok': True})
+
+    # Pipeline transcode rekaman (lihat runOnReady di deploy/mediamtx.yml):
+    # video WebRTC dari browser selalu VP8, dan recorder fMP4 MediaMTX belum
+    # mengimplementasi VP8 — jadi ffmpeg LOKAL di server yang sama menarik
+    # feed RTSP mentah lalu republish sebagai H.264 ke path "<key>-rec" yang
+    # baru direkam. Ini koneksi server-ke-diri-sendiri (loopback), BUKAN
+    # dari browser, jadi tidak bawa token — diizinkan HANYA kalau sumbernya
+    # benar-benar loopback DAN sesinya nyata & sedang live (bukan sembarang
+    # path), supaya tidak membuka celah baca/publish tanpa token dari luar.
+    if action in ('publish', 'read') and ip in ('127.0.0.1', '::1'):
+        if action == 'read' and path.startswith('live-') and not path.endswith('-talk') and not path.endswith('-rec'):
+            stream_key = path[len('live-'):]
+            if LiveSession.objects.filter(stream_key=stream_key, status='live').exists():
+                return JsonResponse({'ok': True})
+        elif action == 'publish' and path.startswith('live-') and path.endswith('-rec'):
+            stream_key = path[len('live-'):-len('-rec')]
+            if LiveSession.objects.filter(stream_key=stream_key, status='live').exists():
+                return JsonResponse({'ok': True})
+        # Tidak cocok pola transcode internal di atas -> lanjut ke pengecekan
+        # token normal di bawah (mis. WHIP/WHEP asli dari browser lewat proxy
+        # lokal, tetap wajib token).
 
     session = (
         LiveSession.objects.filter(stream_key=token).first()
@@ -227,8 +249,12 @@ def mediamtx_record_webhook(request):
     deploy/mediamtx.yml) setiap file rekaman selesai ditulis ke disk.
     Server-to-server, divalidasi via shared secret sama seperti auth webhook.
 
-    Body JSON: {path, segment_path} — path = nama path MediaMTX (video_path
-    milik LiveSession), segment_path = path absolut file MP4 di disk.
+    Body JSON: {path, segment_path} — path = nama path MediaMTX yang direkam.
+    Sejak rekaman dipindah ke path hasil transcode ("<video_path>-rec", lihat
+    runOnReady di deploy/mediamtx.yml — video_path asli dari browser selalu
+    VP8 yang recorder fMP4 MediaMTX tidak dukung), path di sini punya akhiran
+    "-rec" yang perlu dilepas dulu untuk dapat stream_key aslinya.
+    segment_path = path absolut file MP4 di disk.
     """
     if request.method != 'POST':
         return HttpResponseForbidden('method not allowed')
@@ -242,11 +268,12 @@ def mediamtx_record_webhook(request):
 
     path = payload.get('path', '')
     segment_path = payload.get('segment_path', '')
-    if not path.startswith('live-') or path.endswith('-talk') or not segment_path:
-        # Cuma rekam path video utama — talkback tidak direkam.
+    if not path.startswith('live-') or not path.endswith('-rec') or not segment_path:
+        # Cuma rekam path hasil transcode ("-rec") — path video mentah
+        # (VP8, tidak direkam sama sekali) dan talkback tidak masuk sini.
         return JsonResponse({'ok': True})
 
-    stream_key = path[len('live-'):]
+    stream_key = path[len('live-'):-len('-rec')]
     session = LiveSession.objects.filter(stream_key=stream_key).first()
     if not session:
         return HttpResponseForbidden('unknown session')

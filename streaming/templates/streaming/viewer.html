@@ -37,9 +37,9 @@
                 <p class="mb-1" style="font-size:13px;">Status: <strong>{{ session.get_status_display }}</strong></p>
                 <p class="mb-2" style="font-size:13px;">Pengawas: {% if session.pengawas %}{{ session.pengawas.profile.get_display_name|default:session.pengawas.username }}{% else %}belum ada{% endif %}</p>
                 {% if can_claim_pengawas %}
-                <form method="post" action="{% url 'streaming:join_pengawas' pk=session.pk %}">
+                <form method="post" action="{% url 'streaming:join_pengawas' pk=session.pk %}" id="form-jadi-pengawas">
                     {% csrf_token %}
-                    <button type="submit" class="btn btn-success btn-sm w-100">
+                    <button type="submit" class="btn btn-success btn-sm w-100" id="btn-jadi-pengawas">
                         <i class="bi bi-mic-fill me-1"></i>Jadi Pengawas (Komunikasi 2 Arah)
                     </button>
                 </form>
@@ -122,12 +122,35 @@ async function sendHeartbeat() {
     } catch (e) { /* tidak fatal, coba lagi di interval berikutnya */ }
 }
 
+/**
+ * "Jadi Pengawas" pindah halaman penuh (POST -> redirect ke pengawas.html).
+ * Kalau koneksi WHEP video lama tidak ditutup DULU sebelum navigasi mulai,
+ * sesi WHEP-nya bisa "nyangkut" di server (lihat catatan keepalive di
+ * webrtc.js) dan bikin koneksi WHEP baru di halaman pengawas gagal dapat
+ * relay TURN — tampak "terhubung" tapi video tidak muncul. Jadi hentikan
+ * dulu secara eksplisit & tunggu selesai, baru submit form-nya.
+ */
+const formJadiPengawas = document.getElementById('form-jadi-pengawas');
+if (formJadiPengawas) {
+    formJadiPengawas.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById('btn-jadi-pengawas');
+        btn.disabled = true;
+        btn.textContent = 'Menghubungkan sebagai pengawas...';
+        if (watchTimer) { clearTimeout(watchTimer); watchTimer = null; }
+        await whipWhepStop(playPc, playResource);
+        playPc = null;
+        playResource = null;
+        formJadiPengawas.submit();
+    });
+}
+
 startWatching();
 if (IS_LIVE) {
     sendHeartbeat();
     statusPollTimer = setInterval(pollStatus, 5000);
     heartbeatTimer = setInterval(sendHeartbeat, 10000);
 }
-window.addEventListener('beforeunload', () => { if (playPc) whipWhepStop(playPc, playResource); });
+window.addEventListener('pagehide', () => { if (playPc) whipWhepStop(playPc, playResource); });
 </script>
 {% endblock %}

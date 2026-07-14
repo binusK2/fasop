@@ -4,13 +4,15 @@
 
 {% block extra_head %}
 <style>
-.video-wrap { background:#0f172a; border-radius:12px; overflow:hidden; aspect-ratio:16/9; }
+.playback-page { max-width: 1200px; margin: 0 auto; }
+.video-wrap { background:#0f172a; border-radius:12px; overflow:hidden; aspect-ratio:16/9; box-shadow:0 8px 24px rgba(15,23,42,.18); }
 .video-wrap video { width:100%; height:100%; }
 </style>
 {% endblock %}
 
 {% block content %}
 
+<div class="playback-page">
 <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
     <div>
         <h2 class="mb-0" style="font-size:20px;font-weight:700;">{{ session.judul }}</h2>
@@ -23,5 +25,6 @@
     <video controls preload="metadata" src="{% url 'streaming:recording_file' pk=session.pk %}"></video>
 </div>
 <p class="text-muted" style="font-size:12px;">Rekaman otomatis dihapus 7 hari setelah sesi live diakhiri.</p>
+</div>
 
 {% endblock %}

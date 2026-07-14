@@ -9,6 +9,8 @@
 # Yang DIKERJAKAN OTOMATIS oleh script ini:
 #   1. Generate MEDIAMTX_AUTH_SECRET (kalau belum ada di .env)
 #   2. Siapkan STREAMING_RECORDINGS_ROOT (buat direktori kalau belum ada)
+#   2b. Cek apakah ffmpeg terinstal (dipakai transcode rekaman VP8 -> H.264,
+#       lihat runOnReady di deploy/mediamtx.yml — TIDAK diinstal otomatis)
 #   3. Render deploy/mediamtx.yml (template) -> deploy/mediamtx.generated.yml
 #      (config siap pakai, secret sudah terisi — JANGAN pernah commit file ini)
 #   4. Pasang cron harian untuk manage.py purge_old_recordings
@@ -16,6 +18,7 @@
 # Yang TETAP HARUS diisi manual — dicetak di akhir script ini:
 #   - TURN server (coturn): belum ada di repo ini sama sekali, infrastruktur
 #     terpisah yang perlu disiapkan sendiri.
+#   - ffmpeg: `sudo apt install -y ffmpeg` kalau belum ada (dicek di atas).
 #   - MEDIAMTX_WHIP_URL / MEDIAMTX_WHEP_URL: alamat publik MediaMTX.
 #   - webrtcAllowOrigins, TLS (webrtcEncryption) untuk production.
 #   - authHTTPAddress / runOnRecordSegmentComplete kalau MediaMTX ada di
@@ -71,6 +74,16 @@ echo "        sudo chown -R <user-mediamtx>:<group-mediamtx> $RECORDINGS_ROOT"
 echo "      Tanpa ini, rekaman gagal DIAM-DIAM (live streaming tetap normal,"
 echo "      cuma rekamannya yang tidak pernah tersimpan — cek journalctl -u mediamtx"
 echo "      untuk error 'permission denied' kalau curiga)."
+
+echo
+echo "=== 2b/4: Cek ffmpeg (dipakai transcode rekaman VP8 -> H.264) ==="
+if command -v ffmpeg >/dev/null 2>&1; then
+    echo "  [ok] ffmpeg ditemukan: $(command -v ffmpeg)"
+else
+    echo "  [!] ffmpeg BELUM terinstal — rekaman akan gagal total (bukan cuma"
+    echo "      audio-only, prosesnya sama sekali tidak jalan tanpa ffmpeg)."
+    echo "      Install dulu:  sudo apt update && sudo apt install -y ffmpeg"
+fi
 
 echo
 echo "=== 3/4: Render deploy/mediamtx.generated.yml ==="
