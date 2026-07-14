@@ -37,7 +37,14 @@
 webrtc: true
 webrtcAddress: :8889
 webrtcEncryption: false
-webrtcAllowOrigins: ["https://GANTI-KE-DOMAIN-FASOP-PRODUKSI"]   # origin browser tempat FASOP dibuka (BUKAN domain MediaMTX-nya kalau pakai opsi B) — array, bukan string tunggal
+# Diisi otomatis oleh setup_streaming.sh dari .env -> FASOP_PUBLIC_ORIGIN.
+# JANGAN edit placeholder ini langsung di mediamtx.generated.yml — file itu
+# di-generate ULANG DARI NOL setiap setup_streaming.sh dijalankan, edit
+# manual di sana akan HILANG TERTIMPA lagi lain kali script ini jalan
+# (pernah kejadian: origin & kredensial TURN yang diisi manual balik jadi
+# placeholder setelah re-run script, live streaming langsung gagal CORS).
+# Isi FASOP_PUBLIC_ORIGIN di .env, bukan di sini.
+webrtcAllowOrigins: ["isi-FASOP_PUBLIC_ORIGIN-yang-sama-dengan-env-django"]   # origin browser tempat FASOP dibuka (BUKAN domain MediaMTX-nya kalau pakai opsi B) — array, bukan string tunggal
 
 # 1 port UDP tetap untuk semua koneksi media WebRTC — jauh lebih gampang
 # dibuka sekali di firewall daripada range port UDP acak (default MediaMTX
@@ -46,13 +53,16 @@ webrtcLocalUDPAddress: :8189
 
 # STUN/TURN — WAJIB isi TURN valid di production. HP teknisi di lapangan
 # umumnya di belakang CGNAT operator seluler sehingga WebRTC sering gagal
-# connect tanpa TURN relay. Pasang coturn terpisah, lalu isi kredensial yang
-# SAMA di sini dan di WEBRTC_ICE_SERVERS pada .env Django.
+# connect tanpa TURN relay. Pasang coturn terpisah dulu, lalu isi
+# TURN_URL/TURN_USERNAME/TURN_PASSWORD di .env (setup_streaming.sh yang
+# menyalin ke sini DAN ke WEBRTC_ICE_SERVERS Django tiap kali dijalankan —
+# sama seperti webrtcAllowOrigins di atas, JANGAN edit placeholder di sini
+# langsung, akan tertimpa lagi lain kali script dijalankan ulang).
 webrtcICEServers2:
   - url: stun:stun.l.google.com:19302
-  - url: turn:media.fasop.internal:3478
-    username: fasop
-    password: isi-password-turn-yang-sama-dengan-coturn-dan-env-django
+  - url: isi-TURN_URL-yang-sama-dengan-env-django
+    username: isi-TURN_USERNAME-yang-sama-dengan-env-django
+    password: isi-TURN_PASSWORD-yang-sama-dengan-env-django
 
 # ── Auth eksternal — MediaMTX minta izin ke Django untuk tiap publish/read ──
 authMethod: http

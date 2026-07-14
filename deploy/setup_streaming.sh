@@ -11,16 +11,29 @@
 #   2. Siapkan STREAMING_RECORDINGS_ROOT (buat direktori kalau belum ada)
 #   2b. Cek apakah ffmpeg terinstal (dipakai transcode rekaman VP8 -> H.264,
 #       lihat runOnReady di deploy/mediamtx.yml — TIDAK diinstal otomatis)
+#   2c. Cek FASOP_PUBLIC_ORIGIN & TURN_URL/TURN_USERNAME/TURN_PASSWORD di
+#       .env, salin ke mediamtx.generated.yml kalau ada
 #   3. Render deploy/mediamtx.yml (template) -> deploy/mediamtx.generated.yml
-#      (config siap pakai, secret sudah terisi — JANGAN pernah commit file ini)
+#      (config siap pakai, secret & (kalau sudah diisi) origin/TURN sudah
+#      terisi — JANGAN pernah commit file ini)
 #   4. Pasang cron harian untuk manage.py purge_old_recordings
+#
+# PENTING: mediamtx.generated.yml di-generate ULANG DARI NOL tiap script ini
+# jalan. JANGAN PERNAH edit file itu secara manual langsung — isi apapun
+# yang perlu beda dari template WAJIB lewat .env (FASOP_PUBLIC_ORIGIN,
+# TURN_URL, dst di atas), supaya tidak hilang lagi kalau script ini
+# dijalankan ulang di kemudian hari (pernah kejadian: origin & TURN yang
+# diisi manual ke mediamtx.generated.yml hilang tertimpa placeholder lagi
+# setelah re-run, live streaming gagal CORS/TURN tanpa pesan jelas).
 #
 # Yang TETAP HARUS diisi manual — dicetak di akhir script ini:
 #   - TURN server (coturn): belum ada di repo ini sama sekali, infrastruktur
-#     terpisah yang perlu disiapkan sendiri.
+#     terpisah yang perlu disiapkan sendiri. Setelah coturn jalan, isi
+#     kredensialnya ke .env (TURN_URL/TURN_USERNAME/TURN_PASSWORD +
+#     WEBRTC_ICE_SERVERS), BUKAN ke mediamtx.generated.yml langsung.
 #   - ffmpeg: `sudo apt install -y ffmpeg` kalau belum ada (dicek di atas).
 #   - MEDIAMTX_WHIP_URL / MEDIAMTX_WHEP_URL: alamat publik MediaMTX.
-#   - webrtcAllowOrigins, TLS (webrtcEncryption) untuk production.
+#   - FASOP_PUBLIC_ORIGIN di .env, TLS (webrtcEncryption) untuk production.
 #   - authHTTPAddress / runOnRecordSegmentComplete kalau MediaMTX ada di
 #     server terpisah dari Django (bukan 127.0.0.1:8000).
 # ─────────────────────────────────────────────────────────────────────
@@ -86,13 +99,56 @@ else
 fi
 
 echo
+echo "=== 2c/4: Origin & TURN untuk MediaMTX (FASOP_PUBLIC_ORIGIN, TURN_URL, TURN_USERNAME, TURN_PASSWORD) ==="
+# PENTING: mediamtx.generated.yml di-generate ULANG DARI NOL setiap script
+# ini dijalankan — kalau nilai-nilai ini pernah diisi manual langsung di
+# mediamtx.generated.yml (bukan di .env), isian itu HILANG tertimpa
+# placeholder lagi tiap re-run, dan live streaming langsung gagal CORS /
+# TURN tidak connect tanpa pesan yang jelas. Makanya wajib lewat .env di
+# sini supaya idempotent.
+ORIGIN="$(get_env FASOP_PUBLIC_ORIGIN || true)"
+TURN_URL="$(get_env TURN_URL || true)"
+TURN_USERNAME="$(get_env TURN_USERNAME || true)"
+TURN_PASSWORD="$(get_env TURN_PASSWORD || true)"
+
+if [[ -n "$ORIGIN" ]]; then
+    echo "  [ok] FASOP_PUBLIC_ORIGIN = $ORIGIN"
+else
+    echo "  [!] FASOP_PUBLIC_ORIGIN belum ada di .env — webrtcAllowOrigins akan"
+    echo "      tetap placeholder, live streaming GAGAL (CORS) sampai diisi."
+    echo "      Tambahkan ke .env, contoh: FASOP_PUBLIC_ORIGIN=https://fasopup2bmks.id"
+fi
+if [[ -n "$TURN_URL" && -n "$TURN_USERNAME" && -n "$TURN_PASSWORD" ]]; then
+    echo "  [ok] TURN_URL/TURN_USERNAME/TURN_PASSWORD ada di .env"
+else
+    echo "  [!] TURN_URL/TURN_USERNAME/TURN_PASSWORD belum lengkap di .env —"
+    echo "      webrtcICEServers2 (TURN) akan tetap placeholder, HP teknisi di"
+    echo "      lapangan (CGNAT) GAGAL connect sampai diisi."
+    echo "      Tambahkan ke .env, contoh:"
+    echo "        TURN_URL=turn:202.65.235.144:3478"
+    echo "        TURN_USERNAME=fasop"
+    echo "        TURN_PASSWORD=<sama persis dengan user= di /etc/turnserver.conf>"
+fi
+
+echo
 echo "=== 3/4: Render deploy/mediamtx.generated.yml ==="
 TEMPLATE="$SCRIPT_DIR/mediamtx.yml"
 OUTPUT="$SCRIPT_DIR/mediamtx.generated.yml"
-sed \
-    -e "s#isi-MEDIAMTX_AUTH_SECRET-yang-sama-dengan-env-django#${SECRET}#g" \
-    -e "s#/var/lib/fasop-streaming/recordings#${RECORDINGS_ROOT}#g" \
-    "$TEMPLATE" > "$OUTPUT"
+SED_ARGS=(
+    -e "s#isi-MEDIAMTX_AUTH_SECRET-yang-sama-dengan-env-django#${SECRET}#g"
+    -e "s#/var/lib/fasop-streaming/recordings#${RECORDINGS_ROOT}#g"
+)
+if [[ -n "$ORIGIN" ]]; then
+    SED_ARGS+=(-e "s#isi-FASOP_PUBLIC_ORIGIN-yang-sama-dengan-env-django#${ORIGIN}#g")
+fi
+if [[ -n "$TURN_URL" && -n "$TURN_USERNAME" && -n "$TURN_PASSWORD" ]]; then
+    SED_ARGS+=(
+        -e "s#isi-TURN_URL-yang-sama-dengan-env-django#${TURN_URL}#g"
+        -e "s#isi-TURN_USERNAME-yang-sama-dengan-env-django#${TURN_USERNAME}#g"
+        -e "s#isi-TURN_PASSWORD-yang-sama-dengan-env-django#${TURN_PASSWORD}#g"
+    )
+fi
+sed "${SED_ARGS[@]}" "$TEMPLATE" > "$OUTPUT"
 echo "  [ok] ditulis ke $OUTPUT (sudah di-gitignore — jangan pernah commit, berisi secret)"
 
 echo
@@ -124,13 +180,17 @@ echo "════════════════════════�
 echo " 1. TURN server (coturn) — WAJIB untuk HP teknisi di lapangan (CGNAT)."
 echo "    Cek dulu apa sudah ada: which turnserver ; systemctl status coturn"
 echo "    Kalau belum ada, install dulu. Setelah coturn jalan, isi kredensial"
-echo "    yang SAMA PERSIS di 2 tempat:"
-echo "      - $ENV_FILE                 -> WEBRTC_ICE_SERVERS"
-echo "      - $OUTPUT -> webrtcICEServers2 (password:)"
+echo "    yang SAMA PERSIS di 3 tempat DI .env (BUKAN langsung di $OUTPUT —"
+echo "    lihat catatan di kepala script ini kenapa):"
+echo "      - $ENV_FILE -> WEBRTC_ICE_SERVERS (dipakai browser)"
+echo "      - $ENV_FILE -> TURN_URL, TURN_USERNAME, TURN_PASSWORD (dipakai MediaMTX,"
+echo "        disalin otomatis ke webrtcICEServers2 tiap script ini dijalankan)"
 echo "    Kalau server di belakang NAT (on-premise): minta tim jaringan teruskan"
 echo "    TCP 443, UDP 3478, UDP 49152-49251 dari IP publik ke IP privat server ini."
 echo "    (Port MediaMTX 8189 SENGAJA tidak perlu dibuka — semua media dipaksa"
 echo "    lewat TURN relay, lihat deploy/turnserver.conf.example.)"
+echo "    Kalau ORIGIN/TURN_* di atas tadi tercetak [!] (belum lengkap), isi"
+echo "    dulu di .env lalu JALANKAN ULANG script ini sebelum restart mediamtx."
 echo ""
 echo " 2. TLS untuk MediaMTX (kalau domain+cert FASOP sudah ada, pakai opsi B ini):"
 echo "    -> Setup nginx reverse-proxy ke MediaMTX pakai domain+cert yang sudah"
@@ -138,8 +198,9 @@ echo "       ada — lihat panduan lengkap di deploy/nginx-mediamtx.conf.example
 echo "       (perlu subdomain baru, mis. media.domain-anda, + sertifikatnya)."
 echo "    -> Lalu $ENV_FILE -> MEDIAMTX_WHIP_URL / MEDIAMTX_WHEP_URL diisi"
 echo "       https://media.domain-anda (BUKAN localhost/127.0.0.1)."
-echo "    -> Lalu $OUTPUT -> webrtcAllowOrigins diisi origin Django FASOP"
-echo "       (mis. https://fasop.domain-anda, BUKAN domain media-nya)."
+echo "    -> Lalu $ENV_FILE -> FASOP_PUBLIC_ORIGIN diisi origin Django FASOP"
+echo "       (mis. https://fasop.domain-anda, BUKAN domain media-nya) —"
+echo "       JALANKAN ULANG script ini setelah ini biar webrtcAllowOrigins terisi."
 echo ""
 echo " 3. authHTTPAddress & runOnRecordSegmentComplete di $OUTPUT"
 echo "    -> Kalau MediaMTX & Django di SERVER YANG SAMA: 127.0.0.1:8000 sudah"
