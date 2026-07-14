@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import re
 
@@ -6,6 +7,7 @@ from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.http import (
     Http404,
+    HttpResponse,
     HttpResponseForbidden,
     HttpResponseNotFound,
     JsonResponse,
@@ -25,6 +27,8 @@ from .permissions import (
     can_start_stream,
     require_streaming_access,
 )
+
+logger = logging.getLogger(__name__)
 
 # Heartbeat penonton dianggap basi (tidak lagi nonton) setelah sekian detik
 # tanpa ping baru — harus lebih besar dari interval kirim di viewer.html
@@ -275,18 +279,30 @@ def mediamtx_record_webhook(request):
 
     path = payload.get('path', '')
     segment_path = payload.get('segment_path', '')
-    if not path.startswith('live-') or not path.endswith('-rec') or not segment_path:
-        # Cuma rekam path hasil transcode ("-rec") — path video mentah
-        # (VP8, tidak direkam sama sekali) dan talkback tidak masuk sini.
+    if not path.startswith('live-') or not segment_path:
         return JsonResponse({'ok': True})
 
-    stream_key = path[len('live-'):-len('-rec')]
+    if path.endswith('-rec'):
+        # Video (hasil transcode H.264 — lihat runOnReady di deploy/mediamtx.yml).
+        stream_key = path[len('live-'):-len('-rec')]
+        field = 'recording_path'
+    elif path.endswith('-talk'):
+        # Audio talkback pengawas — direkam TERPISAH dari video (lihat
+        # catatan di LiveSession.talkback_recording_path), bukan di-mix
+        # jadi satu file supaya pipeline rekaman video yang sudah stabil
+        # tidak ikut berisiko tiap pengawas toggle mic.
+        stream_key = path[len('live-'):-len('-talk')]
+        field = 'talkback_recording_path'
+    else:
+        # Path video mentah (VP8, tidak pernah direkam sama sekali).
+        return JsonResponse({'ok': True})
+
     session = LiveSession.objects.filter(stream_key=stream_key).first()
     if not session:
         return HttpResponseForbidden('unknown session')
 
-    session.recording_path = segment_path
-    session.save(update_fields=['recording_path'])
+    setattr(session, field, segment_path)
+    session.save(update_fields=[field])
     return JsonResponse({'ok': True})
 
 
@@ -294,7 +310,7 @@ def mediamtx_record_webhook(request):
 @require_streaming_access
 def session_recording(request, pk):
     session = get_object_or_404(LiveSession, pk=pk)
-    if not session.has_recording:
+    if not session.has_recording and not session.has_talkback_recording:
         raise Http404('Rekaman belum tersedia untuk sesi ini.')
     return render(request, 'streaming/playback.html', {'session': session})
 
@@ -302,21 +318,49 @@ def session_recording(request, pk):
 _RANGE_RE = re.compile(r'bytes\s*=\s*(\d+)-(\d*)', re.I)
 
 
-@login_required
-@require_streaming_access
-def serve_recording(request, pk):
+def _serve_file_x_accel(file_path, content_type, download_name):
     """
-    Serve file rekaman dengan dukungan HTTP Range agar video bisa di-seek
-    di player, bukan cuma diputar berurutan dari awal.
+    Serve lewat header X-Accel-Redirect — nginx yang baca & kirim byte file
+    langsung dari disk (termasuk menangani Range request untuk seek),
+    jauh lebih cepat untuk file besar daripada Django streaming manual
+    lewat gunicorn. Django di sini cuma memvalidasi akses (login,
+    has_recording, dst di view pemanggil) lalu bilang ke nginx file MANA
+    yang boleh diserve — tidak pernah baca isi filenya sendiri.
+
+    HANYA dipanggil kalau STREAMING_USE_X_ACCEL_REDIRECT=True — nginx WAJIB
+    sudah dikonfigurasi sesuai deploy/nginx-recordings-x-accel.conf.example
+    dulu, kalau belum, request ini akan gagal (nginx tidak tahu apa itu
+    X-Accel-Redirect kalau location `internal`-nya belum ada).
     """
-    session = get_object_or_404(LiveSession, pk=pk)
-    if not session.has_recording or not os.path.isfile(session.recording_path):
+    root = os.path.normpath(settings.STREAMING_RECORDINGS_ROOT)
+    normalized = os.path.normpath(file_path)
+    if normalized != root and not normalized.startswith(root + os.sep):
+        # Rekaman seharusnya SELALU di bawah STREAMING_RECORDINGS_ROOT
+        # (lihat recordPath di deploy/mediamtx.yml) — kalau tidak, jangan
+        # ekspos lewat internal redirect nginx sama sekali.
+        logger.warning('Recording path %s di luar STREAMING_RECORDINGS_ROOT, X-Accel-Redirect dibatalkan.', file_path)
         return HttpResponseNotFound('Rekaman tidak ditemukan.')
 
-    file_path = session.recording_path
+    relative = os.path.relpath(normalized, root)
+    resp = HttpResponse(content_type=content_type)
+    resp['X-Accel-Redirect'] = settings.STREAMING_X_ACCEL_REDIRECT_PREFIX.rstrip('/') + '/' + relative
+    resp['Content-Disposition'] = f'inline; filename="{download_name}"'
+    return resp
+
+
+def _serve_file_range(request, file_path, content_type, download_name):
+    """
+    Serve satu file dengan dukungan HTTP Range, dipakai baik untuk rekaman
+    video maupun klip audio talkback — supaya player bisa di-seek, bukan
+    cuma diputar berurutan dari awal.
+    """
+    if not os.path.isfile(file_path):
+        return HttpResponseNotFound('Rekaman tidak ditemukan.')
+
+    if settings.STREAMING_USE_X_ACCEL_REDIRECT:
+        return _serve_file_x_accel(file_path, content_type, download_name)
+
     file_size = os.path.getsize(file_path)
-    safe_judul = re.sub(r'[^A-Za-z0-9]+', '-', session.judul).strip('-') or 'live'
-    download_name = f'{safe_judul}-{session.started_at:%Y%m%d-%H%M}.mp4'
     range_header = request.META.get('HTTP_RANGE', '')
     range_match = _RANGE_RE.match(range_header)
 
@@ -337,13 +381,35 @@ def serve_recording(request, pk):
                     remaining -= len(chunk)
                     yield chunk
 
-        resp = StreamingHttpResponse(stream(), status=206, content_type='video/mp4')
+        resp = StreamingHttpResponse(stream(), status=206, content_type=content_type)
         resp['Content-Range'] = f'bytes {start}-{end}/{file_size}'
         resp['Content-Length'] = str(length)
     else:
-        resp = StreamingHttpResponse(open(file_path, 'rb'), content_type='video/mp4')
+        resp = StreamingHttpResponse(open(file_path, 'rb'), content_type=content_type)
         resp['Content-Length'] = str(file_size)
 
     resp['Accept-Ranges'] = 'bytes'
     resp['Content-Disposition'] = f'inline; filename="{download_name}"'
     return resp
+
+
+@login_required
+@require_streaming_access
+def serve_recording(request, pk):
+    session = get_object_or_404(LiveSession, pk=pk)
+    if not session.has_recording:
+        return HttpResponseNotFound('Rekaman tidak ditemukan.')
+    safe_judul = re.sub(r'[^A-Za-z0-9]+', '-', session.judul).strip('-') or 'live'
+    download_name = f'{safe_judul}-{session.started_at:%Y%m%d-%H%M}.mp4'
+    return _serve_file_range(request, session.recording_path, 'video/mp4', download_name)
+
+
+@login_required
+@require_streaming_access
+def serve_talkback_recording(request, pk):
+    session = get_object_or_404(LiveSession, pk=pk)
+    if not session.has_talkback_recording:
+        return HttpResponseNotFound('Rekaman audio pengawas tidak ditemukan.')
+    safe_judul = re.sub(r'[^A-Za-z0-9]+', '-', session.judul).strip('-') or 'live'
+    download_name = f'{safe_judul}-pengawas-{session.started_at:%Y%m%d-%H%M}.mp4'
+    return _serve_file_range(request, session.talkback_recording_path, 'audio/mp4', download_name)

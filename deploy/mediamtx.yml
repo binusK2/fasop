@@ -117,15 +117,43 @@ authHTTPExclude:
 # IP — lihat catatan di runOnReady & di streaming/views.py) untuk path
 # "-rec"/path video mentah dari sesi yang benar-benar sedang live.
 #
-# Talkback (live-<key>-talk, cuma audio pengawas) sengaja TIDAK direkam.
-# Retensi 7 hari ditangani di sisi Django lewat cron
-# `manage.py purge_old_recordings` (bukan recordDeleteAfter MediaMTX) supaya
-# konsisten dengan field LiveSession.recording_path — jangan aktifkan
-# auto-delete di kedua sisi sekaligus, nanti dobel/rebutan hapus file yang
-# sama.
+# Talkback (live-<key>-talk, cuma audio pengawas) direkam TERPISAH dari
+# video — bukan di-mix jadi satu file (pengawas bisa join/aktifkan-matikan
+# mic kapan saja setelah teknisi live, real-time mixing ke satu file video
+# berisiko rekaman utama ikut terpecah tiap toggle; lihat catatan di
+# LiveSession.talkback_recording_path). Opus didukung LANGSUNG oleh recorder
+# fMP4 MediaMTX (beda dengan VP8 video di atas) jadi TIDAK butuh ffmpeg
+# transcode — cukup record: true langsung di path aslinya.
+#
+# KETERBATASAN yang diterima: kalau pengawas mematikan lalu mengaktifkan
+# mic lagi di tengah sesi yang SAMA, itu jadi 2 segmen rekaman terpisah di
+# disk, tapi LiveSession.talkback_recording_path cuma menyimpan segmen
+# TERAKHIR (field tunggal, bukan daftar) — segmen sebelumnya tetap ada di
+# disk (baru dihapus saat retensi 7 hari lewat) tapi tidak lagi bisa
+# diputar dari UI. Wajar untuk pemakaian normal (mic diaktifkan sekali per
+# sesi); kalau nanti sering terjadi toggle berulang dan itu jadi masalah,
+# perlu model terpisah untuk daftar segmen (bukan field tunggal).
+#
+# Retensi 7 hari (baik video maupun audio pengawas) ditangani di sisi
+# Django lewat cron `manage.py purge_old_recordings` (bukan
+# recordDeleteAfter MediaMTX) supaya konsisten dengan field LiveSession —
+# jangan aktifkan auto-delete di kedua sisi sekaligus, nanti dobel/rebutan
+# hapus file yang sama.
 paths:
   "~^live-.+-talk$":
-    record: false
+    record: true
+    recordPath: /var/lib/fasop-streaming/recordings/%path/%Y-%m-%d_%H-%M-%S-%f
+    recordFormat: fmp4
+    recordSegmentDuration: 24h
+    recordDeleteAfter: 0s        # WAJIB 0s (disabled) — retensi ditangani Django (purge_old_recordings)
+
+    # Webhook YANG SAMA dengan path "-rec" di bawah — Django membedakan
+    # video vs audio pengawas dari akhiran path ("-rec" vs "-talk"), lihat
+    # streaming.views.mediamtx_record_webhook.
+    runOnRecordSegmentComplete: >
+      curl -s -X POST "http://127.0.0.1:8000/streaming/webhook/mediamtx-record/?key=isi-MEDIAMTX_AUTH_SECRET-yang-sama-dengan-env-django"
+      -H "Content-Type: application/json"
+      -d "{\"path\":\"$MTX_PATH\",\"segment_path\":\"$MTX_SEGMENT_PATH\"}"
 
   # Path hasil transcode ffmpeg (lihat runOnReady di blok all_others) —
   # nama path ini TIDAK pernah dipakai browser manapun, murni internal.
