@@ -72,6 +72,16 @@ authHTTPExclude:
   - action: api
   - action: metrics
   - action: pprof
+  # ffmpeg (pipeline transcode rekaman, lihat runOnReady di bawah) publish
+  # ke path "-rec" lewat RTSP — dites pakai kredensial "mtx-internal" di
+  # URL, tapi GAGAL: muxer RTSP publish ffmpeg tidak menangani challenge
+  # 401 dengan benar walau kredensial sudah disisipkan di URL (keterbatasan
+  # ffmpeg, bukan salah kredensial — "Server returned 401 Unauthorized"
+  # muncul terus walau password benar). Path "-rec" TIDAK PERNAH dipakai
+  # browser manapun untuk publish (murni internal), jadi aman dikecualikan
+  # dari webhook sepenuhnya alih-alih dipaksakan lewat kredensial.
+  - action: publish
+    path: ~^live-.+-rec$
 
 # ── Path ─────────────────────────────────────────────────────────────
 # Path dibuat otomatis saat publish pertama (nama path = stream_key acak
@@ -144,20 +154,28 @@ paths:
     # di atas). -rtsp_transport tcp di kedua sisi supaya round-trip loopback
     # ini tidak butuh port UDP tambahan.
     #
-    # Kredensial "mtx-internal:...SECRET..." di URL RTSP di bawah WAJIB ada
-    # — Django (mediamtx_auth_webhook) memvalidasi ffmpeg internal ini lewat
-    # kredensial ini, BUKAN lewat cek IP 127.0.0.1. Kalau browser mengakses
-    # MediaMTX lewat reverse proxy di server yang SAMA (mis. Cloudflare
-    # Tunnel ke localhost:8889, seperti setup FASOP), traffic WHIP/WHEP asli
-    # dari browser pun akan tampak datang dari 127.0.0.1 juga — jadi cek IP
-    # saja TIDAK cukup untuk membedakan ffmpeg internal dari browser asli.
-    # key= (password RTSP) harus sama persis dengan MEDIAMTX_AUTH_SECRET di
-    # .env Django — placeholder di bawah otomatis terisi oleh
-    # setup_streaming.sh.
+    # Sisi BACA (-i, menarik feed mentah) WAJIB pakai kredensial
+    # "mtx-internal:...SECRET..." — Django (mediamtx_auth_webhook)
+    # memvalidasi ffmpeg internal ini lewat kredensial ini, BUKAN lewat cek
+    # IP 127.0.0.1 (kalau browser mengakses MediaMTX lewat reverse proxy di
+    # server yang SAMA, mis. Cloudflare Tunnel ke localhost:8889 seperti
+    # setup FASOP, traffic WHIP/WHEP asli dari browser pun akan tampak
+    # datang dari 127.0.0.1 juga — cek IP saja tidak cukup).
+    #
+    # Sisi PUBLISH (-f rtsp ke path "-rec") SENGAJA TANPA kredensial — sudah
+    # dicoba pakai kredensial yang sama, hasilnya SELALU gagal
+    # "Server returned 401 Unauthorized" di log MediaMTX walau password
+    # benar (muxer RTSP publish ffmpeg tidak menangani challenge 401 dengan
+    # benar, keterbatasan ffmpeg). Path "-rec" dikecualikan total dari
+    # webhook auth lewat authHTTPExclude di atas sebagai gantinya.
+    #
+    # key= (password RTSP di sisi baca) harus sama persis dengan
+    # MEDIAMTX_AUTH_SECRET di .env Django — placeholder di bawah otomatis
+    # terisi oleh setup_streaming.sh.
     runOnReady: >
       ffmpeg -nostdin -loglevel warning -rtsp_transport tcp
       -i rtsp://mtx-internal:isi-MEDIAMTX_AUTH_SECRET-yang-sama-dengan-env-django@127.0.0.1:$RTSP_PORT/$MTX_PATH
       -c:v libx264 -preset veryfast -tune zerolatency -profile:v baseline -pix_fmt yuv420p
       -c:a aac
-      -f rtsp -rtsp_transport tcp rtsp://mtx-internal:isi-MEDIAMTX_AUTH_SECRET-yang-sama-dengan-env-django@127.0.0.1:$RTSP_PORT/${MTX_PATH}-rec
+      -f rtsp -rtsp_transport tcp rtsp://127.0.0.1:$RTSP_PORT/${MTX_PATH}-rec
     runOnReadyRestart: no

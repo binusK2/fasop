@@ -195,21 +195,27 @@ def mediamtx_auth_webhook(request):
     # video WebRTC dari browser selalu VP8, dan recorder fMP4 MediaMTX belum
     # mengimplementasi VP8 — jadi ffmpeg LOKAL di server yang sama menarik
     # feed RTSP mentah lalu republish sebagai H.264 ke path "<key>-rec" yang
-    # baru direkam. ffmpeg diberi kredensial RTSP khusus ("mtx-internal" +
-    # MEDIAMTX_AUTH_SECRET) yang tidak pernah dibagikan ke browser — SENGAJA
-    # BUKAN dicek lewat IP 127.0.0.1: kalau browser mengakses MediaMTX lewat
-    # reverse proxy di server yang sama (mis. Cloudflare Tunnel ke
-    # localhost:8889, seperti setup FASOP), traffic WHIP/WHEP asli dari
-    # browser pun akan tampak datang dari 127.0.0.1 juga, jadi cek IP saja
-    # bisa salah mengizinkan baca video tanpa token asli.
+    # baru direkam.
+    #
+    # Sisi BACA (ffmpeg menarik feed mentah) divalidasi di sini lewat
+    # kredensial RTSP khusus ("mtx-internal" + MEDIAMTX_AUTH_SECRET) yang
+    # tidak pernah dibagikan ke browser — SENGAJA BUKAN dicek lewat IP
+    # 127.0.0.1: kalau browser mengakses MediaMTX lewat reverse proxy di
+    # server yang sama (mis. Cloudflare Tunnel ke localhost:8889, seperti
+    # setup FASOP), traffic WHIP/WHEP asli dari browser pun akan tampak
+    # datang dari 127.0.0.1 juga, jadi cek IP saja bisa salah mengizinkan
+    # baca video tanpa token asli.
+    #
+    # Sisi PUBLISH (ffmpeg republish ke "<key>-rec") TIDAK divalidasi di
+    # sini — dikecualikan total lewat authHTTPExclude di deploy/mediamtx.yml
+    # (path "-rec" tidak pernah dipakai browser manapun untuk publish, jadi
+    # aman) karena muxer RTSP publish ffmpeg gagal menangani challenge 401
+    # walau kredensial URL sudah benar (keterbatasan ffmpeg, sudah dicoba &
+    # selalu gagal "Server returned 401 Unauthorized" di log MediaMTX).
     if (settings.MEDIAMTX_AUTH_SECRET and token == 'mtx-internal'
             and payload.get('pass') == settings.MEDIAMTX_AUTH_SECRET):
         if action == 'read' and path.startswith('live-') and not path.endswith('-talk') and not path.endswith('-rec'):
             stream_key = path[len('live-'):]
-            if LiveSession.objects.filter(stream_key=stream_key, status='live').exists():
-                return JsonResponse({'ok': True})
-        elif action == 'publish' and path.startswith('live-') and path.endswith('-rec'):
-            stream_key = path[len('live-'):-len('-rec')]
             if LiveSession.objects.filter(stream_key=stream_key, status='live').exists():
                 return JsonResponse({'ok': True})
         return HttpResponseForbidden('not allowed')
