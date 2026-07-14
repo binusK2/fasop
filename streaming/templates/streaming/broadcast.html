@@ -13,6 +13,9 @@
 .viewer-badge { position:absolute; top:12px; right:12px; background:rgba(15,23,42,.75); color:#e2e8f0; font-size:11px; font-weight:700; padding:3px 10px; border-radius:20px; }
 .end-live-btn { position:absolute; bottom:12px; right:12px; opacity:.55; transition:opacity .15s; }
 .end-live-btn:hover, .end-live-btn:focus { opacity:1; }
+.mic-toggle-btn { position:absolute; bottom:12px; left:12px; opacity:.55; transition:opacity .15s; }
+.mic-toggle-btn:hover, .mic-toggle-btn:focus { opacity:1; }
+.mic-toggle-btn.is-muted { opacity:.85; }
 
 /* Mode fokus — dipicu otomatis begitu mulai kirim video (focusOnLiveView()
    di bawah). Sidebar & topbar disembunyikan total supaya teknisi yang
@@ -46,12 +49,15 @@ body.streaming-focus .page-content { padding: 16px !important; max-width: 960px;
             <span class="viewer-badge" id="badge-viewers" style="display:none;"><i class="bi bi-eye-fill me-1"></i><span id="viewer-count">0</span> menonton</span>
             <video id="local-video" autoplay muted playsinline></video>
 
+            <button type="button" id="btn-mute-mic" class="btn btn-secondary btn-sm mic-toggle-btn" style="display:none;">
+                <i class="bi bi-mic-fill me-1"></i>Matikan Mic
+            </button>
             <button type="button" id="btn-end-live" class="btn btn-danger btn-sm end-live-btn" style="display:none;">
                 <i class="bi bi-x-circle me-1"></i>Akhiri Live
             </button>
         </div>
 
-        <div class="d-flex gap-2 flex-wrap" id="pre-live-controls">
+        <div class="d-flex gap-2 flex-wrap align-items-center" id="camera-controls">
             <select id="camera-select" class="form-select form-select-sm" style="max-width:220px;"></select>
             <button type="button" id="btn-start" class="btn btn-primary btn-sm"><i class="bi bi-broadcast me-1"></i>Mulai Kirim</button>
         </div>
@@ -100,13 +106,14 @@ let publishPc      = null;
 let publishResource = null;
 let talkbackStarted = false;
 let statusPollTimer = null;
+let micMuted         = false;
 
 const localVideo     = document.getElementById('local-video');
 const videoWrap        = document.getElementById('video-wrap');
 const cameraSelect      = document.getElementById('camera-select');
 const btnStart           = document.getElementById('btn-start');
 const btnEndLive          = document.getElementById('btn-end-live');
-const preLiveControls      = document.getElementById('pre-live-controls');
+const btnMuteMic           = document.getElementById('btn-mute-mic');
 const colInfo                = document.getElementById('col-info');
 const colVideo                = document.getElementById('col-video');
 const badgeStatus              = document.getElementById('badge-status');
@@ -120,6 +127,7 @@ async function populateCameras() {
     try {
         const devices = await navigator.mediaDevices.enumerateDevices();
         const cams = devices.filter(d => d.kind === 'videoinput');
+        const currentValue = cameraSelect.value;
         cameraSelect.innerHTML = '';
         cams.forEach((cam, i) => {
             const opt = document.createElement('option');
@@ -127,6 +135,7 @@ async function populateCameras() {
             opt.textContent = cam.label || `Kamera ${i + 1}`;
             cameraSelect.appendChild(opt);
         });
+        if (currentValue && cams.some(c => c.deviceId === currentValue)) cameraSelect.value = currentValue;
     } catch (e) { /* enumerateDevices butuh izin kamera dulu — diabaikan */ }
 }
 
@@ -139,12 +148,14 @@ async function getLocalStream() {
     return navigator.mediaDevices.getUserMedia(constraints);
 }
 
-/** Sembunyikan kontrol pra-live, sidebar/topbar, & fokuskan tampilan ke video
- *  begitu live — supaya tombol "Mulai Kirim" dkk maupun menu sidebar tidak
- *  kepencet/kepindah tidak sengaja saat sedang siaran. */
+/** Sembunyikan "Mulai Kirim", sidebar/topbar, & fokuskan tampilan ke video
+ *  begitu live — supaya sidebar dkk tidak kepencet/kepindah tidak sengaja
+ *  saat sedang siaran. Kontrol kamera & mic TETAP terlihat karena memang
+ *  perlu dipakai selama live (ganti kamera, mute sebentar). */
 function focusOnLiveView() {
     document.body.classList.add('streaming-focus');
-    preLiveControls.style.display = 'none';
+    btnStart.style.display = 'none';
+    btnMuteMic.style.display = 'inline-block';
     colInfo.style.display = 'none';
     colVideo.className = 'col-12';
     videoWrap.classList.add('is-live');
@@ -155,7 +166,8 @@ function focusOnLiveView() {
 
 function exitLiveView() {
     document.body.classList.remove('streaming-focus');
-    preLiveControls.style.display = 'flex';
+    btnStart.style.display = 'inline-block';
+    btnMuteMic.style.display = 'none';
     colInfo.style.display = '';
     colVideo.className = 'col-lg-8';
     videoWrap.classList.remove('is-live');
@@ -176,6 +188,11 @@ async function startPublish() {
         const { pc, resourceUrl } = await whipPublish(WHIP_URL, VIDEO_PATH, STREAM_KEY, localStream, ICE_SERVERS);
         publishPc = pc;
         publishResource = resourceUrl;
+
+        micMuted = false;
+        btnMuteMic.innerHTML = '<i class="bi bi-mic-fill me-1"></i>Matikan Mic';
+        btnMuteMic.classList.remove('is-muted', 'btn-danger');
+        btnMuteMic.classList.add('btn-secondary');
 
         badgeStatus.textContent = 'LIVE';
         badgeStatus.style.background = '#ef4444';
@@ -206,6 +223,61 @@ async function stopPublish() {
     statusMsg.textContent = 'Pengiriman video dihentikan.';
     btnStart.disabled = false;
     exitLiveView();
+}
+
+/**
+ * Ganti kamera TANPA menghentikan sesi live — pakai RTCRtpSender.replaceTrack()
+ * supaya WHIP publish yang sedang berjalan tetap sama (tidak perlu stop &
+ * mulai sesi baru, tidak ada renegosiasi SDP), cuma sumber videonya diganti.
+ * Audio track TIDAK disentuh (getUserMedia video-only di sini).
+ */
+async function switchCamera() {
+    if (!publishPc || !localStream) return; // belum live — pilihan dipakai nanti saat "Mulai Kirim"
+    const deviceId = cameraSelect.value;
+    if (!deviceId) return;
+
+    statusMsg.textContent = 'Mengganti kamera...';
+    try {
+        const newStream = await navigator.mediaDevices.getUserMedia({
+            video: { deviceId: { exact: deviceId } },
+            audio: false,
+        });
+        const newTrack = newStream.getVideoTracks()[0];
+        const sender = publishPc.getSenders().find(s => s.track && s.track.kind === 'video');
+        if (sender) await sender.replaceTrack(newTrack);
+
+        const oldTrack = localStream.getVideoTracks()[0];
+        if (oldTrack) {
+            localStream.removeTrack(oldTrack);
+            oldTrack.stop();
+        }
+        localStream.addTrack(newTrack);
+        localVideo.srcObject = localStream;
+
+        statusMsg.textContent = 'Kamera diganti.';
+    } catch (err) {
+        console.error(err);
+        statusMsg.textContent = 'Gagal ganti kamera: ' + err.message;
+    }
+}
+
+/** Mute/unmute mic sebentar tanpa menghentikan live — track.enabled=false
+ *  cukup, tidak perlu stop track/renegosiasi apa pun. */
+function toggleMic() {
+    if (!localStream) return;
+    const audioTrack = localStream.getAudioTracks()[0];
+    if (!audioTrack) return;
+    micMuted = !micMuted;
+    audioTrack.enabled = !micMuted;
+    if (micMuted) {
+        btnMuteMic.innerHTML = '<i class="bi bi-mic-mute-fill me-1"></i>Aktifkan Mic';
+        btnMuteMic.classList.remove('btn-secondary');
+        btnMuteMic.classList.add('btn-danger', 'is-muted');
+    } else {
+        btnMuteMic.innerHTML = '<i class="bi bi-mic-fill me-1"></i>Matikan Mic';
+        btnMuteMic.classList.remove('btn-danger', 'is-muted');
+        btnMuteMic.classList.add('btn-secondary');
+    }
 }
 
 let lastTalkbackAttempt = 0;
@@ -250,6 +322,8 @@ btnEndLive.addEventListener('click', () => {
     stopPublish();
     endForm.submit();
 });
+btnMuteMic.addEventListener('click', toggleMic);
+cameraSelect.addEventListener('change', switchCamera);
 navigator.mediaDevices.enumerateDevices().then(() => populateCameras());
 window.addEventListener('pagehide', () => { if (publishPc) whipWhepStop(publishPc, publishResource); });
 </script>
