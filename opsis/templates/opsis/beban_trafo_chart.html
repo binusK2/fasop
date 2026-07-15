@@ -196,15 +196,18 @@ const charts = {}; // site name -> Chart.js instance
 
 function fmt(v) { return (v === null || v === undefined) ? '—' : parseFloat(v).toFixed(2); }
 
-function datasetsFor(site) {
-  return site.trafos.map((t, idx) => ({
+function datasetFor(t, idx) {
+  return {
     label: t.bay,
     data: t.p,
     borderColor: colorFor(idx),
     backgroundColor: 'transparent',
     borderWidth: 2, pointRadius: 0, tension: 0.3, fill: false,
     spanGaps: true,
-  }));
+  };
+}
+function datasetsFor(site) {
+  return site.trafos.map((t, idx) => datasetFor(t, idx));
 }
 
 function buildChart(canvasId, site, compact = true) {
@@ -329,7 +332,20 @@ function updateSites(data) {
     }
     entry.badgeEl.textContent = `${site.trafos.length} trafo`;
     entry.chart.data.labels = site.labels;
-    entry.chart.data.datasets = datasetsFor(site);
+    // Mutasi array datasets yang sudah ada, jangan diganti dengan array baru —
+    // Chart.js melacak meta tiap dataset berdasarkan referensi/urutan array
+    // ini, kalau di-assign array baru chart bisa gagal render (garis hilang).
+    const ds = entry.chart.data.datasets;
+    site.trafos.forEach((t, idx) => {
+      if (ds[idx]) {
+        ds[idx].data = t.p;
+        ds[idx].label = t.bay;
+        ds[idx].borderColor = colorFor(idx);
+      } else {
+        ds.push(datasetFor(t, idx));
+      }
+    });
+    ds.length = site.trafos.length; // buang dataset trafo yang sudah tidak ada lagi
     entry.chart.update('none');
     buildLegendItems(entry.legendEl, site);
   });
@@ -373,7 +389,9 @@ async function refreshCharts() {
     // tiap REFRESH_SECONDS.
     updateSites(data);
     if (openSiteName) openChartModal(openSiteName); // ikut refresh kalau modal sedang terbuka
-  } catch (e) {}
+  } catch (e) {
+    console.warn('Refresh chart trafo gagal:', e);
+  }
 }
 
 const REFRESH_SECONDS = 10;
