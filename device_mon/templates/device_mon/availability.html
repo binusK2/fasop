@@ -6,9 +6,21 @@
 {% endblock %}
 
 {% block content %}
-<div style="margin-bottom:18px;">
-    <div style="font-size:20px; font-weight:800; color:#fff; margin-bottom:2px;">Availability RTU</div>
-    <div style="font-size:12px; color:var(--muted);">Periode: {{ period }}</div>
+<div style="margin-bottom:18px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+    <div>
+        <div style="font-size:20px; font-weight:800; color:#fff; margin-bottom:2px;">Availability RTU</div>
+        <div style="font-size:12px; color:var(--muted);">Periode: {{ period }}</div>
+    </div>
+    <div style="display:flex; align-items:center; gap:8px;">
+        <input type="month" id="dl-avail-bulan" title="Pilih bulan data availability untuk diunduh"
+               style="font-size:12px; color:#60a5fa; background:transparent; color-scheme:dark;
+                      border:1px solid rgba(96,165,250,.3); padding:4px 8px; border-radius:6px;">
+        <a id="btn-dl-avail" href="{% url 'dm_export_availability' %}" target="_blank"
+           style="font-size:12px; color:#60a5fa; text-decoration:none; border:1px solid rgba(96,165,250,.3);
+                  padding:4px 10px; border-radius:6px; white-space:nowrap;">
+            <i class="bi bi-download me-1"></i>Excel
+        </a>
+    </div>
 </div>
 
 <!-- Chart -->
@@ -68,6 +80,19 @@
 const labels = [{% for row in rows %}"{{ row.rtu.nama }}"{% if not forloop.last %},{% endif %}{% endfor %}];
 const data   = [{% for row in rows %}{{ row.avail|floatformat:2 }}{% if not forloop.last %},{% endif %}{% endfor %}];
 const colors = data.map(v => v >= 99 ? '#10b981' : v >= 95 ? '#f59e0b' : '#ef4444');
+
+(function() {
+    const bulanInput = document.getElementById('dl-avail-bulan');
+    const dlBtn       = document.getElementById('btn-dl-avail');
+    if (!bulanInput || !dlBtn) return;
+    const bulanNow = new Date().toISOString().slice(0, 7); // YYYY-MM
+    bulanInput.value = bulanNow;
+    bulanInput.max    = bulanNow;
+    dlBtn.href = `{% url 'dm_export_availability' %}?bulan=${bulanNow}`;
+    bulanInput.addEventListener('change', () => {
+        dlBtn.href = `{% url 'dm_export_availability' %}?bulan=${bulanInput.value || bulanNow}`;
+    });
+})();
 
 new Chart(document.getElementById('chart-avail').getContext('2d'), {
     type: 'bar',
