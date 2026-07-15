@@ -91,7 +91,7 @@
     </a>
     <div class="text-center">
       <div style="font-size:10px;color:#94a3b8;">Update otomatis</div>
-      <div id="refreshCountdown" style="font-size:18px;font-weight:700;color:#3b82f6;">30</div>
+      <div id="refreshCountdown" style="font-size:18px;font-weight:700;color:#3b82f6;">10</div>
       <div style="font-size:10px;color:#94a3b8;">detik</div>
     </div>
   </div>
@@ -222,13 +222,14 @@ async function refreshCharts() {
   } catch (e) {}
 }
 
-let countdown = 30;
+const REFRESH_SECONDS = 10;
+let countdown = REFRESH_SECONDS;
 const cdEl = document.getElementById('refreshCountdown');
 setInterval(() => {
   countdown--;
   cdEl.textContent = countdown;
   if (countdown <= 0) {
-    countdown = 30;
+    countdown = REFRESH_SECONDS;
     refreshCharts();
   }
 }, 1000);
