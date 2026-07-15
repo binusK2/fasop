@@ -196,6 +196,17 @@ const charts = {}; // site name -> Chart.js instance
 
 function fmt(v) { return (v === null || v === undefined) ? '—' : parseFloat(v).toFixed(2); }
 
+function datasetsFor(site) {
+  return site.trafos.map((t, idx) => ({
+    label: t.bay,
+    data: t.p,
+    borderColor: colorFor(idx),
+    backgroundColor: 'transparent',
+    borderWidth: 2, pointRadius: 0, tension: 0.3, fill: false,
+    spanGaps: true,
+  }));
+}
+
 function buildChart(canvasId, site, compact = true) {
   const ctx = document.getElementById(canvasId).getContext('2d');
   const tickFont = compact ? 9 : 11;
@@ -203,14 +214,7 @@ function buildChart(canvasId, site, compact = true) {
     type: 'line',
     data: {
       labels: site.labels,
-      datasets: site.trafos.map((t, idx) => ({
-        label: t.bay,
-        data: t.p,
-        borderColor: colorFor(idx),
-        backgroundColor: 'transparent',
-        borderWidth: 2, pointRadius: 0, tension: 0.3, fill: false,
-        spanGaps: true,
-      })),
+      datasets: datasetsFor(site),
     },
     options: {
       responsive: true, maintainAspectRatio: false, animation: false,
@@ -254,34 +258,80 @@ function buildLegendItems(container, site) {
 }
 
 const latestSites = {}; // site name -> data terbaru, dipakai modal saat dibuka/refresh
+const siteEntries = {}; // site name -> { card, badgeEl, legendEl }
+let cardCounter = 0;
 
+function createSiteCard(site) {
+  const canvasId = `chart-site-${cardCounter++}`;
+  const card = document.createElement('div');
+  card.className = 'chart-mini-card';
+  card.title = 'Klik untuk perbesar';
+  card.innerHTML = `
+    <div class="chart-mini-head">
+      <span class="chart-mini-site"></span>
+      <span class="chart-mini-badge"></span>
+    </div>
+    <div style="position:relative;height:180px;">
+      <canvas id="${canvasId}"></canvas>
+    </div>
+    <div class="site-legend"></div>`;
+  card.querySelector('.chart-mini-site').textContent = site.site;
+  card.querySelector('.chart-mini-badge').textContent = `${site.trafos.length} trafo`;
+  card.addEventListener('click', () => openChartModal(site.site));
+  buildLegendItems(card.querySelector('.site-legend'), site);
+
+  return {
+    card,
+    badgeEl:  card.querySelector('.chart-mini-badge'),
+    legendEl: card.querySelector('.site-legend'),
+    chart:    buildChart(canvasId, site),
+  };
+}
+
+// Render awal: bangun semua card. Refresh berikutnya (updateSites) memutakhirkan
+// chart yang sudah ada di tempat, tanpa merombak DOM — supaya scroll tidak
+// ikut ter-reset tiap kali auto-refresh jalan.
 function renderSites(data) {
   const root = document.getElementById('trafoChartRoot');
-  root.innerHTML = '';
-
-  data.sites.forEach((site, siteIdx) => {
+  data.sites.forEach(site => {
     latestSites[site.site] = site;
+    const entry = createSiteCard(site);
+    siteEntries[site.site] = entry;
+    charts[site.site] = entry.chart;
+    root.appendChild(entry.card);
+  });
+}
 
-    const canvasId = `chart-site-${siteIdx}`;
-    const card = document.createElement('div');
-    card.className = 'chart-mini-card';
-    card.title = 'Klik untuk perbesar';
-    card.innerHTML = `
-      <div class="chart-mini-head">
-        <span class="chart-mini-site"></span>
-        <span class="chart-mini-badge"></span>
-      </div>
-      <div style="position:relative;height:180px;">
-        <canvas id="${canvasId}"></canvas>
-      </div>
-      <div class="site-legend"></div>`;
-    card.querySelector('.chart-mini-site').textContent = site.site;
-    card.querySelector('.chart-mini-badge').textContent = `${site.trafos.length} trafo`;
-    card.addEventListener('click', () => openChartModal(site.site));
-    root.appendChild(card);
+function updateSites(data) {
+  const root = document.getElementById('trafoChartRoot');
+  const newNames = new Set(data.sites.map(s => s.site));
 
-    buildLegendItems(card.querySelector('.site-legend'), site);
-    charts[site.site] = buildChart(canvasId, site);
+  // Trafo/GI yang sudah tidak ada lagi — hapus card & chart-nya.
+  Object.keys(siteEntries).forEach(name => {
+    if (newNames.has(name)) return;
+    siteEntries[name].chart.destroy();
+    siteEntries[name].card.remove();
+    delete siteEntries[name];
+    delete charts[name];
+    delete latestSites[name];
+  });
+
+  data.sites.forEach(site => {
+    latestSites[site.site] = site;
+    let entry = siteEntries[site.site];
+    if (!entry) {
+      // GI/trafo baru — tambahkan card baru tanpa mengganggu yang sudah ada.
+      entry = createSiteCard(site);
+      siteEntries[site.site] = entry;
+      charts[site.site] = entry.chart;
+      root.appendChild(entry.card);
+      return;
+    }
+    entry.badgeEl.textContent = `${site.trafos.length} trafo`;
+    entry.chart.data.labels = site.labels;
+    entry.chart.data.datasets = datasetsFor(site);
+    entry.chart.update('none');
+    buildLegendItems(entry.legendEl, site);
   });
 }
 
@@ -318,12 +368,10 @@ async function refreshCharts() {
     const res = await fetch("{% url 'opsis_api_beban_trafo_chart' %}");
     if (!res.ok) return;
     const data = await res.json();
-    // Refresh tiap REFRESH_SECONDS — cukup murah untuk destroy+rebuild penuh
-    // tiap kali, dan menghindari kebocoran instance Chart.js (canvas lama
-    // harus di-destroy() sebelum dilepas dari DOM).
-    Object.values(charts).forEach(c => c.destroy());
-    Object.keys(charts).forEach(k => delete charts[k]);
-    renderSites(data);
+    // Update di tempat (bukan destroy+rebuild grid) — supaya card yang sudah
+    // ada tidak dilepas dari DOM, dan posisi scroll halaman tidak ter-reset
+    // tiap REFRESH_SECONDS.
+    updateSites(data);
     if (openSiteName) openChartModal(openSiteName); // ikut refresh kalau modal sedang terbuka
   } catch (e) {}
 }
