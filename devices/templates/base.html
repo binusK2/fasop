@@ -522,6 +522,15 @@
             .js-hidden-field { display: none !important; }
         }
 
+        /* ---- FOOTER ---- */
+        .app-footer {
+            padding: 14px 24px;
+            border-top: 1px solid var(--border-color);
+            text-align: center;
+            font-size: 11.5px;
+            color: var(--text-secondary);
+        }
+
         /* ---- MISC ---- */
         .mono { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; }
         @keyframes spin { to { transform: rotate(360deg); } }
@@ -1041,6 +1050,11 @@
 
         {% block content %}{% endblock %}
     </div>
+
+    <!-- FOOTER -->
+    <footer class="app-footer no-print">
+        &copy; {% now "Y" %} PLN UP2B Sistem Makassar &mdash; Developed by Bachtiar Hurdanu
+    </footer>
 
 </div>
 
