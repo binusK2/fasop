@@ -8,4 +8,5 @@ urlpatterns = [
     path('rtu/<int:pk>/logs/',  views.api_rtu_logs,        name='dm_api_rtu_logs'),
     path('gangguan/',           views.gangguan_list,       name='dm_gangguan'),
     path('availability/',       views.availability_report, name='dm_availability'),
+    path('export/availability/', views.export_availability, name='dm_export_availability'),
 ]
