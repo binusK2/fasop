@@ -4,7 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.utils import timezone
 from django.conf import settings
-from .models import Pembangkit, SnapLive, SnapFreq, Trafo
+from .models import Pembangkit, SnapLive, SnapFreq, Trafo, SnapTrafo
 from . import mssql
 
 
@@ -786,6 +786,67 @@ def api_beban_trafo(request):
         'site_totals': site_totals,
         'total_mw':    round(sum(site_totals.values()), 2),
     })
+
+
+def _beban_trafo_chart_data():
+    """
+    Bangun payload chart 24 jam (P & Q) per trafo distribusi, dikelompokkan
+    per GI (site). Sumber: PostgreSQL (SnapTrafo), diisi tiap menit oleh
+    management command 'collect_trafo'. Tidak ada fallback ke MSSQL histori —
+    ALL_TRANS_DATA cuma snapshot realtime, bukan tabel historian seperti
+    HIS_MEAS_KIT, jadi PostgreSQL satu-satunya sumber data historis di sini.
+    """
+    tz_local = timezone.get_current_timezone()
+    today    = timezone.now().astimezone(tz_local).date()
+
+    trafo_list = list(Trafo.objects.filter(aktif=True))
+    snaps = (SnapTrafo.objects
+             .filter(trafo__in=trafo_list, waktu__date=today)
+             .order_by('waktu')
+             .values('trafo_id', 'waktu', 'p', 'q'))
+
+    per_trafo = {}
+    count = 0
+    for s in snaps:
+        per_trafo.setdefault(s['trafo_id'], []).append(s)
+        count += 1
+
+    sites = {}
+    for t in trafo_list:
+        rows = per_trafo.get(t.id, [])
+        entry = {
+            'id':  t.id,
+            'bay': t.bay,
+            'rows': [
+                {
+                    'timestamp': r['waktu'].astimezone(tz_local).strftime('%H:%M'),
+                    'p': round(r['p'], 2) if r['p'] is not None else None,
+                    'q': round(r['q'], 2) if r['q'] is not None else None,
+                }
+                for r in rows
+            ],
+        }
+        sites.setdefault(t.site or 'Unknown', []).append(entry)
+
+    return {
+        'sites': [{'site': site, 'trafos': trafos} for site, trafos in sorted(sites.items())],
+        'count': count,
+    }
+
+
+@login_required
+def beban_trafo_chart(request):
+    """Halaman chart 24 jam beban trafo distribusi — P & Q per trafo, per GI."""
+    return render(request, 'opsis/beban_trafo_chart.html', {
+        'pembangkit_list': _pembangkit_aktif(),
+        'chart_data':      _beban_trafo_chart_data(),
+    })
+
+
+@login_required
+def api_beban_trafo_chart(request):
+    """API JSON untuk refresh otomatis chart 24 jam beban trafo distribusi."""
+    return JsonResponse(_beban_trafo_chart_data())
 
 
 # ── Beban Trafo IBT ─────────────────────────────────────────────────────────

@@ -290,6 +290,10 @@ body { font-family:'DM Sans', sans-serif; background:var(--body-bg); color:var(-
             <i class="bi bi-lightning-charge-fill sb-icon"></i>
             <span class="sb-label">Beban Trafo Distribusi</span>
         </a>
+        <a href="/opsis/beban-trafo-chart/" class="sb-link {% if request.resolver_match.url_name == 'opsis_beban_trafo_chart' %}active{% endif %}">
+            <i class="bi bi-graph-up sb-icon"></i>
+            <span class="sb-label">Chart Trafo Distribusi</span>
+        </a>
         <a href="/opsis/beban-trafo-ibt/" class="sb-link {% if request.resolver_match.url_name == 'opsis_beban_trafo_ibt' %}active{% endif %}">
             <i class="bi bi-lightning-charge-fill sb-icon"></i>
             <span class="sb-label">Beban Trafo IBT</span>

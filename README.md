@@ -151,7 +151,8 @@ fasop/
 ├── opsis/          # Monitoring sistem tenaga real-time (OPSIS)
 │   └── management/commands/
 │       ├── collect_live.py   # Kumpulkan MW/MVAR per menit → SnapLive
-│       └── collect_freq.py   # Kumpulkan Hz per detik → SnapFreq
+│       ├── collect_freq.py   # Kumpulkan Hz per detik → SnapFreq
+│       └── collect_trafo.py  # Kumpulkan P/Q trafo distribusi per menit → SnapTrafo
 ├── device_mon/     # Monitoring status RTU
 ├── fasop/          # Settings, URL root, konverter Hashids
 ├── static/         # CSS, JS, gambar statis
@@ -163,7 +164,7 @@ fasop/
 
 ## OPSIS — Data Collection
 
-OPSIS menyimpan data historis ke PostgreSQL menggunakan dua management command yang dijalankan sebagai cron job:
+OPSIS menyimpan data historis ke PostgreSQL menggunakan management command yang dijalankan sebagai cron job:
 
 ```bash
 # Jalankan tiap menit — ambil MW/MVAR semua pembangkit dari MSSQL → simpan ke SnapLive
@@ -171,15 +172,21 @@ python manage.py collect_live
 
 # Jalankan tiap menit — ambil data Hz per detik dari MSSQL → simpan ke SnapFreq
 python manage.py collect_freq
+
+# Jalankan tiap menit — ambil P/Q trafo distribusi dari MSSQL (ALL_TRANS_DATA) → simpan ke SnapTrafo
+# Dipakai oleh chart 24 jam per trafo (/opsis/beban-trafo-chart/), karena ALL_TRANS_DATA
+# sendiri tidak punya histori (hanya nilai realtime).
+python manage.py collect_trafo
 ```
 
 Contoh crontab:
 ```cron
 * * * * * /path/to/venv/bin/python /path/to/fasop/manage.py collect_live
 * * * * * /path/to/venv/bin/python /path/to/fasop/manage.py collect_freq
+* * * * * /path/to/venv/bin/python /path/to/fasop/manage.py collect_trafo
 ```
 
-Jika MSSQL tidak reachable, dashboard otomatis fallback ke data PostgreSQL (SnapLive/SnapFreq) yang terakhir dikumpulkan.
+Jika MSSQL tidak reachable, dashboard otomatis fallback ke data PostgreSQL (SnapLive/SnapFreq) yang terakhir dikumpulkan. Untuk chart trafo, tidak ada fallback MSSQL histori — kalau `SnapTrafo` masih kosong, chart menampilkan pesan bahwa cron `collect_trafo` belum/baru berjalan.
 
 ---
 
