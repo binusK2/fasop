@@ -57,7 +57,7 @@ class Command(BaseCommand):
                 continue
 
             if dry_run:
-                self.stdout.write(f"  [DRY] {trafo} | P={r['p']} | Q={r['q']}")
+                self.stdout.write(f"  [DRY] {trafo} | P={r['p']}")
                 saved += 1
                 continue
 
@@ -65,7 +65,7 @@ class Command(BaseCommand):
                 _, created = SnapTrafo.objects.get_or_create(
                     trafo=trafo,
                     waktu=now,
-                    defaults={'p': r['p'], 'q': r['q']},
+                    defaults={'p': r['p']},
                 )
                 if created:
                     saved += 1

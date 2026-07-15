@@ -790,48 +790,59 @@ def api_beban_trafo(request):
 
 def _beban_trafo_chart_data():
     """
-    Bangun payload chart 24 jam (P & Q) per trafo distribusi, dikelompokkan
-    per GI (site). Sumber: PostgreSQL (SnapTrafo), diisi tiap menit oleh
-    management command 'collect_trafo'. Tidak ada fallback ke MSSQL histori —
-    ALL_TRANS_DATA cuma snapshot realtime, bukan tabel historian seperti
-    HIS_MEAS_KIT, jadi PostgreSQL satu-satunya sumber data historis di sini.
+    Bangun payload chart 24 jam daya aktif (P) trafo distribusi — satu chart
+    per GI (site) berisi satu garis per trafo di GI tersebut, semua trafo di
+    site yang sama berbagi sumbu waktu (label) yang sama.
+
+    Sumber: PostgreSQL (SnapTrafo), diisi tiap menit oleh management command
+    'collect_trafo'. Tidak ada fallback ke MSSQL histori — ALL_TRANS_DATA
+    cuma snapshot realtime, bukan tabel historian seperti HIS_MEAS_KIT, jadi
+    PostgreSQL satu-satunya sumber data historis di sini.
+
+    Trafo dibatasi ke BAY TRF52%/TRF42% (distribusi) saja — registry Trafo
+    dipakai bersama dengan halaman Beban Trafo IBT (BAY TRF65%/TRF54%), jadi
+    tanpa filter ini trafo IBT ikut nongol di sini walau tidak pernah
+    kebagian data dari collect_trafo.
     """
+    from django.db.models import Q
+
     tz_local = timezone.get_current_timezone()
     today    = timezone.now().astimezone(tz_local).date()
 
-    trafo_list = list(Trafo.objects.filter(aktif=True))
+    trafo_list = list(
+        Trafo.objects.filter(aktif=True)
+        .filter(Q(bay__istartswith='TRF52') | Q(bay__istartswith='TRF42'))
+    )
     snaps = (SnapTrafo.objects
              .filter(trafo__in=trafo_list, waktu__date=today)
              .order_by('waktu')
-             .values('trafo_id', 'waktu', 'p', 'q'))
+             .values('trafo_id', 'waktu', 'p'))
 
     per_trafo = {}
     count = 0
     for s in snaps:
-        per_trafo.setdefault(s['trafo_id'], []).append(s)
+        per_trafo.setdefault(s['trafo_id'], {})[s['waktu']] = s['p']
         count += 1
 
-    sites = {}
+    by_site = {}
     for t in trafo_list:
-        rows = per_trafo.get(t.id, [])
-        entry = {
-            'id':  t.id,
-            'bay': t.bay,
-            'rows': [
-                {
-                    'timestamp': r['waktu'].astimezone(tz_local).strftime('%H:%M'),
-                    'p': round(r['p'], 2) if r['p'] is not None else None,
-                    'q': round(r['q'], 2) if r['q'] is not None else None,
-                }
-                for r in rows
-            ],
-        }
-        sites.setdefault(t.site or 'Unknown', []).append(entry)
+        by_site.setdefault(t.site or 'Unknown', []).append(t)
 
-    return {
-        'sites': [{'site': site, 'trafos': trafos} for site, trafos in sorted(sites.items())],
-        'count': count,
-    }
+    sites = []
+    for site, trafos in sorted(by_site.items()):
+        waktu_set = sorted({w for t in trafos for w in per_trafo.get(t.id, {})})
+        labels = [w.astimezone(tz_local).strftime('%H:%M') for w in waktu_set]
+        series = []
+        for t in trafos:
+            vals = per_trafo.get(t.id, {})
+            series.append({
+                'id':  t.id,
+                'bay': t.bay,
+                'p': [round(vals[w], 2) if vals.get(w) is not None else None for w in waktu_set],
+            })
+        sites.append({'site': site, 'labels': labels, 'trafos': series})
+
+    return {'sites': sites, 'count': count}
 
 
 @login_required

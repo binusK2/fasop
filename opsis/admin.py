@@ -44,10 +44,10 @@ class SnapFreqAreaAdmin(admin.ModelAdmin):
 
 @admin.register(SnapTrafo)
 class SnapTrafoAdmin(admin.ModelAdmin):
-    list_display   = ('trafo', 'waktu', 'p', 'q', 'dicatat_pada')
+    list_display   = ('trafo', 'waktu', 'p', 'dicatat_pada')
     list_filter    = ('trafo__site',)
     date_hierarchy = 'waktu'
-    readonly_fields = ('trafo', 'waktu', 'p', 'q', 'dicatat_pada')
+    readonly_fields = ('trafo', 'waktu', 'p', 'dicatat_pada')
     ordering       = ('-waktu',)
 
 

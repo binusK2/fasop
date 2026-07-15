@@ -150,16 +150,16 @@ class SnapTrafo(models.Model):
     """
     Snapshot data trafo distribusi (ALL_TRANS_DATA, BAY TRF52%/TRF42%) yang
     disimpan ke PostgreSQL tiap menit via management command 'collect_trafo'.
-    Satu baris per trafo per menit — dipakai untuk chart 24 jam P & Q per
-    trafo, sama seperti SnapLive dipakai untuk chart Beban Kit. ALL_TRANS_DATA
-    sendiri hanya menyimpan nilai realtime (tanpa histori), jadi PostgreSQL
-    adalah satu-satunya sumber untuk data historis trafo.
+    Satu baris per trafo per menit — dipakai untuk chart 24 jam daya aktif (P)
+    per trafo, sama seperti SnapLive dipakai untuk chart Beban Kit. Hanya P
+    yang disimpan (Q tidak dipakai di chart ini). ALL_TRANS_DATA sendiri hanya
+    menyimpan nilai realtime (tanpa histori), jadi PostgreSQL adalah
+    satu-satunya sumber untuk data historis trafo.
     """
     trafo        = models.ForeignKey(Trafo, on_delete=models.PROTECT,
                                      related_name='snaps', db_index=True)
     waktu        = models.DateTimeField()        # floor ke menit (timezone-aware)
     p            = models.FloatField(null=True)  # daya aktif (MW)
-    q            = models.FloatField(null=True)  # daya reaktif (MVAR)
     dicatat_pada = models.DateTimeField(auto_now_add=True)
 
     class Meta:
