@@ -210,8 +210,11 @@ function datasetsFor(site) {
   return site.trafos.map((t, idx) => datasetFor(t, idx));
 }
 
-function buildChart(canvasId, site, compact = true) {
-  const ctx = document.getElementById(canvasId).getContext('2d');
+function buildChart(canvas, site, compact = true) {
+  // Terima elemen canvas langsung (bukan cari lewat id) — waktu dipanggil
+  // dari createSiteCard() canvas-nya belum tentu sudah menempel ke document,
+  // jadi document.getElementById() bisa null dan .getContext() meledak.
+  const ctx = canvas.getContext('2d');
   const tickFont = compact ? 9 : 11;
   return new Chart(ctx, {
     type: 'line',
@@ -262,10 +265,8 @@ function buildLegendItems(container, site) {
 
 const latestSites = {}; // site name -> data terbaru, dipakai modal saat dibuka/refresh
 const siteEntries = {}; // site name -> { card, badgeEl, legendEl }
-let cardCounter = 0;
 
 function createSiteCard(site) {
-  const canvasId = `chart-site-${cardCounter++}`;
   const card = document.createElement('div');
   card.className = 'chart-mini-card';
   card.title = 'Klik untuk perbesar';
@@ -275,7 +276,7 @@ function createSiteCard(site) {
       <span class="chart-mini-badge"></span>
     </div>
     <div style="position:relative;height:180px;">
-      <canvas id="${canvasId}"></canvas>
+      <canvas></canvas>
     </div>
     <div class="site-legend"></div>`;
   card.querySelector('.chart-mini-site').textContent = site.site;
@@ -287,7 +288,7 @@ function createSiteCard(site) {
     card,
     badgeEl:  card.querySelector('.chart-mini-badge'),
     legendEl: card.querySelector('.site-legend'),
-    chart:    buildChart(canvasId, site),
+    chart:    buildChart(card.querySelector('canvas'), site),
   };
 }
 
@@ -365,7 +366,7 @@ function openChartModal(siteName) {
   document.getElementById('chartModalTitle').textContent = siteName;
   buildLegendItems(document.getElementById('chartModalLegend'), site);
   if (modalChart) modalChart.destroy();
-  modalChart = buildChart('chart-modal-canvas', site, false);
+  modalChart = buildChart(document.getElementById('chart-modal-canvas'), site, false);
   modalOverlay.classList.add('show');
 }
 
