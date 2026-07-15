@@ -149,6 +149,7 @@ Roles are stored in `UserProfile` (ForeignKey to User). Middleware enforces rout
 |---|---|---|
 | `collect_live` | opsis | Cron, every minute — MW/MVAR from MSSQL → `SnapLive` |
 | `collect_freq` | opsis | Cron, every minute — Hz from MSSQL → `SnapFreq` |
+| `collect_trafo` | opsis | Cron, every minute — P/Q per distribution transformer from MSSQL `ALL_TRANS_DATA` → `SnapTrafo`; powers the 24h per-transformer chart (`/opsis/beban-trafo-chart/`), since `ALL_TRANS_DATA` itself has no history; supports `--dry-run` |
 | `collect_rtu` | device_mon | Cron, every minute — RTU UP/DOWN from MSSQL `RTU_ALL_STATE` → `RTU`/`RTULog`; supports `--dry-run` |
 | `generate_rename_plan` | devices | One-off — builds a device-rename plan for review before applying |
 | `apply_rename_plan` | devices | One-off — applies a previously generated rename plan |

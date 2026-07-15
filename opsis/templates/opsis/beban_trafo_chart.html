@@ -1,0 +1,236 @@
+{% extends "opsis/opsis_base.html" %}
+{% block title %}Chart Beban Trafo Distribusi — OPSIS{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+.trafo-chart-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 10px;
+}
+.chart-mini-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-bd);
+  border-radius: 10px;
+  padding: 12px;
+}
+.chart-mini-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.chart-mini-site {
+  font-weight: 700;
+  font-size: 12.5px;
+  color: #e2e8f0;
+}
+.chart-mini-badge {
+  background: rgba(255,255,255,.08);
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 999px;
+}
+.site-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--card-bd);
+}
+.site-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  color: var(--muted);
+}
+.site-legend-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
+.site-legend-bay {
+  font-family: 'JetBrains Mono', monospace;
+  color: #cbd5e1;
+}
+.site-legend-val {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+.empty-notice {
+  background: rgba(245,158,11,.08);
+  border: 1px solid rgba(245,158,11,.25);
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 12px;
+  color: #fbbf24;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-3">
+  <div>
+    <h5 class="mb-0 fw-bold" style="color:#e2e8f0;">
+      <i class="bi bi-graph-up me-2" style="color:#60a5fa;"></i>Chart Beban Trafo Distribusi
+    </h5>
+    <small style="color:#64748b;">Daya Aktif (P) per trafo, per GI — hari ini (00:00 s/d sekarang)</small>
+  </div>
+  <div class="d-flex align-items-center gap-3 flex-wrap">
+    <a href="{% url 'opsis_beban_trafo' %}" class="btn btn-sm btn-outline-light" style="border-color:#334155;">
+      <i class="bi bi-table me-1"></i>Lihat Tabel Realtime
+    </a>
+    <div class="text-center">
+      <div style="font-size:10px;color:#94a3b8;">Update otomatis</div>
+      <div id="refreshCountdown" style="font-size:18px;font-weight:700;color:#3b82f6;">30</div>
+      <div style="font-size:10px;color:#94a3b8;">detik</div>
+    </div>
+  </div>
+</div>
+
+{% if not chart_data.sites %}
+<div class="empty-notice">
+  <i class="bi bi-exclamation-triangle-fill"></i>
+  Belum ada trafo distribusi terdaftar. Buka halaman "Beban Trafo Distribusi" (tabel) atau tunggu cron
+  <code>collect_trafo</code> berjalan supaya trafo otomatis terdaftar.
+</div>
+{% elif not chart_data.count %}
+<div class="empty-notice">
+  <i class="bi bi-exclamation-triangle-fill"></i>
+  Belum ada data historis hari ini. Chart akan mulai terisi setelah cron <code>collect_trafo</code>
+  berjalan tiap menit (lihat <code>deploy/DEPLOY_CHECKLIST.md</code>).
+</div>
+{% endif %}
+
+<div class="trafo-chart-grid" id="trafoChartRoot"></div>
+
+{{ chart_data|json_script:"initial-chart-data" }}
+
+<script>
+// Palet kategorikal tervalidasi (urutan tetap, tidak di-cycle secara acak) —
+// lihat skill dataviz: 8 slot ini lolos cek CVD & kontras untuk garis pada
+// latar gelap kartu OPSIS. Kalau trafo di satu GI > 8, warna berulang.
+const PALETTE = ['#3987e5', '#008300', '#d55181', '#c98500', '#199e70', '#d95926', '#9085e9', '#e66767'];
+function colorFor(idx) { return PALETTE[idx % PALETTE.length]; }
+
+const initialData = JSON.parse(document.getElementById('initial-chart-data').textContent);
+const charts = {}; // site name -> Chart.js instance
+
+function fmt(v) { return (v === null || v === undefined) ? '—' : parseFloat(v).toFixed(2); }
+
+function buildChart(canvasId, site) {
+  const ctx = document.getElementById(canvasId).getContext('2d');
+  return new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: site.labels,
+      datasets: site.trafos.map((t, idx) => ({
+        label: t.bay,
+        data: t.p,
+        borderColor: colorFor(idx),
+        backgroundColor: 'transparent',
+        borderWidth: 2, pointRadius: 0, tension: 0.3, fill: false,
+        spanGaps: true,
+      })),
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: false,
+      interaction: { intersect: false, mode: 'index' },
+      plugins: {
+        legend: { display: false }, // legend kustom di bawah canvas (lengkap dengan nilai terkini)
+        tooltip: {
+          enabled: true,
+          backgroundColor: 'rgba(15,23,42,.9)',
+          titleColor: '#94a3b8', bodyColor: '#f1f5f9',
+          borderColor: '#334155', borderWidth: 1,
+          padding: 8, displayColors: true,
+          callbacks: {
+            label: c => ` ${c.dataset.label}: ${fmt(c.parsed.y)} MW`,
+          },
+        },
+      },
+      scales: {
+        x: { grid: { color: '#1e2d45' }, ticks: { maxTicksLimit: 5, font: { size: 9 } } },
+        y: {
+          grid: { color: '#1e2d45' }, ticks: { font: { size: 9 } },
+          title: { display: true, text: 'MW', color: '#64748b', font: { size: 10 } },
+        },
+      },
+    },
+  });
+}
+
+function renderSites(data) {
+  const root = document.getElementById('trafoChartRoot');
+  root.innerHTML = '';
+
+  data.sites.forEach((site, siteIdx) => {
+    const canvasId = `chart-site-${siteIdx}`;
+    const card = document.createElement('div');
+    card.className = 'chart-mini-card';
+    card.innerHTML = `
+      <div class="chart-mini-head">
+        <span class="chart-mini-site"></span>
+        <span class="chart-mini-badge"></span>
+      </div>
+      <div style="position:relative;height:180px;">
+        <canvas id="${canvasId}"></canvas>
+      </div>
+      <div class="site-legend"></div>`;
+    card.querySelector('.chart-mini-site').textContent = site.site;
+    card.querySelector('.chart-mini-badge').textContent = `${site.trafos.length} trafo`;
+    root.appendChild(card);
+
+    const legendEl = card.querySelector('.site-legend');
+    site.trafos.forEach((t, idx) => {
+      const last = [...t.p].reverse().find(v => v !== null);
+      const item = document.createElement('span');
+      item.className = 'site-legend-item';
+      item.innerHTML = `<span class="site-legend-dot" style="background:${colorFor(idx)};"></span>
+        <span class="site-legend-bay"></span> <span class="site-legend-val"></span>`;
+      item.querySelector('.site-legend-bay').textContent = t.bay;
+      item.querySelector('.site-legend-val').textContent = fmt(last) + ' MW';
+      legendEl.appendChild(item);
+    });
+
+    charts[site.site] = buildChart(canvasId, site);
+  });
+}
+
+renderSites(initialData);
+
+async function refreshCharts() {
+  try {
+    const res = await fetch("{% url 'opsis_api_beban_trafo_chart' %}");
+    if (!res.ok) return;
+    const data = await res.json();
+    // Refresh tiap 30 detik — cukup murah untuk destroy+rebuild penuh tiap
+    // kali, dan menghindari kebocoran instance Chart.js (canvas lama harus
+    // di-destroy() sebelum dilepas dari DOM).
+    Object.values(charts).forEach(c => c.destroy());
+    Object.keys(charts).forEach(k => delete charts[k]);
+    renderSites(data);
+  } catch (e) {}
+}
+
+let countdown = 30;
+const cdEl = document.getElementById('refreshCountdown');
+setInterval(() => {
+  countdown--;
+  cdEl.textContent = countdown;
+  if (countdown <= 0) {
+    countdown = 30;
+    refreshCharts();
+  }
+}, 1000);
+</script>
+{% endblock %}
