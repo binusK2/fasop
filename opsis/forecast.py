@@ -5,7 +5,7 @@ gradient boosting (scikit-learn HistGradientBoostingRegressor).
 Satu model, dengan `horizon_minutes` sebagai fitur input (direct forecasting) —
 bukan satu model per horizon, bukan recursive step-by-step. Anchor (titik
 "sekarang") selalu data SnapLive terbaru yang benar-benar ada, jadi prediksi
-otomatis rolling forward setiap kali predict_beban() dipanggil ulang.
+otomatis rolling forward setiap kali predict_beban_hari_ini() dipanggil ulang.
 
 Sumber data: SnapLive (snapshot per menit per pembangkit, tanpa auto-purge,
 lihat opsis/models.py). Training & prediksi bekerja di atas agregat total MW
@@ -102,7 +102,7 @@ def _target_calendar(target_time_utc):
 def build_feature_row(anchor_time, horizon_minutes, series):
     """
     Bangun satu baris fitur untuk prediksi total MW di anchor_time+horizon_minutes.
-    Fungsi murni — dipakai baik oleh predict_beban() maupun sebagai referensi
+    Fungsi murni — dipakai baik oleh predict_beban_hari_ini() maupun sebagai referensi
     semantik yang disalin (dioptimasi jadi loop per-anchor, bukan dipanggil
     ulang) oleh build_training_dataset() untuk performa pada skala ratusan
     ribu baris. Lihat modul docstring untuk invarian anti-leakage.
@@ -272,35 +272,65 @@ def _load_model():
     return _model_cache['model']
 
 
-def predict_beban(hours_ahead=36, step_minutes=30):
+def predict_beban_hari_ini(step_minutes=30):
     """
-    Prediksi total MW sistem dari sekarang sampai `hours_ahead` jam ke depan,
-    tiap `step_minutes` menit. Anchor = titik SnapLive TERBARU yang benar-benar
+    Beban 'hari ini' pada grid TETAP 00:00-23:30 waktu lokal (step_minutes
+    menit sekali, default 30 -> 48 titik: 00:00, 00:30, 01:00, ...). Titik
+    pada atau sebelum data aktual terbaru diisi dari SnapLive; titik setelah
+    itu diisi prediksi model. Dipakai chart "Beban Kit — Hari Ini".
+
+    Anchor (batas actual/forecast) = titik SnapLive TERBARU yang benar-benar
     ada (bukan wall-clock now()), supaya fitur lag valid walau collect_live
-    sedang telat beberapa menit.
+    sedang telat beberapa menit. Tanggal "hari ini" sendiri tetap dari
+    wall-clock now() (bukan dari anchor) supaya grid selalu 00:00-23:30 hari
+    kalender berjalan meski data sempat telat/kosong.
 
-    Return {'rows': [{'timestamp': iso8601 lokal, 'mw': float}], 'source': 'model'}
-    — atau {'rows': [], 'source': 'no_model'} jika model belum pernah dilatih
-    atau data SnapLive kosong (pola graceful-degradation yang sama seperti
-    opsis/mssql.py).
+    Return {
+        'rows': [{'timestamp': 'HH:MM', 'mw': float|None, 'is_forecast': bool}],
+        'source': 'model'|'no_model',
+        'puncak_siang': float|None,  # nilai grid pada 12:00
+        'puncak_malam': float|None,  # nilai grid pada 18:30
+    }
+    is_forecast selalu False dan model tidak diperlukan untuk baris <= anchor
+    — jadi rows tetap terisi data aktual walau model belum pernah dilatih;
+    hanya bagian 'is_forecast': True yang kosong (mw: None) kalau no_model.
     """
-    model = _load_model()
-    if model is None:
-        return {'rows': [], 'source': 'no_model'}
-
     series = _load_series()
-    if series.empty:
-        return {'rows': [], 'source': 'no_model'}
+    today_local = pd.Timestamp.now(tz=settings.TIME_ZONE).normalize()
+    anchor = series.index[-1] if not series.empty else None
+    model = _load_model()
 
-    anchor = series.index[-1]
-    horizons = list(range(step_minutes, hours_ahead * 60 + 1, step_minutes))
-    feature_rows = [build_feature_row(anchor, h, series) for h in horizons]
-    X = pd.DataFrame(feature_rows)[FEATURE_COLUMNS]
-    preds = model.predict(X)
-
+    n_steps = (24 * 60) // step_minutes
     rows = []
-    for h, p in zip(horizons, preds):
-        t_local = (anchor + pd.Timedelta(minutes=h)).tz_convert(settings.TIME_ZONE)
-        rows.append({'timestamp': t_local.isoformat(), 'mw': round(float(p), 2)})
+    future_feats = []
+    future_idx = []
 
-    return {'rows': rows, 'source': 'model'}
+    for i in range(n_steps):
+        t_local = today_local + pd.Timedelta(minutes=step_minutes * i)
+        t_utc = t_local.tz_convert('UTC')
+        label = t_local.strftime('%H:%M')
+
+        if anchor is not None and t_utc <= anchor:
+            val = _asof_scalar(series, t_utc, anchor, tolerance_minutes=max(step_minutes // 2, 2))
+            rows.append({'timestamp': label, 'mw': None if pd.isna(val) else round(val, 2), 'is_forecast': False})
+        else:
+            rows.append({'timestamp': label, 'mw': None, 'is_forecast': True})
+            if model is not None and anchor is not None:
+                horizon = (t_utc - anchor).total_seconds() / 60
+                future_idx.append(i)
+                future_feats.append(build_feature_row(anchor, horizon, series))
+
+    if model is not None and future_feats:
+        X = pd.DataFrame(future_feats)[FEATURE_COLUMNS]
+        preds = model.predict(X)
+        for i, p in zip(future_idx, preds):
+            rows[i]['mw'] = round(float(p), 2)
+
+    by_label = {r['timestamp']: r['mw'] for r in rows}
+
+    return {
+        'rows': rows,
+        'source': 'model' if model is not None else 'no_model',
+        'puncak_siang': by_label.get('12:00'),
+        'puncak_malam': by_label.get('18:30'),
+    }

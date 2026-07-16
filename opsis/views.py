@@ -350,56 +350,26 @@ def api_freq(request):
 @login_required
 def api_beban(request):
     """
-    Chart beban kit — seluruh hari ini (00:00 sampai sekarang, per menit).
-    Sumber: PostgreSQL (SnapLive). Termasuk nilai beban puncak siang (12:00)
-    dan malam (18:30) untuk ditampilkan di bawah chart.
+    Chart beban kit — grid TETAP 00:00-23:30 hari ini (30 menit sekali).
+    Titik pada/sebelum data aktual terbaru diisi dari SnapLive (PostgreSQL,
+    tiap baris ditandai is_forecast=False); titik setelahnya diisi prediksi
+    model gradient boosting (is_forecast=True) — lihat opsis.forecast.
+    puncak_siang (12:00) dan puncak_malam (18:30) dibaca dari grid yang sama.
     """
-    from django.db.models import Sum
-
-    tz_local = timezone.get_current_timezone()
-    today    = timezone.now().astimezone(tz_local).date()
-
-    snaps = (SnapLive.objects
-             .filter(waktu__date=today)
-             .values('waktu')
-             .annotate(total_mw=Sum('mw'))
-             .order_by('waktu'))
-    if snaps.exists():
-        rows = []
-        puncak_siang = None  # MW pada 12:00
-        puncak_malam = None  # MW pada 18:30
-        for s in snaps:
-            waktu_lokal = s['waktu'].astimezone(tz_local)
-            ts = waktu_lokal.strftime('%H:%M')
-            mw = round(s['total_mw'], 2) if s['total_mw'] is not None else None
-            rows.append({'timestamp': ts, 'mw': mw})
-            if ts == '12:00':
-                puncak_siang = mw
-            elif ts == '18:30':
-                puncak_malam = mw
+    result = forecast.predict_beban_hari_ini()
+    if any(r['mw'] is not None for r in result['rows']):
         return JsonResponse({
-            'rows':          rows,
-            'source':        'postgresql',
-            'count':         len(rows),
-            'puncak_siang':  puncak_siang,
-            'puncak_malam':  puncak_malam,
+            'rows':          result['rows'],
+            'source':        result['source'],
+            'count':         len(result['rows']),
+            'puncak_siang':  result['puncak_siang'],
+            'puncak_malam':  result['puncak_malam'],
         })
 
-    # Fallback: MSSQL HIS_MEAS_KIT per 15 menit
+    # Fallback: SnapLive benar-benar kosong (belum ada data sama sekali) —
+    # pakai MSSQL HIS_MEAS_KIT per 15 menit, tanpa prediksi.
     rows = mssql.get_beban_trend()
     return JsonResponse({'rows': rows, 'source': 'mssql', 'puncak_siang': None, 'puncak_malam': None})
-
-
-@login_required
-def api_beban_forecast(request):
-    """
-    Prediksi beban kit — total sistem, dari sekarang sampai ~36 jam ke depan
-    (hari ini + besok), model gradient boosting (opsis.forecast). Beda dari
-    api_beban: 'timestamp' di sini ISO 8601 lengkap dengan tanggal (bukan
-    'HH:MM' saja) karena rentangnya melewati hari ini.
-    """
-    result = forecast.predict_beban(hours_ahead=36)
-    return JsonResponse(result)
 
 
 @login_required

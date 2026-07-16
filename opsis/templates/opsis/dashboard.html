@@ -691,24 +691,9 @@ const tooltipOpts = {
 };
 const interactOpts = { intersect: false, mode: 'index' };
 
-// ── Chart Beban Kit — hari ini + prediksi ─────────────────────────────
+// ── Chart Beban Kit — grid tetap 00:00-23:30 hari ini + prediksi ──────
 let chartBeban = null;
 let _bh = { idx: -1, pos: null }; // hover state — diisi oleh plugin di bawah
-let _bebanActual = { rows: [], puncakSiang: null, puncakMalam: null }; // cache /api/beban/
-let _bebanForecast = []; // cache /api/beban-forecast/, [{date: Date, mw}]
-
-function _fmtForecastLabel(d) {
-    const today = new Date();
-    const sameDay = d.getFullYear() === today.getFullYear() &&
-                    d.getMonth() === today.getMonth() &&
-                    d.getDate() === today.getDate();
-    const hh = String(d.getHours()).padStart(2, '0');
-    const mm = String(d.getMinutes()).padStart(2, '0');
-    if (sameDay) return `${hh}:${mm}`;
-    const dd = String(d.getDate()).padStart(2, '0');
-    const mo = String(d.getMonth() + 1).padStart(2, '0');
-    return `${dd}/${mo} ${hh}:${mm}`; // beda hari — disambiguasi supaya tidak tabrakan di sumbu-X
-}
 
 // Plugin Chart.js: catat posisi hover terakhir (mouse & touch) agar tooltip
 // bisa di-restore setelah programmatic chart.update() setiap 5 detik.
@@ -728,8 +713,34 @@ const bebanHoverPlugin = {
     }
 };
 
-function initBebanChart(labels, actualData, forecastData, pSiang, pMalam) {
-    const n = labels.length;
+// rows dari /api/beban/: [{timestamp:'HH:MM', mw, is_forecast}], grid tetap
+// 00:00-23:30 — pisahkan jadi 2 seri (aktual solid vs prediksi dashed) yang
+// tetap sama panjang dengan labels supaya mode:'index' bekerja.
+function _splitBebanRows(rows) {
+    const n = rows.length;
+    const actualData = new Array(n).fill(null);
+    const forecastData = new Array(n).fill(null);
+    let lastActualIdx = -1;
+    rows.forEach((r, i) => {
+        if (r.is_forecast) {
+            forecastData[i] = r.mw;
+        } else {
+            actualData[i] = r.mw;
+            lastActualIdx = i;
+        }
+    });
+    // Sambungkan garis prediksi ke titik aktual terakhir supaya dashed line
+    // menyambung visual dari solid line, tidak ada jarak.
+    if (lastActualIdx >= 0 && forecastData[lastActualIdx] == null) {
+        forecastData[lastActualIdx] = actualData[lastActualIdx];
+    }
+    return { actualData, forecastData };
+}
+
+function initBebanChart(rows, pSiang, pMalam) {
+    const n = rows.length;
+    const labels = rows.map(r => r.timestamp);
+    const { actualData, forecastData } = _splitBebanRows(rows);
     const ctx = document.getElementById('chart-beban').getContext('2d');
     chartBeban = new Chart(ctx, {
         type: 'line',
@@ -809,67 +820,12 @@ function initBebanChart(labels, actualData, forecastData, pSiang, pMalam) {
     });
 }
 
-// Gabungkan cache data aktual (_bebanActual) + prediksi (_bebanForecast) jadi
-// satu set labels/datasets, lalu init atau update chartBeban. Dipanggil dari
-// loadBebanChart() maupun loadForecastChart() — mana pun yang baru selesai
-// fetch — supaya chart selalu render pakai data terbaru dari KEDUANYA.
-function _renderBebanChart() {
-    const actual = _bebanActual.rows;
-    const nActual = actual.length;
-    const actualLabels = actual.map(r => r.timestamp);
-    const actualData = actual.map(r => r.mw);
-
-    // Titik prediksi dipakai hanya yang waktunya SETELAH titik aktual terakhir,
-    // supaya tidak tabrakan/duplikat di sekitar "sekarang".
-    let lastActualTime = null;
-    if (nActual) {
-        const [hh, mm] = actual[nActual - 1].timestamp.split(':').map(Number);
-        lastActualTime = new Date();
-        lastActualTime.setHours(hh, mm, 0, 0);
-    }
-    const futureForecast = _bebanForecast.filter(f => !lastActualTime || f.date > lastActualTime);
-    const forecastLabels = futureForecast.map(f => _fmtForecastLabel(f.date));
-    const forecastValues = futureForecast.map(f => f.mw);
-
-    const allLabels = actualLabels.concat(forecastLabels);
-    const n = allLabels.length;
-    const fullActualData = actualData.concat(new Array(forecastLabels.length).fill(null));
-    // Sambungkan garis prediksi ke titik aktual terakhir (duplikasi 1 titik)
-    // supaya dashed line menyambung visual dari solid line, tidak ada jarak.
-    const fullForecastData = new Array(Math.max(nActual - 1, 0)).fill(null)
-        .concat(nActual ? [actualData[nActual - 1]] : [])
-        .concat(forecastValues);
-
-    if (!chartBeban) {
-        initBebanChart(allLabels, fullActualData, fullForecastData,
-                        _bebanActual.puncakSiang, _bebanActual.puncakMalam);
-        return;
-    }
-    chartBeban.data.labels = allLabels;
-    chartBeban.data.datasets[0].data = fullActualData;
-    chartBeban.data.datasets[1].data = new Array(n).fill(_bebanActual.puncakSiang ?? null);
-    chartBeban.data.datasets[2].data = new Array(n).fill(_bebanActual.puncakMalam ?? null);
-    chartBeban.data.datasets[3].data = fullForecastData;
-    chartBeban.update('none');
-    // Restore active elements SETELAH update (bukan sebelum) — update() sendiri
-    // me-replay _lastEvent di akhir prosesnya, yang bisa menimpa setActiveElements
-    // jika dipanggil sebelum update(). draw() dipakai (bukan update() lagi) agar
-    // replay itu tidak terpicu ulang dan menimpa balik apa yang baru saja kita set.
-    if (_bh.idx >= 0 && _bh.idx < n && _bh.pos) {
-        chartBeban.tooltip.setActiveElements(
-            [0, 1, 2, 3].map(di => ({ datasetIndex: di, index: _bh.idx })),
-            _bh.pos
-        );
-        chartBeban.draw();
-    }
-}
-
 async function loadBebanChart() {
     try {
         const r = await fetch('/opsis/api/beban/');
         if (!r.ok) return;
         const d = await r.json();
-        const src = d.source === 'postgresql' ? '🟢 PostgreSQL' : '🟡 MSSQL';
+        const src = d.source === 'mssql' ? '🟡 MSSQL' : '🟢 PostgreSQL';
         const el = document.getElementById('beban-updated');
         if (el) el.textContent = src + ' · ' + new Date().toLocaleTimeString('id-ID');
         if (!d.rows || !d.rows.length) return;
@@ -880,26 +836,34 @@ async function loadBebanChart() {
         if (elSiang) elSiang.textContent = d.puncak_siang != null ? parseFloat(d.puncak_siang).toFixed(2) : '—';
         if (elMalam) elMalam.textContent = d.puncak_malam != null ? parseFloat(d.puncak_malam).toFixed(2) : '—';
 
-        _bebanActual = { rows: d.rows, puncakSiang: d.puncak_siang, puncakMalam: d.puncak_malam };
-        _renderBebanChart();
-    } catch (e) {}
-}
-
-async function loadForecastChart() {
-    try {
-        const r = await fetch('/opsis/api/beban-forecast/');
-        if (!r.ok) return;
-        const d = await r.json();
-        if (!d.rows) return;
-        _bebanForecast = d.rows.map(row => ({ date: new Date(row.timestamp), mw: row.mw }));
-        _renderBebanChart();
+        const n = d.rows.length;
+        if (!chartBeban) {
+            initBebanChart(d.rows, d.puncak_siang, d.puncak_malam);
+        } else {
+            const { actualData, forecastData } = _splitBebanRows(d.rows);
+            chartBeban.data.labels = d.rows.map(r => r.timestamp);
+            chartBeban.data.datasets[0].data = actualData;
+            chartBeban.data.datasets[1].data = new Array(n).fill(d.puncak_siang ?? null);
+            chartBeban.data.datasets[2].data = new Array(n).fill(d.puncak_malam ?? null);
+            chartBeban.data.datasets[3].data = forecastData;
+            chartBeban.update('none');
+            // Restore active elements SETELAH update (bukan sebelum) — update() sendiri
+            // me-replay _lastEvent di akhir prosesnya, yang bisa menimpa setActiveElements
+            // jika dipanggil sebelum update(). draw() dipakai (bukan update() lagi) agar
+            // replay itu tidak terpicu ulang dan menimpa balik apa yang baru saja kita set.
+            if (_bh.idx >= 0 && _bh.idx < n && _bh.pos) {
+                chartBeban.tooltip.setActiveElements(
+                    [0, 1, 2, 3].map(di => ({ datasetIndex: di, index: _bh.idx })),
+                    _bh.pos
+                );
+                chartBeban.draw();
+            }
+        }
     } catch (e) {}
 }
 
 loadBebanChart();
-loadForecastChart();
-setInterval(loadBebanChart, 5000);       // refresh tiap 5 detik — agregat seharian, cukup 5 detik
-setInterval(loadForecastChart, 180000);  // refresh tiap 3 menit — output model stabil, tak perlu secepat data aktual
+setInterval(loadBebanChart, 5000); // refresh tiap 5 detik — grid tetap 48 titik, ringan
 
 // ── Chart Frekuensi Hari Ini ──────────────────────────────────────────
 let chartFreqHari = null;
