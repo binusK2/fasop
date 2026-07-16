@@ -211,6 +211,16 @@ body { font-family:'DM Sans', sans-serif; background:var(--body-bg); color:var(-
     gap: 8px;
 }
 
+/* ── Footer ── */
+.app-footer {
+    margin-top: 24px;
+    padding-top: 14px;
+    border-top: 1px solid var(--card-bd);
+    text-align: center;
+    font-size: 11.5px;
+    color: var(--muted);
+}
+
 /* ── Mobile ── */
 @media (max-width: 768px) {
     .btn-menu { display: flex; }
@@ -327,6 +337,11 @@ body { font-family:'DM Sans', sans-serif; background:var(--body-bg); color:var(-
     <!-- Main Content -->
     <div class="main-content">
         {% block content %}{% endblock %}
+
+        <!-- Footer -->
+        <footer class="app-footer">
+            &copy; {% now "Y" %} PLN UP2B Sistem Makassar &mdash; Developed by Bachtiar Hurdanu
+        </footer>
     </div>
 </div>
 
