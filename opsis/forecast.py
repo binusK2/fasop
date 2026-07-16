@@ -50,16 +50,24 @@ def _model_path():
     return Path(settings.ML_MODEL_ROOT) / 'beban_forecast.joblib'
 
 
-def _load_series():
+def _load_series(since=None):
     """
-    Total MW sistem per menit (SUM semua pembangkit), seluruh histori SnapLive.
-    Return pandas Series ber-index DatetimeIndex (UTC, sesuai penyimpanan DB),
-    urut ascending. Index kosong jika belum ada data sama sekali.
+    Total MW sistem per menit (SUM semua pembangkit) dari SnapLive. Return
+    pandas Series ber-index DatetimeIndex (UTC, sesuai penyimpanan DB), urut
+    ascending. Index kosong jika belum ada data sama sekali.
+
+    `since` (tz-aware, opsional): batasi hanya waktu >= since. Dipakai oleh
+    predict_beban_hari_ini() supaya tiap request tidak perlu load SELURUH
+    histori (~3 bulan) — cukup ~8 hari terakhir untuk fitur lag terjauh
+    (same_hour_lastweek, -7 hari). build_training_dataset() tetap panggil
+    tanpa batas karena training butuh seluruh histori.
     """
     qs = (SnapLive.objects
           .values('waktu')
           .annotate(total_mw=Sum('mw'))
           .order_by('waktu'))
+    if since is not None:
+        qs = qs.filter(waktu__gte=since)
     rows = list(qs)
     if not rows:
         return pd.Series(dtype=float)
@@ -274,51 +282,63 @@ def _load_model():
 
 def predict_beban_hari_ini(step_minutes=30):
     """
-    Beban 'hari ini' pada grid TETAP 00:00-23:30 waktu lokal (step_minutes
-    menit sekali, default 30 -> 48 titik: 00:00, 00:30, 01:00, ...). Titik
-    pada atau sebelum data aktual terbaru diisi dari SnapLive; titik setelah
-    itu diisi prediksi model. Dipakai chart "Beban Kit — Hari Ini".
+    Beban 'hari ini': bagian AKTUAL memakai resolusi ASLI per menit dari
+    SnapLive (bukan di-downsample ke grid 30 menit — kalau di-downsample,
+    kurva pembebanan yang naik-turun tiap menit jadi kelihatan hampir lurus).
+    Bagian PREDIKSI tetap grid step_minutes menit (default 30) dari titik
+    30-menit berikutnya setelah data aktual terakhir, sampai akhir hari
+    (23:30) — memprediksi tiap menit tidak realistis/tidak perlu.
 
-    Anchor (batas actual/forecast) = titik SnapLive TERBARU yang benar-benar
-    ada (bukan wall-clock now()), supaya fitur lag valid walau collect_live
-    sedang telat beberapa menit. Tanggal "hari ini" sendiri tetap dari
-    wall-clock now() (bukan dari anchor) supaya grid selalu 00:00-23:30 hari
-    kalender berjalan meski data sempat telat/kosong.
+    Tanggal "hari ini" dari wall-clock now() (bukan dari anchor) supaya
+    cakupan selalu hari kalender berjalan meski data sempat telat/kosong.
+    Anchor (batas actual/forecast, basis fitur lag) = titik SnapLive TERBARU
+    yang benar-benar ada.
 
     Return {
         'rows': [{'timestamp': 'HH:MM', 'mw': float|None, 'is_forecast': bool}],
         'source': 'model'|'no_model',
-        'puncak_siang': float|None,  # nilai grid pada 12:00
-        'puncak_malam': float|None,  # nilai grid pada 18:30
+        'puncak_siang': float|None,  # nilai pada 12:00 (aktual atau prediksi)
+        'puncak_malam': float|None,  # nilai pada 18:30 (aktual atau prediksi)
     }
-    is_forecast selalu False dan model tidak diperlukan untuk baris <= anchor
-    — jadi rows tetap terisi data aktual walau model belum pernah dilatih;
-    hanya bagian 'is_forecast': True yang kosong (mw: None) kalau no_model.
     """
-    series = _load_series()
-    today_local = pd.Timestamp.now(tz=settings.TIME_ZONE).normalize()
+    tz = settings.TIME_ZONE
+    now_local = pd.Timestamp.now(tz=tz)
+    today_local = now_local.normalize()
+
+    # Load histori secukupnya saja (~9 hari) — cukup untuk fitur lag terjauh
+    # (same_hour_lastweek, -7 hari) + buffer, jauh lebih ringan daripada load
+    # seluruh ~3 bulan histori tiap request (endpoint ini di-poll tiap 5 detik).
+    series = _load_series(since=today_local - pd.Timedelta(days=9))
     anchor = series.index[-1] if not series.empty else None
     model = _load_model()
 
-    n_steps = (24 * 60) // step_minutes
+    # ── Bagian aktual: SEMUA titik per menit hari ini, resolusi asli ──
     rows = []
+    if anchor is not None:
+        todays = series[series.index >= today_local.tz_convert('UTC')]
+        for t_utc, mw in todays.items():
+            label = t_utc.tz_convert(tz).strftime('%H:%M')
+            rows.append({'timestamp': label, 'mw': round(float(mw), 2), 'is_forecast': False})
+
+    # ── Bagian prediksi: grid step_minutes dari slot berikutnya setelah
+    #    anchor, sampai akhir hari (23:30) ──
+    ref_local = (anchor.tz_convert(tz) if anchor is not None else now_local)
+    minutes_since_midnight = ref_local.hour * 60 + ref_local.minute
+    next_slot = ((minutes_since_midnight // step_minutes) + 1) * step_minutes
+
     future_feats = []
     future_idx = []
-
-    for i in range(n_steps):
-        t_local = today_local + pd.Timedelta(minutes=step_minutes * i)
+    slot = next_slot
+    while slot < 24 * 60:
+        t_local = today_local + pd.Timedelta(minutes=slot)
         t_utc = t_local.tz_convert('UTC')
         label = t_local.strftime('%H:%M')
-
-        if anchor is not None and t_utc <= anchor:
-            val = _asof_scalar(series, t_utc, anchor, tolerance_minutes=max(step_minutes // 2, 2))
-            rows.append({'timestamp': label, 'mw': None if pd.isna(val) else round(val, 2), 'is_forecast': False})
-        else:
-            rows.append({'timestamp': label, 'mw': None, 'is_forecast': True})
-            if model is not None and anchor is not None:
-                horizon = (t_utc - anchor).total_seconds() / 60
-                future_idx.append(i)
-                future_feats.append(build_feature_row(anchor, horizon, series))
+        rows.append({'timestamp': label, 'mw': None, 'is_forecast': True})
+        if model is not None and anchor is not None:
+            horizon = (t_utc - anchor).total_seconds() / 60
+            future_idx.append(len(rows) - 1)
+            future_feats.append(build_feature_row(anchor, horizon, series))
+        slot += step_minutes
 
     if model is not None and future_feats:
         X = pd.DataFrame(future_feats)[FEATURE_COLUMNS]
@@ -326,7 +346,9 @@ def predict_beban_hari_ini(step_minutes=30):
         for i, p in zip(future_idx, preds):
             rows[i]['mw'] = round(float(p), 2)
 
-    by_label = {r['timestamp']: r['mw'] for r in rows}
+    by_label = {}
+    for r in rows:
+        by_label.setdefault(r['timestamp'], r['mw'])
 
     return {
         'rows': rows,
