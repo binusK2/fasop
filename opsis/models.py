@@ -24,6 +24,14 @@ class Pembangkit(models.Model):
     tag_frekuensi = models.CharField(max_length=200, blank=True, verbose_name='Tag Frekuensi (MSSQL)')
     tag_mw        = models.CharField(max_length=200, blank=True, verbose_name='Tag Daya MW (MSSQL)')
     tag_mvar      = models.CharField(max_length=200, blank=True, verbose_name='Tag Daya MVAR (MSSQL)')
+    # Sumber baris KIT_REALTIME + filter unit — untuk kasus satu baris KIT_REALTIME
+    # berisi unit milik lebih dari satu pembangkit (mis. UNIT7_P pada baris KIT
+    # 'SUPPA5' sebenarnya milik pembangkit lain).
+    kode_kit      = models.CharField(max_length=20, blank=True, verbose_name='Kode KIT (MSSQL)',
+                                      help_text='Kode KIT_REALTIME yang dibaca. Kosongkan jika sama dengan Kode.')
+    unit_list     = models.CharField(max_length=100, blank=True, verbose_name='Unit yang Dipakai',
+                                      help_text='Daftar unit dipisah koma, mis. UNIT1,UNIT2,UNIT3. '
+                                                 'Kosongkan untuk memakai semua unit (UNIT1-UNIT8).')
 
     class Meta:
         ordering = ['urutan', 'nama']
@@ -32,6 +40,16 @@ class Pembangkit(models.Model):
 
     def __str__(self):
         return self.nama
+
+    def kit_source(self):
+        """Kode KIT_REALTIME yang dibaca — kode_kit jika diisi, else kode."""
+        return (self.kode_kit or self.kode).strip().upper()
+
+    def unit_whitelist(self):
+        """Set nama unit ('UNIT1'..'UNIT8') yang termasuk pembangkit ini, atau None untuk semua unit."""
+        if not self.unit_list.strip():
+            return None
+        return {u.strip().upper() for u in self.unit_list.split(',') if u.strip()}
 
 
 class Trafo(models.Model):

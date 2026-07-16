@@ -9,6 +9,14 @@ class PembangkitAdmin(admin.ModelAdmin):
     list_display_links = ('nama',)
     fieldsets = (
         (None, {'fields': ('nama', 'kode', 'jenis', 'warna', 'urutan', 'aktif')}),
+        ('Sumber Data KIT_REALTIME', {
+            'description': 'Kosongkan Kode KIT dan Unit yang Dipakai untuk perilaku default '
+                            '(baca semua unit dari baris KIT_REALTIME dengan KIT = Kode). Isi '
+                            'keduanya jika satu baris KIT_REALTIME berisi unit milik lebih dari '
+                            'satu pembangkit — mis. Pembangkit A pakai UNIT1-6, Pembangkit B pakai '
+                            'UNIT7 dari baris KIT yang sama.',
+            'fields': ('kode_kit', 'unit_list'),
+        }),
         ('Tag MSSQL', {
             'description': 'Isi tag/kolom sesuai struktur tabel historian di MSSQL.',
             'fields': ('tag_frekuensi', 'tag_mw', 'tag_mvar'),

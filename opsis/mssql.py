@@ -222,8 +222,11 @@ def get_live_data(pembangkit_list):
         )
         rt_rows = cursor.fetchall()
 
-        # Proses per KIT: bangun units list dari UNIT1..UNIT8
-        db_map = {}
+        # Proses per KIT: kumpulkan unit mentah (belum di-filter/sum) per baris KIT.
+        # Filtering per unit dan penjumlahan dilakukan belakangan per Pembangkit,
+        # karena satu baris KIT_REALTIME bisa dipecah antar beberapa Pembangkit
+        # (lihat Pembangkit.kode_kit / unit_list).
+        raw_rows = {}
         unit_cols = [  # (P_idx, Q_idx, nama)
             (2,  3,  'UNIT1'), (4,  5,  'UNIT2'),
             (6,  7,  'UNIT3'), (8,  9,  'UNIT4'),
@@ -234,30 +237,14 @@ def get_live_data(pembangkit_list):
             kit = row[0].strip().upper() if row[0] else ''
             ts  = row[1].isoformat() if row[1] else None
 
-            units = []
-            mw_total   = 0.0
-            mvar_total = 0.0
-            has_mw = has_mvar = False
+            units_raw = {}
             for p_idx, q_idx, nama in unit_cols:
                 p_ = float(row[p_idx]) if row[p_idx] is not None else None
                 q_ = float(row[q_idx]) if row[q_idx] is not None else None
                 if p_ is not None:  # skip unit yang NULL (tidak aktif)
-                    units.append({'nama': nama, 'mw': p_, 'mvar': q_})
-                    if p_ > 0:      # total hanya dari unit yang menghasilkan (positif)
-                        mw_total += p_
-                        has_mw = True
-                    if q_ is not None and q_ > 0:
-                        mvar_total += q_
-                        has_mvar = True
+                    units_raw[nama] = {'mw': p_, 'mvar': q_}
 
-            db_map[kit] = {
-                'mw':        round(mw_total, 3)   if has_mw   else None,
-                'mvar':      round(mvar_total, 3) if has_mvar else None,
-                'frekuensi': None,
-                'units':     units,
-                'timestamp': ts,
-                'is_dummy':  False,
-            }
+            raw_rows[kit] = {'timestamp': ts, 'units_raw': units_raw}
 
         # ── Query 2: frekuensi sistem dari SYS_FREQ_HIS ─────────────────
         frekuensi_sistem = None
@@ -271,15 +258,44 @@ def get_live_data(pembangkit_list):
 
         conn.close()
 
-        # Cocokkan dengan kode pembangkit Django (case-insensitive)
+        # Cocokkan dengan kode pembangkit Django (case-insensitive), lalu filter unit
+        # sesuai unit_list bila baris KIT dipakai bersama oleh >1 Pembangkit.
         data = {}
         for p in pembangkit_list:
             if not p.aktif:
                 continue
-            data[p.kode] = db_map.get(p.kode.strip().upper(), {
-                'mw': None, 'mvar': None, 'frekuensi': None,
-                'units': [], 'timestamp': None, 'is_dummy': False,
-            })
+            row = raw_rows.get(p.kit_source())
+            if row is None:
+                data[p.kode] = {
+                    'mw': None, 'mvar': None, 'frekuensi': None,
+                    'units': [], 'timestamp': None, 'is_dummy': False,
+                }
+                continue
+
+            whitelist = p.unit_whitelist()
+            units = []
+            mw_total = mvar_total = 0.0
+            has_mw = has_mvar = False
+            for nama, vals in row['units_raw'].items():
+                if whitelist is not None and nama not in whitelist:
+                    continue
+                units.append({'nama': nama, 'mw': vals['mw'], 'mvar': vals['mvar']})
+                if vals['mw'] is not None and vals['mw'] > 0:
+                    mw_total += vals['mw']
+                    has_mw = True
+                if vals['mvar'] is not None and vals['mvar'] > 0:
+                    mvar_total += vals['mvar']
+                    has_mvar = True
+            units.sort(key=lambda u: u['nama'])
+
+            data[p.kode] = {
+                'mw':        round(mw_total, 3)   if has_mw   else None,
+                'mvar':      round(mvar_total, 3) if has_mvar else None,
+                'frekuensi': None,
+                'units':     units,
+                'timestamp': row['timestamp'],
+                'is_dummy':  False,
+            }
 
         return {'data': data, 'frekuensi_sistem': frekuensi_sistem}
 
