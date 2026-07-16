@@ -647,7 +647,13 @@ function _nearestLabelIdx(labels, targetHHMM) {
 const peakPlugin = {
     id: 'peakLines',
     afterDraw(chart) {
-        const { ctx, scales: { x, y } } = chart;
+        const { ctx, scales: { x, y } = {} } = chart;
+        // Guard: beberapa plugin lain (mis. chartjs-plugin-datalabels) bisa
+        // memicu render/draw di luar siklus update() normal, di titik mana
+        // scale belum sepenuhnya terbentuk. Exception di sini akan menghentikan
+        // SELURUH proses render chart (bukan cuma bagian ini) — jadi harus
+        // di-skip, bukan dibiarkan throw.
+        if (!x || !y || typeof x.getPixelForIndex !== 'function') return;
         const peaks = [
             { label: '12:00', color: '#fbbf24' },
             { label: '18:30', color: '#f87171' },
