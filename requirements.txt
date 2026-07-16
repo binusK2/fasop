@@ -28,7 +28,7 @@ joblib>=1.3.0                 # Simpan/muat model terlatih
 
 # ── Security ──────────────────────────────────────────────────────
 django-axes==7.0.1            # Rate limiting login (lockout 5x gagal)
-hashids==1.3.0                # Obfuskasi integer ID di URL
+hashids==1.3.1                # Obfuskasi integer ID di URL
 
 # ── Utilities ─────────────────────────────────────────────────────
 charset-normalizer==3.4.0
