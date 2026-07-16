@@ -6,6 +6,7 @@ from django.utils import timezone
 from django.conf import settings
 from .models import Pembangkit, SnapLive, SnapFreq, Trafo, SnapTrafo
 from . import mssql
+from . import forecast
 
 
 def _pembangkit_aktif():
@@ -387,6 +388,18 @@ def api_beban(request):
     # Fallback: MSSQL HIS_MEAS_KIT per 15 menit
     rows = mssql.get_beban_trend()
     return JsonResponse({'rows': rows, 'source': 'mssql', 'puncak_siang': None, 'puncak_malam': None})
+
+
+@login_required
+def api_beban_forecast(request):
+    """
+    Prediksi beban kit — total sistem, dari sekarang sampai ~36 jam ke depan
+    (hari ini + besok), model gradient boosting (opsis.forecast). Beda dari
+    api_beban: 'timestamp' di sini ISO 8601 lengkap dengan tanggal (bukan
+    'HH:MM' saja) karena rentangnya melewati hari ini.
+    """
+    result = forecast.predict_beban(hours_ahead=36)
+    return JsonResponse(result)
 
 
 @login_required
