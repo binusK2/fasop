@@ -75,3 +75,6 @@ rename_plan.csv
 deploy/mediamtx.generated.yml
 deploy/mediamtx.service.generated
 streaming_recordings/
+
+# ── ML — model terlatih (binary, di-generate ulang via train_beban_forecast) ─
+ml_models/

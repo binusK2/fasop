@@ -278,3 +278,7 @@ STREAMING_X_ACCEL_REDIRECT_PREFIX = config(
     'STREAMING_X_ACCEL_REDIRECT_PREFIX', default='/internal-recordings/',
 )
 
+# Direktori model ML terlatih (mis. beban_forecast.joblib) — lihat
+# opsis/forecast.py dan management command train_beban_forecast.
+ML_MODEL_ROOT = config('ML_MODEL_ROOT', default=str(BASE_DIR / 'ml_models'))
+
