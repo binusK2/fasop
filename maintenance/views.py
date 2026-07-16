@@ -183,6 +183,26 @@ def maintenance_list(request):
 
 
 # ─────────────────────────────────────────────────────────────────────
+# API: autocomplete nama teknisi untuk field Pelaksana
+# ─────────────────────────────────────────────────────────────────────
+@login_required
+def pelaksana_search(request):
+    """JSON: daftar nama lengkap teknisi untuk autocomplete field Pelaksana."""
+    from django.http import JsonResponse
+    from django.contrib.auth.models import User
+
+    q = request.GET.get('q', '').strip()
+    qs = User.objects.filter(is_active=True, profile__role='technician').select_related('profile')
+    if q:
+        qs = qs.filter(
+            Q(first_name__icontains=q) | Q(last_name__icontains=q) |
+            Q(username__icontains=q) | Q(profile__display_name__icontains=q)
+        )
+    names = sorted({u.profile.get_display_name() for u in qs})
+    return JsonResponse({'results': names[:10]})
+
+
+# ─────────────────────────────────────────────────────────────────────
 # CREATE  (otomatis pilih form berdasarkan jenis perangkat)
 # ─────────────────────────────────────────────────────────────────────
 @login_required

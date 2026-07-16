@@ -4,6 +4,7 @@ from . import views
 urlpatterns = [
     path('', views.maintenance_list, name='maintenance_list'),
     path('maintenance/add/<hid:device_id>/', views.maintenance_create, name='maintenance_add_device'),
+    path('api/pelaksana-search/', views.pelaksana_search, name='pelaksana_search'),
     path('maintenance/delete/<hid:pk>/', views.maintenance_delete, name='maintenance_delete'),
     path('update_status/<hid:pk>/', views.maintenance_update_status, name='maintenance_update_status'),
     path('view/<hid:pk>/', views.maintenance_detail, name='maintenance_view'),
