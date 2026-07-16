@@ -9,7 +9,7 @@
     {# Container tag #}
     <div id="pelaksana-tag-box"
          style="min-height:80px;border:1px solid #e2e8f0;border-radius:8px;
-                padding:8px 10px;background:#f8fafc;cursor:text;"
+                padding:8px 10px;background:#f8fafc;cursor:text;position:relative;"
          onclick="document.getElementById('pelaksana-text-input').focus();">
 
         <div id="pelaksana-tags"
@@ -17,7 +17,7 @@
 
         <div style="display:flex;gap:6px;align-items:center;">
             <input id="pelaksana-text-input" type="text"
-                   placeholder="Ketik nama lalu ketuk +"
+                   placeholder="Ketik nama teknisi…"
                    autocomplete="off"
                    inputmode="text"
                    style="border:none;outline:none;background:transparent;
@@ -29,8 +29,15 @@
                            display:flex;align-items:center;justify-content:center;"
                     title="Tambahkan nama">+</button>
         </div>
+
+        {# Dropdown autocomplete nama teknisi #}
+        <div id="pelaksana-suggest"
+             style="display:none;position:absolute;left:0;right:0;top:100%;margin-top:4px;
+                    background:#fff;border:1px solid #e2e8f0;border-radius:8px;
+                    box-shadow:0 8px 20px rgba(0,0,0,0.1);z-index:50;overflow:hidden;
+                    max-height:220px;overflow-y:auto;"></div>
     </div>
-    <div class="form-text">Ketik nama lalu ketuk <strong>+</strong> atau tekan <kbd>Enter</kbd>.</div>
+    <div class="form-text">Ketik nama teknisi untuk mencari, lalu pilih dari daftar. Bisa juga ketuk <strong>+</strong> / <kbd>Enter</kbd> untuk menambahkan nama secara manual.</div>
 </div>
 
 {% if is_edit %}
@@ -55,6 +62,10 @@
     var textInput   = document.getElementById('pelaksana-text-input');
     var addBtn      = document.getElementById('pelaksana-add-btn');
     var hiddenInput = document.getElementById('id_pelaksana_names');
+    var suggestEl   = document.getElementById('pelaksana-suggest');
+    var searchUrl   = '{% url "pelaksana_search" %}';
+    var searchTimer = null;
+    var suggestions = [];
 
     function sync() {
         hiddenInput.value = JSON.stringify(names);
@@ -89,12 +100,22 @@
         return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     }
 
-    function tryAdd() {
-        var val = textInput.value.replace(/\n/g, '').trim();
-        if (val) {
+    function addName(val) {
+        val = (val || '').replace(/\n/g, '').trim();
+        if (val && names.indexOf(val) === -1) {
             names.push(val);
-            textInput.value = '';
-            render();
+        }
+        textInput.value = '';
+        render();
+        hideSuggest();
+    }
+
+    function tryAdd() {
+        // Enter/+ dengan dropdown terbuka → pilih saran teratas, bukan teks mentah
+        if (suggestEl.style.display !== 'none' && suggestions.length) {
+            addName(suggestions[0]);
+        } else {
+            addName(textInput.value);
         }
     }
 
@@ -110,6 +131,9 @@
             e.preventDefault();
             tryAdd();
         }
+        if (e.key === 'Escape') {
+            hideSuggest();
+        }
         if (e.key === 'Backspace' && textInput.value === '' && names.length) {
             names.pop();
             render();
@@ -124,11 +148,60 @@
         }
     });
 
-    // input — Android yang mengirim newline sebagai karakter
+    // input — cari saran nama teknisi (debounced) + tangani newline dari Android
     textInput.addEventListener('input', function () {
         if (textInput.value.indexOf('\n') !== -1) {
             tryAdd();
+            return;
         }
+        var q = textInput.value.trim();
+        clearTimeout(searchTimer);
+        if (q.length < 2) { hideSuggest(); return; }
+        searchTimer = setTimeout(function () { fetchSuggest(q); }, 220);
+    });
+
+    textInput.addEventListener('focus', function () {
+        var q = textInput.value.trim();
+        if (q.length >= 2 && suggestions.length) showSuggest();
+    });
+
+    function fetchSuggest(q) {
+        fetch(searchUrl + '?q=' + encodeURIComponent(q))
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                suggestions = (data.results || []).filter(function (n) { return names.indexOf(n) === -1; });
+                renderSuggest();
+            })
+            .catch(function () { hideSuggest(); });
+    }
+
+    function renderSuggest() {
+        if (!suggestions.length) { hideSuggest(); return; }
+        suggestEl.innerHTML = '';
+        suggestions.forEach(function (n) {
+            var item = document.createElement('div');
+            item.style.cssText =
+                'padding:8px 12px;font-size:13px;cursor:pointer;color:#0f172a;' +
+                'display:flex;align-items:center;gap:6px;';
+            item.innerHTML = '<i class="bi bi-person-badge" style="font-size:12px;color:#3b82f6;"></i>' + escHtml(n);
+            item.addEventListener('mouseenter', function () { item.style.background = '#eff6ff'; });
+            item.addEventListener('mouseleave', function () { item.style.background = ''; });
+            // mousedown (bukan click) agar terpicu sebelum blur menyembunyikan dropdown
+            item.addEventListener('mousedown', function (e) {
+                e.preventDefault();
+                addName(n);
+                textInput.focus();
+            });
+            suggestEl.appendChild(item);
+        });
+        showSuggest();
+    }
+
+    function showSuggest() { suggestEl.style.display = 'block'; }
+    function hideSuggest() { suggestEl.style.display = 'none'; suggestions = []; }
+
+    textInput.addEventListener('blur', function () {
+        setTimeout(hideSuggest, 150);
     });
 
     render();
