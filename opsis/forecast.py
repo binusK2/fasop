@@ -280,25 +280,43 @@ def _load_model():
     return _model_cache['model']
 
 
+PUNCAK_SIANG_MINUTE = 12 * 60        # 12:00
+PUNCAK_MALAM_MINUTE = 18 * 60 + 30   # 18:30
+
+
 def predict_beban_hari_ini(step_minutes=30):
     """
-    Beban 'hari ini': bagian AKTUAL memakai resolusi ASLI per menit dari
-    SnapLive (bukan di-downsample ke grid 30 menit — kalau di-downsample,
-    kurva pembebanan yang naik-turun tiap menit jadi kelihatan hampir lurus).
-    Bagian PREDIKSI tetap grid step_minutes menit (default 30) dari titik
-    30-menit berikutnya setelah data aktual terakhir, sampai akhir hari
-    (23:30) — memprediksi tiap menit tidak realistis/tidak perlu.
+    Beban 'hari ini' — dua seri terpisah, keduanya membentang PENUH 24 jam
+    (00:00-23:30) supaya prediksi & realisasi bisa dibandingkan visual sepanjang
+    hari, bukan cuma prediksi mengisi sisa waktu ke depan:
+
+    - 'actual'   : resolusi ASLI per menit dari SnapLive, HANYA sampai titik
+                   data terbaru (anchor) — tidak di-downsample (kalau
+                   di-downsample ke grid 30 menit, kurva naik-turun tiap menit
+                   jadi kelihatan hampir lurus).
+    - 'forecast' : grid step_minutes menit (default 30), PENUH sehari.
+                   * Untuk slot > anchor (belum terjadi): direct forecast dari
+                     model, anchor asli, horizon = jarak slot ke anchor
+                     (sesuai desain training: horizon sbg fitur input).
+                   * Untuk slot <= anchor (sudah lewat): "nowcast" 30-menit-ke-
+                     depan memakai pseudo-anchor = slot - step_minutes, supaya
+                     bisa dibandingkan dengan realisasi tanpa melanggar invarian
+                     anti-leakage (pseudo-anchor selalu < slot, fitur lag tetap
+                     hanya memakai data s.d. pseudo-anchor) dan tanpa
+                     mengekstrapolasi model di luar rentang horizon latihan
+                     (horizon tetap step_minutes, bukan negatif/nol).
 
     Tanggal "hari ini" dari wall-clock now() (bukan dari anchor) supaya
     cakupan selalu hari kalender berjalan meski data sempat telat/kosong.
-    Anchor (batas actual/forecast, basis fitur lag) = titik SnapLive TERBARU
-    yang benar-benar ada.
 
     Return {
-        'rows': [{'timestamp': 'HH:MM', 'mw': float|None, 'is_forecast': bool}],
+        'actual':   [{'minute': int, 'mw': float}, ...],
+        'forecast': [{'minute': int, 'mw': float}, ...],
         'source': 'model'|'no_model',
-        'puncak_siang': float|None,  # nilai pada 12:00 (aktual atau prediksi)
-        'puncak_malam': float|None,  # nilai pada 18:30 (aktual atau prediksi)
+        'prediksi_puncak_siang': float|None,   # prediksi model @ 12:00 (selalu ada jika model ada)
+        'prediksi_puncak_malam': float|None,   # prediksi model @ 18:30
+        'realisasi_puncak_siang': float|None,  # nilai SnapLive aktual @ 12:00 (None jika belum lewat)
+        'realisasi_puncak_malam': float|None,  # nilai SnapLive aktual @ 18:30 (None jika belum lewat)
     }
     """
     tz = settings.TIME_ZONE
@@ -312,47 +330,52 @@ def predict_beban_hari_ini(step_minutes=30):
     anchor = series.index[-1] if not series.empty else None
     model = _load_model()
 
-    # ── Bagian aktual: SEMUA titik per menit hari ini, resolusi asli ──
-    rows = []
+    # ── Aktual: SEMUA titik per menit hari ini s.d. anchor, resolusi asli ──
+    actual = []
     if anchor is not None:
         todays = series[series.index >= today_local.tz_convert('UTC')]
         for t_utc, mw in todays.items():
-            label = t_utc.tz_convert(tz).strftime('%H:%M')
-            rows.append({'timestamp': label, 'mw': round(float(mw), 2), 'is_forecast': False})
+            t_local = t_utc.tz_convert(tz)
+            minute = t_local.hour * 60 + t_local.minute
+            actual.append({'minute': minute, 'mw': round(float(mw), 2)})
 
-    # ── Bagian prediksi: grid step_minutes dari slot berikutnya setelah
-    #    anchor, sampai akhir hari (23:30) ──
-    ref_local = (anchor.tz_convert(tz) if anchor is not None else now_local)
-    minutes_since_midnight = ref_local.hour * 60 + ref_local.minute
-    next_slot = ((minutes_since_midnight // step_minutes) + 1) * step_minutes
-
-    future_feats = []
-    future_idx = []
-    slot = next_slot
-    while slot < 24 * 60:
-        t_local = today_local + pd.Timedelta(minutes=slot)
-        t_utc = t_local.tz_convert('UTC')
-        label = t_local.strftime('%H:%M')
-        rows.append({'timestamp': label, 'mw': None, 'is_forecast': True})
-        if model is not None and anchor is not None:
-            horizon = (t_utc - anchor).total_seconds() / 60
-            future_idx.append(len(rows) - 1)
-            future_feats.append(build_feature_row(anchor, horizon, series))
-        slot += step_minutes
-
-    if model is not None and future_feats:
-        X = pd.DataFrame(future_feats)[FEATURE_COLUMNS]
+    # ── Prediksi: grid step_minutes PENUH 00:00-23:30 ──
+    forecast_by_minute = {}
+    if model is not None and anchor is not None:
+        minutes_list = list(range(0, 24 * 60, step_minutes))
+        feats = []
+        for minute in minutes_list:
+            t_local = today_local + pd.Timedelta(minutes=minute)
+            t_utc = t_local.tz_convert('UTC')
+            if t_utc > anchor:
+                pseudo_anchor = anchor
+                horizon = (t_utc - anchor).total_seconds() / 60
+            else:
+                pseudo_anchor = t_utc - pd.Timedelta(minutes=step_minutes)
+                horizon = step_minutes
+            feats.append(build_feature_row(pseudo_anchor, horizon, series))
+        X = pd.DataFrame(feats)[FEATURE_COLUMNS]
         preds = model.predict(X)
-        for i, p in zip(future_idx, preds):
-            rows[i]['mw'] = round(float(p), 2)
+        forecast_by_minute = {m: round(float(p), 2) for m, p in zip(minutes_list, preds)}
 
-    by_label = {}
-    for r in rows:
-        by_label.setdefault(r['timestamp'], r['mw'])
+    forecast = [{'minute': m, 'mw': mw} for m, mw in sorted(forecast_by_minute.items())]
+
+    # ── Realisasi puncak: nilai aktual di 12:00/18:30, None jika belum lewat ──
+    realisasi_siang = realisasi_malam = None
+    if anchor is not None:
+        t_siang_utc = (today_local + pd.Timedelta(minutes=PUNCAK_SIANG_MINUTE)).tz_convert('UTC')
+        t_malam_utc = (today_local + pd.Timedelta(minutes=PUNCAK_MALAM_MINUTE)).tz_convert('UTC')
+        v = _asof_scalar(series, t_siang_utc, anchor, tolerance_minutes=LABEL_TOLERANCE_MINUTES)
+        realisasi_siang = round(float(v), 2) if not pd.isna(v) else None
+        v = _asof_scalar(series, t_malam_utc, anchor, tolerance_minutes=LABEL_TOLERANCE_MINUTES)
+        realisasi_malam = round(float(v), 2) if not pd.isna(v) else None
 
     return {
-        'rows': rows,
+        'actual': actual,
+        'forecast': forecast,
         'source': 'model' if model is not None else 'no_model',
-        'puncak_siang': by_label.get('12:00'),
-        'puncak_malam': by_label.get('18:30'),
+        'prediksi_puncak_siang': forecast_by_minute.get(PUNCAK_SIANG_MINUTE),
+        'prediksi_puncak_malam': forecast_by_minute.get(PUNCAK_MALAM_MINUTE),
+        'realisasi_puncak_siang': realisasi_siang,
+        'realisasi_puncak_malam': realisasi_malam,
     }
