@@ -15,11 +15,22 @@ def _pembangkit_aktif():
 
 def _trafo_aktif_saja(rows):
     """
-    Filter hasil mssql.get_beban_trafo() agar hanya trafo yang aktif
-    di admin (opsis.Trafo) yang ikut ditampilkan/dihitung. Trafo baru
-    yang belum terdaftar otomatis didaftarkan sebagai aktif=True supaya
-    tidak hilang dari tampilan sebelum sempat dikonfigurasi.
+    Filter hasil mssql.get_beban_trafo()/get_beban_trafo_ibt() agar hanya
+    trafo yang aktif di admin (opsis.Trafo) yang ikut ditampilkan/dihitung.
+    Trafo baru yang belum terdaftar otomatis didaftarkan sebagai aktif=True
+    supaya tidak hilang dari tampilan sebelum sempat dikonfigurasi.
+
+    PENTING: rows dari fallback dummy (MSSQL timeout/tidak tersambung, lihat
+    mssql._dummy_beban_trafo()/_dummy_beban_trafo_ibt()) ditandai
+    'is_dummy': True per baris — WAJIB ditolak di sini, jangan sampai
+    ikut auto-registrasi (mencemari opsis.Trafo secara permanen dengan
+    site palsu) atau kesimpan sbg histori oleh collect_trafo. Kalau baris
+    dummy terdeteksi, jangan tampilkan apa-apa (return kosong) daripada
+    diam-diam menampilkan angka acak seolah data asli.
     """
+    if rows and rows[0].get('is_dummy'):
+        return []
+
     existing = {(t.site, t.bay): t.aktif for t in Trafo.objects.all()}
     result = []
     for r in rows:

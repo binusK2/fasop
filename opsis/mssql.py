@@ -596,6 +596,15 @@ def get_beban_trafo():
 
 
 def _dummy_beban_trafo():
+    """
+    'is_dummy': True di tiap baris — penanda WAJIB dicek sebelum baris ini
+    dipakai untuk auto-registrasi Trafo baru atau disimpan sbg histori
+    (lihat views._trafo_aktif_saja()). Tanpa penanda ini baris dummy tidak
+    bisa dibedakan dari baris MSSQL asli (bentuknya identik), dan pernah
+    menyebabkan situs palsu (GI PALOPO/MAKASSAR/MAROS/PARE-PARE — nama di
+    bawah ini KEBETULAN tumpang tindih dengan nama GI nyata) ke-auto-daftar
+    permanen di database saat MSSQL timeout.
+    """
     import random
     sites = ['GI PALOPO', 'GI MAKASSAR', 'GI MAROS', 'GI PARE-PARE']
     result = []
@@ -608,6 +617,7 @@ def _dummy_beban_trafo():
                 'q':    round(random.uniform(1, 20), 2),
                 'v':    round(random.uniform(145, 155), 2),
                 'i':    round(random.uniform(50, 300), 2),
+                'is_dummy': True,
             })
     return result
 
@@ -655,6 +665,7 @@ def get_beban_trafo_ibt():
 
 
 def _dummy_beban_trafo_ibt():
+    """'is_dummy': True — lihat catatan di _dummy_beban_trafo()."""
     import random
     sites = ['GI PALOPO', 'GI MAKASSAR', 'GI MAROS', 'GI PARE-PARE']
     result = []
@@ -667,6 +678,7 @@ def _dummy_beban_trafo_ibt():
                 'q':    round(random.uniform(5, 50), 2),
                 'v':    round(random.uniform(145, 155), 2),
                 'i':    round(random.uniform(100, 500), 2),
+                'is_dummy': True,
             })
     return result
 
