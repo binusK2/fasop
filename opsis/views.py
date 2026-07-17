@@ -900,3 +900,27 @@ def api_beban_trafo_ibt(request):
         'site_totals': site_totals,
         'total_mw':    round(sum(site_totals.values()), 2),
     })
+
+
+# ── Analitik Prediksi Beban (akurasi model + prediksi puncak besok) ─────────
+
+@login_required
+def prediksi_beban(request):
+    """Halaman analitik model prediksi: akurasi vs realisasi & prediksi puncak besok."""
+    return render(request, 'opsis/prediksi_beban.html', {
+        'pembangkit_list': _pembangkit_aktif(),
+    })
+
+
+@login_required
+def api_prediksi_beban(request):
+    """
+    API JSON utk halaman Analitik Prediksi Beban:
+    - akurasi: evaluasi walk-forward one-step-ahead 7 hari terakhir vs realisasi
+      SnapLive (lihat opsis.forecast.evaluate_accuracy()).
+    - besok: prediksi puncak siang (12:00) & malam (18:30) besok, direct
+      forecast dari anchor asli (lihat opsis.forecast.predict_besok_puncak()).
+    """
+    akurasi = forecast.evaluate_accuracy(days=7)
+    besok = forecast.predict_besok_puncak()
+    return JsonResponse({'akurasi': akurasi, 'besok': besok})
