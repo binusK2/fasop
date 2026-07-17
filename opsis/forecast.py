@@ -32,11 +32,21 @@ logger = logging.getLogger(__name__)
 # ── Konstanta training ────────────────────────────────────────────────
 ANCHOR_STRIDE_MINUTES = 30   # jarak antar anchor yang di-sample dari histori
 HORIZON_MIN_MINUTES   = 30
-HORIZON_MAX_MINUTES   = 2160  # 36 jam — cukup untuk "hari ini + besok"
+# 48 jam — "puncak malam besok" bisa berjarak sampai ~42.5 jam dari anchor
+# kalau halaman dibuka tepat lewat tengah malam (anchor = data SnapLive
+# TERBARU, praktiknya selalu ~"sekarang"); 48 jam beri margin penuh 1 hari
+# kalender ke depan supaya horizon itu tidak pernah mengekstrapolasi model
+# di luar rentang yang dilatih. Model HARUS di-retrain (train_beban_forecast)
+# setelah mengubah konstanta ini.
+HORIZON_MAX_MINUTES   = 2880
 HORIZON_STEP_MINUTES  = 30
 LAG_TOLERANCE_MINUTES  = 2   # toleransi pencocokan lag/fitur ke titik data asli
 LABEL_TOLERANCE_MINUTES = 2  # toleransi pencocokan label ke titik data asli
 HOLDOUT_DAYS = 12           # anchor N hari terakhir dipakai sbg holdout evaluasi
+
+# ── Konstanta evaluasi akurasi & prediksi puncak besok ──────────────────
+ACCURACY_STRIDE_MINUTES  = 30  # jarak antar titik evaluasi (selaras ANCHOR_STRIDE_MINUTES)
+ACCURACY_HORIZON_MINUTES = 30  # horizon 1-step-ahead yg dievaluasi (selaras nowcast di chart harian)
 
 FEATURE_COLUMNS = [
     'horizon_minutes', 'lag_0', 'lag_15', 'lag_30', 'lag_60',
@@ -378,4 +388,125 @@ def predict_beban_hari_ini(step_minutes=30):
         'prediksi_puncak_malam': forecast_by_minute.get(PUNCAK_MALAM_MINUTE),
         'realisasi_puncak_siang': realisasi_siang,
         'realisasi_puncak_malam': realisasi_malam,
+    }
+
+
+def predict_besok_puncak():
+    """
+    Prediksi puncak siang (12:00) & malam (18:30) BESOK (hari kalender
+    berikutnya dari wall-clock now()). Direct forecast dari anchor asli
+    (data SnapLive terbaru) + horizon langsung ke target time — sama seperti
+    cabang "future" di predict_beban_hari_ini(), BUKAN pseudo-anchor, karena
+    target sepenuhnya di masa depan (tidak ada realisasi utk di-nowcast-kan).
+
+    Horizon ke puncak malam besok bisa sampai ~42-48 jam tergantung jam
+    berapa fungsi ini dipanggil — makanya HORIZON_MAX_MINUTES = 2880 (48 jam).
+
+    Return {
+        'prediksi_puncak_siang_besok': float|None,
+        'prediksi_puncak_malam_besok': float|None,
+        'source': 'model'|'no_model',
+    }
+    """
+    tz = settings.TIME_ZONE
+    now_local = pd.Timestamp.now(tz=tz)
+    besok_local = now_local.normalize() + pd.Timedelta(days=1)
+
+    series = _load_series(since=now_local.normalize() - pd.Timedelta(days=9))
+    anchor = series.index[-1] if not series.empty else None
+    model = _load_model()
+
+    if model is None or anchor is None:
+        return {
+            'prediksi_puncak_siang_besok': None,
+            'prediksi_puncak_malam_besok': None,
+            'source': 'no_model' if model is None else 'model',
+        }
+
+    targets = {
+        'siang': besok_local + pd.Timedelta(minutes=PUNCAK_SIANG_MINUTE),
+        'malam': besok_local + pd.Timedelta(minutes=PUNCAK_MALAM_MINUTE),
+    }
+    keys, feats = zip(*(
+        (key, build_feature_row(anchor, (t_local.tz_convert('UTC') - anchor).total_seconds() / 60, series))
+        for key, t_local in targets.items()
+    ))
+    X = pd.DataFrame(feats)[FEATURE_COLUMNS]
+    preds = model.predict(X)
+
+    result = {f'prediksi_puncak_{k}_besok': round(float(p), 2) for k, p in zip(keys, preds)}
+    result['source'] = 'model'
+    return result
+
+
+def evaluate_accuracy(days=7):
+    """
+    Evaluasi akurasi model: walk-forward one-step-ahead (horizon
+    ACCURACY_HORIZON_MINUTES/30 menit) di grid ACCURACY_STRIDE_MINUTES
+    sepanjang `days` hari terakhir. Untuk tiap titik grid t, prediksi
+    dibangun dari pseudo-anchor (t - horizon) — persis pola nowcast yang
+    dipakai predict_beban_hari_ini() utk bagian yang sudah lewat — lalu
+    dibandingkan dengan realisasi SnapLive di t (toleransi
+    LABEL_TOLERANCE_MINUTES; titik tanpa realisasi dilewati). Dihitung LIVE
+    tiap dipanggil (bukan disimpan dari training) supaya mencerminkan
+    akurasi model saat ini terhadap data terbaru.
+
+    Return {
+        'n': int,                    # jumlah titik yang berhasil dievaluasi
+        'mae': float|None,
+        'rmse': float|None,
+        'mape_percent': float|None,
+        'akurasi_percent': float|None,  # 100 - MAPE, clip ke 0
+        'period_days': int,
+    }
+    """
+    empty = {'n': 0, 'mae': None, 'rmse': None, 'mape_percent': None,
+              'akurasi_percent': None, 'period_days': days}
+
+    model = _load_model()
+    if model is None:
+        return empty
+
+    tz = settings.TIME_ZONE
+    now_local = pd.Timestamp.now(tz=tz)
+    # +9 hari extra: 7 hari utk fitur same_hour_lastweek pd titik grid paling
+    # awal + buffer, sama seperti predict_beban_hari_ini().
+    series = _load_series(since=now_local.normalize() - pd.Timedelta(days=days + 9))
+    if series.empty:
+        return empty
+
+    grid = pd.date_range(now_local - pd.Timedelta(days=days), now_local,
+                          freq=f'{ACCURACY_STRIDE_MINUTES}min', tz=tz).tz_convert('UTC')
+
+    feats, actuals = [], []
+    for t in grid:
+        actual_mw = _asof_scalar(series, t, t, tolerance_minutes=LABEL_TOLERANCE_MINUTES)
+        if pd.isna(actual_mw):
+            continue
+        pseudo_anchor = t - pd.Timedelta(minutes=ACCURACY_HORIZON_MINUTES)
+        feats.append(build_feature_row(pseudo_anchor, ACCURACY_HORIZON_MINUTES, series))
+        actuals.append(actual_mw)
+
+    if not feats:
+        return empty
+
+    X = pd.DataFrame(feats)[FEATURE_COLUMNS]
+    preds = model.predict(X)
+    actuals = np.array(actuals)
+    errors = preds - actuals
+    abs_errors = np.abs(errors)
+
+    mae = float(abs_errors.mean())
+    rmse = float(np.sqrt((errors ** 2).mean()))
+    nonzero = actuals != 0
+    mape = float((abs_errors[nonzero] / np.abs(actuals[nonzero])).mean() * 100) if nonzero.any() else None
+    akurasi = round(max(0.0, 100 - mape), 2) if mape is not None else None
+
+    return {
+        'n': len(actuals),
+        'mae': round(mae, 2),
+        'rmse': round(rmse, 2),
+        'mape_percent': round(mape, 2) if mape is not None else None,
+        'akurasi_percent': akurasi,
+        'period_days': days,
     }

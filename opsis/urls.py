@@ -28,4 +28,6 @@ urlpatterns = [
     path('api/beban-trafo-ibt/',  views.api_beban_trafo_ibt, name='opsis_api_beban_trafo_ibt'),
     path('beban-ktt/',            views.beban_ktt,           name='opsis_beban_ktt'),
     path('api/beban-ktt/',        views.api_beban_ktt,       name='opsis_api_beban_ktt'),
+    path('prediksi-beban/',       views.prediksi_beban,      name='opsis_prediksi_beban'),
+    path('api/prediksi-beban/',   views.api_prediksi_beban,  name='opsis_api_prediksi_beban'),
 ]

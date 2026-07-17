@@ -291,6 +291,10 @@ body { font-family:'DM Sans', sans-serif; background:var(--body-bg); color:var(-
             <i class="bi bi-calendar2-week sb-icon"></i>
             <span class="sb-label">Rangkuman</span>
         </a>
+        <a href="/opsis/prediksi-beban/" class="sb-link {% if request.resolver_match.url_name == 'opsis_prediksi_beban' %}active{% endif %}">
+            <i class="bi bi-graph-up-arrow sb-icon"></i>
+            <span class="sb-label">Analitik Prediksi</span>
+        </a>
         {% endif %}
         <a href="/opsis/up2d/" class="sb-link {% if request.resolver_match.url_name == 'opsis_up2d' %}active{% endif %}">
             <i class="bi bi-diagram-3-fill sb-icon"></i>

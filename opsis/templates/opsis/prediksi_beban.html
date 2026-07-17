@@ -1,0 +1,136 @@
+{% extends "opsis/opsis_base.html" %}
+
+{% block title %}Analitik Prediksi Beban{% endblock %}
+
+{% block extra_head %}
+<style>
+.chart-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-bd);
+    border-radius: 14px;
+    padding: 16px 20px;
+}
+.chart-head {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 8px;
+    margin-bottom: 12px;
+}
+.chart-title { font-size: 12px; font-weight: 700; color: var(--text); }
+
+.ap-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 16px;
+}
+.ap-big-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 36px; font-weight: 700; line-height: 1.1;
+}
+.ap-sub-metrics {
+    display: flex; gap: 24px; margin-top: 16px; flex-wrap: wrap;
+}
+.ap-sub-metric { font-size: 11px; color: var(--muted); }
+.ap-sub-metric .val {
+    font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 15px;
+    color: var(--text); margin-left: 6px;
+}
+.ap-note { font-size: 11px; color: var(--muted); margin-top: 14px; line-height: 1.6; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-3">
+    <div>
+        <h5 class="mb-0 fw-bold" style="color:#e2e8f0;">
+            <i class="bi bi-graph-up-arrow me-2" style="color:#a78bfa;"></i>Analitik Prediksi Beban
+        </h5>
+        <small style="color:#64748b;">Akurasi model machine learning &amp; prediksi beban puncak besok</small>
+    </div>
+    <span id="ap-updated" style="font-size:11px; color:var(--muted);">memuat...</span>
+</div>
+
+<!-- Card Akurasi Prediksi -->
+<div class="chart-card" style="margin-bottom:16px;">
+    <div class="chart-head">
+        <div class="chart-title"><i class="bi bi-bullseye me-1" style="color:#34d399;"></i>Akurasi Prediksi — 7 Hari Terakhir</div>
+    </div>
+    <div style="display:flex; align-items:baseline; gap:12px; flex-wrap:wrap;">
+        <div class="ap-big-value" id="ap-akurasi" style="color:#34d399;">—<span style="font-size:16px; font-weight:400; color:var(--muted);">%</span></div>
+        <div style="font-size:11px; color:var(--muted);">kesesuaian rata-rata dengan realisasi</div>
+    </div>
+    <div class="ap-sub-metrics">
+        <div class="ap-sub-metric">MAE<span class="val" id="ap-mae">—</span><span style="font-size:10px;"> MW</span></div>
+        <div class="ap-sub-metric">RMSE<span class="val" id="ap-rmse">—</span><span style="font-size:10px;"> MW</span></div>
+        <div class="ap-sub-metric">MAPE<span class="val" id="ap-mape">—</span><span style="font-size:10px;"> %</span></div>
+        <div class="ap-sub-metric">Titik Dievaluasi<span class="val" id="ap-n">—</span></div>
+    </div>
+    <div class="ap-note">
+        Dihitung dengan membandingkan prediksi model 30 menit ke depan (dari data 30 menit sebelumnya) terhadap
+        realisasi beban aktual sepanjang 7 hari terakhir — dihitung ulang setiap halaman ini dibuka, jadi
+        mencerminkan performa model saat ini, bukan angka statis dari saat training.
+    </div>
+</div>
+
+<!-- Card Prediksi Puncak Besok -->
+<div class="ap-grid">
+    <div class="chart-card">
+        <div class="chart-head">
+            <div class="chart-title"><i class="bi bi-sun-fill me-1" style="color:#fbbf24;"></i>Prediksi Puncak Siang Besok</div>
+        </div>
+        <div style="font-size:11px; color:var(--muted); margin-bottom:8px;" id="ap-tanggal-siang">—</div>
+        <div class="ap-big-value" style="color:#fbbf24;">
+            <span id="ap-siang-besok">—</span><span style="font-size:14px; font-weight:400; color:var(--muted);"> MW</span>
+        </div>
+        <div style="font-size:10px; color:var(--muted); margin-top:8px;">Jam 12:00</div>
+    </div>
+    <div class="chart-card">
+        <div class="chart-head">
+            <div class="chart-title"><i class="bi bi-moon-stars-fill me-1" style="color:#f87171;"></i>Prediksi Puncak Malam Besok</div>
+        </div>
+        <div style="font-size:11px; color:var(--muted); margin-bottom:8px;" id="ap-tanggal-malam">—</div>
+        <div class="ap-big-value" style="color:#f87171;">
+            <span id="ap-malam-besok">—</span><span style="font-size:14px; font-weight:400; color:var(--muted);"> MW</span>
+        </div>
+        <div style="font-size:10px; color:var(--muted); margin-top:8px;">Jam 18:30</div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function _fmtMw(v) { return v != null ? parseFloat(v).toFixed(2) : '—'; }
+function _fmtPct(v) { return v != null ? parseFloat(v).toFixed(1) : '—'; }
+
+async function loadPrediksiAnalitik() {
+    try {
+        const r = await fetch("{% url 'opsis_api_prediksi_beban' %}");
+        if (!r.ok) return;
+        const d = await r.json();
+        const el = document.getElementById('ap-updated');
+        if (el) el.textContent = 'Update: ' + new Date().toLocaleTimeString('id-ID');
+
+        const a = d.akurasi || {};
+        document.getElementById('ap-akurasi').innerHTML =
+            _fmtPct(a.akurasi_percent) + '<span style="font-size:16px; font-weight:400; color:var(--muted);">%</span>';
+        document.getElementById('ap-mae').textContent  = _fmtMw(a.mae);
+        document.getElementById('ap-rmse').textContent = _fmtMw(a.rmse);
+        document.getElementById('ap-mape').textContent = _fmtPct(a.mape_percent);
+        document.getElementById('ap-n').textContent    = a.n != null ? a.n : '—';
+
+        const b = d.besok || {};
+        document.getElementById('ap-siang-besok').textContent = _fmtMw(b.prediksi_puncak_siang_besok);
+        document.getElementById('ap-malam-besok').textContent = _fmtMw(b.prediksi_puncak_malam_besok);
+
+        const besokDate = new Date();
+        besokDate.setDate(besokDate.getDate() + 1);
+        const tgl = besokDate.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' });
+        document.getElementById('ap-tanggal-siang').textContent = tgl;
+        document.getElementById('ap-tanggal-malam').textContent = tgl;
+    } catch (e) {}
+}
+
+loadPrediksiAnalitik();
+setInterval(loadPrediksiAnalitik, 60000); // refresh tiap 1 menit — bukan data yang berubah tiap detik
+</script>
+{% endblock %}
