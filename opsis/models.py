@@ -166,11 +166,15 @@ class SnapUnit(models.Model):
 
 class SnapTrafo(models.Model):
     """
-    Snapshot data trafo distribusi (ALL_TRANS_DATA, BAY TRF52%/TRF42%) yang
-    disimpan ke PostgreSQL tiap menit via management command 'collect_trafo'.
-    Satu baris per trafo per menit — dipakai untuk chart 24 jam daya aktif (P)
-    per trafo, sama seperti SnapLive dipakai untuk chart Beban Kit. Hanya P
-    yang disimpan (Q tidak dipakai di chart ini). ALL_TRANS_DATA sendiri hanya
+    Snapshot data trafo dari ALL_TRANS_DATA — trafo distribusi (BAY
+    TRF52%/TRF42%) MAUPUN trafo IBT (BAY TRF65%/TRF54%), dibedakan lewat
+    trafo.bay, bukan field terpisah — disimpan ke PostgreSQL tiap menit via
+    management command 'collect_trafo'. Satu baris per trafo per menit —
+    dipakai untuk chart 24 jam daya aktif (P) per trafo (baik "Chart Trafo
+    Distribusi" maupun "Chart Trafo IBT"), sama seperti SnapLive dipakai
+    untuk chart Beban Kit. Hanya P yang disimpan (Q tidak dipakai di chart
+    ini), dan disimpan APA ADANYA (bisa negatif — arah aliran daya, terutama
+    relevan untuk IBT — tidak di-abs()-kan). ALL_TRANS_DATA sendiri hanya
     menyimpan nilai realtime (tanpa histori), jadi PostgreSQL adalah
     satu-satunya sumber untuk data historis trafo.
     """
