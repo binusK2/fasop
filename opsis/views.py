@@ -350,26 +350,40 @@ def api_freq(request):
 @login_required
 def api_beban(request):
     """
-    Chart beban kit — grid TETAP 00:00-23:30 hari ini (30 menit sekali).
-    Titik pada/sebelum data aktual terbaru diisi dari SnapLive (PostgreSQL,
-    tiap baris ditandai is_forecast=False); titik setelahnya diisi prediksi
-    model gradient boosting (is_forecast=True) — lihat opsis.forecast.
-    puncak_siang (12:00) dan puncak_malam (18:30) dibaca dari grid yang sama.
+    Chart beban kit — dua seri terpisah, keduanya membentang PENUH 24 jam
+    (00:00-23:30) hari ini: 'actual' (SnapLive, resolusi per menit, hanya
+    s.d. data terbaru) dan 'forecast' (model gradient boosting, grid 30
+    menit, penuh sehari — supaya bisa dibandingkan visual dgn realisasi)
+    — lihat opsis.forecast.predict_beban_hari_ini().
+    Prediksi & realisasi puncak siang (12:00)/malam (18:30) dikirim terpisah
+    supaya UI bisa menampilkan keduanya sekaligus.
     """
     result = forecast.predict_beban_hari_ini()
-    if any(r['mw'] is not None for r in result['rows']):
+    if result['actual'] or result['forecast']:
         return JsonResponse({
-            'rows':          result['rows'],
-            'source':        result['source'],
-            'count':         len(result['rows']),
-            'puncak_siang':  result['puncak_siang'],
-            'puncak_malam':  result['puncak_malam'],
+            'actual':                  result['actual'],
+            'forecast':                result['forecast'],
+            'source':                  result['source'],
+            'prediksi_puncak_siang':   result['prediksi_puncak_siang'],
+            'prediksi_puncak_malam':   result['prediksi_puncak_malam'],
+            'realisasi_puncak_siang':  result['realisasi_puncak_siang'],
+            'realisasi_puncak_malam':  result['realisasi_puncak_malam'],
         })
 
     # Fallback: SnapLive benar-benar kosong (belum ada data sama sekali) —
     # pakai MSSQL HIS_MEAS_KIT per 15 menit, tanpa prediksi.
-    rows = mssql.get_beban_trend()
-    return JsonResponse({'rows': rows, 'source': 'mssql', 'puncak_siang': None, 'puncak_malam': None})
+    actual = []
+    for r in mssql.get_beban_trend():
+        try:
+            hh, mm = r['timestamp'].split(':')
+            actual.append({'minute': int(hh) * 60 + int(mm), 'mw': r['mw']})
+        except (ValueError, AttributeError):
+            continue
+    return JsonResponse({
+        'actual': actual, 'forecast': [], 'source': 'mssql',
+        'prediksi_puncak_siang': None, 'prediksi_puncak_malam': None,
+        'realisasi_puncak_siang': None, 'realisasi_puncak_malam': None,
+    })
 
 
 @login_required
