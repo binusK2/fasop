@@ -20,17 +20,10 @@ def _trafo_aktif_saja(rows):
     Trafo baru yang belum terdaftar otomatis didaftarkan sebagai aktif=True
     supaya tidak hilang dari tampilan sebelum sempat dikonfigurasi.
 
-    PENTING: rows dari fallback dummy (MSSQL timeout/tidak tersambung, lihat
-    mssql._dummy_beban_trafo()/_dummy_beban_trafo_ibt()) ditandai
-    'is_dummy': True per baris — WAJIB ditolak di sini, jangan sampai
-    ikut auto-registrasi (mencemari opsis.Trafo secara permanen dengan
-    site palsu) atau kesimpan sbg histori oleh collect_trafo. Kalau baris
-    dummy terdeteksi, jangan tampilkan apa-apa (return kosong) daripada
-    diam-diam menampilkan angka acak seolah data asli.
+    MSSQL tidak reachable → mssql.get_beban_trafo()/get_beban_trafo_ibt()
+    sudah return [] (lihat mssql.py), jadi tidak ada risiko baris palsu
+    ikut auto-registrasi di sini.
     """
-    if rows and rows[0].get('is_dummy'):
-        return []
-
     existing = {(t.site, t.bay): t.aktif for t in Trafo.objects.all()}
     result = []
     for r in rows:
@@ -84,9 +77,8 @@ def api_live(request):
     response = {
         'data':              data,
         'frekuensi_sistem':  result.get('frekuensi_sistem'),
+        'terputus':          not mssql.is_reachable(),
     }
-    if request.GET.get('debug') and (request.user.is_superuser or request.user.is_staff):
-        response['dummy_count'] = sum(1 for v in data.values() if v.get('is_dummy'))
     return JsonResponse(response)
 
 
@@ -116,6 +108,7 @@ def api_trend(request, pk):
         'jam':       jam,
         'nama':      p.nama,
         'warna':     p.warna,
+        'terputus':  not mssql.is_reachable(),
     })
 
 
@@ -309,35 +302,35 @@ def export_beban(request):
 def api_hz(request):
     """Hz terkini — ringan, dipanggil tiap 1 detik dari dashboard."""
     hz = mssql.get_current_hz()
-    return JsonResponse({'hz': hz})
+    return JsonResponse({'hz': hz, 'terputus': not mssql.is_reachable()})
 
 
 @login_required
 def api_hz_sultra(request):
     """Hz terkini Sultra dari TRANS_KDNEW5_RT (GI KENDARI NEW / COMMON)."""
     hz = mssql.get_freq_sultra()
-    return JsonResponse({'hz': hz})
+    return JsonResponse({'hz': hz, 'terputus': not mssql.is_reachable()})
 
 
 @login_required
 def api_hz_baubau(request):
     """Hz terkini Baubau dari TRANS_BAUBAU5_RT (GI BAUBAU / COMMON)."""
     hz = mssql.get_freq_baubau()
-    return JsonResponse({'hz': hz})
+    return JsonResponse({'hz': hz, 'terputus': not mssql.is_reachable()})
 
 
 @login_required
 def api_hz_sulteng(request):
     """Hz terkini Sulteng dari TRANS_TLISE5_RT (GI TALISE 150 / COMMON)."""
     hz = mssql.get_freq_sulteng()
-    return JsonResponse({'hz': hz})
+    return JsonResponse({'hz': hz, 'terputus': not mssql.is_reachable()})
 
 
 @login_required
 def api_hz_luwuk(request):
     """Hz terkini Luwuk dari TRANS_LUWUK5_RT (GI LUWUK / COMMON)."""
     hz = mssql.get_freq_luwuk()
-    return JsonResponse({'hz': hz})
+    return JsonResponse({'hz': hz, 'terputus': not mssql.is_reachable()})
 
 
 @login_required
@@ -355,7 +348,7 @@ def api_freq(request):
         except (ValueError, TypeError):
             menit = 10
         rows = mssql.get_freq_trend(menit)
-    return JsonResponse({'rows': rows})
+    return JsonResponse({'rows': rows, 'terputus': not mssql.is_reachable()})
 
 
 @login_required
@@ -394,6 +387,7 @@ def api_beban(request):
         'actual': actual, 'forecast': [], 'source': 'mssql',
         'prediksi_puncak_siang': None, 'prediksi_puncak_malam': None,
         'realisasi_puncak_siang': None, 'realisasi_puncak_malam': None,
+        'terputus': not mssql.is_reachable(),
     })
 
 
@@ -719,6 +713,7 @@ def beban_trafo(request):
         'grouped':         grouped,
         'site_totals':     site_totals,
         'total_mw':        total_mw,
+        'terputus':        not mssql.is_reachable(),
     })
 
 
@@ -762,6 +757,7 @@ def beban_ktt(request):
         'rows':            rows,
         'total_mw':        total_mw,
         'jumlah':          len(rows),
+        'terputus':        not mssql.is_reachable(),
     })
 
 
@@ -774,6 +770,7 @@ def api_beban_ktt(request):
         'rows':     rows,
         'total_mw': total_mw,
         'jumlah':   len(rows),
+        'terputus': not mssql.is_reachable(),
     })
 
 
@@ -793,6 +790,7 @@ def api_beban_trafo(request):
         'rows':        rows,
         'site_totals': site_totals,
         'total_mw':    round(sum(site_totals.values()), 2),
+        'terputus':    not mssql.is_reachable(),
     })
 
 
@@ -891,6 +889,7 @@ def beban_trafo_ibt(request):
         'grouped':         grouped,
         'site_totals':     site_totals,
         'total_mw':        total_mw,
+        'terputus':        not mssql.is_reachable(),
     })
 
 
@@ -910,6 +909,7 @@ def api_beban_trafo_ibt(request):
         'rows':        rows,
         'site_totals': site_totals,
         'total_mw':    round(sum(site_totals.values()), 2),
+        'terputus':    not mssql.is_reachable(),
     })
 
 

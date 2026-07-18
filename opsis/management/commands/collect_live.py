@@ -39,19 +39,19 @@ class Command(BaseCommand):
 
         result = mssql.get_live_data(pembangkit_list)
 
+        if not mssql.is_reachable():
+            self.stdout.write('MSSQL terputus — lewati (tidak menyimpan snapshot kosong).')
+            return
+
         # Floor ke menit → idempotent: jika dijalankan 2x dalam menit sama, tidak duplikat
         now = timezone.now().replace(second=0, microsecond=0)
         frekuensi = result.get('frekuensi_sistem')
-        saved = skipped = dummy = error = 0
+        saved = skipped = error = 0
 
         for p in pembangkit_list:
             d = result['data'].get(p.kode)
             if not d:
                 continue
-
-            if d.get('is_dummy'):
-                dummy += 1
-                continue  # jangan simpan data simulasi
 
             if dry_run:
                 self.stdout.write(
@@ -89,5 +89,5 @@ class Command(BaseCommand):
         prefix = '[DRY-RUN] ' if dry_run else ''
         self.stdout.write(
             f"{prefix}[{now:%Y-%m-%d %H:%M}] "
-            f"saved={saved} skipped={skipped} dummy={dummy} error={error}"
+            f"saved={saved} skipped={skipped} error={error}"
         )

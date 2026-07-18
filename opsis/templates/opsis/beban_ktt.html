@@ -31,6 +31,13 @@
   </div>
 </div>
 
+<div id="terputus-notice" style="display:{% if terputus %}flex{% else %}none{% endif %}; align-items:center; gap:8px;
+     background:rgba(239,68,68,.08); border:1px solid rgba(239,68,68,.3); border-radius:10px;
+     padding:10px 14px; font-size:12px; color:#f87171; margin-bottom:16px;">
+  <i class="bi bi-exclamation-triangle-fill"></i>
+  Koneksi terputus ke Database
+</div>
+
 <!-- Tabel KTT -->
 <div class="card" style="background:#131f35;border:1px solid #1e2d45;border-radius:12px;overflow:hidden;">
   <div class="card-header d-flex align-items-center justify-content-between py-2 px-4"
@@ -152,6 +159,7 @@ function renderTable(data) {
 
   document.getElementById('totalMW').textContent       = totalMW.toFixed(2);
   document.getElementById('jumlahKonsumen').textContent = jumlah;
+  document.getElementById('terputus-notice').style.display = data.terputus ? 'flex' : 'none';
 
   if (!rows.length) {
     document.getElementById('kttBody').innerHTML =

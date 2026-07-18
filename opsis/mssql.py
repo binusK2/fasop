@@ -23,9 +23,6 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-_DUMMY_MODE = False  # set True untuk paksa data dummy
-
-
 def _tbl():
     """Tabel historis HIS_MEAS_KIT — untuk trend chart."""
     return getattr(settings, 'MSSQL_TABLE', 'dbo.HIS_MEAS_KIT')
@@ -64,6 +61,30 @@ def _tcp_ping(host_setting, timeout=2):
             return True, host, port
     except OSError:
         return False, host, port
+
+
+_reachable_cache = {'ok': False, 'ts': 0.0}
+_REACHABLE_CACHE_TTL = 3  # detik — beberapa endpoint (api_hz, api_live) di-poll browser tiap 1-5 detik
+
+
+def is_reachable(timeout=1.5):
+    """
+    Cek cepat apakah MSSQL_HOST terkonfigurasi & reachable (TCP ping saja,
+    tanpa buka koneksi ODBC penuh). Hasil di-cache singkat (_REACHABLE_CACHE_TTL)
+    supaya polling frekuensi tinggi dari browser tidak membuka TCP probe baru
+    tiap request. Dipakai view untuk menandai 'terputus' di response JSON.
+    """
+    import time
+    now = time.monotonic()
+    if now - _reachable_cache['ts'] < _REACHABLE_CACHE_TTL:
+        return _reachable_cache['ok']
+    host = getattr(settings, 'MSSQL_HOST', '')
+    ok = False
+    if host:
+        ok, _, _ = _tcp_ping(host, timeout=timeout)
+    _reachable_cache['ok'] = ok
+    _reachable_cache['ts'] = now
+    return ok
 
 
 def _get_connection():
@@ -117,9 +138,8 @@ def get_current_hz():
     Reconnect otomatis jika koneksi putus.
     """
     global _hz_conn
-    if _DUMMY_MODE or not getattr(settings, 'MSSQL_HOST', ''):
-        import random
-        return round(50 + random.uniform(-0.1, 0.1), 3)
+    if not getattr(settings, 'MSSQL_HOST', ''):
+        return None
 
     freq = _freq_tbl()
     # WHERE TIME >= ... agar pakai index TIME, hindari full scan tabel besar
@@ -155,42 +175,17 @@ def get_current_hz():
     return None
 
 
-# ── Dummy data (saat MSSQL belum tersambung) ─────────────────────────
-
-def _dummy_live(pembangkit_list):
-    import random
-    now = datetime.datetime.now().isoformat()
-    result = {}
-    for p in pembangkit_list:
-        result[p.kode] = {
-            'mw':       round(random.uniform(80, 250), 2),
-            'mvar':     round(random.uniform(20, 80), 2),
-            'frekuensi': None,
-            'units':    [],
-            'timestamp': now,
-            'is_dummy':  True,
-        }
-    return result
-
-
-def _dummy_trend(pembangkit, jam=1):
-    import random
-    now = datetime.datetime.now()
-    points = min(jam * 60, 1440)  # maks 1 titik/menit
-    result = []
-    base_mw = random.uniform(100, 200)
-    for i in range(points, 0, -1):
-        t = now - datetime.timedelta(minutes=i)
-        result.append({
-            'timestamp': t.strftime('%H:%M'),
-            'mw':    round(base_mw + random.uniform(-20, 20), 2),
-            'mvar':  round(40 + random.uniform(-10, 10), 2),
-            'frekuensi': None,
-        })
-    return result
-
-
 # ── Live data ─────────────────────────────────────────────────────────
+
+def _kosong_live(pembangkit_list):
+    """Struktur live 'terputus' (MSSQL belum dikonfigurasi / tidak reachable) — semua nilai None."""
+    return {
+        p.kode: {
+            'mw': None, 'mvar': None, 'frekuensi': None,
+            'units': [], 'timestamp': None,
+        }
+        for p in pembangkit_list
+    }
 
 def get_live_data(pembangkit_list):
     """
@@ -200,8 +195,8 @@ def get_live_data(pembangkit_list):
     Frekuensi sistem → SYS_FREQ_HIS (TOP 1 ORDER BY ID DESC).
     Trend tetap pakai HIS_MEAS_KIT via get_trend_data().
     """
-    if _DUMMY_MODE or not getattr(settings, 'MSSQL_HOST', ''):
-        return {'data': _dummy_live(pembangkit_list), 'frekuensi_sistem': None}
+    if not getattr(settings, 'MSSQL_HOST', ''):
+        return {'data': _kosong_live(pembangkit_list), 'frekuensi_sistem': None}
 
     try:
         conn   = _get_connection()
@@ -268,7 +263,7 @@ def get_live_data(pembangkit_list):
             if row is None:
                 data[p.kode] = {
                     'mw': None, 'mvar': None, 'frekuensi': None,
-                    'units': [], 'timestamp': None, 'is_dummy': False,
+                    'units': [], 'timestamp': None,
                 }
                 continue
 
@@ -294,14 +289,13 @@ def get_live_data(pembangkit_list):
                 'frekuensi': None,
                 'units':     units,
                 'timestamp': row['timestamp'],
-                'is_dummy':  False,
             }
 
         return {'data': data, 'frekuensi_sistem': frekuensi_sistem}
 
     except Exception as e:
         logger.error('get_live_data error: %s', e, exc_info=True)
-        return {'data': _dummy_live(pembangkit_list), 'frekuensi_sistem': None}
+        return {'data': _kosong_live(pembangkit_list), 'frekuensi_sistem': None}
 
 
 # ── Trend data (untuk chart) ──────────────────────────────────────────
@@ -313,8 +307,8 @@ def get_trend_data(pembangkit, jam=1):
     Grouping per menit (DATEPART) agar tidak terlalu banyak titik.
     `kode` di model Pembangkit harus sama dengan B1 di tabel.
     """
-    if _DUMMY_MODE or not getattr(settings, 'MSSQL_HOST', ''):
-        return _dummy_trend(pembangkit, jam)
+    if not getattr(settings, 'MSSQL_HOST', ''):
+        return []
 
     try:
         conn   = _get_connection()
@@ -366,8 +360,9 @@ def get_trend_data(pembangkit, jam=1):
             for row in rows
         ]
 
-    except Exception:
-        return _dummy_trend(pembangkit, jam)
+    except Exception as e:
+        logger.error('get_trend_data error: %s', e, exc_info=True)
+        return []
 
 
 # ── Frekuensi trend ───────────────────────────────────────────────────
@@ -377,14 +372,8 @@ def get_freq_trend(menit=10):
     Return list [{timestamp, hz}] dari SYS_FREQ_HIS, N menit terakhir.
     Data per detik → menit×60 titik, diurutkan ascending untuk chart.
     """
-    if _DUMMY_MODE or not getattr(settings, 'MSSQL_HOST', ''):
-        import random
-        now = datetime.datetime.now()
-        return [
-            {'timestamp': (now - datetime.timedelta(seconds=i)).strftime('%H:%M:%S'),
-             'hz': round(50 + random.uniform(-0.1, 0.1), 3)}
-            for i in range(menit * 60, 0, -1)
-        ]
+    if not getattr(settings, 'MSSQL_HOST', ''):
+        return []
     try:
         conn   = _get_connection()
         cursor = conn.cursor()
@@ -418,16 +407,8 @@ def get_freq_hari_ini():
     Return list [{timestamp 'HH:MM', hz}] rata-rata per menit hari ini
     dari SYS_FREQ_HIS. Dipakai untuk chart Frekuensi Hari Ini di dashboard.
     """
-    if _DUMMY_MODE or not getattr(settings, 'MSSQL_HOST', ''):
-        import random
-        now = datetime.datetime.now()
-        result = []
-        t = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        while t <= now:
-            result.append({'timestamp': t.strftime('%H:%M'),
-                           'hz': round(50 + random.uniform(-0.15, 0.15), 3)})
-            t += datetime.timedelta(minutes=1)
-        return result
+    if not getattr(settings, 'MSSQL_HOST', ''):
+        return []
     try:
         conn   = _get_connection()
         cursor = conn.cursor()
@@ -459,7 +440,7 @@ def get_freq_seconds(detik=70):
     Return list of (datetime_naive, float_hz) — dipakai oleh collect_freq command.
     Menggunakan _get_connection() biasa (dengan TCP ping).
     """
-    if _DUMMY_MODE or not getattr(settings, 'MSSQL_HOST', ''):
+    if not getattr(settings, 'MSSQL_HOST', ''):
         return []
     try:
         conn   = _get_connection()
@@ -494,16 +475,8 @@ def get_beban_trend():
     Return list [{timestamp 'HH:MM', mw}] SUM semua pembangkit hari ini,
     per 15 menit, dari HIS_MEAS_KIT.
     """
-    if _DUMMY_MODE or not getattr(settings, 'MSSQL_HOST', ''):
-        import random
-        now = datetime.datetime.now()
-        result = []
-        t = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        while t <= now:
-            result.append({'timestamp': t.strftime('%H:%M'),
-                           'mw': round(random.uniform(300, 600), 2)})
-            t += datetime.timedelta(minutes=15)
-        return result
+    if not getattr(settings, 'MSSQL_HOST', ''):
+        return []
     try:
         conn   = _get_connection()
         cursor = conn.cursor()
@@ -562,8 +535,8 @@ def get_beban_trafo():
 
     Dikelompokkan di view berdasarkan site.
     """
-    if _DUMMY_MODE or not getattr(settings, 'MSSQL_HOST', ''):
-        return _dummy_beban_trafo()
+    if not getattr(settings, 'MSSQL_HOST', ''):
+        return []
 
     try:
         conn   = _get_connection()
@@ -592,34 +565,7 @@ def get_beban_trafo():
         ]
     except Exception as e:
         logger.error('get_beban_trafo error: %s', e)
-        return _dummy_beban_trafo()
-
-
-def _dummy_beban_trafo():
-    """
-    'is_dummy': True di tiap baris — penanda WAJIB dicek sebelum baris ini
-    dipakai untuk auto-registrasi Trafo baru atau disimpan sbg histori
-    (lihat views._trafo_aktif_saja()). Tanpa penanda ini baris dummy tidak
-    bisa dibedakan dari baris MSSQL asli (bentuknya identik), dan pernah
-    menyebabkan situs palsu (GI PALOPO/MAKASSAR/MAROS/PARE-PARE — nama di
-    bawah ini KEBETULAN tumpang tindih dengan nama GI nyata) ke-auto-daftar
-    permanen di database saat MSSQL timeout.
-    """
-    import random
-    sites = ['GI PALOPO', 'GI MAKASSAR', 'GI MAROS', 'GI PARE-PARE']
-    result = []
-    for site in sites:
-        for n in range(1, random.randint(2, 5)):
-            result.append({
-                'site': site,
-                'bay':  f'TRF{random.randint(10,60)}-{n}',
-                'p':    round(random.uniform(5, 60), 2),
-                'q':    round(random.uniform(1, 20), 2),
-                'v':    round(random.uniform(145, 155), 2),
-                'i':    round(random.uniform(50, 300), 2),
-                'is_dummy': True,
-            })
-    return result
+        return []
 
 
 def get_beban_trafo_ibt():
@@ -631,8 +577,8 @@ def get_beban_trafo_ibt():
     Returns: sama seperti get_beban_trafo() — list of dict site/bay/p/q/v/i.
     Dikelompokkan di view berdasarkan site.
     """
-    if _DUMMY_MODE or not getattr(settings, 'MSSQL_HOST', ''):
-        return _dummy_beban_trafo_ibt()
+    if not getattr(settings, 'MSSQL_HOST', ''):
+        return []
 
     try:
         conn   = _get_connection()
@@ -661,26 +607,7 @@ def get_beban_trafo_ibt():
         ]
     except Exception as e:
         logger.error('get_beban_trafo_ibt error: %s', e)
-        return _dummy_beban_trafo_ibt()
-
-
-def _dummy_beban_trafo_ibt():
-    """'is_dummy': True — lihat catatan di _dummy_beban_trafo()."""
-    import random
-    sites = ['GI PALOPO', 'GI MAKASSAR', 'GI MAROS', 'GI PARE-PARE']
-    result = []
-    for site in sites:
-        for n in range(1, random.randint(2, 4)):
-            result.append({
-                'site': site,
-                'bay':  f'TRF65-{n}',
-                'p':    round(random.uniform(20, 150), 2),
-                'q':    round(random.uniform(5, 50), 2),
-                'v':    round(random.uniform(145, 155), 2),
-                'i':    round(random.uniform(100, 500), 2),
-                'is_dummy': True,
-            })
-    return result
+        return []
 
 
 # ── Beban KTT (Konsumen Tegangan Tinggi) ─────────────────────────────────────
@@ -695,8 +622,8 @@ def get_beban_ktt():
             analog : str   — nama/kode konsumen (kolom ANALOG)
             value  : float|None — nilai beban (kolom VALUE)
     """
-    if _DUMMY_MODE or not getattr(settings, 'MSSQL_HOST', ''):
-        return _dummy_beban_ktt()
+    if not getattr(settings, 'MSSQL_HOST', ''):
+        return []
 
     try:
         conn   = _get_connection()
@@ -721,24 +648,7 @@ def get_beban_ktt():
         ]
     except Exception as e:
         logger.error('get_beban_ktt error: %s', e)
-        return _dummy_beban_ktt()
-
-
-def _dummy_beban_ktt():
-    import random
-    consumers = [
-        'PT SEMEN TONASA', 'PT VALE INDONESIA', 'PT INDUSTRI KAPAL',
-        'PT PABRIK KERTAS', 'PT PETROKIMIA', 'PT SMELTER NIKEL',
-        'PT ALUMINUM SULAWESI', 'PT ENERGI MAJU',
-    ]
-    return [
-        {
-            'id':     i + 1,
-            'analog': name,
-            'value':  round(random.uniform(5, 120), 3),
-        }
-        for i, name in enumerate(consumers)
-    ]
+        return []
 
 
 # ── Frekuensi Area (Sultra / Baubau) ─────────────────────────────────────────
@@ -748,9 +658,8 @@ def _get_area_freq(table, site, bay):
     Ambil nilai F terbaru dari tabel TRANS_xxx_RT untuk SITE dan BAY tertentu.
     Tabel RT biasanya menyimpan satu baris per titik ukur (realtime snapshot).
     """
-    if _DUMMY_MODE or not getattr(settings, 'MSSQL_HOST', ''):
-        import random
-        return round(50 + random.uniform(-0.08, 0.08), 3)
+    if not getattr(settings, 'MSSQL_HOST', ''):
+        return None
     try:
         conn   = _get_connection()
         cursor = conn.cursor()
