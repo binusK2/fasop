@@ -28,6 +28,13 @@
   </div>
 </div>
 
+<div id="terputus-notice" style="display:{% if terputus %}flex{% else %}none{% endif %}; align-items:center; gap:8px;
+     background:rgba(239,68,68,.08); border:1px solid rgba(239,68,68,.3); border-radius:10px;
+     padding:10px 14px; font-size:12px; color:#dc2626; margin-bottom:16px;">
+  <i class="bi bi-exclamation-triangle-fill"></i>
+  Koneksi terputus ke Database
+</div>
+
 <!-- Grid per GI — dirender oleh JS dari initialData -->
 <div id="trafoGrid">
   <div class="text-center py-5 text-muted">
@@ -64,7 +71,8 @@ const initialData = {
   site_totals: {
     {% for site, total in site_totals.items %}"{{ site|escapejs }}": {{ total }},{% endfor %}
   },
-  total_mw: {{ total_mw|floatformat:2 }}
+  total_mw: {{ total_mw|floatformat:2 }},
+  terputus: {{ terputus|yesno:"true,false" }}
 };
 
 // ── Render tabel dari data JSON ──────────────────────────────────────
@@ -78,6 +86,7 @@ function renderGrid(data) {
 
   // Update total MW header
   document.getElementById('totalMW').textContent = parseFloat(data.total_mw).toFixed(2);
+  document.getElementById('terputus-notice').style.display = data.terputus ? 'flex' : 'none';
 
   function fmtNum(v, dec) {
     if (v === null || v === undefined) return '<span style="color:#cbd5e1;">—</span>';

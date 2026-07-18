@@ -78,7 +78,7 @@ class Command(BaseCommand):
         dry_run = options.get('dry_run', False)
 
         if not getattr(settings, 'MSSQL_HOST', ''):
-            self.stdout.write('MSSQL_HOST belum diset — lewati (data akan dummy).')
+            self.stdout.write('MSSQL_HOST belum diset — lewati.')
             return
 
         now = timezone.now().replace(second=0, microsecond=0)

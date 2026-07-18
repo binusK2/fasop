@@ -101,15 +101,15 @@
     .komposisi-row .komposisi-chart-wrap { align-self: center; }
 }
 
-.dummy-notice {
-    background: rgba(245,158,11,.08);
-    border: 1px solid rgba(245,158,11,.3);
+.terputus-notice {
+    background: rgba(239,68,68,.08);
+    border: 1px solid rgba(239,68,68,.3);
     border-radius: 10px;
     padding: 10px 14px;
-    font-size: 12px; color: #fbbf24;
+    font-size: 12px; color: #f87171;
     margin-bottom: 16px; display: none;
 }
-.dummy-notice.show { display: flex; align-items: center; gap: 8px; }
+.terputus-notice.show { display: flex; align-items: center; gap: 8px; }
 
 .hz-card {
     background: var(--card-bg);
@@ -145,9 +145,9 @@
     </div>
 </div>
 
-<div class="dummy-notice" id="dummy-notice">
+<div class="terputus-notice" id="terputus-notice">
     <i class="bi bi-exclamation-triangle-fill"></i>
-    Menampilkan data simulasi — koneksi MSSQL belum dikonfigurasi.
+    Koneksi terputus ke Database
 </div>
 
 <!-- Baris 1: 5 kartu frekuensi -->
@@ -558,7 +558,7 @@ async function pollLive() {
         if (!resp.ok) return;
         const json = await resp.json();
         const data = json.data;
-        let hasDummy = false, totalMw = 0, hasMw = false;
+        let totalMw = 0, hasMw = false;
         const now = new Date().toLocaleTimeString('id-ID');  // waktu browser saat data diterima
 
         for (const kode of KODE_LIST) {
@@ -572,14 +572,13 @@ async function pollLive() {
             const dot = document.getElementById(`dot-${kode}`);
             if (dot) dot.className = 'sb-dot ' + (d.mw !== null ? 'green' : '');
             if (d.mw !== null) { totalMw += parseFloat(d.mw); hasMw = true; }
-            if (d.is_dummy) hasDummy = true;
         }
 
         const sysMwEl = document.getElementById('sys-mw');
         if (sysMwEl) sysMwEl.innerHTML = (hasMw ? totalMw.toFixed(2) : '—')
             + '<span style="font-size:14px;font-weight:400;color:var(--muted);margin-left:4px;">MW</span>';
 
-        document.getElementById('dummy-notice')?.classList.toggle('show', hasDummy);
+        document.getElementById('terputus-notice')?.classList.toggle('show', !!json.terputus);
         setLastUpdate();
 
         // Akumulasi MW per jenis untuk komposisi chart + total header

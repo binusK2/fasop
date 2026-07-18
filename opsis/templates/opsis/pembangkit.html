@@ -56,16 +56,16 @@
 
 .chart-wrap { position: relative; height: 220px; }
 
-.dummy-bar {
-    background: rgba(245,158,11,.08);
-    border: 1px solid rgba(245,158,11,.25);
+.terputus-bar {
+    background: rgba(239,68,68,.08);
+    border: 1px solid rgba(239,68,68,.25);
     border-radius: 8px;
     padding: 8px 14px;
-    font-size: 11px; color: #fbbf24;
+    font-size: 11px; color: #f87171;
     margin-bottom: 16px;
     display: none;
 }
-.dummy-bar.show { display: flex; align-items: center; gap: 8px; }
+.terputus-bar.show { display: flex; align-items: center; gap: 8px; }
 </style>
 {% endblock %}
 
@@ -80,9 +80,9 @@
     <span style="font-size:12px; color:var(--muted);"><span class="live-dot"></span>Live</span>
 </div>
 
-<div class="dummy-bar" id="dummy-bar">
+<div class="terputus-bar" id="terputus-bar">
     <i class="bi bi-exclamation-triangle-fill"></i>
-    Data simulasi — konfigurasi MSSQL di settings dan isi tag di Admin.
+    Koneksi terputus ke Database
 </div>
 
 <!-- Live metric cards -->
@@ -326,9 +326,9 @@ async function pollLive() {
             dot.className = 'sb-dot ' + (hz >= 49.5 && hz <= 50.5 ? 'green' : hz ? 'yellow' : '');
         }
 
-        // Dummy notice
-        const bar = document.getElementById('dummy-bar');
-        if (bar) bar.classList.toggle('show', !!d.is_dummy);
+        // Notice terputus
+        const bar = document.getElementById('terputus-bar');
+        if (bar) bar.classList.toggle('show', !!json.terputus);
 
         setLastUpdate();
     } catch (e) {}
