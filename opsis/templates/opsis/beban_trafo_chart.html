@@ -54,6 +54,19 @@
   gap: 5px;
   font-size: 10.5px;
   color: var(--muted);
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 6px;
+  transition: .15s;
+}
+.site-legend-item:hover {
+  background: rgba(255,255,255,.07);
+}
+.site-legend-item.dimmed {
+  opacity: .3;
+}
+.site-legend-item.solo {
+  background: rgba(59,130,246,.18);
 }
 .site-legend-dot {
   width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
@@ -249,16 +262,40 @@ function buildChart(canvas, site, compact = true) {
   });
 }
 
-function buildLegendItems(container, site) {
+// site.site -> nama bay yang sedang diisolasi (tampil sendirian), atau null/undefined = tampilkan semua.
+const isolatedTrafo = {};
+
+// Terapkan status isolasi site ke chart (setDatasetVisibility per index, sinkron dgn urutan site.trafos).
+function applyIsolation(chart, site) {
+  const solo = isolatedTrafo[site.site];
+  site.trafos.forEach((t, idx) => {
+    chart.setDatasetVisibility(idx, solo ? t.bay === solo : true);
+  });
+  chart.update('none');
+}
+
+// Legend kustom sekaligus jadi kontrol pilih-trafo: klik satu bay → tampilkan
+// hanya trafo itu di chart (isolate), klik lagi → kembali tampilkan semua.
+function buildLegendItems(container, site, chart) {
   container.innerHTML = '';
+  const solo = isolatedTrafo[site.site];
   site.trafos.forEach((t, idx) => {
     const last = [...t.p].reverse().find(v => v !== null);
     const item = document.createElement('span');
-    item.className = 'site-legend-item';
+    item.className = 'site-legend-item' + (solo ? (t.bay === solo ? ' solo' : ' dimmed') : '');
+    item.title = 'Klik untuk tampilkan hanya trafo ini · klik lagi untuk tampilkan semua';
     item.innerHTML = `<span class="site-legend-dot" style="background:${colorFor(idx)};"></span>
       <span class="site-legend-bay"></span> <span class="site-legend-val"></span>`;
     item.querySelector('.site-legend-bay').textContent = t.bay;
     item.querySelector('.site-legend-val').textContent = fmt(last) + ' MW';
+    if (chart) {
+      item.addEventListener('click', (e) => {
+        e.stopPropagation(); // jangan ikut buka modal kalau legend ini di mini-card
+        isolatedTrafo[site.site] = (isolatedTrafo[site.site] === t.bay) ? null : t.bay;
+        applyIsolation(chart, site);
+        buildLegendItems(container, site, chart);
+      });
+    }
     container.appendChild(item);
   });
 }
@@ -282,13 +319,15 @@ function createSiteCard(site) {
   card.querySelector('.chart-mini-site').textContent = site.site;
   card.querySelector('.chart-mini-badge').textContent = `${site.trafos.length} trafo`;
   card.addEventListener('click', () => openChartModal(site.site));
-  buildLegendItems(card.querySelector('.site-legend'), site);
+  const chart = buildChart(card.querySelector('canvas'), site);
+  applyIsolation(chart, site);
+  buildLegendItems(card.querySelector('.site-legend'), site, chart);
 
   return {
     card,
     badgeEl:  card.querySelector('.chart-mini-badge'),
     legendEl: card.querySelector('.site-legend'),
-    chart:    buildChart(card.querySelector('canvas'), site),
+    chart,
   };
 }
 
@@ -347,8 +386,8 @@ function updateSites(data) {
       }
     });
     ds.length = site.trafos.length; // buang dataset trafo yang sudah tidak ada lagi
-    entry.chart.update('none');
-    buildLegendItems(entry.legendEl, site);
+    applyIsolation(entry.chart, site); // pertahankan isolasi trafo terpilih lintas refresh
+    buildLegendItems(entry.legendEl, site, entry.chart);
   });
 }
 
@@ -364,9 +403,10 @@ function openChartModal(siteName) {
   if (!site) return;
   openSiteName = siteName;
   document.getElementById('chartModalTitle').textContent = siteName;
-  buildLegendItems(document.getElementById('chartModalLegend'), site);
   if (modalChart) modalChart.destroy();
   modalChart = buildChart(document.getElementById('chart-modal-canvas'), site, false);
+  applyIsolation(modalChart, site);
+  buildLegendItems(document.getElementById('chartModalLegend'), site, modalChart);
   modalOverlay.classList.add('show');
 }
 
