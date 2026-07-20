@@ -234,7 +234,12 @@ def get_live_data(pembangkit_list):
 
             units_raw = {}
             for p_idx, q_idx, nama in unit_cols:
-                p_ = float(row[p_idx]) if row[p_idx] is not None else None
+                # abs() P — sebagian unit terbaca minus akibat polaritas
+                # wiring CT/PT terbalik, bukan berarti unit itu benar-benar
+                # menyerap daya. Tanpa abs() ini, unit tsb ke-exclude dari
+                # total (filter '> 0' di bawah) dan bikin total beban
+                # pembangkit lebih rendah dari realisasi sebenarnya.
+                p_ = abs(float(row[p_idx])) if row[p_idx] is not None else None
                 q_ = float(row[q_idx]) if row[q_idx] is not None else None
                 if p_ is not None:  # skip unit yang NULL (tidak aktif)
                     units_raw[nama] = {'mw': p_, 'mvar': q_}
