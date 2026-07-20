@@ -234,7 +234,12 @@ def get_live_data(pembangkit_list):
 
             units_raw = {}
             for p_idx, q_idx, nama in unit_cols:
-                p_ = float(row[p_idx]) if row[p_idx] is not None else None
+                # abs() P — sebagian unit terbaca minus akibat polaritas
+                # wiring CT/PT terbalik, bukan berarti unit itu benar-benar
+                # menyerap daya. Tanpa abs() ini, unit tsb ke-exclude dari
+                # total (filter '> 0' di bawah) dan bikin total beban
+                # pembangkit lebih rendah dari realisasi sebenarnya.
+                p_ = abs(float(row[p_idx])) if row[p_idx] is not None else None
                 q_ = float(row[q_idx]) if row[q_idx] is not None else None
                 if p_ is not None:  # skip unit yang NULL (tidak aktif)
                     units_raw[nama] = {'mw': p_, 'mvar': q_}
@@ -336,8 +341,11 @@ def get_trend_data(pembangkit, jam=1):
                   AND TIME >= DATEADD(hour, ?, GETDATE())
                   AND DATEPART(minute, TIME) % ? = 0
             )
+            -- ABS(P): sama seperti KIT_REALTIME (lihat get_live_data), sebagian unit
+            -- terbaca minus akibat polaritas wiring CT/PT terbalik — bukan berarti
+            -- unit itu menyerap daya. Q dibiarkan (arah reaktif masih relevan).
             SELECT menit,
-                   SUM(CASE WHEN P > 0 THEN P ELSE 0 END) AS total_mw,
+                   SUM(ABS(P)) AS total_mw,
                    SUM(CASE WHEN Q > 0 THEN Q ELSE 0 END) AS total_mvar
             FROM per_unit
             WHERE rn = 1
@@ -495,8 +503,10 @@ def get_beban_trend():
                 WHERE TIME >= CAST(CAST(GETDATE() AS DATE) AS DATETIME)
                   AND DATEPART(minute, TIME) % 15 = 0
             )
+            -- ABS(P): sama seperti KIT_REALTIME (lihat get_live_data) — wiring
+            -- CT/PT terbalik bikin sebagian unit terbaca minus.
             SELECT menit,
-                   SUM(CASE WHEN P > 0 THEN P ELSE 0 END) AS total_mw
+                   SUM(ABS(P)) AS total_mw
             FROM per_unit
             WHERE rn = 1
             GROUP BY menit
