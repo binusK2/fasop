@@ -341,8 +341,11 @@ def get_trend_data(pembangkit, jam=1):
                   AND TIME >= DATEADD(hour, ?, GETDATE())
                   AND DATEPART(minute, TIME) % ? = 0
             )
+            -- ABS(P): sama seperti KIT_REALTIME (lihat get_live_data), sebagian unit
+            -- terbaca minus akibat polaritas wiring CT/PT terbalik — bukan berarti
+            -- unit itu menyerap daya. Q dibiarkan (arah reaktif masih relevan).
             SELECT menit,
-                   SUM(CASE WHEN P > 0 THEN P ELSE 0 END) AS total_mw,
+                   SUM(ABS(P)) AS total_mw,
                    SUM(CASE WHEN Q > 0 THEN Q ELSE 0 END) AS total_mvar
             FROM per_unit
             WHERE rn = 1
@@ -500,8 +503,10 @@ def get_beban_trend():
                 WHERE TIME >= CAST(CAST(GETDATE() AS DATE) AS DATETIME)
                   AND DATEPART(minute, TIME) % 15 = 0
             )
+            -- ABS(P): sama seperti KIT_REALTIME (lihat get_live_data) — wiring
+            -- CT/PT terbalik bikin sebagian unit terbaca minus.
             SELECT menit,
-                   SUM(CASE WHEN P > 0 THEN P ELSE 0 END) AS total_mw
+                   SUM(ABS(P)) AS total_mw
             FROM per_unit
             WHERE rn = 1
             GROUP BY menit
