@@ -32,4 +32,7 @@ urlpatterns = [
     path('api/beban-ktt/',        views.api_beban_ktt,       name='opsis_api_beban_ktt'),
     path('prediksi-beban/',       views.prediksi_beban,      name='opsis_prediksi_beban'),
     path('api/prediksi-beban/',   views.api_prediksi_beban,  name='opsis_api_prediksi_beban'),
+    path('hop/',                  views.hop_dashboard,       name='opsis_hop'),
+    path('hop/import/',           views.hop_import,          name='opsis_hop_import'),
+    path('hop/api/trend/<int:pk>/', views.api_hop_trend,     name='opsis_api_hop_trend'),
 ]

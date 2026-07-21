@@ -1,0 +1,333 @@
+{% extends "opsis/opsis_base.html" %}
+{% load static %}
+
+{% block title %}HOP Pembangkit{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+.hop-head { display:flex; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:18px; }
+.hop-head h1 { font-size:20px; font-weight:800; color:#fff; display:flex; align-items:center; gap:10px; }
+.hop-head .sub { font-size:12px; color:var(--muted); }
+.hop-head .spacer { margin-left:auto; }
+.btn-imp {
+    display:inline-flex; align-items:center; gap:7px; font-size:12.5px; font-weight:600;
+    color:#cbd5e1; text-decoration:none; padding:8px 14px; border:1px solid var(--card-bd);
+    border-radius:8px; background:var(--card-bg); transition:.15s;
+}
+.btn-imp:hover { border-color:var(--blue); color:#fff; }
+
+/* Tabs */
+.hop-tabs { display:flex; gap:6px; margin-bottom:18px; border-bottom:1px solid var(--card-bd); }
+.hop-tab {
+    background:none; border:none; cursor:pointer; font-family:inherit;
+    font-size:13.5px; font-weight:700; color:var(--muted);
+    padding:10px 18px; border-bottom:2px solid transparent; transition:.15s;
+    display:flex; align-items:center; gap:8px;
+}
+.hop-tab:hover { color:var(--text); }
+.hop-tab.active { color:#fff; border-bottom-color:var(--blue); }
+.hop-tab .cnt { font-size:11px; font-weight:600; color:var(--muted); background:var(--card-bd);
+    padding:1px 7px; border-radius:20px; }
+
+/* KPI row */
+.kpi-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; margin-bottom:16px; }
+.kpi {
+    background:var(--card-bg); border:1px solid var(--card-bd); border-radius:12px; padding:14px 16px;
+}
+.kpi .lbl { font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); margin-bottom:6px; }
+.kpi .val { font-family:'JetBrains Mono',monospace; font-size:26px; font-weight:700; line-height:1; }
+.kpi .val .u { font-size:12px; font-weight:400; color:var(--muted); }
+.kpi .foot { font-size:11px; color:var(--muted); margin-top:6px; }
+.kpi.aman   { border-left:3px solid #10b981; }
+.kpi.waspada{ border-left:3px solid #f59e0b; }
+.kpi.kritis { border-left:3px solid #ef4444; }
+.dot-s { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:5px; }
+
+/* Sistem average chips */
+.sis-row { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px; }
+.sis-chip {
+    background:var(--card-bg); border:1px solid var(--card-bd); border-radius:10px;
+    padding:8px 14px; font-size:12px; color:var(--muted);
+}
+.sis-chip b { color:var(--text); font-family:'JetBrains Mono',monospace; font-size:15px; font-weight:700; }
+
+/* Table */
+.hop-table-wrap { overflow-x:auto; border:1px solid var(--card-bd); border-radius:12px; background:var(--card-bg); }
+table.hop-table { width:100%; border-collapse:collapse; font-size:13px; min-width:720px; }
+.hop-table th {
+    text-align:left; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.5px;
+    color:var(--muted); padding:11px 14px; border-bottom:1px solid var(--card-bd); white-space:nowrap;
+    background:rgba(255,255,255,.02);
+}
+.hop-table td { padding:10px 14px; border-bottom:1px solid rgba(30,45,69,.5); }
+.hop-table tr:last-child td { border-bottom:none; }
+.hop-table tbody tr { cursor:pointer; transition:.12s; }
+.hop-table tbody tr:hover { background:rgba(59,130,246,.06); }
+.pb-nm { font-weight:600; color:var(--text); }
+.pb-sis { font-size:11px; color:var(--muted); }
+.num { font-family:'JetBrains Mono',monospace; text-align:right; }
+.hop-val { font-family:'JetBrains Mono',monospace; font-size:17px; font-weight:700; }
+.badge-st { font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:20px; white-space:nowrap; }
+.delta { font-family:'JetBrains Mono',monospace; font-size:11.5px; }
+.delta.up { color:#34d399; } .delta.down { color:#f87171; } .delta.flat { color:var(--muted); }
+.rank { color:var(--muted); font-family:'JetBrains Mono',monospace; font-size:12px; }
+
+.legend { font-size:11px; color:var(--muted); margin:10px 2px 0; display:flex; flex-wrap:wrap; gap:14px; }
+.legend span { display:inline-flex; align-items:center; }
+
+.empty-box { text-align:center; padding:60px 20px; color:var(--muted); }
+.empty-box i { font-size:42px; display:block; margin-bottom:14px; opacity:.5; }
+
+/* Modal trend */
+.modal-bd { display:none; position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:500; align-items:center; justify-content:center; padding:20px; }
+.modal-bd.show { display:flex; }
+.modal-card { background:var(--card-bg); border:1px solid var(--card-bd); border-radius:14px; width:100%; max-width:780px; max-height:90vh; overflow:auto; }
+.modal-hd { display:flex; align-items:center; padding:16px 20px; border-bottom:1px solid var(--card-bd); }
+.modal-hd h3 { font-size:15px; font-weight:700; color:#fff; }
+.modal-hd .cls { margin-left:auto; background:none; border:none; color:var(--muted); font-size:22px; cursor:pointer; line-height:1; }
+.modal-hd .cls:hover { color:#fff; }
+.modal-meta { display:flex; flex-wrap:wrap; gap:8px 18px; padding:12px 20px; font-size:12px; color:var(--muted); border-bottom:1px solid var(--card-bd); }
+.modal-meta b { color:var(--text); }
+.modal-body { padding:16px 20px; }
+.hidden { display:none !important; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="hop-head">
+    <h1><i class="bi bi-fuel-pump-fill" style="color:#60a5fa;"></i> HOP Pembangkit</h1>
+    <div class="spacer"></div>
+    {% if bisa_impor %}
+    <a href="{% url 'opsis_hop_import' %}" class="btn-imp"><i class="bi bi-upload"></i> Impor Data (.xlsx)</a>
+    {% endif %}
+</div>
+
+{% if messages %}
+    {% for m in messages %}
+    <div style="margin-bottom:14px; padding:10px 14px; border-radius:8px; font-size:12.5px;
+         {% if m.tags == 'success' %}background:rgba(16,185,129,.12); color:#6ee7b7; border:1px solid rgba(16,185,129,.3);
+         {% elif m.tags == 'error' %}background:rgba(239,68,68,.12); color:#fca5a5; border:1px solid rgba(239,68,68,.3);
+         {% else %}background:rgba(245,158,11,.12); color:#fcd34d; border:1px solid rgba(245,158,11,.3);{% endif %}">
+        {{ m }}
+    </div>
+    {% endfor %}
+{% endif %}
+
+{% if not ada_data %}
+    <div class="empty-box">
+        <i class="bi bi-inbox"></i>
+        <div style="font-size:15px; color:var(--text); font-weight:600; margin-bottom:6px;">Belum ada data HOP</div>
+        <div>Impor workbook konfirmasi stok batu bara / BBM untuk mulai memantau Hari Operasi pembangkit.</div>
+        {% if bisa_impor %}
+        <a href="{% url 'opsis_hop_import' %}" class="btn-imp" style="margin-top:18px;"><i class="bi bi-upload"></i> Impor Data (.xlsx)</a>
+        {% endif %}
+    </div>
+{% else %}
+
+<div class="hop-tabs">
+    <button class="hop-tab active" data-tab="batubara">
+        <i class="bi bi-fire"></i> Batu Bara <span class="cnt">{{ batubara.jumlah }}</span>
+    </button>
+    <button class="hop-tab" data-tab="bbm">
+        <i class="bi bi-droplet-fill"></i> BBM <span class="cnt">{{ bbm.jumlah }}</span>
+    </button>
+</div>
+
+{% for d in panels %}
+<div class="hop-panel {% if d.kategori == 'bbm' %}hidden{% endif %}" id="panel-{{ d.kategori }}">
+
+    <div class="kpi-row">
+        <div class="kpi">
+            <div class="lbl">Rata-rata HOP Sulawesi</div>
+            <div class="val" style="color:#60a5fa;">{{ d.rata_total|floatformat:2|default:"—" }} <span class="u">hari</span></div>
+            <div class="foot">{{ d.jumlah }} pembangkit &middot; per {{ d.tanggal_terakhir|date:"d M Y"|default:"—" }}</div>
+        </div>
+        <div class="kpi aman">
+            <div class="lbl"><span class="dot-s" style="background:#10b981;"></span>Aman</div>
+            <div class="val" style="color:#34d399;">{{ d.rekap.aman }}</div>
+            <div class="foot">HOP &ge; {{ d.th_aman }} hari</div>
+        </div>
+        <div class="kpi waspada">
+            <div class="lbl"><span class="dot-s" style="background:#f59e0b;"></span>Waspada</div>
+            <div class="val" style="color:#fbbf24;">{{ d.rekap.waspada }}</div>
+            <div class="foot">HOP &ge; {{ d.th_waspada }} hari</div>
+        </div>
+        <div class="kpi kritis">
+            <div class="lbl"><span class="dot-s" style="background:#ef4444;"></span>Kritis</div>
+            <div class="val" style="color:#f87171;">{{ d.rekap.kritis }}</div>
+            <div class="foot">di bawah ambang waspada</div>
+        </div>
+    </div>
+
+    {% if d.rata_sistem %}
+    <div class="sis-row">
+        {% for s in d.rata_sistem %}
+        <div class="sis-chip">{{ s.sistem }} &mdash; <b>{{ s.rata|floatformat:2 }}</b> hari <span style="opacity:.6;">({{ s.jumlah }})</span></div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="hop-table-wrap">
+        <table class="hop-table">
+            <thead>
+                <tr>
+                    <th style="width:38px;">#</th>
+                    <th>Pembangkit</th>
+                    <th>Aset</th>
+                    <th class="num">DMN (MW)</th>
+                    <th class="num">HOP (hari)</th>
+                    <th>Status</th>
+                    <th class="num">Δ hari</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in d.rows %}
+                <tr data-pk="{{ r.pk }}">
+                    <td class="rank">{{ forloop.counter }}</td>
+                    <td>
+                        <div class="pb-nm">{{ r.nama }}</div>
+                        <div class="pb-sis">{{ r.sistem }}</div>
+                    </td>
+                    <td style="color:var(--muted); font-size:12px;">{{ r.aset|default:"—" }}</td>
+                    <td class="num" style="color:var(--muted);">{{ r.dmn|floatformat:2|default:"—" }}</td>
+                    <td class="num"><span class="hop-val" style="color:{{ r.warna }};">{% if r.hop != None %}{{ r.hop|floatformat:2 }}{% else %}—{% endif %}</span></td>
+                    <td><span class="badge-st" style="color:{{ r.warna }}; background:{{ r.warna }}22;">{{ r.status_label }}</span></td>
+                    <td class="num">
+                        {% if r.delta != None %}
+                            {% if r.delta > 0 %}<span class="delta up">▲ {{ r.delta|floatformat:2 }}</span>
+                            {% elif r.delta < 0 %}<span class="delta down">▼ {{ r.delta|floatformat:2 }}</span>
+                            {% else %}<span class="delta flat">–</span>{% endif %}
+                        {% else %}<span class="delta flat">–</span>{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="legend">
+        <span><span class="dot-s" style="background:#10b981;"></span>Aman (HOP &ge; {{ d.th_aman }})</span>
+        <span><span class="dot-s" style="background:#f59e0b;"></span>Waspada (&ge; {{ d.th_waspada }})</span>
+        <span><span class="dot-s" style="background:#ef4444;"></span>Kritis (&lt; {{ d.th_waspada }})</span>
+        <span style="margin-left:auto;"><i class="bi bi-info-circle"></i> Klik baris untuk melihat tren HOP</span>
+    </div>
+</div>
+{% endfor %}
+
+<!-- Modal tren -->
+<div class="modal-bd" id="trend-modal">
+    <div class="modal-card">
+        <div class="modal-hd">
+            <h3 id="tm-title">Tren HOP</h3>
+            <button class="cls" id="tm-close">&times;</button>
+        </div>
+        <div class="modal-meta" id="tm-meta"></div>
+        <div class="modal-body">
+            <canvas id="tm-canvas" height="150"></canvas>
+        </div>
+    </div>
+</div>
+
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ── Tabs ──────────────────────────────────────────────────────────────
+document.querySelectorAll('.hop-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.hop-tab').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const tab = btn.dataset.tab;
+        document.querySelectorAll('.hop-panel').forEach(p => p.classList.add('hidden'));
+        const panel = document.getElementById('panel-' + tab);
+        if (panel) panel.classList.remove('hidden');
+    });
+});
+
+// ── Modal tren ────────────────────────────────────────────────────────
+const modal   = document.getElementById('trend-modal');
+const tmTitle = document.getElementById('tm-title');
+const tmMeta  = document.getElementById('tm-meta');
+let trendChart = null;
+
+function closeModal() { if (modal) modal.classList.remove('show'); }
+if (modal) {
+    document.getElementById('tm-close').addEventListener('click', closeModal);
+    modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+}
+
+function statusBadge(warna, label) {
+    return `<span style="color:${warna}; background:${warna}22; padding:2px 9px; border-radius:20px; font-weight:700; font-size:11px;">${label}</span>`;
+}
+
+document.querySelectorAll('.hop-table tbody tr').forEach(tr => {
+    tr.addEventListener('click', () => openTrend(tr.dataset.pk));
+});
+
+async function openTrend(pk) {
+    modal.classList.add('show');
+    tmTitle.textContent = 'Memuat…';
+    tmMeta.innerHTML = '';
+    try {
+        const res = await fetch(`/opsis/hop/api/trend/${pk}/?hari=90`);
+        const d = await res.json();
+        tmTitle.textContent = d.nama;
+        const katLbl = d.kategori === 'batubara' ? 'Batu Bara' : 'BBM';
+        tmMeta.innerHTML =
+            `<span>Kategori: <b>${katLbl}</b></span>` +
+            `<span>Sistem: <b>${d.sistem || '—'}</b></span>` +
+            `<span>Aset: <b>${d.aset || '—'}</b></span>` +
+            `<span>DMN: <b>${d.dmn != null ? d.dmn + ' MW' : '—'}</b></span>` +
+            `<span>Status: ${statusBadge(d.warna, d.status_label)}</span>`;
+        renderChart(d);
+    } catch (e) {
+        tmTitle.textContent = 'Gagal memuat data';
+    }
+}
+
+function renderChart(d) {
+    const ctx = document.getElementById('tm-canvas');
+    if (trendChart) trendChart.destroy();
+    const aman = d.threshold.aman, waspada = d.threshold.waspada;
+    const n = d.labels.length;
+    const line = (v) => new Array(n).fill(v);
+    trendChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: d.labels,
+            datasets: [
+                {
+                    label: 'HOP (hari)', data: d.data, borderColor: d.warna,
+                    backgroundColor: d.warna + '22', fill: true, tension: .25,
+                    pointRadius: 0, pointHoverRadius: 4, borderWidth: 2,
+                },
+                { label: 'Ambang Aman', data: line(aman), borderColor: '#10b981',
+                  borderDash: [6,4], borderWidth: 1, pointRadius: 0, fill: false },
+                { label: 'Ambang Waspada', data: line(waspada), borderColor: '#f59e0b',
+                  borderDash: [6,4], borderWidth: 1, pointRadius: 0, fill: false },
+            ],
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { labels: { color: '#94a3b8', boxWidth: 12, font: { size: 11 } } },
+                tooltip: { callbacks: { label: c => `${c.dataset.label}: ${c.parsed.y != null ? c.parsed.y.toFixed(2) : '—'}` } },
+            },
+            scales: {
+                x: { ticks: { color: '#64748b', maxTicksLimit: 10, font: { size: 10 } },
+                     grid: { color: 'rgba(255,255,255,.04)' } },
+                y: { ticks: { color: '#64748b', font: { size: 10 } },
+                     grid: { color: 'rgba(255,255,255,.04)' },
+                     title: { display: true, text: 'Hari Operasi', color: '#64748b', font: { size: 10 } } },
+            },
+        },
+    });
+    // Perbaiki tinggi kanvas di dalam modal
+    ctx.parentElement.style.height = '340px';
+}
+</script>
+{% endblock %}

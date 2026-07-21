@@ -320,6 +320,12 @@ body { font-family:'DM Sans', sans-serif; background:var(--body-bg); color:var(-
             <i class="bi bi-building-fill-up sb-icon"></i>
             <span class="sb-label">Beban KTT</span>
         </a>
+        {% if request.user.profile.role != 'up2d' %}
+        <a href="/opsis/hop/" class="sb-link {% if request.resolver_match.url_name == 'opsis_hop' or request.resolver_match.url_name == 'opsis_hop_import' %}active{% endif %}">
+            <i class="bi bi-fuel-pump-fill sb-icon"></i>
+            <span class="sb-label">HOP Pembangkit</span>
+        </a>
+        {% endif %}
 
         {% if pembangkit_list and request.user.profile.role != 'up2d' %}
         <button id="btn-pb-toggle" onclick="togglePembangkit()"
