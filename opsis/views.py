@@ -9,7 +9,7 @@ from django.shortcuts import redirect
 from django.urls import reverse
 from .models import (Pembangkit, SnapLive, SnapFreq, Trafo, SnapTrafo,
                      HopPembangkit, HopSnapshot, HOP_KATEGORI_CHOICES,
-                     HOP_THRESHOLDS, hop_status)
+                     hop_status, hop_deskripsi_band, hop_garis_ambang)
 from . import mssql
 from . import forecast
 from . import hop as hop_io
@@ -1040,7 +1040,7 @@ def _hop_kategori_data(kategori):
 
     rows, tanggal_terakhir = [], None
     per_sistem = {}   # sistem -> [hop,...]
-    rekap = {'aman': 0, 'waspada': 0, 'kritis': 0, 'kosong': 0}
+    rekap = {}
     for p in plants:
         lt = last.get(p.pk)
         hop = lt[1] if lt else None
@@ -1068,17 +1068,20 @@ def _hop_kategori_data(kategori):
     # Urutkan tampilan: HOP terkecil (paling kritis) di atas; None paling bawah
     rows.sort(key=lambda r: (r['hop'] is None, r['hop'] if r['hop'] is not None else 0))
 
-    th = HOP_THRESHOLDS.get(kategori, HOP_THRESHOLDS['bbm'])
+    # Ringkasan band (KPI + legenda) beserta jumlah pembangkit tiap status
+    bands = [{'kode': kode, 'label': label, 'warna': warna, 'desc': desc,
+              'count': rekap.get(kode, 0)}
+             for kode, label, warna, desc in hop_deskripsi_band(kategori)]
+
     return {
         'kategori': kategori,
         'rows': rows,
         'rata_sistem': rata_sistem,
         'rata_total': rata_total,
         'rekap': rekap,
+        'bands': bands,
         'jumlah': len(rows),
         'tanggal_terakhir': tanggal_terakhir,
-        'th_aman': th['aman'],
-        'th_waspada': th['waspada'],
     }
 
 
@@ -1118,7 +1121,7 @@ def api_hop_trend(request, pk):
         'aset': pb.aset,
         'dmn': pb.dmn_mw,
         'status': kode, 'status_label': label, 'warna': warna,
-        'threshold': HOP_THRESHOLDS.get(pb.kategori, {}),
+        'ambang': hop_garis_ambang(pb.kategori),
         'labels': [t.strftime('%Y-%m-%d') for t, _ in items],
         'data':   [h for _, h in items],
     })

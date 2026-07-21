@@ -42,7 +42,7 @@
 .kpi.aman   { border-left:3px solid #10b981; }
 .kpi.waspada{ border-left:3px solid #f59e0b; }
 .kpi.kritis { border-left:3px solid #ef4444; }
-.dot-s { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:5px; }
+.dot-s { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:5px; border:1px solid rgba(255,255,255,.28); }
 
 /* Sistem average chips */
 .sis-row { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px; }
@@ -69,6 +69,8 @@ table.hop-table { width:100%; border-collapse:collapse; font-size:13px; min-widt
 .num { font-family:'JetBrains Mono',monospace; text-align:right; }
 .hop-val { font-family:'JetBrains Mono',monospace; font-size:17px; font-weight:700; }
 .badge-st { font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:20px; white-space:nowrap; }
+.badge-black { color:#fff; background:#000; border:1px solid #64748b; }
+.hop-black { color:#fff; background:#000; border:1px solid #64748b; padding:1px 8px; border-radius:6px; }
 .delta { font-family:'JetBrains Mono',monospace; font-size:11.5px; }
 .delta.up { color:#34d399; } .delta.down { color:#f87171; } .delta.flat { color:var(--muted); }
 .rank { color:var(--muted); font-family:'JetBrains Mono',monospace; font-size:12px; }
@@ -143,21 +145,13 @@ table.hop-table { width:100%; border-collapse:collapse; font-size:13px; min-widt
             <div class="val" style="color:#60a5fa;">{{ d.rata_total|floatformat:2|default:"—" }} <span class="u">hari</span></div>
             <div class="foot">{{ d.jumlah }} pembangkit &middot; per {{ d.tanggal_terakhir|date:"d M Y"|default:"—" }}</div>
         </div>
-        <div class="kpi aman">
-            <div class="lbl"><span class="dot-s" style="background:#10b981;"></span>Aman</div>
-            <div class="val" style="color:#34d399;">{{ d.rekap.aman }}</div>
-            <div class="foot">HOP &ge; {{ d.th_aman }} hari</div>
+        {% for b in d.bands %}
+        <div class="kpi" style="border-left:3px solid {{ b.warna }};">
+            <div class="lbl"><span class="dot-s" style="background:{{ b.warna }};"></span>{{ b.label }}</div>
+            <div class="val" style="color:{% if b.kode == 'bahaya' %}#e2e8f0{% else %}{{ b.warna }}{% endif %};">{{ b.count }}</div>
+            <div class="foot">{{ b.desc }}</div>
         </div>
-        <div class="kpi waspada">
-            <div class="lbl"><span class="dot-s" style="background:#f59e0b;"></span>Waspada</div>
-            <div class="val" style="color:#fbbf24;">{{ d.rekap.waspada }}</div>
-            <div class="foot">HOP &ge; {{ d.th_waspada }} hari</div>
-        </div>
-        <div class="kpi kritis">
-            <div class="lbl"><span class="dot-s" style="background:#ef4444;"></span>Kritis</div>
-            <div class="val" style="color:#f87171;">{{ d.rekap.kritis }}</div>
-            <div class="foot">di bawah ambang waspada</div>
-        </div>
+        {% endfor %}
     </div>
 
     {% if d.rata_sistem %}
@@ -191,8 +185,20 @@ table.hop-table { width:100%; border-collapse:collapse; font-size:13px; min-widt
                     </td>
                     <td style="color:var(--muted); font-size:12px;">{{ r.aset|default:"—" }}</td>
                     <td class="num" style="color:var(--muted);">{{ r.dmn|floatformat:2|default:"—" }}</td>
-                    <td class="num"><span class="hop-val" style="color:{{ r.warna }};">{% if r.hop != None %}{{ r.hop|floatformat:2 }}{% else %}—{% endif %}</span></td>
-                    <td><span class="badge-st" style="color:{{ r.warna }}; background:{{ r.warna }}22;">{{ r.status_label }}</span></td>
+                    <td class="num">
+                        {% if r.status == 'bahaya' %}
+                            <span class="hop-val hop-black">{% if r.hop != None %}{{ r.hop|floatformat:2 }}{% else %}—{% endif %}</span>
+                        {% else %}
+                            <span class="hop-val" style="color:{{ r.warna }};">{% if r.hop != None %}{{ r.hop|floatformat:2 }}{% else %}—{% endif %}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if r.status == 'bahaya' %}
+                            <span class="badge-st badge-black">{{ r.status_label }}</span>
+                        {% else %}
+                            <span class="badge-st" style="color:{{ r.warna }}; background:{{ r.warna }}22;">{{ r.status_label }}</span>
+                        {% endif %}
+                    </td>
                     <td class="num">
                         {% if r.delta != None %}
                             {% if r.delta > 0 %}<span class="delta up">▲ {{ r.delta|floatformat:2 }}</span>
@@ -207,9 +213,9 @@ table.hop-table { width:100%; border-collapse:collapse; font-size:13px; min-widt
     </div>
 
     <div class="legend">
-        <span><span class="dot-s" style="background:#10b981;"></span>Aman (HOP &ge; {{ d.th_aman }})</span>
-        <span><span class="dot-s" style="background:#f59e0b;"></span>Waspada (&ge; {{ d.th_waspada }})</span>
-        <span><span class="dot-s" style="background:#ef4444;"></span>Kritis (&lt; {{ d.th_waspada }})</span>
+        {% for b in d.bands %}
+        <span><span class="dot-s" style="background:{{ b.warna }};"></span>{{ b.label }} ({{ b.desc }})</span>
+        {% endfor %}
         <span style="margin-left:auto;"><i class="bi bi-info-circle"></i> Klik baris untuk melihat tren HOP</span>
     </div>
 </div>
@@ -291,25 +297,24 @@ async function openTrend(pk) {
 function renderChart(d) {
     const ctx = document.getElementById('tm-canvas');
     if (trendChart) trendChart.destroy();
-    const aman = d.threshold.aman, waspada = d.threshold.waspada;
     const n = d.labels.length;
     const line = (v) => new Array(n).fill(v);
+    const datasets = [{
+        label: 'HOP (hari)', data: d.data, borderColor: d.warna,
+        backgroundColor: d.warna + '22', fill: true, tension: .25,
+        pointRadius: 0, pointHoverRadius: 4, borderWidth: 2,
+    }];
+    // Garis ambang batas tiap band (mis. batu bara: 15 / 10 / 5)
+    (d.ambang || []).forEach(a => {
+        const warna = a.warna === '#0a0a0a' ? '#94a3b8' : a.warna;  // hitam -> abu agar terlihat
+        datasets.push({
+            label: 'Ambang ' + a.label + ' (' + a.value + ')', data: line(a.value),
+            borderColor: warna, borderDash: [6,4], borderWidth: 1, pointRadius: 0, fill: false,
+        });
+    });
     trendChart = new Chart(ctx, {
         type: 'line',
-        data: {
-            labels: d.labels,
-            datasets: [
-                {
-                    label: 'HOP (hari)', data: d.data, borderColor: d.warna,
-                    backgroundColor: d.warna + '22', fill: true, tension: .25,
-                    pointRadius: 0, pointHoverRadius: 4, borderWidth: 2,
-                },
-                { label: 'Ambang Aman', data: line(aman), borderColor: '#10b981',
-                  borderDash: [6,4], borderWidth: 1, pointRadius: 0, fill: false },
-                { label: 'Ambang Waspada', data: line(waspada), borderColor: '#f59e0b',
-                  borderDash: [6,4], borderWidth: 1, pointRadius: 0, fill: false },
-            ],
-        },
+        data: { labels: d.labels, datasets: datasets },
         options: {
             responsive: true, maintainAspectRatio: false,
             interaction: { mode: 'index', intersect: false },

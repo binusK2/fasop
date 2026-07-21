@@ -63,17 +63,37 @@ HOP_SISTEM_CHOICES = [
     ('Baubau',    'Baubau'),
 ]
 
-# Ambang status HOP (Hari Operasi) per kategori bahan bakar — jumlah hari
-# operasi yang masih dapat dicover oleh stok. Batu bara & BBM punya norma
-# operasi berbeda, jadi ambangnya dipisah. Ubah di sini bila kebijakan
-# perusahaan berbeda; seluruh dashboard mengikuti nilai ini.
-#   HOP >= aman    -> hijau  (Aman)
-#   HOP >= waspada -> kuning (Waspada)
-#   selain itu     -> merah  (Kritis, termasuk defisit/negatif)
-HOP_THRESHOLDS = {
-    'batubara': {'aman': 15, 'waspada': 7},
-    'bbm':      {'aman': 7,  'waspada': 3},
+# Band status HOP (Hari Operasi) per kategori bahan bakar — jumlah hari operasi
+# yang masih dapat dicover oleh stok. Batu bara & BBM punya norma operasi
+# berbeda, jadi bandnya dipisah. Ini adalah SATU-SATUNYA sumber definisi
+# status: fungsi hop_status(), KPI dashboard, legenda, dan garis ambang pada
+# chart semuanya diturunkan dari sini. Ubah angka/warna di sini bila kebijakan
+# perusahaan berbeda.
+#
+# Tiap band: (kode, label, warna, batas, op) dievaluasi dari atas ke bawah;
+# band dengan batas=None adalah penampung sisa (paling bawah). 'op' menentukan
+# perbandingan terhadap batas: '>' (di atas) atau '>=' (mulai dari).
+#   Batu bara: HOP > 15 hijau | 10–15 kuning | 5–10 merah | < 5 hitam (Bahaya)
+#   BBM:       HOP >= 7 hijau | 3–7 kuning | < 3 merah
+HOP_BANDS = {
+    'batubara': [
+        ('aman',    'Aman',    '#10b981', 15,   '>'),   # HOP > 15
+        ('waspada', 'Waspada', '#f59e0b', 10,   '>'),   # 10 < HOP <= 15
+        ('kritis',  'Kritis',  '#ef4444', 5,    '>='),  # 5 <= HOP <= 10
+        ('bahaya',  'Bahaya',  '#0a0a0a', None, None),  # HOP < 5 (hitam)
+    ],
+    'bbm': [
+        ('aman',    'Aman',    '#10b981', 7,    '>='),  # HOP >= 7
+        ('waspada', 'Waspada', '#f59e0b', 3,    '>='),  # 3 <= HOP < 7
+        ('kritis',  'Kritis',  '#ef4444', None, None),  # HOP < 3
+    ],
 }
+
+STATUS_KOSONG = ('kosong', 'Belum ada data', '#64748b')
+
+
+def _bands(kategori):
+    return HOP_BANDS.get(kategori, HOP_BANDS['bbm'])
 
 
 def hop_status(kategori, hop):
@@ -82,13 +102,43 @@ def hop_status(kategori, hop):
     hop None -> status 'kosong' (belum ada data).
     """
     if hop is None:
-        return ('kosong', 'Belum ada data', '#64748b')
-    th = HOP_THRESHOLDS.get(kategori, HOP_THRESHOLDS['bbm'])
-    if hop >= th['aman']:
-        return ('aman', 'Aman', '#10b981')
-    if hop >= th['waspada']:
-        return ('waspada', 'Waspada', '#f59e0b')
-    return ('kritis', 'Kritis', '#ef4444')
+        return STATUS_KOSONG
+    for kode, label, warna, batas, op in _bands(kategori):
+        if batas is None:
+            return (kode, label, warna)
+        if op == '>' and hop > batas:
+            return (kode, label, warna)
+        if op == '>=' and hop >= batas:
+            return (kode, label, warna)
+    return STATUS_KOSONG
+
+
+def hop_deskripsi_band(kategori):
+    """
+    Ringkasan tiap band untuk KPI/legenda: list of
+    (kode, label, warna, deskripsi_rentang). Urut dari paling aman ke bahaya.
+    """
+    bands = _bands(kategori)
+    hasil = []
+    for i, (kode, label, warna, batas, op) in enumerate(bands):
+        if batas is None:
+            # band terbawah: di bawah batas band sebelumnya
+            prev_batas = bands[i - 1][3] if i > 0 else None
+            desc = f'HOP < {prev_batas:g} hari' if prev_batas is not None else '—'
+        elif i == 0:
+            desc = f'HOP {op} {batas:g} hari'
+        else:
+            prev_batas = bands[i - 1][3]
+            desc = f'{batas:g} – {prev_batas:g} hari' if prev_batas is not None else f'HOP {op} {batas:g}'
+        hasil.append((kode, label, warna, desc))
+    return hasil
+
+
+def hop_garis_ambang(kategori):
+    """Nilai batas tiap band (untuk garis referensi pada chart tren)."""
+    return [{'value': batas, 'warna': warna, 'label': label}
+            for (kode, label, warna, batas, op) in _bands(kategori)
+            if batas is not None]
 
 
 class HopPembangkit(models.Model):
