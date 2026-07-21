@@ -1,5 +1,6 @@
 from django.contrib import admin
-from .models import Pembangkit, SnapLive, SnapUnit, SnapFreq, SnapFreqArea, Trafo, SnapTrafo
+from .models import (Pembangkit, SnapLive, SnapUnit, SnapFreq, SnapFreqArea,
+                     Trafo, SnapTrafo, HopPembangkit, HopSnapshot)
 
 
 @admin.register(Pembangkit)
@@ -74,3 +75,30 @@ class SnapLiveAdmin(admin.ModelAdmin):
     readonly_fields = ('pembangkit', 'waktu', 'mw', 'mvar', 'frekuensi', 'dicatat_pada')
     inlines        = [SnapUnitInline]
     ordering       = ('-waktu',)
+
+
+class HopSnapshotInline(admin.TabularInline):
+    model = HopSnapshot
+    extra = 0
+    fields = ('tanggal', 'hop')
+    ordering = ('-tanggal',)
+
+
+@admin.register(HopPembangkit)
+class HopPembangkitAdmin(admin.ModelAdmin):
+    list_display  = ('urutan', 'nama', 'kategori', 'sistem', 'aset', 'dmn_mw',
+                     'hop_terakhir', 'aktif')
+    list_editable = ('urutan', 'aktif')
+    list_filter   = ('kategori', 'sistem', 'aset', 'aktif')
+    search_fields = ('nama',)
+    list_display_links = ('nama',)
+    inlines = (HopSnapshotInline,)
+
+
+@admin.register(HopSnapshot)
+class HopSnapshotAdmin(admin.ModelAdmin):
+    list_display   = ('pembangkit', 'tanggal', 'hop')
+    list_filter    = ('pembangkit__kategori', 'pembangkit__sistem')
+    date_hierarchy = 'tanggal'
+    search_fields  = ('pembangkit__nama',)
+    ordering       = ('-tanggal',)

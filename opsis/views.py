@@ -4,9 +4,15 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.utils import timezone
 from django.conf import settings
-from .models import Pembangkit, SnapLive, SnapFreq, Trafo, SnapTrafo
+from django.contrib import messages
+from django.shortcuts import redirect
+from django.urls import reverse
+from .models import (Pembangkit, SnapLive, SnapFreq, Trafo, SnapTrafo,
+                     HopPembangkit, HopSnapshot, HOP_KATEGORI_CHOICES,
+                     hop_status, hop_deskripsi_band, hop_garis_ambang)
 from . import mssql
 from . import forecast
+from . import hop as hop_io
 
 
 def _pembangkit_aktif():
@@ -1004,3 +1010,156 @@ def api_prediksi_beban(request):
     akurasi = forecast.evaluate_accuracy(days=7)
     besok = forecast.predict_besok_puncak()
     return JsonResponse({'akurasi': akurasi, 'besok': besok})
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  HOP — Hari Operasi Pembangkit (stok batu bara & BBM)
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _hop_kategori_data(kategori):
+    """
+    Rakit data dashboard untuk satu kategori ('batubara'/'bbm'):
+    daftar pembangkit + status HOP terakhir, rata-rata per sistem, dan
+    rekap jumlah status. Query ringan — jumlah pembangkit kecil (< 60).
+    """
+    plants = list(HopPembangkit.objects.filter(kategori=kategori, aktif=True))
+    ids = [p.pk for p in plants]
+
+    # Ambil 2 snapshot terakhir per pembangkit (nilai terkini + pembanding tren)
+    last, prev = {}, {}
+    if ids:
+        snaps = (HopSnapshot.objects
+                 .filter(pembangkit_id__in=ids, hop__isnull=False)
+                 .order_by('pembangkit_id', '-tanggal')
+                 .values_list('pembangkit_id', 'tanggal', 'hop'))
+        for pid, tgl, hop in snaps:
+            if pid not in last:
+                last[pid] = (tgl, hop)
+            elif pid not in prev:
+                prev[pid] = (tgl, hop)
+
+    rows, tanggal_terakhir = [], None
+    per_sistem = {}   # sistem -> [hop,...]
+    rekap = {}
+    for p in plants:
+        lt = last.get(p.pk)
+        hop = lt[1] if lt else None
+        tgl = lt[0] if lt else None
+        if tgl and (tanggal_terakhir is None or tgl > tanggal_terakhir):
+            tanggal_terakhir = tgl
+        pv = prev.get(p.pk)
+        delta = (hop - pv[1]) if (hop is not None and pv) else None
+        kode, label, warna = hop_status(kategori, hop)
+        rekap[kode] = rekap.get(kode, 0) + 1
+        if hop is not None:
+            per_sistem.setdefault(p.sistem or '—', []).append(hop)
+        rows.append({
+            'pk': p.pk, 'nama': p.nama, 'sistem': p.sistem or '—',
+            'aset': p.aset, 'dmn': p.dmn_mw, 'hop': hop, 'tanggal': tgl,
+            'delta': delta, 'status': kode, 'status_label': label, 'warna': warna,
+        })
+
+    # Rata-rata per sistem + keseluruhan (meniru RATA-RATA di sheet looker)
+    semua_hop = [h for lst in per_sistem.values() for h in lst]
+    rata_sistem = [{'sistem': s, 'rata': sum(v) / len(v), 'jumlah': len(v)}
+                   for s, v in sorted(per_sistem.items())]
+    rata_total = (sum(semua_hop) / len(semua_hop)) if semua_hop else None
+
+    # Urutkan tampilan: HOP terkecil (paling kritis) di atas; None paling bawah
+    rows.sort(key=lambda r: (r['hop'] is None, r['hop'] if r['hop'] is not None else 0))
+
+    # Ringkasan band (KPI + legenda) beserta jumlah pembangkit tiap status
+    bands = [{'kode': kode, 'label': label, 'warna': warna, 'desc': desc,
+              'count': rekap.get(kode, 0)}
+             for kode, label, warna, desc in hop_deskripsi_band(kategori)]
+
+    return {
+        'kategori': kategori,
+        'rows': rows,
+        'rata_sistem': rata_sistem,
+        'rata_total': rata_total,
+        'rekap': rekap,
+        'bands': bands,
+        'jumlah': len(rows),
+        'tanggal_terakhir': tanggal_terakhir,
+    }
+
+
+@login_required
+def hop_dashboard(request):
+    """Dashboard HOP (Hari Operasi) — coverage stok batu bara & BBM."""
+    data = {kode: _hop_kategori_data(kode) for kode, _ in HOP_KATEGORI_CHOICES}
+    ada_data = any(d['jumlah'] for d in data.values())
+    return render(request, 'opsis/hop.html', {
+        'pembangkit_list': _pembangkit_aktif(),
+        'batubara': data['batubara'],
+        'bbm': data['bbm'],
+        'panels': [data['batubara'], data['bbm']],
+        'ada_data': ada_data,
+        'bisa_impor': request.user.is_superuser or getattr(
+            getattr(request.user, 'profile', None), 'can_edit', False),
+    })
+
+
+@login_required
+def api_hop_trend(request, pk):
+    """JSON tren HOP harian satu pembangkit (default 60 hari terakhir)."""
+    pb = get_object_or_404(HopPembangkit, pk=pk)
+    try:
+        limit = min(int(request.GET.get('hari', 60)), 400)
+    except (TypeError, ValueError):
+        limit = 60
+    qs = (pb.hop_snaps.filter(hop__isnull=False)
+          .order_by('-tanggal')
+          .values_list('tanggal', 'hop')[:limit])
+    items = list(reversed(list(qs)))
+    kode, label, warna = pb.status_terakhir()
+    return JsonResponse({
+        'nama': pb.nama,
+        'kategori': pb.kategori,
+        'sistem': pb.sistem,
+        'aset': pb.aset,
+        'dmn': pb.dmn_mw,
+        'status': kode, 'status_label': label, 'warna': warna,
+        'ambang': hop_garis_ambang(pb.kategori),
+        'labels': [t.strftime('%Y-%m-%d') for t, _ in items],
+        'data':   [h for _, h in items],
+    })
+
+
+@login_required
+def hop_import(request):
+    """Unggah workbook konfirmasi stok (.xlsx) untuk memperbarui data HOP."""
+    bisa = request.user.is_superuser or getattr(
+        getattr(request.user, 'profile', None), 'can_edit', False)
+    if not bisa:
+        messages.error(request, 'Anda tidak memiliki akses untuk mengimpor data HOP.')
+        return redirect('opsis_hop')
+
+    if request.method == 'POST':
+        f = request.FILES.get('file')
+        if not f:
+            messages.error(request, 'Pilih file .xlsx terlebih dahulu.')
+            return redirect('opsis_hop_import')
+        if not f.name.lower().endswith('.xlsx'):
+            messages.error(request, 'Format harus .xlsx (workbook Excel).')
+            return redirect('opsis_hop_import')
+        try:
+            data = hop_io.parse_workbook(f)
+            if not data:
+                messages.warning(request, 'Tidak ada baris terbaca — pastikan '
+                                 'workbook memiliki sheet "Batubara" / "BBM".')
+                return redirect('opsis_hop_import')
+            hasil = hop_io.simpan(data)
+        except Exception as e:
+            messages.error(request, f'Gagal mengimpor: {e}')
+            return redirect('opsis_hop_import')
+        messages.success(request, (
+            f"Impor berhasil — {hasil['pembangkit']} pembangkit, "
+            f"{hasil['snapshot']} snapshot harian diperbarui "
+            f"(hingga {hasil['tanggal_terakhir']})."))
+        return redirect('opsis_hop')
+
+    return render(request, 'opsis/hop_import.html', {
+        'pembangkit_list': _pembangkit_aktif(),
+    })
