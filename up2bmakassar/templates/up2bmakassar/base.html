@@ -198,6 +198,10 @@ body {
             <i class="bi bi-toggle2-on sb-icon" style="color:#34d399;"></i>
             <span class="sb-label">Telesignal</span>
         </a>
+        <a href="{% url 'up2b_soe_log' %}" class="sb-link {% if request.resolver_match.url_name == 'up2b_soe_log' %}active{% endif %}">
+            <i class="bi bi-list-columns-reverse sb-icon" style="color:#fbbf24;"></i>
+            <span class="sb-label">SOE Log</span>
+        </a>
         <div class="sb-section-label" style="margin-top:8px;">Aplikasi Lain</div>
         <a href="/opsis/" class="sb-link">
             <i class="bi bi-lightning-charge-fill sb-icon" style="color:#34d399;"></i>

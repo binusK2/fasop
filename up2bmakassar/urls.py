@@ -5,4 +5,5 @@ urlpatterns = [
     path('', views.dashboard, name='up2b_dashboard'),
     path('analog/', views.kinerja_analog, name='up2b_kinerja_analog'),
     path('digital/', views.kinerja_digital, name='up2b_kinerja_digital'),
+    path('soe-log/', views.soe_log, name='up2b_soe_log'),
 ]
