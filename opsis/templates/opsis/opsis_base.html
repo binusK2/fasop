@@ -147,6 +147,28 @@ body { font-family:'DM Sans', sans-serif; background:var(--body-bg); color:var(-
 
 .sidebar.collapsed .sb-link { justify-content: center; padding-left: 0; padding-right: 0; gap: 0; }
 .sidebar.collapsed .sb-label { display: none; }
+
+/* Submenu (Beban Trafo) */
+.sb-parent {
+    width: 100%;
+    background: none;
+    font-family: inherit;
+    cursor: pointer;
+}
+.sb-caret {
+    font-size: 11px;
+    color: var(--muted);
+    margin-left: auto;
+    transition: transform .2s;
+    flex-shrink: 0;
+}
+.sb-parent.open .sb-caret { transform: rotate(180deg); }
+.sb-sub { display: none; }
+.sb-sub.open { display: block; }
+.sb-sublink { padding-left: 34px; font-size: 12.5px; background: rgba(255,255,255,.015); }
+.sb-sublink .sb-icon { font-size: 13px; }
+.sidebar.collapsed .sb-sublink { padding-left: 0; }
+.sidebar.collapsed .sb-caret { display: none; }
 .sidebar.collapsed #btn-pb-toggle { justify-content: center; padding-left: 0; padding-right: 0; }
 .sidebar.collapsed #pb-chevron { display: none; }
 
@@ -300,22 +322,32 @@ body { font-family:'DM Sans', sans-serif; background:var(--body-bg); color:var(-
             <i class="bi bi-diagram-3-fill sb-icon"></i>
             <span class="sb-label">Dashboard UP2D</span>
         </a>
-        <a href="/opsis/beban-trafo/" class="sb-link {% if request.resolver_match.url_name == 'opsis_beban_trafo' %}active{% endif %}">
+        {% with un=request.resolver_match.url_name %}
+        <button type="button" id="btn-trafo-toggle" onclick="toggleTrafo()"
+                class="sb-link sb-parent {% if un == 'opsis_beban_trafo' or un == 'opsis_beban_trafo_chart' or un == 'opsis_beban_trafo_ibt' or un == 'opsis_beban_trafo_ibt_chart' %}active{% endif %}">
             <i class="bi bi-lightning-charge-fill sb-icon"></i>
-            <span class="sb-label">Beban Trafo Distribusi</span>
-        </a>
-        <a href="/opsis/beban-trafo-chart/" class="sb-link {% if request.resolver_match.url_name == 'opsis_beban_trafo_chart' %}active{% endif %}">
-            <i class="bi bi-graph-up sb-icon"></i>
-            <span class="sb-label">Chart Trafo Distribusi</span>
-        </a>
-        <a href="/opsis/beban-trafo-ibt/" class="sb-link {% if request.resolver_match.url_name == 'opsis_beban_trafo_ibt' %}active{% endif %}">
-            <i class="bi bi-lightning-charge-fill sb-icon"></i>
-            <span class="sb-label">Beban Trafo IBT</span>
-        </a>
-        <a href="/opsis/beban-trafo-ibt-chart/" class="sb-link {% if request.resolver_match.url_name == 'opsis_beban_trafo_ibt_chart' %}active{% endif %}">
-            <i class="bi bi-graph-up sb-icon"></i>
-            <span class="sb-label">Chart Trafo IBT</span>
-        </a>
+            <span class="sb-label">Beban Trafo</span>
+            <i class="bi bi-chevron-down sb-caret" id="trafo-caret"></i>
+        </button>
+        <div id="trafo-sub" class="sb-sub{% if un == 'opsis_beban_trafo' or un == 'opsis_beban_trafo_chart' or un == 'opsis_beban_trafo_ibt' or un == 'opsis_beban_trafo_ibt_chart' %} open{% endif %}">
+            <a href="/opsis/beban-trafo/" class="sb-link sb-sublink {% if un == 'opsis_beban_trafo' %}active{% endif %}">
+                <i class="bi bi-lightning-charge sb-icon"></i>
+                <span class="sb-label">Beban Trafo Distribusi</span>
+            </a>
+            <a href="/opsis/beban-trafo-chart/" class="sb-link sb-sublink {% if un == 'opsis_beban_trafo_chart' %}active{% endif %}">
+                <i class="bi bi-graph-up sb-icon"></i>
+                <span class="sb-label">Chart Trafo Distribusi</span>
+            </a>
+            <a href="/opsis/beban-trafo-ibt/" class="sb-link sb-sublink {% if un == 'opsis_beban_trafo_ibt' %}active{% endif %}">
+                <i class="bi bi-lightning-charge sb-icon"></i>
+                <span class="sb-label">Beban Trafo IBT</span>
+            </a>
+            <a href="/opsis/beban-trafo-ibt-chart/" class="sb-link sb-sublink {% if un == 'opsis_beban_trafo_ibt_chart' %}active{% endif %}">
+                <i class="bi bi-graph-up sb-icon"></i>
+                <span class="sb-label">Chart Trafo IBT</span>
+            </a>
+        </div>
+        {% endwith %}
         <a href="/opsis/beban-ktt/" class="sb-link {% if request.resolver_match.url_name == 'opsis_beban_ktt' %}active{% endif %}">
             <i class="bi bi-building-fill-up sb-icon"></i>
             <span class="sb-label">Beban KTT</span>
@@ -406,6 +438,8 @@ if (btnMenu) {
 }
 if (sbBackdrop) sbBackdrop.addEventListener('click', closeMobileSidebar);
 document.querySelectorAll('.sb-link').forEach(link => {
+    // Jangan tutup sidebar mobile saat mengklik parent submenu (toggle, bukan navigasi)
+    if (link.classList.contains('sb-parent')) return;
     link.addEventListener('click', () => { if (window.innerWidth <= 768) closeMobileSidebar(); });
 });
 
@@ -430,6 +464,27 @@ function togglePembangkit() {
     applyPbState();
 }
 applyPbState();
+
+// Submenu "Beban Trafo" collapse/expand
+const trafoSub = document.getElementById('trafo-sub');
+const trafoBtn = document.getElementById('btn-trafo-toggle');
+function applyTrafoState(open) {
+    if (!trafoSub || !trafoBtn) return;
+    trafoSub.classList.toggle('open', open);
+    trafoBtn.classList.toggle('open', open);
+}
+function toggleTrafo() {
+    const open = !(trafoSub && trafoSub.classList.contains('open'));
+    localStorage.setItem('opsis_trafo_open', open ? '1' : '0');
+    applyTrafoState(open);
+}
+(function () {
+    if (!trafoSub) return;
+    // Server menandai 'open' bila salah satu halaman trafo sedang aktif — selalu buka.
+    const childActive = trafoSub.classList.contains('open');
+    const stored = localStorage.getItem('opsis_trafo_open');
+    applyTrafoState(childActive || stored === '1');
+})();
 
 // Update last-update timestamp
 function setLastUpdate() {
