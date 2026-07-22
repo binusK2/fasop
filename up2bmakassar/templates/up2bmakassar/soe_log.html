@@ -1,0 +1,77 @@
+{% extends "up2bmakassar/base.html" %}
+{% block title %}SOE Log{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:18px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+    <div>
+        <div style="font-size:20px; font-weight:800; color:#fff; margin-bottom:2px;">SOE Log (Sequence of Events)</div>
+        <div style="font-size:12px; color:var(--muted);">Log kejadian SCADA — diambil langsung dari OFDB (read-only, tidak disimpan ulang di FASOP)</div>
+    </div>
+</div>
+
+<form method="get" class="filter-bar">
+    <label style="font-size:12px;color:var(--muted);">Dari
+        <input type="date" name="tanggal_dari" value="{{ tanggal_dari|date:'Y-m-d' }}">
+    </label>
+    <label style="font-size:12px;color:var(--muted);">Sampai
+        <input type="date" name="tanggal_sampai" value="{{ tanggal_sampai|date:'Y-m-d' }}">
+    </label>
+    <input type="search" name="q" value="{{ q }}" placeholder="Cari stasiun/bay/element/status/tag...">
+    <button type="submit" class="btn-filter"><i class="bi bi-funnel me-1"></i>Tampilkan</button>
+    <a class="btn-filter" style="text-decoration:none;"
+       href="?tanggal_dari={{ tanggal_dari|date:'Y-m-d' }}&tanggal_sampai={{ tanggal_sampai|date:'Y-m-d' }}&q={{ q|urlencode }}&export=1">
+        <i class="bi bi-file-earmark-excel me-1"></i>Excel
+    </a>
+</form>
+
+{% if error %}
+<div class="chart-card" style="border-color:rgba(239,68,68,.4);">
+    <div style="color:#f87171;"><i class="bi bi-exclamation-triangle me-1"></i>{{ error }}</div>
+</div>
+{% endif %}
+
+{% if truncated %}
+<div class="chart-card" style="border-color:rgba(245,158,11,.4); padding:12px 16px;">
+    <div style="color:#fbbf24; font-size:12px;"><i class="bi bi-info-circle me-1"></i>
+        Hasil dibatasi {{ max_rows }} baris. Persempit rentang tanggal atau kata kunci untuk melihat sisanya.
+    </div>
+</div>
+{% endif %}
+
+<div class="chart-card">
+    <div class="table-scroll">
+    <table class="kin-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                {% for h in headers %}<th>{{ h }}</th>{% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr>
+                <td style="color:var(--muted);">{{ forloop.counter }}</td>
+                <td style="font-family:'JetBrains Mono',monospace; white-space:nowrap;">{{ row.0|date:"Y-m-d H:i:s" }}</td>
+                <td>{{ row.1|default:"" }}</td>
+                <td>{{ row.2|default:"" }}</td>
+                <td>{{ row.3|default:"" }}</td>
+                <td>{{ row.4|default:"" }}</td>
+                <td>{{ row.5|default:"" }}</td>
+                <td>
+                    {% if row.6 %}<span class="tag-warn">{{ row.6 }}</span>{% else %}<span style="color:var(--muted);">—</span>{% endif %}
+                </td>
+                <td style="font-family:'JetBrains Mono',monospace;">{{ row.7|default:"" }}</td>
+                <td>{{ row.8|default:"" }}</td>
+                <td>{{ row.9|default:"" }}</td>
+                <td>{{ row.10|default:"" }}</td>
+            </tr>
+            {% empty %}
+            {% if not error %}
+            <tr><td colspan="12" style="text-align:center;padding:40px;color:var(--muted);">Tidak ada SOE pada rentang ini.</td></tr>
+            {% endif %}
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</div>
+{% endblock %}

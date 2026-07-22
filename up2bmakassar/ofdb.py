@@ -163,3 +163,57 @@ def compute_point_kinerja(cursor, table, point_number, day_start, day_end):
 
     performance = (uptime / total_seconds * 100) if total_seconds else 0
     return jlh, uptime, performance
+
+
+# ── SOE Log (query on-demand, TIDAK disimpan di PostgreSQL) ──────────────────────
+
+# Kolom SOE yang ditampilkan/di-export. path1text..path5text = versi terbaca
+# (B1/B2/B3/Element/Info) yang diisi trigger dari Oracle B1,B2,B3,ELEM,INFO.
+SOE_COLUMNS = [
+    'time_stamp', 'path1text', 'path2text', 'path3text', 'path4text', 'path5text',
+    'msgstatus', 'value', 'tag', 'msgoperator', 'priority',
+]
+
+SOE_HEADERS = [
+    'Tanggal', 'B1 (Stasiun)', 'B2 (Tegangan)', 'B3 (Bay)', 'Element', 'Info',
+    'Status', 'Value', 'Tag', 'Operator', 'Prioritas',
+]
+
+# Batas keras jumlah baris per query supaya web tidak menarik jutaan baris sekaligus.
+SOE_MAX_ROWS = 5000
+
+
+def query_soe(cursor, dt_start, dt_end, q=None, limit=SOE_MAX_ROWS):
+    """
+    Ambil SOE log dari OFDB scd_his_message untuk rentang [dt_start, dt_end], read-only
+    dan on-demand (tidak disimpan di PostgreSQL). Rentang tanggal WAJIB -- tanpa itu
+    query bisa mengembalikan ratusan juta baris.
+
+    q: opsional, cari di path1text..path5text / msgstatus / tag (LIKE %q%).
+    Return (rows, truncated) -- truncated=True kalau hasil kena batas `limit`.
+    """
+    cols = ', '.join(SOE_COLUMNS)
+    sql = f"""
+        SELECT TOP {int(limit) + 1} {cols}
+        FROM scd_his_message
+        WHERE time_stamp >= ? AND time_stamp <= ?
+    """
+    params = [dt_start, dt_end]
+
+    if q:
+        like = f'%{q}%'
+        sql += """
+            AND (path1text LIKE ? OR path2text LIKE ? OR path3text LIKE ?
+                 OR path4text LIKE ? OR path5text LIKE ? OR msgstatus LIKE ? OR tag LIKE ?)
+        """
+        params.extend([like] * 7)
+
+    sql += " ORDER BY time_stamp DESC"
+
+    cursor.execute(sql, params)
+    rows = cursor.fetchall()
+
+    truncated = len(rows) > limit
+    if truncated:
+        rows = rows[:limit]
+    return rows, truncated
