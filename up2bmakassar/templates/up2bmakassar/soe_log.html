@@ -16,12 +16,17 @@
     <label style="font-size:12px;color:var(--muted);">Sampai
         <input type="date" name="tanggal_sampai" value="{{ tanggal_sampai|date:'Y-m-d' }}">
     </label>
-    <input type="search" name="q" value="{{ q }}" placeholder="Cari stasiun/bay/element/status/tag...">
-    <button type="submit" class="btn-filter"><i class="bi bi-funnel me-1"></i>Tampilkan</button>
+    <input type="search" name="b1" value="{{ filters.b1 }}" placeholder="B1 (Stasiun)">
+    <input type="search" name="b2" value="{{ filters.b2 }}" placeholder="B2 (Tegangan)">
+    <input type="search" name="b3" value="{{ filters.b3 }}" placeholder="B3 (Bay)">
+    <input type="search" name="element" value="{{ filters.element }}" placeholder="Element">
+    <button type="submit" name="cari" value="1" class="btn-filter"><i class="bi bi-funnel me-1"></i>Tampilkan</button>
+    {% if submitted %}
     <a class="btn-filter" style="text-decoration:none;"
-       href="?tanggal_dari={{ tanggal_dari|date:'Y-m-d' }}&tanggal_sampai={{ tanggal_sampai|date:'Y-m-d' }}&q={{ q|urlencode }}&export=1">
+       href="?tanggal_dari={{ tanggal_dari|date:'Y-m-d' }}&tanggal_sampai={{ tanggal_sampai|date:'Y-m-d' }}&b1={{ filters.b1|urlencode }}&b2={{ filters.b2|urlencode }}&b3={{ filters.b3|urlencode }}&element={{ filters.element|urlencode }}&cari=1&export=1">
         <i class="bi bi-file-earmark-excel me-1"></i>Excel
     </a>
+    {% endif %}
 </form>
 
 {% if error %}
@@ -38,6 +43,12 @@
 </div>
 {% endif %}
 
+{% if not submitted %}
+<div class="chart-card" style="text-align:center; padding:48px 20px; color:var(--muted);">
+    <i class="bi bi-search" style="font-size:32px; display:block; margin-bottom:12px; opacity:.5;"></i>
+    Pilih rentang tanggal dan/atau filter B1/B2/B3/Element di atas,<br>lalu klik <strong>Tampilkan</strong> untuk memuat SOE log.
+</div>
+{% else %}
 <div class="chart-card">
     <div class="table-scroll">
     <table class="kin-table">
@@ -67,11 +78,12 @@
             </tr>
             {% empty %}
             {% if not error %}
-            <tr><td colspan="12" style="text-align:center;padding:40px;color:var(--muted);">Tidak ada SOE pada rentang ini.</td></tr>
+            <tr><td colspan="12" style="text-align:center;padding:40px;color:var(--muted);">Tidak ada SOE pada rentang/filter ini.</td></tr>
             {% endif %}
             {% endfor %}
         </tbody>
     </table>
     </div>
 </div>
+{% endif %}
 {% endblock %}

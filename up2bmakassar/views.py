@@ -97,18 +97,29 @@ def _soe_range(request):
 
 
 def _soe_fetch(request):
-    """Ambil SOE dari OFDB untuk rentang & keyword. Return dict siap render/export."""
+    """
+    Ambil SOE dari OFDB untuk rentang & filter. Return dict siap render/export.
+    Query HANYA dijalankan kalau form sudah disubmit (ada param `cari`) -- saat
+    pertama buka halaman (belum submit) tabel dibiarkan kosong supaya tidak
+    langsung menarik ribuan baris.
+    """
     dari, sampai = _soe_range(request)
-    q = request.GET.get('q', '').strip()
+    filters = {k: request.GET.get(k, '').strip() for k in ofdb.SOE_FILTER_COLUMNS}
+    submitted = 'cari' in request.GET
+
+    ctx = {
+        'tanggal_dari': dari, 'tanggal_sampai': sampai,
+        'filters': filters, 'submitted': submitted,
+        'headers': ofdb.SOE_HEADERS, 'rows': [], 'truncated': False,
+        'error': None, 'max_rows': ofdb.SOE_MAX_ROWS,
+    }
+
+    if not submitted:
+        return ctx
 
     dt_start = datetime.combine(dari, time.min)
     dt_end = datetime.combine(sampai, time.max)
 
-    ctx = {
-        'tanggal_dari': dari, 'tanggal_sampai': sampai, 'q': q,
-        'headers': ofdb.SOE_HEADERS, 'rows': [], 'truncated': False,
-        'error': None, 'max_rows': ofdb.SOE_MAX_ROWS,
-    }
     try:
         conn = ofdb.get_connection()
     except Exception as e:
@@ -116,7 +127,7 @@ def _soe_fetch(request):
         return ctx
     try:
         cursor = conn.cursor()
-        rows, truncated = ofdb.query_soe(cursor, dt_start, dt_end, q=q or None)
+        rows, truncated = ofdb.query_soe(cursor, dt_start, dt_end, filters=filters)
         ctx['rows'] = rows
         ctx['truncated'] = truncated
     except Exception as e:
