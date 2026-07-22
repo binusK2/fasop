@@ -1,0 +1,166 @@
+{% extends "opsis/opsis_base.html" %}
+{% block title %}Input HOP{% endblock %}
+
+{% block extra_head %}
+<style>
+.hi-head { display:flex; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:6px; }
+.hi-head h1 { font-size:20px; font-weight:800; color:#fff; display:flex; align-items:center; gap:10px; }
+.hi-sub { font-size:12.5px; color:var(--muted); margin-bottom:18px; }
+.hi-bar { display:flex; align-items:flex-end; flex-wrap:wrap; gap:14px; margin-bottom:18px;
+    background:var(--card-bg); border:1px solid var(--card-bd); border-radius:12px; padding:14px 16px; }
+.hi-field label { display:block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); margin-bottom:5px; }
+.hi-field input[type=date] { background:#0b1120; border:1px solid var(--card-bd); color:var(--text);
+    border-radius:8px; padding:8px 12px; font-family:inherit; font-size:13px; color-scheme:dark; }
+.hi-btn { display:inline-flex; align-items:center; gap:7px; font-size:13px; font-weight:600; font-family:inherit;
+    padding:9px 16px; border-radius:8px; border:1px solid var(--card-bd); background:var(--card-bg); color:#cbd5e1; cursor:pointer; text-decoration:none; }
+.hi-btn:hover { border-color:var(--blue); color:#fff; }
+.hi-btn.primary { background:var(--blue); border-color:var(--blue); color:#fff; }
+.hi-btn.primary:hover { background:#2563eb; }
+.hi-badge-today { font-size:11px; font-weight:700; color:#6ee7b7; background:rgba(16,185,129,.12); border:1px solid rgba(16,185,129,.3); padding:4px 10px; border-radius:20px; }
+.hi-badge-past  { font-size:11px; font-weight:700; color:#fcd34d; background:rgba(245,158,11,.12); border:1px solid rgba(245,158,11,.3); padding:4px 10px; border-radius:20px; }
+
+.hi-group { margin-bottom:18px; }
+.hi-group h2 { font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.6px; color:#cbd5e1; margin-bottom:10px; display:flex; align-items:center; gap:8px; }
+.hi-table-wrap { border:1px solid var(--card-bd); border-radius:12px; overflow-x:auto; background:var(--card-bg); }
+table.hi-table { width:100%; border-collapse:collapse; font-size:13px; min-width:640px; }
+.hi-table th { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.4px; color:var(--muted);
+    padding:10px 12px; border-bottom:1px solid var(--card-bd); text-align:center; white-space:nowrap; background:rgba(255,255,255,.02); }
+.hi-table td { padding:8px 12px; border-bottom:1px solid rgba(30,45,69,.5); text-align:center; vertical-align:middle; }
+.hi-table tr:last-child td { border-bottom:none; }
+.hi-nm { text-align:left; font-weight:600; color:var(--text); }
+.hi-mut { color:var(--muted); font-size:12px; }
+.hi-input { width:110px; background:#0b1120; border:1px solid var(--card-bd); color:var(--text);
+    border-radius:8px; padding:7px 10px; font-family:'JetBrains Mono',monospace; font-size:14px; text-align:center; }
+.hi-input:focus { outline:none; border-color:var(--blue); }
+.hi-dot { width:12px; height:12px; border-radius:50%; display:inline-block; border:1px solid rgba(255,255,255,.3); }
+.hi-stlabel { font-size:11px; font-weight:700; }
+.hi-actions { position:sticky; bottom:0; display:flex; align-items:center; gap:12px; margin-top:8px;
+    background:linear-gradient(transparent, var(--body-bg) 40%); padding:14px 2px 4px; }
+.hi-actions .note { font-size:11.5px; color:var(--muted); }
+.hi-empty { text-align:center; padding:50px; color:var(--muted); }
+.msg { margin-bottom:14px; padding:10px 14px; border-radius:8px; font-size:12.5px; }
+.msg-success { background:rgba(16,185,129,.12); color:#6ee7b7; border:1px solid rgba(16,185,129,.3); }
+.msg-error   { background:rgba(239,68,68,.12); color:#fca5a5; border:1px solid rgba(239,68,68,.3); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="hi-head">
+    <h1><i class="bi bi-pencil-square" style="color:#60a5fa;"></i> Input Data HOP</h1>
+</div>
+<div class="hi-sub">Masukkan nilai HOP (Hari Operasi) tiap pembangkit. Kolom dikosongkan berarti menghapus nilai tanggal tersebut.</div>
+
+{% if messages %}
+    {% for m in messages %}
+    <div class="msg {% if m.tags == 'error' %}msg-error{% else %}msg-success{% endif %}">{{ m }}</div>
+    {% endfor %}
+{% endif %}
+
+<!-- Pemilih tanggal (GET) -->
+<form method="get" class="hi-bar">
+    <div class="hi-field">
+        <label>Tanggal Data</label>
+        <input type="date" name="tanggal" value="{{ tanggal|date:'Y-m-d' }}" max="{{ today|date:'Y-m-d' }}">
+    </div>
+    <button type="submit" class="hi-btn"><i class="bi bi-arrow-repeat"></i> Tampilkan</button>
+    {% if is_today %}
+    <span class="hi-badge-today"><i class="bi bi-calendar-check"></i> Hari ini</span>
+    {% else %}
+    <span class="hi-badge-past"><i class="bi bi-clock-history"></i> Tanggal lampau — mengoreksi data lama</span>
+    {% endif %}
+</form>
+
+{% if not grouped %}
+    <div class="hi-table-wrap"><div class="hi-empty">
+        <i class="bi bi-inbox" style="font-size:38px; display:block; margin-bottom:12px; opacity:.5;"></i>
+        Belum ada master pembangkit HOP. Impor data terlebih dahulu di menu <b>HOP Pembangkit</b>.
+    </div></div>
+{% else %}
+<!-- Form input (POST) -->
+<form method="post" action="{% url 'opsis_hop_input' %}">
+    {% csrf_token %}
+    <input type="hidden" name="tanggal" value="{{ tanggal|date:'Y-m-d' }}">
+
+    {% for g in grouped %}
+    <div class="hi-group">
+        <h2>
+            {% if g.label == 'Batu Bara' %}<i class="bi bi-fire" style="color:#f59e0b;"></i>{% else %}<i class="bi bi-droplet-fill" style="color:#38bdf8;"></i>{% endif %}
+            {{ g.label }} <span style="color:var(--muted); font-weight:600;">({{ g.items|length }} unit)</span>
+        </h2>
+        <div class="hi-table-wrap">
+            <table class="hi-table">
+                <thead><tr>
+                    <th style="width:40px;">No</th>
+                    <th style="text-align:left;">Pembangkit</th>
+                    <th>Sistem</th>
+                    <th>Aset</th>
+                    <th>DMN (MW)</th>
+                    <th>HOP (Hari)</th>
+                    <th>Status</th>
+                </tr></thead>
+                <tbody>
+                    {% for it in g.items %}
+                    <tr>
+                        <td class="hi-mut">{{ forloop.counter }}</td>
+                        <td class="hi-nm">{{ it.nama }}</td>
+                        <td class="hi-mut">{{ it.sistem|default:"—" }}</td>
+                        <td class="hi-mut">{{ it.aset|default:"—" }}</td>
+                        <td class="hi-mut" style="font-family:'JetBrains Mono',monospace;">{{ it.dmn|floatformat:2|default:"—" }}</td>
+                        <td>
+                            <input type="number" step="0.01" class="hi-input" name="hop_{{ it.pk }}"
+                                   data-kat="{{ g.label|lower|slice:':3'|default:'bbm' }}"
+                                   data-kategori="{% if g.label == 'Batu Bara' %}batubara{% else %}bbm{% endif %}"
+                                   value="{% if it.hop != None %}{{ it.hop|stringformat:'g' }}{% endif %}"
+                                   placeholder="—">
+                        </td>
+                        <td>
+                            <span class="hi-dot" data-dot style="background:{{ it.status.2 }};"></span>
+                            <span class="hi-stlabel" data-stlabel style="color:{{ it.status.2 }};">{{ it.status.1 }}</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endfor %}
+
+    <div class="hi-actions">
+        <button type="submit" class="hi-btn primary"><i class="bi bi-check2-circle"></i> Simpan Data HOP</button>
+        <span class="note">Tanggal: <b style="color:var(--text);">{{ tanggal|date:"d M Y" }}</b> &middot; nilai lama akan ditimpa.</span>
+    </div>
+</form>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Recolor status secara live saat mengetik, mengikuti ambang band server.
+const BANDS = {{ bands_json|safe }};
+function statusOf(kat, v) {
+    if (v === '' || v === null || isNaN(v)) return {w:'#64748b', l:'—'};
+    const bands = BANDS[kat] || BANDS['bbm'];
+    for (const b of bands) {
+        if (b.b === null) return {w:b.w, l:''};
+        if (b.op === '>'  && v >  b.b) return {w:b.w, l:''};
+        if (b.op === '>=' && v >= b.b) return {w:b.w, l:''};
+    }
+    return {w:'#64748b', l:'—'};
+}
+const LABELS = {'#10b981':{batubara:'Normal',bbm:'Normal'},'#f59e0b':{batubara:'Siaga',bbm:'Siaga'},
+                '#ef4444':{batubara:'Waspada',bbm:'Kritis'},'#0a0a0a':{batubara:'Kritis',bbm:'Kritis'},'#64748b':{batubara:'—',bbm:'—'}};
+document.querySelectorAll('.hi-input').forEach(inp => {
+    inp.addEventListener('input', () => {
+        const kat = inp.dataset.kategori;
+        const s = statusOf(kat, inp.value === '' ? '' : parseFloat(inp.value));
+        const row = inp.closest('tr');
+        const dot = row.querySelector('[data-dot]');
+        const lab = row.querySelector('[data-stlabel]');
+        const isBlack = s.w === '#0a0a0a';
+        dot.style.background = s.w;
+        lab.style.color = isBlack ? '#e2e8f0' : s.w;
+        lab.textContent = (LABELS[s.w] ? LABELS[s.w][kat] : '') || '—';
+    });
+});
+</script>
+{% endblock %}

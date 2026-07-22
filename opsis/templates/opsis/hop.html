@@ -153,14 +153,14 @@ table.hop-table { width:100%; border-collapse:collapse; font-size:13px; min-widt
 
     <div class="kpi-row">
         <div class="kpi">
-            <div class="lbl">Rata-rata HOP Sulawesi</div>
-            <div class="val" style="color:#60a5fa;">{{ d.rata_total|floatformat:2|default:"—" }} <span class="u">hari</span></div>
-            <div class="foot">{{ d.jumlah }} pembangkit &middot; per {{ d.tanggal_terakhir|date:"d M Y"|default:"—" }}</div>
+            <div class="lbl">Rata-rata HOP <span class="rata-scope">Sulawesi</span></div>
+            <div class="val" style="color:#60a5fa;"><span class="rata-val">{{ d.rata_total|floatformat:2|default:"—" }}</span> <span class="u">hari</span></div>
+            <div class="foot"><span class="rata-count">{{ d.jumlah }}</span> pembangkit &middot; per {{ d.tanggal_terakhir|date:"d M Y"|default:"—" }}</div>
         </div>
         {% for b in d.bands %}
         <div class="kpi" style="border-left:3px solid {{ b.warna }};">
             <div class="lbl"><span class="dot-s" style="background:{{ b.warna }};"></span>{{ b.label }}</div>
-            <div class="val" style="color:{% if b.warna == '#0a0a0a' %}#e2e8f0{% else %}{{ b.warna }}{% endif %};">{{ b.count }}</div>
+            <div class="val" data-band="{{ b.kode }}" style="color:{% if b.warna == '#0a0a0a' %}#e2e8f0{% else %}{{ b.warna }}{% endif %};">{{ b.count }}</div>
             <div class="foot">{{ b.desc }}</div>
         </div>
         {% endfor %}
@@ -169,7 +169,7 @@ table.hop-table { width:100%; border-collapse:collapse; font-size:13px; min-widt
     {% if d.rata_sistem %}
     <div class="sis-row">
         {% for s in d.rata_sistem %}
-        <div class="sis-chip">{{ s.sistem }} &mdash; <b>{{ s.rata|floatformat:2 }}</b> hari <span style="opacity:.6;">({{ s.jumlah }})</span></div>
+        <div class="sis-chip" data-sistem="{{ s.sistem }}">{{ s.sistem }} &mdash; <b>{{ s.rata|floatformat:2 }}</b> hari <span style="opacity:.6;">({{ s.jumlah }})</span></div>
         {% endfor %}
     </div>
     {% endif %}
@@ -199,7 +199,7 @@ table.hop-table { width:100%; border-collapse:collapse; font-size:13px; min-widt
             </thead>
             <tbody>
                 {% for r in d.rows %}
-                <tr data-pk="{{ r.pk }}" data-sistem="{{ r.sistem }}">
+                <tr data-pk="{{ r.pk }}" data-sistem="{{ r.sistem }}" data-status="{{ r.status }}" data-hop="{% if r.hop != None %}{{ r.hop }}{% endif %}">
                     <td class="rank">{{ forloop.counter }}</td>
                     <td>
                         <div class="pb-nm">{{ r.nama }}</div>
@@ -275,13 +275,36 @@ document.querySelectorAll('.hop-tab').forEach(btn => {
     });
 });
 
-// ── Filter Sistem (per panel) ─────────────────────────────────────────
+// ── Filter Sistem (per panel) — baris + kartu ringkasan ikut menyesuaikan ──
 document.querySelectorAll('.hop-panel').forEach(panel => {
     const bar   = panel.querySelector('.filter-bar');
     const table = panel.querySelector('.hop-table');
     const empty = panel.querySelector('.fl-empty');
     if (!bar || !table) return;
     const rows = Array.from(table.querySelectorAll('tbody tr'));
+
+    // Elemen kartu ringkasan yang ikut menyesuaikan
+    const scopeEl = panel.querySelector('.rata-scope');
+    const rataEl  = panel.querySelector('.rata-val');
+    const countEl = panel.querySelector('.rata-count');
+    const bandEls = panel.querySelectorAll('.kpi .val[data-band]');
+    const chips   = panel.querySelectorAll('.sis-chip');
+
+    function updateCards(sis) {
+        const vis = rows.filter(tr => !sis || tr.dataset.sistem === sis);
+        // Rata-rata HOP dari baris yang tampil (abaikan yang kosong)
+        const hops = vis.map(tr => tr.dataset.hop).filter(h => h !== '' && h != null).map(Number);
+        const rata = hops.length ? (hops.reduce((a, b) => a + b, 0) / hops.length) : null;
+        if (rataEl)  rataEl.textContent  = rata === null ? '—' : rata.toFixed(2);
+        if (countEl) countEl.textContent = vis.length;
+        if (scopeEl) scopeEl.textContent = sis || 'Sulawesi';
+        // Jumlah per band (status)
+        const cnt = {};
+        vis.forEach(tr => { const s = tr.dataset.status; cnt[s] = (cnt[s] || 0) + 1; });
+        bandEls.forEach(el => { el.textContent = cnt[el.dataset.band] || 0; });
+        // Chip rata-rata sistem: tampilkan hanya yang difilter (semua bila 'Semua')
+        chips.forEach(c => { c.style.display = (!sis || c.dataset.sistem === sis) ? '' : 'none'; });
+    }
 
     function applyFilter(sis) {
         let n = 0;
@@ -292,6 +315,7 @@ document.querySelectorAll('.hop-panel').forEach(panel => {
         });
         if (empty) empty.style.display = n ? 'none' : 'block';
         table.style.display = n ? '' : 'none';
+        updateCards(sis);
     }
 
     bar.querySelectorAll('.fl-btn').forEach(btn => {

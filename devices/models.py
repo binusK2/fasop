@@ -228,6 +228,11 @@ class UserProfile(models.Model):
         default=True, verbose_name='Wajib Ganti Password',
         help_text='Jika aktif, user akan diarahkan ke halaman ganti password saat login berikutnya.'
     )
+    bisa_input_hop = models.BooleanField(
+        default=False, verbose_name='Boleh Input Data HOP',
+        help_text='Jika aktif, user (khususnya role Opsis) boleh menginput nilai HOP '
+                  'pembangkit harian. Tidak semua user Opsis diberi izin ini.'
+    )
     active_session_key = models.CharField(
         max_length=40, blank=True, default='', verbose_name='Session Key Aktif',
         help_text='Session key dari sesi login terakhir. Otomatis diperbarui saat login.'
@@ -280,6 +285,11 @@ class UserProfile(models.Model):
     def can_edit(self):
         """Technician dan AM bisa edit, viewer tidak."""
         return self.role in ('technician', 'asisten_manager') or self.user.is_superuser
+
+    @property
+    def can_input_hop(self):
+        """Boleh input data HOP harian: superuser atau user berflag bisa_input_hop."""
+        return self.user.is_superuser or self.bisa_input_hop
 
     @property
     def can_manage_lokasi(self):
