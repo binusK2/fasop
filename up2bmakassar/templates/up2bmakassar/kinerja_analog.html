@@ -1,0 +1,114 @@
+{% extends "up2bmakassar/base.html" %}
+{% block title %}Kinerja Telemetering{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:18px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+    <div>
+        <div style="font-size:20px; font-weight:800; color:#fff; margin-bottom:2px;">Kinerja Telemetering (ANALOG)</div>
+        <div style="font-size:12px; color:var(--muted);">Uptime harian per titik — dihitung dari OFDB scd_his_analog</div>
+    </div>
+</div>
+
+<form method="get" class="filter-bar">
+    <input type="date" name="tanggal" value="{{ tanggal|date:'Y-m-d' }}">
+    <input type="search" name="q" value="{{ q }}" placeholder="Cari path1/path2/path3/point_number...">
+    <button type="submit" class="btn-filter"><i class="bi bi-funnel me-1"></i>Filter</button>
+</form>
+
+<div class="stat-bar">
+    <div class="stat-card avail">
+        <div class="stat-lbl">Rata-rata Performance</div>
+        <div class="stat-val avail">{{ ringkasan.rata_rata|floatformat:2 }}<span class="stat-unit">%</span></div>
+    </div>
+    <div class="stat-card up">
+        <div class="stat-lbl">Jumlah Titik</div>
+        <div class="stat-val up">{{ ringkasan.jumlah_titik }}</div>
+    </div>
+</div>
+
+<div class="chart-card" style="margin-bottom:16px;">
+    <div class="chart-head">
+        <div class="chart-title"><i class="bi bi-bar-chart-fill me-1" style="color:#a78bfa;"></i>Performance per Titik (top 30 terendah)</div>
+    </div>
+    <div style="position:relative; height:320px;">
+        <canvas id="chart-kinerja"></canvas>
+    </div>
+</div>
+
+<div class="chart-card">
+    <div class="table-scroll">
+    <table class="kin-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Point</th>
+                <th>Path1 / Path2 / Path3</th>
+                <th>Performance</th>
+                <th>Jumlah Up</th>
+                <th>Uptime</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr>
+                <td style="color:var(--muted);">{{ forloop.counter }}</td>
+                <td><span style="font-family:'JetBrains Mono',monospace;">{{ row.point_number }}</span></td>
+                <td><strong>{{ row.path1 }} / {{ row.path2 }} / {{ row.path3 }}</strong></td>
+                <td>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <div style="flex:1; max-width:100px; height:4px; background:rgba(255,255,255,.06); border-radius:2px;">
+                            <div style="width:{{ row.performance }}%; height:100%; background:{% if row.performance >= 99 %}#10b981{% elif row.performance >= 95 %}#f59e0b{% else %}#ef4444{% endif %}; border-radius:2px;"></div>
+                        </div>
+                        <span style="font-family:'JetBrains Mono',monospace; font-size:12px;">{{ row.performance|floatformat:2 }}%</span>
+                    </div>
+                </td>
+                <td>{{ row.jumlah_up }}</td>
+                <td>{{ row.uptime_detik|floatformat:0 }}s</td>
+                <td>
+                    {% if row.performance >= 99 %}<span class="tag-up">Baik</span>
+                    {% elif row.performance >= 95 %}<span class="tag-warn">Perhatian</span>
+                    {% else %}<span class="tag-down">Kritis</span>{% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="7" style="text-align:center;padding:40px;color:var(--muted);">Belum ada data untuk tanggal ini. Jalankan <code>python manage.py sync_kinerja_analog</code> terlebih dahulu.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const raw = [
+    {% for row in rows %}
+    { label: "{{ row.path1 }}/{{ row.path2 }}/{{ row.path3 }}", value: {{ row.performance|floatformat:2 }} },
+    {% endfor %}
+];
+raw.sort((a, b) => a.value - b.value);
+const top30 = raw.slice(0, 30);
+const labels = top30.map(r => r.label);
+const data   = top30.map(r => r.value);
+const colors = data.map(v => v >= 99 ? '#10b981' : v >= 95 ? '#f59e0b' : '#ef4444');
+
+new Chart(document.getElementById('chart-kinerja').getContext('2d'), {
+    type: 'bar',
+    data: { labels, datasets: [{ label:'Performance (%)', data, backgroundColor: colors, borderRadius:6, borderSkipped:false }] },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        indexAxis: 'y',
+        plugins: { legend: { display:false }, tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.x.toFixed(2)}%` } } },
+        scales: {
+            x: { min:0, max:100, grid:{ color:'#0d1e36' }, ticks:{ callback: v => v+'%' } },
+            y: { grid:{ display:false }, ticks: { font: { size: 10 } } }
+        }
+    }
+});
+</script>
+{% endblock %}
