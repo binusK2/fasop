@@ -1,6 +1,31 @@
 from django.db import models
 
 
+class SitePath1(models.Model):
+    """
+    Daftar PATH1 (site/pembangkit) yang pernah muncul di scd_c_point (OFDB), dengan
+    flag aktif/tidak untuk menyaring titik mana yang ikut dihitung kinerjanya.
+    Diisi/di-upsert otomatis oleh sync_kinerja_analog/sync_kinerja_digital saat
+    menjumpai path1 baru (default aktif=True) -- tinggal di-nonaktifkan lewat admin
+    kalau ada site lama/tidak relevan yang ikut ke-hitung.
+    """
+    path1 = models.CharField(max_length=100, unique=True, db_index=True)
+    aktif = models.BooleanField(
+        default=True,
+        help_text='Kalau dicentang, semua titik dengan PATH1 ini ikut dihitung kinerjanya.'
+    )
+    keterangan = models.CharField(max_length=200, blank=True, default='')
+    dibuat_pada = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['path1']
+        verbose_name = 'Site (PATH1) Aktif/Tidak'
+        verbose_name_plural = 'Site (PATH1) Aktif/Tidak'
+
+    def __str__(self):
+        return f"{self.path1} ({'Aktif' if self.aktif else 'Tidak Aktif'})"
+
+
 class KinerjaAnalogHarian(models.Model):
     """
     Rekap harian kinerja (uptime) titik ANALOG, dihitung dari histori transisi
