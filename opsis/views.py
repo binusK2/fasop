@@ -1073,6 +1073,8 @@ def _hop_kategori_data(kategori):
               'count': rekap.get(kode, 0)}
              for kode, label, warna, desc in hop_deskripsi_band(kategori)]
 
+    sistem_list = sorted({r['sistem'] for r in rows if r['sistem'] and r['sistem'] != '—'})
+
     return {
         'kategori': kategori,
         'rows': rows,
@@ -1080,6 +1082,7 @@ def _hop_kategori_data(kategori):
         'rata_total': rata_total,
         'rekap': rekap,
         'bands': bands,
+        'sistem_list': sistem_list,
         'jumlah': len(rows),
         'tanggal_terakhir': tanggal_terakhir,
     }

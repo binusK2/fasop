@@ -52,21 +52,33 @@
 }
 .sis-chip b { color:var(--text); font-family:'JetBrains Mono',monospace; font-size:15px; font-weight:700; }
 
+/* Filter Sistem */
+.filter-bar { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
+.fl-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); margin-right:2px; }
+.fl-btn {
+    background:var(--card-bg); border:1px solid var(--card-bd); color:var(--muted);
+    font-family:inherit; font-size:12px; font-weight:600; padding:6px 14px;
+    border-radius:20px; cursor:pointer; transition:.15s;
+}
+.fl-btn:hover { color:var(--text); border-color:#2d4a6b; }
+.fl-btn.active { background:rgba(59,130,246,.15); border-color:var(--blue); color:#60a5fa; }
+.fl-empty { display:none; text-align:center; padding:26px; color:var(--muted); font-size:12.5px; }
+
 /* Table */
 .hop-table-wrap { overflow-x:auto; border:1px solid var(--card-bd); border-radius:12px; background:var(--card-bg); }
 table.hop-table { width:100%; border-collapse:collapse; font-size:13px; min-width:720px; }
 .hop-table th {
-    text-align:left; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.5px;
+    text-align:center; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.5px;
     color:var(--muted); padding:11px 14px; border-bottom:1px solid var(--card-bd); white-space:nowrap;
     background:rgba(255,255,255,.02);
 }
-.hop-table td { padding:10px 14px; border-bottom:1px solid rgba(30,45,69,.5); }
+.hop-table td { padding:10px 14px; border-bottom:1px solid rgba(30,45,69,.5); text-align:center; vertical-align:middle; }
 .hop-table tr:last-child td { border-bottom:none; }
 .hop-table tbody tr { cursor:pointer; transition:.12s; }
 .hop-table tbody tr:hover { background:rgba(59,130,246,.06); }
 .pb-nm { font-weight:600; color:var(--text); }
 .pb-sis { font-size:11px; color:var(--muted); }
-.num { font-family:'JetBrains Mono',monospace; text-align:right; }
+.num { font-family:'JetBrains Mono',monospace; text-align:center; }
 .hop-val { font-family:'JetBrains Mono',monospace; font-size:17px; font-weight:700; }
 .badge-st { font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:20px; white-space:nowrap; }
 .badge-black { color:#fff; background:#000; border:1px solid #64748b; }
@@ -162,6 +174,16 @@ table.hop-table { width:100%; border-collapse:collapse; font-size:13px; min-widt
     </div>
     {% endif %}
 
+    {% if d.sistem_list %}
+    <div class="filter-bar" data-filter="{{ d.kategori }}">
+        <span class="fl-label"><i class="bi bi-funnel"></i> Sistem</span>
+        <button class="fl-btn active" data-sis="">Semua</button>
+        {% for s in d.sistem_list %}
+        <button class="fl-btn" data-sis="{{ s }}">{{ s }}</button>
+        {% endfor %}
+    </div>
+    {% endif %}
+
     <div class="hop-table-wrap">
         <table class="hop-table">
             <thead>
@@ -169,15 +191,15 @@ table.hop-table { width:100%; border-collapse:collapse; font-size:13px; min-widt
                     <th style="width:38px;">#</th>
                     <th>Pembangkit</th>
                     <th>Aset</th>
-                    <th class="num">DMN (MW)</th>
-                    <th class="num">HOP (hari)</th>
+                    <th>DMN (MW)</th>
+                    <th>HOP (hari)</th>
                     <th>Status</th>
-                    <th class="num">Δ hari</th>
+                    <th>Δ hari</th>
                 </tr>
             </thead>
             <tbody>
                 {% for r in d.rows %}
-                <tr data-pk="{{ r.pk }}">
+                <tr data-pk="{{ r.pk }}" data-sistem="{{ r.sistem }}">
                     <td class="rank">{{ forloop.counter }}</td>
                     <td>
                         <div class="pb-nm">{{ r.nama }}</div>
@@ -210,6 +232,7 @@ table.hop-table { width:100%; border-collapse:collapse; font-size:13px; min-widt
                 {% endfor %}
             </tbody>
         </table>
+        <div class="fl-empty">Tidak ada pembangkit untuk sistem ini.</div>
     </div>
 
     <div class="legend">
@@ -249,6 +272,34 @@ document.querySelectorAll('.hop-tab').forEach(btn => {
         document.querySelectorAll('.hop-panel').forEach(p => p.classList.add('hidden'));
         const panel = document.getElementById('panel-' + tab);
         if (panel) panel.classList.remove('hidden');
+    });
+});
+
+// ── Filter Sistem (per panel) ─────────────────────────────────────────
+document.querySelectorAll('.hop-panel').forEach(panel => {
+    const bar   = panel.querySelector('.filter-bar');
+    const table = panel.querySelector('.hop-table');
+    const empty = panel.querySelector('.fl-empty');
+    if (!bar || !table) return;
+    const rows = Array.from(table.querySelectorAll('tbody tr'));
+
+    function applyFilter(sis) {
+        let n = 0;
+        rows.forEach(tr => {
+            const show = !sis || tr.dataset.sistem === sis;
+            tr.style.display = show ? '' : 'none';
+            if (show) { n++; tr.querySelector('.rank').textContent = n; }  // nomor ulang baris tampil
+        });
+        if (empty) empty.style.display = n ? 'none' : 'block';
+        table.style.display = n ? '' : 'none';
+    }
+
+    bar.querySelectorAll('.fl-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            bar.querySelectorAll('.fl-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            applyFilter(btn.dataset.sis);
+        });
     });
 });
 
