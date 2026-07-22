@@ -216,7 +216,8 @@ class UserProfile(models.Model):
         ('dispatcher',       'Dispatcher — Pengujian Telekomunikasi'),
         ('technician',       'Teknisi / Engineer'),
         ('asisten_manager',  'Asisten Manager Operasi'),
-        ('opsis',            'Opsis — Monitoring Pembangkit'),
+        ('opsis',            'Opsis — Monitoring Pembangkit (Input Data, Sesi Tunggal)'),
+        ('opsis_view',       'Opsis View — Monitoring (Lihat Saja, Multi-Sesi)'),
         ('up2d',             'UP2D — Dashboard Beban Sistem'),
     )
     user         = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
@@ -227,11 +228,6 @@ class UserProfile(models.Model):
     force_password_change = models.BooleanField(
         default=True, verbose_name='Wajib Ganti Password',
         help_text='Jika aktif, user akan diarahkan ke halaman ganti password saat login berikutnya.'
-    )
-    bisa_input_hop = models.BooleanField(
-        default=False, verbose_name='Boleh Input Data HOP',
-        help_text='Jika aktif, user (khususnya role Opsis) boleh menginput nilai HOP '
-                  'pembangkit harian. Tidak semua user Opsis diberi izin ini.'
     )
     active_session_key = models.CharField(
         max_length=40, blank=True, default='', verbose_name='Session Key Aktif',
@@ -287,9 +283,13 @@ class UserProfile(models.Model):
         return self.role in ('technician', 'asisten_manager') or self.user.is_superuser
 
     @property
+    def is_opsis_view(self):
+        return self.role == 'opsis_view'
+
+    @property
     def can_input_hop(self):
-        """Boleh input data HOP harian: superuser atau user berflag bisa_input_hop."""
-        return self.user.is_superuser or self.bisa_input_hop
+        """Boleh input data HOP harian: superuser atau role Opsis (bukan Opsis View)."""
+        return self.user.is_superuser or self.role == 'opsis'
 
     @property
     def can_manage_lokasi(self):
