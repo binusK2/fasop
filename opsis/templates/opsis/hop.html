@@ -160,7 +160,7 @@ table.hop-table { width:100%; border-collapse:collapse; font-size:13px; min-widt
         {% for b in d.bands %}
         <div class="kpi" style="border-left:3px solid {{ b.warna }};">
             <div class="lbl"><span class="dot-s" style="background:{{ b.warna }};"></span>{{ b.label }}</div>
-            <div class="val" style="color:{% if b.kode == 'bahaya' %}#e2e8f0{% else %}{{ b.warna }}{% endif %};">{{ b.count }}</div>
+            <div class="val" style="color:{% if b.warna == '#0a0a0a' %}#e2e8f0{% else %}{{ b.warna }}{% endif %};">{{ b.count }}</div>
             <div class="foot">{{ b.desc }}</div>
         </div>
         {% endfor %}
@@ -208,14 +208,14 @@ table.hop-table { width:100%; border-collapse:collapse; font-size:13px; min-widt
                     <td style="color:var(--muted); font-size:12px;">{{ r.aset|default:"—" }}</td>
                     <td class="num" style="color:var(--muted);">{{ r.dmn|floatformat:2|default:"—" }}</td>
                     <td class="num">
-                        {% if r.status == 'bahaya' %}
+                        {% if r.warna == '#0a0a0a' %}
                             <span class="hop-val hop-black">{% if r.hop != None %}{{ r.hop|floatformat:2 }}{% else %}—{% endif %}</span>
                         {% else %}
                             <span class="hop-val" style="color:{{ r.warna }};">{% if r.hop != None %}{{ r.hop|floatformat:2 }}{% else %}—{% endif %}</span>
                         {% endif %}
                     </td>
                     <td>
-                        {% if r.status == 'bahaya' %}
+                        {% if r.warna == '#0a0a0a' %}
                             <span class="badge-st badge-black">{{ r.status_label }}</span>
                         {% else %}
                             <span class="badge-st" style="color:{{ r.warna }}; background:{{ r.warna }}22;">{{ r.status_label }}</span>

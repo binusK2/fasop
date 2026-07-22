@@ -321,6 +321,10 @@ body { font-family:'DM Sans', sans-serif; background:var(--body-bg); color:var(-
             <span class="sb-label">Beban KTT</span>
         </a>
         {% if request.user.profile.role != 'up2d' %}
+        <a href="/opsis/hop/dashboard/" class="sb-link {% if request.resolver_match.url_name == 'opsis_hop_board' %}active{% endif %}">
+            <i class="bi bi-speedometer2 sb-icon"></i>
+            <span class="sb-label">Dashboard HOP</span>
+        </a>
         <a href="/opsis/hop/" class="sb-link {% if request.resolver_match.url_name == 'opsis_hop' or request.resolver_match.url_name == 'opsis_hop_import' %}active{% endif %}">
             <i class="bi bi-fuel-pump-fill sb-icon"></i>
             <span class="sb-label">HOP Pembangkit</span>

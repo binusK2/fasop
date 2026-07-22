@@ -73,18 +73,19 @@ HOP_SISTEM_CHOICES = [
 # Tiap band: (kode, label, warna, batas, op) dievaluasi dari atas ke bawah;
 # band dengan batas=None adalah penampung sisa (paling bawah). 'op' menentukan
 # perbandingan terhadap batas: '>' (di atas) atau '>=' (mulai dari).
-#   Batu bara: HOP > 15 hijau | 10–15 kuning | 5–10 merah | < 5 hitam (Bahaya)
-#   BBM:       HOP >= 7 hijau | 3–7 kuning | < 3 merah
+#   Batu bara: HOP > 15 Normal (hijau) | 10–15 Siaga (kuning) |
+#              5–10 Waspada (merah) | < 5 Kritis (hitam)
+#   BBM:       HOP >= 7 Normal (hijau) | 3–7 Siaga (kuning) | < 3 Kritis (merah)
 HOP_BANDS = {
     'batubara': [
-        ('aman',    'Aman',    '#10b981', 15,   '>'),   # HOP > 15
-        ('waspada', 'Waspada', '#f59e0b', 10,   '>'),   # 10 < HOP <= 15
-        ('kritis',  'Kritis',  '#ef4444', 5,    '>='),  # 5 <= HOP <= 10
-        ('bahaya',  'Bahaya',  '#0a0a0a', None, None),  # HOP < 5 (hitam)
+        ('normal',  'Normal',  '#10b981', 15,   '>'),   # HOP > 15
+        ('siaga',   'Siaga',   '#f59e0b', 10,   '>'),   # 10 < HOP <= 15
+        ('waspada', 'Waspada', '#ef4444', 5,    '>='),  # 5 <= HOP <= 10
+        ('kritis',  'Kritis',  '#0a0a0a', None, None),  # HOP < 5 (hitam)
     ],
     'bbm': [
-        ('aman',    'Aman',    '#10b981', 7,    '>='),  # HOP >= 7
-        ('waspada', 'Waspada', '#f59e0b', 3,    '>='),  # 3 <= HOP < 7
+        ('normal',  'Normal',  '#10b981', 7,    '>='),  # HOP >= 7
+        ('siaga',   'Siaga',   '#f59e0b', 3,    '>='),  # 3 <= HOP < 7
         ('kritis',  'Kritis',  '#ef4444', None, None),  # HOP < 3
     ],
 }
