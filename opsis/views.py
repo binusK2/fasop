@@ -13,6 +13,8 @@ from .models import (Pembangkit, SnapLive, SnapFreq, Trafo, SnapTrafo,
 from . import mssql
 from . import forecast
 from . import hop as hop_io
+from .hop_map import SULAWESI_PATH, MAP_W, MAP_H, DEFAULT_MAP_POS
+from .models import HOP_BANDS
 
 
 def _pembangkit_aktif():
@@ -1165,4 +1167,178 @@ def hop_import(request):
 
     return render(request, 'opsis/hop_import.html', {
         'pembangkit_list': _pembangkit_aktif(),
+    })
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  HOP — Dashboard eksekutif (ringkas & lengkap, dengan peta Sulawesi)
+# ═══════════════════════════════════════════════════════════════════════════
+import math as _math
+
+
+def _hop_tren_sistem(kategori, hari=30):
+    """Rata-rata HOP sistem per hari + rata-rata bergerak 7 hari (rolling)."""
+    from django.db.models import Avg
+    ids = list(HopPembangkit.objects.filter(kategori=kategori, aktif=True)
+               .values_list('id', flat=True))
+    if not ids:
+        return {'labels': [], 'harian': [], 'rata7': []}
+    rows = list(HopSnapshot.objects
+                .filter(pembangkit_id__in=ids, hop__isnull=False)
+                .values('tanggal').annotate(avg=Avg('hop')).order_by('tanggal'))
+    if not rows:
+        return {'labels': [], 'harian': [], 'rata7': []}
+    tgl = [r['tanggal'] for r in rows]
+    harian = [r['avg'] for r in rows]
+    rata7 = []
+    for i in range(len(harian)):
+        w = harian[max(0, i - 6):i + 1]
+        rata7.append(sum(w) / len(w))
+    sl = slice(-hari, None)
+    return {
+        'labels': [d.strftime('%d %b') for d in tgl[sl]],
+        'harian': [round(v, 2) for v in harian[sl]],
+        'rata7':  [round(v, 2) for v in rata7[sl]],
+    }
+
+
+def _sparkline_points(values, w=94, h=26, pad=3):
+    """String 'x,y x,y ...' untuk <polyline> sparkline. '' jika data kurang."""
+    vals = [v for v in values if v is not None]
+    if len(vals) < 2:
+        return ''
+    lo, hi = min(vals), max(vals)
+    rng = (hi - lo) or 1.0
+    n = len(values)
+    pts = []
+    for i, v in enumerate(values):
+        if v is None:
+            continue
+        x = pad + i * (w - 2 * pad) / (n - 1)
+        y = h - pad - (v - lo) / rng * (h - 2 * pad)
+        pts.append(f'{x:.1f},{y:.1f}')
+    return ' '.join(pts)
+
+
+def _gauge(value, vmax=20):
+    """
+    Geometri gauge setengah lingkaran (0..vmax). Zona: merah 0–10, kuning 10–15,
+    hijau 15–20 (selaras ambang batu bara). Kembalikan arcs + jarum + tick.
+    """
+    cx, cy, r = 100.0, 105.0, 82.0
+
+    def pol(v):
+        ang = _math.radians(180 - max(0, min(vmax, v)) / vmax * 180)
+        return (cx + r * _math.cos(ang), cy - r * _math.sin(ang))
+
+    def arc(v1, v2, color):
+        x1, y1 = pol(v1)
+        x2, y2 = pol(v2)
+        return {'d': f'M{x1:.1f},{y1:.1f} A{r},{r} 0 0 1 {x2:.1f},{y2:.1f}', 'color': color}
+
+    arcs = [arc(0, 10, '#ef4444'), arc(10, 15, '#f59e0b'), arc(15, vmax, '#10b981')]
+    nx, ny = pol(value if value is not None else 0)
+    # jarum sedikit lebih pendek dari radius
+    nxi = cx + (nx - cx) * 0.82
+    nyi = cy + (ny - cy) * 0.82
+    ticks = []
+    for t in (0, 5, 10, 15, 20):
+        tx, ty = pol(t)
+        lx = cx + (tx - cx) * 1.16
+        ly = cy + (ty - cy) * 1.16
+        ticks.append({'x': lx, 'y': ly, 'label': t})
+    return {'cx': cx, 'cy': cy, 'arcs': arcs, 'needle': {'x': nxi, 'y': nyi},
+            'ticks': ticks}
+
+
+@login_required
+def hop_board(request):
+    """Dashboard eksekutif HOP — ringkasan, peta Sulawesi, top-5, tren, detail."""
+    kategori = request.GET.get('kategori', 'batubara')
+    if kategori not in dict(HOP_KATEGORI_CHOICES):
+        kategori = 'batubara'
+    kat_label = dict(HOP_KATEGORI_CHOICES)[kategori]
+
+    d = _hop_kategori_data(kategori)
+    rows = d['rows']                       # sudah urut HOP menaik (kritis dulu)
+    valid = [r for r in rows if r['hop'] is not None]
+
+    # Status sistem = band dari rata-rata; pesan menyebut unit kritis bila ada
+    worst_code = HOP_BANDS[kategori][-1][0]
+    n_worst = d['rekap'].get(worst_code, 0)
+    skode, slabel, swarna = hop_status(kategori, d['rata_total'])
+    if d['rata_total'] is None:
+        pesan = 'Belum ada data HOP.'
+    else:
+        band_desc = next((b['desc'] for b in d['bands'] if b['kode'] == skode), '')
+        pesan = f'Rata-rata HOP {kat_label} berada pada kategori {slabel} ({band_desc}).'
+        if n_worst:
+            pesan += f' Terdapat {n_worst} unit dengan stok kritis.'
+    status_sistem = {'kode': skode, 'label': slabel.upper(), 'warna': swarna, 'pesan': pesan}
+
+    # Top-5 terbaik & kritis
+    top_terbaik = list(reversed(valid))[:5]
+    top_kritis = valid[:5]
+
+    # Detail unit perlu perhatian (dua band terburuk)
+    worst_set = {b[0] for b in HOP_BANDS[kategori][-2:]}
+    detail = [r for r in rows if r['status'] in worst_set][:8]
+    # sparkline 7 hari terakhir per unit detail
+    for r in detail:
+        vals = list(HopSnapshot.objects
+                    .filter(pembangkit_id=r['pk'], hop__isnull=False)
+                    .order_by('-tanggal').values_list('hop', flat=True)[:7])
+        vals = list(reversed(vals))
+        r['spark'] = _sparkline_points(vals)
+        r['spark_warna'] = '#94a3b8' if r['warna'] == '#0a0a0a' else r['warna']
+
+    # Pin peta
+    pins = []
+    for r in rows:
+        pos = DEFAULT_MAP_POS.get(r['nama'])
+        if not pos:
+            continue
+        pins.append({
+            'pk': r['pk'], 'nama': r['nama'], 'sistem': r['sistem'],
+            'hop': r['hop'], 'status_label': r['status_label'],
+            'warna': '#111827' if r['warna'] == '#0a0a0a' else r['warna'],
+            'cx': round(pos[0] / 100 * MAP_W, 1),
+            'cy': round(pos[1] / 100 * MAP_H, 1),
+        })
+
+    # Ringkasan eksekutif (otomatis dari data)
+    tren = _hop_tren_sistem(kategori, hari=30)
+    arah = ''
+    if len(tren['rata7']) >= 2:
+        arah = 'menurun' if tren['rata7'][-1] < tren['rata7'][0] else 'meningkat'
+    rekap = d['bands']
+    def _cnt(code):
+        return next((b['count'] for b in rekap if b['kode'] == code), 0)
+    eksekutif = []
+    if d['rata_total'] is not None:
+        eksekutif.append({'ic': 'exclamation-triangle-fill', 'w': '#f59e0b',
+            'text': f"Rata-rata HOP {kat_label} Sulawesi sebesar {d['rata_total']:.1f} Hari"
+                    + (f", {arah} dibanding awal periode." if arah else ".")})
+    if n_worst:
+        eksekutif.append({'ic': 'exclamation-octagon-fill', 'w': '#ef4444',
+            'text': f"Terdapat {n_worst} unit pada kategori Kritis — perlu percepatan pasokan."})
+    n_wsp = _cnt('waspada') if kategori == 'batubara' else _cnt('siaga')
+    if n_wsp:
+        eksekutif.append({'ic': 'exclamation-circle-fill', 'w': '#f59e0b',
+            'text': f"{n_wsp} unit kategori Waspada — pantau ketersediaan bahan bakar."})
+    eksekutif.append({'ic': 'check-circle-fill', 'w': '#10b981',
+        'text': f"{_cnt('normal')} unit dalam kondisi Normal (HOP di atas ambang aman)."})
+    eksekutif.append({'ic': 'info-circle-fill', 'w': '#3b82f6',
+        'text': "Lakukan monitoring pengadaan untuk mengantisipasi penurunan HOP."})
+
+    return render(request, 'opsis/hop_board.html', {
+        'pembangkit_list': _pembangkit_aktif(),
+        'kategori': kategori, 'kat_label': kat_label,
+        'data': d, 'bands': d['bands'],
+        'status_sistem': status_sistem,
+        'top_terbaik': top_terbaik, 'top_kritis': top_kritis,
+        'detail': detail, 'pins': pins,
+        'tren': tren, 'eksekutif': eksekutif,
+        'gauge': _gauge(d['rata_total'] or 0),
+        'map_path': SULAWESI_PATH, 'map_w': MAP_W, 'map_h': MAP_H,
     })
