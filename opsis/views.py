@@ -1171,15 +1171,15 @@ def hop_import(request):
 
 
 def _bisa_input_hop(user):
-    return user.is_superuser or getattr(getattr(user, 'profile', None), 'bisa_input_hop', False)
+    return user.is_superuser or getattr(getattr(user, 'profile', None), 'role', '') == 'opsis'
 
 
 @login_required
 def hop_input(request):
     """
     Form input nilai HOP per pembangkit untuk tanggal (default hari ini).
-    Akses: superuser atau user berflag UserProfile.bisa_input_hop (diatur di
-    site admin) — dimaksudkan untuk sebagian user role Opsis.
+    Akses: superuser atau role Opsis. Role Opsis View (multi-sesi, lihat saja)
+    tidak boleh input.
     """
     if not _bisa_input_hop(request.user):
         messages.error(request, 'Anda tidak memiliki akses untuk input data HOP.')

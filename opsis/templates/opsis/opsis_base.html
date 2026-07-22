@@ -362,7 +362,7 @@ body { font-family:'DM Sans', sans-serif; background:var(--body-bg); color:var(-
             <span class="sb-label">HOP Pembangkit</span>
         </a>
         {% endif %}
-        {% if request.user.is_superuser or request.user.profile.bisa_input_hop %}
+        {% if request.user.is_superuser or request.user.profile.role == 'opsis' %}
         <a href="/opsis/hop/input/" class="sb-link {% if request.resolver_match.url_name == 'opsis_hop_input' %}active{% endif %}">
             <i class="bi bi-pencil-square sb-icon"></i>
             <span class="sb-label">Input HOP</span>

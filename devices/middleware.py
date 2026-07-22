@@ -124,7 +124,7 @@ class OpsisAccessMiddleware:
             except Exception:
                 role = ''
 
-            if role == 'opsis':
+            if role in ('opsis', 'opsis_view'):
                 path = request.path
                 allowed = any(path.startswith(p) for p in self.ALLOWED_PREFIXES)
                 if not allowed:
@@ -227,11 +227,14 @@ class DispatcherAccessMiddleware:
 class SingleSessionMiddleware:
     """
     Middleware single active session per user.
-    Dikecualikan untuk role Operator, Opsis, dan UP2D — akun-akun ini
+    Dikecualikan untuk role Operator, Opsis View, dan UP2D — akun-akun ini
     dipakai bersama di beberapa perangkat/layar monitoring sekaligus.
+    Role Opsis (bisa input data HOP) TIDAK dikecualikan → sesi tunggal.
     """
 
-    MULTI_SESSION_ROLES = ('operator', 'opsis', 'up2d')
+    # Opsis View & UP2D dipakai bersama di banyak layar → multi-sesi.
+    # Role Opsis (input data) sengaja TIDAK di sini → dibatasi sesi tunggal.
+    MULTI_SESSION_ROLES = ('operator', 'opsis_view', 'up2d')
 
     def __init__(self, get_response):
         self.get_response = get_response
