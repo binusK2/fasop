@@ -34,10 +34,20 @@
     display:flex; align-items:center; gap:8px;
 }
 .hb-card .bd { padding:14px; }
-.hb-grid { display:grid; grid-template-columns:0.9fr 1.15fr 1fr; gap:14px; align-items:start; }
-.hb-col { display:flex; flex-direction:column; gap:14px; }
-.hb-grid2 { display:grid; grid-template-columns:1.6fr 1fr; gap:14px; margin-top:14px; }
-@media (max-width:1100px){ .hb-grid, .hb-grid2 { grid-template-columns:1fr; } }
+.hb-grid { display:grid; grid-template-columns:0.9fr 1.15fr 1fr; gap:14px; align-items:stretch; }
+.hb-col { display:flex; flex-direction:column; gap:14px; height:100%; }
+.hb-grid2 { margin-top:14px; }
+@media (max-width:1100px){ .hb-grid { grid-template-columns:1fr; align-items:start; } }
+
+/* Kartu yang mengisi sisa tinggi kolom (tren) + peta setinggi kolom */
+.hb-card.grow { flex:1; display:flex; flex-direction:column; }
+.hb-card.grow > .bd { flex:1; display:flex; flex-direction:column; }
+.tren-canvas { position:relative; flex:1; min-height:190px; }
+.tren-canvas canvas { position:absolute; inset:0; width:100%!important; height:100%!important; }
+.mapcard { display:flex; flex-direction:column; }
+.mapcard > .bd { flex:1; display:flex; flex-direction:column; }
+.mapcard .map-wrap { flex:1; display:flex; align-items:center; justify-content:center; min-height:0; }
+@media (max-width:1100px){ .mapcard .map-wrap { min-height:420px; } }
 
 /* Gauge + ringkasan */
 .gauge-wrap { text-align:center; }
@@ -79,7 +89,7 @@
 .map-legend span { display:inline-flex; align-items:center; gap:5px; }
 .map-legend .d { width:10px; height:10px; border-radius:50%; border:1px solid rgba(255,255,255,.3); }
 .map-wrap { position:relative; }
-.map-wrap svg.peta { display:block; margin:0 auto; width:100%; height:auto; max-height:600px; }
+.map-wrap svg.peta { display:block; margin:0 auto; width:100%; height:100%; max-height:100%; }
 .map-wrap svg.peta .land { fill:#0f766e; stroke:#5eead4; stroke-width:1.2; opacity:.9; }
 .pin { cursor:pointer; }
 .pin circle.dot { stroke:#fff; stroke-width:3; transition:.12s; }
@@ -184,10 +194,10 @@ table.dt { width:100%; border-collapse:collapse; font-size:12px; min-width:560px
                 </div>
             </div>
 
-            <div class="hb-card">
+            <div class="hb-card grow">
                 <h2><i class="bi bi-graph-up"></i> Tren Rata-rata HOP {{ kat_label }}</h2>
                 <div class="bd">
-                    <canvas id="trenChart" height="150"></canvas>
+                    <div class="tren-canvas"><canvas id="trenChart"></canvas></div>
                     <div class="tren-note"><i class="bi bi-info-circle"></i>
                         <span>Garis putus-putus = rata-rata harian; garis tebal = rata-rata bergerak 7 hari.</span>
                     </div>
@@ -196,7 +206,7 @@ table.dt { width:100%; border-collapse:collapse; font-size:12px; min-width:560px
         </div>
 
         <!-- TENGAH: PETA -->
-        <div class="hb-card">
+        <div class="hb-card mapcard">
             <h2><i class="bi bi-geo-alt-fill"></i> Peta HOP {{ kat_label }} per Wilayah</h2>
             <div class="bd">
                 <div class="map-legend">
@@ -307,17 +317,6 @@ table.dt { width:100%; border-collapse:collapse; font-size:12px; min-width:560px
                 </table>
             </div>
         </div>
-
-        <div class="hb-card">
-            <h2><i class="bi bi-file-earmark-text-fill"></i> Ringkasan Eksekutif</h2>
-            <div class="bd">
-                <div class="exec-list">
-                    {% for e in eksekutif %}
-                    <div class="exec-item"><i class="bi bi-{{ e.ic }}" style="color:{{ e.w }};"></i><span>{{ e.text }}</span></div>
-                    {% endfor %}
-                </div>
-            </div>
-        </div>
     </div>
 
     <!-- Footer legend -->
@@ -356,7 +355,6 @@ table.dt { width:100%; border-collapse:collapse; font-size:12px; min-width:560px
             scales:{ x:{ ticks:{ color:'#64748b', maxTicksLimit:8, font:{size:9} }, grid:{ color:'rgba(255,255,255,.04)' } },
                      y:{ ticks:{ color:'#64748b', font:{size:9} }, grid:{ color:'rgba(255,255,255,.04)' } } } }
     });
-    el.parentElement.style.height = '170px';
 })();
 
 // Map tooltip

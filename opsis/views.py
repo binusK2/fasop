@@ -1306,30 +1306,7 @@ def hop_board(request):
             'cy': round(pos[1] / 100 * MAP_H, 1),
         })
 
-    # Ringkasan eksekutif (otomatis dari data)
     tren = _hop_tren_sistem(kategori, hari=30)
-    arah = ''
-    if len(tren['rata7']) >= 2:
-        arah = 'menurun' if tren['rata7'][-1] < tren['rata7'][0] else 'meningkat'
-    rekap = d['bands']
-    def _cnt(code):
-        return next((b['count'] for b in rekap if b['kode'] == code), 0)
-    eksekutif = []
-    if d['rata_total'] is not None:
-        eksekutif.append({'ic': 'exclamation-triangle-fill', 'w': '#f59e0b',
-            'text': f"Rata-rata HOP {kat_label} Sulawesi sebesar {d['rata_total']:.1f} Hari"
-                    + (f", {arah} dibanding awal periode." if arah else ".")})
-    if n_worst:
-        eksekutif.append({'ic': 'exclamation-octagon-fill', 'w': '#ef4444',
-            'text': f"Terdapat {n_worst} unit pada kategori Kritis — perlu percepatan pasokan."})
-    n_wsp = _cnt('waspada') if kategori == 'batubara' else _cnt('siaga')
-    if n_wsp:
-        eksekutif.append({'ic': 'exclamation-circle-fill', 'w': '#f59e0b',
-            'text': f"{n_wsp} unit kategori Waspada — pantau ketersediaan bahan bakar."})
-    eksekutif.append({'ic': 'check-circle-fill', 'w': '#10b981',
-        'text': f"{_cnt('normal')} unit dalam kondisi Normal (HOP di atas ambang aman)."})
-    eksekutif.append({'ic': 'info-circle-fill', 'w': '#3b82f6',
-        'text': "Lakukan monitoring pengadaan untuk mengantisipasi penurunan HOP."})
 
     return render(request, 'opsis/hop_board.html', {
         'pembangkit_list': _pembangkit_aktif(),
@@ -1338,7 +1315,7 @@ def hop_board(request):
         'status_sistem': status_sistem,
         'top_terbaik': top_terbaik, 'top_kritis': top_kritis,
         'detail': detail, 'pins': pins,
-        'tren': tren, 'eksekutif': eksekutif,
+        'tren': tren,
         'gauge': _gauge(d['rata_total'] or 0),
         'map_path': SULAWESI_PATH, 'map_w': MAP_W, 'map_h': MAP_H,
     })
