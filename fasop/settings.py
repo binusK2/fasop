@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     'scada_av',
     'auditlog',
     'streaming',
+    'up2bmakassar',
 ]
 
 MIDDLEWARE = [
@@ -224,6 +225,23 @@ MSSQL_RT_TABLE   = config('MSSQL_RT_TABLE',   default='dbo.KIT_REALTIME')
 MSSQL_FREQ_TABLE = config('MSSQL_FREQ_TABLE', default='dbo.SYS_FREQ_HIS')
 MSSQL_TRAFO_TABLE= config('MSSQL_TRAFO_TABLE',default='dbo.ALL_TRANS_DATA')  # Beban Trafo
 MSSQL_DRIVER     = config('MSSQL_DRIVER',     default='ODBC Driver 17 for SQL Server')
+
+# -------------------------------------------------------------------
+# OFDB — Koneksi read-only ke database offline SCADA up2bmakassar
+# (dbup2bmakasar @ 192.168.19.1) untuk fitur kinerja SCADATEL (app up2bmakassar).
+# Server dbup2bmakasar terpisah dari MSSQL_* di atas (server SDG_V2 lain).
+# Set di .env server (tidak di-commit):
+#   OFDB_HOST=192.168.19.1,1433
+#   OFDB_DB=dbup2bmakasar
+#   OFDB_USER=fasop_readonly
+#   OFDB_PASS=password
+#   OFDB_DRIVER=ODBC Driver 17 for SQL Server
+# -------------------------------------------------------------------
+OFDB_HOST   = config('OFDB_HOST',   default='')
+OFDB_DB     = config('OFDB_DB',     default='dbup2bmakasar')
+OFDB_USER   = config('OFDB_USER',   default='')
+OFDB_PASS   = config('OFDB_PASS',   default='')
+OFDB_DRIVER = config('OFDB_DRIVER', default='ODBC Driver 17 for SQL Server')
 
 # -------------------------------------------------------------------
 # MediaMTX — media server WebRTC (WHIP/WHEP) untuk fitur Live Streaming.
