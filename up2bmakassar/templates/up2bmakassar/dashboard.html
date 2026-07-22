@@ -1,0 +1,58 @@
+{% extends "up2bmakassar/base.html" %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:18px;">
+    <div style="font-size:20px; font-weight:800; color:#fff; margin-bottom:2px;">Kinerja Scadatel</div>
+    <div style="font-size:12px; color:var(--muted);">Ringkasan kinerja {{ tanggal|date:"d F Y" }} — data dari OFDB up2bmakassar (192.168.19.1)</div>
+</div>
+
+<div class="stat-bar">
+    <div class="stat-card avail">
+        <div class="stat-lbl"><i class="bi bi-activity me-1"></i>Rata-rata Telemetering</div>
+        <div class="stat-val avail">{{ ringkasan_analog.rata_rata|floatformat:2 }}<span class="stat-unit">%</span></div>
+    </div>
+    <div class="stat-card up">
+        <div class="stat-lbl">Titik ANALOG dihitung</div>
+        <div class="stat-val up">{{ ringkasan_analog.jumlah_titik }}</div>
+    </div>
+    <div class="stat-card avail">
+        <div class="stat-lbl"><i class="bi bi-toggle2-on me-1"></i>Rata-rata Telesignal</div>
+        <div class="stat-val avail">{{ ringkasan_digital.rata_rata|floatformat:2 }}<span class="stat-unit">%</span></div>
+    </div>
+    <div class="stat-card up">
+        <div class="stat-lbl">Titik DIGITAL dihitung</div>
+        <div class="stat-val up">{{ ringkasan_digital.jumlah_titik }}</div>
+    </div>
+</div>
+
+<div class="chart-card">
+    <div class="chart-head">
+        <div class="chart-title"><i class="bi bi-activity me-1" style="color:#60a5fa;"></i>Telemetering (ANALOG)</div>
+        <a href="{% url 'up2b_kinerja_analog' %}" class="btn-filter"><i class="bi bi-arrow-right me-1"></i>Lihat detail</a>
+    </div>
+    {% if ringkasan_analog.jumlah_titik %}
+    <div style="display:flex; gap:24px; flex-wrap:wrap; font-size:13px;">
+        <div><span style="color:var(--muted);">Terbaik:</span> <strong>{{ ringkasan_analog.terbaik.path1 }} / {{ ringkasan_analog.terbaik.path2 }} / {{ ringkasan_analog.terbaik.path3 }}</strong> — {{ ringkasan_analog.terbaik.performance|floatformat:2 }}%</div>
+        <div><span style="color:var(--muted);">Terburuk:</span> <strong>{{ ringkasan_analog.terburuk.path1 }} / {{ ringkasan_analog.terburuk.path2 }} / {{ ringkasan_analog.terburuk.path3 }}</strong> — {{ ringkasan_analog.terburuk.performance|floatformat:2 }}%</div>
+    </div>
+    {% else %}
+    <div style="color:var(--muted); padding:20px 0; text-align:center;">Belum ada data untuk tanggal ini. Jalankan <code>sync_kinerja_analog</code> terlebih dahulu.</div>
+    {% endif %}
+</div>
+
+<div class="chart-card">
+    <div class="chart-head">
+        <div class="chart-title"><i class="bi bi-toggle2-on me-1" style="color:#34d399;"></i>Telesignal (DIGITAL)</div>
+        <a href="{% url 'up2b_kinerja_digital' %}" class="btn-filter"><i class="bi bi-arrow-right me-1"></i>Lihat detail</a>
+    </div>
+    {% if ringkasan_digital.jumlah_titik %}
+    <div style="display:flex; gap:24px; flex-wrap:wrap; font-size:13px;">
+        <div><span style="color:var(--muted);">Terbaik:</span> <strong>{{ ringkasan_digital.terbaik.path1 }} / {{ ringkasan_digital.terbaik.path2 }} / {{ ringkasan_digital.terbaik.path3 }}</strong> — {{ ringkasan_digital.terbaik.performance|floatformat:2 }}%</div>
+        <div><span style="color:var(--muted);">Terburuk:</span> <strong>{{ ringkasan_digital.terburuk.path1 }} / {{ ringkasan_digital.terburuk.path2 }} / {{ ringkasan_digital.terburuk.path3 }}</strong> — {{ ringkasan_digital.terburuk.performance|floatformat:2 }}%</div>
+    </div>
+    {% else %}
+    <div style="color:var(--muted); padding:20px 0; text-align:center;">Belum ada data untuk tanggal ini. Jalankan <code>sync_kinerja_digital</code> terlebih dahulu.</div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -52,6 +52,9 @@ urlpatterns = [
     # Device Monitor — Status RTU Realtime + Availability
     path('device-mon/', include('device_mon.urls')),
 
+    # Kinerja SCADATEL — uptime harian ANALOG/DIGITAL dari OFDB up2bmakassar (read-only)
+    path('kinerja-scadatel/', include('up2bmakassar.urls')),
+
     # Common Enemy — Masalah kronik / berulang pada peralatan
     path('common-enemy/', include('common_enemy.urls')),
 
