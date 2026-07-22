@@ -65,17 +65,37 @@ def get_connection():
     return conn
 
 
-def get_kinerja_points(cursor, point_type):
+def get_all_kinerja_path1(cursor, point_type):
+    """Semua PATH1 unik yang muncul di titik kinerja=1 untuk point_type tertentu (untuk seed SitePath1)."""
+    sql = """
+        SELECT DISTINCT path1 FROM scd_c_point
+        WHERE kinerja=1 AND id_pointtype>0 AND point_type=? AND path1 IS NOT NULL AND path1 <> ''
+    """
+    cursor.execute(sql, [point_type])
+    return [row[0] for row in cursor.fetchall()]
+
+
+def get_kinerja_points(cursor, point_type, active_path1=None):
     """
     Daftar point_number yang perlu dihitung kinerjanya, beserta path1-3 untuk label.
     point_type: 'A' (analog) atau 'D' (digital) -- kolom scd_c_point.point_type.
+    active_path1: kalau diisi (list), cuma titik dengan path1 di dalamnya yang diambil
+    (dipakai untuk menyaring site lama/tidak relevan lewat admin SitePath1 di FASOP).
+    None berarti tidak ada filter (ambil semua).
     """
     sql = """
         SELECT point_number, path1, path2, path3
         FROM scd_c_point
         WHERE kinerja=1 AND id_pointtype>0 AND point_type=?
     """
-    cursor.execute(sql, [point_type])
+    params = [point_type]
+    if active_path1 is not None:
+        if not active_path1:
+            return []
+        placeholders = ','.join('?' for _ in active_path1)
+        sql += f" AND path1 IN ({placeholders})"
+        params.extend(active_path1)
+    cursor.execute(sql, params)
     return cursor.fetchall()
 
 

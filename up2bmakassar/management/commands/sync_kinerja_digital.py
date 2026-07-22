@@ -15,7 +15,7 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 
 from up2bmakassar import ofdb
-from up2bmakassar.models import KinerjaDigitalHarian
+from up2bmakassar.models import KinerjaDigitalHarian, SitePath1
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +50,13 @@ class Command(BaseCommand):
 
         try:
             cursor = conn.cursor()
-            points = ofdb.get_kinerja_points(cursor, point_type='D')
+
+            # Seed SitePath1 dengan path1 baru yang belum pernah terlihat (default aktif=True)
+            for path1 in ofdb.get_all_kinerja_path1(cursor, point_type='D'):
+                SitePath1.objects.get_or_create(path1=path1)
+
+            active_path1 = list(SitePath1.objects.filter(aktif=True).values_list('path1', flat=True))
+            points = ofdb.get_kinerja_points(cursor, point_type='D', active_path1=active_path1)
 
             if not points:
                 self.stdout.write('Tidak ada titik DIGITAL dengan kinerja=1 di scd_c_point.')

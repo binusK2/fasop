@@ -1,6 +1,15 @@
 from django.contrib import admin
 
-from .models import KinerjaAnalogHarian, KinerjaDigitalHarian
+from .models import KinerjaAnalogHarian, KinerjaDigitalHarian, SitePath1
+
+
+@admin.register(SitePath1)
+class SitePath1Admin(admin.ModelAdmin):
+    list_display = ('path1', 'aktif', 'keterangan', 'dibuat_pada')
+    list_editable = ('aktif',)
+    list_filter = ('aktif',)
+    search_fields = ('path1', 'keterangan')
+    ordering = ('path1',)
 
 
 @admin.register(KinerjaAnalogHarian)
