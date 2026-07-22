@@ -1170,6 +1170,86 @@ def hop_import(request):
     })
 
 
+def _bisa_input_hop(user):
+    return user.is_superuser or getattr(getattr(user, 'profile', None), 'bisa_input_hop', False)
+
+
+@login_required
+def hop_input(request):
+    """
+    Form input nilai HOP per pembangkit untuk tanggal (default hari ini).
+    Akses: superuser atau user berflag UserProfile.bisa_input_hop (diatur di
+    site admin) — dimaksudkan untuk sebagian user role Opsis.
+    """
+    if not _bisa_input_hop(request.user):
+        messages.error(request, 'Anda tidak memiliki akses untuk input data HOP.')
+        return redirect('opsis_hop')
+
+    today = timezone.localdate()
+    tgl_raw = (request.POST.get('tanggal') or request.GET.get('tanggal') or '').strip()
+    try:
+        tanggal = datetime.date.fromisoformat(tgl_raw) if tgl_raw else today
+    except ValueError:
+        tanggal = today
+    if tanggal > today:                      # tidak boleh tanggal masa depan
+        tanggal = today
+
+    plants = list(HopPembangkit.objects.filter(aktif=True)
+                  .order_by('kategori', 'urutan', 'nama'))
+
+    if request.method == 'POST':
+        n_simpan, n_hapus = 0, 0
+        for p in plants:
+            raw = request.POST.get(f'hop_{p.pk}', '').strip().replace(',', '.')
+            if raw == '':
+                # kosongkan → hapus nilai tanggal itu bila ada
+                n_hapus += HopSnapshot.objects.filter(pembangkit=p, tanggal=tanggal).delete()[0]
+                continue
+            try:
+                val = float(raw)
+            except ValueError:
+                continue
+            HopSnapshot.objects.update_or_create(
+                pembangkit=p, tanggal=tanggal, defaults={'hop': val})
+            n_simpan += 1
+        messages.success(request,
+            f'{n_simpan} nilai HOP tersimpan untuk {tanggal:%d %b %Y}'
+            + (f' ({n_hapus} dikosongkan).' if n_hapus else '.'))
+        return redirect(f"{reverse('opsis_hop_input')}?tanggal={tanggal.isoformat()}")
+
+    # GET — prefill nilai tanggal terpilih
+    existing = {s.pembangkit_id: s.hop for s in
+                HopSnapshot.objects.filter(pembangkit__in=plants, tanggal=tanggal)}
+    grouped = []
+    for kode, label in HOP_KATEGORI_CHOICES:
+        items = []
+        for p in plants:
+            if p.kategori != kode:
+                continue
+            hop = existing.get(p.pk)
+            items.append({
+                'pk': p.pk, 'nama': p.nama, 'sistem': p.sistem, 'aset': p.aset,
+                'dmn': p.dmn_mw, 'hop': hop,
+                'status': hop_status(p.kategori, hop),
+            })
+        if items:
+            grouped.append({'label': label, 'items': items})
+
+    import json
+    bands_json = json.dumps({
+        kat: [{'w': w, 'b': batas, 'op': op} for (_, _, w, batas, op) in bands]
+        for kat, bands in HOP_BANDS.items()
+    })
+
+    return render(request, 'opsis/hop_input.html', {
+        'pembangkit_list': _pembangkit_aktif(),
+        'tanggal': tanggal, 'today': today,
+        'is_today': tanggal == today,
+        'grouped': grouped,
+        'bands_json': bands_json,
+    })
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 #  HOP — Dashboard eksekutif (ringkas & lengkap, dengan peta Sulawesi)
 # ═══════════════════════════════════════════════════════════════════════════

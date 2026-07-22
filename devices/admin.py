@@ -188,9 +188,9 @@ from django.contrib.auth.models import User
 
 @admin.register(UserProfile)
 class UserProfileAdmin(admin.ModelAdmin):
-    list_display  = ['user', 'role', 'ultg', 'force_password_change', 'has_signature']
-    list_editable = ['role', 'force_password_change']
-    list_filter   = ['role', 'ultg']
+    list_display  = ['user', 'role', 'ultg', 'bisa_input_hop', 'force_password_change', 'has_signature']
+    list_editable = ['role', 'bisa_input_hop', 'force_password_change']
+    list_filter   = ['role', 'bisa_input_hop', 'ultg']
     search_fields = ['user__username', 'user__first_name', 'user__last_name']
     autocomplete_fields = []
 
