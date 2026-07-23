@@ -236,13 +236,30 @@ def query_soe(cursor, dt_start, dt_end, filters=None, limit=SOE_MAX_ROWS):
 # menulis balik ke OFDB -- hasilnya disimpan di model RemoteControl (Postgres).
 
 def get_rc_events(cursor, dt_start, dt_end):
-    """RC yang diperintahkan (datum_1 dalam rentang) dari OFDB scd_his_rc."""
+    """
+    RC yang diperintahkan (datum_1 dalam rentang) dari OFDB scd_his_rc.
+
+    Kolom b1/b2/b3/elem di scd_his_rc TIDAK pernah diisi oleh trigger (cuma
+    path1-5 kode mentah yang terisi) -- jadi label terbaca diambil lewat lookup
+    ke scd_c_point berdasarkan kombinasi path1-5 (OUTER APPLY, fallback ke kode
+    mentah kalau tidak ketemu match persis).
+    """
     sql = """
-        SELECT id_his_rc, path1, path2, path3, path4, path5, b1, b2, b3, elem,
-               datum_1, status_1, datum_2, status_2, msgoperator, cek_remote
-        FROM scd_his_rc
-        WHERE datum_1 >= ? AND datum_1 <= ?
-        ORDER BY datum_1
+        SELECT r.id_his_rc, r.path1, r.path2, r.path3, r.path4, r.path5,
+               COALESCE(cp.path1text, r.path1) AS b1,
+               COALESCE(cp.path2text, r.path2) AS b2,
+               COALESCE(cp.path3text, r.path3) AS b3,
+               COALESCE(cp.path4text, r.path4) AS elem,
+               r.datum_1, r.status_1, r.datum_2, r.status_2, r.msgoperator, r.cek_remote
+        FROM scd_his_rc r
+        OUTER APPLY (
+            SELECT TOP 1 path1text, path2text, path3text, path4text
+            FROM scd_c_point c
+            WHERE c.path1 = r.path1 AND c.path2 = r.path2 AND c.path3 = r.path3
+                  AND c.path4 = r.path4 AND c.path5 = r.path5
+        ) cp
+        WHERE r.datum_1 >= ? AND r.datum_1 <= ?
+        ORDER BY r.datum_1
     """
     cursor.execute(sql, [dt_start, dt_end])
     return cursor.fetchall()
