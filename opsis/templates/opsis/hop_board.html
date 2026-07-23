@@ -180,7 +180,7 @@ table.dt { width:100%; border-collapse:collapse; font-size:12px; min-width:560px
                             <line x1="{{ gauge.cx }}" y1="{{ gauge.cy }}" x2="{{ gauge.needle.x }}" y2="{{ gauge.needle.y }}" stroke="#e2e8f0" stroke-width="2.5" stroke-linecap="round"/>
                             <circle cx="{{ gauge.cx }}" cy="{{ gauge.cy }}" r="5" fill="#e2e8f0"/>
                         </svg>
-                        <div class="gauge-val" style="color:{{ status_sistem.warna_text }};">{{ data.rata_total|floatformat:1 }}</div>
+                        <div class="gauge-val" style="color:{{ status_sistem.warna_text }};">{{ data.rata_total|floatformat:2 }}</div>
                         <div class="gauge-unit">Hari — Rata-rata HOP Sulawesi</div>
                     </div>
                     <div class="rk-list">
