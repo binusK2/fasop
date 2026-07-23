@@ -1070,8 +1070,10 @@ def _hop_kategori_data(kategori):
     # Urutkan tampilan: HOP terkecil (paling kritis) di atas; None paling bawah
     rows.sort(key=lambda r: (r['hop'] is None, r['hop'] if r['hop'] is not None else 0))
 
-    # Ringkasan band (KPI + legenda) beserta jumlah pembangkit tiap status
+    # Ringkasan band (KPI + legenda) beserta jumlah pembangkit tiap status.
+    # warna_text = versi warna untuk teks (hitam diganti terang agar terbaca).
     bands = [{'kode': kode, 'label': label, 'warna': warna, 'desc': desc,
+              'warna_text': '#e2e8f0' if warna == '#0a0a0a' else warna,
               'count': rekap.get(kode, 0)}
              for kode, label, warna, desc in hop_deskripsi_band(kategori)]
 
@@ -1354,7 +1356,9 @@ def hop_board(request):
         pesan = f'Rata-rata HOP {kat_label} berada pada kategori {slabel} ({band_desc}).'
         if n_worst:
             pesan += f' Terdapat {n_worst} unit dengan stok kritis.'
-    status_sistem = {'kode': skode, 'label': slabel.upper(), 'warna': swarna, 'pesan': pesan}
+    status_sistem = {'kode': skode, 'label': slabel.upper(), 'warna': swarna,
+                     'warna_text': '#e2e8f0' if swarna == '#0a0a0a' else swarna,
+                     'pesan': pesan}
 
     # Top-5 terbaik & kritis
     top_terbaik = list(reversed(valid))[:5]
