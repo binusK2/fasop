@@ -42,6 +42,8 @@
 /* Kartu yang mengisi sisa tinggi kolom (tren) + peta setinggi kolom */
 .hb-card.grow { flex:1; display:flex; flex-direction:column; }
 .hb-card.grow > .bd { flex:1; display:flex; flex-direction:column; }
+.hb-card.grow .top-list { flex:1; display:flex; flex-direction:column; }
+.hb-card.grow .top-row { flex:1; }
 .tren-canvas { position:relative; flex:1; min-height:190px; }
 .tren-canvas canvas { position:absolute; inset:0; width:100%!important; height:100%!important; }
 .mapcard { display:flex; flex-direction:column; }
@@ -178,7 +180,7 @@ table.dt { width:100%; border-collapse:collapse; font-size:12px; min-width:560px
                             <line x1="{{ gauge.cx }}" y1="{{ gauge.cy }}" x2="{{ gauge.needle.x }}" y2="{{ gauge.needle.y }}" stroke="#e2e8f0" stroke-width="2.5" stroke-linecap="round"/>
                             <circle cx="{{ gauge.cx }}" cy="{{ gauge.cy }}" r="5" fill="#e2e8f0"/>
                         </svg>
-                        <div class="gauge-val" style="color:{{ status_sistem.warna }};">{{ data.rata_total|floatformat:1 }}</div>
+                        <div class="gauge-val" style="color:{{ status_sistem.warna_text }};">{{ data.rata_total|floatformat:2 }}</div>
                         <div class="gauge-unit">Hari — Rata-rata HOP Sulawesi</div>
                     </div>
                     <div class="rk-list">
@@ -239,15 +241,15 @@ table.dt { width:100%; border-collapse:collapse; font-size:12px; min-width:560px
                 <h2><i class="bi bi-shield-check"></i> Status Sistem {{ kat_label }}</h2>
                 <div class="bd">
                     <div class="status-big">
-                        <div class="ic" style="color:{{ status_sistem.warna }};"><i class="bi bi-exclamation-triangle-fill"></i></div>
-                        <div class="lb" style="color:{{ status_sistem.warna }};">{{ status_sistem.label }}</div>
+                        <div class="ic" style="color:{{ status_sistem.warna_text }};"><i class="bi bi-exclamation-triangle-fill"></i></div>
+                        <div class="lb" style="color:{{ status_sistem.warna_text }};">{{ status_sistem.label }}</div>
                         <div class="ms">{{ status_sistem.pesan }}</div>
                     </div>
                     <div class="status-cards {% if bands|length == 3 %}c3{% endif %}">
                         {% for b in bands %}
-                        <div class="sc" style="border-color:{{ b.warna }}55;">
-                            <div class="n" style="color:{{ b.warna }};">{{ b.label }}</div>
-                            <div class="v" style="color:{{ b.warna }};">{{ b.count }}</div>
+                        <div class="sc" style="border-color:{{ b.warna }}88;">
+                            <div class="n" style="color:{{ b.warna_text }};">{{ b.label }}</div>
+                            <div class="v" style="color:{{ b.warna_text }};">{{ b.count }}</div>
                             <div class="u">Unit</div>
                         </div>
                         {% endfor %}
@@ -255,7 +257,7 @@ table.dt { width:100%; border-collapse:collapse; font-size:12px; min-width:560px
                 </div>
             </div>
 
-            <div class="hb-card">
+            <div class="hb-card grow">
                 <h2><i class="bi bi-trophy-fill" style="color:#eab308;"></i> Top 5 HOP {{ kat_label }} Terbaik</h2>
                 <div class="bd" style="padding:6px 14px;">
                     <div class="top-list">
@@ -270,7 +272,7 @@ table.dt { width:100%; border-collapse:collapse; font-size:12px; min-width:560px
                 </div>
             </div>
 
-            <div class="hb-card">
+            <div class="hb-card grow">
                 <h2><i class="bi bi-exclamation-triangle-fill" style="color:#ef4444;"></i> Top 5 HOP {{ kat_label }} Kritis</h2>
                 <div class="bd" style="padding:6px 14px;">
                     <div class="top-list">

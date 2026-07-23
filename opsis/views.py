@@ -1070,8 +1070,10 @@ def _hop_kategori_data(kategori):
     # Urutkan tampilan: HOP terkecil (paling kritis) di atas; None paling bawah
     rows.sort(key=lambda r: (r['hop'] is None, r['hop'] if r['hop'] is not None else 0))
 
-    # Ringkasan band (KPI + legenda) beserta jumlah pembangkit tiap status
+    # Ringkasan band (KPI + legenda) beserta jumlah pembangkit tiap status.
+    # warna_text = versi warna untuk teks (hitam diganti terang agar terbaca).
     bands = [{'kode': kode, 'label': label, 'warna': warna, 'desc': desc,
+              'warna_text': '#e2e8f0' if warna == '#0a0a0a' else warna,
               'count': rekap.get(kode, 0)}
              for kode, label, warna, desc in hop_deskripsi_band(kategori)]
 
@@ -1300,11 +1302,18 @@ def _sparkline_points(values, w=94, h=26, pad=3):
     return ' '.join(pts)
 
 
-def _gauge(value, vmax=20):
+def _gauge(value, kategori='batubara'):
     """
-    Geometri gauge setengah lingkaran (0..vmax). Zona: merah 0–10, kuning 10–15,
-    hijau 15–20 (selaras ambang batu bara). Kembalikan arcs + jarum + tick.
+    Geometri gauge setengah lingkaran, zona diturunkan dari ambang band kategori:
+      merah  0 .. ambang Siaga
+      kuning ambang Siaga .. ambang Normal
+      hijau  ambang Normal .. vmax
+    Batu bara: Siaga 10, Normal 15, vmax 20. BBM: Siaga 3, Normal 7, vmax 15.
     """
+    bands = HOP_BANDS.get(kategori, HOP_BANDS['bbm'])
+    normal_thr = bands[0][3]      # batas band teratas (Normal)
+    siaga_thr  = bands[1][3]      # batas band kedua (Siaga)
+    vmax = 20 if kategori == 'batubara' else 15
     cx, cy, r = 100.0, 105.0, 82.0
 
     def pol(v):
@@ -1316,13 +1325,15 @@ def _gauge(value, vmax=20):
         x2, y2 = pol(v2)
         return {'d': f'M{x1:.1f},{y1:.1f} A{r},{r} 0 0 1 {x2:.1f},{y2:.1f}', 'color': color}
 
-    arcs = [arc(0, 10, '#ef4444'), arc(10, 15, '#f59e0b'), arc(15, vmax, '#10b981')]
+    arcs = [arc(0, siaga_thr, '#ef4444'),
+            arc(siaga_thr, normal_thr, '#f59e0b'),
+            arc(normal_thr, vmax, '#10b981')]
     nx, ny = pol(value if value is not None else 0)
     # jarum sedikit lebih pendek dari radius
     nxi = cx + (nx - cx) * 0.82
     nyi = cy + (ny - cy) * 0.82
     ticks = []
-    for t in (0, 5, 10, 15, 20):
+    for t in (0, siaga_thr, normal_thr, vmax):
         tx, ty = pol(t)
         lx = cx + (tx - cx) * 1.16
         ly = cy + (ty - cy) * 1.16
@@ -1354,7 +1365,9 @@ def hop_board(request):
         pesan = f'Rata-rata HOP {kat_label} berada pada kategori {slabel} ({band_desc}).'
         if n_worst:
             pesan += f' Terdapat {n_worst} unit dengan stok kritis.'
-    status_sistem = {'kode': skode, 'label': slabel.upper(), 'warna': swarna, 'pesan': pesan}
+    status_sistem = {'kode': skode, 'label': slabel.upper(), 'warna': swarna,
+                     'warna_text': '#e2e8f0' if swarna == '#0a0a0a' else swarna,
+                     'pesan': pesan}
 
     # Top-5 terbaik & kritis
     top_terbaik = list(reversed(valid))[:5]
@@ -1396,6 +1409,6 @@ def hop_board(request):
         'top_terbaik': top_terbaik, 'top_kritis': top_kritis,
         'detail': detail, 'pins': pins,
         'tren': tren,
-        'gauge': _gauge(d['rata_total'] or 0),
+        'gauge': _gauge(d['rata_total'] or 0, kategori),
         'map_path': SULAWESI_PATH, 'map_w': MAP_W, 'map_h': MAP_H,
     })
