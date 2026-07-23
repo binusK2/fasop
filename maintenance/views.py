@@ -3555,14 +3555,26 @@ def _save_ba_record(jenis, nomor_ba, tanggal_str, pelaksana, nip, jabatan, catat
         pass  # jangan gagalkan export PDF jika penyimpanan error
 
 
+def _ba_sort_key(rec):
+    """Urutkan BA berdasarkan tahun & nomor urut pada nomor_ba (format
+    '<nomor>.BA/FASOP/UP2BS-MKS/<tahun>'), bukan tanggal dibuat — sehingga BA
+    yang di-input belakangan tapi bernomor/tahun lebih kecil tetap urut benar."""
+    import re as _re_sort
+    nomor_ba = rec.nomor_ba or ''
+    m_tahun = _re_sort.search(r'(\d{4})\s*$', nomor_ba)
+    tahun = int(m_tahun.group(1)) if m_tahun else (rec.tanggal.year if rec.tanggal else 0)
+    m_nomor = _re_sort.match(r'^\s*(\d+)', nomor_ba)
+    nomor = int(m_nomor.group(1)) if m_nomor else -1
+    return (tahun, nomor, rec.created_at)
+
+
 @login_required
 def ba_list(request):
     from django.contrib.auth import get_user_model as _get_user_model
-    records = (
+    records_qs = (
         BeritaAcaraRecord.objects
         .select_related('created_by', 'ttd_req_to', 'ttd_engineer', 'ttd_am')
         .prefetch_related('evidens')
-        .order_by('-created_at')
     )
     _User = _get_user_model()
     engineers = (
@@ -3579,11 +3591,12 @@ def ba_list(request):
     is_am         = request.user.is_superuser or (user_role == 'asisten_manager')
     is_technician = user_role == 'technician'
     # BA yang menunggu TTD dari user ini (engineer)
-    pending_ttd_saya = records.filter(
+    pending_ttd_saya = records_qs.filter(
         ttd_status='menunggu_engineer', ttd_req_to=request.user
     ).count() if is_technician else 0
     # BA yang menunggu TTD AM
-    pending_ttd_am = records.filter(ttd_status='signed_engineer').count() if is_am else 0
+    pending_ttd_am = records_qs.filter(ttd_status='signed_engineer').count() if is_am else 0
+    records = sorted(records_qs, key=_ba_sort_key, reverse=True)
     return render(request, 'maintenance/ba_list.html', {
         'records':          records,
         'engineers':        engineers,
