@@ -39,6 +39,13 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         dry_run = options.get('dry_run', False)
         days = max(1, options.get('days') or 2)
+        tz_local = timezone.get_current_timezone()
+
+        def aware(dt):
+            """Timestamp dari OFDB (pyodbc) selalu naive -- jadikan timezone-aware."""
+            if dt and timezone.is_naive(dt):
+                return timezone.make_aware(dt, tz_local)
+            return dt
 
         if options.get('date'):
             anchor = datetime.strptime(options['date'], '%Y-%m-%d').date()
@@ -90,8 +97,8 @@ class Command(BaseCommand):
                                     path4=path4 or '', path5=path5 or '',
                                     b1=b1 or '', b2=b2 or '', b3=b3 or '', elem=elem or '',
                                     operator=operator or '', tanggal=tanggal,
-                                    datum_eksekusi=datum_1, status_eksekusi=status_1 or '',
-                                    datum_respon=hasil_datum, status_respon=hasil_status,
+                                    datum_eksekusi=aware(datum_1), status_eksekusi=status_1 or '',
+                                    datum_respon=aware(hasil_datum), status_respon=hasil_status,
                                 ),
                             )
                         diproses += 1
