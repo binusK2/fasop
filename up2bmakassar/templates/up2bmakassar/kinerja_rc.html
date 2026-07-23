@@ -1,0 +1,83 @@
+{% extends "up2bmakassar/base.html" %}
+{% block title %}Kinerja RC{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:18px;">
+    <div style="font-size:20px; font-weight:800; color:#fff; margin-bottom:2px;">Kinerja Remote Control (RC)</div>
+    <div style="font-size:12px; color:var(--muted);">Success rate perintah CB/LBS — diselesaikan dari OFDB scd_his_rc + scd_his_message</div>
+</div>
+
+<form method="get" class="filter-bar">
+    <label style="font-size:12px;color:var(--muted);">Dari
+        <input type="date" name="tanggal_dari" value="{{ tanggal_dari|date:'Y-m-d' }}">
+    </label>
+    <label style="font-size:12px;color:var(--muted);">Sampai
+        <input type="date" name="tanggal_sampai" value="{{ tanggal_sampai|date:'Y-m-d' }}">
+    </label>
+    <input type="search" name="q" value="{{ q }}" placeholder="Cari B1/B2/B3/Element...">
+    <button type="submit" class="btn-filter"><i class="bi bi-funnel me-1"></i>Filter</button>
+</form>
+
+<div class="stat-bar">
+    <div class="stat-card avail">
+        <div class="stat-lbl">Rata-rata Success Rate</div>
+        <div class="stat-val avail">{{ ringkasan.rata_rata|floatformat:2 }}<span class="stat-unit">%</span></div>
+    </div>
+    <div class="stat-card up">
+        <div class="stat-lbl">Total RC</div>
+        <div class="stat-val up">{{ ringkasan.total_rc }}</div>
+    </div>
+    <div class="stat-card up">
+        <div class="stat-lbl">Sukses</div>
+        <div class="stat-val up">{{ ringkasan.total_sukses }}</div>
+    </div>
+    <div class="stat-card down">
+        <div class="stat-lbl">Bay Terpantau</div>
+        <div class="stat-val" style="color:#a78bfa;">{{ ringkasan.jumlah_bay }}</div>
+    </div>
+</div>
+
+<div class="chart-card">
+    <div class="table-scroll">
+    <table class="kin-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>B1 (Stasiun)</th>
+                <th>B2 (Tegangan)</th>
+                <th>B3 (Bay)</th>
+                <th>Element</th>
+                <th>Jumlah RC</th>
+                <th>Sukses</th>
+                <th>Gagal</th>
+                <th>Performance</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr>
+                <td style="color:var(--muted);">{{ forloop.counter }}</td>
+                <td><strong>{{ row.b1 }}</strong></td>
+                <td>{{ row.b2 }}</td>
+                <td>{{ row.b3 }}</td>
+                <td>{{ row.elem }}</td>
+                <td>{{ row.jumlah }}</td>
+                <td style="color:#10b981;">{{ row.sukses }}</td>
+                <td style="color:#ef4444;">{{ row.gagal }}</td>
+                <td>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <div style="flex:1; max-width:100px; height:4px; background:rgba(255,255,255,.06); border-radius:2px;">
+                            <div style="width:{{ row.performance }}%; height:100%; background:{% if row.performance >= 95 %}#10b981{% elif row.performance >= 80 %}#f59e0b{% else %}#ef4444{% endif %}; border-radius:2px;"></div>
+                        </div>
+                        <span style="font-family:'JetBrains Mono',monospace; font-size:12px;">{{ row.performance|floatformat:2 }}%</span>
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="9" style="text-align:center;padding:40px;color:var(--muted);">Belum ada data RC untuk rentang ini. Jalankan <code>python manage.py sync_rc</code> terlebih dahulu.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</div>
+{% endblock %}

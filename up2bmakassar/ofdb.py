@@ -223,3 +223,49 @@ def query_soe(cursor, dt_start, dt_end, filters=None, limit=SOE_MAX_ROWS):
     if truncated:
         rows = rows[:limit]
     return rows, truncated
+
+
+# ── RC (Remote Control) — baca scd_his_rc + resolve hasil dari scd_his_message ────
+#
+# scd_his_rc diisi OTOMATIS oleh trigger tr1_scd_his_message di OFDB tiap ada
+# perintah CB/LBS (kolom datum_1/status_1/msgoperator terisi begitu perintah
+# dikirim). Tapi penyelesaiannya (datum_2/status_2/cek_remote = apakah perintah
+# itu BERHASIL/GAGAL) seharusnya diisi oleh job up2bmakassar/apps/tasks/jobs/
+# scd_his_rc.py -- yang sudah lama mati (apps.tasks di-comment). FASOP membaca
+# scd_his_rc read-only lalu menyelesaikan sendiri yang masih kosong, TANPA
+# menulis balik ke OFDB -- hasilnya disimpan di model RemoteControl (Postgres).
+
+def get_rc_events(cursor, dt_start, dt_end):
+    """RC yang diperintahkan (datum_1 dalam rentang) dari OFDB scd_his_rc."""
+    sql = """
+        SELECT id_his_rc, path1, path2, path3, path4, path5, b1, b2, b3, elem,
+               datum_1, status_1, datum_2, status_2, msgoperator, cek_remote
+        FROM scd_his_rc
+        WHERE datum_1 >= ? AND datum_1 <= ?
+        ORDER BY datum_1
+    """
+    cursor.execute(sql, [dt_start, dt_end])
+    return cursor.fetchall()
+
+
+def resolve_rc_result(cursor, path1, path2, path3, path4, path5, datum_1):
+    """
+    Cari hasil RC (BERHASIL/GAGAL) dari scd_his_message dalam +2 menit sejak datum_1.
+    Portasi dari up2bmakassar apps/tasks/jobs/scd_his_rc.py: tag mengandung
+    NE/RC/R*/MU dianggap respons; mengandung 'NE' = GAGAL, selain itu BERHASIL.
+    Tidak ada respons dalam window = GAGAL (default, sama seperti aslinya).
+    """
+    sql = """
+        SELECT TOP 1 tag, time_stamp, msec FROM scd_his_message
+        WHERE path1=? AND path2=? AND path3=? AND path4=? AND path5=?
+              AND time_stamp >= ? AND time_stamp <= DATEADD(MINUTE, 2, ?)
+              AND (tag LIKE '%NE%' OR tag LIKE '%RC%' OR tag LIKE '%R*%' OR tag LIKE '%MU%')
+        ORDER BY time_stamp
+    """
+    cursor.execute(sql, [path1, path2, path3, path4, path5, datum_1, datum_1])
+    row = cursor.fetchone()
+    if row:
+        tag, time_stamp, msec = row
+        status = 'GAGAL' if 'NE' in tag else 'BERHASIL'
+        return time_stamp, msec or 0, status
+    return datum_1, 999, 'GAGAL'

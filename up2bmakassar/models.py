@@ -57,6 +57,44 @@ class KinerjaAnalogHarian(models.Model):
         return f'{self.point_number} - {self.tanggal} ({self.performance:.2f}%)'
 
 
+class RemoteControl(models.Model):
+    """
+    Log RC (remote control) individual, diselesaikan (resolved BERHASIL/GAGAL) dari
+    OFDB scd_his_rc (perintah) + scd_his_message (respons) -- dibaca read-only,
+    hasil resolusinya disimpan di sini, TIDAK ditulis balik ke OFDB.
+
+    ofdb_id_his_rc = id_his_rc di OFDB, dipakai sebagai kunci upsert idempotent.
+    """
+    ofdb_id_his_rc = models.IntegerField(unique=True, db_index=True)
+    path1 = models.CharField(max_length=100, blank=True, default='')
+    path2 = models.CharField(max_length=100, blank=True, default='')
+    path3 = models.CharField(max_length=100, blank=True, default='')
+    path4 = models.CharField(max_length=100, blank=True, default='')
+    path5 = models.CharField(max_length=100, blank=True, default='')
+    b1 = models.CharField(max_length=100, blank=True, default='')
+    b2 = models.CharField(max_length=100, blank=True, default='')
+    b3 = models.CharField(max_length=100, blank=True, default='')
+    elem = models.CharField(max_length=100, blank=True, default='')
+    operator = models.CharField(max_length=100, blank=True, default='')
+    tanggal = models.DateField(db_index=True)
+    datum_eksekusi = models.DateTimeField(null=True, blank=True)
+    status_eksekusi = models.CharField(max_length=100, blank=True, default='')
+    datum_respon = models.DateTimeField(null=True, blank=True)
+    status_respon = models.CharField(max_length=100, blank=True, default='')  # BERHASIL / GAGAL
+    dihitung_pada = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['tanggal']),
+            models.Index(fields=['path1', 'path2', 'path3']),
+        ]
+        verbose_name = 'Remote Control (RC) Log'
+        verbose_name_plural = 'Remote Control (RC) Log'
+
+    def __str__(self):
+        return f'{self.b1}/{self.b3}/{self.elem} - {self.tanggal} ({self.status_respon})'
+
+
 class KinerjaDigitalHarian(models.Model):
     """
     Rekap harian kinerja (uptime) titik DIGITAL, dihitung dari histori transisi
