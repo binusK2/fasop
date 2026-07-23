@@ -6,7 +6,7 @@ from django.shortcuts import render
 from django.utils import timezone
 
 from . import ofdb
-from .models import KinerjaAnalogHarian, KinerjaDigitalHarian
+from .models import KinerjaAnalogHarian, KinerjaDigitalHarian, RemoteControl
 
 
 def _parse_tanggal(request, default_days_back=1):
@@ -72,6 +72,62 @@ def kinerja_analog(request):
 @login_required
 def kinerja_digital(request):
     return _kinerja_list(request, KinerjaDigitalHarian, 'up2bmakassar/kinerja_digital.html')
+
+
+# ── Kinerja RC — agregat dari RemoteControl (sudah di-resolve oleh sync_rc) ────────
+
+@login_required
+def kinerja_rc(request):
+    today = timezone.localdate()
+
+    def _p(name, default):
+        raw = request.GET.get(name)
+        if raw:
+            try:
+                return datetime.strptime(raw, '%Y-%m-%d').date()
+            except ValueError:
+                pass
+        return default
+
+    tanggal_dari = _p('tanggal_dari', today - timedelta(days=7))
+    tanggal_sampai = _p('tanggal_sampai', today)
+    if tanggal_sampai < tanggal_dari:
+        tanggal_sampai = tanggal_dari
+    q = request.GET.get('q', '').strip()
+
+    from django.db.models import Count, Sum, Case, When, Value, IntegerField, Q
+    from django.db.models.functions import Coalesce
+
+    qs = RemoteControl.objects.filter(tanggal__gte=tanggal_dari, tanggal__lte=tanggal_sampai)
+    if q:
+        qs = qs.filter(Q(b1__icontains=q) | Q(b2__icontains=q) | Q(b3__icontains=q) | Q(elem__icontains=q))
+
+    rows = (
+        qs.values('b1', 'b2', 'b3', 'elem')
+        .annotate(
+            jumlah=Count('id'),
+            sukses=Coalesce(Sum(Case(When(status_respon='BERHASIL', then=1), output_field=IntegerField())), 0),
+            gagal=Coalesce(Sum(Case(When(status_respon='GAGAL', then=1), output_field=IntegerField())), 0),
+        )
+        .order_by('b1', 'b3', 'elem')
+    )
+    rows = list(rows)
+    for r in rows:
+        r['performance'] = round(r['sukses'] / r['jumlah'] * 100, 2) if r['jumlah'] else 0
+
+    total_jumlah = sum(r['jumlah'] for r in rows)
+    total_sukses = sum(r['sukses'] for r in rows)
+    ringkasan = {
+        'jumlah_bay': len(rows),
+        'total_rc': total_jumlah,
+        'total_sukses': total_sukses,
+        'rata_rata': round(total_sukses / total_jumlah * 100, 2) if total_jumlah else 0,
+    }
+
+    return render(request, 'up2bmakassar/kinerja_rc.html', {
+        'tanggal_dari': tanggal_dari, 'tanggal_sampai': tanggal_sampai, 'q': q,
+        'rows': rows, 'ringkasan': ringkasan,
+    })
 
 
 # ── SOE Log — query on-demand read-only ke OFDB, tidak disimpan di PostgreSQL ──────
