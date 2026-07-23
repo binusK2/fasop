@@ -210,6 +210,11 @@ def inspection_form(request, device_pk):
                           {'message': 'Inspeksi Radio dan VoIP hanya dilakukan oleh Dispatcher melalui menu Pengujian Telekomunikasi.'}, status=403)
 
     if request.method == 'POST':
+        if not request.FILES.get('foto'):
+            from django.contrib import messages
+            messages.error(request, 'Foto dokumentasi wajib diisi sebelum menyimpan inspeksi.')
+            return redirect('inspection_form', device_pk=device_pk)
+
         # ── Simpan Inspection induk ──────────────────────────────────
         insp = Inspection.objects.create(
             device   = device,
@@ -217,11 +222,8 @@ def inspection_form(request, device_pk):
             tanggal  = timezone.now(),
             operator = request.user,
             catatan  = request.POST.get('catatan', '').strip(),
+            foto     = request.FILES['foto'],
         )
-        # Handle foto
-        if request.FILES.get('foto'):
-            insp.foto = request.FILES['foto']
-            insp.save()
 
         # ── Simpan detail per jenis ──────────────────────────────────
         def g(key, default=''):
