@@ -773,13 +773,13 @@
         <div class="stb"><span class="stb-bar" style="background:#64748b;"></span><span>Dokumentasi & Catatan</span></div>
         <div class="row g-3">
             <div class="col-md-6">
-                <label class="form-label fw-semibold">Foto Dokumentasi</label>
+                <label class="form-label fw-semibold">Foto Dokumentasi <span class="text-danger">*</span></label>
                 <!-- Satu kolom upload. TANPA atribut capture, agar saat diklik HP
                      menampilkan pemilih: galeri, kamera bawaan, atau aplikasi
                      kamera lain (mis. kamera timestamp) yang terpasang. -->
-                <input type="file" name="foto" id="foto-input" accept="image/*" class="form-control">
+                <input type="file" name="foto" id="foto-input" accept="image/*" class="form-control" required>
                 <div class="form-text">
-                    Klik untuk memilih: galeri, kamera bawaan, atau aplikasi kamera lain.
+                    Wajib diisi. Klik untuk memilih: galeri, kamera bawaan, atau aplikasi kamera lain.
                     JPG, PNG — Maks 10MB.
                 </div>
                 <!-- Preview foto terpilih -->
@@ -798,7 +798,8 @@
             </div>
             <div class="col-md-6">
                 <label class="form-label fw-semibold">Catatan Umum</label>
-                <textarea name="catatan" class="form-control" rows="3" placeholder="Catatan tambahan..."></textarea>
+                <textarea name="catatan" class="form-control" rows="3" placeholder="Catatan tambahan... (cantumkan nama pelaksana inspeksi)"></textarea>
+                <div class="form-text">Cantumkan nama pelaksana inspeksi pada catatan ini.</div>
             </div>
         </div>
     </div>
