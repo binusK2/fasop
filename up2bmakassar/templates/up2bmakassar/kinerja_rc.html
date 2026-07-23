@@ -7,16 +7,33 @@
     <div style="font-size:12px; color:var(--muted);">Success rate perintah CB/LBS — diselesaikan dari OFDB scd_his_rc + scd_his_message</div>
 </div>
 
-<form method="get" class="filter-bar">
+<form method="get" class="filter-bar" id="form-rc">
     <label style="font-size:12px;color:var(--muted);">Dari
-        <input type="date" name="tanggal_dari" value="{{ tanggal_dari|date:'Y-m-d' }}">
+        <input type="date" name="tanggal_dari" id="rc-dari" value="{{ tanggal_dari|date:'Y-m-d' }}">
     </label>
     <label style="font-size:12px;color:var(--muted);">Sampai
-        <input type="date" name="tanggal_sampai" value="{{ tanggal_sampai|date:'Y-m-d' }}">
+        <input type="date" name="tanggal_sampai" id="rc-sampai" value="{{ tanggal_sampai|date:'Y-m-d' }}">
     </label>
     <input type="search" name="q" value="{{ q }}" placeholder="Cari B1/B2/B3/Element...">
     <button type="submit" class="btn-filter"><i class="bi bi-funnel me-1"></i>Filter</button>
+    <span style="width:1px; height:20px; background:var(--card-bd); margin:0 2px;"></span>
+    <label style="font-size:12px;color:var(--muted);">Atau pilih 1 bulan
+        <input type="month" id="rc-bulan">
+    </label>
 </form>
+
+<script>
+document.getElementById('rc-bulan').addEventListener('change', function () {
+    if (!this.value) return;
+    const [y, m] = this.value.split('-').map(Number);
+    const dari   = new Date(y, m - 1, 1);
+    const sampai = new Date(y, m, 0); // hari terakhir bulan itu
+    const fmt = d => d.toISOString().slice(0, 10);
+    document.getElementById('rc-dari').value   = fmt(dari);
+    document.getElementById('rc-sampai').value = fmt(sampai);
+    document.getElementById('form-rc').submit();
+});
+</script>
 
 <div class="stat-bar">
     <div class="stat-card avail">

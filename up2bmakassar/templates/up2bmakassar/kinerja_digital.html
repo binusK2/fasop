@@ -9,12 +9,27 @@
 <div style="margin-bottom:18px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
     <div>
         <div style="font-size:20px; font-weight:800; color:#fff; margin-bottom:2px;">Kinerja Telesignal (DIGITAL)</div>
-        <div style="font-size:12px; color:var(--muted);">Uptime harian per titik — dihitung dari OFDB scd_his_digital</div>
+        <div style="font-size:12px; color:var(--muted);">
+            {% if periode == 'bulanan' %}Rekap bulanan (jumlah dari data harian){% else %}Uptime harian per titik{% endif %}
+            — dihitung dari OFDB scd_his_digital
+        </div>
     </div>
 </div>
 
+<div style="display:flex; gap:6px; margin-bottom:12px;">
+    <a href="?periode=harian&q={{ q|urlencode }}"
+       class="btn-filter" style="text-decoration:none; {% if periode != 'bulanan' %}background:rgba(124,58,237,.3);{% endif %}">Harian</a>
+    <a href="?periode=bulanan&q={{ q|urlencode }}"
+       class="btn-filter" style="text-decoration:none; {% if periode == 'bulanan' %}background:rgba(124,58,237,.3);{% endif %}">Bulanan</a>
+</div>
+
 <form method="get" class="filter-bar">
-    <input type="date" name="tanggal" value="{{ tanggal|date:'Y-m-d' }}">
+    <input type="hidden" name="periode" value="{{ periode }}">
+    {% if periode == 'bulanan' %}
+        <input type="month" name="bulan" value="{{ bulan }}">
+    {% else %}
+        <input type="date" name="tanggal" value="{{ tanggal|date:'Y-m-d' }}">
+    {% endif %}
     <input type="search" name="q" value="{{ q }}" placeholder="Cari path1/path2/path3/point_number...">
     <button type="submit" class="btn-filter"><i class="bi bi-funnel me-1"></i>Filter</button>
 </form>

@@ -19,15 +19,34 @@ def _parse_tanggal(request, default_days_back=1):
     return timezone.localdate() - timedelta(days=default_days_back)
 
 
-def _ringkasan(qs):
-    """Rata-rata performance & jumlah titik dari satu queryset kinerja harian."""
-    total = qs.count()
+def _perf(row):
+    """Ambil field 'performance' baik dari model instance (harian) maupun dict hasil .values() (bulanan)."""
+    return row['performance'] if isinstance(row, dict) else row.performance
+
+
+def _ringkasan(rows):
+    """Rata-rata performance & jumlah titik dari list/queryset kinerja (harian atau bulanan)."""
+    rows = list(rows)
+    total = len(rows)
     if total == 0:
         return {'jumlah_titik': 0, 'rata_rata': 0, 'terbaik': None, 'terburuk': None}
-    rata_rata = sum(r.performance for r in qs) / total
-    terbaik = max(qs, key=lambda r: r.performance)
-    terburuk = min(qs, key=lambda r: r.performance)
+    rata_rata = sum(_perf(r) for r in rows) / total
+    terbaik = max(rows, key=_perf)
+    terburuk = min(rows, key=_perf)
     return {'jumlah_titik': total, 'rata_rata': rata_rata, 'terbaik': terbaik, 'terburuk': terburuk}
+
+
+def _parse_bulan(request):
+    """Parse ?bulan=YYYY-MM. Default: bulan berjalan."""
+    raw = request.GET.get('bulan')
+    if raw:
+        try:
+            y, m = raw.split('-')
+            return int(y), int(m)
+        except (ValueError, TypeError):
+            pass
+    today = timezone.localdate()
+    return today.year, today.month
 
 
 @login_required
@@ -43,25 +62,49 @@ def dashboard(request):
 
 
 def _kinerja_list(request, model, template):
-    tanggal = _parse_tanggal(request)
+    from django.db.models import Q, Sum
+
+    periode = request.GET.get('periode', 'harian')
     q = request.GET.get('q', '').strip()
 
-    qs = model.objects.filter(tanggal=tanggal).order_by('path1', 'path2', 'path3')
-    if q:
-        from django.db.models import Q
-        qs = qs.filter(
-            Q(path1__icontains=q) | Q(path2__icontains=q) | Q(path3__icontains=q)
-            | Q(point_number__icontains=q)
+    ctx = {'periode': periode, 'q': q}
+
+    if periode == 'bulanan':
+        tahun, bulan = _parse_bulan(request)
+        qs = model.objects.filter(tanggal__year=tahun, tanggal__month=bulan)
+        if q:
+            qs = qs.filter(
+                Q(path1__icontains=q) | Q(path2__icontains=q) | Q(path3__icontains=q)
+                | Q(point_number__icontains=q)
+            )
+        rows = list(
+            qs.values('point_number', 'path1', 'path2', 'path3')
+            .annotate(
+                jumlah_up=Sum('jumlah_up'),
+                uptime_detik=Sum('uptime_detik'),
+                alltime_detik=Sum('alltime_detik'),
+            )
+            .order_by('path1', 'path2', 'path3')
         )
+        for r in rows:
+            r['performance'] = round(r['uptime_detik'] / r['alltime_detik'] * 100, 2) if r['alltime_detik'] else 0
+        ctx['bulan'] = f'{tahun:04d}-{bulan:02d}'
+        ctx['bulan_label'] = datetime(tahun, bulan, 1).strftime('%B %Y')
+    else:
+        tanggal = _parse_tanggal(request)
+        qs = model.objects.filter(tanggal=tanggal).order_by('path1', 'path2', 'path3')
+        if q:
+            qs = qs.filter(
+                Q(path1__icontains=q) | Q(path2__icontains=q) | Q(path3__icontains=q)
+                | Q(point_number__icontains=q)
+            )
+        rows = qs
+        ctx['tanggal'] = tanggal
 
-    ringkasan = _ringkasan(qs)
+    ctx['rows'] = rows
+    ctx['ringkasan'] = _ringkasan(rows)
 
-    return render(request, template, {
-        'tanggal': tanggal,
-        'q': q,
-        'rows': qs,
-        'ringkasan': ringkasan,
-    })
+    return render(request, template, ctx)
 
 
 @login_required
