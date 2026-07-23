@@ -4304,6 +4304,7 @@ def ba_upload(request):
             rows_data=[],
             file_upload=file_upload,
             created_by=request.user,
+            ttd_status='signed_am',
         )
         dj_messages.success(request, f'Berita Acara "{record.nomor_ba}" berhasil diupload.')
         return redirect('ba_list')
