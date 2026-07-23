@@ -182,14 +182,22 @@ SOE_HEADERS = [
 # Batas keras jumlah baris per query supaya web tidak menarik jutaan baris sekaligus.
 SOE_MAX_ROWS = 5000
 
+# Filter per header -> kolom OFDB. Whitelist tetap, bukan input user langsung ke SQL.
+SOE_FILTER_COLUMNS = {
+    'b1': 'path1text',
+    'b2': 'path2text',
+    'b3': 'path3text',
+    'element': 'path4text',
+}
 
-def query_soe(cursor, dt_start, dt_end, q=None, limit=SOE_MAX_ROWS):
+
+def query_soe(cursor, dt_start, dt_end, filters=None, limit=SOE_MAX_ROWS):
     """
     Ambil SOE log dari OFDB scd_his_message untuk rentang [dt_start, dt_end], read-only
     dan on-demand (tidak disimpan di PostgreSQL). Rentang tanggal WAJIB -- tanpa itu
     query bisa mengembalikan ratusan juta baris.
 
-    q: opsional, cari di path1text..path5text / msgstatus / tag (LIKE %q%).
+    filters: opsional dict {b1|b2|b3|element: nilai} -> LIKE %nilai% per kolom.
     Return (rows, truncated) -- truncated=True kalau hasil kena batas `limit`.
     """
     cols = ', '.join(SOE_COLUMNS)
@@ -200,13 +208,11 @@ def query_soe(cursor, dt_start, dt_end, q=None, limit=SOE_MAX_ROWS):
     """
     params = [dt_start, dt_end]
 
-    if q:
-        like = f'%{q}%'
-        sql += """
-            AND (path1text LIKE ? OR path2text LIKE ? OR path3text LIKE ?
-                 OR path4text LIKE ? OR path5text LIKE ? OR msgstatus LIKE ? OR tag LIKE ?)
-        """
-        params.extend([like] * 7)
+    for key, val in (filters or {}).items():
+        col = SOE_FILTER_COLUMNS.get(key)
+        if col and val:
+            sql += f" AND {col} LIKE ?"
+            params.append(f'%{val}%')
 
     sql += " ORDER BY time_stamp DESC"
 
