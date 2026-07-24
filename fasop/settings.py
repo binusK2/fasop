@@ -200,6 +200,7 @@ AXES_LOCKOUT_PARAMETERS  = [['username', 'ip_address']]   # kunci per username +
 AXES_RESET_ON_SUCCESS    = True             # reset counter jika berhasil login
 AXES_LOCKOUT_TEMPLATE    = 'registration/lockout.html'
 AXES_VERBOSE             = False
+AXES_WHITELIST_CALLABLE  = 'devices.axes_utils.whitelist_operator'  # akun role Operator (shared) tidak pernah dikunci
 
 # -------------------------------------------------------------------
 # API Key untuk integrasi eksternal (n8n, Google Sheets, dsb.)
