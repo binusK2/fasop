@@ -163,6 +163,7 @@ def inspection_device_list(request, lokasi):
     )
 
     # Build list of dict agar template tidak perlu filter gymnastics
+    today = timezone.localdate()
     device_items = []
     for d in devices:
         last_insp = (
@@ -172,9 +173,15 @@ def inspection_device_list(request, lokasi):
             .order_by('-tanggal')
             .first()
         )
+        # Inspeksi cukup 1x per hari — kalau inspeksi terakhir sudah hari ini,
+        # tombol Inspeksi disembunyikan sampai berganti hari.
+        sudah_hari_ini = bool(
+            last_insp and timezone.localtime(last_insp.tanggal).date() == today
+        )
         device_items.append({
-            'device':    d,
-            'last_insp': last_insp,
+            'device':         d,
+            'last_insp':      last_insp,
+            'sudah_hari_ini': sudah_hari_ini,
         })
 
     return render(request, 'inspection/device_list.html', {
@@ -209,9 +216,17 @@ def inspection_form(request, device_pk):
             return render(request, '403.html',
                           {'message': 'Inspeksi Radio dan VoIP hanya dilakukan oleh Dispatcher melalui menu Pengujian Telekomunikasi.'}, status=403)
 
+    # ── Batas 1x inspeksi per hari ────────────────────────────────────
+    # Kalau perangkat sudah diinspeksi hari ini, form ditutup (GET & POST)
+    # sampai berganti hari — mencegah pengisian ganda / bypass via URL.
+    from django.contrib import messages
+    if Inspection.objects.filter(device=device, tanggal__date=timezone.localdate()).exists():
+        messages.info(request,
+                      f'{device.nama} sudah diinspeksi hari ini. Inspeksi cukup satu kali per hari.')
+        return redirect('inspection_device_list', lokasi=device.lokasi)
+
     if request.method == 'POST':
         if not request.FILES.get('foto'):
-            from django.contrib import messages
             messages.error(request, 'Foto dokumentasi wajib diisi sebelum menyimpan inspeksi.')
             return redirect('inspection_form', device_pk=device_pk)
 

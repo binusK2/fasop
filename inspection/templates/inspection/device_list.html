@@ -74,10 +74,17 @@
                 </div>
                 <!-- Tombol aksi -->
                 <div class="d-flex gap-2">
+                    {% if item.sudah_hari_ini %}
+                    <button type="button" class="btn btn-success btn-sm flex-fill" disabled
+                            style="opacity:1;cursor:default;">
+                        <i class="bi bi-check2-circle me-1"></i>Sudah diinspeksi hari ini
+                    </button>
+                    {% else %}
                     <a href="{% url 'inspection_form' item.device.pk %}"
                        class="btn btn-primary btn-sm flex-fill">
                         <i class="bi bi-clipboard2-plus me-1"></i>Inspeksi
                     </a>
+                    {% endif %}
                     <a href="{% url 'inspection_riwayat_device' item.device.pk %}"
                        class="btn btn-outline-secondary btn-sm">
                         <i class="bi bi-clock-history"></i>

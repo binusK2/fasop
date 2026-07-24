@@ -2817,7 +2817,10 @@ def device_public(request, token):
     jenis_name = device.jenis.name if device.jenis else ''
     if jenis_name in INSPECTABLE:
         can_inspect = True
-        inspection_url = f'/inspection/form/{device.pk}/'
+        # URL inspeksi memakai converter hashid (<hid:device_pk>), jadi PK harus
+        # di-encode lewat reverse() — memakai PK mentah bikin 404.
+        from django.urls import reverse
+        inspection_url = reverse('inspection_form', args=[device.pk])
         try:
             from inspection.models import Inspection
             last_inspection = (
