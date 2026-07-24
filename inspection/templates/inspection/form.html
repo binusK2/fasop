@@ -774,13 +774,24 @@
         <div class="row g-3">
             <div class="col-md-6">
                 <label class="form-label fw-semibold">Foto Dokumentasi <span class="text-danger">*</span></label>
-                <!-- Satu kolom upload. TANPA atribut capture, agar saat diklik HP
-                     menampilkan pemilih: galeri, kamera bawaan, atau aplikasi
-                     kamera lain (mis. kamera timestamp) yang terpasang. -->
-                <input type="file" name="foto" id="foto-input" accept="image/*" class="form-control" required>
+                <!-- HP Android 13+ tidak lagi menampilkan menu pilih kamera/galeri
+                     untuk input file biasa (langsung ke galeri). Jadi pilihannya
+                     kita sediakan sendiri: tombol utama langsung buka KAMERA
+                     (capture="environment"), tombol cadangan buka galeri.
+                     Keduanya mengisi input #foto-input yang disubmit. -->
+                <input type="file" name="foto" id="foto-input" accept="image/*" capture="environment" class="d-none">
+                <input type="file" id="foto-galeri" accept="image/*" class="d-none">
+                <div class="d-flex gap-2 flex-wrap">
+                    <button type="button" class="btn btn-primary" onclick="document.getElementById('foto-input').click()">
+                        <i class="bi bi-camera-fill me-1"></i>Ambil Foto (Kamera)
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" onclick="document.getElementById('foto-galeri').click()">
+                        <i class="bi bi-images me-1"></i>Pilih dari Galeri
+                    </button>
+                </div>
                 <div class="form-text">
-                    Wajib diisi. Klik untuk memilih: galeri, kamera bawaan, atau aplikasi kamera lain.
-                    JPG, PNG — Maks 10MB.
+                    Wajib diisi. Tombol <strong>Ambil Foto</strong> langsung membuka kamera;
+                    atau ambil dari galeri jika sudah difoto sebelumnya. JPG, PNG — Maks 10MB.
                 </div>
                 <!-- Preview foto terpilih -->
                 <div id="foto-preview-wrap" class="mt-2" style="display:none;">
@@ -836,14 +847,15 @@
 const hiddenFields = {};
 
 // ── Foto: preview + validasi ukuran ────────────────────────────────────
-// Kolom upload memakai input file standar tanpa atribut "capture" agar saat
-// diklik HP menampilkan pemilih bawaannya (galeri / kamera bawaan / aplikasi
-// kamera lain seperti kamera timestamp).
-const fotoInput = document.getElementById('foto-input');
+// Dua sumber foto: tombol "Ambil Foto" (input #foto-input, capture=kamera) dan
+// tombol "Galeri" (input #foto-galeri). File dari galeri disalin ke #foto-input
+// karena hanya input itu (name="foto") yang ikut tersubmit ke server.
+const fotoInput  = document.getElementById('foto-input');
+const fotoGaleri = document.getElementById('foto-galeri');
 
 function clearFoto() {
-    if (!fotoInput) return;
-    fotoInput.value = '';
+    if (fotoInput)  fotoInput.value = '';
+    if (fotoGaleri) fotoGaleri.value = '';
     const wrap = document.getElementById('foto-preview-wrap');
     if (wrap) wrap.style.display = 'none';
 }
@@ -869,6 +881,19 @@ if (fotoInput) {
     });
 }
 
+// Galeri → salin file terpilih ke input utama (#foto-input) lalu jalankan preview
+if (fotoGaleri && fotoInput) {
+    fotoGaleri.addEventListener('change', function () {
+        const file = this.files && this.files[0];
+        if (!file) return;
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        fotoInput.files = dt.files;
+        fotoInput.dispatchEvent(new Event('change'));
+        this.value = '';   // reset agar file yang sama bisa dipilih lagi
+    });
+}
+
 function setToggle(fieldName, value) {
     // Update hidden input
     const inp = document.getElementById(fieldName) || document.querySelector(`[name="${fieldName}"]`);
@@ -885,6 +910,13 @@ function setToggle(fieldName, value) {
 }
 
 document.getElementById('insp-form').addEventListener('submit', function(e) {
+    // Foto dokumentasi wajib (input di-hide, jadi divalidasi manual di sini)
+    if (fotoInput && (!fotoInput.files || fotoInput.files.length === 0)) {
+        e.preventDefault();
+        alert('Foto dokumentasi wajib diisi. Tekan "Ambil Foto" untuk memakai kamera, atau "Pilih dari Galeri".');
+        return;
+    }
+
     // Validasi minimal satu field kondisi utama terisi
     {% if jenis_key == 'catu_daya' %}
     const rect = document.getElementById('kondisi_rectifier')?.value;
