@@ -3096,8 +3096,10 @@ def catu_daya_dashboard(request):
         vin_pts = [(h['date'], h['v_input']) for h in u_history if h['v_input'] is not None]
         if len(vin_pts) >= 2:
             from datetime import date as _ddate
-            _d0 = _ddate.fromisoformat(vin_pts[0][0])
-            _xs = [(_ddate.fromisoformat(d) - _d0).days for d, _ in vin_pts]
+            # date str bisa berupa datetime lengkap ('2026-07-16 01:54:00+00:00'),
+            # ambil bagian tanggal saja agar fromisoformat tidak ValueError.
+            _d0 = _ddate.fromisoformat(vin_pts[0][0][:10])
+            _xs = [(_ddate.fromisoformat(d[:10]) - _d0).days for d, _ in vin_pts]
             _ys = [v for _, v in vin_pts]
             _sl, _ic = _linreg(_xs, _ys)
             if _sl is not None and _sl < 0 and _ic > UPS_VAC_THRESHOLD:
