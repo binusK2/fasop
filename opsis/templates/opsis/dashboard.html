@@ -1376,7 +1376,14 @@ function applyFlag(kode, invalid, ket, oleh, pada) {
 (function () {
     const modal = document.getElementById('flagModal');
     if (!modal) return;
-    const csrf = document.querySelector('#csrfForm [name=csrfmiddlewaretoken]').value;
+    // Token CSRF — utamakan cookie 'csrftoken' (pola standar Django AJAX),
+    // fallback ke token dari form {% csrf_token %}.
+    function getCookie(name) {
+        const m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+        return m ? m.pop() : '';
+    }
+    const csrf = getCookie('csrftoken')
+        || document.querySelector('#csrfForm [name=csrfmiddlewaretoken]').value;
     const fmNama = document.getElementById('fmNama');
     const fmInvalid = document.getElementById('fmInvalid');
     const fmKet = document.getElementById('fmKet');
