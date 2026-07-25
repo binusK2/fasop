@@ -668,11 +668,14 @@ async function pollLive() {
         document.getElementById('terputus-notice')?.classList.toggle('show', !!json.terputus);
         setLastUpdate();
 
-        // Penanda 'data tidak sesuai' — sinkron dari server tiap poll (semua layar)
-        const flags = json.flags || {};
-        for (const kode of KODE_LIST) {
-            const f = flags[kode];
-            applyFlag(kode, !!f, f ? f.keterangan : '', f ? (f.oleh || '') : '', f ? (f.pada || '') : '');
+        // Penanda 'data tidak sesuai' — sinkron dari server tiap poll (semua layar).
+        // Hanya diproses bila server benar-benar mengirim objek 'flags', supaya
+        // badge hasil render server tidak terhapus jika endpoint belum diperbarui.
+        if (json.flags && typeof json.flags === 'object') {
+            for (const kode of KODE_LIST) {
+                const f = json.flags[kode];
+                applyFlag(kode, !!f, f ? f.keterangan : '', f ? (f.oleh || '') : '', f ? (f.pada || '') : '');
+            }
         }
 
         // Akumulasi MW per jenis untuk komposisi chart + total header
