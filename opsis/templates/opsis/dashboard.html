@@ -1413,11 +1413,16 @@ function applyFlag(kode, invalid, ket, oleh, pada) {
                 headers: { 'X-CSRFToken': csrf, 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: new URLSearchParams({ invalid: invalid ? '1' : '0', keterangan: ket }),
             });
-            const j = await resp.json();
-            if (!j.ok) { fmMsg.textContent = j.error || 'Gagal menyimpan.'; return; }
+            let j = null;
+            try { j = await resp.json(); } catch (_) {}
+            if (!resp.ok || !j || !j.ok) {
+                fmMsg.textContent = (j && j.error) ? j.error
+                    : `Gagal menyimpan (HTTP ${resp.status}${resp.status === 403 ? ' — sesi/CSRF, coba muat ulang halaman' : ''}).`;
+                return;
+            }
             applyFlag(j.kode, j.invalid, j.keterangan, j.oleh, j.pada);
             closeModal();
-        } catch (err) { fmMsg.textContent = 'Gagal terhubung ke server.'; }
+        } catch (err) { fmMsg.textContent = 'Gagal terhubung ke server: ' + err; }
     });
 })();
 </script>
