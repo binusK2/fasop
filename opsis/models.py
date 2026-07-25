@@ -1,4 +1,5 @@
 from django.db import models
+from django.contrib.auth.models import User
 
 
 JENIS_CHOICES = [
@@ -32,6 +33,15 @@ class Pembangkit(models.Model):
     unit_list     = models.CharField(max_length=100, blank=True, verbose_name='Unit yang Dipakai',
                                       help_text='Daftar unit dipisah koma, mis. UNIT1,UNIT2,UNIT3. '
                                                  'Kosongkan untuk memakai semua unit (UNIT1-UNIT8).')
+    # Penanda data tidak valid / tidak sesuai kondisi real (diisi manual oleh
+    # superuser / role Opsis dari dashboard). Bila False, tampilan dashboard
+    # tidak berubah; bila True, kartu diberi label ketidaksesuaian.
+    data_tidak_sesuai = models.BooleanField(default=False, verbose_name='Data Tidak Sesuai')
+    data_keterangan   = models.CharField(max_length=255, blank=True, default='',
+                                         verbose_name='Keterangan Ketidaksesuaian')
+    ditandai_oleh     = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL,
+                                          related_name='+', verbose_name='Ditandai Oleh')
+    ditandai_pada     = models.DateTimeField(null=True, blank=True, verbose_name='Ditandai Pada')
 
     class Meta:
         ordering = ['urutan', 'nama']
