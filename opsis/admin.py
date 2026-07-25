@@ -5,11 +5,18 @@ from .models import (Pembangkit, SnapLive, SnapUnit, SnapFreq, SnapFreqArea,
 
 @admin.register(Pembangkit)
 class PembangkitAdmin(admin.ModelAdmin):
-    list_display  = ('urutan', 'nama', 'kode', 'jenis', 'warna', 'aktif')
+    list_display  = ('urutan', 'nama', 'kode', 'jenis', 'warna', 'aktif', 'data_tidak_sesuai')
     list_editable = ('urutan', 'jenis', 'aktif')
+    list_filter   = ('jenis', 'aktif', 'data_tidak_sesuai')
     list_display_links = ('nama',)
+    readonly_fields = ('ditandai_oleh', 'ditandai_pada')
     fieldsets = (
         (None, {'fields': ('nama', 'kode', 'jenis', 'warna', 'urutan', 'aktif')}),
+        ('Penanda Data Tidak Sesuai', {
+            'description': 'Diisi manual (juga bisa dari dashboard OPSIS oleh superuser/Opsis). '
+                            'Bila dicentang, kartu pembangkit di dashboard diberi label ketidaksesuaian.',
+            'fields': ('data_tidak_sesuai', 'data_keterangan', 'ditandai_oleh', 'ditandai_pada'),
+        }),
         ('Sumber Data KIT_REALTIME', {
             'description': 'Kosongkan Kode KIT dan Unit yang Dipakai untuk perilaku default '
                             '(baca semua unit dari baris KIT_REALTIME dengan KIT = Kode). Isi '

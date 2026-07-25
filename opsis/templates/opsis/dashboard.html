@@ -81,6 +81,60 @@
     margin-top: 6px; display: flex; align-items: center; gap: 3px;
 }
 
+/* ── Penanda "data tidak sesuai" ─────────────────────────────── */
+.pb-card.flagged { border-color: #7f1d1d; }
+.pb-flag { padding-left: 6px; margin-top: 7px; }
+.pb-flag-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 9.5px; font-weight: 700; color: #fca5a5;
+    background: rgba(239,68,68,.14); border: 1px solid rgba(239,68,68,.35);
+    padding: 2px 7px; border-radius: 20px; line-height: 1.4;
+}
+.pb-flag-ket { font-size: 10px; color: #fca5a5; margin-top: 3px; line-height: 1.35; }
+.pb-flag-btn {
+    position: absolute; top: 8px; right: 8px; z-index: 3;
+    width: 22px; height: 22px; border-radius: 6px;
+    background: rgba(255,255,255,.05); border: 1px solid var(--card-bd);
+    color: var(--muted); display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 10px; transition: .15s; padding: 0;
+}
+.pb-flag-btn:hover { color: #fbbf24; border-color: #fbbf24; background: rgba(245,158,11,.1); }
+.pb-card.flagged .pb-flag-btn { color: #f87171; border-color: rgba(248,113,113,.5); }
+
+/* Modal penanda */
+.flag-modal-bd {
+    display: none; position: fixed; inset: 0; z-index: 600;
+    background: rgba(0,0,0,.6); align-items: center; justify-content: center; padding: 20px;
+}
+.flag-modal-bd.show { display: flex; }
+.flag-modal {
+    background: var(--card-bg); border: 1px solid var(--card-bd); border-radius: 14px;
+    width: 100%; max-width: 460px; overflow: hidden;
+}
+.flag-modal-hd {
+    display: flex; align-items: center; padding: 14px 18px;
+    border-bottom: 1px solid var(--card-bd);
+}
+.flag-modal-hd h3 { font-size: 15px; font-weight: 700; color: #fff; margin: 0; }
+.flag-modal-hd .fm-x { margin-left: auto; background: none; border: none; color: var(--muted); font-size: 22px; cursor: pointer; line-height: 1; }
+.flag-modal-hd .fm-x:hover { color: #fff; }
+.flag-modal-body { padding: 16px 18px; }
+.fm-check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text); cursor: pointer; margin-bottom: 14px; }
+.fm-check input { width: 16px; height: 16px; cursor: pointer; }
+.fm-lbl { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); margin-bottom: 6px; }
+.flag-modal-body textarea {
+    width: 100%; background: #0b1120; border: 1px solid var(--card-bd); color: var(--text);
+    border-radius: 8px; padding: 9px 11px; font-family: inherit; font-size: 13px; resize: vertical;
+}
+.flag-modal-body textarea:focus { outline: none; border-color: var(--blue); }
+.fm-actions { display: flex; gap: 10px; margin-top: 16px; }
+.fm-btn { font-family: inherit; font-size: 13px; font-weight: 600; padding: 9px 16px; border-radius: 8px; cursor: pointer; border: 1px solid var(--card-bd); }
+.fm-btn.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
+.fm-btn.primary:hover { background: #2563eb; }
+.fm-btn.ghost { background: none; color: var(--muted); }
+.fm-btn.ghost:hover { color: var(--text); }
+.fm-msg { font-size: 12px; color: #fca5a5; margin-top: 10px; min-height: 14px; }
+
 .chart-card {
     background: var(--card-bg);
     border: 1px solid var(--card-bd);
@@ -429,7 +483,7 @@
         <!-- Kartu unit vertikal -->
         <div class="pb-grid">
             {% for p in cards %}
-            <a href="/opsis/{{ p.pk }}/" class="pb-card" id="card-{{ p.kode }}" style="--accent-color:{{ p.warna }};">
+            <a href="/opsis/{{ p.pk }}/" class="pb-card {% if p.data_tidak_sesuai %}flagged{% endif %}" id="card-{{ p.kode }}" style="--accent-color:{{ p.warna }};">
                 <div class="pb-name-row">
                     <span class="pb-name">{{ p.nama }}</span>
                     <span class="pb-live-dot"></span>
@@ -437,6 +491,17 @@
                 <div class="pb-mw"><span id="val-mw-{{ p.kode }}">—</span><span class="pb-mw-unit"> MW</span></div>
                 <div class="pb-mvar"><span id="val-mvar-{{ p.kode }}">—</span><span class="pb-mvar-unit"> MVAR</span></div>
                 <div class="pb-ts"><i class="bi bi-clock" style="font-size:9px;"></i><span id="ts-{{ p.kode }}">—</span></div>
+                <div class="pb-flag" id="flag-{{ p.kode }}" {% if not p.data_tidak_sesuai %}hidden{% endif %}>
+                    <span class="pb-flag-badge"><i class="bi bi-exclamation-triangle-fill"></i> Data tidak sesuai</span>
+                    <div class="pb-flag-ket" id="flagket-{{ p.kode }}">{{ p.data_keterangan }}{% if p.ditandai_oleh %} — {{ p.ditandai_oleh.get_full_name|default:p.ditandai_oleh.username }}{% endif %}</div>
+                </div>
+                {% if bisa_flag %}
+                <button type="button" class="pb-flag-btn" title="Tandai / ubah status data"
+                        data-kode="{{ p.kode }}" data-pk="{{ p.pk }}" data-nama="{{ p.nama }}"
+                        data-invalid="{% if p.data_tidak_sesuai %}1{% else %}0{% endif %}" data-ket="{{ p.data_keterangan }}">
+                    <i class="bi bi-flag-fill"></i>
+                </button>
+                {% endif %}
             </a>
             {% endfor %}
         </div>
@@ -448,6 +513,28 @@
     <i class="bi bi-plug" style="font-size:48px; display:block; margin-bottom:12px;"></i>
     <div style="font-size:16px; font-weight:600; margin-bottom:6px;">Belum ada pembangkit</div>
     <div style="font-size:13px;">Tambahkan pembangkit melalui Django Admin → Opsis → Pembangkit</div>
+</div>
+{% endif %}
+
+{% if bisa_flag %}
+<form id="csrfForm" style="display:none;">{% csrf_token %}</form>
+<div class="flag-modal-bd" id="flagModal">
+    <div class="flag-modal">
+        <div class="flag-modal-hd">
+            <h3><i class="bi bi-flag-fill" style="color:#f87171;"></i> Status Data — <span id="fmNama">—</span></h3>
+            <button type="button" class="fm-x" id="fmClose">&times;</button>
+        </div>
+        <div class="flag-modal-body">
+            <label class="fm-check"><input type="checkbox" id="fmInvalid"> Tandai <b>data tidak sesuai</b> / point tidak valid</label>
+            <label class="fm-lbl">Keterangan</label>
+            <textarea id="fmKet" rows="3" placeholder="mis. Nilai tidak update sejak 10:00, atau berbeda dengan kondisi real di lapangan"></textarea>
+            <div class="fm-actions">
+                <button type="button" class="fm-btn primary" id="fmSave"><i class="bi bi-check2-circle"></i> Simpan</button>
+                <button type="button" class="fm-btn ghost" id="fmCancel">Batal</button>
+            </div>
+            <div class="fm-msg" id="fmMsg"></div>
+        </div>
+    </div>
 </div>
 {% endif %}
 {% endblock %}
@@ -580,6 +667,13 @@ async function pollLive() {
 
         document.getElementById('terputus-notice')?.classList.toggle('show', !!json.terputus);
         setLastUpdate();
+
+        // Penanda 'data tidak sesuai' — sinkron dari server tiap poll (semua layar)
+        const flags = json.flags || {};
+        for (const kode of KODE_LIST) {
+            const f = flags[kode];
+            applyFlag(kode, !!f, f ? f.keterangan : '', f ? (f.oleh || '') : '', f ? (f.pada || '') : '');
+        }
 
         // Akumulasi MW per jenis untuk komposisi chart + total header
         const jenisMw = {};
@@ -1256,6 +1350,72 @@ setInterval(loadKttChart, 2000); // refresh tiap 2 detik
             dlFreq.href = `/opsis/export/frekuensi/?tanggal=${tglFreq.value || today}`;
         });
     }
+})();
+
+// ── Penanda "data tidak sesuai" ──────────────────────────────────────
+// Terapkan status ke sebuah kartu (dipakai semua user, dipanggil tiap poll).
+function applyFlag(kode, invalid, ket, oleh, pada) {
+    const card  = document.getElementById('card-'  + kode);
+    const flag  = document.getElementById('flag-'  + kode);
+    const ketEl = document.getElementById('flagket-' + kode);
+    const btn   = document.querySelector(`.pb-flag-btn[data-kode="${kode}"]`);
+    if (card) card.classList.toggle('flagged', invalid);
+    if (flag) flag.hidden = !invalid;
+    if (ketEl) {
+        let t = ket || '';
+        if (invalid && oleh) t += ' — ' + oleh + (pada ? ', ' + pada : '');
+        ketEl.textContent = t;
+    }
+    if (btn) { btn.dataset.invalid = invalid ? '1' : '0'; btn.dataset.ket = ket || ''; }
+}
+
+// Modal untuk superuser / Opsis (hanya ada bila diizinkan)
+(function () {
+    const modal = document.getElementById('flagModal');
+    if (!modal) return;
+    const csrf = document.querySelector('#csrfForm [name=csrfmiddlewaretoken]').value;
+    const fmNama = document.getElementById('fmNama');
+    const fmInvalid = document.getElementById('fmInvalid');
+    const fmKet = document.getElementById('fmKet');
+    const fmMsg = document.getElementById('fmMsg');
+    let curPk = null, curKode = null;
+
+    function openModal(btn) {
+        curPk = btn.dataset.pk; curKode = btn.dataset.kode;
+        fmNama.textContent = btn.dataset.nama;
+        fmInvalid.checked = btn.dataset.invalid === '1';
+        fmKet.value = btn.dataset.ket || '';
+        fmMsg.textContent = '';
+        modal.classList.add('show');
+        fmKet.focus();
+    }
+    function closeModal() { modal.classList.remove('show'); }
+
+    document.querySelectorAll('.pb-flag-btn').forEach(b => {
+        b.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); openModal(b); });
+    });
+    document.getElementById('fmClose').addEventListener('click', closeModal);
+    document.getElementById('fmCancel').addEventListener('click', closeModal);
+    modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+    document.getElementById('fmSave').addEventListener('click', async () => {
+        const invalid = fmInvalid.checked;
+        const ket = fmKet.value.trim();
+        if (invalid && !ket) { fmMsg.textContent = 'Isi keterangan ketidaksesuaian terlebih dahulu.'; return; }
+        fmMsg.textContent = 'Menyimpan…';
+        try {
+            const resp = await fetch(`/opsis/pembangkit/${curPk}/flag/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrf, 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ invalid: invalid ? '1' : '0', keterangan: ket }),
+            });
+            const j = await resp.json();
+            if (!j.ok) { fmMsg.textContent = j.error || 'Gagal menyimpan.'; return; }
+            applyFlag(j.kode, j.invalid, j.keterangan, j.oleh, j.pada);
+            closeModal();
+        } catch (err) { fmMsg.textContent = 'Gagal terhubung ke server.'; }
+    });
 })();
 </script>
 {% endblock %}

@@ -54,6 +54,7 @@ def dashboard(request):
     return render(request, 'opsis/dashboard.html', {
         'pembangkit_list': pembangkit_list,
         'grouped':         grouped,
+        'bisa_flag':       _bisa_flag(request.user),
     })
 
 
@@ -76,18 +77,63 @@ def up2d(request):
     })
 
 
+def _flag_info(p):
+    """Info penanda 'data tidak sesuai' sebuah pembangkit untuk ditampilkan."""
+    return {
+        'keterangan': p.data_keterangan,
+        'oleh': (p.ditandai_oleh.get_full_name() or p.ditandai_oleh.username) if p.ditandai_oleh else '',
+        'pada': timezone.localtime(p.ditandai_pada).strftime('%d %b %H:%M') if p.ditandai_pada else '',
+    }
+
+
 @login_required
 def api_live(request):
     """JSON: nilai live semua pembangkit aktif. Dipanggil setiap 5 detik."""
     pembangkit_list = _pembangkit_aktif()
     result = mssql.get_live_data(pembangkit_list)
     data   = result['data']
+    # Penanda ketidaksesuaian data (hanya yang ditandai) — agar semua layar
+    # monitoring ikut menampilkan label dalam <=5 detik tanpa reload.
+    flags = {p.kode: _flag_info(p) for p in pembangkit_list if p.data_tidak_sesuai}
     response = {
         'data':              data,
         'frekuensi_sistem':  result.get('frekuensi_sistem'),
         'terputus':          not mssql.is_reachable(),
+        'flags':             flags,
     }
     return JsonResponse(response)
+
+
+def _bisa_flag(user):
+    """Boleh menandai ketidaksesuaian data: superuser atau role Opsis."""
+    return user.is_superuser or getattr(getattr(user, 'profile', None), 'role', '') == 'opsis'
+
+
+@login_required
+def pembangkit_flag(request, pk):
+    """
+    Tandai / hapus penanda 'data tidak sesuai' pada sebuah pembangkit
+    (AJAX POST). Akses: superuser atau role Opsis.
+    """
+    if not _bisa_flag(request.user):
+        return JsonResponse({'ok': False, 'error': 'Tidak diizinkan.'}, status=403)
+    if request.method != 'POST':
+        return JsonResponse({'ok': False, 'error': 'Metode salah.'}, status=405)
+    p = get_object_or_404(Pembangkit, pk=pk)
+    invalid = request.POST.get('invalid') == '1'
+    ket = request.POST.get('keterangan', '').strip()[:255]
+    p.data_tidak_sesuai = invalid
+    p.data_keterangan = ket if invalid else ''
+    if invalid:
+        p.ditandai_oleh = request.user
+        p.ditandai_pada = timezone.now()
+    else:
+        p.ditandai_oleh = None
+        p.ditandai_pada = None
+    p.save(update_fields=['data_tidak_sesuai', 'data_keterangan',
+                          'ditandai_oleh', 'ditandai_pada'])
+    return JsonResponse({'ok': True, 'kode': p.kode, 'invalid': p.data_tidak_sesuai,
+                         **_flag_info(p)})
 
 
 @login_required
