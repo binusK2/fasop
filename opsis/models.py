@@ -19,6 +19,11 @@ class Pembangkit(models.Model):
     kode          = models.CharField(max_length=20, unique=True, verbose_name='Kode')
     jenis         = models.CharField(max_length=10, choices=JENIS_CHOICES, default='PLTD', verbose_name='Jenis')
     warna         = models.CharField(max_length=7, default='#3b82f6', verbose_name='Warna Chart')
+    supply        = models.CharField(max_length=5, blank=True, default='',
+                                     choices=[('netto', 'Netto'), ('gross', 'Gross')],
+                                     verbose_name='Tipe Supply',
+                                     help_text='Netto / Gross. Tampil sebagai label kecil di kartu dashboard. '
+                                               'Kosongkan bila tidak ingin menampilkan label.')
     urutan        = models.PositiveIntegerField(default=0, verbose_name='Urutan Tampil')
     aktif         = models.BooleanField(default=True, verbose_name='Aktif')
     # Tag MSSQL — diisi sesuai struktur tabel historian/SCADA

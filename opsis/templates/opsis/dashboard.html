@@ -80,6 +80,12 @@
     font-size: 10px; color: var(--muted); padding-left: 6px;
     margin-top: 6px; display: flex; align-items: center; gap: 3px;
 }
+.pb-supply {
+    margin-left: auto; font-size: 8.5px; font-weight: 700; letter-spacing: .4px;
+    padding: 1px 6px; border-radius: 5px;
+}
+.pb-supply-netto { color: #7dd3fc; background: rgba(56,189,248,.14); border: 1px solid rgba(56,189,248,.3); }
+.pb-supply-gross { color: #fbbf24; background: rgba(245,158,11,.14); border: 1px solid rgba(245,158,11,.3); }
 
 /* ── Penanda "data tidak sesuai" ─────────────────────────────── */
 .pb-card.flagged { border-color: #7f1d1d; }
@@ -490,7 +496,9 @@
                 </div>
                 <div class="pb-mw"><span id="val-mw-{{ p.kode }}">—</span><span class="pb-mw-unit"> MW</span></div>
                 <div class="pb-mvar"><span id="val-mvar-{{ p.kode }}">—</span><span class="pb-mvar-unit"> MVAR</span></div>
-                <div class="pb-ts"><i class="bi bi-clock" style="font-size:9px;"></i><span id="ts-{{ p.kode }}">—</span></div>
+                <div class="pb-ts"><i class="bi bi-clock" style="font-size:9px;"></i><span id="ts-{{ p.kode }}">—</span>
+                    {% if p.supply %}<span class="pb-supply pb-supply-{{ p.supply }}">{{ p.supply|upper }}</span>{% endif %}
+                </div>
                 <div class="pb-flag" id="flag-{{ p.kode }}" {% if not p.data_tidak_sesuai %}hidden{% endif %}>
                     <span class="pb-flag-badge"><i class="bi bi-exclamation-triangle-fill"></i> Data tidak sesuai</span>
                     <div class="pb-flag-ket" id="flagket-{{ p.kode }}">{{ p.data_keterangan }}{% if p.ditandai_oleh %} — {{ p.ditandai_oleh.get_full_name|default:p.ditandai_oleh.username }}{% endif %}</div>
