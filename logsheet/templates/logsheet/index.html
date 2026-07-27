@@ -27,6 +27,38 @@
 .dates { display:flex; flex-wrap:wrap; gap:6px; }
 .date-chip { font-size:11px; color:var(--muted); background:var(--card-bg); border:1px solid var(--card-bd); border-radius:16px; padding:4px 10px; text-decoration:none; }
 .date-chip:hover { color:#fff; border-color:var(--blue); }
+
+/* Ringkasan kelengkapan per slot */
+.sec-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); margin:20px 0 8px; display:flex; align-items:center; gap:8px; }
+.slot-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(64px,1fr)); gap:5px; }
+.slot-cell { border-radius:7px; padding:6px 4px; text-align:center; border:1px solid var(--card-bd); }
+.slot-cell .t { font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700; }
+.slot-cell .c { font-size:9.5px; margin-top:2px; }
+.slot-cell.full  { background:rgba(16,185,129,.16); border-color:rgba(16,185,129,.4); }
+.slot-cell.full .t { color:#6ee7b7; }
+.slot-cell.part  { background:rgba(245,158,11,.15); border-color:rgba(245,158,11,.4); }
+.slot-cell.part .t { color:#fcd34d; }
+.slot-cell.empty { background:rgba(255,255,255,.02); }
+.slot-cell.empty .t { color:var(--muted); }
+.slot-cell .c { color:var(--muted); }
+.legend2 { display:flex; gap:14px; font-size:11px; color:var(--muted); margin-top:8px; }
+.legend2 span { display:inline-flex; align-items:center; gap:5px; }
+.legend2 .d { width:11px; height:11px; border-radius:3px; display:inline-block; }
+
+/* Tabel detail per titik */
+.detail-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:20px 0 8px; }
+.detail-bar select { background:#0b1120; border:1px solid var(--card-bd); color:var(--text); border-radius:8px; padding:7px 10px; font-family:inherit; font-size:13px; }
+.dt-wrap { overflow:auto; max-height:70vh; border:1px solid var(--card-bd); border-radius:12px; background:var(--card-bg); }
+table.dt { border-collapse:collapse; font-size:11.5px; white-space:nowrap; }
+.dt th, .dt td { border-bottom:1px solid rgba(30,45,69,.6); padding:5px 7px; text-align:center; }
+.dt thead th { position:sticky; top:0; z-index:2; background:#0f1a30; color:var(--muted); font-size:10px; font-weight:700; }
+.dt th.nm, .dt td.nm { position:sticky; left:0; z-index:1; background:var(--card-bg); text-align:left; min-width:190px; max-width:260px; overflow:hidden; text-overflow:ellipsis; }
+.dt thead th.nm { z-index:3; background:#0f1a30; }
+.dt td.nm .b { font-size:9px; color:var(--muted); }
+.dt td.v { font-family:'JetBrains Mono',monospace; }
+.dt td.v.on { color:#6ee7b7; background:rgba(16,185,129,.08); }
+.dt td.v.off { color:#33415580; }
+.dt td.cnt { font-family:'JetBrains Mono',monospace; color:#60a5fa; font-weight:700; }
 </style>
 {% endblock %}
 
@@ -72,6 +104,57 @@
         <div class="foot">pada tanggal ini</div>
     </div>
 </div>
+
+{% if ada_konfig %}
+<!-- Kelengkapan per slot 30 menit -->
+<div class="sec-title"><i class="bi bi-clock-history"></i> Kelengkapan Data per Slot (30 menit)</div>
+<div class="slot-grid">
+    {% for s in slots %}
+    <div class="slot-cell {{ s.status }}" title="{{ s.filled }} dari {{ total_titik }} titik terisi">
+        <div class="t">{{ s.label }}</div>
+        <div class="c">{{ s.filled }}/{{ total_titik }}</div>
+    </div>
+    {% endfor %}
+</div>
+<div class="legend2">
+    <span><span class="d" style="background:rgba(16,185,129,.5);"></span>Lengkap</span>
+    <span><span class="d" style="background:rgba(245,158,11,.5);"></span>Sebagian</span>
+    <span><span class="d" style="background:#1e2d45;"></span>Kosong</span>
+    <span style="margin-left:auto;">Angka = jumlah titik terisi / total</span>
+</div>
+
+<!-- Detail per titik -->
+<div class="detail-bar">
+    <div class="sec-title" style="margin:0;"><i class="bi bi-table"></i> Detail per Titik</div>
+    <form method="get" style="display:flex;gap:8px;align-items:center;">
+        <input type="hidden" name="tanggal" value="{{ tanggal|date:'Y-m-d' }}">
+        <select name="sheet" onchange="this.form.submit()">
+            {% for s in sheet_list %}<option value="{{ s }}" {% if s == sheet %}selected{% endif %}>{{ s }}</option>{% endfor %}
+        </select>
+        <span style="font-size:11.5px;color:var(--muted);">{{ detail_rows|length }} titik &middot; hijau = terisi</span>
+    </form>
+</div>
+<div class="dt-wrap">
+    <table class="dt">
+        <thead><tr>
+            <th class="nm">Titik</th>
+            <th>Isi</th>
+            {% for lbl in slot_labels %}<th>{{ lbl }}</th>{% endfor %}
+        </tr></thead>
+        <tbody>
+            {% for r in detail_rows %}
+            <tr>
+                <td class="nm">{{ r.nama }}<span class="b"> · {{ r.besaran }}</span></td>
+                <td class="cnt">{{ r.terisi }}</td>
+                {% for v in r.cells %}
+                    {% if v != None %}<td class="v on">{{ v|floatformat:2 }}</td>{% else %}<td class="v off">·</td>{% endif %}
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
 
 {% if tanggal_tersedia %}
 <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:8px;">Tanggal dengan data</div>
