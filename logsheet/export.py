@@ -20,7 +20,8 @@ SHEET_SLOT_COL0 = {
     'Trans_MW':   6,
     'Trans_MVar': 6,
     'Trans_Amp':  6,
-    # 'Trans_VBus': ..., 'TRAFO': ...  (busbar & trafo menyusul)
+    'Trans_VBus': 6,
+    # 'TRAFO': ...  (trafo menyusul)
 }
 JUMLAH_SLOT = 48
 

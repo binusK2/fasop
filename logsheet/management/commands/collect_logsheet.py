@@ -62,13 +62,16 @@ class Command(BaseCommand):
         n_ok, n_err = 0, 0
         for t in titik:
             try:
-                sql = (f"SELECT {t.mssql_kolom} FROM {t.mssql_tabel} WITH (NOLOCK) "
+                # kolom bisa berisi >1 kolom dipisah koma (mis. BUSBAR_A,BUSBAR_B)
+                # -> ambil MAX nilai non-null (meniru P = MAX(A,B) di Excel).
+                koloms = [k.strip() for k in t.mssql_kolom.split(',') if k.strip()]
+                sel = ', '.join(koloms)
+                sql = (f"SELECT {sel} FROM {t.mssql_tabel} WITH (NOLOCK) "
                        f"WHERE {t.mssql_keykol} = ?")
                 cur.execute(sql, (t.mssql_key,))
                 row = cur.fetchone()
-                val = None
-                if row and row[0] is not None:
-                    val = float(row[0]) * (t.faktor or 1.0)
+                vals = [float(v) for v in row if v is not None] if row else []
+                val = (max(vals) * (t.faktor or 1.0)) if vals else None
             except Exception as e:
                 n_err += 1
                 if opts['dry_run']:
