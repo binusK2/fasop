@@ -1,0 +1,127 @@
+{
+  "name": "FASOP Logsheet -> Google Sheets",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "3,33 * * * *"
+            }
+          ]
+        }
+      },
+      "id": "7308a2ba-b303-4ad9-9e99-ce5688d8d038",
+      "name": "Tiap 30 menit (:03/:33)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://__FASOP_DOMAIN__/api/v1/logsheet/?slot=latest&format=cells",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "__API_KEY__"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c16044b4-fbd4-40eb-a840-f0d0dc8ab8a6",
+      "name": "Ambil data FASOP",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Ubah daftar sel dari FASOP -> format Google Sheets values:batchUpdate\nconst cells = ($input.first().json.cells) || [];\nreturn [{ json: {\n  valueInputOption: 'RAW',\n  data: cells.map(c => ({ range: c.range, values: [[c.value]] }))\n} }];\n"
+      },
+      "id": "da25e33f-195e-400a-b4c7-21cf611aeb38",
+      "name": "Susun batchUpdate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/__SPREADSHEET_ID__/values:batchUpdate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "005f54ef-2248-484b-9162-24e1b523d71f",
+      "name": "Tulis ke Google Sheets",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        900,
+        300
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "",
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Tiap 30 menit (:03/:33)": {
+      "main": [
+        [
+          {
+            "node": "Ambil data FASOP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ambil data FASOP": {
+      "main": [
+        [
+          {
+            "node": "Susun batchUpdate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Susun batchUpdate": {
+      "main": [
+        [
+          {
+            "node": "Tulis ke Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}
