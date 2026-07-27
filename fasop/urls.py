@@ -47,6 +47,7 @@ urlpatterns = [
     path('inspection/', include('inspection.urls')),
 
     # Opsis — Monitoring Pembangkit (role Opsis)
+    path('opsis/logsheet/', include('logsheet.urls')),
     path('opsis/', include('opsis.urls')),
 
     # Device Monitor — Status RTU Realtime + Availability

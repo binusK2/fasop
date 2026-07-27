@@ -1,0 +1,84 @@
+{% extends "opsis/opsis_base.html" %}
+{% block title %}Logsheet Pembebanan{% endblock %}
+
+{% block extra_head %}
+<style>
+.ls-head { display:flex; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:6px; }
+.ls-head h1 { font-size:20px; font-weight:800; color:#fff; display:flex; align-items:center; gap:10px; }
+.ls-sub { font-size:12.5px; color:var(--muted); margin-bottom:18px; }
+.ls-bar { display:flex; align-items:flex-end; flex-wrap:wrap; gap:14px; margin-bottom:18px;
+    background:var(--card-bg); border:1px solid var(--card-bd); border-radius:12px; padding:14px 16px; }
+.ls-field label { display:block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); margin-bottom:5px; }
+.ls-field input[type=date] { background:#0b1120; border:1px solid var(--card-bd); color:var(--text);
+    border-radius:8px; padding:8px 12px; font-family:inherit; font-size:13px; color-scheme:dark; }
+.ls-btn { display:inline-flex; align-items:center; gap:7px; font-size:13px; font-weight:600; font-family:inherit;
+    padding:9px 16px; border-radius:8px; border:1px solid var(--card-bd); background:var(--card-bg); color:#cbd5e1; cursor:pointer; text-decoration:none; }
+.ls-btn:hover { border-color:var(--blue); color:#fff; }
+.ls-btn.primary { background:#16a34a; border-color:#16a34a; color:#fff; }
+.ls-btn.primary:hover { background:#15803d; }
+.kpi-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px; margin-bottom:16px; }
+.kpi { background:var(--card-bg); border:1px solid var(--card-bd); border-radius:12px; padding:14px 16px; }
+.kpi .lbl { font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); margin-bottom:6px; }
+.kpi .val { font-family:'JetBrains Mono',monospace; font-size:26px; font-weight:700; color:#60a5fa; line-height:1; }
+.kpi .foot { font-size:11px; color:var(--muted); margin-top:6px; }
+.note { background:rgba(245,158,11,.1); border:1px solid rgba(245,158,11,.3); color:#fcd34d;
+    border-radius:10px; padding:12px 14px; font-size:12.5px; line-height:1.6; margin-bottom:16px; }
+.msg { margin-bottom:14px; padding:10px 14px; border-radius:8px; font-size:12.5px; background:rgba(239,68,68,.12); color:#fca5a5; border:1px solid rgba(239,68,68,.3); }
+.dates { display:flex; flex-wrap:wrap; gap:6px; }
+.date-chip { font-size:11px; color:var(--muted); background:var(--card-bg); border:1px solid var(--card-bd); border-radius:16px; padding:4px 10px; text-decoration:none; }
+.date-chip:hover { color:#fff; border-color:var(--blue); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="ls-head"><h1><i class="bi bi-journal-text" style="color:#60a5fa;"></i> Logsheet Pembebanan</h1></div>
+<div class="ls-sub">Sistem Makassar &mdash; data 30 menit (00:30&ndash;24:00) dari SCADA, unduhan Excel identik dengan logsheet lama.</div>
+
+{% if messages %}{% for m in messages %}<div class="msg">{{ m }}</div>{% endfor %}{% endif %}
+
+<form method="get" class="ls-bar">
+    <div class="ls-field">
+        <label>Tanggal</label>
+        <input type="date" name="tanggal" value="{{ tanggal|date:'Y-m-d' }}" max="{{ today|date:'Y-m-d' }}">
+    </div>
+    <button type="submit" class="ls-btn"><i class="bi bi-arrow-repeat"></i> Tampilkan</button>
+    <a class="ls-btn primary" href="{% url 'logsheet_export' %}?tanggal={{ tanggal|date:'Y-m-d' }}">
+        <i class="bi bi-file-earmark-excel"></i> Download Excel ({{ tanggal|date:"d M Y" }})
+    </a>
+</form>
+
+{% if not ada_konfig %}
+<div class="note">
+    <b>Belum ada titik terkonfigurasi.</b> Master titik (pemetaan MSSQL + posisi sel Excel) perlu diisi dulu
+    — lewat Django Admin (Logsheet &rarr; Titik) atau importer. Setelah itu cron <code>collect_logsheet</code>
+    akan mengisi datanya tiap 30 menit.
+</div>
+{% endif %}
+
+<div class="kpi-row">
+    <div class="kpi">
+        <div class="lbl">Titik Terpantau</div>
+        <div class="val">{{ total_titik }}</div>
+        <div class="foot">titik ukur aktif</div>
+    </div>
+    <div class="kpi">
+        <div class="lbl">Slot Terisi Hari Ini</div>
+        <div class="val">{{ slot_terisi }} <span style="font-size:13px;color:var(--muted);">/ 48</span></div>
+        <div class="foot">per {{ tanggal|date:"d M Y" }}</div>
+    </div>
+    <div class="kpi">
+        <div class="lbl">Total Nilai Tersimpan</div>
+        <div class="val">{{ n_nilai }}</div>
+        <div class="foot">pada tanggal ini</div>
+    </div>
+</div>
+
+{% if tanggal_tersedia %}
+<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:8px;">Tanggal dengan data</div>
+<div class="dates">
+    {% for d in tanggal_tersedia %}
+    <a class="date-chip" href="?tanggal={{ d|date:'Y-m-d' }}">{{ d|date:"d M Y" }}</a>
+    {% endfor %}
+</div>
+{% endif %}
+{% endblock %}
