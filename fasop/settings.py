@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'gudang',
     'inspection',
     'opsis',
+    'logsheet',
     'device_mon',
     'common_enemy',
     'dokumentasi',

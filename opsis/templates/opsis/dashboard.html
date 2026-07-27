@@ -80,6 +80,12 @@
     font-size: 10px; color: var(--muted); padding-left: 6px;
     margin-top: 6px; display: flex; align-items: center; gap: 3px;
 }
+.pb-supply {
+    margin-left: auto; font-size: 8.5px; font-weight: 700; letter-spacing: .4px;
+    padding: 1px 6px; border-radius: 5px;
+}
+.pb-supply-netto { color: #7dd3fc; background: rgba(56,189,248,.14); border: 1px solid rgba(56,189,248,.3); }
+.pb-supply-gross { color: #fbbf24; background: rgba(245,158,11,.14); border: 1px solid rgba(245,158,11,.3); }
 
 /* ── Penanda "data tidak sesuai" ─────────────────────────────── */
 .pb-card.flagged { border-color: #7f1d1d; }
@@ -490,7 +496,9 @@
                 </div>
                 <div class="pb-mw"><span id="val-mw-{{ p.kode }}">—</span><span class="pb-mw-unit"> MW</span></div>
                 <div class="pb-mvar"><span id="val-mvar-{{ p.kode }}">—</span><span class="pb-mvar-unit"> MVAR</span></div>
-                <div class="pb-ts"><i class="bi bi-clock" style="font-size:9px;"></i><span id="ts-{{ p.kode }}">—</span></div>
+                <div class="pb-ts"><i class="bi bi-clock" style="font-size:9px;"></i><span id="ts-{{ p.kode }}">—</span>
+                    {% if p.supply %}<span class="pb-supply pb-supply-{{ p.supply }}">{{ p.supply|upper }}</span>{% endif %}
+                </div>
                 <div class="pb-flag" id="flag-{{ p.kode }}" {% if not p.data_tidak_sesuai %}hidden{% endif %}>
                     <span class="pb-flag-badge"><i class="bi bi-exclamation-triangle-fill"></i> Data tidak sesuai</span>
                     <div class="pb-flag-ket" id="flagket-{{ p.kode }}">{{ p.data_keterangan }}{% if p.ditandai_oleh %} — {{ p.ditandai_oleh.get_full_name|default:p.ditandai_oleh.username }}{% endif %}</div>
@@ -668,11 +676,14 @@ async function pollLive() {
         document.getElementById('terputus-notice')?.classList.toggle('show', !!json.terputus);
         setLastUpdate();
 
-        // Penanda 'data tidak sesuai' — sinkron dari server tiap poll (semua layar)
-        const flags = json.flags || {};
-        for (const kode of KODE_LIST) {
-            const f = flags[kode];
-            applyFlag(kode, !!f, f ? f.keterangan : '', f ? (f.oleh || '') : '', f ? (f.pada || '') : '');
+        // Penanda 'data tidak sesuai' — sinkron dari server tiap poll (semua layar).
+        // Hanya diproses bila server benar-benar mengirim objek 'flags', supaya
+        // badge hasil render server tidak terhapus jika endpoint belum diperbarui.
+        if (json.flags && typeof json.flags === 'object') {
+            for (const kode of KODE_LIST) {
+                const f = json.flags[kode];
+                applyFlag(kode, !!f, f ? f.keterangan : '', f ? (f.oleh || '') : '', f ? (f.pada || '') : '');
+            }
         }
 
         // Akumulasi MW per jenis untuk komposisi chart + total header
@@ -1373,7 +1384,14 @@ function applyFlag(kode, invalid, ket, oleh, pada) {
 (function () {
     const modal = document.getElementById('flagModal');
     if (!modal) return;
-    const csrf = document.querySelector('#csrfForm [name=csrfmiddlewaretoken]').value;
+    // Token CSRF — utamakan cookie 'csrftoken' (pola standar Django AJAX),
+    // fallback ke token dari form {% csrf_token %}.
+    function getCookie(name) {
+        const m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+        return m ? m.pop() : '';
+    }
+    const csrf = getCookie('csrftoken')
+        || document.querySelector('#csrfForm [name=csrfmiddlewaretoken]').value;
     const fmNama = document.getElementById('fmNama');
     const fmInvalid = document.getElementById('fmInvalid');
     const fmKet = document.getElementById('fmKet');
@@ -1410,11 +1428,16 @@ function applyFlag(kode, invalid, ket, oleh, pada) {
                 headers: { 'X-CSRFToken': csrf, 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: new URLSearchParams({ invalid: invalid ? '1' : '0', keterangan: ket }),
             });
-            const j = await resp.json();
-            if (!j.ok) { fmMsg.textContent = j.error || 'Gagal menyimpan.'; return; }
+            let j = null;
+            try { j = await resp.json(); } catch (_) {}
+            if (!resp.ok || !j || !j.ok) {
+                fmMsg.textContent = (j && j.error) ? j.error
+                    : `Gagal menyimpan (HTTP ${resp.status}${resp.status === 403 ? ' — sesi/CSRF, coba muat ulang halaman' : ''}).`;
+                return;
+            }
             applyFlag(j.kode, j.invalid, j.keterangan, j.oleh, j.pada);
             closeModal();
-        } catch (err) { fmMsg.textContent = 'Gagal terhubung ke server.'; }
+        } catch (err) { fmMsg.textContent = 'Gagal terhubung ke server: ' + err; }
     });
 })();
 </script>
