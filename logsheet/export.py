@@ -12,17 +12,6 @@ from collections import defaultdict
 TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), 'xlsx_template',
                              'LOGSHEET_MKS_template.xlsx')
 
-# Kolom (1-based) tempat slot 0 (pukul 00:30) berada, per sheet. 48 slot berturut
-# ke kanan. Ditambah saat tiap sheet diverifikasi. F = 6.
-SHEET_SLOT_COL0 = {
-    'KIT_MW':     6,
-    'KIT_MVAR':   6,
-    'Trans_MW':   6,
-    'Trans_MVar': 6,
-    'Trans_Amp':  6,
-    'Trans_VBus': 6,
-    # 'TRAFO': ...  (trafo menyusul)
-}
 JUMLAH_SLOT = 48
 
 
@@ -43,24 +32,23 @@ def build_workbook(tanggal):
                 .filter(aktif=True, baris__isnull=False)
                 .exclude(sheet='')
                 .exclude(baris=0))
-    titik_by_id = {t.id: t for t in titik_qs if t.sheet in SHEET_SLOT_COL0}
+    titik_by_id = {t.id: t for t in titik_qs}
     if not titik_by_id:
         return wb
 
-    # 1) Bersihkan SEMUA formula latch (yang mereferensi DASHBOARD) di band 48
-    #    kolom data tiap sheet yang dikelola — supaya slot tanpa data tampil
-    #    kosong, bukan nilai basi. Formula lain (subtotal/label) dibiarkan.
-    sheets = {t.sheet for t in titik_by_id.values()}
-    for sheet in sheets:
-        col0 = SHEET_SLOT_COL0[sheet]
+    # 1) Bersihkan SEMUA formula latch (referensi DASHBOARD) di sheet terkelola
+    #    — di semua kolom, agar slot tanpa data tampil kosong (bukan nilai basi)
+    #    dan menangani sheet berblok ganda (TRAFO: blok MW & MVAR). Formula lain
+    #    (subtotal/label) dibiarkan.
+    for sheet in {t.sheet for t in titik_by_id.values()}:
         ws = wb[sheet]
-        for row in ws.iter_rows(min_col=col0, max_col=col0 + JUMLAH_SLOT - 1):
+        for row in ws.iter_rows():
             for cell in row:
                 v = cell.value
                 if isinstance(v, str) and v.startswith('=') and 'DASHBOARD' in v:
                     cell.value = None
 
-    # 2) Isi nilai yang tersedia untuk tanggal ini
+    # 2) Isi nilai yang tersedia untuk tanggal ini (kolom slot-0 per-titik)
     nilai_qs = (LogsheetNilai.objects
                 .filter(titik_id__in=titik_by_id.keys(), tanggal=tanggal,
                         nilai__isnull=False)
@@ -69,8 +57,7 @@ def build_workbook(tanggal):
         if not (0 <= slot < JUMLAH_SLOT):
             continue
         t = titik_by_id[titik_id]
-        col0 = SHEET_SLOT_COL0[t.sheet]
-        wb[t.sheet].cell(row=t.baris, column=col0 + slot).value = round(nilai, 2)
+        wb[t.sheet].cell(row=t.baris, column=t.kol0 + slot).value = round(nilai, 2)
     return wb
 
 

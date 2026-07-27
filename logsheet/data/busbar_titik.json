@@ -9,7 +9,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "TELLO5"
+  "mssql_key": "TELLO5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:TELLO4:volt#12",
@@ -21,7 +22,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "TELLO4"
+  "mssql_key": "TELLO4",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:DAYA4:volt#13",
@@ -33,7 +35,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "DAYA4"
+  "mssql_key": "DAYA4",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:MNDAI4:volt#14",
@@ -45,7 +48,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "MNDAI4"
+  "mssql_key": "MNDAI4",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:PNKEP4:volt#15",
@@ -57,7 +61,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "PNKEP4"
+  "mssql_key": "PNKEP4",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:PNKEP5:volt#16",
@@ -69,7 +74,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "PNKEP5"
+  "mssql_key": "PNKEP5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:KIMA5:volt#17",
@@ -81,7 +87,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "KIMA5"
+  "mssql_key": "KIMA5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:MAROS5:volt#18",
@@ -93,7 +100,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "MAROS5"
+  "mssql_key": "MAROS5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:DAYA5:volt#19",
@@ -105,7 +113,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "DAYA5"
+  "mssql_key": "DAYA5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:BRLOE4:volt#22",
@@ -117,7 +126,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A",
   "mssql_keykol": "SITE",
-  "mssql_key": "BRLOE4"
+  "mssql_key": "BRLOE4",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:BNTLA4:volt#23",
@@ -129,7 +139,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "BNTLA4"
+  "mssql_key": "BNTLA4",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:BNTLA5:volt#24",
@@ -141,7 +152,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "BNTLA5"
+  "mssql_key": "BNTLA5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:PKANG5:volt#25",
@@ -153,7 +165,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "PKANG5"
+  "mssql_key": "PKANG5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:TLAMA5:volt#26",
@@ -165,7 +178,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "TLAMA5"
+  "mssql_key": "TLAMA5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:TBNGA5:volt#28",
@@ -177,7 +191,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "TBNGA5"
+  "mssql_key": "TBNGA5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:SGMSA5:volt#29",
@@ -189,7 +204,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "SGMSA5"
+  "mssql_key": "SGMSA5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:BLNGI5:volt#30",
@@ -201,7 +217,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "BLNGI5"
+  "mssql_key": "BLNGI5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:LANNA5:volt#31",
@@ -213,7 +230,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "LANNA5"
+  "mssql_key": "LANNA5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:PPARE5:volt#33",
@@ -225,7 +243,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "PPARE5"
+  "mssql_key": "PPARE5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:BARRU5:volt#34",
@@ -237,7 +256,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "BARRU5"
+  "mssql_key": "BARRU5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:BLUSU5:volt#35",
@@ -249,7 +269,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "BLUSU5"
+  "mssql_key": "BLUSU5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:PRANG5:volt#36",
@@ -261,7 +282,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "PRANG5"
+  "mssql_key": "PRANG5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:BKARU5:volt#37",
@@ -273,7 +295,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "BKARU5"
+  "mssql_key": "BKARU5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:TLASA5:volt#41",
@@ -285,7 +308,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "TLASA5"
+  "mssql_key": "TLASA5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:JNPTO5:volt#42",
@@ -297,7 +321,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "JNPTO5"
+  "mssql_key": "JNPTO5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:BNTGN5:volt#43",
@@ -309,7 +334,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "BNTGN5"
+  "mssql_key": "BNTGN5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:BNTGS5:volt#44",
@@ -321,7 +347,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "BNTGS5"
+  "mssql_key": "BNTGS5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:PNGYA5:volt#45",
@@ -333,7 +360,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "PNGYA5"
+  "mssql_key": "PNGYA5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:BTGSM5:volt#46",
@@ -345,7 +373,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "BTGSM5"
+  "mssql_key": "BTGSM5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:BKMBA5:volt#49",
@@ -357,7 +386,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "BKMBA5"
+  "mssql_key": "BKMBA5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:SNJAI5:volt#50",
@@ -369,7 +399,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "SNJAI5"
+  "mssql_key": "SNJAI5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:BONE5:volt#51",
@@ -381,7 +412,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "BONE5"
+  "mssql_key": "BONE5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:SPENG5:volt#52",
@@ -393,7 +425,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "SPENG5"
+  "mssql_key": "SPENG5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:TNETE5:volt#53",
@@ -405,7 +438,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "TNETE5"
+  "mssql_key": "TNETE5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:SDRAP5:volt#56",
@@ -417,7 +451,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "SDRAP5"
+  "mssql_key": "SDRAP5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:SKANG5:volt#57",
@@ -429,7 +464,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "SKANG5"
+  "mssql_key": "SKANG5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:EKANG5:volt#58",
@@ -441,7 +477,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "EKANG5"
+  "mssql_key": "EKANG5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:MKALE5:volt#59",
@@ -453,7 +490,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "MKALE5"
+  "mssql_key": "MKALE5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:BMPP25:volt#64",
@@ -465,7 +503,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "BMPP25"
+  "mssql_key": "BMPP25",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:ANTAM5:volt#65",
@@ -477,7 +516,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "ANTAM5"
+  "mssql_key": "ANTAM5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:PTCMP5:volt#66",
@@ -489,7 +529,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "PTCMP5"
+  "mssql_key": "PTCMP5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:NTNSA4:volt#67",
@@ -501,7 +542,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "NTNSA4"
+  "mssql_key": "NTNSA4",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:PWATU5:volt#69",
@@ -513,7 +555,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "PWATU5"
+  "mssql_key": "PWATU5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:KDNEW5:volt#70",
@@ -525,7 +568,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "KDNEW5"
+  "mssql_key": "KDNEW5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:KNDI35:volt#71",
@@ -537,7 +581,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "KNDI35"
+  "mssql_key": "KNDI35",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:UNAHA5:volt#72",
@@ -549,7 +594,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "UNAHA5"
+  "mssql_key": "UNAHA5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:KLAKA5:volt#73",
@@ -561,7 +607,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "KLAKA5"
+  "mssql_key": "KLAKA5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:LASSA5:volt#74",
@@ -573,7 +620,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "LASSA5"
+  "mssql_key": "LASSA5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:TNGEA5:volt#75",
@@ -585,7 +633,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "TNGEA5"
+  "mssql_key": "TNGEA5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:ANDLO5:volt#76",
@@ -597,7 +646,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "ANDLO5"
+  "mssql_key": "ANDLO5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:KLKSM5:volt#77",
@@ -609,7 +659,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "KLKSM5"
+  "mssql_key": "KLKSM5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:KSPTE5:volt#78",
@@ -621,7 +672,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "KSPTE5"
+  "mssql_key": "KSPTE5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:WOTU5:volt#79",
@@ -633,7 +685,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "WOTU5"
+  "mssql_key": "WOTU5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:PLOPO5:volt#80",
@@ -645,7 +698,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "PLOPO5"
+  "mssql_key": "PLOPO5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:MLILI5:volt#81",
@@ -657,7 +711,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "MLILI5"
+  "mssql_key": "MLILI5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:SIWA5:volt#82",
@@ -669,7 +724,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "SIWA5"
+  "mssql_key": "SIWA5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:BLOPA5:volt#83",
@@ -681,7 +737,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "BLOPA5"
+  "mssql_key": "BLOPA5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:MSMBA5:volt#84",
@@ -693,7 +750,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "MSMBA5"
+  "mssql_key": "MSMBA5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:MMUJU5:volt#86",
@@ -705,7 +763,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "MMUJU5"
+  "mssql_key": "MMUJU5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:MJNEW5:volt#87",
@@ -717,7 +776,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "MJNEW5"
+  "mssql_key": "MJNEW5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:MJENE5:volt#88",
@@ -729,7 +789,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "MJENE5"
+  "mssql_key": "MJENE5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:PLMAS5:volt#89",
@@ -741,7 +802,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "PLMAS5"
+  "mssql_key": "PLMAS5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:TPOYO5:volt#90",
@@ -753,7 +815,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "TPOYO5"
+  "mssql_key": "TPOYO5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:PMONA5:volt#94",
@@ -765,7 +828,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "PMONA5"
+  "mssql_key": "PMONA5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:POSO5:volt#95",
@@ -777,7 +841,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "POSO5"
+  "mssql_key": "POSO5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:SDERA5:volt#96",
@@ -789,7 +854,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "SDERA5"
+  "mssql_key": "SDERA5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:SILAE5:volt#98",
@@ -801,7 +867,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "SILAE5"
+  "mssql_key": "SILAE5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:TLISE4:volt#99",
@@ -813,7 +880,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "TLISE4"
+  "mssql_key": "TLISE4",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:PRIGI4:volt#100",
@@ -825,7 +893,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "PRIGI4"
+  "mssql_key": "PRIGI4",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:PSKYU5:volt#101",
@@ -837,7 +906,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "PSKYU5"
+  "mssql_key": "PSKYU5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:TLISE5:volt#102",
@@ -849,7 +919,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "TLISE5"
+  "mssql_key": "TLISE5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:DNGLA5:volt#103",
@@ -861,7 +932,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "DNGLA5"
+  "mssql_key": "DNGLA5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:TWELI5:volt#104",
@@ -873,7 +945,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "TWELI5"
+  "mssql_key": "TWELI5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:PPLU35:volt#105",
@@ -885,7 +958,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "PPLU35"
+  "mssql_key": "PPLU35",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:PMONA6:volt#106",
@@ -897,7 +971,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "PMONA6"
+  "mssql_key": "PMONA6",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:WOTU6:volt#107",
@@ -909,7 +984,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "WOTU6"
+  "mssql_key": "WOTU6",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:LTUPA6:volt#108",
@@ -921,7 +997,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "LTUPA6"
+  "mssql_key": "LTUPA6",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:RAHA5:volt#111",
@@ -933,7 +1010,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "RAHA5"
+  "mssql_key": "RAHA5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:BABAU5:volt#112",
@@ -945,7 +1023,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "BABAU5"
+  "mssql_key": "BABAU5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:PLMGB5:volt#113",
@@ -957,7 +1036,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "PLMGB5"
+  "mssql_key": "PLMGB5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:PLMGL5:volt#115",
@@ -969,7 +1049,8 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "PLMGL5"
+  "mssql_key": "PLMGL5",
+  "kol0": 6
  },
  {
   "key": "SYS_BSBAR:LUWUK5:volt#116",
@@ -981,6 +1062,7 @@
   "mssql_tabel": "SYS_BSBAR",
   "mssql_kolom": "BUSBAR_A,BUSBAR_B",
   "mssql_keykol": "SITE",
-  "mssql_key": "LUWUK5"
+  "mssql_key": "LUWUK5",
+  "kol0": 6
  }
 ]

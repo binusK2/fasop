@@ -17,7 +17,7 @@ from django.core.management.base import BaseCommand
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'data')
 
-FIELDS = ('kategori', 'besaran', 'nama', 'sheet', 'baris',
+FIELDS = ('kategori', 'besaran', 'nama', 'sheet', 'baris', 'kol0',
           'mssql_tabel', 'mssql_kolom', 'mssql_keykol', 'mssql_key', 'faktor')
 
 

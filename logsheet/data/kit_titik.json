@@ -9,7 +9,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT1_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "BKARU5"
+  "mssql_key": "BKARU5",
+  "kol0": 6
  },
  {
   "key": "BKARU5:UNIT1_Q:mvar",
@@ -21,7 +22,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT1_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "BKARU5"
+  "mssql_key": "BKARU5",
+  "kol0": 6
  },
  {
   "key": "BKARU5:UNIT2_P:mw",
@@ -33,7 +35,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT2_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "BKARU5"
+  "mssql_key": "BKARU5",
+  "kol0": 6
  },
  {
   "key": "BKARU5:UNIT2_Q:mvar",
@@ -45,7 +48,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT2_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "BKARU5"
+  "mssql_key": "BKARU5",
+  "kol0": 6
  },
  {
   "key": "MALEA5:UNIT1_P:mw",
@@ -57,7 +61,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT1_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "MALEA5"
+  "mssql_key": "MALEA5",
+  "kol0": 6
  },
  {
   "key": "MALEA5:UNIT1_Q:mvar",
@@ -69,7 +74,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT1_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "MALEA5"
+  "mssql_key": "MALEA5",
+  "kol0": 6
  },
  {
   "key": "MALEA5:UNIT2_P:mw",
@@ -81,7 +87,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT2_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "MALEA5"
+  "mssql_key": "MALEA5",
+  "kol0": 6
  },
  {
   "key": "MALEA5:UNIT2_Q:mvar",
@@ -93,7 +100,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT2_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "MALEA5"
+  "mssql_key": "MALEA5",
+  "kol0": 6
  },
  {
   "key": "PMONA6:UNIT1_P:mw",
@@ -105,7 +113,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT1_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "PMONA6"
+  "mssql_key": "PMONA6",
+  "kol0": 6
  },
  {
   "key": "PMONA6:UNIT1_Q:mvar",
@@ -117,7 +126,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT1_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "PMONA6"
+  "mssql_key": "PMONA6",
+  "kol0": 6
  },
  {
   "key": "PMONA6:UNIT2_P:mw",
@@ -129,7 +139,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT2_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "PMONA6"
+  "mssql_key": "PMONA6",
+  "kol0": 6
  },
  {
   "key": "PMONA6:UNIT2_Q:mvar",
@@ -141,7 +152,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT2_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "PMONA6"
+  "mssql_key": "PMONA6",
+  "kol0": 6
  },
  {
   "key": "PMONA6:UNIT3_P:mw",
@@ -153,7 +165,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT3_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "PMONA6"
+  "mssql_key": "PMONA6",
+  "kol0": 6
  },
  {
   "key": "PMONA6:UNIT3_Q:mvar",
@@ -165,7 +178,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT3_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "PMONA6"
+  "mssql_key": "PMONA6",
+  "kol0": 6
  },
  {
   "key": "PMONA6:UNIT4_P:mw",
@@ -177,7 +191,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT4_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "PMONA6"
+  "mssql_key": "PMONA6",
+  "kol0": 6
  },
  {
   "key": "PMONA6:UNIT4_Q:mvar",
@@ -189,7 +204,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT4_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "PMONA6"
+  "mssql_key": "PMONA6",
+  "kol0": 6
  },
  {
   "key": "PMONA6:UNIT5_P:mw",
@@ -201,7 +217,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT5_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "PMONA6"
+  "mssql_key": "PMONA6",
+  "kol0": 6
  },
  {
   "key": "PMONA6:UNIT5_Q:mvar",
@@ -213,7 +230,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT5_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "PMONA6"
+  "mssql_key": "PMONA6",
+  "kol0": 6
  },
  {
   "key": "PMONA6:UNIT6_P:mw",
@@ -225,7 +243,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT6_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "PMONA6"
+  "mssql_key": "PMONA6",
+  "kol0": 6
  },
  {
   "key": "PMONA6:UNIT6_Q:mvar",
@@ -237,7 +256,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT6_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "PMONA6"
+  "mssql_key": "PMONA6",
+  "kol0": 6
  },
  {
   "key": "PMONA6:UNIT7_P:mw",
@@ -249,7 +269,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT7_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "PMONA6"
+  "mssql_key": "PMONA6",
+  "kol0": 6
  },
  {
   "key": "PMONA6:UNIT7_Q:mvar",
@@ -261,7 +282,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT7_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "PMONA6"
+  "mssql_key": "PMONA6",
+  "kol0": 6
  },
  {
   "key": "SLWNA6:UNIT1_P:mw",
@@ -273,7 +295,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT1_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "SLWNA6"
+  "mssql_key": "SLWNA6",
+  "kol0": 6
  },
  {
   "key": "SLWNA6:UNIT1_Q:mvar",
@@ -285,7 +308,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT1_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "SLWNA6"
+  "mssql_key": "SLWNA6",
+  "kol0": 6
  },
  {
   "key": "SLWNA6:UNIT2_P:mw",
@@ -297,7 +321,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT2_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "SLWNA6"
+  "mssql_key": "SLWNA6",
+  "kol0": 6
  },
  {
   "key": "SLWNA6:UNIT2_Q:mvar",
@@ -309,7 +334,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT2_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "SLWNA6"
+  "mssql_key": "SLWNA6",
+  "kol0": 6
  },
  {
   "key": "SLWNA6:UNIT3_P:mw",
@@ -321,7 +347,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT3_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "SLWNA6"
+  "mssql_key": "SLWNA6",
+  "kol0": 6
  },
  {
   "key": "SLWNA6:UNIT3_Q:mvar",
@@ -333,7 +360,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT3_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "SLWNA6"
+  "mssql_key": "SLWNA6",
+  "kol0": 6
  },
  {
   "key": "SLWNA6:UNIT4_P:mw",
@@ -345,7 +373,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT4_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "SLWNA6"
+  "mssql_key": "SLWNA6",
+  "kol0": 6
  },
  {
   "key": "SLWNA6:UNIT4_Q:mvar",
@@ -357,7 +386,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT4_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "SLWNA6"
+  "mssql_key": "SLWNA6",
+  "kol0": 6
  },
  {
   "key": "PBILI:UNIT1_P:mw",
@@ -369,7 +399,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT1_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "PBILI"
+  "mssql_key": "PBILI",
+  "kol0": 6
  },
  {
   "key": "PBILI:UNIT1_Q:mvar",
@@ -381,7 +412,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT1_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "PBILI"
+  "mssql_key": "PBILI",
+  "kol0": 6
  },
  {
   "key": "PBILI:UNIT2_P:mw",
@@ -393,7 +425,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT2_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "PBILI"
+  "mssql_key": "PBILI",
+  "kol0": 6
  },
  {
   "key": "PBILI:UNIT2_Q:mvar",
@@ -405,7 +438,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT2_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "PBILI"
+  "mssql_key": "PBILI",
+  "kol0": 6
  },
  {
   "key": "PNGYA5:UNIT1_P:mw",
@@ -417,7 +451,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT1_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "PNGYA5"
+  "mssql_key": "PNGYA5",
+  "kol0": 6
  },
  {
   "key": "PNGYA5:UNIT1_Q:mvar",
@@ -429,7 +464,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT1_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "PNGYA5"
+  "mssql_key": "PNGYA5",
+  "kol0": 6
  },
  {
   "key": "PNGYA5:UNIT2_P:mw",
@@ -441,7 +477,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT2_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "PNGYA5"
+  "mssql_key": "PNGYA5",
+  "kol0": 6
  },
  {
   "key": "PNGYA5:UNIT2_Q:mvar",
@@ -453,7 +490,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT2_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "PNGYA5"
+  "mssql_key": "PNGYA5",
+  "kol0": 6
  },
  {
   "key": "PJPNT1:UNIT1_P:mw",
@@ -465,7 +503,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT1_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "PJPNT1"
+  "mssql_key": "PJPNT1",
+  "kol0": 6
  },
  {
   "key": "PJPNT1:UNIT1_Q:mvar",
@@ -477,7 +516,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT1_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "PJPNT1"
+  "mssql_key": "PJPNT1",
+  "kol0": 6
  },
  {
   "key": "PJPNT1:UNIT2_P:mw",
@@ -489,7 +529,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT2_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "PJPNT1"
+  "mssql_key": "PJPNT1",
+  "kol0": 6
  },
  {
   "key": "PJPNT1:UNIT2_Q:mvar",
@@ -501,7 +542,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT2_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "PJPNT1"
+  "mssql_key": "PJPNT1",
+  "kol0": 6
  },
  {
   "key": "PJNPT2:UNIT1_P:mw",
@@ -513,7 +555,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT1_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "PJNPT2"
+  "mssql_key": "PJNPT2",
+  "kol0": 6
  },
  {
   "key": "PJNPT2:UNIT1_Q:mvar",
@@ -525,7 +568,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT1_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "PJNPT2"
+  "mssql_key": "PJNPT2",
+  "kol0": 6
  },
  {
   "key": "PJNPT2:UNIT2_P:mw",
@@ -537,7 +581,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT2_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "PJNPT2"
+  "mssql_key": "PJNPT2",
+  "kol0": 6
  },
  {
   "key": "PJNPT2:UNIT2_Q:mvar",
@@ -549,7 +594,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT2_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "PJNPT2"
+  "mssql_key": "PJNPT2",
+  "kol0": 6
  },
  {
   "key": "BLUSU5:UNIT1_P:mw",
@@ -561,7 +607,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT1_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "BLUSU5"
+  "mssql_key": "BLUSU5",
+  "kol0": 6
  },
  {
   "key": "BLUSU5:UNIT1_Q:mvar",
@@ -573,7 +620,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT1_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "BLUSU5"
+  "mssql_key": "BLUSU5",
+  "kol0": 6
  },
  {
   "key": "BLUSU5:UNIT2_P:mw",
@@ -585,7 +633,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT2_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "BLUSU5"
+  "mssql_key": "BLUSU5",
+  "kol0": 6
  },
  {
   "key": "BLUSU5:UNIT2_Q:mvar",
@@ -597,7 +646,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT2_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "BLUSU5"
+  "mssql_key": "BLUSU5",
+  "kol0": 6
  },
  {
   "key": "BLUSU5:UNIT3_P:mw",
@@ -609,7 +659,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT3_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "BLUSU5"
+  "mssql_key": "BLUSU5",
+  "kol0": 6
  },
  {
   "key": "BLUSU5:UNIT3_Q:mvar",
@@ -621,7 +672,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT3_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "BLUSU5"
+  "mssql_key": "BLUSU5",
+  "kol0": 6
  },
  {
   "key": "KNDI35:UNIT1_P:mw",
@@ -633,7 +685,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT1_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "KNDI35"
+  "mssql_key": "KNDI35",
+  "kol0": 6
  },
  {
   "key": "KNDI35:UNIT1_Q:mvar",
@@ -645,7 +698,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT1_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "KNDI35"
+  "mssql_key": "KNDI35",
+  "kol0": 6
  },
  {
   "key": "KNDI35:UNIT2_P:mw",
@@ -657,7 +711,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT2_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "KNDI35"
+  "mssql_key": "KNDI35",
+  "kol0": 6
  },
  {
   "key": "KNDI35:UNIT2_Q:mvar",
@@ -669,7 +724,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT2_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "KNDI35"
+  "mssql_key": "KNDI35",
+  "kol0": 6
  },
  {
   "key": "NTNSA4:UNIT3_P:mw",
@@ -681,7 +737,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT3_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "NTNSA4"
+  "mssql_key": "NTNSA4",
+  "kol0": 6
  },
  {
   "key": "NTNSA4:UNIT3_Q:mvar",
@@ -693,7 +750,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT3_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "NTNSA4"
+  "mssql_key": "NTNSA4",
+  "kol0": 6
  },
  {
   "key": "NTNSA4:UNIT4_P:mw",
@@ -705,7 +763,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT4_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "NTNSA4"
+  "mssql_key": "NTNSA4",
+  "kol0": 6
  },
  {
   "key": "NTNSA4:UNIT4_Q:mvar",
@@ -717,7 +776,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT4_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "NTNSA4"
+  "mssql_key": "NTNSA4",
+  "kol0": 6
  },
  {
   "key": "NTNSA4:UNIT5_P:mw",
@@ -729,7 +789,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT5_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "NTNSA4"
+  "mssql_key": "NTNSA4",
+  "kol0": 6
  },
  {
   "key": "NTNSA4:UNIT5_Q:mvar",
@@ -741,7 +802,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT5_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "NTNSA4"
+  "mssql_key": "NTNSA4",
+  "kol0": 6
  },
  {
   "key": "TELLO5:UNIT3_P:mw",
@@ -753,7 +815,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT3_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "TELLO5"
+  "mssql_key": "TELLO5",
+  "kol0": 6
  },
  {
   "key": "TELLO5:UNIT3_Q:mvar",
@@ -765,7 +828,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT3_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "TELLO5"
+  "mssql_key": "TELLO5",
+  "kol0": 6
  },
  {
   "key": "TELLO5:UNIT4_P:mw",
@@ -777,7 +841,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT4_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "TELLO5"
+  "mssql_key": "TELLO5",
+  "kol0": 6
  },
  {
   "key": "TELLO5:UNIT4_Q:mvar",
@@ -789,7 +854,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT4_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "TELLO5"
+  "mssql_key": "TELLO5",
+  "kol0": 6
  },
  {
   "key": "TELLO5:UNIT5_P:mw",
@@ -801,7 +867,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT5_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "TELLO5"
+  "mssql_key": "TELLO5",
+  "kol0": 6
  },
  {
   "key": "TELLO5:UNIT5_Q:mvar",
@@ -813,7 +880,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT5_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "TELLO5"
+  "mssql_key": "TELLO5",
+  "kol0": 6
  },
  {
   "key": "TELLO5:UNIT6_P:mw",
@@ -825,7 +893,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT6_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "TELLO5"
+  "mssql_key": "TELLO5",
+  "kol0": 6
  },
  {
   "key": "TELLO5:UNIT6_Q:mvar",
@@ -837,7 +906,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT6_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "TELLO5"
+  "mssql_key": "TELLO5",
+  "kol0": 6
  },
  {
   "key": "TELLO5:UNIT1_P:mw",
@@ -849,7 +919,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT1_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "TELLO5"
+  "mssql_key": "TELLO5",
+  "kol0": 6
  },
  {
   "key": "TELLO5:UNIT1_Q:mvar",
@@ -861,7 +932,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT1_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "TELLO5"
+  "mssql_key": "TELLO5",
+  "kol0": 6
  },
  {
   "key": "TELLO5:UNIT2_P:mw",
@@ -873,7 +945,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT2_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "TELLO5"
+  "mssql_key": "TELLO5",
+  "kol0": 6
  },
  {
   "key": "TELLO5:UNIT2_Q:mvar",
@@ -885,7 +958,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT2_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "TELLO5"
+  "mssql_key": "TELLO5",
+  "kol0": 6
  },
  {
   "key": "NTNSA4:UNIT1_P:mw",
@@ -897,7 +971,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT1_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "NTNSA4"
+  "mssql_key": "NTNSA4",
+  "kol0": 6
  },
  {
   "key": "NTNSA4:UNIT1_Q:mvar",
@@ -909,7 +984,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT1_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "NTNSA4"
+  "mssql_key": "NTNSA4",
+  "kol0": 6
  },
  {
   "key": "NTNSA4:UNIT2_P:mw",
@@ -921,7 +997,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT2_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "NTNSA4"
+  "mssql_key": "NTNSA4",
+  "kol0": 6
  },
  {
   "key": "NTNSA4:UNIT2_Q:mvar",
@@ -933,7 +1010,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT2_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "NTNSA4"
+  "mssql_key": "NTNSA4",
+  "kol0": 6
  },
  {
   "key": "SKANG5:UNIT1_P:mw",
@@ -945,7 +1023,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT1_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "SKANG5"
+  "mssql_key": "SKANG5",
+  "kol0": 6
  },
  {
   "key": "SKANG5:UNIT1_Q:mvar",
@@ -957,7 +1036,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT1_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "SKANG5"
+  "mssql_key": "SKANG5",
+  "kol0": 6
  },
  {
   "key": "SKANG5:UNIT2_P:mw",
@@ -969,7 +1049,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT2_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "SKANG5"
+  "mssql_key": "SKANG5",
+  "kol0": 6
  },
  {
   "key": "SKANG5:UNIT2_Q:mvar",
@@ -981,7 +1062,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT2_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "SKANG5"
+  "mssql_key": "SKANG5",
+  "kol0": 6
  },
  {
   "key": "SKANG5:UNIT3_P:mw",
@@ -993,7 +1075,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT3_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "SKANG5"
+  "mssql_key": "SKANG5",
+  "kol0": 6
  },
  {
   "key": "SKANG5:UNIT3_Q:mvar",
@@ -1005,7 +1088,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT3_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "SKANG5"
+  "mssql_key": "SKANG5",
+  "kol0": 6
  },
  {
   "key": "SKANG5:UNIT4_P:mw",
@@ -1017,7 +1101,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT4_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "SKANG5"
+  "mssql_key": "SKANG5",
+  "kol0": 6
  },
  {
   "key": "SKANG5:UNIT4_Q:mvar",
@@ -1029,7 +1114,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT4_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "SKANG5"
+  "mssql_key": "SKANG5",
+  "kol0": 6
  },
  {
   "key": "SKANG5:UNIT5_P:mw",
@@ -1041,7 +1127,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT5_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "SKANG5"
+  "mssql_key": "SKANG5",
+  "kol0": 6
  },
  {
   "key": "SKANG5:UNIT5_Q:mvar",
@@ -1053,7 +1140,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT5_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "SKANG5"
+  "mssql_key": "SKANG5",
+  "kol0": 6
  },
  {
   "key": "SKANG5:UNIT6_P:mw",
@@ -1065,7 +1153,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT6_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "SKANG5"
+  "mssql_key": "SKANG5",
+  "kol0": 6
  },
  {
   "key": "SKANG5:UNIT6_Q:mvar",
@@ -1077,7 +1166,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT6_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "SKANG5"
+  "mssql_key": "SKANG5",
+  "kol0": 6
  },
  {
   "key": "PMMJU:UNIT1_P:mw",
@@ -1089,7 +1179,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT1_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "PMMJU"
+  "mssql_key": "PMMJU",
+  "kol0": 6
  },
  {
   "key": "PMMJU:UNIT1_Q:mvar",
@@ -1101,7 +1192,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT1_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "PMMJU"
+  "mssql_key": "PMMJU",
+  "kol0": 6
  },
  {
   "key": "PMMJU:UNIT2_P:mw",
@@ -1113,7 +1205,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT2_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "PMMJU"
+  "mssql_key": "PMMJU",
+  "kol0": 6
  },
  {
   "key": "PMMJU:UNIT2_Q:mvar",
@@ -1125,7 +1218,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT2_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "PMMJU"
+  "mssql_key": "PMMJU",
+  "kol0": 6
  },
  {
   "key": "PLTD_SILAE:UNIT1_P:mw",
@@ -1137,7 +1231,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT1_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "PLTD_SILAE"
+  "mssql_key": "PLTD_SILAE",
+  "kol0": 6
  },
  {
   "key": "PLTD_SILAE:UNIT1_Q:mvar",
@@ -1149,7 +1244,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT1_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "PLTD_SILAE"
+  "mssql_key": "PLTD_SILAE",
+  "kol0": 6
  },
  {
   "key": "TELLO_SW:UNIT1_P:mw",
@@ -1161,7 +1257,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT1_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "TELLO_SW"
+  "mssql_key": "TELLO_SW",
+  "kol0": 6
  },
  {
   "key": "TELLO_SW:UNIT1_Q:mvar",
@@ -1173,7 +1270,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT1_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "TELLO_SW"
+  "mssql_key": "TELLO_SW",
+  "kol0": 6
  },
  {
   "key": "TELLO_SW:UNIT2_P:mw",
@@ -1185,7 +1283,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT2_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "TELLO_SW"
+  "mssql_key": "TELLO_SW",
+  "kol0": 6
  },
  {
   "key": "TELLO_SW:UNIT2_Q:mvar",
@@ -1197,7 +1296,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT2_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "TELLO_SW"
+  "mssql_key": "TELLO_SW",
+  "kol0": 6
  },
  {
   "key": "TLAMA_SW:UNIT1_P:mw",
@@ -1209,7 +1309,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT1_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "TLAMA_SW"
+  "mssql_key": "TLAMA_SW",
+  "kol0": 6
  },
  {
   "key": "TLAMA_SW:UNIT1_Q:mvar",
@@ -1221,7 +1322,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT1_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "TLAMA_SW"
+  "mssql_key": "TLAMA_SW",
+  "kol0": 6
  },
  {
   "key": "PNGYA5_SW:UNIT1_P:mw",
@@ -1233,7 +1335,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT1_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "PNGYA5_SW"
+  "mssql_key": "PNGYA5_SW",
+  "kol0": 6
  },
  {
   "key": "PNGYA5_SW:UNIT1_Q:mvar",
@@ -1245,7 +1348,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT1_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "PNGYA5_SW"
+  "mssql_key": "PNGYA5_SW",
+  "kol0": 6
  },
  {
   "key": "PPLU35:UNIT1_P:mw",
@@ -1257,7 +1361,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT1_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "PPLU35"
+  "mssql_key": "PPLU35",
+  "kol0": 6
  },
  {
   "key": "PPLU35:UNIT1_Q:mvar",
@@ -1269,7 +1374,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT1_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "PPLU35"
+  "mssql_key": "PPLU35",
+  "kol0": 6
  },
  {
   "key": "PPLU35:UNIT2_P:mw",
@@ -1281,7 +1387,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT2_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "PPLU35"
+  "mssql_key": "PPLU35",
+  "kol0": 6
  },
  {
   "key": "PPLU35:UNIT2_Q:mvar",
@@ -1293,7 +1400,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT2_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "PPLU35"
+  "mssql_key": "PPLU35",
+  "kol0": 6
  },
  {
   "key": "BMPP25:UNIT1_P:mw",
@@ -1305,7 +1413,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT1_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "BMPP25"
+  "mssql_key": "BMPP25",
+  "kol0": 6
  },
  {
   "key": "BMPP25:UNIT1_Q:mvar",
@@ -1317,7 +1426,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT1_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "BMPP25"
+  "mssql_key": "BMPP25",
+  "kol0": 6
  },
  {
   "key": "BMPP25:UNIT2_P:mw",
@@ -1329,7 +1439,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT2_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "BMPP25"
+  "mssql_key": "BMPP25",
+  "kol0": 6
  },
  {
   "key": "BMPP25:UNIT2_Q:mvar",
@@ -1341,7 +1452,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT2_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "BMPP25"
+  "mssql_key": "BMPP25",
+  "kol0": 6
  },
  {
   "key": "BMPP25:UNIT3_P:mw",
@@ -1353,7 +1465,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT3_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "BMPP25"
+  "mssql_key": "BMPP25",
+  "kol0": 6
  },
  {
   "key": "BMPP25:UNIT3_Q:mvar",
@@ -1365,7 +1478,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT3_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "BMPP25"
+  "mssql_key": "BMPP25",
+  "kol0": 6
  },
  {
   "key": "BMPP25:UNIT4_P:mw",
@@ -1377,7 +1491,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT4_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "BMPP25"
+  "mssql_key": "BMPP25",
+  "kol0": 6
  },
  {
   "key": "BMPP25:UNIT4_Q:mvar",
@@ -1389,7 +1504,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT4_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "BMPP25"
+  "mssql_key": "BMPP25",
+  "kol0": 6
  },
  {
   "key": "BMPP25:UNIT5_P:mw",
@@ -1401,7 +1517,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT5_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "BMPP25"
+  "mssql_key": "BMPP25",
+  "kol0": 6
  },
  {
   "key": "BMPP25:UNIT5_Q:mvar",
@@ -1413,7 +1530,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT5_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "BMPP25"
+  "mssql_key": "BMPP25",
+  "kol0": 6
  },
  {
   "key": "BMPP25:UNIT6_P:mw",
@@ -1425,7 +1543,8 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT6_P",
   "mssql_keykol": "KIT",
-  "mssql_key": "BMPP25"
+  "mssql_key": "BMPP25",
+  "kol0": 6
  },
  {
   "key": "BMPP25:UNIT6_Q:mvar",
@@ -1437,6 +1556,7 @@
   "mssql_tabel": "KIT_REALTIME",
   "mssql_kolom": "UNIT6_Q",
   "mssql_keykol": "KIT",
-  "mssql_key": "BMPP25"
+  "mssql_key": "BMPP25",
+  "kol0": 6
  }
 ]
