@@ -17,7 +17,10 @@ TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), 'xlsx_template',
 SHEET_SLOT_COL0 = {
     'KIT_MW':     6,
     'KIT_MVAR':   6,
-    # 'Trans_MW': ..., 'Trans_MVar': ..., 'Trans_Amp': ..., 'Trans_VBus': ..., 'TRAFO': ...
+    'Trans_MW':   6,
+    'Trans_MVar': 6,
+    'Trans_Amp':  6,
+    # 'Trans_VBus': ..., 'TRAFO': ...  (busbar & trafo menyusul)
 }
 JUMLAH_SLOT = 48
 
