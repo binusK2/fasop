@@ -43,19 +43,30 @@ def build_workbook(tanggal):
     if not titik_by_id:
         return wb
 
+    # 1) Bersihkan SEMUA formula latch (yang mereferensi DASHBOARD) di band 48
+    #    kolom data tiap sheet yang dikelola — supaya slot tanpa data tampil
+    #    kosong, bukan nilai basi. Formula lain (subtotal/label) dibiarkan.
+    sheets = {t.sheet for t in titik_by_id.values()}
+    for sheet in sheets:
+        col0 = SHEET_SLOT_COL0[sheet]
+        ws = wb[sheet]
+        for row in ws.iter_rows(min_col=col0, max_col=col0 + JUMLAH_SLOT - 1):
+            for cell in row:
+                v = cell.value
+                if isinstance(v, str) and v.startswith('=') and 'DASHBOARD' in v:
+                    cell.value = None
+
+    # 2) Isi nilai yang tersedia untuk tanggal ini
     nilai_qs = (LogsheetNilai.objects
                 .filter(titik_id__in=titik_by_id.keys(), tanggal=tanggal,
                         nilai__isnull=False)
                 .values_list('titik_id', 'slot', 'nilai'))
-
-    # kumpulkan per sheet untuk efisiensi
     for titik_id, slot, nilai in nilai_qs:
         if not (0 <= slot < JUMLAH_SLOT):
             continue
         t = titik_by_id[titik_id]
         col0 = SHEET_SLOT_COL0[t.sheet]
-        ws = wb[t.sheet]
-        ws.cell(row=t.baris, column=col0 + slot).value = round(nilai, 2)
+        wb[t.sheet].cell(row=t.baris, column=col0 + slot).value = round(nilai, 2)
     return wb
 
 
