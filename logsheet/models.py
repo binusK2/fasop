@@ -64,6 +64,9 @@ class LogsheetTitik(models.Model):
                                   help_text='Nama sheet di template, mis. KIT_MW.')
     baris      = models.PositiveIntegerField(null=True, blank=True, verbose_name='Baris Export',
                                              help_text='Nomor baris (1-based) tempat 48 kolom waktu diisi.')
+    kol0       = models.PositiveIntegerField(default=6, verbose_name='Kolom Slot-0',
+                                             help_text='Kolom (1-based) untuk slot 00:30; 48 kolom ke kanan. '
+                                                       'Umumnya 6 (F); blok MVAR TRAFO = 55.')
 
     aktif      = models.BooleanField(default=True)
 
