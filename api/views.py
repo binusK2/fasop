@@ -304,3 +304,49 @@ def logsheet_endpoint(request):
     return JsonResponse({'status': 'ok', 'tanggal': tanggal.isoformat(),
                          'slot': slot, 'waktu': waktu_label(slot) if slot is not None else None,
                          'jumlah': len(cells), 'cells': cells})
+
+
+@csrf_exempt
+@require_api_key
+@require_http_methods(["GET"])
+def logsheet_export_endpoint(request):
+    """
+    Unduh file .xlsx logsheet (format identik) untuk sebuah tanggal — ber-API_KEY
+    agar bisa dipanggil n8n (mis. arsip harian ke NAS jam 00:05).
+      ?tanggal=YYYY-MM-DD   (default: hari ini)
+    """
+    import datetime
+    from django.utils import timezone
+    from logsheet import export as xls
+    try:
+        tanggal = datetime.date.fromisoformat(request.GET.get('tanggal', ''))
+    except ValueError:
+        tanggal = timezone.localdate()
+    wb = xls.build_workbook(tanggal)
+    return xls.workbook_to_response(wb, f'LOGSHEET_MKS_{tanggal:%Y%m%d}.xlsx')
+
+
+@csrf_exempt
+@require_api_key
+@require_http_methods(["GET"])
+def logsheet_ranges_endpoint(request):
+    """
+    Daftar range A1 (per sheet, band 48 kolom) berisi sel data logsheet —
+    dipakai n8n untuk Google Sheets values:batchClear (kosongkan data, format
+    tetap). TRAFO punya 2 band (MW & MVAR) sehingga muncul 2 range.
+    """
+    from logsheet.models import LogsheetTitik
+    JUMLAH_SLOT = 48
+    bands = {}
+    for t in (LogsheetTitik.objects.filter(aktif=True, baris__isnull=False)
+              .exclude(sheet='').exclude(baris=0)):
+        key = (t.sheet, t.kol0)
+        b = bands.setdefault(key, [t.baris, t.baris])
+        b[0] = min(b[0], t.baris)
+        b[1] = max(b[1], t.baris)
+    ranges = []
+    for (sheet, kol0), (rmin, rmax) in bands.items():
+        c1 = _col_a1(kol0)
+        c2 = _col_a1(kol0 + JUMLAH_SLOT - 1)
+        ranges.append(f'{sheet}!{c1}{rmin}:{c2}{rmax}')
+    return JsonResponse({'status': 'ok', 'jumlah': len(ranges), 'ranges': sorted(ranges)})
