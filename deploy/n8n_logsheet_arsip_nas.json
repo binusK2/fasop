@@ -36,19 +36,6 @@
     },
     {
       "parameters": {
-        "command": "=mkdir -p \"{{ $('Hitung path').item.json.folder }}\""
-      },
-      "id": "a1000000-0000-0000-0000-000000000003",
-      "name": "Buat folder bulan",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
-      "position": [
-        680,
-        300
-      ]
-    },
-    {
-      "parameters": {
         "url": "=https://__FASOP_DOMAIN__/api/v1/logsheet/export/?tanggal={{ $('Hitung path').item.json.tanggal }}",
         "sendHeaders": true,
         "headerParameters": {
@@ -109,17 +96,6 @@
       ]
     },
     "Hitung path": {
-      "main": [
-        [
-          {
-            "node": "Buat folder bulan",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Buat folder bulan": {
       "main": [
         [
           {
