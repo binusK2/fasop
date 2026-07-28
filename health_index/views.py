@@ -1,14 +1,19 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from devices.permissions import require_can_manage_lokasi
 from devices.models import Device
 from .calculator import calculate_hi, get_kategori
 from datetime import date as date_type
 
+PER_PAGE = 50
+
 
 @login_required
 def hi_list(request):
-    """Halaman daftar Health Index semua peralatan."""
+    """Halaman daftar Health Index semua peralatan (dipaginasi per 50)."""
+    from health_index.models import KonfigurasiHI
+
     devices = Device.objects.filter(is_deleted=False).select_related('jenis').order_by('nama')
 
     # Filter opsional
@@ -16,14 +21,23 @@ def hi_list(request):
     filter_lokasi   = request.GET.get('lokasi', '')
     search          = request.GET.get('q', '').strip()
 
-    # Hitung HI untuk setiap device
+    # Konfigurasi bobot diambil SEKALI (bukan per-device) → hemat query.
+    configs = KonfigurasiHI.get_or_init()
+
+    # Hitung HI setiap device satu kali; summary dihitung dari set yang sama
+    # (sebelum filter) sehingga tidak perlu loop kalkulasi kedua.
     results = []
+    summary = {'sangat_baik': 0, 'baik': 0, 'cukup': 0, 'buruk': 0, 'kritis': 0}
     for device in devices:
-        hi = calculate_hi(device, save_snapshot=False)
-        results.append({
-            'device': device,
-            'hi':     hi,
-        })
+        hi = calculate_hi(device, save_snapshot=False, configs=configs)
+        results.append({'device': device, 'hi': hi})
+        s = hi['score']
+        if   s >= 85: summary['sangat_baik'] += 1
+        elif s >= 70: summary['baik']        += 1
+        elif s >= 50: summary['cukup']       += 1
+        elif s >= 25: summary['buruk']       += 1
+        else:         summary['kritis']      += 1
+    summary['total'] = len(results)
 
     # Terapkan filter setelah kalkulasi
     if filter_kategori:
@@ -46,20 +60,14 @@ def hi_list(request):
     elif sort == 'nama':
         results.sort(key=lambda r: r['device'].nama)
 
-    # Summary counters
-    all_results_for_summary = []
-    for device in Device.objects.filter(is_deleted=False).select_related('jenis'):
-        hi = calculate_hi(device, save_snapshot=False)
-        all_results_for_summary.append(hi)
+    # Paginasi per 50 supaya halaman ringan dirender
+    paginator = Paginator(results, PER_PAGE)
+    page_obj  = paginator.get_page(request.GET.get('page'))
 
-    summary = {
-        'sangat_baik': sum(1 for r in all_results_for_summary if r['score'] >= 85),
-        'baik':        sum(1 for r in all_results_for_summary if 70 <= r['score'] < 85),
-        'cukup':       sum(1 for r in all_results_for_summary if 50 <= r['score'] < 70),
-        'buruk':       sum(1 for r in all_results_for_summary if 25 <= r['score'] < 50),
-        'kritis':      sum(1 for r in all_results_for_summary if r['score'] < 25),
-        'total':       len(all_results_for_summary),
-    }
+    # Querystring (tanpa 'page') untuk link paginasi + filter tetap terjaga
+    params = request.GET.copy()
+    params.pop('page', None)
+    querystring = params.urlencode()
 
     # Daftar lokasi untuk filter dropdown
     lokasi_list = (
@@ -70,7 +78,10 @@ def hi_list(request):
     )
 
     return render(request, 'health_index/hi_list.html', {
-        'results':          results,
+        'page_obj':         page_obj,
+        'results':          page_obj.object_list,   # baris pada halaman ini
+        'jumlah_hasil':     paginator.count,         # total setelah filter
+        'querystring':      querystring,
         'summary':          summary,
         'lokasi_list':      lokasi_list,
         'filter_kategori':  filter_kategori,
