@@ -98,18 +98,22 @@ def trigger_notifikasi(device, score, score_sebelumnya, kategori_label):
         pass
 
 
-def calculate_hi(device, save_snapshot=True):
+def calculate_hi(device, save_snapshot=True, configs=None):
     """
     Hitung Health Index untuk satu Device menggunakan Factor Registry.
     Bobot tiap faktor diambil dari KonfigurasiHI (DB).
+
+    `configs` boleh diisi hasil KonfigurasiHI.get_or_init() sekali di luar loop
+    (mis. saat menghitung banyak device) agar tidak query konfigurasi per-device.
     """
     from health_index.models import KonfigurasiHI
     from health_index.registry import get_factor
     from maintenance.models import Maintenance
     from gangguan.models import Gangguan
 
-    # Ambil / inisialisasi konfigurasi dari DB
-    configs = KonfigurasiHI.get_or_init()
+    # Ambil / inisialisasi konfigurasi dari DB (sekali saja bila di-pass)
+    if configs is None:
+        configs = KonfigurasiHI.get_or_init()
 
     score     = 100
     breakdown = []
