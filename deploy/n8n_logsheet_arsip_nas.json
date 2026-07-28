@@ -23,7 +23,33 @@
     },
     {
       "parameters": {
-        "url": "=https://__FASOP_DOMAIN__/api/v1/logsheet/export/?tanggal={{ $today.minus({ days: 1 }).toFormat('yyyy-LL-dd') }}",
+        "jsCode": "// Hitung tanggal KEMARIN + folder bulan (nama Indonesia) + path lengkap.\n// Pakai $today (zona instance n8n) — set GENERIC_TIMEZONE=Asia/Makassar\n// agar rollover tengah malam WITA tepat.\nconst BULAN = ['JANUARI','FEBRUARI','MARET','APRIL','MEI','JUNI','JULI',\n               'AGUSTUS','SEPTEMBER','OKTOBER','NOVEMBER','DESEMBER'];\nconst NAS_ROOT = '/mnt/nas/logsheet';\nconst d = $today.minus({ days: 1 });\nconst folder = `${NAS_ROOT}/${BULAN[d.month - 1]} ${d.year}`;\nreturn [{ json: {\n  tanggal: d.toFormat('yyyy-LL-dd'),\n  folder,\n  path: `${folder}/LOGSHEET_MKS_${d.toFormat('yyyyLLdd')}.xlsx`,\n} }];\n"
+      },
+      "id": "a1000000-0000-0000-0000-000000000002",
+      "name": "Hitung path",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "command": "=mkdir -p \"{{ $('Hitung path').item.json.folder }}\""
+      },
+      "id": "a1000000-0000-0000-0000-000000000003",
+      "name": "Buat folder bulan",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://__FASOP_DOMAIN__/api/v1/logsheet/export/?tanggal={{ $('Hitung path').item.json.tanggal }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -42,36 +68,58 @@
           }
         }
       },
-      "id": "a1000000-0000-0000-0000-000000000002",
+      "id": "a1000000-0000-0000-0000-000000000004",
       "name": "Unduh .xlsx (kemarin)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        460,
+        900,
         300
       ]
     },
     {
       "parameters": {
         "operation": "write",
-        "fileName": "=/mnt/nas/logsheet/LOGSHEET_MKS_{{ $today.minus({ days: 1 }).toFormat('yyyyLLdd') }}.xlsx",
+        "fileName": "={{ $('Hitung path').item.json.path }}",
         "dataPropertyName": "data",
         "options": {
           "append": false
         }
       },
-      "id": "a1000000-0000-0000-0000-000000000003",
+      "id": "a1000000-0000-0000-0000-000000000005",
       "name": "Simpan ke folder NAS",
       "type": "n8n-nodes-base.readWriteFile",
       "typeVersion": 1,
       "position": [
-        680,
+        1120,
         300
       ]
     }
   ],
   "connections": {
     "Tiap hari 00:05": {
+      "main": [
+        [
+          {
+            "node": "Hitung path",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hitung path": {
+      "main": [
+        [
+          {
+            "node": "Buat folder bulan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buat folder bulan": {
       "main": [
         [
           {
