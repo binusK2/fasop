@@ -13,4 +13,6 @@ urlpatterns = [
 
     # Logsheet feed untuk n8n -> Google Sheets
     path('logsheet/', views.logsheet_endpoint, name='logsheet'),
+    path('logsheet/export/', views.logsheet_export_endpoint, name='logsheet_export'),
+    path('logsheet/ranges/', views.logsheet_ranges_endpoint, name='logsheet_ranges'),
 ]
