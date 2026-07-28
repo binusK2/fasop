@@ -214,3 +214,93 @@ def device_types_endpoint(request):
 
 def ping(request):
     return JsonResponse({'status': 'ok', 'message': 'FASOP API aktif.'})
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Logsheet Pembebanan — feed untuk n8n → Google Sheets
+# ═══════════════════════════════════════════════════════════════════════════
+def _col_a1(n):
+    """Indeks kolom 1-based -> huruf A1 (6->F, 38->AL)."""
+    s = ''
+    while n > 0:
+        n, r = divmod(n - 1, 26)
+        s = chr(65 + r) + s
+    return s
+
+
+@csrf_exempt
+@require_api_key
+@require_http_methods(["GET"])
+def logsheet_endpoint(request):
+    """
+    Feed nilai logsheet untuk n8n → Google Sheets.
+
+    Query:
+      tanggal=YYYY-MM-DD   (default: hari ini, zona server)
+      slot=N | latest      (opsional; N=0..47, 'latest'=slot terisi terakhir.
+                            tanpa slot = semua slot terisi hari itu)
+      format=cells|rows    (default 'cells')
+
+    format=cells  -> daftar datar {sheet, cell, value} (cell A1, mis. "AL7")
+                     siap ditulis batch ke Google Sheets (nilai + posisi sel).
+    format=rows   -> per titik {key, sheet, row, kol0, besaran, nama, nilai:{slot:val}}
+    """
+    import datetime
+    from django.utils import timezone
+    from django.db.models import Max
+    from logsheet.models import LogsheetTitik, LogsheetNilai
+
+    try:
+        tanggal = datetime.date.fromisoformat(request.GET.get('tanggal', ''))
+    except ValueError:
+        tanggal = timezone.localdate()
+
+    fmt = request.GET.get('format', 'cells')
+    slot_param = request.GET.get('slot')
+
+    titik = {t.id: t for t in LogsheetTitik.objects.filter(aktif=True, baris__isnull=False)
+             .exclude(sheet='').exclude(baris=0)}
+
+    qs = LogsheetNilai.objects.filter(titik_id__in=titik.keys(), tanggal=tanggal,
+                                      nilai__isnull=False)
+    slot = None
+    if slot_param == 'latest':
+        slot = qs.aggregate(m=Max('slot'))['m']
+        if slot is not None:
+            qs = qs.filter(slot=slot)
+    elif slot_param not in (None, ''):
+        try:
+            slot = int(slot_param)
+            qs = qs.filter(slot=slot)
+        except ValueError:
+            pass
+
+    rows = list(qs.values_list('titik_id', 'slot', 'nilai'))
+
+    def waktu_label(i):
+        menit = (i + 1) * 30
+        return '24:00' if menit == 1440 else f'{menit // 60:02d}:{menit % 60:02d}'
+
+    if fmt == 'rows':
+        per = {}
+        for tid, s, v in rows:
+            per.setdefault(tid, {})[s] = round(v, 2)
+        data = []
+        for tid, nilai in per.items():
+            t = titik[tid]
+            data.append({'key': t.key, 'sheet': t.sheet, 'row': t.baris, 'kol0': t.kol0,
+                         'besaran': t.besaran, 'nama': t.nama, 'nilai': nilai})
+        return JsonResponse({'status': 'ok', 'tanggal': tanggal.isoformat(),
+                             'slot': slot, 'jumlah_titik': len(data),
+                             'jumlah_nilai': len(rows), 'data': data})
+
+    # format=cells
+    cells = []
+    for tid, s, v in rows:
+        t = titik[tid]
+        a1 = f'{_col_a1(t.kol0 + s)}{t.baris}'
+        cells.append({'sheet': t.sheet, 'cell': a1,
+                      'range': f'{t.sheet}!{a1}',   # siap untuk Google Sheets batchUpdate
+                      'slot': s, 'value': round(v, 2)})
+    return JsonResponse({'status': 'ok', 'tanggal': tanggal.isoformat(),
+                         'slot': slot, 'waktu': waktu_label(slot) if slot is not None else None,
+                         'jumlah': len(cells), 'cells': cells})

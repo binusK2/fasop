@@ -10,4 +10,7 @@ urlpatterns = [
     # Device endpoints
     path('devices/', views.devices_endpoint, name='devices'),
     path('device-types/', views.device_types_endpoint, name='device_types'),
+
+    # Logsheet feed untuk n8n -> Google Sheets
+    path('logsheet/', views.logsheet_endpoint, name='logsheet'),
 ]
