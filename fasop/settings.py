@@ -207,6 +207,10 @@ AXES_VERBOSE             = False
 # -------------------------------------------------------------------
 API_KEY = config('API_KEY', default='')
 
+# Folder tujuan arsip .xlsx logsheet harian (management command archive_logsheet).
+# Bisa folder NAS ter-mount, mis. /mnt/nas/logsheet. Subfolder bulan otomatis.
+LOGSHEET_ARCHIVE_DIR = config('LOGSHEET_ARCHIVE_DIR', default='/mnt/nas/logsheet')
+
 # -------------------------------------------------------------------
 # MSSQL — Koneksi ke database historian/SCADA untuk fitur Opsis
 # Set di .env server (tidak di-commit):
