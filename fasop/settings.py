@@ -306,3 +306,20 @@ STREAMING_X_ACCEL_REDIRECT_PREFIX = config(
 # opsis/forecast.py dan management command train_beban_forecast.
 ML_MODEL_ROOT = config('ML_MODEL_ROOT', default=str(BASE_DIR / 'ml_models'))
 
+# ── Early Warning WhatsApp (device_mon RTU) — OpenWA self-hosted ──
+# Notifikasi ke grup WhatsApp via OpenWA (gateway self-hosted) saat RTU
+# DOWN / pulih (UP). Dikirim oleh command collect_rtu pada titik transisi.
+# Nonaktif secara default: tidak ada notif sampai WA_ALERT_ENABLED=True
+# DAN WA_API_BASE + WA_SESSION_ID + WA_CHAT_IDS terisi.
+# API: POST {WA_API_BASE}/api/sessions/{WA_SESSION_ID}/messages/send-text
+#      header X-API-Key, body {chatId, text}.
+# WA_CHAT_IDS = chatId tujuan (grup berakhiran @g.us), didapat dari
+#      GET {WA_API_BASE}/api/sessions/{WA_SESSION_ID}/groups atau
+#      dashboard OpenWA. Pisahkan beberapa tujuan dengan koma.
+WA_ALERT_ENABLED = config('WA_ALERT_ENABLED', default=False, cast=bool)
+WA_API_BASE      = config('WA_API_BASE',   default='http://localhost:2785')  # origin OpenWA
+WA_API_KEY       = config('WA_API_KEY',    default='')   # X-API-Key OpenWA
+WA_SESSION_ID    = config('WA_SESSION_ID', default='')   # id sesi WhatsApp di OpenWA
+WA_CHAT_IDS      = config('WA_CHAT_IDS',   default='')   # chatId tujuan, pisahkan koma
+WA_TIMEOUT       = config('WA_TIMEOUT',    default=10, cast=int)  # detik
+

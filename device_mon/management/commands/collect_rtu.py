@@ -11,6 +11,7 @@ import logging
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 from device_mon.models import RTU, RTULog
+from device_mon.notifications import alert_rtu   # Early Warning WhatsApp
 from opsis import mssql   # reuse koneksi MSSQL yang sudah ada
 
 logger = logging.getLogger(__name__)
@@ -67,6 +68,7 @@ class Command(BaseCommand):
                 if prev_state != state or created:
                     # ── Transisi state terdeteksi ──────────────────────
                     # 1. Tutup log sebelumnya (yang masih terbuka)
+                    dur_tutup = None
                     open_log = RTULog.objects.filter(rtu=rtu, selesai__isnull=True).first()
                     if open_log:
                         selesai = state_sejak or now
@@ -74,6 +76,7 @@ class Command(BaseCommand):
                         open_log.selesai      = selesai
                         open_log.durasi_menit = dur
                         open_log.save(update_fields=['selesai', 'durasi_menit'])
+                        dur_tutup = dur
 
                     # 2. Buat log baru untuk state saat ini
                     RTULog.objects.create(
@@ -92,6 +95,14 @@ class Command(BaseCommand):
                         f' sejak {(state_sejak or now).astimezone(tz_local):%H:%M:%S}'
                     )
                     transisi += 1
+
+                    # 4. Early Warning WhatsApp (skip observasi pertama agar
+                    #    tidak spam saat inisialisasi; skip RTU nonaktif).
+                    if not created and rtu.aktif:
+                        if state == 'DOWN':
+                            alert_rtu(rtu, 'DOWN', sejak=state_sejak or now)
+                        elif state == 'UP' and prev_state == 'DOWN':
+                            alert_rtu(rtu, 'UP', durasi_menit=dur_tutup)
 
                 else:
                     # State sama, update state_sejak jika berbeda (data refresh MSSQL)
