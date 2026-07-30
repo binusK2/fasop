@@ -71,3 +71,35 @@ class RTULog(models.Model):
     def __str__(self):
         dur = f' ({self.durasi_menit}m)' if self.durasi_menit is not None else ''
         return f'{self.rtu.nama} {self.state} @ {self.mulai:%Y-%m-%d %H:%M}{dur}'
+
+
+class RTUAlertLog(models.Model):
+    """
+    Audit trail Early Warning WhatsApp.
+    Satu baris per percobaan kirim notif (DOWN / pemulihan UP) ke grup WA
+    via OpenWA. Berguna untuk melacak "kenapa notif tidak masuk".
+    Dibuat oleh collect_rtu saat transisi state terdeteksi.
+    """
+    JENIS_CHOICES = [
+        ('DOWN', 'RTU Down'),
+        ('UP',   'RTU Pulih'),
+    ]
+
+    rtu        = models.ForeignKey(RTU, on_delete=models.CASCADE, related_name='alerts')
+    jenis      = models.CharField(max_length=10, choices=JENIS_CHOICES)
+    pesan      = models.TextField(verbose_name='Isi pesan')
+    terkirim   = models.BooleanField(default=False, verbose_name='Terkirim')
+    keterangan = models.CharField(max_length=255, blank=True,
+                                  verbose_name='Keterangan / error')
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering  = ['-created_at']
+        indexes   = [models.Index(fields=['rtu', '-created_at'],
+                                  name='devmon_alert_rtu_created_idx')]
+        verbose_name = 'Log Early Warning WA'
+        verbose_name_plural = 'Log Early Warning WA'
+
+    def __str__(self):
+        status = 'OK' if self.terkirim else 'GAGAL'
+        return f'{self.rtu.nama} {self.jenis} [{status}] @ {self.created_at:%Y-%m-%d %H:%M}'

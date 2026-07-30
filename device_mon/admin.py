@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import RTU, RTULog
+from .models import RTU, RTULog, RTUAlertLog
 
 
 class RTULogInline(admin.TabularInline):
@@ -29,3 +29,13 @@ class RTULogAdmin(admin.ModelAdmin):
     date_hierarchy = 'mulai'
     readonly_fields = ('rtu', 'state', 'mulai', 'selesai', 'durasi_menit')
     ordering      = ('-mulai',)
+
+
+@admin.register(RTUAlertLog)
+class RTUAlertLogAdmin(admin.ModelAdmin):
+    list_display  = ('rtu', 'jenis', 'terkirim', 'keterangan', 'created_at')
+    list_filter   = ('jenis', 'terkirim', 'rtu')
+    date_hierarchy = 'created_at'
+    search_fields = ('rtu__nama', 'keterangan', 'pesan')
+    readonly_fields = ('rtu', 'jenis', 'pesan', 'terkirim', 'keterangan', 'created_at')
+    ordering      = ('-created_at',)
