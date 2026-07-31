@@ -1473,7 +1473,7 @@ def _respon_getters():
     Respons Kit) dari historian HIS_MEAS_KIT."""
     from opsis import mssql, respon as R
     from opsis.respon_registry import RESPON_PLANTS
-    kits = sorted({b1 for _, us in RESPON_PLANTS for b1, _ in us})
+    kits = sorted({b1 for us in RESPON_PLANTS.values() for b1, _ in us})
 
     def get_mw(a, b):
         raw = mssql.get_all_kit_unit_mw_range(a, b, kits=kits)
@@ -1544,7 +1544,7 @@ def respon_index(request):
     try:
         from opsis import mssql
         from opsis.respon_registry import RESPON_PLANTS
-        kits = sorted({b1 for _, us in RESPON_PLANTS for b1, _ in us})
+        kits = sorted({b1 for us in RESPON_PLANTS.values() for b1, _ in us})
         monitor = mssql.get_monitor_1h(kits=kits)
     except Exception:
         monitor = None
@@ -1566,7 +1566,7 @@ def respon_monitor_api(request):
         return JsonResponse({'error': 'forbidden'}, status=403)
     from opsis import mssql
     from opsis.respon_registry import RESPON_PLANTS
-    kits = sorted({b1 for _, us in RESPON_PLANTS for b1, _ in us})
+    kits = sorted({b1 for us in RESPON_PLANTS.values() for b1, _ in us})
     return JsonResponse(mssql.get_monitor_1h(kits=kits))
 
 

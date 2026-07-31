@@ -84,7 +84,7 @@ class Command(BaseCommand):
             return
 
         from opsis.respon_registry import RESPON_PLANTS
-        kits = sorted({b1 for _, us in RESPON_PLANTS for b1, _ in us})
+        kits = sorted({b1 for us in RESPON_PLANTS.values() for b1, _ in us})
         get_freq = mssql.get_freq_range
         get_mw   = lambda a, b: R.gabung_plants(
             mssql.get_all_kit_unit_mw_range(a, b, kits=kits), RESPON_PLANTS)
