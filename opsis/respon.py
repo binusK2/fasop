@@ -126,6 +126,51 @@ def align_series(series, ref_times):
     return out
 
 
+def events_dari_menit(rows, ambang=AMBANG_SIAGA, jeda_menit=5):
+    """
+    Kelompokkan menit-menit eksursi (hasil mssql.get_freq_events_day) menjadi
+    daftar event. rows: [(menit 'YYYY-MM-DD HH:MM', fmin, fmax)].
+    Return list event: {t_ekstrem(datetime), hz_ekstrem, df, arah, kategori,
+                        t_mulai, t_selesai}.
+    """
+    import datetime as _dt
+    parsed = []
+    for menit, fmin, fmax in rows:
+        try:
+            t = _dt.datetime.strptime(menit, '%Y-%m-%d %H:%M')
+        except (ValueError, TypeError):
+            continue
+        dev_bawah = NOMINAL_HZ - fmin
+        dev_atas  = fmax - NOMINAL_HZ
+        if dev_bawah >= dev_atas:
+            dev, hz, arah = dev_bawah, fmin, 'turun'
+        else:
+            dev, hz, arah = dev_atas, fmax, 'naik'
+        parsed.append((t, hz, dev, arah))
+    parsed.sort(key=lambda x: x[0])
+
+    events, grup = [], []
+    def tutup(g):
+        if not g:
+            return
+        t_ek, hz_ek, dev, arah = max(g, key=lambda x: x[2])
+        events.append({
+            't_ekstrem': t_ek, 'hz_ekstrem': round(hz_ek, 3),
+            'df': round(dev, 4), 'arah': arah,
+            'kategori': kategori_dari_deviasi(dev),
+            't_mulai': g[0][0], 't_selesai': g[-1][0],
+        })
+    for row in parsed:
+        if row[2] < ambang:
+            continue
+        if grup and (row[0] - grup[-1][0]).total_seconds() > jeda_menit * 60:
+            tutup(grup); grup = []
+        grup.append(row)
+    tutup(grup)
+    events.sort(key=lambda e: e['t_ekstrem'], reverse=True)
+    return events
+
+
 def _baseline(series, t_batas):
     """Rata-rata nilai SEBELUM t_batas (kondisi pra-event)."""
     vals = [v for (t, v) in series if v is not None and t < t_batas]

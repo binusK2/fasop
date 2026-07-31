@@ -1057,3 +1057,36 @@ def get_monitor_1h(kits=None):
     except Exception as e:
         logger.error('get_monitor_1h error: %s', e)
     return out
+
+
+def get_freq_events_day(tanggal, ambang=0.2):
+    """
+    Deteksi menit-menit EKSURSI frekuensi pada satu hari — RINGAN: agregasi di
+    SQL (MIN/MAX F per menit), hanya kembalikan menit yang melewati ambang.
+
+    tanggal : datetime.date
+    ambang  : deviasi (Hz) dari 50 agar dianggap eksursi.
+    Return list [(menit 'YYYY-MM-DD HH:MM', fmin, fmax)] terurut.
+    """
+    if not getattr(settings, 'MSSQL_HOST', ''):
+        return []
+    try:
+        conn = _get_connection(); cur = conn.cursor(); freq = _freq_tbl()
+        lo = 50.0 - float(ambang); hi = 50.0 + float(ambang)
+        cur.execute(
+            f"""SELECT CONVERT(VARCHAR(16), TIME, 120) AS menit,
+                       MIN(F) AS fmin, MAX(F) AS fmax
+                FROM {freq} WITH (NOLOCK)
+                WHERE TIME >= ? AND TIME < DATEADD(day, 1, ?)
+                GROUP BY CONVERT(VARCHAR(16), TIME, 120)
+                HAVING MIN(F) <= ? OR MAX(F) >= ?
+                ORDER BY menit""",
+            (tanggal, tanggal, lo, hi))
+        return [(r[0], float(r[1]), float(r[2])) for r in cur.fetchall()
+                if r[0] and r[1] is not None and r[2] is not None]
+    except Exception as e:
+        logger.error('get_freq_events_day error: %s', e)
+        return []
+    finally:
+        try: conn.close()
+        except Exception: pass
