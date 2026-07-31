@@ -40,4 +40,5 @@ urlpatterns = [
     path('hop/api/trend/<int:pk>/', views.api_hop_trend,     name='opsis_api_hop_trend'),
     path('respon/',               views.respon_index,        name='opsis_respon'),
     path('respon/pdf/',           views.respon_pdf_download,  name='opsis_respon_pdf'),
+    path('respon/api/monitor/',   views.respon_monitor_api,   name='opsis_respon_monitor'),
 ]

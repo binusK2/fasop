@@ -997,3 +997,63 @@ def get_all_kit_unit_mw_range(t0, t1, kits=None):
     except Exception as e:
         logger.error('get_all_kit_unit_mw_range error: %s', e)
     return hasil
+
+
+def get_monitor_1h(kits=None):
+    """
+    Monitor Respons: frekuensi + total MW pembangkit selama 1 JAM terakhir
+    (rata/agregat per menit) untuk chart di halaman /opsis/respon.
+
+    Return dict:
+      freq:  [(menit 'HH:MM', hz), …]
+      mw:    [(menit 'HH:MM', total_mw), …]
+      freq_now, mw_now, waktu (str)
+    `kits` opsional: batasi total MW ke daftar kode B1 (mis. RESPON_PLANTS).
+    """
+    out = {'freq': [], 'mw': [], 'freq_now': None, 'mw_now': None, 'waktu': None}
+    if not getattr(settings, 'MSSQL_HOST', ''):
+        return out
+    try:
+        conn = _get_connection(); cur = conn.cursor()
+        freq = _freq_tbl(); tbl = _tbl()
+
+        # Frekuensi rata per menit, 1 jam terakhir
+        cur.execute(
+            f"""SELECT CONVERT(VARCHAR(16), TIME, 120) AS menit, AVG(F) AS hz
+                FROM {freq} WITH (NOLOCK)
+                WHERE TIME >= DATEADD(hour, -1, GETDATE())
+                GROUP BY CONVERT(VARCHAR(16), TIME, 120) ORDER BY menit""")
+        out['freq'] = [(r[0][11:16], round(float(r[1]), 3))
+                       for r in cur.fetchall() if r[0] and r[1] is not None]
+
+        # Total MW per menit (ambil sampel terbaru per unit per menit, lalu SUM)
+        filt, params = '', []
+        if kits:
+            ph = ','.join('?' for _ in kits)
+            filt = f' AND RTRIM(B1) IN ({ph})'
+            params = list(kits)
+        cur.execute(
+            f"""WITH pu AS (
+                    SELECT CONVERT(VARCHAR(16), TIME, 120) AS menit,
+                           RTRIM(B1) AS b1, RTRIM(B3) AS b3, ABS(P) AS p,
+                           ROW_NUMBER() OVER (
+                               PARTITION BY CONVERT(VARCHAR(16), TIME, 120),
+                                            RTRIM(B1), RTRIM(B3)
+                               ORDER BY TIME DESC) AS rn
+                    FROM {tbl} WITH (NOLOCK)
+                    WHERE TIME >= DATEADD(hour, -1, GETDATE()){filt}
+                )
+                SELECT menit, SUM(p) FROM pu WHERE rn = 1
+                GROUP BY menit ORDER BY menit""", params)
+        out['mw'] = [(r[0][11:16], round(float(r[1]), 1))
+                     for r in cur.fetchall() if r[0] and r[1] is not None]
+        conn.close()
+
+        if out['freq']:
+            out['freq_now'] = out['freq'][-1][1]
+        if out['mw']:
+            out['mw_now'] = out['mw'][-1][1]
+            out['waktu']  = out['mw'][-1][0]
+    except Exception as e:
+        logger.error('get_monitor_1h error: %s', e)
+    return out
