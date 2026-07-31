@@ -94,6 +94,17 @@ def deteksi_events(freq_seq, ambang=AMBANG_SIAGA, jeda_detik=300):
     return events
 
 
+def align_series(series, ref_times):
+    """Selaraskan deret [(waktu,nilai)] ke daftar waktu acuan (nilai terdekat)."""
+    if not series:
+        return [None] * len(ref_times)
+    out = []
+    for t in ref_times:
+        best = min(series, key=lambda s: abs((s[0] - t).total_seconds()))
+        out.append(round(best[1], 2) if best[1] is not None else None)
+    return out
+
+
 def _baseline(series, t_batas):
     """Rata-rata nilai SEBELUM t_batas (kondisi pra-event)."""
     vals = [v for (t, v) in series if v is not None and t < t_batas]

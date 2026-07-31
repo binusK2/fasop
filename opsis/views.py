@@ -1469,10 +1469,11 @@ def _bisa_respon(user):
 
 
 def _respon_getters():
+    """Getter frekuensi + MW PER-UNIT (grup B3, meniru Excel Respons Kit)."""
     from opsis import mssql
     from opsis.models import Pembangkit
     plist = [(p.nama, (p.kode_kit or p.kode)) for p in Pembangkit.objects.filter(aktif=True)]
-    return mssql.get_freq_range, (lambda a, b: mssql.get_kit_mw_range(plist, a, b))
+    return mssql.get_freq_range, (lambda a, b: mssql.get_kit_unit_mw_range(plist, a, b))
 
 
 def _parse_pusat(s):
@@ -1502,12 +1503,21 @@ def respon_index(request):
     jam = int(request.GET.get('jam', 6) or 6)
 
     analisa = None
-    svg = None
+    chart_data = None
     if pusat_raw:
         pusat = _parse_pusat(pusat_raw)
         if pusat:
             analisa = R.analisa_event(pusat, get_freq, get_mw)
-            svg = mark_safe(P.build_svg(analisa))
+            # data chart (Chart.js) — frekuensi + MW tiap unit, selaras waktu
+            ref_t = [t for t, _ in analisa['freq']]
+            chart_data = {
+                'labels': [t.strftime('%H:%M:%S') for t in ref_t],
+                'freq':   [round(h, 3) for _, h in analisa['freq']],
+                'nominal': R.NOMINAL_HZ,
+                'units':  [{'nama': p['nama'],
+                            'data': R.align_series(p['series'], ref_t)}
+                           for p in analisa['pembangkit'] if p.get('series')],
+            }
 
     # daftar event terdeteksi pada rentang jam terakhir (bila MSSQL ada)
     events = []
@@ -1520,7 +1530,7 @@ def respon_index(request):
         events = []
 
     return render(request, 'opsis/respon.html', {
-        'analisa': analisa, 'svg': svg,
+        'analisa': analisa, 'chart_data': chart_data,
         'pusat': pusat_raw, 'jam': jam,
         'events': events,
         'ambang_siaga': R.AMBANG_SIAGA, 'ambang_bahaya': R.AMBANG_BAHAYA,

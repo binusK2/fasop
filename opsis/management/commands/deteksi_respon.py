@@ -36,6 +36,8 @@ class Command(BaseCommand):
         parser.add_argument('--sebelum', type=int, default=60)
         parser.add_argument('--sesudah', type=int, default=180)
         parser.add_argument('--pusat', default=None)
+        parser.add_argument('--probe', default=None,
+                            help='Bedah data mentah 1 KIT (kode) untuk jendela --pusat±.')
         parser.add_argument('--dry-run', action='store_true')
 
     def handle(self, *args, **o):
@@ -46,10 +48,27 @@ class Command(BaseCommand):
         root   = getattr(settings, 'RESPON_ARCHIVE_DIR', '/mnt/nas/respon_kit')
         judul  = getattr(settings, 'RESPON_JUDUL', 'Respons Pembangkit Sistem Sulbagsel')
 
+        # ── Mode probe: bedah data mentah HIS_MEAS_KIT untuk satu KIT ──
+        if o['probe']:
+            pusat = (datetime.datetime.strptime(o['pusat'], '%Y-%m-%d %H:%M:%S')
+                     if o['pusat'] else datetime.datetime.now())
+            t0 = pusat - datetime.timedelta(seconds=o['sebelum'])
+            t1 = pusat + datetime.timedelta(seconds=o['sesudah'])
+            info = mssql.probe_kit(o['probe'], t0, t1)
+            self.stdout.write(self.style.SUCCESS(
+                f"PROBE {o['probe']}  [{t0} .. {t1}]"))
+            self.stdout.write(f"  Unit (B3): {info['units']}")
+            self.stdout.write(f"  Jumlah baris: {info['jumlah_baris']}  "
+                              f"Resolusi ≈ {info['resolusi_detik']} detik/sampel")
+            self.stdout.write("  Contoh (TIME, B3, P):")
+            for row in info['contoh'][:20]:
+                self.stdout.write(f"    {row}")
+            return
+
         plist = [(p.nama, (p.kode_kit or p.kode))
                  for p in Pembangkit.objects.filter(aktif=True)]
         get_freq = mssql.get_freq_range
-        get_mw   = lambda a, b: mssql.get_kit_mw_range(plist, a, b)
+        get_mw   = lambda a, b: mssql.get_kit_unit_mw_range(plist, a, b)   # PER-UNIT
 
         # ── tentukan titik-titik event ──
         if o['pusat']:

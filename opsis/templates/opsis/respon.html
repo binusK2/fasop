@@ -74,7 +74,8 @@ table.rp { width:100%; border-collapse:collapse; font-size:12px; margin-top:6px;
         <span>Arah: <b>{{ analisa.arah }}</b></span>
         <span>Jendela: <b>{{ analisa.t0|date:'H:i:s' }}</b>&ndash;<b>{{ analisa.t1|date:'H:i:s' }}</b></span>
     </div>
-    <div class="chart-wrap">{{ svg }}</div>
+    <div class="chart-wrap"><canvas id="responChart" height="120"></canvas></div>
+    {{ chart_data|json_script:"respon-data" }}
 
     <table class="rp">
         <thead><tr><th>Pembangkit</th><th style="text-align:right">Baseline (MW)</th>
@@ -117,5 +118,47 @@ table.rp { width:100%; border-collapse:collapse; font-size:12px; margin-top:6px;
 </div>
 {% else %}
 <div style="color:var(--muted);font-size:12.5px;">Tidak ada event terdeteksi (atau MSSQL tak terjangkau).</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+{% if chart_data %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+(function () {
+  const d = JSON.parse(document.getElementById('respon-data').textContent);
+  const PAL = ['#2563eb','#16a34a','#db2777','#7c3aed','#ea580c','#0891b2',
+               '#ca8a04','#4f46e5','#be123c','#059669','#9333ea','#0d9488'];
+  const unitDs = d.units.map((u, i) => ({
+    label: u.nama, data: u.data,
+    borderColor: PAL[i % PAL.length], backgroundColor: 'transparent',
+    borderWidth: 1.4, pointRadius: 0, tension: 0.25, yAxisID: 'y2', spanGaps: true,
+  }));
+  const freqDs = {
+    label: 'Frekuensi (Hz)', data: d.freq,
+    borderColor: '#1e3a8a', backgroundColor: 'rgba(30,58,138,.08)',
+    borderWidth: 2.6, pointRadius: 0, tension: 0.2, yAxisID: 'y1', fill: true,
+  };
+  new Chart(document.getElementById('responChart'), {
+    type: 'line',
+    data: { labels: d.labels, datasets: [freqDs, ...unitDs] },
+    options: {
+      responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { boxWidth: 12, font: { size: 10 } } },
+        tooltip: { callbacks: { title: (i) => 'Waktu ' + i[0].label } },
+      },
+      scales: {
+        x: { ticks: { maxTicksLimit: 12, font: { size: 9 } }, grid: { display: false } },
+        y1: { position: 'left', title: { display: true, text: 'Hz' },
+              suggestedMin: 49.5, suggestedMax: 50.5,
+              grid: { color: 'rgba(0,0,0,.05)' } },
+        y2: { position: 'right', title: { display: true, text: 'MW' },
+              beginAtZero: true, grid: { display: false } },
+      },
+    },
+  });
+})();
+</script>
 {% endif %}
 {% endblock %}
