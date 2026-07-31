@@ -1469,11 +1469,10 @@ def _bisa_respon(user):
 
 
 def _respon_getters():
-    """Getter frekuensi + MW PER-UNIT (grup B3, meniru Excel Respons Kit)."""
+    """Getter frekuensi + MW PER-UNIT semua KIT langsung dari historian
+    (B1·B3), cakupan seperti Excel Respons Kit."""
     from opsis import mssql
-    from opsis.models import Pembangkit
-    plist = [(p.nama, (p.kode_kit or p.kode)) for p in Pembangkit.objects.filter(aktif=True)]
-    return mssql.get_freq_range, (lambda a, b: mssql.get_kit_unit_mw_range(plist, a, b))
+    return mssql.get_freq_range, mssql.get_all_kit_unit_mw_range
 
 
 def _parse_pusat(s):
