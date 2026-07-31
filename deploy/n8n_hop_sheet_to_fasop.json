@@ -1,0 +1,127 @@
+{
+  "name": "FASOP HOP <- Google Sheets",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0,30 * * * *"
+            }
+          ]
+        }
+      },
+      "id": "b1000000-0000-0000-0000-000000000001",
+      "name": "Tiap 30 menit",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://sheets.googleapis.com/v4/spreadsheets/__SPREADSHEET_ID__/values/__SHEET_RANGE__",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "options": {}
+      },
+      "id": "b1000000-0000-0000-0000-000000000002",
+      "name": "Baca sheet HOP",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        460,
+        300
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Ubah baris spreadsheet -> body untuk FASOP /api/v1/hop/.\n// SESUAIKAN indeks kolom & jumlah baris judul dengan sheet-mu (A=0,B=1,...).\nconst COL = { nama: 0, kategori: 1, hop: 2, sistem: 3 };\nconst HEADER_ROWS = 1;   // banyak baris judul di atas yang di-skip\n\nconst values = ($input.first().json.values) || [];\nconst data = [];\nfor (let i = HEADER_ROWS; i < values.length; i++) {\n  const row = values[i] || [];\n  const nama = (row[COL.nama] || '').toString().trim();\n  if (!nama) continue;                 // lewati baris kosong\n  data.push({\n    nama,\n    kategori: (row[COL.kategori] || '').toString().trim(),\n    hop:      row[COL.hop] !== undefined ? row[COL.hop] : '',\n    sistem:   COL.sistem != null ? (row[COL.sistem] || '').toString().trim() : '',\n  });\n}\n// tanggal dikosongkan -> FASOP memakai hari ini (zona server).\nreturn [{ json: { data } }];\n"
+      },
+      "id": "b1000000-0000-0000-0000-000000000003",
+      "name": "Susun data HOP",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://__FASOP_DOMAIN__/api/v1/hop/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "__API_KEY__"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "b1000000-0000-0000-0000-000000000004",
+      "name": "Kirim ke FASOP",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        900,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Tiap 30 menit": {
+      "main": [
+        [
+          {
+            "node": "Baca sheet HOP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Baca sheet HOP": {
+      "main": [
+        [
+          {
+            "node": "Susun data HOP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Susun data HOP": {
+      "main": [
+        [
+          {
+            "node": "Kirim ke FASOP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

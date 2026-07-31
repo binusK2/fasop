@@ -38,4 +38,6 @@ urlpatterns = [
     path('hop/input/',            views.hop_input,           name='opsis_hop_input'),
     path('hop/import/',           views.hop_import,          name='opsis_hop_import'),
     path('hop/api/trend/<int:pk>/', views.api_hop_trend,     name='opsis_api_hop_trend'),
+    path('respon/',               views.respon_index,        name='opsis_respon'),
+    path('respon/pdf/',           views.respon_pdf_download,  name='opsis_respon_pdf'),
 ]

@@ -350,3 +350,121 @@ def logsheet_ranges_endpoint(request):
         c2 = _col_a1(kol0 + JUMLAH_SLOT - 1)
         ranges.append(f'{sheet}!{c1}{rmin}:{c2}{rmax}')
     return JsonResponse({'status': 'ok', 'jumlah': len(ranges), 'ranges': sorted(ranges)})
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  HOP (Hari Operasi Pembangkit) — terima data dari spreadsheet (n8n)
+# ═══════════════════════════════════════════════════════════════════════════
+def _norm_kategori_hop(raw):
+    """Normalisasi teks kategori -> 'batubara' | 'bbm' | None."""
+    s = (raw or '').strip().lower().replace(' ', '')
+    if s in ('batubara', 'batu', 'coal', 'bb'):
+        return 'batubara'
+    if s in ('bbm', 'hsd', 'mfo', 'solar', 'minyak'):
+        return 'bbm'
+    return None
+
+
+@csrf_exempt
+@require_api_key
+@require_http_methods(["POST"])
+def hop_endpoint(request):
+    """
+    Terima data HOP dari spreadsheet (via n8n) -> upsert HopPembangkit + tulis
+    HopSnapshot untuk tanggal tertentu. Dashboard HOP membaca snapshot terbaru.
+
+    Body JSON:
+      {
+        "tanggal": "YYYY-MM-DD",         # opsional, default hari ini (zona server)
+        "data": [
+          {"nama": "PLTU X", "kategori": "batubara", "hop": 12.5,
+           "sistem": "Sulbagsel", "aset": "PLN NP", "dmn_mw": 100, "urutan": 1},
+          ...
+        ]
+      }
+
+    - kategori: 'batubara'/'bbm' (toleran: 'batu bara', 'coal', 'hsd', dll).
+    - hop kosong/None -> pembangkit tetap di-upsert, snapshot tanggal itu dilewati.
+    - Pencocokan pembangkit: (nama, kategori). Nama baru -> dibuat (dilaporkan).
+    """
+    import datetime
+    from django.utils import timezone
+    from opsis.models import HopPembangkit, HopSnapshot
+
+    data, err = _parse_json_body(request)
+    if err:
+        return err
+
+    try:
+        tanggal = datetime.date.fromisoformat(str(data.get('tanggal', '')))
+    except (ValueError, TypeError):
+        tanggal = timezone.localdate()
+
+    rows = data.get('data')
+    if not isinstance(rows, list):
+        return JsonResponse({'status': 'error',
+                             'message': "Field 'data' harus berupa array."}, status=400)
+
+    n_snap = n_new = n_skip = 0
+    dibuat, errors = [], []
+    for i, r in enumerate(rows):
+        if not isinstance(r, dict):
+            n_skip += 1
+            continue
+        nama = (r.get('nama') or '').strip()
+        kat  = _norm_kategori_hop(r.get('kategori'))
+        if not nama or not kat:
+            n_skip += 1
+            if nama or r.get('kategori'):
+                errors.append(f'baris {i}: nama/kategori tidak valid ({nama!r},{r.get("kategori")!r})')
+            continue
+
+        peng, created = HopPembangkit.objects.get_or_create(
+            nama=nama, kategori=kat, defaults={'aktif': True})
+        if created:
+            n_new += 1
+            dibuat.append(f'{nama} ({kat})')
+
+        # Perbarui metadata bila dikirim (opsional)
+        ubah = False
+        sistem = (r.get('sistem') or '').strip()
+        if sistem and sistem != peng.sistem:
+            peng.sistem = sistem; ubah = True
+        aset = (r.get('aset') or '').strip()
+        if aset and aset != peng.aset:
+            peng.aset = aset; ubah = True
+        if r.get('dmn_mw') not in (None, ''):
+            try:
+                peng.dmn_mw = float(r['dmn_mw']); ubah = True
+            except (ValueError, TypeError):
+                pass
+        if r.get('urutan') not in (None, ''):
+            try:
+                peng.urutan = int(r['urutan']); ubah = True
+            except (ValueError, TypeError):
+                pass
+        if ubah:
+            peng.save()
+
+        # Tulis snapshot HOP bila nilainya ada
+        hop_raw = r.get('hop')
+        if hop_raw in (None, ''):
+            continue
+        try:
+            hop = float(str(hop_raw).replace(',', '.'))
+        except (ValueError, TypeError):
+            errors.append(f'baris {i} ({nama}): hop bukan angka ({hop_raw!r})')
+            continue
+        HopSnapshot.objects.update_or_create(
+            pembangkit=peng, tanggal=tanggal, defaults={'hop': hop})
+        n_snap += 1
+
+    return JsonResponse({
+        'status': 'ok',
+        'tanggal': tanggal.isoformat(),
+        'snapshot_ditulis': n_snap,
+        'pembangkit_baru': n_new,
+        'dilewati': n_skip,
+        'dibuat': dibuat,
+        'errors': errors,
+    })

@@ -742,3 +742,79 @@ def get_rtu_state():
     except Exception as e:
         logger.error('get_rtu_state error: %s', e)
         return []
+
+
+# ── Respons Pembangkit (lookback historian) ───────────────────────────
+def get_freq_range(t0, t1):
+    """
+    Frekuensi sistem per detik dari SYS_FREQ_HIS untuk rentang [t0, t1].
+    Return list [(datetime_naive, hz)] terurut. Dipakai analisis Respons Kit.
+    """
+    if not getattr(settings, 'MSSQL_HOST', ''):
+        return []
+    try:
+        conn   = _get_connection()
+        cursor = conn.cursor()
+        freq   = _freq_tbl()
+        cursor.execute(
+            f"SELECT TIME, F FROM {freq} WITH (NOLOCK) "
+            f"WHERE TIME BETWEEN ? AND ? ORDER BY TIME",
+            (t0, t1))
+        rows = cursor.fetchall()
+        conn.close()
+        return [(r[0], float(r[1])) for r in rows if r[0] is not None and r[1] is not None]
+    except Exception as e:
+        logger.error('get_freq_range error: %s', e)
+        return []
+
+
+def get_kit_mw_range(pembangkit_list, t0, t1):
+    """
+    MW total per pembangkit per detik dari HIS_MEAS_KIT untuk rentang [t0, t1].
+
+    pembangkit_list : iterable (nama, kode) — kode dicocokkan ke kolom B1
+                      (pola LIKE, sama seperti get_trend_data).
+    Return dict {nama: [(datetime, mw)]} per detik (dedup unit terbaru per B3
+    lalu SUM(ABS(P)) antar unit; ABS mengikuti get_live_data/get_trend_data).
+    """
+    if not getattr(settings, 'MSSQL_HOST', ''):
+        return {}
+    hasil = {}
+    try:
+        conn   = _get_connection()
+        cursor = conn.cursor()
+        tbl    = _tbl()
+        for nama, kode in pembangkit_list:
+            if not kode:
+                continue
+            cursor.execute(
+                f"""
+                WITH per_unit AS (
+                    SELECT CONVERT(VARCHAR(19), TIME, 120) AS dtk,
+                           RTRIM(B3) AS B3, P,
+                           ROW_NUMBER() OVER (
+                               PARTITION BY CONVERT(VARCHAR(19), TIME, 120), RTRIM(B3)
+                               ORDER BY TIME DESC) AS rn
+                    FROM {tbl} WITH (NOLOCK)
+                    WHERE B1 LIKE ? AND TIME BETWEEN ? AND ?
+                )
+                SELECT dtk, SUM(ABS(P)) AS mw
+                FROM per_unit WHERE rn = 1
+                GROUP BY dtk ORDER BY dtk
+                """,
+                (kode + '%', t0, t1))
+            seri = []
+            for r in cursor.fetchall():
+                if r[0] is None or r[1] is None:
+                    continue
+                try:
+                    waktu = datetime.datetime.strptime(r[0], '%Y-%m-%d %H:%M:%S')
+                except (ValueError, TypeError):
+                    continue
+                seri.append((waktu, float(r[1])))
+            if seri:
+                hasil[nama] = seri
+        conn.close()
+    except Exception as e:
+        logger.error('get_kit_mw_range error: %s', e)
+    return hasil

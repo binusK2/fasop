@@ -1458,3 +1458,100 @@ def hop_board(request):
         'gauge': _gauge(d['rata_total'] or 0, kategori),
         'map_path': SULAWESI_PATH, 'map_w': MAP_W, 'map_h': MAP_H,
     })
+
+
+# ═══════════════════════════════════════════════════════════════════════
+#  Respons Pembangkit terhadap frekuensi (Primary Frequency Response)
+# ═══════════════════════════════════════════════════════════════════════
+def _bisa_respon(user):
+    return user.is_superuser or getattr(
+        getattr(user, 'profile', None), 'role', '') in ('opsis', 'opsis_view')
+
+
+def _respon_getters():
+    from opsis import mssql
+    from opsis.models import Pembangkit
+    plist = [(p.nama, (p.kode_kit or p.kode)) for p in Pembangkit.objects.filter(aktif=True)]
+    return mssql.get_freq_range, (lambda a, b: mssql.get_kit_mw_range(plist, a, b))
+
+
+def _parse_pusat(s):
+    import datetime as _dt
+    for fmt in ('%Y-%m-%dT%H:%M:%S', '%Y-%m-%dT%H:%M', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d %H:%M'):
+        try:
+            return _dt.datetime.strptime(s, fmt)
+        except (ValueError, TypeError):
+            continue
+    return None
+
+
+@login_required
+def respon_index(request):
+    """Halaman analisis Respons Pembangkit — pindai event / analisa satu waktu."""
+    import datetime as _dt
+    from django.contrib import messages
+    from opsis import respon as R, respon_pdf as P
+    from django.utils.safestring import mark_safe
+
+    if not _bisa_respon(request.user):
+        messages.error(request, 'Anda tidak memiliki akses ke Respons Pembangkit.')
+        return redirect('/')
+
+    get_freq, get_mw = _respon_getters()
+    pusat_raw = (request.GET.get('pusat') or '').strip()
+    jam = int(request.GET.get('jam', 6) or 6)
+
+    analisa = None
+    svg = None
+    if pusat_raw:
+        pusat = _parse_pusat(pusat_raw)
+        if pusat:
+            analisa = R.analisa_event(pusat, get_freq, get_mw)
+            svg = mark_safe(P.build_svg(analisa))
+
+    # daftar event terdeteksi pada rentang jam terakhir (bila MSSQL ada)
+    events = []
+    try:
+        from opsis import mssql
+        now = _dt.datetime.now()
+        seq = get_freq(now - _dt.timedelta(hours=jam), now)
+        events = R.deteksi_events(seq, ambang=R.AMBANG_SIAGA)
+    except Exception:
+        events = []
+
+    return render(request, 'opsis/respon.html', {
+        'analisa': analisa, 'svg': svg,
+        'pusat': pusat_raw, 'jam': jam,
+        'events': events,
+        'ambang_siaga': R.AMBANG_SIAGA, 'ambang_bahaya': R.AMBANG_BAHAYA,
+    })
+
+
+@login_required
+def respon_pdf_download(request):
+    """Unduh PDF respons untuk satu waktu event (on-demand, tidak menyimpan NAS)."""
+    from django.http import HttpResponse
+    from django.contrib import messages
+    from django.conf import settings as _s
+    from opsis import respon as R, respon_pdf as P
+
+    if not _bisa_respon(request.user):
+        messages.error(request, 'Anda tidak memiliki akses.')
+        return redirect('/')
+
+    pusat = _parse_pusat((request.GET.get('pusat') or '').strip())
+    if not pusat:
+        messages.error(request, 'Parameter waktu event tidak valid.')
+        return redirect('opsis_respon')
+
+    get_freq, get_mw = _respon_getters()
+    analisa = R.analisa_event(pusat, get_freq, get_mw)
+    judul = getattr(_s, 'RESPON_JUDUL', 'Respons Pembangkit Sistem Sulbagsel')
+    try:
+        pdf = P.build_pdf(analisa, judul)
+    except Exception as e:
+        messages.error(request, f'Gagal membuat PDF: {e}')
+        return redirect('opsis_respon')
+    resp = HttpResponse(pdf, content_type='application/pdf')
+    resp['Content-Disposition'] = f'attachment; filename="Respons Kit {pusat:%Y%m%d %H%M%S}.pdf"'
+    return resp
