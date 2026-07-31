@@ -213,7 +213,7 @@ LOGSHEET_ARCHIVE_DIR = config('LOGSHEET_ARCHIVE_DIR', default='/mnt/nas/logsheet
 
 # Respons Pembangkit — folder simpan PDF (subfolder per kategori Aman/Siaga/Bahaya)
 # dibuat otomatis. Judul pada PDF bisa diubah lewat .env.
-RESPON_ARCHIVE_DIR = config('RESPON_ARCHIVE_DIR', default='/mnt/nas/respon_kit')
+RESPON_ARCHIVE_DIR = config('RESPON_ARCHIVE_DIR', default='/mnt/nas/Respon KIT')
 RESPON_JUDUL       = config('RESPON_JUDUL', default='Respons Pembangkit Sistem Sulbagsel')
 
 # -------------------------------------------------------------------
