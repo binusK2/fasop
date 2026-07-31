@@ -45,7 +45,6 @@ class Command(BaseCommand):
 
     def handle(self, *args, **o):
         from opsis import mssql, respon as R, respon_pdf as P
-        from opsis.models import Pembangkit
 
         ambang = o['ambang'] if o['ambang'] is not None else R.AMBANG_SIAGA
         root   = getattr(settings, 'RESPON_ARCHIVE_DIR', '/mnt/nas/respon_kit')
@@ -84,10 +83,8 @@ class Command(BaseCommand):
                 self.stdout.write(f"    {row}")
             return
 
-        plist = [(p.nama, (p.kode_kit or p.kode))
-                 for p in Pembangkit.objects.filter(aktif=True)]
         get_freq = mssql.get_freq_range
-        get_mw   = lambda a, b: mssql.get_kit_unit_mw_range(plist, a, b)   # PER-UNIT
+        get_mw   = mssql.get_all_kit_unit_mw_range   # semua KIT, PER-UNIT (B1·B3)
 
         # ── tentukan titik-titik event ──
         if o['pusat']:

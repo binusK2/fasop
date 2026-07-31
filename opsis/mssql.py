@@ -946,3 +946,54 @@ def list_kit_codes(menit=10):
     except Exception as e:
         logger.error('list_kit_codes error: %s', e)
     return out
+
+
+def get_all_kit_unit_mw_range(t0, t1, kits=None):
+    """
+    MW per UNIT untuk SEMUA KIT (atau subset `kits`) dari HIS_MEAS_KIT [t0,t1] —
+    satu query, cakupan seperti Excel Respons Kit (semua pembangkit, per unit).
+
+    Return dict {"<B1> · <B3>": [(datetime, mw)]} per detik (dedup terbaru per
+    detik per (B1,B3); SUM tidak dilakukan — tiap unit terpisah).
+    `kits` opsional: iterable kode B1 untuk membatasi.
+    """
+    if not getattr(settings, 'MSSQL_HOST', ''):
+        return {}
+    hasil = {}
+    try:
+        conn = _get_connection(); cur = conn.cursor(); tbl = _tbl()
+        filt = ''
+        params = [t0, t1]
+        if kits:
+            ph = ','.join('?' for _ in kits)
+            filt = f' AND RTRIM(B1) IN ({ph})'
+            params += list(kits)
+        cur.execute(
+            f"""
+            WITH pu AS (
+                SELECT CONVERT(VARCHAR(19), TIME, 120) AS dtk,
+                       RTRIM(B1) AS b1, RTRIM(B3) AS b3, P,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY CONVERT(VARCHAR(19), TIME, 120),
+                                        RTRIM(B1), RTRIM(B3)
+                           ORDER BY TIME DESC) AS rn
+                FROM {tbl} WITH (NOLOCK)
+                WHERE TIME BETWEEN ? AND ?{filt}
+            )
+            SELECT dtk, b1, b3, ABS(P) AS mw
+            FROM pu WHERE rn = 1
+            ORDER BY b1, b3, dtk
+            """, params)
+        for r in cur.fetchall():
+            if r[0] is None or r[3] is None:
+                continue
+            try:
+                waktu = datetime.datetime.strptime(r[0], '%Y-%m-%d %H:%M:%S')
+            except (ValueError, TypeError):
+                continue
+            label = f"{(r[1] or '').strip()} · {(r[2] or '').strip()}"
+            hasil.setdefault(label, []).append((waktu, float(r[3])))
+        conn.close()
+    except Exception as e:
+        logger.error('get_all_kit_unit_mw_range error: %s', e)
+    return hasil
