@@ -83,8 +83,11 @@ class Command(BaseCommand):
                 self.stdout.write(f"    {row}")
             return
 
+        from opsis.respon_registry import RESPON_PLANTS
+        kits = sorted({b1 for _, us in RESPON_PLANTS for b1, _ in us})
         get_freq = mssql.get_freq_range
-        get_mw   = mssql.get_all_kit_unit_mw_range   # semua KIT, PER-UNIT (B1·B3)
+        get_mw   = lambda a, b: R.gabung_plants(
+            mssql.get_all_kit_unit_mw_range(a, b, kits=kits), RESPON_PLANTS)
 
         # ── tentukan titik-titik event ──
         if o['pusat']:
