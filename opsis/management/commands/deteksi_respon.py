@@ -38,6 +38,9 @@ class Command(BaseCommand):
         parser.add_argument('--pusat', default=None)
         parser.add_argument('--probe', default=None,
                             help='Bedah data mentah 1 KIT (kode) untuk jendela --pusat±.')
+        parser.add_argument('--list-kit', type=int, nargs='?', const=10, default=None,
+                            metavar='MENIT',
+                            help='Daftar kode B1 (KIT) yang ada di HIS_MEAS_KIT N menit terakhir.')
         parser.add_argument('--dry-run', action='store_true')
 
     def handle(self, *args, **o):
@@ -47,6 +50,22 @@ class Command(BaseCommand):
         ambang = o['ambang'] if o['ambang'] is not None else R.AMBANG_SIAGA
         root   = getattr(settings, 'RESPON_ARCHIVE_DIR', '/mnt/nas/respon_kit')
         judul  = getattr(settings, 'RESPON_JUDUL', 'Respons Pembangkit Sistem Sulbagsel')
+
+        # ── Mode daftar KIT: kode B1 nyata di historian ──
+        if o['list_kit'] is not None:
+            info = mssql.list_kit_codes(o['list_kit'])
+            self.stdout.write(self.style.SUCCESS(
+                f"KIT di HIS_MEAS_KIT ({o['list_kit']} menit terakhir). "
+                f"Data terbaru: {info['max_time']}"))
+            if not info['kits']:
+                self.stdout.write(self.style.WARNING(
+                    "  Kosong. Coba perbesar menit (mis. --list-kit 60), "
+                    "atau MSSQL tak terjangkau."))
+            for b1, c, n_unit, contoh in info['kits']:
+                self.stdout.write(f"  {b1:<16} baris={c:<6} unit={n_unit}  contoh_B3={contoh}")
+            self.stdout.write(f"\nTotal KIT: {len(info['kits'])}. "
+                              f"Bandingkan dengan Pembangkit.kode/kode_kit di OPSIS.")
+            return
 
         # ── Mode probe: bedah data mentah HIS_MEAS_KIT untuk satu KIT ──
         if o['probe']:
