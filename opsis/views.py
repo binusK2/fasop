@@ -1535,12 +1535,35 @@ def respon_index(request):
     except Exception:
         events = []
 
+    # monitor 1 jam (frekuensi + total MW) untuk chart atas
+    monitor = None
+    try:
+        from opsis import mssql
+        from opsis.respon_registry import RESPON_PLANTS
+        kits = sorted({b1 for _, us in RESPON_PLANTS for b1, _ in us})
+        monitor = mssql.get_monitor_1h(kits=kits)
+    except Exception:
+        monitor = None
+
     return render(request, 'opsis/respon.html', {
         'analisa': analisa, 'chart_data': chart_data,
+        'monitor': monitor,
         'pusat': pusat_raw, 'jam': jam,
         'events': events,
         'ambang_siaga': R.AMBANG_SIAGA, 'ambang_bahaya': R.AMBANG_BAHAYA,
     })
+
+
+@login_required
+def respon_monitor_api(request):
+    """JSON monitor 1 jam (frekuensi + total MW) — auto-refresh chart."""
+    from django.http import JsonResponse
+    if not _bisa_respon(request.user):
+        return JsonResponse({'error': 'forbidden'}, status=403)
+    from opsis import mssql
+    from opsis.respon_registry import RESPON_PLANTS
+    kits = sorted({b1 for _, us in RESPON_PLANTS for b1, _ in us})
+    return JsonResponse(mssql.get_monitor_1h(kits=kits))
 
 
 @login_required
