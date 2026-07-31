@@ -818,3 +818,101 @@ def get_kit_mw_range(pembangkit_list, t0, t1):
     except Exception as e:
         logger.error('get_kit_mw_range error: %s', e)
     return hasil
+
+
+def get_kit_unit_mw_range(pembangkit_list, t0, t1):
+    """
+    MW PER UNIT (bukan dijumlah) per detik dari HIS_MEAS_KIT untuk [t0, t1] —
+    meniru Excel Respons Kit yang berbasis unit (UNIT1_P, UNIT2_P, …).
+
+    pembangkit_list : iterable (nama, kode) — kode dicocokkan ke B1 (LIKE).
+    Return dict {"<nama> · <B3>": [(datetime, mw)]} per detik.
+    Tiap unit = satu nilai B3 (RTRIM), dedup baris terbaru per detik per B3.
+    """
+    if not getattr(settings, 'MSSQL_HOST', ''):
+        return {}
+    hasil = {}
+    try:
+        conn   = _get_connection()
+        cursor = conn.cursor()
+        tbl    = _tbl()
+        for nama, kode in pembangkit_list:
+            if not kode:
+                continue
+            cursor.execute(
+                f"""
+                WITH per_unit AS (
+                    SELECT CONVERT(VARCHAR(19), TIME, 120) AS dtk,
+                           RTRIM(B3) AS B3, P,
+                           ROW_NUMBER() OVER (
+                               PARTITION BY CONVERT(VARCHAR(19), TIME, 120), RTRIM(B3)
+                               ORDER BY TIME DESC) AS rn
+                    FROM {tbl} WITH (NOLOCK)
+                    WHERE B1 LIKE ? AND TIME BETWEEN ? AND ?
+                )
+                SELECT dtk, B3, ABS(P) AS mw
+                FROM per_unit WHERE rn = 1
+                ORDER BY B3, dtk
+                """,
+                (kode + '%', t0, t1))
+            for r in cursor.fetchall():
+                if r[0] is None or r[2] is None:
+                    continue
+                b3 = (r[1] or '').strip()
+                try:
+                    waktu = datetime.datetime.strptime(r[0], '%Y-%m-%d %H:%M:%S')
+                except (ValueError, TypeError):
+                    continue
+                label = f'{nama} · {b3}' if b3 else nama
+                hasil.setdefault(label, []).append((waktu, float(r[2])))
+        conn.close()
+    except Exception as e:
+        logger.error('get_kit_unit_mw_range error: %s', e)
+    return hasil
+
+
+def probe_kit(kode, t0, t1, limit=40):
+    """
+    Diagnostik "bedah data": kembalikan info mentah HIS_MEAS_KIT untuk satu KIT.
+    Return dict {units:[B3…], jumlah_baris, contoh:[(TIME,B3,P)…], resolusi_detik}.
+    Dipakai command deteksi_respon --probe.
+    """
+    out = {'units': [], 'jumlah_baris': 0, 'contoh': [], 'resolusi_detik': None}
+    if not getattr(settings, 'MSSQL_HOST', ''):
+        return out
+    try:
+        conn = _get_connection(); cur = conn.cursor(); tbl = _tbl()
+        cur.execute(
+            f"SELECT DISTINCT RTRIM(B3) FROM {tbl} WITH (NOLOCK) "
+            f"WHERE B1 LIKE ? AND TIME BETWEEN ? AND ? ORDER BY 1",
+            (kode + '%', t0, t1))
+        out['units'] = [(r[0] or '').strip() for r in cur.fetchall()]
+        cur.execute(
+            f"SELECT COUNT(*) FROM {tbl} WITH (NOLOCK) "
+            f"WHERE B1 LIKE ? AND TIME BETWEEN ? AND ?",
+            (kode + '%', t0, t1))
+        out['jumlah_baris'] = cur.fetchone()[0]
+        cur.execute(
+            f"SELECT TOP ({int(limit)}) TIME, RTRIM(B3), P FROM {tbl} WITH (NOLOCK) "
+            f"WHERE B1 LIKE ? AND TIME BETWEEN ? AND ? ORDER BY TIME DESC",
+            (kode + '%', t0, t1))
+        rows = cur.fetchall()
+        out['contoh'] = [(str(r[0]), (r[1] or '').strip(), float(r[2]) if r[2] is not None else None)
+                         for r in rows]
+        # resolusi: beda waktu antar sampel 1 unit
+        if out['units']:
+            u0 = out['units'][0]
+            cur.execute(
+                f"SELECT TOP 30 TIME FROM {tbl} WITH (NOLOCK) "
+                f"WHERE B1 LIKE ? AND RTRIM(B3)=? AND TIME BETWEEN ? AND ? ORDER BY TIME DESC",
+                (kode + '%', u0, t0, t1))
+            ts = [r[0] for r in cur.fetchall() if r[0] is not None]
+            if len(ts) >= 2:
+                gaps = [abs((ts[i] - ts[i+1]).total_seconds()) for i in range(len(ts)-1)]
+                gaps = [g for g in gaps if g > 0]
+                if gaps:
+                    out['resolusi_detik'] = round(sum(gaps) / len(gaps), 1)
+        conn.close()
+    except Exception as e:
+        logger.error('probe_kit error: %s', e)
+    return out
