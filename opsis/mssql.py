@@ -916,3 +916,33 @@ def probe_kit(kode, t0, t1, limit=40):
     except Exception as e:
         logger.error('probe_kit error: %s', e)
     return out
+
+
+def list_kit_codes(menit=10):
+    """
+    Bedah data: daftar kode B1 (KIT) yang benar-benar ada di HIS_MEAS_KIT pada
+    N menit terakhir, beserta jumlah baris & contoh unit (B3). Juga waktu data
+    terbaru (untuk cek kesegaran/zona waktu). Return dict.
+    """
+    out = {'max_time': None, 'kits': []}
+    if not getattr(settings, 'MSSQL_HOST', ''):
+        return out
+    try:
+        conn = _get_connection(); cur = conn.cursor(); tbl = _tbl()
+        cur.execute(f"SELECT MAX(TIME) FROM {tbl} WITH (NOLOCK)")
+        row = cur.fetchone()
+        out['max_time'] = str(row[0]) if row and row[0] is not None else None
+        cur.execute(
+            f"""
+            SELECT RTRIM(B1) AS b1, COUNT(*) AS c,
+                   COUNT(DISTINCT RTRIM(B3)) AS n_unit, MAX(RTRIM(B3)) AS contoh_b3
+            FROM {tbl} WITH (NOLOCK)
+            WHERE TIME >= DATEADD(minute, -{int(menit)}, GETDATE())
+            GROUP BY RTRIM(B1) ORDER BY b1
+            """)
+        out['kits'] = [((r[0] or '').strip(), r[1], r[2], (r[3] or '').strip())
+                       for r in cur.fetchall()]
+        conn.close()
+    except Exception as e:
+        logger.error('list_kit_codes error: %s', e)
+    return out
