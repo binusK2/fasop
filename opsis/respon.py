@@ -94,6 +94,27 @@ def deteksi_events(freq_seq, ambang=AMBANG_SIAGA, jeda_detik=300):
     return events
 
 
+def gabung_plants(unit_mw, plants):
+    """
+    Gabung MW per-unit (B1·B3) menjadi per-PLANT sesuai registry Excel.
+
+    unit_mw : {"<B1> · <B3>": [(waktu, mw)]}  (dari get_all_kit_unit_mw_range)
+    plants  : [(nama, [(B1, B3), …]), …]      (RESPON_PLANTS)
+    Return  : {nama: [(waktu_detik, mw_total), …]} — MW plant = jumlah unitnya
+              per detik (seperti Excel yang menjumlah unit satu plant).
+    """
+    out = {}
+    for nama, units in plants:
+        per_detik = {}
+        for b1, b3 in units:
+            for t, v in unit_mw.get(f'{b1} · {b3}', []):
+                sec = t.replace(microsecond=0)
+                per_detik[sec] = per_detik.get(sec, 0.0) + (v or 0.0)
+        if per_detik:
+            out[nama] = sorted((t, round(v, 2)) for t, v in per_detik.items())
+    return out
+
+
 def align_series(series, ref_times):
     """Selaraskan deret [(waktu,nilai)] ke daftar waktu acuan (nilai terdekat)."""
     if not series:

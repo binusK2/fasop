@@ -1469,10 +1469,17 @@ def _bisa_respon(user):
 
 
 def _respon_getters():
-    """Getter frekuensi + MW PER-UNIT semua KIT langsung dari historian
-    (B1·B3), cakupan seperti Excel Respons Kit."""
-    from opsis import mssql
-    return mssql.get_freq_range, mssql.get_all_kit_unit_mw_range
+    """Getter frekuensi + MW per-PLANT (nama & pengelompokan persis Excel
+    Respons Kit) dari historian HIS_MEAS_KIT."""
+    from opsis import mssql, respon as R
+    from opsis.respon_registry import RESPON_PLANTS
+    kits = sorted({b1 for _, us in RESPON_PLANTS for b1, _ in us})
+
+    def get_mw(a, b):
+        raw = mssql.get_all_kit_unit_mw_range(a, b, kits=kits)
+        return R.gabung_plants(raw, RESPON_PLANTS)
+
+    return mssql.get_freq_range, get_mw
 
 
 def _parse_pusat(s):
