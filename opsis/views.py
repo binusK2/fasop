@@ -1525,13 +1525,17 @@ def respon_index(request):
                            for p in analisa['pembangkit'] if p.get('series')],
             }
 
-    # daftar event terdeteksi pada rentang jam terakhir (bila MSSQL ada)
+    # daftar event PER HARI — ringan (agregasi SQL per menit, bukan scan per detik)
+    tgl_raw = (request.GET.get('tanggal') or '').strip()
+    try:
+        tanggal = _dt.date.fromisoformat(tgl_raw) if tgl_raw else _dt.date.today()
+    except ValueError:
+        tanggal = _dt.date.today()
     events = []
     try:
         from opsis import mssql
-        now = _dt.datetime.now()
-        seq = get_freq(now - _dt.timedelta(hours=jam), now)
-        events = R.deteksi_events(seq, ambang=R.AMBANG_SIAGA)
+        rows = mssql.get_freq_events_day(tanggal, ambang=R.AMBANG_SIAGA)
+        events = R.events_dari_menit(rows, ambang=R.AMBANG_SIAGA)
     except Exception:
         events = []
 
@@ -1548,7 +1552,7 @@ def respon_index(request):
     return render(request, 'opsis/respon.html', {
         'analisa': analisa, 'chart_data': chart_data,
         'monitor': monitor,
-        'pusat': pusat_raw, 'jam': jam,
+        'pusat': pusat_raw, 'tanggal': tanggal, 'today': _dt.date.today(),
         'events': events,
         'ambang_siaga': R.AMBANG_SIAGA, 'ambang_bahaya': R.AMBANG_BAHAYA,
     })
