@@ -356,6 +356,10 @@ body { font-family:'DM Sans', sans-serif; background:var(--body-bg); color:var(-
             <i class="bi bi-journal-text sb-icon"></i>
             <span class="sb-label">Logsheet Pembebanan</span>
         </a>
+        <a href="/opsis/respon/" class="sb-link {% if 'respon' in request.resolver_match.url_name %}active{% endif %}">
+            <i class="bi bi-activity sb-icon"></i>
+            <span class="sb-label">Respons Pembangkit</span>
+        </a>
         {% if request.user.profile.role != 'up2d' %}
         <a href="/opsis/hop/dashboard/" class="sb-link {% if request.resolver_match.url_name == 'opsis_hop_board' %}active{% endif %}">
             <i class="bi bi-speedometer2 sb-icon"></i>

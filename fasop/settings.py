@@ -211,6 +211,11 @@ API_KEY = config('API_KEY', default='')
 # Bisa folder NAS ter-mount, mis. /mnt/nas/logsheet. Subfolder bulan otomatis.
 LOGSHEET_ARCHIVE_DIR = config('LOGSHEET_ARCHIVE_DIR', default='/mnt/nas/logsheet')
 
+# Respons Pembangkit — folder simpan PDF (subfolder per kategori Aman/Siaga/Bahaya)
+# dibuat otomatis. Judul pada PDF bisa diubah lewat .env.
+RESPON_ARCHIVE_DIR = config('RESPON_ARCHIVE_DIR', default='/mnt/nas/respon_kit')
+RESPON_JUDUL       = config('RESPON_JUDUL', default='Respons Pembangkit Sistem Sulbagsel')
+
 # -------------------------------------------------------------------
 # MSSQL — Koneksi ke database historian/SCADA untuk fitur Opsis
 # Set di .env server (tidak di-commit):
