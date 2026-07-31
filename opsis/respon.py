@@ -99,12 +99,13 @@ def gabung_plants(unit_mw, plants):
     Gabung MW per-unit (B1·B3) menjadi per-PLANT sesuai registry Excel.
 
     unit_mw : {"<B1> · <B3>": [(waktu, mw)]}  (dari get_all_kit_unit_mw_range)
-    plants  : [(nama, [(B1, B3), …]), …]      (RESPON_PLANTS)
+    plants  : dict {nama: [(B1, B3), …]}      (RESPON_PLANTS) atau list of pairs.
     Return  : {nama: [(waktu_detik, mw_total), …]} — MW plant = jumlah unitnya
               per detik (seperti Excel yang menjumlah unit satu plant).
     """
+    items = plants.items() if hasattr(plants, 'items') else plants
     out = {}
-    for nama, units in plants:
+    for nama, units in items:
         per_detik = {}
         for b1, b3 in units:
             for t, v in unit_mw.get(f'{b1} · {b3}', []):
