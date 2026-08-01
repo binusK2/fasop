@@ -222,15 +222,24 @@ def export_frekuensi(request):
     # Batas frekuensi normal PLN: 49.5 – 50.5 Hz
     batas_bawah, batas_atas = 49.5, 50.5
 
+    # Agregasi ke 1 baris per DETIK. Sumber SYS_FREQ_HIS mengambil sampel tiap
+    # ±0,99 detik dengan timestamp ber-milidetik, sehingga sebagian detik punya
+    # 2 sampel; tanpa agregasi, saat diformat HH:MM:SS timestamp tampak dobel.
+    from collections import OrderedDict
+    per_detik = OrderedDict()
+    for row in rows:
+        if row.hz is None:
+            continue
+        wl = row.waktu.astimezone(tz_local).replace(microsecond=0)
+        per_detik.setdefault(wl, []).append(row.hz)
+
     data_hz = []  # (hz, waktu_lokal) — untuk ringkasan min/max beserta jamnya
-    for i, row in enumerate(rows, 1):
-        waktu_lokal = row.waktu.astimezone(tz_local)
-        hz = round(row.hz, 4) if row.hz is not None else None
-        if hz is not None:
-            data_hz.append((hz, waktu_lokal))
-        if hz is None:
-            status = '—'
-        elif hz < batas_bawah:
+    i = 0
+    for waktu_lokal, hz_list in per_detik.items():
+        i += 1
+        hz = round(sum(hz_list) / len(hz_list), 4)   # rata-rata jika >1 sampel/detik
+        data_hz.append((hz, waktu_lokal))
+        if hz < batas_bawah:
             status = '⚠ Rendah'
         elif hz > batas_atas:
             status = '⚠ Tinggi'
@@ -246,7 +255,7 @@ def export_frekuensi(request):
         ])
 
         # Warna baris abnormal
-        if hz is not None and (hz < batas_bawah or hz > batas_atas):
+        if hz < batas_bawah or hz > batas_atas:
             for col in range(1, 6):
                 ws.cell(i + 1, col).fill = PatternFill('solid', fgColor='2D1A1A')
 
