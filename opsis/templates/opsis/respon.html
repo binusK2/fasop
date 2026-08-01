@@ -76,15 +76,20 @@ table.rp { width:100%; border-collapse:collapse; font-size:12px; margin-top:6px;
 
 <form method="get" class="rp-bar">
     <div class="rp-field">
-        <label>Waktu Event</label>
-        <input type="datetime-local" name="pusat" value="{{ pusat }}" step="1">
+        <label>Dari</label>
+        <input type="datetime-local" name="mulai" value="{{ mulai }}" step="1">
+    </div>
+    <div class="rp-field">
+        <label>Sampai</label>
+        <input type="datetime-local" name="selesai" value="{{ selesai }}" step="1">
     </div>
     <button type="submit" class="rp-btn primary"><i class="bi bi-graph-up"></i> Analisa</button>
     {% if analisa %}
-    <a class="rp-btn pdf" href="{% url 'opsis_respon_pdf' %}?pusat={{ pusat|urlencode }}">
+    <a class="rp-btn pdf" href="{% url 'opsis_respon_pdf' %}?{% if mulai and selesai %}mulai={{ mulai|urlencode }}&selesai={{ selesai|urlencode }}{% else %}pusat={{ pusat|urlencode }}{% endif %}">
         <i class="bi bi-file-earmark-pdf"></i> Download PDF
     </a>
     {% endif %}
+    <span style="font-size:11px;color:var(--muted);align-self:center;">Maks {{ max_rentang }} menit</span>
 </form>
 
 {% if analisa %}

@@ -185,45 +185,40 @@ def _nilai_pada(series, t_target):
     return round(min(kandidat, key=lambda x: x[0])[1], 2) if kandidat else None
 
 
-def analisa_event(t_pusat, get_freq, get_mw, sebelum_detik=60, sesudah_detik=180):
-    """
-    Rakit satu analisis event di sekitar t_pusat.
+def _waktu_ekstrem(freq):
+    """Waktu titik deviasi terbesar dalam deret frekuensi (nadir/puncak)."""
+    if not freq:
+        return None
+    fmax = max(h for _, h in freq)
+    fmin = min(h for _, h in freq)
+    if (NOMINAL_HZ - fmin) >= (fmax - NOMINAL_HZ):
+        return min(freq, key=lambda x: x[1])[0]      # waktu f-min
+    return max(freq, key=lambda x: x[1])[0]          # waktu f-max
 
-    get_freq(t0, t1) -> list [(waktu, hz)]
-    get_mw(t0, t1)   -> dict {nama_pembangkit: [(waktu, mw)]}
 
-    Kembalikan dict siap render (chart + tabel skor + kategori).
-    """
-    t0 = t_pusat - datetime.timedelta(seconds=sebelum_detik)
-    t1 = t_pusat + datetime.timedelta(seconds=sesudah_detik)
-
-    freq = sorted([(t, h) for t, h in get_freq(t0, t1) if t and h is not None],
-                  key=lambda x: x[0])
-    mw   = get_mw(t0, t1) or {}
-
+def _rakit(freq, mw, t_pusat, t0, t1):
+    """Rakit dict hasil analisis dari deret freq + mw pada jendela [t0,t1].
+    t_pusat = titik acuan baseline/nilai-saat-event (biasanya waktu ekstrem)."""
     df, fmax, fmin = deviasi_maks([h for _, h in freq])
     kategori = kategori_dari_deviasi(df)
     arah = None
     if df is not None:
         arah = 'turun' if (NOMINAL_HZ - (fmin or NOMINAL_HZ)) >= ((fmax or NOMINAL_HZ) - NOMINAL_HZ) else 'naik'
 
-    # Respons per pembangkit
     pembangkit = []
-    for nama, series in mw.items():
+    for nama, series in (mw or {}).items():
         series = sorted([(t, v) for t, v in series if t and v is not None], key=lambda x: x[0])
         if not series:
             continue
-        base = _baseline(series, t_pusat)
-        saat = _nilai_pada(series, t_pusat)
+        base = _baseline(series, t_pusat) if t_pusat else None
+        saat = _nilai_pada(series, t_pusat) if t_pusat else None
         delta = round(saat - base, 2) if (base is not None and saat is not None) else None
-        # arah respons benar? freq turun -> MW harus naik (delta>0)
         benar = None
         if delta is not None and arah:
             benar = (delta > 0) if arah == 'turun' else (delta < 0)
         pembangkit.append({
             'nama': nama, 'baseline': base, 'saat_event': saat,
-            'delta_mw': delta, 'arah_benar': benar,
-            'series': series,
+            'delta_mw': delta, 'arah_benar': benar, 'series': series,
         })
     pembangkit.sort(key=lambda x: (x['delta_mw'] is None, -(abs(x['delta_mw']) if x['delta_mw'] is not None else 0)))
 
@@ -234,3 +229,25 @@ def analisa_event(t_pusat, get_freq, get_mw, sebelum_detik=60, sesudah_detik=180
         'warna': KATEGORI_WARNA.get(kategori, '#64748b'),
         'pembangkit': pembangkit,
     }
+
+
+def _ambil(get_freq, get_mw, t0, t1):
+    freq = sorted([(t, h) for t, h in get_freq(t0, t1) if t and h is not None],
+                  key=lambda x: x[0])
+    return freq, (get_mw(t0, t1) or {})
+
+
+def analisa_event(t_pusat, get_freq, get_mw, sebelum_detik=60, sesudah_detik=180):
+    """Analisis event di sekitar t_pusat (± jendela)."""
+    t0 = t_pusat - datetime.timedelta(seconds=sebelum_detik)
+    t1 = t_pusat + datetime.timedelta(seconds=sesudah_detik)
+    freq, mw = _ambil(get_freq, get_mw, t0, t1)
+    return _rakit(freq, mw, t_pusat, t0, t1)
+
+
+def analisa_rentang(t0, t1, get_freq, get_mw):
+    """Analisis untuk RENTANG waktu bebas [t0, t1]. Titik acuan baseline =
+    waktu deviasi frekuensi terbesar di dalam rentang."""
+    freq, mw = _ambil(get_freq, get_mw, t0, t1)
+    t_pusat = _waktu_ekstrem(freq)
+    return _rakit(freq, mw, t_pusat, t0, t1)

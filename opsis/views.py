@@ -1463,6 +1463,9 @@ def hop_board(request):
 # ═══════════════════════════════════════════════════════════════════════
 #  Respons Pembangkit terhadap frekuensi (Primary Frequency Response)
 # ═══════════════════════════════════════════════════════════════════════
+RESPON_MAX_RENTANG_MENIT = 60   # batas aman rentang analisa manual (query per detik)
+
+
 def _bisa_respon(user):
     return user.is_superuser or getattr(
         getattr(user, 'profile', None), 'role', '') in ('opsis', 'opsis_view')
@@ -1505,25 +1508,38 @@ def respon_index(request):
         return redirect('/')
 
     get_freq, get_mw = _respon_getters()
-    pusat_raw = (request.GET.get('pusat') or '').strip()
-    jam = int(request.GET.get('jam', 6) or 6)
+    pusat_raw   = (request.GET.get('pusat') or '').strip()
+    mulai_raw   = (request.GET.get('mulai') or '').strip()
+    selesai_raw = (request.GET.get('selesai') or '').strip()
 
     analisa = None
     chart_data = None
-    if pusat_raw:
+    if mulai_raw and selesai_raw:
+        # ── mode RENTANG waktu (Dari–Sampai) ──
+        t0 = _parse_pusat(mulai_raw); t1 = _parse_pusat(selesai_raw)
+        if t0 and t1:
+            if t1 <= t0:
+                messages.error(request, 'Waktu "Sampai" harus setelah "Dari".')
+            elif (t1 - t0).total_seconds() > RESPON_MAX_RENTANG_MENIT * 60:
+                messages.error(request, f'Rentang terlalu panjang (maks {RESPON_MAX_RENTANG_MENIT} menit).')
+            else:
+                analisa = R.analisa_rentang(t0, t1, get_freq, get_mw)
+    elif pusat_raw:
+        # ── mode titik ± jendela (dipakai klik event) ──
         pusat = _parse_pusat(pusat_raw)
         if pusat:
             analisa = R.analisa_event(pusat, get_freq, get_mw)
-            # data chart (Chart.js) — frekuensi + MW tiap unit, selaras waktu
-            ref_t = [t for t, _ in analisa['freq']]
-            chart_data = {
-                'labels': [t.strftime('%H:%M:%S') for t in ref_t],
-                'freq':   [round(h, 3) for _, h in analisa['freq']],
-                'nominal': R.NOMINAL_HZ,
-                'units':  [{'nama': p['nama'],
-                            'data': R.align_series(p['series'], ref_t)}
-                           for p in analisa['pembangkit'] if p.get('series')],
-            }
+
+    if analisa:
+        ref_t = [t for t, _ in analisa['freq']]
+        chart_data = {
+            'labels': [t.strftime('%H:%M:%S') for t in ref_t],
+            'freq':   [round(h, 3) for _, h in analisa['freq']],
+            'nominal': R.NOMINAL_HZ,
+            'units':  [{'nama': p['nama'],
+                        'data': R.align_series(p['series'], ref_t)}
+                       for p in analisa['pembangkit'] if p.get('series')],
+        }
 
     # daftar event PER HARI — ringan (agregasi SQL per menit, bukan scan per detik)
     tgl_raw = (request.GET.get('tanggal') or '').strip()
@@ -1552,7 +1568,9 @@ def respon_index(request):
     return render(request, 'opsis/respon.html', {
         'analisa': analisa, 'chart_data': chart_data,
         'monitor': monitor,
-        'pusat': pusat_raw, 'tanggal': tanggal, 'today': _dt.date.today(),
+        'pusat': pusat_raw, 'mulai': mulai_raw, 'selesai': selesai_raw,
+        'tanggal': tanggal, 'today': _dt.date.today(),
+        'max_rentang': RESPON_MAX_RENTANG_MENIT,
         'events': events,
         'ambang_siaga': R.AMBANG_SIAGA, 'ambang_bahaya': R.AMBANG_BAHAYA,
     })
@@ -1582,13 +1600,24 @@ def respon_pdf_download(request):
         messages.error(request, 'Anda tidak memiliki akses.')
         return redirect('/')
 
+    get_freq, get_mw = _respon_getters()
+    mulai = _parse_pusat((request.GET.get('mulai') or '').strip())
+    selesai = _parse_pusat((request.GET.get('selesai') or '').strip())
     pusat = _parse_pusat((request.GET.get('pusat') or '').strip())
-    if not pusat:
-        messages.error(request, 'Parameter waktu event tidak valid.')
+
+    if mulai and selesai:
+        if selesai <= mulai or (selesai - mulai).total_seconds() > RESPON_MAX_RENTANG_MENIT * 60:
+            messages.error(request, f'Rentang tidak valid (maks {RESPON_MAX_RENTANG_MENIT} menit).')
+            return redirect('opsis_respon')
+        analisa = R.analisa_rentang(mulai, selesai, get_freq, get_mw)
+        fname = f'Respons Kit {mulai:%Y%m%d %H%M%S}-{selesai:%H%M%S}.pdf'
+    elif pusat:
+        analisa = R.analisa_event(pusat, get_freq, get_mw)
+        fname = f'Respons Kit {pusat:%Y%m%d %H%M%S}.pdf'
+    else:
+        messages.error(request, 'Parameter waktu tidak valid.')
         return redirect('opsis_respon')
 
-    get_freq, get_mw = _respon_getters()
-    analisa = R.analisa_event(pusat, get_freq, get_mw)
     judul = getattr(_s, 'RESPON_JUDUL', 'Respons Pembangkit Sistem Sulbagsel')
     try:
         pdf = P.build_pdf(analisa, judul)
@@ -1596,5 +1625,5 @@ def respon_pdf_download(request):
         messages.error(request, f'Gagal membuat PDF: {e}')
         return redirect('opsis_respon')
     resp = HttpResponse(pdf, content_type='application/pdf')
-    resp['Content-Disposition'] = f'attachment; filename="Respons Kit {pusat:%Y%m%d %H%M%S}.pdf"'
+    resp['Content-Disposition'] = f'attachment; filename="{fname}"'
     return resp
