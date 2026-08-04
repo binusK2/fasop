@@ -21,11 +21,74 @@
 .card { background:var(--card-bg); border:1px solid var(--card-bd); border-radius:12px; padding:16px; margin-bottom:16px; }
 .metrow { display:flex; flex-wrap:wrap; gap:22px; align-items:center; font-size:13px; color:#cbd5e1; }
 .metrow b { color:#fff; font-family:'JetBrains Mono',monospace; }
-.chart-wrap { background:#fff; border-radius:8px; padding:8px; margin-top:12px; overflow-x:auto; }
-table.rp { width:100%; border-collapse:collapse; font-size:12px; margin-top:6px; }
-.rp th { text-align:left; color:var(--muted); font-size:10.5px; text-transform:uppercase; letter-spacing:.5px; padding:6px 8px; border-bottom:1px solid var(--card-bd); }
-.rp td { padding:5px 8px; border-bottom:1px solid rgba(30,45,69,.5); color:#e5edf7; }
-.rp td.n { text-align:right; font-family:'JetBrains Mono',monospace; color:#cbd5e1; }
+
+/* ── Chart event: 2 panel bertumpuk, sumbu waktu sama (Hz dan MW tidak lagi
+      ditumpuk pada satu grafik dua-sumbu yang saling menutupi) ── */
+.chart-panel { background:#0f1a2e; border:1px solid var(--card-bd); border-radius:10px;
+    padding:10px 12px 8px; margin-top:12px; }
+.chart-panel + .chart-panel { margin-top:10px; }
+.chart-cap { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:8px;
+    font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.5px;
+    color:var(--muted); margin-bottom:8px; }
+.chart-cap .hint { text-transform:none; letter-spacing:0; font-weight:400; font-size:11px; }
+.cbox { position:relative; }
+.cbox.freq { height:120px; }
+.cbox.mw   { height:330px; }
+.seg-group { display:inline-flex; border:1px solid var(--card-bd); border-radius:7px; overflow:hidden; }
+.seg { font-family:inherit; font-size:11px; font-weight:700; padding:5px 11px; border:0;
+    background:#0b1120; color:#94a3b8; cursor:pointer; letter-spacing:.3px; }
+.seg + .seg { border-left:1px solid var(--card-bd); }
+.seg.on { background:#2563eb; color:#fff; }
+.legend { display:flex; flex-wrap:wrap; gap:6px; max-height:104px; overflow:auto; margin-top:10px; }
+.lg { display:inline-flex; align-items:center; gap:6px; font-size:11.5px; line-height:1;
+    padding:5px 10px; border-radius:20px; border:1px solid var(--card-bd);
+    background:#0b1120; color:#cbd5e1; cursor:pointer; user-select:none; }
+.lg:hover { border-color:var(--blue); }
+.lg.off { opacity:.38; }
+.lg .dot { width:9px; height:9px; border-radius:50%; flex:none; }
+.legend-tools { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:9px; }
+.mini-btn { font-family:inherit; font-size:11px; font-weight:600; padding:5px 11px; border-radius:7px;
+    border:1px solid var(--card-bd); background:#0b1120; color:#cbd5e1; cursor:pointer; }
+.mini-btn:hover { border-color:var(--blue); color:#fff; }
+
+/* ── Ringkasan + tabel ── */
+.sum-row { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 10px; }
+.sum { display:inline-flex; align-items:center; gap:7px; font-size:12px; color:#cbd5e1;
+    background:#0f1a2e; border:1px solid var(--card-bd); border-radius:8px; padding:6px 12px; }
+.sum b { font-family:'JetBrains Mono',monospace; font-size:14px; }
+.tbl-tools { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:8px; }
+.tbl-tools input, .tbl-tools select { background:#0b1120; border:1px solid var(--card-bd); color:var(--text);
+    border-radius:7px; padding:6px 10px; font-family:inherit; font-size:12px; color-scheme:dark; }
+.tbl-wrap { border:1px solid var(--card-bd); border-radius:10px; overflow:auto; max-height:460px; }
+table.rp { width:100%; border-collapse:collapse; font-size:12.5px; }
+.rp th { text-align:left; color:var(--muted); font-size:10.5px; text-transform:uppercase; letter-spacing:.5px;
+    padding:9px 10px; background:#101c31; position:sticky; top:0; z-index:2;
+    border-bottom:1px solid var(--card-bd); white-space:nowrap; cursor:pointer; }
+.rp th .ar { opacity:.35; font-size:9px; }
+.rp th.on .ar { opacity:1; color:var(--blue); }
+.rp td { padding:7px 10px; border-bottom:1px solid rgba(30,45,69,.5); color:#e5edf7; }
+.rp tbody tr { cursor:pointer; }
+.rp tbody tr:nth-child(even) td { background:rgba(148,163,184,.035); }
+.rp tbody tr:hover td { background:rgba(96,165,250,.09); }
+.rp tbody tr.off td { opacity:.72; }
+.rp tbody tr.off .dot { opacity:.22; }
+.rp td.n { text-align:right; font-family:'JetBrains Mono',monospace; color:#cbd5e1; white-space:nowrap; }
+.rp td.nm { white-space:nowrap; }
+.rp td.nm .dot { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:7px; vertical-align:middle; }
+.dbar-wrap { display:inline-block; position:relative; width:86px; height:9px; border-radius:3px;
+    background:rgba(148,163,184,.13); vertical-align:middle; }
+.dbar-wrap::before { content:''; position:absolute; left:50%; top:-2px; bottom:-2px; width:1px;
+    background:rgba(148,163,184,.4); }
+.dbar { display:block; position:absolute; top:0; bottom:0; border-radius:2px; }
+.tag { display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:600; white-space:nowrap; }
+@media (max-width:768px) {
+    .cbox.mw { height:270px; }
+    .cbox.freq { height:104px; }
+    .legend { max-height:92px; }
+    .tbl-wrap { max-height:none; }
+    .rp th, .rp td { padding:6px 8px; font-size:11.5px; }
+    .dbar-wrap { width:54px; }
+}
 .mon-row { display:flex; flex-wrap:wrap; gap:14px; align-items:stretch; margin-bottom:16px; }
 .mon-stat { background:var(--card-bg); border:1px solid var(--card-bd); border-radius:12px; padding:14px 18px; min-width:150px; }
 .mon-stat .lbl { font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); }
@@ -62,7 +125,12 @@ table.rp { width:100%; border-collapse:collapse; font-size:12px; margin-top:6px;
         <div class="val" id="hzNow" style="color:#34d399;">{{ monitor.freq_now|default:'—' }}</div>
         <div style="font-size:11px;color:var(--muted);margin-top:2px;">Hz &middot; 1 jam terakhir</div>
     </div>
-    <div class="mon-chart"><canvas id="monitorChart" height="90"></canvas></div>
+    <div class="mon-chart">
+        <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#34d399;">Frekuensi (Hz)</div>
+        <div style="height:64px;position:relative;"><canvas id="monFreqChart"></canvas></div>
+        <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#60a5fa;margin-top:4px;">Total MW</div>
+        <div style="height:64px;position:relative;"><canvas id="monMwChart"></canvas></div>
+    </div>
 </div>
 {{ monitor|json_script:"monitor-data" }}
 
@@ -103,30 +171,88 @@ table.rp { width:100%; border-collapse:collapse; font-size:12px; margin-top:6px;
         <span>Arah: <b>{{ analisa.arah }}</b></span>
         <span>Jendela: <b>{{ analisa.t0|date:'H:i:s' }}</b>&ndash;<b>{{ analisa.t1|date:'H:i:s' }}</b></span>
     </div>
-    <div class="chart-wrap"><canvas id="responChart" height="120"></canvas></div>
+    <div class="chart-panel">
+        <div class="chart-cap"><span>Frekuensi sistem (Hz)</span>
+            <span class="hint">Garis putus &mdash;&mdash; 50 Hz nominal &middot; garis kuning = titik puncak deviasi</span></div>
+        <div class="cbox freq"><canvas id="freqChart"></canvas></div>
+    </div>
+
+    <div class="chart-panel">
+        <div class="chart-cap">
+            <span id="mwCap">&Delta;MW tiap pembangkit terhadap baseline</span>
+            <span class="seg-group">
+                <button type="button" class="seg on" id="segDelta">&Delta; MW</button>
+                <button type="button" class="seg" id="segAbs">MW absolut</button>
+            </span>
+        </div>
+        <div class="cbox mw"><canvas id="responChart"></canvas></div>
+        <div class="legend" id="responLegend"></div>
+        <div class="legend-tools">
+            <button type="button" class="mini-btn" id="legTop">8 respons terbesar</button>
+            <button type="button" class="mini-btn" id="legAll">Tampilkan semua</button>
+            <button type="button" class="mini-btn" id="legNone">Kosongkan</button>
+            <span class="hint" style="font-size:11px;color:var(--muted);">Klik nama (atau baris tabel) untuk sembunyikan/tampilkan garis.</span>
+        </div>
+    </div>
     {{ chart_data|json_script:"respon-data" }}
 
-    <table class="rp">
-        <thead><tr><th>Pembangkit</th><th style="text-align:right">Baseline (MW)</th>
-        <th style="text-align:right">Saat Event (MW)</th><th style="text-align:right">&Delta;MW</th><th>Respons</th></tr></thead>
+    <div class="sum-row">
+        <span class="sum"><i class="bi bi-check-circle-fill" style="color:#34d399;"></i> Merespons <b style="color:#34d399;">{{ analisa.ringkas.merespons }}</b></span>
+        <span class="sum"><i class="bi bi-x-circle-fill" style="color:#f87171;"></i> Tidak sesuai <b style="color:#f87171;">{{ analisa.ringkas.tidak }}</b></span>
+        <span class="sum"><i class="bi bi-dash-circle-fill" style="color:#94a3b8;"></i> Tanpa data <b style="color:#94a3b8;">{{ analisa.ringkas.nodata }}</b></span>
+        <span class="sum">Arah frekuensi <b style="color:{{ analisa.warna }};">{{ analisa.arah }}</b>
+            &rarr; respons benar = MW {% if analisa.arah == 'turun' %}naik{% else %}turun{% endif %}</span>
+    </div>
+
+    <div class="tbl-tools">
+        <input type="search" id="tblCari" placeholder="Cari pembangkit…" style="min-width:180px;">
+        <select id="tblFilter">
+            <option value="">Semua respons</option>
+            <option value="1">Hanya merespons</option>
+            <option value="0">Hanya tidak sesuai</option>
+            <option value="-">Tanpa data</option>
+        </select>
+        <span style="font-size:11px;color:var(--muted);" id="tblInfo"></span>
+    </div>
+
+    <div class="tbl-wrap">
+    <table class="rp" id="tblRespon">
+        <thead><tr>
+            <th data-sort="nama">Pembangkit <span class="ar">&#9650;&#9660;</span></th>
+            <th data-sort="base" style="text-align:right">Baseline (MW) <span class="ar">&#9650;&#9660;</span></th>
+            <th data-sort="saat" style="text-align:right">Saat Event (MW) <span class="ar">&#9650;&#9660;</span></th>
+            <th data-sort="delta" class="on" style="text-align:right">&Delta;MW <span class="ar">&#9650;&#9660;</span></th>
+            <th style="cursor:default;" title="Batang kiri = MW turun, kanan = MW naik">Arah &amp; besaran</th>
+            <th data-sort="respons">Respons <span class="ar">&#9650;&#9660;</span></th>
+        </tr></thead>
         <tbody>
         {% for p in analisa.pembangkit %}
-            <tr>
-                <td>{{ p.nama }}</td>
+            <tr data-i="{{ p.chart_idx|default_if_none:'' }}"
+                data-nama="{{ p.nama|lower }}"
+                data-base="{{ p.baseline|default_if_none:''|stringformat:'s' }}"
+                data-saat="{{ p.saat_event|default_if_none:''|stringformat:'s' }}"
+                data-delta="{{ p.delta_mw|default_if_none:''|stringformat:'s' }}"
+                data-respons="{% if p.arah_benar %}1{% elif p.arah_benar is False %}0{% else %}-{% endif %}">
+                <td class="nm"><span class="dot" style="background:#334155;"></span>{{ p.nama }}</td>
                 <td class="n">{{ p.baseline|default:'—' }}</td>
                 <td class="n">{{ p.saat_event|default:'—' }}</td>
                 <td class="n" style="font-weight:700;color:{% if p.arah_benar %}#34d399{% elif p.arah_benar is False %}#f87171{% else %}#94a3b8{% endif %};">
                     {% if p.delta_mw is not None %}{% if p.delta_mw > 0 %}+{% endif %}{{ p.delta_mw }}{% else %}—{% endif %}
                 </td>
-                <td style="color:{% if p.arah_benar %}#34d399{% elif p.arah_benar is False %}#f87171{% else %}#94a3b8{% endif %};font-weight:600;">
-                    {% if p.arah_benar %}Merespons{% elif p.arah_benar is False %}Tidak sesuai{% else %}—{% endif %}
+                <td><span class="dbar-wrap"><span class="dbar"></span></span></td>
+                <td>
+                    <span class="tag" style="color:{% if p.arah_benar %}#34d399{% elif p.arah_benar is False %}#f87171{% else %}#94a3b8{% endif %};">
+                        <i class="bi {% if p.arah_benar %}bi-check-circle-fill{% elif p.arah_benar is False %}bi-x-circle-fill{% else %}bi-dash-circle{% endif %}"></i>
+                        {% if p.arah_benar %}Merespons{% elif p.arah_benar is False %}Tidak sesuai{% else %}Tanpa data{% endif %}
+                    </span>
                 </td>
             </tr>
         {% empty %}
-            <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:16px;">Tidak ada data MW pembangkit pada jendela ini.</td></tr>
+            <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:16px;">Tidak ada data MW pembangkit pada jendela ini.</td></tr>
         {% endfor %}
         </tbody>
     </table>
+    </div>
     {% else %}
     <div style="text-align:center;color:var(--muted);padding:24px;">Tidak ada data frekuensi pada waktu tersebut (MSSQL kosong/tak terjangkau).</div>
     {% endif %}
@@ -178,46 +304,63 @@ table.rp { width:100%; border-collapse:collapse; font-size:12px; margin-top:6px;
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-// ── Monitor 1 jam: total MW + frekuensi (auto-refresh 30 dtk) ──
+// ── Monitor 1 jam: frekuensi & total MW (auto-refresh 30 dtk) ──
+// Dua panel terpisah dengan sumbu waktu sama — bukan satu chart dua-sumbu,
+// karena skala Hz (49,5–50,5) dan MW (0–2.000) tidak pernah terbaca bersamaan.
 (function () {
-  const el = document.getElementById('monitorChart');
-  if (!el) return;
-  let chart = null;
+  const elF = document.getElementById('monFreqChart');
+  const elM = document.getElementById('monMwChart');
+  if (!elF || !elM) return;
+  const AXIS = '#64748b', GRID = 'rgba(148,163,184,.08)';
+  let cF = null, cM = null;
+
+  function opts(color, unit, showX, extraY) {
+    return {
+      responsive: true, maintainAspectRatio: false, animation: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#0b1120', borderColor: '#1e2d45', borderWidth: 1,
+          titleColor: '#fff', bodyColor: '#cbd5e1', displayColors: false, padding: 8,
+          callbacks: { label: (c) => c.formattedValue + ' ' + unit },
+        },
+      },
+      scales: {
+        x: { ticks: { display: showX, color: AXIS, maxRotation: 0,
+                      maxTicksLimit: window.innerWidth < 768 ? 4 : 8, font: { size: 9 } },
+             grid: { display: false } },
+        y: Object.assign({
+             ticks: { color: color, maxTicksLimit: 4, font: { size: 9 } },
+             grid: { color: GRID },
+             afterFit: (s) => { s.width = 46; },   // samakan lebar → sumbu X sejajar
+           }, extraY || {}),
+      },
+    };
+  }
+
   function draw(m) {
     if (!m) return;
     const labels = (m.freq || []).map(x => x[0]);
     const hz = (m.freq || []).map(x => x[1]);
-    // selaraskan MW ke label frekuensi
     const mwMap = {}; (m.mw || []).forEach(x => mwMap[x[0]] = x[1]);
     const mw = labels.map(l => (l in mwMap ? mwMap[l] : null));
-    const data = {
-      labels,
-      datasets: [
-        { label: 'Frekuensi (Hz)', data: hz, borderColor: '#34d399',
-          backgroundColor: 'rgba(52,211,153,.08)', borderWidth: 2, pointRadius: 0,
-          tension: .2, yAxisID: 'y1', fill: true },
-        { label: 'Total MW', data: mw, borderColor: '#60a5fa',
-          backgroundColor: 'transparent', borderWidth: 1.8, pointRadius: 0,
-          tension: .2, yAxisID: 'y2', spanGaps: true },
-      ],
-    };
-    const opt = {
-      responsive: true, maintainAspectRatio: false, animation: false,
-      interaction: { mode: 'index', intersect: false },
-      plugins: { legend: { labels: { color: '#cbd5e1', boxWidth: 12, font: { size: 10 } } } },
-      scales: {
-        x: { ticks: { color: '#64748b', maxTicksLimit: 12, font: { size: 9 } }, grid: { display: false } },
-        y1: { position: 'left', ticks: { color: '#34d399', font: { size: 9 } },
-              title: { display: true, text: 'Hz', color: '#34d399' },
-              suggestedMin: 49.5, suggestedMax: 50.5, grid: { color: 'rgba(148,163,184,.08)' } },
-        y2: { position: 'right', ticks: { color: '#60a5fa', font: { size: 9 } },
-              title: { display: true, text: 'MW', color: '#60a5fa' },
-              beginAtZero: true, grid: { display: false } },
-      },
-    };
-    if (chart) { chart.data = data; chart.update(); }
-    else { chart = new Chart(el, { type: 'line', data, options: opt }); }
+
+    const dsF = { label: 'Frekuensi', data: hz, borderColor: '#34d399',
+      backgroundColor: 'rgba(52,211,153,.10)', borderWidth: 2, pointRadius: 0, tension: .2, fill: true };
+    const dsM = { label: 'Total MW', data: mw, borderColor: '#60a5fa',
+      backgroundColor: 'rgba(96,165,250,.10)', borderWidth: 2, pointRadius: 0, tension: .2,
+      spanGaps: true, fill: true };
+
+    if (cF) { cF.data = { labels, datasets: [dsF] }; cF.update(); }
+    else cF = new Chart(elF, { type: 'line', data: { labels, datasets: [dsF] },
+      options: opts('#34d399', 'Hz', false, { suggestedMin: 49.5, suggestedMax: 50.5 }) });
+
+    if (cM) { cM.data = { labels, datasets: [dsM] }; cM.update(); }
+    else cM = new Chart(elM, { type: 'line', data: { labels, datasets: [dsM] },
+      options: opts('#60a5fa', 'MW', true, {}) });
   }
+
   let init = null;
   try { init = JSON.parse(document.getElementById('monitor-data').textContent); } catch (e) {}
   draw(init);
@@ -235,37 +378,287 @@ table.rp { width:100%; border-collapse:collapse; font-size:12px; margin-top:6px;
 {% if chart_data %}
 <script>
 (function () {
+  const elMw = document.getElementById('responChart');
+  const elHz = document.getElementById('freqChart');
+  if (!elMw || !elHz) return;
   const d = JSON.parse(document.getElementById('respon-data').textContent);
-  const PAL = ['#2563eb','#16a34a','#db2777','#7c3aed','#ea580c','#0891b2',
-               '#ca8a04','#4f46e5','#be123c','#059669','#9333ea','#0d9488'];
-  const unitDs = d.units.map((u, i) => ({
-    label: u.nama, data: u.data,
-    borderColor: PAL[i % PAL.length], backgroundColor: 'transparent',
-    borderWidth: 1.4, pointRadius: 0, tension: 0.25, yAxisID: 'y2', spanGaps: true,
+
+  // Palet kategorikal 8 slot (teruji kontras & buta warna pada latar gelap).
+  // Urutan slot = peringkat |ΔMW| saat halaman dimuat dan TIDAK pernah diacak
+  // ulang saat garis disembunyikan, supaya warna tetap milik pembangkit itu.
+  const PAL   = ['#3987e5','#d95926','#199e70','#c98500','#d55181','#008300','#9085e9','#e66767'];
+  const OTHER = '#7c8ba1';                 // pembangkit di luar 8 besar
+  const N_TOP = PAL.length;
+  const AXIS = '#7e8ea8', GRID = 'rgba(148,163,184,.12)', INK = '#cbd5e1';
+  const DIM  = 'rgba(148,163,184,.16)';
+
+  const units = d.units.map((u, i) => ({
+    nama: u.nama,
+    color: i < N_TOP ? PAL[i] : OTHER,
+    abs: u.data,
+    // ΔMW = MW - baseline pra-event; inilah besaran respons yang dinilai,
+    // dan hanya dalam bentuk ini semua pembangkit muat pada satu skala.
+    delta: u.data.map(v => (v == null || u.baseline == null)
+      ? null : Math.round((v - u.baseline) * 100) / 100),
   }));
-  const freqDs = {
-    label: 'Frekuensi (Hz)', data: d.freq,
-    borderColor: '#1e3a8a', backgroundColor: 'rgba(30,58,138,.08)',
-    borderWidth: 2.6, pointRadius: 0, tension: 0.2, yAxisID: 'y1', fill: true,
+
+  const hidden = units.map((u, i) => i >= N_TOP);   // default: 8 respons terbesar
+  const markerIdx = (d.pusat_idx === null || d.pusat_idx === undefined) ? null : d.pusat_idx;
+  const SHARED = { idx: null };
+  const charts = [];
+  let mode = 'delta', fokus = null;
+
+  // ── penanda: garis puncak deviasi + crosshair yang tersinkron 2 panel ──
+  const vline = {
+    id: 'vline',
+    afterDatasetsDraw(c) {
+      const { ctx, chartArea: { top, bottom, right } } = c;
+      const line = (i, color, dash, label) => {
+        if (i == null) return;
+        const x = c.scales.x.getPixelForValue(i);
+        if (!isFinite(x)) return;
+        ctx.save();
+        ctx.beginPath(); ctx.setLineDash(dash); ctx.lineWidth = 1.5; ctx.strokeStyle = color;
+        ctx.moveTo(x, top); ctx.lineTo(x, bottom); ctx.stroke();
+        if (label) {
+          ctx.setLineDash([]); ctx.fillStyle = color; ctx.font = '700 9px "DM Sans", sans-serif';
+          const kanan = x > right - 52;
+          ctx.textAlign = kanan ? 'right' : 'left';
+          ctx.fillText(label, kanan ? x - 4 : x + 4, top + 9);
+        }
+        ctx.restore();
+      };
+      line(markerIdx, '#f59e0b', [5, 4], c.canvas.id === 'freqChart' ? 'puncak' : null);
+      line(SHARED.idx, 'rgba(226,232,240,.5)', [], null);
+    },
   };
-  new Chart(document.getElementById('responChart'), {
+
+  // garis nominal 50 Hz
+  const nominal = {
+    id: 'nominal',
+    beforeDatasetsDraw(c) {
+      const y = c.scales.y.getPixelForValue(d.nominal);
+      if (!isFinite(y)) return;
+      const { ctx, chartArea: { left, right } } = c;
+      ctx.save();
+      ctx.beginPath(); ctx.setLineDash([4, 4]); ctx.lineWidth = 1;
+      ctx.strokeStyle = 'rgba(226,232,240,.35)';
+      ctx.moveTo(left, y); ctx.lineTo(right, y); ctx.stroke();
+      ctx.restore();
+    },
+  };
+
+  function onHover(e, els, chart) {
+    const i = els.length ? els[0].index : null;
+    if (i === SHARED.idx) return;
+    SHARED.idx = i;
+    charts.forEach(c => { if (c !== chart) c.render(); });
+  }
+
+  const tip = {
+    backgroundColor: '#0b1120', borderColor: '#1e2d45', borderWidth: 1, padding: 9,
+    titleColor: '#fff', bodyColor: '#cbd5e1', bodySpacing: 3,
+  };
+
+  // ── Panel 1: frekuensi sistem ──
+  const chartHz = new Chart(elHz, {
     type: 'line',
-    data: { labels: d.labels, datasets: [freqDs, ...unitDs] },
+    data: { labels: d.labels, datasets: [{
+      label: 'Frekuensi', data: d.freq, borderColor: '#34d399',
+      backgroundColor: 'rgba(52,211,153,.10)', borderWidth: 2.2, pointRadius: 0,
+      pointHoverRadius: 4, tension: .2, fill: true }] },
     options: {
-      responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+      responsive: true, maintainAspectRatio: false, animation: false, onHover,
+      interaction: { mode: 'index', intersect: false },
       plugins: {
-        legend: { labels: { boxWidth: 12, font: { size: 10 } } },
-        tooltip: { callbacks: { title: (i) => 'Waktu ' + i[0].label } },
+        legend: { display: false },
+        tooltip: Object.assign({ displayColors: false,
+          callbacks: { title: (i) => 'Pukul ' + i[0].label,
+                       label: (c) => c.formattedValue + ' Hz' } }, tip),
       },
       scales: {
-        x: { ticks: { maxTicksLimit: 12, font: { size: 9 } }, grid: { display: false } },
-        y1: { position: 'left', title: { display: true, text: 'Hz' },
-              suggestedMin: 49.5, suggestedMax: 50.5,
-              grid: { color: 'rgba(0,0,0,.05)' } },
-        y2: { position: 'right', title: { display: true, text: 'MW' },
-              beginAtZero: true, grid: { display: false } },
+        x: { ticks: { display: false }, grid: { display: false } },
+        y: { ticks: { color: INK, maxTicksLimit: 5, font: { size: 10 } }, grace: '25%',
+             grid: { color: GRID }, afterFit: (s) => { s.width = 56; } },
       },
     },
+    plugins: [nominal, vline],
+  });
+  charts.push(chartHz);
+
+  // ── Panel 2: ΔMW / MW per pembangkit ──
+  const chartMw = new Chart(elMw, {
+    type: 'line',
+    data: { labels: d.labels, datasets: units.map((u, i) => ({
+      label: u.nama, data: u.delta, borderColor: u.color, backgroundColor: 'transparent',
+      borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, tension: .25,
+      spanGaps: true, hidden: hidden[i] })) },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: false, onHover,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },   // legenda dipindah ke HTML (bisa digulir)
+        tooltip: Object.assign({
+          itemSort: (a, b) => Math.abs(b.raw) - Math.abs(a.raw),
+          // batasi 10 baris teratas — 40 baris tooltip menutupi seluruh chart
+          filter: (item, idx, arr) => arr.slice()
+            .sort((a, b) => Math.abs(b.raw) - Math.abs(a.raw)).slice(0, 10).indexOf(item) !== -1,
+          callbacks: {
+            title: (i) => 'Pukul ' + i[0].label,
+            label: (c) => c.dataset.label + '  ' +
+              (mode === 'delta' && c.raw > 0 ? '+' : '') + c.formattedValue + ' MW',
+          },
+        }, tip),
+      },
+      scales: {
+        x: { ticks: { color: AXIS, maxRotation: 0, font: { size: 10 },
+                      maxTicksLimit: window.innerWidth < 768 ? 4 : 10 },
+             grid: { display: false } },
+        y: {
+          ticks: { color: INK, font: { size: 10 },
+                   callback: (v) => (mode === 'delta' && v > 0 ? '+' : '') + v },
+          grid: { color: (c) => (mode === 'delta' && c.tick.value === 0)
+                    ? 'rgba(226,232,240,.4)' : GRID },
+          afterFit: (s) => { s.width = 56; },
+        },
+      },
+    },
+    plugins: [vline],
+  });
+  charts.push(chartMw);
+
+  [elHz, elMw].forEach(cv => cv.addEventListener('mouseleave', () => {
+    if (SHARED.idx === null) return;
+    SHARED.idx = null; charts.forEach(c => c.render());
+  }));
+
+  // ── Legenda HTML + tautan ke baris tabel ──
+  const box  = document.getElementById('responLegend');
+  const rows = Array.from(document.querySelectorAll('#tblRespon tbody tr[data-i]'));
+  const rowByIdx = {};
+  rows.forEach(r => { if (r.dataset.i !== '') rowByIdx[+r.dataset.i] = r; });
+
+  const chips = units.map((u, i) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'lg' + (hidden[i] ? ' off' : '');
+    b.innerHTML = '<span class="dot" style="background:' + u.color + '"></span>';
+    b.appendChild(document.createTextNode(u.nama));
+    b.addEventListener('click', () => toggle(i));
+    b.addEventListener('mouseenter', () => setFokus(hidden[i] ? null : i));
+    b.addEventListener('mouseleave', () => setFokus(null));
+    box.appendChild(b);
+    return b;
+  });
+
+  rows.forEach(r => {
+    const i = r.dataset.i === '' ? null : +r.dataset.i;
+    const dot = r.querySelector('.dot');
+    if (i === null) { r.classList.add('nochart'); return; }
+    if (dot) dot.style.background = units[i].color;
+    r.classList.toggle('off', hidden[i]);
+    r.addEventListener('click', () => toggle(i));
+    r.addEventListener('mouseenter', () => setFokus(hidden[i] ? null : i));
+    r.addEventListener('mouseleave', () => setFokus(null));
+  });
+
+  function sync(i) {
+    chips[i].classList.toggle('off', hidden[i]);
+    const r = rowByIdx[i]; if (r) r.classList.toggle('off', hidden[i]);
+  }
+  function toggle(i) {
+    hidden[i] = !hidden[i];
+    chartMw.setDatasetVisibility(i, !hidden[i]);
+    sync(i); chartMw.update();
+  }
+  function semua(fn) {
+    units.forEach((u, i) => { hidden[i] = fn(i); chartMw.setDatasetVisibility(i, !hidden[i]); sync(i); });
+    chartMw.update();
+  }
+  document.getElementById('legAll').onclick  = () => semua(() => false);
+  document.getElementById('legNone').onclick = () => semua(() => true);
+  document.getElementById('legTop').onclick  = () => semua(i => i >= N_TOP);
+
+  // sorot satu pembangkit (penting untuk garis abu-abu di luar 8 besar)
+  function setFokus(i) {
+    if (fokus === i) return;
+    fokus = i;
+    chartMw.data.datasets.forEach((ds, j) => {
+      ds.borderColor = (i === null || j === i) ? units[j].color : DIM;
+      ds.borderWidth = (i !== null && j === i) ? 3 : 2;
+    });
+    chartMw.update('none');
+  }
+
+  // ── Mode Δ MW ↔ MW absolut ──
+  const segD = document.getElementById('segDelta'), segA = document.getElementById('segAbs');
+  const cap  = document.getElementById('mwCap');
+  function setMode(m) {
+    mode = m;
+    chartMw.data.datasets.forEach((ds, i) => { ds.data = m === 'delta' ? units[i].delta : units[i].abs; });
+    segD.classList.toggle('on', m === 'delta');
+    segA.classList.toggle('on', m !== 'delta');
+    cap.innerHTML = m === 'delta'
+      ? 'ΔMW tiap pembangkit terhadap baseline'
+      : 'MW absolut tiap pembangkit';
+    chartMw.update();
+  }
+  segD.onclick = () => setMode('delta');
+  segA.onclick = () => setMode('abs');
+
+  // ── Bar besaran ΔMW pada tabel (skala relatif terhadap Δ terbesar) ──
+  const maxAbs = rows.reduce((m, r) => {
+    const v = Math.abs(parseFloat(r.dataset.delta)); return isNaN(v) ? m : Math.max(m, v); }, 0);
+  rows.forEach(r => {
+    const bar = r.querySelector('.dbar'); if (!bar) return;
+    const v = parseFloat(r.dataset.delta);
+    if (isNaN(v) || !maxAbs || v === 0) { bar.style.display = 'none'; return; }
+    bar.style.width = Math.max(2, Math.abs(v) / maxAbs * 50) + '%';
+    if (v > 0) { bar.style.left = '50%'; } else { bar.style.right = '50%'; }
+    bar.style.background = r.dataset.respons === '1' ? '#34d399'
+                         : r.dataset.respons === '0' ? '#f87171' : '#64748b';
+  });
+
+  // ── Cari / filter / urutkan tabel ──
+  const tb    = document.querySelector('#tblRespon tbody');
+  const cari  = document.getElementById('tblCari');
+  const filt  = document.getElementById('tblFilter');
+  const info  = document.getElementById('tblInfo');
+  function terapkan() {
+    const q = (cari.value || '').trim().toLowerCase();
+    const f = filt.value;
+    let n = 0;
+    rows.forEach(r => {
+      const ok = (!q || r.dataset.nama.indexOf(q) !== -1) && (!f || r.dataset.respons === f);
+      r.style.display = ok ? '' : 'none';
+      if (ok) n++;
+    });
+    info.textContent = 'Menampilkan ' + n + ' dari ' + rows.length + ' pembangkit';
+  }
+  cari.addEventListener('input', terapkan);
+  filt.addEventListener('change', terapkan);
+  terapkan();
+
+  function nilai(r, k) {
+    if (k === 'nama') return r.dataset.nama;
+    if (k === 'respons') return r.dataset.respons === '1' ? 2 : (r.dataset.respons === '0' ? 1 : 0);
+    let v = parseFloat(r.dataset[k]);
+    if (isNaN(v)) return -Infinity;
+    return k === 'delta' ? Math.abs(v) : v;   // ΔMW diurut berdasar besaran
+  }
+  let sortKey = 'delta', sortDir = -1;
+  document.querySelectorAll('#tblRespon th[data-sort]').forEach(th => {
+    th.addEventListener('click', () => {
+      const k = th.dataset.sort;
+      sortDir = (k === sortKey) ? -sortDir : (k === 'nama' ? 1 : -1);
+      sortKey = k;
+      document.querySelectorAll('#tblRespon th').forEach(x => x.classList.remove('on'));
+      th.classList.add('on');
+      rows.slice().sort((a, b) => {
+        const x = nilai(a, k), y = nilai(b, k);
+        return (x < y ? -1 : x > y ? 1 : 0) * sortDir;
+      }).forEach(r => tb.appendChild(r));
+    });
   });
 })();
 </script>

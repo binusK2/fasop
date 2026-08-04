@@ -1564,13 +1564,41 @@ def respon_index(request):
 
     if analisa:
         ref_t = [t for t, _ in analisa['freq']]
+        # indeks sampel terdekat ke titik ekstrem — dipakai chart sbg penanda puncak
+        pusat_idx = None
+        if ref_t and analisa.get('t_pusat'):
+            pusat_idx = min(
+                range(len(ref_t)),
+                key=lambda i: abs((ref_t[i] - analisa['t_pusat']).total_seconds()))
+
+        # 'chart_idx' menautkan baris tabel <-> garis chart (baris tanpa data MW
+        # tidak punya garis, jadi indeksnya tidak sama dengan urutan tabel)
+        units = []
+        for p in analisa['pembangkit']:
+            if not p.get('series'):
+                p['chart_idx'] = None
+                continue
+            p['chart_idx'] = len(units)
+            units.append({
+                'nama':     p['nama'],
+                'data':     R.align_series(p['series'], ref_t),
+                'baseline': p['baseline'],
+                'delta':    p['delta_mw'],
+                'respons':  p['arah_benar'],
+            })
+
+        analisa['ringkas'] = {
+            'merespons': sum(1 for p in analisa['pembangkit'] if p['arah_benar'] is True),
+            'tidak':     sum(1 for p in analisa['pembangkit'] if p['arah_benar'] is False),
+            'nodata':    sum(1 for p in analisa['pembangkit'] if p['arah_benar'] is None),
+        }
         chart_data = {
             'labels': [t.strftime('%H:%M:%S') for t in ref_t],
             'freq':   [round(h, 3) for _, h in analisa['freq']],
             'nominal': R.NOMINAL_HZ,
-            'units':  [{'nama': p['nama'],
-                        'data': R.align_series(p['series'], ref_t)}
-                       for p in analisa['pembangkit'] if p.get('series')],
+            'arah':   analisa['arah'],
+            'pusat_idx': pusat_idx,
+            'units':  units,
         }
 
     # daftar event PER HARI — ringan (agregasi SQL per menit, bukan scan per detik)
