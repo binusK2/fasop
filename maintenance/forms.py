@@ -1,5 +1,5 @@
 from django import forms
-from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceRepeater, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset, MaintenanceRTU, MaintenanceSAS, MaintenanceRTUGeneric, MaintenanceRoIP, MaintenanceUPS, MaintenanceMasterTrip, MaintenanceDFR, MaintenanceMasterStation
+from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceRepeater, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset, MaintenanceRTU, MaintenanceSAS, MaintenanceRTUGeneric, MaintenanceBCU, MaintenanceRoIP, MaintenanceUPS, MaintenanceMasterTrip, MaintenanceDFR, MaintenanceMasterStation
 
 
 # ─── Widget helpers ───────────────────────────────────────────────────
@@ -726,6 +726,39 @@ class MaintenanceRTUGenericForm(forms.ModelForm):
             'ps_arus_input':   forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': 'A'}),
             'ps_teg_output':   forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': 'V'}),
             'ps_arus_output':  forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': 'A'}),
+        }
+
+
+# ─────────────────────────────────────────────────────────────────────
+# FORM DETAIL IED BCU (Bay Control Unit)
+# ─────────────────────────────────────────────────────────────────────
+class MaintenanceBCUForm(forms.ModelForm):
+
+    class Meta:
+        model   = MaintenanceBCU
+        exclude = ['maintenance']
+        widgets = {
+            # II. Spesifikasi
+            'spek_merk':       forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
+            'spek_type':       forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
+            'spek_cpu':        forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
+            'spek_firmware':   forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
+            'spek_config_ver': forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
+            'spek_ip':         forms.TextInput(attrs={'class': 'form-control form-control-sm', 'placeholder': '192.168.x.x'}),
+            # III. Kondisi Lingkungan
+            'suhu_ruangan':    forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': '°C'}),
+            'suhu_panel':      forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': '°C'}),
+            # IV. Performa (Select — hidden, dikendalikan toggle button di template)
+            'kondisi_cpu':       forms.Select(attrs=_SAS_SEL),
+            'indikasi_alarm':    forms.Select(attrs=_SAS_SEL),
+            'komunikasi_master': forms.Select(attrs=_SAS_SEL),
+            'tampilan_lcd':      forms.Select(attrs=_SAS_SEL),
+            'komunikasi_server': forms.Select(attrs=_SAS_SEL),
+            'time_sync':         forms.Select(attrs=_SAS_SEL),
+            'keterangan':        forms.Textarea(attrs={'class': 'form-control form-control-sm', 'rows': 3}),
+            # VI. Power Supply
+            'ps_jenis':        forms.Select(attrs=_SAS_SEL),
+            'ps_teg_input':    forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': 'any', 'placeholder': 'V'}),
         }
 
 

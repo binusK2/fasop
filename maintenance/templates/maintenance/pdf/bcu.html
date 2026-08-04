@@ -1,0 +1,90 @@
+{% extends 'maintenance/pdf/_base.html' %}
+{% block extra_css %}
+@page { margin: 8mm 10mm 14mm 10mm; }
+body  { font-size: 7pt; }
+table { font-size: 7pt; }
+td, th { padding: 1.5pt 3pt; }
+.sec  { padding: 2pt 5pt; margin-top: 1.5mm; font-size: 7pt; }
+.two-col { gap: 1.5mm; }
+.mn   { font-family:Courier,monospace; font-weight:bold; text-align:right; padding-right:3pt; }
+{% endblock %}
+
+{% block content %}
+
+{# ──────────────────────────────────────────────────────── #}
+{# II. SPESIFIKASI PERALATAN                               #}
+{# ──────────────────────────────────────────────────────── #}
+<div class="sec">II.&nbsp;&nbsp;SPESIFIKASI PERALATAN</div>
+<table>
+    <tr>
+        <td class="lbl" style="width:25%;">Merk</td><td style="width:25%;">{{ bcu.spek_merk|default:"-" }}</td>
+        <td class="lbl" style="width:25%;">Firmware Ver.</td><td style="width:25%;">{{ bcu.spek_firmware|default:"-" }}</td>
+    </tr>
+    <tr>
+        <td class="lbl">Type</td><td>{{ bcu.spek_type|default:"-" }}</td>
+        <td class="lbl">Config Ver.</td><td>{{ bcu.spek_config_ver|default:"-" }}</td>
+    </tr>
+    <tr>
+        <td class="lbl">CPU</td><td>{{ bcu.spek_cpu|default:"-" }}</td>
+        <td class="lbl">Maintenance IP</td><td>{{ bcu.spek_ip|default:"-" }}</td>
+    </tr>
+</table>
+
+{# ──────────────────────────────────────────────────────── #}
+{# III. KONDISI LINGKUNGAN                                 #}
+{# ──────────────────────────────────────────────────────── #}
+<div class="sec">III.&nbsp;&nbsp;KONDISI LINGKUNGAN</div>
+<table>
+    <tr>
+        <td class="lbl" style="width:25%;">Suhu Ruangan</td>
+        <td class="mn" style="width:25%;">{% if bcu.suhu_ruangan %}{{ bcu.suhu_ruangan }} °C{% else %}-{% endif %}</td>
+        <td class="lbl" style="width:25%;">Suhu dalam Panel</td>
+        <td class="mn" style="width:25%;">{% if bcu.suhu_panel %}{{ bcu.suhu_panel }} °C{% else %}-{% endif %}</td>
+    </tr>
+</table>
+
+{# ──────────────────────────────────────────────────────── #}
+{# IV. PERFORMA PERALATAN                                  #}
+{# ──────────────────────────────────────────────────────── #}
+<div class="sec">IV.&nbsp;&nbsp;PERFORMA PERALATAN</div>
+<table>
+    <tr>
+        <td class="lbl" style="width:25%;">Kondisi CPU</td>
+        <td class="{% if bcu.kondisi_cpu == 'Normal' %}ok{% elif bcu.kondisi_cpu %}nok{% else %}vg{% endif %}" style="width:25%;">{{ bcu.kondisi_cpu|default:"-" }}</td>
+        <td class="lbl" style="width:25%;">Indikasi Alarm / Error</td>
+        <td class="{% if bcu.indikasi_alarm == 'Tidak Ada' %}ok{% elif bcu.indikasi_alarm %}nok{% else %}vg{% endif %}" style="width:25%;">{{ bcu.indikasi_alarm|default:"-" }}</td>
+    </tr>
+    <tr>
+        <td class="lbl">Komunikasi ke Master Station</td>
+        <td class="{% if bcu.komunikasi_master == 'Normal' %}ok{% elif bcu.komunikasi_master %}nok{% else %}vg{% endif %}">{{ bcu.komunikasi_master|default:"-" }}</td>
+        <td class="lbl">Tampilan LCD</td>
+        <td class="{% if bcu.tampilan_lcd == 'Terang' %}ok{% elif bcu.tampilan_lcd %}nok{% else %}vg{% endif %}">{{ bcu.tampilan_lcd|default:"-" }}</td>
+    </tr>
+    <tr>
+        <td class="lbl">Komunikasi ke Server</td>
+        <td class="{% if bcu.komunikasi_server == 'Normal' %}ok{% elif bcu.komunikasi_server %}nok{% else %}vg{% endif %}">{{ bcu.komunikasi_server|default:"-" }}</td>
+        <td class="lbl">Keterangan</td>
+        <td>{{ bcu.keterangan|default:"-" }}</td>
+    </tr>
+    <tr>
+        <td class="lbl">Time Synchronization</td>
+        <td class="{% if bcu.time_sync == 'Normal' %}ok{% elif bcu.time_sync %}nok{% else %}vg{% endif %}">{{ bcu.time_sync|default:"-" }}</td>
+        <td class="lbl"></td><td></td>
+    </tr>
+</table>
+
+{# ──────────────────────────────────────────────────────── #}
+{# VI. POWER SUPPLY                                        #}
+{# ──────────────────────────────────────────────────────── #}
+<div class="sec">VI.&nbsp;&nbsp;POWER SUPPLY</div>
+<table>
+    <tr><th colspan="4" style="background:#166534;color:#fff;text-align:center;">110 VDC / 48 VDC Power Supply</th></tr>
+    <tr>
+        <td class="lbl" style="width:25%;">Jenis Power Supply</td>
+        <td style="width:25%;">{{ bcu.ps_jenis|default:"-" }}</td>
+        <td class="lbl" style="width:25%;">Tegangan Input</td>
+        <td class="mn" style="width:25%;">{% if bcu.ps_teg_input %}{{ bcu.ps_teg_input }} V{% else %}-{% endif %}</td>
+    </tr>
+</table>
+
+{% endblock %}

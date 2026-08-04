@@ -1,0 +1,280 @@
+{% extends 'base.html' %}
+{% block title %}{% if is_edit %}Edit{% else %}Form{% endif %} Maintenance BCU — {{ device.nama }}{% endblock %}
+{% block page_title %}{% if is_edit %}Edit{% else %}Form{% endif %} Maintenance BCU{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center gap-2 mb-3">
+    {% if is_edit %}
+    <a href="{% url 'maintenance_view' maintenance.id %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Kembali ke Detail</a>
+    {% else %}
+    <a href="{% url 'device_view' device.id %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Kembali ke Perangkat</a>
+    {% endif %}
+</div>
+
+{% include 'maintenance/_device_banner.html' with banner_icon='bi-hdd-network' banner_icon_color='#6ee7b7' banner_icon_bg='rgba(16,185,129,0.2)' %}
+
+<form method="post" enctype="multipart/form-data" id="bcu-form"
+    {% if is_edit %}action="{% url 'maintenance_edit' maintenance.id %}"{% endif %}>
+{% csrf_token %}
+
+<!-- ══ 1. INFORMASI MAINTENANCE ══ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="section-title-bar">
+            <span class="bar" style="background:#3b82f6;"></span>
+            <span>Informasi Maintenance</span>
+        </div>
+        <div class="row g-3 align-items-start">
+            <div class="col-md-2">
+                <label class="form-label fw-semibold">Jenis Maintenance</label>
+                <div style="display:flex;align-items:center;gap:6px;background:#eff6ff;color:#1d4ed8;border:1.5px solid #bfdbfe;border-radius:8px;padding:8px 12px;font-size:13px;font-weight:700;white-space:nowrap;">
+                    <i class="bi bi-shield-check" style="font-size:14px;"></i> Preventive
+                </div>
+                <input type="hidden" name="maintenance_type" value="Preventive">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-semibold">Tanggal</label>
+                {{ maintenance_form.date }}
+            </div>
+            {% include 'maintenance/_pelaksana_tag_input.html' %}
+        </div>
+        <div class="row g-3 mt-1">
+            <div class="col-md-8">
+                <label class="form-label fw-semibold">Deskripsi / Keterangan</label>
+                {{ maintenance_form.description }}
+            </div>
+            <div class="col-md-4">
+                <label class="form-label fw-semibold">Foto Dokumentasi</label>
+                {{ maintenance_form.photo }}
+                <div class="form-text">Format: JPG, PNG. Maks 10MB.</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ 2. SPESIFIKASI PERALATAN ══ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="sas-sec" style="--c:#10b981;">Spesifikasi Peralatan</div>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <div class="sas-card"><div class="sas-lbl">Merk</div>{{ detail_form.spek_merk }}</div>
+            </div>
+            <div class="col-md-4">
+                <div class="sas-card"><div class="sas-lbl">Type</div>{{ detail_form.spek_type }}</div>
+            </div>
+            <div class="col-md-4">
+                <div class="sas-card"><div class="sas-lbl">CPU</div>{{ detail_form.spek_cpu }}</div>
+            </div>
+            <div class="col-md-4">
+                <div class="sas-card"><div class="sas-lbl">Firmware Ver.</div>{{ detail_form.spek_firmware }}</div>
+            </div>
+            <div class="col-md-4">
+                <div class="sas-card"><div class="sas-lbl">Config Ver.</div>{{ detail_form.spek_config_ver }}</div>
+            </div>
+            <div class="col-md-4">
+                <div class="sas-card"><div class="sas-lbl">Maintenance IP</div>{{ detail_form.spek_ip }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ 3. KONDISI LINGKUNGAN ══ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="sas-sec" style="--c:#f59e0b;">Kondisi Lingkungan</div>
+        <div class="row g-3">
+            <div class="col-md-3 col-6">
+                <div class="sas-card">
+                    <div class="sas-lbl">Suhu Ruangan</div>
+                    <div class="input-group input-group-sm">{{ detail_form.suhu_ruangan }}<span class="input-group-text sas-unit">°C</span></div>
+                </div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="sas-card">
+                    <div class="sas-lbl">Suhu dalam Panel</div>
+                    <div class="input-group input-group-sm">{{ detail_form.suhu_panel }}<span class="input-group-text sas-unit">°C</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ 4. PERFORMA PERALATAN ══ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="sas-sec" style="--c:#06b6d4;">Performa Peralatan</div>
+
+        <div class="sas-row-item">
+            <span class="sas-row-lbl">Kondisi CPU</span>
+            <div id="field-kondisi_cpu" style="display:none;">{{ detail_form.kondisi_cpu }}</div>
+            <div class="sas-tog-wrap">
+                <button type="button" class="sas-tog ok"  data-f="kondisi_cpu" data-v="Normal">&#10003; Normal</button>
+                <button type="button" class="sas-tog nok" data-f="kondisi_cpu" data-v="Tidak Normal">&#10007; Tidak Normal</button>
+            </div>
+        </div>
+        <div class="sas-row-item">
+            <span class="sas-row-lbl">Indikasi Alarm / Error</span>
+            <div id="field-indikasi_alarm" style="display:none;">{{ detail_form.indikasi_alarm }}</div>
+            <div class="sas-tog-wrap">
+                <button type="button" class="sas-tog ok"  data-f="indikasi_alarm" data-v="Tidak Ada">&#10003; Tidak Ada</button>
+                <button type="button" class="sas-tog nok" data-f="indikasi_alarm" data-v="Ada">&#9888; Ada</button>
+            </div>
+        </div>
+        <div class="sas-row-item">
+            <span class="sas-row-lbl">Komunikasi ke Master Station</span>
+            <div id="field-komunikasi_master" style="display:none;">{{ detail_form.komunikasi_master }}</div>
+            <div class="sas-tog-wrap">
+                <button type="button" class="sas-tog ok"  data-f="komunikasi_master" data-v="Normal">&#10003; Normal</button>
+                <button type="button" class="sas-tog nok" data-f="komunikasi_master" data-v="Tidak Normal">&#9888; Tidak Normal</button>
+            </div>
+        </div>
+        <div class="sas-row-item">
+            <span class="sas-row-lbl">Tampilan LCD</span>
+            <div id="field-tampilan_lcd" style="display:none;">{{ detail_form.tampilan_lcd }}</div>
+            <div class="sas-tog-wrap">
+                <button type="button" class="sas-tog ok"  data-f="tampilan_lcd" data-v="Terang">&#10003; Terang</button>
+                <button type="button" class="sas-tog nok" data-f="tampilan_lcd" data-v="Kabur">&#10007; Kabur</button>
+            </div>
+        </div>
+        <div class="sas-row-item">
+            <span class="sas-row-lbl">Komunikasi ke Server</span>
+            <div id="field-komunikasi_server" style="display:none;">{{ detail_form.komunikasi_server }}</div>
+            <div class="sas-tog-wrap">
+                <button type="button" class="sas-tog ok"  data-f="komunikasi_server" data-v="Normal">&#10003; Normal</button>
+                <button type="button" class="sas-tog nok" data-f="komunikasi_server" data-v="Tidak Normal">&#9888; Tidak Normal</button>
+            </div>
+        </div>
+        <div class="sas-row-item" style="border-bottom:none;">
+            <span class="sas-row-lbl">Time Synchronization</span>
+            <div id="field-time_sync" style="display:none;">{{ detail_form.time_sync }}</div>
+            <div class="sas-tog-wrap">
+                <button type="button" class="sas-tog ok"  data-f="time_sync" data-v="Normal">&#10003; Normal</button>
+                <button type="button" class="sas-tog nok" data-f="time_sync" data-v="Tidak Normal">&#10007; Tidak Normal</button>
+            </div>
+        </div>
+
+        <div class="mt-3">
+            <label class="form-label fw-semibold" style="font-size:12px;">Keterangan</label>
+            {{ detail_form.keterangan }}
+        </div>
+    </div>
+</div>
+
+<!-- ══ 5. POWER SUPPLY ══ -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div class="sas-sec" style="--c:#ef4444;">Power Supply</div>
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px;">
+            <div style="font-size:11px;font-weight:700;color:#166534;background:#dcfce7;padding:2px 10px;border-radius:20px;display:inline-block;margin-bottom:12px;">110 VDC / 48 VDC</div>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label mb-1" style="font-size:11px;color:#64748b;">Jenis Power Supply</label>
+                    {{ detail_form.ps_jenis }}
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label mb-1" style="font-size:11px;color:#64748b;">Tegangan Input</label>
+                    <div class="input-group input-group-sm">{{ detail_form.ps_teg_input }}<span class="input-group-text sas-unit">V</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if maintenance_form.errors or detail_form.errors %}
+<div class="alert alert-danger mb-3"><i class="bi bi-exclamation-triangle me-2"></i><strong>Perbaiki error:</strong> {{ maintenance_form.errors }}{{ detail_form.errors }}</div>
+{% endif %}
+
+<div class="d-flex gap-2 justify-content-end pb-4">
+    {% if is_edit %}
+    <a href="{% url 'maintenance_view' maintenance.id %}" class="btn btn-outline-secondary"><i class="bi bi-x me-1"></i>Batal</a>
+    {% else %}
+    <a href="{% url 'device_view' device.id %}" class="btn btn-outline-secondary"><i class="bi bi-x me-1"></i>Batal</a>
+    {% endif %}
+    <a href="{% url 'blank_maintenance_pdf' device.id %}" target="_blank"
+        class="btn btn-outline-secondary btn-print-hide" title="Cetak formulir kosong tanpa simpan data">
+        <i class="bi bi-file-earmark-pdf me-1"></i>Cetak Formulir
+    </a>
+    <button type="submit" name="next" value="pdf" class="btn btn-outline-secondary btn-print-hide" title="Simpan lalu buka PDF">
+        <i class="bi bi-printer me-1"></i>Simpan &amp; Cetak PDF
+    </button>
+    <button type="submit" class="btn btn-primary btn-print-hide px-4" id="btn-submit">
+        <i class="bi bi-floppy me-1"></i>{% if is_edit %}Simpan Perubahan{% else %}Simpan Maintenance{% endif %}
+    </button>
+</div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<style>
+.sas-sec {
+    display:flex; align-items:center; gap:10px;
+    font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.7px;
+    color:#475569; margin-bottom:16px; padding-bottom:10px; border-bottom:1px solid #f1f5f9;
+}
+.sas-sec::before {
+    content:''; width:5px; height:20px; border-radius:3px;
+    background:var(--c,#3b82f6); flex-shrink:0;
+}
+.sas-card {
+    background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px;
+    padding:11px 14px; height:100%;
+}
+.sas-lbl {
+    font-size:11px; font-weight:700; text-transform:uppercase;
+    letter-spacing:.4px; color:#64748b; margin-bottom:7px;
+}
+.sas-unit {
+    background:#e2e8f0; border-color:#e2e8f0!important;
+    font-size:12px; font-weight:700; color:#475569;
+    min-width:36px; justify-content:center;
+}
+.sas-tog-wrap { display:flex; gap:6px; flex-wrap:wrap; }
+.sas-tog {
+    flex:1; padding:6px 4px; border-radius:7px; font-size:12px;
+    font-weight:700; border:1.5px solid transparent; cursor:pointer;
+    transition:all .12s; background:#fff; white-space:nowrap;
+}
+.sas-tog.ok   { border-color:#d1fae5; color:#9ca3af; }
+.sas-tog.nok  { border-color:#fee2e2; color:#9ca3af; }
+.sas-tog.ok.on   { background:#10b981; border-color:#10b981; color:#fff; }
+.sas-tog.nok.on  { background:#ef4444; border-color:#ef4444; color:#fff; }
+.sas-row-item {
+    display:flex; align-items:center; gap:12px;
+    padding:8px 4px; border-bottom:1px solid #f1f5f9; flex-wrap:wrap;
+}
+.sas-row-lbl {
+    min-width:220px; font-size:12px; font-weight:600; color:#475569;
+}
+</style>
+
+<script>
+/* ── Toggle Normal/Ada/LCD buttons ─────────────────────────── */
+document.addEventListener('click', e => {
+    const b = e.target.closest('.sas-tog');
+    if (!b) return;
+    const f = document.getElementById('field-' + b.dataset.f);
+    if (!f) return;
+    const s = f.querySelector('select');
+    if (s) s.value = b.dataset.v;
+    const w = f.nextElementSibling;
+    if (w) w.querySelectorAll('.sas-tog').forEach(x => x.classList.toggle('on', x.dataset.v === b.dataset.v));
+});
+
+/* ── Restore toggle state on load (edit mode) ───────────────── */
+document.addEventListener('DOMContentLoaded', () => {
+    const fields = [
+        'kondisi_cpu', 'indikasi_alarm', 'komunikasi_master',
+        'tampilan_lcd', 'komunikasi_server', 'time_sync',
+    ];
+    fields.forEach(n => {
+        const f = document.getElementById('field-' + n);
+        if (!f) return;
+        const s = f.querySelector('select');
+        if (!s || !s.value) return;
+        const w = f.nextElementSibling;
+        if (w) w.querySelectorAll('.sas-tog').forEach(b => b.classList.toggle('on', b.dataset.v === s.value));
+    });
+});
+</script>
+{% endblock %}

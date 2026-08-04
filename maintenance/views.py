@@ -3,8 +3,8 @@ from django.urls import reverse
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.clickjacking import xframe_options_exempt
 from devices.permissions import require_can_edit, require_can_delete, is_viewer_only
-from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceRepeater, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset, MaintenanceRTU, MaintenanceSAS, MaintenanceRTUGeneric, MaintenanceRoIP, MaintenanceUPS, MaintenanceFrequencyRelay, MaintenanceMasterTrip, MaintenanceDFR, MaintenanceMasterStation, BeritaAcaraRecord, BeritaAcaraEviden
-from .forms import MaintenanceForm, MaintenancePLCForm, MaintenanceRouterForm, MaintenanceRadioForm, MaintenanceRepeaterForm, MaintenanceVoIPForm, MaintenanceMuxForm, MaintenanceRectifierForm, MaintenanceTeleproteksiForm, MaintenanceGensetForm, MaintenanceRTUForm, MaintenanceSASForm, MaintenanceRTUGenericForm, MaintenanceRoIPForm, MaintenanceUPSForm, MaintenanceFrequencyRelayForm, MaintenanceMasterTripForm, MaintenanceDFRForm, MaintenanceMasterStationForm
+from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceRepeater, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset, MaintenanceRTU, MaintenanceSAS, MaintenanceRTUGeneric, MaintenanceBCU, MaintenanceRoIP, MaintenanceUPS, MaintenanceFrequencyRelay, MaintenanceMasterTrip, MaintenanceDFR, MaintenanceMasterStation, BeritaAcaraRecord, BeritaAcaraEviden
+from .forms import MaintenanceForm, MaintenancePLCForm, MaintenanceRouterForm, MaintenanceRadioForm, MaintenanceRepeaterForm, MaintenanceVoIPForm, MaintenanceMuxForm, MaintenanceRectifierForm, MaintenanceTeleproteksiForm, MaintenanceGensetForm, MaintenanceRTUForm, MaintenanceSASForm, MaintenanceRTUGenericForm, MaintenanceBCUForm, MaintenanceRoIPForm, MaintenanceUPSForm, MaintenanceFrequencyRelayForm, MaintenanceMasterTripForm, MaintenanceDFRForm, MaintenanceMasterStationForm
 from devices.models import Device, DeviceType
 from gangguan.models import Gangguan
 from inspection.models import InspectionCatuDaya
@@ -42,6 +42,8 @@ DEVICE_FORM_MAP = {
     'TELEPROTEKSI':        (MaintenanceTeleproteksiForm, 'maintenance/teleproteksi_form.html'),
     'GENSET':              (MaintenanceGensetForm,       'maintenance/genset_form.html'),
     'RTU':                 (MaintenanceRTUForm,          'maintenance/rtu_form.html'),
+    'IED BCU':             (MaintenanceBCUForm,          'maintenance/bcu_form.html'),
+    'BCU':                 (MaintenanceBCUForm,          'maintenance/bcu_form.html'),
     'SAS':                 (MaintenanceSASForm,          'maintenance/sas_form.html'),
     'SERVER SCADA':        (MaintenanceSASForm,          'maintenance/sas_form.html'),
     'GATEWAY SAS':         (MaintenanceSASForm,          'maintenance/sas_form.html'),
@@ -321,6 +323,7 @@ def maintenance_detail(request, pk):
     roip_detail         = None
     ups_detail          = None
     freq_relay_detail   = None
+    bcu_detail          = None
 
     if device_type == 'PLC':
         try:
@@ -387,6 +390,12 @@ def maintenance_detail(request, pk):
                 sas_detail = maintenance.maintenancertugeneric
             except MaintenanceRTUGeneric.DoesNotExist:
                 pass
+
+    elif device_type in ('IED BCU', 'BCU'):
+        try:
+            bcu_detail = maintenance.maintenancebcu
+        except MaintenanceBCU.DoesNotExist:
+            pass
 
     elif device_type in ('SAS', 'SERVER SCADA', 'GATEWAY SAS'):
         try:
@@ -624,6 +633,16 @@ def maintenance_detail(request, pk):
         'genset_detail': genset_detail,
         'rtu_detail':    rtu_detail,
         'sas_detail':    sas_detail,
+        'bcu_detail':    bcu_detail,
+        # (label, val, ok_val, nok_val) — badge performa BCU
+        'bcu_perf_rows': [
+            ('Kondisi CPU',                 bcu_detail.kondisi_cpu,       'Normal',    'Tidak Normal'),
+            ('Indikasi Alarm / Error',      bcu_detail.indikasi_alarm,    'Tidak Ada', 'Ada'),
+            ('Komunikasi ke Master Station',bcu_detail.komunikasi_master, 'Normal',    'Tidak Normal'),
+            ('Tampilan LCD',                bcu_detail.tampilan_lcd,      'Terang',    'Kabur'),
+            ('Komunikasi ke Server',        bcu_detail.komunikasi_server, 'Normal',    'Tidak Normal'),
+            ('Time Synchronization',        bcu_detail.time_sync,         'Normal',    'Tidak Normal'),
+        ] if bcu_detail else [],
         'ms_detail':     ms_detail,
         # (label, val, ok_val, nok_val)
         'sas_kondisi_rows': [
@@ -823,6 +842,8 @@ def maintenance_edit(request, pk):
                 detail_instance = maintenance.maintenancesas
             elif detail_form_class.__name__ == 'MaintenanceRTUGenericForm':
                 detail_instance = maintenance.maintenancertugeneric
+            elif detail_form_class.__name__ == 'MaintenanceBCUForm':
+                detail_instance = maintenance.maintenancebcu
             elif detail_form_class.__name__ == 'MaintenanceRoIPForm':
                 detail_instance = maintenance.maintenanceroip
             elif detail_form_class.__name__ == 'MaintenanceUPSForm':
@@ -1670,7 +1691,7 @@ def blank_maintenance_pdf(request, device_id):
         'fisik': {}, 'pengukuran': {}, 'port': {}, 'sfp_ports': [],
         'catatan_tambahan': '',
         'plc': {}, 'radio': {}, 'repeater': {}, 'voip': {}, 'mux': {}, 'rectifier': {},
-        'tp': {}, 'genset': {}, 'rtu': {}, 'sas': {}, 'roip': {}, 'ups': {},
+        'tp': {}, 'genset': {}, 'rtu': {}, 'sas': {}, 'bcu': {}, 'roip': {}, 'ups': {},
         'freq_relay': {}, 'corrective': {},
     }
 
@@ -1702,7 +1723,7 @@ def export_maintenance_pdf(request, pk):
 
     # ── Ambil detail sesuai jenis ──────────────────────────────────
     router_detail = plc_detail = radio_detail = repeater_detail = None
-    voip_detail = mux_detail = rect_detail = tp_detail = genset_detail = rtu_detail = sas_detail = roip_detail = ups_detail = freq_relay_detail = None
+    voip_detail = mux_detail = rect_detail = tp_detail = genset_detail = rtu_detail = sas_detail = roip_detail = ups_detail = freq_relay_detail = bcu_detail = None
 
     def _try(fn):
         try: return fn()
@@ -1732,6 +1753,8 @@ def export_maintenance_pdf(request, pk):
         else:
             sas_detail = _try(lambda: maintenance.maintenancertugeneric)
             device_kind = 'RTU_GENERIC'
+    elif device_kind in ('IED BCU', 'BCU'):
+        bcu_detail = _try(lambda: maintenance.maintenancebcu)
     elif device_kind in ('SAS', 'SERVER SCADA', 'GATEWAY SAS'):
         sas_detail = _try(lambda: maintenance.maintenancesas)
     elif device_kind in ('ROIP',):
@@ -2138,6 +2161,26 @@ def export_maintenance_pdf(request, pk):
             'ps_teg_output':   _g(sas_detail, 'ps_teg_output'),
             'ps_arus_output':  _g(sas_detail, 'ps_arus_output'),
         } if sas_detail else {},
+
+        'bcu': {
+            'spek_merk':         _g(bcu_detail, 'spek_merk', ''),
+            'spek_type':         _g(bcu_detail, 'spek_type', ''),
+            'spek_cpu':          _g(bcu_detail, 'spek_cpu', ''),
+            'spek_firmware':     _g(bcu_detail, 'spek_firmware', ''),
+            'spek_config_ver':   _g(bcu_detail, 'spek_config_ver', ''),
+            'spek_ip':           _g(bcu_detail, 'spek_ip', ''),
+            'suhu_ruangan':      _g(bcu_detail, 'suhu_ruangan'),
+            'suhu_panel':        _g(bcu_detail, 'suhu_panel'),
+            'kondisi_cpu':       _g(bcu_detail, 'kondisi_cpu', ''),
+            'indikasi_alarm':    _g(bcu_detail, 'indikasi_alarm', ''),
+            'komunikasi_master': _g(bcu_detail, 'komunikasi_master', ''),
+            'tampilan_lcd':      _g(bcu_detail, 'tampilan_lcd', ''),
+            'komunikasi_server': _g(bcu_detail, 'komunikasi_server', ''),
+            'time_sync':         _g(bcu_detail, 'time_sync', ''),
+            'keterangan':        _g(bcu_detail, 'keterangan', ''),
+            'ps_jenis':          _g(bcu_detail, 'ps_jenis', ''),
+            'ps_teg_input':      _g(bcu_detail, 'ps_teg_input'),
+        } if bcu_detail else {},
 
         'ms': {
             'spek_merk':         _g(ms_detail, 'spek_merk', ''),
