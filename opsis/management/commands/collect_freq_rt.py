@@ -52,9 +52,10 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR('MSSQL tidak terjangkau — dilewati.'))
             return
 
-        def _simpan(hz):
-            """Simpan 1 nilai (waktu floor detik). Return True bila baris baru."""
-            waktu = timezone.now().replace(microsecond=0)
+        def _simpan(hz, stamp=None):
+            """Simpan 1 nilai. `stamp` = detik target (diambil sebelum baca agar
+            tidak meleset saat query lambat). Return (baru?, waktu)."""
+            waktu = stamp or timezone.now().replace(microsecond=0)
             _, created = SnapFreqRT.objects.get_or_create(waktu=waktu, defaults={'hz': hz})
             return created, waktu
 
@@ -62,20 +63,25 @@ class Command(BaseCommand):
             batas = timezone.now() - datetime.timedelta(days=RETENSI_HARI)
             return SnapFreqRT.objects.filter(waktu__lt=batas).delete()[0]
 
-        # ── Mode LOOP: sampling rapat (mis. tiap 2 dtk) selama --durasi ──
+        # ── Mode LOOP: sampling terkunci ke batas detik selama --durasi ──
+        # Tidur DIHITUNG ke kelipatan interval berikutnya (bukan sleep tetap),
+        # sehingga waktu baca/tulis tidak menggeser jadwal -> tiap detik kena.
         if opts['loop']:
             import time
-            t_akhir = time.monotonic() + opts['durasi']
+            interval = max(0.2, opts['interval'])
+            mono_end = time.monotonic() + opts['durasi']
             n = 0
-            while time.monotonic() < t_akhir:
-                hz = mssql.get_current_hz()   # persistent connection (efisien saat loop)
+            while time.monotonic() < mono_end:
+                # tidur sampai batas 'interval' detik berikutnya (anchor wall-clock)
+                time.sleep(max(0.0, interval - (time.time() % interval)))
+                stamp = timezone.now().replace(microsecond=0)   # detik target
+                hz = mssql.get_current_hz()   # persistent connection (efisien)
                 if hz is not None:
                     if opts['dry_run']:
-                        self.stdout.write(f'[dry] {timezone.now():%H:%M:%S} = {hz} Hz')
+                        self.stdout.write(f'[dry] {stamp:%H:%M:%S} = {hz} Hz')
                     else:
-                        created, _ = _simpan(hz)
+                        created, _ = _simpan(hz, stamp)
                         n += int(created)
-                time.sleep(max(0.2, opts['interval']))
             if not opts['dry_run']:
                 hapus = _purge()
                 self.stdout.write(self.style.SUCCESS(
