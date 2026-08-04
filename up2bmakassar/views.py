@@ -9,112 +9,247 @@ from . import ofdb
 from .models import KinerjaAnalogHarian, KinerjaDigitalHarian, RemoteControl
 
 
-def _parse_tanggal(request, default_days_back=1):
-    raw = request.GET.get('tanggal')
+def _parse_date(request, name, default):
+    raw = request.GET.get(name)
     if raw:
         try:
             return datetime.strptime(raw, '%Y-%m-%d').date()
         except ValueError:
             pass
-    return timezone.localdate() - timedelta(days=default_days_back)
+    return default
 
 
-def _perf(row):
-    """Ambil field 'performance' baik dari model instance (harian) maupun dict hasil .values() (bulanan)."""
-    return row['performance'] if isinstance(row, dict) else row.performance
+def _rentang(request):
+    """
+    Rentang tanggal halaman kinerja. Default: awal bulan berjalan s/d kemarin
+    (hari berjalan belum lengkap datanya, sync jalan H+1).
+    """
+    kemarin = timezone.localdate() - timedelta(days=1)
+    dari = _parse_date(request, 'tanggal_dari', kemarin.replace(day=1))
+    sampai = _parse_date(request, 'tanggal_sampai', kemarin)
+    if sampai < dari:
+        sampai = dari
+    return dari, sampai
 
 
-def _ringkasan(rows):
-    """Rata-rata performance & jumlah titik dari list/queryset kinerja (harian atau bulanan)."""
-    rows = list(rows)
-    total = len(rows)
-    if total == 0:
-        return {'jumlah_titik': 0, 'rata_rata': 0, 'terbaik': None, 'terburuk': None}
-    rata_rata = sum(_perf(r) for r in rows) / total
-    terbaik = max(rows, key=_perf)
-    terburuk = min(rows, key=_perf)
-    return {'jumlah_titik': total, 'rata_rata': rata_rata, 'terbaik': terbaik, 'terburuk': terburuk}
+def durasi(detik):
+    """Format detik -> 'dd:hh:mm:ss', sama seperti kolom durasi di app up2bmakassar."""
+    try:
+        d = timedelta(seconds=float(detik or 0))
+    except (TypeError, ValueError):
+        return '00:00:00:00'
+    return f'{d.days:02d}:{d.seconds // 3600:02d}:{(d.seconds // 60) % 60:02d}:{d.seconds % 60:02d}'
 
 
-def _parse_bulan(request):
-    """Parse ?bulan=YYYY-MM. Default: bulan berjalan."""
-    raw = request.GET.get('bulan')
-    if raw:
-        try:
-            y, m = raw.split('-')
-            return int(y), int(m)
-        except (ValueError, TypeError):
-            pass
-    today = timezone.localdate()
-    return today.year, today.month
+def _avail(uptime, alltime):
+    """Availability = total uptime / total normal time * 100 (bukan rata-rata persen harian)."""
+    return round(uptime / alltime * 100, 2) if alltime else 0
+
+
+def _lengkapi(row):
+    """Tambahkan downtime + kolom durasi terformat + availability ke satu baris agregat."""
+    uptime = float(row.get('uptime') or 0)
+    alltime = float(row.get('alltime') or 0)
+    if 'path1' in row:
+        row['b1'] = row.get('b1') or row['path1']
+    row['uptime'] = uptime
+    row['alltime'] = alltime
+    row['downtime'] = max(alltime - uptime, 0)
+    row['durasi_uptime'] = durasi(uptime)
+    row['durasi_downtime'] = durasi(row['downtime'])
+    row['durasi_normal'] = durasi(alltime)
+    row['avail'] = _avail(uptime, alltime)
+    return row
+
+
+def _ringkasan(rows, jumlah_titik):
+    total_uptime = sum(r['uptime'] for r in rows)
+    total_alltime = sum(r['alltime'] for r in rows)
+    return {
+        'jumlah_titik': jumlah_titik,
+        'jumlah_station': len(rows),
+        'avail': _avail(total_uptime, total_alltime),
+        'durasi_uptime': durasi(total_uptime),
+        'durasi_downtime': durasi(max(total_alltime - total_uptime, 0)),
+        'durasi_normal': durasi(total_alltime),
+    }
 
 
 @login_required
 def dashboard(request):
+    from django.db.models import Count, Sum
+
     tanggal = timezone.localdate() - timedelta(days=1)
-    ringkasan_analog = _ringkasan(KinerjaAnalogHarian.objects.filter(tanggal=tanggal))
-    ringkasan_digital = _ringkasan(KinerjaDigitalHarian.objects.filter(tanggal=tanggal))
+
+    def _rekap(model, jenis):
+        qs = model.objects.filter(tanggal=tanggal, jenis=jenis)
+        agg = qs.aggregate(
+            titik=Count('point_number', distinct=True),
+            uptime=Sum('uptime_detik'),
+            alltime=Sum('alltime_detik'),
+        )
+        station = [
+            _lengkapi(r) for r in qs.values('path1', 'b1').annotate(
+                uptime=Sum('uptime_detik'), alltime=Sum('alltime_detik')
+            )
+        ]
+        station.sort(key=lambda r: r['avail'])
+        return {
+            'jumlah_titik': agg['titik'] or 0,
+            'avail': _avail(float(agg['uptime'] or 0), float(agg['alltime'] or 0)),
+            'terbaik': station[-1] if station else None,
+            'terburuk': station[0] if station else None,
+        }
+
     return render(request, 'up2bmakassar/dashboard.html', {
         'tanggal': tanggal,
-        'ringkasan_analog': ringkasan_analog,
-        'ringkasan_digital': ringkasan_digital,
+        'ringkasan_analog': _rekap(KinerjaAnalogHarian, ofdb.JENIS_TELEMETERING),
+        'ringkasan_digital': _rekap(KinerjaDigitalHarian, ofdb.JENIS_TELESIGNAL),
     })
 
 
-def _kinerja_list(request, model, template):
-    from django.db.models import Q, Sum
+# ── Halaman kinerja Telemetering / Telesignal ────────────────────────────────────
+#
+# Bentuk tampilannya mengikuti app up2bmakassar: tabel REKAP per station (B1) —
+# Station | Point | Normal Time | Uptime | Downtime | Avail (%) — dan kalau satu
+# station dipilih, tabel DETAIL per titik (Point Number | B1 | B2 | B3 | Element |
+# Up | Uptime | Downtime | Avail). Availability dihitung dari SUM(uptime)/SUM(alltime),
+# sama seperti serializer rekap di up2bmakassar, bukan rata-rata kolom performance.
 
-    periode = request.GET.get('periode', 'harian')
+REKAP_HEADERS = ['Station', 'Jumlah Point', 'Normal Time (dd:hh:mm:ss)',
+                 'Uptime (dd:hh:mm:ss)', 'Downtime (dd:hh:mm:ss)', 'Avail (%)']
+REKAP_FIELDS = ['b1', 'poin', 'durasi_normal', 'durasi_uptime', 'durasi_downtime', 'avail']
+
+DETAIL_HEADERS = ['Point Number', 'B1', 'B2', 'B3', 'Element', 'Up',
+                  'Normal Time (dd:hh:mm:ss)', 'Uptime (dd:hh:mm:ss)',
+                  'Downtime (dd:hh:mm:ss)', 'Avail (%)']
+DETAIL_FIELDS = ['point_number', 'b1', 'b2', 'b3', 'elem', 'up',
+                 'durasi_normal', 'durasi_uptime', 'durasi_downtime', 'avail']
+
+
+def _kinerja_ctx(request, model, jenis):
+    from django.db.models import Count, Q, Sum
+
+    dari, sampai = _rentang(request)
     q = request.GET.get('q', '').strip()
+    station = request.GET.get('station', '').strip()
 
-    ctx = {'periode': periode, 'q': q}
-
-    if periode == 'bulanan':
-        tahun, bulan = _parse_bulan(request)
-        qs = model.objects.filter(tanggal__year=tahun, tanggal__month=bulan)
-        if q:
-            qs = qs.filter(
-                Q(path1__icontains=q) | Q(path2__icontains=q) | Q(path3__icontains=q)
-                | Q(point_number__icontains=q)
-            )
-        rows = list(
-            qs.values('point_number', 'path1', 'path2', 'path3')
-            .annotate(
-                jumlah_up=Sum('jumlah_up'),
-                uptime_detik=Sum('uptime_detik'),
-                alltime_detik=Sum('alltime_detik'),
-            )
-            .order_by('path1', 'path2', 'path3')
+    qs = model.objects.filter(jenis=jenis, tanggal__gte=dari, tanggal__lte=sampai)
+    if q:
+        qs = qs.filter(
+            Q(b1__icontains=q) | Q(b2__icontains=q) | Q(b3__icontains=q) | Q(elem__icontains=q)
+            | Q(path1__icontains=q) | Q(path2__icontains=q) | Q(path3__icontains=q)
         )
-        for r in rows:
-            r['performance'] = round(r['uptime_detik'] / r['alltime_detik'] * 100, 2) if r['alltime_detik'] else 0
-        ctx['bulan'] = f'{tahun:04d}-{bulan:02d}'
-        ctx['bulan_label'] = datetime(tahun, bulan, 1).strftime('%B %Y')
-    else:
-        tanggal = _parse_tanggal(request)
-        qs = model.objects.filter(tanggal=tanggal).order_by('path1', 'path2', 'path3')
-        if q:
-            qs = qs.filter(
-                Q(path1__icontains=q) | Q(path2__icontains=q) | Q(path3__icontains=q)
-                | Q(point_number__icontains=q)
-            )
-        rows = qs
-        ctx['tanggal'] = tanggal
 
-    ctx['rows'] = rows
-    ctx['ringkasan'] = _ringkasan(rows)
+    rekap = [
+        _lengkapi(r) for r in qs.values('path1', 'b1').annotate(
+            poin=Count('point_number', distinct=True),
+            uptime=Sum('uptime_detik'),
+            alltime=Sum('alltime_detik'),
+        ).order_by('b1', 'path1')
+    ]
 
+    jumlah_titik = qs.values('point_number').distinct().count()
+
+    detail = []
+    if station:
+        detail = [
+            _lengkapi(r) for r in qs.filter(path1=station).values(
+                'point_number', 'b1', 'b2', 'b3', 'elem'
+            ).annotate(
+                up=Sum('jumlah_up'),
+                uptime=Sum('uptime_detik'),
+                alltime=Sum('alltime_detik'),
+            ).order_by('b2', 'b3', 'elem', 'point_number')
+        ]
+
+    return {
+        'jenis': jenis,
+        'jenis_pilihan': ofdb.JENIS_DIGITAL,
+        'tanggal_dari': dari, 'tanggal_sampai': sampai,
+        'q': q, 'station': station,
+        'station_label': detail[0]['b1'] if detail else station,
+        'rekap': rekap, 'detail': detail,
+        'ringkasan': _ringkasan(rekap, jumlah_titik),
+        'rekap_headers': REKAP_HEADERS, 'detail_headers': DETAIL_HEADERS,
+    }
+
+
+def _kinerja_export(ctx, jenis):
+    """Export xlsx: sheet Rekap per station + sheet Detail (kalau ada station dipilih)."""
+    import openpyxl
+    from openpyxl.styles import Alignment, Font, PatternFill
+
+    wb = openpyxl.Workbook()
+    header_fill = PatternFill('solid', fgColor='1D4ED8')
+    header_font = Font(bold=True, color='FFFFFF')
+
+    def _sheet(ws, headers, fields, rows):
+        for col, h in enumerate(headers, start=1):
+            c = ws.cell(row=1, column=col, value=h)
+            c.fill = header_fill
+            c.font = header_font
+            c.alignment = Alignment(horizontal='center')
+        for r_idx, row in enumerate(rows, start=2):
+            for c_idx, f in enumerate(fields, start=1):
+                ws.cell(row=r_idx, column=c_idx, value=row.get(f))
+        for col in range(1, len(headers) + 1):
+            ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = 22
+
+    ws = wb.active
+    ws.title = 'Rekap'
+    _sheet(ws, REKAP_HEADERS, REKAP_FIELDS, ctx['rekap'])
+
+    if ctx['detail']:
+        _sheet(wb.create_sheet('Detail'), DETAIL_HEADERS, DETAIL_FIELDS, ctx['detail'])
+
+    fname = f"kinerja_{jenis.lower()}_{ctx['tanggal_dari']}_sd_{ctx['tanggal_sampai']}.xlsx"
+    resp = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    resp['Content-Disposition'] = f'attachment; filename="{fname}"'
+    wb.save(resp)
+    return resp
+
+
+def _kinerja_page(request, model, jenis, template, **extra):
+    ctx = _kinerja_ctx(request, model, jenis)
+    if request.GET.get('export') == '1':
+        return _kinerja_export(ctx, jenis)
+    ctx.update(extra)
     return render(request, template, ctx)
 
 
 @login_required
 def kinerja_analog(request):
-    return _kinerja_list(request, KinerjaAnalogHarian, 'up2bmakassar/kinerja_analog.html')
+    """Telemetering — titik ANALOG dengan induk point type TELEMETERING."""
+    return _kinerja_page(
+        request, KinerjaAnalogHarian, ofdb.JENIS_TELEMETERING,
+        'up2bmakassar/kinerja_analog.html',
+        judul='Kinerja Telemetering',
+        subjudul='Titik ANALOG dengan induk point type TELEMETERING (OFDB scd_his_analog)',
+        perintah_sync='sync_kinerja_analog',
+        pilih_jenis=False,
+    )
 
 
 @login_required
 def kinerja_digital(request):
-    return _kinerja_list(request, KinerjaDigitalHarian, 'up2bmakassar/kinerja_digital.html')
+    """
+    Telesignal — titik DIGITAL dengan induk point type TELESIGNAL (default).
+    ?jenis=RTU|MASTER|TELEKOMUNIKASI untuk jenis digital lain yang ikut disinkron.
+    """
+    jenis = (request.GET.get('jenis') or ofdb.JENIS_TELESIGNAL).upper()
+    if jenis not in ofdb.JENIS_DIGITAL:
+        jenis = ofdb.JENIS_TELESIGNAL
+    return _kinerja_page(
+        request, KinerjaDigitalHarian, jenis,
+        'up2bmakassar/kinerja_digital.html',
+        judul=f'Kinerja {jenis.title()}',
+        subjudul=f'Titik DIGITAL dengan induk point type {jenis} (OFDB scd_his_digital)',
+        perintah_sync=f'sync_kinerja_digital --jenis {jenis}',
+        pilih_jenis=True,
+    )
 
 
 # ── Kinerja RC — agregat dari RemoteControl (sudah di-resolve oleh sync_rc) ────────

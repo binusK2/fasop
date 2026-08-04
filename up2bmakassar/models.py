@@ -26,18 +26,29 @@ class SitePath1(models.Model):
         return f"{self.path1} ({'Aktif' if self.aktif else 'Tidak Aktif'})"
 
 
-class KinerjaAnalogHarian(models.Model):
+class KinerjaHarianBase(models.Model):
     """
-    Rekap harian kinerja (uptime) titik ANALOG, dihitung dari histori transisi
-    status di OFDB (dbup2bmakasar.scd_his_analog, dibaca read-only).
+    Field bersama rekap harian kinerja titik ANALOG/DIGITAL.
 
-    Formula (portasi dari up2bmakassar deprecated/task/old/scd_kin_analog_harian.py):
-    performance = total durasi kesimpulan='VALID' dalam 1 hari / total detik dalam 1 hari * 100
+    path1..path5 = kode mentah dari scd_c_point (path1 = station/B1, dipakai untuk
+    grouping rekap per station seperti app up2bmakassar). b1..elem = versi terbaca
+    dari pathXtext, dipakai untuk tampilan.
+
+    `jenis` = nama INDUK point type di OFDB (TELEMETERING / TELESIGNAL / RTU /
+    MASTER / TELEKOMUNIKASI) -- itu yang menentukan titik ini masuk halaman mana,
+    sama seperti filter id_induk_pointtype di app up2bmakassar.
     """
     point_number = models.IntegerField(db_index=True)
+    jenis = models.CharField(max_length=50, blank=True, default='', db_index=True)
     path1 = models.CharField(max_length=100, blank=True, default='')
     path2 = models.CharField(max_length=100, blank=True, default='')
     path3 = models.CharField(max_length=100, blank=True, default='')
+    path4 = models.CharField(max_length=100, blank=True, default='')
+    path5 = models.CharField(max_length=100, blank=True, default='')
+    b1 = models.CharField(max_length=100, blank=True, default='')
+    b2 = models.CharField(max_length=100, blank=True, default='')
+    b3 = models.CharField(max_length=100, blank=True, default='')
+    elem = models.CharField(max_length=100, blank=True, default='')
     tanggal = models.DateField(db_index=True)
     jumlah_up = models.IntegerField(default=0)
     uptime_detik = models.FloatField(default=0)
@@ -46,15 +57,35 @@ class KinerjaAnalogHarian(models.Model):
     dihitung_pada = models.DateTimeField(auto_now=True)
 
     class Meta:
-        constraints = [
-            models.UniqueConstraint(fields=['point_number', 'tanggal'], name='uniq_kinerja_analog_harian')
-        ]
-        indexes = [models.Index(fields=['tanggal', 'point_number'])]
-        verbose_name = 'Kinerja Analog Harian'
-        verbose_name_plural = 'Kinerja Analog Harian'
+        abstract = True
+
+    @property
+    def downtime_detik(self):
+        return max(self.alltime_detik - self.uptime_detik, 0)
 
     def __str__(self):
         return f'{self.point_number} - {self.tanggal} ({self.performance:.2f}%)'
+
+
+class KinerjaAnalogHarian(KinerjaHarianBase):
+    """
+    Rekap harian kinerja (uptime) titik ANALOG = jenis TELEMETERING, dihitung dari
+    histori transisi status di OFDB (dbup2bmakasar.scd_his_analog, dibaca read-only).
+
+    Formula (portasi dari up2bmakassar deprecated/task/old/scd_kin_analog_harian.py):
+    performance = total durasi kesimpulan='VALID' dalam 1 hari / total detik dalam 1 hari * 100
+    """
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['point_number', 'tanggal'], name='uniq_kinerja_analog_harian')
+        ]
+        indexes = [
+            models.Index(fields=['tanggal', 'point_number']),
+            models.Index(fields=['jenis', 'tanggal'], name='up2b_kin_ana_jenis_tgl_idx'),
+        ]
+        verbose_name = 'Kinerja Analog Harian'
+        verbose_name_plural = 'Kinerja Analog Harian'
 
 
 class RemoteControl(models.Model):
@@ -95,29 +126,24 @@ class RemoteControl(models.Model):
         return f'{self.b1}/{self.b3}/{self.elem} - {self.tanggal} ({self.status_respon})'
 
 
-class KinerjaDigitalHarian(models.Model):
+class KinerjaDigitalHarian(KinerjaHarianBase):
     """
     Rekap harian kinerja (uptime) titik DIGITAL, dihitung dari histori transisi
     status di OFDB (dbup2bmakasar.scd_his_digital, dibaca read-only).
+
+    Satu tabel menampung semua jenis titik digital (TELESIGNAL, RTU, MASTER,
+    TELEKOMUNIKASI) -- sama seperti scd_kin_digital_bulan di up2bmakassar yang
+    dipakai bersama oleh halaman Telesignal/RTU/Master Station. Halaman FASOP
+    menyaringnya lewat field `jenis`.
     """
-    point_number = models.IntegerField(db_index=True)
-    path1 = models.CharField(max_length=100, blank=True, default='')
-    path2 = models.CharField(max_length=100, blank=True, default='')
-    path3 = models.CharField(max_length=100, blank=True, default='')
-    tanggal = models.DateField(db_index=True)
-    jumlah_up = models.IntegerField(default=0)
-    uptime_detik = models.FloatField(default=0)
-    alltime_detik = models.FloatField(default=0)
-    performance = models.FloatField(default=0)
-    dihitung_pada = models.DateTimeField(auto_now=True)
 
     class Meta:
         constraints = [
             models.UniqueConstraint(fields=['point_number', 'tanggal'], name='uniq_kinerja_digital_harian')
         ]
-        indexes = [models.Index(fields=['tanggal', 'point_number'])]
+        indexes = [
+            models.Index(fields=['tanggal', 'point_number']),
+            models.Index(fields=['jenis', 'tanggal'], name='up2b_kin_dig_jenis_tgl_idx'),
+        ]
         verbose_name = 'Kinerja Digital Harian'
         verbose_name_plural = 'Kinerja Digital Harian'
-
-    def __str__(self):
-        return f'{self.point_number} - {self.tanggal} ({self.performance:.2f}%)'

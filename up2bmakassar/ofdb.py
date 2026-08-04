@@ -6,6 +6,7 @@ ke OFDB dari modul ini.
 
 Tabel yang dipakai (Fase 1):
   scd_c_point      -- master titik SCADA (kinerja=1, id_pointtype, point_type, path1..5)
+  scd_pointtype    -- jenis titik + induknya (TELEMETERING/TELESIGNAL/RTU/MASTER/...)
   scd_his_analog   -- histori transisi status titik ANALOG (datum_1/2, kesimpulan)
   scd_his_digital  -- histori transisi status titik DIGITAL (datum_1/2, kesimpulan)
 
@@ -65,104 +66,175 @@ def get_connection():
     return conn
 
 
-def get_all_kinerja_path1(cursor, point_type):
-    """Semua PATH1 unik yang muncul di titik kinerja=1 untuk point_type tertentu (untuk seed SitePath1)."""
-    sql = """
-        SELECT DISTINCT path1 FROM scd_c_point
-        WHERE kinerja=1 AND id_pointtype>0 AND point_type=? AND path1 IS NOT NULL AND path1 <> ''
-    """
-    cursor.execute(sql, [point_type])
-    return [row[0] for row in cursor.fetchall()]
+# ── Jenis kinerja SCADATEL (scd_pointtype) ──────────────────────────────────────
+#
+# PENTING: jenis kinerja di app up2bmakassar ditentukan oleh INDUK point type
+# (scd_c_point.id_pointtype -> scd_pointtype.id_induk_pointtype), BUKAN oleh
+# kolom scd_c_point.point_type ('A'/'D') saja. UI up2bmakassar mengirim
+# id_induk_pointtype=15 untuk halaman Telemetering dan 21 untuk Telesignal,
+# dan dashboard-nya memfilter lewat nama induk ('TELEMETERING', 'TELESIGNAL',
+# 'RTU', 'MASTER', 'TELEKOMUNIKASI').
+#
+# Kalau kinerja dihitung hanya dengan point_type='D', titik RTU/MASTER/
+# TELEKOMUNIKASI ikut terhitung sebagai Telesignal sehingga jumlah titik dan
+# angka availability-nya beda jauh dengan app lama.
+
+JENIS_TELEMETERING   = 'TELEMETERING'
+JENIS_TELESIGNAL     = 'TELESIGNAL'
+JENIS_RTU            = 'RTU'
+JENIS_MASTER         = 'MASTER'
+JENIS_TELEKOMUNIKASI = 'TELEKOMUNIKASI'
+
+# jenis -> (point_type di scd_c_point, tabel histori transisinya)
+JENIS_SUMBER = {
+    JENIS_TELEMETERING:   ('A', 'scd_his_analog'),
+    JENIS_TELESIGNAL:     ('D', 'scd_his_digital'),
+    JENIS_RTU:            ('D', 'scd_his_digital'),
+    JENIS_MASTER:         ('D', 'scd_his_digital'),
+    JENIS_TELEKOMUNIKASI: ('D', 'scd_his_digital'),
+}
+
+JENIS_ANALOG  = [JENIS_TELEMETERING]
+JENIS_DIGITAL = [JENIS_TELESIGNAL, JENIS_RTU, JENIS_MASTER, JENIS_TELEKOMUNIKASI]
+
+TABEL_HISTORI = ('scd_his_analog', 'scd_his_digital')
 
 
-def get_kinerja_points(cursor, point_type, active_path1=None):
-    """
-    Daftar point_number yang perlu dihitung kinerjanya, beserta path1-3 untuk label.
-    point_type: 'A' (analog) atau 'D' (digital) -- kolom scd_c_point.point_type.
-    active_path1: kalau diisi (list), cuma titik dengan path1 di dalamnya yang diambil
-    (dipakai untuk menyaring site lama/tidak relevan lewat admin SitePath1 di FASOP).
-    None berarti tidak ada filter (ambil semua).
-    """
-    sql = """
-        SELECT point_number, path1, path2, path3
-        FROM scd_c_point
-        WHERE kinerja=1 AND id_pointtype>0 AND point_type=?
-    """
-    params = [point_type]
-    if active_path1 is not None:
-        if not active_path1:
-            return []
-        placeholders = ','.join('?' for _ in active_path1)
-        sql += f" AND path1 IN ({placeholders})"
-        params.extend(active_path1)
-    cursor.execute(sql, params)
-    return cursor.fetchall()
-
-
-def compute_point_kinerja(cursor, table, point_number, day_start, day_end):
-    """
-    Hitung (jumlah_transisi_valid, uptime_detik, performance_persen) untuk satu
-    titik dalam rentang [day_start, day_end), dari tabel 'scd_his_analog' atau
-    'scd_his_digital'. table harus berasal dari whitelist tetap, bukan input user.
-
-    Portasi formula dari up2bmakassar deprecated/task/old/scd_kin_analog_harian.py:
-    - Transisi VALID yang seluruhnya di dalam hari: dihitung penuh.
-    - Transisi VALID yang menyeberang batas awal/akhir hari: dipotong pas di batas.
-    - Titik tanpa transisi sama sekali di hari itu: fallback ke status VALID/INVALID
-      terakhir sebelum hari itu (pengganti tabel snapshot terpisah di script lama --
-      kita sudah punya seluruh histori transisi, jadi tidak perlu tabel snapshot baru).
-    """
-    if table not in ('scd_his_analog', 'scd_his_digital'):
+def _cek_tabel(table):
+    """Tabel histori harus dari whitelist tetap, bukan input user."""
+    if table not in TABEL_HISTORI:
         raise ValueError(f"Tabel tidak diizinkan: {table}")
+    return table
 
-    total_seconds = (day_end - day_start).total_seconds()
 
-    # a) transisi VALID yang seluruhnya di dalam hari
+def get_induk_pointtype_id(cursor, jenis):
+    """
+    id_pointtype dari INDUK point type dengan nama tertentu (mis. 'TELESIGNAL').
+    Baris induk = yang id_induk_pointtype-nya NULL / menunjuk dirinya sendiri;
+    itu yang diprioritaskan kalau ada beberapa baris bernama sama.
+    """
+    cursor.execute("""
+        SELECT TOP 1 id_pointtype FROM scd_pointtype
+        WHERE UPPER(LTRIM(RTRIM(name))) = ?
+        ORDER BY CASE WHEN id_induk_pointtype IS NULL
+                        OR id_induk_pointtype = id_pointtype THEN 0 ELSE 1 END,
+                 id_pointtype
+    """, [jenis.upper()])
+    row = cursor.fetchone()
+    return row[0] if row else None
+
+
+def get_kinerja_points(cursor, jenis, abaikan_point_type=False):
+    """
+    Semua titik yang perlu dihitung kinerjanya untuk satu `jenis`
+    (TELEMETERING/TELESIGNAL/RTU/MASTER/TELEKOMUNIKASI).
+
+    Return list of dict: point_number, path1..path5, b1..b3, elem (versi terbaca
+    dari pathXtext, fallback ke kode mentah), jenis.
+
+    abaikan_point_type=True melepas syarat point_type='A'/'D' -- dipakai command
+    diagnosa untuk melihat apakah ada titik yang induk point type-nya benar tapi
+    point_type-nya tidak sesuai (histori transisinya ada di tabel yang lain).
+
+    Filter site aktif/tidak (SitePath1) TIDAK dilakukan di SQL -- pemanggil yang
+    menyaring di Python, supaya seed SitePath1 tetap melihat semua path1 yang ada.
+    """
+    if jenis not in JENIS_SUMBER:
+        raise ValueError(f"Jenis kinerja tidak dikenal: {jenis}")
+    point_type, _ = JENIS_SUMBER[jenis]
+
+    induk_id = get_induk_pointtype_id(cursor, jenis)
+    if induk_id is None:
+        return []
+
+    sql = """
+        SELECT p.point_number, p.path1, p.path2, p.path3, p.path4, p.path5,
+               COALESCE(NULLIF(p.path1text, ''), p.path1) AS b1,
+               COALESCE(NULLIF(p.path2text, ''), p.path2) AS b2,
+               COALESCE(NULLIF(p.path3text, ''), p.path3) AS b3,
+               COALESCE(NULLIF(p.path4text, ''), p.path4) AS elem
+        FROM scd_c_point p
+        JOIN scd_pointtype pt ON pt.id_pointtype = p.id_pointtype
+        WHERE p.kinerja = 1 AND p.id_pointtype > 0
+              AND COALESCE(pt.id_induk_pointtype, pt.id_pointtype) = ?
+    """
+    params = [induk_id]
+    if not abaikan_point_type:
+        sql += ' AND p.point_type = ?'
+        params.append(point_type)
+
+    cursor.execute(sql, params)
+
+    points = []
+    for row in cursor.fetchall():
+        points.append({
+            'point_number': row[0],
+            'path1': row[1] or '', 'path2': row[2] or '', 'path3': row[3] or '',
+            'path4': row[4] or '', 'path5': row[5] or '',
+            'b1': row[6] or '', 'b2': row[7] or '', 'b3': row[8] or '', 'elem': row[9] or '',
+            'jenis': jenis,
+        })
+    return points
+
+
+# ── Perhitungan uptime harian ───────────────────────────────────────────────────
+#
+# Formula sama dengan up2bmakassar (deprecated/task/old/scd_kin_analog_harian.py):
+# uptime = total durasi transisi kesimpulan='VALID' di dalam 1 hari, transisi yang
+# menyeberang batas hari dipotong pas di batas. Bedanya di sini SEMUA titik dihitung
+# dalam SATU query GROUP BY, bukan 4 query per titik seperti script lamanya --
+# versi per-titik butuh puluhan ribu round-trip ke 192.168.19.1 dan praktis tidak
+# pernah selesai (itu sebabnya tabel kinerja di FASOP kosong / halamannya blank).
+
+def compute_kinerja_harian(cursor, table, day_start, day_end):
+    """
+    Hitung uptime semua titik sekaligus untuk rentang [day_start, day_end).
+    Return dict {point_number: (jumlah_transisi_valid, uptime_detik)}.
+
+    Transisi dianggap menyentuh hari kalau datum_1 < day_end DAN datum_2 > day_start,
+    lalu dipotong (clamp) ke batas hari. Satu transisi yang menyeberang batas awal
+    dan satu yang menyeberang batas akhir otomatis ikut terhitung sebagian --
+    persis seperti langkah (b) dan (c) di script lama, tanpa query tambahan.
+    """
+    _cek_tabel(table)
     cursor.execute(f"""
-        SELECT COUNT(*), SUM(DATEDIFF(SECOND, datum_1, datum_2))
+        SELECT point_number,
+               COUNT(*) AS jlh,
+               SUM(DATEDIFF(SECOND,
+                   CASE WHEN datum_1 < ? THEN ? ELSE datum_1 END,
+                   CASE WHEN datum_2 > ? THEN ? ELSE datum_2 END)) AS uptime
         FROM {table}
-        WHERE point_number=? AND kesimpulan='VALID' AND datum_1>=? AND datum_2<?
-    """, [point_number, day_start, day_end])
-    row = cursor.fetchone()
-    jlh = row[0] or 0
-    uptime = float(row[1] or 0)
+        WHERE kesimpulan = 'VALID'
+              AND datum_1 IS NOT NULL AND datum_2 IS NOT NULL
+              AND datum_1 < ? AND datum_2 > ?
+        GROUP BY point_number
+    """, [day_start, day_start, day_end, day_end, day_end, day_start])
+    return {row[0]: (row[1] or 0, float(row[2] or 0)) for row in cursor.fetchall()}
 
-    # b) transisi mulai sebelum hari, berakhir di dalam hari -> potong ke day_start
+
+def get_status_sebelum(cursor, table, day_start, lookback_days=30):
+    """
+    Kesimpulan (VALID/INVALID) transisi TERAKHIR sebelum day_start per titik,
+    dibatasi `lookback_days` hari ke belakang supaya tidak scan seluruh histori.
+
+    Dipakai untuk titik yang tidak punya transisi sama sekali di hari itu: kalau
+    status terakhirnya VALID berarti titiknya normal seharian (uptime = 1 hari
+    penuh). Di script lama ini dibaca dari snapshot scd_analog_rtl_hari /
+    scd_digital_rtl_hari -- job pengisinya sudah lama mati, jadi kita baca
+    langsung dari histori transisinya.
+
+    Return dict {point_number: kesimpulan}.
+    """
+    _cek_tabel(table)
     cursor.execute(f"""
-        SELECT TOP 1 datum_1, datum_2 FROM {table}
-        WHERE point_number=? AND kesimpulan='VALID' AND datum_2>=? AND datum_2<?
-        ORDER BY datum_2
-    """, [point_number, day_start, day_end])
-    row = cursor.fetchone()
-    if row and row[0] < day_start:
-        uptime += (row[1] - day_start).total_seconds()
-        jlh += 1
-
-    # c) transisi mulai di dalam hari, berakhir setelah hari -> potong ke day_end
-    cursor.execute(f"""
-        SELECT TOP 1 datum_1, datum_2 FROM {table}
-        WHERE point_number=? AND kesimpulan='VALID' AND datum_1>=? AND datum_1<?
-        ORDER BY datum_1 DESC
-    """, [point_number, day_start, day_end])
-    row = cursor.fetchone()
-    if row and row[1] > day_end:
-        uptime += (day_end - row[0]).total_seconds()
-        jlh += 1
-
-    # d) fallback: tidak ada transisi sama sekali menyentuh hari ini
-    if uptime == 0:
-        cursor.execute(f"""
-            SELECT TOP 1 kesimpulan FROM {table}
-            WHERE point_number=? AND datum_1 < ?
-            ORDER BY datum_1 DESC
-        """, [point_number, day_start])
-        row = cursor.fetchone()
-        if row and row[0] == 'VALID':
-            uptime = total_seconds
-            jlh = 1
-
-    performance = (uptime / total_seconds * 100) if total_seconds else 0
-    return jlh, uptime, performance
+        SELECT point_number, kesimpulan FROM (
+            SELECT point_number, kesimpulan,
+                   ROW_NUMBER() OVER (PARTITION BY point_number ORDER BY datum_1 DESC) AS rn
+            FROM {table}
+            WHERE datum_1 < ? AND datum_1 >= DATEADD(DAY, ?, ?)
+        ) t WHERE rn = 1
+    """, [day_start, -abs(int(lookback_days)), day_start])
+    return {row[0]: (row[1] or '') for row in cursor.fetchall()}
 
 
 # ── SOE Log (query on-demand, TIDAK disimpan di PostgreSQL) ──────────────────────

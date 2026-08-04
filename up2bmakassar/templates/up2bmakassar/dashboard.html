@@ -9,19 +9,19 @@
 
 <div class="stat-bar">
     <div class="stat-card avail">
-        <div class="stat-lbl"><i class="bi bi-activity me-1"></i>Rata-rata Telemetering</div>
-        <div class="stat-val avail">{{ ringkasan_analog.rata_rata|floatformat:2 }}<span class="stat-unit">%</span></div>
+        <div class="stat-lbl"><i class="bi bi-activity me-1"></i>Availability Telemetering</div>
+        <div class="stat-val avail">{{ ringkasan_analog.avail|floatformat:2 }}<span class="stat-unit">%</span></div>
     </div>
     <div class="stat-card up">
-        <div class="stat-lbl">Titik ANALOG dihitung</div>
+        <div class="stat-lbl">Point Telemetering</div>
         <div class="stat-val up">{{ ringkasan_analog.jumlah_titik }}</div>
     </div>
     <div class="stat-card avail">
-        <div class="stat-lbl"><i class="bi bi-toggle2-on me-1"></i>Rata-rata Telesignal</div>
-        <div class="stat-val avail">{{ ringkasan_digital.rata_rata|floatformat:2 }}<span class="stat-unit">%</span></div>
+        <div class="stat-lbl"><i class="bi bi-toggle2-on me-1"></i>Availability Telesignal</div>
+        <div class="stat-val avail">{{ ringkasan_digital.avail|floatformat:2 }}<span class="stat-unit">%</span></div>
     </div>
     <div class="stat-card up">
-        <div class="stat-lbl">Titik DIGITAL dihitung</div>
+        <div class="stat-lbl">Point Telesignal</div>
         <div class="stat-val up">{{ ringkasan_digital.jumlah_titik }}</div>
     </div>
 </div>
@@ -33,8 +33,8 @@
     </div>
     {% if ringkasan_analog.jumlah_titik %}
     <div style="display:flex; gap:24px; flex-wrap:wrap; font-size:13px;">
-        <div><span style="color:var(--muted);">Terbaik:</span> <strong>{{ ringkasan_analog.terbaik.path1 }} / {{ ringkasan_analog.terbaik.path2 }} / {{ ringkasan_analog.terbaik.path3 }}</strong> — {{ ringkasan_analog.terbaik.performance|floatformat:2 }}%</div>
-        <div><span style="color:var(--muted);">Terburuk:</span> <strong>{{ ringkasan_analog.terburuk.path1 }} / {{ ringkasan_analog.terburuk.path2 }} / {{ ringkasan_analog.terburuk.path3 }}</strong> — {{ ringkasan_analog.terburuk.performance|floatformat:2 }}%</div>
+        <div><span style="color:var(--muted);">Station terbaik:</span> <strong>{{ ringkasan_analog.terbaik.b1|default:ringkasan_analog.terbaik.path1 }}</strong> — {{ ringkasan_analog.terbaik.avail|floatformat:2 }}%</div>
+        <div><span style="color:var(--muted);">Station terburuk:</span> <strong>{{ ringkasan_analog.terburuk.b1|default:ringkasan_analog.terburuk.path1 }}</strong> — {{ ringkasan_analog.terburuk.avail|floatformat:2 }}%</div>
     </div>
     {% else %}
     <div style="color:var(--muted); padding:20px 0; text-align:center;">Belum ada data untuk tanggal ini. Jalankan <code>sync_kinerja_analog</code> terlebih dahulu.</div>
@@ -48,8 +48,8 @@
     </div>
     {% if ringkasan_digital.jumlah_titik %}
     <div style="display:flex; gap:24px; flex-wrap:wrap; font-size:13px;">
-        <div><span style="color:var(--muted);">Terbaik:</span> <strong>{{ ringkasan_digital.terbaik.path1 }} / {{ ringkasan_digital.terbaik.path2 }} / {{ ringkasan_digital.terbaik.path3 }}</strong> — {{ ringkasan_digital.terbaik.performance|floatformat:2 }}%</div>
-        <div><span style="color:var(--muted);">Terburuk:</span> <strong>{{ ringkasan_digital.terburuk.path1 }} / {{ ringkasan_digital.terburuk.path2 }} / {{ ringkasan_digital.terburuk.path3 }}</strong> — {{ ringkasan_digital.terburuk.performance|floatformat:2 }}%</div>
+        <div><span style="color:var(--muted);">Station terbaik:</span> <strong>{{ ringkasan_digital.terbaik.b1|default:ringkasan_digital.terbaik.path1 }}</strong> — {{ ringkasan_digital.terbaik.avail|floatformat:2 }}%</div>
+        <div><span style="color:var(--muted);">Station terburuk:</span> <strong>{{ ringkasan_digital.terburuk.b1|default:ringkasan_digital.terburuk.path1 }}</strong> — {{ ringkasan_digital.terburuk.avail|floatformat:2 }}%</div>
     </div>
     {% else %}
     <div style="color:var(--muted); padding:20px 0; text-align:center;">Belum ada data untuk tanggal ini. Jalankan <code>sync_kinerja_digital</code> terlebih dahulu.</div>

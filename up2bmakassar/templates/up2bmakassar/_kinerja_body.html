@@ -1,0 +1,144 @@
+{% comment %}
+Isi halaman kinerja Telemetering/Telesignal — dipakai bersama oleh
+kinerja_analog.html & kinerja_digital.html.
+
+Konteks yang dipakai: judul, subjudul, jenis, jenis_pilihan, tanggal_dari,
+tanggal_sampai, q, station, station_label, rekap, detail, ringkasan.
+{% endcomment %}
+
+<div style="margin-bottom:18px;">
+    <div style="font-size:20px; font-weight:800; color:#fff; margin-bottom:2px;">{{ judul }}</div>
+    <div style="font-size:12px; color:var(--muted);">
+        {{ subjudul }} — rekap {{ tanggal_dari|date:"d M Y" }} s/d {{ tanggal_sampai|date:"d M Y" }}
+    </div>
+</div>
+
+<form method="get" class="filter-bar">
+    {% if pilih_jenis %}
+    <select name="jenis">
+        {% for j in jenis_pilihan %}
+        <option value="{{ j }}" {% if j == jenis %}selected{% endif %}>{{ j }}</option>
+        {% endfor %}
+    </select>
+    {% endif %}
+    <input type="date" name="tanggal_dari" value="{{ tanggal_dari|date:'Y-m-d' }}">
+    <input type="date" name="tanggal_sampai" value="{{ tanggal_sampai|date:'Y-m-d' }}">
+    <input type="search" name="q" value="{{ q }}" placeholder="Cari B1 / B2 / B3 / Element...">
+    <button type="submit" class="btn-filter"><i class="bi bi-funnel me-1"></i>Filter</button>
+    <a class="btn-filter" style="text-decoration:none;"
+       href="?export=1&jenis={{ jenis }}&tanggal_dari={{ tanggal_dari|date:'Y-m-d' }}&tanggal_sampai={{ tanggal_sampai|date:'Y-m-d' }}&q={{ q|urlencode }}&station={{ station|urlencode }}">
+        <i class="bi bi-file-earmark-excel me-1"></i>Export Excel
+    </a>
+</form>
+
+<div class="stat-bar">
+    <div class="stat-card avail">
+        <div class="stat-lbl">Availability</div>
+        <div class="stat-val avail">{{ ringkasan.avail|floatformat:2 }}<span class="stat-unit">%</span></div>
+    </div>
+    <div class="stat-card up">
+        <div class="stat-lbl">Jumlah Point</div>
+        <div class="stat-val up">{{ ringkasan.jumlah_titik }}</div>
+    </div>
+    <div class="stat-card up">
+        <div class="stat-lbl">Jumlah Station</div>
+        <div class="stat-val up">{{ ringkasan.jumlah_station }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-lbl">Uptime (dd:hh:mm:ss)</div>
+        <div class="stat-val" style="font-size:18px;">{{ ringkasan.durasi_uptime }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-lbl">Downtime (dd:hh:mm:ss)</div>
+        <div class="stat-val" style="font-size:18px;">{{ ringkasan.durasi_downtime }}</div>
+    </div>
+</div>
+
+<div class="chart-card">
+    <div class="chart-head">
+        <div class="chart-title"><i class="bi bi-building me-1" style="color:#a78bfa;"></i>Rekap per Station</div>
+        <div style="font-size:11px; color:var(--muted);">Klik station untuk melihat detail per point</div>
+    </div>
+    <div class="table-scroll">
+    <table class="kin-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                {% for h in rekap_headers %}<th>{{ h }}</th>{% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rekap %}
+            <tr {% if row.path1 == station %}style="background:rgba(124,58,237,.18);"{% endif %}>
+                <td style="color:var(--muted);">{{ forloop.counter }}</td>
+                <td>
+                    <a href="?jenis={{ jenis }}&tanggal_dari={{ tanggal_dari|date:'Y-m-d' }}&tanggal_sampai={{ tanggal_sampai|date:'Y-m-d' }}&q={{ q|urlencode }}&station={{ row.path1|urlencode }}#detail"
+                       style="color:#c4b5fd; text-decoration:none; font-weight:700;">{{ row.b1|default:row.path1 }}</a>
+                </td>
+                <td>{{ row.poin }}</td>
+                <td style="font-family:'JetBrains Mono',monospace;">{{ row.durasi_normal }}</td>
+                <td style="font-family:'JetBrains Mono',monospace;">{{ row.durasi_uptime }}</td>
+                <td style="font-family:'JetBrains Mono',monospace;">{{ row.durasi_downtime }}</td>
+                <td>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <div style="flex:1; max-width:100px; height:4px; background:rgba(255,255,255,.06); border-radius:2px;">
+                            <div style="width:{{ row.avail }}%; height:100%; background:{% if row.avail >= 99 %}#10b981{% elif row.avail >= 95 %}#f59e0b{% else %}#ef4444{% endif %}; border-radius:2px;"></div>
+                        </div>
+                        <span style="font-family:'JetBrains Mono',monospace; font-size:12px;">{{ row.avail|floatformat:2 }}%</span>
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="7" style="text-align:center;padding:40px;color:var(--muted);">
+                Belum ada data untuk rentang ini. Jalankan <code>python manage.py {{ perintah_sync }}</code> terlebih dahulu.
+            </td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</div>
+
+{% if station %}
+<div class="chart-card" id="detail" style="margin-top:16px;">
+    <div class="chart-head">
+        <div class="chart-title"><i class="bi bi-list-ul me-1" style="color:#60a5fa;"></i>Detail Point — {{ station_label }}</div>
+        <a class="btn-filter" style="text-decoration:none;"
+           href="?jenis={{ jenis }}&tanggal_dari={{ tanggal_dari|date:'Y-m-d' }}&tanggal_sampai={{ tanggal_sampai|date:'Y-m-d' }}&q={{ q|urlencode }}">
+            <i class="bi bi-x-lg me-1"></i>Tutup detail
+        </a>
+    </div>
+    <div class="table-scroll">
+    <table class="kin-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                {% for h in detail_headers %}<th>{{ h }}</th>{% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in detail %}
+            <tr>
+                <td style="color:var(--muted);">{{ forloop.counter }}</td>
+                <td style="font-family:'JetBrains Mono',monospace;">{{ row.point_number }}</td>
+                <td>{{ row.b1 }}</td>
+                <td>{{ row.b2 }}</td>
+                <td>{{ row.b3 }}</td>
+                <td>{{ row.elem }}</td>
+                <td>{{ row.up }}</td>
+                <td style="font-family:'JetBrains Mono',monospace;">{{ row.durasi_normal }}</td>
+                <td style="font-family:'JetBrains Mono',monospace;">{{ row.durasi_uptime }}</td>
+                <td style="font-family:'JetBrains Mono',monospace;">{{ row.durasi_downtime }}</td>
+                <td>
+                    {% if row.avail >= 99 %}<span class="tag-up">{{ row.avail|floatformat:2 }}%</span>
+                    {% elif row.avail >= 95 %}<span class="tag-warn">{{ row.avail|floatformat:2 }}%</span>
+                    {% else %}<span class="tag-down">{{ row.avail|floatformat:2 }}%</span>{% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="11" style="text-align:center;padding:30px;color:var(--muted);">Tidak ada point untuk station ini.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</div>
+{% endif %}
