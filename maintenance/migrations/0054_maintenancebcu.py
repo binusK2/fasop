@@ -15,8 +15,6 @@ class Migration(migrations.Migration):
             name='MaintenanceBCU',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('spek_merk', models.CharField(blank=True, default='', max_length=100, verbose_name='Merk')),
-                ('spek_type', models.CharField(blank=True, default='', max_length=100, verbose_name='Type')),
                 ('spek_cpu', models.CharField(blank=True, default='', max_length=100, verbose_name='CPU')),
                 ('spek_firmware', models.CharField(blank=True, default='', max_length=100, verbose_name='Firmware Version')),
                 ('spek_config_ver', models.CharField(blank=True, default='', max_length=100, verbose_name='Configuration Version')),
