@@ -255,6 +255,25 @@ class SnapFreq(models.Model):
         return f"{self.waktu:%Y-%m-%d %H:%M:%S} — {self.hz} Hz"
 
 
+class SnapFreqRT(models.Model):
+    """
+    Snapshot frekuensi sistem dari SYS_FREQ_RT (tabel REALTIME, nilai terkini).
+    Karena sumbernya tanpa history, nilai disimpan tiap kali command
+    'collect_freq_rt' berjalan (mis. tiap menit) untuk membentuk time-series
+    chart dashboard. Auto-purge > 30 hari.
+    """
+    waktu = models.DateTimeField(unique=True, db_index=True)  # floor ke detik
+    hz    = models.FloatField()
+
+    class Meta:
+        ordering = ['-waktu']
+        verbose_name = 'Snapshot Frekuensi RT'
+        verbose_name_plural = 'Snapshot Frekuensi RT'
+
+    def __str__(self):
+        return f"{self.waktu:%Y-%m-%d %H:%M:%S} — {self.hz} Hz (RT)"
+
+
 AREA_FREQ_CHOICES = [
     ('sultra',  'Sultra — GI Kendari New'),
     ('sulteng', 'Sulteng — GI Talise 150'),
