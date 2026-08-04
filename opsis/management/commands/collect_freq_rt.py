@@ -25,6 +25,12 @@ class Command(BaseCommand):
         parser.add_argument('--dry-run', action='store_true')
         parser.add_argument('--probe', action='store_true',
                             help='Tampilkan kolom & contoh baris SYS_FREQ_RT.')
+        parser.add_argument('--loop', action='store_true',
+                            help='Sampling berulang tiap --interval detik selama --durasi detik.')
+        parser.add_argument('--interval', type=float, default=2.0,
+                            help='Jeda antar sampel saat --loop (detik, default 2).')
+        parser.add_argument('--durasi', type=int, default=60,
+                            help='Lama loop (detik, default 60 = satu menit).')
 
     def handle(self, *args, **opts):
         from opsis import mssql
@@ -46,22 +52,47 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR('MSSQL tidak terjangkau — dilewati.'))
             return
 
+        def _simpan(hz):
+            """Simpan 1 nilai (waktu floor detik). Return True bila baris baru."""
+            waktu = timezone.now().replace(microsecond=0)
+            _, created = SnapFreqRT.objects.get_or_create(waktu=waktu, defaults={'hz': hz})
+            return created, waktu
+
+        def _purge():
+            batas = timezone.now() - datetime.timedelta(days=RETENSI_HARI)
+            return SnapFreqRT.objects.filter(waktu__lt=batas).delete()[0]
+
+        # ── Mode LOOP: sampling rapat (mis. tiap 2 dtk) selama --durasi ──
+        if opts['loop']:
+            import time
+            t_akhir = time.monotonic() + opts['durasi']
+            n = 0
+            while time.monotonic() < t_akhir:
+                hz = mssql.get_current_hz()   # persistent connection (efisien saat loop)
+                if hz is not None:
+                    if opts['dry_run']:
+                        self.stdout.write(f'[dry] {timezone.now():%H:%M:%S} = {hz} Hz')
+                    else:
+                        created, _ = _simpan(hz)
+                        n += int(created)
+                time.sleep(max(0.2, opts['interval']))
+            if not opts['dry_run']:
+                hapus = _purge()
+                self.stdout.write(self.style.SUCCESS(
+                    f'Loop {opts["durasi"]}s @ {opts["interval"]}s: {n} sampel disimpan'
+                    + (f'; purge {hapus} lama.' if hapus else '.')))
+            return
+
+        # ── Mode sekali (default) ──
         hz = mssql.get_current_hz_rt()
         if hz is None:
             self.stdout.write(self.style.WARNING('Nilai Hz realtime kosong — dilewati.'))
             return
-
-        waktu = timezone.now().replace(microsecond=0)
         if opts['dry_run']:
-            self.stdout.write(self.style.WARNING(f'[dry-run] {waktu:%H:%M:%S} = {hz} Hz'))
+            self.stdout.write(self.style.WARNING(f'[dry-run] {timezone.now():%H:%M:%S} = {hz} Hz'))
             return
-
-        _, created = SnapFreqRT.objects.get_or_create(waktu=waktu, defaults={'hz': hz})
-
-        # Auto-purge
-        batas = timezone.now() - datetime.timedelta(days=RETENSI_HARI)
-        n_hapus = SnapFreqRT.objects.filter(waktu__lt=batas).delete()[0]
-
+        created, waktu = _simpan(hz)
+        n_hapus = _purge()
         self.stdout.write(self.style.SUCCESS(
             f'{waktu:%H:%M:%S} = {hz} Hz {"disimpan" if created else "(sudah ada)"}'
             + (f'; purge {n_hapus} lama.' if n_hapus else '.')))
