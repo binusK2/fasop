@@ -169,9 +169,10 @@ def api_trend(request, pk):
 @login_required
 def export_frekuensi(request):
     """
-    Download rekap frekuensi sistem harian dari PostgreSQL (SnapFreq).
+    Download rekap frekuensi sistem harian dari PostgreSQL (SnapFreqRT — nilai
+    realtime SYS_FREQ_RT yang disimpan collect_freq_rt). Sumber sama dengan chart.
     ?tanggal=YYYY-MM-DD  (default: hari ini) — bisa pilih tanggal histori
-    selama data masih ada (retensi SnapFreq 30 hari).
+    selama data masih ada (retensi SnapFreqRT 30 hari).
     Format: Excel (.xlsx)
     """
     import openpyxl
@@ -188,8 +189,9 @@ def export_frekuensi(request):
     except ValueError:
         tanggal = timezone.now().astimezone(tz_local).date()
 
-    # Ambil dari SnapFreq (per detik, retensi 30 hari)
-    rows = SnapFreq.objects.filter(waktu__date=tanggal).order_by('waktu')
+    # Ambil dari SnapFreqRT (nilai realtime tersimpan, retensi 30 hari) —
+    # sumber yang sama dengan chart dashboard.
+    rows = SnapFreqRT.objects.filter(waktu__date=tanggal).order_by('waktu')
 
     # Buat workbook Excel
     wb = openpyxl.Workbook()
