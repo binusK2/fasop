@@ -1004,6 +1004,53 @@ class MaintenanceRTUGeneric(models.Model):
 
 
 # ─────────────────────────────────────────────────────────────
+# DETAIL IED BCU (Bay Control Unit — mis. ALSTOM C264)
+# Formulir sederhana sesuai template "Formulir Pemeliharaan
+# Peralatan BCU": spesifikasi ringkas, kondisi lingkungan,
+# performa peralatan, dan power supply 110/48 VDC.
+# ─────────────────────────────────────────────────────────────
+class MaintenanceBCU(models.Model):
+
+    NORMAL_CHOICES = (('Normal', 'Normal'), ('Tidak Normal', 'Tidak Normal'),)
+    ADA_CHOICES    = (('Tidak Ada', 'Tidak Ada'), ('Ada', 'Ada'),)
+    LCD_CHOICES    = (('Terang', 'Terang'), ('Kabur', 'Kabur'),)
+    PS_CHOICES     = (('110 VDC', '110 VDC'), ('48 VDC', '48 VDC'),)
+
+    maintenance = models.OneToOneField(
+        Maintenance, on_delete=models.CASCADE,
+        related_name='maintenancebcu'
+    )
+
+    # ── II. Spesifikasi Peralatan ────────────────────────────
+    spek_merk       = models.CharField(max_length=100, blank=True, default='', verbose_name='Merk')
+    spek_type       = models.CharField(max_length=100, blank=True, default='', verbose_name='Type')
+    spek_cpu        = models.CharField(max_length=100, blank=True, default='', verbose_name='CPU')
+    spek_firmware   = models.CharField(max_length=100, blank=True, default='', verbose_name='Firmware Version')
+    spek_config_ver = models.CharField(max_length=100, blank=True, default='', verbose_name='Configuration Version')
+    spek_ip         = models.CharField(max_length=50,  blank=True, default='', verbose_name='Maintenance IP')
+
+    # ── III. Kondisi Lingkungan ──────────────────────────────
+    suhu_ruangan    = models.FloatField(null=True, blank=True, verbose_name='Suhu Ruangan (°C)')
+    suhu_panel      = models.FloatField(null=True, blank=True, verbose_name='Suhu dalam Panel (°C)')
+
+    # ── IV. Performa Peralatan ───────────────────────────────
+    kondisi_cpu       = models.CharField(max_length=15, blank=True, default='', choices=NORMAL_CHOICES, verbose_name='Kondisi CPU')
+    indikasi_alarm    = models.CharField(max_length=15, blank=True, default='', choices=ADA_CHOICES,    verbose_name='Indikasi Alarm / Error')
+    komunikasi_master = models.CharField(max_length=15, blank=True, default='', choices=NORMAL_CHOICES, verbose_name='Komunikasi ke Master Station')
+    tampilan_lcd      = models.CharField(max_length=10, blank=True, default='', choices=LCD_CHOICES,    verbose_name='Tampilan LCD')
+    komunikasi_server = models.CharField(max_length=15, blank=True, default='', choices=NORMAL_CHOICES, verbose_name='Komunikasi ke Server')
+    time_sync         = models.CharField(max_length=15, blank=True, default='', choices=NORMAL_CHOICES, verbose_name='Time Synchronization')
+    keterangan        = models.TextField(blank=True, default='', verbose_name='Keterangan')
+
+    # ── VI. Power Supply (110 VDC / 48 VDC) ──────────────────
+    ps_jenis        = models.CharField(max_length=10, blank=True, default='', choices=PS_CHOICES, verbose_name='Jenis Power Supply')
+    ps_teg_input    = models.FloatField(null=True, blank=True, verbose_name='Tegangan Input (V)')
+
+    class Meta:
+        verbose_name = 'Maintenance BCU'
+
+
+# ─────────────────────────────────────────────────────────────
 # DETAIL FREQUENCY RELAY (UFLS / UFR ISLAND / OFGS / CDSAS)
 # ─────────────────────────────────────────────────────────────
 class MaintenanceFrequencyRelay(models.Model):

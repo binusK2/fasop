@@ -1,6 +1,6 @@
 from django.contrib import admin
 from .models import (
-    Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceSAS, MaintenanceRoIP, MaintenanceUPS,
+    Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceSAS, MaintenanceBCU, MaintenanceRoIP, MaintenanceUPS,
     BeritaAcaraRecord, BeritaAcaraEviden,
 )
 
@@ -44,6 +44,11 @@ class MaintenanceRouterAdmin(admin.ModelAdmin):
 @admin.register(MaintenanceSAS)
 class MaintenanceSASAdmin(admin.ModelAdmin):
     list_display = ['maintenance', 'spek_merk', 'spek_type', 'kondisi_server', 'inv_kondisi']
+
+
+@admin.register(MaintenanceBCU)
+class MaintenanceBCUAdmin(admin.ModelAdmin):
+    list_display = ['maintenance', 'spek_merk', 'spek_type', 'kondisi_cpu', 'komunikasi_master', 'ps_jenis']
 
 
 @admin.register(MaintenanceRoIP)
