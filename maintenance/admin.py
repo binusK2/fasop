@@ -48,7 +48,7 @@ class MaintenanceSASAdmin(admin.ModelAdmin):
 
 @admin.register(MaintenanceBCU)
 class MaintenanceBCUAdmin(admin.ModelAdmin):
-    list_display = ['maintenance', 'spek_merk', 'spek_type', 'kondisi_cpu', 'komunikasi_master', 'ps_jenis']
+    list_display = ['maintenance', 'spek_cpu', 'kondisi_cpu', 'komunikasi_master', 'ps_jenis']
 
 
 @admin.register(MaintenanceRoIP)

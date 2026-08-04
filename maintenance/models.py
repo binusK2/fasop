@@ -1022,8 +1022,8 @@ class MaintenanceBCU(models.Model):
     )
 
     # ── II. Spesifikasi Peralatan ────────────────────────────
-    spek_merk       = models.CharField(max_length=100, blank=True, default='', verbose_name='Merk')
-    spek_type       = models.CharField(max_length=100, blank=True, default='', verbose_name='Type')
+    # Merk & Type tidak diduplikasi di sini — sudah ada di Informasi
+    # Pemeliharaan (Device.merk / Device.type).
     spek_cpu        = models.CharField(max_length=100, blank=True, default='', verbose_name='CPU')
     spek_firmware   = models.CharField(max_length=100, blank=True, default='', verbose_name='Firmware Version')
     spek_config_ver = models.CharField(max_length=100, blank=True, default='', verbose_name='Configuration Version')

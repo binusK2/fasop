@@ -738,9 +738,7 @@ class MaintenanceBCUForm(forms.ModelForm):
         model   = MaintenanceBCU
         exclude = ['maintenance']
         widgets = {
-            # II. Spesifikasi
-            'spek_merk':       forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
-            'spek_type':       forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
+            # II. Spesifikasi (Merk & Type ada di Informasi Pemeliharaan)
             'spek_cpu':        forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
             'spek_firmware':   forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
             'spek_config_ver': forms.TextInput(attrs={'class': 'form-control form-control-sm'}),

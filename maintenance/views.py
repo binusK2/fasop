@@ -2163,8 +2163,6 @@ def export_maintenance_pdf(request, pk):
         } if sas_detail else {},
 
         'bcu': {
-            'spek_merk':         _g(bcu_detail, 'spek_merk', ''),
-            'spek_type':         _g(bcu_detail, 'spek_type', ''),
             'spek_cpu':          _g(bcu_detail, 'spek_cpu', ''),
             'spek_firmware':     _g(bcu_detail, 'spek_firmware', ''),
             'spek_config_ver':   _g(bcu_detail, 'spek_config_ver', ''),

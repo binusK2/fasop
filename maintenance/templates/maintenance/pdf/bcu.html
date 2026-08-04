@@ -17,15 +17,11 @@ td, th { padding: 1.5pt 3pt; }
 <div class="sec">II.&nbsp;&nbsp;SPESIFIKASI PERALATAN</div>
 <table>
     <tr>
-        <td class="lbl" style="width:25%;">Merk</td><td style="width:25%;">{{ bcu.spek_merk|default:"-" }}</td>
-        <td class="lbl" style="width:25%;">Firmware Ver.</td><td style="width:25%;">{{ bcu.spek_firmware|default:"-" }}</td>
+        <td class="lbl" style="width:25%;">CPU</td><td style="width:25%;">{{ bcu.spek_cpu|default:"-" }}</td>
+        <td class="lbl" style="width:25%;">Config Ver.</td><td style="width:25%;">{{ bcu.spek_config_ver|default:"-" }}</td>
     </tr>
     <tr>
-        <td class="lbl">Type</td><td>{{ bcu.spek_type|default:"-" }}</td>
-        <td class="lbl">Config Ver.</td><td>{{ bcu.spek_config_ver|default:"-" }}</td>
-    </tr>
-    <tr>
-        <td class="lbl">CPU</td><td>{{ bcu.spek_cpu|default:"-" }}</td>
+        <td class="lbl">Firmware Ver.</td><td>{{ bcu.spek_firmware|default:"-" }}</td>
         <td class="lbl">Maintenance IP</td><td>{{ bcu.spek_ip|default:"-" }}</td>
     </tr>
 </table>
