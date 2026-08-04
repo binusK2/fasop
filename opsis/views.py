@@ -190,8 +190,8 @@ def export_frekuensi(request):
         tanggal = timezone.now().astimezone(tz_local).date()
 
     # Ambil dari SnapFreqRT (nilai realtime tersimpan, retensi 30 hari) —
-    # sumber yang sama dengan chart dashboard.
-    rows = SnapFreqRT.objects.filter(waktu__date=tanggal).order_by('waktu')
+    # sumber yang sama dengan chart dashboard. values_list = ringan utk ~86k baris.
+    rows = SnapFreqRT.objects.filter(waktu__date=tanggal).values_list('waktu', 'hz')
 
     # Buat workbook Excel
     wb = openpyxl.Workbook()
@@ -224,46 +224,54 @@ def export_frekuensi(request):
     # Batas frekuensi normal PLN: 49.5 – 50.5 Hz
     batas_bawah, batas_atas = 49.5, 50.5
 
-    # Agregasi ke 1 baris per DETIK. Sumber SYS_FREQ_HIS mengambil sampel tiap
-    # ±0,99 detik dengan timestamp ber-milidetik, sehingga sebagian detik punya
-    # 2 sampel; tanpa agregasi, saat diformat HH:MM:SS timestamp tampak dobel.
-    from collections import OrderedDict
-    per_detik = OrderedDict()
-    for row in rows:
-        if row.hz is None:
+    # Nilai per DETIK (rata bila >1 sampel di detik yang sama).
+    nilai = {}
+    for waktu, hz in rows:
+        if hz is None:
             continue
-        wl = row.waktu.astimezone(tz_local).replace(microsecond=0)
-        per_detik.setdefault(wl, []).append(row.hz)
+        wl = waktu.astimezone(tz_local).replace(tzinfo=None, microsecond=0)
+        nilai.setdefault(wl, []).append(hz)
+    nilai = {k: round(sum(v) / len(v), 4) for k, v in nilai.items()}
 
-    data_hz = []  # (hz, waktu_lokal) — untuk ringkasan min/max beserta jamnya
+    # Grid per detik PENUH sehari (86.400 baris) — tambal detik yang kosong dengan
+    # nilai terakhir (forward-fill), karena sampling SYS_FREQ_RT sesekali melewati
+    # 1 detik. Untuk hari ini, grid berhenti di detik sekarang.
+    mulai = datetime.datetime.combine(tanggal, datetime.time(0, 0, 0))
+    now_local = timezone.now().astimezone(tz_local).replace(tzinfo=None, microsecond=0)
+    akhir = now_local if tanggal == now_local.date() \
+        else datetime.datetime.combine(tanggal, datetime.time(23, 59, 59))
+
+    fill_bad = PatternFill('solid', fgColor='2D1A1A')
+    data_hz = []          # hanya sampel NYATA — untuk ringkasan min/max/rata
     i = 0
-    for waktu_lokal, hz_list in per_detik.items():
+    last_hz = None
+    t = mulai
+    step = datetime.timedelta(seconds=1)
+    while t <= akhir:
         i += 1
-        hz = round(sum(hz_list) / len(hz_list), 4)   # rata-rata jika >1 sampel/detik
-        data_hz.append((hz, waktu_lokal))
-        if hz < batas_bawah:
+        asli = nilai.get(t)
+        if asli is not None:
+            hz = asli; last_hz = hz
+            data_hz.append((hz, t))
+        else:
+            hz = last_hz         # tambal dengan nilai detik sebelumnya
+
+        if hz is None:
+            status = '—'                       # belum ada data (sebelum sampel pertama)
+        elif hz < batas_bawah:
             status = '⚠ Rendah'
         elif hz > batas_atas:
             status = '⚠ Tinggi'
         else:
             status = '✓ Normal'
+        if asli is None and hz is not None:
+            status += ' (isian)'
 
-        ws.append([
-            i,
-            waktu_lokal.strftime('%Y-%m-%d'),
-            waktu_lokal.strftime('%H:%M:%S'),
-            hz,
-            status,
-        ])
-
-        # Warna baris abnormal
-        if hz < batas_bawah or hz > batas_atas:
+        ws.append([i, t.strftime('%Y-%m-%d'), t.strftime('%H:%M:%S'), hz, status])
+        if hz is not None and (hz < batas_bawah or hz > batas_atas):
             for col in range(1, 6):
-                ws.cell(i + 1, col).fill = PatternFill('solid', fgColor='2D1A1A')
-
-        for col in range(1, 6):
-            ws.cell(i + 1, col).border = border
-            ws.cell(i + 1, col).alignment = center
+                ws.cell(i + 1, col).fill = fill_bad
+        t += step
 
     # Summary baris terakhir
     if data_hz:
