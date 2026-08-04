@@ -7,7 +7,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.shortcuts import redirect
 from django.urls import reverse
-from .models import (Pembangkit, SnapLive, SnapFreq, Trafo, SnapTrafo,
+from .models import (Pembangkit, SnapLive, SnapFreq, SnapFreqRT, Trafo, SnapTrafo,
                      HopPembangkit, HopSnapshot, HOP_KATEGORI_CHOICES,
                      hop_status, hop_deskripsi_band, hop_garis_ambang)
 from . import mssql
@@ -399,18 +399,31 @@ def api_hz_luwuk(request):
 @login_required
 def api_freq(request):
     """
-    Chart frekuensi sistem.
-    ?mode=hari_ini  → rata-rata per menit sejak 00:00 (untuk chart Frekuensi Hari Ini)
-    ?menit=N        → last N menit data per detik (default 10, maks 60)
+    Chart frekuensi sistem — sumber SnapFreqRT (nilai realtime SYS_FREQ_RT yang
+    disimpan tiap menit oleh command collect_freq_rt).
+    ?mode=hari_ini  → rata-rata per menit sejak 00:00
+    ?menit=N        → last N menit (default 10, maks 120)
     """
+    from django.db.models import Avg
+    from django.db.models.functions import TruncMinute
+
     if request.GET.get('mode') == 'hari_ini':
-        rows = mssql.get_freq_hari_ini()
+        today = timezone.localdate()
+        qs = (SnapFreqRT.objects.filter(waktu__date=today)
+              .annotate(m=TruncMinute('waktu')).values('m')
+              .annotate(avg_hz=Avg('hz')).order_by('m'))
+        rows = [{'timestamp': timezone.localtime(r['m']).strftime('%H:%M'),
+                 'hz': round(r['avg_hz'], 4) if r['avg_hz'] is not None else None}
+                for r in qs]
     else:
         try:
             menit = min(max(int(request.GET.get('menit', 10)), 1), 120)
         except (ValueError, TypeError):
             menit = 10
-        rows = mssql.get_freq_trend(menit)
+        sejak = timezone.now() - datetime.timedelta(minutes=menit)
+        qs = SnapFreqRT.objects.filter(waktu__gte=sejak).order_by('waktu')
+        rows = [{'timestamp': timezone.localtime(s.waktu).strftime('%H:%M:%S'),
+                 'hz': round(s.hz, 4) if s.hz is not None else None} for s in qs]
     return JsonResponse({'rows': rows, 'terputus': not mssql.is_reachable()})
 
 

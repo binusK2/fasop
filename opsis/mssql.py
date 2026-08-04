@@ -32,8 +32,16 @@ def _rt_tbl():
     return getattr(settings, 'MSSQL_RT_TABLE', 'dbo.KIT_REALTIME')
 
 def _freq_tbl():
-    """Tabel frekuensi SYS_FREQ_HIS — untuk Frekuensi Sistem."""
+    """Tabel frekuensi SYS_FREQ_HIS — historian per detik (rekap/respon)."""
     return getattr(settings, 'MSSQL_FREQ_TABLE', 'dbo.SYS_FREQ_HIS')
+
+def _freq_rt_tbl():
+    """Tabel frekuensi REALTIME SYS_FREQ_RT — nilai terkini (dashboard)."""
+    return getattr(settings, 'MSSQL_FREQ_RT_TABLE', 'dbo.SYS_FREQ_RT')
+
+def _freq_rt_col():
+    """Kolom nilai Hz pada tabel realtime (default 'F')."""
+    return getattr(settings, 'MSSQL_FREQ_RT_COL', 'F')
 
 def _trafo_tbl():
     """Tabel beban trafo ALL_TRANS_DATA."""
@@ -133,7 +141,7 @@ _hz_conn = None
 
 def get_current_hz():
     """
-    Ambil nilai Hz terkini dari SYS_FREQ_HIS.
+    Ambil nilai Hz terkini dari SYS_FREQ_RT (tabel REALTIME, nilai terkini).
     Menggunakan persistent connection (tidak buat koneksi baru tiap detik).
     Reconnect otomatis jika koneksi putus.
     """
@@ -141,9 +149,10 @@ def get_current_hz():
     if not getattr(settings, 'MSSQL_HOST', ''):
         return None
 
-    freq = _freq_tbl()
-    # WHERE TIME >= ... agar pakai index TIME, hindari full scan tabel besar
-    sql  = f"SELECT TOP 1 F FROM {freq} WITH (NOLOCK) WHERE TIME >= DATEADD(minute, -5, GETDATE()) ORDER BY TIME DESC"
+    rt  = _freq_rt_tbl()
+    col = _freq_rt_col()
+    # tabel realtime = satu nilai terkini (tanpa history) -> TOP 1
+    sql = f"SELECT TOP 1 {col} FROM {rt} WITH (NOLOCK)"
 
     # TCP ping sekali sebelum masuk loop — fail fast tanpa menunggu ODBC timeout
     host = getattr(settings, 'MSSQL_HOST', '')
@@ -246,10 +255,10 @@ def get_live_data(pembangkit_list):
 
             raw_rows[kit] = {'timestamp': ts, 'units_raw': units_raw}
 
-        # ── Query 2: frekuensi sistem dari SYS_FREQ_HIS ─────────────────
+        # ── Query 2: frekuensi sistem dari SYS_FREQ_RT (realtime) ───────
         frekuensi_sistem = None
         try:
-            cursor.execute(f"SELECT TOP 1 F FROM {freq} WITH (NOLOCK) WHERE TIME >= DATEADD(minute, -5, GETDATE()) ORDER BY TIME DESC")
+            cursor.execute(f"SELECT TOP 1 {_freq_rt_col()} FROM {_freq_rt_tbl()} WITH (NOLOCK)")
             row = cursor.fetchone()
             if row and row[0] is not None:
                 frekuensi_sistem = float(row[0])
@@ -1090,3 +1099,36 @@ def get_freq_events_day(tanggal, ambang=0.2):
     finally:
         try: conn.close()
         except Exception: pass
+
+
+# ── Frekuensi REALTIME (SYS_FREQ_RT) — sumber baru dashboard ───────────
+def get_current_hz_rt():
+    """Nilai Hz terkini dari SYS_FREQ_RT (koneksi biasa; untuk collector)."""
+    if not getattr(settings, 'MSSQL_HOST', ''):
+        return None
+    try:
+        conn = _get_connection(); cur = conn.cursor()
+        cur.execute(f"SELECT TOP 1 {_freq_rt_col()} FROM {_freq_rt_tbl()} WITH (NOLOCK)")
+        row = cur.fetchone(); conn.close()
+        return float(row[0]) if row and row[0] is not None else None
+    except Exception as e:
+        logger.error('get_current_hz_rt error: %s', e)
+        return None
+
+
+def probe_freq_rt(limit=10):
+    """Bedah data SYS_FREQ_RT: nama kolom + beberapa baris (verifikasi kolom Hz)."""
+    out = {'tabel': _freq_rt_tbl(), 'kolom_dipakai': _freq_rt_col(),
+           'kolom': [], 'contoh': []}
+    if not getattr(settings, 'MSSQL_HOST', ''):
+        return out
+    try:
+        conn = _get_connection(); cur = conn.cursor()
+        cur.execute(f"SELECT TOP ({int(limit)}) * FROM {_freq_rt_tbl()} WITH (NOLOCK)")
+        out['kolom'] = [d[0] for d in cur.description]
+        out['contoh'] = [tuple(str(v) for v in row) for row in cur.fetchall()]
+        conn.close()
+    except Exception as e:
+        logger.error('probe_freq_rt error: %s', e)
+        out['error'] = str(e)
+    return out
