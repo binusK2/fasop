@@ -40,8 +40,16 @@ def _freq_rt_tbl():
     return getattr(settings, 'MSSQL_FREQ_RT_TABLE', 'dbo.SYS_FREQ_RT')
 
 def _freq_rt_col():
-    """Kolom nilai Hz pada tabel realtime (default 'F')."""
-    return getattr(settings, 'MSSQL_FREQ_RT_COL', 'F')
+    """Kolom nilai Hz pada tabel realtime (SYS_FREQ_RT.VALUE)."""
+    return getattr(settings, 'MSSQL_FREQ_RT_COL', 'VALUE')
+
+def _freq_rt_sql():
+    """SELECT nilai Hz realtime terkini, terfilter tag (ANALOG='FREQ_MKS')."""
+    col    = _freq_rt_col()
+    keycol = getattr(settings, 'MSSQL_FREQ_RT_KEYCOL', 'ANALOG')
+    key    = getattr(settings, 'MSSQL_FREQ_RT_KEY', 'FREQ_MKS')
+    where  = f" WHERE RTRIM({keycol}) = '{key}'" if keycol and key else ''
+    return f"SELECT TOP 1 {col} FROM {_freq_rt_tbl()} WITH (NOLOCK){where}"
 
 def _trafo_tbl():
     """Tabel beban trafo ALL_TRANS_DATA."""
@@ -149,10 +157,8 @@ def get_current_hz():
     if not getattr(settings, 'MSSQL_HOST', ''):
         return None
 
-    rt  = _freq_rt_tbl()
-    col = _freq_rt_col()
-    # tabel realtime = satu nilai terkini (tanpa history) -> TOP 1
-    sql = f"SELECT TOP 1 {col} FROM {rt} WITH (NOLOCK)"
+    # tabel realtime = satu nilai terkini (tanpa history), terfilter tag
+    sql = _freq_rt_sql()
 
     # TCP ping sekali sebelum masuk loop — fail fast tanpa menunggu ODBC timeout
     host = getattr(settings, 'MSSQL_HOST', '')
@@ -258,7 +264,7 @@ def get_live_data(pembangkit_list):
         # ── Query 2: frekuensi sistem dari SYS_FREQ_RT (realtime) ───────
         frekuensi_sistem = None
         try:
-            cursor.execute(f"SELECT TOP 1 {_freq_rt_col()} FROM {_freq_rt_tbl()} WITH (NOLOCK)")
+            cursor.execute(_freq_rt_sql())
             row = cursor.fetchone()
             if row and row[0] is not None:
                 frekuensi_sistem = float(row[0])
@@ -1108,7 +1114,7 @@ def get_current_hz_rt():
         return None
     try:
         conn = _get_connection(); cur = conn.cursor()
-        cur.execute(f"SELECT TOP 1 {_freq_rt_col()} FROM {_freq_rt_tbl()} WITH (NOLOCK)")
+        cur.execute(_freq_rt_sql())
         row = cur.fetchone(); conn.close()
         return float(row[0]) if row and row[0] is not None else None
     except Exception as e:

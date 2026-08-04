@@ -233,10 +233,12 @@ MSSQL_TABLE      = config('MSSQL_TABLE',      default='dbo.HIS_MEAS_KIT')
 MSSQL_RT_TABLE   = config('MSSQL_RT_TABLE',   default='dbo.KIT_REALTIME')
 MSSQL_FREQ_TABLE = config('MSSQL_FREQ_TABLE', default='dbo.SYS_FREQ_HIS')
 # Frekuensi REALTIME (nilai terkini, tanpa history) — sumber baru dashboard.
-# Kolom nilai default 'F'; sesuaikan bila berbeda (cek: deteksi_respon tak dipakai,
-# gunakan manage.py collect_freq_rt --probe).
-MSSQL_FREQ_RT_TABLE = config('MSSQL_FREQ_RT_TABLE', default='dbo.SYS_FREQ_RT')
-MSSQL_FREQ_RT_COL   = config('MSSQL_FREQ_RT_COL',   default='F')
+# SYS_FREQ_RT: kolom (ID, ANALOG, VALUE) → nilai di VALUE, baris dipilih dgn
+# ANALOG='FREQ_MKS'. Cek/verifikasi: manage.py collect_freq_rt --probe.
+MSSQL_FREQ_RT_TABLE  = config('MSSQL_FREQ_RT_TABLE',  default='dbo.SYS_FREQ_RT')
+MSSQL_FREQ_RT_COL    = config('MSSQL_FREQ_RT_COL',    default='VALUE')
+MSSQL_FREQ_RT_KEYCOL = config('MSSQL_FREQ_RT_KEYCOL', default='ANALOG')
+MSSQL_FREQ_RT_KEY    = config('MSSQL_FREQ_RT_KEY',    default='FREQ_MKS')
 MSSQL_TRAFO_TABLE= config('MSSQL_TRAFO_TABLE',default='dbo.ALL_TRANS_DATA')  # Beban Trafo
 MSSQL_DRIVER     = config('MSSQL_DRIVER',     default='ODBC Driver 17 for SQL Server')
 
