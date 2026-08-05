@@ -300,12 +300,38 @@ RC_REKAP_HEADERS = ['B1', 'B2', 'B3', 'Element', 'Info',
 RC_REKAP_FIELDS = ['b1', 'b2', 'b3', 'elem', 'info',
                    'jumlah', 'sukses', 'gagal', 'performance']
 
-RC_DETAIL_HEADERS = ['Waktu Perintah', 'B1', 'B2', 'B3', 'Element', 'Info',
-                     'Operator', 'Status Perintah', 'Waktu Respon', 'Hasil']
-RC_DETAIL_FIELDS = ['waktu', 'b1', 'b2', 'b3', 'elem', 'info',
-                    'operator', 'status_eksekusi', 'waktu_respon', 'status_respon']
+RC_DETAIL_HEADERS = ['Tanggal', 'Waktu Perintah', 'B1', 'B2', 'B3', 'Element', 'Info',
+                     'Operator', 'Status Perintah', 'Waktu Respon',
+                     'Durasi Respon (detik)', 'Hasil']
+RC_DETAIL_FIELDS = ['tanggal', 'waktu', 'b1', 'b2', 'b3', 'elem', 'info',
+                    'operator', 'status_eksekusi', 'waktu_respon',
+                    'durasi_respon', 'status_respon']
 
+# Batas baris detail di halaman (biar HTML-nya tidak berat). Export TIDAK memakai
+# batas ini -- lihat RC_EXPORT_MAX.
 RC_DETAIL_MAX = 2000
+RC_EXPORT_MAX = 100000
+
+
+def _rc_row(rc):
+    """Satu kejadian RC -> dict siap ditampilkan / ditulis ke Excel."""
+    perintah = timezone.localtime(rc.datum_eksekusi) if rc.datum_eksekusi else None
+    respon = timezone.localtime(rc.datum_respon) if rc.datum_respon else None
+    durasi_respon = ''
+    if perintah and respon:
+        selisih = (respon - perintah).total_seconds()
+        if selisih >= 0:
+            durasi_respon = round(selisih, 1)
+    return {
+        'tanggal': rc.tanggal.strftime('%Y-%m-%d') if rc.tanggal else '',
+        'waktu': perintah.strftime('%Y-%m-%d %H:%M:%S') if perintah else '',
+        'b1': rc.b1, 'b2': rc.b2, 'b3': rc.b3, 'elem': rc.elem, 'info': rc.path5,
+        'operator': rc.operator,
+        'status_eksekusi': rc.status_eksekusi,
+        'waktu_respon': respon.strftime('%Y-%m-%d %H:%M:%S') if respon else '',
+        'durasi_respon': durasi_respon,
+        'status_respon': rc.status_respon,
+    }
 
 
 def _rc_ctx(request):
@@ -348,21 +374,17 @@ def _rc_ctx(request):
         r['info'] = r.pop('path5', '')
         r['performance'] = round(r['sukses'] / r['jumlah'] * 100, 2) if r['jumlah'] else 0
 
-    detail = []
+    # Queryset detail: kalau ada bay dipilih, dipersempit ke bay itu; kalau tidak,
+    # SEMUA RC dalam rentang (dipakai penuh oleh export, dipotong untuk halaman).
+    d_qs = qs
     if ada_pilihan:
         d_qs = qs.filter(b1=pilih['b1'], b2=pilih['b2'], b3=pilih['b3'],
                          elem=pilih['elem'], path5=pilih['info'])
-        for rc in d_qs.order_by('-datum_eksekusi')[:RC_DETAIL_MAX]:
-            detail.append({
-                'waktu': timezone.localtime(rc.datum_eksekusi).strftime('%Y-%m-%d %H:%M:%S')
-                         if rc.datum_eksekusi else '',
-                'b1': rc.b1, 'b2': rc.b2, 'b3': rc.b3, 'elem': rc.elem, 'info': rc.path5,
-                'operator': rc.operator,
-                'status_eksekusi': rc.status_eksekusi,
-                'waktu_respon': timezone.localtime(rc.datum_respon).strftime('%Y-%m-%d %H:%M:%S')
-                                if rc.datum_respon else '',
-                'status_respon': rc.status_respon,
-            })
+    d_qs = d_qs.order_by('-datum_eksekusi')
+
+    # Halaman hanya menampilkan detail saat sebuah bay dipilih -- menampilkan
+    # seluruh RC sebulan sebagai HTML terlalu berat.
+    detail = [_rc_row(rc) for rc in d_qs[:RC_DETAIL_MAX]] if ada_pilihan else []
 
     total_jumlah = sum(r['jumlah'] for r in rekap)
     total_sukses = sum(r['sukses'] for r in rekap)
@@ -378,6 +400,8 @@ def _rc_ctx(request):
         'tanggal_dari': tanggal_dari, 'tanggal_sampai': tanggal_sampai, 'q': q,
         'pilih': pilih, 'ada_pilihan': ada_pilihan,
         'rekap': rekap, 'detail': detail, 'ringkasan': ringkasan,
+        'detail_qs': d_qs,
+        'jumlah_detail': d_qs.count(),
         'rekap_headers': RC_REKAP_HEADERS, 'detail_headers': RC_DETAIL_HEADERS,
         'detail_dibatasi': len(detail) >= RC_DETAIL_MAX,
     }
@@ -387,9 +411,12 @@ def _rc_ctx(request):
 def kinerja_rc(request):
     ctx = _rc_ctx(request)
     if request.GET.get('export') == '1':
+        # Export = daftar RC per kejadian (bukan rekap per bay). Rekap tetap
+        # disertakan di sheet kedua sebagai ringkasan.
+        detail = [_rc_row(rc) for rc in ctx['detail_qs'].iterator(chunk_size=2000)][:RC_EXPORT_MAX]
         return _xlsx([
-            ('Rekap', RC_REKAP_HEADERS, RC_REKAP_FIELDS, ctx['rekap']),
-            ('Detail', RC_DETAIL_HEADERS, RC_DETAIL_FIELDS, ctx['detail']),
+            ('Detail RC', RC_DETAIL_HEADERS, RC_DETAIL_FIELDS, detail),
+            ('Rekap per Bay', RC_REKAP_HEADERS, RC_REKAP_FIELDS, ctx['rekap']),
         ], f"kinerja_rc_{ctx['tanggal_dari']}_sd_{ctx['tanggal_sampai']}.xlsx")
     return render(request, 'up2bmakassar/kinerja_rc.html', ctx)
 

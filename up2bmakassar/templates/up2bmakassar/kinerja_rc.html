@@ -19,8 +19,9 @@
     <input type="search" name="q" value="{{ q }}" placeholder="Cari B1/B2/B3/Element/Operator...">
     <button type="submit" class="btn-filter"><i class="bi bi-funnel me-1"></i>Filter</button>
     <a class="btn-filter" style="text-decoration:none;"
+       title="Berisi seluruh kejadian RC satu per satu (bukan rekap), lengkap dengan keterangan BERHASIL/GAGAL"
        href="?export=1&tanggal_dari={{ tanggal_dari|date:'Y-m-d' }}&tanggal_sampai={{ tanggal_sampai|date:'Y-m-d' }}&q={{ q|urlencode }}&b1={{ pilih.b1|urlencode }}&b2={{ pilih.b2|urlencode }}&b3={{ pilih.b3|urlencode }}&elem={{ pilih.elem|urlencode }}&info={{ pilih.info|urlencode }}">
-        <i class="bi bi-file-earmark-excel me-1"></i>Export Excel
+        <i class="bi bi-file-earmark-excel me-1"></i>Export Detail RC ({{ jumlah_detail }})
     </a>
     <span style="width:1px; height:20px; background:var(--card-bd); margin:0 2px;"></span>
     <label style="font-size:12px;color:var(--muted);">Atau pilih 1 bulan
@@ -139,6 +140,7 @@ document.getElementById('rc-bulan').addEventListener('change', function () {
             {% for row in detail %}
             <tr>
                 <td style="color:var(--muted);">{{ forloop.counter }}</td>
+                <td>{{ row.tanggal }}</td>
                 <td style="font-family:'JetBrains Mono',monospace;">{{ row.waktu }}</td>
                 <td>{{ row.b1 }}</td>
                 <td>{{ row.b2 }}</td>
@@ -148,13 +150,14 @@ document.getElementById('rc-bulan').addEventListener('change', function () {
                 <td>{{ row.operator|default:"-" }}</td>
                 <td>{{ row.status_eksekusi|default:"-" }}</td>
                 <td style="font-family:'JetBrains Mono',monospace;">{{ row.waktu_respon }}</td>
+                <td style="font-family:'JetBrains Mono',monospace;">{{ row.durasi_respon }}</td>
                 <td>
                     {% if row.status_respon == 'BERHASIL' %}<span class="tag-up">BERHASIL</span>
                     {% else %}<span class="tag-down">{{ row.status_respon|default:"-" }}</span>{% endif %}
                 </td>
             </tr>
             {% empty %}
-            <tr><td colspan="11" style="text-align:center;padding:30px;color:var(--muted);">Tidak ada RC untuk bay ini.</td></tr>
+            <tr><td colspan="13" style="text-align:center;padding:30px;color:var(--muted);">Tidak ada RC untuk bay ini.</td></tr>
             {% endfor %}
         </tbody>
     </table>
