@@ -137,6 +137,23 @@ class Command(BaseCommand):
                         f'histori transisinya bukan di {table} sehingga tidak ikut dihitung.'
                     )
 
+            # ── Kesegaran tiap rantai data di OFDB ──────────────────────────────
+            self.stdout.write('--- Data terbaru per tabel OFDB (rantai mana yang masih jalan) ---')
+            sekarang = timezone.localtime().replace(tzinfo=None)
+            for tabel, keterangan, nilai, error in ofdb.kesegaran_ofdb(cursor):
+                if error:
+                    self.stdout.write(f'    {tabel:<26} {keterangan:<36} -- tidak terbaca ({error})')
+                elif nilai is None:
+                    self.stdout.write(f'    {tabel:<26} {keterangan:<36} KOSONG')
+                else:
+                    try:
+                        selisih = sekarang - (nilai if isinstance(nilai, datetime)
+                                              else datetime.combine(nilai, datetime.min.time()))
+                        umur = f'{selisih.days} hari {selisih.seconds // 3600} jam lalu'
+                    except Exception:
+                        umur = ''
+                    self.stdout.write(f'    {tabel:<26} {keterangan:<36} {nilai}  ({umur})')
+
             # Contoh nilai duluan -- blok ini paling murah dan paling sering
             # menjelaskan masalahnya (beda tipe data / beda ruang penomoran).
             self.stdout.write('--- Contoh point_number apa adanya (cek tipe data) ---')

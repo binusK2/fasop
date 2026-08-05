@@ -347,6 +347,45 @@ def ringkasan_cakupan(cursor, point_type):
     return cursor.fetchall()
 
 
+# Tabel OFDB + kolom waktunya, untuk mengukur sampai kapan tiap rantai data masih
+# terisi. scd_sync_* adalah watermark milik syncoffline (Oracle 15.1 -> 19.1);
+# kalau yang ini tertinggal jauh, berarti sinkronisasi dari Spectrum yang berhenti,
+# bukan pengolahan di 19.1.
+KESEGARAN_TABEL = [
+    ('scd_sync_10_anat',        'system_time_stamp', 'watermark sync analog dari Spectrum'),
+    ('scd_sync_11_digitalt',    'system_time_stamp', 'watermark sync digital dari Spectrum'),
+    ('scd_his_10_anat_temp',    'system_time_stamp', 'data analog mentah hasil sync'),
+    ('scd_his_11_digitalt_temp', 'system_time_stamp', 'data digital mentah hasil sync'),
+    ('scd_c_point',             'last_update',       'master titik'),
+    ('scd_analog_rtl',          'datum_1',           'status realtime analog'),
+    ('scd_digital_rtl',         'datum_1',           'status realtime digital'),
+    ('scd_his_analog',          'datum_1',           'transisi status analog'),
+    ('scd_his_digital',         'datum_1',           'transisi status digital'),
+    ('scd_analog_rtl_hari',     'datum',             'snapshot harian analog'),
+    ('scd_digital_rtl_hari',    'datum',             'snapshot harian digital'),
+    ('scd_his_message',         'time_stamp',        'SOE log'),
+    ('scd_his_rc',              'datum_1',           'log RC'),
+]
+
+
+def kesegaran_ofdb(cursor):
+    """
+    Timestamp terbaru di tiap tabel OFDB -- untuk melihat rantai mana yang masih
+    jalan dan mana yang sudah berhenti. Tabel yang tidak ada dilewati.
+
+    Return list of (tabel, keterangan, nilai_terbaru | None, pesan_error | None).
+    """
+    hasil = []
+    for tabel, kolom, keterangan in KESEGARAN_TABEL:
+        try:
+            cursor.execute(f'SELECT MAX({kolom}) FROM {tabel}')
+            row = cursor.fetchone()
+            hasil.append((tabel, keterangan, row[0] if row else None, None))
+        except Exception as e:
+            hasil.append((tabel, keterangan, None, str(e).split(']')[-1].strip()[:60]))
+    return hasil
+
+
 def get_point_paths(cursor, point_type):
     """
     (point_number, kinerja, path1..path5) semua titik dengan point_type tersebut.
