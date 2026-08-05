@@ -141,13 +141,27 @@ def get_induk_pointtype_id(cursor, jenis):
     return row[0] if row else None
 
 
-def get_kinerja_points(cursor, jenis, abaikan_point_type=False):
+# Dari mana daftar titik kinerja diambil:
+#   'kinerja' -- scd_c_point.kinerja = 1, sama seperti app up2bmakassar. Benar
+#                secara konsep, TAPI bergantung pada flag yang di-reset 0 oleh
+#                syncoffline/points.py setiap kali sebuah titik berubah.
+#   'berdata' -- semua titik jenis tersebut yang punya baris di scd_*_rtl, yaitu
+#                titik yang benar-benar termonitor sekarang. Dipakai kalau flag
+#                kinerja sudah tidak bisa dipercaya.
+SUMBER_KINERJA = 'kinerja'
+SUMBER_BERDATA = 'berdata'
+
+
+def get_kinerja_points(cursor, jenis, abaikan_point_type=False, sumber=SUMBER_KINERJA):
     """
     Semua titik yang perlu dihitung kinerjanya untuk satu `jenis`
     (TELEMETERING/TELESIGNAL/RTU/MASTER/TELEKOMUNIKASI).
 
     Return list of dict: point_number, path1..path5, b1..b3, elem (versi terbaca
     dari pathXtext, fallback ke kode mentah), jenis.
+
+    `sumber` = SUMBER_KINERJA (flag kinerja=1) atau SUMBER_BERDATA (punya baris
+    di tabel realtime). Lihat catatan di atas.
 
     abaikan_point_type=True melepas syarat point_type='A'/'D' -- dipakai command
     diagnosa untuk melihat apakah ada titik yang induk point type-nya benar tapi
@@ -158,7 +172,7 @@ def get_kinerja_points(cursor, jenis, abaikan_point_type=False):
     """
     if jenis not in JENIS_SUMBER:
         raise ValueError(f"Jenis kinerja tidak dikenal: {jenis}")
-    point_type, _ = JENIS_SUMBER[jenis]
+    point_type, table = JENIS_SUMBER[jenis]
 
     induk_id = get_induk_pointtype_id(cursor, jenis)
     if induk_id is None:
@@ -172,10 +186,17 @@ def get_kinerja_points(cursor, jenis, abaikan_point_type=False):
                COALESCE(NULLIF(p.path4text, ''), p.path4) AS elem
         FROM scd_c_point p
         JOIN scd_pointtype pt ON pt.id_pointtype = p.id_pointtype
-        WHERE p.kinerja = 1 AND p.id_pointtype > 0
+        WHERE p.id_pointtype > 0
               AND COALESCE(pt.id_induk_pointtype, pt.id_pointtype) = ?
     """
     params = [induk_id]
+
+    if sumber == SUMBER_BERDATA:
+        _, tabel_rtl = TABEL_STATUS[table]
+        sql += f' AND EXISTS (SELECT 1 FROM {tabel_rtl} r WHERE r.point_number = p.point_number)'
+    else:
+        sql += ' AND p.kinerja = 1'
+
     if not abaikan_point_type:
         sql += ' AND p.point_type = ?'
         params.append(point_type)
@@ -415,6 +436,32 @@ def get_point_berdata(cursor, table):
     except Exception as e:
         logger.warning('OFDB: %s tidak terbaca (%s)', tabel_rtl, e)
         return set()
+
+
+def analisa_kecocokan_path(points, semua_point, berdata):
+    """
+    Diagnosa: berapa titik kinerja yang path-nya cocok dengan titik ber-data,
+    pada beberapa tingkat kelonggaran (path1..5 penuh sampai path1 saja).
+
+    Kalau bahkan pada level path1 (station/B1) tidak ada yang cocok, berarti
+    penamaan di master titik lama sudah sama sekali berbeda dengan yang ada di
+    data hidup -- pemetaan otomatis tidak mungkin, harus ditandai ulang manual.
+
+    Return (hasil_per_level, contoh_kinerja, contoh_berdata).
+    """
+    hasil = {}
+    for level in (5, 4, 3, 1):
+        kunci = {key[:level] for pn, _k, key in semua_point if pn in berdata}
+        hasil[level] = sum(
+            1 for p in points
+            if (p['path1'], p['path2'], p['path3'], p['path4'], p['path5'])[:level] in kunci
+        )
+    contoh_kinerja = [
+        (p['point_number'], (p['path1'], p['path2'], p['path3'], p['path4'], p['path5']))
+        for p in points[:3]
+    ]
+    contoh_berdata = [(pn, key) for pn, _k, key in semua_point if pn in berdata][:3]
+    return hasil, contoh_kinerja, contoh_berdata
 
 
 def cari_kembaran(points, semua_point, berdata):
