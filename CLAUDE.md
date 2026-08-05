@@ -68,6 +68,7 @@ Each of the 15 `INSTALLED_APPS` Django apps follows a standard layout (`models.p
 | `dokumentasi/` | Relay setting & wiring-diagram document repository with uploader→checker approval workflow |
 | `auditlog/` | Custom (not django-auditlog) superuser audit log; entries are created by explicit `log_action()` calls in views, not signals |
 | `streaming/` | Field maintenance live streaming (WebRTC WHIP/WHEP via MediaMTX, `deploy/mediamtx.yml`); Teknisi broadcasts, Teknisi/AM view, only AM can join as Pengawas for 2-way talkback; teknisi's video is recorded (server-side ffmpeg transcode, see below) and pengawas's talkback audio is recorded as a **separate** clip (`LiveSession.talkback_recording_path`) rather than mixed into one file; recordings kept 7 days (`purge_old_recordings` cron) |
+| `up2bmakassar/` | Kinerja SCADATEL (`/kinerja-scadatel/`) — availability harian titik Telemetering/Telesignal, log RC, dan SOE log, dibaca **read-only** dari OFDB (`dbup2bmakasar` di MSSQL, `ofdb.py`); lihat "Kinerja SCADATEL — OFDB" di bawah |
 | `api/` | REST API for n8n / Google Sheets integrations (no models — not in `INSTALLED_APPS`, but `urls.py` is still wired into `fasop/urls.py` at `/api/v1/`) |
 | `fasop/` | Root settings, URL routing, Hashids helper, URL converters |
 
@@ -156,6 +157,10 @@ Roles are stored in `UserProfile` (ForeignKey to User). Middleware enforces rout
 | `audit_device_names` | devices | One-off — reports naming inconsistencies across `Device` |
 | `fix_notif_urls` | notifikasi | One-off — repairs malformed notification links |
 | `purge_old_recordings` | streaming | Cron, daily — deletes `LiveSession` recording files past `STREAMING_RECORDING_RETENTION_DAYS` (default 7 days since `ended_at`); supports `--dry-run` |
+| `sync_kinerja_analog` | up2bmakassar | Cron, daily ~01:00 — availability harian titik TELEMETERING dari OFDB → `KinerjaAnalogHarian`; `--date`, `--days` (backfill), `--dry-run` |
+| `sync_kinerja_digital` | up2bmakassar | Cron, daily ~01:00 — sama untuk titik digital; `--jenis TELESIGNAL` (default) / `RTU` / `MASTER` / `TELEKOMUNIKASI` / `ALL` |
+| `sync_rc` | up2bmakassar | Cron, daily — log RC dari OFDB `scd_his_rc` + hasilnya di-resolve dari `scd_his_message` → `RemoteControl` |
+| `cek_kinerja_ofdb` | up2bmakassar | Diagnosa read-only — koneksi OFDB, induk point type yang ketemu, jumlah titik per jenis, lama query harian, dan jumlah baris tersimpan |
 
 ---
 
@@ -258,6 +263,21 @@ The `streaming` app doesn't add any new pip packages — WebRTC is handled entir
 | nginx (optional, recordings) | Faster recording playback — nginx serves the recording file bytes directly (`X-Accel-Redirect`, including Range requests for seeking) instead of Django/gunicorn streaming them manually. Opt-in, off by default | Add a `location /internal-recordings/ { internal; alias <STREAMING_RECORDINGS_ROOT>/; }` snippet to the **existing** FASOP nginx server block, then set `STREAMING_USE_X_ACCEL_REDIRECT=True` — see `deploy/nginx-recordings-x-accel.conf.example` |
 
 Setup script: `bash deploy/setup_streaming.sh` — idempotent, generates `deploy/mediamtx.generated.yml` (gitignored, contains secrets) from the `deploy/mediamtx.yml` template + `.env`, checks for `ffmpeg`, sets up the `purge_old_recordings` cron. **`mediamtx.generated.yml` is rewritten from scratch on every run** — never hand-edit it directly (origin/TURN values in particular have been lost this way before); all environment-specific values belong in `.env` (see table above) so re-running the script is always safe. Full walkthrough: `deploy/DEPLOY_CHECKLIST.md`.
+
+---
+
+## Kinerja SCADATEL — OFDB (`up2bmakassar/`)
+
+Sumber data: **OFDB** = `dbup2bmakasar` di MSSQL 192.168.19.1, database offline SCADA milik aplikasi up2bmakassar. FASOP membacanya **read-only** lewat user `fasop_readonly` (`up2bmakassar/ofdb.py`, env `OFDB_*`) dan tidak pernah menulis ke sana. Hasil perhitungan disimpan di PostgreSQL (`KinerjaAnalogHarian`, `KinerjaDigitalHarian`, `RemoteControl`); SOE log tidak disimpan sama sekali (query on-demand).
+
+Dua hal yang harus sama dengan app up2bmakassar kalau angkanya mau cocok:
+
+- **Jenis titik ditentukan INDUK point type, bukan `point_type`.** `scd_c_point.id_pointtype` → `scd_pointtype.id_induk_pointtype`, namanya `TELEMETERING` (analog) / `TELESIGNAL`, `RTU`, `MASTER`, `TELEKOMUNIKASI` (semuanya digital). Halaman Telesignal di up2bmakassar memfilter `id_induk_pointtype=21`, Telemetering `=15`. Menghitung dengan `point_type='D'` saja akan mencampur RTU/Master/Telkom ke dalam angka Telesignal. Satu tabel digital menampung semua jenis, dibedakan lewat kolom `jenis` — sama seperti `scd_kin_digital_bulan` di app lama.
+- **Availability = `SUM(uptime) / SUM(alltime) × 100`**, bukan rata-rata kolom `performance` harian — konsisten dengan serializer rekap up2bmakassar (bobot per hari jadi benar).
+
+Perhitungan harian (`up2bmakassar/sync.py`) memakai **3 query per hari per jenis** (master titik, satu `GROUP BY` uptime untuk semua titik, satu lookup status terakhir untuk titik tanpa transisi). Script asli up2bmakassar memakai 4 query **per titik** — puluhan ribu round-trip ke 192.168.19.1 yang praktis tidak pernah selesai. Jangan kembali ke pola per-titik saat menambah jenis/metrik baru.
+
+Kalau halaman kosong atau angkanya mencurigakan, jalankan `python manage.py cek_kinerja_ofdb` dulu — itu menunjukkan apakah masalahnya koneksi, nama induk point type, filter `SitePath1`, kecepatan query OFDB, atau memang cron sync-nya belum jalan. Index OFDB yang disarankan (dieksekusi DBA OFDB, bukan oleh FASOP): `deploy/ofdb_indexes.sql`.
 
 ---
 

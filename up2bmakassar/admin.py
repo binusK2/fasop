@@ -14,16 +14,16 @@ class SitePath1Admin(admin.ModelAdmin):
 
 @admin.register(KinerjaAnalogHarian)
 class KinerjaAnalogHarianAdmin(admin.ModelAdmin):
-    list_display = ('point_number', 'path1', 'path2', 'path3', 'tanggal', 'performance', 'jumlah_up')
-    list_filter = ('tanggal',)
-    search_fields = ('point_number', 'path1', 'path2', 'path3')
+    list_display = ('point_number', 'jenis', 'b1', 'b2', 'b3', 'elem', 'tanggal', 'performance', 'jumlah_up')
+    list_filter = ('tanggal', 'jenis')
+    search_fields = ('point_number', 'b1', 'b2', 'b3', 'elem', 'path1', 'path2', 'path3')
 
 
 @admin.register(KinerjaDigitalHarian)
 class KinerjaDigitalHarianAdmin(admin.ModelAdmin):
-    list_display = ('point_number', 'path1', 'path2', 'path3', 'tanggal', 'performance', 'jumlah_up')
-    list_filter = ('tanggal',)
-    search_fields = ('point_number', 'path1', 'path2', 'path3')
+    list_display = ('point_number', 'jenis', 'b1', 'b2', 'b3', 'elem', 'tanggal', 'performance', 'jumlah_up')
+    list_filter = ('tanggal', 'jenis')
+    search_fields = ('point_number', 'b1', 'b2', 'b3', 'elem', 'path1', 'path2', 'path3')
 
 
 @admin.register(RemoteControl)
