@@ -45,27 +45,9 @@
             {{ records|length }} Berita Acara
         </h6>
         <div style="display:flex;gap:6px;">
-            <div class="dropdown">
-                <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button"
-                        data-bs-toggle="dropdown" aria-expanded="false" style="font-size:12px;">
-                    <i class="bi bi-plus-lg me-1"></i>BA Baru
-                </button>
-                <ul class="dropdown-menu dropdown-menu-end">
-                    <li><a class="dropdown-item" href="{% url 'ba_pemasangan' %}" style="font-size:13px;">
-                        <i class="bi bi-box-arrow-in-down me-2 text-success"></i>Pemasangan
-                    </a></li>
-                    <li><a class="dropdown-item" href="{% url 'ba_pembongkaran' %}" style="font-size:13px;">
-                        <i class="bi bi-box-arrow-up me-2 text-warning"></i>Pembongkaran
-                    </a></li>
-                    <li><a class="dropdown-item" href="{% url 'ba_penggantian' %}" style="font-size:13px;">
-                        <i class="bi bi-arrow-left-right me-2 text-primary"></i>Penggantian
-                    </a></li>
-                    <li><hr class="dropdown-divider"></li>
-                    <li><a class="dropdown-item" href="{% url 'ba_gangguan' %}" style="font-size:13px;">
-                        <i class="bi bi-exclamation-triangle me-2 text-purple" style="color:#7c3aed;"></i>Gangguan
-                    </a></li>
-                </ul>
-            </div>
+            <a href="{% url 'ba_create' %}" class="btn btn-sm btn-outline-primary" style="font-size:12px;">
+                <i class="bi bi-plus-lg me-1"></i>Buat BA
+            </a>
             <a href="{% url 'ba_upload' %}" class="btn btn-sm btn-primary" style="font-size:12px;">
                 <i class="bi bi-cloud-arrow-up me-1"></i>Upload BA
             </a>

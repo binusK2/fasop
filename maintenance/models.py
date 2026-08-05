@@ -1522,6 +1522,11 @@ class BeritaAcaraRecord(models.Model):
         ('signed_am',         'Selesai'),
     ]
     jenis      = models.CharField(max_length=20, choices=JENIS_CHOICES)
+    jenis_lain = models.CharField(
+        max_length=200, blank=True,
+        verbose_name='Kategori Lain',
+        help_text="Label kategori custom saat jenis='lainnya'.",
+    )
     nomor_ba   = models.CharField(max_length=200, blank=True)
     tanggal    = models.DateField()
     pelaksana  = models.CharField(max_length=200)
@@ -1529,6 +1534,11 @@ class BeritaAcaraRecord(models.Model):
     jabatan    = models.CharField(max_length=200, blank=True)
     catatan    = models.TextField(blank=True)
     rows_data  = models.JSONField(default=list)
+    columns_data = models.JSONField(
+        default=list, blank=True,
+        help_text='Header kolom custom untuk BA generik (lainnya/penormalan). '
+                  'Kosong untuk jenis dengan template tetap.',
+    )
     file_upload = models.FileField(
         upload_to=ba_file_upload, blank=True, null=True,
         verbose_name='File BA (Upload)',
@@ -1560,8 +1570,20 @@ class BeritaAcaraRecord(models.Model):
         ordering = ['-created_at']
         verbose_name = 'Berita Acara Record'
 
+    @property
+    def kategori_display(self):
+        """Label kategori — pakai jenis_lain bila jenis='lainnya' dan terisi."""
+        if self.jenis == 'lainnya' and self.jenis_lain.strip():
+            return self.jenis_lain.strip()
+        return self.get_jenis_display()
+
+    @property
+    def is_generic(self):
+        """True untuk BA bebas-kolom (lainnya/penormalan) yang pakai columns_data."""
+        return self.jenis in ('lainnya', 'penormalan')
+
     def __str__(self):
-        return f'{self.get_jenis_display()} — {self.nomor_ba or "(tanpa nomor)"}'
+        return f'{self.kategori_display} — {self.nomor_ba or "(tanpa nomor)"}'
 
 
 class MaintenanceMasterStation(models.Model):
