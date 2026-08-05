@@ -107,6 +107,21 @@ def _cek_tabel(table):
     return table
 
 
+def _teks(nilai):
+    """
+    Rapikan nilai teks OFDB: buang spasi padding di kiri/kanan.
+
+    PENTING untuk path1..path5. Kolom-kolom itu diisi oleh beberapa program dari
+    era berbeda: syncoffline/points.py memecah C_POINT.POINT_NAME dari Oracle
+    (kolom CHAR, jadi tiap potongan ikut membawa spasi padding -> 'PMONA6  ')
+    sementara baris yang ditulis program lama sudah ter-trim ('PMONA6'). Di SQL
+    Server keduanya dianggap sama karena '=' mengabaikan spasi ekor, tapi di
+    Python tidak -- tanpa strip ini pencocokan titik lewat path gagal total
+    padahal nama station/bay-nya identik.
+    """
+    return (nilai or '').strip()
+
+
 def _nomor(nilai):
     """
     Samakan tipe point_number jadi int.
@@ -207,9 +222,9 @@ def get_kinerja_points(cursor, jenis, abaikan_point_type=False, sumber=SUMBER_KI
     for row in cursor.fetchall():
         points.append({
             'point_number': _nomor(row[0]),
-            'path1': row[1] or '', 'path2': row[2] or '', 'path3': row[3] or '',
-            'path4': row[4] or '', 'path5': row[5] or '',
-            'b1': row[6] or '', 'b2': row[7] or '', 'b3': row[8] or '', 'elem': row[9] or '',
+            'path1': _teks(row[1]), 'path2': _teks(row[2]), 'path3': _teks(row[3]),
+            'path4': _teks(row[4]), 'path5': _teks(row[5]),
+            'b1': _teks(row[6]), 'b2': _teks(row[7]), 'b3': _teks(row[8]), 'elem': _teks(row[9]),
             'jenis': jenis,
         })
     return points
@@ -277,7 +292,7 @@ def _status_map(cursor, sql, params, sumber):
     """Jalankan query status; kalau tabelnya tidak ada di OFDB, kembalikan dict kosong."""
     try:
         cursor.execute(sql, params)
-        return {_nomor(row[0]): (row[1] or '') for row in cursor.fetchall()}
+        return {_nomor(row[0]): _teks(row[1]).upper() for row in cursor.fetchall()}
     except Exception as e:
         logger.warning('OFDB: sumber status %s tidak terbaca (%s)', sumber, e)
         return {}
@@ -453,7 +468,8 @@ def get_point_paths(cursor, point_type):
         FROM scd_c_point WHERE point_type = ?
     """, [point_type])
     return [
-        (_nomor(r[0]), r[1], (r[2] or '', r[3] or '', r[4] or '', r[5] or '', r[6] or ''))
+        (_nomor(r[0]), r[1],
+         (_teks(r[2]), _teks(r[3]), _teks(r[4]), _teks(r[5]), _teks(r[6])))
         for r in cursor.fetchall()
     ]
 
@@ -474,6 +490,16 @@ def get_point_berdata(cursor, table):
         return set()
 
 
+def _kunci_path(key):
+    """Kunci identitas titik dari tuple path, sudah dinormalisasi (strip + huruf besar)."""
+    return tuple(_teks(x).upper() for x in key)
+
+
+def _kunci_titik(p):
+    """Kunci identitas titik dari dict hasil get_kinerja_points."""
+    return _kunci_path((p['path1'], p['path2'], p['path3'], p['path4'], p['path5']))
+
+
 def analisa_kecocokan_path(points, semua_point, berdata):
     """
     Diagnosa: berapa titik kinerja yang path-nya cocok dengan titik ber-data,
@@ -487,11 +513,8 @@ def analisa_kecocokan_path(points, semua_point, berdata):
     """
     hasil = {}
     for level in (5, 4, 3, 1):
-        kunci = {key[:level] for pn, _k, key in semua_point if pn in berdata}
-        hasil[level] = sum(
-            1 for p in points
-            if (p['path1'], p['path2'], p['path3'], p['path4'], p['path5'])[:level] in kunci
-        )
+        kunci = {_kunci_path(key)[:level] for pn, _k, key in semua_point if pn in berdata}
+        hasil[level] = sum(1 for p in points if _kunci_titik(p)[:level] in kunci)
     contoh_kinerja = [
         (p['point_number'], (p['path1'], p['path2'], p['path3'], p['path4'], p['path5']))
         for p in points[:3]
@@ -515,6 +538,7 @@ def cari_kembaran(points, semua_point, berdata):
     """
     kandidat = {}
     for pn, _kinerja, key in semua_point:
+        key = _kunci_path(key)
         if pn in berdata and (key not in kandidat or pn > kandidat[key]):
             kandidat[key] = pn
 
@@ -524,8 +548,7 @@ def cari_kembaran(points, semua_point, berdata):
     for p in points:
         if p['point_number'] in berdata:
             continue
-        key = (p['path1'], p['path2'], p['path3'], p['path4'], p['path5'])
-        pengganti = kandidat.get(key)
+        pengganti = kandidat.get(_kunci_titik(p))
         if pengganti is not None and pengganti not in dipakai:
             p['point_number_asal'] = p['point_number']
             p['point_number'] = pengganti
