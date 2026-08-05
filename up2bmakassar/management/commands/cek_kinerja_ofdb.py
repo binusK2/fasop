@@ -137,6 +137,23 @@ class Command(BaseCommand):
                         f'histori transisinya bukan di {table} sehingga tidak ikut dihitung.'
                     )
 
+            # ── Kesegaran tiap rantai data di OFDB ──────────────────────────────
+            self.stdout.write('--- Data terbaru per tabel OFDB (rantai mana yang masih jalan) ---')
+            sekarang = timezone.localtime().replace(tzinfo=None)
+            for tabel, keterangan, nilai, error in ofdb.kesegaran_ofdb(cursor):
+                if error:
+                    self.stdout.write(f'    {tabel:<26} {keterangan:<36} -- tidak terbaca ({error})')
+                elif nilai is None:
+                    self.stdout.write(f'    {tabel:<26} {keterangan:<36} KOSONG')
+                else:
+                    try:
+                        selisih = sekarang - (nilai if isinstance(nilai, datetime)
+                                              else datetime.combine(nilai, datetime.min.time()))
+                        umur = f'{selisih.days} hari {selisih.seconds // 3600} jam lalu'
+                    except Exception:
+                        umur = ''
+                    self.stdout.write(f'    {tabel:<26} {keterangan:<36} {nilai}  ({umur})')
+
             # Contoh nilai duluan -- blok ini paling murah dan paling sering
             # menjelaskan masalahnya (beda tipe data / beda ruang penomoran).
             self.stdout.write('--- Contoh point_number apa adanya (cek tipe data) ---')
@@ -175,6 +192,41 @@ class Command(BaseCommand):
                     self.stdout.write(
                         f'    {(jenis or "-"):<18}{kinerja if kinerja is not None else "-":>8}'
                         f'{titik:>8}{ada_his:>13}{ada_rtl:>9}'
+                    )
+
+            # ── Bisakah titik mati diselamatkan lewat path? ─────────────────────
+            # Identitas logis titik = path1..path5 (B1/B2/B3/Element/Info).
+            # Kalau titik kinerja=1 menunjuk point_number mati tapi ada titik lain
+            # dengan path sama persis yang punya data, sync --petakan-path bisa
+            # memakai titik itu tanpa perlu mengubah apa pun di OFDB.
+            self.stdout.write('--- Uji pemetaan lewat path1..path5 ---')
+            for jenis in [ofdb.JENIS_TELEMETERING, ofdb.JENIS_TELESIGNAL]:
+                try:
+                    points = ofdb.get_kinerja_points(cursor, jenis)
+                    if not points:
+                        continue
+                    point_type, table = ofdb.JENIS_SUMBER[jenis]
+                    berdata = ofdb.get_point_berdata(cursor, table)
+                    semua = ofdb.get_point_paths(cursor, point_type)
+                    contoh = [p for p in points if p['point_number'] not in berdata][:3]
+                    asal = {id(p): p['point_number'] for p in contoh}
+                    dipetakan, gagal = ofdb.cari_kembaran(points, semua, berdata)
+                except Exception as e:
+                    self.stderr.write(f'    {jenis}: gagal ({e})')
+                    continue
+
+                self.stdout.write(
+                    f'    {jenis:<15} bisa dipetakan={dipetakan}, tidak ketemu kembarannya={gagal}'
+                )
+                for p in contoh:
+                    if 'point_number_asal' in p:
+                        self.stdout.write(
+                            f'          {asal[id(p)]} -> {p["point_number"]}  '
+                            f'({p["b1"]}/{p["b2"]}/{p["b3"]}/{p["elem"]})'
+                        )
+                if dipetakan:
+                    self.stdout.write(
+                        f'          jalankan sync dengan --petakan-path untuk memakai pemetaan ini.'
                     )
         finally:
             conn.close()
