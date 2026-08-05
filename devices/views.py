@@ -1,12 +1,19 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.core.paginator import Paginator
-from fasop.hashids_helper import encode as _hid
+from fasop.hashids_helper import encode as _hid, decode as _hid_decode
 from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from django.core.files.base import ContentFile
+import os as _os
 from devices.permissions import (
     require_can_delete, require_can_edit, require_can_manage_lokasi,
     can_delete, can_edit, can_manage_lokasi, is_viewer_only
 )
-from .models import Device, DeviceType, Icon, SiteLocation, DeviceLog, DeviceEvent, Branch
+from .models import (
+    Device, DeviceType, Icon, SiteLocation, DeviceLog, DeviceEvent, Branch,
+    DeviceEviden, FotoLapangan,
+)
+from .photo_utils import make_thumbnail, read_exif_taken_at
 from .forms import DeviceForm, IconForm
 from django.db.models import Count, Q
 from django.db.models.functions import TruncMonth, Lower, Trim, ExtractYear, ExtractMonth
@@ -3120,3 +3127,223 @@ def global_search_api(request):
             'url':            _rev('device_view', args=[d.pk]),
         })
     return JsonResponse({'results': results, 'total': total, 'query': query})
+
+
+# ═══════════════════════════════════════════════════════════════
+# GALERI FOTO LAPANGAN — upload massal → assign ke device/eviden
+# ═══════════════════════════════════════════════════════════════
+_FL_IMG_EXT = ('.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.heic', '.heif')
+
+
+def _fl_read_bytes(fieldfile):
+    """Baca seluruh isi FieldFile jadi bytes (untuk meng-copy ke target)."""
+    fieldfile.open('rb')
+    try:
+        return fieldfile.read()
+    finally:
+        fieldfile.close()
+
+
+def _fl_mark_assigned(fl, device, as_target, user):
+    fl.status          = 'assigned'
+    fl.assigned_device = device
+    fl.assigned_as     = as_target
+    fl.assigned_at     = now()
+    fl.assigned_by     = user
+    fl.save(update_fields=['status', 'assigned_device', 'assigned_as', 'assigned_at', 'assigned_by'])
+
+
+@login_required
+@require_can_edit
+def foto_lapangan_galeri(request):
+    """Grid foto lapangan dengan filter status + pencarian."""
+    status = request.GET.get('status', 'unassigned')
+    q      = request.GET.get('q', '').strip()
+
+    qs = FotoLapangan.objects.select_related('assigned_device', 'uploaded_by')
+    if status in ('unassigned', 'assigned'):
+        qs = qs.filter(status=status)
+    if q:
+        qs = qs.filter(
+            Q(caption__icontains=q) | Q(original_name__icontains=q) |
+            Q(assigned_device__nama__icontains=q)
+        )
+
+    paginator = Paginator(qs, 60)
+    page = paginator.get_page(request.GET.get('page'))
+
+    base = FotoLapangan.objects.all()
+    counts = {
+        'unassigned': base.filter(status='unassigned').count(),
+        'assigned':   base.filter(status='assigned').count(),
+        'all':        base.count(),
+    }
+    return render(request, 'devices/foto_lapangan_galeri.html', {
+        'page_obj': page,
+        'status':   status,
+        'q':        q,
+        'counts':   counts,
+    })
+
+
+@login_required
+@require_can_edit
+def foto_lapangan_upload(request):
+    """Upload banyak foto / satu folder sekaligus. Thumbnail + EXIF dibuat di sini."""
+    if request.method == 'POST':
+        files = request.FILES.getlist('photos')
+        n_ok, n_skip = 0, 0
+        for f in files:
+            name = str(getattr(f, 'name', '') or '')
+            is_img = str(getattr(f, 'content_type', '')).startswith('image') \
+                     or name.lower().endswith(_FL_IMG_EXT)
+            if not is_img:
+                n_skip += 1
+                continue
+            taken = read_exif_taken_at(f)
+            fl = FotoLapangan(
+                uploaded_by   = request.user,
+                original_name = name[:255],
+                taken_at      = taken,
+            )
+            fl.image.save(_os.path.basename(name) or 'foto.jpg', f, save=False)
+            thumb = make_thumbnail(f)
+            if thumb:
+                fl.thumbnail.save('thumb.jpg', thumb, save=False)
+            fl.save()
+            n_ok += 1
+        if n_ok:
+            messages.success(request, f'{n_ok} foto berhasil diupload.')
+        if n_skip:
+            messages.info(request, f'{n_skip} berkas dilewati (bukan gambar).')
+        return redirect('foto_lapangan_galeri')
+
+    return render(request, 'devices/foto_lapangan_upload.html', {})
+
+
+@login_required
+@require_can_edit
+def foto_lapangan_device_search(request):
+    """Pencarian device untuk dropdown assign (JSON)."""
+    q = request.GET.get('q', '').strip()
+    qs = Device.objects.filter(is_deleted=False).select_related('jenis')
+    if q:
+        qs = qs.filter(
+            Q(nama__icontains=q) | Q(lokasi__icontains=q) | Q(serial_number__icontains=q)
+        )
+    qs = qs.order_by('nama')[:20]
+    results = [{
+        'id':        d.pk,
+        'nama':      d.nama,
+        'jenis':     d.jenis.name if d.jenis else '',
+        'lokasi':    d.lokasi or '',
+        'has_foto':  bool(d.foto),
+        'has_foto2': bool(d.foto2),
+    } for d in qs]
+    return JsonResponse({'results': results})
+
+
+@login_required
+@require_can_edit
+def foto_lapangan_assign(request):
+    """Copy foto terpilih ke Device.foto/foto2 (1 foto) atau DeviceEviden (bulk)."""
+    if request.method != 'POST':
+        return redirect('foto_lapangan_galeri')
+
+    nxt        = request.POST.get('next') or 'foto_lapangan_galeri'
+    photo_ids  = request.POST.getlist('photo_ids')
+    target     = request.POST.get('target', '')
+    device_pk  = request.POST.get('device_id', '')
+
+    if not photo_ids:
+        messages.error(request, 'Belum ada foto yang dipilih.')
+        return redirect(nxt if nxt.startswith('/') else 'foto_lapangan_galeri')
+    if target not in ('foto', 'foto2', 'eviden'):
+        messages.error(request, 'Target assign tidak valid.')
+        return redirect(nxt if nxt.startswith('/') else 'foto_lapangan_galeri')
+
+    try:
+        device = Device.objects.get(pk=int(device_pk), is_deleted=False)
+    except (Device.DoesNotExist, ValueError, TypeError):
+        messages.error(request, 'Perangkat tujuan tidak ditemukan.')
+        return redirect(nxt if nxt.startswith('/') else 'foto_lapangan_galeri')
+
+    fotos = list(FotoLapangan.objects.filter(pk__in=photo_ids))
+    if not fotos:
+        messages.error(request, 'Foto tidak ditemukan.')
+        return redirect(nxt if nxt.startswith('/') else 'foto_lapangan_galeri')
+
+    if target in ('foto', 'foto2'):
+        # Foto utama device hanya 2 slot → satu foto per assign
+        fl   = fotos[0]
+        data = _fl_read_bytes(fl.image)
+        fname = _os.path.basename(fl.image.name) or 'foto.jpg'
+        if target == 'foto':
+            device.foto.save(fname, ContentFile(data), save=True)
+        else:
+            device.foto2.save(fname, ContentFile(data), save=True)
+        _fl_mark_assigned(fl, device, target, request.user)
+        slot = 'Foto 1' if target == 'foto' else 'Foto 2'
+        messages.success(request, f'Foto diarahkan sebagai {slot} milik "{device.nama}".')
+        if len(fotos) > 1:
+            messages.info(request, 'Untuk Foto utama hanya 1 foto dipakai. Sisanya bisa diarahkan ke Eviden.')
+    else:
+        for fl in fotos:
+            data = _fl_read_bytes(fl.image)
+            ev = DeviceEviden(device=device, keterangan=fl.caption or '', uploaded_by=request.user)
+            ev.foto.save(_os.path.basename(fl.image.name) or 'foto.jpg', ContentFile(data), save=True)
+            _fl_mark_assigned(fl, device, 'eviden', request.user)
+        messages.success(request, f'{len(fotos)} foto ditambahkan ke Eviden milik "{device.nama}".')
+
+    return redirect(nxt if nxt.startswith('/') else 'foto_lapangan_galeri')
+
+
+@login_required
+@require_can_edit
+def foto_lapangan_edit_caption(request, pk):
+    """Ubah caption satu foto (dipakai sebagai keterangan default saat jadi eviden)."""
+    fl = get_object_or_404(FotoLapangan, pk=_hid_decode(pk))
+    if request.method == 'POST':
+        fl.caption = request.POST.get('caption', '').strip()[:200]
+        fl.save(update_fields=['caption'])
+        messages.success(request, 'Keterangan foto disimpan.')
+    return redirect(request.POST.get('next') or 'foto_lapangan_galeri')
+
+
+@login_required
+@require_can_delete
+def foto_lapangan_delete(request, pk):
+    """Hapus satu foto dari galeri (file asli + thumbnail)."""
+    fl = get_object_or_404(FotoLapangan, pk=_hid_decode(pk))
+    if request.method == 'POST':
+        for ff in (fl.image, fl.thumbnail):
+            try:
+                if ff and _os.path.isfile(ff.path):
+                    _os.remove(ff.path)
+            except Exception:
+                pass
+        fl.delete()
+        messages.success(request, 'Foto dihapus dari galeri.')
+    return redirect(request.POST.get('next') or 'foto_lapangan_galeri')
+
+
+@login_required
+@require_can_delete
+def foto_lapangan_bulk_delete(request):
+    """Hapus banyak foto galeri sekaligus."""
+    if request.method != 'POST':
+        return redirect('foto_lapangan_galeri')
+    ids = request.POST.getlist('photo_ids')
+    n = 0
+    for fl in FotoLapangan.objects.filter(pk__in=ids):
+        for ff in (fl.image, fl.thumbnail):
+            try:
+                if ff and _os.path.isfile(ff.path):
+                    _os.remove(ff.path)
+            except Exception:
+                pass
+        fl.delete()
+        n += 1
+    messages.success(request, f'{n} foto dihapus dari galeri.')
+    nxt = request.POST.get('next')
+    return redirect(nxt if nxt and nxt.startswith('/') else 'foto_lapangan_galeri')

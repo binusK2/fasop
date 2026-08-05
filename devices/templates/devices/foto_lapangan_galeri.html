@@ -1,0 +1,301 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Galeri Foto Lapangan — FASOP{% endblock %}
+{% block page_title %}Galeri Foto Lapangan{% endblock %}
+
+{% block content %}
+<style>
+  .fl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .fl-card { position: relative; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; background:#fff; }
+  .fl-card.sel { outline: 3px solid #2563eb; border-color: #2563eb; }
+  .fl-thumb { width: 100%; height: 130px; object-fit: cover; display: block; cursor: zoom-in; background:#f1f5f9; }
+  .fl-meta { padding: 6px 8px; font-size: 10.5px; color: #64748b; }
+  .fl-check { position: absolute; top: 6px; left: 6px; width: 20px; height: 20px; cursor: pointer; z-index:2; }
+  .fl-badge { position: absolute; top: 6px; right: 6px; font-size: 9px; padding: 2px 6px; border-radius: 20px; z-index:2; }
+  .fl-badge.ok { background:#dcfce7; color:#166534; }
+  .fl-badge.no { background:#fef9c3; color:#854d0e; }
+  .fl-actionbar { position: sticky; bottom: 0; z-index: 20; background:#0f172a; color:#fff;
+                  border-radius: 10px; padding: 10px 14px; display:none; align-items:center; gap:10px;
+                  box-shadow: 0 6px 20px rgba(0,0,0,.25); margin-top: 12px; }
+  .dev-result { padding: 8px 10px; border:1px solid #e2e8f0; border-radius:8px; cursor:pointer; margin-bottom:6px; }
+  .dev-result:hover { background:#f1f5f9; }
+  .dev-result.active { border-color:#2563eb; background:#eff6ff; }
+</style>
+
+<!-- Header -->
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <div>
+    <h2 class="mb-0" style="font-size:18px;font-weight:700;">Galeri Foto Lapangan</h2>
+    <p class="text-muted mb-0" style="font-size:12px;">Pilih foto lalu arahkan ke <strong>Foto perangkat</strong> atau <strong>Eviden</strong>.</p>
+  </div>
+  <a href="{% url 'foto_lapangan_upload' %}" class="btn btn-sm btn-primary"><i class="bi bi-cloud-arrow-up me-1"></i>Upload Foto</a>
+</div>
+
+<!-- Filter + search -->
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+  <div class="btn-group btn-group-sm" role="group">
+    <a href="?status=unassigned{% if q %}&q={{ q }}{% endif %}" class="btn btn-outline-secondary {% if status == 'unassigned' %}active{% endif %}">
+      Belum Diarahkan <span class="badge bg-warning text-dark ms-1">{{ counts.unassigned }}</span>
+    </a>
+    <a href="?status=assigned{% if q %}&q={{ q }}{% endif %}" class="btn btn-outline-secondary {% if status == 'assigned' %}active{% endif %}">
+      Sudah <span class="badge bg-success ms-1">{{ counts.assigned }}</span>
+    </a>
+    <a href="?status=all{% if q %}&q={{ q }}{% endif %}" class="btn btn-outline-secondary {% if status == 'all' %}active{% endif %}">
+      Semua <span class="badge bg-secondary ms-1">{{ counts.all }}</span>
+    </a>
+  </div>
+  <form method="get" class="d-flex gap-2">
+    <input type="hidden" name="status" value="{{ status }}">
+    <input type="text" name="q" value="{{ q }}" class="form-control form-control-sm" style="width:220px;" placeholder="Cari keterangan / device…">
+    <button class="btn btn-sm btn-outline-primary"><i class="bi bi-search"></i></button>
+  </form>
+</div>
+
+<div class="d-flex align-items-center gap-3 mb-2" style="font-size:12px;">
+  <label class="d-flex align-items-center gap-1" style="cursor:pointer;">
+    <input type="checkbox" id="check-all"> Pilih semua di halaman ini
+  </label>
+</div>
+
+{% if page_obj.object_list %}
+<div class="fl-grid">
+  {% for fl in page_obj.object_list %}
+  <div class="fl-card" data-id="{{ fl.pk }}"
+       data-full="{{ fl.image.url }}"
+       data-caption="{{ fl.caption|escapejs }}"
+       data-caption-url="{% url 'foto_lapangan_edit_caption' fl.pk %}"
+       data-delete-url="{% url 'foto_lapangan_delete' fl.pk %}">
+    <input type="checkbox" class="fl-check form-check-input" value="{{ fl.pk }}">
+    {% if fl.status == 'assigned' %}
+      <span class="fl-badge ok" title="{{ fl.assigned_device.nama }} · {{ fl.get_assigned_as_display }}"><i class="bi bi-check-lg"></i></span>
+    {% else %}
+      <span class="fl-badge no">baru</span>
+    {% endif %}
+    <img class="fl-thumb" loading="lazy"
+         src="{% if fl.thumbnail %}{{ fl.thumbnail.url }}{% else %}{{ fl.image.url }}{% endif %}"
+         onclick="openLightbox(this.closest('.fl-card'))">
+    <div class="fl-meta">
+      <div><i class="bi bi-clock me-1"></i>{{ fl.display_time|date:"d M Y H:i" }}</div>
+      {% if fl.status == 'assigned' %}
+        <div class="text-success text-truncate"><i class="bi bi-hdd-network me-1"></i>{{ fl.assigned_device.nama }}</div>
+      {% elif fl.caption %}
+        <div class="text-truncate">{{ fl.caption }}</div>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Action bar (muncul saat ada yang dipilih) -->
+<div class="fl-actionbar" id="actionbar">
+  <span id="sel-count" style="font-size:13px;font-weight:600;">0 dipilih</span>
+  <div class="ms-auto d-flex gap-2">
+    <button type="button" class="btn btn-sm btn-primary" onclick="openAssign()">
+      <i class="bi bi-hdd-network me-1"></i>Arahkan ke Perangkat
+    </button>
+    <button type="button" class="btn btn-sm btn-outline-light" onclick="submitBulkDelete()">
+      <i class="bi bi-trash me-1"></i>Hapus
+    </button>
+  </div>
+</div>
+
+<!-- Pagination -->
+{% if page_obj.has_other_pages %}
+<nav class="mt-3"><ul class="pagination pagination-sm justify-content-center">
+  {% if page_obj.has_previous %}
+    <li class="page-item"><a class="page-link" href="?status={{ status }}&q={{ q }}&page={{ page_obj.previous_page_number }}">‹</a></li>
+  {% endif %}
+  <li class="page-item disabled"><span class="page-link">Hal {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+  {% if page_obj.has_next %}
+    <li class="page-item"><a class="page-link" href="?status={{ status }}&q={{ q }}&page={{ page_obj.next_page_number }}">›</a></li>
+  {% endif %}
+</ul></nav>
+{% endif %}
+
+{% else %}
+<div class="text-center text-muted py-5">
+  <i class="bi bi-images" style="font-size:40px;"></i>
+  <p class="mt-2" style="font-size:13px;">Belum ada foto. <a href="{% url 'foto_lapangan_upload' %}">Upload foto lapangan</a>.</p>
+</div>
+{% endif %}
+
+<!-- ═══ Offcanvas Assign ═══ -->
+<div class="offcanvas offcanvas-end" tabindex="-1" id="assignCanvas">
+  <div class="offcanvas-header">
+    <h5 class="offcanvas-title" style="font-size:15px;"><i class="bi bi-hdd-network me-1"></i>Arahkan Foto ke Perangkat</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+  </div>
+  <div class="offcanvas-body">
+    <form method="post" action="{% url 'foto_lapangan_assign' %}" id="assign-form">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.get_full_path }}">
+      <input type="hidden" name="device_id" id="assign-device-id">
+      <div id="assign-photos-holder"></div>
+
+      <div class="alert alert-secondary py-2 px-3" style="font-size:12px;" id="assign-count">0 foto dipilih</div>
+
+      <label class="form-label" style="font-size:12px;font-weight:600;">1. Cari perangkat tujuan</label>
+      <input type="text" class="form-control form-control-sm mb-2" id="dev-search" placeholder="Ketik nama / lokasi / SN device…" autocomplete="off">
+      <div id="dev-results" style="max-height:220px;overflow:auto;"></div>
+      <div id="dev-chosen" class="alert alert-primary py-2 px-3 mt-1" style="font-size:12px;display:none;"></div>
+
+      <label class="form-label mt-3" style="font-size:12px;font-weight:600;">2. Arahkan sebagai</label>
+      <div class="d-flex flex-column gap-1" id="target-group">
+        <label class="d-flex align-items-center gap-2" style="font-size:13px;">
+          <input type="radio" name="target" value="eviden" checked> Eviden tambahan <span class="text-muted">(bisa banyak foto)</span>
+        </label>
+        <label class="d-flex align-items-center gap-2" style="font-size:13px;">
+          <input type="radio" name="target" value="foto"> Foto perangkat 1 <span class="text-muted" id="hint-foto"></span>
+        </label>
+        <label class="d-flex align-items-center gap-2" style="font-size:13px;">
+          <input type="radio" name="target" value="foto2"> Foto perangkat 2 <span class="text-muted" id="hint-foto2"></span>
+        </label>
+      </div>
+      <div class="text-warning mt-1" style="font-size:11px;display:none;" id="single-warn">
+        <i class="bi bi-exclamation-triangle"></i> Foto perangkat hanya 1 slot — hanya foto pertama yang dipilih akan dipakai.
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-sm w-100 mt-3" id="assign-submit" disabled>
+        <i class="bi bi-check2-circle me-1"></i>Arahkan
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- Form bulk delete tersembunyi -->
+<form method="post" action="{% url 'foto_lapangan_bulk_delete' %}" id="bulk-delete-form" style="display:none;">
+  {% csrf_token %}
+  <input type="hidden" name="next" value="{{ request.get_full_path }}">
+  <div id="bulk-delete-holder"></div>
+</form>
+
+<!-- ═══ Lightbox ═══ -->
+<div class="modal fade" id="lightbox" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-body p-2 text-center" style="background:#0f172a;">
+        <img id="lb-img" src="" style="max-width:100%;max-height:70vh;border-radius:6px;">
+      </div>
+      <div class="modal-footer py-2">
+        <form method="post" id="lb-caption-form" class="d-flex gap-2 w-100">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{{ request.get_full_path }}">
+          <input type="text" name="caption" id="lb-caption" class="form-control form-control-sm" placeholder="Keterangan foto (jadi keterangan eviden)…">
+          <button class="btn btn-sm btn-outline-primary" type="submit">Simpan</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const CSRF = document.querySelector('#assign-form [name=csrfmiddlewaretoken]').value;
+const selected = new Set();
+
+function refreshBar(){
+  const bar = document.getElementById('actionbar');
+  document.getElementById('sel-count').textContent = selected.size + ' dipilih';
+  bar.style.display = selected.size ? 'flex' : 'none';
+}
+document.querySelectorAll('.fl-check').forEach(cb => {
+  cb.addEventListener('change', () => {
+    const card = cb.closest('.fl-card');
+    if(cb.checked){ selected.add(cb.value); card.classList.add('sel'); }
+    else { selected.delete(cb.value); card.classList.remove('sel'); }
+    refreshBar();
+  });
+});
+document.getElementById('check-all')?.addEventListener('change', e => {
+  document.querySelectorAll('.fl-check').forEach(cb => {
+    cb.checked = e.target.checked;
+    cb.dispatchEvent(new Event('change'));
+  });
+});
+
+// ── Assign ──
+let chosenDevice = null;
+function openAssign(){
+  if(!selected.size) return;
+  document.getElementById('assign-count').textContent = selected.size + ' foto dipilih';
+  const holder = document.getElementById('assign-photos-holder');
+  holder.innerHTML = '';
+  selected.forEach(id => {
+    const i = document.createElement('input');
+    i.type='hidden'; i.name='photo_ids'; i.value=id; holder.appendChild(i);
+  });
+  // reset device pilihan
+  chosenDevice = null;
+  document.getElementById('assign-device-id').value = '';
+  document.getElementById('dev-chosen').style.display = 'none';
+  document.getElementById('dev-results').innerHTML = '';
+  document.getElementById('dev-search').value = '';
+  updateSingleWarn();
+  document.getElementById('assign-submit').disabled = true;
+  new bootstrap.Offcanvas('#assignCanvas').show();
+}
+
+let searchTimer = null;
+document.getElementById('dev-search').addEventListener('input', function(){
+  clearTimeout(searchTimer);
+  const q = this.value.trim();
+  searchTimer = setTimeout(() => doDeviceSearch(q), 250);
+});
+function doDeviceSearch(q){
+  const box = document.getElementById('dev-results');
+  if(!q){ box.innerHTML=''; return; }
+  fetch('{% url "foto_lapangan_device_search" %}?q=' + encodeURIComponent(q))
+    .then(r => r.json())
+    .then(d => {
+      if(!d.results.length){ box.innerHTML = '<div class="text-muted" style="font-size:12px;">Tidak ada device.</div>'; return; }
+      box.innerHTML = d.results.map(dev =>
+        '<div class="dev-result" data-id="'+dev.id+'" data-foto="'+dev.has_foto+'" data-foto2="'+dev.has_foto2+'" '
+        + 'data-nama="'+escAttr(dev.nama)+'" data-lokasi="'+escAttr(dev.lokasi)+'">'
+        + '<div style="font-size:13px;font-weight:600;">'+escHtml(dev.nama)+'</div>'
+        + '<div style="font-size:11px;color:#64748b;">'+escHtml(dev.jenis)+' · '+escHtml(dev.lokasi)+'</div></div>'
+      ).join('');
+      box.querySelectorAll('.dev-result').forEach(el => el.addEventListener('click', () => chooseDevice(el)));
+    });
+}
+function chooseDevice(el){
+  document.querySelectorAll('.dev-result').forEach(x => x.classList.remove('active'));
+  el.classList.add('active');
+  chosenDevice = { id: el.dataset.id, nama: el.dataset.nama, foto: el.dataset.foto==='true', foto2: el.dataset.foto2==='true' };
+  document.getElementById('assign-device-id').value = chosenDevice.id;
+  const chosen = document.getElementById('dev-chosen');
+  chosen.style.display = 'block';
+  chosen.innerHTML = '<i class="bi bi-check-circle me-1"></i>Tujuan: <strong>'+escHtml(chosenDevice.nama)+'</strong>';
+  document.getElementById('hint-foto').textContent  = chosenDevice.foto  ? '(sudah ada — akan ditimpa)' : '(kosong)';
+  document.getElementById('hint-foto2').textContent = chosenDevice.foto2 ? '(sudah ada — akan ditimpa)' : '(kosong)';
+  document.getElementById('assign-submit').disabled = false;
+}
+function updateSingleWarn(){
+  const t = document.querySelector('#target-group input[name=target]:checked').value;
+  document.getElementById('single-warn').style.display = (t !== 'eviden' && selected.size > 1) ? 'block' : 'none';
+}
+document.querySelectorAll('#target-group input[name=target]').forEach(r => r.addEventListener('change', updateSingleWarn));
+
+// ── Bulk delete ──
+function submitBulkDelete(){
+  if(!selected.size) return;
+  if(!confirm('Hapus ' + selected.size + ' foto dari galeri? Tindakan ini tidak bisa dibatalkan.')) return;
+  const holder = document.getElementById('bulk-delete-holder');
+  holder.innerHTML = '';
+  selected.forEach(id => {
+    const i = document.createElement('input'); i.type='hidden'; i.name='photo_ids'; i.value=id; holder.appendChild(i);
+  });
+  document.getElementById('bulk-delete-form').submit();
+}
+
+// ── Lightbox ──
+function openLightbox(card){
+  document.getElementById('lb-img').src = card.dataset.full;
+  document.getElementById('lb-caption').value = card.dataset.caption || '';
+  const f = document.getElementById('lb-caption-form');
+  f.action = card.dataset.captionUrl;
+  new bootstrap.Modal('#lightbox').show();
+}
+
+function escHtml(s){ return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function escAttr(s){ return escHtml(s).replace(/"/g,'&quot;'); }
+</script>
+{% endblock %}

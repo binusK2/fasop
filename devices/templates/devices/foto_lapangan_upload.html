@@ -1,0 +1,120 @@
+{% extends 'base.html' %}
+{% block title %}Upload Foto Lapangan — FASOP{% endblock %}
+{% block page_title %}Upload Foto Lapangan{% endblock %}
+
+{% block content %}
+<style>
+  .drop-zone { border: 2px dashed #cbd5e1; border-radius: 12px; padding: 32px; text-align: center;
+               background: #f8fafc; transition: .15s; cursor: pointer; }
+  .drop-zone.drag { border-color: #2563eb; background: #eff6ff; }
+  .prev-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
+  .prev-cell img { width: 100%; height: 100px; object-fit: cover; border-radius: 8px; border: 1px solid #e2e8f0; }
+  .prev-cell { position: relative; font-size: 10px; color: #64748b; }
+</style>
+
+<div class="d-flex align-items-center gap-2 mb-3">
+  <a href="{% url 'foto_lapangan_galeri' %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left"></i></a>
+  <div>
+    <h2 class="mb-0" style="font-size:18px;font-weight:700;">Upload Foto Lapangan</h2>
+    <p class="text-muted mb-0" style="font-size:12px;">Unggah banyak foto atau satu folder sekaligus. Foto diarahkan ke perangkat setelah diupload.</p>
+  </div>
+</div>
+
+<form method="post" enctype="multipart/form-data" id="up-form">
+  {% csrf_token %}
+
+  <div class="card mb-3">
+    <div class="card-body px-4 py-4">
+      <div class="drop-zone" id="drop">
+        <i class="bi bi-cloud-arrow-up" style="font-size:34px;color:#94a3b8;"></i>
+        <div style="font-size:14px;font-weight:600;margin-top:6px;">Tarik &amp; letakkan foto di sini</div>
+        <div class="text-muted" style="font-size:12px;margin-bottom:12px;">atau</div>
+        <div class="d-flex gap-2 justify-content-center flex-wrap">
+          <button type="button" class="btn btn-sm btn-primary" onclick="document.getElementById('inp-files').click()">
+            <i class="bi bi-images me-1"></i>Pilih Foto
+          </button>
+          <button type="button" class="btn btn-sm btn-outline-primary" onclick="document.getElementById('inp-folder').click()">
+            <i class="bi bi-folder2-open me-1"></i>Pilih Folder
+          </button>
+        </div>
+        <input type="file" id="inp-files"  name="photos" accept="image/*" multiple hidden>
+        <!-- picker folder saja; file-nya dialirkan ke input utama, tak dikirim langsung -->
+        <input type="file" id="inp-folder" accept="image/*" multiple webkitdirectory directory hidden>
+      </div>
+
+      <div id="prev-wrap" class="mt-3" style="display:none;">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <div style="font-size:12px;font-weight:600;" id="prev-count">0 foto dipilih</div>
+          <button type="button" class="btn btn-sm btn-link text-danger p-0" onclick="clearSel()">Kosongkan</button>
+        </div>
+        <div class="prev-grid" id="prev-grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="d-flex gap-2 mb-4">
+    <button type="submit" class="btn btn-primary btn-sm" id="btn-upload" disabled>
+      <i class="bi bi-upload me-1"></i>Upload
+    </button>
+    <a href="{% url 'foto_lapangan_galeri' %}" class="btn btn-outline-secondary btn-sm">Batal</a>
+  </div>
+</form>
+
+<script>
+const inpFiles  = document.getElementById('inp-files');
+const inpFolder = document.getElementById('inp-folder');
+const drop      = document.getElementById('drop');
+// DataTransfer gabungan agar drag-drop + pilih bisa diakumulasi ke input utama
+let bucket = new DataTransfer();
+
+function isImg(f){ return f.type.startsWith('image/') || /\.(jpe?g|png|gif|webp|bmp|heic|heif)$/i.test(f.name); }
+
+function addFiles(list){
+  for(const f of list){ if(isImg(f)) bucket.items.add(f); }
+  inpFiles.files = bucket.files;   // input utama yang dikirim
+  render();
+}
+function clearSel(){ bucket = new DataTransfer(); inpFiles.files = bucket.files; render(); }
+
+function render(){
+  const files = bucket.files;
+  const wrap = document.getElementById('prev-wrap');
+  const grid = document.getElementById('prev-grid');
+  document.getElementById('btn-upload').disabled = files.length === 0;
+  document.getElementById('prev-count').textContent = files.length + ' foto dipilih';
+  if(!files.length){ wrap.style.display = 'none'; grid.innerHTML=''; return; }
+  wrap.style.display = 'block';
+  // batasi preview 60 agar ringan
+  grid.innerHTML = '';
+  Array.from(files).slice(0, 60).forEach(f => {
+    const c = document.createElement('div'); c.className='prev-cell';
+    const img = document.createElement('img'); img.src = URL.createObjectURL(f);
+    img.onload = () => URL.revokeObjectURL(img.src);
+    c.appendChild(img);
+    grid.appendChild(c);
+  });
+  if(files.length > 60){
+    const more = document.createElement('div'); more.className='prev-cell d-flex align-items-center justify-content-center';
+    more.style.height='100px'; more.textContent = '+' + (files.length-60) + ' lagi';
+    grid.appendChild(more);
+  }
+}
+
+inpFolder.addEventListener('change', e => { addFiles(e.target.files); inpFolder.value=''; });
+let picking = false;
+inpFiles.addEventListener('change', e => {
+  // ketika user memilih via dialog "Pilih Foto", tambahkan ke bucket
+  if(picking) return;               // hindari rekursi saat inpFiles.files di-set program
+  picking = true;
+  const picked = Array.from(e.target.files);
+  addFiles(picked);
+  picking = false;
+});
+drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('drag'); });
+drop.addEventListener('dragleave', () => drop.classList.remove('drag'));
+drop.addEventListener('drop', e => {
+  e.preventDefault(); drop.classList.remove('drag');
+  addFiles(e.dataTransfer.files);
+});
+</script>
+{% endblock %}
