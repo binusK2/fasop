@@ -194,16 +194,26 @@ def _kinerja_ctx(request, model, jenis):
     }
 
 
-def _kinerja_export(ctx, jenis):
-    """Export xlsx: sheet Rekap per station + sheet Detail (kalau ada station dipilih)."""
+def _xlsx(sheets, filename):
+    """
+    Bangun file xlsx dari beberapa sheet dan kembalikan sebagai HttpResponse.
+    `sheets` = list of (judul, headers, fields, rows-dict). Sheet tanpa baris dilewati.
+    """
     import openpyxl
     from openpyxl.styles import Alignment, Font, PatternFill
 
     wb = openpyxl.Workbook()
     header_fill = PatternFill('solid', fgColor='1D4ED8')
     header_font = Font(bold=True, color='FFFFFF')
+    pertama = True
 
-    def _sheet(ws, headers, fields, rows):
+    for judul, headers, fields, rows in sheets:
+        if not rows and not pertama:
+            continue
+        ws = wb.active if pertama else wb.create_sheet()
+        ws.title = judul
+        pertama = False
+
         for col, h in enumerate(headers, start=1):
             c = ws.cell(row=1, column=col, value=h)
             c.fill = header_fill
@@ -215,20 +225,21 @@ def _kinerja_export(ctx, jenis):
         for col in range(1, len(headers) + 1):
             ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = 22
 
-    ws = wb.active
-    ws.title = 'Rekap'
-    _sheet(ws, REKAP_HEADERS, REKAP_FIELDS, ctx['rekap'])
-
-    if ctx['detail']:
-        _sheet(wb.create_sheet('Detail'), DETAIL_HEADERS, DETAIL_FIELDS, ctx['detail'])
-
-    fname = f"kinerja_{jenis.lower()}_{ctx['tanggal_dari']}_sd_{ctx['tanggal_sampai']}.xlsx"
     resp = HttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
-    resp['Content-Disposition'] = f'attachment; filename="{fname}"'
+    resp['Content-Disposition'] = f'attachment; filename="{filename}"'
     wb.save(resp)
     return resp
+
+
+def _kinerja_export(ctx, jenis):
+    """Export xlsx: sheet Rekap per station + sheet Detail (kalau ada station dipilih)."""
+    return _xlsx(
+        [('Rekap', REKAP_HEADERS, REKAP_FIELDS, ctx['rekap']),
+         ('Detail', DETAIL_HEADERS, DETAIL_FIELDS, ctx['detail'])],
+        f"kinerja_{jenis.lower()}_{ctx['tanggal_dari']}_sd_{ctx['tanggal_sampai']}.xlsx",
+    )
 
 
 def _kinerja_page(request, model, jenis, template, **extra):
@@ -272,59 +283,115 @@ def kinerja_digital(request):
 
 
 # ── Kinerja RC — agregat dari RemoteControl (sudah di-resolve oleh sync_rc) ────────
+#
+# Bentuknya mengikuti app up2bmakassar: rekap per bay dengan kunci B1/B2/B3/
+# Element/Info (path1..path5 di scd_his_rc), kolom Jumlah RC | Sukses | Gagal |
+# Performance. Klik satu bay -> daftar RC individualnya (waktu, operator, hasil).
+#
+# CATATAN soal rumus: serializer up2bmakassar menghitung
+#     performance = sukses / gagal * 100
+# yang keliru -- bay tanpa kegagalan menghasilkan ZeroDivisionError lalu jadi 0%,
+# dan 10 sukses : 2 gagal jadi 500%. Di sini dipakai rumus yang benar,
+#     performance = sukses / jumlah RC * 100,
+# jadi angkanya memang tidak akan sama persis dengan halaman RC app lama.
 
-@login_required
-def kinerja_rc(request):
+RC_REKAP_HEADERS = ['B1', 'B2', 'B3', 'Element', 'Info',
+                    'Jumlah RC', 'Sukses', 'Gagal', 'Performance (%)']
+RC_REKAP_FIELDS = ['b1', 'b2', 'b3', 'elem', 'info',
+                   'jumlah', 'sukses', 'gagal', 'performance']
+
+RC_DETAIL_HEADERS = ['Waktu Perintah', 'B1', 'B2', 'B3', 'Element', 'Info',
+                     'Operator', 'Status Perintah', 'Waktu Respon', 'Hasil']
+RC_DETAIL_FIELDS = ['waktu', 'b1', 'b2', 'b3', 'elem', 'info',
+                    'operator', 'status_eksekusi', 'waktu_respon', 'status_respon']
+
+RC_DETAIL_MAX = 2000
+
+
+def _rc_ctx(request):
+    from django.db.models import Case, Count, IntegerField, Q, Sum, When
+    from django.db.models.functions import Coalesce
+
     today = timezone.localdate()
-
-    def _p(name, default):
-        raw = request.GET.get(name)
-        if raw:
-            try:
-                return datetime.strptime(raw, '%Y-%m-%d').date()
-            except ValueError:
-                pass
-        return default
-
-    tanggal_dari = _p('tanggal_dari', today - timedelta(days=7))
-    tanggal_sampai = _p('tanggal_sampai', today)
+    tanggal_dari = _parse_date(request, 'tanggal_dari', today.replace(day=1))
+    tanggal_sampai = _parse_date(request, 'tanggal_sampai', today)
     if tanggal_sampai < tanggal_dari:
         tanggal_sampai = tanggal_dari
-    q = request.GET.get('q', '').strip()
 
-    from django.db.models import Count, Sum, Case, When, Value, IntegerField, Q
-    from django.db.models.functions import Coalesce
+    q = request.GET.get('q', '').strip()
+    # Bay yang dipilih untuk ditampilkan detailnya (semua kunci grouping).
+    pilih = {k: request.GET.get(k, '') for k in ('b1', 'b2', 'b3', 'elem', 'info')}
+    ada_pilihan = any(pilih.values())
 
     qs = RemoteControl.objects.filter(tanggal__gte=tanggal_dari, tanggal__lte=tanggal_sampai)
     if q:
-        qs = qs.filter(Q(b1__icontains=q) | Q(b2__icontains=q) | Q(b3__icontains=q) | Q(elem__icontains=q))
-
-    rows = (
-        qs.values('b1', 'b2', 'b3', 'elem')
-        .annotate(
-            jumlah=Count('id'),
-            sukses=Coalesce(Sum(Case(When(status_respon='BERHASIL', then=1), output_field=IntegerField())), 0),
-            gagal=Coalesce(Sum(Case(When(status_respon='GAGAL', then=1), output_field=IntegerField())), 0),
+        qs = qs.filter(
+            Q(b1__icontains=q) | Q(b2__icontains=q) | Q(b3__icontains=q)
+            | Q(elem__icontains=q) | Q(operator__icontains=q)
         )
-        .order_by('b1', 'b3', 'elem')
+
+    def _sukses_gagal():
+        return dict(
+            jumlah=Count('id'),
+            sukses=Coalesce(Sum(Case(When(status_respon='BERHASIL', then=1),
+                                     output_field=IntegerField())), 0),
+            gagal=Coalesce(Sum(Case(When(status_respon='GAGAL', then=1),
+                                    output_field=IntegerField())), 0),
+        )
+
+    rekap = list(
+        qs.values('b1', 'b2', 'b3', 'elem', 'path5')
+        .annotate(**_sukses_gagal())
+        .order_by('b1', 'b2', 'b3', 'elem')
     )
-    rows = list(rows)
-    for r in rows:
+    for r in rekap:
+        r['info'] = r.pop('path5', '')
         r['performance'] = round(r['sukses'] / r['jumlah'] * 100, 2) if r['jumlah'] else 0
 
-    total_jumlah = sum(r['jumlah'] for r in rows)
-    total_sukses = sum(r['sukses'] for r in rows)
+    detail = []
+    if ada_pilihan:
+        d_qs = qs.filter(b1=pilih['b1'], b2=pilih['b2'], b3=pilih['b3'],
+                         elem=pilih['elem'], path5=pilih['info'])
+        for rc in d_qs.order_by('-datum_eksekusi')[:RC_DETAIL_MAX]:
+            detail.append({
+                'waktu': timezone.localtime(rc.datum_eksekusi).strftime('%Y-%m-%d %H:%M:%S')
+                         if rc.datum_eksekusi else '',
+                'b1': rc.b1, 'b2': rc.b2, 'b3': rc.b3, 'elem': rc.elem, 'info': rc.path5,
+                'operator': rc.operator,
+                'status_eksekusi': rc.status_eksekusi,
+                'waktu_respon': timezone.localtime(rc.datum_respon).strftime('%Y-%m-%d %H:%M:%S')
+                                if rc.datum_respon else '',
+                'status_respon': rc.status_respon,
+            })
+
+    total_jumlah = sum(r['jumlah'] for r in rekap)
+    total_sukses = sum(r['sukses'] for r in rekap)
     ringkasan = {
-        'jumlah_bay': len(rows),
+        'jumlah_bay': len(rekap),
         'total_rc': total_jumlah,
         'total_sukses': total_sukses,
+        'total_gagal': total_jumlah - total_sukses,
         'rata_rata': round(total_sukses / total_jumlah * 100, 2) if total_jumlah else 0,
     }
 
-    return render(request, 'up2bmakassar/kinerja_rc.html', {
+    return {
         'tanggal_dari': tanggal_dari, 'tanggal_sampai': tanggal_sampai, 'q': q,
-        'rows': rows, 'ringkasan': ringkasan,
-    })
+        'pilih': pilih, 'ada_pilihan': ada_pilihan,
+        'rekap': rekap, 'detail': detail, 'ringkasan': ringkasan,
+        'rekap_headers': RC_REKAP_HEADERS, 'detail_headers': RC_DETAIL_HEADERS,
+        'detail_dibatasi': len(detail) >= RC_DETAIL_MAX,
+    }
+
+
+@login_required
+def kinerja_rc(request):
+    ctx = _rc_ctx(request)
+    if request.GET.get('export') == '1':
+        return _xlsx([
+            ('Rekap', RC_REKAP_HEADERS, RC_REKAP_FIELDS, ctx['rekap']),
+            ('Detail', RC_DETAIL_HEADERS, RC_DETAIL_FIELDS, ctx['detail']),
+        ], f"kinerja_rc_{ctx['tanggal_dari']}_sd_{ctx['tanggal_sampai']}.xlsx")
+    return render(request, 'up2bmakassar/kinerja_rc.html', ctx)
 
 
 # ── SOE Log — query on-demand read-only ke OFDB, tidak disimpan di PostgreSQL ──────

@@ -24,7 +24,8 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 
 from up2bmakassar import ofdb
-from up2bmakassar.models import KinerjaAnalogHarian, KinerjaDigitalHarian, SitePath1
+from up2bmakassar.models import (KinerjaAnalogHarian, KinerjaDigitalHarian,
+                                 RemoteControl, SitePath1)
 from up2bmakassar.sync import JENIS_MODEL
 
 
@@ -136,6 +137,25 @@ class Command(BaseCommand):
                         f'          -> {beda} titik {jenis} punya point_type != "{point_type}", '
                         f'histori transisinya bukan di {table} sehingga tidak ikut dihitung.'
                     )
+
+            # ── RC ──────────────────────────────────────────────────────────────
+            try:
+                rc = ofdb.ringkasan_rc(
+                    cursor,
+                    datetime.combine(tanggal, datetime.min.time()),
+                    datetime.combine(tanggal, datetime.max.time()),
+                )
+                tersimpan = RemoteControl.objects.filter(tanggal=tanggal).count()
+                self.stdout.write(
+                    f'[OK]    RC {tanggal}: di OFDB={rc["total"]} '
+                    f'(diselesaikan OFDB={rc["sudah_resolve"]}, '
+                    f'BERHASIL={rc["berhasil"]}, GAGAL={rc["gagal"]}), '
+                    f'tersimpan di FASOP={tersimpan}'
+                )
+                if rc['total'] and not tersimpan:
+                    self.stdout.write('        -> jalankan: python manage.py sync_rc --days 3')
+            except Exception as e:
+                self.stderr.write(f'[GAGAL] Ringkasan RC: {e}')
 
             # ── Kesegaran tiap rantai data di OFDB ──────────────────────────────
             self.stdout.write('--- Data terbaru per tabel OFDB (rantai mana yang masih jalan) ---')
