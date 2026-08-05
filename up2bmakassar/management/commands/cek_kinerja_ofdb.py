@@ -176,6 +176,41 @@ class Command(BaseCommand):
                         f'    {(jenis or "-"):<18}{kinerja if kinerja is not None else "-":>8}'
                         f'{titik:>8}{ada_his:>13}{ada_rtl:>9}'
                     )
+
+            # ── Bisakah titik mati diselamatkan lewat path? ─────────────────────
+            # Identitas logis titik = path1..path5 (B1/B2/B3/Element/Info).
+            # Kalau titik kinerja=1 menunjuk point_number mati tapi ada titik lain
+            # dengan path sama persis yang punya data, sync --petakan-path bisa
+            # memakai titik itu tanpa perlu mengubah apa pun di OFDB.
+            self.stdout.write('--- Uji pemetaan lewat path1..path5 ---')
+            for jenis in [ofdb.JENIS_TELEMETERING, ofdb.JENIS_TELESIGNAL]:
+                try:
+                    points = ofdb.get_kinerja_points(cursor, jenis)
+                    if not points:
+                        continue
+                    point_type, table = ofdb.JENIS_SUMBER[jenis]
+                    berdata = ofdb.get_point_berdata(cursor, table)
+                    semua = ofdb.get_point_paths(cursor, point_type)
+                    contoh = [p for p in points if p['point_number'] not in berdata][:3]
+                    asal = {id(p): p['point_number'] for p in contoh}
+                    dipetakan, gagal = ofdb.cari_kembaran(points, semua, berdata)
+                except Exception as e:
+                    self.stderr.write(f'    {jenis}: gagal ({e})')
+                    continue
+
+                self.stdout.write(
+                    f'    {jenis:<15} bisa dipetakan={dipetakan}, tidak ketemu kembarannya={gagal}'
+                )
+                for p in contoh:
+                    if 'point_number_asal' in p:
+                        self.stdout.write(
+                            f'          {asal[id(p)]} -> {p["point_number"]}  '
+                            f'({p["b1"]}/{p["b2"]}/{p["b3"]}/{p["elem"]})'
+                        )
+                if dipetakan:
+                    self.stdout.write(
+                        f'          jalankan sync dengan --petakan-path untuk memakai pemetaan ini.'
+                    )
         finally:
             conn.close()
 

@@ -33,6 +33,9 @@ class Command(BaseCommand):
                             help='Jumlah hari mundur dari --date/kemarin (untuk backfill). Default 1.')
         parser.add_argument('--dry-run', action='store_true',
                             help='Hitung & tampilkan tanpa menyimpan ke database')
+        parser.add_argument('--petakan-path', action='store_true',
+                            help='Titik kinerja yang point_number-nya sudah mati dicocokkan '
+                                 'ulang lewat path1..path5 ke titik yang punya data.')
 
     def handle(self, *args, **options):
         dry_run = options.get('dry_run', False)
@@ -53,6 +56,7 @@ class Command(BaseCommand):
 
         try:
             sync_jenis(conn.cursor(), ofdb.JENIS_TELEMETERING, tanggal_list,
-                       dry_run=dry_run, log=self.stdout.write)
+                       dry_run=dry_run, log=self.stdout.write,
+                       petakan_path=options.get('petakan_path', False))
         finally:
             conn.close()

@@ -277,6 +277,8 @@ Dua hal yang harus sama dengan app up2bmakassar kalau angkanya mau cocok:
 
 Perhitungan harian (`up2bmakassar/sync.py`) memakai **3 query per hari per jenis** (master titik, satu `GROUP BY` uptime untuk semua titik, satu lookup status terakhir untuk titik tanpa transisi). Script asli up2bmakassar memakai 4 query **per titik** — puluhan ribu round-trip ke 192.168.19.1 yang praktis tidak pernah selesai. Jangan kembali ke pola per-titik saat menambah jenis/metrik baru.
 
+**Jebakan di sisi OFDB — flag `kinerja` bisa menempel di titik mati.** `point_number` bukan identitas abadi: kalau database Spectrum di-rebuild, titik yang sama muncul dengan nomor baru. Job sinkronisasi up2bmakassar (`syncoffline/apps/sync_offline/jobs/points.py`) menulis `kinerja = 0` baik saat INSERT maupun UPDATE, jadi titik baru selalu masuk tanpa flag dan flag `kinerja=1` tertinggal di baris lama yang sudah tidak punya data di `scd_*_rtl`/`scd_his_*`. Gejalanya: semua titik keluar 0% padahal tabel histori jelas terisi. Identitas logis titik adalah kombinasi `path1..path5` (B1/B2/B3/Element/Info), bukan `point_number` — `sync_kinerja_* --petakan-path` memakai itu untuk mencocokkan titik kinerja ke nomor yang masih hidup. Itu penambal; perbaikan sebenarnya adalah menandai ulang `kinerja=1` di master data up2bmakassar (dan memperbaiki `points.py` supaya tidak me-reset flag-nya).
+
 Kalau halaman kosong atau angkanya mencurigakan, jalankan `python manage.py cek_kinerja_ofdb` dulu — itu menunjukkan apakah masalahnya koneksi, nama induk point type, filter `SitePath1`, kecepatan query OFDB, atau memang cron sync-nya belum jalan. Index OFDB yang disarankan (dieksekusi DBA OFDB, bukan oleh FASOP): `deploy/ofdb_indexes.sql`.
 
 ---

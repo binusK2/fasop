@@ -36,6 +36,9 @@ class Command(BaseCommand):
                                  'TELEKOMUNIKASI, atau ALL untuk semuanya.')
         parser.add_argument('--dry-run', action='store_true',
                             help='Hitung & tampilkan tanpa menyimpan ke database')
+        parser.add_argument('--petakan-path', action='store_true',
+                            help='Titik kinerja yang point_number-nya sudah mati dicocokkan '
+                                 'ulang lewat path1..path5 ke titik yang punya data.')
 
     def handle(self, *args, **options):
         dry_run = options.get('dry_run', False)
@@ -67,6 +70,8 @@ class Command(BaseCommand):
         try:
             cursor = conn.cursor()
             for jenis in jenis_list:
-                sync_jenis(cursor, jenis, tanggal_list, dry_run=dry_run, log=self.stdout.write)
+                sync_jenis(cursor, jenis, tanggal_list, dry_run=dry_run,
+                           log=self.stdout.write,
+                           petakan_path=options.get('petakan_path', False))
         finally:
             conn.close()

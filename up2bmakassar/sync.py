@@ -111,10 +111,12 @@ def simpan_hari(model, jenis, tanggal, rows):
         model.objects.bulk_create([model(**r) for r in rows], batch_size=1000)
 
 
-def sync_jenis(cursor, jenis, tanggal_list, dry_run=False, log=None):
+def sync_jenis(cursor, jenis, tanggal_list, dry_run=False, log=None, petakan_path=False):
     """
     Jalankan sinkronisasi untuk satu jenis dan beberapa tanggal.
     `log` = callable(str) untuk output progres (mis. self.stdout.write).
+    `petakan_path` = pakai pemetaan lewat path1..path5 untuk titik kinerja yang
+    point_number-nya sudah mati (lihat ofdb.cari_kembaran).
     Return jumlah baris yang ditulis.
     """
     def _log(msg):
@@ -128,7 +130,21 @@ def sync_jenis(cursor, jenis, tanggal_list, dry_run=False, log=None):
              f'(cek nama induk point type di scd_pointtype).')
         return 0
 
-    _, table = ofdb.JENIS_SUMBER[jenis]
+    point_type, table = ofdb.JENIS_SUMBER[jenis]
+
+    berdata = ofdb.get_point_berdata(cursor, table)
+    tanpa_data = sum(1 for p in points if p['point_number'] not in berdata)
+    if tanpa_data:
+        _log(f'[{jenis}] {tanpa_data} dari {len(points)} titik menunjuk point_number '
+             f'yang tidak ada di tabel realtime OFDB.')
+        if petakan_path:
+            dipetakan, gagal = ofdb.cari_kembaran(
+                points, ofdb.get_point_paths(cursor, point_type), berdata)
+            _log(f'[{jenis}] Dipetakan lewat path: {dipetakan}, tetap tidak ketemu: {gagal}.')
+        else:
+            _log(f'[{jenis}] Titik tsb akan keluar 0%. Jalankan dengan --petakan-path '
+                 f'kalau point_number-nya berubah (identitas titik dicocokkan lewat path).')
+
     status_realtime = ofdb.get_status_realtime(cursor, table)
 
     total = 0

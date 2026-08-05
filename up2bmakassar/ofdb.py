@@ -347,6 +347,73 @@ def ringkasan_cakupan(cursor, point_type):
     return cursor.fetchall()
 
 
+def get_point_paths(cursor, point_type):
+    """
+    (point_number, kinerja, path1..path5) semua titik dengan point_type tersebut.
+    Tabelnya kecil (ribuan baris), jadi pemetaan/analisisnya dikerjakan di Python.
+    """
+    cursor.execute("""
+        SELECT point_number, kinerja, path1, path2, path3, path4, path5
+        FROM scd_c_point WHERE point_type = ?
+    """, [point_type])
+    return [
+        (_nomor(r[0]), r[1], (r[2] or '', r[3] or '', r[4] or '', r[5] or '', r[6] or ''))
+        for r in cursor.fetchall()
+    ]
+
+
+def get_point_berdata(cursor, table):
+    """
+    Set point_number yang benar-benar termonitor -- yaitu punya baris di tabel
+    realtime (scd_*_rtl). Titik yang tidak ada di sini tidak akan pernah punya
+    uptime berapa pun rentang tanggalnya.
+    """
+    _cek_tabel(table)
+    _, tabel_rtl = TABEL_STATUS[table]
+    try:
+        cursor.execute(f'SELECT DISTINCT point_number FROM {tabel_rtl}')
+        return {_nomor(r[0]) for r in cursor.fetchall()}
+    except Exception as e:
+        logger.warning('OFDB: %s tidak terbaca (%s)', tabel_rtl, e)
+        return set()
+
+
+def cari_kembaran(points, semua_point, berdata):
+    """
+    Cari pengganti untuk titik kinerja yang point_number-nya tidak punya data.
+
+    Identitas logis sebuah titik adalah kombinasi path1..path5 (B1/B2/B3/Element/
+    Info), bukan point_number-nya -- point_number bisa berubah kalau database
+    Spectrum di-rebuild. Kalau titik kinerja=1 menunjuk point_number mati tapi ada
+    titik lain dengan path yang sama persis dan punya data, titik itulah yang
+    dipakai.
+
+    Return (jumlah_dipetakan, jumlah_tidak_ketemu). `points` diubah di tempat:
+    point_number diganti, point_number_asal menyimpan nilai lamanya.
+    """
+    kandidat = {}
+    for pn, _kinerja, key in semua_point:
+        if pn in berdata and (key not in kandidat or pn > kandidat[key]):
+            kandidat[key] = pn
+
+    dipakai = {p['point_number'] for p in points if p['point_number'] in berdata}
+    dipetakan = 0
+    gagal = 0
+    for p in points:
+        if p['point_number'] in berdata:
+            continue
+        key = (p['path1'], p['path2'], p['path3'], p['path4'], p['path5'])
+        pengganti = kandidat.get(key)
+        if pengganti is not None and pengganti not in dipakai:
+            p['point_number_asal'] = p['point_number']
+            p['point_number'] = pengganti
+            dipakai.add(pengganti)
+            dipetakan += 1
+        else:
+            gagal += 1
+    return dipetakan, gagal
+
+
 def contoh_point_number(cursor, table, limit=5):
     """Diagnosa: beberapa point_number contoh dari sebuah tabel OFDB, apa adanya."""
     if table not in TABEL_HISTORI and table not in [t for pair in TABEL_STATUS.values() for t in pair]:
