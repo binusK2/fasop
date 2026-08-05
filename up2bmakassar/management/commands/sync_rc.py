@@ -7,11 +7,14 @@ belum menyelesaikannya sendiri, lalu simpan ke RemoteControl (PostgreSQL).
 TIDAK menulis apapun ke OFDB -- resolusi hasil RC dihitung ulang di FASOP karena
 job aslinya di up2bmakassar (apps/tasks/jobs/scd_his_rc.py) sudah lama mati.
 
-Default: proses kemarin s/d hari ini (RC yang responnya baru datang setelah
-tengah malam tetap ke-cover).
+RC adalah kejadian (event), bukan agregat per batas hari seperti availability --
+jadi default-nya HARI INI mundur `--days` hari. Menjalankannya kapan saja akan
+langsung mengambil RC yang baru terjadi, dan menjalankan ulang aman karena
+upsert-nya berkunci ofdb_id_his_rc.
 
-Crontab (tiap 15 menit):
-    */15 * * * * cd /path/to/fasop && /path/to/venv/bin/python manage.py sync_rc >> /var/log/fasop/sync_rc.log 2>&1
+Crontab: dipasang bersama sync kinerja lewat `bash deploy/setup_kinerja_cron.sh`
+(harian 01:30, --days 3). Kalau perlu lebih segar, boleh dijadwalkan lebih sering
+-- satu kali jalan hanya 2 query per hari yang diproses.
 """
 import logging
 from datetime import datetime, timedelta, time
@@ -30,9 +33,9 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument('--date', type=str, default=None,
-                             help='Tanggal spesifik (YYYY-MM-DD). Default: kemarin.')
+                             help='Tanggal spesifik (YYYY-MM-DD). Default: hari ini.')
         parser.add_argument('--days', type=int, default=2,
-                             help='Jumlah hari mundur dari --date/kemarin (untuk backfill). Default 2.')
+                             help='Jumlah hari mundur dari --date/hari ini (untuk backfill). Default 2.')
         parser.add_argument('--dry-run', action='store_true',
                              help='Hitung & tampilkan tanpa menyimpan ke database')
 
@@ -50,7 +53,9 @@ class Command(BaseCommand):
         if options.get('date'):
             anchor = datetime.strptime(options['date'], '%Y-%m-%d').date()
         else:
-            anchor = timezone.localdate() - timedelta(days=1)
+            # RC berbasis kejadian: hari berjalan ikut diproses supaya perintah
+            # yang baru terjadi langsung masuk, bukan menunggu besok.
+            anchor = timezone.localdate()
 
         tanggal_list = sorted(anchor - timedelta(days=i) for i in range(days))
 

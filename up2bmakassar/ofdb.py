@@ -679,7 +679,48 @@ def get_rc_events(cursor, dt_start, dt_end):
         ORDER BY r.datum_1
     """
     cursor.execute(sql, [dt_start, dt_end])
-    return cursor.fetchall()
+
+    # Nilai teks dirapikan di sini juga: scd_his_rc mewarisi spasi padding dari
+    # POINT_NAME Oracle, dan kalau dibiarkan, satu bay yang sama bisa terpecah
+    # jadi dua baris rekap ('KDNEW5' vs 'KDNEW5  ') saat di-GROUP BY di Python.
+    hasil = []
+    for row in cursor.fetchall():
+        (id_his_rc, path1, path2, path3, path4, path5, b1, b2, b3, elem,
+         datum_1, status_1, datum_2, status_2, msgoperator, cek_remote) = row
+        hasil.append((
+            id_his_rc,
+            _teks(path1), _teks(path2), _teks(path3), _teks(path4), _teks(path5),
+            _teks(b1), _teks(b2), _teks(b3), _teks(elem),
+            datum_1, _teks(status_1), datum_2, _teks(status_2),
+            _teks(msgoperator), cek_remote,
+        ))
+    return hasil
+
+
+def ringkasan_rc(cursor, dt_start, dt_end):
+    """
+    Diagnosa RC: berapa perintah RC di OFDB pada rentang itu, berapa yang sudah
+    diselesaikan sendiri oleh OFDB (cek_remote=1), dan sebaran status_2-nya.
+
+    Kalau `total` nol padahal operator merasa ada perintah RC hari itu, berarti
+    trigger tr1_scd_his_message di OFDB tidak mengisi scd_his_rc -- masalahnya di
+    19.1, bukan di FASOP.
+    """
+    cursor.execute("""
+        SELECT COUNT(*) AS total,
+               SUM(CASE WHEN cek_remote = 1 THEN 1 ELSE 0 END) AS sudah_resolve,
+               SUM(CASE WHEN status_2 = 'BERHASIL' THEN 1 ELSE 0 END) AS berhasil,
+               SUM(CASE WHEN status_2 = 'GAGAL' THEN 1 ELSE 0 END) AS gagal
+        FROM scd_his_rc
+        WHERE datum_1 >= ? AND datum_1 <= ?
+    """, [dt_start, dt_end])
+    row = cursor.fetchone()
+    return {
+        'total': row[0] or 0,
+        'sudah_resolve': row[1] or 0,
+        'berhasil': row[2] or 0,
+        'gagal': row[3] or 0,
+    }
 
 
 def resolve_rc_result(cursor, path1, path2, path3, path4, path5, datum_1):
