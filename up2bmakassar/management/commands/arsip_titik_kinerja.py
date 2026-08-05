@@ -60,7 +60,8 @@ class Command(BaseCommand):
             w = csv.writer(f)
             w.writerow(ofdb.TITIK_KINERJA_KOLOM)
             for row in rows:
-                w.writerow(['' if v is None else v for v in row])
+                w.writerow(['' if v is None else (v.strip() if isinstance(v, str) else v)
+                            for v in row])
 
         per_jenis = {}
         for row in rows:

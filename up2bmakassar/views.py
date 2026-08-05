@@ -50,8 +50,11 @@ def _filter_tampilan(qs):
     sync ulang. (Dulu filternya ada di sisi sync, akibatnya site yang dimatikan
     tidak punya data sama sekali.)
     """
-    nonaktif = list(SitePath1.objects.filter(aktif=False).values_list('path1', flat=True))
-    return qs.exclude(path1__in=nonaktif) if nonaktif else qs
+    nonaktif = {
+        (v or '').strip()
+        for v in SitePath1.objects.filter(aktif=False).values_list('path1', flat=True)
+    } - {''}
+    return qs.exclude(path1__in=list(nonaktif)) if nonaktif else qs
 
 
 def _avail(uptime, alltime):
