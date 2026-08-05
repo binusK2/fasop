@@ -57,42 +57,85 @@ class Command(BaseCommand):
         try:
             cursor = conn.cursor()
             nonaktif = set(SitePath1.objects.filter(aktif=False).values_list('path1', flat=True))
+            if nonaktif:
+                self.stdout.write(
+                    f'[INFO]  {len(nonaktif)} site (PATH1) dinonaktifkan di admin -- '
+                    f'itu hanya menyembunyikan dari halaman, semua titik tetap dihitung.'
+                )
+
+            uptime_cache = {}
+            for table in ofdb.TABEL_HISTORI:
+                t0 = time.monotonic()
+                uptime_cache[table] = ofdb.compute_kinerja_harian(cursor, table, day_start, day_end)
+                lama = time.monotonic() - t0
+                catatan = '' if lama < 10 else '  <-- LAMBAT, cek deploy/ofdb_indexes.sql'
+                self.stdout.write(
+                    f'[OK]    {table:<16} titik dengan uptime VALID hari itu='
+                    f'{len(uptime_cache[table]):<6} ({lama:.1f} detik){catatan}'
+                )
+
+            status_cache = {}
+            for table in ofdb.TABEL_HISTORI:
+                tabel_hari, tabel_rtl = ofdb.TABEL_STATUS[table]
+                snap = ofdb.get_status_snapshot(cursor, table, tanggal)
+                rtl = ofdb.get_status_realtime(cursor, table)
+                his = ofdb.get_status_sebelum(cursor, table, day_start)
+                status_cache[table] = ofdb.get_status_awal_hari(cursor, table, tanggal, day_start, rtl)
+                self.stdout.write(
+                    f'[OK]    status awal hari {table:<16} '
+                    f'{tabel_hari}={len(snap)} transisi_sebelumnya={len(his)} {tabel_rtl}={len(rtl)}'
+                )
 
             for jenis in [ofdb.JENIS_TELEMETERING] + list(ofdb.JENIS_DIGITAL):
                 induk_id = ofdb.get_induk_pointtype_id(cursor, jenis)
                 if induk_id is None:
-                    self.stderr.write(
-                        f'[GAGAL] Induk point type "{jenis}" tidak ada di scd_pointtype '
-                        f'-- tidak ada titik yang bisa dihitung untuk jenis ini.'
+                    self.stdout.write(
+                        f'[SKIP]  Induk point type "{jenis}" tidak ada di scd_pointtype '
+                        f'-- jenis ini memang tidak dipakai di OFDB ini.'
                     )
                     continue
 
+                point_type, table = ofdb.JENIS_SUMBER[jenis]
                 points = ofdb.get_kinerja_points(cursor, jenis)
-                aktif = [p for p in points if p['path1'] not in nonaktif]
-                station = len({p['path1'] for p in aktif})
+                if not points:
+                    self.stdout.write(
+                        f'[INFO]  {jenis:<15} id_induk_pointtype={induk_id} -- '
+                        f'tidak ada titik dengan kinerja=1.'
+                    )
+                    continue
+
+                uptime_map = uptime_cache[table]
+                status = status_cache[table]
+                nomor = [p['point_number'] for p in points]
+                punya_uptime = sum(1 for n in nomor if n in uptime_map)
+                punya_status = sum(1 for n in nomor
+                                   if n not in uptime_map and status.get(n) == 'VALID')
+                nihil = len(nomor) - punya_uptime - punya_status
+                station = len({p['path1'] for p in points})
+                tampil = len({p['path1'] for p in points if p['path1'] not in nonaktif})
+
                 self.stdout.write(
-                    f'[OK]    {jenis:<15} id_induk_pointtype={induk_id:<4} '
-                    f'titik={len(points):<6} aktif={len(aktif):<6} station={station}'
+                    f'[OK]    {jenis:<15} id_induk_pointtype={induk_id:<4} titik={len(points):<6} '
+                    f'station={station} (tampil={tampil})'
                 )
+                self.stdout.write(
+                    f'          -> ada uptime hari itu={punya_uptime}, '
+                    f'ditolong status awal hari={punya_status}, tanpa data={nihil}'
+                )
+                if nihil:
+                    contoh = [str(n) for n in nomor if n not in uptime_map
+                              and status.get(n) != 'VALID'][:8]
+                    self.stdout.write(
+                        f'          -> contoh point_number tanpa data: {", ".join(contoh)}'
+                    )
 
                 semua = ofdb.get_kinerja_points(cursor, jenis, abaikan_point_type=True)
                 beda = len(semua) - len(points)
                 if beda:
-                    point_type, table = ofdb.JENIS_SUMBER[jenis]
                     self.stdout.write(
-                        f'        {beda} titik {jenis} punya point_type != "{point_type}" '
-                        f'-- histori transisinya bukan di {table}, jadi tidak ikut dihitung.'
+                        f'          -> {beda} titik {jenis} punya point_type != "{point_type}", '
+                        f'histori transisinya bukan di {table} sehingga tidak ikut dihitung.'
                     )
-
-            for table in ofdb.TABEL_HISTORI:
-                t0 = time.monotonic()
-                hasil = ofdb.compute_kinerja_harian(cursor, table, day_start, day_end)
-                lama = time.monotonic() - t0
-                catatan = '' if lama < 10 else '  <-- LAMBAT, cek deploy/ofdb_indexes.sql'
-                self.stdout.write(
-                    f'[OK]    {table:<16} titik dengan transisi VALID={len(hasil):<6} '
-                    f'({lama:.1f} detik){catatan}'
-                )
         finally:
             conn.close()
 

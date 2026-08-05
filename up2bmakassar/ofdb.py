@@ -195,6 +195,11 @@ def compute_kinerja_harian(cursor, table, day_start, day_end):
     lalu dipotong (clamp) ke batas hari. Satu transisi yang menyeberang batas awal
     dan satu yang menyeberang batas akhir otomatis ikut terhitung sebagian --
     persis seperti langkah (b) dan (c) di script lama, tanpa query tambahan.
+
+    datum_2 NULL = interval masih berjalan (belum ditutup), diperlakukan sebagai
+    "sampai sekarang" -> dipotong ke day_end. Script lama membuang baris seperti
+    ini (semua query-nya membandingkan datum_2), makanya titik yang statusnya
+    tidak pernah berubah selalu keluar 0 dan harus ditolong tabel snapshot.
     """
     _cek_tabel(table)
     cursor.execute(f"""
@@ -202,39 +207,101 @@ def compute_kinerja_harian(cursor, table, day_start, day_end):
                COUNT(*) AS jlh,
                SUM(DATEDIFF(SECOND,
                    CASE WHEN datum_1 < ? THEN ? ELSE datum_1 END,
-                   CASE WHEN datum_2 > ? THEN ? ELSE datum_2 END)) AS uptime
+                   CASE WHEN datum_2 IS NULL OR datum_2 > ? THEN ? ELSE datum_2 END)) AS uptime
         FROM {table}
         WHERE kesimpulan = 'VALID'
-              AND datum_1 IS NOT NULL AND datum_2 IS NOT NULL
-              AND datum_1 < ? AND datum_2 > ?
+              AND datum_1 IS NOT NULL
+              AND datum_1 < ? AND (datum_2 IS NULL OR datum_2 > ?)
         GROUP BY point_number
     """, [day_start, day_start, day_end, day_end, day_end, day_start])
     return {row[0]: (row[1] or 0, float(row[2] or 0)) for row in cursor.fetchall()}
 
 
-def get_status_sebelum(cursor, table, day_start, lookback_days=30):
+# ── Status titik saat tidak ada transisi di hari itu ────────────────────────────
+#
+# Baris di scd_his_* hanya ditulis kalau status titik BERUBAH. Titik yang sehat
+# terus-menerus bisa tidak punya baris sama sekali untuk hari tertentu -- kalau
+# dianggap 0 detik uptime, availability-nya jadi 0% padahal titiknya normal.
+# Script up2bmakassar menutup celah ini lewat snapshot harian scd_*_rtl_hari.
+# Kita pakai tiga sumber, dari yang paling akurat untuk tanggal itu:
+#   1. scd_*_rtl_hari  -- snapshot status per tanggal (kalau job-nya masih jalan)
+#   2. scd_his_*       -- kesimpulan transisi terakhir sebelum hari itu
+#   3. scd_*_rtl       -- status realtime sekarang (paling kasar; hanya masuk akal
+#                          untuk tanggal yang belum lama lewat)
+
+TABEL_STATUS = {
+    'scd_his_analog':  ('scd_analog_rtl_hari',  'scd_analog_rtl'),
+    'scd_his_digital': ('scd_digital_rtl_hari', 'scd_digital_rtl'),
+}
+
+
+def _status_map(cursor, sql, params, sumber):
+    """Jalankan query status; kalau tabelnya tidak ada di OFDB, kembalikan dict kosong."""
+    try:
+        cursor.execute(sql, params)
+        return {row[0]: (row[1] or '') for row in cursor.fetchall()}
+    except Exception as e:
+        logger.warning('OFDB: sumber status %s tidak terbaca (%s)', sumber, e)
+        return {}
+
+
+def get_status_snapshot(cursor, table, tanggal):
+    """Status per titik dari snapshot harian scd_*_rtl_hari untuk `tanggal`."""
+    _cek_tabel(table)
+    tabel_hari, _ = TABEL_STATUS[table]
+    return _status_map(
+        cursor,
+        f'SELECT point_number, kesimpulan FROM {tabel_hari} WHERE datum = ?',
+        [tanggal], tabel_hari,
+    )
+
+
+def get_status_realtime(cursor, table):
+    """Status realtime per titik dari scd_*_rtl (satu baris per titik)."""
+    _cek_tabel(table)
+    _, tabel_rtl = TABEL_STATUS[table]
+    return _status_map(
+        cursor,
+        f'SELECT point_number, kesimpulan FROM {tabel_rtl}',
+        [], tabel_rtl,
+    )
+
+
+def get_status_sebelum(cursor, table, day_start, lookback_days=90):
     """
     Kesimpulan (VALID/INVALID) transisi TERAKHIR sebelum day_start per titik,
     dibatasi `lookback_days` hari ke belakang supaya tidak scan seluruh histori.
 
-    Dipakai untuk titik yang tidak punya transisi sama sekali di hari itu: kalau
-    status terakhirnya VALID berarti titiknya normal seharian (uptime = 1 hari
-    penuh). Di script lama ini dibaca dari snapshot scd_analog_rtl_hari /
-    scd_digital_rtl_hari -- job pengisinya sudah lama mati, jadi kita baca
-    langsung dari histori transisinya.
-
     Return dict {point_number: kesimpulan}.
     """
     _cek_tabel(table)
-    cursor.execute(f"""
+    return _status_map(
+        cursor,
+        f"""
         SELECT point_number, kesimpulan FROM (
             SELECT point_number, kesimpulan,
                    ROW_NUMBER() OVER (PARTITION BY point_number ORDER BY datum_1 DESC) AS rn
             FROM {table}
             WHERE datum_1 < ? AND datum_1 >= DATEADD(DAY, ?, ?)
         ) t WHERE rn = 1
-    """, [day_start, -abs(int(lookback_days)), day_start])
-    return {row[0]: (row[1] or '') for row in cursor.fetchall()}
+        """,
+        [day_start, -abs(int(lookback_days)), day_start], table,
+    )
+
+
+def get_status_awal_hari(cursor, table, tanggal, day_start, status_realtime=None):
+    """
+    Gabungan tiga sumber status di atas, prioritas: snapshot harian > transisi
+    terakhir > realtime. Return dict {point_number: kesimpulan}.
+
+    `status_realtime` boleh dioper dari luar (hasil get_status_realtime) supaya
+    tidak diquery ulang untuk tiap tanggal saat backfill.
+    """
+    gabungan = dict(status_realtime if status_realtime is not None
+                    else get_status_realtime(cursor, table))
+    gabungan.update(get_status_sebelum(cursor, table, day_start))
+    gabungan.update(get_status_snapshot(cursor, table, tanggal))
+    return gabungan
 
 
 # ── SOE Log (query on-demand, TIDAK disimpan di PostgreSQL) ──────────────────────

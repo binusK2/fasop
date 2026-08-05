@@ -6,7 +6,7 @@ from django.shortcuts import render
 from django.utils import timezone
 
 from . import ofdb
-from .models import KinerjaAnalogHarian, KinerjaDigitalHarian, RemoteControl
+from .models import KinerjaAnalogHarian, KinerjaDigitalHarian, RemoteControl, SitePath1
 
 
 def _parse_date(request, name, default):
@@ -39,6 +39,19 @@ def durasi(detik):
     except (TypeError, ValueError):
         return '00:00:00:00'
     return f'{d.days:02d}:{d.seconds // 3600:02d}:{(d.seconds // 60) % 60:02d}:{d.seconds % 60:02d}'
+
+
+def _filter_tampilan(qs):
+    """
+    Sembunyikan site yang dinonaktifkan di admin (SitePath1.aktif=False).
+
+    Ini filter TAMPILAN saja -- semua titik tetap dihitung & tersimpan oleh sync,
+    jadi mengaktifkan kembali sebuah site langsung memunculkan datanya tanpa perlu
+    sync ulang. (Dulu filternya ada di sisi sync, akibatnya site yang dimatikan
+    tidak punya data sama sekali.)
+    """
+    nonaktif = list(SitePath1.objects.filter(aktif=False).values_list('path1', flat=True))
+    return qs.exclude(path1__in=nonaktif) if nonaktif else qs
 
 
 def _avail(uptime, alltime):
@@ -82,7 +95,7 @@ def dashboard(request):
     tanggal = timezone.localdate() - timedelta(days=1)
 
     def _rekap(model, jenis):
-        qs = model.objects.filter(tanggal=tanggal, jenis=jenis)
+        qs = _filter_tampilan(model.objects.filter(tanggal=tanggal, jenis=jenis))
         agg = qs.aggregate(
             titik=Count('point_number', distinct=True),
             uptime=Sum('uptime_detik'),
@@ -135,6 +148,9 @@ def _kinerja_ctx(request, model, jenis):
     station = request.GET.get('station', '').strip()
 
     qs = model.objects.filter(jenis=jenis, tanggal__gte=dari, tanggal__lte=sampai)
+
+    qs = _filter_tampilan(qs)
+
     if q:
         qs = qs.filter(
             Q(b1__icontains=q) | Q(b2__icontains=q) | Q(b3__icontains=q) | Q(elem__icontains=q)
