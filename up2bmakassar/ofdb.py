@@ -322,22 +322,27 @@ def ringkasan_cakupan(cursor, point_type):
     """
     table = 'scd_his_analog' if point_type == 'A' else 'scd_his_digital'
     _, tabel_rtl = TABEL_STATUS[table]
+    # EXISTS-nya harus dihitung di derived table dulu -- SQL Server menolak
+    # SUM(CASE WHEN EXISTS (...)) langsung di SELECT yang ber-GROUP BY.
     cursor.execute(f"""
-        SELECT COALESCE(ind.name, pt.name) AS jenis,
-               p.kinerja,
-               COUNT(*) AS titik,
-               SUM(CASE WHEN EXISTS (SELECT 1 FROM {table} h
+        SELECT jenis, kinerja, COUNT(*) AS titik,
+               SUM(ada_histori) AS ada_histori, SUM(ada_rtl) AS ada_rtl
+        FROM (
+            SELECT COALESCE(ind.name, pt.name) AS jenis,
+                   p.kinerja AS kinerja,
+                   CASE WHEN EXISTS (SELECT 1 FROM {table} h
                                      WHERE h.point_number = p.point_number)
-                        THEN 1 ELSE 0 END) AS ada_histori,
-               SUM(CASE WHEN EXISTS (SELECT 1 FROM {tabel_rtl} r
+                        THEN 1 ELSE 0 END AS ada_histori,
+                   CASE WHEN EXISTS (SELECT 1 FROM {tabel_rtl} r
                                      WHERE r.point_number = p.point_number)
-                        THEN 1 ELSE 0 END) AS ada_rtl
-        FROM scd_c_point p
-        JOIN scd_pointtype pt ON pt.id_pointtype = p.id_pointtype
-        LEFT JOIN scd_pointtype ind ON ind.id_pointtype = pt.id_induk_pointtype
-        WHERE p.point_type = ?
-        GROUP BY COALESCE(ind.name, pt.name), p.kinerja
-        ORDER BY COALESCE(ind.name, pt.name), p.kinerja
+                        THEN 1 ELSE 0 END AS ada_rtl
+            FROM scd_c_point p
+            JOIN scd_pointtype pt ON pt.id_pointtype = p.id_pointtype
+            LEFT JOIN scd_pointtype ind ON ind.id_pointtype = pt.id_induk_pointtype
+            WHERE p.point_type = ?
+        ) t
+        GROUP BY jenis, kinerja
+        ORDER BY jenis, kinerja
     """, [point_type])
     return cursor.fetchall()
 
