@@ -160,6 +160,8 @@ Roles are stored in `UserProfile` (ForeignKey to User). Middleware enforces rout
 | `sync_kinerja_analog` | up2bmakassar | Cron, daily ~01:00 — availability harian titik TELEMETERING dari OFDB → `KinerjaAnalogHarian`; `--date`, `--days` (backfill), `--dry-run` |
 | `sync_kinerja_digital` | up2bmakassar | Cron, daily ~01:00 — sama untuk titik digital; `--jenis TELESIGNAL` (default) / `RTU` / `MASTER` / `TELEKOMUNIKASI` / `ALL` |
 | `sync_rc` | up2bmakassar | Cron, daily — log RC dari OFDB `scd_his_rc` + hasilnya di-resolve dari `scd_his_message` → `RemoteControl` |
+| `arsip_titik_kinerja` | up2bmakassar | Arsipkan daftar titik `kinerja=1` dari OFDB ke CSV — jalankan sebelum apa pun diubah di 19.1 |
+| `daftar_station` | up2bmakassar | Daftar station (PATH1) di data kinerja + status aktif/nonaktifnya, untuk dicocokkan dengan daftar station UP2B |
 | `cek_kinerja_ofdb` | up2bmakassar | Diagnosa read-only — koneksi OFDB, induk point type yang ketemu, jumlah titik per jenis, lama query harian, dan jumlah baris tersimpan |
 
 ---
