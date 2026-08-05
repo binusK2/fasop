@@ -137,25 +137,8 @@ class Command(BaseCommand):
                         f'histori transisinya bukan di {table} sehingga tidak ikut dihitung.'
                     )
 
-            # ── Cakupan point_number: dicek di sisi SQL Server ──────────────────
-            # Menjawab pertanyaan "apakah point_number titik kinerja memang ada di
-            # tabel histori/realtime?" tanpa dipengaruhi tipe data di Python.
-            self.stdout.write('--- Cakupan point_number (EXISTS di sisi OFDB) ---')
-            for point_type in ('A', 'D'):
-                table = 'scd_his_analog' if point_type == 'A' else 'scd_his_digital'
-                _, tabel_rtl = ofdb.TABEL_STATUS[table]
-                self.stdout.write(
-                    f'  point_type={point_type}  ({table} / {tabel_rtl})'
-                )
-                self.stdout.write(
-                    f'    {"jenis":<18}{"kinerja":>8}{"titik":>8}{"ada_histori":>13}{"ada_rtl":>9}'
-                )
-                for jenis, kinerja, titik, ada_his, ada_rtl in ofdb.ringkasan_cakupan(cursor, point_type):
-                    self.stdout.write(
-                        f'    {(jenis or "-"):<18}{kinerja if kinerja is not None else "-":>8}'
-                        f'{titik:>8}{ada_his:>13}{ada_rtl:>9}'
-                    )
-
+            # Contoh nilai duluan -- blok ini paling murah dan paling sering
+            # menjelaskan masalahnya (beda tipe data / beda ruang penomoran).
             self.stdout.write('--- Contoh point_number apa adanya (cek tipe data) ---')
             for table in ('scd_c_point', 'scd_his_analog', 'scd_analog_rtl',
                           'scd_his_digital', 'scd_digital_rtl'):
@@ -171,6 +154,28 @@ class Command(BaseCommand):
                     continue
                 tipe = type(contoh[0]).__name__ if contoh else '-'
                 self.stdout.write(f'    {table:<18} {tipe:<8} {contoh}')
+
+            # ── Cakupan point_number: dicek di sisi SQL Server ──────────────────
+            # Menjawab pertanyaan "apakah point_number titik kinerja memang ada di
+            # tabel histori/realtime?" tanpa dipengaruhi tipe data di Python.
+            self.stdout.write('--- Cakupan point_number (EXISTS di sisi OFDB) ---')
+            for point_type in ('A', 'D'):
+                table = 'scd_his_analog' if point_type == 'A' else 'scd_his_digital'
+                _, tabel_rtl = ofdb.TABEL_STATUS[table]
+                self.stdout.write(f'  point_type={point_type}  ({table} / {tabel_rtl})')
+                try:
+                    baris = ofdb.ringkasan_cakupan(cursor, point_type)
+                except Exception as e:
+                    self.stderr.write(f'    gagal: {e}')
+                    continue
+                self.stdout.write(
+                    f'    {"jenis":<18}{"kinerja":>8}{"titik":>8}{"ada_histori":>13}{"ada_rtl":>9}'
+                )
+                for jenis, kinerja, titik, ada_his, ada_rtl in baris:
+                    self.stdout.write(
+                        f'    {(jenis or "-"):<18}{kinerja if kinerja is not None else "-":>8}'
+                        f'{titik:>8}{ada_his:>13}{ada_rtl:>9}'
+                    )
         finally:
             conn.close()
 
