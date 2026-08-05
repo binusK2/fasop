@@ -407,6 +407,42 @@ def kesegaran_ofdb(cursor):
     return hasil
 
 
+TITIK_KINERJA_KOLOM = [
+    'point_number', 'jenis', 'pointtype', 'point_type', 'active', 'kinerja',
+    'point_name', 'description',
+    'path1', 'path2', 'path3', 'path4', 'path5',
+    'path1text', 'path2text', 'path3text', 'path4text', 'path5text',
+]
+
+
+def get_titik_kinerja_semua(cursor):
+    """
+    SEMUA titik ber-flag kinerja=1 di scd_c_point, apa pun jenis & point_type-nya,
+    lengkap dengan nama induk point type dan seluruh path/pathtext.
+
+    Dipakai untuk mengarsipkan daftar titik kinerja sebelum ada perubahan di sisi
+    OFDB. Flag `kinerja` di OFDB rapuh (di-reset 0 oleh syncoffline/points.py
+    setiap titik berubah, dan barisnya bisa terhapus kalau titiknya tidak ada lagi
+    di Spectrum), jadi arsip ini bisa jadi satu-satunya catatan titik mana saja
+    yang dulu dinilai kinerjanya.
+    """
+    cursor.execute("""
+        SELECT p.point_number,
+               COALESCE(ind.name, pt.name) AS jenis,
+               pt.name AS pointtype,
+               p.point_type, p.active, p.kinerja,
+               p.point_name, p.description,
+               p.path1, p.path2, p.path3, p.path4, p.path5,
+               p.path1text, p.path2text, p.path3text, p.path4text, p.path5text
+        FROM scd_c_point p
+        LEFT JOIN scd_pointtype pt ON pt.id_pointtype = p.id_pointtype
+        LEFT JOIN scd_pointtype ind ON ind.id_pointtype = pt.id_induk_pointtype
+        WHERE p.kinerja = 1
+        ORDER BY COALESCE(ind.name, pt.name), p.path1, p.path2, p.path3, p.path4
+    """)
+    return cursor.fetchall()
+
+
 def get_point_paths(cursor, point_type):
     """
     (point_number, kinerja, path1..path5) semua titik dengan point_type tersebut.
