@@ -33,6 +33,11 @@ class Command(BaseCommand):
                             help='Jumlah hari mundur dari --date/kemarin (untuk backfill). Default 1.')
         parser.add_argument('--dry-run', action='store_true',
                             help='Hitung & tampilkan tanpa menyimpan ke database')
+        parser.add_argument('--titik', type=str, default=ofdb.SUMBER_KINERJA,
+                            choices=[ofdb.SUMBER_KINERJA, ofdb.SUMBER_BERDATA],
+                            help='Daftar titik diambil dari mana: "kinerja" (flag kinerja=1 di '
+                                 'scd_c_point, cara app up2bmakassar) atau "berdata" (semua titik '
+                                 'jenis ini yang punya baris di tabel realtime OFDB).')
         parser.add_argument('--petakan-path', action='store_true',
                             help='Titik kinerja yang point_number-nya sudah mati dicocokkan '
                                  'ulang lewat path1..path5 ke titik yang punya data.')
@@ -57,6 +62,7 @@ class Command(BaseCommand):
         try:
             sync_jenis(conn.cursor(), ofdb.JENIS_TELEMETERING, tanggal_list,
                        dry_run=dry_run, log=self.stdout.write,
-                       petakan_path=options.get('petakan_path', False))
+                       petakan_path=options.get('petakan_path', False),
+                       sumber=options.get('titik') or ofdb.SUMBER_KINERJA)
         finally:
             conn.close()

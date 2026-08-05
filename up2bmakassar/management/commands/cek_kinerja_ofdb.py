@@ -228,6 +228,19 @@ class Command(BaseCommand):
                     self.stdout.write(
                         f'          jalankan sync dengan --petakan-path untuk memakai pemetaan ini.'
                     )
+                else:
+                    # Tidak ada yang cocok pada path lengkap -- longgarkan bertahap
+                    # untuk melihat sampai level mana penamaannya masih nyambung.
+                    ulang = ofdb.get_kinerja_points(cursor, jenis)
+                    level, ck, cb = ofdb.analisa_kecocokan_path(ulang, semua, berdata)
+                    self.stdout.write(
+                        f'          cocok pada path1..5={level[5]}, path1..4={level[4]}, '
+                        f'path1..3={level[3]}, path1 saja={level[1]} (dari {len(ulang)} titik)'
+                    )
+                    for pn, key in ck:
+                        self.stdout.write(f'          titik kinerja : {pn} {key}')
+                    for pn, key in cb:
+                        self.stdout.write(f'          titik ber-data: {pn} {key}')
         finally:
             conn.close()
 

@@ -36,7 +36,7 @@ JENIS_MODEL = {
 }
 
 
-def ambil_titik(cursor, jenis, seed_site=True):
+def ambil_titik(cursor, jenis, seed_site=True, sumber=ofdb.SUMBER_KINERJA):
     """
     Master titik untuk satu jenis.
 
@@ -46,7 +46,7 @@ def ambil_titik(cursor, jenis, seed_site=True):
     site dari halaman tidak boleh sampai membuat datanya tidak ikut dihitung
     (dulu begitu, akibatnya sebagian besar titik hilang dari rekap).
     """
-    points = ofdb.get_kinerja_points(cursor, jenis)
+    points = ofdb.get_kinerja_points(cursor, jenis, sumber=sumber)
     if not points:
         return []
 
@@ -111,7 +111,8 @@ def simpan_hari(model, jenis, tanggal, rows):
         model.objects.bulk_create([model(**r) for r in rows], batch_size=1000)
 
 
-def sync_jenis(cursor, jenis, tanggal_list, dry_run=False, log=None, petakan_path=False):
+def sync_jenis(cursor, jenis, tanggal_list, dry_run=False, log=None, petakan_path=False,
+               sumber=ofdb.SUMBER_KINERJA):
     """
     Jalankan sinkronisasi untuk satu jenis dan beberapa tanggal.
     `log` = callable(str) untuk output progres (mis. self.stdout.write).
@@ -124,11 +125,12 @@ def sync_jenis(cursor, jenis, tanggal_list, dry_run=False, log=None, petakan_pat
             log(msg)
 
     model = JENIS_MODEL[jenis]
-    points = ambil_titik(cursor, jenis)
+    points = ambil_titik(cursor, jenis, sumber=sumber)
     if not points:
-        _log(f'[{jenis}] Tidak ada titik kinerja=1 di scd_c_point '
+        _log(f'[{jenis}] Tidak ada titik (sumber={sumber}) di scd_c_point '
              f'(cek nama induk point type di scd_pointtype).')
         return 0
+    _log(f'[{jenis}] {len(points)} titik, sumber daftar titik: {sumber}.')
 
     point_type, table = ofdb.JENIS_SUMBER[jenis]
 
