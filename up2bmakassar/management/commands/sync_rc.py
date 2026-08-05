@@ -36,13 +36,20 @@ class Command(BaseCommand):
                              help='Tanggal spesifik (YYYY-MM-DD). Default: hari ini.')
         parser.add_argument('--days', type=int, default=2,
                              help='Jumlah hari mundur dari --date/hari ini (untuk backfill). Default 2.')
+        parser.add_argument('--ulang', action='store_true',
+                             help='Selesaikan ulang SEMUA RC di rentang itu, termasuk yang sudah '
+                                  'punya hasil di FASOP (untuk perbaikan data).')
         parser.add_argument('--dry-run', action='store_true',
                              help='Hitung & tampilkan tanpa menyimpan ke database')
 
     def handle(self, *args, **options):
         dry_run = options.get('dry_run', False)
+        ulang = options.get('ulang', False)
         days = max(1, options.get('days') or 2)
         tz_local = timezone.get_current_timezone()
+
+        # Jendela respon RC 2 menit (lihat ofdb.resolve_rc_result) + margin 8 menit.
+        batas_final = timezone.now() - timedelta(minutes=10)
 
         def aware(dt):
             """Timestamp dari OFDB (pyodbc) selalu naive -- jadikan timezone-aware."""
@@ -74,12 +81,33 @@ class Command(BaseCommand):
 
                 events = ofdb.get_rc_events(cursor, dt_start, dt_end)
 
+                # RC yang sudah pernah diselesaikan FASOP tidak perlu di-resolve
+                # ulang -- itu satu query OFDB per RC, dan tanpa ini menjalankan
+                # sync tiap 15 menit berarti ratusan query berulang percuma.
+                sudah = {} if ulang else dict(
+                    RemoteControl.objects
+                    .filter(tanggal=tanggal)
+                    .exclude(status_respon='')
+                    .values_list('ofdb_id_his_rc', 'datum_eksekusi')
+                )
+
                 diproses = 0
+                dilewati = 0
                 error = 0
 
                 for row in events:
                     (id_his_rc, path1, path2, path3, path4, path5, b1, b2, b3, elem,
                      datum_1, status_1, datum_2, status_2, operator, cek_remote) = row
+
+                    # Hasil baru dianggap final setelah lewat jendela respon 2 menit
+                    # (+ margin). RC yang baru saja terjadi tetap di-resolve ulang,
+                    # supaya perintah yang responnya datang sesaat setelah sync
+                    # sebelumnya tidak terkunci sebagai GAGAL.
+                    if id_his_rc in sudah:
+                        dieksekusi = sudah[id_his_rc] or aware(datum_1)
+                        if dieksekusi and dieksekusi < batas_final:
+                            dilewati += 1
+                            continue
 
                     try:
                         if cek_remote and datum_2 and status_2:
@@ -112,7 +140,8 @@ class Command(BaseCommand):
                         error += 1
 
                 self.stdout.write(
-                    f'[{tanggal}] rc={len(events)} diproses={diproses} error={error}'
+                    f'[{tanggal}] rc={len(events)} diproses={diproses} '
+                    f'dilewati={dilewati} error={error}'
                     f'{" (dry-run)" if dry_run else ""}'
                 )
         finally:

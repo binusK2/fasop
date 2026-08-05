@@ -5,13 +5,19 @@
 # Idempotent: kalau baris cronnya sudah ada, dilewati (tidak dobel). Aman
 # dijalankan ulang kapan saja.
 #
-#   bash deploy/setup_kinerja_cron.sh              # sumber titik: berdata (default)
-#   bash deploy/setup_kinerja_cron.sh kinerja      # sumber titik: flag kinerja=1 di OFDB
+#   bash deploy/setup_kinerja_cron.sh                     # RC harian (default)
+#   bash deploy/setup_kinerja_cron.sh berdata sering      # RC tiap 15 menit
+#   bash deploy/setup_kinerja_cron.sh kinerja             # sumber titik: flag kinerja=1 di OFDB
 #
 # Yang dipasang (waktu server, dijeda supaya tidak menumpuk di OFDB):
 #   01:10  sync_kinerja_analog   -- Telemetering
 #   01:20  sync_kinerja_digital  -- Telesignal
-#   01:30  sync_rc               -- log Remote Control
+#   01:30  sync_rc               -- log Remote Control (atau tiap 15 menit, lihat di bawah)
+#
+# Argumen kedua "sering" menjadwalkan sync_rc tiap 15 menit, bukan sekali sehari.
+# Pakai itu kalau RC perlu terlihat di hari yang sama (dispatcher menelusuri
+# perintah yang baru dikirim). Murah, karena RC yang hasilnya sudah final tidak
+# di-resolve ulang -- yang diproses hanya perintah baru.
 #
 # Semuanya menghitung H-1 ke belakang beberapa hari (--days 3), jadi kalau satu
 # malam cronnya gagal atau data OFDB telat masuk, hari berikutnya otomatis
@@ -28,6 +34,12 @@ if [[ "$SUMBER" != "berdata" && "$SUMBER" != "kinerja" ]]; then
     exit 1
 fi
 
+JADWAL_RC="${2:-harian}"
+if [[ "$JADWAL_RC" != "harian" && "$JADWAL_RC" != "sering" ]]; then
+    echo "Jadwal RC tidak dikenal: $JADWAL_RC (pilihan: harian | sering)" >&2
+    exit 1
+fi
+
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PYTHON_BIN="$PROJECT_ROOT/venv/bin/python"
 [[ -x "$PYTHON_BIN" ]] || PYTHON_BIN="$(command -v python3)"
@@ -37,6 +49,7 @@ mkdir -p "$LOG_DIR"
 echo "Project : $PROJECT_ROOT"
 echo "Python  : $PYTHON_BIN"
 echo "Sumber  : --titik $SUMBER"
+echo "RC      : $JADWAL_RC"
 echo
 
 pasang_cron() {
@@ -55,7 +68,11 @@ pasang_cron() {
 
 pasang_cron sync_kinerja_analog  "10 1 * * *" "sync_kinerja_analog  --days 3 --titik $SUMBER"
 pasang_cron sync_kinerja_digital "20 1 * * *" "sync_kinerja_digital --days 3 --titik $SUMBER"
-pasang_cron sync_rc              "30 1 * * *" "sync_rc --days 3"
+if [[ "$JADWAL_RC" == "sering" ]]; then
+    pasang_cron sync_rc "*/15 * * * *" "sync_rc --days 2"
+else
+    pasang_cron sync_rc "30 1 * * *" "sync_rc --days 3"
+fi
 
 echo
 echo "Crontab sekarang:"
