@@ -107,6 +107,23 @@ def _cek_tabel(table):
     return table
 
 
+def _nomor(nilai):
+    """
+    Samakan tipe point_number jadi int.
+
+    Kolom point_number tidak selalu bertipe sama di semua tabel OFDB (ada yang
+    INT, ada yang NUMERIC atau bahkan VARCHAR), sehingga pyodbc bisa mengembalikan
+    int / Decimal / str untuk nilai yang sebenarnya sama. Tanpa normalisasi ini,
+    pencocokan master titik dengan hasil query uptime bisa meleset total.
+    """
+    if nilai is None:
+        return None
+    try:
+        return int(nilai)
+    except (TypeError, ValueError):
+        return nilai
+
+
 def get_induk_pointtype_id(cursor, jenis):
     """
     id_pointtype dari INDUK point type dengan nama tertentu (mis. 'TELESIGNAL').
@@ -168,7 +185,7 @@ def get_kinerja_points(cursor, jenis, abaikan_point_type=False):
     points = []
     for row in cursor.fetchall():
         points.append({
-            'point_number': row[0],
+            'point_number': _nomor(row[0]),
             'path1': row[1] or '', 'path2': row[2] or '', 'path3': row[3] or '',
             'path4': row[4] or '', 'path5': row[5] or '',
             'b1': row[6] or '', 'b2': row[7] or '', 'b3': row[8] or '', 'elem': row[9] or '',
@@ -214,7 +231,7 @@ def compute_kinerja_harian(cursor, table, day_start, day_end):
               AND datum_1 < ? AND (datum_2 IS NULL OR datum_2 > ?)
         GROUP BY point_number
     """, [day_start, day_start, day_end, day_end, day_end, day_start])
-    return {row[0]: (row[1] or 0, float(row[2] or 0)) for row in cursor.fetchall()}
+    return {_nomor(row[0]): (row[1] or 0, float(row[2] or 0)) for row in cursor.fetchall()}
 
 
 # ── Status titik saat tidak ada transisi di hari itu ────────────────────────────
@@ -239,7 +256,7 @@ def _status_map(cursor, sql, params, sumber):
     """Jalankan query status; kalau tabelnya tidak ada di OFDB, kembalikan dict kosong."""
     try:
         cursor.execute(sql, params)
-        return {row[0]: (row[1] or '') for row in cursor.fetchall()}
+        return {_nomor(row[0]): (row[1] or '') for row in cursor.fetchall()}
     except Exception as e:
         logger.warning('OFDB: sumber status %s tidak terbaca (%s)', sumber, e)
         return {}
@@ -287,6 +304,50 @@ def get_status_sebelum(cursor, table, day_start, lookback_days=90):
         """,
         [day_start, -abs(int(lookback_days)), day_start], table,
     )
+
+
+def ringkasan_cakupan(cursor, point_type):
+    """
+    Diagnosa: untuk semua titik `point_type` di scd_c_point, berapa yang
+    point_number-nya benar-benar ada di tabel histori transisi dan di tabel
+    realtime -- dipecah per induk point type dan per flag kinerja.
+
+    Pengecekan dilakukan di sisi SQL Server (EXISTS), jadi hasilnya tidak
+    terpengaruh cara Python membandingkan tipe data point_number. Kalau kolom
+    "ada_histori"/"ada_rtl" nol untuk jenis yang seharusnya termonitor, berarti
+    masalahnya di isi OFDB (titik kinerja=1 menunjuk point_number yang tidak
+    punya data), bukan di perhitungan FASOP.
+
+    Return list of tuple (jenis, kinerja, titik, ada_histori, ada_rtl).
+    """
+    table = 'scd_his_analog' if point_type == 'A' else 'scd_his_digital'
+    _, tabel_rtl = TABEL_STATUS[table]
+    cursor.execute(f"""
+        SELECT COALESCE(ind.name, pt.name) AS jenis,
+               p.kinerja,
+               COUNT(*) AS titik,
+               SUM(CASE WHEN EXISTS (SELECT 1 FROM {table} h
+                                     WHERE h.point_number = p.point_number)
+                        THEN 1 ELSE 0 END) AS ada_histori,
+               SUM(CASE WHEN EXISTS (SELECT 1 FROM {tabel_rtl} r
+                                     WHERE r.point_number = p.point_number)
+                        THEN 1 ELSE 0 END) AS ada_rtl
+        FROM scd_c_point p
+        JOIN scd_pointtype pt ON pt.id_pointtype = p.id_pointtype
+        LEFT JOIN scd_pointtype ind ON ind.id_pointtype = pt.id_induk_pointtype
+        WHERE p.point_type = ?
+        GROUP BY COALESCE(ind.name, pt.name), p.kinerja
+        ORDER BY COALESCE(ind.name, pt.name), p.kinerja
+    """, [point_type])
+    return cursor.fetchall()
+
+
+def contoh_point_number(cursor, table, limit=5):
+    """Diagnosa: beberapa point_number contoh dari sebuah tabel OFDB, apa adanya."""
+    if table not in TABEL_HISTORI and table not in [t for pair in TABEL_STATUS.values() for t in pair]:
+        raise ValueError(f"Tabel tidak diizinkan: {table}")
+    cursor.execute(f'SELECT DISTINCT TOP {int(limit)} point_number FROM {table} ORDER BY point_number')
+    return [row[0] for row in cursor.fetchall()]
 
 
 def get_status_awal_hari(cursor, table, tanggal, day_start, status_realtime=None):
