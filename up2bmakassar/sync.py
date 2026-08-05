@@ -38,8 +38,13 @@ JENIS_MODEL = {
 
 def ambil_titik(cursor, jenis, seed_site=True):
     """
-    Master titik untuk satu jenis, sudah disaring site yang aktif (SitePath1).
-    Path1 baru otomatis di-seed ke SitePath1 dengan aktif=True.
+    Master titik untuk satu jenis.
+
+    SEMUA titik kinerja=1 dihitung -- sama seperti app up2bmakassar, yang tidak
+    punya konsep site aktif/tidak sama sekali. SitePath1 tetap di-seed di sini
+    tapi hanya dipakai sebagai filter TAMPILAN di halaman kinerja: menyembunyikan
+    site dari halaman tidak boleh sampai membuat datanya tidak ikut dihitung
+    (dulu begitu, akibatnya sebagian besar titik hilang dari rekap).
     """
     points = ofdb.get_kinerja_points(cursor, jenis)
     if not points:
@@ -49,11 +54,10 @@ def ambil_titik(cursor, jenis, seed_site=True):
         for path1 in sorted({p['path1'] for p in points if p['path1']}):
             SitePath1.objects.get_or_create(path1=path1)
 
-    nonaktif = set(SitePath1.objects.filter(aktif=False).values_list('path1', flat=True))
-    return [p for p in points if p['path1'] not in nonaktif]
+    return points
 
 
-def hitung_hari(cursor, jenis, points, tanggal):
+def hitung_hari(cursor, jenis, points, tanggal, status_realtime=None):
     """
     Hitung kinerja semua `points` untuk satu tanggal.
     Return list dict siap dipakai untuk membuat baris model.
@@ -65,15 +69,16 @@ def hitung_hari(cursor, jenis, points, tanggal):
 
     uptime_map = ofdb.compute_kinerja_harian(cursor, table, day_start, day_end)
 
-    # Titik tanpa transisi sama sekali di hari itu -> pakai status terakhir
-    # sebelumnya (VALID = normal seharian penuh).
+    # Titik tanpa transisi sama sekali di hari itu -> pakai status awal harinya
+    # (snapshot harian / transisi terakhir / realtime). VALID = normal seharian.
     butuh_fallback = any(p['point_number'] not in uptime_map for p in points)
-    status_sebelum = ofdb.get_status_sebelum(cursor, table, day_start) if butuh_fallback else {}
+    status = (ofdb.get_status_awal_hari(cursor, table, tanggal, day_start, status_realtime)
+              if butuh_fallback else {})
 
     hasil = []
     for p in points:
         jlh, uptime = uptime_map.get(p['point_number'], (0, 0.0))
-        if uptime == 0 and status_sebelum.get(p['point_number']) == 'VALID':
+        if uptime == 0 and status.get(p['point_number']) == 'VALID':
             uptime = alltime
             jlh = 1
         uptime = min(uptime, alltime)
@@ -99,12 +104,10 @@ def simpan_hari(model, jenis, tanggal, rows):
     """
     with transaction.atomic():
         model.objects.filter(tanggal=tanggal, jenis=jenis).delete()
-        # Titik lama yang dulu tersimpan tanpa jenis (hasil versi sebelumnya)
-        # ikut dibersihkan supaya tidak dobel.
-        model.objects.filter(
-            tanggal=tanggal, jenis='',
-            point_number__in=[r['point_number'] for r in rows],
-        ).delete()
+        # Baris versi lama (tanpa `jenis`, dihitung dari point_type='A'/'D' saja)
+        # untuk tanggal ini sudah pasti basi -- sync sekarang menulis ulang semua
+        # titik untuk tanggal tersebut, jadi hapus supaya tidak dobel.
+        model.objects.filter(tanggal=tanggal, jenis='').delete()
         model.objects.bulk_create([model(**r) for r in rows], batch_size=1000)
 
 
@@ -122,18 +125,22 @@ def sync_jenis(cursor, jenis, tanggal_list, dry_run=False, log=None):
     points = ambil_titik(cursor, jenis)
     if not points:
         _log(f'[{jenis}] Tidak ada titik kinerja=1 di scd_c_point '
-             f'(cek nama induk point type di scd_pointtype & flag aktif di SitePath1).')
+             f'(cek nama induk point type di scd_pointtype).')
         return 0
+
+    _, table = ofdb.JENIS_SUMBER[jenis]
+    status_realtime = ofdb.get_status_realtime(cursor, table)
 
     total = 0
     for tanggal in sorted(tanggal_list):
-        rows = hitung_hari(cursor, jenis, points, tanggal)
+        rows = hitung_hari(cursor, jenis, points, tanggal, status_realtime)
         rata2 = sum(r['performance'] for r in rows) / len(rows) if rows else 0
+        kosong = sum(1 for r in rows if r['uptime_detik'] == 0)
 
         if dry_run:
-            _log(f'[DRY][{jenis}] {tanggal} titik={len(rows)} rata2={rata2:.2f}%')
+            _log(f'[DRY][{jenis}] {tanggal} titik={len(rows)} rata2={rata2:.2f}% tanpa_data={kosong}')
         else:
             simpan_hari(model, jenis, tanggal, rows)
             total += len(rows)
-            _log(f'[{jenis}] {tanggal} titik={len(rows)} rata2={rata2:.2f}%')
+            _log(f'[{jenis}] {tanggal} titik={len(rows)} rata2={rata2:.2f}% tanpa_data={kosong}')
     return total
