@@ -38,6 +38,10 @@ class Command(BaseCommand):
                             help='Daftar titik diambil dari mana: "kinerja" (flag kinerja=1 di '
                                  'scd_c_point, cara app up2bmakassar) atau "berdata" (semua titik '
                                  'jenis ini yang punya baris di tabel realtime OFDB).')
+        parser.add_argument('--sertakan-tanpa-data', action='store_true',
+                            help='Ikut simpan titik yang tidak punya jejak apa pun di OFDB '
+                                 'sebagai 0%% (default: dilewati, karena statusnya tidak '
+                                 'diketahui dan bikin rata-rata availability ngawur).')
         parser.add_argument('--petakan-path', action='store_true',
                             help='Titik kinerja yang point_number-nya sudah mati dicocokkan '
                                  'ulang lewat path1..path5 ke titik yang punya data.')
@@ -63,6 +67,7 @@ class Command(BaseCommand):
             sync_jenis(conn.cursor(), ofdb.JENIS_TELEMETERING, tanggal_list,
                        dry_run=dry_run, log=self.stdout.write,
                        petakan_path=options.get('petakan_path', False),
-                       sumber=options.get('titik') or ofdb.SUMBER_KINERJA)
+                       sumber=options.get('titik') or ofdb.SUMBER_KINERJA,
+                       sertakan_tanpa_data=options.get('sertakan_tanpa_data', False))
         finally:
             conn.close()

@@ -57,10 +57,19 @@ def ambil_titik(cursor, jenis, seed_site=True, sumber=ofdb.SUMBER_KINERJA):
     return points
 
 
-def hitung_hari(cursor, jenis, points, tanggal, status_realtime=None):
+def hitung_hari(cursor, jenis, points, tanggal, status_realtime=None, sertakan_tanpa_data=False):
     """
     Hitung kinerja semua `points` untuk satu tanggal.
-    Return list dict siap dipakai untuk membuat baris model.
+    Return (list dict siap jadi baris model, jumlah titik yang dilewati).
+
+    Titik yang tidak punya jejak sama sekali di OFDB -- tidak ada di hasil uptime
+    maupun di ketiga sumber status -- DILEWATI, bukan dicatat 0%. Titik seperti itu
+    bukan "tidak tersedia 100%", melainkan tidak diketahui: point_number-nya sudah
+    tidak dipakai lagi. Mencatatnya 0% membuat rata-rata availability jadi ngawur
+    (mis. 394 titik mati menarik angka Telemetering ke 4%).
+
+    sertakan_tanpa_data=True mengembalikan perilaku lama (dicatat 0%), berguna
+    kalau memang ingin melihat titik mana saja yang tidak punya data.
     """
     _, table = ofdb.JENIS_SUMBER[jenis]
     day_start = datetime.combine(tanggal, datetime.min.time())
@@ -76,9 +85,14 @@ def hitung_hari(cursor, jenis, points, tanggal, status_realtime=None):
               if butuh_fallback else {})
 
     hasil = []
+    dilewati = 0
     for p in points:
-        jlh, uptime = uptime_map.get(p['point_number'], (0, 0.0))
-        if uptime == 0 and status.get(p['point_number']) == 'VALID':
+        pn = p['point_number']
+        if not sertakan_tanpa_data and pn not in uptime_map and pn not in status:
+            dilewati += 1
+            continue
+        jlh, uptime = uptime_map.get(pn, (0, 0.0))
+        if uptime == 0 and status.get(pn) == 'VALID':
             uptime = alltime
             jlh = 1
         uptime = min(uptime, alltime)
@@ -94,7 +108,7 @@ def hitung_hari(cursor, jenis, points, tanggal, status_realtime=None):
             alltime_detik=alltime,
             performance=(uptime / alltime * 100) if alltime else 0,
         ))
-    return hasil
+    return hasil, dilewati
 
 
 def simpan_hari(model, jenis, tanggal, rows):
@@ -112,7 +126,7 @@ def simpan_hari(model, jenis, tanggal, rows):
 
 
 def sync_jenis(cursor, jenis, tanggal_list, dry_run=False, log=None, petakan_path=False,
-               sumber=ofdb.SUMBER_KINERJA):
+               sumber=ofdb.SUMBER_KINERJA, sertakan_tanpa_data=False):
     """
     Jalankan sinkronisasi untuk satu jenis dan beberapa tanggal.
     `log` = callable(str) untuk output progres (mis. self.stdout.write).
@@ -144,21 +158,26 @@ def sync_jenis(cursor, jenis, tanggal_list, dry_run=False, log=None, petakan_pat
                 points, ofdb.get_point_paths(cursor, point_type), berdata)
             _log(f'[{jenis}] Dipetakan lewat path: {dipetakan}, tetap tidak ketemu: {gagal}.')
         else:
-            _log(f'[{jenis}] Titik tsb akan keluar 0%. Jalankan dengan --petakan-path '
-                 f'kalau point_number-nya berubah (identitas titik dicocokkan lewat path).')
+            _log(f'[{jenis}] Coba --petakan-path kalau point_number-nya berubah '
+                 f'(identitas titik dicocokkan lewat path).')
 
     status_realtime = ofdb.get_status_realtime(cursor, table)
 
     total = 0
     for tanggal in sorted(tanggal_list):
-        rows = hitung_hari(cursor, jenis, points, tanggal, status_realtime)
-        rata2 = sum(r['performance'] for r in rows) / len(rows) if rows else 0
-        kosong = sum(1 for r in rows if r['uptime_detik'] == 0)
+        rows, dilewati = hitung_hari(cursor, jenis, points, tanggal, status_realtime,
+                                     sertakan_tanpa_data=sertakan_tanpa_data)
+        uptime_total = sum(r['uptime_detik'] for r in rows)
+        alltime_total = sum(r['alltime_detik'] for r in rows)
+        avail = (uptime_total / alltime_total * 100) if alltime_total else 0
+        nol = sum(1 for r in rows if r['uptime_detik'] == 0)
 
+        keterangan = (f'{tanggal} titik={len(rows)} avail={avail:.2f}% '
+                      f'0%={nol} dilewati={dilewati}')
         if dry_run:
-            _log(f'[DRY][{jenis}] {tanggal} titik={len(rows)} rata2={rata2:.2f}% tanpa_data={kosong}')
+            _log(f'[DRY][{jenis}] {keterangan}')
         else:
             simpan_hari(model, jenis, tanggal, rows)
             total += len(rows)
-            _log(f'[{jenis}] {tanggal} titik={len(rows)} rata2={rata2:.2f}% tanpa_data={kosong}')
+            _log(f'[{jenis}] {keterangan}')
     return total

@@ -228,19 +228,25 @@ class Command(BaseCommand):
                     self.stdout.write(
                         f'          jalankan sync dengan --petakan-path untuk memakai pemetaan ini.'
                     )
-                else:
-                    # Tidak ada yang cocok pada path lengkap -- longgarkan bertahap
-                    # untuk melihat sampai level mana penamaannya masih nyambung.
-                    ulang = ofdb.get_kinerja_points(cursor, jenis)
-                    level, ck, cb = ofdb.analisa_kecocokan_path(ulang, semua, berdata)
+
+                # Selalu tampilkan kecocokan bertingkat -- kalau yang cocok pada
+                # path lengkap sedikit, ini menunjukkan apakah sisanya meleset
+                # tipis (elemen/info berubah) atau memang beda station.
+                ulang = ofdb.get_kinerja_points(cursor, jenis)
+                level, ck, cb = ofdb.analisa_kecocokan_path(ulang, semua, berdata)
+                self.stdout.write(
+                    f'          cocok pada path1..5={level[5]}, path1..4={level[4]}, '
+                    f'path1..3={level[3]}, path1(station) saja={level[1]} (dari {len(ulang)} titik)'
+                )
+                sisa = [p for p in ulang if ofdb._kunci_titik(p) not in
+                        {ofdb._kunci_path(k) for pn, _x, k in semua if pn in berdata}]
+                for p in sisa[:3]:
                     self.stdout.write(
-                        f'          cocok pada path1..5={level[5]}, path1..4={level[4]}, '
-                        f'path1..3={level[3]}, path1 saja={level[1]} (dari {len(ulang)} titik)'
+                        f'          belum ketemu  : {p["point_number"]} '
+                        f'({p["path1"]}/{p["path2"]}/{p["path3"]}/{p["path4"]}/{p["path5"]})'
                     )
-                    for pn, key in ck:
-                        self.stdout.write(f'          titik kinerja : {pn} {key}')
-                    for pn, key in cb:
-                        self.stdout.write(f'          titik ber-data: {pn} {key}')
+                for pn, key in cb:
+                    self.stdout.write(f'          titik ber-data: {pn} {key}')
         finally:
             conn.close()
 
