@@ -136,6 +136,41 @@ class Command(BaseCommand):
                         f'          -> {beda} titik {jenis} punya point_type != "{point_type}", '
                         f'histori transisinya bukan di {table} sehingga tidak ikut dihitung.'
                     )
+
+            # ── Cakupan point_number: dicek di sisi SQL Server ──────────────────
+            # Menjawab pertanyaan "apakah point_number titik kinerja memang ada di
+            # tabel histori/realtime?" tanpa dipengaruhi tipe data di Python.
+            self.stdout.write('--- Cakupan point_number (EXISTS di sisi OFDB) ---')
+            for point_type in ('A', 'D'):
+                table = 'scd_his_analog' if point_type == 'A' else 'scd_his_digital'
+                _, tabel_rtl = ofdb.TABEL_STATUS[table]
+                self.stdout.write(
+                    f'  point_type={point_type}  ({table} / {tabel_rtl})'
+                )
+                self.stdout.write(
+                    f'    {"jenis":<18}{"kinerja":>8}{"titik":>8}{"ada_histori":>13}{"ada_rtl":>9}'
+                )
+                for jenis, kinerja, titik, ada_his, ada_rtl in ofdb.ringkasan_cakupan(cursor, point_type):
+                    self.stdout.write(
+                        f'    {(jenis or "-"):<18}{kinerja if kinerja is not None else "-":>8}'
+                        f'{titik:>8}{ada_his:>13}{ada_rtl:>9}'
+                    )
+
+            self.stdout.write('--- Contoh point_number apa adanya (cek tipe data) ---')
+            for table in ('scd_c_point', 'scd_his_analog', 'scd_analog_rtl',
+                          'scd_his_digital', 'scd_digital_rtl'):
+                try:
+                    if table == 'scd_c_point':
+                        cursor.execute('SELECT DISTINCT TOP 5 point_number FROM scd_c_point '
+                                       'WHERE kinerja = 1 ORDER BY point_number')
+                        contoh = [row[0] for row in cursor.fetchall()]
+                    else:
+                        contoh = ofdb.contoh_point_number(cursor, table)
+                except Exception as e:
+                    self.stdout.write(f'    {table:<18} tidak terbaca ({e})')
+                    continue
+                tipe = type(contoh[0]).__name__ if contoh else '-'
+                self.stdout.write(f'    {table:<18} {tipe:<8} {contoh}')
         finally:
             conn.close()
 
