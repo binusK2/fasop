@@ -24,6 +24,23 @@
   {% csrf_token %}
 
   <div class="card mb-3">
+    <div class="card-body px-4 py-3">
+      <label class="form-label" style="font-size:12px;font-weight:600;">
+        <i class="bi bi-folder me-1"></i>Folder / Lokasi <span class="text-muted fw-normal">(opsional)</span>
+      </label>
+      <input type="text" name="folder" id="inp-folder-name" class="form-control form-control-sm"
+             list="lokasi-suggest" placeholder="mis. GI Tello — ketik nama sendiri atau pilih lokasi"
+             autocomplete="off" maxlength="150">
+      <datalist id="lokasi-suggest">
+        {% for lok in lokasi_suggestions %}<option value="{{ lok }}">{% endfor %}
+      </datalist>
+      <div class="text-muted mt-1" style="font-size:11px;">
+        Semua foto pada upload ini masuk ke folder tersebut. Kosongkan untuk "Tanpa Folder".
+      </div>
+    </div>
+  </div>
+
+  <div class="card mb-3">
     <div class="card-body px-4 py-4">
       <div class="drop-zone" id="drop">
         <i class="bi bi-cloud-arrow-up" style="font-size:34px;color:#94a3b8;"></i>
@@ -153,6 +170,7 @@ form.addEventListener('submit', function(e){
 
   const fd = new FormData();
   fd.append('csrfmiddlewaretoken', form.querySelector('[name=csrfmiddlewaretoken]').value);
+  fd.append('folder', document.getElementById('inp-folder-name').value.trim());
   for(const f of bucket.files){ fd.append('photos', f); }
 
   const total = Array.from(bucket.files).reduce((s,f) => s + f.size, 0);

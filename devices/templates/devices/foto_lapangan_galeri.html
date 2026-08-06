@@ -20,6 +20,22 @@
   .dev-result { padding: 8px 10px; border:1px solid #e2e8f0; border-radius:8px; cursor:pointer; margin-bottom:6px; }
   .dev-result:hover { background:#f1f5f9; }
   .dev-result.active { border-color:#2563eb; background:#eff6ff; }
+  /* Layout folder sidebar */
+  .fl-layout { display:flex; gap:14px; align-items:flex-start; }
+  .fl-side { flex:0 0 210px; width:210px; }
+  .fl-main { flex:1 1 auto; min-width:0; }
+  .fl-folder { display:flex; align-items:center; gap:6px; padding:7px 10px; border-radius:8px;
+               font-size:12.5px; color:#334155; text-decoration:none; cursor:pointer; }
+  .fl-folder:hover { background:#f1f5f9; color:#0f172a; }
+  .fl-folder.active { background:#e0f2fe; color:#075985; font-weight:600; }
+  .fl-folder .cnt { margin-left:auto; font-size:11px; color:#64748b; }
+  .fl-folder.active .cnt { color:#075985; }
+  .fl-side-title { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.5px;
+                   color:#94a3b8; padding:4px 10px; }
+  .fl-chip { position:absolute; bottom:6px; left:6px; z-index:2; background:rgba(2,6,23,.72); color:#fff;
+             font-size:9px; padding:2px 7px; border-radius:20px; max-width:88%; overflow:hidden;
+             text-overflow:ellipsis; white-space:nowrap; }
+  @media (max-width: 767.98px){ .fl-layout{flex-direction:column;} .fl-side{width:100%;flex-basis:auto;} }
 </style>
 
 <!-- Header -->
@@ -31,31 +47,59 @@
   <a href="{% url 'foto_lapangan_upload' %}" class="btn btn-sm btn-primary"><i class="bi bi-cloud-arrow-up me-1"></i>Upload Foto</a>
 </div>
 
-<!-- Filter + search -->
-<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-  <div class="btn-group btn-group-sm" role="group">
-    <a href="?status=unassigned{% if q %}&q={{ q }}{% endif %}" class="btn btn-outline-secondary {% if status == 'unassigned' %}active{% endif %}">
-      Belum Diarahkan <span class="badge bg-warning text-dark ms-1">{{ counts.unassigned }}</span>
+<div class="fl-layout">
+  <!-- ══ Sidebar folder ══ -->
+  <div class="fl-side">
+    <div class="fl-side-title">Folder</div>
+    <a href="?status={{ status }}{% if q %}&q={{ q }}{% endif %}"
+       class="fl-folder {% if not folder %}active{% endif %}">
+      <i class="bi bi-collection"></i> Semua Folder <span class="cnt">{{ counts.all }}</span>
     </a>
-    <a href="?status=assigned{% if q %}&q={{ q }}{% endif %}" class="btn btn-outline-secondary {% if status == 'assigned' %}active{% endif %}">
-      Sudah <span class="badge bg-success ms-1">{{ counts.assigned }}</span>
+    <a href="?status={{ status }}&folder=__none__{% if q %}&q={{ q }}{% endif %}"
+       class="fl-folder {% if folder == '__none__' %}active{% endif %}">
+      <i class="bi bi-inbox"></i> Tanpa Folder <span class="cnt">{{ no_folder_count }}</span>
     </a>
-    <a href="?status=all{% if q %}&q={{ q }}{% endif %}" class="btn btn-outline-secondary {% if status == 'all' %}active{% endif %}">
-      Semua <span class="badge bg-secondary ms-1">{{ counts.all }}</span>
+    {% if folders %}<div class="fl-side-title mt-2">Per Lokasi</div>{% endif %}
+    {% for f in folders %}
+    <a href="?status={{ status }}&folder={{ f.name|urlencode }}{% if q %}&q={{ q }}{% endif %}"
+       class="fl-folder {% if folder == f.name %}active{% endif %}" title="{{ f.name }}">
+      <i class="bi bi-folder-fill" style="color:#f59e0b;"></i>
+      <span class="text-truncate">{{ f.name }}</span> <span class="cnt">{{ f.count }}</span>
     </a>
+    {% endfor %}
   </div>
-  <form method="get" class="d-flex gap-2">
-    <input type="hidden" name="status" value="{{ status }}">
-    <input type="text" name="q" value="{{ q }}" class="form-control form-control-sm" style="width:220px;" placeholder="Cari keterangan / device…">
-    <button class="btn btn-sm btn-outline-primary"><i class="bi bi-search"></i></button>
-  </form>
-</div>
 
-<div class="d-flex align-items-center gap-3 mb-2" style="font-size:12px;">
-  <label class="d-flex align-items-center gap-1" style="cursor:pointer;">
-    <input type="checkbox" id="check-all"> Pilih semua di halaman ini
-  </label>
-</div>
+  <!-- ══ Konten ══ -->
+  <div class="fl-main">
+    <!-- Filter status + search -->
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+      <div class="btn-group btn-group-sm" role="group">
+        <a href="?status=unassigned{% if folder %}&folder={{ folder|urlencode }}{% endif %}{% if q %}&q={{ q }}{% endif %}" class="btn btn-outline-secondary {% if status == 'unassigned' %}active{% endif %}">
+          Belum Diarahkan <span class="badge bg-warning text-dark ms-1">{{ counts.unassigned }}</span>
+        </a>
+        <a href="?status=assigned{% if folder %}&folder={{ folder|urlencode }}{% endif %}{% if q %}&q={{ q }}{% endif %}" class="btn btn-outline-secondary {% if status == 'assigned' %}active{% endif %}">
+          Sudah <span class="badge bg-success ms-1">{{ counts.assigned }}</span>
+        </a>
+        <a href="?status=all{% if folder %}&folder={{ folder|urlencode }}{% endif %}{% if q %}&q={{ q }}{% endif %}" class="btn btn-outline-secondary {% if status == 'all' %}active{% endif %}">
+          Semua <span class="badge bg-secondary ms-1">{{ counts.all }}</span>
+        </a>
+      </div>
+      <form method="get" class="d-flex gap-2">
+        <input type="hidden" name="status" value="{{ status }}">
+        <input type="hidden" name="folder" value="{{ folder }}">
+        <input type="text" name="q" value="{{ q }}" class="form-control form-control-sm" style="width:220px;" placeholder="Cari keterangan / device…">
+        <button class="btn btn-sm btn-outline-primary"><i class="bi bi-search"></i></button>
+      </form>
+    </div>
+
+    <div class="d-flex align-items-center gap-3 mb-2" style="font-size:12px;">
+      <label class="d-flex align-items-center gap-1" style="cursor:pointer;">
+        <input type="checkbox" id="check-all"> Pilih semua di halaman ini
+      </label>
+      {% if folder and folder != '__none__' %}
+      <span class="text-muted">Folder: <strong>{{ folder }}</strong></span>
+      {% endif %}
+    </div>
 
 {% if page_obj.object_list %}
 <div class="fl-grid">
@@ -74,6 +118,7 @@
     <img class="fl-thumb" loading="lazy"
          src="{% if fl.thumbnail %}{{ fl.thumbnail.url }}{% else %}{{ fl.image.url }}{% endif %}"
          onclick="openLightbox(this.closest('.fl-card'))">
+    {% if fl.folder %}<span class="fl-chip"><i class="bi bi-folder-fill me-1"></i>{{ fl.folder }}</span>{% endif %}
     <div class="fl-meta">
       <div><i class="bi bi-clock me-1"></i>{{ fl.display_time|date:"d M Y H:i" }}</div>
       {% if fl.status == 'assigned' %}
@@ -93,6 +138,9 @@
     <button type="button" class="btn btn-sm btn-primary" onclick="openAssign()">
       <i class="bi bi-hdd-network me-1"></i>Arahkan ke Perangkat
     </button>
+    <button type="button" class="btn btn-sm btn-outline-light" onclick="openMoveFolder()">
+      <i class="bi bi-folder-symlink me-1"></i>Pindah Folder
+    </button>
     <button type="button" class="btn btn-sm btn-outline-light" onclick="submitBulkDelete()">
       <i class="bi bi-trash me-1"></i>Hapus
     </button>
@@ -103,11 +151,11 @@
 {% if page_obj.has_other_pages %}
 <nav class="mt-3"><ul class="pagination pagination-sm justify-content-center">
   {% if page_obj.has_previous %}
-    <li class="page-item"><a class="page-link" href="?status={{ status }}&q={{ q }}&page={{ page_obj.previous_page_number }}">‹</a></li>
+    <li class="page-item"><a class="page-link" href="?status={{ status }}&folder={{ folder|urlencode }}&q={{ q }}&page={{ page_obj.previous_page_number }}">‹</a></li>
   {% endif %}
   <li class="page-item disabled"><span class="page-link">Hal {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
   {% if page_obj.has_next %}
-    <li class="page-item"><a class="page-link" href="?status={{ status }}&q={{ q }}&page={{ page_obj.next_page_number }}">›</a></li>
+    <li class="page-item"><a class="page-link" href="?status={{ status }}&folder={{ folder|urlencode }}&q={{ q }}&page={{ page_obj.next_page_number }}">›</a></li>
   {% endif %}
 </ul></nav>
 {% endif %}
@@ -115,9 +163,11 @@
 {% else %}
 <div class="text-center text-muted py-5">
   <i class="bi bi-images" style="font-size:40px;"></i>
-  <p class="mt-2" style="font-size:13px;">Belum ada foto. <a href="{% url 'foto_lapangan_upload' %}">Upload foto lapangan</a>.</p>
+  <p class="mt-2" style="font-size:13px;">Belum ada foto di sini. <a href="{% url 'foto_lapangan_upload' %}">Upload foto lapangan</a>.</p>
 </div>
 {% endif %}
+  </div><!-- /fl-main -->
+</div><!-- /fl-layout -->
 
 <!-- ═══ Offcanvas Assign ═══ -->
 <div class="offcanvas offcanvas-end" tabindex="-1" id="assignCanvas">
@@ -168,6 +218,38 @@
   <input type="hidden" name="next" value="{{ request.get_full_path }}">
   <div id="bulk-delete-holder"></div>
 </form>
+
+<!-- ═══ Modal Pindah Folder ═══ -->
+<div class="modal fade" id="moveFolderModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <form method="post" action="{% url 'foto_lapangan_move_folder' %}" id="move-folder-form">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <div id="move-photos-holder"></div>
+        <div class="modal-header py-2">
+          <h5 class="modal-title" style="font-size:15px;"><i class="bi bi-folder-symlink me-1"></i>Pindah ke Folder</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="alert alert-secondary py-2 px-3" style="font-size:12px;" id="move-count">0 foto dipilih</div>
+          <label class="form-label" style="font-size:12px;font-weight:600;">Nama folder</label>
+          <input type="text" name="folder" id="move-folder-input" class="form-control form-control-sm"
+                 list="move-folder-suggest" placeholder="Ketik nama folder / lokasi — kosongkan untuk keluarkan dari folder"
+                 autocomplete="off" maxlength="150">
+          <datalist id="move-folder-suggest">
+            {% for f in folders %}<option value="{{ f.name }}">{% endfor %}
+            {% for lok in lokasi_suggestions %}<option value="{{ lok }}">{% endfor %}
+          </datalist>
+        </div>
+        <div class="modal-footer py-2">
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-check2 me-1"></i>Pindahkan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
 
 <!-- ═══ Lightbox ═══ -->
 <div class="modal fade" id="lightbox" tabindex="-1">
@@ -284,6 +366,19 @@ function submitBulkDelete(){
     const i = document.createElement('input'); i.type='hidden'; i.name='photo_ids'; i.value=id; holder.appendChild(i);
   });
   document.getElementById('bulk-delete-form').submit();
+}
+
+// ── Pindah folder ──
+function openMoveFolder(){
+  if(!selected.size) return;
+  document.getElementById('move-count').textContent = selected.size + ' foto dipilih';
+  const holder = document.getElementById('move-photos-holder');
+  holder.innerHTML = '';
+  selected.forEach(id => {
+    const i = document.createElement('input'); i.type='hidden'; i.name='photo_ids'; i.value=id; holder.appendChild(i);
+  });
+  document.getElementById('move-folder-input').value = '';
+  new bootstrap.Modal('#moveFolderModal').show();
 }
 
 // ── Lightbox ──
