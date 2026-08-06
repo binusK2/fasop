@@ -24,6 +24,9 @@ class DeviceForm(forms.ModelForm):
         model = Device
         fields = '__all__'
         exclude = ['is_deleted', 'deleted_by']
+        widgets = {
+            'status_aset': forms.Select(attrs={'class': 'form-select'}),
+        }
 
     def clean_ip_address(self):
         ip = self.cleaned_data.get('ip_address', '').strip()

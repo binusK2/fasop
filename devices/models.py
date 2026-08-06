@@ -60,6 +60,19 @@ class Device(models.Model):
         default='operasi',
         verbose_name='Status Operasi'
     )
+    ASET_CHOICES = (
+        ('UP2B',       'UP2B'),
+        ('IPP',        'IPP'),
+        ('BELUM_STAP', 'Belum STAP'),
+    )
+    status_aset = models.CharField(
+        max_length=12,
+        choices=ASET_CHOICES,
+        default='UP2B',
+        db_index=True,
+        verbose_name='Status Aset',
+        help_text='Kepemilikan aset. Hanya UP2B yang masuk perhitungan jumlah aset.',
+    )
     keterangan = models.TextField(blank=True, null=True)
     foto = models.ImageField(upload_to=device_foto_upload, blank=True, null=True)
     foto2 = models.ImageField(upload_to=device_foto2_upload, blank=True, null=True, verbose_name='Foto 2')
