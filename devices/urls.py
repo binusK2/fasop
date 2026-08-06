@@ -55,6 +55,15 @@ urlpatterns = [
     path('view/<hid:device_pk>/komponen/<hid:komponen_pk>/edit/', views_komponen.komponen_edit, name='komponen_edit'),
     path('view/<hid:device_pk>/komponen/<hid:komponen_pk>/delete/', views_komponen.komponen_delete, name='komponen_delete'),
 
+    # Galeri Foto Lapangan
+    path('foto-lapangan/',                 views.foto_lapangan_galeri,        name='foto_lapangan_galeri'),
+    path('foto-lapangan/upload/',          views.foto_lapangan_upload,        name='foto_lapangan_upload'),
+    path('foto-lapangan/assign/',          views.foto_lapangan_assign,        name='foto_lapangan_assign'),
+    path('foto-lapangan/device-search/',   views.foto_lapangan_device_search, name='foto_lapangan_device_search'),
+    path('foto-lapangan/bulk-delete/',     views.foto_lapangan_bulk_delete,   name='foto_lapangan_bulk_delete'),
+    path('foto-lapangan/<hid:pk>/caption/', views.foto_lapangan_edit_caption, name='foto_lapangan_edit_caption'),
+    path('foto-lapangan/<hid:pk>/delete/', views.foto_lapangan_delete,        name='foto_lapangan_delete'),
+
     # Global Search
     path('search/', views.global_search, name='global_search'),
     path('search/api/', views.global_search_api, name='global_search_api'),

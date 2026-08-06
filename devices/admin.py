@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Device, DeviceType, SiteLocation, ULTG, KomponenRusak, Branch
+from .models import Device, DeviceType, SiteLocation, ULTG, KomponenRusak, Branch, FotoLapangan
 from .models_komponen import (
     GrupTipeKomponen, TipeKomponen,
     DeviceComponent,
@@ -15,6 +15,14 @@ class DeviceAdmin(admin.ModelAdmin):
     list_filter = ['jenis', 'status_operasi']
 
 admin.site.register(DeviceType)
+
+
+@admin.register(FotoLapangan)
+class FotoLapanganAdmin(admin.ModelAdmin):
+    list_display = ['id', 'status', 'assigned_device', 'assigned_as', 'taken_at', 'uploaded_by', 'uploaded_at']
+    list_filter = ['status', 'assigned_as', 'uploaded_at']
+    search_fields = ['caption', 'original_name', 'assigned_device__nama']
+    readonly_fields = ['uploaded_at', 'assigned_at']
 
 
 # ── Tipe Komponen (dikelola via Admin) ───────────────────────

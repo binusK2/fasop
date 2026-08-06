@@ -1002,6 +1002,70 @@ class DeviceEviden(models.Model):
 
 
 # ─────────────────────────────────────────────────────────────
+# GALERI FOTO LAPANGAN (staging)
+# Foto diupload massal dari lapangan lalu diarahkan (assign) ke
+# Device.foto/foto2 atau DeviceEviden. File di-COPY saat assign,
+# foto asli tetap tersimpan di galeri sebagai riwayat.
+# ─────────────────────────────────────────────────────────────
+def foto_lapangan_upload(instance, filename):
+    ext = os.path.splitext(filename)[1].lower() or '.jpg'
+    tgl = timezone.localtime(timezone.now()).strftime('%Y%m%d_%H%M%S_%f')
+    return f'foto_lapangan/{tgl}{ext}'
+
+
+def foto_lapangan_thumb_upload(instance, filename):
+    ext = os.path.splitext(filename)[1].lower() or '.jpg'
+    tgl = timezone.localtime(timezone.now()).strftime('%Y%m%d_%H%M%S_%f')
+    return f'foto_lapangan/thumb/{tgl}{ext}'
+
+
+class FotoLapangan(models.Model):
+    """Foto lapangan yang diupload massal, menunggu/telah diarahkan ke perangkat."""
+    STATUS_CHOICES = (
+        ('unassigned', 'Belum Diarahkan'),
+        ('assigned',   'Sudah Diarahkan'),
+    )
+    ASSIGNED_AS_CHOICES = (
+        ('foto',   'Foto Device 1'),
+        ('foto2',  'Foto Device 2'),
+        ('eviden', 'Eviden Tambahan'),
+    )
+    image        = models.ImageField(upload_to=foto_lapangan_upload)
+    thumbnail    = models.ImageField(upload_to=foto_lapangan_thumb_upload, blank=True, null=True)
+    caption      = models.CharField(max_length=200, blank=True, default='')
+    taken_at     = models.DateTimeField(null=True, blank=True, verbose_name='Waktu Ambil (EXIF)')
+    original_name = models.CharField(max_length=255, blank=True, default='')
+    uploaded_by  = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name='+'
+    )
+    uploaded_at  = models.DateTimeField(auto_now_add=True)
+
+    status       = models.CharField(max_length=12, choices=STATUS_CHOICES, default='unassigned')
+    # Jejak assignment terakhir (foto bisa di-copy ke beberapa target)
+    assigned_device = models.ForeignKey(
+        'Device', on_delete=models.SET_NULL, null=True, blank=True, related_name='foto_lapangan_assigned'
+    )
+    assigned_as  = models.CharField(max_length=10, choices=ASSIGNED_AS_CHOICES, blank=True, default='')
+    assigned_at  = models.DateTimeField(null=True, blank=True)
+    assigned_by  = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name='+'
+    )
+
+    class Meta:
+        ordering = ['-uploaded_at']
+        verbose_name = 'Foto Lapangan'
+        verbose_name_plural = 'Foto Lapangan'
+
+    def __str__(self):
+        return f'FotoLapangan {self.pk} ({self.get_status_display()})'
+
+    @property
+    def display_time(self):
+        """Waktu ambil (EXIF) bila ada, kalau tidak waktu upload."""
+        return self.taken_at or self.uploaded_at
+
+
+# ─────────────────────────────────────────────────────────────
 # KONEKSI ANTAR PERANGKAT (untuk peta topologi)
 # ─────────────────────────────────────────────────────────────
 

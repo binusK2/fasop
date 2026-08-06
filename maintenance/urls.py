@@ -1,4 +1,5 @@
 from django.urls import path
+from django.views.generic import RedirectView
 from . import views
 
 urlpatterns = [
@@ -37,12 +38,14 @@ urlpatterns = [
     path('offline/download/', views.offline_form_download, name='offline_form_download'),
     path('offline/upload/',   views.offline_form_upload,   name='offline_form_upload'),
 
-    # Ekspor Data — Berita Acara
-    path('ekspor/pemasangan/',   views.ba_pemasangan,   name='ba_pemasangan'),
-    path('ekspor/pembongkaran/', views.ba_pembongkaran, name='ba_pembongkaran'),
-    path('ekspor/penggantian/',  views.ba_penggantian,  name='ba_penggantian'),
-    path('ekspor/gangguan/',     views.ba_gangguan,     name='ba_gangguan'),
+    # Ekspor Data — Berita Acara (editor gabungan)
+    path('ekspor/buat/',         views.ba_create,       name='ba_create'),
     path('ekspor/upload/',       views.ba_upload,       name='ba_upload'),
+    # Route editor per-jenis lama → dialihkan ke editor gabungan (nama dipertahankan)
+    path('ekspor/pemasangan/',   RedirectView.as_view(pattern_name='ba_create', permanent=False), name='ba_pemasangan'),
+    path('ekspor/pembongkaran/', RedirectView.as_view(pattern_name='ba_create', permanent=False), name='ba_pembongkaran'),
+    path('ekspor/penggantian/',  RedirectView.as_view(pattern_name='ba_create', permanent=False), name='ba_penggantian'),
+    path('ekspor/gangguan/',     RedirectView.as_view(pattern_name='ba_create', permanent=False), name='ba_gangguan'),
 
     # List & aksi BA
     path('ekspor/list/',                    views.ba_list,         name='ba_list'),
