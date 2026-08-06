@@ -3789,6 +3789,27 @@ def _ba_device_context():
     return devices, jenis_list, lokasi_list
 
 
+@login_required
+def ba_device_search(request):
+    """Pencarian perangkat untuk autocomplete sel editor BA (JSON)."""
+    from django.http import JsonResponse as _JsonResponse
+    q = request.GET.get('q', '').strip()
+    qs = Device.objects.filter(is_deleted=False).select_related('jenis')
+    if q:
+        qs = qs.filter(
+            Q(nama__icontains=q) | Q(lokasi__icontains=q) | Q(serial_number__icontains=q)
+        )
+    qs = qs.order_by('nama')[:15]
+    results = [{
+        'nama':          d.nama,
+        'jenis':         d.jenis.name if d.jenis else '',
+        'serial_number': d.serial_number or '',
+        'lokasi':        d.lokasi or '',
+        'merk':          d.merk or '',
+    } for d in qs]
+    return _JsonResponse({'results': results})
+
+
 def _ba_extra_ctx(tanggal, nomor_ba):
     """Hitung hari, bulan-tahun, tahun, dan nama file dari tanggal & nomor BA."""
     import re as _re
@@ -4073,6 +4094,11 @@ def _ba_editor_context(record, mode):
         jenis_lain_current = ''
         catatan            = ''
     from fasop.hashids_helper import encode as _enc
+    lokasi_list = list(
+        Device.objects.filter(is_deleted=False)
+        .exclude(lokasi='').exclude(lokasi__isnull=True)
+        .values_list('lokasi', flat=True).distinct().order_by('lokasi')
+    )
     return {
         'mode':                  mode,
         'record':                record,
@@ -4084,6 +4110,7 @@ def _ba_editor_context(record, mode):
         'default_columns_json':  _ba_default_columns_json(),
         'columns_json':          _json.dumps(columns, ensure_ascii=False),
         'rows_json':             _json.dumps(rows_cells, ensure_ascii=False),
+        'lokasi_json':           _json.dumps(lokasi_list, ensure_ascii=False),
         'existing_evidens':      existing_evidens,
         'tanggal_str':           tanggal_str,
         'nomor_prefix':          nomor_prefix,

@@ -203,8 +203,11 @@
 
 <script>
 const DEFAULT_COLUMNS = {{ default_columns_json|safe }};
+const LOKASI_LIST = {{ lokasi_json|safe }};
+const BA_DEVICE_SEARCH_URL = '{% url "ba_device_search" %}';
 let columns = {{ columns_json|safe }};
 let rows    = {{ rows_json|safe }};   // array of arrays (cells)
+let colKinds = [];
 
 function esc(s){ return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
@@ -222,16 +225,42 @@ function renderGrid(){
   head.innerHTML = h;
 
   if(!rows.length){ rows = [columns.map(()=> '')]; }
+  colKinds = columns.map(colKind);
   let b = '';
   rows.forEach((row, i) => {
     b += '<tr><td class="ed-no">'+(i+1)+'</td>';
     columns.forEach((_, j) => {
-      b += '<td><input class="form-control form-control-sm" value="'+esc(row[j])+'" data-r="'+i+'" data-c="'+j+'" oninput="onCell(this)"></td>';
+      const kind = colKinds[j];
+      const ac = (kind === 'device' || kind === 'lokasi')
+        ? ' autocomplete="off" data-ac="'+kind+'"' : '';
+      b += '<td><input class="form-control form-control-sm" value="'+esc(row[j])+'" data-r="'+i+'" data-c="'+j+'" oninput="onCell(this)"'+ac+'></td>';
     });
     b += '<td class="ed-rm"><button type="button" class="btn btn-link text-danger p-0" title="Hapus baris" onclick="removeRow('+i+')"><i class="bi bi-trash"></i></button></td></tr>';
   });
   body.innerHTML = b;
   markStale();
+}
+
+// Tebak peran kolom dari judulnya → menentukan sel mana yang dapat autocomplete
+function colKind(name){
+  const s = (name || '').toLowerCase();
+  if (/lokasi/.test(s))                            return 'lokasi';
+  if (/perangkat|peralatan/.test(s) || s.trim() === 'nama') return 'device';
+  if (/serial|(^|[^a-z])sn([^a-z]|$)/.test(s))     return 'serial';
+  if (/merk/.test(s))                              return 'merk';
+  if (/jenis|tipe/.test(s))                        return 'jenis';
+  return '';
+}
+// Isi kolom saudara di baris sama saat sebuah perangkat dipilih
+function fillSiblings(rowIdx, dev){
+  const map = { serial: dev.serial_number, jenis: dev.jenis, merk: dev.merk, lokasi: dev.lokasi };
+  colKinds.forEach((k, j) => {
+    if (k in map && map[k]) {
+      rows[rowIdx][j] = map[k];
+      const inp = document.querySelector('#grid-body input[data-r="'+rowIdx+'"][data-c="'+j+'"]');
+      if (inp) inp.value = map[k];
+    }
+  });
 }
 
 function onColName(el){ columns[+el.dataset.col] = el.value; markStale(); }
@@ -325,6 +354,111 @@ document.getElementById('ba-form').addEventListener('submit', function(){
   syncHidden();
   setTimeout(() => document.querySelectorAll('.ev-cap').forEach(c => c.disabled = false), 0);
 });
+
+// ── Autocomplete sel (perangkat / lokasi) ──
+const acBox = document.createElement('div');
+acBox.id = 'ba-ac-box';
+acBox.style.cssText = 'position:fixed;z-index:1080;background:#fff;border:1px solid #cbd5e1;'
+  + 'border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.15);max-height:240px;overflow:auto;'
+  + 'display:none;min-width:220px;font-size:12.5px;';
+document.body.appendChild(acBox);
+let acInput = null, acTimer = null, acItems = [], acActive = -1;
+
+function acHide(){ acBox.style.display = 'none'; acInput = null; acItems = []; acActive = -1; }
+
+function acPosition(){
+  if(!acInput) return;
+  const r = acInput.getBoundingClientRect();
+  acBox.style.left  = r.left + 'px';
+  acBox.style.top   = (r.bottom + 2) + 'px';
+  acBox.style.width = Math.max(r.width, 220) + 'px';
+}
+
+function acRender(items, kind){
+  acItems = items; acActive = -1;
+  if(!items.length){ acHide(); return; }
+  acBox.innerHTML = items.map((it, idx) => {
+    if(kind === 'device'){
+      return '<div class="ba-ac-item" data-i="'+idx+'" style="padding:6px 10px;cursor:pointer;border-bottom:1px solid #f1f5f9;">'
+        + '<div style="font-weight:600;">'+esc(it.nama)+'</div>'
+        + '<div style="font-size:11px;color:#64748b;">'+esc(it.jenis)+' · '+esc(it.lokasi||'-')
+        + (it.serial_number ? ' · SN '+esc(it.serial_number) : '') + '</div></div>';
+    }
+    return '<div class="ba-ac-item" data-i="'+idx+'" style="padding:6px 10px;cursor:pointer;border-bottom:1px solid #f1f5f9;">'+esc(it)+'</div>';
+  }).join('');
+  acBox.querySelectorAll('.ba-ac-item').forEach(el => {
+    el.addEventListener('mousedown', e => { e.preventDefault(); acPick(+el.dataset.i); });
+    el.addEventListener('mouseenter', () => acHighlight(+el.dataset.i));
+  });
+  acPosition();
+  acBox.style.display = 'block';
+}
+
+function acHighlight(i){
+  acActive = i;
+  acBox.querySelectorAll('.ba-ac-item').forEach((el, idx) =>
+    el.style.background = (idx === i) ? '#eff6ff' : '#fff');
+}
+
+function acPick(i){
+  if(!acInput || i < 0 || i >= acItems.length) return;
+  const kind = acInput.dataset.ac;
+  const r = +acInput.dataset.r, c = +acInput.dataset.c;
+  if(kind === 'device'){
+    const dev = acItems[i];
+    acInput.value = dev.nama;
+    rows[r][c] = dev.nama;
+    fillSiblings(r, dev);
+  } else {
+    acInput.value = acItems[i];
+    rows[r][c] = acItems[i];
+  }
+  markStale();
+  acHide();
+}
+
+function acQuery(input){
+  const kind = input.dataset.ac;
+  const q = input.value.trim();
+  if(kind === 'lokasi'){
+    const ql = q.toLowerCase();
+    const list = (q ? LOKASI_LIST.filter(l => l.toLowerCase().includes(ql)) : LOKASI_LIST).slice(0, 20);
+    acRender(list, 'lokasi');
+    return;
+  }
+  // device: minimal 1 huruf, cari ke server
+  if(q.length < 1){ acHide(); return; }
+  fetch(BA_DEVICE_SEARCH_URL + '?q=' + encodeURIComponent(q))
+    .then(r => r.json())
+    .then(d => { if(acInput === input) acRender(d.results || [], 'device'); })
+    .catch(() => acHide());
+}
+
+// Delegasi event pada tabel grid
+document.getElementById('grid-body').addEventListener('input', e => {
+  const t = e.target;
+  if(!t.dataset || !t.dataset.ac) return;
+  acInput = t;
+  clearTimeout(acTimer);
+  acTimer = setTimeout(() => acQuery(t), 180);
+});
+document.getElementById('grid-body').addEventListener('focusin', e => {
+  const t = e.target;
+  if(t.dataset && t.dataset.ac){ acInput = t; acQuery(t); }
+});
+document.getElementById('grid-body').addEventListener('keydown', e => {
+  if(acBox.style.display !== 'block' || acInput !== e.target) return;
+  if(e.key === 'ArrowDown'){ e.preventDefault(); acHighlight(Math.min(acActive + 1, acItems.length - 1)); }
+  else if(e.key === 'ArrowUp'){ e.preventDefault(); acHighlight(Math.max(acActive - 1, 0)); }
+  else if(e.key === 'Enter' && acActive >= 0){ e.preventDefault(); acPick(acActive); }
+  else if(e.key === 'Escape'){ acHide(); }
+});
+document.addEventListener('focusout', e => {
+  if(e.target && e.target.dataset && e.target.dataset.ac){ setTimeout(acHide, 120); }
+});
+// Sembunyikan saat panel di-scroll (posisi fixed jadi ikut bergeser)
+document.querySelectorAll('.ba-pane-body').forEach(el => el.addEventListener('scroll', acHide));
+window.addEventListener('resize', acHide);
 
 // ── Init ──
 onJenisChange();
