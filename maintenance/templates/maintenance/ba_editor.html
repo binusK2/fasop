@@ -4,6 +4,23 @@
 
 {% block content %}
 <style>
+    /* ── Split pane: kiri editor, kanan preview ── */
+    .ba-split { display: flex; gap: 12px; align-items: stretch;
+                height: calc(100vh - 215px); min-height: 520px; }
+    .ba-pane  { border: 1px solid #e2e8f0; border-radius: 10px; background: #fff;
+                display: flex; flex-direction: column; overflow: hidden; }
+    .ba-left  { flex: 1 1 52%; min-width: 0; }
+    .ba-right { flex: 1 1 48%; min-width: 0; }
+    .ba-pane-head { background: #0f766e; color: #fff; padding: 8px 12px; font-size: 12.5px;
+                    font-weight: 600; display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+    .ba-pane-body { flex: 1 1 auto; overflow-y: auto; padding: 14px; }
+    .ba-pane-body.flush { padding: 0; background: #334155; }
+    #ba-preview-frame { width: 100%; height: 100%; border: 0; display: block; }
+
+    .ba-actionbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+                    background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
+                    padding: 8px 12px; margin-bottom: 12px; }
+
     .ed-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
     .ed-tbl th, .ed-tbl td { border: 1px solid #e2e8f0; padding: 4px 6px; vertical-align: middle; }
     .ed-tbl thead th { background: #f1f5f9; }
@@ -15,163 +32,172 @@
     .ed-no { width: 42px; text-align: center; color: #64748b; }
     .ed-rm { width: 34px; text-align: center; }
     .btn-x { font-size: 11px; line-height: 1; padding: 2px 6px; }
-    .sec-lbl { font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;margin-bottom:12px; }
-    .ev-thumb { width: 90px; height: 90px; object-fit: cover; border: 1px solid #e2e8f0; border-radius: 6px; }
-    .ev-item { border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; }
+    .sec-lbl { font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;margin-bottom:10px; }
+    .ev-thumb { width: 74px; height: 74px; object-fit: cover; border: 1px solid #e2e8f0; border-radius: 6px; }
+    .ev-item { border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px; }
+    .ba-card { border: 1px solid #e8edf3; border-radius: 9px; padding: 12px 14px; margin-bottom: 12px; }
+
+    /* Preview kosong */
+    .ba-empty { color: #cbd5e1; text-align: center; padding: 60px 20px; font-size: 13px; }
+
+    @media (max-width: 991.98px) {
+        .ba-split { flex-direction: column; height: auto; }
+        .ba-left, .ba-right { flex: 1 1 auto; }
+        .ba-right { height: 70vh; }
+        .ba-pane-body { max-height: 60vh; }
+    }
 </style>
 
-<div class="d-flex align-items-center gap-2 mb-3">
-    <a href="{% url 'ba_list' %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left"></i></a>
-    <div>
-        <h2 class="mb-0" style="font-size:18px;font-weight:700;">
-            {% if mode == 'edit' %}Edit Berita Acara{% else %}Buat Berita Acara{% endif %}
-        </h2>
-        <p class="text-muted mb-0" style="font-size:12px;">Isi informasi, susun tabel, unggah foto, lalu <strong>preview</strong> sebelum ajukan TTD</p>
-    </div>
-</div>
-
-<form method="post" enctype="multipart/form-data" id="ba-form">
+<form method="post" enctype="multipart/form-data" id="ba-form" action="">
 {% csrf_token %}
 <input type="hidden" name="columns_json" id="columns_json">
 <input type="hidden" name="rows_json"    id="rows_json">
 <input type="hidden" name="action"       id="action_field" value="save">
+{% if record_hid %}<input type="hidden" name="record_hid" value="{{ record_hid }}">{% endif %}
 
-<!-- Card 1: Informasi BA -->
-<div class="card mb-3">
-  <div class="card-body px-4 py-3">
-    <div class="sec-lbl"><i class="bi bi-info-circle me-1"></i>Informasi Berita Acara</div>
-    <div class="row g-3">
-      <div class="col-md-4">
-        <label class="form-label" style="font-size:12px;font-weight:600;">Nomor BA</label>
-        <input type="text" name="nomor_ba" id="nomor_ba_input" class="form-control form-control-sm"
-               placeholder="Contoh: 001" value="{{ nomor_prefix }}" oninput="updateNomorPreview()">
-        <div id="nomor_ba_preview" style="font-size:11px;color:#64748b;margin-top:4px;min-height:16px;"></div>
-      </div>
-      <div class="col-md-3">
-        <label class="form-label" style="font-size:12px;font-weight:600;">Tanggal Pelaksanaan</label>
-        <input type="date" name="tanggal" id="tanggal_input" class="form-control form-control-sm"
-               value="{{ tanggal_str }}" required oninput="updateNomorPreview()">
-      </div>
-      <div class="col-md-5">
-        <label class="form-label" style="font-size:12px;font-weight:600;">Nama Pelaksana</label>
-        <input type="text" name="pelaksana" class="form-control form-control-sm"
-               placeholder="Nama pelaksana kegiatan" value="{{ record.pelaksana|default:'' }}" required>
-      </div>
-      <div class="col-md-4">
-        <label class="form-label" style="font-size:12px;font-weight:600;">NIP</label>
-        <input type="text" name="nip" class="form-control form-control-sm"
-               placeholder="NIP pelaksana" value="{{ record.nip|default:'' }}">
-      </div>
-      <div class="col-md-8">
-        <label class="form-label" style="font-size:12px;font-weight:600;">Jabatan</label>
-        <input type="text" name="jabatan" class="form-control form-control-sm"
-               placeholder="Jabatan pelaksana" value="{{ record.jabatan|default:'' }}">
-      </div>
-    </div>
+<!-- ══ Action bar ══ -->
+<div class="ba-actionbar">
+  <a href="{% url 'ba_list' %}" class="btn btn-sm btn-outline-secondary">
+    <i class="bi bi-arrow-left"></i> Kembali
+  </a>
+  <div style="font-size:13px;font-weight:700;">
+    {% if mode == 'edit' %}Edit Berita Acara{% else %}Buat Berita Acara{% endif %}
   </div>
-</div>
-
-<!-- Card 2: Kategori -->
-<div class="card mb-3">
-  <div class="card-body px-4 py-3">
-    <div class="sec-lbl"><i class="bi bi-tag me-1"></i>Kategori Berita Acara</div>
-    <div class="row g-3 align-items-end">
-      <div class="col-md-5">
-        <label class="form-label" style="font-size:12px;font-weight:600;">Kategori</label>
-        <select name="jenis" id="jenis_select" class="form-select form-select-sm" onchange="onJenisChange()">
-          {% for val, lbl in jenis_choices %}
-          <option value="{{ val }}" {% if val == jenis_current %}selected{% endif %}>{{ lbl }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="col-md-5" id="jenis_lain_wrap" style="display:none;">
-        <label class="form-label" style="font-size:12px;font-weight:600;">Nama Kategori (custom)</label>
-        <input type="text" name="jenis_lain" id="jenis_lain_input" class="form-control form-control-sm"
-               placeholder="Tulis kategori sendiri, mis. Pengujian Relai" value="{{ jenis_lain_current|default:'' }}">
-      </div>
-      <div class="col-md-2">
-        <button type="button" class="btn btn-sm btn-outline-secondary w-100" onclick="loadDefaultColumns(true)"
-                title="Isi ulang kolom tabel dengan kolom default kategori ini">
-          <i class="bi bi-layout-three-columns"></i> Kolom default
-        </button>
-      </div>
-    </div>
-    <p class="text-muted mb-0 mt-2" style="font-size:11px;">
-      Pilih kategori yang tersedia, atau pilih <em>Lainnya</em> untuk menulis kategori sendiri.
-    </p>
-  </div>
-</div>
-
-<!-- Card 3: Tabel isi -->
-<div class="card mb-3">
-  <div class="card-body px-4 py-3">
-    <div class="d-flex justify-content-between align-items-center mb-2">
-      <div class="sec-lbl mb-0"><i class="bi bi-table me-1"></i>Rincian Kegiatan</div>
-      <button type="button" class="btn btn-sm btn-outline-primary btn-x" onclick="addColumn()">
-        <i class="bi bi-plus-lg"></i> Kolom
-      </button>
-    </div>
-    <div class="table-responsive">
-      <table class="ed-tbl" id="grid">
-        <thead><tr id="grid-head"></tr></thead>
-        <tbody id="grid-body"></tbody>
-      </table>
-    </div>
-    <button type="button" class="btn btn-sm btn-outline-success mt-2 btn-x" onclick="addRow()">
-      <i class="bi bi-plus-lg"></i> Tambah Baris
+  <div class="ms-auto d-flex gap-2">
+    <button type="submit" class="btn btn-sm btn-primary" onclick="setAction('save')">
+      <i class="bi bi-save me-1"></i>{% if mode == 'edit' %}Simpan Perubahan{% else %}Simpan Draft{% endif %}
     </button>
-    <p class="text-muted mb-0 mt-1" style="font-size:11px;">
-      Klik judul kolom untuk mengganti namanya. Baris kosong otomatis diabaikan saat disimpan.
-    </p>
   </div>
 </div>
 
-<!-- Card 4: Catatan -->
-<div class="card mb-3">
-  <div class="card-body px-4 py-3">
-    <div class="sec-lbl"><i class="bi bi-card-text me-1"></i>Catatan</div>
-    <textarea name="catatan" class="form-control form-control-sm" rows="3"
-              placeholder="Catatan tambahan (opsional)">{{ catatan|default:'' }}</textarea>
-  </div>
-</div>
+<div class="ba-split">
+  <!-- ══════ KIRI: EDITOR ══════ -->
+  <div class="ba-pane ba-left">
+    <div class="ba-pane-head"><i class="bi bi-pencil-square"></i> Isi Berita Acara</div>
+    <div class="ba-pane-body">
 
-<!-- Card 5: Foto / Eviden -->
-<div class="card mb-3">
-  <div class="card-body px-4 py-3">
-    <div class="sec-lbl"><i class="bi bi-images me-1"></i>Foto / Eviden</div>
-
-    {% if existing_evidens %}
-    <div class="row g-2 mb-3">
-      {% for ev in existing_evidens %}
-      <div class="col-auto">
-        <div class="ev-item text-center">
-          <img src="{{ ev.gambar.url }}" class="ev-thumb d-block mb-1"><br>
-          <label style="font-size:11px;color:#ef4444;">
-            <input type="checkbox" name="delete_eviden[]" value="{{ ev.pk }}"> hapus
-          </label>
-          {% if ev.catatan %}<div style="font-size:10px;color:#64748b;max-width:90px;">{{ ev.catatan }}</div>{% endif %}
+      <!-- Informasi -->
+      <div class="ba-card">
+        <div class="sec-lbl"><i class="bi bi-info-circle me-1"></i>Informasi</div>
+        <div class="row g-2">
+          <div class="col-md-5">
+            <label class="form-label" style="font-size:12px;font-weight:600;">Nomor BA</label>
+            <input type="text" name="nomor_ba" id="nomor_ba_input" class="form-control form-control-sm"
+                   placeholder="Contoh: 001" value="{{ nomor_prefix }}" oninput="updateNomorPreview()">
+            <div id="nomor_ba_preview" style="font-size:11px;color:#64748b;margin-top:4px;min-height:15px;"></div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label" style="font-size:12px;font-weight:600;">Tanggal</label>
+            <input type="date" name="tanggal" id="tanggal_input" class="form-control form-control-sm"
+                   value="{{ tanggal_str }}" required oninput="updateNomorPreview()">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label" style="font-size:12px;font-weight:600;">NIP</label>
+            <input type="text" name="nip" class="form-control form-control-sm" value="{{ record.nip|default:'' }}">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" style="font-size:12px;font-weight:600;">Nama Pelaksana</label>
+            <input type="text" name="pelaksana" class="form-control form-control-sm"
+                   placeholder="Nama pelaksana" value="{{ record.pelaksana|default:'' }}" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" style="font-size:12px;font-weight:600;">Jabatan</label>
+            <input type="text" name="jabatan" class="form-control form-control-sm" value="{{ record.jabatan|default:'' }}">
+          </div>
         </div>
       </div>
-      {% endfor %}
+
+      <!-- Kategori -->
+      <div class="ba-card">
+        <div class="sec-lbl"><i class="bi bi-tag me-1"></i>Kategori</div>
+        <div class="row g-2 align-items-end">
+          <div class="col-md-6">
+            <select name="jenis" id="jenis_select" class="form-select form-select-sm" onchange="onJenisChange()">
+              {% for val, lbl in jenis_choices %}
+              <option value="{{ val }}" {% if val == jenis_current %}selected{% endif %}>{{ lbl }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-6" id="jenis_lain_wrap" style="display:none;">
+            <input type="text" name="jenis_lain" id="jenis_lain_input" class="form-control form-control-sm"
+                   placeholder="Tulis kategori sendiri…" value="{{ jenis_lain_current|default:'' }}">
+          </div>
+        </div>
+        <button type="button" class="btn btn-sm btn-outline-secondary btn-x mt-2" onclick="loadDefaultColumns(true)">
+          <i class="bi bi-layout-three-columns"></i> Pakai kolom default kategori ini
+        </button>
+      </div>
+
+      <!-- Tabel -->
+      <div class="ba-card">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <div class="sec-lbl mb-0"><i class="bi bi-table me-1"></i>Rincian</div>
+          <button type="button" class="btn btn-sm btn-outline-primary btn-x" onclick="addColumn()">
+            <i class="bi bi-plus-lg"></i> Kolom
+          </button>
+        </div>
+        <div class="table-responsive">
+          <table class="ed-tbl" id="grid">
+            <thead><tr id="grid-head"></tr></thead>
+            <tbody id="grid-body"></tbody>
+          </table>
+        </div>
+        <button type="button" class="btn btn-sm btn-outline-success mt-2 btn-x" onclick="addRow()">
+          <i class="bi bi-plus-lg"></i> Tambah Baris
+        </button>
+        <div class="text-muted mt-1" style="font-size:11px;">
+          Klik judul kolom untuk menggantinya. Baris kosong diabaikan saat disimpan.
+        </div>
+      </div>
+
+      <!-- Catatan -->
+      <div class="ba-card">
+        <div class="sec-lbl"><i class="bi bi-card-text me-1"></i>Catatan</div>
+        <textarea name="catatan" class="form-control form-control-sm" rows="3"
+                  placeholder="Catatan tambahan (opsional)">{{ catatan|default:'' }}</textarea>
+      </div>
+
+      <!-- Eviden -->
+      <div class="ba-card">
+        <div class="sec-lbl"><i class="bi bi-images me-1"></i>Foto / Eviden</div>
+        {% if existing_evidens %}
+        <div class="d-flex flex-wrap gap-2 mb-2">
+          {% for ev in existing_evidens %}
+          <div class="ev-item text-center">
+            <img src="{{ ev.gambar.url }}" class="ev-thumb d-block mb-1">
+            <label style="font-size:10px;color:#ef4444;">
+              <input type="checkbox" name="delete_eviden[]" value="{{ ev.pk }}"> hapus
+            </label>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+        <div id="eviden-list"></div>
+        <button type="button" class="btn btn-sm btn-outline-secondary btn-x mt-1" onclick="addEviden()">
+          <i class="bi bi-plus-lg"></i> Tambah Foto
+        </button>
+      </div>
+
     </div>
-    {% endif %}
-
-    <div id="eviden-list"></div>
-    <button type="button" class="btn btn-sm btn-outline-secondary btn-x mt-1" onclick="addEviden()">
-      <i class="bi bi-plus-lg"></i> Tambah Foto
-    </button>
   </div>
-</div>
 
-<!-- Actions -->
-<div class="d-flex gap-2 mb-4">
-  <button type="submit" class="btn btn-primary btn-sm" onclick="setAction('save')">
-    <i class="bi bi-save me-1"></i>{% if mode == 'edit' %}Simpan Perubahan{% else %}Simpan Draft{% endif %}
-  </button>
-  <button type="submit" class="btn btn-success btn-sm" onclick="setAction('preview')">
-    <i class="bi bi-eye me-1"></i>Simpan &amp; Preview PDF
-  </button>
-  <a href="{% url 'ba_list' %}" class="btn btn-outline-secondary btn-sm">Batal</a>
+  <!-- ══════ KANAN: PREVIEW ══════ -->
+  <div class="ba-pane ba-right">
+    <div class="ba-pane-head">
+      <i class="bi bi-file-earmark-pdf"></i> Preview
+      <span class="ms-auto d-flex align-items-center gap-2">
+        <span id="prev-status" style="font-size:11px;font-weight:400;opacity:.85;"></span>
+        <button type="submit" class="btn btn-sm btn-light" id="btn-preview"
+                formaction="{% url 'ba_preview_live' %}" formtarget="ba-preview-frame" formnovalidate
+                onclick="onPreviewClick()">
+          <i class="bi bi-arrow-clockwise me-1"></i>Preview
+        </button>
+      </span>
+    </div>
+    <div class="ba-pane-body flush">
+      <iframe id="ba-preview-frame" name="ba-preview-frame" title="Preview Berita Acara"></iframe>
+    </div>
+  </div>
 </div>
 </form>
 
@@ -185,7 +211,6 @@ function esc(s){ return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</
 function renderGrid(){
   const head = document.getElementById('grid-head');
   const body = document.getElementById('grid-body');
-  // header
   let h = '<th class="ed-no">No</th>';
   columns.forEach((c, j) => {
     h += '<th><div class="d-flex align-items-center gap-1">'
@@ -195,7 +220,7 @@ function renderGrid(){
   });
   h += '<th class="ed-rm"></th>';
   head.innerHTML = h;
-  // body
+
   if(!rows.length){ rows = [columns.map(()=> '')]; }
   let b = '';
   rows.forEach((row, i) => {
@@ -206,10 +231,11 @@ function renderGrid(){
     b += '<td class="ed-rm"><button type="button" class="btn btn-link text-danger p-0" title="Hapus baris" onclick="removeRow('+i+')"><i class="bi bi-trash"></i></button></td></tr>';
   });
   body.innerHTML = b;
+  markStale();
 }
 
-function onColName(el){ columns[+el.dataset.col] = el.value; }
-function onCell(el){ rows[+el.dataset.r][+el.dataset.c] = el.value; }
+function onColName(el){ columns[+el.dataset.col] = el.value; markStale(); }
+function onCell(el){ rows[+el.dataset.r][+el.dataset.c] = el.value; markStale(); }
 
 function addColumn(){
   const name = prompt('Nama kolom baru:', 'Kolom '+(columns.length+1));
@@ -230,30 +256,29 @@ function removeRow(i){ rows.splice(i,1); if(!rows.length) rows=[]; renderGrid();
 function isGridEmpty(){
   return columns.length === 0 || rows.every(r => r.every(c => !String(c||'').trim()));
 }
-
 function loadDefaultColumns(force){
   const j = document.getElementById('jenis_select').value;
   const def = DEFAULT_COLUMNS[j];
   if(!def) return;
-  if(!force && !isGridEmpty()){ return; }
+  if(!force && !isGridEmpty()) return;
   if(force && !isGridEmpty() && !confirm('Ganti kolom tabel dengan kolom default kategori ini? Isi baris saat ini akan dikosongkan.')) return;
   columns = def.slice();
   rows = [columns.map(()=> '')];
   renderGrid();
 }
-
 function onJenisChange(){
   const j = document.getElementById('jenis_select').value;
   document.getElementById('jenis_lain_wrap').style.display = (j === 'lainnya') ? '' : 'none';
   if(isGridEmpty()) loadDefaultColumns(false);
+  markStale();
 }
-
 function updateNomorPreview(){
   const nomor = document.getElementById('nomor_ba_input').value.trim();
   const tgl   = document.getElementById('tanggal_input').value;
   const tahun = (tgl && tgl.length >= 4) ? tgl.slice(0,4) : '';
-  const box   = document.getElementById('nomor_ba_preview');
-  box.textContent = nomor ? (nomor + '.BA/FASOP/UP2BS-MKS/' + tahun) : '';
+  document.getElementById('nomor_ba_preview').textContent =
+      nomor ? (nomor + '.BA/FASOP/UP2BS-MKS/' + tahun) : '';
+  markStale();
 }
 
 // ── Eviden dinamis ──
@@ -262,23 +287,43 @@ function addEviden(){
   const div = document.createElement('div');
   div.className = 'row g-2 mb-2 align-items-center ev-row';
   div.innerHTML =
-      '<div class="col-md-5"><input type="file" name="eviden" accept="image/*" class="form-control form-control-sm ev-file"></div>'
-    + '<div class="col-md-6"><input type="text" name="eviden_catatan[]" class="form-control form-control-sm ev-cap" placeholder="Keterangan foto (opsional)"></div>'
-    + '<div class="col-md-1"><button type="button" class="btn btn-link text-danger p-0" onclick="this.closest(\'.ev-row\').remove()"><i class="bi bi-x-circle"></i></button></div>';
+      '<div class="col-md-6"><input type="file" name="eviden" accept="image/*" class="form-control form-control-sm ev-file"></div>'
+    + '<div class="col-md-5"><input type="text" name="eviden_catatan[]" class="form-control form-control-sm ev-cap" placeholder="Keterangan foto"></div>'
+    + '<div class="col-md-1"><button type="button" class="btn btn-link text-danger p-0" onclick="this.closest(\'.ev-row\').remove(); markStale();"><i class="bi bi-x-circle"></i></button></div>';
   wrap.appendChild(div);
 }
 
+// ── Preview ──
+const prevStatus = document.getElementById('prev-status');
+let previewed = false;
+function markStale(){
+  if(previewed) prevStatus.textContent = 'ada perubahan — klik Preview';
+}
+function onPreviewClick(){
+  syncHidden();
+  prevStatus.textContent = 'memuat…';
+  previewed = true;
+  setTimeout(() => { if(prevStatus.textContent === 'memuat…') prevStatus.textContent = ''; }, 4000);
+}
+document.getElementById('ba-preview-frame').addEventListener('load', () => {
+  if(previewed) prevStatus.textContent = '';
+});
+
 // ── Submit ──
 function setAction(a){ document.getElementById('action_field').value = a; }
+function syncHidden(){
+  document.getElementById('columns_json').value = JSON.stringify(columns);
+  document.getElementById('rows_json').value    = JSON.stringify(rows);
+}
 document.getElementById('ba-form').addEventListener('submit', function(){
-  // Buang caption untuk baris foto yang file-nya kosong agar array tetap sejajar
+  // Caption tanpa file dibuang agar pasangan file↔caption tetap sejajar
   document.querySelectorAll('.ev-row').forEach(r => {
     const f = r.querySelector('.ev-file');
     const c = r.querySelector('.ev-cap');
     if(f && (!f.files || !f.files.length) && c){ c.disabled = true; }
   });
-  document.getElementById('columns_json').value = JSON.stringify(columns);
-  document.getElementById('rows_json').value    = JSON.stringify(rows);
+  syncHidden();
+  setTimeout(() => document.querySelectorAll('.ev-cap').forEach(c => c.disabled = false), 0);
 });
 
 // ── Init ──
@@ -286,5 +331,9 @@ onJenisChange();
 if(columns.length === 0) loadDefaultColumns(false);
 renderGrid();
 updateNomorPreview();
+previewed = false;
+prevStatus.textContent = '';
+// Tampilkan preview awal supaya panel kanan tidak kosong
+window.addEventListener('load', () => document.getElementById('btn-preview').click());
 </script>
 {% endblock %}

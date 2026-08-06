@@ -3582,22 +3582,37 @@ def _ba_pdf_template_ctx(record):
     return template_map[record.jenis], {}
 
 
-def _ba_apply_editor(request, record):
-    """Terapkan data POST editor gabungan ke `record` (baru/existing). Return nomor_ba.
+def _hashid_decode(hid):
+    """Decode hashid → pk (None bila tidak valid)."""
+    from fasop.hashids_helper import decode as _dec
+    try:
+        return _dec(hid)
+    except Exception:
+        return None
 
-    Menyimpan record + eviden. `record` boleh belum tersimpan (create) maupun sudah
-    (edit). Kolom & baris dikirim sebagai hidden JSON (`columns_json`, `rows_json`)."""
+
+def _ba_guess_mime(name):
+    n = (name or '').lower()
+    if n.endswith('.png'):
+        return 'image/png'
+    if n.endswith('.gif'):
+        return 'image/gif'
+    if n.endswith('.webp'):
+        return 'image/webp'
+    return 'image/jpeg'
+
+
+def _ba_parse_editor_post(request, fallback_tanggal=None):
+    """Baca data POST editor gabungan jadi dict bersih — tanpa menyentuh database.
+
+    Dipakai bersama oleh penyimpanan (_ba_apply_editor) dan preview langsung
+    (ba_preview_live), supaya isi preview persis sama dengan yang akan tersimpan."""
     import json as _json
     from datetime import datetime as _dt, date as _date
 
     nomor_input = request.POST.get('nomor_ba', '').strip()
     tanggal     = request.POST.get('tanggal', '').strip()
-    pelaksana   = request.POST.get('pelaksana', '').strip()
-    nip         = request.POST.get('nip', '').strip()
-    jabatan     = request.POST.get('jabatan', '').strip()
-    catatan     = request.POST.get('catatan', '').strip()
     jenis       = request.POST.get('jenis', 'lainnya').strip()
-    jenis_lain  = request.POST.get('jenis_lain', '').strip()
 
     valid_jenis = {k for k, _ in BeritaAcaraRecord.JENIS_CHOICES}
     if jenis not in valid_jenis:
@@ -3633,22 +3648,43 @@ def _ba_apply_editor(request, record):
         rows.append({'no': len(rows) + 1, 'cells': cells})
 
     tahun, _, _, _ = _ba_extra_ctx(tanggal, nomor_input)
-    nomor_ba = f'{nomor_input}.BA/FASOP/UP2BS-MKS/{tahun}' if nomor_input else ''
     try:
         tanggal_date = _dt.strptime(tanggal, '%Y-%m-%d').date()
     except (ValueError, TypeError):
-        tanggal_date = record.tanggal if record.pk else _date.today()
+        tanggal_date = fallback_tanggal or _date.today()
 
-    record.jenis        = jenis
-    record.jenis_lain   = jenis_lain if jenis == 'lainnya' else ''
-    record.nomor_ba     = nomor_ba
-    record.tanggal      = tanggal_date
-    record.pelaksana    = pelaksana
-    record.nip          = nip
-    record.jabatan      = jabatan
-    record.catatan      = catatan
-    record.columns_data = columns
-    record.rows_data    = rows
+    return {
+        'jenis':      jenis,
+        'jenis_lain': request.POST.get('jenis_lain', '').strip() if jenis == 'lainnya' else '',
+        'nomor_ba':   f'{nomor_input}.BA/FASOP/UP2BS-MKS/{tahun}' if nomor_input else '',
+        'tanggal':    tanggal_date,
+        'pelaksana':  request.POST.get('pelaksana', '').strip(),
+        'nip':        request.POST.get('nip', '').strip(),
+        'jabatan':    request.POST.get('jabatan', '').strip(),
+        'catatan':    request.POST.get('catatan', '').strip(),
+        'columns':    columns,
+        'rows':       rows,
+    }
+
+
+def _ba_apply_editor(request, record):
+    """Terapkan data POST editor gabungan ke `record` (baru/existing). Return nomor_ba.
+
+    Menyimpan record + eviden. `record` boleh belum tersimpan (create) maupun sudah
+    (edit). Kolom & baris dikirim sebagai hidden JSON (`columns_json`, `rows_json`)."""
+    d = _ba_parse_editor_post(request, fallback_tanggal=record.tanggal if record.pk else None)
+
+    record.jenis        = d['jenis']
+    record.jenis_lain   = d['jenis_lain']
+    record.nomor_ba     = d['nomor_ba']
+    record.tanggal      = d['tanggal']
+    record.pelaksana    = d['pelaksana']
+    record.nip          = d['nip']
+    record.jabatan      = d['jabatan']
+    record.catatan      = d['catatan']
+    record.columns_data = d['columns']
+    record.rows_data    = d['rows']
+    nomor_ba = d['nomor_ba']
     if not record.pk and not record.created_by_id:
         record.created_by = request.user
     record.save()
@@ -4006,9 +4042,11 @@ def _ba_editor_context(record, mode):
         jenis_current      = 'pemasangan'
         jenis_lain_current = ''
         catatan            = ''
+    from fasop.hashids_helper import encode as _enc
     return {
         'mode':                  mode,
         'record':                record,
+        'record_hid':            _enc(record.pk) if (record and record.pk) else '',
         'jenis_choices':         BeritaAcaraRecord.JENIS_CHOICES,
         'jenis_current':         jenis_current,
         'jenis_lain_current':    jenis_lain_current,
@@ -4059,6 +4097,93 @@ def ba_edit(request, pk):
         return redirect('ba_list')
 
     return render(request, 'maintenance/ba_editor.html', _ba_editor_context(record, 'edit'))
+
+
+@login_required
+def ba_preview_live(request):
+    """Render PDF dari isi form editor tanpa menyimpan — untuk panel preview.
+
+    Dipakai oleh panel kanan editor: form di-POST ke sini dengan target iframe,
+    sehingga user melihat hasil akhirnya sebelum memutuskan menyimpan."""
+    if request.method != 'POST':
+        return HttpResponse('Preview hanya menerima POST.', status=405)
+
+    import base64 as _b64
+    d = _ba_parse_editor_post(request)
+
+    # Record sementara (TIDAK disimpan) supaya helper PDF yang sudah ada bisa dipakai
+    record = BeritaAcaraRecord(
+        jenis=d['jenis'], jenis_lain=d['jenis_lain'], nomor_ba=d['nomor_ba'],
+        tanggal=d['tanggal'], pelaksana=d['pelaksana'], nip=d['nip'],
+        jabatan=d['jabatan'], catatan=d['catatan'],
+        columns_data=d['columns'], rows_data=d['rows'],
+    )
+
+    # Eviden: yang sudah tersimpan (saat edit, kecuali yang ditandai hapus) + upload baru
+    eviden_list = []
+    hid = request.POST.get('record_hid', '').strip()
+    if hid:
+        pk = _hashid_decode(hid)
+        if pk:
+            deleted = set(request.POST.getlist('delete_eviden[]'))
+            existing = BeritaAcaraRecord.objects.filter(pk=pk).first()
+            if existing:
+                record.ttd_engineer = existing.ttd_engineer
+                record.ttd_am       = existing.ttd_am
+                for ev in existing.evidens.all():
+                    if str(ev.pk) in deleted or not ev.gambar:
+                        continue
+                    try:
+                        with open(ev.gambar.path, 'rb') as f:
+                            eviden_list.append({
+                                'b64': _b64.b64encode(f.read()).decode(),
+                                'mime': _ba_guess_mime(ev.gambar.name),
+                                'catatan': ev.catatan,
+                            })
+                    except Exception:
+                        pass
+
+    new_captions = request.POST.getlist('eviden_catatan[]')
+    for i, f in enumerate(request.FILES.getlist('eviden')):
+        try:
+            f.seek(0)
+            eviden_list.append({
+                'b64': _b64.b64encode(f.read()).decode(),
+                'mime': _ba_guess_mime(getattr(f, 'name', '')),
+                'catatan': new_captions[i] if i < len(new_captions) else '',
+            })
+        except Exception:
+            pass
+
+    dt = record.tanggal
+    HARI_ID = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu']
+    ctx = {
+        'logo_b64':            _load_logo_b64(),
+        'nomor_ba':            record.nomor_ba,
+        'tanggal_display':     f'{dt.day} {_BULAN_ID_FULL[dt.month - 1]} {dt.year}',
+        'hari_display':        HARI_ID[dt.weekday()],
+        'bulan_tahun_display': f'{_BULAN_ID_FULL[dt.month - 1]} {dt.year}',
+        'pelaksana':           record.pelaksana,
+        'nip':                 record.nip,
+        'jabatan':             record.jabatan,
+        'catatan':             record.catatan,
+        'rows':                record.rows_data,
+        'eviden_list':         eviden_list,
+        **_ba_ttd_ctx(record),
+    }
+    template, extra = _ba_pdf_template_ctx(record)
+    ctx.update(extra)
+
+    from django.template.loader import render_to_string
+    try:
+        import weasyprint
+        pdf = weasyprint.HTML(string=render_to_string(template, ctx)).write_pdf()
+    except ImportError:
+        return HttpResponse('WeasyPrint tidak tersedia di server ini.', status=500)
+    resp = HttpResponse(pdf, content_type='application/pdf')
+    resp['Content-Disposition'] = 'inline; filename="preview.pdf"'
+    resp['Cache-Control'] = 'no-store'
+    return resp
 
 
 @login_required
