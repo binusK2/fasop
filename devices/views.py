@@ -390,6 +390,7 @@ def dashboard(request):
                 'rtu', 'sas', 'ups', 'server scada', 'vm scada', 'ied bcu',
                 'clock server', 'serial server', 'router sas', 'switch sas',
                 'inverter sas', 'pheriperal scada', 'peripheral scada', 'gps',
+                'dc-mon', 'dc mon',
             },
         },
         {
