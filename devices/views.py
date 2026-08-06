@@ -3216,6 +3216,16 @@ def foto_lapangan_upload(request):
             messages.success(request, f'{n_ok} foto berhasil diupload.')
         if n_skip:
             messages.info(request, f'{n_skip} berkas dilewati (bukan gambar).')
+
+        # Upload via XHR (progress bar): balas JSON, jangan redirect — XHR akan
+        # mengikuti redirect dan me-render galeri, sehingga pesan di atas habis
+        # terpakai pada respons yang dibuang dan tak pernah sampai ke user.
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            from django.urls import reverse as _reverse
+            return JsonResponse({
+                'ok': True, 'uploaded': n_ok, 'skipped': n_skip,
+                'redirect': _reverse('foto_lapangan_galeri'),
+            })
         return redirect('foto_lapangan_galeri')
 
     return render(request, 'devices/foto_lapangan_upload.html', {})

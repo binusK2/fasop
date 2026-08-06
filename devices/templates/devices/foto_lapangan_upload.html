@@ -52,11 +52,26 @@
     </div>
   </div>
 
+  <!-- Progress upload -->
+  <div class="card mb-3" id="prog-card" style="display:none;">
+    <div class="card-body px-4 py-3">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <div style="font-size:12px;font-weight:600;" id="prog-label">Mengunggah…</div>
+        <div style="font-size:20px;font-weight:700;color:#2563eb;" id="prog-pct">0%</div>
+      </div>
+      <div class="progress" style="height:10px;">
+        <div class="progress-bar progress-bar-striped progress-bar-animated" id="prog-bar"
+             role="progressbar" style="width:0%;"></div>
+      </div>
+      <div class="text-muted mt-2" style="font-size:11px;" id="prog-sub">Menyiapkan…</div>
+    </div>
+  </div>
+
   <div class="d-flex gap-2 mb-4">
     <button type="submit" class="btn btn-primary btn-sm" id="btn-upload" disabled>
       <i class="bi bi-upload me-1"></i>Upload
     </button>
-    <a href="{% url 'foto_lapangan_galeri' %}" class="btn btn-outline-secondary btn-sm">Batal</a>
+    <a href="{% url 'foto_lapangan_galeri' %}" class="btn btn-outline-secondary btn-sm" id="btn-cancel">Batal</a>
   </div>
 </form>
 
@@ -116,5 +131,91 @@ drop.addEventListener('drop', e => {
   e.preventDefault(); drop.classList.remove('drag');
   addFiles(e.dataTransfer.files);
 });
+
+// ── Upload dengan progress persentase (XHR) ──
+const form = document.getElementById('up-form');
+const progCard = document.getElementById('prog-card');
+const progBar  = document.getElementById('prog-bar');
+const progPct  = document.getElementById('prog-pct');
+const progSub  = document.getElementById('prog-sub');
+const progLbl  = document.getElementById('prog-label');
+
+function fmtMB(b){ return (b/1048576).toFixed(1) + ' MB'; }
+function setPct(p){
+  p = Math.max(0, Math.min(100, p));
+  progPct.textContent = p.toFixed(0) + '%';
+  progBar.style.width = p + '%';
+}
+
+form.addEventListener('submit', function(e){
+  if(!bucket.files.length) return;         // biarkan validasi bawaan
+  e.preventDefault();
+
+  const fd = new FormData();
+  fd.append('csrfmiddlewaretoken', form.querySelector('[name=csrfmiddlewaretoken]').value);
+  for(const f of bucket.files){ fd.append('photos', f); }
+
+  const total = Array.from(bucket.files).reduce((s,f) => s + f.size, 0);
+  const jml   = bucket.files.length;
+
+  // Kunci UI selama upload
+  document.getElementById('btn-upload').disabled = true;
+  document.getElementById('btn-cancel').classList.add('disabled');
+  drop.style.pointerEvents = 'none';
+  drop.style.opacity = '.55';
+  progCard.style.display = 'block';
+  progLbl.textContent = 'Mengunggah ' + jml + ' foto…';
+  setPct(0);
+  progSub.textContent = '0 MB / ' + fmtMB(total);
+  progCard.scrollIntoView({behavior:'smooth', block:'nearest'});
+
+  const xhr = new XMLHttpRequest();
+  xhr.open('POST', form.action || window.location.href);
+  xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+
+  xhr.upload.addEventListener('progress', ev => {
+    if(!ev.lengthComputable) return;
+    setPct(ev.loaded / ev.total * 100);
+    progSub.textContent = fmtMB(ev.loaded) + ' / ' + fmtMB(ev.total);
+  });
+
+  // Byte terkirim 100% ≠ selesai — server masih bikin thumbnail & baca EXIF
+  xhr.upload.addEventListener('load', () => {
+    setPct(100);
+    progLbl.textContent = 'Memproses di server…';
+    progSub.textContent = 'Membuat thumbnail & membaca waktu EXIF';
+    progBar.classList.remove('progress-bar-animated');
+  });
+
+  xhr.addEventListener('load', () => {
+    if(xhr.status >= 200 && xhr.status < 400){
+      let dest = '{% url "foto_lapangan_galeri" %}';
+      try {
+        const d = JSON.parse(xhr.responseText);
+        if(d && d.redirect) dest = d.redirect;
+      } catch(_) { /* bukan JSON — pakai tujuan default */ }
+      progLbl.textContent = 'Selesai';
+      progSub.textContent = 'Mengalihkan ke galeri…';
+      window.location = dest;
+    } else {
+      uploadFailed('Server menolak upload (kode ' + xhr.status + ').');
+    }
+  });
+  xhr.addEventListener('error', () => uploadFailed('Koneksi terputus saat mengunggah.'));
+  xhr.addEventListener('abort', () => uploadFailed('Upload dibatalkan.'));
+
+  xhr.send(fd);
+});
+
+function uploadFailed(msg){
+  progBar.classList.add('bg-danger');
+  progBar.classList.remove('progress-bar-animated');
+  progLbl.textContent = 'Gagal';
+  progSub.textContent = msg + ' Foto belum tersimpan — silakan coba lagi.';
+  document.getElementById('btn-upload').disabled = false;
+  document.getElementById('btn-cancel').classList.remove('disabled');
+  drop.style.pointerEvents = '';
+  drop.style.opacity = '';
+}
 </script>
 {% endblock %}
