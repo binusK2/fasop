@@ -19,9 +19,9 @@ admin.site.register(DeviceType)
 
 @admin.register(FotoLapangan)
 class FotoLapanganAdmin(admin.ModelAdmin):
-    list_display = ['id', 'status', 'assigned_device', 'assigned_as', 'taken_at', 'uploaded_by', 'uploaded_at']
-    list_filter = ['status', 'assigned_as', 'uploaded_at']
-    search_fields = ['caption', 'original_name', 'assigned_device__nama']
+    list_display = ['id', 'folder', 'status', 'assigned_device', 'assigned_as', 'taken_at', 'uploaded_by', 'uploaded_at']
+    list_filter = ['status', 'folder', 'assigned_as', 'uploaded_at']
+    search_fields = ['folder', 'caption', 'original_name', 'assigned_device__nama']
     readonly_fields = ['uploaded_at', 'assigned_at']
 
 

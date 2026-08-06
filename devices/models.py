@@ -1032,6 +1032,11 @@ class FotoLapangan(models.Model):
     )
     image        = models.ImageField(upload_to=foto_lapangan_upload)
     thumbnail    = models.ImageField(upload_to=foto_lapangan_thumb_upload, blank=True, null=True)
+    folder       = models.CharField(
+        max_length=150, blank=True, default='', db_index=True,
+        verbose_name='Folder / Lokasi',
+        help_text='Label pengelompokan bebas (mis. nama GI/lokasi). Kosong = Tanpa Folder.',
+    )
     caption      = models.CharField(max_length=200, blank=True, default='')
     taken_at     = models.DateTimeField(null=True, blank=True, verbose_name='Waktu Ambil (EXIF)')
     original_name = models.CharField(max_length=255, blank=True, default='')

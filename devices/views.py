@@ -3153,16 +3153,31 @@ def _fl_mark_assigned(fl, device, as_target, user):
     fl.save(update_fields=['status', 'assigned_device', 'assigned_as', 'assigned_at', 'assigned_by'])
 
 
+def _fl_lokasi_suggestions():
+    """Daftar lokasi yang sudah ada (Device.lokasi) untuk saran nama folder."""
+    return list(
+        Device.objects.filter(is_deleted=False)
+        .exclude(lokasi='').exclude(lokasi__isnull=True)
+        .values_list('lokasi', flat=True).distinct().order_by('lokasi')
+    )
+
+
 @login_required
 @require_can_edit
 def foto_lapangan_galeri(request):
-    """Grid foto lapangan dengan filter status + pencarian."""
+    """Grid foto lapangan dengan folder + filter status + pencarian."""
+    from django.db.models import Count as _Count
     status = request.GET.get('status', 'unassigned')
     q      = request.GET.get('q', '').strip()
+    folder = request.GET.get('folder', '')          # '' = semua; '__none__' = tanpa folder
 
     qs = FotoLapangan.objects.select_related('assigned_device', 'uploaded_by')
     if status in ('unassigned', 'assigned'):
         qs = qs.filter(status=status)
+    if folder == '__none__':
+        qs = qs.filter(folder='')
+    elif folder:
+        qs = qs.filter(folder=folder)
     if q:
         qs = qs.filter(
             Q(caption__icontains=q) | Q(original_name__icontains=q) |
@@ -3178,11 +3193,23 @@ def foto_lapangan_galeri(request):
         'assigned':   base.filter(status='assigned').count(),
         'all':        base.count(),
     }
+    # Daftar folder + jumlah foto (folder kosong dihitung terpisah sbg "Tanpa Folder")
+    folder_rows = (
+        base.exclude(folder='')
+        .values('folder').annotate(n=_Count('id')).order_by('folder')
+    )
+    folders = [{'name': r['folder'], 'count': r['n']} for r in folder_rows]
+    no_folder_count = base.filter(folder='').count()
+
     return render(request, 'devices/foto_lapangan_galeri.html', {
-        'page_obj': page,
-        'status':   status,
-        'q':        q,
-        'counts':   counts,
+        'page_obj':         page,
+        'status':           status,
+        'q':                q,
+        'folder':           folder,
+        'counts':           counts,
+        'folders':          folders,
+        'no_folder_count':  no_folder_count,
+        'lokasi_suggestions': _fl_lokasi_suggestions(),
     })
 
 
@@ -3192,6 +3219,7 @@ def foto_lapangan_upload(request):
     """Upload banyak foto / satu folder sekaligus. Thumbnail + EXIF dibuat di sini."""
     if request.method == 'POST':
         files = request.FILES.getlist('photos')
+        folder = request.POST.get('folder', '').strip()[:150]
         n_ok, n_skip = 0, 0
         for f in files:
             name = str(getattr(f, 'name', '') or '')
@@ -3205,6 +3233,7 @@ def foto_lapangan_upload(request):
                 uploaded_by   = request.user,
                 original_name = name[:255],
                 taken_at      = taken,
+                folder        = folder,
             )
             fl.image.save(_os.path.basename(name) or 'foto.jpg', f, save=False)
             thumb = make_thumbnail(f)
@@ -3220,15 +3249,20 @@ def foto_lapangan_upload(request):
         # Upload via XHR (progress bar): balas JSON, jangan redirect — XHR akan
         # mengikuti redirect dan me-render galeri, sehingga pesan di atas habis
         # terpakai pada respons yang dibuang dan tak pernah sampai ke user.
+        from django.urls import reverse as _reverse
+        from urllib.parse import urlencode as _urlencode
+        dest = _reverse('foto_lapangan_galeri')
+        if folder:
+            dest += '?' + _urlencode({'status': 'all', 'folder': folder})
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            from django.urls import reverse as _reverse
             return JsonResponse({
-                'ok': True, 'uploaded': n_ok, 'skipped': n_skip,
-                'redirect': _reverse('foto_lapangan_galeri'),
+                'ok': True, 'uploaded': n_ok, 'skipped': n_skip, 'redirect': dest,
             })
-        return redirect('foto_lapangan_galeri')
+        return redirect(dest)
 
-    return render(request, 'devices/foto_lapangan_upload.html', {})
+    return render(request, 'devices/foto_lapangan_upload.html', {
+        'lokasi_suggestions': _fl_lokasi_suggestions(),
+    })
 
 
 @login_required
@@ -3355,5 +3389,23 @@ def foto_lapangan_bulk_delete(request):
         fl.delete()
         n += 1
     messages.success(request, f'{n} foto dihapus dari galeri.')
+    nxt = request.POST.get('next')
+    return redirect(nxt if nxt and nxt.startswith('/') else 'foto_lapangan_galeri')
+
+
+@login_required
+@require_can_edit
+def foto_lapangan_move_folder(request):
+    """Pindahkan foto terpilih ke sebuah folder (atau kosongkan folder-nya)."""
+    if request.method != 'POST':
+        return redirect('foto_lapangan_galeri')
+    ids    = request.POST.getlist('photo_ids')
+    folder = request.POST.get('folder', '').strip()[:150]
+    if not ids:
+        messages.error(request, 'Belum ada foto yang dipilih.')
+    else:
+        n = FotoLapangan.objects.filter(pk__in=ids).update(folder=folder)
+        tujuan = f'folder "{folder}"' if folder else 'Tanpa Folder'
+        messages.success(request, f'{n} foto dipindahkan ke {tujuan}.')
     nxt = request.POST.get('next')
     return redirect(nxt if nxt and nxt.startswith('/') else 'foto_lapangan_galeri')
