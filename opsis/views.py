@@ -17,6 +17,42 @@ from .hop_map import SULAWESI_PATH, MAP_W, MAP_H, DEFAULT_MAP_POS
 from .models import HOP_BANDS
 
 
+# ── Cache singkat untuk endpoint Hz (di-poll browser tiap 1-5 detik) ──────────
+# Tanpa cache, tiap poll dari tiap klien menembak MSSQL sendiri; satu query lambat
+# (koneksi pyodbc baru + query-timeout 30s di _get_area_freq) mengunci satu thread
+# gunicorn. Beberapa tab up2d/dashboard = 10 slot thread habis → gunicorn macet →
+# nginx "upstream timed out" / worker dibunuh. Cache per-worker dengan pola
+# stale-while-revalidate: hanya SATU thread per worker menyegarkan tiap TTL; poller
+# lain langsung dapat nilai terakhir dan tak ikut menembak MSSQL.
+import time as _time
+import threading as _threading
+
+_HZ_TTL = 2.0                       # detik — kesegaran cukup untuk kartu Hz live
+_hz_cache = {}                      # key -> (value, monotonic_ts)
+_hz_locks = {}                      # key -> Lock
+_hz_locks_guard = _threading.Lock()
+
+
+def _hz_cached(key, producer):
+    """Nilai ter-cache; disegarkan lewat `producer` maksimal 1x per TTL per worker.
+    Saat penyegaran sedang berjalan di thread lain, sajikan nilai lama (bila ada)
+    daripada ikut menembak MSSQL — mencegah thread menumpuk saat DB lambat."""
+    now = _time.monotonic()
+    ent = _hz_cache.get(key)
+    if ent and (now - ent[1]) < _HZ_TTL:
+        return ent[0]
+    with _hz_locks_guard:
+        lock = _hz_locks.setdefault(key, _threading.Lock())
+    if not lock.acquire(blocking=False):
+        return ent[0] if ent else None     # ada yg menyegarkan → pakai nilai lama
+    try:
+        val = producer()
+        _hz_cache[key] = (val, _time.monotonic())
+        return val
+    finally:
+        lock.release()
+
+
 def _pembangkit_aktif():
     return list(Pembangkit.objects.filter(aktif=True))
 
@@ -371,39 +407,42 @@ def export_beban(request):
     return response
 
 
+def _hz_response(key, getter):
+    """Bungkus getter MSSQL dengan cache singkat + fallback aman."""
+    data = _hz_cached(key, lambda: {'hz': getter(), 'terputus': not mssql.is_reachable()})
+    if data is None:                      # belum ada nilai & sedang disegarkan thread lain
+        data = {'hz': None, 'terputus': not mssql.is_reachable()}
+    return JsonResponse(data)
+
+
 @login_required
 def api_hz(request):
-    """Hz terkini — ringan, dipanggil tiap 1 detik dari dashboard."""
-    hz = mssql.get_current_hz()
-    return JsonResponse({'hz': hz, 'terputus': not mssql.is_reachable()})
+    """Hz sistem terkini (SYS_FREQ_RT) — di-poll tiap 1 detik, di-cache singkat."""
+    return _hz_response('sys', mssql.get_current_hz)
 
 
 @login_required
 def api_hz_sultra(request):
     """Hz terkini Sultra dari TRANS_KDNEW5_RT (GI KENDARI NEW / COMMON)."""
-    hz = mssql.get_freq_sultra()
-    return JsonResponse({'hz': hz, 'terputus': not mssql.is_reachable()})
+    return _hz_response('sultra', mssql.get_freq_sultra)
 
 
 @login_required
 def api_hz_baubau(request):
     """Hz terkini Baubau dari TRANS_BAUBAU5_RT (GI BAUBAU / COMMON)."""
-    hz = mssql.get_freq_baubau()
-    return JsonResponse({'hz': hz, 'terputus': not mssql.is_reachable()})
+    return _hz_response('baubau', mssql.get_freq_baubau)
 
 
 @login_required
 def api_hz_sulteng(request):
     """Hz terkini Sulteng dari TRANS_TLISE5_RT (GI TALISE 150 / COMMON)."""
-    hz = mssql.get_freq_sulteng()
-    return JsonResponse({'hz': hz, 'terputus': not mssql.is_reachable()})
+    return _hz_response('sulteng', mssql.get_freq_sulteng)
 
 
 @login_required
 def api_hz_luwuk(request):
     """Hz terkini Luwuk dari TRANS_LUWUK5_RT (GI LUWUK / COMMON)."""
-    hz = mssql.get_freq_luwuk()
-    return JsonResponse({'hz': hz, 'terputus': not mssql.is_reachable()})
+    return _hz_response('luwuk', mssql.get_freq_luwuk)
 
 
 @login_required

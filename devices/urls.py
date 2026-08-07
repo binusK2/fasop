@@ -61,6 +61,7 @@ urlpatterns = [
     path('foto-lapangan/assign/',          views.foto_lapangan_assign,        name='foto_lapangan_assign'),
     path('foto-lapangan/device-search/',   views.foto_lapangan_device_search, name='foto_lapangan_device_search'),
     path('foto-lapangan/bulk-delete/',     views.foto_lapangan_bulk_delete,   name='foto_lapangan_bulk_delete'),
+    path('foto-lapangan/move-folder/',     views.foto_lapangan_move_folder,   name='foto_lapangan_move_folder'),
     path('foto-lapangan/<hid:pk>/caption/', views.foto_lapangan_edit_caption, name='foto_lapangan_edit_caption'),
     path('foto-lapangan/<hid:pk>/delete/', views.foto_lapangan_delete,        name='foto_lapangan_delete'),
 

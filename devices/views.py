@@ -52,6 +52,7 @@ def device_list(request):
             'status': request.GET.get('status_operasi', ''),
             'merk':   request.GET.get('merk', ''),
             'branch': request.GET.get('branch', ''),
+            'asset':  request.GET.get('asset', ''),
         }
         request.session[SESSION_KEY] = saved
         request.session.modified = True
@@ -64,6 +65,7 @@ def device_list(request):
     status_operasi = saved.get('status', '')
     merk           = saved.get('merk', '')
     branch_id      = saved.get('branch', '')
+    asset          = saved.get('asset', '')
     sort           = request.GET.get('sort', 'nama')
     direction      = request.GET.get('dir', 'asc')
 
@@ -96,6 +98,9 @@ def device_list(request):
 
     if merk:
         devices = devices.filter(merk__iexact=merk)
+
+    if asset:
+        devices = devices.filter(status_aset=asset)
 
     if branch_id:
         # Filter lokasi yang masuk ke branch ini
@@ -139,7 +144,7 @@ def device_list(request):
     merk_list = _merk_qs.values_list('merk', flat=True).distinct().order_by('merk')
 
     branch_list   = Branch.objects.all()
-    filter_active = bool(search or lokasi or status_operasi or merk or branch_id)
+    filter_active = bool(search or lokasi or status_operasi or merk or branch_id or asset)
 
     return render(request, 'devices/device_list.html', {
         'devices':          page_obj,
@@ -154,6 +159,8 @@ def device_list(request):
         'merk_list':        merk_list,
         'branch_list':      branch_list,
         'selected_branch':  branch_id,
+        'selected_asset':   asset,
+        'asset_choices':    Device.ASET_CHOICES,
         'filter_active':    filter_active,
         'current_sort':     sort,
         'current_dir':      direction,
@@ -328,8 +335,9 @@ def dashboard(request):
             return _dashboard_operator(request)
 
     # ── Dashboard normal (teknisi / AM / superuser) ──────────────
-    # VM (host__isnull=False) tidak dihitung sebagai aset fisik
-    _asset_qs = Device.objects.filter(is_deleted=False, host__isnull=True)
+    # VM (host__isnull=False) tidak dihitung sebagai aset fisik.
+    # Hanya aset milik UP2B yang masuk perhitungan jumlah aset.
+    _asset_qs = Device.objects.filter(is_deleted=False, host__isnull=True, status_aset='UP2B')
     total_devices  = _asset_qs.count()
     dev_operasi    = _asset_qs.filter(status_operasi='operasi').count()
     dev_tdk_operasi= _asset_qs.filter(status_operasi='tidak_operasi').count()
@@ -643,7 +651,7 @@ def dashboard(request):
             })
             continue
         _br_qs = Device.objects.filter(
-            is_deleted=False, host__isnull=True, lokasi__in=_br_lokasi
+            is_deleted=False, host__isnull=True, lokasi__in=_br_lokasi, status_aset='UP2B'
         )
         _br_total   = _br_qs.count()
         _br_operasi = _br_qs.filter(status_operasi='operasi').count()
@@ -743,9 +751,10 @@ def distribusi_jenis(request):
         '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#64748b',
     ]
 
+    # Hanya aset UP2B yang dihitung dalam distribusi jumlah.
     jenis_qs = (
         Device.objects
-        .filter(is_deleted=False)
+        .filter(is_deleted=False, status_aset='UP2B')
         .values('jenis__id', 'jenis__name', 'status_operasi')
         .annotate(jumlah=Count('id'))
         .order_by('jenis__name')
@@ -790,13 +799,16 @@ def distribusi_jenis_detail(request, jenis_id):
     jenis_obj = get_object_or_404(DeviceType, pk=jenis_id)
 
     devices_qs = Device.objects.filter(is_deleted=False, jenis_id=jenis_id)
-    total = devices_qs.count()
-    operasi_count = devices_qs.filter(status_operasi='operasi').count()
-    tidak_count   = devices_qs.filter(status_operasi='tidak_operasi').count()
+    # Angka distribusi hanya menghitung aset UP2B; daftar perangkat di bawah
+    # tetap menampilkan SEMUA perangkat (termasuk IPP / Belum STAP).
+    count_qs = devices_qs.filter(status_aset='UP2B')
+    total = count_qs.count()
+    operasi_count = count_qs.filter(status_operasi='operasi').count()
+    tidak_count   = count_qs.filter(status_operasi='tidak_operasi').count()
 
     # ── Sebaran per Merk ──────────────────────────────────────────────────────
     merk_qs = (
-        devices_qs
+        count_qs
         .values('merk')
         .annotate(jumlah=Count('id'))
         .order_by('-jumlah')
@@ -812,7 +824,7 @@ def distribusi_jenis_detail(request, jenis_id):
 
     # ── Sebaran per Tipe/Model ────────────────────────────────────────────────
     type_qs = (
-        devices_qs
+        count_qs
         .values('type')
         .annotate(jumlah=Count('id'))
         .order_by('-jumlah')
@@ -3133,16 +3145,31 @@ def _fl_mark_assigned(fl, device, as_target, user):
     fl.save(update_fields=['status', 'assigned_device', 'assigned_as', 'assigned_at', 'assigned_by'])
 
 
+def _fl_lokasi_suggestions():
+    """Daftar lokasi yang sudah ada (Device.lokasi) untuk saran nama folder."""
+    return list(
+        Device.objects.filter(is_deleted=False)
+        .exclude(lokasi='').exclude(lokasi__isnull=True)
+        .values_list('lokasi', flat=True).distinct().order_by('lokasi')
+    )
+
+
 @login_required
 @require_can_edit
 def foto_lapangan_galeri(request):
-    """Grid foto lapangan dengan filter status + pencarian."""
+    """Grid foto lapangan dengan folder + filter status + pencarian."""
+    from django.db.models import Count as _Count
     status = request.GET.get('status', 'unassigned')
     q      = request.GET.get('q', '').strip()
+    folder = request.GET.get('folder', '')          # '' = semua; '__none__' = tanpa folder
 
     qs = FotoLapangan.objects.select_related('assigned_device', 'uploaded_by')
     if status in ('unassigned', 'assigned'):
         qs = qs.filter(status=status)
+    if folder == '__none__':
+        qs = qs.filter(folder='')
+    elif folder:
+        qs = qs.filter(folder=folder)
     if q:
         qs = qs.filter(
             Q(caption__icontains=q) | Q(original_name__icontains=q) |
@@ -3158,11 +3185,23 @@ def foto_lapangan_galeri(request):
         'assigned':   base.filter(status='assigned').count(),
         'all':        base.count(),
     }
+    # Daftar folder + jumlah foto (folder kosong dihitung terpisah sbg "Tanpa Folder")
+    folder_rows = (
+        base.exclude(folder='')
+        .values('folder').annotate(n=_Count('id')).order_by('folder')
+    )
+    folders = [{'name': r['folder'], 'count': r['n']} for r in folder_rows]
+    no_folder_count = base.filter(folder='').count()
+
     return render(request, 'devices/foto_lapangan_galeri.html', {
-        'page_obj': page,
-        'status':   status,
-        'q':        q,
-        'counts':   counts,
+        'page_obj':         page,
+        'status':           status,
+        'q':                q,
+        'folder':           folder,
+        'counts':           counts,
+        'folders':          folders,
+        'no_folder_count':  no_folder_count,
+        'lokasi_suggestions': _fl_lokasi_suggestions(),
     })
 
 
@@ -3172,6 +3211,7 @@ def foto_lapangan_upload(request):
     """Upload banyak foto / satu folder sekaligus. Thumbnail + EXIF dibuat di sini."""
     if request.method == 'POST':
         files = request.FILES.getlist('photos')
+        folder = request.POST.get('folder', '').strip()[:150]
         n_ok, n_skip = 0, 0
         for f in files:
             name = str(getattr(f, 'name', '') or '')
@@ -3185,6 +3225,7 @@ def foto_lapangan_upload(request):
                 uploaded_by   = request.user,
                 original_name = name[:255],
                 taken_at      = taken,
+                folder        = folder,
             )
             fl.image.save(_os.path.basename(name) or 'foto.jpg', f, save=False)
             thumb = make_thumbnail(f)
@@ -3200,15 +3241,20 @@ def foto_lapangan_upload(request):
         # Upload via XHR (progress bar): balas JSON, jangan redirect — XHR akan
         # mengikuti redirect dan me-render galeri, sehingga pesan di atas habis
         # terpakai pada respons yang dibuang dan tak pernah sampai ke user.
+        from django.urls import reverse as _reverse
+        from urllib.parse import urlencode as _urlencode
+        dest = _reverse('foto_lapangan_galeri')
+        if folder:
+            dest += '?' + _urlencode({'status': 'all', 'folder': folder})
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            from django.urls import reverse as _reverse
             return JsonResponse({
-                'ok': True, 'uploaded': n_ok, 'skipped': n_skip,
-                'redirect': _reverse('foto_lapangan_galeri'),
+                'ok': True, 'uploaded': n_ok, 'skipped': n_skip, 'redirect': dest,
             })
-        return redirect('foto_lapangan_galeri')
+        return redirect(dest)
 
-    return render(request, 'devices/foto_lapangan_upload.html', {})
+    return render(request, 'devices/foto_lapangan_upload.html', {
+        'lokasi_suggestions': _fl_lokasi_suggestions(),
+    })
 
 
 @login_required
@@ -3335,5 +3381,23 @@ def foto_lapangan_bulk_delete(request):
         fl.delete()
         n += 1
     messages.success(request, f'{n} foto dihapus dari galeri.')
+    nxt = request.POST.get('next')
+    return redirect(nxt if nxt and nxt.startswith('/') else 'foto_lapangan_galeri')
+
+
+@login_required
+@require_can_edit
+def foto_lapangan_move_folder(request):
+    """Pindahkan foto terpilih ke sebuah folder (atau kosongkan folder-nya)."""
+    if request.method != 'POST':
+        return redirect('foto_lapangan_galeri')
+    ids    = request.POST.getlist('photo_ids')
+    folder = request.POST.get('folder', '').strip()[:150]
+    if not ids:
+        messages.error(request, 'Belum ada foto yang dipilih.')
+    else:
+        n = FotoLapangan.objects.filter(pk__in=ids).update(folder=folder)
+        tujuan = f'folder "{folder}"' if folder else 'Tanpa Folder'
+        messages.success(request, f'{n} foto dipindahkan ke {tujuan}.')
     nxt = request.POST.get('next')
     return redirect(nxt if nxt and nxt.startswith('/') else 'foto_lapangan_galeri')

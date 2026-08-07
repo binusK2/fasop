@@ -1,11 +1,6 @@
 from .models import DeviceType, Device
 from django.db.models.functions import Trim
-from .constants import (
-    DEVICE_GROUP_CONFIG,
-    DEVICE_TYPE_ORDER_IN_GROUP,
-    get_group_key,
-    type_sort_key,
-)
+from .constants import DEVICE_GROUP_CONFIG, get_group_key, type_sort_key
 
 
 def device_types(request):

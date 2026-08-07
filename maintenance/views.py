@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.contrib.auth.decorators import login_required
-from django.views.decorators.clickjacking import xframe_options_exempt
+from django.views.decorators.clickjacking import xframe_options_exempt, xframe_options_sameorigin
 from devices.permissions import require_can_edit, require_can_delete, is_viewer_only
 from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceRepeater, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset, MaintenanceRTU, MaintenanceSAS, MaintenanceRTUGeneric, MaintenanceBCU, MaintenanceRoIP, MaintenanceUPS, MaintenanceFrequencyRelay, MaintenanceMasterTrip, MaintenanceDFR, MaintenanceMasterStation, BeritaAcaraRecord, BeritaAcaraEviden
 from .forms import MaintenanceForm, MaintenancePLCForm, MaintenanceRouterForm, MaintenanceRadioForm, MaintenanceRepeaterForm, MaintenanceVoIPForm, MaintenanceMuxForm, MaintenanceRectifierForm, MaintenanceTeleproteksiForm, MaintenanceGensetForm, MaintenanceRTUForm, MaintenanceSASForm, MaintenanceRTUGenericForm, MaintenanceBCUForm, MaintenanceRoIPForm, MaintenanceUPSForm, MaintenanceFrequencyRelayForm, MaintenanceMasterTripForm, MaintenanceDFRForm, MaintenanceMasterStationForm
@@ -1645,8 +1645,8 @@ def berita_acara_pdf(request):
         fname = f'Berita_Acara_Asesmen_{bulan_str}_{tahun_str}.pdf'
         resp['Content-Disposition'] = f'attachment; filename="{fname}"'
         return resp
-    except ImportError:
-        return HttpResponse('WeasyPrint tidak tersedia di server ini.', status=500)
+    except (ImportError, OSError) as _e:
+        return _pdf_unavailable_response(_e)
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -1696,7 +1696,10 @@ def blank_maintenance_pdf(request, device_id):
     }
 
     buffer = BytesIO()
-    build_pdf(data, buffer)
+    try:
+        build_pdf(data, buffer)
+    except (ImportError, OSError) as _e:
+        return _pdf_unavailable_response(_e)
     buffer.seek(0)
 
     filename = f"FORMULIR_{device.nama}_{device_kind}.pdf".replace(' ', '_')
@@ -2322,7 +2325,10 @@ def export_maintenance_pdf(request, pk):
 
     # ── Generate & stream ──────────────────────────────────────────
     buffer = BytesIO()
-    build_pdf(data, buffer)
+    try:
+        build_pdf(data, buffer)
+    except (ImportError, OSError) as _e:
+        return _pdf_unavailable_response(_e)
     buffer.seek(0)
 
     clean_date = dj_timezone.localtime(maintenance.date).strftime('%d-%m-%Y_%H.%M')
@@ -3710,6 +3716,30 @@ def _ba_apply_editor(request, record):
     return nomor_ba
 
 
+def _pdf_unavailable_response(exc):
+    """Respons ramah saat WeasyPrint gagal dipakai — bukan traceback mentah.
+
+    Dua penyebab yang ditangani:
+    - ImportError → paket weasyprint belum terpasang
+    - OSError     → paket ada, tapi pustaka sistemnya tidak bisa dimuat
+                    (di Windows: GTK3 runtime belum terpasang / tidak di PATH)
+    Detail teknis hanya ditampilkan saat DEBUG agar tidak bocor ke pengguna."""
+    from django.conf import settings as _settings
+    from django.utils.html import escape as _escape
+    pesan = (
+        '<div style="font-family:system-ui,sans-serif;padding:24px;color:#334155;">'
+        '<h3 style="margin:0 0 8px;font-size:16px;">Ekspor PDF belum tersedia</h3>'
+        '<p style="margin:0;font-size:13px;">Pustaka <strong>WeasyPrint</strong> atau '
+        'komponen sistemnya (GTK/Pango) belum terpasang dengan benar di server ini. '
+        'Hubungi admin aplikasi.</p>'
+    )
+    if _settings.DEBUG:
+        pesan += (f'<pre style="margin-top:12px;font-size:11px;color:#64748b;'
+                  f'white-space:pre-wrap;">{_escape(str(exc))}</pre>')
+    pesan += '</div>'
+    return HttpResponse(pesan, status=500, content_type='text/html; charset=utf-8')
+
+
 def _render_ba_pdf(template_name, ctx, filename):
     from django.template.loader import render_to_string
     try:
@@ -3719,8 +3749,8 @@ def _render_ba_pdf(template_name, ctx, filename):
         resp = HttpResponse(pdf, content_type='application/pdf')
         resp['Content-Disposition'] = f'attachment; filename="{filename}"'
         return resp
-    except ImportError:
-        return HttpResponse('WeasyPrint tidak tersedia di server ini.', status=500)
+    except (ImportError, OSError) as _e:
+        return _pdf_unavailable_response(_e)
 
 
 def _format_tanggal(tanggal_str):
@@ -3757,6 +3787,27 @@ def _ba_device_context():
         .distinct().order_by('lokasi')
     )
     return devices, jenis_list, lokasi_list
+
+
+@login_required
+def ba_device_search(request):
+    """Pencarian perangkat untuk autocomplete sel editor BA (JSON)."""
+    from django.http import JsonResponse as _JsonResponse
+    q = request.GET.get('q', '').strip()
+    qs = Device.objects.filter(is_deleted=False).select_related('jenis')
+    if q:
+        qs = qs.filter(
+            Q(nama__icontains=q) | Q(lokasi__icontains=q) | Q(serial_number__icontains=q)
+        )
+    qs = qs.order_by('nama')[:15]
+    results = [{
+        'nama':          d.nama,
+        'jenis':         d.jenis.name if d.jenis else '',
+        'serial_number': d.serial_number or '',
+        'lokasi':        d.lokasi or '',
+        'merk':          d.merk or '',
+    } for d in qs]
+    return _JsonResponse({'results': results})
 
 
 def _ba_extra_ctx(tanggal, nomor_ba):
@@ -4043,6 +4094,11 @@ def _ba_editor_context(record, mode):
         jenis_lain_current = ''
         catatan            = ''
     from fasop.hashids_helper import encode as _enc
+    lokasi_list = list(
+        Device.objects.filter(is_deleted=False)
+        .exclude(lokasi='').exclude(lokasi__isnull=True)
+        .values_list('lokasi', flat=True).distinct().order_by('lokasi')
+    )
     return {
         'mode':                  mode,
         'record':                record,
@@ -4054,6 +4110,7 @@ def _ba_editor_context(record, mode):
         'default_columns_json':  _ba_default_columns_json(),
         'columns_json':          _json.dumps(columns, ensure_ascii=False),
         'rows_json':             _json.dumps(rows_cells, ensure_ascii=False),
+        'lokasi_json':           _json.dumps(lokasi_list, ensure_ascii=False),
         'existing_evidens':      existing_evidens,
         'tanggal_str':           tanggal_str,
         'nomor_prefix':          nomor_prefix,
@@ -4100,6 +4157,7 @@ def ba_edit(request, pk):
 
 
 @login_required
+@xframe_options_sameorigin   # ditampilkan dalam <iframe> panel editor; DENY (default) memblokirnya
 def ba_preview_live(request):
     """Render PDF dari isi form editor tanpa menyimpan — untuk panel preview.
 
@@ -4178,8 +4236,8 @@ def ba_preview_live(request):
     try:
         import weasyprint
         pdf = weasyprint.HTML(string=render_to_string(template, ctx)).write_pdf()
-    except ImportError:
-        return HttpResponse('WeasyPrint tidak tersedia di server ini.', status=500)
+    except (ImportError, OSError) as _e:
+        return _pdf_unavailable_response(_e)
     resp = HttpResponse(pdf, content_type='application/pdf')
     resp['Content-Disposition'] = 'inline; filename="preview.pdf"'
     resp['Cache-Control'] = 'no-store'
@@ -4265,8 +4323,8 @@ def ba_preview(request, pk):
         resp = HttpResponse(pdf, content_type='application/pdf')
         resp['Content-Disposition'] = f'inline; filename="{nomor_clean}.pdf"'
         return resp
-    except ImportError:
-        return HttpResponse('WeasyPrint tidak tersedia di server ini.', status=500)
+    except (ImportError, OSError) as _e:
+        return _pdf_unavailable_response(_e)
 
 
 @login_required

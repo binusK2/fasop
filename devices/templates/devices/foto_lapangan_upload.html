@@ -24,6 +24,23 @@
   {% csrf_token %}
 
   <div class="card mb-3">
+    <div class="card-body px-4 py-3">
+      <label class="form-label" style="font-size:12px;font-weight:600;">
+        <i class="bi bi-folder me-1"></i>Folder / Lokasi <span class="text-muted fw-normal">(opsional)</span>
+      </label>
+      <input type="text" name="folder" id="inp-folder-name" class="form-control form-control-sm"
+             list="lokasi-suggest" placeholder="mis. GI Tello — ketik nama sendiri atau pilih lokasi"
+             autocomplete="off" maxlength="150">
+      <datalist id="lokasi-suggest">
+        {% for lok in lokasi_suggestions %}<option value="{{ lok }}">{% endfor %}
+      </datalist>
+      <div class="text-muted mt-1" style="font-size:11px;">
+        Semua foto pada upload ini masuk ke folder tersebut. Kosongkan untuk "Tanpa Folder".
+      </div>
+    </div>
+  </div>
+
+  <div class="card mb-3">
     <div class="card-body px-4 py-4">
       <div class="drop-zone" id="drop">
         <i class="bi bi-cloud-arrow-up" style="font-size:34px;color:#94a3b8;"></i>
@@ -147,75 +164,109 @@ function setPct(p){
   progBar.style.width = p + '%';
 }
 
+// Upload dipecah per batch kecil supaya tiap request pendek & jauh di bawah
+// batas body (mis. 100 MB Cloudflare), tidak kena timeout, dan membebaskan
+// worker di antara batch. Batch yang berhasil langsung tersimpan; kalau ada
+// yang gagal, sisanya tetap di antrean dan bisa dilanjutkan.
+const CHUNK_SIZE = 12;
+
+function lockUI(on){
+  document.getElementById('btn-upload').disabled = on;
+  document.getElementById('btn-cancel').classList.toggle('disabled', on);
+  drop.style.pointerEvents = on ? 'none' : '';
+  drop.style.opacity = on ? '.55' : '';
+}
+function setBucket(files){
+  bucket = new DataTransfer();
+  files.forEach(f => bucket.items.add(f));
+  inpFiles.files = bucket.files;
+  render();
+}
+
 form.addEventListener('submit', function(e){
   if(!bucket.files.length) return;         // biarkan validasi bawaan
   e.preventDefault();
 
-  const fd = new FormData();
-  fd.append('csrfmiddlewaretoken', form.querySelector('[name=csrfmiddlewaretoken]').value);
-  for(const f of bucket.files){ fd.append('photos', f); }
+  const folder = document.getElementById('inp-folder-name').value.trim();
+  const all = Array.from(bucket.files);
+  const totalBytes = all.reduce((s,f) => s + f.size, 0);
+  const chunks = [];
+  for(let i=0; i<all.length; i+=CHUNK_SIZE) chunks.push(all.slice(i, i+CHUNK_SIZE));
 
-  const total = Array.from(bucket.files).reduce((s,f) => s + f.size, 0);
-  const jml   = bucket.files.length;
-
-  // Kunci UI selama upload
-  document.getElementById('btn-upload').disabled = true;
-  document.getElementById('btn-cancel').classList.add('disabled');
-  drop.style.pointerEvents = 'none';
-  drop.style.opacity = '.55';
+  lockUI(true);
   progCard.style.display = 'block';
-  progLbl.textContent = 'Mengunggah ' + jml + ' foto…';
+  progBar.classList.remove('bg-danger');
+  progBar.classList.add('progress-bar-animated');
   setPct(0);
-  progSub.textContent = '0 MB / ' + fmtMB(total);
   progCard.scrollIntoView({behavior:'smooth', block:'nearest'});
 
-  const xhr = new XMLHttpRequest();
-  xhr.open('POST', form.action || window.location.href);
-  xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+  let sentBytes = 0, okCount = 0, skipCount = 0, ci = 0;
+  let lastRedirect = '{% url "foto_lapangan_galeri" %}';
+  const done = [];   // file yang sudah berhasil terkirim
 
-  xhr.upload.addEventListener('progress', ev => {
-    if(!ev.lengthComputable) return;
-    setPct(ev.loaded / ev.total * 100);
-    progSub.textContent = fmtMB(ev.loaded) + ' / ' + fmtMB(ev.total);
-  });
-
-  // Byte terkirim 100% ≠ selesai — server masih bikin thumbnail & baca EXIF
-  xhr.upload.addEventListener('load', () => {
-    setPct(100);
-    progLbl.textContent = 'Memproses di server…';
-    progSub.textContent = 'Membuat thumbnail & membaca waktu EXIF';
+  function overall(curLoaded){
+    setPct(totalBytes ? (sentBytes + curLoaded) / totalBytes * 100 : 100);
+    progSub.textContent = fmtMB(sentBytes + curLoaded) + ' / ' + fmtMB(totalBytes)
+                        + '  ·  ' + okCount + ' tersimpan';
+  }
+  function remaining(){ return all.filter(f => !done.includes(f)); }
+  function fail(msg){
+    setBucket(remaining());
+    progBar.classList.add('bg-danger');
     progBar.classList.remove('progress-bar-animated');
-  });
+    progLbl.textContent = 'Terhenti';
+    progSub.textContent = msg + ' ' + okCount + ' foto sudah tersimpan, '
+                        + remaining().length + ' belum. Klik Upload untuk melanjutkan sisanya.';
+    lockUI(false);
+  }
+  function finish(){
+    setPct(100);
+    progBar.classList.remove('progress-bar-animated');
+    progLbl.textContent = 'Selesai';
+    progSub.textContent = okCount + ' foto tersimpan'
+                        + (skipCount ? (', ' + skipCount + ' dilewati') : '') + ' — mengalihkan…';
+    setBucket([]);
+    window.location = lastRedirect;
+  }
 
-  xhr.addEventListener('load', () => {
-    if(xhr.status >= 200 && xhr.status < 400){
-      let dest = '{% url "foto_lapangan_galeri" %}';
-      try {
-        const d = JSON.parse(xhr.responseText);
-        if(d && d.redirect) dest = d.redirect;
-      } catch(_) { /* bukan JSON — pakai tujuan default */ }
-      progLbl.textContent = 'Selesai';
-      progSub.textContent = 'Mengalihkan ke galeri…';
-      window.location = dest;
-    } else {
-      uploadFailed('Server menolak upload (kode ' + xhr.status + ').');
-    }
-  });
-  xhr.addEventListener('error', () => uploadFailed('Koneksi terputus saat mengunggah.'));
-  xhr.addEventListener('abort', () => uploadFailed('Upload dibatalkan.'));
+  function sendChunk(){
+    if(ci >= chunks.length){ finish(); return; }
+    const chunk = chunks[ci];
+    const chunkBytes = chunk.reduce((s,f) => s + f.size, 0);
+    const fd = new FormData();
+    fd.append('csrfmiddlewaretoken', form.querySelector('[name=csrfmiddlewaretoken]').value);
+    fd.append('folder', folder);
+    chunk.forEach(f => fd.append('photos', f));
 
-  xhr.send(fd);
+    progLbl.textContent = 'Mengunggah… (batch ' + (ci+1) + '/' + chunks.length + ')';
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', form.action || window.location.href);
+    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+    xhr.upload.addEventListener('progress', ev => {
+      if(ev.lengthComputable) overall(ev.loaded / ev.total * chunkBytes);
+    });
+    xhr.addEventListener('load', () => {
+      if(xhr.status >= 200 && xhr.status < 400){
+        try {
+          const d = JSON.parse(xhr.responseText);
+          okCount += d.uploaded || 0; skipCount += d.skipped || 0;
+          if(d.redirect) lastRedirect = d.redirect;
+        } catch(_) {}
+        sentBytes += chunkBytes;
+        done.push(...chunk);
+        ci++;
+        overall(0);
+        sendChunk();                       // lanjut batch berikutnya
+      } else {
+        fail('Server menolak (kode ' + xhr.status + ').');
+      }
+    });
+    xhr.addEventListener('error', () => fail('Koneksi terputus.'));
+    xhr.addEventListener('abort', () => fail('Upload dibatalkan.'));
+    xhr.send(fd);
+  }
+  sendChunk();
 });
-
-function uploadFailed(msg){
-  progBar.classList.add('bg-danger');
-  progBar.classList.remove('progress-bar-animated');
-  progLbl.textContent = 'Gagal';
-  progSub.textContent = msg + ' Foto belum tersimpan — silakan coba lagi.';
-  document.getElementById('btn-upload').disabled = false;
-  document.getElementById('btn-cancel').classList.remove('disabled');
-  drop.style.pointerEvents = '';
-  drop.style.opacity = '';
-}
 </script>
 {% endblock %}

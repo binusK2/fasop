@@ -41,6 +41,7 @@ urlpatterns = [
     # Ekspor Data — Berita Acara (editor gabungan)
     path('ekspor/buat/',         views.ba_create,       name='ba_create'),
     path('ekspor/preview-live/', views.ba_preview_live, name='ba_preview_live'),
+    path('ekspor/device-search/', views.ba_device_search, name='ba_device_search'),
     path('ekspor/upload/',       views.ba_upload,       name='ba_upload'),
     # Route editor per-jenis lama → dialihkan ke editor gabungan (nama dipertahankan)
     path('ekspor/pemasangan/',   RedirectView.as_view(pattern_name='ba_create', permanent=False), name='ba_pemasangan'),

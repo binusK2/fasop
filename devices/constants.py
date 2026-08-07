@@ -23,7 +23,7 @@ DEVICE_GROUP_CONFIG = {
             'clock server', 'serial server', 'router sas',
             'switch sas', 'inverter sas',
             'pheriperal scada', 'peripheral scada', 'gps',
-            'server scada',
+            'server scada', 'dc-mon', 'dc mon',
         ],
     },
     'prosis': {
@@ -46,7 +46,7 @@ DEVICE_TYPE_ORDER_IN_GROUP = [
     "RTU", "SAS", "Master Station", "VM SCADA", "Workstation SCADA",
     "UPS", "GPS", "SERVER SCADA",
     "IED BCU", "CLOCK SERVER", "SERIAL SERVER", "ROUTER SAS",
-    "SWITCH SAS", "INVERTER SAS",
+    "SWITCH SAS", "INVERTER SAS", "DC-MON",
     "PHERIPERAL SCADA", "PERIPHERAL SCADA",
     "RELE DEFENSE SCHEME", "MASTER TRIP", "UFLS", "DFR", "SERVER PROSIS",
     "Catu Daya", "Workstation PC", "GENSET",
