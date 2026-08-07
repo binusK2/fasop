@@ -1930,6 +1930,7 @@ def export_devices_excel(request):
     jenis_id = request.GET.get('jenis')
     search = request.GET.get('q') or ''
     lokasi = request.GET.get('lokasi')
+    from datetime import date
 
     devices = Device.objects.filter(is_deleted=False).select_related('jenis')
 
@@ -1962,8 +1963,6 @@ def export_devices_excel(request):
     _fmt_date = lambda dt: dt.strftime('%d %b %Y') if dt else '-'
 
     wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Inventory Peralatan"
 
     # Styles
     header_fill = PatternFill("solid", fgColor="0F172A")
@@ -2000,90 +1999,128 @@ def export_devices_excel(request):
         if score >= 25: return 'buruk'
         return 'kritis'
 
-    # Judul
-    ws.merge_cells('A1:O1')
-    title_cell = ws['A1']
-    title_cell.value = "INVENTORY PERALATAN FASOP UP2B"
-    title_cell.font = Font(bold=True, size=13)
-    title_cell.alignment = Alignment(horizontal="center", vertical="center")
-    title_cell.fill = PatternFill("solid", fgColor="EFF6FF")
-    ws.row_dimensions[1].height = 28
+    def _sheet_name(name, used):
+        """Nama sheet valid Excel (≤31 char, tanpa karakter terlarang) + unik."""
+        import re as _re
+        clean = _re.sub(r'[\[\]:*?/\\]', '_', str(name)).strip() or 'Tanpa Jenis'
+        clean = clean[:31]
+        base = clean
+        n = 2
+        while clean in used:
+            suffix = f'_{n}'
+            clean = base[:31 - len(suffix)] + suffix
+            n += 1
+        used.add(clean)
+        return clean
 
-    ws.merge_cells('A2:O2')
-    from datetime import date
-    ws['A2'].value = f"Dicetak: {date.today().strftime('%d %B %Y')}"
-    ws['A2'].alignment = Alignment(horizontal="center")
-    ws['A2'].font = Font(size=10, italic=True, color="64748B")
-    ws.row_dimensions[2].height = 18
+    def _write_inventory_sheet(ws, title, device_list):
+        """Isi satu worksheet dengan daftar perangkat (judul, header, data)."""
+        # Judul
+        ws.merge_cells('A1:O1')
+        title_cell = ws['A1']
+        title_cell.value = title
+        title_cell.font = Font(bold=True, size=13)
+        title_cell.alignment = Alignment(horizontal="center", vertical="center")
+        title_cell.fill = PatternFill("solid", fgColor="EFF6FF")
+        ws.row_dimensions[1].height = 28
 
-    ws.row_dimensions[3].height = 6  # spacer
+        ws.merge_cells('A2:O2')
+        ws['A2'].value = f"Dicetak: {date.today().strftime('%d %B %Y')}"
+        ws['A2'].alignment = Alignment(horizontal="center")
+        ws['A2'].font = Font(size=10, italic=True, color="64748B")
+        ws.row_dimensions[2].height = 18
 
-    # Header — 15 columns
-    headers = ['No', 'Nama', 'Jenis', 'Merk', 'Type/Model', 'Serial Number',
-               'IP Address', 'Lokasi', 'Firmware', 'Health Index', 'Kategori HI',
-               'Asset ID', 'Status Aset', 'Terakhir Pemeliharaan', 'Terakhir Inspeksi']
-    col_widths = [5, 25, 15, 15, 18, 20, 16, 20, 15, 13, 16, 14, 16, 22, 20]
+        ws.row_dimensions[3].height = 6  # spacer
 
-    for col_idx, (header, width) in enumerate(zip(headers, col_widths), 1):
-        cell = ws.cell(row=4, column=col_idx, value=header)
-        cell.font = header_font
-        cell.fill = header_fill
-        cell.alignment = header_align
-        cell.border = thin_border
-        ws.column_dimensions[get_column_letter(col_idx)].width = width
+        # Header — 15 columns
+        headers = ['No', 'Nama', 'Jenis', 'Merk', 'Type/Model', 'Serial Number',
+                   'IP Address', 'Lokasi', 'Firmware', 'Health Index', 'Kategori HI',
+                   'Asset ID', 'Status Aset', 'Terakhir Pemeliharaan', 'Terakhir Inspeksi']
+        col_widths = [5, 25, 15, 15, 18, 20, 16, 20, 15, 13, 16, 14, 16, 22, 20]
 
-    ws.row_dimensions[4].height = 22
-
-    # Data
-    alt_fill = PatternFill("solid", fgColor="F8FAFC")
-    for row_idx, d in enumerate(devices_list, 1):
-        ws_row = row_idx + 4
-
-        # Calculate HI
-        try:
-            hi_result = calculate_hi(d, save_snapshot=False)
-            hi_score = hi_result.get('score')
-            hi_label = hi_result.get('kategori', {}).get('label', '-') if hi_result else '-'
-        except Exception:
-            hi_score = None
-            hi_label = '-'
-
-        row_data = [
-            row_idx,
-            d.nama,
-            d.jenis.name if d.jenis else '-',
-            d.merk,
-            d.type or '-',
-            d.serial_number or '-',
-            str(d.ip_address),
-            d.lokasi,
-            d.firmware_version or '-',
-            hi_score if hi_score is not None else '-',
-            hi_label,
-            d.asset_id or '-',
-            d.get_status_aset_display(),
-            _fmt_date(maint_latest.get(d.id)),
-            _fmt_date(insp_latest.get(d.id)),
-        ]
-        for col_idx, value in enumerate(row_data, 1):
-            cell = ws.cell(row=ws_row, column=col_idx, value=value)
+        for col_idx, (header, width) in enumerate(zip(headers, col_widths), 1):
+            cell = ws.cell(row=4, column=col_idx, value=header)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = header_align
             cell.border = thin_border
-            cell.alignment = center_align if col_idx in (1, 10, 11, 14, 15) else Alignment(vertical="center")
-            if row_idx % 2 == 0 and col_idx not in (10, 11):
-                cell.fill = alt_fill
+            ws.column_dimensions[get_column_letter(col_idx)].width = width
 
-        # Color-code HI cells (col 10 & 11)
-        cat_key = _hi_category_key(hi_score)
-        if cat_key:
-            for col_idx in (10, 11):
-                cell = ws.cell(row=ws_row, column=col_idx)
-                cell.fill = hi_fills[cat_key]
-                cell.font = hi_fonts[cat_key]
+        ws.row_dimensions[4].height = 22
 
-        ws.row_dimensions[ws_row].height = 18
+        # Data
+        alt_fill = PatternFill("solid", fgColor="F8FAFC")
+        for row_idx, d in enumerate(device_list, 1):
+            ws_row = row_idx + 4
 
-    # Freeze panes
-    ws.freeze_panes = 'A5'
+            # Calculate HI
+            try:
+                hi_result = calculate_hi(d, save_snapshot=False)
+                hi_score = hi_result.get('score')
+                hi_label = hi_result.get('kategori', {}).get('label', '-') if hi_result else '-'
+            except Exception:
+                hi_score = None
+                hi_label = '-'
+
+            row_data = [
+                row_idx,
+                d.nama,
+                d.jenis.name if d.jenis else '-',
+                d.merk,
+                d.type or '-',
+                d.serial_number or '-',
+                str(d.ip_address),
+                d.lokasi,
+                d.firmware_version or '-',
+                hi_score if hi_score is not None else '-',
+                hi_label,
+                d.asset_id or '-',
+                d.get_status_aset_display(),
+                _fmt_date(maint_latest.get(d.id)),
+                _fmt_date(insp_latest.get(d.id)),
+            ]
+            for col_idx, value in enumerate(row_data, 1):
+                cell = ws.cell(row=ws_row, column=col_idx, value=value)
+                cell.border = thin_border
+                cell.alignment = center_align if col_idx in (1, 10, 11, 14, 15) else Alignment(vertical="center")
+                if row_idx % 2 == 0 and col_idx not in (10, 11):
+                    cell.fill = alt_fill
+
+            # Color-code HI cells (col 10 & 11)
+            cat_key = _hi_category_key(hi_score)
+            if cat_key:
+                for col_idx in (10, 11):
+                    cell = ws.cell(row=ws_row, column=col_idx)
+                    cell.fill = hi_fills[cat_key]
+                    cell.font = hi_fonts[cat_key]
+
+            ws.row_dimensions[ws_row].height = 18
+
+        # Freeze panes
+        ws.freeze_panes = 'A5'
+
+    # ── Kelompokkan per jenis bila tidak ada filter jenis ──────────
+    used_sheets = set()
+    if jenis_id:
+        groups = [(None, 'INVENTORY PERALATAN FASOP UP2B', devices_list)]
+    else:
+        by_type = {}
+        for d in devices_list:
+            key = d.jenis.name if d.jenis else None
+            by_type.setdefault(key, []).append(d)
+        groups = []
+        ordered_keys = sorted(by_type.keys(), key=lambda k: (k or 'zzz'))
+        for key in ordered_keys:
+            label = key if key else 'Tanpa Jenis'
+            groups.append((label, f'INVENTORY {label.upper()} — FASOP UP2B', by_type[key]))
+
+    first_sheet = wb.active
+    first_sheet.title = _sheet_name(groups[0][0] or 'Inventory Peralatan', used_sheets)
+    _write_inventory_sheet(first_sheet, groups[0][1], groups[0][2])
+
+    for label, title, devs in groups[1:]:
+        ws = wb.create_sheet(_sheet_name(label, used_sheets))
+        _write_inventory_sheet(ws, title, devs)
 
     # ── Sheet 2: Komponen Perangkat ────────────────────────────
     ws2 = wb.create_sheet("Komponen Perangkat")
@@ -2176,7 +2213,8 @@ def export_devices_excel(request):
     response = HttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
-    response['Content-Disposition'] = 'attachment; filename="inventory_peralatan_fasop.xlsx"'
+    fname = f'inventory_{devices.first().jenis.name.replace(" ","_")}_fasop.xlsx' if jenis_id and devices.exists() else 'inventory_peralatan_fasop.xlsx'
+    response['Content-Disposition'] = f'attachment; filename="{fname}"'
     wb.save(response)
     return response
 
