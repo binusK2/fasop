@@ -7,8 +7,10 @@ from django.utils import timezone
 # - VM SCADA (bukan aset fisik mandiri)
 # - HT dan Peripheral Telkom (tidak masuk jadwal HAR)
 # - Master Clock (tidak masuk lingkup pemeliharaan rutin)
+# Catatan: IED BCU kini punya form pemeliharaan sendiri (MaintenanceBCU) →
+# dimasukkan ke jadwal, jadi tidak lagi dikecualikan.
 JADWAL_EXCLUDED_JENIS = {
-    'IED BCU', 'CLOCK SERVER', 'SERIAL SERVER',
+    'CLOCK SERVER', 'SERIAL SERVER',
     'ROUTER SAS', 'SWITCH SAS', 'INVERTER SAS',
     'VM SCADA',
     'HT', 'PHERIPERAL TELKOM', 'PERIPHERAL TELKOM',

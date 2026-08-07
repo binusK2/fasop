@@ -51,6 +51,7 @@ def device_list(request):
             'status': request.GET.get('status_operasi', ''),
             'merk':   request.GET.get('merk', ''),
             'branch': request.GET.get('branch', ''),
+            'asset':  request.GET.get('asset', ''),
         }
         request.session[SESSION_KEY] = saved
         request.session.modified = True
@@ -63,6 +64,7 @@ def device_list(request):
     status_operasi = saved.get('status', '')
     merk           = saved.get('merk', '')
     branch_id      = saved.get('branch', '')
+    asset          = saved.get('asset', '')
     sort           = request.GET.get('sort', 'nama')
     direction      = request.GET.get('dir', 'asc')
 
@@ -95,6 +97,9 @@ def device_list(request):
 
     if merk:
         devices = devices.filter(merk__iexact=merk)
+
+    if asset:
+        devices = devices.filter(status_aset=asset)
 
     if branch_id:
         # Filter lokasi yang masuk ke branch ini
@@ -138,7 +143,7 @@ def device_list(request):
     merk_list = _merk_qs.values_list('merk', flat=True).distinct().order_by('merk')
 
     branch_list   = Branch.objects.all()
-    filter_active = bool(search or lokasi or status_operasi or merk or branch_id)
+    filter_active = bool(search or lokasi or status_operasi or merk or branch_id or asset)
 
     return render(request, 'devices/device_list.html', {
         'devices':          page_obj,
@@ -153,6 +158,8 @@ def device_list(request):
         'merk_list':        merk_list,
         'branch_list':      branch_list,
         'selected_branch':  branch_id,
+        'selected_asset':   asset,
+        'asset_choices':    Device.ASET_CHOICES,
         'filter_active':    filter_active,
         'current_sort':     sort,
         'current_dir':      direction,
@@ -327,8 +334,9 @@ def dashboard(request):
             return _dashboard_operator(request)
 
     # ── Dashboard normal (teknisi / AM / superuser) ──────────────
-    # VM (host__isnull=False) tidak dihitung sebagai aset fisik
-    _asset_qs = Device.objects.filter(is_deleted=False, host__isnull=True)
+    # VM (host__isnull=False) tidak dihitung sebagai aset fisik.
+    # Hanya aset milik UP2B yang masuk perhitungan jumlah aset.
+    _asset_qs = Device.objects.filter(is_deleted=False, host__isnull=True, status_aset='UP2B')
     total_devices  = _asset_qs.count()
     dev_operasi    = _asset_qs.filter(status_operasi='operasi').count()
     dev_tdk_operasi= _asset_qs.filter(status_operasi='tidak_operasi').count()
@@ -382,6 +390,7 @@ def dashboard(request):
                 'rtu', 'sas', 'ups', 'server scada', 'vm scada', 'ied bcu',
                 'clock server', 'serial server', 'router sas', 'switch sas',
                 'inverter sas', 'pheriperal scada', 'peripheral scada', 'gps',
+                'dc-mon', 'dc mon',
             },
         },
         {
@@ -667,7 +676,7 @@ def dashboard(request):
             })
             continue
         _br_qs = Device.objects.filter(
-            is_deleted=False, host__isnull=True, lokasi__in=_br_lokasi
+            is_deleted=False, host__isnull=True, lokasi__in=_br_lokasi, status_aset='UP2B'
         )
         _br_total   = _br_qs.count()
         _br_operasi = _br_qs.filter(status_operasi='operasi').count()
@@ -767,9 +776,10 @@ def distribusi_jenis(request):
         '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#64748b',
     ]
 
+    # Hanya aset UP2B yang dihitung dalam distribusi jumlah.
     jenis_qs = (
         Device.objects
-        .filter(is_deleted=False)
+        .filter(is_deleted=False, status_aset='UP2B')
         .values('jenis__id', 'jenis__name', 'status_operasi')
         .annotate(jumlah=Count('id'))
         .order_by('jenis__name')
@@ -813,13 +823,16 @@ def distribusi_jenis_detail(request, jenis_id):
     jenis_obj = get_object_or_404(DeviceType, pk=jenis_id)
 
     devices_qs = Device.objects.filter(is_deleted=False, jenis_id=jenis_id)
-    total = devices_qs.count()
-    operasi_count = devices_qs.filter(status_operasi='operasi').count()
-    tidak_count   = devices_qs.filter(status_operasi='tidak_operasi').count()
+    # Angka distribusi hanya menghitung aset UP2B; daftar perangkat di bawah
+    # tetap menampilkan SEMUA perangkat (termasuk IPP / Belum STAP).
+    count_qs = devices_qs.filter(status_aset='UP2B')
+    total = count_qs.count()
+    operasi_count = count_qs.filter(status_operasi='operasi').count()
+    tidak_count   = count_qs.filter(status_operasi='tidak_operasi').count()
 
     # ── Sebaran per Merk ──────────────────────────────────────────────────────
     merk_qs = (
-        devices_qs
+        count_qs
         .values('merk')
         .annotate(jumlah=Count('id'))
         .order_by('-jumlah')
@@ -835,7 +848,7 @@ def distribusi_jenis_detail(request, jenis_id):
 
     # ── Sebaran per Tipe/Model ────────────────────────────────────────────────
     type_qs = (
-        devices_qs
+        count_qs
         .values('type')
         .annotate(jumlah=Count('id'))
         .order_by('-jumlah')

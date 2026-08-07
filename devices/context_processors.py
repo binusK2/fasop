@@ -20,7 +20,7 @@ DEVICE_GROUP_CONFIG = {
         'color': '#10b981',
         'types': [
             'rtu', 'sas', 'ups', 'master station', 'vm scada', 'workstation scada', 'ied bcu', 'clock server', 'serial server', 'router sas', 'switch sas', 'inverter sas',
-            'pheriperal scada', 'peripheral scada', 'gps',
+            'pheriperal scada', 'peripheral scada', 'gps', 'dc-mon', 'dc mon',
         ],
     },
     'prosis': {
@@ -40,7 +40,7 @@ DEVICE_TYPE_ORDER_IN_GROUP = [
     "REPEATER", "TOWER", "REPEATER & TOWER",
     "RTU", "SAS", "Master Station", "VM SCADA", "Workstation SCADA", "UPS", "GPS",
     "IED BCU", "CLOCK SERVER", "SERIAL SERVER", "ROUTER SAS", "SWITCH SAS", "INVERTER SAS",
-    "PHERIPERAL SCADA", "PERIPHERAL SCADA",
+    "PHERIPERAL SCADA", "PERIPHERAL SCADA", "DC-MON",
 
     "RELE DEFENSE SCHEME", "MASTER TRIP", "UFLS", "DFR", "SERVER PROSIS",
     "Catu Daya", "Workstation PC", "GENSET",

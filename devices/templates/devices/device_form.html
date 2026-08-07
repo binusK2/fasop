@@ -147,6 +147,19 @@
             </div>
             <div class="col-md-6">
                 <div class="field-card">
+                    <label class="field-label">Status Aset</label>
+                    <div class="input-group">
+                        <span class="input-group-text field-addon"><i class="bi bi-patch-check"></i></span>
+                        {{ form.status_aset }}
+                    </div>
+                    <div style="font-size:11px;color:#94a3b8;margin-top:5px;">
+                        Kepemilikan aset — hanya <strong>UP2B</strong> yang dihitung sebagai jumlah aset.
+                    </div>
+                    {% if form.status_aset.errors %}<div class="field-error">{{ form.status_aset.errors.0 }}</div>{% endif %}
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="field-card">
                     <label class="field-label">Tahun Operasi</label>
                     <div class="input-group">
                         <span class="input-group-text field-addon"><i class="bi bi-calendar-event"></i></span>
