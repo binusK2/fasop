@@ -1,0 +1,224 @@
+{% extends 'base.html' %}
+{% block title %}{{ ultg.nama }} — Dashboard Inspeksi{% endblock %}
+{% block page_title %}Inspeksi per ULTG{% endblock %}
+
+{% block content %}
+
+<div class="d-flex align-items-center gap-2 mb-3">
+    <a href="{% url 'inspection_dashboard' %}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Dashboard Inspeksi
+    </a>
+</div>
+
+<!-- HEADER -->
+<div class="card mb-4" style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);border:none;">
+    <div class="card-body py-3 px-4">
+        <div class="d-flex align-items-center gap-3 flex-wrap">
+            <div style="width:46px;height:46px;background:rgba(59,130,246,0.2);border-radius:12px;display:flex;align-items:center;justify-content:center;">
+                <i class="bi bi-building" style="font-size:22px;color:#93c5fd;"></i>
+            </div>
+            <div class="flex-grow-1">
+                <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;">ULTG</div>
+                <div style="font-size:18px;font-weight:700;color:#f1f5f9;">{{ ultg.nama }}</div>
+                <div style="font-size:12px;color:#94a3b8;">
+                    <i class="bi bi-calendar3 me-1"></i>{{ today|date:"F Y" }}
+                    &nbsp;·&nbsp; {{ lokasi_count }} GI
+                    &nbsp;·&nbsp; {{ total }} perangkat
+                </div>
+            </div>
+            <a href="{% url 'inspection_export_ultg' %}?ultg={{ ultg.pk }}&month={{ today.month }}&year={{ today.year }}"
+               class="btn btn-sm btn-outline-success">
+                <i class="bi bi-file-earmark-excel me-1"></i>Export Bulan Ini
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- STAT CARDS -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon" style="background:#f0fdf4;color:#10b981;"><i class="bi bi-clipboard2-check"></i></div>
+            <div><div class="stat-value">{{ sudah }}</div><div class="stat-label">Sudah Diinspeksi</div></div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon" style="background:#fff7ed;color:#f97316;"><i class="bi bi-clipboard2-x"></i></div>
+            <div><div class="stat-value">{{ belum }}</div><div class="stat-label">Belum Diinspeksi</div></div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon" style="background:{% if alarm_list %}#fef2f2;color:#ef4444;{% else %}#f0fdf4;color:#10b981;{% endif %}">
+                <i class="bi bi-{% if alarm_list %}exclamation-triangle-fill{% else %}shield-check{% endif %}"></i>
+            </div>
+            <div>
+                <div class="stat-value" {% if alarm_list %}style="color:#ef4444;"{% endif %}>{{ alarm_list|length }}</div>
+                <div class="stat-label">Kondisi Alarm</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon" style="background:#fdf4ff;color:#a855f7;"><i class="bi bi-pie-chart"></i></div>
+            <div>
+                <div class="stat-value">{{ pct }}%</div>
+                <div class="stat-label">{{ sudah }}/{{ total }} Progres</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+
+    <!-- PANEL UTAMA: PERALATAN TERINSPEKSI -->
+    <div class="col-lg-8">
+        <div class="card mb-3">
+            <div class="card-body px-0 py-0">
+                <div style="padding:12px 18px 10px;border-bottom:1px solid #e2e8f0;">
+                    <h6 style="font-size:13px;font-weight:700;margin:0;">
+                        <i class="bi bi-check2-circle me-2 text-success"></i>Sudah Diinspeksi — {{ today|date:"F Y" }}
+                        <span style="background:#10b981;color:#fff;padding:1px 8px;border-radius:20px;font-size:11px;margin-left:4px;">{{ devices_sudah|length }}</span>
+                    </h6>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0" style="font-size:12px;">
+                        <thead style="background:#f8fafc;">
+                            <tr>
+                                <th>Tanggal</th>
+                                <th>Perangkat</th>
+                                <th>Jenis</th>
+                                <th>Lokasi</th>
+                                <th>Operator</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for insp in devices_sudah %}
+                            <tr>
+                                <td style="color:#64748b;white-space:nowrap;">{{ insp.tanggal|date:"d/m/Y H:i" }}</td>
+                                <td style="font-weight:600;color:#0f172a;">{{ insp.device.nama }}</td>
+                                <td>
+                                    <span style="font-size:10.5px;background:#eff6ff;color:#2563eb;padding:2px 8px;border-radius:20px;font-weight:600;white-space:nowrap;">
+                                        {{ insp.device.jenis.name|default:"—" }}
+                                    </span>
+                                </td>
+                                <td style="color:#64748b;">{{ insp.device.lokasi|default:"—" }}</td>
+                                <td style="color:#64748b;">{{ insp.operator.get_full_name|default:insp.operator.username|default:"—" }}</td>
+                                <td>
+                                    <a href="{% url 'inspection_riwayat' insp.pk %}" class="btn btn-xs btn-outline-primary" style="font-size:10px;padding:1px 8px;">Detail</a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-muted text-center py-4" style="font-size:12px;">
+                                    <i class="bi bi-info-circle me-1"></i>Belum ada perangkat diinspeksi bulan ini.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- BELUM DIINSPEKSI -->
+        <div class="card">
+            <div class="card-body px-0 py-0">
+                <div style="padding:12px 18px 10px;border-bottom:1px solid #e2e8f0;">
+                    <h6 style="font-size:13px;font-weight:700;margin:0;color:#9a3412;">
+                        <i class="bi bi-clock-history me-2"></i>Belum Diinspeksi Bulan Ini
+                        <span style="background:#f97316;color:#fff;padding:1px 8px;border-radius:20px;font-size:11px;margin-left:4px;">{{ devices_belum|length }}</span>
+                    </h6>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0" style="font-size:12px;">
+                        <thead style="background:#fffbeb;">
+                            <tr><th>Perangkat</th><th>Jenis</th><th>Lokasi</th><th></th></tr>
+                        </thead>
+                        <tbody>
+                            {% for d in devices_belum %}
+                            <tr>
+                                <td style="font-weight:600;color:#0f172a;">{{ d.nama }}</td>
+                                <td>
+                                    <span style="font-size:10.5px;background:#fff7ed;color:#c2410c;padding:2px 8px;border-radius:20px;font-weight:600;white-space:nowrap;">
+                                        {{ d.jenis.name|default:"—" }}
+                                    </span>
+                                </td>
+                                <td style="color:#64748b;">{{ d.lokasi|default:"—" }}</td>
+                                <td>
+                                    <a href="{% url 'inspection_riwayat_device' d.pk %}" class="btn btn-xs btn-outline-secondary" style="font-size:10px;padding:1px 8px;">Riwayat</a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-muted text-center py-4" style="font-size:12px;">
+                                    <i class="bi bi-check2-all me-1 text-success"></i>Semua perangkat sudah diinspeksi bulan ini.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PANEL SAMPING: KONDISI ALARM -->
+    <div class="col-lg-4">
+        <div class="card h-100" style="border:1.5px solid {% if alarm_list %}#fca5a5{% else %}#e2e8f0{% endif %};">
+            <div class="card-body px-0 py-0">
+                <div style="padding:12px 18px 10px;background:{% if alarm_list %}#fef2f2{% else %}#f8fafc{% endif %};
+                            border-bottom:1px solid {% if alarm_list %}#fecaca{% else %}#e2e8f0{% endif %};border-radius:8px 8px 0 0;">
+                    <h6 style="font-size:13px;font-weight:700;margin:0;color:{% if alarm_list %}#991b1b{% else %}#0f172a{% endif %};">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>Peralatan Kondisi Alarm
+                        {% if alarm_list %}
+                        <span style="background:#ef4444;color:#fff;padding:1px 8px;border-radius:20px;font-size:11px;margin-left:4px;">{{ alarm_list|length }}</span>
+                        {% endif %}
+                    </h6>
+                    <div style="font-size:10.5px;color:#94a3b8;margin-top:3px;">Klik untuk melihat detail inspeksi</div>
+                </div>
+                <div style="max-height:640px;overflow-y:auto;">
+                    {% for insp in alarm_list %}
+                    <a href="{% url 'inspection_riwayat' insp.pk %}" class="text-decoration-none">
+                        <div style="padding:12px 18px;border-bottom:1px solid #f1f5f9;transition:background 0.15s;"
+                             onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background=''">
+                            <div class="d-flex align-items-start justify-content-between gap-2 mb-1">
+                                <span style="font-size:12.5px;font-weight:700;color:#0f172a;">{{ insp.device.nama }}</span>
+                                <span style="background:#fee2e2;color:#991b1b;font-size:9.5px;padding:1px 7px;border-radius:20px;font-weight:700;white-space:nowrap;">ALARM</span>
+                            </div>
+                            <div style="font-size:11px;color:#64748b;">
+                                <i class="bi bi-geo-alt me-1"></i>{{ insp.device.lokasi|default:"—" }}
+                            </div>
+                            <div style="font-size:11px;color:#64748b;margin-top:2px;">
+                                <i class="bi bi-cpu me-1"></i>{{ insp.get_jenis_display }}
+                            </div>
+                            <div style="font-size:10.5px;color:#94a3b8;margin-top:3px;">
+                                <i class="bi bi-clock me-1"></i>{{ insp.tanggal|date:"d/m/Y H:i" }}
+                                {% if insp.operator %}
+                                &nbsp;·&nbsp;{{ insp.operator.get_full_name|default:insp.operator.username }}
+                                {% endif %}
+                            </div>
+                            {% if insp.is_flagged %}
+                            <div style="margin-top:5px;">
+                                <span style="background:#fef9c3;color:#92400e;font-size:9.5px;padding:1px 7px;border-radius:20px;font-weight:700;">
+                                    <i class="bi bi-flag-fill me-1"></i>Diflag
+                                </span>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </a>
+                    {% empty %}
+                    <div class="text-muted text-center py-5" style="font-size:12px;">
+                        <i class="bi bi-shield-check" style="font-size:28px;color:#10b981;display:block;margin-bottom:8px;"></i>
+                        Tidak ada peralatan dalam kondisi alarm bulan ini.
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

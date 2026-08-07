@@ -14,6 +14,8 @@ TRACKED_FIELDS = [
     ('ip_address',       'IP Address'),
     ('lokasi',           'Lokasi'),
     ('status_operasi',   'Status Operasi'),
+    ('status_aset',      'Status Aset'),
+    ('asset_id',         'Asset ID'),
     ('tahun_operasi',    'Tahun Operasi'),
     ('keterangan',       'Keterangan'),
 ]
@@ -27,6 +29,9 @@ def _get_display(device, field):
     # Status operasi → tampilkan label
     if field == 'status_operasi':
         choices = dict(device.STATUS_CHOICES)
+        return choices.get(str(val), str(val))
+    if field == 'status_aset':
+        choices = dict(device.ASET_CHOICES)
         return choices.get(str(val), str(val))
     return str(val)
 

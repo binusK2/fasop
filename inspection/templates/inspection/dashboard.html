@@ -105,10 +105,11 @@
                     <i class="bi bi-building me-2 text-primary"></i>Progress per ULTG — Bulan Ini
                 </h6>
                 {% for s in ultg_stats %}
-                <div class="mb-3">
+                <a href="{% url 'inspection_dashboard_ultg' s.ultg.pk %}" class="text-decoration-none">
+                <div class="mb-3" style="cursor:pointer;border-radius:8px;padding:8px;transition:background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
                     <div class="d-flex justify-content-between align-items-center mb-1">
                         <div class="d-flex align-items-center gap-2">
-                            <span style="font-size:12.5px;font-weight:700;color:#0f172a;">{{ s.ultg.nama }}</span>
+                            <span style="font-size:12.5px;font-weight:700;color:#2563eb;">{{ s.ultg.nama }}</span>
                             {% if s.alarm > 0 %}
                             <span style="background:#fee2e2;color:#991b1b;font-size:10px;padding:1px 7px;border-radius:20px;font-weight:700;">⚠ {{ s.alarm }} alarm</span>
                             {% endif %}
@@ -128,8 +129,10 @@
                     </div>
                     <div style="font-size:10.5px;color:#94a3b8;margin-top:2px;">
                         {{ s.lokasi_count }} GI &nbsp;·&nbsp; {{ s.belum }} perangkat belum diinspeksi
+                        <i class="bi bi-chevron-right ms-1" style="font-size:9px;"></i>
                     </div>
                 </div>
+                </a>
                 {% empty %}
                 <div class="text-muted text-center py-4" style="font-size:12px;">
                     <i class="bi bi-info-circle me-1"></i>Belum ada ULTG terdaftar. Tambahkan di Admin Panel.
