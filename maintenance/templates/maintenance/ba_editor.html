@@ -202,9 +202,9 @@
 </form>
 
 <script>
-const DEFAULT_COLUMNS = {{ default_columns_json|safe }};
-let columns = {{ columns_json|safe }};
-let rows    = {{ rows_json|safe }};   // array of arrays (cells)
+const DEFAULT_COLUMNS = JSON.parse('{{ default_columns_json|escapejs }}');
+let columns = JSON.parse('{{ columns_json|escapejs }}');
+let rows    = JSON.parse('{{ rows_json|escapejs }}');   // array of arrays (cells)
 
 function esc(s){ return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 

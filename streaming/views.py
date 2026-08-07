@@ -1,3 +1,4 @@
+import hmac
 import json
 import logging
 import os
@@ -178,7 +179,7 @@ def mediamtx_auth_webhook(request):
     """
     if request.method != 'POST':
         return HttpResponseForbidden('method not allowed')
-    if not settings.MEDIAMTX_AUTH_SECRET or request.GET.get('key') != settings.MEDIAMTX_AUTH_SECRET:
+    if not settings.MEDIAMTX_AUTH_SECRET or not hmac.compare_digest(str(request.GET.get('key', '')), str(settings.MEDIAMTX_AUTH_SECRET)):
         return HttpResponseForbidden('invalid secret')
 
     try:
@@ -217,7 +218,7 @@ def mediamtx_auth_webhook(request):
     # walau kredensial URL sudah benar (keterbatasan ffmpeg, sudah dicoba &
     # selalu gagal "Server returned 401 Unauthorized" di log MediaMTX).
     if (settings.MEDIAMTX_AUTH_SECRET and token == 'mtx-internal'
-            and payload.get('pass') == settings.MEDIAMTX_AUTH_SECRET):
+            and hmac.compare_digest(str(payload.get('pass', '')), str(settings.MEDIAMTX_AUTH_SECRET))):
         if action == 'read' and path.startswith('live-') and not path.endswith('-talk') and not path.endswith('-rec'):
             stream_key = path[len('live-'):]
             if LiveSession.objects.filter(stream_key=stream_key, status='live').exists():
@@ -269,7 +270,7 @@ def mediamtx_record_webhook(request):
     """
     if request.method != 'POST':
         return HttpResponseForbidden('method not allowed')
-    if not settings.MEDIAMTX_AUTH_SECRET or request.GET.get('key') != settings.MEDIAMTX_AUTH_SECRET:
+    if not settings.MEDIAMTX_AUTH_SECRET or not hmac.compare_digest(str(request.GET.get('key', '')), str(settings.MEDIAMTX_AUTH_SECRET)):
         return HttpResponseForbidden('invalid secret')
 
     try:
@@ -300,6 +301,12 @@ def mediamtx_record_webhook(request):
     session = LiveSession.objects.filter(stream_key=stream_key).first()
     if not session:
         return HttpResponseForbidden('unknown session')
+
+    root = os.path.normpath(settings.STREAMING_RECORDINGS_ROOT)
+    normalized = os.path.normpath(segment_path)
+    if normalized != root and not normalized.startswith(root + os.sep):
+        logger.warning('segment_path %s di luar STREAMING_RECORDINGS_ROOT, ditolak.', segment_path)
+        return HttpResponseForbidden('invalid segment_path')
 
     setattr(session, field, segment_path)
     session.save(update_fields=[field])
@@ -354,13 +361,19 @@ def _serve_file_range(request, file_path, content_type, download_name):
     video maupun klip audio talkback — supaya player bisa di-seek, bukan
     cuma diputar berurutan dari awal.
     """
-    if not os.path.isfile(file_path):
+    root = os.path.normpath(settings.STREAMING_RECORDINGS_ROOT)
+    normalized = os.path.normpath(file_path)
+    if normalized != root and not normalized.startswith(root + os.sep):
+        logger.warning('Recording path %s di luar STREAMING_RECORDINGS_ROOT, ditolak.', file_path)
+        return HttpResponseNotFound('Rekaman tidak ditemukan.')
+
+    if not os.path.isfile(normalized):
         return HttpResponseNotFound('Rekaman tidak ditemukan.')
 
     if settings.STREAMING_USE_X_ACCEL_REDIRECT:
         return _serve_file_x_accel(file_path, content_type, download_name)
 
-    file_size = os.path.getsize(file_path)
+    file_size = os.path.getsize(normalized)
     range_header = request.META.get('HTTP_RANGE', '')
     range_match = _RANGE_RE.match(range_header)
 
@@ -371,7 +384,7 @@ def _serve_file_range(request, file_path, content_type, download_name):
         length = max(0, end - start + 1)
 
         def stream():
-            with open(file_path, 'rb') as f:
+            with open(normalized, 'rb') as f:
                 f.seek(start)
                 remaining = length
                 while remaining > 0:
@@ -385,7 +398,7 @@ def _serve_file_range(request, file_path, content_type, download_name):
         resp['Content-Range'] = f'bytes {start}-{end}/{file_size}'
         resp['Content-Length'] = str(length)
     else:
-        resp = StreamingHttpResponse(open(file_path, 'rb'), content_type=content_type)
+        resp = StreamingHttpResponse(open(normalized, 'rb'), content_type=content_type)
         resp['Content-Length'] = str(file_size)
 
     resp['Accept-Ranges'] = 'bytes'

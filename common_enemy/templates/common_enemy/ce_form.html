@@ -224,8 +224,8 @@
 {% block extra_js %}
 <script>
 // ── Data Device & DeviceType ─────────────────────────────────
-const ALL_DEVICES   = {{ device_json|safe }};
-const ALL_TYPES     = {{ type_json|safe }};
+const ALL_DEVICES   = JSON.parse('{{ device_json|escapejs }}');
+const ALL_TYPES     = JSON.parse('{{ type_json|escapejs }}');
 
 // Mapping kategori CE ke nama DeviceType — disinkron dengan DEVICE_GROUP_CONFIG di context_processors.py
 const KATEGORI_TYPE_MAP = {

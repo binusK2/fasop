@@ -178,6 +178,11 @@ class Gangguan(models.Model):
         verbose_name        = 'Gangguan'
         verbose_name_plural = 'Gangguan'
         ordering            = ['-tanggal_gangguan']
+        indexes = [
+            models.Index(fields=['status', '-tanggal_gangguan'], name='gangguan_status_date_idx'),
+            models.Index(fields=['site', '-tanggal_gangguan'], name='gangguan_site_date_idx'),
+            models.Index(fields=['tipe_gangguan', '-tanggal_gangguan'], name='gangguan_tipe_date_idx'),
+        ]
 
     def __str__(self):
         return f'{self.nomor_gangguan} — {self.site}'

@@ -1,3 +1,5 @@
+from django.core.exceptions import ValidationError
+from django.core.validators import FileExtensionValidator
 from django.db import models
 from django.contrib.auth.models import User
 from devices.models import Device
@@ -11,6 +13,21 @@ def slugify_simple(text):
     text = re.sub(r'[^\w\s-]', '', text)
     text = re.sub(r'[\s]+', '_', text)
     return text[:40]
+
+
+DOKUMENTASI_ALLOWED_EXTENSIONS = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'jpg', 'jpeg', 'png']
+DOKUMENTASI_MAX_UPLOAD_SIZE = 20 * 1024 * 1024
+
+
+def validate_dokumentasi_file_size(file_obj):
+    if file_obj.size > DOKUMENTASI_MAX_UPLOAD_SIZE:
+        raise ValidationError('Ukuran file maksimal 20 MB.')
+
+
+dokumentasi_file_validators = [
+    FileExtensionValidator(allowed_extensions=DOKUMENTASI_ALLOWED_EXTENSIONS),
+    validate_dokumentasi_file_size,
+]
 
 
 # ── Setting Rele ────────────────────────────────────────────────────────────
@@ -63,7 +80,13 @@ class SettingRele(models.Model):
     penyulang_bay = models.CharField(max_length=100, blank=True, verbose_name='Penyulang / Bay')
     tanggal      = models.DateField(verbose_name='Tanggal')
     versi        = models.CharField(max_length=50, blank=True, verbose_name='Versi / Revisi')
-    file_setting = models.FileField(upload_to=setting_file_upload, null=True, blank=True, verbose_name='File Setting')
+    file_setting = models.FileField(
+        upload_to=setting_file_upload,
+        null=True,
+        blank=True,
+        validators=dokumentasi_file_validators,
+        verbose_name='File Setting',
+    )
     keterangan   = models.TextField(blank=True, verbose_name='Keterangan')
     checker      = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
                                      related_name='setting_rele_checked', verbose_name='Checker')
@@ -138,7 +161,13 @@ class GambarDevice(models.Model):
     skala        = models.CharField(max_length=30, blank=True, verbose_name='Skala', help_text='Contoh: 1:100, NTS, A3')
     tanggal      = models.DateField(verbose_name='Tanggal')
     versi        = models.CharField(max_length=50, blank=True, verbose_name='Versi / Revisi')
-    file_gambar  = models.FileField(upload_to=gambar_upload, null=True, blank=True, verbose_name='File Gambar')
+    file_gambar  = models.FileField(
+        upload_to=gambar_upload,
+        null=True,
+        blank=True,
+        validators=dokumentasi_file_validators,
+        verbose_name='File Gambar',
+    )
     keterangan   = models.TextField(blank=True, verbose_name='Keterangan')
     checker      = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
                                      related_name='gambar_device_checked', verbose_name='Checker')

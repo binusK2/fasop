@@ -115,6 +115,8 @@ def setting_submit(request, pk):
     if request.method != 'POST':
         return JsonResponse({'ok': False}, status=405)
     obj = get_object_or_404(SettingRele, pk=pk)
+    if obj.created_by_id != request.user.pk and not request.user.is_superuser:
+        return JsonResponse({'ok': False, 'error': 'Hanya uploader yang bisa mengirim dokumen ini'}, status=403)
     if obj.status not in ('draft', 'perlu_perbaikan'):
         return JsonResponse({'ok': False, 'error': 'Status tidak valid untuk dikirim'}, status=400)
     if not obj.checker_id:

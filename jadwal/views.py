@@ -342,6 +342,7 @@ def jadwal_detail(request, pk):
 
 
 @login_required
+@require_can_edit
 def jadwal_done(request, pk):
     """Manual tandai jadwal sebagai Done."""
     if request.method == 'POST':

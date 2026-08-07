@@ -136,7 +136,7 @@ table.hi-table { width:100%; border-collapse:collapse; font-size:13px; min-width
 {% block extra_js %}
 <script>
 // Recolor status secara live saat mengetik, mengikuti ambang band server.
-const BANDS = {{ bands_json|safe }};
+const BANDS = JSON.parse('{{ bands_json|escapejs }}');
 function statusOf(kat, v) {
     if (v === '' || v === null || isNaN(v)) return {w:'#64748b', l:'—'};
     const bands = BANDS[kat] || BANDS['bbm'];

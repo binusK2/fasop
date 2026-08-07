@@ -1,6 +1,21 @@
+import os
+
 from django import forms
+from django.core.validators import FileExtensionValidator
 from django.forms.widgets import FileInput
 from .models import ScadaAvSession, MASTER_CHOICES, INPUT_TYPE_CHOICES, CALC_TYPE_CHOICES
+
+
+def validate_scada_input_size(file_obj):
+    if file_obj.size > 20 * 1024 * 1024:
+        raise forms.ValidationError('Ukuran tiap file maksimal 20 MB.')
+
+
+def validate_scada_input_extension(file_obj):
+    ext = os.path.splitext(file_obj.name)[1].lower().lstrip('.')
+    FileExtensionValidator(allowed_extensions=['xls', 'xlsx', 'xml'])(file_obj)
+    if ext not in ('xls', 'xlsx', 'xml'):
+        raise forms.ValidationError('Format file harus .xls, .xlsx, atau .xml.')
 
 
 class MultipleFileInput(FileInput):
@@ -79,6 +94,7 @@ class ScadaAvUploadForm(forms.Form):
     )
     files = MultipleFileField(
         label='File Input',
+        validators=[validate_scada_input_extension, validate_scada_input_size],
         widget=MultipleFileInput(attrs={
             'class': _TXT,
             'accept': '.xls,.xlsx,.xml',

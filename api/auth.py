@@ -1,4 +1,6 @@
 import functools
+import hmac
+
 from django.conf import settings
 from django.http import JsonResponse
 
@@ -26,7 +28,7 @@ def require_api_key(view_func):
                 status=401
             )
 
-        if api_key != expected:
+        if not hmac.compare_digest(str(api_key), str(expected)):
             return JsonResponse(
                 {'status': 'error', 'message': 'API Key tidak valid.'},
                 status=403

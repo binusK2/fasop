@@ -299,7 +299,7 @@
 
 {% block extra_js %}
 <script>
-const ALL_DEVICES  = {{ device_json|safe }};
+const ALL_DEVICES  = JSON.parse('{{ device_json|escapejs }}');
 const selDevice    = document.getElementById('id_device');
 const infoBox      = document.getElementById('device-info-box');
 const savedDevice  = "{{ obj.device_id|default:'' }}";

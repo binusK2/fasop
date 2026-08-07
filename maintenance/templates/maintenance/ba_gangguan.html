@@ -194,7 +194,7 @@
 {% block extra_js %}
 <script>
 /* ── Data dari view ── */
-const LOKASI_DEV = {{ lokasi_device_json|safe }};
+const LOKASI_DEV = JSON.parse('{{ lokasi_device_json|escapejs }}');
 
 let rowNum = 0;
 let currentLokasi = '';

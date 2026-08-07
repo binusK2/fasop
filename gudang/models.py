@@ -218,6 +218,10 @@ class MutasiSparepart(models.Model):
         verbose_name        = 'Mutasi Spare Part'
         verbose_name_plural = 'Mutasi Spare Part'
         ordering            = ['-created_at']
+        indexes = [
+            models.Index(fields=['sparepart', 'tipe'], name='mutasi_sparepart_tipe_idx'),
+            models.Index(fields=['tipe'], name='mutasi_tipe_idx'),
+        ]
 
     def __str__(self):
         return f'{self.get_tipe_display()} {self.jumlah} {self.sparepart.satuan} — {self.sparepart.nama}'

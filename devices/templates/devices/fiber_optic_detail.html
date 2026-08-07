@@ -880,7 +880,7 @@
 /* ══════════════════════════════════════════════════════════
    OTDR DASHBOARD
    ══════════════════════════════════════════════════════════ */
-const CORES_OTDR = {{ cores_json|safe }};
+const CORES_OTDR = JSON.parse('{{ cores_json|escapejs }}');
 
 function otdrFmt(v, dec) {
     return (v != null) ? parseFloat(v).toFixed(dec ?? 3) : '—';

@@ -126,7 +126,7 @@
 <script>
 Chart.defaults.font.family = "'DM Sans', sans-serif";
 
-const jenisData = {{ jenis_json|safe }};
+const jenisData = JSON.parse('{{ jenis_json|escapejs }}');
 
 jenisData.forEach((d, i) => {
     const ctx = document.getElementById('chart_' + i);

@@ -196,8 +196,8 @@
 
 <script>
 const JENIS        = "{{ record.jenis }}";
-const ROWS         = {{ rows_json|safe }};
-const LOKASI_DEV   = {{ lokasi_device_json|safe }};
+const ROWS         = JSON.parse('{{ rows_json|escapejs }}');
+const LOKASI_DEV   = JSON.parse('{{ lokasi_device_json|escapejs }}');
 let rowCount       = 0;
 
 /* ── Helpers filter lokasi/peralatan (untuk jenis gangguan) ── */
