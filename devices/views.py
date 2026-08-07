@@ -1946,6 +1946,21 @@ def export_devices_excel(request):
     # Pre-fetch komponen for all devices in one query
     devices_list = list(devices.prefetch_related('komponen__tipe_komponen'))
 
+    # Tanggal terakhir pemeliharaan (status Done) & inspeksi — bulk, hindari N+1
+    from django.db.models import Max as _Max
+    from inspection.models import Inspection as _Inspection
+    maint_latest = dict(
+        Maintenance.objects.filter(device__in=devices_list, status='Done')
+        .values('device_id').annotate(_d=_Max('date'))
+        .values_list('device_id', '_d')
+    )
+    insp_latest = dict(
+        _Inspection.objects.filter(device__in=devices_list)
+        .values('device_id').annotate(_d=_Max('tanggal'))
+        .values_list('device_id', '_d')
+    )
+    _fmt_date = lambda dt: dt.strftime('%d %b %Y') if dt else '-'
+
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Inventory Peralatan"
@@ -1986,7 +2001,7 @@ def export_devices_excel(request):
         return 'kritis'
 
     # Judul
-    ws.merge_cells('A1:K1')
+    ws.merge_cells('A1:O1')
     title_cell = ws['A1']
     title_cell.value = "INVENTORY PERALATAN FASOP UP2B"
     title_cell.font = Font(bold=True, size=13)
@@ -1994,7 +2009,7 @@ def export_devices_excel(request):
     title_cell.fill = PatternFill("solid", fgColor="EFF6FF")
     ws.row_dimensions[1].height = 28
 
-    ws.merge_cells('A2:K2')
+    ws.merge_cells('A2:O2')
     from datetime import date
     ws['A2'].value = f"Dicetak: {date.today().strftime('%d %B %Y')}"
     ws['A2'].alignment = Alignment(horizontal="center")
@@ -2003,10 +2018,11 @@ def export_devices_excel(request):
 
     ws.row_dimensions[3].height = 6  # spacer
 
-    # Header — 11 columns
+    # Header — 15 columns
     headers = ['No', 'Nama', 'Jenis', 'Merk', 'Type/Model', 'Serial Number',
-               'IP Address', 'Lokasi', 'Firmware', 'Health Index', 'Kategori HI']
-    col_widths = [5, 25, 15, 15, 18, 20, 16, 20, 15, 13, 16]
+               'IP Address', 'Lokasi', 'Firmware', 'Health Index', 'Kategori HI',
+               'Asset ID', 'Status Aset', 'Terakhir Pemeliharaan', 'Terakhir Inspeksi']
+    col_widths = [5, 25, 15, 15, 18, 20, 16, 20, 15, 13, 16, 14, 16, 22, 20]
 
     for col_idx, (header, width) in enumerate(zip(headers, col_widths), 1):
         cell = ws.cell(row=4, column=col_idx, value=header)
@@ -2044,11 +2060,15 @@ def export_devices_excel(request):
             d.firmware_version or '-',
             hi_score if hi_score is not None else '-',
             hi_label,
+            d.asset_id or '-',
+            d.get_status_aset_display(),
+            _fmt_date(maint_latest.get(d.id)),
+            _fmt_date(insp_latest.get(d.id)),
         ]
         for col_idx, value in enumerate(row_data, 1):
             cell = ws.cell(row=ws_row, column=col_idx, value=value)
             cell.border = thin_border
-            cell.alignment = center_align if col_idx in (1, 10, 11) else Alignment(vertical="center")
+            cell.alignment = center_align if col_idx in (1, 10, 11, 14, 15) else Alignment(vertical="center")
             if row_idx % 2 == 0 and col_idx not in (10, 11):
                 cell.fill = alt_fill
 
