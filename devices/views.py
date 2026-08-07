@@ -27,6 +27,7 @@ from datetime import date as date_type
 from dateutil.relativedelta import relativedelta
 import json
 from .device_schema import DEVICE_SCHEMA
+from .constants import DEVICE_GROUP_CONFIG
 from auditlog.utils import log_action as _audit
 
 
@@ -373,34 +374,8 @@ def dashboard(request):
 
     # ── Distribusi peralatan per kelompok (Telkom / SCADA / Prosis) ─
     _KELOMPOK_CFG = [
-        {
-            'key': 'telkom', 'label': 'Telekomunikasi',
-            'icon': 'bi-broadcast-pin', 'color': '#3b82f6', 'bg': '#eff6ff',
-            'types': {
-                'router', 'switch', 'teleproteksi', 'roip', 'voip',
-                'multiplexer', 'plc', 'radio', 'server telkom',
-                'master clock', 'ht', 'pheriperal telkom', 'peripheral telkom',
-                'microwave', 'repeater', 'tower',
-            },
-        },
-        {
-            'key': 'scada', 'label': 'SCADA',
-            'icon': 'bi-diagram-3', 'color': '#10b981', 'bg': '#f0fdf4',
-            'types': {
-                'rtu', 'sas', 'ups', 'server scada', 'vm scada', 'ied bcu',
-                'clock server', 'serial server', 'router sas', 'switch sas',
-                'inverter sas', 'pheriperal scada', 'peripheral scada', 'gps',
-                'dc-mon', 'dc mon',
-            },
-        },
-        {
-            'key': 'prosis', 'label': 'Proteksi Sistem',
-            'icon': 'bi-shield-check', 'color': '#f59e0b', 'bg': '#fffbeb',
-            'types': {
-                'defense scheme', 'rele defense scheme', 'dfr',
-                'master trip', 'ufls', 'server prosis',
-            },
-        },
+        {**cfg, 'key': key, 'types': set(cfg['types'])}
+        for key, cfg in DEVICE_GROUP_CONFIG.items()
     ]
     # Batch: total devices per jenis
     _type_agg = {}
@@ -818,6 +793,7 @@ def distribusi_jenis(request):
     })
 
 
+@login_required
 def distribusi_jenis_detail(request, jenis_id):
     """Halaman drill-down distribusi merk & type untuk satu jenis perangkat."""
     jenis_obj = get_object_or_404(DeviceType, pk=jenis_id)
@@ -1250,6 +1226,7 @@ def _link_to_dict(link, site_coords):
     }
 
 
+@login_required
 def api_device_links(request):
     from .models import DeviceLink
     sc  = {sl.nama.strip(): sl for sl in SiteLocation.objects.all()}
@@ -1800,6 +1777,7 @@ def fiber_optic_delete(request, pk):
     return redirect('fiber_optic_list')
 
 
+@login_required
 def api_fiber_optic_json(request):
     """API: semua segmen FO sebagai JSON untuk JS autocomplete di form gangguan."""
     from .models import FiberOptic
@@ -2785,6 +2763,7 @@ def lokasi_admin(request):
     })
 
 
+@login_required
 def api_lokasi_list(request):
     """API: kembalikan daftar lokasi sebagai JSON untuk validasi form."""
     from devices.models import SiteLocation

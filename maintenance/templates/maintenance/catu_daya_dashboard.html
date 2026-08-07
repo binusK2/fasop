@@ -739,10 +739,10 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 
 <script>
-const DEVICES      = {{ devices_data_json|safe }};
+const DEVICES      = JSON.parse('{{ devices_data_json|escapejs }}');
 const THRESHOLD    = {{ threshold }};
-const UPS_DEVICES  = {{ ups_data_json|safe }};
-const GENSET_DEVICES = {{ genset_data_json|safe }};
+const UPS_DEVICES  = JSON.parse('{{ ups_data_json|escapejs }}');
+const GENSET_DEVICES = JSON.parse('{{ genset_data_json|escapejs }}');
 const UPS_VAC_THR  = {{ ups_vac_threshold }};
 
 let chartDischarge = null;

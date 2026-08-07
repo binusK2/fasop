@@ -202,11 +202,11 @@
 </form>
 
 <script>
-const DEFAULT_COLUMNS = {{ default_columns_json|safe }};
-const LOKASI_LIST = {{ lokasi_json|safe }};
+const DEFAULT_COLUMNS = JSON.parse('{{ default_columns_json|escapejs }}');
+const LOKASI_LIST = JSON.parse('{{ lokasi_json|escapejs }}');
 const BA_DEVICE_SEARCH_URL = '{% url "ba_device_search" %}';
-let columns = {{ columns_json|safe }};
-let rows    = {{ rows_json|safe }};   // array of arrays (cells)
+let columns = JSON.parse('{{ columns_json|escapejs }}');
+let rows    = JSON.parse('{{ rows_json|escapejs }}');   // array of arrays (cells)
 let colKinds = [];
 
 function esc(s){ return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }

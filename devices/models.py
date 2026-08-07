@@ -122,6 +122,12 @@ class Device(models.Model):
     )
 
     class Meta:
+        indexes = [
+            models.Index(fields=['is_deleted', 'jenis'], name='device_del_jenis_idx'),
+            models.Index(fields=['is_deleted', 'lokasi'], name='device_del_lokasi_idx'),
+            models.Index(fields=['is_deleted', 'host'], name='device_del_host_idx'),
+            models.Index(fields=['is_deleted', 'status_operasi'], name='device_del_status_idx'),
+        ]
         constraints = [
             models.UniqueConstraint(
                 fields=['ip_address', 'lokasi'],

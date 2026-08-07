@@ -144,35 +144,6 @@ def hi_settings(request):
         'default_bobot':  DEFAULT_BOBOT,
         'kategori_guide': kategori_guide,
     })
-    """Halaman detail Health Index satu peralatan."""
-    device = get_object_or_404(Device, pk=pk, is_deleted=False)
-    hi = calculate_hi(device)
-
-    # Ambil 12 snapshot terakhir untuk grafik tren
-    from health_index.models import HISnapshot
-    snapshots = (
-        HISnapshot.objects
-        .filter(device=device)
-        .order_by('tahun', 'bulan')[:12]
-    )
-    tren_labels  = [s.label_bulan for s in snapshots]
-    tren_scores  = [s.score for s in snapshots]
-    tren_colors  = []
-    for s in snapshots:
-        if s.score >= 85:   tren_colors.append('#10b981')
-        elif s.score >= 70: tren_colors.append('#3b82f6')
-        elif s.score >= 50: tren_colors.append('#f59e0b')
-        elif s.score >= 25: tren_colors.append('#f97316')
-        else:               tren_colors.append('#ef4444')
-
-    return render(request, 'health_index/hi_detail.html', {
-        'device':       device,
-        'hi':           hi,
-        'tren_labels':  tren_labels,
-        'tren_scores':  tren_scores,
-        'tren_colors':  tren_colors,
-        'has_tren':     len(tren_scores) > 1,
-    })
 
 
 @login_required

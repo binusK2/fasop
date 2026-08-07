@@ -278,11 +278,14 @@ def progress_bar(value: float, width: int = 0, style: str = 'full-block', *args,
 	else:
 		print(f'\r {"Selesai... 100%".ljust(width, " ")}', flush=True)
 
+_XML_PARSER = et.XMLParser(resolve_entities=False, no_network=True, huge_tree=False)
+
+
 def read_xml(filepath:str, *args, **kwargs):
 	columns, rows = [], []
 
 	try:
-		xml = et.parse(filepath)
+		xml = et.parse(filepath, parser=_XML_PARSER)
 	except FileNotFoundError:
 		raise FileNotFoundError
 	except Exception:

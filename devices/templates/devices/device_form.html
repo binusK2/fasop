@@ -434,7 +434,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 <script>
 (function () {
-  const SCHEMA = {{ device_schema_json|safe }};
+  const SCHEMA = JSON.parse('{{ device_schema_json|escapejs }}');
   const existing = {% if existing_spesifikasi %}{{ existing_spesifikasi|safe }}{% else %}{}{% endif %};
 
   const jenisSelect  = document.querySelector('[name="jenis"]');
@@ -669,7 +669,7 @@ document.addEventListener('DOMContentLoaded', function() {
 (function() {
   let komponenCounter = 0;
 
-  const TIPE_OPTIONS = {{ tipe_komponen_json|safe }};
+  const TIPE_OPTIONS = JSON.parse('{{ tipe_komponen_json|escapejs }}');
 
   function buildTipeSelect() {
     let html = '<option value="">— Pilih Tipe —</option>';

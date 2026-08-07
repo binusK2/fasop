@@ -471,9 +471,9 @@
 
 {% block extra_js %}
 <script>
-const ALL_DEVICES = {{ device_json|safe }};
-const ALL_TYPES   = {{ type_json|safe }};
-const ALL_ICONS   = {{ icon_json|safe }};
+const ALL_DEVICES = JSON.parse('{{ device_json|escapejs }}');
+const ALL_TYPES   = JSON.parse('{{ type_json|escapejs }}');
+const ALL_ICONS   = JSON.parse('{{ icon_json|escapejs }}');
 let selectedJenisId = 0;
 let searchVal = '';
 
@@ -873,7 +873,7 @@ if (initIconId) {
 })();
 
 // ── Fiber Optic data & autocomplete ──────────────────────────
-const ALL_FO = {{ fo_json|safe }};
+const ALL_FO = JSON.parse('{{ fo_json|escapejs }}');
 
 const foSearchInput  = document.getElementById('fo-search-input');
 const foDropdown     = document.getElementById('fo-dropdown');

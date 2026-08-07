@@ -211,9 +211,9 @@
 <script>
 Chart.defaults.font.family = "'DM Sans', sans-serif";
 
-const PALETTE = {{ palette_json|safe }};
-const merkData = {{ merk_json|safe }};
-const typeData = {{ type_json|safe }};
+const PALETTE = JSON.parse('{{ palette_json|escapejs }}');
+const merkData = JSON.parse('{{ merk_json|escapejs }}');
+const typeData = JSON.parse('{{ type_json|escapejs }}');
 
 // ── Donut: status operasi ─────────────────────────────────────────────────────
 (function() {

@@ -1,3 +1,5 @@
+from django.core.exceptions import ValidationError
+from django.core.validators import FileExtensionValidator
 from django.db import models
 from devices.models import Device
 from django.contrib.auth.models import User
@@ -11,6 +13,17 @@ def slugify_simple(text):
     text = re.sub(r'[^\w\s-]', '', text)
     text = re.sub(r'[\s]+', '_', text)
     return text[:40]
+
+
+def validate_ba_file_size(file_obj):
+    if file_obj.size > 20 * 1024 * 1024:
+        raise ValidationError('Ukuran file BA maksimal 20 MB.')
+
+
+ba_file_validators = [
+    FileExtensionValidator(allowed_extensions=['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'xlsx']),
+    validate_ba_file_size,
+]
 
 
 def maintenance_photo_upload(instance, filename):
@@ -51,6 +64,11 @@ class Maintenance(models.Model):
 
     class Meta:
         ordering = ['-date']
+        indexes = [
+            models.Index(fields=['device', 'status', '-date'], name='maint_dev_status_date_idx'),
+            models.Index(fields=['status', '-date'], name='maint_status_date_idx'),
+            models.Index(fields=['maintenance_type', '-date'], name='maint_type_date_idx'),
+        ]
 
     def __str__(self):
         return f"{self.device} — {self.maintenance_type} ({self.date})"
@@ -1541,6 +1559,7 @@ class BeritaAcaraRecord(models.Model):
     )
     file_upload = models.FileField(
         upload_to=ba_file_upload, blank=True, null=True,
+        validators=ba_file_validators,
         verbose_name='File BA (Upload)',
         help_text='Dokumen BA yang sudah jadi (hasil upload langsung, tanpa generate PDF)',
     )

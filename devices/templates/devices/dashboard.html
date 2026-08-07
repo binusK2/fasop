@@ -1033,7 +1033,7 @@
 Chart.defaults.font.family = "'DM Sans', sans-serif";
 
 // ── Trend pemeliharaan 6 bulan — STACKED BAR (Preventive vs Corrective) ──
-const maintStacked = {{ maintenance_stacked_json|safe }};
+const maintStacked = JSON.parse('{{ maintenance_stacked_json|escapejs }}');
 new Chart(document.getElementById('maintenanceLine'), {
     type: 'bar',
     data: {
@@ -1113,7 +1113,7 @@ new Chart(document.getElementById('gangguanLine'), {
 });
 
 // ── Gangguan per Kategori (Horizontal Bar) ────────────────────
-const gKatData = {{ gangguan_kategori_json|safe }};
+const gKatData = JSON.parse('{{ gangguan_kategori_json|escapejs }}');
 new Chart(document.getElementById('gangguanKategoriChart'), {
     type: 'bar',
     data: {
@@ -1146,7 +1146,7 @@ new Chart(document.getElementById('gangguanKategoriChart'), {
 });
 
 // ── Gangguan per Severity (Donut) ─────────────────────────────
-const gSevData = {{ gangguan_severity_json|safe }};
+const gSevData = JSON.parse('{{ gangguan_severity_json|escapejs }}');
 const sevColors = ['#ef4444','#f97316','#f59e0b','#10b981'];
 new Chart(document.getElementById('gangguanSeverityDonut'), {
     type: 'doughnut',
@@ -1183,7 +1183,7 @@ gSevData.forEach((d, i) => {
 });
 
 // ── Device per Lokasi (Horizontal Stacked Bar) ────────────────
-const devLokData = {{ device_by_lokasi_json|safe }};
+const devLokData = JSON.parse('{{ device_by_lokasi_json|escapejs }}');
 new Chart(document.getElementById('deviceLokasiBar'), {
     type: 'bar',
     data: {
@@ -1233,7 +1233,7 @@ new Chart(document.getElementById('deviceLokasiBar'), {
 });
 
 // ── Pie chart status per jenis perangkat ──────────────────────
-const statusByType = {{ device_status_by_type_json|safe }};
+const statusByType = JSON.parse('{{ device_status_by_type_json|escapejs }}');
 const jenisNames   = Object.keys(statusByType);
 const jenisSelect  = document.getElementById('jenisSelect');
 
