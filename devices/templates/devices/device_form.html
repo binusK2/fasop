@@ -147,13 +147,30 @@
             </div>
             <div class="col-md-6">
                 <div class="field-card">
+                    <label class="field-label">Asset ID</label>
+                    <div class="input-group">
+                        <span class="input-group-text field-addon"><i class="bi bi-upc-scan"></i></span>
+                        {{ form.asset_id }}
+                    </div>
+                    <div style="font-size:11px;color:#94a3b8;margin-top:5px;">
+                        Nomor identitas aset (angka).
+                    </div>
+                    {% if form.asset_id.errors %}<div class="field-error">{{ form.asset_id.errors.0 }}</div>{% endif %}
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="field-card">
                     <label class="field-label">Status Aset</label>
                     <div class="input-group">
                         <span class="input-group-text field-addon"><i class="bi bi-patch-check"></i></span>
                         {{ form.status_aset }}
                     </div>
+                    <div id="status-aset-lainnya-wrap" style="margin-top:8px;{% if form.status_aset.value != 'LAINNYA' %}display:none;{% endif %}">
+                        {{ form.status_aset_lainnya }}
+                        {% if form.status_aset_lainnya.errors %}<div class="field-error">{{ form.status_aset_lainnya.errors.0 }}</div>{% endif %}
+                    </div>
                     <div style="font-size:11px;color:#94a3b8;margin-top:5px;">
-                        Kepemilikan aset — hanya <strong>UP2B</strong> yang dihitung sebagai jumlah aset.
+                        Kepemilikan aset — hanya <strong>UP2B</strong> yang dihitung sebagai jumlah aset. Pilih <strong>Lainnya</strong> untuk isi manual.
                     </div>
                     {% if form.status_aset.errors %}<div class="field-error">{{ form.status_aset.errors.0 }}</div>{% endif %}
                 </div>
@@ -374,6 +391,17 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+    // ── Status Aset: toggle input manual saat pilih "Lainnya" ──────
+    const asetSelect = document.querySelector('[name="status_aset"]');
+    const asetManualWrap = document.getElementById('status-aset-lainnya-wrap');
+    if (asetSelect && asetManualWrap) {
+        const syncAsetManual = () => {
+            asetManualWrap.style.display = asetSelect.value === 'LAINNYA' ? '' : 'none';
+        };
+        asetSelect.addEventListener('change', syncAsetManual);
+        syncAsetManual();
+    }
+
     // ── Foto 1 ──────────────────────────────────────────────────────
     const realInput = document.querySelector('input[name="foto"]');
     if (realInput) {

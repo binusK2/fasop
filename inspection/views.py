@@ -1257,6 +1257,62 @@ def inspection_dashboard(request):
     })
 
 
+# DASHBOARD PER ULTG (Engineer / AM / Teknisi)
+# ─────────────────────────────────────────────────────────────────────
+@login_required
+def inspection_dashboard_ultg(request, pk):
+    """Detail progres satu ULTG — daftar peralatan terinspeksi (terbaru dulu)
+    di panel utama, dan panel samping peralatan dalam kondisi alarm.
+    Klik peralatan alarm → detail inspeksi (inspection_riwayat)."""
+    from devices.permissions import can_edit
+    if not (request.user.is_superuser or can_edit(request.user)):
+        return redirect('inspection_lokasi')
+
+    from devices.models import ULTG
+    ultg = get_object_or_404(ULTG, pk=pk)
+    lokasi_names = ultg.get_lokasi_names()
+
+    INSPECTABLE = ['Catu Daya', 'RELE DEFENSE SCHEME', 'MASTER TRIP', 'UFLS', 'DFR', 'SERVER PROSIS']
+
+    today = date.today()
+
+    devs = Device.objects.filter(
+        is_deleted=False, jenis__name__in=INSPECTABLE, lokasi__in=lokasi_names
+    )
+    total = devs.count()
+
+    insp_bulan = Inspection.objects.filter(
+        device__in=devs,
+        tanggal__year=today.year, tanggal__month=today.month
+    ).select_related('device', 'device__jenis', 'operator').order_by('-tanggal')
+
+    # Sudah diinspeksi bulan ini — urut terbaru dulu (satu inspeksi per device)
+    seen = {}
+    for insp in insp_bulan:
+        if insp.device_id not in seen:
+            seen[insp.device_id] = insp
+    devices_sudah = [seen[did] for did in seen]
+    sudah_ids     = set(seen.keys())
+
+    devices_belum = devs.exclude(pk__in=sudah_ids).order_by('nama', 'lokasi')
+
+    alarm_list = [insp for insp in insp_bulan if _is_alarm_inspection(insp)]
+
+    sudah = len(sudah_ids)
+    return render(request, 'inspection/dashboard_ultg.html', {
+        'ultg':           ultg,
+        'lokasi_count':   len(lokasi_names),
+        'total':          total,
+        'sudah':          sudah,
+        'belum':          total - sudah,
+        'pct':            round(sudah / total * 100) if total else 0,
+        'devices_sudah':  devices_sudah,
+        'devices_belum':  devices_belum,
+        'alarm_list':     alarm_list,
+        'today':          today,
+    })
+
+
 # EXPORT LAPORAN EXCEL
 # ─────────────────────────────────────────────────────────────────────
 @login_required

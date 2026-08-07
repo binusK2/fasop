@@ -20,6 +20,18 @@ class DeviceForm(forms.ModelForm):
         label='Tahun Operasi',
     )
 
+    asset_id = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Kosongkan jika tidak ada',
+            'inputmode': 'numeric',
+            'pattern': '[0-9]*',
+        }),
+        label='Asset ID',
+        help_text='Nomor identitas aset (angka).',
+    )
+
     class Meta:
         model = Device
         fields = '__all__'
@@ -27,6 +39,18 @@ class DeviceForm(forms.ModelForm):
         widgets = {
             'status_aset': forms.Select(attrs={'class': 'form-select'}),
         }
+
+    def clean_asset_id(self):
+        val = (self.cleaned_data.get('asset_id') or '').strip()
+        if val and not val.isdigit():
+            raise forms.ValidationError('Asset ID hanya boleh berisi angka.')
+        return val or None
+
+    def clean_status_aset(self):
+        val = (self.cleaned_data.get('status_aset') or '').strip()
+        if not val:
+            raise forms.ValidationError('Pilih status aset atau isi manual.')
+        return val
 
     def clean_ip_address(self):
         ip = self.cleaned_data.get('ip_address', '').strip()
@@ -42,6 +66,13 @@ class DeviceForm(forms.ModelForm):
 
     def clean(self):
         cleaned = super().clean()
+        if cleaned.get('status_aset') == 'LAINNYA':
+            manual = (cleaned.get('status_aset_lainnya') or '').strip()
+            if not manual:
+                self.add_error('status_aset_lainnya', 'Isi status aset manual atau pilih dari daftar.')
+            else:
+                cleaned['status_aset'] = manual
+
         ip     = cleaned.get('ip_address')
         lokasi = cleaned.get('lokasi')
         if ip and lokasi:
@@ -69,8 +100,43 @@ class DeviceForm(forms.ModelForm):
                 'class': 'form-control'
             })
 
-            self.fields['foto'].widget.attrs.update({'class': 'form-control'})
-            self.fields['foto2'].widget.attrs.update({'class': 'form-control'})
+        self.fields['foto'].widget.attrs.update({'class': 'form-control'})
+        self.fields['foto2'].widget.attrs.update({'class': 'form-control'})
+
+        aset_choices = list(Device.ASET_CHOICES) + [('LAINNYA', 'Lainnya (isi manual)')]
+        status_initial = 'UP2B'
+        lain_initial = ''
+        if self.instance and self.instance.pk:
+            cur = self.instance.status_aset
+            valid_vals = [c[0] for c in aset_choices]
+            if cur and cur not in valid_vals:
+                status_initial = 'LAINNYA'
+                lain_initial = cur
+            else:
+                status_initial = cur
+
+        self.fields['status_aset'] = forms.ChoiceField(
+            choices=aset_choices,
+            initial=status_initial,
+            widget=forms.Select(attrs={'class': 'form-select'}),
+            label='Status Aset',
+        )
+        self.fields['status_aset_lainnya'] = forms.CharField(
+            required=False,
+            initial=lain_initial,
+            widget=forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Tulis status aset manual',
+            }),
+            label='',
+        )
+
+        self.fields['asset_id'].widget.attrs.update({
+            'class': 'form-control',
+            'placeholder': 'Kosongkan jika tidak ada',
+            'inputmode': 'numeric',
+            'pattern': '[0-9]*',
+        })
 
         # host: tampilkan server fisik yang bisa menjadi host VM (bukan VM itu sendiri)
         self.fields['host'].required = False

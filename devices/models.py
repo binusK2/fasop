@@ -60,14 +60,20 @@ class Device(models.Model):
         default='operasi',
         verbose_name='Status Operasi'
     )
+    asset_id = models.CharField(
+        max_length=30,
+        blank=True,
+        null=True,
+        verbose_name='Asset ID',
+        help_text='Nomor identitas aset (angka).',
+    )
     ASET_CHOICES = (
         ('UP2B',       'UP2B'),
         ('IPP',        'IPP'),
         ('BELUM_STAP', 'Belum STAP'),
     )
     status_aset = models.CharField(
-        max_length=12,
-        choices=ASET_CHOICES,
+        max_length=50,
         default='UP2B',
         db_index=True,
         verbose_name='Status Aset',
@@ -139,7 +145,14 @@ class Device(models.Model):
     def __str__(self):
         return self.nama
 
+    def get_status_aset_display(self):
+        return dict(self.ASET_CHOICES).get(str(self.status_aset), str(self.status_aset) or '—')
+
     def save(self, *args, **kwargs):
+        if self.asset_id is not None:
+            self.asset_id = str(self.asset_id).strip()
+        if self.status_aset:
+            self.status_aset = self.status_aset.strip()
         if not self.public_token:
             import secrets
             self.public_token = secrets.token_urlsafe(20)
