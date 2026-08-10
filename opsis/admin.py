@@ -34,11 +34,29 @@ class PembangkitAdmin(admin.ModelAdmin):
 
 @admin.register(Trafo)
 class TrafoAdmin(admin.ModelAdmin):
-    list_display   = ('urutan', 'site', 'bay', 'aktif')
+    list_display   = ('urutan', 'site', 'bay', 'aktif', 'pakai_override')
     list_editable  = ('urutan', 'aktif')
     list_filter    = ('site', 'aktif')
     list_display_links = ('bay',)
     search_fields  = ('site', 'bay')
+    fieldsets = (
+        (None, {'fields': ('site', 'bay', 'urutan', 'aktif')}),
+        ('Sumber Data Pengganti', {
+            'description': 'Isi hanya jika titik trafo ini berhenti terupdate di ALL_TRANS_DATA '
+                            'dan datanya harus dibaca dari tabel MSSQL lain (mis. IBT GITET Wotu). '
+                            'Kosongkan Tabel Sumber Pengganti untuk kembali memakai ALL_TRANS_DATA. '
+                            'Mode Baris: satu titik per baris, kolom kunci dicocokkan dengan Tag P/Q/V/I '
+                            'lalu nilainya diambil dari Kolom Nilai. Mode Kolom: satu baris tabel '
+                            'berisi kolom P/Q/V/I langsung, dipilih lewat Kolom Kunci = Nilai Kunci.',
+            'fields': ('sumber_tabel', 'sumber_mode',
+                       'sumber_filter_kolom', 'sumber_filter_nilai', 'sumber_kolom_nilai',
+                       'sumber_p', 'sumber_q', 'sumber_v', 'sumber_i'),
+        }),
+    )
+
+    @admin.display(boolean=True, description='Override')
+    def pakai_override(self, obj):
+        return obj.pakai_override
 
 
 @admin.register(SnapFreq)

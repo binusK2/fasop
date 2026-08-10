@@ -19,6 +19,7 @@ Env vars di .env server:
 from django.conf import settings
 import datetime
 import logging
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -543,11 +544,142 @@ def get_beban_trend():
 
 # ── Beban Trafo ──────────────────────────────────────────────────────
 
+_COLUMN_RE = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*$')
+_TABLE_RE  = re.compile(r'^[A-Za-z_][A-Za-z0-9_\[\].]*$')
+
+
+def _trafo_override_specs():
+    """
+    Daftar spesifikasi sumber data pengganti dari opsis.Trafo (field sumber_*).
+    Hanya trafo aktif yang memakai override ikut dibaca. Return [] bila tidak ada.
+    """
+    from opsis.models import Trafo
+    out = []
+    for t in Trafo.objects.filter(aktif=True).exclude(sumber_tabel=''):
+        spec = t.spesifikasi_override()
+        if spec:
+            out.append(spec)
+    return out
+
+
+def get_nilai_override(spec):
+    """
+    Ambil nilai p/q/v/i sebuah trafo dari TABEL SUMBER PENGGANTI
+    (opsis.Trafo.sumber_*), dipakai saat titik berhenti update di ALL_TRANS_DATA
+    (mis. IBT GITET Wotu) sementara nilainya masih hidup di tabel MSSQL lain.
+
+    spec = dict dari Trafo.spesifikasi_override():
+        mode         'baris' — satu titik per baris; filter_kolom dicocokkan dengan
+                               Tag P/Q/V/I, nilai diambil dari kolom_nilai.
+                     'kolom' — satu baris berisi kolom P/Q/V/I; filter_kolom dipilih
+                               dengan filter_nilai.
+        tabel        nama tabel MSSQL.
+        filter_kolom kolom penanda titik (mode baris: kolom tag; mode kolom: kolom pemilih).
+        filter_nilai hanya mode kolom — nilai yang dicari pada filter_kolom.
+        kolom_nilai  hanya mode baris — kolom berisi angkanya (umumnya VALUE).
+        p/q/v/i      mode baris: tag kunci titik; mode kolom: nama kolom. Kosong = None.
+
+    Return dict site/bay/p/q/v/i, atau None bila tabel/kolom invalid atau query gagal.
+    """
+    if not getattr(settings, 'MSSQL_HOST', ''):
+        return None
+
+    tabel = (spec.get('tabel') or '').strip()
+    if not _TABLE_RE.match(tabel):
+        logger.error('get_nilai_override: nama tabel invalid %r', tabel)
+        return None
+    key_col = (spec.get('filter_kolom') or '').strip()
+    if not _COLUMN_RE.match(key_col):
+        logger.error('get_nilai_override: kolom kunci invalid %r', key_col)
+        return None
+
+    row = {
+        'site': spec['key'][0],
+        'bay':  spec['key'][1],
+        'p': None, 'q': None, 'v': None, 'i': None,
+    }
+
+    conn = None
+    try:
+        conn = _get_connection()
+        cursor = conn.cursor()
+
+        if spec.get('mode') == 'kolom':
+            nilai = (spec.get('filter_nilai') or '').strip()
+            if not nilai:
+                conn.close()
+                return None
+            cols = []
+            for met in ('p', 'q', 'v', 'i'):
+                c = (spec.get(met) or '').strip()
+                cols.append(c if _COLUMN_RE.match(c) else 'NULL')
+            select = ', '.join(cols) or 'NULL'
+            cursor.execute(
+                f'SELECT TOP 1 {select} FROM {tabel} WITH (NOLOCK) WHERE RTRIM({key_col}) = ?',
+                (nilai,),
+            )
+            vals = cursor.fetchone()
+            if vals:
+                for met, val in zip(('p', 'q', 'v', 'i'), vals):
+                    row[met] = float(val) if val is not None else None
+        else:  # mode baris — satu query per metrik yang tag-nya diisi
+            kolom_nilai = (spec.get('kolom_nilai') or 'VALUE').strip()
+            if not _COLUMN_RE.match(kolom_nilai):
+                conn.close()
+                return None
+            for met, tag in (('p', spec['p']), ('q', spec['q']),
+                             ('v', spec['v']), ('i', spec['i'])):
+                if not tag:
+                    continue
+                cursor.execute(
+                    f'SELECT TOP 1 {kolom_nilai} FROM {tabel} WITH (NOLOCK) '
+                    f'WHERE RTRIM({key_col}) = ?',
+                    (tag,),
+                )
+                val = cursor.fetchone()
+                row[met] = float(val[0]) if val and val[0] is not None else None
+        return row
+    except Exception as e:
+        logger.error('get_nilai_override(%s) error: %s', tabel, e, exc_info=True)
+        return None
+    finally:
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+
+def _apply_override(rows):
+    """
+    Sisipkan hasil tabel sumber pengganti ke daftar baris ALL_TRANS_DATA.
+    Baris (site, bay) yang punya override dihapus dan diganti nilai dari
+    get_nilai_override(); trafo override yang sudah hilang dari ALL_TRANS_DATA
+    tetap dimunculkan. Return rows apa adanya bila tidak ada override.
+    """
+    specs = _trafo_override_specs()
+    if not specs:
+        return rows
+
+    keys = {(s['key'][0], s['key'][1]) for s in specs}
+    merged = [r for r in rows if (r['site'], r['bay']) not in keys]
+    for s in specs:
+        row = get_nilai_override(s)
+        if row is not None:
+            merged.append(row)
+    merged.sort(key=lambda r: (r['site'], r['bay']))
+    return merged
+
+
 def get_beban_trafo():
     """
     Ambil data beban trafo DISTRIBUSI dari ALL_TRANS_DATA
     (BAY LIKE 'TRF52%' atau 'TRF42%'). Trafo IBT (transmisi) belum termasuk —
     akan jadi fitur terpisah nantinya.
+
+    Trafo yang dikonfigurasi sumber pengganti (opsis.Trafo.sumber_tabel) dibaca
+    dari tabel tersebut dan menggantikan baris ALL_TRANS_DATA-nya (lihat
+    _apply_override/get_nilai_override).
 
     Returns:
         list of dict:
@@ -577,7 +709,7 @@ def get_beban_trafo():
         )
         rows = cursor.fetchall()
         conn.close()
-        return [
+        base = [
             {
                 'site': (row[0] or '').strip(),
                 'bay':  (row[1] or '').strip(),
@@ -588,9 +720,10 @@ def get_beban_trafo():
             }
             for row in rows
         ]
+        return _apply_override(base)
     except Exception as e:
         logger.error('get_beban_trafo error: %s', e)
-        return []
+        return _apply_override([])  # override saja bila ALL_TRANS_DATA gagal
 
 
 def get_beban_trafo_ibt():
@@ -619,7 +752,7 @@ def get_beban_trafo_ibt():
         )
         rows = cursor.fetchall()
         conn.close()
-        return [
+        base = [
             {
                 'site': (row[0] or '').strip(),
                 'bay':  (row[1] or '').strip(),
@@ -630,9 +763,10 @@ def get_beban_trafo_ibt():
             }
             for row in rows
         ]
+        return _apply_override(base)
     except Exception as e:
         logger.error('get_beban_trafo_ibt error: %s', e)
-        return []
+        return _apply_override([])  # override saja bila ALL_TRANS_DATA gagal
 
 
 # ── Beban KTT (Konsumen Tegangan Tinggi) ─────────────────────────────────────
