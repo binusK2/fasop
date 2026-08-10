@@ -214,17 +214,54 @@ class HopSnapshot(models.Model):
         return f'{self.pembangkit.nama} @ {self.tanggal:%Y-%m-%d} — {self.hop} hari'
 
 
+SUMBER_MODE_CHOICES = [
+    ('baris', 'Baris — satu titik per baris (kolom kunci + kolom nilai)'),
+    ('kolom', 'Kolom — satu baris berisi kolom P/Q/V/I'),
+]
+
+
 class Trafo(models.Model):
     """
     Registry trafo (GI + bay) yang diikutkan dalam perhitungan Beban Trafo.
     Auto-terdaftar (aktif=True) saat pertama kali muncul di ALL_TRANS_DATA
     (lihat opsis.views._trafo_aktif_saja); nonaktifkan dari admin untuk
     mengeluarkan trafo tertentu dari tampilan/perhitungan tanpa hapus data.
+
+    Sumber Data Pengganti (field 'sumber_*'): dipakai saat titik sebuah trafo
+    berhenti terupdate di ALL_TRANS_DATA (mis. IBT GITET Wotu) sementara
+    nilainya masih hidup di tabel MSSQL lain. Kalau 'sumber_tabel' diisi,
+    nilai trafo ini dibaca dari tabel tersebut dan MENGGANTIKAN baris
+    ALL_TRANS_DATA — termasuk saat barisnya sudah hilang sama sekali dari
+    ALL_TRANS_DATA (baris tetap dimunculkan). Lihat
+    opsis.mssql.get_nilai_override() dan opsis.views._trafo_aktif_saja().
     """
     site   = models.CharField(max_length=100, verbose_name='Site (GI)')
     bay    = models.CharField(max_length=50, verbose_name='Bay (Tag MSSQL)')
     urutan = models.PositiveIntegerField(default=0, verbose_name='Urutan Tampil')
     aktif  = models.BooleanField(default=True, verbose_name='Aktif')
+
+    sumber_tabel = models.CharField(
+        max_length=100, blank=True, default='', verbose_name='Tabel Sumber Pengganti',
+        help_text="Kosongkan untuk memakai ALL_TRANS_DATA (default). Contoh: dbo.ANALOG_RT")
+    sumber_mode = models.CharField(
+        max_length=10, choices=SUMBER_MODE_CHOICES, default='baris', verbose_name='Bentuk Tabel Sumber')
+    sumber_filter_kolom = models.CharField(
+        max_length=50, blank=True, default='', verbose_name='Kolom Kunci',
+        help_text="Kolom penanda titik. Mode Baris: kolom yang dicocokkan dengan Tag P/Q/V/I "
+                  "(mis. ANALOG). Mode Kolom: kolom untuk memilih baris (mis. BAY).")
+    sumber_filter_nilai = models.CharField(
+        max_length=100, blank=True, default='', verbose_name='Nilai Kunci (mode Kolom)',
+        help_text="Hanya untuk mode Kolom — nilai yang dicari pada Kolom Kunci.")
+    sumber_kolom_nilai = models.CharField(
+        max_length=50, blank=True, default='VALUE', verbose_name='Kolom Nilai (mode Baris)',
+        help_text="Hanya untuk mode Baris — kolom berisi angkanya. Umumnya VALUE.")
+    sumber_p = models.CharField(
+        max_length=100, blank=True, default='', verbose_name='Tag/Kolom P',
+        help_text="Mode Baris: nilai kunci titik P. Mode Kolom: nama kolom P. "
+                  "Kosongkan bila metrik ini tidak ada di tabel sumber.")
+    sumber_q = models.CharField(max_length=100, blank=True, default='', verbose_name='Tag/Kolom Q')
+    sumber_v = models.CharField(max_length=100, blank=True, default='', verbose_name='Tag/Kolom V')
+    sumber_i = models.CharField(max_length=100, blank=True, default='', verbose_name='Tag/Kolom I')
 
     class Meta:
         unique_together = ('site', 'bay')
@@ -234,6 +271,31 @@ class Trafo(models.Model):
 
     def __str__(self):
         return f'{self.site} — {self.bay}'
+
+    @property
+    def pakai_override(self):
+        """True bila trafo ini dibaca dari tabel sumber pengganti, bukan ALL_TRANS_DATA."""
+        return bool(self.sumber_tabel.strip())
+
+    def spesifikasi_override(self):
+        """
+        Spesifikasi sumber pengganti untuk opsis.mssql.get_nilai_override().
+        Return None bila trafo ini memakai ALL_TRANS_DATA seperti biasa.
+        """
+        if not self.pakai_override:
+            return None
+        return {
+            'key':          (self.site, self.bay),
+            'tabel':        self.sumber_tabel.strip(),
+            'mode':         self.sumber_mode,
+            'filter_kolom': self.sumber_filter_kolom.strip(),
+            'filter_nilai': self.sumber_filter_nilai.strip(),
+            'kolom_nilai':  (self.sumber_kolom_nilai or 'VALUE').strip(),
+            'p':            self.sumber_p.strip(),
+            'q':            self.sumber_q.strip(),
+            'v':            self.sumber_v.strip(),
+            'i':            self.sumber_i.strip(),
+        }
 
 
 class SnapFreq(models.Model):
