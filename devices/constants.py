@@ -24,6 +24,7 @@ DEVICE_GROUP_CONFIG = {
             'switch sas', 'inverter sas',
             'pheriperal scada', 'peripheral scada', 'gps',
             'server scada', 'dc-mon', 'dc mon',
+            'power meter',
         ],
     },
     'prosis': {

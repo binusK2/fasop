@@ -12,6 +12,7 @@ from django.db.models import Q, Count
 from django.db.models.functions import Trim
 from django.http import HttpResponse
 from io import BytesIO
+import os
 import openpyxl
 import json
 from datetime import date as date_cls
@@ -20,6 +21,24 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from datetime import date
 from auditlog.utils import log_action as _audit
+from django.core.files.base import ContentFile
+
+
+def _sync_device_photo_from_maintenance(maintenance):
+    """
+    Salin foto maintenance (Maintenance.photo) ke foto utama perangkat
+    (Device.foto). Dipanggil saat checkbox 'Perbarui Foto Peralatan' diceklis.
+    """
+    if not maintenance.photo or not maintenance.device:
+        return
+    device = maintenance.device
+    try:
+        maintenance.photo.open('rb')
+        content = maintenance.photo.read()
+    finally:
+        maintenance.photo.close()
+    filename = os.path.basename(maintenance.photo.name)
+    device.foto.save(filename, ContentFile(content), save=True)
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -228,6 +247,9 @@ def maintenance_create(request, device_id):
             except (json.JSONDecodeError, ValueError):
                 maintenance.pelaksana_names = []
             maintenance.save()
+
+            if mform.cleaned_data.get('update_device_photo'):
+                _sync_device_photo_from_maintenance(maintenance)
 
             if dform:
                 detail = dform.save(commit=False)
@@ -873,6 +895,8 @@ def maintenance_edit(request, pk):
             except (json.JSONDecodeError, ValueError):
                 m.pelaksana_names = []
             m.save()
+            if mform.cleaned_data.get('update_device_photo'):
+                _sync_device_photo_from_maintenance(m)
             if dform:
                 detail = dform.save(commit=False)
                 detail.maintenance = maintenance

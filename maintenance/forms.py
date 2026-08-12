@@ -33,6 +33,14 @@ class MaintenanceForm(forms.ModelForm):
         widget=forms.HiddenInput(),
     )
 
+    # Saat diceklis + ada foto terupload, foto maintenance menyalin ke
+    # foto utama perangkat (Device.foto). Diproses di view.
+    update_device_photo = forms.BooleanField(
+        required=False,
+        label='Perbarui Foto Peralatan',
+        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+    )
+
     class Meta:
         model  = Maintenance
         fields = '__all__'

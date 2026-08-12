@@ -87,7 +87,8 @@ def device_list(request):
     if search:
         devices = devices.filter(
             Q(nama__icontains=search) |
-            Q(ip_address__icontains=search)
+            Q(ip_address__icontains=search) |
+            Q(asset_id__icontains=search)
         )
 
     if lokasi:
@@ -1937,7 +1938,7 @@ def export_devices_excel(request):
     if jenis_id:
         devices = devices.filter(jenis_id=jenis_id)
     if search:
-        devices = devices.filter(Q(nama__icontains=search) | Q(ip_address__icontains=search))
+        devices = devices.filter(Q(nama__icontains=search) | Q(ip_address__icontains=search) | Q(asset_id__icontains=search))
     if lokasi:
         devices = devices.filter(lokasi=lokasi)
 
@@ -3109,6 +3110,7 @@ def global_search(request):
             Device.objects.filter(is_deleted=False, host__isnull=True).filter(
                 Q(nama__icontains=query) |
                 Q(ip_address__icontains=query) |
+                Q(asset_id__icontains=query) |
                 Q(merk__icontains=query) |
                 Q(serial_number__icontains=query) |
                 Q(lokasi__icontains=query)
@@ -3154,6 +3156,7 @@ def global_search_api(request):
         .filter(
             Q(nama__icontains=query) |
             Q(ip_address__icontains=query) |
+            Q(asset_id__icontains=query) |
             Q(merk__icontains=query) |
             Q(serial_number__icontains=query) |
             Q(lokasi__icontains=query)
