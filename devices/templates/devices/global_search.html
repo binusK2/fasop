@@ -22,7 +22,7 @@
         <form method="get" action="{% url 'global_search' %}" class="d-flex gap-2 align-items-center">
             <div style="position:relative;flex:1;max-width:420px;">
                 <i class="bi bi-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:13px;pointer-events:none;"></i>
-                <input type="text" name="q" value="{{ query }}" placeholder="Cari nama, IP, merk, lokasi..."
+                <input type="text" name="q" value="{{ query }}" placeholder="Cari nama, IP, merk, lokasi, Asset ID..."
                        class="form-control form-control-sm" style="padding-left:32px;" autofocus>
             </div>
             <button type="submit" class="btn btn-primary btn-sm">

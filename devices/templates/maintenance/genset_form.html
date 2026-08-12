@@ -36,7 +36,7 @@
         </div>
         <div class="row g-3 mt-1">
             <div class="col-md-8"><label class="form-label fw-semibold">Deskripsi / Catatan</label>{{ maintenance_form.description }}</div>
-            <div class="col-md-4"><label class="form-label fw-semibold">Foto</label>{{ maintenance_form.photo }}<div class="form-text">JPG, PNG. Maks 10MB.</div></div>
+            <div class="col-md-4"><label class="form-label fw-semibold">Foto</label>{{ maintenance_form.photo }}{% include 'maintenance/_update_photo_checkbox.html' %}<div class="form-text">JPG, PNG. Maks 10MB.</div></div>
         </div>
     </div>
 </div>
