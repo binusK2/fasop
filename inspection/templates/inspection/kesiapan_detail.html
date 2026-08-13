@@ -86,6 +86,15 @@
                     </button>
                 </form>
                 {% endif %}
+                {% if can_delete %}
+                <form method="post" action="{% url 'kesiapan_hapus' report.pk %}" class="m-0"
+                      onsubmit="return confirm('Hapus laporan kesiapan ini? Tindakan tidak bisa dibatalkan.')">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm" style="background:#dc2626;color:#fff;font-size:12px;">
+                        <i class="bi bi-trash me-1"></i>Hapus Laporan
+                    </button>
+                </form>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -131,7 +140,41 @@
 <div class="alert alert-light border mb-4" style="font-size:13px;">
     <i class="bi bi-link-45deg me-1 text-primary"></i><strong>Halaman Publik:</strong>
     <a href="{{ public_url }}" target="_blank" rel="noopener" class="text-break">{{ public_url }}</a>
+    <button type="button" class="btn btn-sm btn-outline-primary ms-2" onclick="copyPublicUrl()" title="Salin link publik">
+        <i class="bi bi-clipboard me-1"></i>Copy
+    </button>
+    <span id="copy-feedback" style="display:none;font-size:12px;color:#059669;font-weight:600;">Tersalin!</span>
 </div>
+
+<script>
+function copyPublicUrl() {
+    var url = '{{ public_url|escapejs }}';
+    function done() {
+        var fb = document.getElementById('copy-feedback');
+        fb.style.display = '';
+        setTimeout(function () { fb.style.display = 'none'; }, 2000);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url).then(done).catch(function () {
+            fallbackCopy(url);
+            done();
+        });
+    } else {
+        fallbackCopy(url);
+        done();
+    }
+}
+function fallbackCopy(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); } catch (e) {}
+    document.body.removeChild(ta);
+}
+</script>
 
 {% if can_edit %}
 <div class="card mb-4">
