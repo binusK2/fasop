@@ -1,13 +1,16 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.urls import reverse
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 from django.db.models import Count, Q
 from .models import (Inspection, InspectionCatuDaya, InspectionDefenseScheme,
                      InspectionMasterTrip, InspectionUFLS, InspectionDFR,
                      InspectionServerADS, InspectionTelecom,
-                     PengujianTelecom, PengujianTelecomItem)
+                     PengujianTelecom, PengujianTelecomItem,
+                     KesiapanFasilitas, KesiapanItem,
+                     SEKSI_CHOICES, STATUS_KESIAPAN_CHOICES,
+                     MASTER_KONDISI_CHOICES)
 from devices.models import Device, DeviceType, SiteLocation
 from datetime import date
 import openpyxl
@@ -1741,3 +1744,448 @@ def pengujian_telecom_delete(request, pk):
         messages.success(request, 'Data pengujian berhasil dihapus.')
         return redirect('pengujian_telecom_list')
     return redirect('pengujian_telecom_detail', pk=pk)
+
+
+KESIAPAN_MANUAL_SEKSI = ('master_station', 'telekomunikasi', 'catu_daya')
+
+
+def _kesiapan_editor(user):
+    if not user or not user.is_authenticated:
+        return False
+    if user.is_superuser:
+        return True
+    try:
+        return user.profile.role == 'technician'
+    except Exception:
+        return False
+
+
+def require_kesiapan_editor(view_func):
+    """Hanya Teknisi/Engineer (role=technician) dan superuser yang boleh mengisi."""
+    from functools import wraps
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            from django.contrib.auth.views import redirect_to_login
+            return redirect_to_login(request.get_full_path())
+        if not _kesiapan_editor(request.user):
+            return render(request, '403.html',
+                          {'message': 'Halaman ini hanya untuk Teknisi / Engineer.'}, status=403)
+        return view_func(request, *args, **kwargs)
+    return wrapper
+
+
+def _kesiapan_sections(report):
+    """Bangun daftar seksi + item per seksi untuk laporan kesiapan."""
+    sections = []
+    for key, label in SEKSI_CHOICES:
+        items = list(
+            report.items.filter(seksi=key)
+            .select_related('device', 'source_rtu')
+            .order_by('urutan', 'id')
+        )
+        sections.append({
+            'key': key,
+            'label': label,
+            'items': items,
+            'jumlah': len(items),
+            'gangguan': sum(1 for i in items if i.status == 'gangguan'),
+            'normal': sum(1 for i in items if i.status == 'normal'),
+        })
+    return sections
+
+
+def _muat_perangkat_kesiapan(report, seksi, jenis_list, include_vm=False):
+    if include_vm:
+        perangkat_filter = Q(jenis__name__iexact='VM SCADA') | Q(
+            host__isnull=True,
+            jenis__name__in=['Master Station', 'Workstation SCADA'],
+        )
+        devices = Device.objects.filter(
+            is_deleted=False, status_operasi='operasi',
+        ).filter(perangkat_filter)
+    else:
+        jenis_filter = Q()
+        for jenis in jenis_list:
+            jenis_filter |= Q(jenis__name__iexact=jenis)
+        devices = Device.objects.filter(
+            is_deleted=False, host__isnull=True, status_operasi='operasi',
+        ).filter(jenis_filter)
+    devices = devices.select_related('jenis').order_by('lokasi', 'nama')
+    ada_ids = set(
+        report.items.filter(seksi=seksi, device__isnull=False)
+        .values_list('device_id', flat=True)
+    )
+    items = [
+        KesiapanItem(
+            kesiapan=report,
+            seksi=seksi,
+            nama=device.nama,
+            lokasi=device.lokasi or '',
+            status='normal',
+            device=device,
+        )
+        for device in devices if device.pk not in ada_ids
+    ]
+    KesiapanItem.objects.bulk_create(items)
+    return len(items)
+
+
+@login_required
+def kesiapan_list(request):
+    """Daftar laporan Kesiapan Fasilitas Operasi — bisa dibaca semua user login."""
+    reports = (
+        KesiapanFasilitas.objects
+        .select_related('pelaksana')
+        .annotate(jumlah_item=Count('items'),
+                  jumlah_gangguan=Count('items', filter=Q(items__status='gangguan')))
+        .order_by('-created_at')
+    )
+    return render(request, 'inspection/kesiapan_list.html', {
+        'reports': reports,
+        'can_edit': _kesiapan_editor(request.user),
+    })
+
+
+@login_required
+@require_kesiapan_editor
+def kesiapan_baru(request):
+    """Buat laporan kesiapan baru."""
+    if request.method == 'POST':
+        judul   = request.POST.get('judul', '').strip()
+        catatan = request.POST.get('catatan', '').strip()
+        report  = KesiapanFasilitas.objects.create(
+            judul=judul, catatan=catatan, pelaksana=request.user,
+        )
+        from django.contrib import messages
+        messages.success(request, 'Laporan Kesiapan Fasilitas berhasil dibuat.')
+        return redirect('kesiapan_detail', pk=report.pk)
+    return render(request, 'inspection/kesiapan_form.html', {
+        'can_edit': _kesiapan_editor(request.user),
+    })
+
+
+@login_required
+@require_kesiapan_editor
+def kesiapan_ubah(request, pk):
+    report = get_object_or_404(KesiapanFasilitas, pk=pk)
+    if request.method != 'POST':
+        return render(request, '403.html', {'message': 'Method tidak diizinkan.'}, status=405)
+    if _kesiapan_terkunci(report):
+        from django.contrib import messages as _m
+        _m.error(request, 'Laporan sudah Selesai dan tidak dapat diubah.')
+        return redirect('kesiapan_detail', pk=report.pk)
+    report.judul = request.POST.get('judul', '').strip()
+    report.catatan = request.POST.get('catatan', '').strip()
+    report.save(update_fields=['judul', 'catatan', 'updated_at'])
+    from django.contrib import messages
+    messages.success(request, 'Informasi laporan diperbarui.')
+    return redirect('kesiapan_detail', pk=report.pk)
+
+
+@login_required
+@require_kesiapan_editor
+def kesiapan_selesai(request, pk):
+    """Tandai laporan selesai — setelah ini tidak bisa diedit lagi."""
+    report = get_object_or_404(KesiapanFasilitas, pk=pk)
+    if request.method != 'POST':
+        return render(request, '403.html', {'message': 'Method tidak diizinkan.'}, status=405)
+    from django.utils import timezone as _tz
+    report.is_selesai = True
+    report.selesai_by = request.user
+    report.selesai_at = _tz.now()
+    report.save(update_fields=['is_selesai', 'selesai_by', 'selesai_at', 'updated_at'])
+    from django.contrib import messages
+    messages.success(request, 'Laporan ditandai Selesai dan terkunci.')
+    return redirect('kesiapan_detail', pk=report.pk)
+
+
+
+def _kesiapan_terkunci(report):
+    """Laporan selesai → tidak boleh dimodifikasi lagi."""
+    return report.is_selesai
+
+
+@login_required
+def kesiapan_detail(request, pk):
+    """Detail satu laporan kesiapan — semua user login boleh melihat."""
+    report     = get_object_or_404(KesiapanFasilitas, pk=pk)
+    total, total_gangguan = report.ringkasan()
+    public_url = (request.scheme + '://' + request.get_host()
+                  + reverse('kesiapan_publik', kwargs={'token': report.public_token}))
+    return render(request, 'inspection/kesiapan_detail.html', {
+        'report':          report,
+        'sections':        _kesiapan_sections(report),
+        'total':           total,
+        'total_gangguan':  total_gangguan,
+        'can_edit':        _kesiapan_editor(request.user) and not report.is_selesai,
+        'manual_seksi_choices': [
+            (key, label) for key, label in SEKSI_CHOICES if key in KESIAPAN_MANUAL_SEKSI
+        ],
+        'master_kondisi_choices': MASTER_KONDISI_CHOICES,
+        'public_url':      public_url,
+    })
+
+
+def kesiapan_publik(request, token):
+    """Halaman publik laporan kesiapan — tanpa login."""
+    report = get_object_or_404(KesiapanFasilitas, public_token=token)
+    total, total_gangguan = report.ringkasan()
+    return render(request, 'inspection/kesiapan_public.html', {
+        'report':         report,
+        'sections':       _kesiapan_sections(report),
+        'total':          total,
+        'total_gangguan': total_gangguan,
+        'total_normal':   total - total_gangguan,
+    })
+
+
+@login_required
+@require_kesiapan_editor
+def kesiapan_snapshot_rtu(request, pk):
+    """Snapshot status RTU terkini ke seksi Remote Station (tidak menambah perangkat)."""
+    report = get_object_or_404(KesiapanFasilitas, pk=pk)
+    if request.method != 'POST':
+        return render(request, '403.html', {'message': 'Method tidak diizinkan.'}, status=405)
+    if _kesiapan_terkunci(report):
+        from django.contrib import messages as _m
+        _m.error(request, 'Laporan sudah Selesai dan tidak dapat diubah.')
+        return redirect('kesiapan_detail', pk=report.pk)
+
+    from device_mon.models import RTU
+    rtus = RTU.objects.filter(aktif=True).order_by('urutan', 'nama')
+    existing = {
+        i.source_rtu_id: i
+        for i in report.items.filter(seksi='remote_station', source_rtu__isnull=False)
+    }
+    baru = 0
+    for rtu in rtus:
+        status = 'normal' if rtu.state == 'UP' else 'gangguan'
+        item = existing.get(rtu.pk)
+        if item:
+            item.nama   = rtu.nama
+            item.lokasi = rtu.lokasi or ''
+            item.status = status
+            item.save(update_fields=['nama', 'lokasi', 'status'])
+        else:
+            KesiapanItem.objects.create(
+                kesiapan=report, seksi='remote_station',
+                nama=rtu.nama, lokasi=rtu.lokasi or '',
+                status=status, urutan=rtu.urutan, source_rtu=rtu,
+            )
+            baru += 1
+    from django.contrib import messages
+    messages.success(
+        request,
+        f'Snapshot Remote Station selesai — {len(rtus)} RTU diproses ({baru} baru).'
+    )
+    return redirect('kesiapan_detail', pk=report.pk)
+
+
+@login_required
+@require_kesiapan_editor
+def kesiapan_muat_dfr(request, pk):
+    """Muat semua DFR dari inventori (Proteksi Sistem) sebagai item Normal."""
+    report = get_object_or_404(KesiapanFasilitas, pk=pk)
+    if request.method != 'POST':
+        return render(request, '403.html', {'message': 'Method tidak diizinkan.'}, status=405)
+    if _kesiapan_terkunci(report):
+        from django.contrib import messages as _m
+        _m.error(request, 'Laporan sudah Selesai dan tidak dapat diubah.')
+        return redirect('kesiapan_detail', pk=report.pk)
+
+    dibuat = _muat_perangkat_kesiapan(report, 'proteksi_sistem', ['DFR'])
+    from django.contrib import messages
+    if dibuat:
+        messages.success(request, f'{dibuat} DFR dimuat dari inventori ke Proteksi Sistem.')
+    else:
+        messages.info(request, 'Semua DFR sudah terpasang di laporan ini.')
+    return redirect('kesiapan_detail', pk=report.pk)
+
+
+@login_required
+@require_kesiapan_editor
+def kesiapan_muat_master_station(request, pk):
+    report = get_object_or_404(KesiapanFasilitas, pk=pk)
+    if request.method != 'POST':
+        return render(request, '403.html', {'message': 'Method tidak diizinkan.'}, status=405)
+    if _kesiapan_terkunci(report):
+        from django.contrib import messages as _m
+        _m.error(request, 'Laporan sudah Selesai dan tidak dapat diubah.')
+        return redirect('kesiapan_detail', pk=report.pk)
+
+    dibuat = _muat_perangkat_kesiapan(
+        report, 'master_station',
+        ['Master Station', 'VM SCADA', 'Workstation SCADA'], include_vm=True,
+    )
+    from django.contrib import messages
+    if dibuat:
+        messages.success(request, f'{dibuat} Master Station dimuat dari inventori.')
+    else:
+        messages.info(request, 'Semua Master Station sudah terpasang di laporan ini.')
+    return redirect('kesiapan_detail', pk=report.pk)
+
+
+@login_required
+@require_kesiapan_editor
+def kesiapan_muat_telekomunikasi(request, pk):
+    report = get_object_or_404(KesiapanFasilitas, pk=pk)
+    if request.method != 'POST':
+        return render(request, '403.html', {'message': 'Method tidak diizinkan.'}, status=405)
+    if _kesiapan_terkunci(report):
+        from django.contrib import messages as _m
+        _m.error(request, 'Laporan sudah Selesai dan tidak dapat diubah.')
+        return redirect('kesiapan_detail', pk=report.pk)
+
+    dibuat = _muat_perangkat_kesiapan(report, 'telekomunikasi', ['VoIP'])
+    from django.contrib import messages
+    if dibuat:
+        messages.success(request, f'{dibuat} perangkat Telekomunikasi dimuat dari inventori.')
+    else:
+        messages.info(request, 'Semua perangkat Telekomunikasi sudah terpasang di laporan ini.')
+    return redirect('kesiapan_detail', pk=report.pk)
+
+
+@login_required
+@require_kesiapan_editor
+def kesiapan_muat_catu_daya(request, pk):
+    report = get_object_or_404(KesiapanFasilitas, pk=pk)
+    if request.method != 'POST':
+        return render(request, '403.html', {'message': 'Method tidak diizinkan.'}, status=405)
+    if _kesiapan_terkunci(report):
+        from django.contrib import messages as _m
+        _m.error(request, 'Laporan sudah Selesai dan tidak dapat diubah.')
+        return redirect('kesiapan_detail', pk=report.pk)
+
+    dibuat = _muat_perangkat_kesiapan(report, 'catu_daya', ['GENSET', 'UPS'])
+    from django.contrib import messages
+    if dibuat:
+        messages.success(request, f'{dibuat} perangkat Catu Daya dimuat dari inventori.')
+    else:
+        messages.info(request, 'Semua perangkat Catu Daya sudah terpasang di laporan ini.')
+    return redirect('kesiapan_detail', pk=report.pk)
+
+
+@login_required
+@require_kesiapan_editor
+def kesiapan_item_tambah(request, pk):
+    """Tambah item manual (seksi selain Remote Station / Proteksi Sistem)."""
+    report = get_object_or_404(KesiapanFasilitas, pk=pk)
+    from django.contrib import messages
+    if request.method != 'POST':
+        return render(request, '403.html', {'message': 'Method tidak diizinkan.'}, status=405)
+    if _kesiapan_terkunci(report):
+        messages.error(request, 'Laporan sudah Selesai dan tidak dapat diubah.')
+        return redirect('kesiapan_detail', pk=report.pk)
+
+    seksi     = request.POST.get('seksi', '')
+    device_id = request.POST.get('device_id', '')
+    status    = request.POST.get('status', 'normal')
+    keterangan = request.POST.get('keterangan', '').strip()
+
+    if seksi not in KESIAPAN_MANUAL_SEKSI:
+        messages.error(request, 'Seksi tidak valid untuk tambah manual.')
+        return redirect('kesiapan_detail', pk=report.pk)
+    if status not in dict(STATUS_KESIAPAN_CHOICES):
+        status = 'normal'
+    try:
+        device = Device.objects.get(
+            pk=int(device_id), is_deleted=False, host__isnull=True,
+            status_operasi='operasi',
+        )
+    except (TypeError, ValueError, Device.DoesNotExist):
+        messages.error(request, 'Perangkat tidak ditemukan. Pilih dari hasil pencarian.')
+        return redirect('kesiapan_detail', pk=report.pk)
+
+    if KesiapanItem.objects.filter(kesiapan=report, seksi=seksi, device=device).exists():
+        messages.warning(request, f'{device.nama} sudah ada di seksi ini.')
+        return redirect('kesiapan_detail', pk=report.pk)
+
+    KesiapanItem.objects.create(
+        kesiapan=report, seksi=seksi,
+        nama=device.nama, lokasi=device.lokasi or '',
+        status=status, keterangan=keterangan, device=device,
+    )
+    messages.success(request, f'{device.nama} berhasil ditambahkan.')
+    return redirect('kesiapan_detail', pk=report.pk)
+
+
+@login_required
+@require_kesiapan_editor
+def kesiapan_item_ubah(request, pk, item_pk):
+    """Ubah status / keterangan satu item."""
+    report = get_object_or_404(KesiapanFasilitas, pk=pk)
+    item   = get_object_or_404(KesiapanItem, pk=item_pk, kesiapan=report)
+    if request.method != 'POST':
+        return render(request, '403.html', {'message': 'Method tidak diizinkan.'}, status=405)
+    if _kesiapan_terkunci(report):
+        from django.contrib import messages as _m
+        _m.error(request, 'Laporan sudah Selesai dan tidak dapat diubah.')
+        return redirect('kesiapan_detail', pk=report.pk)
+
+    status = request.POST.get('status', '')
+    update_fields = []
+    if status in dict(STATUS_KESIAPAN_CHOICES):
+        item.status = status
+        update_fields.append('status')
+    if 'kondisi' in request.POST:
+        kondisi = request.POST.get('kondisi', '').strip()
+        if kondisi in dict(MASTER_KONDISI_CHOICES) or not kondisi:
+            item.kondisi = kondisi
+            update_fields.append('kondisi')
+    if 'keterangan' in request.POST:
+        item.keterangan = request.POST.get('keterangan', '').strip()
+        update_fields.append('keterangan')
+    if update_fields:
+        item.save(update_fields=update_fields)
+    from django.contrib import messages
+    messages.success(request, f'Status {item.nama} diperbarui.')
+    return redirect('kesiapan_detail', pk=report.pk)
+
+
+@login_required
+@require_kesiapan_editor
+def kesiapan_item_hapus(request, pk, item_pk):
+    """Hapus satu item dari laporan."""
+    report = get_object_or_404(KesiapanFasilitas, pk=pk)
+    item   = get_object_or_404(KesiapanItem, pk=item_pk, kesiapan=report)
+    if request.method != 'POST':
+        return render(request, '403.html', {'message': 'Method tidak diizinkan.'}, status=405)
+    if _kesiapan_terkunci(report):
+        from django.contrib import messages as _m
+        _m.error(request, 'Laporan sudah Selesai dan tidak dapat diubah.')
+        return redirect('kesiapan_detail', pk=report.pk)
+
+    nama = item.nama
+    item.delete()
+    from django.contrib import messages
+    messages.success(request, f'{nama} dihapus dari laporan.')
+    return redirect('kesiapan_detail', pk=report.pk)
+
+
+@login_required
+def kesiapan_device_search(request):
+    """JSON live search perangkat fisik untuk form item kesiapan."""
+    q = request.GET.get('q', '').strip()
+    if not q:
+        return JsonResponse({'results': []})
+    qs = (
+        Device.objects
+        .filter(is_deleted=False, host__isnull=True, status_operasi='operasi')
+        .filter(
+            Q(nama__icontains=q)
+            | Q(lokasi__icontains=q)
+            | Q(asset_id__icontains=q)
+            | Q(jenis__name__icontains=q)
+        )
+        .select_related('jenis')
+        .order_by('lokasi', 'nama')[:20]
+    )
+    results = [{
+        'id':       d.pk,
+        'name':     d.nama,
+        'type':     d.jenis.name if d.jenis else '',
+        'lokasi':   d.lokasi or '',
+        'asset_id': d.asset_id or '',
+    } for d in qs]
+    return JsonResponse({'results': results})
