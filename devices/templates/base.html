@@ -845,18 +845,18 @@
             Dashboard Inspeksi
         </a>
         {% endif %}
-        {% if not user_is_operator and not user_is_dispatcher %}
-        <a href="{% url 'kesiapan_list' %}"
-           class="sidebar-link {% if 'kesiapan_' in request.resolver_match.url_name|default:'' %}active{% endif %}">
-            <span class="si-icon"><i class="bi bi-clipboard-data-fill"></i></span>
-            Kesiapan Fasilitas
-        </a>
-        {% endif %}
         {% if not user_is_dispatcher %}
         <a href="{% url 'inspection_lokasi' %}"
            class="sidebar-link {% if 'inspection' in request.resolver_match.url_name and request.resolver_match.url_name != 'inspection_dashboard' %}active{% endif %}">
             <span class="si-icon"><i class="bi bi-clipboard2-check-fill"></i></span>
             Inservice Inspection
+        </a>
+        {% endif %}
+        {% if not user_is_operator and not user_is_dispatcher %}
+        <a href="{% url 'kesiapan_list' %}"
+           class="sidebar-link {% if 'kesiapan_' in request.resolver_match.url_name|default:'' %}active{% endif %}">
+            <span class="si-icon"><i class="bi bi-clipboard-data-fill"></i></span>
+            Kesiapan FASOP
         </a>
         {% endif %}
         {% if not user_is_operator %}
