@@ -585,6 +585,15 @@ STATUS_KESIAPAN_CHOICES = (
     ('gangguan', 'Gangguan'),
 )
 
+MASTER_KONDISI_CHOICES = (
+    ('PC',        'PC'),
+    ('ON',        'ON'),
+    ('TR',        'TR'),
+    ('NC',        'NC'),
+    ('SB',        'SB'),
+    ('AVAILABLE', 'AVAILABLE'),
+)
+
 
 class KesiapanFasilitas(models.Model):
     judul         = models.CharField(max_length=200, blank=True, verbose_name='Judul Laporan')
@@ -595,6 +604,12 @@ class KesiapanFasilitas(models.Model):
                                        verbose_name='Pelaksana')
     public_token  = models.CharField(max_length=40, blank=True, unique=True,
                                      null=True, verbose_name='Token Publik')
+    is_selesai    = models.BooleanField(default=False, verbose_name='Selesai')
+    selesai_by    = models.ForeignKey(User, on_delete=models.SET_NULL,
+                                       null=True, blank=True,
+                                       related_name='kesiapan_diselesaikan',
+                                       verbose_name='Diselesaikan oleh')
+    selesai_at    = models.DateTimeField(null=True, blank=True, verbose_name='Waktu Selesai')
     created_at    = models.DateTimeField(auto_now_add=True, verbose_name='Dibuat Pada')
     updated_at    = models.DateTimeField(auto_now=True, verbose_name='Diupdate Pada')
 
@@ -635,6 +650,8 @@ class KesiapanItem(models.Model):
     lokasi     = models.CharField(max_length=100, blank=True, verbose_name='Lokasi')
     status     = models.CharField(max_length=10, choices=STATUS_KESIAPAN_CHOICES,
                                   default='normal', verbose_name='Status')
+    kondisi     = models.CharField(max_length=15, choices=MASTER_KONDISI_CHOICES,
+                                   blank=True, verbose_name='Kondisi Master Station')
     keterangan = models.CharField(max_length=300, blank=True, verbose_name='Keterangan')
     urutan     = models.PositiveIntegerField(default=0, verbose_name='Urutan')
     device     = models.ForeignKey(Device, on_delete=models.SET_NULL,

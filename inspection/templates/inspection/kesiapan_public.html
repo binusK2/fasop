@@ -30,13 +30,68 @@
                         <h1 class="h4 mt-1 mb-1">{{ report.judul|default:"Kesiapan Fasilitas Operasi" }}</h1>
                         <div style="font-size:13px;color:#cbd5e1;">Laporan snapshot kesiapan fasilitas operasi</div>
                     </div>
+                    <div class="ms-auto text-end">
+                        {% if report.is_selesai %}
+                        <span class="badge" style="background:#dcfce7;color:#166534;font-size:12px;padding:6px 14px;">
+                            <i class="bi bi-check-circle me-1"></i>Laporan Selesai
+                        </span>
+                        {% else %}
+                        <span class="badge" style="background:#fef3c7;color:#92400e;font-size:12px;padding:6px 14px;">
+                            <i class="bi bi-hourglass-split me-1"></i>In Progress
+                        </span>
+                        {% endif %}
+                    </div>
                 </div>
                 <div class="row mt-4 g-3" style="font-size:13px;color:#e2e8f0;">
-                    <div class="col-sm-4"><i class="bi bi-calendar3 me-1"></i>{{ report.created_at|date:"d M Y H:i" }}</div>
-                    <div class="col-sm-4"><i class="bi bi-person me-1"></i>{{ report.pelaksana.get_full_name|default:report.pelaksana.username|default:"—" }}</div>
-                    <div class="col-sm-4"><i class="bi bi-list-check me-1"></i>{{ total }} item{% if total_gangguan %} · <strong style="color:#fca5a5;">{{ total_gangguan }} gangguan</strong>{% endif %}</div>
+                    <div class="col-sm-4"><i class="bi bi-calendar3 me-1"></i>{{ report.created_at|date:"d M Y H:i" }} <span style="font-size:11px;color:#94a3b8;">WITA</span></div>
+                    <div class="col-sm-4"><i class="bi bi-person-badge me-1"></i>Pelaksana: {{ report.pelaksana.get_full_name|default:report.pelaksana.username|default:"—" }}</div>
+                    <div class="col-sm-4"><i class="bi bi-clock-history me-1"></i>Diperbarui: {{ report.updated_at|date:"d M Y H:i" }} <span style="font-size:11px;color:#94a3b8;">WITA</span></div>
                 </div>
             </div>
+        </div>
+
+        <div class="row g-3 mb-4">
+            <div class="col-6 col-md-3">
+                <div class="card h-100 text-center p-3">
+                    <div style="font-size:24px;font-weight:800;color:#0f172a;">{{ total }}</div>
+                    <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.04em;">Total Perangkat</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card h-100 text-center p-3">
+                    <div style="font-size:24px;font-weight:800;color:#059669;">{{ total_normal }}</div>
+                    <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.04em;">Normal</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card h-100 text-center p-3">
+                    <div style="font-size:24px;font-weight:800;color:#dc2626;">{{ total_gangguan }}</div>
+                    <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.04em;">Gangguan</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card h-100 text-center p-3">
+                    <div style="font-size:24px;font-weight:800;color:#1d4ed8;">{{ sections|length }}</div>
+                    <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.04em;">Seksi</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-3 mb-4">
+            {% for s in sections %}
+            <div class="col-6 col-md">
+                <a href="#seksi-{{ s.key }}" class="card h-100 p-3 text-decoration-none" style="transition:transform .1s;">
+                    <div style="font-size:12px;font-weight:700;color:#0f172a;">{{ s.label }}</div>
+                    <div class="mt-2 d-flex gap-2 flex-wrap" style="font-size:11px;">
+                        <span style="padding:2px 8px;border-radius:12px;background:#f1f5f9;color:#475569;font-weight:600;">{{ s.jumlah }} item</span>
+                        <span style="padding:2px 8px;border-radius:12px;background:#f0fdf4;color:#166534;font-weight:600;">{{ s.normal }} normal</span>
+                        {% if s.gangguan %}
+                        <span style="padding:2px 8px;border-radius:12px;background:#fef2f2;color:#991b1b;font-weight:600;">{{ s.gangguan }} gangguan</span>
+                        {% endif %}
+                    </div>
+                </a>
+            </div>
+            {% endfor %}
         </div>
 
         {% if report.catatan %}
@@ -46,12 +101,14 @@
         {% endif %}
 
         {% for s in sections %}
-        <section class="card mb-4 overflow-hidden">
+        <section class="card mb-4 overflow-hidden" id="seksi-{{ s.key }}">
             <div class="section-title px-3 py-3 d-flex align-items-center">
                 <strong style="font-size:14px;">{{ s.label }}</strong>
-                <span class="ms-2 text-muted" style="font-size:12px;">{{ s.jumlah }} item</span>
+                <span class="ms-2 text-muted" style="font-size:12px;">{{ s.jumlah }} item · {{ s.normal }} normal</span>
                 {% if s.gangguan %}
                 <span class="ms-auto badge status-gangguan">{{ s.gangguan }} gangguan</span>
+                {% else %}
+                <span class="ms-auto badge status-normal">Semua Normal</span>
                 {% endif %}
             </div>
             {% if s.items %}
@@ -76,6 +133,9 @@
                                 <span class="badge {% if item.status == 'normal' %}status-normal{% else %}status-gangguan{% endif %}">
                                     {{ item.get_status_display }}
                                 </span>
+                                {% if s.key == 'master_station' and item.kondisi %}
+                                <span class="badge ms-1" style="background:#dbeafe;color:#1e40af;">{{ item.kondisi }}</span>
+                                {% endif %}
                             </td>
                             <td class="pe-3 text-muted">{{ item.keterangan|default:"—" }}</td>
                         </tr>
