@@ -1,4 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 from django.utils import timezone
@@ -169,7 +170,7 @@ def gangguan_create(request):
                         f'{gangguan.executive_summary[:100]}'
                     ),
                     level  = 'danger' if gangguan.tingkat_keparahan == 'kritis' else 'warning',
-                    url    = f'/gangguan/{gangguan.pk}/',
+                    url    = reverse('gangguan_detail', kwargs={'pk': gangguan.pk}),
                     device = gangguan.peralatan,
                 )
             except Exception:
@@ -413,7 +414,7 @@ def gangguan_update_status(request, pk):
                             f'oleh {request.user.get_full_name() or request.user.username}.'
                         ),
                         level  = 'success',
-                        url    = f'/gangguan/{gangguan.pk}/',
+                        url    = reverse('gangguan_detail', kwargs={'pk': gangguan.pk}),
                         device = gangguan.peralatan,
                     )
                 except Exception:

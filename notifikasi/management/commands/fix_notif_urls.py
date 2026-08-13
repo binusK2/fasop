@@ -9,8 +9,11 @@ from fasop.hashids_helper import encode
 
 
 _PATTERNS = [
-    (re.compile(r'^/health-index/(\d+)/$'), '/health-index/{}/'),
-    (re.compile(r'^/view/(\d+)/$'),         '/view/{}/'),
+    (re.compile(r'^/health-index/(\d+)/$'),       '/health-index/{}/'),
+    (re.compile(r'^/view/(\d+)/$'),               '/view/{}/'),
+    (re.compile(r'^/inspection/riwayat/(\d+)/$'), '/inspection/riwayat/{}/'),
+    (re.compile(r'^/maintenance/view/(\d+)/$'),   '/maintenance/view/{}/'),
+    (re.compile(r'^/gangguan/(\d+)/$'),           '/gangguan/{}/'),
 ]
 
 
