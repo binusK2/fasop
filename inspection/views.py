@@ -1801,12 +1801,16 @@ def _muat_perangkat_kesiapan(report, seksi, jenis_list, include_vm=False):
             host__isnull=True,
             jenis__name__in=['Master Station', 'Workstation SCADA'],
         )
-        devices = Device.objects.filter(is_deleted=False).filter(perangkat_filter)
+        devices = Device.objects.filter(
+            is_deleted=False, status_operasi='operasi',
+        ).filter(perangkat_filter)
     else:
         jenis_filter = Q()
         for jenis in jenis_list:
             jenis_filter |= Q(jenis__name__iexact=jenis)
-        devices = Device.objects.filter(is_deleted=False, host__isnull=True).filter(jenis_filter)
+        devices = Device.objects.filter(
+            is_deleted=False, host__isnull=True, status_operasi='operasi',
+        ).filter(jenis_filter)
     devices = devices.select_related('jenis').order_by('lokasi', 'nama')
     ada_ids = set(
         report.items.filter(seksi=seksi, device__isnull=False)
@@ -1915,6 +1919,9 @@ def kesiapan_detail(request, pk):
         'total':           total,
         'total_gangguan':  total_gangguan,
         'can_edit':        _kesiapan_editor(request.user) and not report.is_selesai,
+        'manual_seksi_choices': [
+            (key, label) for key, label in SEKSI_CHOICES if key in KESIAPAN_MANUAL_SEKSI
+        ],
         'master_kondisi_choices': MASTER_KONDISI_CHOICES,
         'public_url':      public_url,
     })
@@ -2082,7 +2089,10 @@ def kesiapan_item_tambah(request, pk):
     if status not in dict(STATUS_KESIAPAN_CHOICES):
         status = 'normal'
     try:
-        device = Device.objects.get(pk=int(device_id), is_deleted=False, host__isnull=True)
+        device = Device.objects.get(
+            pk=int(device_id), is_deleted=False, host__isnull=True,
+            status_operasi='operasi',
+        )
     except (TypeError, ValueError, Device.DoesNotExist):
         messages.error(request, 'Perangkat tidak ditemukan. Pilih dari hasil pencarian.')
         return redirect('kesiapan_detail', pk=report.pk)
@@ -2161,7 +2171,7 @@ def kesiapan_device_search(request):
         return JsonResponse({'results': []})
     qs = (
         Device.objects
-        .filter(is_deleted=False, host__isnull=True)
+        .filter(is_deleted=False, host__isnull=True, status_operasi='operasi')
         .filter(
             Q(nama__icontains=q)
             | Q(lokasi__icontains=q)
