@@ -1,5 +1,6 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
+from django.urls import reverse
 from django.http import HttpResponse
 from django.utils import timezone
 from django.db.models import Count, Q
@@ -452,7 +453,7 @@ def _kirim_notif_jika_perlu(insp, jenis_key, post_data):
                 f'mendeteksi kondisi: {", ".join(pesan_detail)}'
             ),
             level  = 'warning',
-            url    = f'/inspection/riwayat/{insp.pk}/',
+            url    = reverse('inspection_riwayat', kwargs={'pk': insp.pk}),
             device = insp.device,
         )
     except Exception:
@@ -780,7 +781,7 @@ def inspection_flag(request, pk):
                         + (f' Catatan: {catatan}' if catatan else '')
                     ),
                     level   = 'warning',
-                    url     = f'/inspection/riwayat/{insp.pk}/',
+                    url     = reverse('inspection_riwayat', kwargs={'pk': insp.pk}),
                     device  = insp.device,
                 )
         except Exception:
