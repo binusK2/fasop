@@ -58,7 +58,7 @@ def _targets():
     return [c.strip() for c in raw.split(',') if c.strip()]
 
 
-def kirim_wa(pesan):
+def kirim_wa(pesan, chat_ids=None):
     """Kirim `pesan` ke semua chatId tujuan.
 
     Return: (jumlah_terkirim, jumlah_target, keterangan_str).
@@ -69,7 +69,7 @@ def kirim_wa(pesan):
 
     base = getattr(settings, 'WA_API_BASE', '') or ''
     session = getattr(settings, 'WA_SESSION_ID', '') or ''
-    targets = _targets()
+    targets = chat_ids if chat_ids is not None else _targets()
     if not base or not session or not targets:
         return 0, 0, 'WA_API_BASE / WA_SESSION_ID / WA_CHAT_IDS belum diisi'
 

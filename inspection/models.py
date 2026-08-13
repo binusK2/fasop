@@ -549,3 +549,24 @@ class PengujianTelecomItem(models.Model):
 
     def __str__(self):
         return f'{self.device.nama} — {self.get_hasil_display()}'
+
+
+class InspectionAlertLog(models.Model):
+    inspection = models.ForeignKey(Inspection, on_delete=models.CASCADE,
+                                   related_name='alert_logs')
+    pesan      = models.TextField(verbose_name='Isi pesan')
+    terkirim   = models.BooleanField(default=False, verbose_name='Terkirim')
+    keterangan = models.CharField(max_length=255, blank=True,
+                                  verbose_name='Keterangan / error')
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [models.Index(fields=['inspection', '-created_at'],
+                                name='insp_alert_log_idx')]
+        verbose_name = 'Log Alarm WA Inspeksi'
+        verbose_name_plural = 'Log Alarm WA Inspeksi'
+
+    def __str__(self):
+        status = 'OK' if self.terkirim else 'GAGAL'
+        return f'{self.inspection.device.nama} [{status}] @ {self.created_at:%Y-%m-%d %H:%M}'
