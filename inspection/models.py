@@ -570,3 +570,83 @@ class InspectionAlertLog(models.Model):
     def __str__(self):
         status = 'OK' if self.terkirim else 'GAGAL'
         return f'{self.inspection.device.nama} [{status}] @ {self.created_at:%Y-%m-%d %H:%M}'
+
+
+SEKSI_CHOICES = (
+    ('remote_station',  'Remote Station'),
+    ('master_station',  'Master Station'),
+    ('telekomunikasi',  'Telekomunikasi'),
+    ('catu_daya',       'Catu Daya'),
+    ('proteksi_sistem', 'Proteksi Sistem'),
+)
+
+STATUS_KESIAPAN_CHOICES = (
+    ('normal',   'Normal'),
+    ('gangguan', 'Gangguan'),
+)
+
+
+class KesiapanFasilitas(models.Model):
+    judul         = models.CharField(max_length=200, blank=True, verbose_name='Judul Laporan')
+    catatan       = models.TextField(blank=True, verbose_name='Catatan Umum / Lain-Lain')
+    pelaksana     = models.ForeignKey(User, on_delete=models.SET_NULL,
+                                       null=True, blank=True,
+                                       related_name='kesiapan_dibuat',
+                                       verbose_name='Pelaksana')
+    public_token  = models.CharField(max_length=40, blank=True, unique=True,
+                                     null=True, verbose_name='Token Publik')
+    created_at    = models.DateTimeField(auto_now_add=True, verbose_name='Dibuat Pada')
+    updated_at    = models.DateTimeField(auto_now=True, verbose_name='Diupdate Pada')
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Laporan Kesiapan Fasilitas Operasi'
+        verbose_name_plural = 'Laporan Kesiapan Fasilitas Operasi'
+
+    def __str__(self):
+        tgl = timezone.localtime(self.created_at).strftime('%d/%m/%Y %H:%M')
+        return f'{self.judul or "Kesiapan Fasilitas"} — {tgl}'
+
+    def save(self, *args, **kwargs):
+        if not self.public_token:
+            import secrets
+            self.public_token = secrets.token_urlsafe(20)
+        super().save(*args, **kwargs)
+
+    def items_per_seksi(self):
+        return {
+            key: list(self.items.filter(seksi=key).order_by('urutan', 'id'))
+            for key, _label in SEKSI_CHOICES
+        }
+
+    def ringkasan(self):
+        total = self.items.count()
+        gangguan = self.items.filter(status='gangguan').count()
+        return total, gangguan
+
+
+class KesiapanItem(models.Model):
+    """Satu baris cek per perangkat di dalam laporan kesiapan."""
+    kesiapan   = models.ForeignKey(KesiapanFasilitas, on_delete=models.CASCADE,
+                                   related_name='items')
+    seksi      = models.CharField(max_length=20, choices=SEKSI_CHOICES,
+                                  verbose_name='Seksi')
+    nama       = models.CharField(max_length=200, verbose_name='Nama Perangkat')
+    lokasi     = models.CharField(max_length=100, blank=True, verbose_name='Lokasi')
+    status     = models.CharField(max_length=10, choices=STATUS_KESIAPAN_CHOICES,
+                                  default='normal', verbose_name='Status')
+    keterangan = models.CharField(max_length=300, blank=True, verbose_name='Keterangan')
+    urutan     = models.PositiveIntegerField(default=0, verbose_name='Urutan')
+    device     = models.ForeignKey(Device, on_delete=models.SET_NULL,
+                                   null=True, blank=True, related_name='kesiapan_items')
+    source_rtu = models.ForeignKey('device_mon.RTU', on_delete=models.SET_NULL,
+                                   null=True, blank=True, related_name='kesiapan_items')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['seksi', 'urutan', 'id']
+        verbose_name = 'Item Kesiapan'
+        verbose_name_plural = 'Item Kesiapan'
+
+    def __str__(self):
+        return f'{self.get_seksi_display()} — {self.nama} ({self.get_status_display()})'

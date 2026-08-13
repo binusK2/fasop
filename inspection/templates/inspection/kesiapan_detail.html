@@ -1,0 +1,329 @@
+{% extends 'base.html' %}
+{% block title %}{{ report.judul|default:"Kesiapan Fasilitas" }} — FASOP{% endblock %}
+{% block page_title %}Kesiapan Fasilitas Operasi{% endblock %}
+
+{% block content %}
+
+<div class="d-flex align-items-center gap-2 mb-3">
+    <a href="{% url 'kesiapan_list' %}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Daftar Laporan
+    </a>
+</div>
+
+<div class="card mb-4" style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);border:none;">
+    <div class="card-body py-3 px-4">
+        <div class="d-flex align-items-center gap-3 flex-wrap">
+            <div style="width:46px;height:46px;background:rgba(59,130,246,0.2);border-radius:12px;display:flex;align-items:center;justify-content:center;">
+                <i class="bi bi-clipboard-data" style="font-size:22px;color:#93c5fd;"></i>
+            </div>
+            <div>
+                <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;">Laporan Kesiapan</div>
+                <div style="font-size:18px;font-weight:700;color:#f1f5f9;">{{ report.judul|default:"Kesiapan Fasilitas Operasi" }}</div>
+                <div style="font-size:12px;color:#94a3b8;">
+                    {{ report.created_at|date:"d M Y H:i" }}
+                    &nbsp;·&nbsp; Pelaksana:
+                    {{ report.pelaksana.get_full_name|default:report.pelaksana.username|default:"—" }}
+                </div>
+            </div>
+            <div class="ms-auto d-flex align-items-center gap-2 flex-wrap">
+                <span style="font-size:12px;padding:3px 12px;border-radius:20px;background:rgba(255,255,255,0.1);color:#e2e8f0;font-weight:600;">
+                    {{ total }} item
+                </span>
+                {% if total_gangguan %}
+                <span style="font-size:12px;padding:3px 12px;border-radius:20px;background:#ef4444;color:#fff;font-weight:700;">
+                    <i class="bi bi-exclamation-triangle me-1"></i>{{ total_gangguan }} gangguan
+                </span>
+                {% else %}
+                <span style="font-size:12px;padding:3px 12px;border-radius:20px;background:#10b981;color:#fff;font-weight:700;">
+                    <i class="bi bi-check2-circle me-1"></i>Semua Normal
+                </span>
+                {% endif %}
+                {% if can_edit %}
+                <form method="post" action="{% url 'kesiapan_snapshot_rtu' report.pk %}" class="m-0">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm" style="background:#059669;color:#fff;font-size:12px;">
+                        <i class="bi bi-hdd-network me-1"></i>Snapshot RTU
+                    </button>
+                </form>
+                <form method="post" action="{% url 'kesiapan_muat_dfr' report.pk %}" class="m-0">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm" style="background:#7e22ce;color:#fff;font-size:12px;">
+                        <i class="bi bi-download me-1"></i>Muat DFR
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if messages %}
+{% for msg in messages %}
+<div class="alert alert-{{ msg.tags|default:'info' }} alert-dismissible fade show" role="alert">
+    {{ msg }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endfor %}
+{% endif %}
+
+{% if can_edit %}
+<div class="card mb-4">
+    <div class="card-header" style="background:#f8fafc;font-weight:600;font-size:13.5px;">Informasi Laporan</div>
+    <div class="card-body p-3">
+        <form method="post" action="{% url 'kesiapan_ubah' report.pk %}">
+            {% csrf_token %}
+            <div class="row g-2 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label">Judul Laporan</label>
+                    <input type="text" name="judul" maxlength="200" value="{{ report.judul }}" class="form-control">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Catatan Umum / Lain-Lain</label>
+                    <input type="text" name="catatan" value="{{ report.catatan }}" class="form-control">
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-outline-primary w-100"><i class="bi bi-save me-1"></i>Simpan</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% elif report.catatan %}
+<div class="alert alert-light border mb-4" style="font-size:13px;">
+    <i class="bi bi-chat-left-text me-1 text-primary"></i><strong>Catatan Umum / Lain-Lain:</strong> {{ report.catatan }}
+</div>
+{% endif %}
+
+<div class="alert alert-light border mb-4" style="font-size:13px;">
+    <i class="bi bi-link-45deg me-1 text-primary"></i><strong>Halaman Publik:</strong>
+    <a href="{{ public_url }}" target="_blank" rel="noopener" class="text-break">{{ public_url }}</a>
+</div>
+
+{% if can_edit %}
+<div class="card mb-4">
+    <div class="card-header" style="background:#eff6ff;font-weight:600;font-size:13.5px;">
+        <i class="bi bi-plus-circle me-1 text-primary"></i>Tambah Item (pilih perangkat dari inventori)
+    </div>
+    <div class="card-body p-3">
+        <form method="post" action="{% url 'kesiapan_item_tambah' report.pk %}" id="form-tambah-item">
+            {% csrf_token %}
+            <div class="row g-2 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label">Seksi</label>
+                    <select name="seksi" class="form-select">
+                        {% for key, label in manual_seksi_choices %}
+                        <option value="{{ key }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4 position-relative">
+                    <label class="form-label">Cari Perangkat</label>
+                    <input type="text" id="item-search" class="form-control" autocomplete="off"
+                           placeholder="Ketik nama / lokasi / asset ID / jenis...">
+                    <input type="hidden" name="device_id" id="item-device-id">
+                    <div id="item-search-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.12);z-index:999;max-height:280px;overflow-y:auto;"></div>
+                    <div id="item-device-chip" class="mt-1" style="display:none;font-size:12px;background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;border-radius:8px;padding:4px 10px;"></div>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Status</label>
+                    <select name="status" class="form-select">
+                        <option value="normal">Normal</option>
+                        <option value="gangguan">Gangguan</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Keterangan</label>
+                    <input type="text" name="keterangan" maxlength="300" class="form-control" placeholder="Opsional">
+                </div>
+                <div class="col-md-1">
+                    <button type="submit" class="btn btn-primary w-100" title="Tambah">
+                        <i class="bi bi-plus-lg"></i>
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+{% for s in sections %}
+<div class="card mb-4">
+    <div class="card-header d-flex align-items-center gap-2" style="background:#f8fafc;">
+        <span style="font-size:12px;padding:3px 12px;border-radius:20px;font-weight:700;background:#0f172a;color:#f1f5f9;">
+            {{ s.label }}
+        </span>
+        <span class="text-muted" style="font-size:12px;">{{ s.jumlah }} item</span>
+        {% if s.gangguan %}
+        <span class="ms-auto" style="font-size:11px;padding:2px 10px;border-radius:12px;background:#fef2f2;color:#991b1b;font-weight:600;">
+            <i class="bi bi-exclamation-triangle me-1"></i>{{ s.gangguan }} gangguan
+        </span>
+        {% endif %}
+    </div>
+    <div class="card-body p-0">
+        {% if s.items %}
+        <div class="table-responsive">
+            <table class="table table-sm mb-0 align-middle" style="font-size:13px;">
+                <thead style="background:#f1f5f9;">
+                    <tr>
+                        <th style="width:36px;padding:10px 12px;">#</th>
+                        <th style="padding:10px 12px;">Nama Perangkat</th>
+                        <th style="padding:10px 12px;">GI / Lokasi</th>
+                        <th style="width:150px;padding:10px 12px;">Status</th>
+                        <th style="padding:10px 12px;">Keterangan</th>
+                        {% if can_edit %}<th style="width:70px;padding:10px 12px;"></th>{% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in s.items %}
+                    <tr style="{% if item.status == 'gangguan' %}background:#fef2f2;{% endif %}">
+                        <td class="text-muted" style="padding:10px 12px;">{{ forloop.counter }}</td>
+                        <td style="padding:10px 12px;font-weight:600;">
+                            {{ item.nama }}
+                            {% if item.device %}
+                            <a href="{% url 'device_view' item.device.pk %}" class="text-decoration-none" title="Lihat perangkat">
+                                <i class="bi bi-box-arrow-up-right" style="font-size:11px;color:#3b82f6;"></i>
+                            </a>
+                            {% endif %}
+                        </td>
+                        <td style="padding:10px 12px;">
+                            <span style="font-size:11px;padding:2px 8px;border-radius:12px;background:#f1f5f9;color:#475569;">
+                                {{ item.lokasi|default:"—" }}
+                            </span>
+                        </td>
+                        {% if can_edit %}
+                        <td style="padding:10px 12px;">
+                            <form method="post" action="{% url 'kesiapan_item_ubah' report.pk item.pk %}" class="d-flex gap-1 align-items-center">
+                                {% csrf_token %}
+                                <select name="status" class="form-select form-select-sm" style="font-size:12px;width:auto;">
+                                    <option value="normal" {% if item.status == 'normal' %}selected{% endif %}>Normal</option>
+                                    <option value="gangguan" {% if item.status == 'gangguan' %}selected{% endif %}>Gangguan</option>
+                                </select>
+                                <button type="submit" class="btn btn-sm btn-outline-secondary" style="font-size:11px;padding:2px 8px;" title="Simpan status">
+                                    <i class="bi bi-check-lg"></i>
+                                </button>
+                            </form>
+                        </td>
+                        <td style="padding:10px 12px;">
+                            <form method="post" action="{% url 'kesiapan_item_ubah' report.pk item.pk %}" class="d-flex gap-1 align-items-center">
+                                {% csrf_token %}
+                                <input type="hidden" name="status" value="{{ item.status }}">
+                                <input type="text" name="keterangan" maxlength="300" value="{{ item.keterangan }}"
+                                       class="form-control form-control-sm" style="font-size:12px;min-width:160px;" placeholder="—">
+                                <button type="submit" class="btn btn-sm btn-outline-secondary" style="font-size:11px;padding:2px 8px;" title="Simpan keterangan">
+                                    <i class="bi bi-check-lg"></i>
+                                </button>
+                            </form>
+                        </td>
+                        <td style="padding:10px 12px;">
+                            <form method="post" action="{% url 'kesiapan_item_hapus' report.pk item.pk %}"
+                                  onsubmit="return confirm('Hapus {{ item.nama|escapejs }} dari laporan?')">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-outline-danger" style="font-size:11px;padding:2px 8px;" title="Hapus item">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
+                        </td>
+                        {% else %}
+                        <td style="padding:10px 12px;">
+                            <span style="font-size:11px;padding:3px 10px;border-radius:20px;font-weight:700;
+                                {% if item.status == 'normal' %}background:#f0fdf4;color:#166534;{% else %}background:#fef2f2;color:#991b1b;{% endif %}">
+                                {{ item.get_status_display }}
+                            </span>
+                        </td>
+                        <td style="padding:10px 12px;color:#64748b;">{{ item.keterangan|default:"—" }}</td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-4 text-muted" style="font-size:13px;">
+            <i class="bi bi-inbox" style="font-size:28px;color:#cbd5e1;display:block;margin-bottom:6px;"></i>
+            Belum ada item di seksi ini.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endfor %}
+
+{% if can_edit %}
+<script>
+(function () {
+    var inp      = document.getElementById('item-search');
+    var dropdown = document.getElementById('item-search-dropdown');
+    var hiddenId = document.getElementById('item-device-id');
+    var chip     = document.getElementById('item-device-chip');
+    var timer    = null;
+
+    if (!inp) return;
+
+    function escHtml(str) {
+        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    inp.addEventListener('input', function () {
+        clearTimeout(timer);
+        var q = inp.value.trim();
+        hiddenId.value = '';
+        chip.style.display = 'none';
+        chip.innerHTML = '';
+        if (q.length < 2) { dropdown.style.display = 'none'; dropdown.innerHTML = ''; return; }
+        timer = setTimeout(function () {
+            fetch('{% url "kesiapan_device_search" %}?q=' + encodeURIComponent(q))
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (!data.results || !data.results.length) {
+                        dropdown.innerHTML = '<div style="padding:12px 14px;font-size:12.5px;color:#94a3b8;">Tidak ada hasil.</div>';
+                        dropdown.style.display = '';
+                        return;
+                    }
+                    var html = '';
+                    data.results.forEach(function (d) {
+                        html += '<a href="#" class="item-result" data-id="' + d.id + '"' +
+                                ' style="display:flex;align-items:center;gap:8px;padding:8px 14px;text-decoration:none;border-bottom:1px solid #f1f5f9;color:#0f172a;">' +
+                                '<div style="flex:1;min-width:0;">' +
+                                '<div style="font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escHtml(d.name) + '</div>' +
+                                '<div style="font-size:11px;color:#64748b;">' + escHtml(d.type) + ' · ' + escHtml(d.lokasi) + '</div>' +
+                                '</div></a>';
+                    });
+                    dropdown.innerHTML = html;
+                    dropdown.style.display = '';
+                    dropdown.querySelectorAll('.item-result').forEach(function (el) {
+                        el.addEventListener('click', function (e) {
+                            e.preventDefault();
+                            var res = data.results.find(function (x) { return String(x.id) === el.dataset.id; });
+                            if (!res) return;
+                            hiddenId.value = res.id;
+                            chip.innerHTML = '<i class="bi bi-check2-circle me-1"></i>' + escHtml(res.name) +
+                                             ' <span style="color:#059669;">(' + escHtml(res.type) + ' · ' + escHtml(res.lokasi) + ')</span>';
+                            chip.style.display = '';
+                            inp.value = res.name;
+                            dropdown.style.display = 'none';
+                        });
+                    });
+                })
+                .catch(function () {
+                    dropdown.innerHTML = '<div style="padding:12px 14px;font-size:12.5px;color:#ef4444;">Gagal memuat hasil.</div>';
+                    dropdown.style.display = '';
+                });
+        }, 280);
+    });
+
+    document.addEventListener('click', function (e) {
+        if (!e.target.closest('#form-tambah-item .position-relative')) {
+            dropdown.style.display = 'none';
+        }
+    });
+
+    document.getElementById('form-tambah-item').addEventListener('submit', function (e) {
+        if (!hiddenId.value) {
+            e.preventDefault();
+            alert('Pilih perangkat dari hasil pencarian terlebih dahulu.');
+        }
+    });
+})();
+</script>
+{% endif %}
+
+{% endblock %}

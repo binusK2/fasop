@@ -24,4 +24,17 @@ urlpatterns = [
     path('pengujian-telecom/riwayat/',                  views.pengujian_telecom_list,       name='pengujian_telecom_list'),
     path('pengujian-telecom/riwayat/<int:pk>/',         views.pengujian_telecom_detail,     name='pengujian_telecom_detail'),
     path('pengujian-telecom/riwayat/<int:pk>/delete/',  views.pengujian_telecom_delete,     name='pengujian_telecom_delete'),
+
+    # Kesiapan Fasilitas Operasi — harus sebelum route <hid> generik
+    path('kesiapan/',                                  views.kesiapan_list,            name='kesiapan_list'),
+    path('kesiapan/baru/',                             views.kesiapan_baru,            name='kesiapan_baru'),
+    path('kesiapan/publik/<str:token>/',               views.kesiapan_publik,          name='kesiapan_publik'),
+    path('kesiapan/api/device-search/',                views.kesiapan_device_search,   name='kesiapan_device_search'),
+    path('kesiapan/<hid:pk>/',                         views.kesiapan_detail,          name='kesiapan_detail'),
+    path('kesiapan/<hid:pk>/ubah/',                    views.kesiapan_ubah,            name='kesiapan_ubah'),
+    path('kesiapan/<hid:pk>/snapshot-rtu/',            views.kesiapan_snapshot_rtu,    name='kesiapan_snapshot_rtu'),
+    path('kesiapan/<hid:pk>/muat-dfr/',                views.kesiapan_muat_dfr,        name='kesiapan_muat_dfr'),
+    path('kesiapan/<hid:pk>/item/tambah/',             views.kesiapan_item_tambah,     name='kesiapan_item_tambah'),
+    path('kesiapan/<hid:pk>/item/<hid:item_pk>/ubah/', views.kesiapan_item_ubah,       name='kesiapan_item_ubah'),
+    path('kesiapan/<hid:pk>/item/<hid:item_pk>/hapus/', views.kesiapan_item_hapus,     name='kesiapan_item_hapus'),
 ]
