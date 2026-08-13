@@ -33,6 +33,7 @@ urlpatterns = [
     path('kesiapan/<hid:pk>/',                         views.kesiapan_detail,          name='kesiapan_detail'),
     path('kesiapan/<hid:pk>/ubah/',                    views.kesiapan_ubah,            name='kesiapan_ubah'),
     path('kesiapan/<hid:pk>/selesai/',                 views.kesiapan_selesai,         name='kesiapan_selesai'),
+    path('kesiapan/<hid:pk>/hapus/',                   views.kesiapan_hapus,           name='kesiapan_hapus'),
     path('kesiapan/<hid:pk>/snapshot-rtu/',            views.kesiapan_snapshot_rtu,    name='kesiapan_snapshot_rtu'),
     path('kesiapan/<hid:pk>/muat-master-station/',     views.kesiapan_muat_master_station,    name='kesiapan_muat_master_station'),
     path('kesiapan/<hid:pk>/muat-telekomunikasi/',     views.kesiapan_muat_telekomunikasi,    name='kesiapan_muat_telekomunikasi'),

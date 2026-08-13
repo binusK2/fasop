@@ -1844,6 +1844,7 @@ def kesiapan_list(request):
     return render(request, 'inspection/kesiapan_list.html', {
         'reports': reports,
         'can_edit': _kesiapan_editor(request.user),
+        'is_staff': request.user.is_superuser or request.user.is_staff,
     })
 
 
@@ -1906,6 +1907,32 @@ def _kesiapan_terkunci(report):
     return report.is_selesai
 
 
+def _boleh_hapus_kesiapan(user, report):
+    if user.is_superuser or user.is_staff:
+        return True
+    return not report.is_selesai and report.pelaksana_id == user.pk
+
+
+@login_required
+def kesiapan_hapus(request, pk):
+    """Hapus laporan kesiapan.
+
+    Pelaksana hanya bisa menghapus saat masih In Progress.
+    Laporan Selesai hanya bisa dihapus oleh site admin / superuser.
+    """
+    report = get_object_or_404(KesiapanFasilitas, pk=pk)
+    if request.method != 'POST':
+        return render(request, '403.html', {'message': 'Method tidak diizinkan.'}, status=405)
+    if not _boleh_hapus_kesiapan(request.user, report):
+        return render(request, '403.html', {
+            'message': 'Anda tidak berhak menghapus laporan ini.',
+        }, status=403)
+    report.delete()
+    from django.contrib import messages
+    messages.success(request, 'Laporan kesiapan dihapus.')
+    return redirect('kesiapan_list')
+
+
 @login_required
 def kesiapan_detail(request, pk):
     """Detail satu laporan kesiapan — semua user login boleh melihat."""
@@ -1924,6 +1951,7 @@ def kesiapan_detail(request, pk):
         ],
         'master_kondisi_choices': MASTER_KONDISI_CHOICES,
         'public_url':      public_url,
+        'can_delete':      _boleh_hapus_kesiapan(request.user, report),
     })
 
 
