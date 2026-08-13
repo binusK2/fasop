@@ -344,3 +344,5 @@ WA_SESSION_ID    = config('WA_SESSION_ID', default='')   # id sesi WhatsApp di O
 WA_CHAT_IDS      = config('WA_CHAT_IDS',   default='')   # chatId tujuan, pisahkan koma
 WA_TIMEOUT       = config('WA_TIMEOUT',    default=10, cast=int)  # detik
 
+WA_CHAT_IDS_INSPECTION = config('WA_CHAT_IDS_INSPECTION', default='')
+

@@ -37,7 +37,15 @@ def _is_alarm_inspection(insp):
     berdasarkan field yang benar-benar diisi lewat form.html untuk masing-masing jenis."""
     try:
         if insp.jenis == 'catu_daya':
-            return insp.detail_catu_daya.kondisi_rectifier == 'alarm'
+            d = insp.detail_catu_daya
+            return (d.kondisi_rectifier == 'alarm'
+                    or d.alarm_ground_fault == 'ada'
+                    or d.alarm_min_ac_fault == 'ada'
+                    or d.alarm_recti_fault == 'ada'
+                    or d.level_air_bank in ('bawah_level', 'atas_level')
+                    or d.exhaust_fan == 'mati'
+                    or d.kondisi_baterai == 'kotor'
+                    or d.kondisi_keseluruhan == 'kotor')
         if insp.jenis == 'defense_scheme':
             d = insp.detail_defense_scheme
             return d.kondisi_relay == 'alarm' or d.status_indikator == 'tidak_normal'
@@ -383,6 +391,27 @@ def _kirim_notif_jika_perlu(insp, jenis_key, post_data):
         if post_data.get('kondisi_rectifier') == 'alarm':
             perlu_notif = True
             pesan_detail.append('Rectifier: ALARM')
+        if post_data.get('alarm_ground_fault') == 'ada':
+            perlu_notif = True
+            pesan_detail.append('Alarm Ground Fault: ADA')
+        if post_data.get('alarm_min_ac_fault') == 'ada':
+            perlu_notif = True
+            pesan_detail.append('Alarm Min AC Fault: ADA')
+        if post_data.get('alarm_recti_fault') == 'ada':
+            perlu_notif = True
+            pesan_detail.append('Alarm Recti Fault: ADA')
+        if post_data.get('level_air_bank') == 'bawah_level':
+            perlu_notif = True
+            pesan_detail.append('Level Air Bank: DI BAWAH LEVEL')
+        elif post_data.get('level_air_bank') == 'atas_level':
+            perlu_notif = True
+            pesan_detail.append('Level Air Bank: DI ATAS LEVEL')
+        if post_data.get('exhaust_fan') == 'mati':
+            perlu_notif = True
+            pesan_detail.append('Exhaust Fan: MATI')
+        if post_data.get('kondisi_baterai') == 'kotor':
+            perlu_notif = True
+            pesan_detail.append('Kondisi Baterai: KOTOR')
         if post_data.get('kondisi_keseluruhan') == 'kotor':
             perlu_notif = True
             pesan_detail.append('Kondisi keseluruhan: KOTOR')
@@ -456,6 +485,12 @@ def _kirim_notif_jika_perlu(insp, jenis_key, post_data):
             url    = reverse('inspection_riwayat', kwargs={'pk': insp.pk}),
             device = insp.device,
         )
+    except Exception:
+        pass
+
+    try:
+        from .notifications import alert_inspection
+        alert_inspection(insp, pesan_detail)
     except Exception:
         pass
 
