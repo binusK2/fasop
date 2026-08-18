@@ -38,6 +38,19 @@ class Pembangkit(models.Model):
     unit_list     = models.CharField(max_length=100, blank=True, verbose_name='Unit yang Dipakai',
                                       help_text='Daftar unit dipisah koma, mis. UNIT1,UNIT2,UNIT3. '
                                                  'Kosongkan untuk memakai semua unit (UNIT1-UNIT8).')
+    # ── Daya Mampu (DMN/DMP) dari tabel MSSQL KIT_DMP ─────────────────
+    # Nama kolom sengaja dibuat konfigurabel dari admin karena struktur
+    # KIT_DMP belum tentu sama di tiap deployment. Kosongkan dmp_key untuk
+    # menonaktifkan pembacaan DMN/DMP pembangkit ini.
+    dmp_key       = models.CharField(max_length=50, blank=True, verbose_name='Nilai Kunci KIT_DMP',
+                                      help_text='Nilai pada Kolom Kunci KIT_DMP yang menandai pembangkit ini '
+                                                '(mis. isi KIT). Kosongkan untuk memakai Kode KIT / Kode.')
+    dmp_kolom_dmn = models.CharField(max_length=50, blank=True, default='', verbose_name='Kolom DMN',
+                                      help_text='Nama kolom KIT_DMP berisi Daya Mampu Netto (MW). '
+                                                'Kosongkan bila DMN tidak tersedia.')
+    dmp_kolom_dmp = models.CharField(max_length=50, blank=True, default='', verbose_name='Kolom DMP',
+                                      help_text='Nama kolom KIT_DMP berisi Daya Mampu Pasok (MW). '
+                                                'Kosongkan bila DMP tidak tersedia.')
     # Penanda data tidak valid / tidak sesuai kondisi real (diisi manual oleh
     # superuser / role Opsis dari dashboard). Bila False, tampilan dashboard
     # tidak berubah; bila True, kartu diberi label ketidaksesuaian.
@@ -65,6 +78,14 @@ class Pembangkit(models.Model):
         if not self.unit_list.strip():
             return None
         return {u.strip().upper() for u in self.unit_list.split(',') if u.strip()}
+
+    def dmp_source(self):
+        """Nilai kunci baris KIT_DMP untuk pembangkit ini."""
+        return (self.dmp_key or self.kit_source()).strip().upper()
+
+    def pakai_dmp(self):
+        """True bila minimal satu kolom DMN/DMP dikonfigurasi."""
+        return bool(self.dmp_kolom_dmn.strip() or self.dmp_kolom_dmp.strip())
 
 
 HOP_KATEGORI_CHOICES = [

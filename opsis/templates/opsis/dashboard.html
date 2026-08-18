@@ -76,6 +76,17 @@
     color: #a78bfa; padding-left: 6px; margin-top: 4px;
 }
 .pb-mvar-unit { font-size: 10px; color: var(--muted); }
+/* Daya Mampu Netto / Pasok — sumber dbo.KIT_DMP, tampil bila dikonfigurasi */
+.pb-dm {
+    display: flex; gap: 10px; flex-wrap: wrap;
+    padding-left: 6px; margin-top: 5px;
+    font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #7dd3fc;
+}
+.pb-dm-item { display: inline-flex; align-items: center; gap: 4px; }
+.pb-dm-lbl {
+    font-family: 'DM Sans', sans-serif; font-size: 8.5px; font-weight: 700;
+    letter-spacing: .4px; color: var(--muted);
+}
 .pb-ts {
     font-size: 10px; color: var(--muted); padding-left: 6px;
     margin-top: 6px; display: flex; align-items: center; gap: 3px;
@@ -496,6 +507,12 @@
                 </div>
                 <div class="pb-mw"><span id="val-mw-{{ p.kode }}">—</span><span class="pb-mw-unit"> MW</span></div>
                 <div class="pb-mvar"><span id="val-mvar-{{ p.kode }}">—</span><span class="pb-mvar-unit"> MVAR</span></div>
+                {% if p.pakai_dmp %}
+                <div class="pb-dm" id="dm-{{ p.kode }}">
+                    <span class="pb-dm-item"><span class="pb-dm-lbl">DMN</span><span id="val-dmn-{{ p.kode }}">—</span></span>
+                    <span class="pb-dm-item"><span class="pb-dm-lbl">DMP</span><span id="val-dmp-{{ p.kode }}">—</span></span>
+                </div>
+                {% endif %}
                 <div class="pb-ts"><i class="bi bi-clock" style="font-size:9px;"></i><span id="ts-{{ p.kode }}">—</span>
                     {% if p.supply %}<span class="pb-supply pb-supply-{{ p.supply }}">{{ p.supply|upper }}</span>{% endif %}
                 </div>
@@ -662,6 +679,8 @@ async function pollLive() {
             const el = id => document.getElementById(id);
             el(`val-mw-${kode}`)   && (el(`val-mw-${kode}`).textContent   = fmt(d.mw,  2));
             el(`val-mvar-${kode}`) && (el(`val-mvar-${kode}`).textContent = fmt(d.mvar, 2));
+            el(`val-dmn-${kode}`)  && (el(`val-dmn-${kode}`).textContent  = fmt(d.dmn, 2));
+            el(`val-dmp-${kode}`)  && (el(`val-dmp-${kode}`).textContent  = fmt(d.dmp, 2));
             // Gunakan waktu browser (selalu update, tidak tergantung timestamp MSSQL)
             el(`ts-${kode}`) && (el(`ts-${kode}`).textContent = now);
             const dot = document.getElementById(`dot-${kode}`);
