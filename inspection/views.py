@@ -2173,6 +2173,59 @@ def kesiapan_item_ubah(request, pk, item_pk):
 
 @login_required
 @require_kesiapan_editor
+def kesiapan_item_simpan_semua(request, pk):
+    """Simpan status / kondisi / keterangan seluruh item laporan sekaligus."""
+    report = get_object_or_404(KesiapanFasilitas, pk=pk)
+    from django.contrib import messages
+    if request.method != 'POST':
+        return render(request, '403.html', {'message': 'Method tidak diizinkan.'}, status=405)
+    if _kesiapan_terkunci(report):
+        messages.error(request, 'Laporan sudah Selesai dan tidak dapat diubah.')
+        return redirect('kesiapan_detail', pk=report.pk)
+
+    status_valid  = dict(STATUS_KESIAPAN_CHOICES)
+    kondisi_valid = dict(MASTER_KONDISI_CHOICES)
+    items         = list(report.items.all())
+    berubah       = []
+
+    for item in items:
+        ubah   = False
+        prefix = str(item.pk)
+
+        field = f'status-{prefix}'
+        if field in request.POST:
+            status = request.POST.get(field, '')
+            if status in status_valid and status != item.status:
+                item.status = status
+                ubah = True
+
+        field = f'kondisi-{prefix}'
+        if field in request.POST:
+            kondisi = request.POST.get(field, '').strip()
+            if (kondisi in kondisi_valid or not kondisi) and kondisi != item.kondisi:
+                item.kondisi = kondisi
+                ubah = True
+
+        field = f'keterangan-{prefix}'
+        if field in request.POST:
+            keterangan = request.POST.get(field, '').strip()[:300]
+            if keterangan != item.keterangan:
+                item.keterangan = keterangan
+                ubah = True
+
+        if ubah:
+            berubah.append(item)
+
+    if berubah:
+        KesiapanItem.objects.bulk_update(berubah, ['status', 'kondisi', 'keterangan'])
+        messages.success(request, f'{len(berubah)} item diperbarui.')
+    else:
+        messages.info(request, 'Tidak ada perubahan untuk disimpan.')
+    return redirect('kesiapan_detail', pk=report.pk)
+
+
+@login_required
+@require_kesiapan_editor
 def kesiapan_item_hapus(request, pk, item_pk):
     """Hapus satu item dari laporan."""
     report = get_object_or_404(KesiapanFasilitas, pk=pk)

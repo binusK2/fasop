@@ -40,6 +40,7 @@ urlpatterns = [
     path('kesiapan/<hid:pk>/muat-catu-daya/',          views.kesiapan_muat_catu_daya,         name='kesiapan_muat_catu_daya'),
     path('kesiapan/<hid:pk>/muat-dfr/',                views.kesiapan_muat_dfr,        name='kesiapan_muat_dfr'),
     path('kesiapan/<hid:pk>/item/tambah/',             views.kesiapan_item_tambah,     name='kesiapan_item_tambah'),
+    path('kesiapan/<hid:pk>/item/simpan-semua/',       views.kesiapan_item_simpan_semua, name='kesiapan_item_simpan_semua'),
     path('kesiapan/<hid:pk>/item/<hid:item_pk>/ubah/', views.kesiapan_item_ubah,       name='kesiapan_item_ubah'),
     path('kesiapan/<hid:pk>/item/<hid:item_pk>/hapus/', views.kesiapan_item_hapus,     name='kesiapan_item_hapus'),
 ]
