@@ -5,7 +5,8 @@ from .models import (Pembangkit, SnapLive, SnapUnit, SnapFreq, SnapFreqRT, SnapF
 
 @admin.register(Pembangkit)
 class PembangkitAdmin(admin.ModelAdmin):
-    list_display  = ('urutan', 'nama', 'kode', 'jenis', 'supply', 'warna', 'aktif', 'data_tidak_sesuai')
+    list_display  = ('urutan', 'nama', 'kode', 'jenis', 'supply', 'warna', 'aktif',
+                     'data_tidak_sesuai', 'pakai_dmp')
     list_editable = ('urutan', 'jenis', 'supply', 'aktif')
     list_filter   = ('jenis', 'supply', 'aktif', 'data_tidak_sesuai')
     list_display_links = ('nama',)
@@ -25,11 +26,22 @@ class PembangkitAdmin(admin.ModelAdmin):
                             'UNIT7 dari baris KIT yang sama.',
             'fields': ('kode_kit', 'unit_list'),
         }),
+        ('Daya Mampu — dbo.KIT_DMP', {
+            'description': 'Isi nama kolom yang menyimpan DMN dan DMP pada dbo.KIT_DMP. '
+                           'Kolom Kunci global diatur lewat MSSQL_DMP_KEYCOL (default: KIT). '
+                           'Nilai Kunci dikosongkan untuk memakai Kode KIT/Kode pembangkit. '
+                           'Gunakan python manage.py probe_dmp untuk melihat struktur tabel.',
+            'fields': ('dmp_key', 'dmp_kolom_dmn', 'dmp_kolom_dmp'),
+        }),
         ('Tag MSSQL', {
             'description': 'Isi tag/kolom sesuai struktur tabel historian di MSSQL.',
             'fields': ('tag_frekuensi', 'tag_mw', 'tag_mvar'),
         }),
     )
+
+    @admin.display(boolean=True, description='DMN/DMP')
+    def pakai_dmp(self, obj):
+        return obj.pakai_dmp()
 
 
 @admin.register(Trafo)

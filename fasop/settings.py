@@ -252,6 +252,12 @@ MSSQL_FREQ_RT_COL    = config('MSSQL_FREQ_RT_COL',    default='VALUE')
 MSSQL_FREQ_RT_KEYCOL = config('MSSQL_FREQ_RT_KEYCOL', default='ANALOG')
 MSSQL_FREQ_RT_KEY    = config('MSSQL_FREQ_RT_KEY',    default='FREQ_MKS')
 MSSQL_TRAFO_TABLE= config('MSSQL_TRAFO_TABLE',default='dbo.ALL_TRANS_DATA')  # Beban Trafo
+# Daya Mampu Netto (DMN) & Daya Mampu Pasok (DMP) per pembangkit.
+# Baris dipilih lewat MSSQL_DMP_KEYCOL vs Pembangkit.dmp_source(); nama kolom
+# DMN/DMP diisi per pembangkit di site admin (Opsis → Pembangkit → Daya Mampu),
+# karena struktur KIT_DMP tidak seragam. Cek isi tabel: manage.py probe_dmp.
+MSSQL_DMP_TABLE  = config('MSSQL_DMP_TABLE',  default='dbo.KIT_DMP')
+MSSQL_DMP_KEYCOL = config('MSSQL_DMP_KEYCOL', default='KIT')
 MSSQL_DRIVER     = config('MSSQL_DRIVER',     default='ODBC Driver 17 for SQL Server')
 
 # -------------------------------------------------------------------

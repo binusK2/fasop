@@ -131,11 +131,19 @@ def api_live(request):
     # Penanda ketidaksesuaian data (hanya yang ditandai) — agar semua layar
     # monitoring ikut menampilkan label dalam <=5 detik tanpa reload.
     flags = {p.kode: _flag_info(p) for p in pembangkit_list if p.data_tidak_sesuai}
+    # DMN/DMP dari KIT_DMP — hanya pembangkit yang kolomnya sudah dikonfigurasi
+    # di site admin. Nilai ini berubah jauh lebih jarang dari MW/MVAR, tapi ikut
+    # dikirim tiap polling agar kartu tidak perlu endpoint terpisah.
+    daya_mampu = mssql.get_daya_mampu(pembangkit_list)
+    for kode, nilai in daya_mampu.items():
+        if kode in data:
+            data[kode].update(nilai)
     response = {
         'data':              data,
         'frekuensi_sistem':  result.get('frekuensi_sistem'),
         'terputus':          not mssql.is_reachable(),
         'flags':             flags,
+        'daya_mampu':        daya_mampu,
     }
     return JsonResponse(response)
 

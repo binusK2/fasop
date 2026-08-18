@@ -60,6 +60,14 @@ def _ktt_tbl():
     """Tabel beban KTT (konsumen tegangan tinggi) IND_LOAD."""
     return getattr(settings, 'MSSQL_KTT_TABLE', 'dbo.IND_LOAD')
 
+def _dmp_tbl():
+    """Tabel Daya Mampu KIT_DMP — sumber DMN (netto) & DMP (pasok)."""
+    return getattr(settings, 'MSSQL_DMP_TABLE', 'dbo.KIT_DMP')
+
+def _dmp_keycol():
+    """Kolom kunci KIT_DMP yang dicocokkan dengan Pembangkit.dmp_source()."""
+    return getattr(settings, 'MSSQL_DMP_KEYCOL', 'KIT')
+
 
 def _parse_host_port(host_setting, default_port=1433):
     """Parse 'host,port' atau 'host' dari setting MSSQL_HOST."""
@@ -808,6 +816,121 @@ def get_beban_ktt():
     except Exception as e:
         logger.error('get_beban_ktt error: %s', e)
         return []
+
+
+# ── Daya Mampu (DMN / DMP) dari KIT_DMP ──────────────────────────────────────
+
+def get_daya_mampu(pembangkit_list):
+    """
+    Ambil Daya Mampu Netto (DMN) dan Daya Mampu Pasok (DMP) tiap pembangkit
+    dari tabel KIT_DMP.
+
+    Nama kolom DMN/DMP tidak di-hardcode: tiap Pembangkit menentukan sendiri
+    lewat field dmp_kolom_dmn / dmp_kolom_dmp (diisi dari site admin), sedang
+    baris yang dibaca dipilih lewat dmp_source() vs kolom kunci KIT_DMP
+    (MSSQL_DMP_KEYCOL, default KIT). Pembangkit yang belum dikonfigurasi
+    (pakai_dmp() False) tidak ikut diquery.
+
+    Return {kode: {'dmn': float|None, 'dmp': float|None}} — dict kosong bila
+    MSSQL belum dikonfigurasi/tidak reachable atau tak ada yang dikonfigurasi.
+    """
+    targets = [p for p in pembangkit_list if p.aktif and p.pakai_dmp()]
+    if not targets or not getattr(settings, 'MSSQL_HOST', ''):
+        return {}
+
+    tbl = _dmp_tbl()
+    key_col = _dmp_keycol()
+    if not _TABLE_RE.match(tbl) or not _COLUMN_RE.match(key_col):
+        logger.error('get_daya_mampu: tabel/kolom kunci invalid (%r, %r)', tbl, key_col)
+        return {}
+
+    # Kumpulkan semua kolom valid yang dipakai — satu query untuk semua baris.
+    kolom = set()
+    for p in targets:
+        for c in (p.dmp_kolom_dmn.strip(), p.dmp_kolom_dmp.strip()):
+            if c and _COLUMN_RE.match(c):
+                kolom.add(c)
+    if not kolom:
+        return {}
+
+    kolom = sorted(kolom)
+    conn = None
+    try:
+        conn   = _get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            f"SELECT RTRIM({key_col}), {', '.join(kolom)} FROM {tbl} WITH (NOLOCK)"
+        )
+        rows = {}
+        for row in cursor.fetchall():
+            kunci = (row[0] or '').strip().upper()
+            if not kunci:
+                continue
+            rows[kunci] = dict(zip(kolom, row[1:]))
+        conn.close()
+        conn = None
+    except Exception as e:
+        logger.error('get_daya_mampu error: %s', e, exc_info=True)
+        return {}
+    finally:
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+    def _nilai(src, nama_kolom):
+        nama_kolom = (nama_kolom or '').strip()
+        if not nama_kolom or nama_kolom not in src:
+            return None
+        val = src[nama_kolom]
+        try:
+            return round(float(val), 3) if val is not None else None
+        except (TypeError, ValueError):
+            return None
+
+    hasil = {}
+    for p in targets:
+        src = rows.get(p.dmp_source())
+        if src is None:
+            hasil[p.kode] = {'dmn': None, 'dmp': None}
+            continue
+        hasil[p.kode] = {
+            'dmn': _nilai(src, p.dmp_kolom_dmn),
+            'dmp': _nilai(src, p.dmp_kolom_dmp),
+        }
+    return hasil
+
+
+def probe_dmp(limit=20):
+    """
+    Diagnosa: daftar kolom + beberapa baris pertama KIT_DMP, untuk menentukan
+    kolom mana yang harus diisi ke Pembangkit.dmp_kolom_dmn / dmp_kolom_dmp.
+
+    Return {'tabel', 'kolom': [...], 'rows': [ {kolom: nilai} ], 'error': str|None}.
+    """
+    tbl = _dmp_tbl()
+    if not getattr(settings, 'MSSQL_HOST', ''):
+        return {'tabel': tbl, 'kolom': [], 'rows': [], 'error': 'MSSQL_HOST belum dikonfigurasi'}
+    if not _TABLE_RE.match(tbl):
+        return {'tabel': tbl, 'kolom': [], 'rows': [], 'error': 'Nama tabel invalid'}
+    conn = None
+    try:
+        conn   = _get_connection()
+        cursor = conn.cursor()
+        cursor.execute(f'SELECT TOP {int(limit)} * FROM {tbl} WITH (NOLOCK)')
+        kolom = [c[0] for c in cursor.description]
+        rows  = [dict(zip(kolom, r)) for r in cursor.fetchall()]
+        return {'tabel': tbl, 'kolom': kolom, 'rows': rows, 'error': None}
+    except Exception as e:
+        logger.error('probe_dmp error: %s', e)
+        return {'tabel': tbl, 'kolom': [], 'rows': [], 'error': str(e)}
+    finally:
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:
+                pass
 
 
 # ── Frekuensi Area (Sultra / Baubau) ─────────────────────────────────────────
