@@ -15,6 +15,26 @@ Model ML-nya **tidak dihapus** — lihat [Kembali ke ML](#kembali-ke-ml) di bawa
 
 ## 1. Bentuk spreadsheet
 
+Node Code mengenali **dua layout** dan memilih otomatis — tidak perlu diatur.
+
+### Layout MELEBAR (yang dipakai Dashboard ROH Sulbagsel)
+
+Jam jadi **kolom**, satu baris per tanggal. Kolom pertama berisi tanggal
+(header-nya boleh kosong):
+
+|            | 0 | 0.3 | 1 | 1.3 | … | 12 | … | 18.3 | … | 23.3 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 18-Aug-26 | 1,593.51 | 1,546.94 | 1,511.32 | 1,492.82 | … | 1,669.59 | … | 1,710.80 | … | 1,742.50 |
+| 19-Aug-26 | … | | | | | | | | | |
+
+- Header jam boleh `0` / `0.3` (notasi jam.menit), `0.5` (setengah jam), atau
+  `00:30`. Ketiganya menunjuk slot yang sama.
+- Baris yang kolom tanggalnya bukan tanggal (mis. `RATA-RATA`, `MAX`) otomatis
+  dilewati.
+- Sheet boleh memuat sebulan penuh — hanya baris H dan H+1 yang dikirim.
+
+### Layout MEMANJANG
+
 Satu baris per titik waktu, grid 30 menit, 48 baris untuk satu hari:
 
 | Tanggal | Jam | MW |
@@ -34,7 +54,10 @@ Ketentuan:
   seri realisasi yang dipakai chart.
 - **Kolom Jam** boleh `HH:MM` atau `HH:MM:SS`; boleh juga diganti kolom `menit`
   berisi menit sejak 00:00 (`0`, `30`, …, `1410`).
-- **Desimal boleh pakai koma** (`1010,5`) — server menormalkannya.
+- **Dua konvensi angka diterima**: `1,593.51` (koma ribuan, ala Inggris — ini
+  yang dipakai sheet ROH) maupun `1.593,51` / `1593,51` (koma desimal, ala
+  Indonesia). Node Code membaca pemisah **terakhir** sebagai desimal, lalu
+  mengirim angka murni ke FASOP.
 - **Sel MW kosong dilewati diam-diam**, tidak dianggap error. Jadi sheet H+1
   yang baru terisi separuh tetap aman dikirim.
 - **12:00 dan 18:30 wajib ada** kalau angka puncak siang/malam mau muncul di
@@ -150,25 +173,37 @@ saat workflow diekspor.
 
 - Mencocokkan kolom **tanpa peduli besar-kecil huruf atau spasi** (`Tanggal`/`Date`,
   `Jam`/`Waktu`/`Time`, `MW`/`Beban`, `Menit`).
-- Menerima **empat bentuk sel** sekaligus, karena Sheets mengirim teks
+- **Mendeteksi layout sendiri** (melebar vs memanjang) dari jumlah kolom yang
+  berlabel jam, lalu melaporkannya di field `_layout` — berguna saat menebak
+  kenapa hasilnya kosong.
+- Menerima **berbagai bentuk sel** sekaligus, karena Sheets mengirim teks
   sedangkan Excel menyimpan tanggal & jam sebagai angka:
 
   | Kolom | Bentuk yang diterima |
   |---|---|
-  | Tanggal | `2026-08-19`, `19/08/2026`, objek Date, serial Excel (`46253`) |
-  | Jam | `18:30`, `18:30:00`, pecahan hari (`0.5` = 12:00), objek Date |
+  | Tanggal | `2026-08-19`, `19/08/2026`, `18-Aug-26`, objek Date, serial Excel (`46253`) |
+  | Header jam (melebar) | `0`, `0.3`, `0.5`, `18.3`, `18:30` |
+  | Kolom Jam (memanjang) | `18:30`, `18:30:00`, objek Date, sel numerik .xlsx (pecahan hari: `0.5` = 12:00) |
   | Menit | angka `0`–`1439` (alternatif kolom Jam) |
+  | MW | `1,593.51`, `1.593,51`, `1593,51`, `1593.51`, angka |
 
-  Jam dinormalkan jadi `menit` di sisi n8n, jadi FASOP menerima angka yang
-  sudah pasti — bukan tebakan format.
+  Perhatikan bedanya `0.5`: sebagai **header kolom** artinya 00:30, sebagai
+  **sel jam numerik di .xlsx** artinya 12:00 (pecahan hari). Keduanya ditangani
+  terpisah, jangan disamakan kalau nanti kode ini diubah.
+
+  Jam dinormalkan jadi `menit` dan MW jadi angka murni di sisi n8n, jadi FASOP
+  menerima nilai yang sudah pasti — bukan tebakan format.
 - **Menyaring hanya baris H dan H+1.** Ini disengaja: kurva hari lampau tidak
   boleh tertimpa, lihat [bagian 5](#5-akurasi).
 - Melewati sel MW kosong dan baris judul, lalu **melempar error kalau tidak ada
   satu baris pun yang terbaca** — jadi salah nama kolom langsung kelihatan di
   eksekusi n8n, bukan diam-diam mengirim payload kosong. Pesan errornya ikut
   menyebutkan contoh nilai Jam yang gagal dibaca.
-- Melaporkan `_dilewati` (baris di luar H/H+1) dan `_jam_tak_terbaca` di output,
-  supaya baris bermasalah bisa dihitung tanpa membuka sheet.
+- Melaporkan `_layout`, `_dilewati` (baris di luar H/H+1), `_jam_tak_terbaca`,
+  dan `_mw_rusak` di output, supaya baris bermasalah bisa dihitung tanpa
+  membuka sheet. Pesan errornya menyebut layout yang terdeteksi, tanggal yang
+  dicari, dan contoh tanggal/label jam yang ditemukan — biasanya itu langsung
+  menunjukkan penyebabnya.
 
 Kalau sheet Anda hanya berisi satu hari dan tanggalnya ada di judul (bukan kolom
 per baris), baris tanpa kolom `Tanggal` otomatis memakai default server (hari
@@ -291,10 +326,18 @@ sel MW kosong, atau nama kolom tidak dikenali.
 
 ### Node Code melempar "Tidak ada baris prakiraan H/H+1 yang terbaca"
 
-Sheet terbaca tapi tidak ada baris yang lolos. Cek berurutan: nama kolom
-(`Tanggal`/`Jam`/`MW`), apakah tab yang terbaca benar (Extract From File hanya
-membaca sheet pertama kalau *Sheet Name* dikosongkan), dan apakah sheet memang
-sudah berisi tanggal hari ini atau besok.
+Sheet terbaca tapi tidak ada baris yang lolos. Pesan errornya menyebutkan
+layout yang terdeteksi, tanggal yang dicari, dan contoh tanggal/label jam yang
+ditemukan — mulai dari situ:
+
+- **`layout terdeteksi: MEMANJANG` padahal sheet-nya melebar** — header jamnya
+  tidak dikenali. Deteksi butuh minimal 6 kolom berlabel jam (`0`, `0.3`, …).
+  Sering terjadi kalau baris header bukan baris pertama sheet, sehingga yang
+  terbaca sebagai header adalah baris judul.
+- **`Tanggal lain yang ditemukan: …`** — sheet-nya terbaca, hanya belum berisi
+  tanggal hari ini/besok.
+- **Tab yang terbaca salah** — Extract From File hanya membaca sheet pertama
+  kalau *Options → Sheet Name* dikosongkan.
 
 ## Kembali ke ML
 

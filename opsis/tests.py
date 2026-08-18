@@ -244,15 +244,15 @@ class PrakiraanBebanEndpointTest(TestCase):
     def test_payload_apa_adanya_dari_node_code_n8n(self):
         """
         Bentuk payload persis seperti yang dihasilkan node Code di
-        docs/n8n_prakiraan_beban*.workflow.json: `menit` sudah dinormalkan di
-        sisi n8n (karena sel Jam .xlsx bisa berupa angka/Date), `mw` dikirim
-        apa adanya dari sel — termasuk koma desimal.
+        docs/n8n_prakiraan_beban*.workflow.json: `menit` dan `mw` sudah
+        dinormalkan di sisi n8n (sel Jam/MW di .xlsx bisa berupa angka, Date,
+        atau teks dengan pemisah ribuan), jadi yang masuk ke sini angka murni.
         """
         besok = self.hari_ini + datetime.timedelta(days=1)
         r = self._post({
             'sumber': 'roh-sulbagsel',
             'data': [
-                {'menit': 0, 'mw': '812,5', 'tanggal': self.hari_ini.isoformat()},
+                {'menit': 0, 'mw': 812.5, 'tanggal': self.hari_ini.isoformat()},
                 {'menit': 720, 'mw': 1024, 'tanggal': self.hari_ini.isoformat()},
                 {'menit': 1110, 'mw': 1187.3, 'tanggal': self.hari_ini.isoformat()},
                 {'menit': 720, 'mw': 950, 'tanggal': besok.isoformat()},
