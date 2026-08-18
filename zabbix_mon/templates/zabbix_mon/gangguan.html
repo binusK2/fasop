@@ -1,0 +1,54 @@
+{% extends "zabbix_mon/base.html" %}
+{% block title %}Histori Problem Zabbix{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:18px;">
+    <div style="font-size:20px; font-weight:800; color:#fff; margin-bottom:2px;">Histori Problem Zabbix</div>
+    <div style="font-size:12px; color:var(--muted);">200 problem terakhir yang tercatat</div>
+</div>
+
+<div class="chart-card">
+    <div class="table-scroll">
+    <table class="gangguan-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Host</th>
+                <th>Severity</th>
+                <th>Problem</th>
+                <th>Sumber</th>
+                <th>Mulai</th>
+                <th>Selesai</th>
+                <th>Durasi</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in logs %}
+            <tr>
+                <td style="color:var(--muted);">{{ forloop.counter }}</td>
+                <td><strong>{{ log.host.nama }}</strong>{% if log.host.lokasi %}<br><span style="font-size:10px;color:var(--muted);">{{ log.host.lokasi }}</span>{% endif %}</td>
+                <td>{% if log.severity %}<span class="tag-sev">{{ log.severity }}</span>{% else %}—{% endif %}</td>
+                <td style="font-size:12px;">{{ log.problem_name|default:"—" }}</td>
+                <td style="font-size:11px;color:var(--muted);">{{ log.get_source_display }}</td>
+                <td>{{ log.mulai|date:"d/m/Y H:i" }}</td>
+                <td>
+                    {% if log.selesai %}{{ log.selesai|date:"d/m/Y H:i" }}
+                    {% else %}<span style="color:#f59e0b;">Berlangsung</span>{% endif %}
+                </td>
+                <td>
+                    {% if log.durasi_menit %}
+                        {% if log.durasi_menit < 60 %}{{ log.durasi_menit }}m
+                        {% else %}{{ log.durasi_menit|divisibleby:60 }}j {% endif %}
+                    {% else %}—{% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="8" style="text-align:center;padding:40px;color:var(--muted);">
+                Tidak ada problem tercatat 🎉
+            </td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</div>
+{% endblock %}

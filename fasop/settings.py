@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     'auditlog',
     'streaming',
     'up2bmakassar',
+    'zabbix_mon',
 ]
 
 MIDDLEWARE = [
@@ -358,4 +359,35 @@ WA_CHAT_IDS      = config('WA_CHAT_IDS',   default='')   # chatId tujuan, pisahk
 WA_TIMEOUT       = config('WA_TIMEOUT',    default=10, cast=int)  # detik
 
 WA_CHAT_IDS_INSPECTION = config('WA_CHAT_IDS_INSPECTION', default='')
+
+# -------------------------------------------------------------------
+# Zabbix Integration (zabbix_mon) — status peralatan dari Zabbix dipantau
+# di FASOP lewat dua jalur yang saling melengkapi:
+#   1. Pull  — management command `sync_zabbix` (cron, lihat crontab di
+#      docstring-nya) menarik status host/problem lewat Zabbix API
+#      (JSON-RPC, endpoint ZABBIX_API_URL) tiap beberapa menit. Sumber
+#      kebenaran periodik; juga yang membuat ZabbixHost baru otomatis.
+#   2. Push  — endpoint /zabbix/webhook/ menerima notifikasi realtime dari
+#      Zabbix Action (media type "Webhook") saat trigger PROBLEM/OK.
+# Setup lengkap (skrip webhook Zabbix, pembuatan API token, Action &
+# Media Type): lihat deploy/ZABBIX_INTEGRATION.md.
+#
+# Autentikasi ke Zabbix API — pilih salah satu:
+#   ZABBIX_API_TOKEN            (direkomendasikan, Zabbix >= 5.4, dari
+#                                 Administration > API tokens, role read-only)
+#   ZABBIX_API_USER + ZABBIX_API_PASSWORD   (fallback, user Zabbix biasa)
+# -------------------------------------------------------------------
+ZABBIX_API_URL      = config('ZABBIX_API_URL', default='')       # mis. http://zabbix.local/api_jsonrpc.php
+ZABBIX_API_TOKEN    = config('ZABBIX_API_TOKEN', default='')
+ZABBIX_API_USER     = config('ZABBIX_API_USER', default='')
+ZABBIX_API_PASSWORD = config('ZABBIX_API_PASSWORD', default='')
+ZABBIX_API_TIMEOUT  = config('ZABBIX_API_TIMEOUT', default=10, cast=int)
+# Batasi sync ke host group tertentu (opsional, pisahkan koma). Kosong = semua host.
+ZABBIX_HOST_GROUPS  = config('ZABBIX_HOST_GROUPS', default='')
+
+# Token bersama untuk endpoint /zabbix/webhook/ — HARUS sama dengan yang
+# ditulis di skrip webhook Media Type Zabbix (header X-Zabbix-Webhook-Token
+# atau parameter URL ?token=). String acak yang kuat, endpoint ini publik
+# (tanpa login) karena dipanggil oleh Zabbix server, bukan browser user.
+ZABBIX_WEBHOOK_TOKEN = config('ZABBIX_WEBHOOK_TOKEN', default='')
 
