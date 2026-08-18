@@ -42,9 +42,10 @@ class Pembangkit(models.Model):
     # Nama kolom sengaja dibuat konfigurabel dari admin karena struktur
     # KIT_DMP belum tentu sama di tiap deployment. Kosongkan dmp_key untuk
     # menonaktifkan pembacaan DMN/DMP pembangkit ini.
-    dmp_key       = models.CharField(max_length=50, blank=True, verbose_name='Nilai Kunci KIT_DMP',
+    dmp_key       = models.CharField(max_length=200, blank=True, verbose_name='Nilai Kunci KIT_DMP',
                                       help_text='Nilai pada Kolom Kunci KIT_DMP yang menandai pembangkit ini '
-                                                '(mis. isi KIT). Kosongkan untuk memakai Kode KIT / Kode.')
+                                                '(mis. isi KIT). Pisahkan dengan koma untuk menggabungkan beberapa '
+                                                'baris, contoh: POSO2A_U1,POSO2A_U2. Kosongkan untuk memakai Kode KIT / Kode.')
     dmp_kolom_dmn = models.CharField(max_length=50, blank=True, default='', verbose_name='Kolom DMN',
                                       help_text='Nama kolom KIT_DMP berisi Daya Mampu Netto (MW). '
                                                 'Kosongkan bila DMN tidak tersedia.')
@@ -79,9 +80,10 @@ class Pembangkit(models.Model):
             return None
         return {u.strip().upper() for u in self.unit_list.split(',') if u.strip()}
 
-    def dmp_source(self):
-        """Nilai kunci baris KIT_DMP untuk pembangkit ini."""
-        return (self.dmp_key or self.kit_source()).strip().upper()
+    def dmp_sources(self):
+        """Daftar nilai kunci KIT_DMP; beberapa nilai dipisahkan dengan koma."""
+        raw = self.dmp_key or self.kit_source()
+        return [key.strip().upper() for key in raw.split(',') if key.strip()]
 
     def pakai_dmp(self):
         """True bila minimal satu kolom DMN/DMP dikonfigurasi."""
