@@ -1,4 +1,4 @@
-{% extends "zabbix_mon/base.html" %}
+{% extends "device_mon/base.html" %}
 
 {% block title %}Dashboard Zabbix{% endblock %}
 
@@ -40,7 +40,7 @@
 .host-tile.ok::before      { background: #10b981; }
 .host-tile.problem::before { background: #ef4444; }
 .host-tile.unknown::before { background: #475569; }
-.host-tile:hover { border-color: #ea580c; transform: translateY(-1px); }
+.host-tile:hover { border-color: #1d4ed8; transform: translateY(-1px); }
 
 .host-tile-nama {
     font-family: 'JetBrains Mono', monospace;
@@ -88,21 +88,21 @@
 </div>
 
 <div class="stat-bar">
-    <div class="stat-card ok">
+    <div class="stat-card up">
         <div class="stat-lbl"><i class="bi bi-check-circle-fill me-1" style="color:#10b981;"></i>OK</div>
-        <div class="stat-val ok" id="stat-ok">—</div>
+        <div class="stat-val up" id="stat-ok">—</div>
     </div>
-    <div class="stat-card problem">
+    <div class="stat-card down">
         <div class="stat-lbl"><i class="bi bi-exclamation-circle-fill me-1" style="color:#ef4444;"></i>PROBLEM</div>
-        <div class="stat-val problem" id="stat-problem">—</div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-lbl"><i class="bi bi-question-circle me-1" style="color:#94a3b8;"></i>UNKNOWN</div>
-        <div class="stat-val" style="color:#94a3b8;" id="stat-unknown">—</div>
+        <div class="stat-val down" id="stat-problem">—</div>
     </div>
     <div class="stat-card avail">
-        <div class="stat-lbl"><i class="bi bi-shield-check me-1" style="color:#fb923c;"></i>Avail Hari Ini</div>
+        <div class="stat-lbl"><i class="bi bi-shield-check me-1" style="color:#60a5fa;"></i>Avail Hari Ini</div>
         <div class="stat-val avail" id="stat-avail">—<span class="stat-unit">%</span></div>
+    </div>
+    <div class="stat-card avail" style="border-color:rgba(139,92,246,.3);">
+        <div class="stat-lbl"><i class="bi bi-calendar-month me-1" style="color:#a78bfa;"></i>Avail Bulan Ini</div>
+        <div class="stat-val" style="color:#a78bfa;" id="stat-avail-bulan">—<span class="stat-unit">%</span></div>
     </div>
 </div>
 
@@ -117,7 +117,7 @@
     <div class="chart-card">
         <div class="chart-head">
             <div class="chart-title">
-                <i class="bi bi-bar-chart-fill me-1" style="color:#fb923c;"></i>Availability Hari Ini
+                <i class="bi bi-bar-chart-fill me-1" style="color:#60a5fa;"></i>Availability Hari Ini
             </div>
             <span style="font-size:10px; color:var(--muted);" id="chart-updated">—</span>
         </div>
@@ -131,7 +131,7 @@
             <div class="chart-title">
                 <i class="bi bi-exclamation-triangle-fill me-1" style="color:#f87171;"></i>Problem Terkini
             </div>
-            <a href="{% url 'zbx_gangguan' %}" style="font-size:10px; color:#fb923c; text-decoration:none;">
+            <a href="{% url 'dm_zbx_gangguan' %}" style="font-size:10px; color:#60a5fa; text-decoration:none;">
                 Semua <i class="bi bi-arrow-right"></i>
             </a>
         </div>
@@ -155,7 +155,7 @@
 
 {% block extra_js %}
 <script>
-Chart.defaults.color = '#8a6a45';
+Chart.defaults.color = '#3d6896';
 Chart.defaults.font.family = 'DM Sans';
 
 let chartAvail = null;
@@ -189,7 +189,7 @@ function renderGrid(hosts) {
         const avail  = h.avail_hari !== null ? h.avail_hari.toFixed(1) : '—';
         const aColor = availColor(h.avail_hari);
         return `
-        <div class="host-tile ${cls}" onclick="location.href='/zabbix/host/${h.id}/'">
+        <div class="host-tile ${cls}" onclick="location.href='/device-mon/zabbix/host/${h.id}/'">
             <div class="host-tile-nama" title="${h.nama}${h.lokasi ? ' · '+h.lokasi : ''}">${h.nama}</div>
             <div class="host-tile-state ${cls}">${h.state}${h.severity ? ' · '+h.severity : ''}</div>
             ${h.problem_name ? `<div class="host-tile-problem" title="${h.problem_name}">${h.problem_name}</div>` : ''}
@@ -224,14 +224,14 @@ function renderChart(hosts) {
             plugins: {
                 legend: { display: false },
                 tooltip: {
-                    backgroundColor: 'rgba(26,15,7,.95)',
-                    titleColor: '#b58a5d', bodyColor: '#ffe0c2',
-                    borderColor: '#3a2412', borderWidth: 1,
+                    backgroundColor: 'rgba(7,17,31,.95)',
+                    titleColor: '#5d8ab5', bodyColor: '#cce0ff',
+                    borderColor: '#112240', borderWidth: 1,
                     callbacks: { label: ctx => ` ${ctx.parsed.x.toFixed(2)}%` }
                 }
             },
             scales: {
-                x: { min: 80, max: 100, grid: { color: '#2b1a0d' }, ticks: { callback: v => v + '%', font: { size: 10 } } },
+                x: { min: 80, max: 100, grid: { color: '#0d1e36' }, ticks: { callback: v => v + '%', font: { size: 10 } } },
                 y: { grid: { display: false }, ticks: { font: { size: 10 } } }
             }
         }
@@ -254,15 +254,16 @@ function renderGangguan(logs) {
 
 async function pollDashboard() {
     try {
-        const r = await fetch('{% url "zbx_api_status" %}');
+        const r = await fetch('{% url "dm_zbx_api_status" %}');
         if (!r.ok) return;
         const d = await r.json();
 
         document.getElementById('stat-ok').textContent      = d.total_ok      ?? '—';
         document.getElementById('stat-problem').textContent = d.total_problem ?? '—';
-        document.getElementById('stat-unknown').textContent = d.total_unknown ?? '—';
         document.getElementById('stat-avail').innerHTML     =
             (d.avail_hari !== null ? d.avail_hari.toFixed(2) : '—') + '<span class="stat-unit">%</span>';
+        document.getElementById('stat-avail-bulan').innerHTML =
+            (d.avail_bulan !== null ? d.avail_bulan.toFixed(2) : '—') + '<span class="stat-unit">%</span>';
 
         renderGrid(d.hosts);
         renderChart(d.hosts);

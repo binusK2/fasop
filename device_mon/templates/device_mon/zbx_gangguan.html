@@ -1,4 +1,4 @@
-{% extends "zabbix_mon/base.html" %}
+{% extends "device_mon/base.html" %}
 {% block title %}Histori Problem Zabbix{% endblock %}
 
 {% block content %}
@@ -27,7 +27,7 @@
             <tr>
                 <td style="color:var(--muted);">{{ forloop.counter }}</td>
                 <td><strong>{{ log.host.nama }}</strong>{% if log.host.lokasi %}<br><span style="font-size:10px;color:var(--muted);">{{ log.host.lokasi }}</span>{% endif %}</td>
-                <td>{% if log.severity %}<span class="tag-sev">{{ log.severity }}</span>{% else %}—{% endif %}</td>
+                <td>{{ log.severity|default:"—" }}</td>
                 <td style="font-size:12px;">{{ log.problem_name|default:"—" }}</td>
                 <td style="font-size:11px;color:var(--muted);">{{ log.get_source_display }}</td>
                 <td>{{ log.mulai|date:"d/m/Y H:i" }}</td>
