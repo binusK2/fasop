@@ -238,6 +238,21 @@ akan muncul dengan ID berbeda; pakai ID itu di
 `docs/n8n_prakiraan_beban.workflow.json`. Perlu diingat: hasil konversi adalah
 **salinan**, tidak ikut berubah kalau .xlsx aslinya di-upload ulang.
 
+### `Google Drive API has not been used in project <nomor> before or it is disabled`
+
+Project Google Cloud di balik credential n8n baru mengaktifkan **Sheets API**,
+belum **Drive API**. Buka link yang disebut di pesan error itu (berisi nomor
+project-nya) → klik **Enable** → tunggu 1–5 menit → jalankan ulang workflow.
+Gratis, tidak perlu billing.
+
+Perlu akses Owner/Editor di project tersebut. Kalau tidak punya, minta ke
+pemilik project atau buat OAuth credential baru di project sendiri dengan Drive
+API aktif sejak awal.
+
+Kalau setelah itu muncul error scope/`insufficient permissions`: credential
+Drive di n8n harus **Sign in with Google** ulang — token lama dibuat untuk
+Sheets dan tidak membawa izin Drive, dan izin itu hanya diberikan saat sign-in.
+
 ### "Bisa nggak bikin Sheets baru yang menarik data .xlsx pakai IMPORTRANGE?"
 
 Tidak bisa. Google memblokir IMPORTRANGE dengan sumber file Office — hasilnya
