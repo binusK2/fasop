@@ -305,10 +305,17 @@ Kalau halaman kosong atau angkanya mencurigakan, jalankan `python manage.py cek_
 
 Seri prediksi di chart "Beban Kit — Hari Ini" dan halaman `/opsis/prediksi-beban/`
 sekarang berasal dari **Dashboard ROH Sulbagsel** (Rencana Operasi Harian), yang
-dipublikasikan sebagai Google Sheets dan dikirim n8n
+diunggah sebagai file .xlsx ke Google Drive dan dikirim n8n
 ke `POST /api/v1/prakiraan-beban/` → `opsis.PrakiraanBeban` (grid 30 menit, 48 titik
 per hari, total sistem). Pola yang sama dengan HOP (`/api/v1/hop/`). Walkthrough
-lengkap + bentuk spreadsheet: `docs/PRAKIRAAN_BEBAN_N8N.md`.
+lengkap + bentuk spreadsheet: `docs/PRAKIRAAN_BEBAN_N8N.md`, dengan dua workflow
+siap-impor di `docs/n8n_prakiraan_beban*.workflow.json`.
+
+File di Drive itu **.xlsx hasil upload, bukan dokumen Google Sheets asli** — node
+Google Sheets di n8n akan menolaknya (`must not be an Office file`), jadi yang
+dipakai adalah Google Drive (Download) + Extract From File. Konsekuensinya sel
+Tanggal/Jam datang sebagai angka serial Excel atau objek Date, bukan teks; node
+Code di workflow itulah yang menormalkannya jadi `menit` sebelum dikirim ke FASOP.
 
 Pemilihan sumber ada di **`opsis/prediksi.py`** — itu satu-satunya modul yang boleh
 dipanggil views:

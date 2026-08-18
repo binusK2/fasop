@@ -244,18 +244,19 @@ class PrakiraanBebanEndpointTest(TestCase):
     def test_payload_apa_adanya_dari_node_code_n8n(self):
         """
         Bentuk payload persis seperti yang dihasilkan node Code di
-        docs/n8n_prakiraan_beban.workflow.json — campur `jam`/`menit`,
-        `HH:MM:SS`, koma desimal, dan tanggal per baris.
+        docs/n8n_prakiraan_beban*.workflow.json: `menit` sudah dinormalkan di
+        sisi n8n (karena sel Jam .xlsx bisa berupa angka/Date), `mw` dikirim
+        apa adanya dari sel — termasuk koma desimal.
         """
         besok = self.hari_ini + datetime.timedelta(days=1)
         r = self._post({
             'sumber': 'roh-sulbagsel',
             'data': [
-                {'mw': '812,5', 'tanggal': self.hari_ini.isoformat(), 'jam': '00:00'},
-                {'mw': 1024, 'tanggal': self.hari_ini.isoformat(), 'jam': '12:00:00'},
-                {'mw': '1187.3', 'tanggal': self.hari_ini.isoformat(), 'jam': '18:30'},
-                {'mw': 950, 'tanggal': besok.isoformat(), 'jam': '12:00'},
-                {'mw': 890, 'tanggal': self.hari_ini.isoformat(), 'menit': 1410},
+                {'menit': 0, 'mw': '812,5', 'tanggal': self.hari_ini.isoformat()},
+                {'menit': 720, 'mw': 1024, 'tanggal': self.hari_ini.isoformat()},
+                {'menit': 1110, 'mw': 1187.3, 'tanggal': self.hari_ini.isoformat()},
+                {'menit': 720, 'mw': 950, 'tanggal': besok.isoformat()},
+                {'menit': 1410, 'mw': 890, 'tanggal': self.hari_ini.isoformat()},
             ],
         })
         body = r.json()
