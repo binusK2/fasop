@@ -229,6 +229,9 @@ MSSQL_DRIVER=ODBC Driver 17 for SQL Server
 
 API_KEY=              # For /api/v1/ integrations
 
+# Sumber prediksi beban OPSIS — 'sheet' (default, spreadsheet via n8n) | 'ml'
+OPSIS_FORECAST_SOURCE=sheet
+
 # Live Streaming (streaming/ app) — see "Live Streaming — External Infrastructure" below
 MEDIAMTX_WHIP_URL=            # public MediaMTX WHIP endpoint (browser publish), e.g. https://media.domain/
 MEDIAMTX_WHEP_URL=            # public MediaMTX WHEP endpoint (browser playback), usually same as above
@@ -284,6 +287,41 @@ Perhitungan harian (`up2bmakassar/sync.py`) memakai **3 query per hari per jenis
 Cron harian dipasang lewat `bash deploy/setup_kinerja_cron.sh [berdata|kinerja]` (idempotent): `sync_kinerja_analog` 01:10, `sync_kinerja_digital` 01:20, `sync_rc` 01:30 — semuanya `--days 3`. Argumen kedua `sering` (mis. `setup_kinerja_cron.sh berdata sering`) menjadwalkan `sync_rc` tiap 15 menit kalau RC perlu terlihat di hari yang sama; itu murah karena RC yang hasilnya sudah final (lewat 10 menit sejak perintah) tidak di-resolve ulang ke OFDB supaya satu malam yang gagal otomatis tersusul malam berikutnya. Dini hari karena availability dihitung per batas hari penuh (00:00–24:00), jadi angka sebuah hari baru final setelah tengah malam.
 
 Kalau halaman kosong atau angkanya mencurigakan, jalankan `python manage.py cek_kinerja_ofdb` dulu — itu menunjukkan apakah masalahnya koneksi, nama induk point type, filter `SitePath1`, kecepatan query OFDB, atau memang cron sync-nya belum jalan. Index OFDB yang disarankan (dieksekusi DBA OFDB, bukan oleh FASOP): `deploy/ofdb_indexes.sql`.
+
+---
+
+## OPSIS — Prediksi Beban (spreadsheet, bukan ML)
+
+Seri prediksi di chart "Beban Kit — Hari Ini" dan halaman `/opsis/prediksi-beban/`
+sekarang berasal dari **Dashboard ROH Sulbagsel** (Rencana Operasi Harian), yang
+dipublikasikan sebagai Google Sheets dan dikirim n8n
+ke `POST /api/v1/prakiraan-beban/` → `opsis.PrakiraanBeban` (grid 30 menit, 48 titik
+per hari, total sistem). Pola yang sama dengan HOP (`/api/v1/hop/`). Walkthrough
+lengkap + bentuk spreadsheet: `docs/PRAKIRAAN_BEBAN_N8N.md`.
+
+Pemilihan sumber ada di **`opsis/prediksi.py`** — itu satu-satunya modul yang boleh
+dipanggil views:
+
+| Sumber (`OPSIS_FORECAST_SOURCE`) | Implementasi | Catatan |
+|---|---|---|
+| `sheet` (default) | `opsis/prakiraan.py` | ORM + datetime saja, tanpa pandas/numpy |
+| `ml` | `opsis/forecast.py` | HistGradientBoostingRegressor, butuh cron `train_beban_forecast` |
+
+Keduanya mengembalikan dict dengan kunci **identik** (`predict_beban_hari_ini`,
+`predict_besok_puncak`, `evaluate_accuracy`) — kalau menambah field baru di salah
+satu, tambahkan di keduanya, jangan biarkan UI bercabang per sumber. Modul ML tidak
+di-import selama sumbernya `sheet`, jadi `scikit-learn`/`joblib` boleh absen di
+runtime meski masih tercantum di `requirements.txt`.
+
+Keterangan sumber ("Dashboard ROH Sulbagsel") ditampilkan di bawah chart beban dan
+di halaman analitik, teksnya mengikuti `source` dari API (`sheet`/`no_sheet`/`model`/
+`no_model`/`mssql`) — jangan hardcode nama sumber di satu tempat saja kalau nanti
+`OPSIS_FORECAST_SOURCE` diubah.
+
+Baris `PrakiraanBeban` hari lampau **tidak pernah dihapus** — histori itulah yang
+dipakai `evaluate_accuracy()` untuk membandingkan prakiraan vs realisasi `SnapLive`.
+Menimpa kurva hari yang sudah lewat dengan angka realisasi akan membuat akurasi
+terlihat sempurna secara palsu.
 
 ---
 

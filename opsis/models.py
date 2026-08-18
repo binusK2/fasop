@@ -459,3 +459,43 @@ class SnapTrafo(models.Model):
 
     def __str__(self):
         return f"{self.trafo} @ {self.waktu:%Y-%m-%d %H:%M}"
+
+
+class PrakiraanBeban(models.Model):
+    """
+    Prakiraan beban sistem (total MW) yang berasal dari SPREADSHEET dispatcher,
+    bukan dari model machine learning.
+
+    Grid 30 menit, 48 titik per hari — bentuk yang sama persis dengan seri
+    'forecast' yang sudah dikonsumsi chart "Beban Kit — Hari Ini"
+    (`{minute, mw}`), jadi tidak ada perubahan di sisi UI saat sumbernya
+    berpindah dari model ML ke spreadsheet (lihat opsis/prakiraan.py dan
+    switch OPSIS_FORECAST_SOURCE di settings).
+
+    Diisi lewat POST /api/v1/prakiraan-beban/ — n8n membaca Google Sheets lalu
+    mengirim seluruh kurva satu hari sekali kirim. Baris hari-hari lampau
+    TIDAK dihapus: histori prakiraan itulah yang dipakai menghitung akurasi
+    terhadap realisasi SnapLive di halaman Analitik Prediksi Beban.
+    """
+    tanggal    = models.DateField(db_index=True)
+    menit      = models.PositiveSmallIntegerField(
+        help_text='Menit sejak 00:00 waktu lokal (0–1439). Grid 30 menit: 0, 30, 60, …')
+    mw         = models.FloatField()
+    sumber     = models.CharField(max_length=50, default='spreadsheet',
+                                  help_text='Asal data, mis. nama sheet / "spreadsheet" / "upload".')
+    diperbarui = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('tanggal', 'menit')
+        indexes = [models.Index(fields=['tanggal', 'menit'])]
+        ordering = ['-tanggal', 'menit']
+        verbose_name = 'Prakiraan Beban'
+        verbose_name_plural = 'Prakiraan Beban'
+
+    @property
+    def jam(self):
+        """Label jam dinding lokal, mis. 1110 -> '18:30'."""
+        return f'{self.menit // 60:02d}:{self.menit % 60:02d}'
+
+    def __str__(self):
+        return f"{self.tanggal:%Y-%m-%d} {self.jam} — {self.mw} MW"

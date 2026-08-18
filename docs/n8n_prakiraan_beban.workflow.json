@@ -1,0 +1,101 @@
+{
+  "name": "FASOP — Prakiraan Beban (Google Sheets → OPSIS)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "id": "a1000000-0000-4000-8000-000000000001",
+      "name": "Tiap 15 Menit",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-360, 0]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "url",
+          "value": "GANTI_DENGAN_URL_SPREADSHEET"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Prakiraan"
+        },
+        "options": {}
+      },
+      "id": "a1000000-0000-4000-8000-000000000002",
+      "name": "Baca Sheet Prakiraan",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [-140, 0],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "GANTI_DENGAN_ID_CREDENTIAL",
+          "name": "Google Sheets FASOP"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Rakit payload POST /api/v1/prakiraan-beban/ dari baris Google Sheets.\n//\n// Header sheet yang diharapkan: Tanggal | Jam | MW  (case-insensitive).\n// - Jam boleh \"HH:MM\" atau \"HH:MM:SS\"; boleh juga kolom \"Menit\" (0..1439).\n// - MW boleh pakai koma desimal; sel kosong dilewati.\n// - Hanya baris H dan H+1 yang dikirim — kurva hari lampau TIDAK ditimpa,\n//   karena histori itulah yang dipakai menghitung akurasi di FASOP.\n\nconst ZONA = 'Asia/Makassar';\nconst hariIni = DateTime.now().setZone(ZONA).toISODate();\nconst besok = DateTime.now().setZone(ZONA).plus({ days: 1 }).toISODate();\nconst DIIZINKAN = new Set([hariIni, besok]);\n\n/** Ambil nilai kolom tanpa peduli besar-kecil huruf / spasi. */\nfunction kolom(row, ...nama) {\n  const peta = {};\n  for (const k of Object.keys(row)) peta[k.trim().toLowerCase()] = row[k];\n  for (const n of nama) {\n    const v = peta[n.toLowerCase()];\n    if (v !== undefined && v !== null && String(v).trim() !== '') return v;\n  }\n  return null;\n}\n\n/** Tanggal sheet -> 'YYYY-MM-DD'. Menerima ISO, DD/MM/YYYY, dan Date. */\nfunction normalTanggal(v) {\n  if (v == null || String(v).trim() === '') return null;\n  if (v instanceof Date) return DateTime.fromJSDate(v).setZone(ZONA).toISODate();\n  const s = String(v).trim();\n  for (const fmt of ['yyyy-MM-dd', 'dd/MM/yyyy', 'd/M/yyyy', 'dd-MM-yyyy']) {\n    const d = DateTime.fromFormat(s, fmt, { zone: ZONA });\n    if (d.isValid) return d.toISODate();\n  }\n  const iso = DateTime.fromISO(s, { zone: ZONA });\n  return iso.isValid ? iso.toISODate() : null;\n}\n\nconst data = [];\nconst dilewati = [];\n\nfor (const item of $input.all()) {\n  const row = item.json;\n\n  const mwMentah = kolom(row, 'mw', 'beban', 'beban (mw)', 'prakiraan');\n  if (mwMentah == null) continue;                 // sel kosong: wajar, lewati\n\n  const jam = kolom(row, 'jam', 'waktu', 'time');\n  const menit = kolom(row, 'menit', 'minute');\n  if (jam == null && menit == null) continue;     // baris judul / baris kosong\n\n  const tanggal = normalTanggal(kolom(row, 'tanggal', 'date'));\n  // Sheet satu hari tanpa kolom Tanggal -> tanggal null, dipakai default\n  // server (hari ini). Kalau ada kolom Tanggal, saring ke H dan H+1 saja.\n  if (tanggal !== null && !DIIZINKAN.has(tanggal)) {\n    dilewati.push(tanggal);\n    continue;\n  }\n\n  const baris = { mw: mwMentah };\n  if (tanggal !== null) baris.tanggal = tanggal;\n  if (menit != null) baris.menit = menit;\n  else baris.jam = String(jam).trim();\n\n  data.push(baris);\n}\n\nif (data.length === 0) {\n  throw new Error('Tidak ada baris prakiraan H/H+1 yang terbaca dari sheet — '\n    + 'periksa nama kolom (Tanggal/Jam/MW) dan isi sheet.');\n}\n\nreturn [{ json: { sumber: 'roh-sulbagsel', data, _dilewati: dilewati.length } }];"
+      },
+      "id": "a1000000-0000-4000-8000-000000000003",
+      "name": "Rakit Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [80, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://fasopup2bmks.id/api/v1/prakiraan-beban/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ sumber: $json.sumber, data: $json.data }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "a1000000-0000-4000-8000-000000000004",
+      "name": "Kirim ke FASOP",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [300, 0],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "GANTI_DENGAN_ID_CREDENTIAL",
+          "name": "FASOP API Key"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Tiap 15 Menit": {
+      "main": [[{ "node": "Baca Sheet Prakiraan", "type": "main", "index": 0 }]]
+    },
+    "Baca Sheet Prakiraan": {
+      "main": [[{ "node": "Rakit Payload", "type": "main", "index": 0 }]]
+    },
+    "Rakit Payload": {
+      "main": [[{ "node": "Kirim ke FASOP", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

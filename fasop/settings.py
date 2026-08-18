@@ -333,6 +333,13 @@ STREAMING_X_ACCEL_REDIRECT_PREFIX = config(
 # opsis/forecast.py dan management command train_beban_forecast.
 ML_MODEL_ROOT = config('ML_MODEL_ROOT', default=str(BASE_DIR / 'ml_models'))
 
+# Sumber angka prediksi beban di OPSIS — lihat opsis/prediksi.py.
+#   'sheet' (default) : kurva prakiraan dispatcher dari spreadsheet, dikirim
+#                       n8n dari Google Sheets ke POST /api/v1/prakiraan-beban/
+#   'ml'              : model gradient boosting (opsis/forecast.py); butuh
+#                       cron train_beban_forecast tetap jalan
+OPSIS_FORECAST_SOURCE = config('OPSIS_FORECAST_SOURCE', default='sheet')
+
 # ── Early Warning WhatsApp (device_mon RTU) — OpenWA self-hosted ──
 # Notifikasi ke grup WhatsApp via OpenWA (gateway self-hosted) saat RTU
 # DOWN / pulih (UP). Dikirim oleh command collect_rtu pada titik transisi.

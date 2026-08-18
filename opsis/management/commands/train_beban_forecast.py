@@ -1,5 +1,11 @@
 """
 Management command: train_beban_forecast
+
+DORMAN — sumber prediksi beban default sekarang spreadsheet (n8n -> Google
+Sheets, lihat opsis/prakiraan.py dan docs/PRAKIRAAN_BEBAN_N8N.md), bukan model
+ML. Cron di bawah boleh dimatikan selama OPSIS_FORECAST_SOURCE=sheet; command
+ini tetap berfungsi dan dipakai lagi kalau setting itu dikembalikan ke 'ml'.
+
 Latih ulang model prediksi beban kit (opsis.forecast) dari seluruh histori
 SnapLive dan simpan ke ML_MODEL_ROOT/beban_forecast.joblib.
 

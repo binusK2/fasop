@@ -468,3 +468,180 @@ def hop_endpoint(request):
         'dibuat': dibuat,
         'errors': errors,
     })
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Prakiraan Beban — kurva 30 menit dari spreadsheet (n8n -> Google Sheets)
+# ═══════════════════════════════════════════════════════════════════════════
+MAX_PRAKIRAAN_ROWS = 2000   # ~40 hari x 48 titik — cukup lapang, tetap ada batas
+
+
+def _norm_menit(row):
+    """
+    Ambil menit-sejak-00:00 dari sebuah baris. Menerima dua bentuk supaya n8n
+    tidak perlu transformasi tambahan:
+      {"menit": 1110}          -> 1110
+      {"jam": "18:30"}         -> 1110   (alias: "waktu", "time")
+    Return (menit, error_str). Kolom jam dari Google Sheets kadang terbaca
+    "18:30:00" — detiknya diabaikan.
+    """
+    raw = row.get('menit')
+    if raw not in (None, ''):
+        try:
+            menit = int(float(str(raw).strip().replace(',', '.')))
+        except (TypeError, ValueError):
+            return None, f'menit bukan angka ({raw!r})'
+        if not 0 <= menit <= 1439:
+            return None, f'menit di luar 0-1439 ({menit})'
+        return menit, None
+
+    jam = row.get('jam') or row.get('waktu') or row.get('time')
+    if jam in (None, ''):
+        return None, "tidak ada field 'menit' maupun 'jam'"
+    bagian = str(jam).strip().split(':')
+    if len(bagian) < 2:
+        return None, f'jam bukan format HH:MM ({jam!r})'
+    try:
+        hh, mm = int(bagian[0]), int(bagian[1])
+    except (TypeError, ValueError):
+        return None, f'jam bukan format HH:MM ({jam!r})'
+    if not (0 <= hh <= 23 and 0 <= mm <= 59):
+        return None, f'jam di luar rentang ({jam!r})'
+    return hh * 60 + mm, None
+
+
+def _norm_mw(raw):
+    """MW dari sel spreadsheet -> float. Toleran koma desimal ala Indonesia."""
+    if raw in (None, ''):
+        return None, 'mw kosong'
+    try:
+        return float(str(raw).strip().replace(',', '.')), None
+    except (TypeError, ValueError):
+        return None, f'mw bukan angka ({raw!r})'
+
+
+@csrf_exempt
+@require_api_key
+@require_http_methods(["POST", "GET"])
+def prakiraan_beban_endpoint(request):
+    """
+    Kurva prakiraan beban sistem (total MW) dari spreadsheet dispatcher.
+    Menggantikan model ML sebagai sumber seri 'forecast' di chart Beban Kit —
+    lihat opsis/prakiraan.py dan setting OPSIS_FORECAST_SOURCE.
+
+    POST — kirim satu hari penuh (48 titik grid 30 menit):
+      {
+        "tanggal": "2026-08-19",        # opsional, default hari ini (zona server)
+        "sumber": "spreadsheet",        # opsional, label asal data
+        "replace": false,               # opsional, lihat catatan di bawah
+        "data": [
+          {"jam": "00:00", "mw": 812.5},
+          {"jam": "00:30", "mw": 805.1},
+          ...
+        ]
+      }
+
+    - Titik boleh dikirim sebagai {"menit": 1110} atau {"jam": "18:30"}.
+    - Tiap baris boleh membawa "tanggal" sendiri untuk mengirim beberapa hari
+      sekaligus (mis. hari ini + besok dalam satu panggilan).
+    - Idempoten: upsert per (tanggal, menit), jadi n8n aman dijalankan berulang.
+    - "replace": true menghapus titik lain pada tanggal-tanggal yang dikirim
+      yang tidak ada di payload — pakai kalau spreadsheet baru saja dirapikan
+      dan ada slot yang memang harus hilang. Default false (tidak menghapus
+      apa pun) supaya kiriman parsial tidak diam-diam mengosongkan kurva.
+
+    GET ?tanggal=YYYY-MM-DD — baca balik kurva satu hari untuk verifikasi.
+    """
+    import datetime
+    from django.utils import timezone
+    from opsis.models import PrakiraanBeban
+
+    if request.method == 'GET':
+        try:
+            tanggal = datetime.date.fromisoformat(str(request.GET.get('tanggal', '')))
+        except (ValueError, TypeError):
+            tanggal = timezone.localdate()
+        rows = PrakiraanBeban.objects.filter(tanggal=tanggal).order_by('menit')
+        return JsonResponse({
+            'status': 'ok',
+            'tanggal': tanggal.isoformat(),
+            'jumlah': rows.count(),
+            'data': [{'menit': r.menit, 'jam': r.jam, 'mw': r.mw,
+                      'sumber': r.sumber} for r in rows],
+        })
+
+    data, err = _parse_json_body(request)
+    if err:
+        return err
+
+    rows = data.get('data')
+    if not isinstance(rows, list):
+        return JsonResponse({'status': 'error',
+                             'message': "Field 'data' harus berupa array."}, status=400)
+    if len(rows) > MAX_PRAKIRAAN_ROWS:
+        return JsonResponse(
+            {'status': 'error',
+             'message': f'Terlalu banyak baris ({len(rows)}), maksimal {MAX_PRAKIRAAN_ROWS}.'},
+            status=400)
+
+    try:
+        tanggal_default = datetime.date.fromisoformat(str(data.get('tanggal', '')))
+    except (ValueError, TypeError):
+        tanggal_default = timezone.localdate()
+
+    sumber = (data.get('sumber') or 'spreadsheet').strip()[:50] or 'spreadsheet'
+    replace = bool(data.get('replace'))
+
+    n_tulis = n_skip = 0
+    errors = []
+    terkirim = {}    # tanggal -> set(menit) yang berhasil ditulis
+    for i, r in enumerate(rows):
+        if not isinstance(r, dict):
+            n_skip += 1
+            continue
+
+        tanggal = tanggal_default
+        if r.get('tanggal'):
+            try:
+                tanggal = datetime.date.fromisoformat(str(r['tanggal']).strip())
+            except (ValueError, TypeError):
+                n_skip += 1
+                errors.append(f'baris {i}: tanggal tidak valid ({r["tanggal"]!r})')
+                continue
+
+        menit, e = _norm_menit(r)
+        if e:
+            n_skip += 1
+            errors.append(f'baris {i}: {e}')
+            continue
+
+        mw, e = _norm_mw(r.get('mw'))
+        if e:
+            # Sel kosong itu wajar (slot yang belum diisi dispatcher) — dilewati
+            # diam-diam, tidak dilaporkan sebagai error.
+            n_skip += 1
+            if r.get('mw') not in (None, ''):
+                errors.append(f'baris {i}: {e}')
+            continue
+
+        PrakiraanBeban.objects.update_or_create(
+            tanggal=tanggal, menit=menit,
+            defaults={'mw': mw, 'sumber': sumber})
+        terkirim.setdefault(tanggal, set()).add(menit)
+        n_tulis += 1
+
+    n_hapus = 0
+    if replace and terkirim:
+        for tanggal, menit_set in terkirim.items():
+            n_hapus += PrakiraanBeban.objects.filter(tanggal=tanggal).exclude(
+                menit__in=menit_set).delete()[0]
+
+    return JsonResponse({
+        'status': 'ok',
+        'tanggal': tanggal_default.isoformat(),
+        'tanggal_tertulis': sorted(t.isoformat() for t in terkirim),
+        'titik_ditulis': n_tulis,
+        'titik_dihapus': n_hapus,
+        'dilewati': n_skip,
+        'errors': errors[:50],
+    })
