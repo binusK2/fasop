@@ -11,7 +11,7 @@ from .models import (Pembangkit, SnapLive, SnapFreq, SnapFreqRT, Trafo, SnapTraf
                      HopPembangkit, HopSnapshot, HOP_KATEGORI_CHOICES,
                      hop_status, hop_deskripsi_band, hop_garis_ambang)
 from . import mssql
-from . import forecast
+from . import prediksi
 from . import hop as hop_io
 from .hop_map import SULAWESI_PATH, MAP_W, MAP_H, DEFAULT_MAP_POS
 from .models import HOP_BANDS
@@ -489,13 +489,14 @@ def api_beban(request):
     """
     Chart beban kit — dua seri terpisah, keduanya membentang PENUH 24 jam
     (00:00-23:30) hari ini: 'actual' (SnapLive, resolusi per menit, hanya
-    s.d. data terbaru) dan 'forecast' (model gradient boosting, grid 30
-    menit, penuh sehari — supaya bisa dibandingkan visual dgn realisasi)
-    — lihat opsis.forecast.predict_beban_hari_ini().
+    s.d. data terbaru) dan 'forecast' (kurva prakiraan dispatcher dari
+    spreadsheet, grid 30 menit, penuh sehari — supaya bisa dibandingkan
+    visual dgn realisasi) — lihat opsis.prediksi (sumbernya bisa dialihkan
+    ke model ML lewat setting OPSIS_FORECAST_SOURCE).
     Prediksi & realisasi puncak siang (12:00)/malam (18:30) dikirim terpisah
     supaya UI bisa menampilkan keduanya sekaligus.
     """
-    result = forecast.predict_beban_hari_ini()
+    result = prediksi.predict_beban_hari_ini()
     if result['actual'] or result['forecast']:
         return JsonResponse({
             'actual':                  result['actual'],
@@ -507,8 +508,8 @@ def api_beban(request):
             'realisasi_puncak_malam':  result['realisasi_puncak_malam'],
         })
 
-    # Fallback: SnapLive benar-benar kosong (belum ada data sama sekali) —
-    # pakai MSSQL HIS_MEAS_KIT per 15 menit, tanpa prediksi.
+    # Fallback: SnapLive DAN prakiraan benar-benar kosong (belum ada data
+    # sama sekali) — pakai MSSQL HIS_MEAS_KIT per 15 menit, tanpa prediksi.
     actual = []
     for r in mssql.get_beban_trend():
         try:
@@ -1119,7 +1120,7 @@ def api_beban_trafo_ibt_chart(request):
 
 @login_required
 def prediksi_beban(request):
-    """Halaman analitik model prediksi: akurasi vs realisasi & prediksi puncak besok."""
+    """Halaman analitik prediksi: akurasi vs realisasi & prediksi puncak besok."""
     return render(request, 'opsis/prediksi_beban.html', {
         'pembangkit_list': _pembangkit_aktif(),
     })
@@ -1129,14 +1130,18 @@ def prediksi_beban(request):
 def api_prediksi_beban(request):
     """
     API JSON utk halaman Analitik Prediksi Beban:
-    - akurasi: evaluasi walk-forward one-step-ahead 7 hari terakhir vs realisasi
-      SnapLive (lihat opsis.forecast.evaluate_accuracy()).
-    - besok: prediksi puncak siang (12:00) & malam (18:30) besok, direct
-      forecast dari anchor asli (lihat opsis.forecast.predict_besok_puncak()).
+    - akurasi: prakiraan 7 hari terakhir dibandingkan realisasi SnapLive pada
+      jam yang sama (lihat opsis.prakiraan.evaluate_accuracy()).
+    - besok: prakiraan puncak siang (12:00) & malam (18:30) besok.
+    Keduanya lewat opsis.prediksi, jadi ikut OPSIS_FORECAST_SOURCE.
     """
-    akurasi = forecast.evaluate_accuracy(days=7)
-    besok = forecast.predict_besok_puncak()
-    return JsonResponse({'akurasi': akurasi, 'besok': besok})
+    akurasi = prediksi.evaluate_accuracy(days=7)
+    besok = prediksi.predict_besok_puncak()
+    return JsonResponse({
+        'akurasi': akurasi,
+        'besok': besok,
+        'sumber': prediksi.sumber_aktif(),
+    })
 
 
 # ═══════════════════════════════════════════════════════════════════════════

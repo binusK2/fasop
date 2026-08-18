@@ -1,6 +1,7 @@
 from django.contrib import admin
 from .models import (Pembangkit, SnapLive, SnapUnit, SnapFreq, SnapFreqRT, SnapFreqArea,
-                     Trafo, SnapTrafo, HopPembangkit, HopSnapshot)
+                     Trafo, SnapTrafo, HopPembangkit, HopSnapshot,
+                     PrakiraanBeban)
 
 
 @admin.register(Pembangkit)
@@ -148,3 +149,16 @@ class HopSnapshotAdmin(admin.ModelAdmin):
     date_hierarchy = 'tanggal'
     search_fields  = ('pembangkit__nama',)
     ordering       = ('-tanggal',)
+
+
+@admin.register(PrakiraanBeban)
+class PrakiraanBebanAdmin(admin.ModelAdmin):
+    """
+    Kurva prakiraan beban dari spreadsheet. Normalnya diisi n8n lewat
+    POST /api/v1/prakiraan-beban/ — admin ini untuk memeriksa/menambal satu
+    titik kalau ada slot yang salah, bukan jalur input utama.
+    """
+    list_display   = ('tanggal', 'jam', 'mw', 'sumber', 'diperbarui')
+    list_filter    = ('sumber',)
+    date_hierarchy = 'tanggal'
+    ordering       = ('-tanggal', 'menit')

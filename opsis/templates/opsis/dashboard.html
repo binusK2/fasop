@@ -354,7 +354,7 @@
         </div>
         <div style="display:flex; align-items:center; gap:6px; font-size:10px; color:var(--muted);">
             <span style="display:inline-block;width:14px;height:0;border-top:1.5px dashed #a78bfa;vertical-align:middle;"></span>
-            Prediksi
+            Prediksi <span style="color:#a78bfa;">(Dashboard ROH Sulbagsel)</span>
         </div>
         <div style="display:flex; align-items:center; gap:6px; font-size:10px; color:var(--muted);">
             <span style="display:inline-block;width:2px;height:10px;background:#fbbf24;vertical-align:middle;"></span>
@@ -386,6 +386,9 @@
                 <span style="font-size:10px; color:var(--muted);"> MW</span>
             </div>
         </div>
+    </div>
+    <div id="beban-sumber-prediksi" style="font-size:10px; color:var(--muted); margin-top:8px; line-height:1.5;">
+        &nbsp;
     </div>
 </div>
 
@@ -953,6 +956,25 @@ async function loadBebanChart() {
         if (elRealSiang) elRealSiang.textContent = fmt(d.realisasi_puncak_siang);
         if (elPredMalam) elPredMalam.textContent = fmt(d.prediksi_puncak_malam);
         if (elRealMalam) elRealMalam.textContent = fmt(d.realisasi_puncak_malam);
+
+        // Keterangan asal angka prediksi. Diset sebelum early-return di bawah,
+        // supaya kasus "belum ada data apa pun" tetap dapat penjelasan.
+        // d.source: 'sheet'/'no_sheet' (prakiraan ROH), 'model'/'no_model'
+        // (mode ML lewat OPSIS_FORECAST_SOURCE), 'mssql' (fallback historian).
+        const elSumberPred = document.getElementById('beban-sumber-prediksi');
+        if (elSumberPred) {
+            const KET = {
+                sheet:    'Garis prediksi bersumber dari <strong>Dashboard ROH Sulbagsel</strong> (Rencana Operasi Harian), diperbarui otomatis — bukan hasil perhitungan FASOP.',
+                no_sheet: 'Prakiraan dari <strong>Dashboard ROH Sulbagsel</strong> belum masuk untuk hari ini, jadi garis prediksi belum digambar.',
+                model:    'Garis prediksi dihitung model machine learning FASOP dari histori beban.',
+                no_model: 'Model prediksi FASOP belum tersedia, jadi garis prediksi belum digambar.',
+                mssql:    'Data dari historian SCADA (PostgreSQL belum terisi) — tanpa garis prediksi.',
+            };
+            const ket = KET[d.source];
+            elSumberPred.innerHTML = ket
+                ? '<i class="bi bi-info-circle me-1"></i>' + ket
+                : '&nbsp;';
+        }
 
         const actual = d.actual || [];
         const forecastRows = d.forecast || [];
