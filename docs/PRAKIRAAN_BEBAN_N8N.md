@@ -96,16 +96,30 @@ curl -H "X-API-Key: $API_KEY" "https://<host-fasop>/api/v1/prakiraan-beban/?tang
 
 ## 3. Workflow n8n
 
-Cara cepat: **impor `docs/n8n_prakiraan_beban.workflow.json`** (n8n → Workflows →
-`⋯` → *Import from File*), lalu isi 4 hal yang ditandai `GANTI_...`. Rinciannya
-di bawah.
+Ada **dua varian**, pilih sesuai bentuk file di Google Drive:
+
+| File di Drive | Workflow yang dipakai | Node pembaca |
+|---|---|---|
+| **.xlsx hasil upload** (dibuka lewat Sheets dalam *Office editing mode*) | `docs/n8n_prakiraan_beban_xlsx.workflow.json` | Google Drive (Download) → Extract From File |
+| **Dokumen Google Sheets asli** (dikonversi/dibuat di Sheets) | `docs/n8n_prakiraan_beban.workflow.json` | Google Sheets (Get Rows) |
+
+> **Salah pilih = error.** Node Google Sheets pada file .xlsx akan gagal dengan
+> `Bad request — This operation is not supported for this document. The document
+> must not be an Office file.` Lihat [bagian 6](#6-masalah-yang-sering-muncul).
+
+Impor lewat n8n → Workflows → `⋯` → *Import from File*, lalu isi bagian yang
+ditandai `GANTI_...`. Rinciannya di bawah.
+
+Node **Rakit Payload** dan **Kirim ke FASOP** identik di kedua varian — yang
+berbeda hanya cara membaca file.
 
 ### 3.1 Credential yang harus dibuat lebih dulu
 
 | Credential | Tipe di n8n | Isi |
 |---|---|---|
 | **FASOP API Key** | *Header Auth* | Name: `X-API-Key` · Value: nilai `API_KEY` dari `.env` FASOP |
-| **Google Sheets FASOP** | *Google Sheets OAuth2 API* (atau *Service Account*) | Ikuti wizard n8n. Kalau pakai Service Account, **share spreadsheet-nya ke alamat email service account itu** (akses *Viewer* sudah cukup) |
+| **Google Drive FASOP** (varian .xlsx) | *Google Drive OAuth2 API* (atau *Service Account*) | Ikuti wizard n8n. Kalau pakai Service Account, **share file/foldernya ke alamat email service account itu** (akses *Viewer* sudah cukup) |
+| **Google Sheets FASOP** (varian Sheets asli) | *Google Sheets OAuth2 API* (atau *Service Account*) | Sama seperti di atas, di-share ke akun/service account yang dipakai |
 
 API key jangan diketik langsung di field node — pakai credential Header Auth
 supaya tidak tersimpan sebagai teks biasa di workflow dan tidak ikut terbawa
@@ -116,7 +130,13 @@ saat workflow diekspor.
 | Node | Field | Nilai |
 |---|---|---|
 | **Tiap 15 Menit** (Schedule Trigger) | Minutes Interval | `15` — kurva jarang berubah; 60 juga aman |
-| **Baca Sheet Prakiraan** (Google Sheets) | Credential | *Google Sheets FASOP* |
+| **Unduh .xlsx dari Drive** (Google Drive) — *varian .xlsx* | Credential | *Google Drive FASOP* |
+| | File | *By URL* → tautan file .xlsx di Drive (`GANTI_DENGAN_URL_FILE_XLSX_DI_DRIVE`) |
+| | Operation | `Download` |
+| **Parse Excel** (Extract From File) — *varian .xlsx* | Operation | `Extract From XLSX` (pilih `Extract From XLS` kalau formatnya lama) |
+| | Input Binary Field | `data` — harus sama dengan *Put Output File in Field* di node Drive |
+| | Options → Sheet Name | Isi kalau tab prakiraan **bukan tab pertama**; kalau kosong, hanya sheet pertama yang dibaca |
+| **Baca Sheet Prakiraan** (Google Sheets) — *varian Sheets asli* | Credential | *Google Sheets FASOP* |
 | | Document | URL/ID spreadsheet prakiraan (`GANTI_DENGAN_URL_SPREADSHEET`) |
 | | Sheet | Nama tab, default `Prakiraan` |
 | | Operation | `Get Row(s)` — biarkan *Return All* aktif |
@@ -130,12 +150,25 @@ saat workflow diekspor.
 
 - Mencocokkan kolom **tanpa peduli besar-kecil huruf atau spasi** (`Tanggal`/`Date`,
   `Jam`/`Waktu`/`Time`, `MW`/`Beban`, `Menit`).
-- Menerima tanggal `YYYY-MM-DD`, `DD/MM/YYYY`, atau objek Date dari Sheets.
+- Menerima **empat bentuk sel** sekaligus, karena Sheets mengirim teks
+  sedangkan Excel menyimpan tanggal & jam sebagai angka:
+
+  | Kolom | Bentuk yang diterima |
+  |---|---|
+  | Tanggal | `2026-08-19`, `19/08/2026`, objek Date, serial Excel (`46253`) |
+  | Jam | `18:30`, `18:30:00`, pecahan hari (`0.5` = 12:00), objek Date |
+  | Menit | angka `0`–`1439` (alternatif kolom Jam) |
+
+  Jam dinormalkan jadi `menit` di sisi n8n, jadi FASOP menerima angka yang
+  sudah pasti — bukan tebakan format.
 - **Menyaring hanya baris H dan H+1.** Ini disengaja: kurva hari lampau tidak
   boleh tertimpa, lihat [bagian 5](#5-akurasi).
 - Melewati sel MW kosong dan baris judul, lalu **melempar error kalau tidak ada
   satu baris pun yang terbaca** — jadi salah nama kolom langsung kelihatan di
-  eksekusi n8n, bukan diam-diam mengirim payload kosong.
+  eksekusi n8n, bukan diam-diam mengirim payload kosong. Pesan errornya ikut
+  menyebutkan contoh nilai Jam yang gagal dibaca.
+- Melaporkan `_dilewati` (baris di luar H/H+1) dan `_jam_tak_terbaca` di output,
+  supaya baris bermasalah bisa dihitung tanpa membuka sheet.
 
 Kalau sheet Anda hanya berisi satu hari dan tanggalnya ada di judul (bukan kolom
 per baris), baris tanpa kolom `Tanggal` otomatis memakai default server (hari
@@ -177,6 +210,76 @@ Konsekuensinya: **jangan menimpa kurva hari yang sudah lewat** dengan angka
 realisasi. Kalau spreadsheet dispatcher biasanya di-update belakangan supaya
 "cocok" dengan realisasi, kirim hanya baris H dan H+1 dari n8n (filter di node
 Code), bukan seluruh sheet.
+
+## 6. Masalah yang sering muncul
+
+### `This operation is not supported for this document. The document must not be an Office file.`
+
+Node **Google Sheets** ditujukan ke file **.xlsx**, bukan dokumen Google Sheets
+asli. File Excel yang di-upload ke Drive tetap berformat Office walaupun bisa
+dibuka lewat Sheets (*Office editing mode*) — Sheets API menolak semua operasi
+di atasnya.
+
+Dua jalan keluar:
+
+**A. Tetap pakai .xlsx** (cocok kalau file-nya rutin ditimpa dari Dashboard ROH) —
+pakai `docs/n8n_prakiraan_beban_xlsx.workflow.json`, yang membaca lewat Google
+Drive (Download) + Extract From File. Tidak ada yang perlu diubah di kebiasaan
+kerja operator.
+
+Satu syarat: **File ID di Drive harus tetap sama.** Saat meng-upload versi baru,
+pilih *Replace existing file* / **Manage versions → Upload new version** pada file
+yang sudah ada — jangan upload sebagai file baru, karena node Drive menunjuk satu
+File ID tertentu dan akan terus membaca file lama.
+
+**B. Konversi jadi Google Sheets asli** (cocok kalau nanti diisi langsung di
+Sheets) — buka file di Drive → **File → Save as Google Sheets**. Dokumen baru
+akan muncul dengan ID berbeda; pakai ID itu di
+`docs/n8n_prakiraan_beban.workflow.json`. Perlu diingat: hasil konversi adalah
+**salinan**, tidak ikut berubah kalau .xlsx aslinya di-upload ulang.
+
+### "Bisa nggak bikin Sheets baru yang menarik data .xlsx pakai IMPORTRANGE?"
+
+Tidak bisa. Google memblokir IMPORTRANGE dengan sumber file Office — hasilnya
+`#REF!` dengan pesan *"Cannot use IMPORTRANGE in Office files"*. Sumber
+IMPORTRANGE harus dokumen Google Sheets asli.
+
+Kalau tetap ingin ada Sheets asli di tengah, satu-satunya yang benar-benar
+otomatis adalah mengonversi ulang tiap kali file baru masuk — komponennya jauh
+lebih banyak daripada sekadar membaca .xlsx-nya langsung. Konversi manual
+(*File → Save as Google Sheets*) menghasilkan **salinan**: isinya beku, tidak
+ikut berubah saat .xlsx aslinya di-upload ulang.
+
+Jadi untuk alur "unduh dari Dashboard ROH → upload ke Drive", varian
+`n8n_prakiraan_beban_xlsx.workflow.json` memang jalur yang paling pendek.
+
+### Apakah file .xlsx-nya perlu diunduh dulu secara manual?
+
+Tidak. Node **Unduh .xlsx dari Drive** menarik isi file ke memori n8n saat
+workflow berjalan, lalu **Parse Excel** membacanya dari situ juga. Tidak ada
+file yang tersimpan di disk mana pun, dan tidak ada langkah manual — cukup
+pastikan file .xlsx-nya ada di Drive dan File ID-nya tidak berubah.
+
+### Jam tergeser (mis. semua maju/mundur beberapa jam)
+
+Terjadi kalau kolom Jam di Excel bertipe *waktu* dan zona waktunya ikut
+tergeser. Node Code sudah menangani sel waktu-saja lewat getter UTC, tapi kalau
+masih meleset, cara paling pasti: **format kolom Jam sebagai Teks** di Excel
+(`00:00`, `00:30`, …), atau ganti dengan kolom **Menit** berisi angka
+`0, 30, 60, …`.
+
+### `titik_ditulis` jauh lebih kecil dari jumlah baris sheet
+
+Periksa `dilewati` dan `errors` di respons — keduanya menyebut nomor baris dan
+alasannya. Penyebab tersering: baris di luar H/H+1 (memang sengaja disaring),
+sel MW kosong, atau nama kolom tidak dikenali.
+
+### Node Code melempar "Tidak ada baris prakiraan H/H+1 yang terbaca"
+
+Sheet terbaca tapi tidak ada baris yang lolos. Cek berurutan: nama kolom
+(`Tanggal`/`Jam`/`MW`), apakah tab yang terbaca benar (Extract From File hanya
+membaca sheet pertama kalau *Sheet Name* dikosongkan), dan apakah sheet memang
+sudah berisi tanggal hari ini atau besok.
 
 ## Kembali ke ML
 

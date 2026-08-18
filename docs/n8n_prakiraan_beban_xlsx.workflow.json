@@ -1,5 +1,5 @@
 {
-  "name": "FASOP — Prakiraan Beban (Google Sheets → OPSIS)",
+  "name": "FASOP — Prakiraan Beban (.xlsx di Drive → OPSIS)",
   "nodes": [
     {
       "parameters": {
@@ -23,43 +23,55 @@
     },
     {
       "parameters": {
-        "documentId": {
+        "resource": "file",
+        "operation": "download",
+        "fileId": {
           "__rl": true,
           "mode": "url",
-          "value": "GANTI_DENGAN_URL_SPREADSHEET"
-        },
-        "sheetName": {
-          "__rl": true,
-          "mode": "name",
-          "value": "Prakiraan"
+          "value": "GANTI_DENGAN_URL_FILE_XLSX_DI_DRIVE"
         },
         "options": {}
       },
-      "id": "a1000000-0000-4000-8000-000000000002",
-      "name": "Baca Sheet Prakiraan",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.5,
+      "id": "b1000000-0000-4000-8000-000000000002",
+      "name": "Unduh .xlsx dari Drive",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
       "position": [
-        -140,
+        -160,
         0
       ],
       "credentials": {
-        "googleSheetsOAuth2Api": {
+        "googleDriveOAuth2Api": {
           "id": "GANTI_DENGAN_ID_CREDENTIAL",
-          "name": "Google Sheets FASOP"
+          "name": "Google Drive FASOP"
         }
       }
     },
     {
       "parameters": {
+        "operation": "xlsx",
+        "binaryPropertyName": "data",
+        "options": {}
+      },
+      "id": "b1000000-0000-4000-8000-000000000003",
+      "name": "Parse Excel",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        60,
+        0
+      ]
+    },
+    {
+      "parameters": {
         "jsCode": "// Rakit payload POST /api/v1/prakiraan-beban/ dari baris spreadsheet.\n//\n// Dipakai oleh dua workflow sekaligus:\n//   - node Google Sheets  -> nilai sel datang sebagai STRING\n//   - node Extract From File (.xlsx) -> sel Jam/Tanggal bisa jadi ANGKA\n//     (serial Excel) atau objek Date, karena di Excel keduanya numerik\n// Karena itu semua bentuk di bawah diterima.\n//\n// Header sheet yang diharapkan: Tanggal | Jam | MW  (tak peduli besar-kecil huruf).\n// - Jam boleh \"HH:MM\", \"HH:MM:SS\", angka pecahan hari (0.5 = 12:00), atau Date.\n// - Boleh juga kolom \"Menit\" (0..1439) sebagai ganti Jam.\n// - MW boleh pakai koma desimal; sel kosong dilewati.\n// - Hanya baris H dan H+1 yang dikirim — kurva hari lampau TIDAK ditimpa,\n//   karena histori itulah yang dipakai menghitung akurasi di FASOP.\n\nconst ZONA = 'Asia/Makassar';\nconst hariIni = DateTime.now().setZone(ZONA).toISODate();\nconst besok = DateTime.now().setZone(ZONA).plus({ days: 1 }).toISODate();\nconst DIIZINKAN = new Set([hariIni, besok]);\n\n// Excel menghitung tanggal sebagai jumlah hari sejak 1899-12-30.\nconst EPOCH_EXCEL = Date.UTC(1899, 11, 30);\n\n/** Ambil nilai kolom tanpa peduli besar-kecil huruf / spasi. */\nfunction kolom(row, ...nama) {\n  const peta = {};\n  for (const k of Object.keys(row)) peta[k.trim().toLowerCase()] = row[k];\n  for (const n of nama) {\n    const v = peta[n.toLowerCase()];\n    if (v !== undefined && v !== null && String(v).trim() !== '') return v;\n  }\n  return null;\n}\n\n/** Angka dari sel, toleran koma desimal. NaN kalau bukan angka. */\nfunction angka(v) {\n  if (typeof v === 'number') return v;\n  return Number(String(v).trim().replace(',', '.'));\n}\n\n/**\n * Tanggal sel -> 'YYYY-MM-DD'. Menerima ISO, DD/MM/YYYY, Date, dan serial Excel.\n * Date dari SheetJS dibuat pada tengah malam UTC; Asia/Makassar (+8) masih\n * jatuh di tanggal yang sama, jadi konversi zona di bawah aman.\n */\nfunction normalTanggal(v) {\n  if (v == null || String(v).trim() === '') return null;\n  if (v instanceof Date) return DateTime.fromJSDate(v).setZone(ZONA).toISODate();\n\n  const n = angka(v);\n  if (Number.isFinite(n) && n > 20000) {          // serial Excel (>= th. 1954)\n    return new Date(EPOCH_EXCEL + Math.floor(n) * 86400000).toISOString().slice(0, 10);\n  }\n\n  const s = String(v).trim();\n  for (const fmt of ['yyyy-MM-dd', 'dd/MM/yyyy', 'd/M/yyyy', 'dd-MM-yyyy']) {\n    const d = DateTime.fromFormat(s, fmt, { zone: ZONA });\n    if (d.isValid) return d.toISODate();\n  }\n  const iso = DateTime.fromISO(s, { zone: ZONA });\n  return iso.isValid ? iso.toISODate() : null;\n}\n\n/**\n * Jam sel -> menit sejak 00:00 (0..1439), atau null kalau tak terbaca.\n * Sel waktu di Excel adalah pecahan hari: 0.5 = 12:00, 0.770833 = 18:30.\n */\nfunction normalMenit(jam, menit) {\n  if (menit != null) {\n    const n = angka(menit);\n    return Number.isFinite(n) && n >= 0 && n <= 1439 ? Math.round(n) : null;\n  }\n  if (jam == null) return null;\n\n  if (jam instanceof Date) {\n    // Sel waktu-saja dari SheetJS mendarat di tahun 1899/1900 dengan jam\n    // tersimpan sebagai UTC — pakai getter UTC supaya tidak tergeser zona.\n    // Sel bertanggal penuh dibaca sebagai waktu lokal seperti biasa.\n    return jam.getUTCFullYear() < 1901\n      ? jam.getUTCHours() * 60 + jam.getUTCMinutes()\n      : jam.getHours() * 60 + jam.getMinutes();\n  }\n\n  const s = String(jam).trim();\n  const cocok = s.match(/^(\\d{1,2}):(\\d{2})/);\n  if (cocok) {\n    const hh = Number(cocok[1]), mm = Number(cocok[2]);\n    return hh <= 23 && mm <= 59 ? hh * 60 + mm : null;\n  }\n\n  const n = angka(s);\n  if (Number.isFinite(n) && n >= 0 && n < 2) {     // pecahan hari\n    return Math.round((n - Math.floor(n)) * 1440);\n  }\n  return null;\n}\n\nconst data = [];\nconst dilewati = [];\nconst takTerbaca = [];\n\nfor (const item of $input.all()) {\n  const row = item.json;\n\n  const mwMentah = kolom(row, 'mw', 'beban', 'beban (mw)', 'prakiraan');\n  if (mwMentah == null) continue;                 // sel kosong: wajar, lewati\n\n  const jam = kolom(row, 'jam', 'waktu', 'time');\n  const menitKolom = kolom(row, 'menit', 'minute');\n  if (jam == null && menitKolom == null) continue; // baris judul / baris kosong\n\n  const menit = normalMenit(jam, menitKolom);\n  if (menit == null) {\n    takTerbaca.push(String(jam ?? menitKolom));\n    continue;\n  }\n\n  const tanggal = normalTanggal(kolom(row, 'tanggal', 'date'));\n  // Sheet satu hari tanpa kolom Tanggal -> tanggal null, dipakai default\n  // server (hari ini). Kalau ada kolom Tanggal, saring ke H dan H+1 saja.\n  if (tanggal !== null && !DIIZINKAN.has(tanggal)) {\n    dilewati.push(tanggal);\n    continue;\n  }\n\n  const baris = { menit, mw: mwMentah };\n  if (tanggal !== null) baris.tanggal = tanggal;\n  data.push(baris);\n}\n\nif (data.length === 0) {\n  throw new Error('Tidak ada baris prakiraan H/H+1 yang terbaca dari sheet — '\n    + 'periksa nama kolom (Tanggal/Jam/MW) dan isi sheet.'\n    + (takTerbaca.length ? ' Kolom Jam tidak terbaca, contoh: ' + takTerbaca.slice(0, 3).join(', ') : ''));\n}\n\nreturn [{ json: { sumber: 'roh-sulbagsel', data, _dilewati: dilewati.length, _jam_tak_terbaca: takTerbaca.length } }];"
       },
-      "id": "a1000000-0000-4000-8000-000000000003",
+      "id": "b1000000-0000-4000-8000-000000000004",
       "name": "Rakit Payload",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        80,
+        280,
         0
       ]
     },
@@ -76,12 +88,12 @@
           "timeout": 30000
         }
       },
-      "id": "a1000000-0000-4000-8000-000000000004",
+      "id": "b1000000-0000-4000-8000-000000000005",
       "name": "Kirim ke FASOP",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        300,
+        500,
         0
       ],
       "retryOnFail": true,
@@ -100,14 +112,25 @@
       "main": [
         [
           {
-            "node": "Baca Sheet Prakiraan",
+            "node": "Unduh .xlsx dari Drive",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Baca Sheet Prakiraan": {
+    "Unduh .xlsx dari Drive": {
+      "main": [
+        [
+          {
+            "node": "Parse Excel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Excel": {
       "main": [
         [
           {
