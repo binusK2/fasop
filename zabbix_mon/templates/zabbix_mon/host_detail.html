@@ -1,0 +1,295 @@
+{% extends "zabbix_mon/base.html" %}
+{% block title %}Detail {{ host.nama }}{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+.detail-hero {
+    background: var(--card-bg);
+    border: 1px solid var(--card-bd);
+    border-radius: 14px;
+    padding: 22px 24px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+.hero-state-circle {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px; flex-shrink: 0;
+}
+.hero-state-circle.ok      { background: rgba(16,185,129,.15); color: #10b981; box-shadow: 0 0 20px rgba(16,185,129,.2); }
+.hero-state-circle.problem { background: rgba(239,68,68,.15);  color: #ef4444; box-shadow: 0 0 20px rgba(239,68,68,.2); }
+.hero-state-circle.unknown { background: rgba(100,116,139,.15); color: #94a3b8; }
+
+.hero-info { flex: 1; }
+.hero-nama  { font-size: 22px; font-weight: 800; color: #fff; font-family:'JetBrains Mono',monospace; margin-bottom: 4px; }
+.hero-sub   { font-size: 12px; color: var(--muted); }
+.hero-problem { font-size: 13px; color: #f87171; margin-top: 4px; }
+.hero-state-badge {
+    font-size: 13px; font-weight: 700;
+    padding: 6px 16px; border-radius: 20px; margin-left: auto;
+}
+.hero-state-badge.ok      { background: rgba(16,185,129,.15); color: #10b981; border: 1px solid rgba(16,185,129,.3); }
+.hero-state-badge.problem { background: rgba(239,68,68,.15);  color: #ef4444; border: 1px solid rgba(239,68,68,.3); }
+.hero-state-badge.unknown { background: rgba(100,116,139,.15); color: #94a3b8; border: 1px solid rgba(100,116,139,.3); }
+
+.avail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+}
+.avail-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-bd);
+    border-radius: 12px;
+    padding: 14px 18px;
+}
+.avail-lbl { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); margin-bottom:6px; }
+.avail-val { font-family:'JetBrains Mono',monospace; font-size:24px; font-weight:700; }
+
+.period-btn {
+    background: none;
+    border: 1px solid var(--card-bd);
+    color: var(--muted);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 11px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: .15s;
+}
+.period-btn.active, .period-btn:hover {
+    border-color: #ea580c;
+    color: #fed7aa;
+    background: rgba(234,88,12,.1);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:14px;">
+    <a href="{% url 'zbx_dashboard' %}" style="font-size:12px; color:var(--muted); text-decoration:none;">
+        <i class="bi bi-arrow-left me-1"></i>Kembali ke Dashboard
+    </a>
+</div>
+
+<div class="detail-hero" id="hero-card">
+    <div class="hero-state-circle unknown" id="hero-circle">
+        <i class="bi bi-diagram-3-fill"></i>
+    </div>
+    <div class="hero-info">
+        <div class="hero-nama">{{ host.nama }}</div>
+        <div class="hero-sub" id="hero-sub">
+            {% if host.lokasi %}{{ host.lokasi }} · {% endif %}
+            {% if host.device %}Perangkat: {{ host.device.nama }} · {% endif %}
+            Sejak: <span id="hero-sejak">memuat...</span>
+        </div>
+        <div class="hero-problem" id="hero-problem"></div>
+    </div>
+    <div class="hero-state-badge unknown" id="hero-badge">{{ host.state }}</div>
+</div>
+
+<div class="avail-grid">
+    <div class="avail-card" style="border-color:rgba(249,115,22,.3);">
+        <div class="avail-lbl"><i class="bi bi-calendar-day me-1"></i>Availability Hari Ini</div>
+        <div class="avail-val" style="color:#fb923c;" id="av-hari">—<span style="font-size:14px;font-weight:400;color:var(--muted);">%</span></div>
+    </div>
+    <div class="avail-card" style="border-color:rgba(16,185,129,.3);">
+        <div class="avail-lbl"><i class="bi bi-clock me-1"></i>Durasi State Saat Ini</div>
+        <div class="avail-val" style="color:#10b981;" id="av-durasi">—</div>
+    </div>
+    <div class="avail-card" style="border-color:rgba(239,68,68,.3);">
+        <div class="avail-lbl"><i class="bi bi-shield-check me-1" ></i>Availability Periode</div>
+        <div class="avail-val" style="color:#f87171;" id="av-periode">—</div>
+    </div>
+</div>
+
+<div class="chart-card" style="margin-bottom:16px;">
+    <div class="chart-head">
+        <div class="chart-title">
+            <i class="bi bi-activity me-1" style="color:#fb923c;"></i>
+            Timeline OK / PROBLEM — <span id="chart-periode-lbl">7 Hari</span> Terakhir
+        </div>
+        <div style="display:flex;gap:6px;">
+            <button class="period-btn active" onclick="loadDetail(1)">1 Hari</button>
+            <button class="period-btn" onclick="loadDetail(7)">7 Hari</button>
+            <button class="period-btn" onclick="loadDetail(30)">30 Hari</button>
+        </div>
+    </div>
+    <div style="position:relative; height:120px; overflow:visible;">
+        <canvas id="chart-timeline"></canvas>
+    </div>
+</div>
+
+<div class="chart-card">
+    <div class="chart-head">
+        <div class="chart-title">
+            <i class="bi bi-list-ul me-1" style="color:#fb923c;"></i>
+            Histori State
+        </div>
+        <span style="font-size:11px;color:var(--muted);" id="log-count">—</span>
+    </div>
+    <div class="table-scroll">
+    <table class="gangguan-table" id="tbl-logs">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>State</th>
+                <th>Problem</th>
+                <th>Sumber</th>
+                <th>Mulai</th>
+                <th>Selesai</th>
+                <th>Durasi</th>
+            </tr>
+        </thead>
+        <tbody id="tbl-logs-body">
+            <tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px;">Memuat...</td></tr>
+        </tbody>
+    </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+Chart.defaults.color = '#8a6a45';
+Chart.defaults.font.family = 'DM Sans';
+
+let chartTimeline = null;
+let currentHari   = 7;
+const logsUrl = '{% url "zbx_api_host_logs" pk=host.pk %}';
+
+function fmtDur(menit) {
+    if (menit === null || menit === undefined) return '—';
+    if (menit < 60) return menit + 'm';
+    const j = Math.floor(menit / 60), m = menit % 60;
+    return m ? `${j}j ${m}m` : `${j}j`;
+}
+
+function colorAvail(v) {
+    if (v === null || v === undefined) return '#8a6a45';
+    return v >= 99 ? '#10b981' : v >= 95 ? '#f59e0b' : '#ef4444';
+}
+
+function updateHero(d) {
+    const cls = d.state === 'OK' ? 'ok' : d.state === 'PROBLEM' ? 'problem' : 'unknown';
+    const icon = d.state === 'OK' ? 'bi-check-circle-fill' : d.state === 'PROBLEM' ? 'bi-exclamation-circle-fill' : 'bi-diagram-3-fill';
+
+    const circle = document.getElementById('hero-circle');
+    circle.className = `hero-state-circle ${cls}`;
+    circle.innerHTML = `<i class="bi ${icon}"></i>`;
+
+    const badge = document.getElementById('hero-badge');
+    badge.className = `hero-state-badge ${cls}`;
+    badge.textContent = d.severity ? `${d.state} · ${d.severity}` : d.state;
+
+    document.getElementById('hero-sejak').textContent =
+        d.state_sejak ? `${d.state_sejak} (${fmtDur(d.durasi_menit)})` : '—';
+    document.getElementById('hero-problem').textContent = d.problem_name || '';
+}
+
+function updateStats(d) {
+    const avHari    = d.avail_hari    !== null ? d.avail_hari.toFixed(2)    : '—';
+    const avPeriode = d.avail_periode !== null ? d.avail_periode.toFixed(2) : '—';
+
+    document.getElementById('av-hari').innerHTML =
+        `<span style="color:${colorAvail(d.avail_hari)}">${avHari}</span><span style="font-size:14px;font-weight:400;color:var(--muted);">%</span>`;
+    document.getElementById('av-periode').innerHTML =
+        `<span style="color:${colorAvail(d.avail_periode)}">${avPeriode}</span><span style="font-size:14px;font-weight:400;color:var(--muted);">%</span>`;
+    document.getElementById('av-durasi').textContent = fmtDur(d.durasi_menit);
+}
+
+function renderTimeline(logs) {
+    const okData      = logs.map(l => l.state === 'OK'      ? (l.durasi_menit ?? 0) : 0);
+    const problemData = logs.map(l => l.state === 'PROBLEM' ? (l.durasi_menit ?? 0) : 0);
+    const labels      = logs.map(l => l.mulai);
+
+    const ctx = document.getElementById('chart-timeline').getContext('2d');
+    if (chartTimeline) {
+        chartTimeline.data.labels = labels;
+        chartTimeline.data.datasets[0].data = okData;
+        chartTimeline.data.datasets[1].data = problemData;
+        chartTimeline.update();
+        return;
+    }
+    chartTimeline = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [
+                { label:'OK',      data: okData,      backgroundColor:'rgba(16,185,129,.7)', borderRadius:3 },
+                { label:'PROBLEM', data: problemData, backgroundColor:'rgba(239,68,68,.7)',  borderRadius:3 },
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            clip: false,
+            plugins: {
+                legend: { display: true, labels: { boxWidth: 12, font: { size: 11 } } },
+                tooltip: {
+                    backgroundColor: 'rgba(26,15,7,.95)',
+                    titleColor:'#b58a5d', bodyColor:'#ffe0c2',
+                    borderColor:'#3a2412', borderWidth:1,
+                    callbacks: { label: ctx => ` ${ctx.dataset.label}: ${fmtDur(ctx.parsed.y)}` }
+                }
+            },
+            scales: {
+                x: { stacked: true, grid: { display: false }, ticks: { maxTicksLimit: 10, font: { size: 10 } } },
+                y: { stacked: true, grid: { color: '#2b1a0d' }, ticks: { callback: v => fmtDur(v), font: { size: 10 } } }
+            }
+        }
+    });
+}
+
+function renderTable(logs) {
+    document.getElementById('log-count').textContent = logs.length + ' log';
+    const tbody = document.getElementById('tbl-logs-body');
+    if (!logs.length) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px;">Belum ada log dalam periode ini.</td></tr>';
+        return;
+    }
+    tbody.innerHTML = [...logs].reverse().map((l, i) => `
+        <tr>
+            <td style="color:var(--muted);">${i+1}</td>
+            <td><span class="tag-${l.state.toLowerCase()}">${l.state}</span></td>
+            <td style="font-size:11px;">${l.problem_name || '—'}</td>
+            <td style="font-size:11px;color:var(--muted);">${l.source}</td>
+            <td>${l.mulai}</td>
+            <td>${l.selesai ?? '<span style="color:#f59e0b;">Berlangsung</span>'}</td>
+            <td>${fmtDur(l.durasi_menit)}</td>
+        </tr>`).join('');
+}
+
+function updatePeriodButtons(hari) {
+    document.querySelectorAll('.period-btn').forEach(btn => btn.classList.remove('active'));
+    const map = {1:'1 Hari', 7:'7 Hari', 30:'30 Hari'};
+    document.querySelectorAll('.period-btn').forEach(btn => {
+        if (btn.textContent.trim() === map[hari]) btn.classList.add('active');
+    });
+    document.getElementById('chart-periode-lbl').textContent = map[hari] || hari+' Hari';
+}
+
+async function loadDetail(hari) {
+    hari = hari || currentHari;
+    currentHari = hari;
+    updatePeriodButtons(hari);
+    try {
+        const r = await fetch(`${logsUrl}?hari=${hari}`);
+        if (!r.ok) return;
+        const d = await r.json();
+        updateHero(d);
+        updateStats(d);
+        renderTimeline(d.logs);
+        renderTable(d.logs);
+    } catch(e) { console.error(e); }
+}
+
+loadDetail(7);
+setInterval(() => loadDetail(currentHari), 60000);
+</script>
+{% endblock %}
