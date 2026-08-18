@@ -330,10 +330,13 @@ Sheet terbaca tapi tidak ada baris yang lolos. Pesan errornya menyebutkan
 layout yang terdeteksi, tanggal yang dicari, dan contoh tanggal/label jam yang
 ditemukan — mulai dari situ:
 
-- **`layout terdeteksi: MEMANJANG` padahal sheet-nya melebar** — header jamnya
-  tidak dikenali. Deteksi butuh minimal 6 kolom berlabel jam (`0`, `0.3`, …).
-  Sering terjadi kalau baris header bukan baris pertama sheet, sehingga yang
-  terbaca sebagai header adalah baris judul.
+- **`layout terdeteksi: MEMANJANG` padahal sheet-nya melebar** — label jamnya
+  tidak dikenali sama sekali. Deteksi butuh minimal 6 label jam, dicari di dua
+  tempat: nama kolom, lalu (kalau tidak ketemu) isi salah satu baris — jadi
+  baris judul di atas baris jam sudah tertangani otomatis. Lihat bagian
+  `Kolom terbaca:` dan `Isi baris pertama:` di pesan error untuk tahu apa yang
+  sebenarnya dibaca n8n; biasanya penyebabnya tab yang salah atau kolom jam
+  yang formatnya di luar `0` / `0.3` / `0.5` / `00:30`.
 - **`Tanggal lain yang ditemukan: …`** — sheet-nya terbaca, hanya belum berisi
   tanggal hari ini/besok.
 - **Tab yang terbaca salah** — Extract From File hanya membaca sheet pertama
