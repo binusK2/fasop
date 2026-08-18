@@ -238,6 +238,28 @@ akan muncul dengan ID berbeda; pakai ID itu di
 `docs/n8n_prakiraan_beban.workflow.json`. Perlu diingat: hasil konversi adalah
 **salinan**, tidak ikut berubah kalau .xlsx aslinya di-upload ulang.
 
+### "Bisa nggak bikin Sheets baru yang menarik data .xlsx pakai IMPORTRANGE?"
+
+Tidak bisa. Google memblokir IMPORTRANGE dengan sumber file Office — hasilnya
+`#REF!` dengan pesan *"Cannot use IMPORTRANGE in Office files"*. Sumber
+IMPORTRANGE harus dokumen Google Sheets asli.
+
+Kalau tetap ingin ada Sheets asli di tengah, satu-satunya yang benar-benar
+otomatis adalah mengonversi ulang tiap kali file baru masuk — komponennya jauh
+lebih banyak daripada sekadar membaca .xlsx-nya langsung. Konversi manual
+(*File → Save as Google Sheets*) menghasilkan **salinan**: isinya beku, tidak
+ikut berubah saat .xlsx aslinya di-upload ulang.
+
+Jadi untuk alur "unduh dari Dashboard ROH → upload ke Drive", varian
+`n8n_prakiraan_beban_xlsx.workflow.json` memang jalur yang paling pendek.
+
+### Apakah file .xlsx-nya perlu diunduh dulu secara manual?
+
+Tidak. Node **Unduh .xlsx dari Drive** menarik isi file ke memori n8n saat
+workflow berjalan, lalu **Parse Excel** membacanya dari situ juga. Tidak ada
+file yang tersimpan di disk mana pun, dan tidak ada langkah manual — cukup
+pastikan file .xlsx-nya ada di Drive dan File ID-nya tidak berubah.
+
 ### Jam tergeser (mis. semua maju/mundur beberapa jam)
 
 Terjadi kalau kolom Jam di Excel bertipe *waktu* dan zona waktunya ikut
