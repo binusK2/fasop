@@ -69,6 +69,7 @@ Each of the 15 `INSTALLED_APPS` Django apps follows a standard layout (`models.p
 | `auditlog/` | Custom (not django-auditlog) superuser audit log; entries are created by explicit `log_action()` calls in views, not signals |
 | `streaming/` | Field maintenance live streaming (WebRTC WHIP/WHEP via MediaMTX, `deploy/mediamtx.yml`); Teknisi broadcasts, Teknisi/AM view, only AM can join as Pengawas for 2-way talkback; teknisi's video is recorded (server-side ffmpeg transcode, see below) and pengawas's talkback audio is recorded as a **separate** clip (`LiveSession.talkback_recording_path`) rather than mixed into one file; recordings kept 7 days (`purge_old_recordings` cron) |
 | `up2bmakassar/` | Kinerja SCADATEL (`/kinerja-scadatel/`) — availability harian titik Telemetering/Telesignal, log RC, dan SOE log, dibaca **read-only** dari OFDB (`dbup2bmakasar` di MSSQL, `ofdb.py`); lihat "Kinerja SCADATEL — OFDB" di bawah |
+| `zabbix_mon/` | Status host Zabbix di dashboard FASOP (`/zabbix/`) — pull periodik lewat Zabbix API (`zabbix_api.py`, cron `sync_zabbix`) + push realtime lewat webhook (`/zabbix/webhook/`, token `ZABBIX_WEBHOOK_TOKEN`); `ZabbixHost` opsional dihubungkan ke `devices.Device`; setup lengkap di `deploy/ZABBIX_INTEGRATION.md` |
 | `api/` | REST API for n8n / Google Sheets integrations (no models — not in `INSTALLED_APPS`, but `urls.py` is still wired into `fasop/urls.py` at `/api/v1/`) |
 | `fasop/` | Root settings, URL routing, Hashids helper, URL converters |
 
@@ -163,6 +164,7 @@ Roles are stored in `UserProfile` (ForeignKey to User). Middleware enforces rout
 | `arsip_titik_kinerja` | up2bmakassar | Arsipkan daftar titik `kinerja=1` dari OFDB ke CSV — jalankan sebelum apa pun diubah di 19.1 |
 | `daftar_station` | up2bmakassar | Daftar station (PATH1) di data kinerja + status aktif/nonaktifnya, untuk dicocokkan dengan daftar station UP2B |
 | `cek_kinerja_ofdb` | up2bmakassar | Diagnosa read-only — koneksi OFDB, induk point type yang ketemu, jumlah titik per jenis, lama query harian, dan jumlah baris tersimpan |
+| `sync_zabbix` | zabbix_mon | Cron, every 2-5 min — pull host/problem status via Zabbix API (JSON-RPC) → `ZabbixHost`/`ZabbixEventLog`; complements the `/zabbix/webhook/` push path; supports `--dry-run` |
 
 ---
 
@@ -228,6 +230,16 @@ MSSQL_FREQ_TABLE=dbo.SYS_FREQ_HIS
 MSSQL_DRIVER=ODBC Driver 17 for SQL Server
 
 API_KEY=              # For /api/v1/ integrations
+
+# Zabbix Integration (zabbix_mon app) — see deploy/ZABBIX_INTEGRATION.md for full setup
+ZABBIX_API_URL=               # e.g. http://zabbix.domain/api_jsonrpc.php
+ZABBIX_API_TOKEN=             # preferred auth (Zabbix >= 5.4, Administration > API tokens)
+ZABBIX_API_USER=              # fallback auth (username/password) if no API token
+ZABBIX_API_PASSWORD=
+ZABBIX_API_TIMEOUT=10
+ZABBIX_HOST_GROUPS=           # optional, comma-separated — empty = all hosts
+ZABBIX_WEBHOOK_TOKEN=         # shared secret for /zabbix/webhook/, must match the Zabbix
+                               # Webhook media type's "token" parameter
 
 # Live Streaming (streaming/ app) — see "Live Streaming — External Infrastructure" below
 MEDIAMTX_WHIP_URL=            # public MediaMTX WHIP endpoint (browser publish), e.g. https://media.domain/

@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Zabbix Monitor{% endblock %} — UP2B Makassar</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+    --sb-w:      220px;
+    --sb-bg:     #1a0f07;
+    --sb-border: #3a2412;
+    --sb-text:   #b58a5d;
+    --sb-active: #ea580c;
+    --top-h:     52px;
+    --body-bg:   #150c05;
+    --card-bg:   #211308;
+    --card-bd:   #3a2412;
+    --text:      #ffe0c2;
+    --muted:     #8a6a45;
+    --up:        #10b981;
+    --down:      #ef4444;
+    --warn:      #f59e0b;
+    --orange:    #f97316;
+    --orange-glow: rgba(249,115,22,.25);
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+    font-family:'DM Sans', sans-serif;
+    background: var(--body-bg);
+    color: var(--text);
+    font-size: 14px;
+    display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+}
+
+/* ── Topbar ── */
+.topbar {
+    height: var(--top-h);
+    background: #1a0f07;
+    border-bottom: 1px solid var(--sb-border);
+    display: flex; align-items: center;
+    padding: 0 16px; gap: 12px;
+    flex-shrink: 0; z-index: 100;
+}
+.topbar-brand { display:flex; align-items:center; gap:8px; font-size:15px; font-weight:800; color:#fff; }
+.badge-zbx {
+    background: linear-gradient(135deg, #9a3412, #ea580c);
+    color:#fed7aa; font-size:10px; font-weight:700;
+    padding:2px 8px; border-radius:4px; letter-spacing:.6px;
+}
+.topbar-sep { width:1px; height:24px; background:var(--sb-border); }
+.topbar-clock { font-family:'JetBrains Mono',monospace; font-size:13px; color:#b58a5d; }
+.topbar-right { margin-left:auto; display:flex; align-items:center; gap:12px; }
+.topbar-user { font-size:12px; color:var(--muted); }
+.btn-logout {
+    font-size:12px; color:var(--muted); background:none;
+    border:1px solid var(--sb-border); border-radius:6px;
+    padding:4px 10px; cursor:pointer; font-family:inherit; transition:.15s;
+}
+.btn-logout:hover { border-color:#ea580c; color:var(--text); }
+
+.btn-menu {
+    display: none; align-items: center; justify-content: center;
+    background: none; border: none; color: var(--text);
+    font-size: 20px; cursor: pointer; padding: 4px 8px;
+    border-radius: 6px; line-height: 1;
+}
+.btn-menu:hover { background: var(--sb-border); }
+
+.sb-backdrop {
+    display: none;
+    position: fixed;
+    inset: var(--top-h) 0 0 0;
+    background: rgba(0,0,0,.5);
+    z-index: 150;
+}
+.sb-backdrop.show { display: block; }
+
+/* ── Layout ── */
+.layout { display:flex; flex:1; overflow:hidden; }
+
+/* ── Sidebar ── */
+.sidebar {
+    width: var(--sb-w);
+    background: var(--sb-bg);
+    border-right: 1px solid var(--sb-border);
+    display: flex; flex-direction: column; flex-shrink: 0;
+    transition: width .25s ease; overflow: hidden;
+}
+.sidebar.collapsed { width:52px; }
+.sb-toggle { display:flex; align-items:center; justify-content:flex-end; padding:10px 14px; border-bottom:1px solid var(--sb-border); }
+.btn-collapse { background:none; border:none; color:var(--muted); cursor:pointer; font-size:16px; padding:4px 6px; border-radius:6px; transition:.15s; line-height:1; }
+.btn-collapse:hover { background:var(--sb-border); color:var(--text); }
+.sb-section-label { font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:.8px; color:var(--muted); padding:14px 14px 6px; white-space:nowrap; overflow:hidden; }
+.sidebar.collapsed .sb-section-label { visibility:hidden; }
+.sb-link { display:flex; align-items:center; gap:10px; padding:9px 14px; text-decoration:none; color:var(--sb-text); font-size:13px; font-weight:500; white-space:nowrap; overflow:hidden; border-left:3px solid transparent; transition:.15s; }
+.sb-link:hover { background:rgba(234,88,12,.1); color:var(--text); }
+.sb-link.active { background:rgba(234,88,12,.18); color:#fed7aa; border-left-color:var(--sb-active); }
+.sb-icon { font-size:15px; flex-shrink:0; }
+.sb-label { flex:1; }
+.sb-badge { font-size:10px; font-weight:700; background:rgba(239,68,68,.15); color:#f87171; padding:1px 6px; border-radius:10px; }
+
+/* ── Main Content ── */
+.main-content { flex:1; overflow-y:auto; padding:20px; }
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width:5px; }
+::-webkit-scrollbar-track { background:var(--body-bg); }
+::-webkit-scrollbar-thumb { background:#3a2412; border-radius:3px; }
+
+/* ── Cards ── */
+.stat-bar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+}
+.stat-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-bd);
+    border-radius: 12px;
+    padding: 16px 20px;
+}
+.stat-card.ok      { border-color: rgba(16,185,129,.3); }
+.stat-card.problem { border-color: rgba(239,68,68,.3); }
+.stat-card.avail   { border-color: rgba(249,115,22,.3); }
+.stat-lbl { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); margin-bottom:6px; }
+.stat-val { font-family:'JetBrains Mono',monospace; font-size:30px; font-weight:700; line-height:1.1; }
+.stat-val.ok      { color:#10b981; }
+.stat-val.problem { color:#ef4444; }
+.stat-val.avail   { color:#fb923c; }
+.stat-unit { font-size:13px; font-weight:400; color:var(--muted); margin-left:3px; }
+
+/* ── Host Grid ── */
+.host-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+}
+.host-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-bd);
+    border-radius: 12px;
+    padding: 16px 18px;
+    cursor: pointer;
+    transition: .2s;
+    position: relative;
+    overflow: hidden;
+}
+.host-card::before {
+    content:'';
+    position:absolute; top:0; left:0; right:0; height:3px;
+    background: var(--card-bd);
+    transition: .2s;
+}
+.host-card.ok::before      { background: #10b981; }
+.host-card.problem::before { background: #ef4444; }
+.host-card.unknown::before { background: #64748b; }
+.host-card:hover { transform:translateY(-1px); border-color:#ea580c; }
+
+.host-card-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+.host-nama { font-size:14px; font-weight:700; color:var(--text); font-family:'JetBrains Mono',monospace; }
+.host-state-badge {
+    font-size:10px; font-weight:700; padding:3px 9px; border-radius:20px;
+    letter-spacing:.3px;
+}
+.host-state-badge.ok      { background:rgba(16,185,129,.15); color:#10b981; }
+.host-state-badge.problem { background:rgba(239,68,68,.15);  color:#ef4444; }
+.host-state-badge.unknown { background:rgba(100,116,139,.15); color:#94a3b8; }
+
+.host-meta { font-size:11px; color:var(--muted); display:flex; flex-direction:column; gap:4px; }
+.host-meta .row { display:flex; align-items:center; gap:6px; }
+.host-meta i { width:14px; text-align:center; }
+
+/* ── Chart card ── */
+.chart-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-bd);
+    border-radius: 14px;
+    padding: 16px 20px;
+    margin-bottom: 16px;
+}
+.chart-head { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
+.chart-title { font-size:12px; font-weight:700; color:var(--text); text-transform:uppercase; letter-spacing:.4px; }
+
+/* ── Table scroll wrapper (mobile) ── */
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+/* ── Live dot ── */
+.live-dot {
+    display:inline-block; width:8px; height:8px; border-radius:50%;
+    background:#10b981; box-shadow:0 0 8px rgba(16,185,129,.6);
+    animation:pulse 2s infinite; margin-right:6px;
+}
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+/* ── Gangguan tabel ── */
+.gangguan-table { width:100%; min-width:480px; border-collapse:collapse; font-size:12px; }
+.gangguan-table th {
+    text-align:left; padding:8px 12px;
+    font-size:10px; font-weight:700; text-transform:uppercase;
+    letter-spacing:.5px; color:var(--muted);
+    border-bottom: 1px solid var(--card-bd);
+}
+.gangguan-table td { padding:8px 12px; border-bottom:1px solid rgba(58,36,18,.6); }
+.gangguan-table tr:last-child td { border-bottom:none; }
+.gangguan-table tr:hover td { background:rgba(234,88,12,.05); }
+.tag-problem { display:inline-block; background:rgba(239,68,68,.12); color:#f87171; font-size:10px; font-weight:700; padding:2px 7px; border-radius:4px; }
+.tag-ok      { display:inline-block; background:rgba(16,185,129,.12); color:#10b981; font-size:10px; font-weight:700; padding:2px 7px; border-radius:4px; }
+.tag-sev     { display:inline-block; background:rgba(249,115,22,.12); color:#fb923c; font-size:10px; font-weight:700; padding:2px 7px; border-radius:4px; }
+
+/* ── Footer ── */
+.app-footer {
+    margin-top: 24px;
+    padding-top: 14px;
+    border-top: 1px solid var(--card-bd);
+    text-align: center;
+    font-size: 11.5px;
+    color: var(--muted);
+}
+
+/* ── Mobile ── */
+@media (max-width: 768px) {
+    .btn-menu { display: flex; }
+    .sidebar {
+        position: fixed;
+        top: var(--top-h);
+        bottom: 0;
+        left: 0;
+        z-index: 200;
+        width: 240px !important;
+        transform: translateX(-100%);
+        box-shadow: 4px 0 24px rgba(0,0,0,.4);
+    }
+    .sidebar.mobile-open { transform: translateX(0); }
+    .sb-toggle { display: none; }
+    .main-content { padding: 14px 12px; }
+    .topbar-clock { display: none; }
+}
+</style>
+{% block extra_head %}{% endblock %}
+</head>
+<body>
+
+<!-- Topbar -->
+<div class="topbar">
+    <button class="btn-menu" id="btn-menu" aria-label="Buka menu">
+        <i class="bi bi-list"></i>
+    </button>
+    <div class="topbar-brand">
+        <i class="bi bi-diagram-3-fill" style="color:#f97316;"></i>
+        <span>Zabbix Monitor</span>
+        <span class="badge-zbx">ZBX</span>
+    </div>
+    <div class="topbar-sep"></div>
+    <div class="topbar-clock" id="live-clock">--:--:--</div>
+    <div class="topbar-right">
+        <span class="topbar-user">
+            <i class="bi bi-person-circle me-1"></i>{{ request.user.get_full_name|default:request.user.username }}
+        </span>
+        <form method="post" action="/logout/" style="display:inline;margin:0;">
+            {% csrf_token %}
+            <button type="submit" class="btn-logout">
+                <i class="bi bi-box-arrow-right me-1"></i>Keluar
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- Backdrop mobile -->
+<div class="sb-backdrop" id="sb-backdrop"></div>
+
+<!-- Layout -->
+<div class="layout">
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+        <div class="sb-toggle">
+            <button class="btn-collapse" id="btn-collapse">
+                <i class="bi bi-layout-sidebar-reverse" id="collapse-icon"></i>
+            </button>
+        </div>
+        <div class="sb-section-label">Zabbix Monitor</div>
+        <a href="{% url 'zbx_dashboard' %}" class="sb-link {% if request.resolver_match.url_name == 'zbx_dashboard' %}active{% endif %}">
+            <i class="bi bi-grid-3x3-gap-fill sb-icon"></i>
+            <span class="sb-label">Dashboard</span>
+        </a>
+        <a href="{% url 'zbx_gangguan' %}" class="sb-link {% if request.resolver_match.url_name == 'zbx_gangguan' %}active{% endif %}">
+            <i class="bi bi-exclamation-triangle-fill sb-icon" style="color:#f87171;"></i>
+            <span class="sb-label">Histori Problem</span>
+            {% if problem_count %}<span class="sb-badge">{{ problem_count }}</span>{% endif %}
+        </a>
+        <div class="sb-section-label" style="margin-top:8px;">Aplikasi Lain</div>
+        <a href="/device-mon/" class="sb-link">
+            <i class="bi bi-hdd-network sb-icon" style="color:#3b82f6;"></i>
+            <span class="sb-label">Device Monitor (RTU)</span>
+        </a>
+        <a href="/" class="sb-link">
+            <i class="bi bi-house sb-icon"></i>
+            <span class="sb-label">Beranda</span>
+        </a>
+    </div>
+
+    <!-- Main -->
+    <div class="main-content">
+        {% block content %}{% endblock %}
+
+        <!-- Footer -->
+        <footer class="app-footer">
+            &copy; {% now "Y" %} PLN UP2B Sistem Makassar &mdash; Developed by Bachtiar Hurdanu
+        </footer>
+    </div>
+</div>
+
+<script>
+function updateClock() {
+    document.getElementById('live-clock').textContent =
+        new Date().toLocaleTimeString('id-ID', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+const sidebar = document.getElementById('sidebar');
+const colIcon = document.getElementById('collapse-icon');
+let collapsed = localStorage.getItem('zbx_sb_collapsed') === '1';
+function applySidebar() {
+    sidebar.classList.toggle('collapsed', collapsed);
+    colIcon.className = collapsed ? 'bi bi-layout-sidebar' : 'bi bi-layout-sidebar-reverse';
+}
+applySidebar();
+document.getElementById('btn-collapse').addEventListener('click', () => {
+    collapsed = !collapsed;
+    localStorage.setItem('zbx_sb_collapsed', collapsed ? '1' : '0');
+    applySidebar();
+});
+
+// Sidebar mobile (hamburger + backdrop)
+const btnMenu    = document.getElementById('btn-menu');
+const sbBackdrop = document.getElementById('sb-backdrop');
+function openMobileSidebar() {
+    sidebar.classList.add('mobile-open');
+    sbBackdrop.classList.add('show');
+}
+function closeMobileSidebar() {
+    sidebar.classList.remove('mobile-open');
+    sbBackdrop.classList.remove('show');
+}
+if (btnMenu) {
+    btnMenu.addEventListener('click', () => {
+        sidebar.classList.contains('mobile-open') ? closeMobileSidebar() : openMobileSidebar();
+    });
+}
+if (sbBackdrop) sbBackdrop.addEventListener('click', closeMobileSidebar);
+document.querySelectorAll('.sb-link').forEach(link => {
+    link.addEventListener('click', () => { if (window.innerWidth <= 768) closeMobileSidebar(); });
+});
+</script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

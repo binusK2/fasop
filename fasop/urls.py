@@ -53,6 +53,9 @@ urlpatterns = [
     # Device Monitor — Status RTU Realtime + Availability
     path('device-mon/', include('device_mon.urls')),
 
+    # Zabbix Monitor — Status peralatan dari Zabbix (API pull + webhook push)
+    path('zabbix/', include('zabbix_mon.urls')),
+
     # Kinerja SCADATEL — uptime harian ANALOG/DIGITAL dari OFDB up2bmakassar (read-only)
     path('kinerja-scadatel/', include('up2bmakassar.urls')),
 

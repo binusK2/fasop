@@ -1,0 +1,280 @@
+{% extends "zabbix_mon/base.html" %}
+
+{% block title %}Dashboard Zabbix{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+.stat-bar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+}
+.stat-card { padding: 12px 16px; }
+.stat-lbl  { font-size: 10px; }
+.stat-val  { font-size: 24px; }
+
+.host-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 8px;
+    margin-bottom: 14px;
+}
+.host-tile {
+    background: var(--card-bg);
+    border: 1px solid var(--card-bd);
+    border-radius: 8px;
+    padding: 10px 12px;
+    cursor: pointer;
+    transition: .15s;
+    position: relative;
+    overflow: hidden;
+}
+.host-tile::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+}
+.host-tile.ok::before      { background: #10b981; }
+.host-tile.problem::before { background: #ef4444; }
+.host-tile.unknown::before { background: #475569; }
+.host-tile:hover { border-color: #ea580c; transform: translateY(-1px); }
+
+.host-tile-nama {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 700;
+    color: var(--text);
+    margin-bottom: 6px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.host-tile-state {
+    font-size: 10px; font-weight: 700;
+    padding: 2px 6px; border-radius: 10px;
+    display: inline-block; margin-bottom: 6px;
+}
+.host-tile-state.ok      { background: rgba(16,185,129,.15); color: #10b981; }
+.host-tile-state.problem { background: rgba(239,68,68,.15);  color: #ef4444; }
+.host-tile-state.unknown { background: rgba(71,85,105,.2); color: #94a3b8; }
+.host-tile-problem {
+    font-size: 10px; color: var(--muted);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    margin-bottom: 4px;
+}
+.host-tile-meta {
+    font-size: 10px; color: var(--muted);
+    display: flex; justify-content: space-between; align-items: center;
+}
+.host-tile-avail { font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; }
+
+.bottom-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+@media (max-width: 900px) { .bottom-grid { grid-template-columns: 1fr; } }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+    <div style="font-size:15px; font-weight:800; color:#fff;">
+        <span class="live-dot"></span>Status Host Zabbix Realtime
+    </div>
+    <div style="font-size:11px; color:var(--muted);" id="last-updated">—</div>
+</div>
+
+<div class="stat-bar">
+    <div class="stat-card ok">
+        <div class="stat-lbl"><i class="bi bi-check-circle-fill me-1" style="color:#10b981;"></i>OK</div>
+        <div class="stat-val ok" id="stat-ok">—</div>
+    </div>
+    <div class="stat-card problem">
+        <div class="stat-lbl"><i class="bi bi-exclamation-circle-fill me-1" style="color:#ef4444;"></i>PROBLEM</div>
+        <div class="stat-val problem" id="stat-problem">—</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-lbl"><i class="bi bi-question-circle me-1" style="color:#94a3b8;"></i>UNKNOWN</div>
+        <div class="stat-val" style="color:#94a3b8;" id="stat-unknown">—</div>
+    </div>
+    <div class="stat-card avail">
+        <div class="stat-lbl"><i class="bi bi-shield-check me-1" style="color:#fb923c;"></i>Avail Hari Ini</div>
+        <div class="stat-val avail" id="stat-avail">—<span class="stat-unit">%</span></div>
+    </div>
+</div>
+
+<div class="host-grid" id="host-grid">
+    <div style="grid-column:1/-1; text-align:center; padding:30px; color:var(--muted);">
+        <i class="bi bi-arrow-repeat" style="font-size:20px; display:block; margin-bottom:6px; animation:spin 1s linear infinite;"></i>
+        Memuat...
+    </div>
+</div>
+
+<div class="bottom-grid">
+    <div class="chart-card">
+        <div class="chart-head">
+            <div class="chart-title">
+                <i class="bi bi-bar-chart-fill me-1" style="color:#fb923c;"></i>Availability Hari Ini
+            </div>
+            <span style="font-size:10px; color:var(--muted);" id="chart-updated">—</span>
+        </div>
+        <div style="position:relative; height:180px;">
+            <canvas id="chart-avail"></canvas>
+        </div>
+    </div>
+
+    <div class="chart-card">
+        <div class="chart-head">
+            <div class="chart-title">
+                <i class="bi bi-exclamation-triangle-fill me-1" style="color:#f87171;"></i>Problem Terkini
+            </div>
+            <a href="{% url 'zbx_gangguan' %}" style="font-size:10px; color:#fb923c; text-decoration:none;">
+                Semua <i class="bi bi-arrow-right"></i>
+            </a>
+        </div>
+        <div class="table-scroll">
+        <table class="gangguan-table">
+            <thead>
+                <tr>
+                    <th>Host</th>
+                    <th>Mulai</th>
+                    <th>Durasi</th>
+                </tr>
+            </thead>
+            <tbody id="tbl-gangguan-body">
+                <tr><td colspan="3" style="text-align:center; color:var(--muted); padding:16px;">Memuat...</td></tr>
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+Chart.defaults.color = '#8a6a45';
+Chart.defaults.font.family = 'DM Sans';
+
+let chartAvail = null;
+
+function fmtDur(m) {
+    if (m === null || m === undefined) return '—';
+    if (m < 60) return m + 'm';
+    const j = Math.floor(m / 60), r = m % 60;
+    return r ? `${j}j${r}m` : `${j}j`;
+}
+
+function fmtDt(s) {
+    if (!s) return '—';
+    const d = new Date(s);
+    return d.toLocaleString('id-ID', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'});
+}
+
+function availColor(v) {
+    if (v === null || v === undefined) return '#475569';
+    return v >= 99 ? '#10b981' : v >= 95 ? '#f59e0b' : '#ef4444';
+}
+
+function renderGrid(hosts) {
+    const grid = document.getElementById('host-grid');
+    if (!hosts || !hosts.length) {
+        grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:30px;color:var(--muted);">Belum ada host. Jalankan <code>python manage.py sync_zabbix</code> atau tunggu webhook pertama masuk.</div>';
+        return;
+    }
+    grid.innerHTML = hosts.map(h => {
+        const cls    = h.state === 'OK' ? 'ok' : h.state === 'PROBLEM' ? 'problem' : 'unknown';
+        const avail  = h.avail_hari !== null ? h.avail_hari.toFixed(1) : '—';
+        const aColor = availColor(h.avail_hari);
+        return `
+        <div class="host-tile ${cls}" onclick="location.href='/zabbix/host/${h.id}/'">
+            <div class="host-tile-nama" title="${h.nama}${h.lokasi ? ' · '+h.lokasi : ''}">${h.nama}</div>
+            <div class="host-tile-state ${cls}">${h.state}${h.severity ? ' · '+h.severity : ''}</div>
+            ${h.problem_name ? `<div class="host-tile-problem" title="${h.problem_name}">${h.problem_name}</div>` : ''}
+            <div class="host-tile-meta">
+                <span title="Durasi state saat ini">${fmtDur(h.durasi_menit)}</span>
+                <span class="host-tile-avail" style="color:${aColor};">${avail}%</span>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function renderChart(hosts) {
+    if (!hosts || !hosts.length) return;
+    const labels = hosts.map(h => h.nama);
+    const data   = hosts.map(h => h.avail_hari !== null ? parseFloat(h.avail_hari.toFixed(2)) : 0);
+    const colors = data.map(v => v >= 99 ? '#10b981' : v >= 95 ? '#f59e0b' : '#ef4444');
+
+    const ctx = document.getElementById('chart-avail').getContext('2d');
+    if (chartAvail) {
+        chartAvail.data.labels = labels;
+        chartAvail.data.datasets[0].data = data;
+        chartAvail.data.datasets[0].backgroundColor = colors;
+        chartAvail.update();
+        return;
+    }
+    chartAvail = new Chart(ctx, {
+        type: 'bar',
+        data: { labels, datasets: [{ data, backgroundColor: colors, borderRadius: 4, borderSkipped: false }] },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            indexAxis: 'y',
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(26,15,7,.95)',
+                    titleColor: '#b58a5d', bodyColor: '#ffe0c2',
+                    borderColor: '#3a2412', borderWidth: 1,
+                    callbacks: { label: ctx => ` ${ctx.parsed.x.toFixed(2)}%` }
+                }
+            },
+            scales: {
+                x: { min: 80, max: 100, grid: { color: '#2b1a0d' }, ticks: { callback: v => v + '%', font: { size: 10 } } },
+                y: { grid: { display: false }, ticks: { font: { size: 10 } } }
+            }
+        }
+    });
+}
+
+function renderGangguan(logs) {
+    const tbody = document.getElementById('tbl-gangguan-body');
+    if (!logs || !logs.length) {
+        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:16px;">Tidak ada problem 🎉</td></tr>';
+        return;
+    }
+    tbody.innerHTML = logs.map(g => `
+        <tr>
+            <td><strong>${g.host}</strong>${g.problem_name ? `<br><span style="font-size:10px;color:var(--muted);">${g.problem_name}</span>` : ''}</td>
+            <td style="font-size:11px;">${fmtDt(g.mulai)}</td>
+            <td>${g.selesai ? fmtDur(g.durasi_menit) : '<span style="color:#f59e0b;font-size:10px;">Berlangsung</span>'}</td>
+        </tr>`).join('');
+}
+
+async function pollDashboard() {
+    try {
+        const r = await fetch('{% url "zbx_api_status" %}');
+        if (!r.ok) return;
+        const d = await r.json();
+
+        document.getElementById('stat-ok').textContent      = d.total_ok      ?? '—';
+        document.getElementById('stat-problem').textContent = d.total_problem ?? '—';
+        document.getElementById('stat-unknown').textContent = d.total_unknown ?? '—';
+        document.getElementById('stat-avail').innerHTML     =
+            (d.avail_hari !== null ? d.avail_hari.toFixed(2) : '—') + '<span class="stat-unit">%</span>';
+
+        renderGrid(d.hosts);
+        renderChart(d.hosts);
+        renderGangguan(d.gangguan_terkini);
+
+        const now = new Date().toLocaleTimeString('id-ID');
+        document.getElementById('last-updated').textContent  = 'Update: ' + now;
+        document.getElementById('chart-updated').textContent = now;
+    } catch(e) { console.error('poll error', e); }
+}
+
+pollDashboard();
+setInterval(pollDashboard, 10000);
+</script>
+{% endblock %}

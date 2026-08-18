@@ -17,6 +17,7 @@ class Notifikasi(models.Model):
         ('ba_ttd_engineer',     'BA — Permintaan TTD Engineer'),
         ('ba_ttd_am',           'BA — Menunggu TTD AM'),
         ('live_dimulai',        'Live Streaming Dimulai'),
+        ('zabbix_state',        'Zabbix — Perubahan Status Host'),
     )
 
     LEVEL_CHOICES = (
