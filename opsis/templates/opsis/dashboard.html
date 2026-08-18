@@ -85,7 +85,7 @@
 .pb-dm-item { display: inline-flex; align-items: center; gap: 5px; }
 .pb-dm-lbl {
     font-family: 'DM Sans', sans-serif; font-size: 10px; font-weight: 700;
-    letter-spacing: .4px; color: #fff;
+    letter-spacing: .4px; color: var(--muted);
 }
 .pb-ts {
     font-size: 10px; color: var(--muted); padding-left: 6px;
@@ -510,7 +510,7 @@
                 {% if p.pakai_dmp %}
                 <div class="pb-dm" id="dm-{{ p.kode }}">
                     <span class="pb-dm-item"><span class="pb-dm-lbl">DMN</span><span id="val-dmn-{{ p.kode }}">—</span></span>
-                    <span class="pb-dm-item"><span class="pb-dm-lbl">DMP</span><span id="val-dmp-{{ p.kode }}">—</span></span>
+                    <span class="pb-dm-item" hidden><span class="pb-dm-lbl">DMP</span><span id="val-dmp-{{ p.kode }}">—</span></span>
                 </div>
                 {% endif %}
                 <div class="pb-ts"><i class="bi bi-clock" style="font-size:9px;"></i><span id="ts-{{ p.kode }}">—</span>
