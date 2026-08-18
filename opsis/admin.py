@@ -29,7 +29,8 @@ class PembangkitAdmin(admin.ModelAdmin):
         ('Daya Mampu — dbo.KIT_DMP', {
             'description': 'Isi nama kolom yang menyimpan DMN dan DMP pada dbo.KIT_DMP. '
                            'Kolom Kunci global diatur lewat MSSQL_DMP_KEYCOL (default: KIT). '
-                           'Nilai Kunci dikosongkan untuk memakai Kode KIT/Kode pembangkit. '
+                           'Nilai Kunci dikosongkan untuk memakai Kode KIT/Kode pembangkit. Pisahkan '
+                           'beberapa nilai dengan koma untuk menjumlahkan DMN/DMP, mis. POSO2A_U1,POSO2A_U2. '
                            'Gunakan python manage.py probe_dmp untuk melihat struktur tabel.',
             'fields': ('dmp_key', 'dmp_kolom_dmn', 'dmp_kolom_dmp'),
         }),

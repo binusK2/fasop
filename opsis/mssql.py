@@ -891,13 +891,19 @@ def get_daya_mampu(pembangkit_list):
 
     hasil = {}
     for p in targets:
-        src = rows.get(p.dmp_source())
-        if src is None:
+        sumber = [rows[key] for key in p.dmp_sources() if key in rows]
+        if not sumber:
             hasil[p.kode] = {'dmn': None, 'dmp': None}
             continue
+
+        def _jumlah(kolom):
+            nilai = [_nilai(src, kolom) for src in sumber]
+            nilai = [val for val in nilai if val is not None]
+            return round(sum(nilai), 3) if nilai else None
+
         hasil[p.kode] = {
-            'dmn': _nilai(src, p.dmp_kolom_dmn),
-            'dmp': _nilai(src, p.dmp_kolom_dmp),
+            'dmn': _jumlah(p.dmp_kolom_dmn),
+            'dmp': _jumlah(p.dmp_kolom_dmp),
         }
     return hasil
 
