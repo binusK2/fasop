@@ -105,3 +105,24 @@ class ZabbixGroupAdmin(admin.ModelAdmin):
     def jumlah_host(self, obj):
         return obj.hosts.count()
     jumlah_host.short_description = 'Jumlah Host'
+
+    def formfield_for_manytomany(self, db_field, request, **kwargs):
+        """
+        Sembunyikan host yang sudah masuk grup LAIN dari daftar "Available",
+        supaya satu host tidak tanpa sengaja terhitung di dua grup sekaligus.
+        Host milik grup yang sedang dibuka tetap muncul (di kolom "Chosen"),
+        jadi bisa dilepas kembali kalau perlu.
+
+        Pola yang sama dengan ULTGAdmin.formfield_for_manytomany di
+        devices/admin.py.
+        """
+        if db_field.name == 'hosts':
+            obj_id = request.resolver_match.kwargs.get('object_id')
+            milik_grup_lain = ZabbixGroup.objects.all()
+            if obj_id:
+                milik_grup_lain = milik_grup_lain.exclude(pk=obj_id)
+            sudah_dipakai = milik_grup_lain.values_list('hosts__pk', flat=True)
+            kwargs['queryset'] = ZabbixHost.objects.exclude(
+                pk__in=[pk for pk in sudah_dipakai if pk is not None]
+            ).order_by('urutan', 'nama')
+        return super().formfield_for_manytomany(db_field, request, **kwargs)

@@ -199,6 +199,17 @@ ZABBIX_WEBHOOK_TOKEN=
 Cron `sync_zabbix` (lihat §1). Dashboard: sidebar **Device Monitor →
 Zabbix**, atau langsung `/device-mon/zabbix/`.
 
+### Perhitungan availability — hanya severity High
+
+Angka availability (dashboard, per grup, per host) **hanya menghitung
+problem dengan severity `High`** sebagai downtime. Problem severity lain
+(Warning, Average, Information, Not classified, Disaster) tetap tampil
+di dashboard, daftar problem terkini, dan histori host — hanya saja tidak
+menurunkan persentase availability.
+
+Diatur lewat konstanta `SEVERITY_DIHITUNG` di `device_mon/views.py`
+(mis. jadikan `['High', 'Disaster']` kalau Disaster juga mau dihitung).
+
 ### Tampilan per Host Group
 
 `ZABBIX_HOST_GROUPS` boleh diisi lebih dari satu, dipisah koma, mis.
