@@ -497,15 +497,125 @@ def availability_report(request):
 # ═══════════════════════════════════════════════════════════════════════════
 @login_required
 def zbx_dashboard(request):
+    """Ringkasan Zabbix: total status + breakdown per grup. Detail per host ada di zbx_group_detail."""
     return render(request, 'device_mon/zbx_dashboard.html')
 
 
 @login_required
+def zbx_api_summary(request):
+    """JSON: ringkasan status Zabbix — total + breakdown per Host Group + problem terkini. Dipoll dashboard."""
+    now, today_start, month_start = _boundaries()
+
+    hosts = list(ZabbixHost.objects.filter(aktif=True))
+    if not hosts:
+        return JsonResponse({
+            'total_ok': 0, 'total_problem': 0, 'total_unknown': 0, 'total_host': 0,
+            'avail_hari': None, 'avail_bulan': None, 'groups': [], 'gangguan_terkini': [],
+        })
+
+    host_ids = [h.pk for h in hosts]
+    down_today = list(
+        ZabbixEventLog.objects.filter(
+            host_id__in=host_ids, state='PROBLEM', mulai__lt=now,
+        ).filter(Q(selesai__gt=today_start) | Q(selesai__isnull=True))
+    )
+    today_by_host = {}
+    for log in down_today:
+        today_by_host.setdefault(log.host_id, []).append(log)
+
+    total_menit_today = max(1, int((now - today_start).total_seconds() / 60))
+
+    total_ok = total_problem = total_unknown = 0
+    avail_hari_list = []
+    group_stats = {}   # nama grup -> {total, ok, problem, unknown, avail_list}
+
+    for h in hosts:
+        avail_hari = _calc_avail(today_by_host.get(h.pk, []), today_start, now, total_menit_today)
+        avail_hari_list.append(avail_hari)
+
+        if h.state == 'OK':
+            total_ok += 1
+        elif h.state == 'PROBLEM':
+            total_problem += 1
+        else:
+            total_unknown += 1
+
+        for gname in (h.group_list or ['(Tanpa Grup)']):
+            g = group_stats.setdefault(gname, {'total': 0, 'ok': 0, 'problem': 0, 'unknown': 0, 'avail_list': []})
+            g['total'] += 1
+            g['avail_list'].append(avail_hari)
+            if h.state == 'OK':
+                g['ok'] += 1
+            elif h.state == 'PROBLEM':
+                g['problem'] += 1
+            else:
+                g['unknown'] += 1
+
+    avg_avail_hari = round(sum(avail_hari_list) / len(avail_hari_list), 2) if avail_hari_list else None
+
+    down_month = list(
+        ZabbixEventLog.objects.filter(
+            host_id__in=host_ids, state='PROBLEM', mulai__lt=now,
+        ).filter(Q(selesai__gt=month_start) | Q(selesai__isnull=True))
+    )
+    total_menit_month = max(1, int((now - month_start).total_seconds() / 60))
+    avg_avail_bulan = _calc_avail(down_month, month_start, now, total_menit_month * len(hosts))
+
+    groups_data = [
+        {
+            'nama': gname,
+            'total': g['total'],
+            'ok': g['ok'],
+            'problem': g['problem'],
+            'unknown': g['unknown'],
+            'avail_hari': round(sum(g['avail_list']) / len(g['avail_list']), 2) if g['avail_list'] else None,
+        }
+        for gname, g in sorted(group_stats.items())
+    ]
+
+    gangguan = (ZabbixEventLog.objects.filter(state='PROBLEM')
+                .select_related('host').order_by('-mulai')[:10])
+    gangguan_data = [{
+        'host': g.host.nama,
+        'severity': g.severity,
+        'problem_name': g.problem_name,
+        'mulai': g.mulai.isoformat(),
+        'selesai': g.selesai.isoformat() if g.selesai else None,
+        'durasi_menit': g.durasi_menit,
+    } for g in gangguan]
+
+    return JsonResponse({
+        'total_ok': total_ok,
+        'total_problem': total_problem,
+        'total_unknown': total_unknown,
+        'total_host': len(hosts),
+        'avail_hari': avg_avail_hari,
+        'avail_bulan': avg_avail_bulan,
+        'groups': groups_data,
+        'gangguan_terkini': gangguan_data,
+    })
+
+
+@login_required
+def zbx_group_detail(request, group):
+    """Tampilan detail satu Host Group Zabbix — grid host + chart availability, difilter ke grup ini."""
+    return render(request, 'device_mon/zbx_group_detail.html', {'group': group})
+
+
+@login_required
 def zbx_api_status(request):
-    """JSON: status semua host Zabbix + availability hari ini/bulan ini. Dipoll dashboard."""
+    """
+    JSON: status host Zabbix + availability hari ini/bulan ini. Dipoll
+    zbx_group_detail. ?group=<nama> memfilter ke satu Host Group saja
+    (dipakai zbx_group_detail) — tanpa ?group, kembalikan semua host aktif.
+    """
     now, today_start, month_start = _boundaries()
 
     hosts = list(ZabbixHost.objects.filter(aktif=True).select_related('device'))
+    group_filter = request.GET.get('group', '').strip()
+    if group_filter:
+        hosts = [h for h in hosts if group_filter in h.group_list]
+
     if not hosts:
         return JsonResponse({
             'total_ok': 0, 'total_problem': 0, 'total_unknown': 0, 'total_host': 0,
@@ -570,7 +680,7 @@ def zbx_api_status(request):
     avg_avail_hari = round(sum(avail_hari_list) / len(avail_hari_list), 2) if avail_hari_list else None
     avg_avail_bulan = _calc_avail(down_month, month_start, now, total_menit_month * len(hosts)) if hosts else None
 
-    gangguan = (ZabbixEventLog.objects.filter(state='PROBLEM')
+    gangguan = (ZabbixEventLog.objects.filter(state='PROBLEM', host_id__in=host_ids)
                 .select_related('host').order_by('-mulai')[:10])
     gangguan_data = [{
         'host': g.host.nama,

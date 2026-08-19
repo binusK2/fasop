@@ -12,7 +12,9 @@ urlpatterns = [
 
     # Zabbix — status host dipantau lewat Zabbix API (pull) + webhook (push)
     path('zabbix/',                  views.zbx_dashboard,        name='dm_zbx_dashboard'),
+    path('zabbix/api/summary/',      views.zbx_api_summary,      name='dm_zbx_api_summary'),
     path('zabbix/api/status/',       views.zbx_api_status,       name='dm_zbx_api_status'),
+    path('zabbix/group/<str:group>/', views.zbx_group_detail,    name='dm_zbx_group_detail'),
     path('zabbix/host/<hid:pk>/',    views.zbx_host_detail,      name='dm_zbx_host_detail'),
     path('zabbix/host/<hid:pk>/logs/', views.zbx_api_host_logs,  name='dm_zbx_api_host_logs'),
     path('zabbix/gangguan/',         views.zbx_gangguan_list,    name='dm_zbx_gangguan'),

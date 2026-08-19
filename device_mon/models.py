@@ -142,6 +142,12 @@ class ZabbixHost(models.Model):
         help_text='Opsional — hubungkan ke data aset FASOP yang sesuai.',
     )
     lokasi = models.CharField(max_length=150, blank=True, verbose_name='Lokasi / Gardu')
+    groups = models.CharField(
+        max_length=255, blank=True, verbose_name='Grup Zabbix',
+        help_text='Host Group Zabbix tempat host ini terdaftar (dipisah koma bila lebih dari '
+                   'satu), diperbarui otomatis oleh sync_zabbix. Dipakai untuk mengelompokkan '
+                   'tampilan per grup (VoIP Mks, CRS, ROIP, Router, dst — lihat ZABBIX_HOST_GROUPS).',
+    )
     urutan = models.PositiveIntegerField(default=0, verbose_name='Urutan Tampil')
     aktif = models.BooleanField(default=True, verbose_name='Aktif')
 
@@ -166,6 +172,10 @@ class ZabbixHost(models.Model):
     @property
     def is_ok(self):
         return self.state == 'OK'
+
+    @property
+    def group_list(self):
+        return [g.strip() for g in (self.groups or '').split(',') if g.strip()]
 
     @property
     def durasi_menit(self):

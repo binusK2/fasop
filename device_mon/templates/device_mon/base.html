@@ -315,8 +315,16 @@ body {
         <div class="sb-section-label" style="margin-top:8px;">Zabbix</div>
         <a href="/device-mon/zabbix/" class="sb-link {% if request.resolver_match.url_name == 'dm_zbx_dashboard' %}active{% endif %}">
             <i class="bi bi-diagram-3-fill sb-icon" style="color:#f97316;"></i>
-            <span class="sb-label">Dashboard</span>
+            <span class="sb-label">Ringkasan</span>
         </a>
+        {% for g in zbx_groups %}
+        <a href="{% url 'dm_zbx_group_detail' group=g %}"
+           class="sb-link {% if request.resolver_match.url_name == 'dm_zbx_group_detail' and request.resolver_match.kwargs.group == g %}active{% endif %}"
+           style="padding-left:26px;">
+            <i class="bi bi-dot sb-icon" style="color:#fb923c;"></i>
+            <span class="sb-label">{{ g }}</span>
+        </a>
+        {% endfor %}
         <a href="/device-mon/zabbix/gangguan/" class="sb-link {% if request.resolver_match.url_name == 'dm_zbx_gangguan' %}active{% endif %}">
             <i class="bi bi-exclamation-triangle-fill sb-icon" style="color:#f87171;"></i>
             <span class="sb-label">Histori Problem</span>

@@ -86,15 +86,19 @@ class Command(BaseCommand):
                     defaults={
                         'zabbix_host': info['host'],
                         'nama': info['name'] or info['host'] or hostid,
+                        'groups': info.get('groups', ''),
                     },
                 )
                 if created:
                     host_baru += 1
-                # Technical name/nama tampilan bisa berubah di sisi Zabbix — refresh ringan
+                # Technical name/nama tampilan/grup bisa berubah di sisi Zabbix — refresh ringan
                 update_fields = []
                 if info['host'] and host.zabbix_host != info['host']:
                     host.zabbix_host = info['host']
                     update_fields.append('zabbix_host')
+                if not created and host.groups != info.get('groups', ''):
+                    host.groups = info.get('groups', '')
+                    update_fields.append('groups')
 
                 prev_state = host.state
                 clock = info.get('clock')
