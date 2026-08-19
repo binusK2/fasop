@@ -38,6 +38,20 @@ class Pembangkit(models.Model):
     unit_list     = models.CharField(max_length=100, blank=True, verbose_name='Unit yang Dipakai',
                                       help_text='Daftar unit dipisah koma, mis. UNIT1,UNIT2,UNIT3. '
                                                  'Kosongkan untuk memakai semua unit (UNIT1-UNIT8).')
+    # ── Daya Mampu (DMN/DMP) dari tabel MSSQL KIT_DMP ─────────────────
+    # Nama kolom sengaja dibuat konfigurabel dari admin karena struktur
+    # KIT_DMP belum tentu sama di tiap deployment. Kosongkan dmp_key untuk
+    # menonaktifkan pembacaan DMN/DMP pembangkit ini.
+    dmp_key       = models.CharField(max_length=200, blank=True, verbose_name='Nilai Kunci KIT_DMP',
+                                      help_text='Nilai pada Kolom Kunci KIT_DMP yang menandai pembangkit ini '
+                                                '(mis. isi KIT). Pisahkan dengan koma untuk menggabungkan beberapa '
+                                                'baris, contoh: POSO2A_U1,POSO2A_U2. Kosongkan untuk memakai Kode KIT / Kode.')
+    dmp_kolom_dmn = models.CharField(max_length=50, blank=True, default='', verbose_name='Kolom DMN',
+                                      help_text='Nama kolom KIT_DMP berisi Daya Mampu Netto (MW). '
+                                                'Kosongkan bila DMN tidak tersedia.')
+    dmp_kolom_dmp = models.CharField(max_length=50, blank=True, default='', verbose_name='Kolom DMP',
+                                      help_text='Nama kolom KIT_DMP berisi Daya Mampu Pasok (MW). '
+                                                'Kosongkan bila DMP tidak tersedia.')
     # Penanda data tidak valid / tidak sesuai kondisi real (diisi manual oleh
     # superuser / role Opsis dari dashboard). Bila False, tampilan dashboard
     # tidak berubah; bila True, kartu diberi label ketidaksesuaian.
@@ -65,6 +79,15 @@ class Pembangkit(models.Model):
         if not self.unit_list.strip():
             return None
         return {u.strip().upper() for u in self.unit_list.split(',') if u.strip()}
+
+    def dmp_sources(self):
+        """Daftar nilai kunci KIT_DMP; beberapa nilai dipisahkan dengan koma."""
+        raw = self.dmp_key or self.kit_source()
+        return [key.strip().upper() for key in raw.split(',') if key.strip()]
+
+    def pakai_dmp(self):
+        """True bila minimal satu kolom DMN/DMP dikonfigurasi."""
+        return bool(self.dmp_kolom_dmn.strip() or self.dmp_kolom_dmp.strip())
 
 
 HOP_KATEGORI_CHOICES = [
@@ -436,3 +459,43 @@ class SnapTrafo(models.Model):
 
     def __str__(self):
         return f"{self.trafo} @ {self.waktu:%Y-%m-%d %H:%M}"
+
+
+class PrakiraanBeban(models.Model):
+    """
+    Prakiraan beban sistem (total MW) yang berasal dari SPREADSHEET dispatcher,
+    bukan dari model machine learning.
+
+    Grid 30 menit, 48 titik per hari — bentuk yang sama persis dengan seri
+    'forecast' yang sudah dikonsumsi chart "Beban Kit — Hari Ini"
+    (`{minute, mw}`), jadi tidak ada perubahan di sisi UI saat sumbernya
+    berpindah dari model ML ke spreadsheet (lihat opsis/prakiraan.py dan
+    switch OPSIS_FORECAST_SOURCE di settings).
+
+    Diisi lewat POST /api/v1/prakiraan-beban/ — n8n membaca Google Sheets lalu
+    mengirim seluruh kurva satu hari sekali kirim. Baris hari-hari lampau
+    TIDAK dihapus: histori prakiraan itulah yang dipakai menghitung akurasi
+    terhadap realisasi SnapLive di halaman Analitik Prediksi Beban.
+    """
+    tanggal    = models.DateField(db_index=True)
+    menit      = models.PositiveSmallIntegerField(
+        help_text='Menit sejak 00:00 waktu lokal (0–1439). Grid 30 menit: 0, 30, 60, …')
+    mw         = models.FloatField()
+    sumber     = models.CharField(max_length=50, default='spreadsheet',
+                                  help_text='Asal data, mis. nama sheet / "spreadsheet" / "upload".')
+    diperbarui = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('tanggal', 'menit')
+        indexes = [models.Index(fields=['tanggal', 'menit'])]
+        ordering = ['-tanggal', 'menit']
+        verbose_name = 'Prakiraan Beban'
+        verbose_name_plural = 'Prakiraan Beban'
+
+    @property
+    def jam(self):
+        """Label jam dinding lokal, mis. 1110 -> '18:30'."""
+        return f'{self.menit // 60:02d}:{self.menit % 60:02d}'
+
+    def __str__(self):
+        return f"{self.tanggal:%Y-%m-%d} {self.jam} — {self.mw} MW"

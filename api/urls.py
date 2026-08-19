@@ -18,4 +18,7 @@ urlpatterns = [
 
     # HOP — terima data dari spreadsheet (n8n -> FASOP)
     path('hop/', views.hop_endpoint, name='hop'),
+
+    # Prakiraan beban OPSIS — kurva 30 menit dari spreadsheet (n8n -> FASOP)
+    path('prakiraan-beban/', views.prakiraan_beban_endpoint, name='prakiraan_beban'),
 ]

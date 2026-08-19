@@ -76,6 +76,17 @@
     color: #a78bfa; padding-left: 6px; margin-top: 4px;
 }
 .pb-mvar-unit { font-size: 10px; color: var(--muted); }
+/* Daya Mampu Netto / Pasok — sumber dbo.KIT_DMP, tampil bila dikonfigurasi */
+.pb-dm {
+    display: flex; gap: 10px; flex-wrap: wrap;
+    padding-left: 6px; margin-top: 5px;
+    font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700; color: #fff;
+}
+.pb-dm-item { display: inline-flex; align-items: center; gap: 5px; }
+.pb-dm-lbl {
+    font-family: 'DM Sans', sans-serif; font-size: 10px; font-weight: 700;
+    letter-spacing: .4px; color: var(--muted);
+}
 .pb-ts {
     font-size: 10px; color: var(--muted); padding-left: 6px;
     margin-top: 6px; display: flex; align-items: center; gap: 3px;
@@ -343,7 +354,7 @@
         </div>
         <div style="display:flex; align-items:center; gap:6px; font-size:10px; color:var(--muted);">
             <span style="display:inline-block;width:14px;height:0;border-top:1.5px dashed #a78bfa;vertical-align:middle;"></span>
-            Prediksi
+            Prediksi <span style="color:#a78bfa;">(Dashboard ROH Sulbagsel)</span>
         </div>
         <div style="display:flex; align-items:center; gap:6px; font-size:10px; color:var(--muted);">
             <span style="display:inline-block;width:2px;height:10px;background:#fbbf24;vertical-align:middle;"></span>
@@ -375,6 +386,9 @@
                 <span style="font-size:10px; color:var(--muted);"> MW</span>
             </div>
         </div>
+    </div>
+    <div id="beban-sumber-prediksi" style="font-size:10px; color:var(--muted); margin-top:8px; line-height:1.5;">
+        &nbsp;
     </div>
 </div>
 
@@ -496,6 +510,12 @@
                 </div>
                 <div class="pb-mw"><span id="val-mw-{{ p.kode }}">—</span><span class="pb-mw-unit"> MW</span></div>
                 <div class="pb-mvar"><span id="val-mvar-{{ p.kode }}">—</span><span class="pb-mvar-unit"> MVAR</span></div>
+                {% if p.pakai_dmp %}
+                <div class="pb-dm" id="dm-{{ p.kode }}">
+                    <span class="pb-dm-item"><span class="pb-dm-lbl">DMN</span><span id="val-dmn-{{ p.kode }}">—</span></span>
+                    <span class="pb-dm-item" hidden><span class="pb-dm-lbl">DMP</span><span id="val-dmp-{{ p.kode }}">—</span></span>
+                </div>
+                {% endif %}
                 <div class="pb-ts"><i class="bi bi-clock" style="font-size:9px;"></i><span id="ts-{{ p.kode }}">—</span>
                     {% if p.supply %}<span class="pb-supply pb-supply-{{ p.supply }}">{{ p.supply|upper }}</span>{% endif %}
                 </div>
@@ -662,6 +682,8 @@ async function pollLive() {
             const el = id => document.getElementById(id);
             el(`val-mw-${kode}`)   && (el(`val-mw-${kode}`).textContent   = fmt(d.mw,  2));
             el(`val-mvar-${kode}`) && (el(`val-mvar-${kode}`).textContent = fmt(d.mvar, 2));
+            el(`val-dmn-${kode}`)  && (el(`val-dmn-${kode}`).textContent  = fmt(d.dmn, 2));
+            el(`val-dmp-${kode}`)  && (el(`val-dmp-${kode}`).textContent  = fmt(d.dmp, 2));
             // Gunakan waktu browser (selalu update, tidak tergantung timestamp MSSQL)
             el(`ts-${kode}`) && (el(`ts-${kode}`).textContent = now);
             const dot = document.getElementById(`dot-${kode}`);
@@ -750,22 +772,65 @@ const pollHzLuwuk   = pollAreaHz('/opsis/api/hz-luwuk/', 'hz-luwuk');
     setInterval(fn, 1000);
 });
 
-// Mode interaksi kustom: cari titik terdekat (arah X) di TIAP dataset secara
-// independen. Mode bawaan 'index'/'nearest' Chart.js mencari SATU titik
-// terdekat lintas semua dataset lalu memakai ULANG index array yang sama utk
-// semua dataset lain — valid kalau semua dataset sama panjang & selaras
-// (category scale/labels bersama), tapi SALAH di sini karena 'actual' (per
-// menit, ratusan titik) dan 'forecast' (per 30 menit, 48 titik) punya jumlah
-// & posisi index yang tidak sinkron pada sumbu linear menit. evaluateInteractionItems
-// mencari titik terdekat PER dataset secara independen (posisi x asli, bukan index).
-Chart.Interaction.modes.xNearest = (chart, e, options) => {
-    const position = Chart.helpers.getRelativePosition(e, chart);
+// Mode interaksi kustom: TEPAT SATU titik terdekat (arah X) per dataset.
+//
+// Mode bawaan 'index'/'nearest' Chart.js mencari satu titik terdekat lintas
+// semua dataset lalu memakai ULANG index array yang sama untuk dataset lain —
+// valid kalau semua dataset sama panjang & selaras (category scale/labels
+// bersama), tapi SALAH di sini karena 'actual' (per menit, ratusan titik) dan
+// 'forecast' (per 30 menit, 48 titik) tidak sinkron index-nya pada sumbu
+// linear menit.
+//
+// evaluateInteractionItems juga tidak bisa dipakai: fungsi itu mengembalikan
+// SEMUA titik yang masuk jangkauan, bukan yang terdekat — itulah sebabnya
+// tooltip sempat menampilkan dua baris "Prediksi" sekaligus (slot sekarang +
+// slot 30 menit berikutnya). Jadi pencarian terdekatnya ditulis manual.
+//
+// Bekerja di domain MENIT (bukan piksel) supaya toleransi di bawah punya arti
+// yang jelas dan tidak berubah mengikuti lebar chart.
+const HOVER_TOLERANSI_MENIT = 31;  // > 30 supaya grid prediksi selalu kena
+
+function titikTerdekatX(chart, posisi) {
+    const skalaX = chart.scales && chart.scales.x;
+    if (!posisi || !skalaX || !Number.isFinite(posisi.x)) return [];
+    const menitKursor = skalaX.getValueForPixel(posisi.x);
+    if (!Number.isFinite(menitKursor)) return [];
+
+    // Dipakai tooltip title: jam yang DITUNJUK kursor, bukan jam titik data
+    // yang kebetulan terpilih (dua dataset bisa punya jam berbeda).
+    chart.$menitKursor = menitKursor;
+
     const items = [];
-    Chart.Interaction.evaluateInteractionItems(chart, 'x', position, (element, datasetIndex, index) => {
-        items.push({ element, datasetIndex, index });
-    }, options.useFinalPosition);
+    chart.data.datasets.forEach((ds, di) => {
+        const meta = chart.getDatasetMeta(di);
+        if (meta.hidden || !meta.data.length) return;
+        let terdekat = -1, jarakTerdekat = Infinity;
+        ds.data.forEach((titik, i) => {
+            if (!titik || titik.y == null) return;
+            const jarak = Math.abs(titik.x - menitKursor);
+            if (jarak < jarakTerdekat) { jarakTerdekat = jarak; terdekat = i; }
+        });
+        // Di luar toleransi -> baris tidak ditampilkan. Ini yang membuat baris
+        // "Beban" hilang saat kursor diarahkan ke jam yang realisasinya memang
+        // belum ada (masa depan), alih-alih menampilkan nilai terakhir seolah
+        // itu beban pada jam tersebut.
+        if (terdekat >= 0 && jarakTerdekat <= HOVER_TOLERANSI_MENIT && meta.data[terdekat]) {
+            items.push({ element: meta.data[terdekat], datasetIndex: di, index: terdekat });
+        }
+    });
     return items;
-};
+}
+
+Chart.Interaction.modes.xNearest = (chart, e) =>
+    titikTerdekatX(chart, Chart.helpers.getRelativePosition(e, chart));
+
+/** true kalau posisi (relatif kanvas) berada di dalam area plot chart. */
+function diDalamAreaChart(chart, posisi) {
+    const a = chart.chartArea;
+    if (!a || !posisi) return false;
+    return posisi.x >= a.left && posisi.x <= a.right
+        && posisi.y >= a.top && posisi.y <= a.bottom;
+}
 
 // ── Plugin garis vertikal (puncak siang/malam) ───────────────────────
 // Sumbu-X sekarang linear (menit sejak 00:00), jadi posisi bisa dihitung
@@ -837,7 +902,10 @@ const bebanHoverPlugin = {
     afterEvent(chart, { event }) {
         const t = event.type;
         if (t === 'mousemove' || t === 'touchmove' || t === 'touchstart') {
-            _bh.pos = { x: event.x, y: event.y };
+            const pos = { x: event.x, y: event.y };
+            // Hanya dicatat kalau benar-benar di dalam area plot — di luar itu
+            // (margin, label sumbu) tooltip memang tidak boleh muncul.
+            _bh.pos = diDalamAreaChart(chart, pos) ? pos : null;
         } else if (t === 'mouseout' || t === 'touchend' || t === 'touchcancel') {
             _bh.pos = null;
         }
@@ -878,11 +946,29 @@ function initBebanChart(actual, forecastRows) {
                     ...tooltipOpts,
                     mode: 'xNearest', intersect: false,
                     callbacks: {
-                        title: items => items.length ? _minuteLabel(items[0].parsed.x) : '',
+                        // Jam yang DITUNJUK kursor. Tidak memakai items[0].parsed.x
+                        // karena dua dataset beda resolusi: titik realisasi dan
+                        // titik prediksi terdekat bisa jatuh di jam yang berbeda.
+                        title: (items) => {
+                            const m = items.length && items[0].chart
+                                ? items[0].chart.$menitKursor : null;
+                            return Number.isFinite(m)
+                                ? _minuteLabel(Math.round(m))
+                                : (items.length ? _minuteLabel(items[0].parsed.x) : '');
+                        },
+                        // Tiap baris membawa JAM TITIKNYA SENDIRI kalau beda dari
+                        // judul. Perlu karena dua dataset beda resolusi: realisasi
+                        // per menit (praktis selalu sama dengan jam kursor),
+                        // prediksi per 30 menit (bisa meleset s.d. 15 menit) —
+                        // tanpa ini, nilai slot 10:00 terbaca seolah nilai 10:07.
                         label: ctx => {
                             if (ctx.parsed.y == null) return null;
-                            const v = ctx.parsed.y.toFixed(2);
-                            return (ctx.datasetIndex === 0 ? 'Beban: ' : 'Prediksi: ') + v + ' MW';
+                            const nama = ctx.datasetIndex === 0 ? 'Beban' : 'Prediksi';
+                            const jamJudul = Number.isFinite(ctx.chart.$menitKursor)
+                                ? _minuteLabel(Math.round(ctx.chart.$menitKursor)) : null;
+                            const jamTitik = _minuteLabel(Math.round(ctx.parsed.x));
+                            const label = nama + (jamTitik === jamJudul ? '' : ' (' + jamTitik + ')');
+                            return label + ': ' + ctx.parsed.y.toFixed(2) + ' MW';
                         },
                     }
                 }
@@ -935,6 +1021,25 @@ async function loadBebanChart() {
         if (elPredMalam) elPredMalam.textContent = fmt(d.prediksi_puncak_malam);
         if (elRealMalam) elRealMalam.textContent = fmt(d.realisasi_puncak_malam);
 
+        // Keterangan asal angka prediksi. Diset sebelum early-return di bawah,
+        // supaya kasus "belum ada data apa pun" tetap dapat penjelasan.
+        // d.source: 'sheet'/'no_sheet' (prakiraan ROH), 'model'/'no_model'
+        // (mode ML lewat OPSIS_FORECAST_SOURCE), 'mssql' (fallback historian).
+        const elSumberPred = document.getElementById('beban-sumber-prediksi');
+        if (elSumberPred) {
+            const KET = {
+                sheet:    'Garis prediksi bersumber dari <strong>Dashboard ROH Sulbagsel</strong> (Rencana Operasi Harian), diperbarui otomatis — bukan hasil perhitungan FASOP.',
+                no_sheet: 'Prakiraan dari <strong>Dashboard ROH Sulbagsel</strong> belum masuk untuk hari ini, jadi garis prediksi belum digambar.',
+                model:    'Garis prediksi dihitung model machine learning FASOP dari histori beban.',
+                no_model: 'Model prediksi FASOP belum tersedia, jadi garis prediksi belum digambar.',
+                mssql:    'Data dari historian SCADA (PostgreSQL belum terisi) — tanpa garis prediksi.',
+            };
+            const ket = KET[d.source];
+            elSumberPred.innerHTML = ket
+                ? '<i class="bi bi-info-circle me-1"></i>' + ket
+                : '&nbsp;';
+        }
+
         const actual = d.actual || [];
         const forecastRows = d.forecast || [];
         if (!actual.length && !forecastRows.length) return;
@@ -949,14 +1054,23 @@ async function loadBebanChart() {
             // me-replay _lastEvent di akhir prosesnya, yang bisa menimpa setActiveElements
             // jika dipanggil sebelum update(). draw() dipakai (bukan update() lagi) agar
             // replay itu tidak terpicu ulang dan menimpa balik apa yang baru saja kita set.
-            if (_bh.pos) {
-                const els = chartBeban.getElementsAtEventForMode(
-                    _bh.pos, 'xNearest', { intersect: false }, false
-                );
+            //
+            // titikTerdekatX() dipanggil LANGSUNG dengan posisi tersimpan, bukan lewat
+            // getElementsAtEventForMode(): fungsi itu menjalankan getRelativePosition()
+            // pada argumennya, dan _bh.pos bukan event DOM — koordinatnya jadi NaN,
+            // lalu titik "terdekat" jatuh ke elemen pertama. Itulah sebab tooltip
+            // melompat sendiri ke jam 00:00 beberapa detik setelah kursor diam.
+            if (_bh.pos && diDalamAreaChart(chartBeban, _bh.pos)) {
+                const els = titikTerdekatX(chartBeban, _bh.pos);
                 if (els.length) {
                     chartBeban.tooltip.setActiveElements(els, _bh.pos);
                     chartBeban.draw();
                 }
+            } else if (chartBeban.tooltip.getActiveElements().length) {
+                // Kursor sudah tidak di chart — pastikan tooltip sisa dari
+                // replay _lastEvent oleh update() ikut dibersihkan.
+                chartBeban.tooltip.setActiveElements([], { x: 0, y: 0 });
+                chartBeban.draw();
             }
         }
     } catch (e) {}
