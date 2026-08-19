@@ -28,7 +28,7 @@ from django.conf import settings
 from django.utils import timezone
 
 from device_mon.models import ZabbixHost, ZabbixEventLog
-from device_mon.zabbix_api import get_current_status, ZabbixAPIError
+from device_mon.zabbix_api import get_current_status, get_resolve_clock, ZabbixAPIError
 from device_mon.notifications import notif_zabbix_transisi
 
 logger = logging.getLogger(__name__)
@@ -104,17 +104,42 @@ class Command(BaseCommand):
                 clock = info.get('clock')
                 event_since = (
                     timezone.make_aware(datetime.datetime.fromtimestamp(int(clock)))
-                    if clock else now
+                    if clock else None
                 )
 
                 if prev_state != state or created:
                     # ── Transisi state terdeteksi ──────────────────────
+                    # Timestamp SELALU dari Zabbix, bukan "kapan cron ini
+                    # kebetulan jalan": PROBLEM pakai `clock` problem.get
+                    # (event_since di atas); OK/resolve pakai r_clock dari
+                    # event resolve-nya (lookup event.get terpisah, lihat
+                    # get_resolve_clock) — problem.get sendiri tidak
+                    # mengembalikan waktu resolve untuk problem yang sudah
+                    # tidak aktif lagi. Fallback ke `now` FASOP hanya kalau
+                    # datanya benar-benar tidak ada (mis. host baru pertama
+                    # kali muncul dan sudah OK sejak awal, tidak ada event
+                    # untuk ditelusuri).
                     dur_tutup = None
                     open_log = ZabbixEventLog.objects.filter(host=host, selesai__isnull=True).first()
+
+                    if state == 'OK' and open_log and open_log.zabbix_eventid:
+                        try:
+                            resolve_ts = get_resolve_clock(open_log.zabbix_eventid)
+                        except ZabbixAPIError as e:
+                            logger.warning('get_resolve_clock gagal [%s]: %s', hostid, e)
+                            resolve_ts = None
+                        state_change_ts = (
+                            timezone.make_aware(datetime.datetime.fromtimestamp(resolve_ts))
+                            if resolve_ts else now
+                        )
+                    elif state == 'PROBLEM' and event_since:
+                        state_change_ts = event_since
+                    else:
+                        state_change_ts = now
+
                     if open_log:
-                        selesai = event_since if state == 'OK' else now
-                        dur = max(0, int((selesai - open_log.mulai).total_seconds() / 60))
-                        open_log.selesai = selesai
+                        dur = max(0, int((state_change_ts - open_log.mulai).total_seconds() / 60))
+                        open_log.selesai = state_change_ts
                         open_log.durasi_menit = dur
                         open_log.save(update_fields=['selesai', 'durasi_menit'])
                         dur_tutup = dur
@@ -126,13 +151,13 @@ class Command(BaseCommand):
                         problem_name=info.get('problem_name', ''),
                         zabbix_eventid=info.get('eventid') or '',
                         source='api',
-                        mulai=event_since if state == 'PROBLEM' else now,
+                        mulai=state_change_ts,
                     )
 
                     host.state = state
                     host.severity = info.get('severity', '')
                     host.problem_name = info.get('problem_name', '')
-                    host.state_sejak = event_since if state == 'PROBLEM' else now
+                    host.state_sejak = state_change_ts
                     update_fields += ['state', 'severity', 'problem_name', 'state_sejak']
 
                     self.stdout.write(
