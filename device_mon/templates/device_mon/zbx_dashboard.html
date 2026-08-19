@@ -3,77 +3,63 @@
 {% block title %}Dashboard Zabbix{% endblock %}
 
 {% block extra_head %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
 .stat-bar {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     gap: 10px;
-    margin-bottom: 14px;
+    margin-bottom: 16px;
 }
 .stat-card { padding: 12px 16px; }
 .stat-lbl  { font-size: 10px; }
 .stat-val  { font-size: 24px; }
 
-.host-grid {
+.group-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: 8px;
-    margin-bottom: 14px;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
 }
-.host-tile {
+.group-card {
     background: var(--card-bg);
     border: 1px solid var(--card-bd);
-    border-radius: 8px;
-    padding: 10px 12px;
+    border-radius: 12px;
+    padding: 16px 18px;
     cursor: pointer;
-    transition: .15s;
+    transition: .2s;
     position: relative;
     overflow: hidden;
 }
-.host-tile::before {
+.group-card::before {
     content: '';
-    position: absolute;
-    left: 0; top: 0; bottom: 0;
-    width: 3px;
+    position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: var(--card-bd);
+    transition: .2s;
 }
-.host-tile.ok::before      { background: #10b981; }
-.host-tile.problem::before { background: #ef4444; }
-.host-tile.unknown::before { background: #475569; }
-.host-tile:hover { border-color: #1d4ed8; transform: translateY(-1px); }
+.group-card.problem::before { background: #ef4444; }
+.group-card.ok::before      { background: #10b981; }
+.group-card:hover { transform: translateY(-1px); border-color: #1d4ed8; }
 
-.host-tile-nama {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px; font-weight: 700;
-    color: var(--text);
-    margin-bottom: 6px;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+.group-nama {
+    font-size: 14px; font-weight: 700; color: var(--text);
+    margin-bottom: 10px;
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
 }
-.host-tile-state {
-    font-size: 10px; font-weight: 700;
-    padding: 2px 6px; border-radius: 10px;
-    display: inline-block; margin-bottom: 6px;
+.group-count-badge {
+    font-size: 10px; font-weight: 700; color: var(--muted);
+    background: rgba(255,255,255,.05); padding: 2px 8px; border-radius: 10px;
 }
-.host-tile-state.ok      { background: rgba(16,185,129,.15); color: #10b981; }
-.host-tile-state.problem { background: rgba(239,68,68,.15);  color: #ef4444; }
-.host-tile-state.unknown { background: rgba(71,85,105,.2); color: #94a3b8; }
-.host-tile-problem {
-    font-size: 10px; color: var(--muted);
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    margin-bottom: 4px;
+.group-stat-row { display: flex; gap: 14px; margin-bottom: 10px; }
+.group-stat { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700; }
+.group-stat.ok      { color: #10b981; }
+.group-stat.problem { color: #ef4444; }
+.group-stat.unknown { color: #94a3b8; }
+.group-stat-lbl { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
+.group-avail-bar {
+    height: 4px; background: rgba(255,255,255,.06); border-radius: 2px; overflow: hidden;
 }
-.host-tile-meta {
-    font-size: 10px; color: var(--muted);
-    display: flex; justify-content: space-between; align-items: center;
-}
-.host-tile-avail { font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; }
-
-.bottom-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-}
-@media (max-width: 900px) { .bottom-grid { grid-template-columns: 1fr; } }
+.group-avail-fill { height: 100%; border-radius: 2px; transition: width .6s ease; }
+.group-avail-pct { font-size: 10px; color: var(--muted); margin-top: 4px; text-align: right; }
 
 @keyframes spin { to { transform: rotate(360deg); } }
 </style>
@@ -82,12 +68,16 @@
 {% block content %}
 <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
     <div style="font-size:15px; font-weight:800; color:#fff;">
-        <span class="live-dot"></span>Status Host Zabbix Realtime
+        <span class="live-dot"></span>Ringkasan Status Zabbix
     </div>
     <div style="font-size:11px; color:var(--muted);" id="last-updated">—</div>
 </div>
 
 <div class="stat-bar">
+    <div class="stat-card">
+        <div class="stat-lbl"><i class="bi bi-hdd-network me-1" style="color:#60a5fa;"></i>Total Host</div>
+        <div class="stat-val" id="stat-total">—</div>
+    </div>
     <div class="stat-card up">
         <div class="stat-lbl"><i class="bi bi-check-circle-fill me-1" style="color:#10b981;"></i>OK</div>
         <div class="stat-val up" id="stat-ok">—</div>
@@ -106,60 +96,44 @@
     </div>
 </div>
 
-<div class="host-grid" id="host-grid">
+<div style="font-size:12px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.4px; margin-bottom:10px;">
+    <i class="bi bi-grid-3x3-gap-fill me-1"></i>Per Host Group
+</div>
+<div class="group-grid" id="group-grid">
     <div style="grid-column:1/-1; text-align:center; padding:30px; color:var(--muted);">
         <i class="bi bi-arrow-repeat" style="font-size:20px; display:block; margin-bottom:6px; animation:spin 1s linear infinite;"></i>
         Memuat...
     </div>
 </div>
 
-<div class="bottom-grid">
-    <div class="chart-card">
-        <div class="chart-head">
-            <div class="chart-title">
-                <i class="bi bi-bar-chart-fill me-1" style="color:#60a5fa;"></i>Availability Hari Ini
-            </div>
-            <span style="font-size:10px; color:var(--muted);" id="chart-updated">—</span>
+<div class="chart-card">
+    <div class="chart-head">
+        <div class="chart-title">
+            <i class="bi bi-exclamation-triangle-fill me-1" style="color:#f87171;"></i>Problem Terkini
         </div>
-        <div style="position:relative; height:180px;">
-            <canvas id="chart-avail"></canvas>
-        </div>
+        <a href="{% url 'dm_zbx_gangguan' %}" style="font-size:10px; color:#60a5fa; text-decoration:none;">
+            Semua <i class="bi bi-arrow-right"></i>
+        </a>
     </div>
-
-    <div class="chart-card">
-        <div class="chart-head">
-            <div class="chart-title">
-                <i class="bi bi-exclamation-triangle-fill me-1" style="color:#f87171;"></i>Problem Terkini
-            </div>
-            <a href="{% url 'dm_zbx_gangguan' %}" style="font-size:10px; color:#60a5fa; text-decoration:none;">
-                Semua <i class="bi bi-arrow-right"></i>
-            </a>
-        </div>
-        <div class="table-scroll">
-        <table class="gangguan-table">
-            <thead>
-                <tr>
-                    <th>Host</th>
-                    <th>Mulai</th>
-                    <th>Durasi</th>
-                </tr>
-            </thead>
-            <tbody id="tbl-gangguan-body">
-                <tr><td colspan="3" style="text-align:center; color:var(--muted); padding:16px;">Memuat...</td></tr>
-            </tbody>
-        </table>
-        </div>
+    <div class="table-scroll">
+    <table class="gangguan-table">
+        <thead>
+            <tr>
+                <th>Host</th>
+                <th>Mulai</th>
+                <th>Durasi</th>
+            </tr>
+        </thead>
+        <tbody id="tbl-gangguan-body">
+            <tr><td colspan="3" style="text-align:center; color:var(--muted); padding:16px;">Memuat...</td></tr>
+        </tbody>
+    </table>
     </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-Chart.defaults.color = '#3d6896';
-Chart.defaults.font.family = 'DM Sans';
-
-let chartAvail = null;
-
 function fmtDur(m) {
     if (m === null || m === undefined) return '—';
     if (m < 60) return m + 'm';
@@ -178,64 +152,43 @@ function availColor(v) {
     return v >= 99 ? '#10b981' : v >= 95 ? '#f59e0b' : '#ef4444';
 }
 
-function renderGrid(hosts) {
-    const grid = document.getElementById('host-grid');
-    if (!hosts || !hosts.length) {
+function renderGroups(groups) {
+    const grid = document.getElementById('group-grid');
+    if (!groups || !groups.length) {
         grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:30px;color:var(--muted);">Belum ada host. Jalankan <code>python manage.py sync_zabbix</code> atau tunggu webhook pertama masuk.</div>';
         return;
     }
-    grid.innerHTML = hosts.map(h => {
-        const cls    = h.state === 'OK' ? 'ok' : h.state === 'PROBLEM' ? 'problem' : 'unknown';
-        const avail  = h.avail_hari !== null ? h.avail_hari.toFixed(1) : '—';
-        const aColor = availColor(h.avail_hari);
+    grid.innerHTML = groups.map(g => {
+        const cls    = g.problem > 0 ? 'problem' : 'ok';
+        const avail  = g.avail_hari !== null ? g.avail_hari.toFixed(1) : '—';
+        const aColor = availColor(g.avail_hari);
+        const url    = `/device-mon/zabbix/group/${encodeURIComponent(g.nama)}/`;
         return `
-        <div class="host-tile ${cls}" onclick="location.href='/device-mon/zabbix/host/${h.id}/'">
-            <div class="host-tile-nama" title="${h.nama}${h.lokasi ? ' · '+h.lokasi : ''}">${h.nama}</div>
-            <div class="host-tile-state ${cls}">${h.state}${h.severity ? ' · '+h.severity : ''}</div>
-            ${h.problem_name ? `<div class="host-tile-problem" title="${h.problem_name}">${h.problem_name}</div>` : ''}
-            <div class="host-tile-meta">
-                <span title="Durasi state saat ini">${fmtDur(h.durasi_menit)}</span>
-                <span class="host-tile-avail" style="color:${aColor};">${avail}%</span>
+        <div class="group-card ${cls}" onclick="location.href='${url}'">
+            <div class="group-nama">
+                <span>${g.nama}</span>
+                <span class="group-count-badge">${g.total} host</span>
             </div>
+            <div class="group-stat-row">
+                <div>
+                    <div class="group-stat ok">${g.ok}</div>
+                    <div class="group-stat-lbl">OK</div>
+                </div>
+                <div>
+                    <div class="group-stat problem">${g.problem}</div>
+                    <div class="group-stat-lbl">Problem</div>
+                </div>
+                ${g.unknown ? `<div>
+                    <div class="group-stat unknown">${g.unknown}</div>
+                    <div class="group-stat-lbl">Unknown</div>
+                </div>` : ''}
+            </div>
+            <div class="group-avail-bar">
+                <div class="group-avail-fill" style="width:${avail}%; background:${aColor};"></div>
+            </div>
+            <div class="group-avail-pct">Avail hari ini: ${avail}%</div>
         </div>`;
     }).join('');
-}
-
-function renderChart(hosts) {
-    if (!hosts || !hosts.length) return;
-    const labels = hosts.map(h => h.nama);
-    const data   = hosts.map(h => h.avail_hari !== null ? parseFloat(h.avail_hari.toFixed(2)) : 0);
-    const colors = data.map(v => v >= 99 ? '#10b981' : v >= 95 ? '#f59e0b' : '#ef4444');
-
-    const ctx = document.getElementById('chart-avail').getContext('2d');
-    if (chartAvail) {
-        chartAvail.data.labels = labels;
-        chartAvail.data.datasets[0].data = data;
-        chartAvail.data.datasets[0].backgroundColor = colors;
-        chartAvail.update();
-        return;
-    }
-    chartAvail = new Chart(ctx, {
-        type: 'bar',
-        data: { labels, datasets: [{ data, backgroundColor: colors, borderRadius: 4, borderSkipped: false }] },
-        options: {
-            responsive: true, maintainAspectRatio: false,
-            indexAxis: 'y',
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    backgroundColor: 'rgba(7,17,31,.95)',
-                    titleColor: '#5d8ab5', bodyColor: '#cce0ff',
-                    borderColor: '#112240', borderWidth: 1,
-                    callbacks: { label: ctx => ` ${ctx.parsed.x.toFixed(2)}%` }
-                }
-            },
-            scales: {
-                x: { min: 80, max: 100, grid: { color: '#0d1e36' }, ticks: { callback: v => v + '%', font: { size: 10 } } },
-                y: { grid: { display: false }, ticks: { font: { size: 10 } } }
-            }
-        }
-    });
 }
 
 function renderGangguan(logs) {
@@ -254,28 +207,26 @@ function renderGangguan(logs) {
 
 async function pollDashboard() {
     try {
-        const r = await fetch('{% url "dm_zbx_api_status" %}');
+        const r = await fetch('{% url "dm_zbx_api_summary" %}');
         if (!r.ok) return;
         const d = await r.json();
 
-        document.getElementById('stat-ok').textContent      = d.total_ok      ?? '—';
-        document.getElementById('stat-problem').textContent = d.total_problem ?? '—';
-        document.getElementById('stat-avail').innerHTML     =
+        document.getElementById('stat-total').textContent    = d.total_host    ?? '—';
+        document.getElementById('stat-ok').textContent       = d.total_ok      ?? '—';
+        document.getElementById('stat-problem').textContent  = d.total_problem ?? '—';
+        document.getElementById('stat-avail').innerHTML      =
             (d.avail_hari !== null ? d.avail_hari.toFixed(2) : '—') + '<span class="stat-unit">%</span>';
         document.getElementById('stat-avail-bulan').innerHTML =
             (d.avail_bulan !== null ? d.avail_bulan.toFixed(2) : '—') + '<span class="stat-unit">%</span>';
 
-        renderGrid(d.hosts);
-        renderChart(d.hosts);
+        renderGroups(d.groups);
         renderGangguan(d.gangguan_terkini);
 
-        const now = new Date().toLocaleTimeString('id-ID');
-        document.getElementById('last-updated').textContent  = 'Update: ' + now;
-        document.getElementById('chart-updated').textContent = now;
+        document.getElementById('last-updated').textContent = 'Update: ' + new Date().toLocaleTimeString('id-ID');
     } catch(e) { console.error('poll error', e); }
 }
 
 pollDashboard();
-setInterval(pollDashboard, 10000);
+setInterval(pollDashboard, 15000);
 </script>
 {% endblock %}

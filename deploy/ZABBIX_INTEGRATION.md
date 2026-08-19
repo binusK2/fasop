@@ -199,6 +199,28 @@ ZABBIX_WEBHOOK_TOKEN=
 Cron `sync_zabbix` (lihat §1). Dashboard: sidebar **Device Monitor →
 Zabbix**, atau langsung `/device-mon/zabbix/`.
 
+### Tampilan per Host Group
+
+`ZABBIX_HOST_GROUPS` boleh diisi lebih dari satu, dipisah koma, mis.
+`ZABBIX_HOST_GROUPS=VoIP Mks,CRS,ROIP,Router,VoIP Baubau,VoIP ICON+,VoIP Luwuk`
+— nama harus PERSIS sama dengan nama Host Group di Zabbix (**Data
+collection → Host groups**), termasuk kapitalisasi.
+
+- `/device-mon/zabbix/` (Ringkasan) menampilkan total status + satu kartu
+  ringkas per Host Group (jumlah OK/PROBLEM/availability), bukan daftar
+  semua host — supaya tetap mudah dibaca walau host-nya banyak.
+- Klik kartu grup (atau link-nya di sidebar) → halaman detail grup
+  (`/device-mon/zabbix/group/<nama grup>/`) berisi grid semua host di
+  grup itu + chart availability + problem terkini, khusus grup tsb.
+- Sidebar Device Monitor menampilkan daftar grup secara **otomatis**
+  dari data host yang sudah tersinkron (bukan langsung dari
+  `ZABBIX_HOST_GROUPS`) — jadi grup baru baru muncul di sidebar setelah
+  `sync_zabbix` berhasil menariknya minimal sekali (atau webhook pertama
+  masuk, lalu dilengkapi grup-nya oleh `sync_zabbix` berikutnya —
+  webhook sendiri tidak membawa info Host Group).
+- Satu host boleh tercatat di lebih dari satu Host Group (mis. host yang
+  masuk `CRS` sekaligus `ROIP`) — otomatis muncul di kedua halaman grup.
+
 Opsional — hubungkan host Zabbix ke aset FASOP yang sudah ada: buka
 **Secure Panel → Device Monitor → Host Zabbix**, pilih host, isi field
 **Perangkat FASOP** (autocomplete dari `devices.Device`). Tidak wajib —

@@ -94,6 +94,7 @@ TEMPLATES = [
                 'devices.context_processors.user_permissions',
                 'devices.context_processors.user_display_name',
                 'devices.context_processors.pending_approval_count',
+                'device_mon.context_processors.zbx_groups',
             ],
         },
     },

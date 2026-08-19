@@ -138,11 +138,15 @@ class ZabbixClient:
         terpisah dan digabung oleh sync_zabbix).
 
         group_names: opsional, filter ke host group tertentu (list nama).
-        Return: list of dict {hostid, host, name, status}.
+        Return: list of dict {hostid, host, name, status, groups: [{groupid, name}, ...]}.
+        `groups` selalu SEMUA host group host tsb di Zabbix, bukan cuma yang
+        match `group_names` — dipakai FASOP untuk mengelompokkan tampilan
+        per grup (VoIP Mks, CRS, ROIP, dst).
         """
         self.ensure_auth()
         params = {
             'output': ['hostid', 'host', 'name', 'status'],
+            'selectGroups': ['name'],
             'filter': {'status': 0},   # 0 = host monitored (aktif)
         }
         if group_names:
@@ -221,7 +225,9 @@ def severity_label(sev):
 def get_current_status(group_names=None):
     """
     Helper tingkat tinggi dipakai sync_zabbix: gabungkan host.get + problem.get
-    menjadi satu dict {hostid: {host, name, state, severity, problem_name, eventid, clock}}.
+    menjadi satu dict {hostid: {host, name, groups, state, severity, problem_name, eventid, clock}}.
+    `groups` = nama Host Group Zabbix dipisah koma (semua grup host tsb, bukan
+    cuma yang match `group_names`).
     state = 'PROBLEM' kalau ada minimal satu problem aktif, selain itu 'OK'.
     Kalau ada beberapa problem aktif pada satu host, dipilih yang severity-nya
     tertinggi (SEVERITY_LABELS terurut naik -> ambil angka terbesar).
@@ -257,11 +263,13 @@ def get_current_status(group_names=None):
     out = {}
     for h in hosts:
         hid = h['hostid']
+        group_names_str = ','.join(g['name'] for g in h.get('groups', []))
         p = best.get(hid)
         if p:
             out[hid] = {
                 'host': h.get('host', ''),
                 'name': h.get('name', ''),
+                'groups': group_names_str,
                 'state': 'PROBLEM',
                 'severity': severity_label(p['sev']),
                 'problem_name': p['name'],
@@ -272,6 +280,7 @@ def get_current_status(group_names=None):
             out[hid] = {
                 'host': h.get('host', ''),
                 'name': h.get('name', ''),
+                'groups': group_names_str,
                 'state': 'OK',
                 'severity': '',
                 'problem_name': '',
