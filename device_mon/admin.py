@@ -1,5 +1,6 @@
 from django.contrib import admin
-from .models import RTU, RTULog, RTUAlertLog, ZabbixHost, ZabbixEventLog, ZabbixWebhookLog
+from .models import (RTU, RTULog, RTUAlertLog, ZabbixHost, ZabbixEventLog,
+                     ZabbixWebhookLog, ZabbixGroup)
 
 
 class RTULogInline(admin.TabularInline):
@@ -61,7 +62,11 @@ class ZabbixHostAdmin(admin.ModelAdmin):
     # autocomplete: dropdown search-as-you-type, bukan pilihan bebas — 'lokasi'
     # butuh SiteLocationAdmin.search_fields (sudah ada, lihat devices/admin.py).
     autocomplete_fields = ('device', 'lokasi')
-    readonly_fields = ('state', 'severity', 'problem_name', 'state_sejak', 'last_synced_at')
+    # 'groups' readonly: SELALU ditimpa ulang oleh sync_zabbix dari Host Group
+    # di Zabbix, jadi edit manual di sini pasti hilang. Untuk mengelompokkan
+    # tampilan dashboard, pakai Grup Host Zabbix (ZabbixGroup) yang manual.
+    readonly_fields = ('groups', 'state', 'severity', 'problem_name',
+                       'state_sejak', 'last_synced_at')
     inlines = [ZabbixEventLogInline]
 
 
@@ -84,3 +89,19 @@ class ZabbixWebhookLogAdmin(admin.ModelAdmin):
     search_fields = ('keterangan', 'payload', 'host__nama')
     readonly_fields = ('received_at', 'ok', 'host', 'keterangan', 'payload')
     ordering = ('-received_at',)
+
+
+@admin.register(ZabbixGroup)
+class ZabbixGroupAdmin(admin.ModelAdmin):
+    list_display = ('nama', 'jumlah_host', 'urutan', 'aktif')
+    list_editable = ('urutan', 'aktif')
+    list_display_links = ('nama',)
+    list_filter = ('aktif',)
+    search_fields = ('nama', 'keterangan')
+    # Widget dua-kolom "available / chosen" dengan kotak pencarian — pola yang
+    # sama dengan ULTGAdmin.lokasi di devices/admin.py.
+    filter_horizontal = ('hosts',)
+
+    def jumlah_host(self, obj):
+        return obj.hosts.count()
+    jumlah_host.short_description = 'Jumlah Host'

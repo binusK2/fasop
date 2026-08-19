@@ -9,7 +9,8 @@ from django.db.models import Q
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from fasop.hashids_helper import encode
-from .models import RTU, RTULog, ZabbixHost, ZabbixEventLog, ZabbixWebhookLog
+from .models import (RTU, RTULog, ZabbixHost, ZabbixEventLog, ZabbixWebhookLog,
+                     ZabbixGroup)
 from .notifications import notif_zabbix_transisi
 
 logger = logging.getLogger(__name__)
@@ -527,11 +528,12 @@ def zbx_api_summary(request):
 
     total_ok = total_problem = total_unknown = 0
     avail_hari_list = []
-    group_stats = {}   # nama grup -> {total, ok, problem, unknown, avail_list}
+    avail_by_host = {}
 
     for h in hosts:
         avail_hari = _calc_avail(today_by_host.get(h.pk, []), today_start, now, total_menit_today)
         avail_hari_list.append(avail_hari)
+        avail_by_host[h.pk] = avail_hari
 
         if h.state == 'OK':
             total_ok += 1
@@ -540,16 +542,42 @@ def zbx_api_summary(request):
         else:
             total_unknown += 1
 
-        for gname in (h.group_list or ['(Tanpa Grup)']):
-            g = group_stats.setdefault(gname, {'total': 0, 'ok': 0, 'problem': 0, 'unknown': 0, 'avail_list': []})
+    # Pengelompokan dari ZabbixGroup (manual, dikelola di admin) — BUKAN dari
+    # ZabbixHost.groups yang selalu ditimpa sync_zabbix. Host yang belum masuk
+    # grup mana pun dikumpulkan di '(Tanpa Grup)' supaya tidak hilang diam-diam.
+    host_by_id = {h.pk: h for h in hosts}
+    group_stats = {}   # nama grup -> {total, ok, problem, unknown, avail_list}
+    sudah_bergrup = set()
+
+    for grp in ZabbixGroup.objects.filter(aktif=True).prefetch_related('hosts'):
+        g = group_stats.setdefault(
+            grp.nama, {'total': 0, 'ok': 0, 'problem': 0, 'unknown': 0, 'avail_list': []})
+        for h in grp.hosts.all():
+            if h.pk not in host_by_id:
+                continue   # host nonaktif — tidak dihitung
+            sudah_bergrup.add(h.pk)
             g['total'] += 1
-            g['avail_list'].append(avail_hari)
+            g['avail_list'].append(avail_by_host[h.pk])
             if h.state == 'OK':
                 g['ok'] += 1
             elif h.state == 'PROBLEM':
                 g['problem'] += 1
             else:
                 g['unknown'] += 1
+
+    for h in hosts:
+        if h.pk in sudah_bergrup:
+            continue
+        g = group_stats.setdefault(
+            '(Tanpa Grup)', {'total': 0, 'ok': 0, 'problem': 0, 'unknown': 0, 'avail_list': []})
+        g['total'] += 1
+        g['avail_list'].append(avail_by_host[h.pk])
+        if h.state == 'OK':
+            g['ok'] += 1
+        elif h.state == 'PROBLEM':
+            g['problem'] += 1
+        else:
+            g['unknown'] += 1
 
     avg_avail_hari = round(sum(avail_hari_list) / len(avail_hari_list), 2) if avail_hari_list else None
 
@@ -614,7 +642,17 @@ def zbx_api_status(request):
     hosts = list(ZabbixHost.objects.filter(aktif=True).select_related('device', 'lokasi'))
     group_filter = request.GET.get('group', '').strip()
     if group_filter:
-        hosts = [h for h in hosts if group_filter in h.group_list]
+        # Keanggotaan dari ZabbixGroup (manual), bukan ZabbixHost.groups.
+        if group_filter == '(Tanpa Grup)':
+            bergrup = set(ZabbixGroup.objects.filter(aktif=True)
+                          .values_list('hosts__pk', flat=True))
+            hosts = [h for h in hosts if h.pk not in bergrup]
+        else:
+            anggota = set(
+                ZabbixGroup.objects.filter(aktif=True, nama=group_filter)
+                .values_list('hosts__pk', flat=True)
+            )
+            hosts = [h for h in hosts if h.pk in anggota]
 
     if not hosts:
         return JsonResponse({
