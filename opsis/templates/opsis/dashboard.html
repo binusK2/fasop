@@ -956,10 +956,19 @@ function initBebanChart(actual, forecastRows) {
                                 ? _minuteLabel(Math.round(m))
                                 : (items.length ? _minuteLabel(items[0].parsed.x) : '');
                         },
+                        // Tiap baris membawa JAM TITIKNYA SENDIRI kalau beda dari
+                        // judul. Perlu karena dua dataset beda resolusi: realisasi
+                        // per menit (praktis selalu sama dengan jam kursor),
+                        // prediksi per 30 menit (bisa meleset s.d. 15 menit) —
+                        // tanpa ini, nilai slot 10:00 terbaca seolah nilai 10:07.
                         label: ctx => {
                             if (ctx.parsed.y == null) return null;
-                            const v = ctx.parsed.y.toFixed(2);
-                            return (ctx.datasetIndex === 0 ? 'Beban: ' : 'Prediksi: ') + v + ' MW';
+                            const nama = ctx.datasetIndex === 0 ? 'Beban' : 'Prediksi';
+                            const jamJudul = Number.isFinite(ctx.chart.$menitKursor)
+                                ? _minuteLabel(Math.round(ctx.chart.$menitKursor)) : null;
+                            const jamTitik = _minuteLabel(Math.round(ctx.parsed.x));
+                            const label = nama + (jamTitik === jamJudul ? '' : ' (' + jamTitik + ')');
+                            return label + ': ' + ctx.parsed.y.toFixed(2) + ' MW';
                         },
                     }
                 }
