@@ -12,7 +12,18 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AlterField(
+        # RemoveField + AddField, BUKAN AlterField — kolom lama (CharField)
+        # berisi string kosong '' (bukan NULL) untuk baris yang belum diisi,
+        # dan Postgres tidak bisa CAST '' langsung ke bigint (kolom FK baru)
+        # lewat USING clause yang di-generate AlterField. Drop lalu buat ulang
+        # kolomnya sekaligus menghindari masalah cast itu — aman karena field
+        # lama ini belum pernah benar-benar dipakai (Zabbix API tidak
+        # menyediakan data lokasi, field cuma diisi manual).
+        migrations.RemoveField(
+            model_name="zabbixhost",
+            name="lokasi",
+        ),
+        migrations.AddField(
             model_name="zabbixhost",
             name="lokasi",
             field=models.ForeignKey(
