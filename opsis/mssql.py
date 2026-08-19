@@ -91,16 +91,36 @@ def _tcp_ping(host_setting, timeout=2):
 _reachable_cache = {'ok': False, 'ts': 0.0}
 _REACHABLE_CACHE_TTL = 3  # detik — beberapa endpoint (api_hz, api_live) di-poll browser tiap 1-5 detik
 
+# ── Circuit breaker koneksi ODBC ────────────────────────────────────────
+# TCP ping (_tcp_ping, dipakai _get_connection di bawah) hanya menangkap
+# kasus host/port benar-benar tidak reachable. Kalau port TCP terbuka tapi
+# SQL Server-nya sendiri tidak merespons login (mis. service down tapi
+# firewall/LB di depannya masih menerima koneksi), pyodbc.connect() akan
+# menunggu penuh sampai `timeout` detik SEBELUM melempar error — dan itu
+# terjadi di SETIAP request yang memanggil salah satu fungsi get_* di bawah.
+# Kalau banyak request datang bersamaan saat MSSQL down, semua worker
+# gunicorn bisa habis menunggu timeout ini secara bersamaan → gateway
+# timeout untuk SELURUH situs, bukan cuma halaman Opsis (lihat histori
+# insiden terkait). Circuit breaker ini membuat percobaan connect BERIKUTNYA
+# (dalam _CONN_CIRCUIT_TTL detik setelah kegagalan) langsung gagal cepat
+# tanpa menunggu timeout ODBC lagi.
+_conn_circuit = {'open': False, 'ts': 0.0}
+_CONN_CIRCUIT_TTL = 20  # detik "istirahat" setelah satu percobaan connect gagal
+
 
 def is_reachable(timeout=1.5):
     """
-    Cek cepat apakah MSSQL_HOST terkonfigurasi & reachable (TCP ping saja,
-    tanpa buka koneksi ODBC penuh). Hasil di-cache singkat (_REACHABLE_CACHE_TTL)
-    supaya polling frekuensi tinggi dari browser tidak membuka TCP probe baru
-    tiap request. Dipakai view untuk menandai 'terputus' di response JSON.
+    Cek cepat apakah MSSQL_HOST terkonfigurasi & reachable — TCP ping ATAU
+    circuit breaker _get_connection() sedang terbuka (lihat komentar di atas
+    _conn_circuit), tanpa membuka koneksi ODBC penuh di sini. Hasil TCP ping
+    di-cache singkat (_REACHABLE_CACHE_TTL) supaya polling frekuensi tinggi
+    dari browser tidak membuka TCP probe baru tiap request. Dipakai view
+    untuk menandai 'terputus' di response JSON.
     """
     import time
     now = time.monotonic()
+    if _conn_circuit['open'] and (now - _conn_circuit['ts']) < _CONN_CIRCUIT_TTL:
+        return False
     if now - _reachable_cache['ts'] < _REACHABLE_CACHE_TTL:
         return _reachable_cache['ok']
     host = getattr(settings, 'MSSQL_HOST', '')
@@ -114,9 +134,19 @@ def is_reachable(timeout=1.5):
 
 def _get_connection():
     import pyodbc
+    import time
+    now = time.monotonic()
+    if _conn_circuit['open'] and (now - _conn_circuit['ts']) < _CONN_CIRCUIT_TTL:
+        raise ConnectionError(
+            'MSSQL sedang tidak bisa dihubungi (circuit breaker aktif setelah percobaan '
+            f'gagal terakhir, coba lagi setelah {_CONN_CIRCUIT_TTL}s).'
+        )
+
     host = getattr(settings, 'MSSQL_HOST', 'localhost')
     ok, h, port = _tcp_ping(host)
     if not ok:
+        _conn_circuit['open'] = True
+        _conn_circuit['ts'] = now
         raise ConnectionError(f"Host {h}:{port} tidak reachable (TCP timeout)")
     user = getattr(settings, 'MSSQL_USER', '')
     pwd  = getattr(settings, 'MSSQL_PASS', '')
@@ -128,8 +158,14 @@ def _get_connection():
         + auth +
         "Encrypt=no;TrustServerCertificate=yes;"
     )
-    conn = pyodbc.connect(conn_str, timeout=5)
+    try:
+        conn = pyodbc.connect(conn_str, timeout=5)
+    except Exception:
+        _conn_circuit['open'] = True
+        _conn_circuit['ts'] = now
+        raise
     conn.timeout = 30  # query timeout 30 detik
+    _conn_circuit['open'] = False
     return conn
 
 
@@ -169,12 +205,22 @@ def get_current_hz():
     # tabel realtime = satu nilai terkini (tanpa history), terfilter tag
     sql = _freq_rt_sql()
 
+    import time
+    now = time.monotonic()
+    if _conn_circuit['open'] and (now - _conn_circuit['ts']) < _CONN_CIRCUIT_TTL:
+        # Endpoint ini di-poll browser tiap 1-5 detik — circuit breaker di sini
+        # PALING penting, tanpa ini tiap poll bisa menunggu sampai 2×3 detik
+        # (dua percobaan connect di bawah) selama MSSQL down.
+        return None
+
     # TCP ping sekali sebelum masuk loop — fail fast tanpa menunggu ODBC timeout
     host = getattr(settings, 'MSSQL_HOST', '')
     if not host:
         return None
     ok, _, _ = _tcp_ping(host, timeout=2)
     if not ok:
+        _conn_circuit['open'] = True
+        _conn_circuit['ts'] = now
         return None
 
     for attempt in range(2):  # 1 retry jika koneksi mati
@@ -188,6 +234,7 @@ def get_current_hz():
             cursor = _hz_conn.cursor()
             cursor.execute(sql)
             row = cursor.fetchone()
+            _conn_circuit['open'] = False
             return float(row[0]) if row and row[0] is not None else None
         except Exception as e:
             logger.debug('get_current_hz attempt %d: %s', attempt + 1, e)
@@ -196,6 +243,8 @@ def get_current_hz():
             except Exception:
                 pass
             _hz_conn = None  # force reconnect on next attempt
+    _conn_circuit['open'] = True
+    _conn_circuit['ts'] = now
     return None
 
 
