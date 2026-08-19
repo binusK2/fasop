@@ -217,9 +217,52 @@ class ZabbixClient:
         })
         return (result or [None])[0]
 
+    def get_resolve_clock(self, problem_eventid):
+        """
+        Waktu resolve ASLI dari Zabbix (bukan waktu FASOP mendeteksinya) untuk
+        sebuah problem event yang sudah closed. Dipakai sync_zabbix saat
+        transisi PROBLEM->OK terdeteksi, supaya `selesai`/`state_sejak` di
+        FASOP presisi sesuai jam Zabbix, bukan sekadar "kapan cron ini jalan".
+
+        Problem event punya `r_eventid` (id event resolve-nya, '0' kalau
+        belum resolve) begitu di-resolve; event resolve itu sendiri punya
+        `clock` = timestamp resolve yang sebenarnya. Perlu 2 panggilan
+        event.get karena keduanya event terpisah dengan eventid berbeda.
+
+        Return: int unix timestamp, atau None kalau belum resolve / tidak
+        ditemukan (fallback ke waktu FASOP sendiri di pemanggil).
+        """
+        if not problem_eventid:
+            return None
+        self.ensure_auth()
+        problem_events = self._call('event.get', {
+            'output': ['eventid', 'r_eventid'],
+            'eventids': [str(problem_eventid)],
+        })
+        if not problem_events:
+            return None
+        r_eventid = problem_events[0].get('r_eventid')
+        if not r_eventid or r_eventid == '0':
+            return None
+        resolve_events = self._call('event.get', {
+            'output': ['eventid', 'clock'],
+            'eventids': [str(r_eventid)],
+        })
+        if not resolve_events:
+            return None
+        try:
+            return int(resolve_events[0]['clock'])
+        except (KeyError, TypeError, ValueError):
+            return None
+
 
 def severity_label(sev):
     return SEVERITY_LABELS.get(str(sev), str(sev) if sev not in (None, '') else '')
+
+
+def get_resolve_clock(problem_eventid):
+    """Wrapper modul-level ZabbixClient.get_resolve_clock — lihat docstring-nya."""
+    return ZabbixClient().get_resolve_clock(problem_eventid)
 
 
 def get_current_status(group_names=None):
