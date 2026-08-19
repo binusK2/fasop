@@ -226,6 +226,13 @@ Opsional — hubungkan host Zabbix ke aset FASOP yang sudah ada: buka
 **Perangkat FASOP** (autocomplete dari `devices.Device`). Tidak wajib —
 dashboard tetap berfungsi penuh tanpa mapping ini.
 
+Field **Lokasi / Gardu** juga bukan teks bebas — dropdown search-as-you-type
+ke master data **Lokasi Site** FASOP yang sama (`devices.SiteLocation`,
+yang juga dipakai `Device`), supaya penamaan lokasi konsisten di seluruh
+aplikasi. Kalau lokasi yang dicari belum ada di daftar, tambahkan dulu di
+**Secure Panel → Devices → Lokasi Site** — Zabbix API sendiri tidak
+menyediakan info lokasi/GPS, jadi field ini selalu diisi manual.
+
 ---
 
 ## 5. Debug koneksi Zabbix API gagal

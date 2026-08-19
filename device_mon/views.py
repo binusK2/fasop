@@ -611,7 +611,7 @@ def zbx_api_status(request):
     """
     now, today_start, month_start = _boundaries()
 
-    hosts = list(ZabbixHost.objects.filter(aktif=True).select_related('device'))
+    hosts = list(ZabbixHost.objects.filter(aktif=True).select_related('device', 'lokasi'))
     group_filter = request.GET.get('group', '').strip()
     if group_filter:
         hosts = [h for h in hosts if group_filter in h.group_list]
@@ -665,7 +665,7 @@ def zbx_api_status(request):
         host_data.append({
             'id': encode(h.pk),
             'nama': h.nama,
-            'lokasi': h.lokasi,
+            'lokasi': h.lokasi.nama if h.lokasi_id else None,
             'device': h.device.nama if h.device_id else None,
             'state': h.state,
             'severity': h.severity,
@@ -705,7 +705,7 @@ def zbx_api_status(request):
 
 @login_required
 def zbx_host_detail(request, pk):
-    host = get_object_or_404(ZabbixHost, pk=pk)
+    host = get_object_or_404(ZabbixHost.objects.select_related('device', 'lokasi'), pk=pk)
     return render(request, 'device_mon/zbx_host_detail.html', {'host': host})
 
 
@@ -752,7 +752,7 @@ def zbx_api_host_logs(request, pk):
 
     return JsonResponse({
         'nama': host.nama,
-        'lokasi': host.lokasi,
+        'lokasi': host.lokasi.nama if host.lokasi_id else None,
         'state': host.state,
         'severity': host.severity,
         'problem_name': host.problem_name,
@@ -768,7 +768,7 @@ def zbx_api_host_logs(request, pk):
 @login_required
 def zbx_gangguan_list(request):
     logs = (ZabbixEventLog.objects.filter(state='PROBLEM')
-            .select_related('host').order_by('-mulai')[:200])
+            .select_related('host', 'host__lokasi').order_by('-mulai')[:200])
     return render(request, 'device_mon/zbx_gangguan.html', {'logs': logs})
 
 

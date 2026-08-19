@@ -54,11 +54,13 @@ class ZabbixEventLogInline(admin.TabularInline):
 class ZabbixHostAdmin(admin.ModelAdmin):
     list_display = ('nama', 'zabbix_hostid', 'device', 'lokasi', 'state', 'severity',
                     'state_sejak', 'urutan', 'aktif')
-    list_editable = ('lokasi', 'urutan', 'aktif')
+    list_editable = ('urutan', 'aktif')
     list_display_links = ('nama',)
-    list_filter = ('state', 'aktif')
-    search_fields = ('nama', 'zabbix_host', 'zabbix_hostid', 'lokasi')
-    autocomplete_fields = ('device',)
+    list_filter = ('state', 'aktif', 'lokasi')
+    search_fields = ('nama', 'zabbix_host', 'zabbix_hostid', 'lokasi__nama')
+    # autocomplete: dropdown search-as-you-type, bukan pilihan bebas — 'lokasi'
+    # butuh SiteLocationAdmin.search_fields (sudah ada, lihat devices/admin.py).
+    autocomplete_fields = ('device', 'lokasi')
     readonly_fields = ('state', 'severity', 'problem_name', 'state_sejak', 'last_synced_at')
     inlines = [ZabbixEventLogInline]
 
