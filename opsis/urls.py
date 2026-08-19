@@ -5,6 +5,7 @@ urlpatterns = [
     path('',              views.dashboard,         name='opsis_dashboard'),
     path('up2d/',         views.up2d,              name='opsis_up2d'),
     path('peta/',         views.peta_pembangkit,   name='opsis_peta_pembangkit'),
+    path('peta/simpan/',  views.peta_simpan,       name='opsis_peta_simpan'),
     path('pembangkit/<int:pk>/flag/', views.pembangkit_flag, name='opsis_pembangkit_flag'),
     path('<int:pk>/',     views.pembangkit_detail, name='opsis_pembangkit'),
     path('api/live/',     views.api_live,          name='opsis_api_live'),

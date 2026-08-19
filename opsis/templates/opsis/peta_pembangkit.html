@@ -107,6 +107,56 @@ table.pp-tbl { width:100%; border-collapse:collapse; font-size:12px; }
 }
 .pp-tbl tfoot td:first-child { font-family:'DM Sans',sans-serif; font-size:10px; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); }
 .pp-kosong { padding:22px 14px; text-align:center; font-size:12px; color:var(--muted); }
+
+/* ── Mode "Atur Peta" (superuser / Opsis) ────────────────────────────── */
+.pp-bar { display:flex; gap:6px; }
+.pp-btn {
+    display:inline-flex; align-items:center; gap:6px; cursor:pointer; white-space:nowrap;
+    background:#131f35; border:1px solid var(--card-bd); border-radius:8px;
+    color:var(--text); font-size:12px; font-weight:600; padding:7px 13px; transition:.15s;
+}
+.pp-btn:hover { border-color:#475569; }
+.pp-btn.utama { background:#2563eb; border-color:#2563eb; color:#fff; }
+.pp-btn.utama:hover { background:#1d4ed8; }
+.pp-btn.kecil { padding:4px 9px; font-size:11px; }
+.pp-btn:disabled { opacity:.45; cursor:default; }
+
+.pp-editor { margin-bottom:14px; border-color:#2563eb66; }
+.pp-hint { font-size:11.5px; color:var(--muted); line-height:1.55; }
+.pp-pilih {
+    display:flex; align-items:center; gap:10px; margin-top:11px; padding:9px 11px;
+    background:rgba(37,99,235,.10); border:1px solid #2563eb55; border-radius:9px;
+}
+.pp-pilih .ket { min-width:0; }
+.pp-pilih b { display:block; font-size:12.5px; font-weight:700; }
+.pp-pilih span { font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--muted); }
+.pp-pilih .pp-btn { margin-left:auto; flex-shrink:0; }
+
+.pp-belum-judul { margin:13px 0 7px; font-size:9.5px; font-weight:800; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); }
+.pp-belum { display:flex; flex-wrap:wrap; gap:6px; max-height:150px; overflow-y:auto; }
+.pp-belum:empty::after { content:'Semua pembangkit sudah punya ikon di peta.'; font-size:11.5px; color:var(--muted); }
+.pp-belum .chip {
+    display:inline-flex; align-items:center; gap:6px; cursor:grab; touch-action:none;
+    background:#0b1120; border:1px solid var(--card-bd); border-radius:20px;
+    padding:4px 11px 4px 5px; font-size:11.5px; color:var(--text);
+}
+.pp-belum .chip:hover { border-color:#2563eb; }
+.pp-belum .chip .ic { width:19px; height:19px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#fff; }
+.pp-belum .chip .ic svg { width:12px; height:12px; }
+.pp-status { margin-top:12px; font-size:11.5px; color:var(--muted); }
+.pp-status.ubah { color:#fbbf24; }
+.pp-status.gagal { color:#f87171; }
+.pp-status.sukses { color:#4ade80; }
+
+/* Peta saat mode edit */
+.pp-edit .pp-map svg.peta { outline:1px dashed #2563eb88; outline-offset:2px; border-radius:8px; }
+.pp-edit .pp-pin { cursor:grab; touch-action:none; }   /* touch-action: agar seret di tablet tidak menggulung halaman */
+.pp-edit .pp-pin .halo { pointer-events:auto; }        /* saat mengatur, seluruh lingkaran ikut bisa diseret */
+.pp-edit .pp-pin.mati { opacity:.75; }        /* semua ikon harus terlihat saat diatur */
+.pp-edit .pp-pin.pilih .disc { stroke:#fff; stroke-width:3.5; }
+.pp-edit .pp-pin.pilih .halo { opacity:.55; }
+.pp-menyeret, .pp-menyeret .pp-pin { cursor:grabbing !important; }
+.pp-menyeret { user-select:none; }
 .pp-note { font-size:11px; color:var(--muted); padding:9px 13px; border-top:1px solid var(--card-bd); display:flex; gap:7px; }
 </style>
 {% endblock %}
@@ -119,12 +169,22 @@ table.pp-tbl { width:100%; border-collapse:collapse; font-size:12px; }
     </h5>
     <small style="color:#64748b;">Sebaran pembangkit se-Sulawesi — daya realtime dari KIT_REALTIME</small>
   </div>
-  <div class="text-center">
-    <div style="font-size:10px;color:#64748b;">Update otomatis</div>
-    <div id="ppCountdown" style="font-size:18px;font-weight:700;color:#3b82f6;">5</div>
-    <div style="font-size:10px;color:#64748b;">detik</div>
+  <div class="d-flex align-items-center gap-3">
+    {% if bisa_atur %}
+    <div class="pp-bar">
+      <button type="button" class="pp-btn" id="btnAtur"><i class="bi bi-arrows-move"></i> Atur Peta</button>
+      <button type="button" class="pp-btn utama" id="btnSimpan" hidden><i class="bi bi-check-lg"></i> Simpan</button>
+      <button type="button" class="pp-btn" id="btnBatal" hidden><i class="bi bi-x-lg"></i> Batal</button>
+    </div>
+    {% endif %}
+    <div class="text-center">
+      <div style="font-size:10px;color:#64748b;">Update otomatis</div>
+      <div id="ppCountdown" style="font-size:18px;font-weight:700;color:#3b82f6;">5</div>
+      <div style="font-size:10px;color:#64748b;">detik</div>
+    </div>
   </div>
 </div>
+{% if bisa_atur %}<form id="ppCsrf" style="display:none;">{% csrf_token %}</form>{% endif %}
 
 <div id="ppTerputus" style="display:none; align-items:center; gap:8px;
      background:rgba(239,68,68,.08); border:1px solid rgba(239,68,68,.3); border-radius:10px;
@@ -200,7 +260,10 @@ table.pp-tbl { width:100%; border-collapse:collapse; font-size:12px; }
           <path class="land" d="{{ map_path }}"/>
 
           {% for p in pins %}
-          <g class="pp-pin mati" data-kode="{{ p.kode }}" data-jenis="{{ p.jenis }}"
+          <g class="pp-pin mati{% if p.manual %} manual{% endif %}" data-kode="{{ p.kode }}"
+             data-pk="{{ p.pk }}" data-jenis="{{ p.jenis }}" data-nama="{{ p.nama }}"
+             data-x="{{ p.x }}" data-y="{{ p.y }}"
+             data-bx="{{ p.bx|default_if_none:'' }}" data-by="{{ p.by|default_if_none:'' }}"
              transform="translate({{ p.cx }},{{ p.cy }})">
             <circle class="halo" r="24" fill="{{ p.warna }}" opacity=".18"/>
             <circle class="disc" r="15" fill="{{ p.warna }}"/>
@@ -215,16 +278,38 @@ table.pp-tbl { width:100%; border-collapse:collapse; font-size:12px; }
     {% if tanpa_posisi %}
     <div class="pp-note">
       <i class="bi bi-info-circle"></i>
-      <span>{{ tanpa_posisi|length }} pembangkit belum punya koordinat peta
+      <span>{{ tanpa_posisi|length }} pembangkit belum punya ikon di peta
         ({% for t in tanpa_posisi %}{{ t.nama }}{% if not forloop.last %}, {% endif %}{% endfor %})
-        — tetap tampil di tabel. Isi <b>Posisi Peta X/Y</b> pembangkit tersebut di
-        halaman admin untuk memunculkan pinnya.</span>
+        — tetap tampil di tabel.
+        {% if bisa_atur %}Klik <b>Atur Peta</b>, lalu seret namanya dari daftar ke peta.
+        {% else %}Isi <b>Posisi Peta X/Y</b> pembangkit tersebut di halaman admin
+        untuk memunculkan ikonnya.{% endif %}</span>
     </div>
     {% endif %}
   </div>
 
-  <!-- ── KANAN: TABEL ── -->
+  <!-- ── KANAN: PANEL ATUR PETA (mode edit) + TABEL ── -->
   <div class="pp-side">
+    {% if bisa_atur %}
+    <div class="pp-card pp-editor" id="ppEditor" hidden>
+      <h2><i class="bi bi-arrows-move"></i> Atur Posisi Ikon</h2>
+      <div class="bd">
+        <div class="pp-hint">
+          Seret ikon di peta ke lokasi yang benar. Pembangkit yang belum punya ikon
+          ada di daftar bawah — seret namanya ke peta untuk menempatkannya.
+        </div>
+        <div class="pp-pilih" id="ppTerpilih" hidden>
+          <div class="ket"><b id="ppPilihNama"></b><span id="ppPilihPos"></span></div>
+          <button type="button" class="pp-btn kecil" id="btnBawaan">
+            <i class="bi bi-arrow-counterclockwise"></i> Posisi bawaan
+          </button>
+        </div>
+        <div class="pp-belum-judul">Belum dipetakan (<span id="ppBelumJml">0</span>)</div>
+        <div class="pp-belum" id="ppBelum"></div>
+        <div class="pp-status" id="ppStatus">Belum ada perubahan.</div>
+      </div>
+    </div>
+    {% endif %}
     <div class="pp-card">
       <h2><i class="bi bi-table"></i> Daya Pembangkit
         <span class="kanan" id="ppJumlah">{{ pembangkit_list|length }} unit</span>
@@ -282,6 +367,7 @@ table.pp-tbl { width:100%; border-collapse:collapse; font-size:12px; }
 
 {% block extra_js %}
 {{ jenis_warna|json_script:"jenis-warna" }}
+{% if bisa_atur %}{{ tanpa_posisi|json_script:"pp-belum-data" }}{% endif %}
 <script>
 const JENIS_WARNA = JSON.parse(document.getElementById('jenis-warna').textContent);
 const PP_INTERVAL = 5;            // detik — sama dengan dashboard
@@ -430,12 +516,15 @@ function sorot(kode, on) {
     if (ROW[kode]) ROW[kode].classList.toggle('sorot', on);
 }
 
-document.querySelectorAll('.pp-pin').forEach(g => {
+// Dipanggil untuk pin bawaan server maupun pin yang baru ditempatkan di mode edit.
+function pasangPin(g) {
     const kode = g.dataset.kode;
+    PIN[kode] = g;
     g.addEventListener('mousemove', e => {
+        if (modeEdit) return;                       // saat mengatur peta, tooltip mengganggu
         const v = NILAI[kode] || {};
         const r = wrap.getBoundingClientRect();
-        tip.innerHTML = `<b>${v.nama || kode}</b><span class="j">${g.dataset.jenis}</span>`
+        tip.innerHTML = `<b>${v.nama || g.dataset.nama || kode}</b><span class="j">${g.dataset.jenis}</span>`
             + `<div class="r"><span>P</span><b>${fmt(v.p, 2)} MW</b></div>`
             + `<div class="r"><span>Q</span><b>${fmt(v.q, 2)} MVAR</b></div>`
             + `<div class="r"><span>DMN</span><b>${fmt(v.dmn, 1)} MW</b></div>`;
@@ -444,17 +533,279 @@ document.querySelectorAll('.pp-pin').forEach(g => {
         if (x + tip.offsetWidth > r.width) x = r.width - tip.offsetWidth - 4;
         tip.style.left = x + 'px'; tip.style.top = y + 'px';
     });
-    g.addEventListener('mouseenter', () => sorot(kode, true));
+    g.addEventListener('mouseenter', () => { if (!modeEdit) sorot(kode, true); });
     g.addEventListener('mouseleave', () => { tip.style.display = 'none'; sorot(kode, false); });
     g.addEventListener('click', () => {
+        if (modeEdit) return;
         if (ROW[kode]) ROW[kode].scrollIntoView({block:'center', behavior:'smooth'});
     });
-});
+    g.addEventListener('pointerdown', e => {
+        if (!modeEdit) return;                      // mode edit diisi blok "Atur Peta" di bawah
+        e.preventDefault();
+        pilihPin(g);
+        mulaiSeret(g, e, false);
+    });
+}
+document.querySelectorAll('.pp-pin').forEach(pasangPin);
+
 BARIS.forEach(tr => {
     const kode = tr.dataset.kode;
     tr.addEventListener('mouseenter', () => sorot(kode, true));
     tr.addEventListener('mouseleave', () => sorot(kode, false));
 });
+
+// ═══════════════════════════════════════════════════════════════════
+//  Mode "Atur Peta" — seret-lepas ikon, tempatkan pembangkit baru
+//  (hanya dirender untuk superuser / role Opsis)
+// ═══════════════════════════════════════════════════════════════════
+let modeEdit = false;
+let pilihPin = () => {}, mulaiSeret = () => {};   // diisi blok di bawah bila berhak mengatur
+
+(function () {
+    const btnAtur = document.getElementById('btnAtur');
+    if (!btnAtur) return;                       // tidak berhak mengatur peta
+
+    const MAP_W = {{ map_w }}, MAP_H = {{ map_h }};
+    const NS    = 'http://www.w3.org/2000/svg';
+    const svg   = document.querySelector('svg.peta');
+    const editor = document.getElementById('ppEditor');
+    const btnSimpan = document.getElementById('btnSimpan');
+    const btnBatal  = document.getElementById('btnBatal');
+    const btnBawaan = document.getElementById('btnBawaan');
+    const elTerpilih = document.getElementById('ppTerpilih');
+    const elStatus   = document.getElementById('ppStatus');
+    const elBelum    = document.getElementById('ppBelum');
+
+    // Posisi (persen viewBox) & posisi bawaan tiap pin, plus daftar pembangkit
+    // yang belum punya ikon sama sekali.
+    const POS = {}, BAWAAN = {};
+    document.querySelectorAll('.pp-pin').forEach(g => {
+        const k = g.dataset.kode;
+        POS[k] = {pk: +g.dataset.pk, x: +g.dataset.x, y: +g.dataset.y,
+                  nama: g.dataset.nama, jenis: g.dataset.jenis};
+        BAWAAN[k] = g.dataset.bx === '' ? null : {x: +g.dataset.bx, y: +g.dataset.by};
+    });
+    let belum = JSON.parse(document.getElementById('pp-belum-data').textContent);
+
+    const DIUBAH = new Set();     // kode → peta_x/peta_y ditulis
+    const DIHAPUS = new Set();    // kode → peta_x/peta_y dikosongkan (kembali ke bawaan)
+    let terpilih = null, seret = null;
+
+    // ── Koordinat ────────────────────────────────────────────────────
+    const jepit = (v) => Math.min(100, Math.max(0, v));
+    function persenDari(e) {
+        const t = svg.getScreenCTM().inverse();
+        const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(t);
+        return {x: p.x / MAP_W * 100, y: p.y / MAP_H * 100};
+    }
+    function taruh(g, x, y, tandai) {
+        const k = POS[g.dataset.kode];
+        k.x = Math.round(jepit(x) * 100) / 100;
+        k.y = Math.round(jepit(y) * 100) / 100;
+        g.setAttribute('transform', `translate(${(k.x / 100 * MAP_W).toFixed(1)},${(k.y / 100 * MAP_H).toFixed(1)})`);
+        if (tandai) {
+            DIUBAH.add(g.dataset.kode);
+            DIHAPUS.delete(g.dataset.kode);
+        }
+        if (terpilih === g) tulisPosisi();
+        tulisStatus();
+    }
+
+    // ── Pilih & seret ────────────────────────────────────────────────
+    function tulisPosisi() {
+        const k = POS[terpilih.dataset.kode];
+        document.getElementById('ppPilihNama').textContent = k.nama;
+        document.getElementById('ppPilihPos').textContent = `X ${k.x}%  ·  Y ${k.y}%`;
+    }
+    pilihPin = function (g) {
+        if (terpilih) terpilih.classList.remove('pilih');
+        terpilih = g;
+        g.classList.add('pilih');
+        elTerpilih.hidden = false;
+        tulisPosisi();
+    };
+    mulaiSeret = function (g, e, dariTengah) {
+        const p = persenDari(e), k = POS[g.dataset.kode];
+        seret = {g, dx: dariTengah ? 0 : p.x - k.x, dy: dariTengah ? 0 : p.y - k.y};
+        document.body.classList.add('pp-menyeret');
+        tip.style.display = 'none';
+    };
+    document.addEventListener('pointermove', e => {
+        if (!seret) return;
+        e.preventDefault();
+        const p = persenDari(e);
+        taruh(seret.g, p.x - seret.dx, p.y - seret.dy, true);
+    });
+    document.addEventListener('pointerup', () => {
+        if (!seret) return;
+        seret = null;
+        document.body.classList.remove('pp-menyeret');
+    });
+
+    // ── Pin baru untuk pembangkit yang belum dipetakan ───────────────
+    function buatPin(item, x, y) {
+        const g = document.createElementNS(NS, 'g');
+        g.setAttribute('class', 'pp-pin mati manual');
+        Object.assign(g.dataset, {kode: item.kode, pk: item.pk, jenis: item.jenis,
+                                  nama: item.nama, x: x, y: y, bx: '', by: ''});
+        const halo = document.createElementNS(NS, 'circle');
+        halo.setAttribute('class', 'halo'); halo.setAttribute('r', 24);
+        halo.setAttribute('fill', item.warna); halo.setAttribute('opacity', '.18');
+        const disc = document.createElementNS(NS, 'circle');
+        disc.setAttribute('class', 'disc'); disc.setAttribute('r', 15);
+        disc.setAttribute('fill', item.warna);
+        const ic = document.createElementNS(NS, 'use');
+        ic.setAttribute('href', '#ic-' + item.jenis.toLowerCase());
+        ic.setAttribute('x', -10); ic.setAttribute('y', -10);
+        ic.setAttribute('width', 20); ic.setAttribute('height', 20);
+        const teks = document.createElementNS(NS, 'text');
+        teks.setAttribute('y', 35);
+        const v = NILAI[item.kode];
+        teks.textContent = (v && v.p !== null) ? fmt(v.p, 1) : '—';
+        g.append(halo, disc, ic, teks);
+        svg.appendChild(g);
+
+        POS[item.kode] = {pk: item.pk, x: x, y: y, nama: item.nama, jenis: item.jenis};
+        BAWAAN[item.kode] = null;
+        pasangPin(g);
+        taruh(g, x, y, true);
+        return g;
+    }
+
+    function gambarBelum() {
+        document.getElementById('ppBelumJml').textContent = belum.length;
+        elBelum.innerHTML = belum.map(it => `
+            <span class="chip" data-kode="${it.kode}" title="Seret ke peta untuk menempatkan">
+                <span class="ic" style="background:${it.warna};">
+                    <svg viewBox="0 0 24 24"><use href="#ic-${it.jenis.toLowerCase()}"/></svg>
+                </span>${it.nama}
+            </span>`).join('');
+        elBelum.querySelectorAll('.chip').forEach(chip => {
+            chip.addEventListener('pointerdown', e => {
+                e.preventDefault();
+                const it = belum.find(b => b.kode === chip.dataset.kode);
+                belum = belum.filter(b => b.kode !== it.kode);
+                gambarBelum();
+                const p = persenDari(e);
+                // Diseret dari luar peta: taruh di tengah peta yang terlihat dulu,
+                // lalu ikut kursor sampai tombol dilepas.
+                const r = svg.getBoundingClientRect();
+                const diPeta = e.clientX >= r.left && e.clientX <= r.right
+                            && e.clientY >= r.top  && e.clientY <= r.bottom;
+                const awal = diPeta ? p : {x: 50, y: ((Math.max(0, -r.top)
+                             + Math.min(r.height, innerHeight - r.top)) / 2) / r.height * 100};
+                const g = buatPin(it, awal.x, awal.y);
+                pilihPin(g);
+                mulaiSeret(g, e, true);
+            });
+        });
+    }
+
+    // ── Kembalikan ke posisi bawaan ──────────────────────────────────
+    btnBawaan.addEventListener('click', () => {
+        if (!terpilih) return;
+        const kode = terpilih.dataset.kode, b = BAWAAN[kode], k = POS[kode];
+        DIUBAH.delete(kode);
+        DIHAPUS.add(kode);
+        if (b) {
+            taruh(terpilih, b.x, b.y, false);
+        } else {
+            // Tidak punya posisi bawaan → ikonnya hilang, kembali ke daftar.
+            belum.push({pk: k.pk, kode: kode, nama: k.nama, jenis: k.jenis,
+                        warna: JENIS_WARNA[k.jenis] || JENIS_WARNA.LAIN});
+            belum.sort((a, b2) => a.nama.localeCompare(b2.nama));
+            terpilih.remove();
+            delete PIN[kode];
+            gambarBelum();
+            batalPilih();
+        }
+        tulisStatus();
+    });
+
+    function batalPilih() {
+        if (terpilih) terpilih.classList.remove('pilih');
+        terpilih = null;
+        elTerpilih.hidden = true;
+    }
+
+    // ── Status & simpan ──────────────────────────────────────────────
+    function tulisStatus(pesan, kelas) {
+        elStatus.className = 'pp-status' + (kelas ? ' ' + kelas : '');
+        if (pesan) { elStatus.textContent = pesan; return; }
+        const n = DIUBAH.size, m = DIHAPUS.size;
+        if (!n && !m) { elStatus.textContent = 'Belum ada perubahan.'; return; }
+        const bagian = [];
+        if (n) bagian.push(`${n} ikon dipindahkan`);
+        if (m) bagian.push(`${m} dikembalikan ke posisi bawaan`);
+        elStatus.className = 'pp-status ubah';
+        elStatus.textContent = bagian.join(', ') + ' — belum disimpan.';
+    }
+    const adaPerubahan = () => DIUBAH.size > 0 || DIHAPUS.size > 0;
+
+    function getCookie(name) {
+        const m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+        return m ? m.pop() : '';
+    }
+
+    btnSimpan.addEventListener('click', async () => {
+        if (!adaPerubahan()) { keluarEdit(); return; }
+        btnSimpan.disabled = true;
+        tulisStatus('Menyimpan…');
+        const csrf = getCookie('csrftoken')
+            || document.querySelector('#ppCsrf [name=csrfmiddlewaretoken]').value;
+        try {
+            const resp = await fetch('/opsis/peta/simpan/', {
+                method: 'POST',
+                headers: {'X-CSRFToken': csrf, 'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    posisi: [...DIUBAH].map(k => ({pk: POS[k].pk, x: POS[k].x, y: POS[k].y})),
+                    hapus:  [...DIHAPUS].map(k => (POS[k] || {}).pk).filter(Boolean),
+                }),
+            });
+            let j = null;
+            try { j = await resp.json(); } catch (_) {}
+            if (!resp.ok || !j || !j.ok) {
+                btnSimpan.disabled = false;
+                tulisStatus((j && j.error) ? j.error
+                    : `Gagal menyimpan (HTTP ${resp.status}${resp.status === 403 ? ' — sesi/CSRF, coba muat ulang halaman' : ''}).`,
+                    'gagal');
+                return;
+            }
+            tulisStatus('Tersimpan. Memuat ulang…', 'sukses');
+            location.reload();       // render ulang dari server (pin otomatis ikut menyesuaikan)
+        } catch (e) {
+            btnSimpan.disabled = false;
+            tulisStatus('Gagal menyimpan — periksa koneksi.', 'gagal');
+        }
+    });
+
+    // ── Buka / tutup mode edit ───────────────────────────────────────
+    function masukEdit() {
+        modeEdit = true;
+        document.body.classList.add('pp-edit');
+        editor.hidden = false;
+        btnAtur.hidden = true;
+        btnSimpan.hidden = btnBatal.hidden = false;
+        gambarBelum();
+    }
+    function keluarEdit() {
+        modeEdit = false;
+        document.body.classList.remove('pp-edit');
+        editor.hidden = true;
+        btnAtur.hidden = false;
+        btnSimpan.hidden = btnBatal.hidden = true;
+        batalPilih();
+    }
+    btnAtur.addEventListener('click', masukEdit);
+    btnBatal.addEventListener('click', () => {
+        if (adaPerubahan() && !confirm('Perubahan posisi belum disimpan. Buang perubahan?')) return;
+        if (adaPerubahan()) { location.reload(); return; }
+        keluarEdit();
+    });
+    addEventListener('beforeunload', e => {
+        if (modeEdit && adaPerubahan() && !btnSimpan.disabled) { e.preventDefault(); e.returnValue = ''; }
+    });
+})();
 
 // ── Polling ──────────────────────────────────────────────────────────
 let sisa = PP_INTERVAL;

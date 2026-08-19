@@ -367,3 +367,77 @@ class PetaPembangkitTest(TestCase):
         r = self.client.get('/opsis/peta/')
         legenda = {l['kode']: l['jumlah'] for l in r.context['legenda']}
         self.assertEqual(legenda, {'PLTD': 3, 'PLTA': 1, 'PLTS': 1, 'LAIN': 1})
+
+
+class PetaSimpanPosisiTest(TestCase):
+    """Endpoint seret-lepas: menyimpan, mengembalikan, dan menolak yang tidak berhak."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.pb = Pembangkit.objects.create(nama='PLTA Bakaru', kode='BKARU5', jenis='PLTA')
+        cls.lain = Pembangkit.objects.create(nama='PLTU Barru', kode='BLUSU5', jenis='PLTU')
+
+    def _login(self, role='opsis', superuser=False):
+        buat = User.objects.create_superuser if superuser else User.objects.create_user
+        user = buat(f'u-{role}-{superuser}', f'{role}@contoh.id', 'rahasia-tes-123')
+        profile = getattr(user, 'profile', None)
+        if profile is not None:
+            profile.role = role
+            profile.force_password_change = False
+            profile.save(update_fields=['role', 'force_password_change'])
+        self.client.force_login(user)
+        return user
+
+    def _kirim(self, data):
+        return self.client.post('/opsis/peta/simpan/', data=json.dumps(data),
+                                content_type='application/json')
+
+    def test_role_opsis_boleh_menyimpan_posisi(self):
+        self._login('opsis')
+        r = self._kirim({'posisi': [{'pk': self.pb.pk, 'x': 33.333, 'y': 44.444}]})
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(r.json()['ok'])
+        self.pb.refresh_from_db()
+        self.assertEqual((self.pb.peta_x, self.pb.peta_y), (33.33, 44.44))
+        self.assertEqual(self.pb.posisi_peta(), (33.33, 44.44))
+
+    def test_hapus_mengembalikan_ke_posisi_bawaan(self):
+        Pembangkit.objects.filter(pk=self.pb.pk).update(peta_x=10, peta_y=10)
+        self._login('opsis')
+        r = self._kirim({'hapus': [self.pb.pk]})
+        self.assertEqual(r.status_code, 200)
+        self.pb.refresh_from_db()
+        self.assertIsNone(self.pb.peta_x)
+        self.assertEqual(self.pb.posisi_peta(), hop_map.posisi_pembangkit('PLTA Bakaru'))
+
+    def test_viewer_ditolak(self):
+        self._login('viewer')
+        r = self._kirim({'posisi': [{'pk': self.pb.pk, 'x': 10, 'y': 10}]})
+        self.assertEqual(r.status_code, 403)
+        self.pb.refresh_from_db()
+        self.assertIsNone(self.pb.peta_x)
+
+    def test_posisi_di_luar_peta_ditolak_tanpa_menyimpan_sebagian(self):
+        self._login('opsis')
+        r = self._kirim({'posisi': [{'pk': self.pb.pk, 'x': 20, 'y': 20},
+                                    {'pk': self.lain.pk, 'x': 120, 'y': 20}]})
+        self.assertEqual(r.status_code, 400)
+        self.pb.refresh_from_db()
+        self.lain.refresh_from_db()
+        self.assertIsNone(self.pb.peta_x)      # tidak ada yang tersimpan setengah
+        self.assertIsNone(self.lain.peta_x)
+
+    def test_pk_tidak_dikenal_ditolak(self):
+        self._login('opsis')
+        r = self._kirim({'posisi': [{'pk': 999999, 'x': 20, 'y': 20}]})
+        self.assertEqual(r.status_code, 400)
+
+    def test_pin_manual_tidak_digeser_penyebaran_otomatis(self):
+        # Ditaruh persis di atas pin otomatis PLTU Barru → yang otomatis yang mengalah.
+        bawaan = hop_map.posisi_pembangkit('PLTU Barru')
+        Pembangkit.objects.filter(pk=self.pb.pk).update(peta_x=bawaan[0], peta_y=bawaan[1])
+        self._login('opsis', superuser=True)
+        r = self.client.get('/opsis/peta/')
+        pins = {p['kode']: p for p in r.context['pins']}
+        self.assertEqual((pins['BKARU5']['x'], pins['BKARU5']['y']), bawaan)
+        self.assertNotEqual((pins['BLUSU5']['x'], pins['BLUSU5']['y']), bawaan)

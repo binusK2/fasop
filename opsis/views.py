@@ -1,4 +1,5 @@
 import datetime
+import json
 import math
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
@@ -14,7 +15,7 @@ from .models import (Pembangkit, SnapLive, SnapFreq, SnapFreqRT, Trafo, SnapTraf
 from . import mssql
 from . import prediksi
 from . import hop as hop_io
-from .hop_map import SULAWESI_PATH, MAP_W, MAP_H, DEFAULT_MAP_POS
+from .hop_map import SULAWESI_PATH, MAP_W, MAP_H, DEFAULT_MAP_POS, posisi_pembangkit
 from .models import HOP_BANDS
 
 
@@ -145,9 +146,14 @@ def _sebar_pin(pins):
     utara ke selatan; yang bertabrakan dengan pin yang sudah ditempatkan dicoba
     pada posisi cadangan terdekat (_GESER_PIN). Deterministik, jadi pin tidak
     berpindah-pindah tiap reload. Dimodifikasi in-place.
+
+    Pin yang posisinya diatur manual (peta_x/peta_y, `manual=True`) TIDAK pernah
+    digeser — kalau digeser, hasil seret-lepas di mode Atur Peta akan pindah
+    sendiri begitu halaman dimuat ulang. Pin otomatis yang menabraknya lah yang
+    mengalah, jadi pin manual selalu tepat di tempat yang dipilih pengguna.
     """
-    ditempatkan = []
-    for pin in sorted(pins, key=lambda p: (p['y'], p['x'])):
+    ditempatkan = [p for p in pins if p['manual']]
+    for pin in sorted((p for p in pins if not p['manual']), key=lambda p: (p['y'], p['x'])):
         asal_x, asal_y = pin['x'], pin['y']
         for dx, dy in _GESER_PIN:
             pin['x'], pin['y'] = round(asal_x + dx, 2), round(asal_y + dy, 2)
@@ -179,7 +185,14 @@ def peta_pembangkit(request):
             # Belum punya koordinat — tetap masuk tabel, hanya tak muncul di peta.
             tanpa_posisi.append(item)
             continue
-        pins.append({**item, 'x': pos[0], 'y': pos[1]})
+        # manual = digeser sendiri lewat mode Atur Peta (peta_x/peta_y terisi).
+        # bawaan = posisi dari tabel nama di hop_map, dipakai tombol "posisi
+        # bawaan" di mode Atur Peta untuk mengembalikan pin yang terlanjur digeser.
+        bawaan = posisi_pembangkit(p.nama)
+        pins.append({**item, 'x': pos[0], 'y': pos[1],
+                     'manual': p.peta_x is not None and p.peta_y is not None,
+                     'bx': bawaan[0] if bawaan else None,
+                     'by': bawaan[1] if bawaan else None})
 
     _sebar_pin(pins)
     for pin in pins:
@@ -202,10 +215,68 @@ def peta_pembangkit(request):
         'tanpa_posisi':    tanpa_posisi,
         'legenda':         legenda,
         'jenis_warna':     JENIS_WARNA,
+        'bisa_atur':       _bisa_atur_peta(request.user),
         'map_path':        SULAWESI_PATH,
         'map_w':           MAP_W,
         'map_h':           MAP_H,
     })
+
+
+def _bisa_atur_peta(user):
+    """
+    Boleh menggeser/menempatkan pin di Peta Pembangkit: superuser atau role Opsis
+    — aturan yang sama dengan penanda ketidaksesuaian data di dashboard.
+    """
+    return _bisa_flag(user)
+
+
+@login_required
+def peta_simpan(request):
+    """
+    Simpan hasil seret-lepas pin Peta Pembangkit (AJAX POST, body JSON).
+
+    Body: {"posisi": [{"pk": 1, "x": 12.3, "y": 45.6}, …], "hapus": [pk, …]}
+    `posisi` mengisi peta_x/peta_y (persen viewBox), `hapus` mengosongkannya
+    sehingga pembangkit kembali memakai posisi bawaan opsis/hop_map.py.
+    """
+    if not _bisa_atur_peta(request.user):
+        return JsonResponse({'ok': False, 'error': 'Tidak diizinkan.'}, status=403)
+    if request.method != 'POST':
+        return JsonResponse({'ok': False, 'error': 'Metode salah.'}, status=405)
+    try:
+        payload = json.loads(request.body.decode('utf-8') or '{}')
+    except (ValueError, UnicodeDecodeError):
+        return JsonResponse({'ok': False, 'error': 'Data tidak dapat dibaca.'}, status=400)
+
+    posisi = payload.get('posisi') or []
+    hapus  = payload.get('hapus') or []
+    if not isinstance(posisi, list) or not isinstance(hapus, list):
+        return JsonResponse({'ok': False, 'error': 'Bentuk data salah.'}, status=400)
+
+    # Kumpulkan dulu, validasi semua, baru simpan — supaya satu nilai rusak tidak
+    # menyisakan setengah perubahan tersimpan.
+    perubahan = {}
+    try:
+        for row in posisi:
+            pk = int(row['pk'])
+            x, y = float(row['x']), float(row['y'])
+            if not (0 <= x <= 100 and 0 <= y <= 100):
+                return JsonResponse({'ok': False, 'error': f'Posisi di luar peta (pk {pk}).'}, status=400)
+            perubahan[pk] = (round(x, 2), round(y, 2))
+        for pk in hapus:
+            perubahan[int(pk)] = (None, None)
+    except (KeyError, TypeError, ValueError):
+        return JsonResponse({'ok': False, 'error': 'Nilai posisi tidak valid.'}, status=400)
+
+    obj = {p.pk: p for p in Pembangkit.objects.filter(pk__in=perubahan)}
+    tidak_dikenal = sorted(set(perubahan) - set(obj))
+    if tidak_dikenal:
+        return JsonResponse({'ok': False, 'error': f'Pembangkit tidak ditemukan: {tidak_dikenal}.'}, status=400)
+
+    for pk, (x, y) in perubahan.items():
+        obj[pk].peta_x, obj[pk].peta_y = x, y
+    Pembangkit.objects.bulk_update(obj.values(), ['peta_x', 'peta_y'])
+    return JsonResponse({'ok': True, 'disimpan': len(posisi), 'dikembalikan': len(hapus)})
 
 
 def _flag_info(p):

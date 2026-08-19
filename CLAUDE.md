@@ -353,18 +353,28 @@ dashboard tidak pernah berbeda. Kalau perlu field baru di peta, tambahkan di
 `api_live()` sekali, jangan bikin endpoint kedua.
 
 Posisi pin diselesaikan `Pembangkit.posisi_peta()` dengan urutan: `peta_x`/`peta_y`
-(diisi manual dari site admin, persen viewBox) → `hop_map.posisi_pembangkit(nama)`
-(tabel bawaan, pencocokan nama mengabaikan spasi/tanda baca) → tidak dipetakan
-(pembangkit tetap muncul di tabel + disebut di catatan bawah peta). Pembangkit
-baru cukup diberi `peta_x`/`peta_y` dari admin; menambah entri permanen dilakukan
-di `_EXTRA_LATLON` (`opsis/hop_map.py`) sebagai lat/long, diproyeksikan
+(persen viewBox — diisi lewat mode **Atur Peta** di halaman itu sendiri, atau
+manual dari site admin) → `hop_map.posisi_pembangkit(nama)` (tabel bawaan,
+pencocokan nama mengabaikan spasi/tanda baca) → tidak dipetakan (pembangkit tetap
+muncul di tabel + disebut di catatan bawah peta). Menambah entri permanen
+dilakukan di `_EXTRA_LATLON` (`opsis/hop_map.py`) sebagai lat/long, diproyeksikan
 `proyeksi()` dengan konstanta yang sama seperti pin dashboard HOP — jangan
 mengarang persen langsung supaya peta HOP dan Peta Pembangkit tetap sebidang.
+
+**Mode Atur Peta** (tombol di kanan atas, hanya superuser/role Opsis — aturan
+`_bisa_atur_peta()`, sama dengan penanda ketidaksesuaian data): ikon diseret
+langsung di peta, pembangkit yang belum punya ikon diseret dari daftar "Belum
+dipetakan" ke peta, dan "Posisi bawaan" mengosongkan `peta_x`/`peta_y` lagi.
+Semua perubahan baru masuk database saat Simpan ditekan
+(`POST /opsis/peta/simpan/`, body JSON `{posisi:[{pk,x,y}], hapus:[pk]}`),
+lalu halaman dimuat ulang.
 
 Pembangkit yang berdekatan (rumpun Tello, gugusan Manado) digeser `_sebar_pin()`
 di `opsis/views.py` supaya ikon + label MW-nya tidak bertumpuk; ambangnya
 `PIN_MIN_DX`/`PIN_MIN_DY` — sesuaikan keduanya bila ukuran ikon/label di template
-diubah, kalau tidak label akan mulai saling menimpa lagi.
+diubah, kalau tidak label akan mulai saling menimpa lagi. Pin dengan posisi manual
+**tidak pernah ikut digeser** — kalau aturan itu dilonggarkan, hasil seret-lepas
+akan pindah sendiri begitu halaman dimuat ulang.
 
 Warna per jenis pembangkit hidup di `opsis.models.JENIS_WARNA` dan dikirim ke
 template lewat `json_script`. Jangan menyalin dict warna itu ke dalam `<script>`
