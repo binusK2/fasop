@@ -141,7 +141,12 @@ class ZabbixHost(models.Model):
         related_name='zabbix_hosts', verbose_name='Perangkat FASOP',
         help_text='Opsional — hubungkan ke data aset FASOP yang sesuai.',
     )
-    lokasi = models.CharField(max_length=150, blank=True, verbose_name='Lokasi / Gardu')
+    lokasi = models.ForeignKey(
+        'devices.SiteLocation', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='zabbix_hosts', verbose_name='Lokasi / Gardu',
+        help_text='Dari master data Lokasi Site FASOP (devices.SiteLocation) — supaya penamaan '
+                   'lokasi konsisten dengan Device dan halaman lain, bukan diketik bebas.',
+    )
     groups = models.CharField(
         max_length=255, blank=True, verbose_name='Grup Zabbix',
         help_text='Host Group Zabbix tempat host ini terdaftar (dipisah koma bila lebih dari '
