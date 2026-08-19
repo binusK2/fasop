@@ -80,14 +80,19 @@ class ZabbixClient:
             'params': params or {},
             'id': self._id,
         }
+
+        headers = {'Content-Type': 'application/json-rpc'}
         if use_auth and self._auth:
-            body['auth'] = self._auth
+            # Zabbix >= 6.4: token dikirim lewat header Authorization, BUKAN
+            # field "auth" di body — field itu dideprecate di 6.4 dan sudah
+            # dihapus total (error "unexpected parameter auth") di 7.0+.
+            headers['Authorization'] = f'Bearer {self._auth}'
 
         try:
             resp = requests.post(
                 self.url,
                 json=body,
-                headers={'Content-Type': 'application/json-rpc'},
+                headers=headers,
                 timeout=self.timeout,
             )
         except requests.exceptions.RequestException as e:
