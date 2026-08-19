@@ -1,10 +1,11 @@
 def zbx_groups(request):
     """
-    Daftar nama Host Group Zabbix (distinct, terurut) untuk sidebar
-    Device Monitor — satu link per grup (VoIP Mks, CRS, ROIP, dst).
-    Dihitung dari data ZabbixHost yang sudah tersinkron, bukan dari
-    ZABBIX_HOST_GROUPS di .env, supaya sidebar selalu cocok dengan apa
-    yang benar-benar ada datanya.
+    Daftar nama Grup Host Zabbix (ZabbixGroup — grouping MANUAL yang dikelola
+    lewat Django Admin) untuk sidebar Device Monitor — satu link per grup.
+
+    Sengaja dari ZabbixGroup, bukan dari ZabbixHost.groups: field `groups` di
+    ZabbixHost selalu ditimpa ulang oleh sync_zabbix mengikuti Host Group di
+    Zabbix, jadi tidak bisa dipakai untuk pengelompokan yang disusun sendiri.
 
     Hanya jalan untuk halaman di bawah /device-mon/ — context processor ini
     terdaftar global (lihat TEMPLATES di settings.py, pola yang sama dengan
@@ -14,14 +15,18 @@ def zbx_groups(request):
     if not request.path.startswith('/device-mon/'):
         return {}
 
-    from .models import ZabbixHost
+    from .models import ZabbixGroup, ZabbixHost
 
-    csv_values = ZabbixHost.objects.filter(aktif=True).exclude(groups='').values_list('groups', flat=True)
-    names = set()
-    for csv in csv_values:
-        for name in csv.split(','):
-            name = name.strip()
-            if name:
-                names.add(name)
+    names = list(
+        ZabbixGroup.objects.filter(aktif=True).values_list('nama', flat=True)
+    )
 
-    return {'zbx_groups': sorted(names)}
+    # Tambahkan '(Tanpa Grup)' hanya kalau memang ada host aktif yang belum
+    # masuk grup mana pun — supaya host baru hasil sync tidak hilang dari UI
+    # sebelum sempat dikelompokkan.
+    bergrup = set(ZabbixGroup.objects.filter(aktif=True).values_list('hosts__pk', flat=True))
+    ada_yatim = ZabbixHost.objects.filter(aktif=True).exclude(pk__in=bergrup).exists()
+    if ada_yatim:
+        names.append('(Tanpa Grup)')
+
+    return {'zbx_groups': names}

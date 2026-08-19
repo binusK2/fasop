@@ -265,3 +265,38 @@ class ZabbixWebhookLog(models.Model):
         status = 'OK' if self.ok else 'GAGAL'
         who = self.host.nama if self.host else '?'
         return f'[{status}] {who} @ {self.received_at:%Y-%m-%d %H:%M}'
+
+
+class ZabbixGroup(models.Model):
+    """
+    Grup manual host Zabbix — dikelola sendiri lewat Django Admin, TIDAK
+    pernah disentuh `sync_zabbix`.
+
+    Beda dengan field `ZabbixHost.groups` (Host Group dari sisi Zabbix) yang
+    selalu ditimpa ulang tiap sync: grup di sini murni milik FASOP, jadi
+    pengelompokan tampilan dashboard bisa disusun bebas tanpa harus ikut
+    struktur Host Group di Zabbix (dan tidak hilang saat sync berikutnya).
+    """
+    nama = models.CharField(
+        max_length=100, unique=True, verbose_name='Nama Grup',
+        help_text='Contoh: VoIP Mks, CRS, ROIP, Router, VoIP Baubau, VoIP ICON+, VoIP Luwuk',
+    )
+    hosts = models.ManyToManyField(
+        ZabbixHost, blank=True, related_name='manual_groups',
+        verbose_name='Host yang tergabung',
+        help_text='Pilih host Zabbix yang masuk grup ini. Satu host boleh masuk beberapa grup.',
+    )
+    urutan = models.PositiveIntegerField(default=0, verbose_name='Urutan Tampil')
+    aktif = models.BooleanField(
+        default=True, verbose_name='Aktif',
+        help_text='Nonaktifkan untuk menyembunyikan grup dari dashboard tanpa menghapusnya.',
+    )
+    keterangan = models.TextField(blank=True, verbose_name='Keterangan')
+
+    class Meta:
+        ordering = ['urutan', 'nama']
+        verbose_name = 'Grup Host Zabbix'
+        verbose_name_plural = 'Grup Host Zabbix'
+
+    def __str__(self):
+        return self.nama
