@@ -33,7 +33,7 @@ django-axes==7.0.1            # Rate limiting login (lockout 5x gagal)
 hashids==1.3.1                # Obfuskasi integer ID di URL
 
 # ── HTTP Client ───────────────────────────────────────────────────
-requests>=2.31.0              # Early Warning WhatsApp (device_mon → Zuwinda); Zabbix API client (zabbix_mon)
+requests>=2.31.0              # Early Warning WhatsApp + Zabbix API client (device_mon)
 
 # ── Utilities ─────────────────────────────────────────────────────
 charset-normalizer==3.4.0

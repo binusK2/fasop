@@ -60,7 +60,7 @@ Each of the 15 `INSTALLED_APPS` Django apps follows a standard layout (`models.p
 | `health_index/` | Equipment health scoring (0–100), computed (not stored) from 9 weighted factors |
 | `inspection/` | Inservice inspection for Operator role |
 | `gudang/` | Warehouse / spare parts inventory; stock level is computed from `MutasiSparepart`, not a stored field |
-| `device_mon/` | RTU UP/DOWN status monitoring (`collect_rtu` cron command) |
+| `device_mon/` | Realtime equipment status monitoring — RTU UP/DOWN via MSSQL (`collect_rtu` cron) at `/device-mon/`, plus Zabbix host status at `/device-mon/zabbix/`: pull periodically via Zabbix API (`zabbix_api.py`, cron `sync_zabbix`) + push realtime via webhook (`/device-mon/zabbix/webhook/`, token `ZABBIX_WEBHOOK_TOKEN`); `ZabbixHost` optionally linked to `devices.Device`; full setup in `deploy/ZABBIX_INTEGRATION.md`. Both sources live in one app deliberately — "realtime equipment status" belongs together regardless of data source |
 | `scada_av/` | SCADA/RTU availability and RCD success rate; wraps the `spectrum7_av/` calculation library |
 | `notifikasi/` | In-app notification center (per-user + broadcast); other apps push notifications via `notif_ke_user()` / `notif_ke_am()` helpers |
 | `jadwal/` | Monthly preventive-maintenance visit scheduling per location, with HI/age/device-count priority ranking |
@@ -69,7 +69,6 @@ Each of the 15 `INSTALLED_APPS` Django apps follows a standard layout (`models.p
 | `auditlog/` | Custom (not django-auditlog) superuser audit log; entries are created by explicit `log_action()` calls in views, not signals |
 | `streaming/` | Field maintenance live streaming (WebRTC WHIP/WHEP via MediaMTX, `deploy/mediamtx.yml`); Teknisi broadcasts, Teknisi/AM view, only AM can join as Pengawas for 2-way talkback; teknisi's video is recorded (server-side ffmpeg transcode, see below) and pengawas's talkback audio is recorded as a **separate** clip (`LiveSession.talkback_recording_path`) rather than mixed into one file; recordings kept 7 days (`purge_old_recordings` cron) |
 | `up2bmakassar/` | Kinerja SCADATEL (`/kinerja-scadatel/`) — availability harian titik Telemetering/Telesignal, log RC, dan SOE log, dibaca **read-only** dari OFDB (`dbup2bmakasar` di MSSQL, `ofdb.py`); lihat "Kinerja SCADATEL — OFDB" di bawah |
-| `zabbix_mon/` | Status host Zabbix di dashboard FASOP (`/zabbix/`) — pull periodik lewat Zabbix API (`zabbix_api.py`, cron `sync_zabbix`) + push realtime lewat webhook (`/zabbix/webhook/`, token `ZABBIX_WEBHOOK_TOKEN`); `ZabbixHost` opsional dihubungkan ke `devices.Device`; setup lengkap di `deploy/ZABBIX_INTEGRATION.md` |
 | `api/` | REST API for n8n / Google Sheets integrations (no models — not in `INSTALLED_APPS`, but `urls.py` is still wired into `fasop/urls.py` at `/api/v1/`) |
 | `fasop/` | Root settings, URL routing, Hashids helper, URL converters |
 
@@ -164,7 +163,7 @@ Roles are stored in `UserProfile` (ForeignKey to User). Middleware enforces rout
 | `arsip_titik_kinerja` | up2bmakassar | Arsipkan daftar titik `kinerja=1` dari OFDB ke CSV — jalankan sebelum apa pun diubah di 19.1 |
 | `daftar_station` | up2bmakassar | Daftar station (PATH1) di data kinerja + status aktif/nonaktifnya, untuk dicocokkan dengan daftar station UP2B |
 | `cek_kinerja_ofdb` | up2bmakassar | Diagnosa read-only — koneksi OFDB, induk point type yang ketemu, jumlah titik per jenis, lama query harian, dan jumlah baris tersimpan |
-| `sync_zabbix` | zabbix_mon | Cron, every 2-5 min — pull host/problem status via Zabbix API (JSON-RPC) → `ZabbixHost`/`ZabbixEventLog`; complements the `/zabbix/webhook/` push path; supports `--dry-run` |
+| `sync_zabbix` | device_mon | Cron, every 2-5 min — pull host/problem status via Zabbix API (JSON-RPC) → `ZabbixHost`/`ZabbixEventLog`; complements the `/device-mon/zabbix/webhook/` push path; supports `--dry-run` |
 
 ---
 
@@ -231,6 +230,7 @@ MSSQL_DRIVER=ODBC Driver 17 for SQL Server
 
 API_KEY=              # For /api/v1/ integrations
 
+# Zabbix Integration (device_mon app) — see deploy/ZABBIX_INTEGRATION.md for full setup
 # Sumber prediksi beban OPSIS — 'sheet' (default, spreadsheet via n8n) | 'ml'
 OPSIS_FORECAST_SOURCE=sheet
 # Zabbix Integration (zabbix_mon app) — see deploy/ZABBIX_INTEGRATION.md for full setup

@@ -1,12 +1,15 @@
-# Integrasi Zabbix (`zabbix_mon`)
+# Integrasi Zabbix (`device_mon`)
 
 Menampilkan status host/peralatan yang dipantau Zabbix di dashboard FASOP
-(`/zabbix/`), lewat dua jalur yang saling melengkapi:
+(**Device Monitor → Zabbix**, `/device-mon/zabbix/`), lewat dua jalur yang
+saling melengkapi. Sengaja satu app dengan RTU (`/device-mon/`) — keduanya
+"status peralatan realtime", jadi tetap ketemu di satu tempat (Device
+Monitor) alih-alih tersebar ke app terpisah per sumber data.
 
 | Jalur | Arah | Peran |
 |---|---|---|
 | **Pull — Zabbix API** | FASOP → Zabbix (cron `sync_zabbix`) | Sumber kebenaran periodik. Membuat host baru otomatis, memulihkan status kalau webhook sempat gagal terkirim. |
-| **Push — Webhook** | Zabbix → FASOP (`/zabbix/webhook/`) | Update realtime (detik) saat trigger PROBLEM/pulih, tanpa menunggu jadwal cron. |
+| **Push — Webhook** | Zabbix → FASOP (`/device-mon/zabbix/webhook/`) | Update realtime (detik) saat trigger PROBLEM/pulih, tanpa menunggu jadwal cron. |
 
 Keduanya menulis ke tabel yang sama (`ZabbixHost`, `ZabbixEventLog`), jadi
 boleh dipakai salah satu saja untuk mulai (disarankan: setup pull dulu,
@@ -61,9 +64,9 @@ webhook Zabbix pada langkah berikutnya:
 ```env
 ZABBIX_WEBHOOK_TOKEN=<string-acak-yang-kuat>
 ```
-Endpoint `/zabbix/webhook/` **tanpa login** (dipanggil server Zabbix, bukan
-browser) — keamanannya murni dari token ini, jadi wajib diisi sebelum
-dipakai di produksi.
+Endpoint `/device-mon/zabbix/webhook/` **tanpa login** (dipanggil server
+Zabbix, bukan browser) — keamanannya murni dari token ini, jadi wajib
+diisi sebelum dipakai di produksi.
 
 ### 2.2. Buat Media Type "Webhook" di Zabbix
 **Alerts → Media types → Create media type**
@@ -74,7 +77,7 @@ dipakai di produksi.
 
   | Name | Value |
   |---|---|
-  | `url` | `https://fasop.domain-anda/zabbix/webhook/` |
+  | `url` | `https://fasop.domain-anda/device-mon/zabbix/webhook/` |
   | `token` | `<isi sama dengan ZABBIX_WEBHOOK_TOKEN>` |
   | `event_status` | `{EVENT.STATUS}` |
   | `eventid` | `{EVENT.ID}` |
@@ -150,7 +153,7 @@ dipakai di produksi.
 ## 3. Kontrak payload webhook (referensi)
 
 ```
-POST /zabbix/webhook/
+POST /device-mon/zabbix/webhook/
 Header:  X-Zabbix-Webhook-Token: <ZABBIX_WEBHOOK_TOKEN>
          (atau ?token=... di query string kalau Zabbix versi lama tidak
          bisa set header custom lewat HttpRequest)
@@ -170,7 +173,7 @@ Body:
 Idempoten: request dengan `eventid` + `event_status` yang sama persis dua
 kali (Zabbix retry) tidak akan membuat log ganda. Setiap request — berhasil
 atau ditolak (token salah, JSON tidak valid, dsb.) — dicatat di
-**Admin → Zabbix Monitor → Log Webhook Zabbix**, cara tercepat
+**Admin → Device Monitor → Log Webhook Zabbix**, cara tercepat
 mendiagnosis kalau Action di Zabbix sudah jalan tapi status di FASOP tidak
 berubah.
 
@@ -193,19 +196,68 @@ ZABBIX_HOST_GROUPS=
 ZABBIX_WEBHOOK_TOKEN=
 ```
 
-Cron `sync_zabbix` (lihat §1). Dashboard: **Monitoring → Zabbix Monitor**
-di sidebar, atau langsung `/zabbix/`.
+Cron `sync_zabbix` (lihat §1). Dashboard: sidebar **Device Monitor →
+Zabbix**, atau langsung `/device-mon/zabbix/`.
 
 Opsional — hubungkan host Zabbix ke aset FASOP yang sudah ada: buka
-**Secure Panel → Zabbix Monitor → Host Zabbix**, pilih host, isi field
+**Secure Panel → Device Monitor → Host Zabbix**, pilih host, isi field
 **Perangkat FASOP** (autocomplete dari `devices.Device`). Tidak wajib —
 dashboard tetap berfungsi penuh tanpa mapping ini.
 
-## 5. Debug cepat
+---
+
+## 5. Debug koneksi Zabbix API gagal
+
+Kalau `sync_zabbix --dry-run` error atau tidak mengembalikan host sama
+sekali, urutan pengecekan yang paling sering menemukan masalahnya:
+
+1. **URL API salah path.** `ZABBIX_API_URL` harus menunjuk persis ke file
+   `api_jsonrpc.php`, bukan ke root Zabbix. Tergantung instalasi, bisa
+   `http://host/api_jsonrpc.php` **atau** `http://host/zabbix/api_jsonrpc.php`
+   (kalau Zabbix di-deploy di subpath `/zabbix/`). Coba `curl` manual dari
+   server FASOP dulu sebelum menuduh kode:
+   ```bash
+   curl -sS -X POST -H 'Content-Type: application/json-rpc' \
+     -d '{"jsonrpc":"2.0","method":"apiinfo.version","params":{},"id":1}' \
+     "$ZABBIX_API_URL"
+   ```
+   Respons yang benar: `{"jsonrpc":"2.0","result":"7.0.x","id":1}`. Kalau
+   ini gagal (timeout, connection refused, 404 HTML bukan JSON), masalahnya
+   di jaringan/URL — **bukan** di kode Python, jadi cek dulu sebelum lanjut
+   ke poin berikutnya.
+2. **Jaringan tersambung tapi port/firewall API beda dari port biasa
+   diakses.** "Server FASOP sudah terhubung ke jaringan Zabbix" biasanya
+   berarti bisa ping/traceroute — belum tentu port HTTP/HTTPS Zabbix
+   frontend (biasanya 80/443, kadang custom) dibuka untuk IP FASOP secara
+   spesifik. Uji dengan `curl` di atas (bukan `ping`), atau `nc -zv <host>
+   <port>` untuk cek port saja.
+3. **Token/kredensial salah atau kedaluwarsa.** Zabbix API akan balas JSON
+   error yang jelas (`"error":{"message":"...", "data":"..."}"`) — baca
+   `data`-nya, sync_zabbix meneruskan pesan itu apa adanya ke stderr/log.
+4. **HTTPS dengan sertifikat self-signed / internal CA.** `requests` (dipakai
+   `device_mon/zabbix_api.py`) akan menolak sertifikat yang tidak dipercaya
+   default Python — kalau `ZABBIX_API_URL` pakai `https://` dan sertifikatnya
+   bukan dari CA publik, curl manual di atas juga akan gagal dengan error SSL
+   yang sama. Solusi: pasang CA internal ke trust store OS server FASOP
+   (bukan menonaktifkan verifikasi TLS).
+5. **`ZABBIX_HOST_GROUPS` menyaring semua host.** Kalau diisi, nama harus
+   PERSIS sama (case-sensitive) dengan nama Host Group di Zabbix
+   (**Data collection → Host groups**). Salah ketik = hasil kosong tanpa
+   error. Kosongkan dulu untuk isolasi masalah, isi lagi setelah koneksi
+   dasar terbukti jalan.
+6. **User API tidak punya akses ke host group manapun.** Role "Read only"
+   saja tidak cukup kalau user itu tidak di-assign ke Host Group yang
+   relevan (**Users → Users → [user] → Permissions**) — hasilnya
+   `host.get` sukses tapi mengembalikan list kosong, bukan error.
+
+Setelah `curl` manual di poin 1 berhasil, `sync_zabbix --dry-run` hampir
+pasti akan berhasil juga — kalau masih gagal di titik ini, errornya
+biasanya di token/permission (poin 3/6), bukan jaringan lagi.
+
+## 6. Debug cepat (setelah koneksi API/webhook jalan)
 
 - Host tidak muncul sama sekali → jalankan `python manage.py sync_zabbix
-  --dry-run` dan baca error-nya (URL salah, token/kredensial salah,
-  `ZABBIX_HOST_GROUPS` menyaring semua host, dll).
+  --dry-run` dan baca error-nya (lihat §5).
 - Host muncul tapi status basi (`last_synced_at` lama) → cron `sync_zabbix`
   tidak jalan atau error — cek `/var/log/fasop/sync_zabbix.log`.
 - Webhook tidak pernah masuk → cek **Log Webhook Zabbix** di admin

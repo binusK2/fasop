@@ -298,7 +298,7 @@ body {
                 <i class="bi bi-layout-sidebar-reverse" id="collapse-icon"></i>
             </button>
         </div>
-        <div class="sb-section-label">Device Monitor</div>
+        <div class="sb-section-label">RTU (SCADA)</div>
         <a href="/device-mon/" class="sb-link {% if request.resolver_match.url_name == 'dm_dashboard' %}active{% endif %}">
             <i class="bi bi-grid-3x3-gap-fill sb-icon"></i>
             <span class="sb-label">Dashboard</span>
@@ -311,6 +311,15 @@ body {
         <a href="/device-mon/availability/" class="sb-link {% if request.resolver_match.url_name == 'dm_availability' %}active{% endif %}">
             <i class="bi bi-bar-chart-fill sb-icon" style="color:#60a5fa;"></i>
             <span class="sb-label">Availability</span>
+        </a>
+        <div class="sb-section-label" style="margin-top:8px;">Zabbix</div>
+        <a href="/device-mon/zabbix/" class="sb-link {% if request.resolver_match.url_name == 'dm_zbx_dashboard' %}active{% endif %}">
+            <i class="bi bi-diagram-3-fill sb-icon" style="color:#f97316;"></i>
+            <span class="sb-label">Dashboard</span>
+        </a>
+        <a href="/device-mon/zabbix/gangguan/" class="sb-link {% if request.resolver_match.url_name == 'dm_zbx_gangguan' %}active{% endif %}">
+            <i class="bi bi-exclamation-triangle-fill sb-icon" style="color:#f87171;"></i>
+            <span class="sb-label">Histori Problem</span>
         </a>
         <div class="sb-section-label" style="margin-top:8px;">Aplikasi Lain</div>
         <a href="/opsis/" class="sb-link">

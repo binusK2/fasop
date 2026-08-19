@@ -4,7 +4,7 @@ Tarik status host dari Zabbix API (pull) setiap beberapa menit, deteksi
 transisi state (OK <-> PROBLEM), simpan ke ZabbixEventLog, dan update
 master ZabbixHost.
 
-Ini pelengkap webhook (zabbix_mon.views.webhook_receiver) yang push
+Ini pelengkap webhook (device_mon.views.zbx_webhook_receiver) yang push
 realtime saat trigger naik/turun — sync_zabbix tetap dibutuhkan sebagai
 sumber kebenaran periodik: kalau webhook gagal terkirim (Zabbix server
 down, jaringan putus, Action belum dikonfigurasi dengan benar) status di
@@ -27,13 +27,13 @@ from django.core.management.base import BaseCommand
 from django.conf import settings
 from django.utils import timezone
 
-from zabbix_mon.models import ZabbixHost, ZabbixEventLog
-from zabbix_mon.zabbix_api import get_current_status, ZabbixAPIError
-from zabbix_mon.notifications import notif_transisi
+from device_mon.models import ZabbixHost, ZabbixEventLog
+from device_mon.zabbix_api import get_current_status, ZabbixAPIError
+from device_mon.notifications import notif_zabbix_transisi
 
 logger = logging.getLogger(__name__)
 
-RETENSI_HARI = 365   # hapus log lebih dari 1 tahun, sama seperti device_mon
+RETENSI_HARI = 365   # hapus log lebih dari 1 tahun, sama seperti collect_rtu
 
 
 def _group_names():
@@ -138,7 +138,7 @@ class Command(BaseCommand):
                     transisi += 1
 
                     if not created and host.aktif:
-                        notif_transisi(host, state, dur_tutup_menit=dur_tutup)
+                        notif_zabbix_transisi(host, state, dur_tutup_menit=dur_tutup)
                 else:
                     # State sama — sinkronkan problem_name/severity kalau berubah
                     # (mis. severity naik tapi masih 1 problem yang sama).

@@ -873,23 +873,18 @@
         <div class="sidebar-section-label">Real Time</div>
         {% with url_name=request.resolver_match.url_name|default:'' app_name=request.resolver_match.app_name|default:'' %}
         <button class="sidebar-link sidebar-group-toggle w-100 text-start border-0
-            {% if url_name|slice:':3' == 'dm_' or url_name|slice:':4' == 'zbx_' or url_name|slice:':6' == 'opsis_' or url_name|slice:':5' == 'up2b_' or app_name == 'streaming' %}active open{% endif %}"
+            {% if url_name|slice:':3' == 'dm_' or url_name|slice:':6' == 'opsis_' or url_name|slice:':5' == 'up2b_' or app_name == 'streaming' %}active open{% endif %}"
             data-target="submenu-status-peralatan" type="button">
             <span class="si-icon"><i class="bi bi-speedometer2"></i></span>
             Monitoring
             <i class="bi bi-chevron-right sidebar-toggle-btn ms-auto"></i>
         </button>
-        <div class="sidebar-submenu {% if url_name|slice:':3' == 'dm_' or url_name|slice:':4' == 'zbx_' or url_name|slice:':6' == 'opsis_' or url_name|slice:':5' == 'up2b_' or app_name == 'streaming' %}open{% endif %}"
+        <div class="sidebar-submenu {% if url_name|slice:':3' == 'dm_' or url_name|slice:':6' == 'opsis_' or url_name|slice:':5' == 'up2b_' or app_name == 'streaming' %}open{% endif %}"
              id="submenu-status-peralatan">
             <a href="{% url 'dm_dashboard' %}"
                class="sidebar-link {% if url_name|slice:':3' == 'dm_' %}active{% endif %}">
                 <span class="si-icon"><i class="bi bi-hdd-network"></i></span>
                 Device Monitoring
-            </a>
-            <a href="{% url 'zbx_dashboard' %}"
-               class="sidebar-link {% if url_name|slice:':4' == 'zbx_' %}active{% endif %}">
-                <span class="si-icon"><i class="bi bi-diagram-3-fill" style="color:#f97316;"></i></span>
-                Zabbix Monitor
             </a>
             <a href="{% url 'opsis_dashboard' %}"
                class="sidebar-link {% if url_name|slice:':6' == 'opsis_' %}active{% endif %}">

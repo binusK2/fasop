@@ -1,4 +1,4 @@
-{% extends "zabbix_mon/base.html" %}
+{% extends "device_mon/base.html" %}
 {% block title %}Detail {{ host.nama }}{% endblock %}
 
 {% block extra_head %}
@@ -64,17 +64,17 @@
     transition: .15s;
 }
 .period-btn.active, .period-btn:hover {
-    border-color: #ea580c;
-    color: #fed7aa;
-    background: rgba(234,88,12,.1);
+    border-color: #1d4ed8;
+    color: #93c5fd;
+    background: rgba(29,78,216,.1);
 }
 </style>
 {% endblock %}
 
 {% block content %}
 <div style="margin-bottom:14px;">
-    <a href="{% url 'zbx_dashboard' %}" style="font-size:12px; color:var(--muted); text-decoration:none;">
-        <i class="bi bi-arrow-left me-1"></i>Kembali ke Dashboard
+    <a href="{% url 'dm_zbx_dashboard' %}" style="font-size:12px; color:var(--muted); text-decoration:none;">
+        <i class="bi bi-arrow-left me-1"></i>Kembali ke Dashboard Zabbix
     </a>
 </div>
 
@@ -95,16 +95,16 @@
 </div>
 
 <div class="avail-grid">
-    <div class="avail-card" style="border-color:rgba(249,115,22,.3);">
+    <div class="avail-card" style="border-color:rgba(59,130,246,.3);">
         <div class="avail-lbl"><i class="bi bi-calendar-day me-1"></i>Availability Hari Ini</div>
-        <div class="avail-val" style="color:#fb923c;" id="av-hari">—<span style="font-size:14px;font-weight:400;color:var(--muted);">%</span></div>
+        <div class="avail-val" style="color:#60a5fa;" id="av-hari">—<span style="font-size:14px;font-weight:400;color:var(--muted);">%</span></div>
     </div>
     <div class="avail-card" style="border-color:rgba(16,185,129,.3);">
         <div class="avail-lbl"><i class="bi bi-clock me-1"></i>Durasi State Saat Ini</div>
         <div class="avail-val" style="color:#10b981;" id="av-durasi">—</div>
     </div>
     <div class="avail-card" style="border-color:rgba(239,68,68,.3);">
-        <div class="avail-lbl"><i class="bi bi-shield-check me-1" ></i>Availability Periode</div>
+        <div class="avail-lbl"><i class="bi bi-shield-check me-1"></i>Availability Periode</div>
         <div class="avail-val" style="color:#f87171;" id="av-periode">—</div>
     </div>
 </div>
@@ -112,7 +112,7 @@
 <div class="chart-card" style="margin-bottom:16px;">
     <div class="chart-head">
         <div class="chart-title">
-            <i class="bi bi-activity me-1" style="color:#fb923c;"></i>
+            <i class="bi bi-activity me-1" style="color:#60a5fa;"></i>
             Timeline OK / PROBLEM — <span id="chart-periode-lbl">7 Hari</span> Terakhir
         </div>
         <div style="display:flex;gap:6px;">
@@ -129,7 +129,7 @@
 <div class="chart-card">
     <div class="chart-head">
         <div class="chart-title">
-            <i class="bi bi-list-ul me-1" style="color:#fb923c;"></i>
+            <i class="bi bi-list-ul me-1" style="color:#60a5fa;"></i>
             Histori State
         </div>
         <span style="font-size:11px;color:var(--muted);" id="log-count">—</span>
@@ -157,12 +157,12 @@
 
 {% block extra_js %}
 <script>
-Chart.defaults.color = '#8a6a45';
+Chart.defaults.color = '#3d6896';
 Chart.defaults.font.family = 'DM Sans';
 
 let chartTimeline = null;
 let currentHari   = 7;
-const logsUrl = '{% url "zbx_api_host_logs" pk=host.pk %}';
+const logsUrl = '{% url "dm_zbx_api_host_logs" pk=host.pk %}';
 
 function fmtDur(menit) {
     if (menit === null || menit === undefined) return '—';
@@ -172,7 +172,7 @@ function fmtDur(menit) {
 }
 
 function colorAvail(v) {
-    if (v === null || v === undefined) return '#8a6a45';
+    if (v === null || v === undefined) return '#5d8ab5';
     return v >= 99 ? '#10b981' : v >= 95 ? '#f59e0b' : '#ef4444';
 }
 
@@ -232,15 +232,15 @@ function renderTimeline(logs) {
             plugins: {
                 legend: { display: true, labels: { boxWidth: 12, font: { size: 11 } } },
                 tooltip: {
-                    backgroundColor: 'rgba(26,15,7,.95)',
-                    titleColor:'#b58a5d', bodyColor:'#ffe0c2',
-                    borderColor:'#3a2412', borderWidth:1,
+                    backgroundColor: 'rgba(7,17,31,.95)',
+                    titleColor:'#5d8ab5', bodyColor:'#cce0ff',
+                    borderColor:'#112240', borderWidth:1,
                     callbacks: { label: ctx => ` ${ctx.dataset.label}: ${fmtDur(ctx.parsed.y)}` }
                 }
             },
             scales: {
                 x: { stacked: true, grid: { display: false }, ticks: { maxTicksLimit: 10, font: { size: 10 } } },
-                y: { stacked: true, grid: { color: '#2b1a0d' }, ticks: { callback: v => fmtDur(v), font: { size: 10 } } }
+                y: { stacked: true, grid: { color: '#0d1e36' }, ticks: { callback: v => fmtDur(v), font: { size: 10 } } }
             }
         }
     });
@@ -256,7 +256,7 @@ function renderTable(logs) {
     tbody.innerHTML = [...logs].reverse().map((l, i) => `
         <tr>
             <td style="color:var(--muted);">${i+1}</td>
-            <td><span class="tag-${l.state.toLowerCase()}">${l.state}</span></td>
+            <td><span class="tag-${l.state === 'OK' ? 'up' : 'down'}">${l.state}</span></td>
             <td style="font-size:11px;">${l.problem_name || '—'}</td>
             <td style="font-size:11px;color:var(--muted);">${l.source}</td>
             <td>${l.mulai}</td>
