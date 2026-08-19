@@ -15,6 +15,17 @@ from .notifications import notif_zabbix_transisi
 
 logger = logging.getLogger(__name__)
 
+# Severity Zabbix yang DIPERHITUNGKAN sebagai downtime di angka availability.
+# Problem dengan severity lain (Warning, Average, Information, dst) tetap
+# tampil di dashboard/histori sebagai problem aktif, tapi tidak menurunkan
+# availability — sesuai kesepakatan: hanya gangguan High yang dihitung.
+SEVERITY_DIHITUNG = ['High']
+
+
+def _filter_avail(qs):
+    """Batasi queryset log PROBLEM ke severity yang dihitung sebagai downtime."""
+    return qs.filter(severity__in=SEVERITY_DIHITUNG)
+
 
 def _boundaries():
     """
@@ -516,9 +527,9 @@ def zbx_api_summary(request):
 
     host_ids = [h.pk for h in hosts]
     down_today = list(
-        ZabbixEventLog.objects.filter(
+        _filter_avail(ZabbixEventLog.objects.filter(
             host_id__in=host_ids, state='PROBLEM', mulai__lt=now,
-        ).filter(Q(selesai__gt=today_start) | Q(selesai__isnull=True))
+        )).filter(Q(selesai__gt=today_start) | Q(selesai__isnull=True))
     )
     today_by_host = {}
     for log in down_today:
@@ -582,9 +593,9 @@ def zbx_api_summary(request):
     avg_avail_hari = round(sum(avail_hari_list) / len(avail_hari_list), 2) if avail_hari_list else None
 
     down_month = list(
-        ZabbixEventLog.objects.filter(
+        _filter_avail(ZabbixEventLog.objects.filter(
             host_id__in=host_ids, state='PROBLEM', mulai__lt=now,
-        ).filter(Q(selesai__gt=month_start) | Q(selesai__isnull=True))
+        )).filter(Q(selesai__gt=month_start) | Q(selesai__isnull=True))
     )
     total_menit_month = max(1, int((now - month_start).total_seconds() / 60))
     avg_avail_bulan = _calc_avail(down_month, month_start, now, total_menit_month * len(hosts))
@@ -662,14 +673,14 @@ def zbx_api_status(request):
 
     host_ids = [h.pk for h in hosts]
     down_today = list(
-        ZabbixEventLog.objects.filter(
+        _filter_avail(ZabbixEventLog.objects.filter(
             host_id__in=host_ids, state='PROBLEM', mulai__lt=now,
-        ).filter(Q(selesai__gt=today_start) | Q(selesai__isnull=True))
+        )).filter(Q(selesai__gt=today_start) | Q(selesai__isnull=True))
     )
     down_month = list(
-        ZabbixEventLog.objects.filter(
+        _filter_avail(ZabbixEventLog.objects.filter(
             host_id__in=host_ids, state='PROBLEM', mulai__lt=now,
-        ).filter(Q(selesai__gt=month_start) | Q(selesai__isnull=True))
+        )).filter(Q(selesai__gt=month_start) | Q(selesai__isnull=True))
     )
 
     def group_by_host(logs):
@@ -762,12 +773,13 @@ def zbx_api_host_logs(request, pk):
 
     logs = ZabbixEventLog.objects.filter(host=host, mulai__gte=since).order_by('mulai')
     total_menit = max(1, int((now - since).total_seconds() / 60))
-    problem_logs = [l for l in logs if l.state == 'PROBLEM']
+    problem_logs = [l for l in logs
+                    if l.state == 'PROBLEM' and l.severity in SEVERITY_DIHITUNG]
     avail_periode = _calc_avail(problem_logs, since, now, total_menit)
 
-    down_today = [l for l in ZabbixEventLog.objects.filter(
+    down_today = [l for l in _filter_avail(ZabbixEventLog.objects.filter(
         host=host, state='PROBLEM', mulai__lt=now,
-    ).filter(Q(selesai__gt=today_start) | Q(selesai__isnull=True))]
+    )).filter(Q(selesai__gt=today_start) | Q(selesai__isnull=True))]
     avail_hari = _calc_avail(down_today, today_start, now,
                              max(1, int((now - today_start).total_seconds() / 60)))
 
