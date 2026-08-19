@@ -80,13 +80,14 @@ sudo cp /etc/nginx/sites-available/fasop /etc/nginx/sites-available/fasop.bak-$(
 Simpan ini — kalau langkah 4-5 bermasalah, tinggal copy balik file `.bak`
 ini lalu `nginx -t && systemctl reload nginx` untuk rollback instan.
 
-### 4. Tambahkan upstream + location block
+### 4. Tambahkan location block
 
 Edit file server block FASOP yang aktif (`/etc/nginx/sites-available/fasop`
-atau namanya masing-masing), tempel isi
-`deploy/nginx-opsis-pool.conf.example` — blok `upstream` di level `http`
-(luar `server {}`), blok `location /opsis/` di dalam `server {}` yang
-sudah ada.
+atau namanya masing-masing), tempel isi `deploy/nginx-opsis-pool.conf.example`
+— satu `location /opsis/` di dalam `server {}` yang sudah ada, ditaruh di
+atas `location /` yang sudah ada (proxy langsung ke `127.0.0.1:8002`, sama
+gaya dengan `location /` yang sudah ada, tidak perlu blok `upstream`
+terpisah).
 
 ### 5. WAJIB test config sebelum reload — ini yang mencegah downtime
 
