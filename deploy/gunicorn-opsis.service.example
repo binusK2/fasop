@@ -1,0 +1,44 @@
+[Unit]
+# Pool gunicorn KEDUA, terpisah dari service utama FASOP — khusus menangani
+# /opsis/* (satu-satunya rute yang query MSSQL langsung per-request; lihat
+# deploy/OPSIS_WORKER_ISOLATION.md). Kalau MSSQL macet, yang kehabisan
+# worker cuma pool ini — pool utama (dashboard, inspeksi, device-mon, dst)
+# tetap responsif.
+Description=FASOP Gunicorn - OPSIS pool (isolated, gthread workers untuk polling MSSQL)
+After=network.target
+
+[Service]
+# --- SESUAIKAN 3 baris ini dengan service fasop.service yang SUDAH ADA ---
+User=fasop
+Group=fasop
+WorkingDirectory=/home/fasop/fasop
+# --------------------------------------------------------------------------
+
+Environment="PATH=/home/fasop/fasop/venv/bin"
+
+# worker-class gthread: beberapa proses kecil, tiap proses banyak thread —
+# cocok untuk request yang mayoritas menunggu I/O (MSSQL), bukan CPU-bound.
+# Circuit breaker di opsis/mssql.py (lihat fix "circuit-break MSSQL connect
+# attempts") membuat thread yang gagal connect tidak nyangkut lama, jadi
+# --timeout di bawah cukup jadi jaring pengaman terakhir, bukan andalan utama.
+#
+# Bind ke TCP loopback (127.0.0.1), BUKAN unix socket — sengaja, supaya
+# tidak ada masalah permission/ownership socket antara user gunicorn (fasop)
+# dan user nginx (biasanya www-data/nginx). Port berapa pun boleh asal
+# tidak bentrok dengan proses lain — cek dulu: `ss -tlnp | grep 8002`.
+ExecStart=/home/fasop/fasop/venv/bin/gunicorn \
+    --workers 2 \
+    --worker-class gthread \
+    --threads 8 \
+    --timeout 45 \
+    --graceful-timeout 30 \
+    --max-requests 1000 \
+    --max-requests-jitter 100 \
+    --bind 127.0.0.1:8002 \
+    fasop.wsgi:application
+
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

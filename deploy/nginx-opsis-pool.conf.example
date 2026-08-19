@@ -1,0 +1,37 @@
+# Tambahan untuk server block nginx FASOP yang SUDAH ADA — bukan file
+# server block baru. Lihat deploy/OPSIS_WORKER_ISOLATION.md untuk urutan
+# pemasangan yang aman (tanpa downtime).
+#
+# Prefix /opsis/ adalah SATU-SATUNYA rute yang query MSSQL langsung per
+# request (sudah diverifikasi — semua app lain baca dari PostgreSQL yang
+# disinkronkan cron). Jadi cukup satu location block ini; tidak perlu
+# menambah pengecualian lain.
+
+# 1) Tambahkan blok upstream ini di luar (di atas) blok `server { ... }`,
+#    di level http, sejajar dengan upstream lain kalau sudah ada:
+upstream fasop_opsis {
+    server 127.0.0.1:8002;
+}
+
+# 2) Tambahkan location block ini DI DALAM server { ... } yang sudah ada,
+#    di atas/sebelum location `/` yang sudah ada — nginx sendiri sebenarnya
+#    memilih prefix TERPANJANG yang cocok (bukan berdasar urutan), tapi
+#    taruh di dekat location existing lain supaya mudah dibaca:
+location /opsis/ {
+    proxy_pass http://fasop_opsis;
+
+    proxy_set_header Host              $host;
+    proxy_set_header X-Real-IP         $remote_addr;
+    proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+
+    proxy_connect_timeout 10s;
+    proxy_read_timeout    60s;
+    proxy_send_timeout    60s;
+}
+
+# Static/media tetap dilayani seperti biasa (lewat location static/media
+# yang sudah ada di server block existing, atau langsung oleh nginx) —
+# tidak perlu diduplikasi, karena kedua pool gunicorn berasal dari
+# STATIC_ROOT/MEDIA_ROOT yang sama persis (satu codebase, satu venv,
+# hanya beda proses).
