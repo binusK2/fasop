@@ -361,3 +361,8 @@ sudo systemctl reload nginx
 ```
 
 Rollback: `git revert <commit>` then redeploy. Never edit files directly on the server.
+
+If OPSIS worker isolation is set up (`deploy/OPSIS_WORKER_ISOLATION.md` — a
+second gunicorn pool dedicated to `/opsis/*` so an MSSQL outage can't
+exhaust workers for the rest of FASOP), also `sudo systemctl restart
+fasop-opsis` on code deploys, same as the main `gunicorn`/`fasop` service.
