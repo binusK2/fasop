@@ -568,15 +568,11 @@
 {% endblock %}
 
 {% block extra_js %}
+{# Warna per jenis pembangkit — satu-satunya definisi ada di opsis/models.py (JENIS_WARNA) #}
+{{ jenis_warna|json_script:"jenis-warna" }}
 <script>
 const KODE_LIST = [{% for p in pembangkit_list %}"{{ p.kode }}"{% if not forloop.last %},{% endif %}{% endfor %}];
-
-// Warna per jenis pembangkit
-const JENIS_WARNA = {
-    PLTA: '#3b82f6', PLTB: '#22c55e', PLTD: '#ef4444',
-    PLTU: '#f59e0b', PLTG: '#a855f7', PLTGU: '#06b6d4',
-    PLTS: '#eab308', LAIN: '#64748b',
-};
+const JENIS_WARNA = JSON.parse(document.getElementById('jenis-warna').textContent);
 
 // Mapping kode → jenis (untuk komposisi chart)
 const PB_INFO = {

@@ -317,6 +317,10 @@ body { font-family:'DM Sans', sans-serif; background:var(--body-bg); color:var(-
             <i class="bi bi-graph-up-arrow sb-icon"></i>
             <span class="sb-label">Analitik Prediksi</span>
         </a>
+        <a href="/opsis/peta/" class="sb-link {% if request.resolver_match.url_name == 'opsis_peta_pembangkit' %}active{% endif %}">
+            <i class="bi bi-pin-map-fill sb-icon"></i>
+            <span class="sb-label">Peta Pembangkit</span>
+        </a>
         {% endif %}
         <a href="/opsis/up2d/" class="sb-link {% if request.resolver_match.url_name == 'opsis_up2d' %}active{% endif %}">
             <i class="bi bi-diagram-3-fill sb-icon"></i>

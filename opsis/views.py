@@ -1,4 +1,5 @@
 import datetime
+import math
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
@@ -8,8 +9,8 @@ from django.contrib import messages
 from django.shortcuts import redirect
 from django.urls import reverse
 from .models import (Pembangkit, SnapLive, SnapFreq, SnapFreqRT, Trafo, SnapTrafo,
-                     HopPembangkit, HopSnapshot, HOP_KATEGORI_CHOICES,
-                     hop_status, hop_deskripsi_band, hop_garis_ambang)
+                     HopPembangkit, HopSnapshot, HOP_KATEGORI_CHOICES, JENIS_CHOICES,
+                     JENIS_WARNA, hop_status, hop_deskripsi_band, hop_garis_ambang)
 from . import mssql
 from . import prediksi
 from . import hop as hop_io
@@ -91,6 +92,7 @@ def dashboard(request):
         'pembangkit_list': pembangkit_list,
         'grouped':         grouped,
         'bisa_flag':       _bisa_flag(request.user),
+        'jenis_warna':     JENIS_WARNA,
     })
 
 
@@ -110,6 +112,99 @@ def up2d(request):
     pembangkit_list = _pembangkit_aktif()
     return render(request, 'opsis/up2d.html', {
         'pembangkit_list': pembangkit_list,
+    })
+
+
+# ═══════════════════════════════════════════════════════════════════════
+#  Peta Pembangkit — sebaran pembangkit di peta Sulawesi + tabel daya
+# ═══════════════════════════════════════════════════════════════════════
+
+# Ukuran satu pin di peta dalam persen viewBox — ikon + label daya di bawahnya.
+# Dua pin dianggap saling menutup bila jaraknya lebih rapat dari ini.
+PIN_MIN_DX = 7.2    # ±72 px pada viewBox 1000 — selebar label "165,6"
+PIN_MIN_DY = 5.2    # ±65 px pada viewBox 1244 — setinggi ikon + labelnya
+
+# Urutan posisi cadangan yang dicoba saat sebuah pin bertabrakan: titik asli
+# dulu, lalu cincin makin melebar (mulai dari arah bawah, memutar) sehingga pin
+# tetap sedekat mungkin dengan lokasi aslinya.
+_GESER_PIN = [(0.0, 0.0)]
+for _r in (1.05, 1.8, 2.6, 3.5):
+    for _i in range(8):
+        _a = 2 * math.pi * _i / 8 + math.pi / 2
+        _GESER_PIN.append((round(_r * PIN_MIN_DX * math.cos(_a), 2),
+                           round(_r * PIN_MIN_DY * math.sin(_a), 2)))
+
+
+def _sebar_pin(pins):
+    """
+    Geser pin yang saling menutup agar ikon dan label dayanya tetap terbaca.
+
+    Banyak pembangkit berdiri berdekatan — mis. PLTD GE Tello, PLTD Tello
+    Biosolar, dan MPP Tello di satu lokasi, atau rombongan pembangkit di sekitar
+    Manado — sehingga label MW-nya bertumpuk. Pin ditempatkan satu per satu dari
+    utara ke selatan; yang bertabrakan dengan pin yang sudah ditempatkan dicoba
+    pada posisi cadangan terdekat (_GESER_PIN). Deterministik, jadi pin tidak
+    berpindah-pindah tiap reload. Dimodifikasi in-place.
+    """
+    ditempatkan = []
+    for pin in sorted(pins, key=lambda p: (p['y'], p['x'])):
+        asal_x, asal_y = pin['x'], pin['y']
+        for dx, dy in _GESER_PIN:
+            pin['x'], pin['y'] = round(asal_x + dx, 2), round(asal_y + dy, 2)
+            if not any(abs(pin['x'] - q['x']) < PIN_MIN_DX and abs(pin['y'] - q['y']) < PIN_MIN_DY
+                       for q in ditempatkan):
+                break
+        # Semua kandidat penuh (sangat padat) → pakai kandidat terakhir apa adanya.
+        ditempatkan.append(pin)
+    return pins
+
+
+@login_required
+def peta_pembangkit(request):
+    """
+    Peta sebaran pembangkit se-Sulawesi + tabel DMN / daya aktif / daya reaktif.
+
+    Angka daya tidak dirender di sini: halaman menariknya dari /opsis/api/live/
+    (endpoint yang sama dengan dashboard) tiap 5 detik, supaya peta, tabel, dan
+    kartu dashboard selalu memakai satu sumber angka yang sama.
+    """
+    pembangkit_list = _pembangkit_aktif()
+
+    pins, tanpa_posisi = [], []
+    for p in pembangkit_list:
+        item = {'pk': p.pk, 'kode': p.kode, 'nama': p.nama, 'jenis': p.jenis,
+                'warna': JENIS_WARNA.get(p.jenis, JENIS_WARNA['LAIN'])}
+        pos = p.posisi_peta()
+        if pos is None:
+            # Belum punya koordinat — tetap masuk tabel, hanya tak muncul di peta.
+            tanpa_posisi.append(item)
+            continue
+        pins.append({**item, 'x': pos[0], 'y': pos[1]})
+
+    _sebar_pin(pins)
+    for pin in pins:
+        pin['cx'] = round(pin['x'] / 100 * MAP_W, 1)
+        pin['cy'] = round(pin['y'] / 100 * MAP_H, 1)
+
+    # Legenda: hanya jenis yang benar-benar ada pembangkitnya
+    jumlah_jenis = {}
+    for p in pembangkit_list:
+        jumlah_jenis[p.jenis] = jumlah_jenis.get(p.jenis, 0) + 1
+    legenda = [{'kode': kode,
+                'label': label.split('—')[0].strip(),
+                'warna': JENIS_WARNA.get(kode, JENIS_WARNA['LAIN']),
+                'jumlah': jumlah_jenis[kode]}
+               for kode, label in JENIS_CHOICES if kode in jumlah_jenis]
+
+    return render(request, 'opsis/peta_pembangkit.html', {
+        'pembangkit_list': pembangkit_list,
+        'pins':            pins,
+        'tanpa_posisi':    tanpa_posisi,
+        'legenda':         legenda,
+        'jenis_warna':     JENIS_WARNA,
+        'map_path':        SULAWESI_PATH,
+        'map_w':           MAP_W,
+        'map_h':           MAP_H,
     })
 
 
@@ -1385,7 +1480,6 @@ def hop_input(request):
 # ═══════════════════════════════════════════════════════════════════════════
 #  HOP — Dashboard eksekutif (ringkas & lengkap, dengan peta Sulawesi)
 # ═══════════════════════════════════════════════════════════════════════════
-import math as _math
 
 
 def _hop_tren_sistem(kategori, hari=30):
@@ -1447,8 +1541,8 @@ def _gauge(value, kategori='batubara'):
     cx, cy, r = 100.0, 105.0, 82.0
 
     def pol(v):
-        ang = _math.radians(180 - max(0, min(vmax, v)) / vmax * 180)
-        return (cx + r * _math.cos(ang), cy - r * _math.sin(ang))
+        ang = math.radians(180 - max(0, min(vmax, v)) / vmax * 180)
+        return (cx + r * math.cos(ang), cy - r * math.sin(ang))
 
     def arc(v1, v2, color):
         x1, y1 = pol(v1)

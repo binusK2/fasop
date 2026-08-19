@@ -14,6 +14,21 @@ JENIS_CHOICES = [
 ]
 
 
+# Warna per jenis pembangkit — dipakai kartu/chart komposisi dashboard dan ikon
+# Peta Pembangkit. Ini satu-satunya definisi: view yang butuh warna mengirimnya
+# ke template, jangan menyalin dict ini ke dalam <script>.
+JENIS_WARNA = {
+    'PLTA':  '#3b82f6',
+    'PLTB':  '#22c55e',
+    'PLTD':  '#ef4444',
+    'PLTU':  '#f59e0b',
+    'PLTG':  '#a855f7',
+    'PLTGU': '#06b6d4',
+    'PLTS':  '#eab308',
+    'LAIN':  '#64748b',
+}
+
+
 class Pembangkit(models.Model):
     nama          = models.CharField(max_length=100, verbose_name='Nama Pembangkit')
     kode          = models.CharField(max_length=20, unique=True, verbose_name='Kode')
@@ -52,6 +67,15 @@ class Pembangkit(models.Model):
     dmp_kolom_dmp = models.CharField(max_length=50, blank=True, default='', verbose_name='Kolom DMP',
                                       help_text='Nama kolom KIT_DMP berisi Daya Mampu Pasok (MW). '
                                                 'Kosongkan bila DMP tidak tersedia.')
+    # ── Posisi pin pada Peta Pembangkit (/opsis/peta/) ─────────────────
+    # Persen terhadap viewBox peta Sulawesi: peta_x 0=barat, 100=timur;
+    # peta_y 0=utara, 100=selatan. Kosongkan untuk memakai posisi bawaan
+    # opsis.hop_map.posisi_pembangkit() yang dicocokkan dari nama pembangkit;
+    # isi hanya bila pembangkit belum terdaftar di sana atau pinnya perlu digeser.
+    peta_x        = models.FloatField(null=True, blank=True, verbose_name='Posisi Peta X (%)',
+                                      help_text='0–100, persen dari kiri peta. Kosongkan untuk posisi bawaan.')
+    peta_y        = models.FloatField(null=True, blank=True, verbose_name='Posisi Peta Y (%)',
+                                      help_text='0–100, persen dari atas peta. Kosongkan untuk posisi bawaan.')
     # Penanda data tidak valid / tidak sesuai kondisi real (diisi manual oleh
     # superuser / role Opsis dari dashboard). Bila False, tampilan dashboard
     # tidak berubah; bila True, kartu diberi label ketidaksesuaian.
@@ -88,6 +112,17 @@ class Pembangkit(models.Model):
     def pakai_dmp(self):
         """True bila minimal satu kolom DMN/DMP dikonfigurasi."""
         return bool(self.dmp_kolom_dmn.strip() or self.dmp_kolom_dmp.strip())
+
+    def posisi_peta(self):
+        """
+        (x%, y%) pin pada Peta Pembangkit, atau None bila pembangkit ini belum
+        punya posisi. peta_x/peta_y dari admin menang atas tabel bawaan
+        opsis.hop_map (dicocokkan dari nama).
+        """
+        from opsis.hop_map import posisi_pembangkit
+        if self.peta_x is not None and self.peta_y is not None:
+            return (self.peta_x, self.peta_y)
+        return posisi_pembangkit(self.nama)
 
 
 HOP_KATEGORI_CHOICES = [

@@ -10,10 +10,20 @@ class PembangkitAdmin(admin.ModelAdmin):
                      'data_tidak_sesuai', 'pakai_dmp')
     list_editable = ('urutan', 'jenis', 'supply', 'aktif')
     list_filter   = ('jenis', 'supply', 'aktif', 'data_tidak_sesuai')
+    search_fields = ('nama', 'kode')
     list_display_links = ('nama',)
     readonly_fields = ('ditandai_oleh', 'ditandai_pada')
     fieldsets = (
         (None, {'fields': ('nama', 'kode', 'jenis', 'supply', 'warna', 'urutan', 'aktif')}),
+        ('Posisi di Peta Pembangkit', {
+            'classes': ('collapse',),
+            'description': 'Posisi pin pada /opsis/peta/ dalam persen viewBox peta Sulawesi '
+                           '(X: 0 = barat, 100 = timur; Y: 0 = utara, 100 = selatan). Kosongkan '
+                           'keduanya untuk memakai posisi bawaan yang dicocokkan dari nama '
+                           'pembangkit (opsis/hop_map.py). Isi hanya bila pembangkit belum '
+                           'terdaftar di sana atau pinnya perlu digeser.',
+            'fields': ('peta_x', 'peta_y'),
+        }),
         ('Penanda Data Tidak Sesuai', {
             'description': 'Diisi manual (juga bisa dari dashboard OPSIS oleh superuser/Opsis). '
                             'Bila dicentang, kartu pembangkit di dashboard diberi label ketidaksesuaian.',

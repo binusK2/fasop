@@ -1,0 +1,469 @@
+{% extends "opsis/opsis_base.html" %}
+{% block title %}Peta Pembangkit — OPSIS{% endblock %}
+
+{% block extra_head %}
+<style>
+/* ── Layout: peta dominan di kiri, tabel menyesuaikan di kanan ───────── */
+.pp-grid { display:grid; grid-template-columns:1.7fr 1fr; gap:16px; align-items:start; }
+@media (max-width:1250px){ .pp-grid { grid-template-columns:1fr; } }
+
+.pp-card { background:var(--card-bg); border:1px solid var(--card-bd); border-radius:12px; overflow:hidden; }
+.pp-card > h2 {
+    font-size:11.5px; font-weight:800; text-transform:uppercase; letter-spacing:.6px; color:#cbd5e1;
+    background:rgba(255,255,255,.03); padding:10px 14px; border-bottom:1px solid var(--card-bd);
+    display:flex; align-items:center; gap:8px;
+}
+.pp-card > h2 .kanan { margin-left:auto; font-weight:600; letter-spacing:0; text-transform:none; color:var(--muted); font-size:11px; }
+.pp-card .bd { padding:14px; }
+
+/* Kolom kanan ikut menggulung bersama peta yang panjang */
+.pp-side { position:sticky; top:0; }
+
+/* ── Ringkasan ───────────────────────────────────────────────────────── */
+.pp-sum { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-bottom:16px; }
+.pp-sum .it { background:var(--card-bg); border:1px solid var(--card-bd); border-radius:12px; padding:12px 16px; }
+.pp-sum .n { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); }
+.pp-sum .v { font-family:'JetBrains Mono',monospace; font-size:24px; font-weight:800; line-height:1.2; color:var(--text); }
+.pp-sum .u { font-size:10px; color:var(--muted); }
+
+/* ── Peta ────────────────────────────────────────────────────────────── */
+.pp-legend { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px; }
+.pp-legend button {
+    display:inline-flex; align-items:center; gap:6px; background:transparent; cursor:pointer;
+    border:1px solid var(--card-bd); border-radius:20px; padding:4px 11px 4px 5px;
+    font-size:11px; font-weight:600; color:var(--muted); transition:.15s;
+}
+.pp-legend button.off { opacity:.35; }
+.pp-legend button:hover { border-color:#475569; color:var(--text); }
+.pp-legend .ic { width:20px; height:20px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#fff; }
+.pp-legend .ic svg { width:13px; height:13px; }
+.pp-legend .j { font-family:'JetBrains Mono',monospace; color:var(--text); }
+
+.pp-map { position:relative; }
+.pp-map svg.peta { display:block; width:100%; height:auto; }
+.pp-map svg.peta .land { fill:#0f766e; stroke:#5eead4; stroke-width:1.2; opacity:.9; }
+.pp-pin { cursor:pointer; }
+.pp-pin .disc { stroke:#0b1120; stroke-width:2.5; transition:.12s; }
+.pp-pin .halo { pointer-events:none; }
+.pp-pin use { color:#fff; pointer-events:none; }
+.pp-pin text {
+    fill:#e2e8f0; font-family:'JetBrains Mono',monospace; font-size:17px; font-weight:700;
+    text-anchor:middle; paint-order:stroke; stroke:#0b1120; stroke-width:5; stroke-linejoin:round;
+    pointer-events:none;
+}
+.pp-pin.mati { opacity:.42; }
+.pp-pin.sorot .disc, .pp-pin:hover .disc { stroke:#fff; stroke-width:3.5; }
+.pp-pin.sorot .halo, .pp-pin:hover .halo { opacity:.5; }
+.pp-pin.sembunyi { display:none; }
+
+.pp-tip {
+    position:absolute; pointer-events:none; z-index:20; display:none; min-width:170px;
+    background:#0f172a; border:1px solid #334155; border-radius:9px; padding:9px 11px;
+    font-size:11.5px; color:var(--text); box-shadow:0 8px 24px rgba(0,0,0,.55);
+}
+.pp-tip b { display:block; font-size:12.5px; margin-bottom:1px; }
+.pp-tip .j { display:block; font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.4px; }
+.pp-tip .r { display:flex; justify-content:space-between; gap:14px; margin-top:4px; }
+.pp-tip .r span { color:var(--muted); }
+.pp-tip .r b { display:inline; margin:0; font-family:'JetBrains Mono',monospace; font-size:12px; }
+
+/* ── Tabel ───────────────────────────────────────────────────────────── */
+.pp-tools { display:flex; gap:8px; padding:10px 12px; border-bottom:1px solid var(--card-bd); }
+.pp-tools input, .pp-tools select {
+    background:#0b1120; border:1px solid var(--card-bd); border-radius:8px; color:var(--text);
+    font-size:12px; padding:6px 10px; outline:none;
+}
+.pp-tools input { flex:1; min-width:0; }
+.pp-tools input:focus, .pp-tools select:focus { border-color:#3b82f6; }
+
+.pp-tbl-wrap { max-height:calc(100vh - 260px); overflow:auto; }
+@media (max-width:1250px){ .pp-tbl-wrap { max-height:520px; } }
+table.pp-tbl { width:100%; border-collapse:collapse; font-size:12px; }
+.pp-tbl thead th {
+    position:sticky; top:0; z-index:2; background:#16233c; cursor:pointer; user-select:none;
+    font-size:9.5px; font-weight:800; text-transform:uppercase; letter-spacing:.4px; color:var(--muted);
+    padding:9px 8px; border-bottom:1px solid var(--card-bd); text-align:right; white-space:nowrap;
+}
+.pp-tbl thead th:first-child { text-align:left; }
+.pp-tbl thead th:hover { color:var(--text); }
+.pp-tbl thead th .ar { opacity:0; font-size:8px; }
+.pp-tbl thead th.asc .ar, .pp-tbl thead th.desc .ar { opacity:1; }
+.pp-tbl thead th.desc .ar { display:inline-block; transform:rotate(180deg); }
+.pp-tbl td { padding:7px 8px; border-bottom:1px solid rgba(30,45,69,.55); text-align:right; white-space:nowrap; }
+.pp-tbl td.nm { text-align:left; white-space:normal; }
+.pp-tbl tbody tr:hover, .pp-tbl tbody tr.sorot { background:rgba(59,130,246,.10); }
+.pp-tbl .dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:7px; vertical-align:middle; }
+.pp-tbl .nm a { text-decoration:none; }
+.pp-tbl .nm b { font-weight:600; color:var(--text); }
+.pp-tbl .nm a:hover b { color:#60a5fa; }
+.pp-tbl .jn { font-size:9.5px; color:var(--muted); margin-left:6px; }
+.pp-tbl .mono { font-family:'JetBrains Mono',monospace; }
+.pp-tbl .p { color:#4ade80; font-weight:700; }
+.pp-tbl .q { color:#c084fc; }
+.pp-tbl .dmn { color:#94a3b8; }
+.pp-tbl tfoot td {
+    position:sticky; bottom:0; background:#16233c; font-family:'JetBrains Mono',monospace;
+    font-weight:800; border-top:1px solid var(--card-bd); border-bottom:none;
+}
+.pp-tbl tfoot td:first-child { font-family:'DM Sans',sans-serif; font-size:10px; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); }
+.pp-kosong { padding:22px 14px; text-align:center; font-size:12px; color:var(--muted); }
+.pp-note { font-size:11px; color:var(--muted); padding:9px 13px; border-top:1px solid var(--card-bd); display:flex; gap:7px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-3">
+  <div>
+    <h5 class="mb-0 fw-bold" style="color:#e2e8f0;">
+      <i class="bi bi-pin-map-fill me-2" style="color:#3b82f6;"></i>Peta Pembangkit
+    </h5>
+    <small style="color:#64748b;">Sebaran pembangkit se-Sulawesi — daya realtime dari KIT_REALTIME</small>
+  </div>
+  <div class="text-center">
+    <div style="font-size:10px;color:#64748b;">Update otomatis</div>
+    <div id="ppCountdown" style="font-size:18px;font-weight:700;color:#3b82f6;">5</div>
+    <div style="font-size:10px;color:#64748b;">detik</div>
+  </div>
+</div>
+
+<div id="ppTerputus" style="display:none; align-items:center; gap:8px;
+     background:rgba(239,68,68,.08); border:1px solid rgba(239,68,68,.3); border-radius:10px;
+     padding:10px 14px; font-size:12px; color:#f87171; margin-bottom:14px;">
+  <i class="bi bi-exclamation-triangle-fill"></i> Koneksi terputus ke Database
+</div>
+
+<div class="pp-sum">
+  <div class="it"><div class="n">Total Daya (P)</div><div class="v" id="sumP" style="color:#4ade80;">—</div><div class="u">MW</div></div>
+  <div class="it"><div class="n">Total Reaktif (Q)</div><div class="v" id="sumQ" style="color:#c084fc;">—</div><div class="u">MVAR</div></div>
+  <div class="it"><div class="n">Total DMN</div><div class="v" id="sumDMN">—</div><div class="u">MW</div></div>
+  <div class="it"><div class="n">Beroperasi</div><div class="v" id="sumOn" style="color:#60a5fa;">—</div><div class="u">dari {{ pembangkit_list|length }} pembangkit</div></div>
+</div>
+
+<div class="pp-grid">
+  <!-- ── KIRI: PETA ── -->
+  <div class="pp-card">
+    <h2><i class="bi bi-geo-alt-fill"></i> Sebaran Pembangkit
+      <span class="kanan">Klik ikon untuk menyorot barisnya di tabel</span>
+    </h2>
+    <div class="bd">
+      <div class="pp-legend" id="ppLegend">
+        {% for l in legenda %}
+        <button type="button" data-jenis="{{ l.kode }}" title="Sembunyikan / tampilkan {{ l.kode }}">
+          <span class="ic" style="background:{{ l.warna }};">
+            <svg viewBox="0 0 24 24"><use href="#ic-{{ l.kode|lower }}"/></svg>
+          </span>{{ l.kode }} <span class="j">{{ l.jumlah }}</span>
+        </button>
+        {% endfor %}
+      </div>
+
+      <div class="pp-map">
+        <svg class="peta" viewBox="0 0 {{ map_w }} {{ map_h }}" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <!-- Ikon jenis pembangkit (viewBox 24×24, diwarnai lewat currentColor) -->
+            <symbol id="ic-plta" viewBox="0 0 24 24">
+              <path fill="currentColor" d="M12 2.2c3.7 4.4 6.1 7.7 6.1 10.4a6.1 6.1 0 0 1-12.2 0C5.9 9.9 8.3 6.6 12 2.2z"/>
+            </symbol>
+            <symbol id="ic-pltu" viewBox="0 0 24 24">
+              <path fill="currentColor" d="M7.6 21.8 9.4 11h5.2l1.8 10.8z"/>
+              <rect x="8.9" y="9.2" width="6.2" height="1.9" rx=".6" fill="currentColor"/>
+              <path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"
+                    d="M10.6 7.2c0-1.2 1.5-1.2 1.5-2.4s-1.5-1.2-1.5-2.4M14.9 7.2c0-1 1.2-1 1.2-2"/>
+            </symbol>
+            <symbol id="ic-pltd" viewBox="0 0 24 24">
+              <path fill="currentColor" d="M4.2 2.6h8.4c.9 0 1.6.7 1.6 1.6v17.6H2.6V4.2c0-.9.7-1.6 1.6-1.6z"/>
+              <rect x="4.6" y="5" width="7.6" height="5" rx=".8" fill="#0b1120" opacity=".5"/>
+              <path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+                    d="M14.2 8.8h2.6c1 0 1.8.8 1.8 1.8v7.2a1.6 1.6 0 0 0 3.2 0v-6.6l-1.8-2.4"/>
+            </symbol>
+            <symbol id="ic-pltg" viewBox="0 0 24 24">
+              <path fill="currentColor" d="M11.1 1.6c.8 3.4-.9 5-2.6 6.8C6.6 10.4 4.9 12.4 4.9 15.3a7.1 7.1 0 0 0 14.2 0c0-2.6-1.2-4.5-2.7-6.4-.5 1.2-1.3 1.9-2.3 2.3 1-4-.6-7.7-3-9.6z"/>
+            </symbol>
+            <symbol id="ic-pltgu" viewBox="0 0 24 24">
+              <path fill="currentColor" d="M8.2 4.6c.6 2.5-.7 3.7-1.9 5C4.9 11.1 3.7 12.6 3.7 14.7a5.2 5.2 0 0 0 10.4 0c0-1.9-.9-3.3-2-4.7-.4.9-1 1.4-1.7 1.7.7-2.9-.5-5.6-2.2-7.1z"/>
+              <path fill="currentColor" d="M15.6 21.8 16.9 13h3.6l1.3 8.8z"/>
+            </symbol>
+            <symbol id="ic-pltb" viewBox="0 0 24 24">
+              <path fill="currentColor" d="M11 12.6h2l.9 9.4h-3.8z"/>
+              <circle cx="12" cy="11.4" r="1.8" fill="currentColor"/>
+              <path fill="currentColor" d="M11.2 9.9 10.3 1.6l3-.3.8 8.4zM13.5 11.9l7.6 3.4-1.3 2.7-7-4.1zM10.5 11.9 3.6 17.2 1.8 14.8l7.5-4.4z"/>
+            </symbol>
+            <symbol id="ic-plts" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="4.8" fill="currentColor"/>
+              <path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"
+                    d="M12 1.4v2.8M12 19.8v2.8M22.6 12h-2.8M4.2 12H1.4M19.5 4.5l-2 2M6.5 17.5l-2 2M19.5 19.5l-2-2M6.5 6.5l-2-2"/>
+            </symbol>
+            <symbol id="ic-lain" viewBox="0 0 24 24">
+              <path fill="currentColor" d="M13.8 1.4 5 13.6h5.4L9.6 22.6 19.4 9.9h-5.6z"/>
+            </symbol>
+          </defs>
+
+          <path class="land" d="{{ map_path }}"/>
+
+          {% for p in pins %}
+          <g class="pp-pin mati" data-kode="{{ p.kode }}" data-jenis="{{ p.jenis }}"
+             transform="translate({{ p.cx }},{{ p.cy }})">
+            <circle class="halo" r="24" fill="{{ p.warna }}" opacity=".18"/>
+            <circle class="disc" r="15" fill="{{ p.warna }}"/>
+            <use href="#ic-{{ p.jenis|lower }}" x="-10" y="-10" width="20" height="20"/>
+            <text y="35">—</text>
+          </g>
+          {% endfor %}
+        </svg>
+        <div class="pp-tip" id="ppTip"></div>
+      </div>
+    </div>
+    {% if tanpa_posisi %}
+    <div class="pp-note">
+      <i class="bi bi-info-circle"></i>
+      <span>{{ tanpa_posisi|length }} pembangkit belum punya koordinat peta
+        ({% for t in tanpa_posisi %}{{ t.nama }}{% if not forloop.last %}, {% endif %}{% endfor %})
+        — tetap tampil di tabel. Isi <b>Posisi Peta X/Y</b> pembangkit tersebut di
+        halaman admin untuk memunculkan pinnya.</span>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- ── KANAN: TABEL ── -->
+  <div class="pp-side">
+    <div class="pp-card">
+      <h2><i class="bi bi-table"></i> Daya Pembangkit
+        <span class="kanan" id="ppJumlah">{{ pembangkit_list|length }} unit</span>
+      </h2>
+      <div class="pp-tools">
+        <input type="search" id="ppCari" placeholder="Cari pembangkit…" autocomplete="off">
+        <select id="ppJenis">
+          <option value="">Semua jenis</option>
+          {% for l in legenda %}<option value="{{ l.kode }}">{{ l.kode }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="pp-tbl-wrap">
+        <table class="pp-tbl">
+          <thead>
+            <tr>
+              <th data-sort="nama">Pembangkit <span class="ar">▲</span></th>
+              <th data-sort="dmn">DMN <span class="ar">▲</span></th>
+              <th data-sort="p">P (MW) <span class="ar">▲</span></th>
+              <th data-sort="q">Q (MVAR) <span class="ar">▲</span></th>
+            </tr>
+          </thead>
+          <tbody id="ppBody">
+            {% for p in pembangkit_list %}
+            <tr data-kode="{{ p.kode }}" data-jenis="{{ p.jenis }}" data-nama="{{ p.nama|lower }}">
+              <td class="nm">
+                <span class="dot"></span>
+                <a href="/opsis/{{ p.pk }}/"><b>{{ p.nama }}</b></a><span class="jn">{{ p.jenis }}</span>
+              </td>
+              <td class="mono dmn">—</td>
+              <td class="mono p">—</td>
+              <td class="mono q">—</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td>Total</td>
+              <td id="footDMN">—</td>
+              <td id="footP" style="color:#4ade80;">—</td>
+              <td id="footQ" style="color:#c084fc;">—</td>
+            </tr>
+          </tfoot>
+        </table>
+        <div class="pp-kosong" id="ppKosong" style="display:none;">Tidak ada pembangkit yang cocok.</div>
+      </div>
+      <div class="pp-note">
+        <i class="bi bi-info-circle"></i>
+        <span>DMN dibaca dari KIT_DMP dan hanya terisi untuk pembangkit yang kolomnya
+          sudah dikonfigurasi di admin.</span>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ jenis_warna|json_script:"jenis-warna" }}
+<script>
+const JENIS_WARNA = JSON.parse(document.getElementById('jenis-warna').textContent);
+const PP_INTERVAL = 5;            // detik — sama dengan dashboard
+
+const tbody = document.getElementById('ppBody');
+const BARIS = Array.from(tbody.rows);
+
+// Kode pembangkit bisa mengandung karakter apa saja, jadi pin & baris dicari
+// lewat peta objek ini, bukan lewat selector/id yang harus di-escape.
+const PIN = {}, ROW = {};
+document.querySelectorAll('.pp-pin').forEach(g => { PIN[g.dataset.kode] = g; });
+BARIS.forEach(tr => {
+    ROW[tr.dataset.kode] = tr;
+    tr.querySelector('.dot').style.background = JENIS_WARNA[tr.dataset.jenis] || JENIS_WARNA.LAIN;
+});
+
+const fmt = (v, d) => (v === null || v === undefined || isNaN(v))
+    ? '—' : Number(v).toLocaleString('id-ID', {minimumFractionDigits:d, maximumFractionDigits:d});
+const angka = v => (v === null || v === undefined) ? null : v;
+
+// Nilai terakhir per kode — dipakai tooltip peta, total, dan pengurutan tabel
+const NILAI = {};
+
+async function muatData() {
+    let js;
+    try {
+        const r = await fetch('/opsis/api/live/', {headers:{'X-Requested-With':'XMLHttpRequest'}});
+        if (!r.ok) throw new Error(r.status);
+        js = await r.json();
+    } catch (e) {
+        document.getElementById('ppTerputus').style.display = 'flex';
+        return;
+    }
+    document.getElementById('ppTerputus').style.display = js.terputus ? 'flex' : 'none';
+    const data = js.data || {};
+
+    let aktif = 0;
+    BARIS.forEach(tr => {
+        const kode = tr.dataset.kode;
+        const d    = data[kode] || {};
+        const nilai = {p: angka(d.mw), q: angka(d.mvar), dmn: angka(d.dmn),
+                       nama: tr.querySelector('b').textContent};
+        NILAI[kode] = nilai;
+
+        tr.querySelector('.dmn').textContent = fmt(nilai.dmn, 1);
+        tr.querySelector('.p').textContent   = fmt(nilai.p, 2);
+        tr.querySelector('.q').textContent   = fmt(nilai.q, 2);
+        if (nilai.p > 0) aktif++;
+
+        // Pin peta: label daya + redupkan pembangkit yang tidak berproduksi
+        const pin = PIN[kode];
+        if (pin) {
+            pin.querySelector('text').textContent = nilai.p === null ? '—' : fmt(nilai.p, 1);
+            pin.classList.toggle('mati', !(nilai.p > 0));
+        }
+    });
+
+    document.getElementById('sumOn').textContent = aktif;
+    hitungTotal();
+}
+
+// ── Filter (cari + jenis + legenda) ──────────────────────────────────
+const inpCari  = document.getElementById('ppCari');
+const selJenis = document.getElementById('ppJenis');
+const jenisOff = new Set();     // jenis yang dimatikan lewat tombol legenda
+
+function terapkanFilter() {
+    const q  = inpCari.value.trim().toLowerCase();
+    const jn = selJenis.value;
+    let tampil = 0;
+    BARIS.forEach(tr => {
+        const ok = (!q || tr.dataset.nama.includes(q))
+                && (!jn || tr.dataset.jenis === jn)
+                && !jenisOff.has(tr.dataset.jenis);
+        tr.style.display = ok ? '' : 'none';
+        if (ok) tampil++;
+        const pin = PIN[tr.dataset.kode];
+        if (pin) pin.classList.toggle('sembunyi', !ok);
+    });
+    document.getElementById('ppJumlah').textContent = tampil + ' unit';
+    document.getElementById('ppKosong').style.display = tampil ? 'none' : 'block';
+    hitungTotal();
+}
+inpCari.addEventListener('input', terapkanFilter);
+selJenis.addEventListener('change', terapkanFilter);
+document.querySelectorAll('#ppLegend button').forEach(b => {
+    b.addEventListener('click', () => {
+        const j = b.dataset.jenis;
+        jenisOff.has(j) ? jenisOff.delete(j) : jenisOff.add(j);
+        b.classList.toggle('off', jenisOff.has(j));
+        terapkanFilter();
+    });
+});
+
+// Ringkasan atas & footer tabel dihitung dari baris yang sedang tampil saja,
+// supaya angkanya selalu cocok dengan isi tabel saat difilter.
+function hitungTotal() {
+    let p = 0, q = 0, dmn = 0;
+    BARIS.forEach(tr => {
+        if (tr.style.display === 'none') return;
+        const v = NILAI[tr.dataset.kode];
+        if (!v) return;
+        if (v.p   !== null) p   += v.p;
+        if (v.q   !== null) q   += v.q;
+        if (v.dmn !== null) dmn += v.dmn;
+    });
+    document.getElementById('footDMN').textContent = fmt(dmn, 1);
+    document.getElementById('footP').textContent   = fmt(p, 2);
+    document.getElementById('footQ').textContent   = fmt(q, 2);
+    document.getElementById('sumP').textContent    = fmt(p, 2);
+    document.getElementById('sumQ').textContent    = fmt(q, 2);
+    document.getElementById('sumDMN').textContent  = fmt(dmn, 1);
+}
+
+// ── Urutkan kolom: klik 1 = urut, klik 2 = balik, klik 3 = urutan asal ─
+let sortKey = null, sortAsc = true, sortTahap = 0;
+document.querySelectorAll('.pp-tbl thead th').forEach(th => {
+    th.addEventListener('click', () => {
+        const k = th.dataset.sort;
+        if (sortKey !== k)       { sortKey = k; sortAsc = (k === 'nama'); sortTahap = 1; }  // angka: besar dulu
+        else if (sortTahap === 1){ sortAsc = !sortAsc; sortTahap = 2; }
+        else                     { sortKey = null; sortTahap = 0; }
+
+        document.querySelectorAll('.pp-tbl thead th').forEach(o => o.classList.remove('asc', 'desc'));
+        if (sortKey) th.classList.add(sortAsc ? 'asc' : 'desc');
+
+        const urut = sortKey === null ? BARIS : BARIS.slice().sort((a, b) => {
+            if (sortKey === 'nama')
+                return a.dataset.nama.localeCompare(b.dataset.nama) * (sortAsc ? 1 : -1);
+            const va = (NILAI[a.dataset.kode] || {})[sortKey];
+            const vb = (NILAI[b.dataset.kode] || {})[sortKey];
+            if (va === null || va === undefined) return 1;    // nilai kosong selalu di bawah
+            if (vb === null || vb === undefined) return -1;
+            return (va - vb) * (sortAsc ? 1 : -1);
+        });
+        urut.forEach(tr => tbody.appendChild(tr));
+    });
+});
+
+// ── Interaksi peta ↔ tabel ───────────────────────────────────────────
+const tip  = document.getElementById('ppTip');
+const wrap = tip.parentElement;
+
+function sorot(kode, on) {
+    if (PIN[kode]) PIN[kode].classList.toggle('sorot', on);
+    if (ROW[kode]) ROW[kode].classList.toggle('sorot', on);
+}
+
+document.querySelectorAll('.pp-pin').forEach(g => {
+    const kode = g.dataset.kode;
+    g.addEventListener('mousemove', e => {
+        const v = NILAI[kode] || {};
+        const r = wrap.getBoundingClientRect();
+        tip.innerHTML = `<b>${v.nama || kode}</b><span class="j">${g.dataset.jenis}</span>`
+            + `<div class="r"><span>P</span><b>${fmt(v.p, 2)} MW</b></div>`
+            + `<div class="r"><span>Q</span><b>${fmt(v.q, 2)} MVAR</b></div>`
+            + `<div class="r"><span>DMN</span><b>${fmt(v.dmn, 1)} MW</b></div>`;
+        tip.style.display = 'block';
+        let x = e.clientX - r.left + 14, y = e.clientY - r.top + 14;
+        if (x + tip.offsetWidth > r.width) x = r.width - tip.offsetWidth - 4;
+        tip.style.left = x + 'px'; tip.style.top = y + 'px';
+    });
+    g.addEventListener('mouseenter', () => sorot(kode, true));
+    g.addEventListener('mouseleave', () => { tip.style.display = 'none'; sorot(kode, false); });
+    g.addEventListener('click', () => {
+        if (ROW[kode]) ROW[kode].scrollIntoView({block:'center', behavior:'smooth'});
+    });
+});
+BARIS.forEach(tr => {
+    const kode = tr.dataset.kode;
+    tr.addEventListener('mouseenter', () => sorot(kode, true));
+    tr.addEventListener('mouseleave', () => sorot(kode, false));
+});
+
+// ── Polling ──────────────────────────────────────────────────────────
+let sisa = PP_INTERVAL;
+setInterval(() => {
+    sisa--;
+    if (sisa <= 0) { muatData(); setLastUpdate(); sisa = PP_INTERVAL; }
+    document.getElementById('ppCountdown').textContent = sisa;
+}, 1000);
+muatData();
+setLastUpdate();
+</script>
+{% endblock %}

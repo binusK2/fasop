@@ -343,6 +343,35 @@ terlihat sempurna secara palsu.
 
 ---
 
+## OPSIS — Peta Pembangkit (`/opsis/peta/`)
+
+Peta sebaran pembangkit se-Sulawesi: ikon per jenis (PLTA/PLTU/PLTD/…) berisi
+daya aktifnya, plus tabel DMN / P / Q semua pembangkit di kartu sebelah kanan.
+Halaman ini **tidak punya endpoint API sendiri** — ia memoll `/opsis/api/live/`
+yang sama dengan dashboard tiap 5 detik, supaya angka di peta, tabel, dan kartu
+dashboard tidak pernah berbeda. Kalau perlu field baru di peta, tambahkan di
+`api_live()` sekali, jangan bikin endpoint kedua.
+
+Posisi pin diselesaikan `Pembangkit.posisi_peta()` dengan urutan: `peta_x`/`peta_y`
+(diisi manual dari site admin, persen viewBox) → `hop_map.posisi_pembangkit(nama)`
+(tabel bawaan, pencocokan nama mengabaikan spasi/tanda baca) → tidak dipetakan
+(pembangkit tetap muncul di tabel + disebut di catatan bawah peta). Pembangkit
+baru cukup diberi `peta_x`/`peta_y` dari admin; menambah entri permanen dilakukan
+di `_EXTRA_LATLON` (`opsis/hop_map.py`) sebagai lat/long, diproyeksikan
+`proyeksi()` dengan konstanta yang sama seperti pin dashboard HOP — jangan
+mengarang persen langsung supaya peta HOP dan Peta Pembangkit tetap sebidang.
+
+Pembangkit yang berdekatan (rumpun Tello, gugusan Manado) digeser `_sebar_pin()`
+di `opsis/views.py` supaya ikon + label MW-nya tidak bertumpuk; ambangnya
+`PIN_MIN_DX`/`PIN_MIN_DY` — sesuaikan keduanya bila ukuran ikon/label di template
+diubah, kalau tidak label akan mulai saling menimpa lagi.
+
+Warna per jenis pembangkit hidup di `opsis.models.JENIS_WARNA` dan dikirim ke
+template lewat `json_script`. Jangan menyalin dict warna itu ke dalam `<script>`
+template baru.
+
+---
+
 ## OPSIS — Adding a New Power Plant
 
 New plants are added via Django Admin (`/secure-panel/` → Opsis → Pembangkits), **not** through migrations. The `kode_kit` field must match exactly the `KIT` column value in the MSSQL `KIT_REALTIME` table. No redeploy needed.

@@ -13,7 +13,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from .models import Pembangkit, PrakiraanBeban, SnapLive
-from . import prakiraan, prediksi
+from . import hop_map, prakiraan, prediksi, views
 
 API_KEY = 'kunci-tes-prakiraan'
 
@@ -307,3 +307,63 @@ class KeteranganSumberDashboardTest(TestCase):
         r = self.client.get('/opsis/prediksi-beban/')
         self.assertEqual(r.status_code, 200)
         self.assertIn('Dashboard ROH Sulbagsel', r.content.decode())
+
+
+class PetaPembangkitTest(TestCase):
+    """Peta Pembangkit: pin terpasang, tidak bertumpuk, dan tabel memuat semua unit."""
+
+    @classmethod
+    def setUpTestData(cls):
+        # Tiga pembangkit di lokasi yang sama persis (rumpun Tello) untuk menguji
+        # penyebaran pin, satu PLTA yang posisinya hanya ada di PEMBANGKIT_MAP_POS,
+        # satu pembangkit dengan koordinat manual, dan satu yang tak dikenal peta.
+        data = [
+            ('PLTD GE Tello', 'TELLO5', 'PLTD'),
+            ('PLTD Tello Biosolar', 'TELLOB', 'PLTD'),
+            ('MPP Tello', 'TELLO_SW', 'PLTD'),
+            ('PLTA Bakaru', 'BKARU5', 'PLTA'),
+            ('Pembangkit Tak Dikenal', 'XYZ', 'LAIN'),
+        ]
+        for urutan, (nama, kode, jenis) in enumerate(data):
+            Pembangkit.objects.create(nama=nama, kode=kode, jenis=jenis, urutan=urutan)
+        cls.manual = Pembangkit.objects.create(nama='PLTS Uji Manual', kode='MANUAL',
+                                               jenis='PLTS', urutan=9, peta_x=40, peta_y=60)
+
+    def setUp(self):
+        user = User.objects.create_superuser('adm-peta', 'peta@contoh.id', 'rahasia-tes-123')
+        profile = getattr(user, 'profile', None)
+        if profile is not None:
+            profile.force_password_change = False
+            profile.save(update_fields=['force_password_change'])
+        self.client.force_login(user)
+
+    def test_posisi_peta_manual_menang_atas_tabel_bawaan(self):
+        self.assertEqual(self.manual.posisi_peta(), (40, 60))
+        self.assertEqual(Pembangkit.objects.get(kode='BKARU5').posisi_peta(),
+                         hop_map.posisi_pembangkit('PLTA Bakaru'))
+        self.assertIsNone(Pembangkit.objects.get(kode='XYZ').posisi_peta())
+
+    def test_halaman_memuat_semua_pembangkit(self):
+        r = self.client.get('/opsis/peta/')
+        self.assertEqual(r.status_code, 200)
+        isi = r.content.decode()
+        for p in Pembangkit.objects.all():
+            self.assertIn(p.nama, isi)        # semua unit masuk tabel
+        # Yang punya koordinat dapat pin; yang tidak, hanya masuk tabel.
+        self.assertEqual(len(r.context['pins']), 5)
+        self.assertEqual([t['kode'] for t in r.context['tanpa_posisi']], ['XYZ'])
+
+    def test_pin_serumpun_tidak_saling_menutup(self):
+        r = self.client.get('/opsis/peta/')
+        pins = r.context['pins']
+        for i, a in enumerate(pins):
+            for b in pins[i + 1:]:
+                self.assertFalse(
+                    abs(a['x'] - b['x']) < views.PIN_MIN_DX and abs(a['y'] - b['y']) < views.PIN_MIN_DY,
+                    f"pin {a['kode']} dan {b['kode']} masih bertumpuk",
+                )
+
+    def test_legenda_hanya_jenis_yang_ada(self):
+        r = self.client.get('/opsis/peta/')
+        legenda = {l['kode']: l['jumlah'] for l in r.context['legenda']}
+        self.assertEqual(legenda, {'PLTD': 3, 'PLTA': 1, 'PLTS': 1, 'LAIN': 1})

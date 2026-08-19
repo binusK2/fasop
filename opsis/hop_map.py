@@ -1,5 +1,6 @@
 """
-Data peta Sulawesi untuk Dashboard HOP (opsis.views.hop_dashboard_view).
+Data peta Sulawesi — dipakai Dashboard HOP (opsis.views.hop_board) dan
+Peta Pembangkit (opsis.views.peta_pembangkit).
 
 SULAWESI_PATH : path SVG (viewBox 0 0 1000 1244) hasil proyeksi equirect
   dari GeoJSON provinsi Sulawesi (disederhanakan Douglas-Peucker).
@@ -7,6 +8,10 @@ DEFAULT_MAP_POS : nama pembangkit -> (x%, y%) posisi pin pada peta, diproyeksika
   dari lat/long dengan proyeksi yang sama sehingga pin jatuh tepat di lokasi.
   x% = persen lebar viewBox, y% = persen tinggi viewBox. Sesuaikan di sini bila
   perlu menggeser pin (mis. pembangkit baru).
+PEMBANGKIT_MAP_POS : DEFAULT_MAP_POS + pembangkit non-HOP (PLTA/PLTB/PLTGU/…)
+  yang tidak punya stok bahan bakar sehingga tidak muncul di dashboard HOP.
+  Dipakai posisi_pembangkit() sebagai fallback bila Pembangkit.peta_x/peta_y
+  belum diisi dari site admin.
 """
 
 MAP_W = 1000
@@ -168,3 +173,74 @@ DEFAULT_MAP_POS = {
     'PLTD Pasar Wajo': (63.26, 93.1),
     'PLTD Raha': (61.04, 85.6),
 }
+
+
+# ── Proyeksi lat/long → (x%, y%) ──────────────────────────────────────
+# Konstanta di bawah diturunkan dari pin yang sudah ada di DEFAULT_MAP_POS
+# (PLTU Barru, PLTD Bitung, PLTU Nii Tanasa), jadi titik baru yang dihitung
+# lewat proyeksi() jatuh sebidang dengan pin lama.
+_LON0, _X0, _X_PER_DEG = 119.62, 15.11, 14.71   # % lebar viewBox per derajat bujur
+_LAT0, _Y0, _Y_PER_DEG = -4.35,  80.60, 12.05   # % tinggi viewBox per derajat lintang
+
+
+def proyeksi(lat, lon):
+    """(lat, lon) derajat desimal → (x%, y%) pada viewBox peta."""
+    return (round(_X0 + (lon - _LON0) * _X_PER_DEG, 2),
+            round(_Y0 - (lat - _LAT0) * _Y_PER_DEG, 2))
+
+
+# Pembangkit yang tidak muncul di dashboard HOP (tidak punya stok bahan bakar
+# harian): PLTA, PLTB, PLTGU, PLTP, dsb. Koordinat lat/long lokasi pembangkit
+# diproyeksikan dengan proyeksi() di atas. Tambahkan entri baru di sini bila
+# ada pembangkit baru; alternatifnya isi Pembangkit.peta_x/peta_y dari site
+# admin (nilainya menang atas tabel ini).
+_EXTRA_LATLON = {
+    # ── PLTA ──
+    'PLTA Bakaru':      (-3.45,  119.55),   # Pinrang, Sulsel
+    'PLTA Poso 1':      (-1.68,  120.62),   # Sulewana, Poso
+    'PLTA Poso 2':      (-1.75,  120.65),
+    'PLTA Poso 2A':     (-1.75,  120.65),
+    'PLTA Poso 2B':     (-1.79,  120.67),
+    'PLTA Malea':       (-3.10,  119.85),   # Tana Toraja
+    'PLTA Bili-Bili':   (-5.28,  119.58),   # Gowa
+    'PLTA Tangka':      (-5.32,  120.05),   # Sinjai
+    'PLTA Tersebar':    (-5.20,  119.70),
+    'PLTM Tersebar':    (-5.20,  119.70),
+    'PLTA Larona':      (-2.55,  121.35),   # Luwu Timur
+    'PLTA Tonsealama':  ( 1.35,  124.90),   # Minahasa
+    'PLTA Tanggari':    ( 1.40,  125.00),
+    # ── PLTB / PLTS ──
+    'PLTB Sidrap':      (-3.90,  119.85),
+    'PLTB Tolo':        (-5.55,  119.75),   # Jeneponto
+    'PLTS Likupang':    ( 1.63,  125.05),
+    # ── PLTGU / PLTG / PLTP ──
+    'PLTGU Sengkang':   (-4.10,  120.10),   # Wajo
+    'PLTG Sengkang':    (-4.10,  120.10),
+    'PLTP Lahendong':   ( 1.25,  124.83),   # Minahasa
+    # ── PLTU/PLTD tambahan yang belum ada di daftar HOP ──
+    'PLTU Kendari':     (-3.95,  122.55),
+    'PLTD Poso':        (-1.39,  120.75),
+    'PLTD Palopo':      (-2.99,  120.20),
+    'PLTD Bau-Bau':     (-5.47,  122.62),
+}
+
+PEMBANGKIT_MAP_POS = dict(DEFAULT_MAP_POS)
+PEMBANGKIT_MAP_POS.update({nama: proyeksi(lat, lon)
+                           for nama, (lat, lon) in _EXTRA_LATLON.items()})
+
+
+def _normal(nama):
+    """Normalisasi nama pembangkit untuk pencocokan: huruf/angka saja, uppercase."""
+    return ''.join(ch for ch in (nama or '').upper() if ch.isalnum())
+
+
+_POS_NORMAL = {_normal(k): v for k, v in PEMBANGKIT_MAP_POS.items()}
+
+
+def posisi_pembangkit(nama):
+    """
+    (x%, y%) posisi pin sebuah pembangkit berdasarkan namanya, atau None bila
+    belum terdaftar. Pencocokan mengabaikan spasi/tanda baca/besar-kecil huruf
+    sehingga 'PLTA Bili-Bili' dan 'PLTA BILI BILI' sama-sama ketemu.
+    """
+    return _POS_NORMAL.get(_normal(nama))
