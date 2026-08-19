@@ -45,7 +45,7 @@
         <h5 class="mb-0 fw-bold" style="color:#e2e8f0;">
             <i class="bi bi-graph-up-arrow me-2" style="color:#a78bfa;"></i>Analitik Prediksi Beban
         </h5>
-        <small style="color:#64748b;">Akurasi model machine learning &amp; prediksi beban puncak besok</small>
+        <small style="color:#64748b;">Akurasi prakiraan beban Dashboard ROH Sulbagsel &amp; prediksi beban puncak besok</small>
     </div>
     <span id="ap-updated" style="font-size:11px; color:var(--muted);">memuat...</span>
 </div>
@@ -66,9 +66,10 @@
         <div class="ap-sub-metric">Titik Dievaluasi<span class="val" id="ap-n">—</span></div>
     </div>
     <div class="ap-note">
-        Dihitung dengan membandingkan prediksi model 30 menit ke depan (dari data 30 menit sebelumnya) terhadap
-        realisasi beban aktual sepanjang 7 hari terakhir — dihitung ulang setiap halaman ini dibuka, jadi
-        mencerminkan performa model saat ini, bukan angka statis dari saat training.
+        Dihitung dengan membandingkan setiap titik kurva prakiraan (grid 30 menit) terhadap realisasi beban
+        aktual pada jam yang sama sepanjang 7 hari terakhir — dihitung ulang setiap halaman ini dibuka, jadi
+        selalu mencerminkan prakiraan yang benar-benar dipakai, bukan angka statis.
+        <span id="ap-sumber"></span>
     </div>
 </div>
 
@@ -82,7 +83,8 @@
         <div class="ap-big-value" style="color:#fbbf24;">
             <span id="ap-siang-besok">—</span><span style="font-size:14px; font-weight:400; color:var(--muted);"> MW</span>
         </div>
-        <div style="font-size:10px; color:var(--muted); margin-top:8px;">Jam 12:00</div>
+        <div style="font-size:10px; color:var(--muted); margin-top:8px;">Jam 12:00
+            <span class="ap-besok-note" style="color:#fbbf24;"></span></div>
     </div>
     <div class="chart-card">
         <div class="chart-head">
@@ -92,7 +94,8 @@
         <div class="ap-big-value" style="color:#f87171;">
             <span id="ap-malam-besok">—</span><span style="font-size:14px; font-weight:400; color:var(--muted);"> MW</span>
         </div>
-        <div style="font-size:10px; color:var(--muted); margin-top:8px;">Jam 18:30</div>
+        <div style="font-size:10px; color:var(--muted); margin-top:8px;">Jam 18:30
+            <span class="ap-besok-note" style="color:#f87171;"></span></div>
     </div>
 </div>
 {% endblock %}
@@ -118,9 +121,21 @@ async function loadPrediksiAnalitik() {
         document.getElementById('ap-mape').textContent = _fmtPct(a.mape_percent);
         document.getElementById('ap-n').textContent    = a.n != null ? a.n : '—';
 
+        const elSumber = document.getElementById('ap-sumber');
+        if (elSumber) {
+            elSumber.innerHTML = d.sumber === 'ml'
+                ? ' Sumber prediksi: model machine learning FASOP.'
+                : ' Sumber prediksi: <strong>Dashboard ROH Sulbagsel</strong> (Rencana Operasi Harian).';
+        }
+
         const b = d.besok || {};
         document.getElementById('ap-siang-besok').textContent = _fmtMw(b.prediksi_puncak_siang_besok);
         document.getElementById('ap-malam-besok').textContent = _fmtMw(b.prediksi_puncak_malam_besok);
+
+        const belumAda = b.source === 'no_sheet';
+        document.querySelectorAll('.ap-besok-note').forEach(el => {
+            el.textContent = belumAda ? 'Prakiraan ROH besok belum masuk' : '';
+        });
 
         const besokDate = new Date();
         besokDate.setDate(besokDate.getDate() + 1);

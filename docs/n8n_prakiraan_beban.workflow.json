@@ -1,0 +1,137 @@
+{
+  "name": "FASOP — Prakiraan Beban (Google Sheets → OPSIS)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "id": "a1000000-0000-4000-8000-000000000001",
+      "name": "Tiap 15 Menit",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -360,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "url",
+          "value": "GANTI_DENGAN_URL_SPREADSHEET"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Prakiraan"
+        },
+        "options": {}
+      },
+      "id": "a1000000-0000-4000-8000-000000000002",
+      "name": "Baca Sheet Prakiraan",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -140,
+        0
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "GANTI_DENGAN_ID_CREDENTIAL",
+          "name": "Google Sheets FASOP"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Rakit payload POST /api/v1/prakiraan-beban/ dari baris spreadsheet.\n//\n// Mendukung DUA layout sekaligus, dideteksi otomatis:\n//\n//   MELEBAR (layout Dashboard ROH) — jam jadi KOLOM, satu baris per tanggal:\n//       |            |    0    |   0.3   |    1    | ... |  23.3   |\n//       | 18-Aug-26  | 1,593.51| 1,546.94| 1,511.32| ... | 1,402.11|\n//\n//   MEMANJANG — satu baris per titik waktu:\n//       | Tanggal    | Jam   | MW      |\n//       | 2026-08-18 | 00:00 | 1593.51 |\n//\n// Juga menangani bentuk sel yang berbeda antar sumber: node Google Sheets\n// mengirim STRING, sedangkan Extract From File (.xlsx) bisa mengirim ANGKA\n// (serial Excel / pecahan hari) atau objek Date, karena di Excel tanggal dan\n// jam disimpan sebagai angka.\n//\n// Hanya baris H dan H+1 yang dikirim — kurva hari lampau TIDAK ditimpa,\n// karena histori itulah yang dipakai menghitung akurasi di FASOP.\n\nconst ZONA = 'Asia/Makassar';\nconst hariIni = DateTime.now().setZone(ZONA).toISODate();\nconst besok = DateTime.now().setZone(ZONA).plus({ days: 1 }).toISODate();\nconst DIIZINKAN = new Set([hariIni, besok]);\n\n// Excel menghitung tanggal sebagai jumlah hari sejak 1899-12-30.\nconst EPOCH_EXCEL = Date.UTC(1899, 11, 30);\n\nconst FORMAT_TANGGAL = [\n  'yyyy-MM-dd', 'dd/MM/yyyy', 'd/M/yyyy', 'dd-MM-yyyy',\n  'dd-MMM-yy', 'd-MMM-yy', 'dd-MMM-yyyy', 'd-MMM-yyyy', 'dd/MM/yy',\n];\n\n// Pecahan pada LABEL jam (\"0.3\", \"18.3\"). Dua notasi dipakai di lapangan dan\n// keduanya menunjuk slot yang sama: \".3\" = jam.menit (00:30), \".5\" = pecahan\n// jam (setengah jam). Idem untuk kuartal: .15/.25 -> :15, .45/.75 -> :45.\n// CATATAN: ini khusus LABEL. Sel jam numerik di .xlsx punya arti lain\n// (pecahan HARI: 0.5 = 12:00) dan ditangani terpisah di menitDariSelJam().\nconst PECAHAN_KE_MENIT = {\n  0: 0, 0.15: 15, 0.25: 15, 0.3: 30, 0.5: 30, 0.45: 45, 0.75: 45,\n};\n\n/** Ambil nilai kolom tanpa peduli besar-kecil huruf / spasi. */\nfunction kolom(row, ...nama) {\n  const peta = {};\n  for (const k of Object.keys(row)) peta[k.trim().toLowerCase()] = row[k];\n  for (const n of nama) {\n    const v = peta[n.toLowerCase()];\n    if (v !== undefined && v !== null && String(v).trim() !== '') return v;\n  }\n  return null;\n}\n\n/**\n * Angka dari sel, toleran dua konvensi pemisah yang dua-duanya muncul di\n * sheet PLN: \"1,593.51\" (ribuan koma) dan \"1.593,51\" / \"1593,51\" (desimal\n * koma). Aturannya: pemisah TERAKHIR adalah desimal, sisanya ribuan.\n * NaN kalau bukan angka.\n */\nfunction angka(v) {\n  if (typeof v === 'number') return v;\n  if (v == null) return NaN;\n\n  let s = String(v).replace(/[\\s ]/g, '');\n  if (s === '') return NaN;\n\n  const posTitik = s.lastIndexOf('.');\n  const posKoma = s.lastIndexOf(',');\n\n  if (posTitik >= 0 && posKoma >= 0) {\n    const desimal = posTitik > posKoma ? '.' : ',';\n    const ribuan = desimal === '.' ? ',' : '.';\n    s = s.split(ribuan).join('').replace(desimal, '.');\n  } else if (posKoma >= 0) {\n    // Hanya koma. \"1,593\" (tepat 3 digit di belakang, ada digit di depan)\n    // hampir pasti ribuan; selain itu desimal ala Indonesia.\n    const belakang = s.length - posKoma - 1;\n    const banyak = s.split(',').length - 1;\n    s = (banyak > 1 || (belakang === 3 && posKoma > 0))\n      ? s.split(',').join('')\n      : s.replace(',', '.');\n  } else if (posTitik >= 0) {\n    const belakang = s.length - posTitik - 1;\n    const banyak = s.split('.').length - 1;\n    if (banyak > 1 || (belakang === 3 && posTitik > 0 && /^\\d{1,3}$/.test(s.slice(0, posTitik)))) {\n      s = s.split('.').join('');            // \"1.593\" -> 1593\n    }\n  }\n  return Number(s);\n}\n\n/** Menit dari objek Date. */\nfunction menitDariDate(d) {\n  // Sel waktu-saja dari SheetJS mendarat di tahun 1899/1900 dengan jam\n  // tersimpan sebagai UTC — pakai getter UTC supaya tidak tergeser zona.\n  return d.getUTCFullYear() < 1901\n    ? d.getUTCHours() * 60 + d.getUTCMinutes()\n    : d.getHours() * 60 + d.getMinutes();\n}\n\n/** Tanggal sel -> 'YYYY-MM-DD'. ISO, DD/MM/YYYY, 18-Aug-26, Date, serial Excel. */\nfunction normalTanggal(v) {\n  if (v == null || String(v).trim() === '') return null;\n  // Date dari SheetJS dibuat pada tengah malam UTC; Asia/Makassar (+8) masih\n  // jatuh di tanggal yang sama, jadi konversi zona di bawah aman.\n  if (v instanceof Date) return DateTime.fromJSDate(v).setZone(ZONA).toISODate();\n\n  if (typeof v === 'number') {\n    return v > 20000                          // serial Excel (>= th. 1954)\n      ? new Date(EPOCH_EXCEL + Math.floor(v) * 86400000).toISOString().slice(0, 10)\n      : null;\n  }\n\n  const s = String(v).trim();\n  for (const fmt of FORMAT_TANGGAL) {\n    const d = DateTime.fromFormat(s, fmt, { zone: ZONA, locale: 'en' });\n    if (d.isValid) return d.toISODate();\n  }\n  const iso = DateTime.fromISO(s, { zone: ZONA });\n  if (iso.isValid) return iso.toISODate();\n\n  const n = angka(s);\n  return Number.isFinite(n) && n > 20000\n    ? new Date(EPOCH_EXCEL + Math.floor(n) * 86400000).toISOString().slice(0, 10)\n    : null;\n}\n\n/**\n * LABEL slot waktu -> menit sejak 00:00, atau null kalau bukan label waktu.\n * Dipakai untuk header kolom layout melebar (\"0\", \"0.3\", \"18.3\", \"18:30\")\n * dan untuk kolom Jam bertipe teks di layout memanjang.\n */\nfunction labelKeMenit(v) {\n  if (v == null) return null;\n  const s = String(v).trim();\n  if (s === '') return null;\n\n  const jm = s.match(/^(\\d{1,2}):(\\d{2})/);          // \"18:30\", \"18:30:00\"\n  if (jm) {\n    const h = Number(jm[1]), m = Number(jm[2]);\n    return h <= 23 && m <= 59 ? h * 60 + m : null;\n  }\n\n  const n = Number(s.replace(',', '.'));\n  if (!Number.isFinite(n) || n < 0) return null;\n\n  const jam = Math.floor(n);\n  const menit = PECAHAN_KE_MENIT[Math.round((n - jam) * 100) / 100];\n  return jam <= 23 && menit !== undefined ? jam * 60 + menit : null;\n}\n\n/**\n * Isi kolom Jam (layout memanjang) -> menit. Beda dengan labelKeMenit():\n * sel NUMERIK di .xlsx adalah pecahan HARI (0.5 = 12:00, 0.770833 = 18:30),\n * bukan notasi jam.menit.\n */\nfunction menitDariSelJam(v) {\n  if (v instanceof Date) return menitDariDate(v);\n  if (typeof v === 'number' && v >= 0 && v < 1) return Math.round(v * 1440);\n  return labelKeMenit(v);\n}\n\n/** true kalau kunci kolom terlihat seperti label slot waktu. */\nfunction kunciSlotWaktu(k) {\n  const s = String(k).trim();\n  return /^\\d{1,2}([.,:]\\d{1,2})?$/.test(s) && labelKeMenit(s) !== null;\n}\n\n/**\n * Kalau baris header sheet BUKAN baris jam (mis. ada baris judul di atasnya,\n * atau node pembaca tidak memakai header row), label jam justru muncul sebagai\n * ISI sebuah baris. Fungsi ini mengenali baris seperti itu dan mengembalikan\n * peta {kunciKolom -> menit}; null kalau baris ini bukan baris header.\n *\n * Penjagaan supaya baris DATA tidak salah dikira header: minimal 6 sel yang\n * terbaca sebagai label jam, semuanya menit yang berbeda, dan urut menaik.\n * Baris MW (nilai ~1500) tidak pernah lolos karena jam > 23 langsung ditolak.\n */\nfunction petaSlotDariNilai(row) {\n  const peta = {};\n  const urut = [];\n  for (const [k, v] of Object.entries(row)) {\n    if (v == null || String(v).trim() === '') continue;\n    const m = labelKeMenit(v);\n    if (m === null) continue;\n    peta[k] = m;\n    urut.push(m);\n  }\n  if (urut.length < 6) return null;\n  if (new Set(urut).size !== urut.length) return null;\n  for (let i = 1; i < urut.length; i++) if (urut[i] <= urut[i - 1]) return null;\n  return peta;\n}\n\nconst rows = $input.all().map(i => i.json);\nif (rows.length === 0) {\n  throw new Error('Node sebelumnya tidak mengirim baris apa pun — periksa file/sheet yang dibaca.');\n}\n\n// ── Deteksi layout ────────────────────────────────────────────────────\n// Melebar kalau ada banyak KOLOM berlabel jam. Ambang 6 supaya sheet\n// memanjang (kolomnya cuma Tanggal/Jam/MW) tak pernah salah baca.\nconst kunciSemua = [...new Set(rows.flatMap(r => Object.keys(r)))];\nlet petaSlot = null;\n\nconst kunciSlot = kunciSemua.filter(kunciSlotWaktu);\nif (kunciSlot.length >= 6) {\n  petaSlot = Object.fromEntries(kunciSlot.map(k => [k, labelKeMenit(k)]));\n}\n\n// Cadangan: header sheet ternyata bukan baris jam (ada baris judul di atasnya),\n// jadi label jam muncul sebagai isi salah satu baris. Cari baris itu.\nlet barisHeader = -1;\nif (petaSlot === null) {\n  for (let i = 0; i < rows.length; i++) {\n    const p = petaSlotDariNilai(rows[i]);\n    if (p) { petaSlot = p; barisHeader = i; break; }\n  }\n}\n\nconst melebar = petaSlot !== null;\n\nconst data = [];\nconst dilewati = [];\nconst takTerbaca = [];\n\nif (melebar) {\n  // Kolom tanggal = kolom bernama Tanggal/Date, atau kolom mana pun yang\n  // BUKAN slot waktu (di sheet ROH header kolom ini sering kosong, dan\n  // SheetJS menamainya \"__EMPTY\").\n  const kunciTanggal = kunciSemua.filter(k => !(k in petaSlot));\n\n  for (let i = 0; i < rows.length; i++) {\n    if (i <= barisHeader) continue;        // baris judul + baris header jam\n    const row = rows[i];\n    let tanggal = normalTanggal(kolom(row, 'tanggal', 'date'));\n    if (tanggal === null) {\n      for (const k of kunciTanggal) {\n        tanggal = normalTanggal(row[k]);\n        if (tanggal !== null) break;\n      }\n    }\n    if (tanggal === null) continue;                  // baris judul / subtotal\n    if (!DIIZINKAN.has(tanggal)) { dilewati.push(tanggal); continue; }\n\n    for (const [k, menit] of Object.entries(petaSlot)) {\n      const mw = row[k];\n      if (mw == null || String(mw).trim() === '') continue;   // sel kosong: wajar\n      data.push({ tanggal, menit, mw: angka(mw) });\n    }\n  }\n} else {\n  for (const row of rows) {\n    const mwMentah = kolom(row, 'mw', 'beban', 'beban (mw)', 'prakiraan');\n    if (mwMentah == null) continue;                  // sel kosong: wajar, lewati\n\n    const jam = kolom(row, 'jam', 'waktu', 'time');\n    const menitKolom = kolom(row, 'menit', 'minute');\n    if (jam == null && menitKolom == null) continue; // baris judul / kosong\n\n    let menit;\n    if (menitKolom != null) {\n      const n = angka(menitKolom);\n      menit = Number.isFinite(n) && n >= 0 && n <= 1439 ? Math.round(n) : null;\n    } else {\n      menit = menitDariSelJam(jam);\n    }\n    if (menit === null) { takTerbaca.push(String(jam ?? menitKolom)); continue; }\n\n    const tanggal = normalTanggal(kolom(row, 'tanggal', 'date'));\n    // Sheet satu hari tanpa kolom Tanggal -> pakai default server (hari ini).\n    if (tanggal !== null && !DIIZINKAN.has(tanggal)) { dilewati.push(tanggal); continue; }\n\n    const baris = { menit, mw: angka(mwMentah) };\n    if (tanggal !== null) baris.tanggal = tanggal;\n    data.push(baris);\n  }\n}\n\n// Buang nilai MW yang tidak jadi angka — lebih baik kehilangan satu titik\n// daripada mengirim NaN yang membuat seluruh kiriman ditolak server.\nconst bersih = data.filter(d => Number.isFinite(d.mw));\nconst mwRusak = data.length - bersih.length;\n\nif (bersih.length === 0) {\n  const unik = a => [...new Set(a)].slice(0, 5).join(', ');\n  throw new Error(\n    `Tidak ada baris prakiraan H/H+1 yang terbaca (layout terdeteksi: ${melebar ? 'MELEBAR' : 'MEMANJANG'}). `\n    + `Tanggal yang dicari: ${hariIni} atau ${besok}. `\n    + (dilewati.length ? `Tanggal lain yang ditemukan: ${unik(dilewati)}. ` : '')\n    + (takTerbaca.length ? `Label jam tak terbaca: ${unik(takTerbaca)}. ` : '')\n    + `Baris terbaca: ${rows.length}. `\n    + `Kolom terbaca: ${kunciSemua.slice(0, 8).map(k => JSON.stringify(k)).join(', ')}`\n    + (kunciSemua.length > 8 ? ` (+${kunciSemua.length - 8} lagi)` : '') + '. '\n    + `Isi baris pertama: ${JSON.stringify(rows[0]).slice(0, 300)}`\n  );\n}\n\nreturn [{\n  json: {\n    sumber: 'roh-sulbagsel',\n    data: bersih,\n    _layout: melebar ? 'melebar' : 'memanjang',\n    _dilewati: dilewati.length,\n    _jam_tak_terbaca: takTerbaca.length,\n    _mw_rusak: mwRusak,\n  },\n}];"
+      },
+      "id": "a1000000-0000-4000-8000-000000000003",
+      "name": "Rakit Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        80,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://fasopup2bmks.id/api/v1/prakiraan-beban/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ sumber: $json.sumber, data: $json.data }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "a1000000-0000-4000-8000-000000000004",
+      "name": "Kirim ke FASOP",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        300,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "GANTI_DENGAN_ID_CREDENTIAL",
+          "name": "FASOP API Key"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Tiap 15 Menit": {
+      "main": [
+        [
+          {
+            "node": "Baca Sheet Prakiraan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Baca Sheet Prakiraan": {
+      "main": [
+        [
+          {
+            "node": "Rakit Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rakit Payload": {
+      "main": [
+        [
+          {
+            "node": "Kirim ke FASOP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}
