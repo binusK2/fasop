@@ -161,12 +161,19 @@ class ZabbixClient:
         """
         Problem yang SEDANG AKTIF (belum resolved) — problem.get tanpa
         filter waktu selalu hanya mengembalikan problem yang masih terbuka.
-        Return: list of dict {eventid, objectid, name, severity, clock, hosts:[{hostid}]}.
+
+        CATATAN: problem.get TIDAK mendukung `selectHosts` (bukan parameter
+        resmi API-nya walau method Zabbix lain seperti trigger.get/event.get
+        mendukungnya — Zabbix 7.4 menolak keras parameter tak dikenal).
+        Pemetaan problem → host dilakukan terpisah lewat get_trigger_hosts()
+        karena problem.get hanya mengembalikan `objectid` (= triggerid untuk
+        problem bertipe trigger, source=0/object=0, default).
+
+        Return: list of dict {eventid, objectid, name, severity, clock}.
         """
         self.ensure_auth()
         params = {
             'output': ['eventid', 'objectid', 'name', 'severity', 'clock', 'r_eventid'],
-            'selectHosts': ['hostid'],
             'recent': False,          # hanya problem yang masih PROBLEM
             'sortfield': ['eventid'],
             'sortorder': 'DESC',
@@ -174,6 +181,27 @@ class ZabbixClient:
         if hostids:
             params['hostids'] = list(hostids)
         return self._call('problem.get', params) or []
+
+    def get_trigger_hosts(self, triggerids):
+        """
+        Peta triggerid -> daftar hostid, dipakai untuk menghubungkan hasil
+        get_problems() (yang hanya punya objectid/triggerid) ke host terkait.
+        Satu trigger biasanya 1 host, tapi trigger multi-host (mis. trigger
+        agregat) bisa lebih dari satu — semua diikutsertakan.
+        Return: dict {triggerid: [hostid, ...]}.
+        """
+        if not triggerids:
+            return {}
+        self.ensure_auth()
+        triggers = self._call('trigger.get', {
+            'output': ['triggerid'],
+            'selectHosts': ['hostid'],
+            'triggerids': list(triggerids),
+        }) or []
+        return {
+            t['triggerid']: [h['hostid'] for h in t.get('hosts', [])]
+            for t in triggers
+        }
 
     def get_event(self, eventid):
         """Detail satu event (dipakai webhook receiver untuk validasi/lookup nama host)."""
@@ -206,11 +234,16 @@ def get_current_status(group_names=None):
     hostids = [h['hostid'] for h in hosts]
     problems = client.get_problems(hostids=hostids)
 
+    # problem.get tidak mengembalikan host langsung — petakan lewat objectid
+    # (triggerid) via trigger.get. Problem non-trigger (object != 0, jarang
+    # dipakai) diabaikan karena objectid-nya bukan triggerid.
+    triggerids = {p['objectid'] for p in problems if p.get('objectid')}
+    trigger_hosts = client.get_trigger_hosts(triggerids)
+
     # host -> problem tertinggi
     best = {}
     for p in problems:
-        for h in p.get('hosts', []):
-            hid = h['hostid']
+        for hid in trigger_hosts.get(p.get('objectid'), []):
             sev = int(p.get('severity') or 0)
             cur = best.get(hid)
             if cur is None or sev > cur['sev']:
