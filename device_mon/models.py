@@ -167,7 +167,11 @@ class ZabbixHost(models.Model):
     )
 
     class Meta:
-        ordering = ['urutan', 'nama']
+        # 'pk' di akhir sebagai tie-breaker — beda dengan RTU.nama (unique=True),
+        # ZabbixHost.nama BUKAN unique (bisa saja dua host share nama sama di
+        # Zabbix), jadi ['urutan', 'nama'] saja tidak dijamin deterministik dan
+        # memicu UnorderedObjectListWarning Django admin saat list_editable dipakai.
+        ordering = ['urutan', 'nama', 'pk']
         verbose_name = 'Host Zabbix'
         verbose_name_plural = 'Host Zabbix'
 
