@@ -1,7 +1,31 @@
 from django.contrib import admin
 from .models import (Pembangkit, SnapLive, SnapUnit, SnapFreq, SnapFreqRT, SnapFreqArea,
                      Trafo, SnapTrafo, HopPembangkit, HopSnapshot,
-                     PrakiraanBeban, ModePemeliharaan)
+                     PrakiraanBeban, ModePemeliharaan, KelompokPeta)
+
+
+@admin.register(KelompokPeta)
+class KelompokPetaAdmin(admin.ModelAdmin):
+    """Ikon gabungan di Peta Pembangkit — biasanya diatur lewat mode Atur Peta
+    di halaman /opsis/peta/, tapi bisa juga dari sini."""
+    list_display  = ('nama', 'jenis', 'jumlah_anggota', 'tampil_di_peta', 'peta_x', 'peta_y')
+    list_editable = ('jenis', 'tampil_di_peta')
+    list_filter   = ('jenis', 'tampil_di_peta')
+    search_fields = ('nama', 'keterangan')
+    filter_horizontal = ('anggota',)
+    fieldsets = (
+        (None, {
+            'description': 'Pembangkit yang menjadi anggota kelompok yang tampil tidak lagi '
+                           'digambar sebagai ikon sendiri di peta — dayanya sudah terhitung '
+                           'di ikon kelompok. Semuanya tetap ada di tabel daya.',
+            'fields': ('nama', 'keterangan', 'jenis', 'anggota'),
+        }),
+        ('Posisi di Peta', {'fields': ('tampil_di_peta', 'peta_x', 'peta_y')}),
+    )
+
+    @admin.display(description='Anggota')
+    def jumlah_anggota(self, obj):
+        return obj.anggota.count()
 
 
 @admin.register(ModePemeliharaan)
@@ -47,9 +71,9 @@ class ModePemeliharaanAdmin(admin.ModelAdmin):
 @admin.register(Pembangkit)
 class PembangkitAdmin(admin.ModelAdmin):
     list_display  = ('urutan', 'nama', 'kode', 'jenis', 'supply', 'warna', 'aktif',
-                     'data_tidak_sesuai', 'pakai_dmp')
-    list_editable = ('urutan', 'jenis', 'supply', 'aktif')
-    list_filter   = ('jenis', 'supply', 'aktif', 'data_tidak_sesuai')
+                     'tampil_di_peta', 'data_tidak_sesuai', 'pakai_dmp')
+    list_editable = ('urutan', 'jenis', 'supply', 'aktif', 'tampil_di_peta')
+    list_filter   = ('jenis', 'supply', 'aktif', 'tampil_di_peta', 'data_tidak_sesuai')
     search_fields = ('nama', 'kode')
     list_display_links = ('nama',)
     readonly_fields = ('ditandai_oleh', 'ditandai_pada')
@@ -61,8 +85,10 @@ class PembangkitAdmin(admin.ModelAdmin):
                            '(X: 0 = barat, 100 = timur; Y: 0 = utara, 100 = selatan). Kosongkan '
                            'keduanya untuk memakai posisi bawaan yang dicocokkan dari nama '
                            'pembangkit (opsis/hop_map.py). Isi hanya bila pembangkit belum '
-                           'terdaftar di sana atau pinnya perlu digeser.',
-            'fields': ('peta_x', 'peta_y'),
+                           'terdaftar di sana atau pinnya perlu digeser. Mengosongkan '
+                           'koordinat TIDAK menyembunyikan ikon — untuk itu hilangkan '
+                           'centang "Tampilkan Ikon di Peta".',
+            'fields': ('tampil_di_peta', 'peta_x', 'peta_y'),
         }),
         ('Penanda Data Tidak Sesuai', {
             'description': 'Diisi manual (juga bisa dari dashboard OPSIS oleh superuser/Opsis). '

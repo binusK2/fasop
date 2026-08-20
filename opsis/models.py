@@ -78,6 +78,14 @@ class Pembangkit(models.Model):
                                       help_text='0–100, persen dari kiri peta. Kosongkan untuk posisi bawaan.')
     peta_y        = models.FloatField(null=True, blank=True, verbose_name='Posisi Peta Y (%)',
                                       help_text='0–100, persen dari atas peta. Kosongkan untuk posisi bawaan.')
+    # Sakelar tampil/sembunyi ikon. Dipisah dari peta_x/peta_y karena mengosongkan
+    # koordinat TIDAK menghilangkan ikon — pembangkit yang namanya terdaftar di
+    # opsis.hop_map akan kembali muncul di posisi bawaannya.
+    tampil_di_peta = models.BooleanField(
+        default=True, verbose_name='Tampilkan Ikon di Peta',
+        help_text='Hilangkan centang untuk menyembunyikan ikon pembangkit ini dari '
+                  'Peta Pembangkit (mis. hanya menampilkan pembangkit berbeban besar). '
+                  'Pembangkitnya tetap masuk tabel daya di sebelah peta.')
     # Penanda data tidak valid / tidak sesuai kondisi real (diisi manual oleh
     # superuser / role Opsis dari dashboard). Bila False, tampilan dashboard
     # tidak berubah; bila True, kartu diberi label ketidaksesuaian.
@@ -536,6 +544,47 @@ class PrakiraanBeban(models.Model):
 
     def __str__(self):
         return f"{self.tanggal:%Y-%m-%d} {self.jam} — {self.mw} MW"
+
+
+class KelompokPeta(models.Model):
+    """
+    Satu ikon di Peta Pembangkit yang mewakili BEBERAPA pembangkit sekaligus —
+    mis. rumpun Tello atau gugusan Punagaya. Dipakai supaya peta hanya
+    menampilkan titik-titik besar, bukan puluhan ikon yang saling berdesakan.
+
+    Pembangkit yang menjadi anggota sebuah kelompok yang tampil TIDAK lagi
+    digambar sebagai ikon sendiri (lihat opsis.views.peta_pembangkit) — kalau
+    tidak, dayanya akan terlihat dua kali di peta. Semuanya tetap muncul di
+    tabel daya di sebelah peta.
+
+    Daya kelompok tidak disimpan: dihitung di browser dari /opsis/api/live/
+    dengan menjumlahkan anggotanya, sumber angka yang sama dengan ikon biasa.
+    """
+
+    nama       = models.CharField(max_length=80, verbose_name='Nama Kelompok',
+                                  help_text='Tampil sebagai keterangan di bawah ikon, mis. "Kompleks Tello".')
+    keterangan = models.CharField(max_length=200, blank=True, default='', verbose_name='Keterangan',
+                                  help_text='Opsional. Tampil saat kursor diarahkan ke ikon.')
+    jenis      = models.CharField(max_length=10, choices=JENIS_CHOICES, default='LAIN',
+                                  verbose_name='Ikon Jenis',
+                                  help_text='Menentukan gambar dan warna ikon kelompok.')
+    anggota    = models.ManyToManyField('Pembangkit', blank=True, related_name='kelompok_peta',
+                                        verbose_name='Pembangkit Anggota')
+    peta_x     = models.FloatField(default=50, verbose_name='Posisi Peta X (%)',
+                                   help_text='0–100, persen dari kiri peta.')
+    peta_y     = models.FloatField(default=50, verbose_name='Posisi Peta Y (%)',
+                                   help_text='0–100, persen dari atas peta.')
+    tampil_di_peta = models.BooleanField(default=True, verbose_name='Tampilkan di Peta')
+    dibuat_pada    = models.DateTimeField(auto_now_add=True)
+    diubah_pada    = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['nama']
+        verbose_name = 'Kelompok Peta'
+        verbose_name_plural = 'Kelompok Peta'
+
+    def __str__(self):
+        return self.nama
 
 
 class ModePemeliharaan(models.Model):

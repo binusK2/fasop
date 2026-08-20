@@ -12,7 +12,8 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import ModePemeliharaan, Pembangkit, PrakiraanBeban, SnapLive
+from .models import (KelompokPeta, ModePemeliharaan, Pembangkit, PrakiraanBeban,
+                     SnapLive)
 from . import hop_map, prakiraan, prediksi, views
 
 API_KEY = 'kunci-tes-prakiraan'
@@ -351,7 +352,7 @@ class PetaPembangkitTest(TestCase):
             self.assertIn(p.nama, isi)        # semua unit masuk tabel
         # Yang punya koordinat dapat pin; yang tidak, hanya masuk tabel.
         self.assertEqual(len(r.context['pins']), 5)
-        self.assertEqual([t['kode'] for t in r.context['tanpa_posisi']], ['XYZ'])
+        self.assertEqual([t['kode'] for t in r.context['tak_tampil']], ['XYZ'])
 
     def test_pin_serumpun_tidak_saling_menutup(self):
         r = self.client.get('/opsis/peta/')
@@ -538,3 +539,179 @@ class ModePemeliharaanTest(TestCase):
         ModePemeliharaan(aktif=True, judul='Baris kedua').save()
         self.assertEqual(ModePemeliharaan.objects.count(), 1)
         self.assertEqual(ModePemeliharaan.objects.get().judul, 'Baris kedua')
+
+
+class PetaSembunyikanIkonTest(TestCase):
+    """Ikon bisa dihilangkan dari peta tanpa menghilangkan pembangkitnya dari tabel."""
+
+    @classmethod
+    def setUpTestData(cls):
+        # PLTU Barru punya posisi bawaan di hop_map, jadi mengosongkan koordinat
+        # saja tidak cukup untuk menghilangkan ikonnya — itulah yang diuji di sini.
+        cls.pb = Pembangkit.objects.create(nama='PLTU Barru', kode='BLUSU5', jenis='PLTU')
+
+    def setUp(self):
+        user = User.objects.create_superuser('adm-sembunyi', 'sb@contoh.id', 'rahasia-tes-123')
+        profile = getattr(user, 'profile', None)
+        if profile is not None:
+            profile.force_password_change = False
+            profile.save(update_fields=['force_password_change'])
+        self.client.force_login(user)
+
+    def _kirim(self, data):
+        return self.client.post('/opsis/peta/simpan/', data=json.dumps(data),
+                                content_type='application/json')
+
+    def test_bawaan_semua_pembangkit_tampil(self):
+        self.assertTrue(self.pb.tampil_di_peta)
+        r = self.client.get('/opsis/peta/')
+        self.assertEqual([p['kode'] for p in r.context['pins']], ['BLUSU5'])
+
+    def test_sembunyikan_menghilangkan_ikon_tapi_tetap_di_tabel(self):
+        r = self._kirim({'sembunyi': [self.pb.pk]})
+        self.assertEqual(r.status_code, 200)
+        self.pb.refresh_from_db()
+        self.assertFalse(self.pb.tampil_di_peta)
+
+        r = self.client.get('/opsis/peta/')
+        self.assertEqual(r.context['pins'], [])                       # ikon hilang dari peta
+        self.assertEqual([t['kode'] for t in r.context['tak_tampil']], ['BLUSU5'])
+        self.assertContains(r, 'PLTU Barru')                          # tetap ada di tabel daya
+
+    def test_mengosongkan_koordinat_tidak_menyembunyikan_ikon(self):
+        Pembangkit.objects.filter(pk=self.pb.pk).update(peta_x=50, peta_y=50)
+        self._kirim({'hapus': [self.pb.pk]})
+        self.pb.refresh_from_db()
+        self.assertIsNone(self.pb.peta_x)
+        self.assertTrue(self.pb.tampil_di_peta)
+        self.assertEqual(len(self.client.get('/opsis/peta/').context['pins']), 1)
+
+    def test_menaruh_kembali_di_peta_menampilkan_lagi(self):
+        self._kirim({'sembunyi': [self.pb.pk]})
+        self._kirim({'posisi': [{'pk': self.pb.pk, 'x': 30, 'y': 40}]})
+        self.pb.refresh_from_db()
+        self.assertTrue(self.pb.tampil_di_peta)
+        self.assertEqual((self.pb.peta_x, self.pb.peta_y), (30.0, 40.0))
+        self.assertEqual(len(self.client.get('/opsis/peta/').context['pins']), 1)
+
+    def test_sembunyi_tidak_menghapus_koordinat_lama(self):
+        Pembangkit.objects.filter(pk=self.pb.pk).update(peta_x=12.5, peta_y=67.5)
+        self._kirim({'sembunyi': [self.pb.pk]})
+        self.pb.refresh_from_db()
+        self.assertEqual((self.pb.peta_x, self.pb.peta_y), (12.5, 67.5))
+
+
+class KelompokPetaTest(TestCase):
+    """Ikon kelompok: satu ikon mewakili beberapa pembangkit sekaligus."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.a = Pembangkit.objects.create(nama='PLTD GE Tello', kode='TELLO5', jenis='PLTD', urutan=1)
+        cls.b = Pembangkit.objects.create(nama='MPP Tello', kode='TELLO_SW', jenis='PLTD', urutan=2)
+        cls.luar = Pembangkit.objects.create(nama='PLTA Bakaru', kode='BKARU5', jenis='PLTA', urutan=3)
+
+    def setUp(self):
+        user = User.objects.create_superuser('adm-grup', 'grup@contoh.id', 'rahasia-tes-123')
+        profile = getattr(user, 'profile', None)
+        if profile is not None:
+            profile.force_password_change = False
+            profile.save(update_fields=['force_password_change'])
+        self.client.force_login(user)
+
+    def _kirim(self, data):
+        return self.client.post('/opsis/peta/simpan/', data=json.dumps(data),
+                                content_type='application/json')
+
+    def _buat(self, **ubah):
+        isi = {'id': None, 'nama': 'Kompleks Tello', 'keterangan': 'Kawasan Tello',
+               'jenis': 'PLTD', 'x': 13.3, 'y': 88.5, 'anggota': [self.a.pk, self.b.pk]}
+        isi.update(ubah)
+        return self._kirim({'kelompok': [isi]})
+
+    def test_membuat_kelompok_menyerap_ikon_anggotanya(self):
+        r = self._buat()
+        self.assertEqual(r.status_code, 200, r.content)
+        k = KelompokPeta.objects.get()
+        self.assertEqual(k.nama, 'Kompleks Tello')
+        self.assertEqual({a.pk for a in k.anggota.all()}, {self.a.pk, self.b.pk})
+
+        ctx = self.client.get('/opsis/peta/').context
+        # Anggota tidak lagi digambar sendiri; dayanya sudah terhitung di kelompok.
+        self.assertEqual([p['kode'] for p in ctx['pins']], ['BKARU5'])
+        self.assertEqual({t['kode'] for t in ctx['dalam_kelompok']}, {'TELLO5', 'TELLO_SW'})
+        self.assertEqual(len(ctx['kelompok']), 1)
+        self.assertEqual([a['nama'] for a in ctx['kelompok'][0]['anggota']],
+                         ['PLTD GE Tello', 'MPP Tello'])
+
+    def test_anggota_tidak_masuk_daftar_yang_bisa_diseret(self):
+        # Kalau ikut masuk tak_tampil, anggota bisa diseret jadi ikon kedua dan
+        # dayanya terhitung dua kali di peta.
+        self._buat()
+        ctx = self.client.get('/opsis/peta/').context
+        self.assertNotIn('TELLO5', [t['kode'] for t in ctx['tak_tampil']])
+
+    def test_semua_pembangkit_tetap_ada_di_tabel(self):
+        self._buat()
+        isi = self.client.get('/opsis/peta/').content.decode()
+        for nama in ('PLTD GE Tello', 'MPP Tello', 'PLTA Bakaru'):
+            self.assertIn(nama, isi)
+
+    def test_memperbarui_kelompok_yang_sudah_ada(self):
+        self._buat()
+        k = KelompokPeta.objects.get()
+        r = self._kirim({'kelompok': [{'id': k.pk, 'nama': 'Tello', 'keterangan': '',
+                                       'jenis': 'PLTG', 'x': 20, 'y': 30,
+                                       'anggota': [self.a.pk]}]})
+        self.assertEqual(r.status_code, 200)
+        k.refresh_from_db()
+        self.assertEqual((k.nama, k.jenis, k.peta_x, k.peta_y), ('Tello', 'PLTG', 20.0, 30.0))
+        self.assertEqual([a.pk for a in k.anggota.all()], [self.a.pk])
+        # Yang dikeluarkan dari kelompok kembali punya ikon sendiri
+        ctx = self.client.get('/opsis/peta/').context
+        self.assertIn('TELLO_SW', [p['kode'] for p in ctx['pins']])
+
+    def test_menghapus_kelompok_mengembalikan_ikon_anggotanya(self):
+        self._buat()
+        k = KelompokPeta.objects.get()
+        r = self._kirim({'kelompok_hapus': [k.pk]})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(KelompokPeta.objects.count(), 0)
+        ctx = self.client.get('/opsis/peta/').context
+        self.assertEqual({p['kode'] for p in ctx['pins']}, {'TELLO5', 'TELLO_SW', 'BKARU5'})
+
+    def test_kelompok_disembunyikan_anggotanya_kembali_sendiri(self):
+        self._buat()
+        KelompokPeta.objects.update(tampil_di_peta=False)
+        ctx = self.client.get('/opsis/peta/').context
+        self.assertEqual(ctx['kelompok'], [])
+        self.assertEqual({p['kode'] for p in ctx['pins']}, {'TELLO5', 'TELLO_SW', 'BKARU5'})
+
+    def test_nama_kosong_ditolak(self):
+        r = self._buat(nama='   ')
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(KelompokPeta.objects.count(), 0)
+
+    def test_jenis_ikon_asing_ditolak(self):
+        self.assertEqual(self._buat(jenis='PLTX').status_code, 400)
+        self.assertEqual(KelompokPeta.objects.count(), 0)
+
+    def test_posisi_di_luar_peta_ditolak(self):
+        self.assertEqual(self._buat(x=140).status_code, 400)
+        self.assertEqual(KelompokPeta.objects.count(), 0)
+
+    def test_anggota_asing_ditolak(self):
+        self.assertEqual(self._buat(anggota=[999999]).status_code, 400)
+        self.assertEqual(KelompokPeta.objects.count(), 0)
+
+    def test_id_kelompok_asing_ditolak(self):
+        self.assertEqual(self._buat(id=999999).status_code, 400)
+
+    def test_kelompok_tidak_bergeser_penyebaran_otomatis(self):
+        # Kelompok selalu 'manual': posisinya harus tetap persis seperti disimpan.
+        self._buat(x=15.11, y=80.6)          # persis di posisi bawaan PLTU Barru
+        Pembangkit.objects.create(nama='PLTU Barru', kode='BLUSU5', jenis='PLTU', urutan=4)
+        ctx = self.client.get('/opsis/peta/').context
+        k = ctx['kelompok'][0]
+        self.assertEqual((k['x'], k['y']), (15.11, 80.6))
+        barru = next(p for p in ctx['pins'] if p['kode'] == 'BLUSU5')
+        self.assertNotEqual((barru['x'], barru['y']), (15.11, 80.6))
