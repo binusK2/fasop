@@ -1,7 +1,47 @@
 from django.contrib import admin
 from .models import (Pembangkit, SnapLive, SnapUnit, SnapFreq, SnapFreqRT, SnapFreqArea,
                      Trafo, SnapTrafo, HopPembangkit, HopSnapshot,
-                     PrakiraanBeban)
+                     PrakiraanBeban, ModePemeliharaan)
+
+
+@admin.register(ModePemeliharaan)
+class ModePemeliharaanAdmin(admin.ModelAdmin):
+    """
+    Sakelar tunggal "OPSIS sedang dipelihara" — hanya ada satu baris, jadi
+    tombol Tambah/Hapus dimatikan dan daftar langsung membuka baris itu.
+    """
+    list_display    = ('status_ringkas', 'judul', 'perkiraan_selesai', 'diubah_oleh', 'diubah_pada')
+    readonly_fields = ('diubah_oleh', 'diubah_pada')
+    fieldsets = (
+        (None, {
+            'description': 'Bila diaktifkan, SEMUA halaman /opsis/ (dashboard, peta, UP2D, '
+                           'HOP, dsb.) diganti halaman pemeliharaan sampai sakelar ini '
+                           'dimatikan lagi. Cron pengumpul data OPSIS tidak terpengaruh. '
+                           'Perubahan berlaku paling lambat beberapa detik di semua worker.',
+            'fields': ('aktif', 'boleh_superuser'),
+        }),
+        ('Isi Halaman Pemeliharaan', {'fields': ('judul', 'pesan', 'perkiraan_selesai')}),
+        ('Riwayat', {'fields': ('diubah_oleh', 'diubah_pada')}),
+    )
+
+    @admin.display(description='Status', boolean=True)
+    def status_ringkas(self, obj):
+        return obj.aktif
+
+    def has_add_permission(self, request):
+        # Baris tunggal: dibuat otomatis oleh changelist_view di bawah.
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def changelist_view(self, request, extra_context=None):
+        ModePemeliharaan.ambil()      # pastikan barisnya ada sebelum daftar dirender
+        return super().changelist_view(request, extra_context)
+
+    def save_model(self, request, obj, form, change):
+        obj.diubah_oleh = request.user
+        super().save_model(request, obj, form, change)
 
 
 @admin.register(Pembangkit)

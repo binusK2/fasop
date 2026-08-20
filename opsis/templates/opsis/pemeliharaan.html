@@ -1,0 +1,110 @@
+{% load static %}<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ mode.judul }} — FASOP</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+    --body-bg:#0b1120; --card-bg:#131f35; --card-bd:#1e2d45;
+    --text:#e2e8f0; --muted:#64748b; --amber:#f59e0b;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+    font-family:'DM Sans',sans-serif; background:var(--body-bg); color:var(--text);
+    min-height:100vh; display:flex; flex-direction:column; align-items:center;
+    justify-content:center; padding:28px 18px; text-align:center;
+}
+.brand { display:flex; align-items:center; gap:9px; margin-bottom:26px; }
+.brand .n { font-size:16px; font-weight:800; color:#fff; letter-spacing:.3px; }
+.brand .b { background:#3b82f6; color:#fff; font-size:10px; font-weight:700; padding:2px 7px; border-radius:4px; letter-spacing:.5px; }
+
+.kartu {
+    width:100%; max-width:560px; background:var(--card-bg); border:1px solid var(--card-bd);
+    border-radius:16px; padding:38px 30px 30px;
+}
+.ikon {
+    width:76px; height:76px; margin:0 auto 20px; border-radius:50%;
+    background:rgba(245,158,11,.12); border:1px solid rgba(245,158,11,.35);
+    display:flex; align-items:center; justify-content:center;
+    color:var(--amber); font-size:34px;
+}
+.ikon svg { width:38px; height:38px; animation:putar 8s linear infinite; }
+@keyframes putar { to { transform:rotate(360deg); } }
+@media (prefers-reduced-motion:reduce) { .ikon svg { animation:none; } }
+
+h1 { font-size:21px; font-weight:800; line-height:1.35; margin-bottom:12px; }
+.pesan { font-size:13.5px; line-height:1.7; color:#94a3b8; white-space:pre-line; }
+
+.perkiraan {
+    margin-top:22px; padding:12px 16px; border-radius:10px;
+    background:rgba(59,130,246,.08); border:1px solid rgba(59,130,246,.28);
+    display:inline-flex; align-items:center; gap:10px; font-size:12.5px; color:#93c5fd;
+}
+.perkiraan b { font-family:'JetBrains Mono',monospace; font-size:13.5px; color:#dbeafe; }
+
+.aksi { margin-top:26px; display:flex; gap:9px; justify-content:center; flex-wrap:wrap; }
+.tbl {
+    display:inline-flex; align-items:center; gap:7px; text-decoration:none;
+    background:#1e293b; border:1px solid var(--card-bd); border-radius:9px;
+    color:var(--text); font-size:12.5px; font-weight:600; padding:9px 17px; transition:.15s;
+}
+.tbl:hover { border-color:#475569; }
+.tbl.utama { background:#2563eb; border-color:#2563eb; color:#fff; }
+.tbl.utama:hover { background:#1d4ed8; }
+
+.kaki { margin-top:24px; font-size:11px; color:var(--muted); line-height:1.7; }
+.kaki .mono { font-family:'JetBrains Mono',monospace; }
+</style>
+
+<div class="brand">
+    <i class="bi bi-lightning-charge-fill" style="color:#3b82f6;font-size:20px;"></i>
+    <span class="n">FASOP</span><span class="b">OPSIS</span>
+</div>
+
+<div class="kartu">
+    <div class="ikon">
+        {# Ikon digambar inline, bukan icon-font CDN: halaman ini dipakai justru saat ada yang tidak beres. #}
+        <svg viewBox="0 0 48 48" aria-hidden="true" fill="currentColor">
+            <g>
+                <rect x="21" y="1" width="6" height="11" rx="2"/>
+                <rect x="21" y="1" width="6" height="11" rx="2" transform="rotate(45 24 24)"/>
+                <rect x="21" y="1" width="6" height="11" rx="2" transform="rotate(90 24 24)"/>
+                <rect x="21" y="1" width="6" height="11" rx="2" transform="rotate(135 24 24)"/>
+                <rect x="21" y="1" width="6" height="11" rx="2" transform="rotate(180 24 24)"/>
+                <rect x="21" y="1" width="6" height="11" rx="2" transform="rotate(225 24 24)"/>
+                <rect x="21" y="1" width="6" height="11" rx="2" transform="rotate(270 24 24)"/>
+                <rect x="21" y="1" width="6" height="11" rx="2" transform="rotate(315 24 24)"/>
+            </g>
+            <circle cx="24" cy="24" r="14" fill="none" stroke="currentColor" stroke-width="6"/>
+            <circle cx="24" cy="24" r="5" fill="none" stroke="currentColor" stroke-width="3"/>
+        </svg>
+    </div>
+    <h1>{{ mode.judul }}</h1>
+    <div class="pesan">{{ mode.pesan }}</div>
+
+    {% if mode.perkiraan_selesai %}
+    <div class="perkiraan">
+        <i class="bi bi-clock-history"></i>
+        <span>Perkiraan selesai <b>{{ mode.perkiraan_selesai|date:"d M Y, H:i" }}</b> WITA</span>
+    </div>
+    {% endif %}
+
+    <div class="aksi">
+        {% if request.user.is_authenticated %}
+            {% if request.user.profile.role != 'opsis' and request.user.profile.role != 'opsis_view' and request.user.profile.role != 'up2d' %}
+            <a class="tbl utama" href="/"><i class="bi bi-house-door-fill"></i> Kembali ke Dashboard FASOP</a>
+            {% endif %}
+            <a class="tbl" href="/logout/"><i class="bi bi-box-arrow-right"></i> Keluar</a>
+        {% else %}
+            <a class="tbl utama" href="/login/"><i class="bi bi-box-arrow-in-right"></i> Masuk</a>
+        {% endif %}
+    </div>
+
+    <div class="kaki">
+        Menu OPSIS lain juga ditutup sementara. Halaman ini otomatis terbuka kembali
+        begitu mode pemeliharaan dimatikan — tidak perlu menghubungi admin sistem
+        untuk membuka satu per satu.
+        {% if mode.diubah_pada %}<br><span class="mono">Terakhir diperbarui {{ mode.diubah_pada|date:"d M Y, H:i" }}</span>{% endif %}
+    </div>
+</div>

@@ -1,3 +1,5 @@
+import time
+
 from django.db import models
 from django.contrib.auth.models import User
 
@@ -534,3 +536,85 @@ class PrakiraanBeban(models.Model):
 
     def __str__(self):
         return f"{self.tanggal:%Y-%m-%d} {self.jam} — {self.mw} MW"
+
+
+class ModePemeliharaan(models.Model):
+    """
+    Sakelar "OPSIS sedang dalam pemeliharaan" — baris tunggal (pk=1) yang diubah
+    dari site admin. Selama `aktif` dicentang, semua permintaan ke /opsis/*
+    dijawab halaman pemeliharaan oleh devices.middleware.OpsisMaintenanceMiddleware
+    (HTTP 503), bukan oleh tiap view satu per satu.
+
+    Dipakai mis. saat FASOP belum tersambung ke historian MSSQL: halaman OPSIS
+    akan penuh angka kosong dan menembak MSSQL terus-menerus, jadi lebih baik
+    ditutup dulu sampai koneksinya siap.
+
+    Cron pengumpul data (collect_live, collect_freq, dsb.) TIDAK terpengaruh —
+    sakelar ini hanya menutup akses web.
+    """
+
+    # Sakelar ini dibaca tiap request /opsis/*, jadi hasilnya di-cache sebentar
+    # per proses. Konsekuensinya perubahan dari admin berlaku paling lambat
+    # TTL_CACHE detik di worker lain (worker yang menyimpan langsung tahu).
+    TTL_CACHE = 5.0
+    _cache = {'obj': None, 'ts': 0.0}
+
+    aktif = models.BooleanField(
+        default=False, verbose_name='Aktifkan Mode Pemeliharaan',
+        help_text='Bila dicentang, semua halaman /opsis/ diganti halaman pemeliharaan.')
+    judul = models.CharField(
+        max_length=120, default='OPSIS Sedang Dalam Pemeliharaan', verbose_name='Judul',
+        help_text='Judul besar yang tampil di halaman pemeliharaan.')
+    pesan = models.TextField(
+        default='Dashboard OPSIS untuk sementara tidak dapat diakses karena koneksi ke '
+                'server data SCADA (MSSQL) belum tersedia. Halaman akan dibuka kembali '
+                'setelah koneksi siap.',
+        verbose_name='Pesan', help_text='Penjelasan singkat untuk pengguna.')
+    perkiraan_selesai = models.DateTimeField(
+        null=True, blank=True, verbose_name='Perkiraan Selesai',
+        help_text='Opsional. Kosongkan bila belum ada perkiraan waktu.')
+    boleh_superuser = models.BooleanField(
+        default=True, verbose_name='Superuser Tetap Bisa Masuk',
+        help_text='Bila dicentang, superuser tetap dapat membuka /opsis/ untuk pengujian '
+                  '(dengan pita penanda di atas halaman). Hilangkan centang untuk menutup '
+                  'OPSIS bagi semua orang tanpa kecuali.')
+    diubah_oleh = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL,
+                                    related_name='+', verbose_name='Diubah Oleh')
+    diubah_pada = models.DateTimeField(auto_now=True, verbose_name='Diubah Pada')
+
+    class Meta:
+        verbose_name = 'Mode Pemeliharaan OPSIS'
+        verbose_name_plural = 'Mode Pemeliharaan OPSIS'
+
+    def __str__(self):
+        return 'Aktif — OPSIS ditutup' if self.aktif else 'Nonaktif — OPSIS terbuka'
+
+    def save(self, *args, **kwargs):
+        self.pk = 1                       # selalu satu baris, apa pun jalur simpannya
+        super().save(*args, **kwargs)
+        type(self)._cache = {'obj': self, 'ts': time.monotonic()}
+
+    @classmethod
+    def ambil(cls):
+        """Baris pengaturan, dibuat dengan nilai bawaan bila belum ada."""
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+    @classmethod
+    def status(cls):
+        """
+        Seperti ambil(), tapi memakai cache pendek karena dipanggil tiap request
+        /opsis/*. Mengembalikan None bila tabelnya belum ada (mis. sebelum
+        migrate dijalankan) supaya kegagalan di sini tidak menjatuhkan seluruh
+        aplikasi — pemanggil memperlakukan None sebagai "tidak sedang dipelihara".
+        """
+        now = time.monotonic()
+        cache = cls._cache
+        if cache['obj'] is not None and (now - cache['ts']) < cls.TTL_CACHE:
+            return cache['obj']
+        try:
+            obj = cls.ambil()
+        except Exception:
+            return cache['obj']
+        cls._cache = {'obj': obj, 'ts': now}
+        return obj

@@ -108,6 +108,7 @@ SecurityMiddleware → SessionMiddleware → CommonMiddleware → CsrfViewMiddle
 → AuthenticationMiddleware → AxesMiddleware → MessageMiddleware
 → XFrameOptionsMiddleware
 → ForcePasswordChangeMiddleware   # force new password on first login
+→ OpsisMaintenanceMiddleware      # /opsis/* → halaman pemeliharaan bila sakelarnya aktif
 → OpsisAccessMiddleware           # restricts opsis role to /opsis/ only
 → OperatorAccessMiddleware        # restricts operator role to /inspection/ only
 → DispatcherAccessMiddleware      # restricts dispatcher role to telecom testing
@@ -340,6 +341,32 @@ Baris `PrakiraanBeban` hari lampau **tidak pernah dihapus** — histori itulah y
 dipakai `evaluate_accuracy()` untuk membandingkan prakiraan vs realisasi `SnapLive`.
 Menimpa kurva hari yang sudah lewat dengan angka realisasi akan membuat akurasi
 terlihat sempurna secara palsu.
+
+---
+
+## OPSIS — Mode Pemeliharaan (`opsis.ModePemeliharaan`)
+
+Sakelar tunggal di site admin (**Opsis → Mode Pemeliharaan OPSIS**, satu baris
+pk=1, tombol Tambah/Hapus dimatikan) yang menutup **seluruh** `/opsis/*` dan
+menggantinya dengan `opsis/pemeliharaan.html` (HTTP 503 + `Retry-After`).
+Dipakai mis. selama koneksi ke historian MSSQL belum tersedia, supaya halaman
+OPSIS tidak menampilkan angka kosong sambil menembak MSSQL terus-menerus.
+
+Penegakannya di `devices.middleware.OpsisMaintenanceMiddleware`, **bukan** di
+tiap view — jadi rute OPSIS baru otomatis ikut tertutup tanpa perlu diingat.
+Yang perlu diketahui saat mengubahnya:
+
+- Permintaan ke `/opsis/api/*` (dan XHR lain) dijawab **JSON** 503, bukan HTML,
+  supaya poller tidak menelan HTML sebagai JSON.
+- Superuser tetap bisa masuk selama `boleh_superuser` dicentang; request-nya
+  ditandai `request.opsis_pemeliharaan = True` dan `opsis_base.html` menampilkan
+  pita penanda. Hilangkan centangnya untuk menutup OPSIS tanpa kecuali.
+- `ModePemeliharaan.status()` men-cache barisnya `TTL_CACHE` detik per proses
+  (dibaca tiap request `/opsis/*`), dan `save()` menyegarkan cache di worker yang
+  menyimpan. Jadi perubahan dari admin berlaku instan di satu worker dan paling
+  lambat beberapa detik di worker lain — jangan ganti jadi query per request.
+- Cron pengumpul data (`collect_live`, `collect_freq`, dsb.) tidak lewat
+  middleware sama sekali, jadi pengumpulan data tetap jalan selama pemeliharaan.
 
 ---
 

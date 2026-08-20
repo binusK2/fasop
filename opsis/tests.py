@@ -12,7 +12,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import Pembangkit, PrakiraanBeban, SnapLive
+from .models import ModePemeliharaan, Pembangkit, PrakiraanBeban, SnapLive
 from . import hop_map, prakiraan, prediksi, views
 
 API_KEY = 'kunci-tes-prakiraan'
@@ -441,3 +441,87 @@ class PetaSimpanPosisiTest(TestCase):
         pins = {p['kode']: p for p in r.context['pins']}
         self.assertEqual((pins['BKARU5']['x'], pins['BKARU5']['y']), bawaan)
         self.assertNotEqual((pins['BLUSU5']['x'], pins['BLUSU5']['y']), bawaan)
+
+
+class ModePemeliharaanTest(TestCase):
+    """Sakelar pemeliharaan menutup /opsis/* dan membukanya lagi tanpa deploy."""
+
+    def setUp(self):
+        ModePemeliharaan._cache = {'obj': None, 'ts': 0.0}   # cache antar-tes tidak boleh bocor
+        self.user = self._buat('staf-opsis', role='opsis')
+        self.client.force_login(self.user)
+
+    def tearDown(self):
+        ModePemeliharaan._cache = {'obj': None, 'ts': 0.0}
+
+    def _buat(self, nama, role='opsis', superuser=False):
+        buat = User.objects.create_superuser if superuser else User.objects.create_user
+        user = buat(nama, f'{nama}@contoh.id', 'rahasia-tes-123')
+        profile = getattr(user, 'profile', None)
+        if profile is not None:
+            profile.role = role
+            profile.force_password_change = False
+            profile.save(update_fields=['role', 'force_password_change'])
+        return user
+
+    def _nyalakan(self, **kwargs):
+        mode = ModePemeliharaan.ambil()
+        mode.aktif = True
+        for k, v in kwargs.items():
+            setattr(mode, k, v)
+        mode.save()
+        return mode
+
+    def test_nonaktif_opsis_tetap_terbuka(self):
+        self.assertFalse(ModePemeliharaan.ambil().aktif)     # bawaan: tidak memelihara
+        self.assertEqual(self.client.get('/opsis/').status_code, 200)
+
+    def test_aktif_semua_rute_opsis_jadi_halaman_pemeliharaan(self):
+        self._nyalakan(judul='OPSIS Dipelihara')
+        for url in ('/opsis/', '/opsis/peta/', '/opsis/up2d/', '/opsis/hop/dashboard/'):
+            r = self.client.get(url)
+            self.assertEqual(r.status_code, 503, url)
+            self.assertTemplateUsed(r, 'opsis/pemeliharaan.html')
+            self.assertContains(r, 'OPSIS Dipelihara', status_code=503)
+            self.assertEqual(r['Retry-After'], '1800')
+
+    def test_endpoint_api_dijawab_json_bukan_html(self):
+        self._nyalakan()
+        r = self.client.get('/opsis/api/live/')
+        self.assertEqual(r.status_code, 503)
+        self.assertEqual(r['Content-Type'], 'application/json')
+        self.assertTrue(r.json()['pemeliharaan'])
+
+    def test_rute_di_luar_opsis_tidak_terpengaruh(self):
+        self._nyalakan()
+        # Role opsis dibatasi ke /opsis/ oleh OpsisAccessMiddleware, jadi diuji
+        # dengan superuser: yang penting rute non-OPSIS tidak ikut 503.
+        self.client.force_login(self._buat('adm-lain', superuser=True))
+        r = self.client.get('/device-mon/')
+        self.assertNotEqual(r.status_code, 503)
+
+    def test_superuser_menembus_bila_diizinkan(self):
+        self._nyalakan(boleh_superuser=True)
+        self.client.force_login(self._buat('adm-tembus', superuser=True))
+        r = self.client.get('/opsis/')
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(r.context['request'].opsis_pemeliharaan)
+        self.assertContains(r, 'Mode pemeliharaan aktif')      # pita penanda
+
+    def test_superuser_ikut_ditutup_bila_tidak_diizinkan(self):
+        self._nyalakan(boleh_superuser=False)
+        self.client.force_login(self._buat('adm-tutup', superuser=True))
+        self.assertEqual(self.client.get('/opsis/').status_code, 503)
+
+    def test_dimatikan_lagi_opsis_langsung_terbuka(self):
+        mode = self._nyalakan()
+        self.assertEqual(self.client.get('/opsis/').status_code, 503)
+        mode.aktif = False
+        mode.save()
+        self.assertEqual(self.client.get('/opsis/').status_code, 200)
+
+    def test_baris_pengaturan_selalu_tunggal(self):
+        ModePemeliharaan.ambil()
+        ModePemeliharaan(aktif=True, judul='Baris kedua').save()
+        self.assertEqual(ModePemeliharaan.objects.count(), 1)
+        self.assertEqual(ModePemeliharaan.objects.get().judul, 'Baris kedua')

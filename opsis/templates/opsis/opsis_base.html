@@ -180,6 +180,15 @@ body { font-family:'DM Sans', sans-serif; background:var(--body-bg); color:var(-
 .sb-dot.yellow { background: var(--yellow); }
 .sb-dot.red    { background: var(--red); }
 
+/* ── Pita mode pemeliharaan (hanya tampil untuk superuser) ── */
+.pita-pemeliharaan {
+    display:flex; align-items:center; gap:9px; flex-wrap:wrap; margin-bottom:16px;
+    background:rgba(245,158,11,.10); border:1px solid rgba(245,158,11,.35);
+    border-radius:10px; padding:10px 14px; font-size:12px; color:#fbbf24;
+}
+.pita-pemeliharaan b { color:#fcd34d; }
+.pita-pemeliharaan a { margin-left:auto; color:#fbbf24; font-weight:600; white-space:nowrap; }
+
 /* ── Main Content ── */
 .main-content {
     flex: 1;
@@ -404,6 +413,15 @@ body { font-family:'DM Sans', sans-serif; background:var(--body-bg); color:var(-
 
     <!-- Main Content -->
     <div class="main-content">
+        {# Ditandai OpsisMaintenanceMiddleware saat superuser menembus mode pemeliharaan #}
+        {% if request.opsis_pemeliharaan %}
+        <div class="pita-pemeliharaan">
+            <i class="bi bi-cone-striped"></i>
+            <span><b>Mode pemeliharaan aktif.</b> OPSIS sedang ditutup untuk pengguna lain —
+                Anda melihat halaman ini karena berstatus superuser.</span>
+            <a href="/secure-panel/opsis/modepemeliharaan/">Ubah pengaturan</a>
+        </div>
+        {% endif %}
         {% block content %}{% endblock %}
 
         <!-- Footer -->
