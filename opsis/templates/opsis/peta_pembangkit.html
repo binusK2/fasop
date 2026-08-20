@@ -8,7 +8,7 @@
 [hidden] { display:none !important; }
 
 /* ── Layout: peta dominan di kiri, tabel menyesuaikan di kanan ───────── */
-.pp-grid { display:grid; grid-template-columns:1.7fr 1fr; gap:16px; align-items:start; }
+.pp-grid { display:grid; grid-template-columns:2.15fr 1fr; gap:16px; align-items:start; }
 @media (max-width:1250px){ .pp-grid { grid-template-columns:1fr; } }
 
 .pp-card { background:var(--card-bg); border:1px solid var(--card-bd); border-radius:12px; overflow:hidden; }
@@ -20,8 +20,14 @@
 .pp-card > h2 .kanan { margin-left:auto; font-weight:600; letter-spacing:0; text-transform:none; color:var(--muted); font-size:11px; }
 .pp-card .bd { padding:14px; }
 
-/* Kolom kanan ikut menggulung bersama peta yang panjang */
-.pp-side { position:sticky; top:0; }
+/* Kolom kanan setinggi peta: tingginya disamakan dengan kartu peta oleh
+   samakanTinggi() di bawah (tidak bisa murni CSS — tinggi peta baru diketahui
+   setelah SVG dirender), lalu daftarnya menggulung di dalam kartu. Tanpa itu
+   tabel yang panjang justru yang menentukan tinggi baris dan kartu peta ikut
+   memanjang dengan ruang kosong di bawahnya. */
+.pp-side { display:flex; flex-direction:column; min-height:0; }
+.pp-side > .pp-card:last-child { flex:1; display:flex; flex-direction:column; min-height:0; }
+@media (max-width:1250px){ .pp-side { display:block; } }
 
 /* ── Ringkasan ───────────────────────────────────────────────────────── */
 .pp-sum { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-bottom:16px; }
@@ -93,8 +99,8 @@
 .pp-tools input { flex:1; min-width:0; }
 .pp-tools input:focus, .pp-tools select:focus { border-color:#3b82f6; }
 
-.pp-tbl-wrap { max-height:calc(100vh - 260px); overflow:auto; }
-@media (max-width:1250px){ .pp-tbl-wrap { max-height:520px; } }
+.pp-tbl-wrap { flex:1; min-height:0; overflow:auto; }
+@media (max-width:1250px){ .pp-tbl-wrap { flex:none; max-height:520px; } }
 table.pp-tbl { width:100%; border-collapse:collapse; font-size:12px; }
 .pp-tbl thead th {
     position:sticky; top:0; z-index:2; background:#16233c; cursor:pointer; user-select:none;
@@ -334,26 +340,7 @@ table.pp-tbl { width:100%; border-collapse:collapse; font-size:12px; }
         <div class="pp-tip" id="ppTip"></div>
       </div>
     </div>
-    {% if dalam_kelompok %}
-    <div class="pp-note">
-      <i class="bi bi-collection"></i>
-      <span>{{ dalam_kelompok|length }} pembangkit diwakili ikon kelompok
-        ({% for t in dalam_kelompok %}{{ t.nama }} → <b>{{ t.kelompok }}</b>{% if not forloop.last %}, {% endif %}{% endfor %})
-        — dayanya sudah terhitung di ikon kelompoknya.</span>
-    </div>
-    {% endif %}
-    {% if tak_tampil %}
-    <div class="pp-note">
-      <i class="bi bi-info-circle"></i>
-      <span>{{ tak_tampil|length }} pembangkit tidak ditampilkan di peta
-        ({% for t in tak_tampil %}{{ t.nama }}{% if not forloop.last %}, {% endif %}{% endfor %})
-        — semuanya tetap ada di tabel daya.
-        {% if bisa_atur %}Klik <b>Atur Peta</b>, lalu seret namanya dari daftar ke peta
-        untuk memunculkan ikonnya.
-        {% else %}Centang <b>Tampilkan Ikon di Peta</b> pada pembangkit tersebut di
-        halaman admin untuk memunculkan ikonnya.{% endif %}</span>
-    </div>
-    {% endif %}
+    {# Catatan "tidak tampil di peta"/"diwakili kelompok" sengaja tidak ditampilkan agar peta bersih — daftarnya ada di panel Atur Peta. #}
   </div>
 
   <!-- ── KANAN: PANEL ATUR PETA (mode edit) + TABEL ── -->
@@ -1173,6 +1160,21 @@ let pilihPin = () => {}, pilihGrup = () => {}, mulaiSeret = () => {};
     addEventListener('beforeunload', e => {
         if (modeEdit && adaPerubahan() && !btnSimpan.disabled) { e.preventDefault(); e.returnValue = ''; }
     });
+})();
+
+// ── Tinggi kolom tabel = tinggi kartu peta ───────────────────────────
+(function () {
+    const kartuPeta = document.querySelector('.pp-grid > .pp-card');
+    const sisi = document.querySelector('.pp-side');
+    if (!kartuPeta || !sisi) return;
+    const AMBANG = 1250;          // sama dengan @media di CSS: di bawah ini kolomnya bertumpuk
+    function samakanTinggi() {
+        sisi.style.height = innerWidth <= AMBANG
+            ? '' : kartuPeta.getBoundingClientRect().height + 'px';
+    }
+    new ResizeObserver(samakanTinggi).observe(kartuPeta);
+    addEventListener('resize', samakanTinggi);
+    samakanTinggi();
 })();
 
 // ── Polling ──────────────────────────────────────────────────────────
