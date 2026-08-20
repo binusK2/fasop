@@ -1,3 +1,5 @@
+import time
+
 from django.db import models
 from django.contrib.auth.models import User
 
@@ -12,6 +14,21 @@ JENIS_CHOICES = [
     ('PLTS',  'PLTS — Tenaga Surya'),
     ('LAIN',  'Lainnya'),
 ]
+
+
+# Warna per jenis pembangkit — dipakai kartu/chart komposisi dashboard dan ikon
+# Peta Pembangkit. Ini satu-satunya definisi: view yang butuh warna mengirimnya
+# ke template, jangan menyalin dict ini ke dalam <script>.
+JENIS_WARNA = {
+    'PLTA':  '#3b82f6',
+    'PLTB':  '#22c55e',
+    'PLTD':  '#ef4444',
+    'PLTU':  '#f59e0b',
+    'PLTG':  '#a855f7',
+    'PLTGU': '#06b6d4',
+    'PLTS':  '#eab308',
+    'LAIN':  '#64748b',
+}
 
 
 class Pembangkit(models.Model):
@@ -52,6 +69,15 @@ class Pembangkit(models.Model):
     dmp_kolom_dmp = models.CharField(max_length=50, blank=True, default='', verbose_name='Kolom DMP',
                                       help_text='Nama kolom KIT_DMP berisi Daya Mampu Pasok (MW). '
                                                 'Kosongkan bila DMP tidak tersedia.')
+    # ── Posisi pin pada Peta Pembangkit (/opsis/peta/) ─────────────────
+    # Persen terhadap viewBox peta Sulawesi: peta_x 0=barat, 100=timur;
+    # peta_y 0=utara, 100=selatan. Kosongkan untuk memakai posisi bawaan
+    # opsis.hop_map.posisi_pembangkit() yang dicocokkan dari nama pembangkit;
+    # isi hanya bila pembangkit belum terdaftar di sana atau pinnya perlu digeser.
+    peta_x        = models.FloatField(null=True, blank=True, verbose_name='Posisi Peta X (%)',
+                                      help_text='0–100, persen dari kiri peta. Kosongkan untuk posisi bawaan.')
+    peta_y        = models.FloatField(null=True, blank=True, verbose_name='Posisi Peta Y (%)',
+                                      help_text='0–100, persen dari atas peta. Kosongkan untuk posisi bawaan.')
     # Penanda data tidak valid / tidak sesuai kondisi real (diisi manual oleh
     # superuser / role Opsis dari dashboard). Bila False, tampilan dashboard
     # tidak berubah; bila True, kartu diberi label ketidaksesuaian.
@@ -88,6 +114,17 @@ class Pembangkit(models.Model):
     def pakai_dmp(self):
         """True bila minimal satu kolom DMN/DMP dikonfigurasi."""
         return bool(self.dmp_kolom_dmn.strip() or self.dmp_kolom_dmp.strip())
+
+    def posisi_peta(self):
+        """
+        (x%, y%) pin pada Peta Pembangkit, atau None bila pembangkit ini belum
+        punya posisi. peta_x/peta_y dari admin menang atas tabel bawaan
+        opsis.hop_map (dicocokkan dari nama).
+        """
+        from opsis.hop_map import posisi_pembangkit
+        if self.peta_x is not None and self.peta_y is not None:
+            return (self.peta_x, self.peta_y)
+        return posisi_pembangkit(self.nama)
 
 
 HOP_KATEGORI_CHOICES = [
@@ -499,3 +536,85 @@ class PrakiraanBeban(models.Model):
 
     def __str__(self):
         return f"{self.tanggal:%Y-%m-%d} {self.jam} — {self.mw} MW"
+
+
+class ModePemeliharaan(models.Model):
+    """
+    Sakelar "OPSIS sedang dalam pemeliharaan" — baris tunggal (pk=1) yang diubah
+    dari site admin. Selama `aktif` dicentang, semua permintaan ke /opsis/*
+    dijawab halaman pemeliharaan oleh devices.middleware.OpsisMaintenanceMiddleware
+    (HTTP 503), bukan oleh tiap view satu per satu.
+
+    Dipakai mis. saat FASOP belum tersambung ke historian MSSQL: halaman OPSIS
+    akan penuh angka kosong dan menembak MSSQL terus-menerus, jadi lebih baik
+    ditutup dulu sampai koneksinya siap.
+
+    Cron pengumpul data (collect_live, collect_freq, dsb.) TIDAK terpengaruh —
+    sakelar ini hanya menutup akses web.
+    """
+
+    # Sakelar ini dibaca tiap request /opsis/*, jadi hasilnya di-cache sebentar
+    # per proses. Konsekuensinya perubahan dari admin berlaku paling lambat
+    # TTL_CACHE detik di worker lain (worker yang menyimpan langsung tahu).
+    TTL_CACHE = 5.0
+    _cache = {'obj': None, 'ts': 0.0}
+
+    aktif = models.BooleanField(
+        default=False, verbose_name='Aktifkan Mode Pemeliharaan',
+        help_text='Bila dicentang, semua halaman /opsis/ diganti halaman pemeliharaan.')
+    judul = models.CharField(
+        max_length=120, default='OPSIS Sedang Dalam Pemeliharaan', verbose_name='Judul',
+        help_text='Judul besar yang tampil di halaman pemeliharaan.')
+    pesan = models.TextField(
+        default='Dashboard OPSIS untuk sementara tidak dapat diakses karena koneksi ke '
+                'server data SCADA (MSSQL) belum tersedia. Halaman akan dibuka kembali '
+                'setelah koneksi siap.',
+        verbose_name='Pesan', help_text='Penjelasan singkat untuk pengguna.')
+    perkiraan_selesai = models.DateTimeField(
+        null=True, blank=True, verbose_name='Perkiraan Selesai',
+        help_text='Opsional. Kosongkan bila belum ada perkiraan waktu.')
+    boleh_superuser = models.BooleanField(
+        default=True, verbose_name='Superuser Tetap Bisa Masuk',
+        help_text='Bila dicentang, superuser tetap dapat membuka /opsis/ untuk pengujian '
+                  '(dengan pita penanda di atas halaman). Hilangkan centang untuk menutup '
+                  'OPSIS bagi semua orang tanpa kecuali.')
+    diubah_oleh = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL,
+                                    related_name='+', verbose_name='Diubah Oleh')
+    diubah_pada = models.DateTimeField(auto_now=True, verbose_name='Diubah Pada')
+
+    class Meta:
+        verbose_name = 'Mode Pemeliharaan OPSIS'
+        verbose_name_plural = 'Mode Pemeliharaan OPSIS'
+
+    def __str__(self):
+        return 'Aktif — OPSIS ditutup' if self.aktif else 'Nonaktif — OPSIS terbuka'
+
+    def save(self, *args, **kwargs):
+        self.pk = 1                       # selalu satu baris, apa pun jalur simpannya
+        super().save(*args, **kwargs)
+        type(self)._cache = {'obj': self, 'ts': time.monotonic()}
+
+    @classmethod
+    def ambil(cls):
+        """Baris pengaturan, dibuat dengan nilai bawaan bila belum ada."""
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+    @classmethod
+    def status(cls):
+        """
+        Seperti ambil(), tapi memakai cache pendek karena dipanggil tiap request
+        /opsis/*. Mengembalikan None bila tabelnya belum ada (mis. sebelum
+        migrate dijalankan) supaya kegagalan di sini tidak menjatuhkan seluruh
+        aplikasi — pemanggil memperlakukan None sebagai "tidak sedang dipelihara".
+        """
+        now = time.monotonic()
+        cache = cls._cache
+        if cache['obj'] is not None and (now - cache['ts']) < cls.TTL_CACHE:
+            return cache['obj']
+        try:
+            obj = cls.ambil()
+        except Exception:
+            return cache['obj']
+        cls._cache = {'obj': obj, 'ts': now}
+        return obj

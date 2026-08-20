@@ -12,8 +12,8 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import Pembangkit, PrakiraanBeban, SnapLive
-from . import prakiraan, prediksi
+from .models import ModePemeliharaan, Pembangkit, PrakiraanBeban, SnapLive
+from . import hop_map, prakiraan, prediksi, views
 
 API_KEY = 'kunci-tes-prakiraan'
 
@@ -307,3 +307,221 @@ class KeteranganSumberDashboardTest(TestCase):
         r = self.client.get('/opsis/prediksi-beban/')
         self.assertEqual(r.status_code, 200)
         self.assertIn('Dashboard ROH Sulbagsel', r.content.decode())
+
+
+class PetaPembangkitTest(TestCase):
+    """Peta Pembangkit: pin terpasang, tidak bertumpuk, dan tabel memuat semua unit."""
+
+    @classmethod
+    def setUpTestData(cls):
+        # Tiga pembangkit di lokasi yang sama persis (rumpun Tello) untuk menguji
+        # penyebaran pin, satu PLTA yang posisinya hanya ada di PEMBANGKIT_MAP_POS,
+        # satu pembangkit dengan koordinat manual, dan satu yang tak dikenal peta.
+        data = [
+            ('PLTD GE Tello', 'TELLO5', 'PLTD'),
+            ('PLTD Tello Biosolar', 'TELLOB', 'PLTD'),
+            ('MPP Tello', 'TELLO_SW', 'PLTD'),
+            ('PLTA Bakaru', 'BKARU5', 'PLTA'),
+            ('Pembangkit Tak Dikenal', 'XYZ', 'LAIN'),
+        ]
+        for urutan, (nama, kode, jenis) in enumerate(data):
+            Pembangkit.objects.create(nama=nama, kode=kode, jenis=jenis, urutan=urutan)
+        cls.manual = Pembangkit.objects.create(nama='PLTS Uji Manual', kode='MANUAL',
+                                               jenis='PLTS', urutan=9, peta_x=40, peta_y=60)
+
+    def setUp(self):
+        user = User.objects.create_superuser('adm-peta', 'peta@contoh.id', 'rahasia-tes-123')
+        profile = getattr(user, 'profile', None)
+        if profile is not None:
+            profile.force_password_change = False
+            profile.save(update_fields=['force_password_change'])
+        self.client.force_login(user)
+
+    def test_posisi_peta_manual_menang_atas_tabel_bawaan(self):
+        self.assertEqual(self.manual.posisi_peta(), (40, 60))
+        self.assertEqual(Pembangkit.objects.get(kode='BKARU5').posisi_peta(),
+                         hop_map.posisi_pembangkit('PLTA Bakaru'))
+        self.assertIsNone(Pembangkit.objects.get(kode='XYZ').posisi_peta())
+
+    def test_halaman_memuat_semua_pembangkit(self):
+        r = self.client.get('/opsis/peta/')
+        self.assertEqual(r.status_code, 200)
+        isi = r.content.decode()
+        for p in Pembangkit.objects.all():
+            self.assertIn(p.nama, isi)        # semua unit masuk tabel
+        # Yang punya koordinat dapat pin; yang tidak, hanya masuk tabel.
+        self.assertEqual(len(r.context['pins']), 5)
+        self.assertEqual([t['kode'] for t in r.context['tanpa_posisi']], ['XYZ'])
+
+    def test_pin_serumpun_tidak_saling_menutup(self):
+        r = self.client.get('/opsis/peta/')
+        pins = r.context['pins']
+        for i, a in enumerate(pins):
+            for b in pins[i + 1:]:
+                self.assertFalse(
+                    abs(a['x'] - b['x']) < views.PIN_MIN_DX and abs(a['y'] - b['y']) < views.PIN_MIN_DY,
+                    f"pin {a['kode']} dan {b['kode']} masih bertumpuk",
+                )
+
+    def test_legenda_hanya_jenis_yang_ada(self):
+        r = self.client.get('/opsis/peta/')
+        legenda = {l['kode']: l['jumlah'] for l in r.context['legenda']}
+        self.assertEqual(legenda, {'PLTD': 3, 'PLTA': 1, 'PLTS': 1, 'LAIN': 1})
+
+
+class PetaSimpanPosisiTest(TestCase):
+    """Endpoint seret-lepas: menyimpan, mengembalikan, dan menolak yang tidak berhak."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.pb = Pembangkit.objects.create(nama='PLTA Bakaru', kode='BKARU5', jenis='PLTA')
+        cls.lain = Pembangkit.objects.create(nama='PLTU Barru', kode='BLUSU5', jenis='PLTU')
+
+    def _login(self, role='opsis', superuser=False):
+        buat = User.objects.create_superuser if superuser else User.objects.create_user
+        user = buat(f'u-{role}-{superuser}', f'{role}@contoh.id', 'rahasia-tes-123')
+        profile = getattr(user, 'profile', None)
+        if profile is not None:
+            profile.role = role
+            profile.force_password_change = False
+            profile.save(update_fields=['role', 'force_password_change'])
+        self.client.force_login(user)
+        return user
+
+    def _kirim(self, data):
+        return self.client.post('/opsis/peta/simpan/', data=json.dumps(data),
+                                content_type='application/json')
+
+    def test_role_opsis_boleh_menyimpan_posisi(self):
+        self._login('opsis')
+        r = self._kirim({'posisi': [{'pk': self.pb.pk, 'x': 33.333, 'y': 44.444}]})
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(r.json()['ok'])
+        self.pb.refresh_from_db()
+        self.assertEqual((self.pb.peta_x, self.pb.peta_y), (33.33, 44.44))
+        self.assertEqual(self.pb.posisi_peta(), (33.33, 44.44))
+
+    def test_hapus_mengembalikan_ke_posisi_bawaan(self):
+        Pembangkit.objects.filter(pk=self.pb.pk).update(peta_x=10, peta_y=10)
+        self._login('opsis')
+        r = self._kirim({'hapus': [self.pb.pk]})
+        self.assertEqual(r.status_code, 200)
+        self.pb.refresh_from_db()
+        self.assertIsNone(self.pb.peta_x)
+        self.assertEqual(self.pb.posisi_peta(), hop_map.posisi_pembangkit('PLTA Bakaru'))
+
+    def test_viewer_ditolak(self):
+        self._login('viewer')
+        r = self._kirim({'posisi': [{'pk': self.pb.pk, 'x': 10, 'y': 10}]})
+        self.assertEqual(r.status_code, 403)
+        self.pb.refresh_from_db()
+        self.assertIsNone(self.pb.peta_x)
+
+    def test_posisi_di_luar_peta_ditolak_tanpa_menyimpan_sebagian(self):
+        self._login('opsis')
+        r = self._kirim({'posisi': [{'pk': self.pb.pk, 'x': 20, 'y': 20},
+                                    {'pk': self.lain.pk, 'x': 120, 'y': 20}]})
+        self.assertEqual(r.status_code, 400)
+        self.pb.refresh_from_db()
+        self.lain.refresh_from_db()
+        self.assertIsNone(self.pb.peta_x)      # tidak ada yang tersimpan setengah
+        self.assertIsNone(self.lain.peta_x)
+
+    def test_pk_tidak_dikenal_ditolak(self):
+        self._login('opsis')
+        r = self._kirim({'posisi': [{'pk': 999999, 'x': 20, 'y': 20}]})
+        self.assertEqual(r.status_code, 400)
+
+    def test_pin_manual_tidak_digeser_penyebaran_otomatis(self):
+        # Ditaruh persis di atas pin otomatis PLTU Barru → yang otomatis yang mengalah.
+        bawaan = hop_map.posisi_pembangkit('PLTU Barru')
+        Pembangkit.objects.filter(pk=self.pb.pk).update(peta_x=bawaan[0], peta_y=bawaan[1])
+        self._login('opsis', superuser=True)
+        r = self.client.get('/opsis/peta/')
+        pins = {p['kode']: p for p in r.context['pins']}
+        self.assertEqual((pins['BKARU5']['x'], pins['BKARU5']['y']), bawaan)
+        self.assertNotEqual((pins['BLUSU5']['x'], pins['BLUSU5']['y']), bawaan)
+
+
+class ModePemeliharaanTest(TestCase):
+    """Sakelar pemeliharaan menutup /opsis/* dan membukanya lagi tanpa deploy."""
+
+    def setUp(self):
+        ModePemeliharaan._cache = {'obj': None, 'ts': 0.0}   # cache antar-tes tidak boleh bocor
+        self.user = self._buat('staf-opsis', role='opsis')
+        self.client.force_login(self.user)
+
+    def tearDown(self):
+        ModePemeliharaan._cache = {'obj': None, 'ts': 0.0}
+
+    def _buat(self, nama, role='opsis', superuser=False):
+        buat = User.objects.create_superuser if superuser else User.objects.create_user
+        user = buat(nama, f'{nama}@contoh.id', 'rahasia-tes-123')
+        profile = getattr(user, 'profile', None)
+        if profile is not None:
+            profile.role = role
+            profile.force_password_change = False
+            profile.save(update_fields=['role', 'force_password_change'])
+        return user
+
+    def _nyalakan(self, **kwargs):
+        mode = ModePemeliharaan.ambil()
+        mode.aktif = True
+        for k, v in kwargs.items():
+            setattr(mode, k, v)
+        mode.save()
+        return mode
+
+    def test_nonaktif_opsis_tetap_terbuka(self):
+        self.assertFalse(ModePemeliharaan.ambil().aktif)     # bawaan: tidak memelihara
+        self.assertEqual(self.client.get('/opsis/').status_code, 200)
+
+    def test_aktif_semua_rute_opsis_jadi_halaman_pemeliharaan(self):
+        self._nyalakan(judul='OPSIS Dipelihara')
+        for url in ('/opsis/', '/opsis/peta/', '/opsis/up2d/', '/opsis/hop/dashboard/'):
+            r = self.client.get(url)
+            self.assertEqual(r.status_code, 503, url)
+            self.assertTemplateUsed(r, 'opsis/pemeliharaan.html')
+            self.assertContains(r, 'OPSIS Dipelihara', status_code=503)
+            self.assertEqual(r['Retry-After'], '1800')
+
+    def test_endpoint_api_dijawab_json_bukan_html(self):
+        self._nyalakan()
+        r = self.client.get('/opsis/api/live/')
+        self.assertEqual(r.status_code, 503)
+        self.assertEqual(r['Content-Type'], 'application/json')
+        self.assertTrue(r.json()['pemeliharaan'])
+
+    def test_rute_di_luar_opsis_tidak_terpengaruh(self):
+        self._nyalakan()
+        # Role opsis dibatasi ke /opsis/ oleh OpsisAccessMiddleware, jadi diuji
+        # dengan superuser: yang penting rute non-OPSIS tidak ikut 503.
+        self.client.force_login(self._buat('adm-lain', superuser=True))
+        r = self.client.get('/device-mon/')
+        self.assertNotEqual(r.status_code, 503)
+
+    def test_superuser_menembus_bila_diizinkan(self):
+        self._nyalakan(boleh_superuser=True)
+        self.client.force_login(self._buat('adm-tembus', superuser=True))
+        r = self.client.get('/opsis/')
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(r.context['request'].opsis_pemeliharaan)
+        self.assertContains(r, 'Mode pemeliharaan aktif')      # pita penanda
+
+    def test_superuser_ikut_ditutup_bila_tidak_diizinkan(self):
+        self._nyalakan(boleh_superuser=False)
+        self.client.force_login(self._buat('adm-tutup', superuser=True))
+        self.assertEqual(self.client.get('/opsis/').status_code, 503)
+
+    def test_dimatikan_lagi_opsis_langsung_terbuka(self):
+        mode = self._nyalakan()
+        self.assertEqual(self.client.get('/opsis/').status_code, 503)
+        mode.aktif = False
+        mode.save()
+        self.assertEqual(self.client.get('/opsis/').status_code, 200)
+
+    def test_baris_pengaturan_selalu_tunggal(self):
+        ModePemeliharaan.ambil()
+        ModePemeliharaan(aktif=True, judul='Baris kedua').save()
+        self.assertEqual(ModePemeliharaan.objects.count(), 1)
+        self.assertEqual(ModePemeliharaan.objects.get().judul, 'Baris kedua')

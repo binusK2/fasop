@@ -108,6 +108,7 @@ SecurityMiddleware → SessionMiddleware → CommonMiddleware → CsrfViewMiddle
 → AuthenticationMiddleware → AxesMiddleware → MessageMiddleware
 → XFrameOptionsMiddleware
 → ForcePasswordChangeMiddleware   # force new password on first login
+→ OpsisMaintenanceMiddleware      # /opsis/* → halaman pemeliharaan bila sakelarnya aktif
 → OpsisAccessMiddleware           # restricts opsis role to /opsis/ only
 → OperatorAccessMiddleware        # restricts operator role to /inspection/ only
 → DispatcherAccessMiddleware      # restricts dispatcher role to telecom testing
@@ -340,6 +341,71 @@ Baris `PrakiraanBeban` hari lampau **tidak pernah dihapus** — histori itulah y
 dipakai `evaluate_accuracy()` untuk membandingkan prakiraan vs realisasi `SnapLive`.
 Menimpa kurva hari yang sudah lewat dengan angka realisasi akan membuat akurasi
 terlihat sempurna secara palsu.
+
+---
+
+## OPSIS — Mode Pemeliharaan (`opsis.ModePemeliharaan`)
+
+Sakelar tunggal di site admin (**Opsis → Mode Pemeliharaan OPSIS**, satu baris
+pk=1, tombol Tambah/Hapus dimatikan) yang menutup **seluruh** `/opsis/*` dan
+menggantinya dengan `opsis/pemeliharaan.html` (HTTP 503 + `Retry-After`).
+Dipakai mis. selama koneksi ke historian MSSQL belum tersedia, supaya halaman
+OPSIS tidak menampilkan angka kosong sambil menembak MSSQL terus-menerus.
+
+Penegakannya di `devices.middleware.OpsisMaintenanceMiddleware`, **bukan** di
+tiap view — jadi rute OPSIS baru otomatis ikut tertutup tanpa perlu diingat.
+Yang perlu diketahui saat mengubahnya:
+
+- Permintaan ke `/opsis/api/*` (dan XHR lain) dijawab **JSON** 503, bukan HTML,
+  supaya poller tidak menelan HTML sebagai JSON.
+- Superuser tetap bisa masuk selama `boleh_superuser` dicentang; request-nya
+  ditandai `request.opsis_pemeliharaan = True` dan `opsis_base.html` menampilkan
+  pita penanda. Hilangkan centangnya untuk menutup OPSIS tanpa kecuali.
+- `ModePemeliharaan.status()` men-cache barisnya `TTL_CACHE` detik per proses
+  (dibaca tiap request `/opsis/*`), dan `save()` menyegarkan cache di worker yang
+  menyimpan. Jadi perubahan dari admin berlaku instan di satu worker dan paling
+  lambat beberapa detik di worker lain — jangan ganti jadi query per request.
+- Cron pengumpul data (`collect_live`, `collect_freq`, dsb.) tidak lewat
+  middleware sama sekali, jadi pengumpulan data tetap jalan selama pemeliharaan.
+
+---
+
+## OPSIS — Peta Pembangkit (`/opsis/peta/`)
+
+Peta sebaran pembangkit se-Sulawesi: ikon per jenis (PLTA/PLTU/PLTD/…) berisi
+daya aktifnya, plus tabel DMN / P / Q semua pembangkit di kartu sebelah kanan.
+Halaman ini **tidak punya endpoint API sendiri** — ia memoll `/opsis/api/live/`
+yang sama dengan dashboard tiap 5 detik, supaya angka di peta, tabel, dan kartu
+dashboard tidak pernah berbeda. Kalau perlu field baru di peta, tambahkan di
+`api_live()` sekali, jangan bikin endpoint kedua.
+
+Posisi pin diselesaikan `Pembangkit.posisi_peta()` dengan urutan: `peta_x`/`peta_y`
+(persen viewBox — diisi lewat mode **Atur Peta** di halaman itu sendiri, atau
+manual dari site admin) → `hop_map.posisi_pembangkit(nama)` (tabel bawaan,
+pencocokan nama mengabaikan spasi/tanda baca) → tidak dipetakan (pembangkit tetap
+muncul di tabel + disebut di catatan bawah peta). Menambah entri permanen
+dilakukan di `_EXTRA_LATLON` (`opsis/hop_map.py`) sebagai lat/long, diproyeksikan
+`proyeksi()` dengan konstanta yang sama seperti pin dashboard HOP — jangan
+mengarang persen langsung supaya peta HOP dan Peta Pembangkit tetap sebidang.
+
+**Mode Atur Peta** (tombol di kanan atas, hanya superuser/role Opsis — aturan
+`_bisa_atur_peta()`, sama dengan penanda ketidaksesuaian data): ikon diseret
+langsung di peta, pembangkit yang belum punya ikon diseret dari daftar "Belum
+dipetakan" ke peta, dan "Posisi bawaan" mengosongkan `peta_x`/`peta_y` lagi.
+Semua perubahan baru masuk database saat Simpan ditekan
+(`POST /opsis/peta/simpan/`, body JSON `{posisi:[{pk,x,y}], hapus:[pk]}`),
+lalu halaman dimuat ulang.
+
+Pembangkit yang berdekatan (rumpun Tello, gugusan Manado) digeser `_sebar_pin()`
+di `opsis/views.py` supaya ikon + label MW-nya tidak bertumpuk; ambangnya
+`PIN_MIN_DX`/`PIN_MIN_DY` — sesuaikan keduanya bila ukuran ikon/label di template
+diubah, kalau tidak label akan mulai saling menimpa lagi. Pin dengan posisi manual
+**tidak pernah ikut digeser** — kalau aturan itu dilonggarkan, hasil seret-lepas
+akan pindah sendiri begitu halaman dimuat ulang.
+
+Warna per jenis pembangkit hidup di `opsis.models.JENIS_WARNA` dan dikirim ke
+template lewat `json_script`. Jangan menyalin dict warna itu ke dalam `<script>`
+template baru.
 
 ---
 

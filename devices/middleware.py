@@ -1,6 +1,59 @@
-from django.shortcuts import redirect
+from django.http import JsonResponse
+from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.contrib.auth import logout
+
+
+class OpsisMaintenanceMiddleware:
+    """
+    Mode pemeliharaan OPSIS — selama opsis.ModePemeliharaan.aktif dicentang di
+    site admin, semua permintaan ke /opsis/* dijawab halaman pemeliharaan
+    (HTTP 503) alih-alih halamannya sendiri.
+
+    Ditangani di middleware, bukan di tiap view, supaya rute OPSIS yang baru
+    otomatis ikut tertutup tanpa perlu diingat satu per satu.
+
+    Dua pengecualian:
+    - Superuser tetap bisa masuk bila "Superuser Tetap Bisa Masuk" dicentang;
+      request-nya ditandai `request.opsis_pemeliharaan = True` sehingga
+      opsis_base.html menampilkan pita penanda bahwa OPSIS sedang ditutup
+      untuk pengguna lain.
+    - Permintaan ke /opsis/api/* (dan XHR lain) dijawab JSON, bukan HTML,
+      supaya poller di halaman lain tidak menelan HTML sebagai JSON.
+
+    Cron pengumpul data tidak lewat sini sama sekali — sakelar ini hanya
+    menutup akses web.
+    """
+
+    PREFIX = '/opsis/'
+    API_PREFIX = '/opsis/api/'
+    RETRY_AFTER = '1800'          # detik — saran ke klien/monitoring kapan mencoba lagi
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if not request.path.startswith(self.PREFIX):
+            return self.get_response(request)
+
+        from opsis.models import ModePemeliharaan
+        mode = ModePemeliharaan.status()
+        if mode is None or not mode.aktif:
+            return self.get_response(request)
+
+        user = getattr(request, 'user', None)
+        if mode.boleh_superuser and user is not None and user.is_authenticated and user.is_superuser:
+            request.opsis_pemeliharaan = True
+            return self.get_response(request)
+
+        if (request.path.startswith(self.API_PREFIX)
+                or request.headers.get('X-Requested-With') == 'XMLHttpRequest'):
+            resp = JsonResponse({'ok': False, 'pemeliharaan': True, 'error': mode.judul},
+                                status=503)
+        else:
+            resp = render(request, 'opsis/pemeliharaan.html', {'mode': mode}, status=503)
+        resp['Retry-After'] = self.RETRY_AFTER
+        return resp
 
 
 class ForcePasswordChangeMiddleware:

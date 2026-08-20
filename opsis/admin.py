@@ -1,7 +1,47 @@
 from django.contrib import admin
 from .models import (Pembangkit, SnapLive, SnapUnit, SnapFreq, SnapFreqRT, SnapFreqArea,
                      Trafo, SnapTrafo, HopPembangkit, HopSnapshot,
-                     PrakiraanBeban)
+                     PrakiraanBeban, ModePemeliharaan)
+
+
+@admin.register(ModePemeliharaan)
+class ModePemeliharaanAdmin(admin.ModelAdmin):
+    """
+    Sakelar tunggal "OPSIS sedang dipelihara" — hanya ada satu baris, jadi
+    tombol Tambah/Hapus dimatikan dan daftar langsung membuka baris itu.
+    """
+    list_display    = ('status_ringkas', 'judul', 'perkiraan_selesai', 'diubah_oleh', 'diubah_pada')
+    readonly_fields = ('diubah_oleh', 'diubah_pada')
+    fieldsets = (
+        (None, {
+            'description': 'Bila diaktifkan, SEMUA halaman /opsis/ (dashboard, peta, UP2D, '
+                           'HOP, dsb.) diganti halaman pemeliharaan sampai sakelar ini '
+                           'dimatikan lagi. Cron pengumpul data OPSIS tidak terpengaruh. '
+                           'Perubahan berlaku paling lambat beberapa detik di semua worker.',
+            'fields': ('aktif', 'boleh_superuser'),
+        }),
+        ('Isi Halaman Pemeliharaan', {'fields': ('judul', 'pesan', 'perkiraan_selesai')}),
+        ('Riwayat', {'fields': ('diubah_oleh', 'diubah_pada')}),
+    )
+
+    @admin.display(description='Status', boolean=True)
+    def status_ringkas(self, obj):
+        return obj.aktif
+
+    def has_add_permission(self, request):
+        # Baris tunggal: dibuat otomatis oleh changelist_view di bawah.
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def changelist_view(self, request, extra_context=None):
+        ModePemeliharaan.ambil()      # pastikan barisnya ada sebelum daftar dirender
+        return super().changelist_view(request, extra_context)
+
+    def save_model(self, request, obj, form, change):
+        obj.diubah_oleh = request.user
+        super().save_model(request, obj, form, change)
 
 
 @admin.register(Pembangkit)
@@ -10,10 +50,20 @@ class PembangkitAdmin(admin.ModelAdmin):
                      'data_tidak_sesuai', 'pakai_dmp')
     list_editable = ('urutan', 'jenis', 'supply', 'aktif')
     list_filter   = ('jenis', 'supply', 'aktif', 'data_tidak_sesuai')
+    search_fields = ('nama', 'kode')
     list_display_links = ('nama',)
     readonly_fields = ('ditandai_oleh', 'ditandai_pada')
     fieldsets = (
         (None, {'fields': ('nama', 'kode', 'jenis', 'supply', 'warna', 'urutan', 'aktif')}),
+        ('Posisi di Peta Pembangkit', {
+            'classes': ('collapse',),
+            'description': 'Posisi pin pada /opsis/peta/ dalam persen viewBox peta Sulawesi '
+                           '(X: 0 = barat, 100 = timur; Y: 0 = utara, 100 = selatan). Kosongkan '
+                           'keduanya untuk memakai posisi bawaan yang dicocokkan dari nama '
+                           'pembangkit (opsis/hop_map.py). Isi hanya bila pembangkit belum '
+                           'terdaftar di sana atau pinnya perlu digeser.',
+            'fields': ('peta_x', 'peta_y'),
+        }),
         ('Penanda Data Tidak Sesuai', {
             'description': 'Diisi manual (juga bisa dari dashboard OPSIS oleh superuser/Opsis). '
                             'Bila dicentang, kartu pembangkit di dashboard diberi label ketidaksesuaian.',
