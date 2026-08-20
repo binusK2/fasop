@@ -520,6 +520,19 @@ class ModePemeliharaanTest(TestCase):
         mode.save()
         self.assertEqual(self.client.get('/opsis/').status_code, 200)
 
+    def test_tombol_keluar_memakai_post_bukan_tautan_get(self):
+        # LogoutView Django hanya menerima POST: tautan GET ke /logout/ menghasilkan
+        # 405, jadi halaman pemeliharaan harus memakai form seperti template lain.
+        self._nyalakan()
+        isi = self.client.get('/opsis/').content.decode()
+        self.assertIn('<form method="post" action="/logout/"', isi)
+        self.assertNotIn('href="/logout/"', isi)
+        self.assertEqual(self.client.get('/logout/').status_code, 405)
+
+        keluar = self.client.post('/logout/')
+        self.assertEqual(keluar.status_code, 302)
+        self.assertIsNone(self.client.session.get('_auth_user_id'))
+
     def test_baris_pengaturan_selalu_tunggal(self):
         ModePemeliharaan.ambil()
         ModePemeliharaan(aktif=True, judul='Baris kedua').save()

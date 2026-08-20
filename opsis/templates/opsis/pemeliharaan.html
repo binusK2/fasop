@@ -44,10 +44,12 @@ h1 { font-size:21px; font-weight:800; line-height:1.35; margin-bottom:12px; }
 .perkiraan b { font-family:'JetBrains Mono',monospace; font-size:13.5px; color:#dbeafe; }
 
 .aksi { margin-top:26px; display:flex; gap:9px; justify-content:center; flex-wrap:wrap; }
+.aksi form { margin:0; }
 .tbl {
-    display:inline-flex; align-items:center; gap:7px; text-decoration:none;
+    display:inline-flex; align-items:center; gap:7px; text-decoration:none; cursor:pointer;
     background:#1e293b; border:1px solid var(--card-bd); border-radius:9px;
-    color:var(--text); font-size:12.5px; font-weight:600; padding:9px 17px; transition:.15s;
+    color:var(--text); font-family:inherit; font-size:12.5px; font-weight:600;
+    padding:9px 17px; transition:.15s;
 }
 .tbl:hover { border-color:#475569; }
 .tbl.utama { background:#2563eb; border-color:#2563eb; color:#fff; }
@@ -95,9 +97,13 @@ h1 { font-size:21px; font-weight:800; line-height:1.35; margin-bottom:12px; }
             {% if request.user.profile.role != 'opsis' and request.user.profile.role != 'opsis_view' and request.user.profile.role != 'up2d' %}
             <a class="tbl utama" href="/"><i class="bi bi-house-door-fill"></i> Kembali ke Dashboard FASOP</a>
             {% endif %}
-            <a class="tbl" href="/logout/"><i class="bi bi-box-arrow-right"></i> Keluar</a>
+            {# LogoutView hanya menerima POST — sama seperti tombol Keluar di opsis_base.html #}
+            <form method="post" action="{% url 'logout' %}">
+                {% csrf_token %}
+                <button type="submit" class="tbl"><i class="bi bi-box-arrow-right"></i> Keluar</button>
+            </form>
         {% else %}
-            <a class="tbl utama" href="/login/"><i class="bi bi-box-arrow-in-right"></i> Masuk</a>
+            <a class="tbl utama" href="{% url 'login' %}"><i class="bi bi-box-arrow-in-right"></i> Masuk</a>
         {% endif %}
     </div>
 
