@@ -396,6 +396,18 @@ tampil di peta" ke peta, "Posisi bawaan" mengosongkan `peta_x`/`peta_y` lagi, da
 Simpan ditekan (`POST /opsis/peta/simpan/`, body JSON
 `{posisi:[{pk,x,y}], hapus:[pk], sembunyi:[pk]}`), lalu halaman dimuat ulang.
 
+**Ikon kelompok (`opsis.KelompokPeta`).** Satu ikon bisa mewakili beberapa
+pembangkit sekaligus (mis. rumpun Tello) supaya peta hanya menampilkan titik
+besar. Dibuat lewat **Atur Peta → Ikon kelompok baru** (atau site admin):
+namanya tampil sebagai keterangan di bawah ikon, lencana kecil menunjukkan jumlah
+anggota, dan tooltip memuat daftar anggota beserta dayanya. Dayanya **tidak
+disimpan** — dijumlahkan di browser dari `NILAI` (isi `/opsis/api/live/`) yang
+sama dengan ikon biasa, jadi angka peta dan tabel tidak mungkin berbeda.
+Pembangkit yang jadi anggota kelompok yang tampil **tidak** digambar sebagai ikon
+sendiri dan sengaja tidak masuk daftar "Tidak tampil di peta" — kalau masuk, ia
+bisa diseret jadi ikon kedua dan dayanya terhitung dua kali di peta. Semuanya
+tetap ada di tabel daya.
+
 **Tampil/sembunyi terpisah dari koordinat.** Mengosongkan `peta_x`/`peta_y` TIDAK
 menghilangkan ikon — pembangkit yang namanya terdaftar di `hop_map.py` muncul lagi
 di posisi bawaannya. Yang menentukan muncul-tidaknya ikon adalah

@@ -1,7 +1,31 @@
 from django.contrib import admin
 from .models import (Pembangkit, SnapLive, SnapUnit, SnapFreq, SnapFreqRT, SnapFreqArea,
                      Trafo, SnapTrafo, HopPembangkit, HopSnapshot,
-                     PrakiraanBeban, ModePemeliharaan)
+                     PrakiraanBeban, ModePemeliharaan, KelompokPeta)
+
+
+@admin.register(KelompokPeta)
+class KelompokPetaAdmin(admin.ModelAdmin):
+    """Ikon gabungan di Peta Pembangkit — biasanya diatur lewat mode Atur Peta
+    di halaman /opsis/peta/, tapi bisa juga dari sini."""
+    list_display  = ('nama', 'jenis', 'jumlah_anggota', 'tampil_di_peta', 'peta_x', 'peta_y')
+    list_editable = ('jenis', 'tampil_di_peta')
+    list_filter   = ('jenis', 'tampil_di_peta')
+    search_fields = ('nama', 'keterangan')
+    filter_horizontal = ('anggota',)
+    fieldsets = (
+        (None, {
+            'description': 'Pembangkit yang menjadi anggota kelompok yang tampil tidak lagi '
+                           'digambar sebagai ikon sendiri di peta — dayanya sudah terhitung '
+                           'di ikon kelompok. Semuanya tetap ada di tabel daya.',
+            'fields': ('nama', 'keterangan', 'jenis', 'anggota'),
+        }),
+        ('Posisi di Peta', {'fields': ('tampil_di_peta', 'peta_x', 'peta_y')}),
+    )
+
+    @admin.display(description='Anggota')
+    def jumlah_anggota(self, obj):
+        return obj.anggota.count()
 
 
 @admin.register(ModePemeliharaan)

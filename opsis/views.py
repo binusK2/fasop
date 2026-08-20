@@ -11,7 +11,8 @@ from django.shortcuts import redirect
 from django.urls import reverse
 from .models import (Pembangkit, SnapLive, SnapFreq, SnapFreqRT, Trafo, SnapTrafo,
                      HopPembangkit, HopSnapshot, HOP_KATEGORI_CHOICES, JENIS_CHOICES,
-                     JENIS_WARNA, hop_status, hop_deskripsi_band, hop_garis_ambang)
+                     JENIS_WARNA, KelompokPeta, hop_status, hop_deskripsi_band,
+                     hop_garis_ambang)
 from . import mssql
 from . import prediksi
 from . import hop as hop_io
@@ -176,14 +177,37 @@ def peta_pembangkit(request):
     """
     pembangkit_list = _pembangkit_aktif()
 
-    pins, tak_tampil = [], []
+    # ── Ikon kelompok (satu ikon mewakili beberapa pembangkit) ─────────
+    kelompok, anggota_kelompok = [], {}
+    for k in KelompokPeta.objects.prefetch_related('anggota'):
+        anggota = [a for a in k.anggota.all() if a.aktif]
+        if not k.tampil_di_peta:
+            continue
+        kelompok.append({
+            'id': k.pk, 'nama': k.nama, 'keterangan': k.keterangan, 'jenis': k.jenis,
+            'warna': JENIS_WARNA.get(k.jenis, JENIS_WARNA['LAIN']),
+            'x': k.peta_x, 'y': k.peta_y, 'manual': True,
+            'anggota': [{'pk': a.pk, 'kode': a.kode, 'nama': a.nama} for a in anggota],
+        })
+        for a in anggota:
+            # Anggota kelompok tidak digambar sendiri — dayanya sudah terhitung
+            # di ikon kelompok, kalau tidak akan terlihat dua kali di peta.
+            anggota_kelompok[a.pk] = k.nama
+
+    pins, tak_tampil, dalam_kelompok = [], [], []
     for p in pembangkit_list:
         item = {'pk': p.pk, 'kode': p.kode, 'nama': p.nama, 'jenis': p.jenis,
-                'warna': JENIS_WARNA.get(p.jenis, JENIS_WARNA['LAIN'])}
+                'warna': JENIS_WARNA.get(p.jenis, JENIS_WARNA['LAIN']),
+                'kelompok': anggota_kelompok.get(p.pk, '')}
         pos = p.posisi_peta()
+        if p.pk in anggota_kelompok:
+            # Diwakili ikon kelompok — sengaja TIDAK masuk tak_tampil supaya tidak
+            # bisa diseret ke peta sebagai ikon kedua (dayanya akan terhitung dua kali).
+            dalam_kelompok.append(item)
+            continue
         if pos is None or not p.tampil_di_peta:
-            # Belum punya koordinat, atau sengaja disembunyikan lewat sakelar
-            # tampil_di_peta — tetap masuk tabel daya, hanya ikonnya tidak digambar.
+            # Belum punya koordinat atau sengaja disembunyikan lewat tampil_di_peta —
+            # tetap masuk tabel daya, ikonnya saja yang tidak digambar.
             tak_tampil.append(item)
             continue
         # manual = digeser sendiri lewat mode Atur Peta (peta_x/peta_y terisi).
@@ -195,8 +219,10 @@ def peta_pembangkit(request):
                      'bx': bawaan[0] if bawaan else None,
                      'by': bawaan[1] if bawaan else None})
 
-    _sebar_pin(pins)
-    for pin in pins:
+    # Kelompok ikut disertakan sebagai penghalang (selalu 'manual', jadi tidak
+    # pernah digeser) supaya ikon otomatis tidak menimpanya.
+    _sebar_pin(pins + kelompok)
+    for pin in pins + kelompok:
         pin['cx'] = round(pin['x'] / 100 * MAP_W, 1)
         pin['cy'] = round(pin['y'] / 100 * MAP_H, 1)
 
@@ -213,9 +239,15 @@ def peta_pembangkit(request):
     return render(request, 'opsis/peta_pembangkit.html', {
         'pembangkit_list': pembangkit_list,
         'pins':            pins,
+        'kelompok':        kelompok,
+        'dalam_kelompok':  dalam_kelompok,
+        # Dipakai pemilih anggota kelompok di mode Atur Peta
+        'pembangkit_ringkas': [{'pk': p.pk, 'kode': p.kode, 'nama': p.nama, 'jenis': p.jenis}
+                               for p in pembangkit_list],
         'tak_tampil':      tak_tampil,
         'legenda':         legenda,
         'jenis_warna':     JENIS_WARNA,
+        'jenis_pilihan':   JENIS_CHOICES,
         'bisa_atur':       _bisa_atur_peta(request.user),
         'map_path':        SULAWESI_PATH,
         'map_w':           MAP_W,
@@ -237,7 +269,10 @@ def peta_simpan(request):
     Simpan hasil seret-lepas pin Peta Pembangkit (AJAX POST, body JSON).
 
     Body: {"posisi": [{"pk": 1, "x": 12.3, "y": 45.6}, …],
-           "hapus": [pk, …], "sembunyi": [pk, …]}
+           "hapus": [pk, …], "sembunyi": [pk, …],
+           "kelompok": [{"id": 3|null, "nama": …, "keterangan": …, "jenis": …,
+                         "x": …, "y": …, "anggota": [pk, …]}, …],
+           "kelompok_hapus": [id, …]}
 
     - `posisi`   mengisi peta_x/peta_y (persen viewBox) sekaligus menyalakan
                  tampil_di_peta — menaruh ikon di peta berarti menampilkannya.
@@ -245,6 +280,7 @@ def peta_simpan(request):
                  bawaan opsis/hop_map.py (ikonnya TETAP tampil).
     - `sembunyi` mematikan tampil_di_peta sehingga ikonnya hilang dari peta;
                  koordinatnya dibiarkan agar posisi lama kembali saat ditampilkan lagi.
+    - `kelompok` membuat (id null) atau memperbarui ikon gabungan beserta anggotanya.
     """
     if not _bisa_atur_peta(request.user):
         return JsonResponse({'ok': False, 'error': 'Tidak diizinkan.'}, status=403)
@@ -287,12 +323,61 @@ def peta_simpan(request):
     if tidak_dikenal:
         return JsonResponse({'ok': False, 'error': f'Pembangkit tidak ditemukan: {tidak_dikenal}.'}, status=400)
 
+    # ── Kelompok: validasi seluruhnya sebelum ada yang ditulis ──────────
+    kelompok_masuk = payload.get('kelompok') or []
+    kelompok_hapus = payload.get('kelompok_hapus') or []
+    if not all(isinstance(v, list) for v in (kelompok_masuk, kelompok_hapus)):
+        return JsonResponse({'ok': False, 'error': 'Bentuk data kelompok salah.'}, status=400)
+
+    jenis_sah = {k for k, _ in JENIS_CHOICES}
+    bersih = []
+    try:
+        for row in kelompok_masuk:
+            nama = (row.get('nama') or '').strip()
+            if not nama:
+                return JsonResponse({'ok': False, 'error': 'Nama kelompok tidak boleh kosong.'}, status=400)
+            x, y = float(row['x']), float(row['y'])
+            if not (0 <= x <= 100 and 0 <= y <= 100):
+                return JsonResponse({'ok': False, 'error': f'Posisi kelompok "{nama}" di luar peta.'}, status=400)
+            jenis = row.get('jenis') or 'LAIN'
+            if jenis not in jenis_sah:
+                return JsonResponse({'ok': False, 'error': f'Jenis ikon tidak dikenal: {jenis}.'}, status=400)
+            bersih.append({
+                'id': int(row['id']) if row.get('id') else None,
+                'nama': nama[:80], 'keterangan': (row.get('keterangan') or '').strip()[:200],
+                'jenis': jenis, 'x': round(x, 2), 'y': round(y, 2),
+                'anggota': [int(a) for a in (row.get('anggota') or [])],
+            })
+        kelompok_hapus = [int(i) for i in kelompok_hapus]
+    except (KeyError, TypeError, ValueError):
+        return JsonResponse({'ok': False, 'error': 'Nilai kelompok tidak valid.'}, status=400)
+
+    id_ada = set(KelompokPeta.objects.values_list('pk', flat=True))
+    id_diminta = {b['id'] for b in bersih if b['id']} | set(kelompok_hapus)
+    if not id_diminta <= id_ada:
+        return JsonResponse({'ok': False, 'error': 'Kelompok tidak ditemukan: '
+                                                   f'{sorted(id_diminta - id_ada)}.'}, status=400)
+    pk_anggota = {pk for b in bersih for pk in b['anggota']}
+    if pk_anggota and Pembangkit.objects.filter(pk__in=pk_anggota).count() != len(pk_anggota):
+        return JsonResponse({'ok': False, 'error': 'Ada anggota kelompok yang tidak ditemukan.'}, status=400)
+
     for pk, nilai in perubahan.items():
         for field, v in nilai.items():
             setattr(obj[pk], field, v)
     Pembangkit.objects.bulk_update(obj.values(), ['peta_x', 'peta_y', 'tampil_di_peta'])
-    return JsonResponse({'ok': True, 'disimpan': len(posisi),
-                         'dikembalikan': len(hapus), 'disembunyikan': len(sembunyi)})
+
+    if kelompok_hapus:
+        KelompokPeta.objects.filter(pk__in=kelompok_hapus).delete()
+    for b in bersih:
+        k = KelompokPeta.objects.get(pk=b['id']) if b['id'] else KelompokPeta()
+        k.nama, k.keterangan, k.jenis = b['nama'], b['keterangan'], b['jenis']
+        k.peta_x, k.peta_y, k.tampil_di_peta = b['x'], b['y'], True
+        k.save()
+        k.anggota.set(b['anggota'])
+
+    return JsonResponse({'ok': True, 'disimpan': len(posisi), 'dikembalikan': len(hapus),
+                         'disembunyikan': len(sembunyi), 'kelompok': len(bersih),
+                         'kelompok_dihapus': len(kelompok_hapus)})
 
 
 def _flag_info(p):

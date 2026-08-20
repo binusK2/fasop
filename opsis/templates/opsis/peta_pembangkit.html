@@ -3,6 +3,10 @@
 
 {% block extra_head %}
 <style>
+/* Atribut hidden harus menang atas display:flex/inline-flex di bawah — tanpa ini
+   tombol Simpan/Batal dan panel editor terlihat sebelum mode Atur Peta dibuka. */
+[hidden] { display:none !important; }
+
 /* ── Layout: peta dominan di kiri, tabel menyesuaikan di kanan ───────── */
 .pp-grid { display:grid; grid-template-columns:1.7fr 1fr; gap:16px; align-items:start; }
 @media (max-width:1250px){ .pp-grid { grid-template-columns:1fr; } }
@@ -52,6 +56,15 @@
     pointer-events:none;
 }
 .pp-pin.mati { opacity:.42; }
+/* Ikon kelompok — sedikit lebih besar, berlencana jumlah anggota, berlabel nama */
+.pp-grup .disc { stroke-width:3; }
+.pp-grup text.jml { font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:700;
+    fill:#e2e8f0; text-anchor:middle; stroke:none; paint-order:normal; }
+.pp-grup text.nilai { font-size:19px; }
+.pp-grup text.label {
+    font-family:'DM Sans',sans-serif; font-size:16px; font-weight:600; fill:#cbd5e1;
+    stroke-width:4.5;
+}
 .pp-pin.sorot .disc, .pp-pin:hover .disc { stroke:#fff; stroke-width:3.5; }
 .pp-pin.sorot .halo, .pp-pin:hover .halo { opacity:.5; }
 .pp-pin.sembunyi { display:none; }
@@ -66,6 +79,10 @@
 .pp-tip .r { display:flex; justify-content:space-between; gap:14px; margin-top:4px; }
 .pp-tip .r span { color:var(--muted); }
 .pp-tip .r b { display:inline; margin:0; font-family:'JetBrains Mono',monospace; font-size:12px; }
+.pp-tip .ket { margin-top:5px; font-size:11px; color:#94a3b8; line-height:1.5; max-width:260px; }
+.pp-tip .daftar { margin-top:6px; max-height:210px; overflow:auto; }
+.pp-tip .daftar .r { gap:16px; }
+.pp-tip .r.total { margin-top:6px; padding-top:5px; border-top:1px solid #334155; }
 
 /* ── Tabel ───────────────────────────────────────────────────────────── */
 .pp-tools { display:flex; gap:8px; padding:10px 12px; border-bottom:1px solid var(--card-bd); }
@@ -136,6 +153,28 @@ table.pp-tbl { width:100%; border-collapse:collapse; font-size:12px; }
 
 .pp-belum-judul { margin:13px 0 7px; font-size:9.5px; font-weight:800; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); }
 .pp-belum-judul .ket { font-weight:600; text-transform:none; letter-spacing:0; }
+
+.pp-grup-form { margin-top:11px; padding:11px; border:1px solid var(--card-bd); border-radius:9px; background:#0b1120; }
+.pp-grup-form .baris { margin-bottom:8px; }
+.pp-grup-form label { display:block; font-size:10px; font-weight:700; text-transform:uppercase;
+    letter-spacing:.4px; color:var(--muted); margin-bottom:4px; }
+.pp-grup-form input, .pp-grup-form select {
+    width:100%; background:#131f35; border:1px solid var(--card-bd); border-radius:7px;
+    color:var(--text); font-family:inherit; font-size:12px; padding:6px 9px; outline:none;
+}
+.pp-grup-form input:focus, .pp-grup-form select:focus { border-color:#3b82f6; }
+.pp-anggota { max-height:170px; overflow-y:auto; margin-bottom:9px;
+    border:1px solid var(--card-bd); border-radius:7px; }
+.pp-anggota label {
+    display:flex; align-items:center; gap:8px; padding:5px 9px; cursor:pointer;
+    font-size:11.5px; font-weight:500; text-transform:none; letter-spacing:0; color:var(--text);
+    margin:0; border-bottom:1px solid rgba(30,45,69,.5);
+}
+.pp-anggota label:last-child { border-bottom:none; }
+.pp-anggota label:hover { background:rgba(59,130,246,.08); }
+.pp-anggota label.lain { opacity:.45; cursor:not-allowed; }
+.pp-anggota input { width:auto; accent-color:#2563eb; }
+.pp-anggota .jn { margin-left:auto; font-size:9.5px; color:var(--muted); }
 .pp-belum { display:flex; flex-wrap:wrap; gap:6px; max-height:150px; overflow-y:auto; }
 .pp-belum:empty::after { content:'Semua pembangkit tampil di peta.'; font-size:11.5px; color:var(--muted); }
 .pp-belum .chip {
@@ -274,10 +313,35 @@ table.pp-tbl { width:100%; border-collapse:collapse; font-size:12px; }
             <text y="35">—</text>
           </g>
           {% endfor %}
+
+          {# Ikon kelompok: mewakili beberapa pembangkit sekaligus #}
+          {% for k in kelompok %}
+          <g class="pp-pin pp-grup mati" data-id="{{ k.id }}" data-jenis="{{ k.jenis }}"
+             data-nama="{{ k.nama }}" data-x="{{ k.x }}" data-y="{{ k.y }}"
+             transform="translate({{ k.cx }},{{ k.cy }})">
+            <circle class="halo" r="30" fill="{{ k.warna }}" opacity=".18"/>
+            <circle class="disc" r="20" fill="{{ k.warna }}"/>
+            <use href="#ic-{{ k.jenis|lower }}" x="-13" y="-13" width="26" height="26"/>
+            <g class="lencana">
+              <circle cx="17" cy="-17" r="10" fill="#0b1120" stroke="{{ k.warna }}" stroke-width="2"/>
+              <text class="jml" x="17" y="-13">{{ k.anggota|length }}</text>
+            </g>
+            <text class="nilai" y="42">—</text>
+            <text class="label" y="61">{{ k.nama }}</text>
+          </g>
+          {% endfor %}
         </svg>
         <div class="pp-tip" id="ppTip"></div>
       </div>
     </div>
+    {% if dalam_kelompok %}
+    <div class="pp-note">
+      <i class="bi bi-collection"></i>
+      <span>{{ dalam_kelompok|length }} pembangkit diwakili ikon kelompok
+        ({% for t in dalam_kelompok %}{{ t.nama }} → <b>{{ t.kelompok }}</b>{% if not forloop.last %}, {% endif %}{% endfor %})
+        — dayanya sudah terhitung di ikon kelompoknya.</span>
+    </div>
+    {% endif %}
     {% if tak_tampil %}
     <div class="pp-note">
       <i class="bi bi-info-circle"></i>
@@ -303,6 +367,9 @@ table.pp-tbl { width:100%; border-collapse:collapse; font-size:12px; }
           pilih ikonnya lalu tekan <b>Sembunyikan</b> — pembangkitnya tetap ada di
           tabel daya dan bisa dimunculkan lagi kapan saja dari daftar di bawah.
         </div>
+        <button type="button" class="pp-btn kecil" id="btnGrupBaru" style="margin-top:11px;">
+          <i class="bi bi-plus-lg"></i> Ikon kelompok baru
+        </button>
         <div class="pp-pilih" id="ppTerpilih" hidden>
           <div class="ket"><b id="ppPilihNama"></b><span id="ppPilihPos"></span></div>
           <div class="tombol">
@@ -313,6 +380,22 @@ table.pp-tbl { width:100%; border-collapse:collapse; font-size:12px; }
               <i class="bi bi-eye-slash"></i> Sembunyikan
             </button>
           </div>
+        </div>
+        <div class="pp-grup-form" id="ppGrupForm" hidden>
+          <div class="baris"><label for="grNama">Nama di bawah ikon</label>
+            <input id="grNama" maxlength="80" autocomplete="off"></div>
+          <div class="baris"><label for="grKet">Keterangan (muncul saat kursor diarahkan)</label>
+            <input id="grKet" maxlength="200" autocomplete="off"></div>
+          <div class="baris"><label for="grJenis">Gambar ikon</label>
+            <select id="grJenis">
+              {% for kode, label in jenis_pilihan %}<option value="{{ kode }}">{{ label }}</option>{% endfor %}
+            </select></div>
+          <div class="baris"><label>Pembangkit di dalamnya (<span id="grJml">0</span>)</label>
+            <input id="grCari" placeholder="Cari pembangkit…" autocomplete="off"></div>
+          <div class="pp-anggota" id="grAnggota"></div>
+          <button type="button" class="pp-btn kecil bahaya" id="btnHapusGrup">
+            <i class="bi bi-trash"></i> Hapus ikon kelompok ini
+          </button>
         </div>
         <div class="pp-belum-judul">Tidak tampil di peta (<span id="ppBelumJml">0</span>)
           <span class="ket">— seret ke peta untuk menampilkan</span></div>
@@ -344,7 +427,7 @@ table.pp-tbl { width:100%; border-collapse:collapse; font-size:12px; }
           </thead>
           <tbody id="ppBody">
             {% for p in pembangkit_list %}
-            <tr data-kode="{{ p.kode }}" data-jenis="{{ p.jenis }}" data-nama="{{ p.nama|lower }}">
+            <tr data-kode="{{ p.kode }}" data-pk="{{ p.pk }}" data-jenis="{{ p.jenis }}" data-nama="{{ p.nama|lower }}">
               <td class="nm">
                 <span class="dot"></span>
                 <a href="/opsis/{{ p.pk }}/"><b>{{ p.nama }}</b></a><span class="jn">{{ p.jenis }}</span>
@@ -378,7 +461,8 @@ table.pp-tbl { width:100%; border-collapse:collapse; font-size:12px; }
 
 {% block extra_js %}
 {{ jenis_warna|json_script:"jenis-warna" }}
-{% if bisa_atur %}{{ tak_tampil|json_script:"pp-belum-data" }}{% endif %}
+{{ kelompok|json_script:"pp-kelompok-data" }}
+{% if bisa_atur %}{{ tak_tampil|json_script:"pp-belum-data" }}{{ pembangkit_ringkas|json_script:"pp-pembangkit-data" }}{% endif %}
 <script>
 const JENIS_WARNA = JSON.parse(document.getElementById('jenis-warna').textContent);
 const PP_INTERVAL = 5;            // detik — sama dengan dashboard
@@ -389,7 +473,7 @@ const BARIS = Array.from(tbody.rows);
 // Kode pembangkit bisa mengandung karakter apa saja, jadi pin & baris dicari
 // lewat peta objek ini, bukan lewat selector/id yang harus di-escape.
 const PIN = {}, ROW = {};
-document.querySelectorAll('.pp-pin').forEach(g => { PIN[g.dataset.kode] = g; });
+document.querySelectorAll('.pp-pin:not(.pp-grup)').forEach(g => { PIN[g.dataset.kode] = g; });
 BARIS.forEach(tr => {
     ROW[tr.dataset.kode] = tr;
     tr.querySelector('.dot').style.background = JENIS_WARNA[tr.dataset.jenis] || JENIS_WARNA.LAIN;
@@ -401,6 +485,41 @@ const angka = v => (v === null || v === undefined) ? null : v;
 
 // Nilai terakhir per kode — dipakai tooltip peta, total, dan pengurutan tabel
 const NILAI = {};
+const KODE_DARI_PK = {};
+BARIS.forEach(tr => { KODE_DARI_PK[tr.dataset.pk] = tr.dataset.kode; });
+
+// Ikon kelompok: satu ikon mewakili beberapa pembangkit. Dayanya dijumlahkan di
+// sini dari NILAI, bukan dari endpoint terpisah, supaya angkanya pasti sama
+// dengan ikon biasa dan tabel.
+const GRUP = JSON.parse(document.getElementById('pp-kelompok-data').textContent);
+const PIN_GRUP = {};
+GRUP.forEach(it => { it._key = 'g' + it.id; });
+document.querySelectorAll('.pp-grup').forEach(g => {
+    const it = GRUP.find(x => String(x.id) === g.dataset.id);
+    if (it) { g.dataset.key = it._key; PIN_GRUP[it._key] = g; pasangGrup(g, it); }
+});
+
+function dayaGrup(it) {
+    let p = null, q = null;
+    (it.anggota || []).forEach(a => {
+        const v = NILAI[KODE_DARI_PK[a.pk !== undefined ? a.pk : a]];
+        if (!v) return;
+        if (v.p !== null) p = (p || 0) + v.p;
+        if (v.q !== null) q = (q || 0) + v.q;
+    });
+    return {p, q};
+}
+
+function segarkanGrup() {
+    GRUP.forEach(it => {
+        const g = PIN_GRUP[it._key];
+        if (!g) return;
+        const {p, q} = dayaGrup(it);
+        it._p = p; it._q = q;
+        g.querySelector('text.nilai').textContent = p === null ? '—' : fmt(p, 1);
+        g.classList.toggle('mati', !(p > 0));
+    });
+}
 
 async function muatData() {
     let js;
@@ -437,6 +556,7 @@ async function muatData() {
     });
 
     document.getElementById('sumOn').textContent = aktif;
+    segarkanGrup();
     hitungTotal();
 }
 
@@ -527,6 +647,34 @@ function sorot(kode, on) {
     if (ROW[kode]) ROW[kode].classList.toggle('sorot', on);
 }
 
+// Ikon kelompok: tooltip berisi daftar anggotanya beserta daya masing-masing.
+function pasangGrup(g, it) {
+    g.addEventListener('mousemove', e => {
+        if (modeEdit) return;
+        const r = wrap.getBoundingClientRect();
+        const baris = (it.anggota || []).map(a => {
+            const v = NILAI[KODE_DARI_PK[a.pk]] || {};
+            return `<div class="r"><span>${a.nama}</span><b>${fmt(v.p, 2)} MW</b></div>`;
+        }).join('') || '<div class="r"><span>Belum ada anggota</span></div>';
+        tip.innerHTML = `<b>${it.nama}</b><span class="j">Kelompok · ${(it.anggota || []).length} pembangkit</span>`
+            + (it.keterangan ? `<div class="ket">${it.keterangan}</div>` : '')
+            + `<div class="daftar">${baris}</div>`
+            + `<div class="r total"><span>Total</span><b>${fmt(it._p, 2)} MW · ${fmt(it._q, 2)} MVAR</b></div>`;
+        tip.style.display = 'block';
+        let x = e.clientX - r.left + 14, y = e.clientY - r.top + 14;
+        if (x + tip.offsetWidth > r.width) x = r.width - tip.offsetWidth - 4;
+        if (y + tip.offsetHeight > r.height) y = Math.max(4, r.height - tip.offsetHeight - 4);
+        tip.style.left = x + 'px'; tip.style.top = y + 'px';
+    });
+    g.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
+    g.addEventListener('pointerdown', e => {
+        if (!modeEdit) return;
+        e.preventDefault();
+        pilihGrup(it);
+        mulaiSeret(g, e, false, it);
+    });
+}
+
 // Dipanggil untuk pin bawaan server maupun pin yang baru ditempatkan di mode edit.
 function pasangPin(g) {
     const kode = g.dataset.kode;
@@ -557,7 +705,7 @@ function pasangPin(g) {
         mulaiSeret(g, e, false);
     });
 }
-document.querySelectorAll('.pp-pin').forEach(pasangPin);
+document.querySelectorAll('.pp-pin:not(.pp-grup)').forEach(pasangPin);
 
 BARIS.forEach(tr => {
     const kode = tr.dataset.kode;
@@ -570,7 +718,8 @@ BARIS.forEach(tr => {
 //  (hanya dirender untuk superuser / role Opsis)
 // ═══════════════════════════════════════════════════════════════════
 let modeEdit = false;
-let pilihPin = () => {}, mulaiSeret = () => {};   // diisi blok di bawah bila berhak mengatur
+// Diisi blok "Atur Peta" di bawah bila pengguna berhak mengatur peta.
+let pilihPin = () => {}, pilihGrup = () => {}, mulaiSeret = () => {};
 
 (function () {
     const btnAtur = document.getElementById('btnAtur');
@@ -584,6 +733,15 @@ let pilihPin = () => {}, mulaiSeret = () => {};   // diisi blok di bawah bila be
     const btnBatal  = document.getElementById('btnBatal');
     const btnBawaan = document.getElementById('btnBawaan');
     const btnSembunyi = document.getElementById('btnSembunyi');
+    const formGrup   = document.getElementById('ppGrupForm');
+    const inNama     = document.getElementById('grNama');
+    const inKet      = document.getElementById('grKet');
+    const selJenisGrup = document.getElementById('grJenis');
+    const inCariAnggota = document.getElementById('grCari');
+    const elAnggota  = document.getElementById('grAnggota');
+    const semuaPembangkit = JSON.parse(document.getElementById('pp-pembangkit-data').textContent);
+    let grupTerpilih = null, grupDiubah = false, nomorGrupBaru = 0;
+    const GRUP_HAPUS = new Set();      // id kelompok lama yang dihapus
     const elTerpilih = document.getElementById('ppTerpilih');
     const elStatus   = document.getElementById('ppStatus');
     const elBelum    = document.getElementById('ppBelum');
@@ -591,7 +749,7 @@ let pilihPin = () => {}, mulaiSeret = () => {};   // diisi blok di bawah bila be
     // Posisi (persen viewBox) & posisi bawaan tiap pin, plus daftar pembangkit
     // yang belum punya ikon sama sekali.
     const POS = {}, BAWAAN = {};
-    document.querySelectorAll('.pp-pin').forEach(g => {
+    document.querySelectorAll('.pp-pin:not(.pp-grup)').forEach(g => {
         const k = g.dataset.kode;
         POS[k] = {pk: +g.dataset.pk, x: +g.dataset.x, y: +g.dataset.y,
                   nama: g.dataset.nama, jenis: g.dataset.jenis};
@@ -611,15 +769,26 @@ let pilihPin = () => {}, mulaiSeret = () => {};   // diisi blok di bawah bila be
         const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(t);
         return {x: p.x / MAP_W * 100, y: p.y / MAP_H * 100};
     }
+    // Satu fungsi untuk dua jenis ikon: pin pembangkit (state di POS, kunci kode)
+    // dan ikon kelompok (state di GRUP, kunci _key).
+    const adalahGrup = (g) => g.classList.contains('pp-grup');
+    function posDari(g) {
+        return adalahGrup(g) ? GRUP.find(x => x._key === g.dataset.key) : POS[g.dataset.kode];
+    }
     function taruh(g, x, y, tandai) {
-        const k = POS[g.dataset.kode];
+        const k = posDari(g);
+        if (!k) return;
         k.x = Math.round(jepit(x) * 100) / 100;
         k.y = Math.round(jepit(y) * 100) / 100;
         g.setAttribute('transform', `translate(${(k.x / 100 * MAP_W).toFixed(1)},${(k.y / 100 * MAP_H).toFixed(1)})`);
         if (tandai) {
-            DIUBAH.add(g.dataset.kode);
-            DIHAPUS.delete(g.dataset.kode);
-            DISEMBUNYIKAN.delete(g.dataset.kode);
+            if (adalahGrup(g)) {
+                grupDiubah = true;
+            } else {
+                DIUBAH.add(g.dataset.kode);
+                DIHAPUS.delete(g.dataset.kode);
+                DISEMBUNYIKAN.delete(g.dataset.kode);
+            }
         }
         if (terpilih === g) tulisPosisi();
         tulisStatus();
@@ -627,7 +796,8 @@ let pilihPin = () => {}, mulaiSeret = () => {};   // diisi blok di bawah bila be
 
     // ── Pilih & seret ────────────────────────────────────────────────
     function tulisPosisi() {
-        const k = POS[terpilih.dataset.kode];
+        const k = posDari(terpilih);
+        if (!k) return;
         document.getElementById('ppPilihNama').textContent = k.nama;
         document.getElementById('ppPilihPos').textContent = `X ${k.x}%  ·  Y ${k.y}%`;
     }
@@ -636,10 +806,31 @@ let pilihPin = () => {}, mulaiSeret = () => {};   // diisi blok di bawah bila be
         terpilih = g;
         g.classList.add('pilih');
         elTerpilih.hidden = false;
+        formGrup.hidden = true;
+        btnBawaan.hidden = btnSembunyi.hidden = false;
+        tulisPosisi();
+    };
+
+    // ── Ikon kelompok ────────────────────────────────────────────────
+    pilihGrup = function (it) {
+        const g = PIN_GRUP[it._key];
+        if (terpilih) terpilih.classList.remove('pilih');
+        terpilih = g;
+        grupTerpilih = it;
+        g.classList.add('pilih');
+        elTerpilih.hidden = false;
+        // Tombol posisi-bawaan/sembunyikan tidak berlaku untuk kelompok.
+        btnBawaan.hidden = btnSembunyi.hidden = true;
+        formGrup.hidden = false;
+        inNama.value = it.nama;
+        inKet.value = it.keterangan || '';
+        selJenisGrup.value = it.jenis;
+        inCariAnggota.value = '';
+        gambarAnggota();
         tulisPosisi();
     };
     mulaiSeret = function (g, e, dariTengah) {
-        const p = persenDari(e), k = POS[g.dataset.kode];
+        const p = persenDari(e), k = posDari(g);
         seret = {g, dx: dariTengah ? 0 : p.x - k.x, dy: dariTengah ? 0 : p.y - k.y};
         document.body.classList.add('pp-menyeret');
         tip.style.display = 'none';
@@ -759,23 +950,157 @@ let pilihPin = () => {}, mulaiSeret = () => {};   // diisi blok di bawah bila be
     function batalPilih() {
         if (terpilih) terpilih.classList.remove('pilih');
         terpilih = null;
+        grupTerpilih = null;
         elTerpilih.hidden = true;
+        formGrup.hidden = true;
     }
+
+    // ── Menggambar & mengedit ikon kelompok ──────────────────────────
+    const NS_SVG = NS;
+
+    function gambarGrup(it) {
+        let g = PIN_GRUP[it._key];
+        const warna = JENIS_WARNA[it.jenis] || JENIS_WARNA.LAIN;
+        if (!g) {
+            g = document.createElementNS(NS_SVG, 'g');
+            g.setAttribute('class', 'pp-pin pp-grup');
+            const buat = (tag, attr) => {
+                const el = document.createElementNS(NS_SVG, tag);
+                Object.entries(attr).forEach(([k, v]) => el.setAttribute(k, v));
+                return el;
+            };
+            const lencana = document.createElementNS(NS_SVG, 'g');
+            lencana.setAttribute('class', 'lencana');
+            lencana.append(buat('circle', {cx: 17, cy: -17, r: 10, fill: '#0b1120', 'stroke-width': 2}),
+                           buat('text', {class: 'jml', x: 17, y: -13}));
+            g.append(buat('circle', {class: 'halo', r: 30, opacity: '.18'}),
+                     buat('circle', {class: 'disc', r: 20}),
+                     buat('use', {x: -13, y: -13, width: 26, height: 26}),
+                     lencana,
+                     buat('text', {class: 'nilai', y: 42}),
+                     buat('text', {class: 'label', y: 61}));
+            svg.appendChild(g);
+            PIN_GRUP[it._key] = g;
+            pasangGrup(g, it);
+        }
+        g.dataset.key = it._key;
+        g.dataset.id = it.id || '';
+        g.dataset.jenis = it.jenis;
+        g.dataset.nama = it.nama;
+        g.querySelector('.halo').setAttribute('fill', warna);
+        g.querySelector('.disc').setAttribute('fill', warna);
+        g.querySelector('.lencana circle').setAttribute('stroke', warna);
+        g.querySelector('.lencana text').textContent = (it.anggota || []).length;
+        g.querySelector('use').setAttribute('href', '#ic-' + it.jenis.toLowerCase());
+        g.querySelector('text.label').textContent = it.nama;
+        taruh(g, it.x, it.y, false);
+        segarkanGrup();
+    }
+
+    // Pembangkit yang sudah jadi anggota kelompok LAIN tidak boleh dicentang di
+    // sini — satu pembangkit hanya boleh diwakili satu ikon supaya dayanya tidak
+    // terhitung dua kali di peta.
+    function anggotaKelompokLain(pk) {
+        return GRUP.some(x => x !== grupTerpilih && (x.anggota || []).some(a => a.pk === pk));
+    }
+
+    function gambarAnggota() {
+        if (!grupTerpilih) return;
+        const q = inCariAnggota.value.trim().toLowerCase();
+        const dipilih = new Set((grupTerpilih.anggota || []).map(a => a.pk));
+        document.getElementById('grJml').textContent = dipilih.size;
+        elAnggota.innerHTML = semuaPembangkit
+            .filter(p => !q || p.nama.toLowerCase().includes(q))
+            .map(p => {
+                const lain = anggotaKelompokLain(p.pk);
+                return `<label class="${lain ? 'lain' : ''}" title="${lain ? 'Sudah masuk kelompok lain' : ''}">
+                    <input type="checkbox" value="${p.pk}" ${dipilih.has(p.pk) ? 'checked' : ''} ${lain ? 'disabled' : ''}>
+                    <span>${p.nama}</span><span class="jn">${p.jenis}</span></label>`;
+            }).join('') || '<label class="lain"><span>Tidak ada yang cocok.</span></label>';
+        elAnggota.querySelectorAll('input').forEach(cb => {
+            cb.addEventListener('change', () => {
+                const pk = +cb.value;
+                const p = semuaPembangkit.find(x => x.pk === pk);
+                grupTerpilih.anggota = grupTerpilih.anggota || [];
+                if (cb.checked) grupTerpilih.anggota.push({pk: pk, kode: p.kode, nama: p.nama});
+                else grupTerpilih.anggota = grupTerpilih.anggota.filter(a => a.pk !== pk);
+                // Umpan balik langsung: ikon tunggal anggota disembunyikan dari peta.
+                const pin = PIN[p.kode];
+                if (pin) pin.classList.toggle('sembunyi', cb.checked);
+                grupDiubah = true;
+                document.getElementById('grJml').textContent = grupTerpilih.anggota.length;
+                gambarGrup(grupTerpilih);
+                tulisStatus();
+            });
+        });
+    }
+    inCariAnggota.addEventListener('input', gambarAnggota);
+
+    [[inNama, 'nama'], [inKet, 'keterangan']].forEach(([el, field]) => {
+        el.addEventListener('input', () => {
+            if (!grupTerpilih) return;
+            grupTerpilih[field] = el.value;
+            grupDiubah = true;
+            gambarGrup(grupTerpilih);
+            tulisPosisi();
+            tulisStatus();
+        });
+    });
+    selJenisGrup.addEventListener('change', () => {
+        if (!grupTerpilih) return;
+        grupTerpilih.jenis = selJenisGrup.value;
+        grupDiubah = true;
+        gambarGrup(grupTerpilih);
+        tulisStatus();
+    });
+
+    document.getElementById('btnGrupBaru').addEventListener('click', () => {
+        const r = svg.getBoundingClientRect();
+        const it = {
+            _key: 'baru' + (++nomorGrupBaru), id: null,
+            nama: 'Kelompok ' + (GRUP.length + 1), keterangan: '', jenis: 'LAIN',
+            x: 50, y: ((Math.max(0, -r.top) + Math.min(r.height, innerHeight - r.top)) / 2) / r.height * 100,
+            anggota: [],
+        };
+        GRUP.push(it);
+        gambarGrup(it);
+        grupDiubah = true;
+        pilihGrup(it);
+        inNama.focus();
+        inNama.select();
+        tulisStatus();
+    });
+
+    document.getElementById('btnHapusGrup').addEventListener('click', () => {
+        if (!grupTerpilih) return;
+        if (!confirm(`Hapus ikon kelompok "${grupTerpilih.nama}"? Pembangkit anggotanya akan kembali berdiri sendiri.`)) return;
+        const it = grupTerpilih;
+        if (it.id) GRUP_HAPUS.add(it.id);
+        (it.anggota || []).forEach(a => { if (PIN[a.kode]) PIN[a.kode].classList.remove('sembunyi'); });
+        const g = PIN_GRUP[it._key];
+        if (g) g.remove();
+        delete PIN_GRUP[it._key];
+        GRUP.splice(GRUP.indexOf(it), 1);
+        grupDiubah = true;
+        batalPilih();
+        tulisStatus();
+    });
 
     // ── Status & simpan ──────────────────────────────────────────────
     function tulisStatus(pesan, kelas) {
         elStatus.className = 'pp-status' + (kelas ? ' ' + kelas : '');
         if (pesan) { elStatus.textContent = pesan; return; }
         const n = DIUBAH.size, m = DIHAPUS.size, h = DISEMBUNYIKAN.size;
-        if (!n && !m && !h) { elStatus.textContent = 'Belum ada perubahan.'; return; }
+        if (!n && !m && !h && !grupDiubah) { elStatus.textContent = 'Belum ada perubahan.'; return; }
         const bagian = [];
         if (n) bagian.push(`${n} ikon dipindahkan`);
         if (m) bagian.push(`${m} dikembalikan ke posisi bawaan`);
         if (h) bagian.push(`${h} disembunyikan`);
+        if (grupDiubah) bagian.push('ikon kelompok diubah');
         elStatus.className = 'pp-status ubah';
         elStatus.textContent = bagian.join(', ') + ' — belum disimpan.';
     }
-    const adaPerubahan = () => DIUBAH.size > 0 || DIHAPUS.size > 0 || DISEMBUNYIKAN.size > 0;
+    const adaPerubahan = () => DIUBAH.size > 0 || DIHAPUS.size > 0 || DISEMBUNYIKAN.size > 0 || grupDiubah;
 
     function getCookie(name) {
         const m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
@@ -796,6 +1121,13 @@ let pilihPin = () => {}, mulaiSeret = () => {};   // diisi blok di bawah bila be
                     posisi:   [...DIUBAH].map(k => ({pk: POS[k].pk, x: POS[k].x, y: POS[k].y})),
                     hapus:    [...DIHAPUS].map(k => (POS[k] || {}).pk).filter(Boolean),
                     sembunyi: [...DISEMBUNYIKAN].map(k => (POS[k] || {}).pk).filter(Boolean),
+                    // Kelompok dikirim utuh saat ada perubahan — jumlahnya sedikit,
+                    // jadi tidak perlu melacak perubahan per field.
+                    kelompok: grupDiubah ? GRUP.map(it => ({
+                        id: it.id, nama: it.nama, keterangan: it.keterangan, jenis: it.jenis,
+                        x: it.x, y: it.y, anggota: (it.anggota || []).map(a => a.pk),
+                    })) : [],
+                    kelompok_hapus: [...GRUP_HAPUS],
                 }),
             });
             let j = null;
