@@ -390,11 +390,21 @@ mengarang persen langsung supaya peta HOP dan Peta Pembangkit tetap sebidang.
 
 **Mode Atur Peta** (tombol di kanan atas, hanya superuser/role Opsis — aturan
 `_bisa_atur_peta()`, sama dengan penanda ketidaksesuaian data): ikon diseret
-langsung di peta, pembangkit yang belum punya ikon diseret dari daftar "Belum
-dipetakan" ke peta, dan "Posisi bawaan" mengosongkan `peta_x`/`peta_y` lagi.
-Semua perubahan baru masuk database saat Simpan ditekan
-(`POST /opsis/peta/simpan/`, body JSON `{posisi:[{pk,x,y}], hapus:[pk]}`),
-lalu halaman dimuat ulang.
+langsung di peta, pembangkit yang belum punya ikon diseret dari daftar "Tidak
+tampil di peta" ke peta, "Posisi bawaan" mengosongkan `peta_x`/`peta_y` lagi, dan
+"Sembunyikan" mematikan `tampil_di_peta`. Semua perubahan baru masuk database saat
+Simpan ditekan (`POST /opsis/peta/simpan/`, body JSON
+`{posisi:[{pk,x,y}], hapus:[pk], sembunyi:[pk]}`), lalu halaman dimuat ulang.
+
+**Tampil/sembunyi terpisah dari koordinat.** Mengosongkan `peta_x`/`peta_y` TIDAK
+menghilangkan ikon — pembangkit yang namanya terdaftar di `hop_map.py` muncul lagi
+di posisi bawaannya. Yang menentukan muncul-tidaknya ikon adalah
+`Pembangkit.tampil_di_peta` (juga bisa dicentang massal dari daftar admin, mis.
+untuk hanya menampilkan pembangkit berbeban besar). Pembangkit yang disembunyikan
+tetap masuk tabel daya di sebelah peta.
+
+Berkas SVG peta dan ikon yang bisa diedit ada di `docs/peta/` (lihat README di
+sana untuk cara mengembalikan hasil editnya ke kode).
 
 Pembangkit yang berdekatan (rumpun Tello, gugusan Manado) digeser `_sebar_pin()`
 di `opsis/views.py` supaya ikon + label MW-nya tidak bertumpuk; ambangnya

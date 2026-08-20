@@ -130,11 +130,14 @@ table.pp-tbl { width:100%; border-collapse:collapse; font-size:12px; }
 .pp-pilih .ket { min-width:0; }
 .pp-pilih b { display:block; font-size:12.5px; font-weight:700; }
 .pp-pilih span { font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--muted); }
-.pp-pilih .pp-btn { margin-left:auto; flex-shrink:0; }
+.pp-pilih .tombol { margin-left:auto; flex-shrink:0; display:flex; gap:6px; }
+.pp-btn.bahaya { color:#fca5a5; border-color:#7f1d1d; }
+.pp-btn.bahaya:hover { background:#7f1d1d33; border-color:#b91c1c; }
 
 .pp-belum-judul { margin:13px 0 7px; font-size:9.5px; font-weight:800; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); }
+.pp-belum-judul .ket { font-weight:600; text-transform:none; letter-spacing:0; }
 .pp-belum { display:flex; flex-wrap:wrap; gap:6px; max-height:150px; overflow-y:auto; }
-.pp-belum:empty::after { content:'Semua pembangkit sudah punya ikon di peta.'; font-size:11.5px; color:var(--muted); }
+.pp-belum:empty::after { content:'Semua pembangkit tampil di peta.'; font-size:11.5px; color:var(--muted); }
 .pp-belum .chip {
     display:inline-flex; align-items:center; gap:6px; cursor:grab; touch-action:none;
     background:#0b1120; border:1px solid var(--card-bd); border-radius:20px;
@@ -275,15 +278,16 @@ table.pp-tbl { width:100%; border-collapse:collapse; font-size:12px; }
         <div class="pp-tip" id="ppTip"></div>
       </div>
     </div>
-    {% if tanpa_posisi %}
+    {% if tak_tampil %}
     <div class="pp-note">
       <i class="bi bi-info-circle"></i>
-      <span>{{ tanpa_posisi|length }} pembangkit belum punya ikon di peta
-        ({% for t in tanpa_posisi %}{{ t.nama }}{% if not forloop.last %}, {% endif %}{% endfor %})
-        — tetap tampil di tabel.
-        {% if bisa_atur %}Klik <b>Atur Peta</b>, lalu seret namanya dari daftar ke peta.
-        {% else %}Isi <b>Posisi Peta X/Y</b> pembangkit tersebut di halaman admin
-        untuk memunculkan ikonnya.{% endif %}</span>
+      <span>{{ tak_tampil|length }} pembangkit tidak ditampilkan di peta
+        ({% for t in tak_tampil %}{{ t.nama }}{% if not forloop.last %}, {% endif %}{% endfor %})
+        — semuanya tetap ada di tabel daya.
+        {% if bisa_atur %}Klik <b>Atur Peta</b>, lalu seret namanya dari daftar ke peta
+        untuk memunculkan ikonnya.
+        {% else %}Centang <b>Tampilkan Ikon di Peta</b> pada pembangkit tersebut di
+        halaman admin untuk memunculkan ikonnya.{% endif %}</span>
     </div>
     {% endif %}
   </div>
@@ -295,16 +299,23 @@ table.pp-tbl { width:100%; border-collapse:collapse; font-size:12px; }
       <h2><i class="bi bi-arrows-move"></i> Atur Posisi Ikon</h2>
       <div class="bd">
         <div class="pp-hint">
-          Seret ikon di peta ke lokasi yang benar. Pembangkit yang belum punya ikon
-          ada di daftar bawah — seret namanya ke peta untuk menempatkannya.
+          Seret ikon di peta ke lokasi yang benar. Untuk menghilangkan sebuah ikon,
+          pilih ikonnya lalu tekan <b>Sembunyikan</b> — pembangkitnya tetap ada di
+          tabel daya dan bisa dimunculkan lagi kapan saja dari daftar di bawah.
         </div>
         <div class="pp-pilih" id="ppTerpilih" hidden>
           <div class="ket"><b id="ppPilihNama"></b><span id="ppPilihPos"></span></div>
-          <button type="button" class="pp-btn kecil" id="btnBawaan">
-            <i class="bi bi-arrow-counterclockwise"></i> Posisi bawaan
-          </button>
+          <div class="tombol">
+            <button type="button" class="pp-btn kecil" id="btnBawaan" title="Kembalikan ke koordinat bawaan">
+              <i class="bi bi-arrow-counterclockwise"></i> Posisi bawaan
+            </button>
+            <button type="button" class="pp-btn kecil bahaya" id="btnSembunyi" title="Hilangkan ikon ini dari peta">
+              <i class="bi bi-eye-slash"></i> Sembunyikan
+            </button>
+          </div>
         </div>
-        <div class="pp-belum-judul">Belum dipetakan (<span id="ppBelumJml">0</span>)</div>
+        <div class="pp-belum-judul">Tidak tampil di peta (<span id="ppBelumJml">0</span>)
+          <span class="ket">— seret ke peta untuk menampilkan</span></div>
         <div class="pp-belum" id="ppBelum"></div>
         <div class="pp-status" id="ppStatus">Belum ada perubahan.</div>
       </div>
@@ -367,7 +378,7 @@ table.pp-tbl { width:100%; border-collapse:collapse; font-size:12px; }
 
 {% block extra_js %}
 {{ jenis_warna|json_script:"jenis-warna" }}
-{% if bisa_atur %}{{ tanpa_posisi|json_script:"pp-belum-data" }}{% endif %}
+{% if bisa_atur %}{{ tak_tampil|json_script:"pp-belum-data" }}{% endif %}
 <script>
 const JENIS_WARNA = JSON.parse(document.getElementById('jenis-warna').textContent);
 const PP_INTERVAL = 5;            // detik — sama dengan dashboard
@@ -572,6 +583,7 @@ let pilihPin = () => {}, mulaiSeret = () => {};   // diisi blok di bawah bila be
     const btnSimpan = document.getElementById('btnSimpan');
     const btnBatal  = document.getElementById('btnBatal');
     const btnBawaan = document.getElementById('btnBawaan');
+    const btnSembunyi = document.getElementById('btnSembunyi');
     const elTerpilih = document.getElementById('ppTerpilih');
     const elStatus   = document.getElementById('ppStatus');
     const elBelum    = document.getElementById('ppBelum');
@@ -587,8 +599,9 @@ let pilihPin = () => {}, mulaiSeret = () => {};   // diisi blok di bawah bila be
     });
     let belum = JSON.parse(document.getElementById('pp-belum-data').textContent);
 
-    const DIUBAH = new Set();     // kode → peta_x/peta_y ditulis
+    const DIUBAH  = new Set();    // kode → peta_x/peta_y ditulis, ikon ditampilkan
     const DIHAPUS = new Set();    // kode → peta_x/peta_y dikosongkan (kembali ke bawaan)
+    const DISEMBUNYIKAN = new Set();   // kode → ikon dihilangkan dari peta
     let terpilih = null, seret = null;
 
     // ── Koordinat ────────────────────────────────────────────────────
@@ -606,6 +619,7 @@ let pilihPin = () => {}, mulaiSeret = () => {};   // diisi blok di bawah bila be
         if (tandai) {
             DIUBAH.add(g.dataset.kode);
             DIHAPUS.delete(g.dataset.kode);
+            DISEMBUNYIKAN.delete(g.dataset.kode);
         }
         if (terpilih === g) tulisPosisi();
         tulisStatus();
@@ -701,24 +715,44 @@ let pilihPin = () => {}, mulaiSeret = () => {};   // diisi blok di bawah bila be
         });
     }
 
+    // Pindahkan ikon dari peta ke daftar "tidak tampil di peta".
+    function turunkanKeDaftar(g) {
+        const kode = g.dataset.kode, k = POS[kode];
+        belum.push({pk: k.pk, kode: kode, nama: k.nama, jenis: k.jenis,
+                    warna: JENIS_WARNA[k.jenis] || JENIS_WARNA.LAIN});
+        belum.sort((a, b) => a.nama.localeCompare(b.nama));
+        g.remove();
+        delete PIN[kode];
+        gambarBelum();
+        batalPilih();
+    }
+
     // ── Kembalikan ke posisi bawaan ──────────────────────────────────
     btnBawaan.addEventListener('click', () => {
         if (!terpilih) return;
-        const kode = terpilih.dataset.kode, b = BAWAAN[kode], k = POS[kode];
+        const kode = terpilih.dataset.kode, b = BAWAAN[kode];
         DIUBAH.delete(kode);
         DIHAPUS.add(kode);
+        DISEMBUNYIKAN.delete(kode);
         if (b) {
             taruh(terpilih, b.x, b.y, false);
         } else {
-            // Tidak punya posisi bawaan → ikonnya hilang, kembali ke daftar.
-            belum.push({pk: k.pk, kode: kode, nama: k.nama, jenis: k.jenis,
-                        warna: JENIS_WARNA[k.jenis] || JENIS_WARNA.LAIN});
-            belum.sort((a, b2) => a.nama.localeCompare(b2.nama));
-            terpilih.remove();
-            delete PIN[kode];
-            gambarBelum();
-            batalPilih();
+            // Tanpa posisi bawaan tidak ada tempat untuk dikembalikan → turun ke daftar.
+            turunkanKeDaftar(terpilih);
         }
+        tulisStatus();
+    });
+
+    // ── Sembunyikan ikon dari peta ───────────────────────────────────
+    // Beda dengan "posisi bawaan": mengosongkan koordinat saja tidak cukup, karena
+    // pembangkit yang namanya ada di tabel bawaan hop_map akan muncul lagi di sana.
+    btnSembunyi.addEventListener('click', () => {
+        if (!terpilih) return;
+        const kode = terpilih.dataset.kode;
+        DIUBAH.delete(kode);
+        DIHAPUS.delete(kode);
+        DISEMBUNYIKAN.add(kode);
+        turunkanKeDaftar(terpilih);
         tulisStatus();
     });
 
@@ -732,15 +766,16 @@ let pilihPin = () => {}, mulaiSeret = () => {};   // diisi blok di bawah bila be
     function tulisStatus(pesan, kelas) {
         elStatus.className = 'pp-status' + (kelas ? ' ' + kelas : '');
         if (pesan) { elStatus.textContent = pesan; return; }
-        const n = DIUBAH.size, m = DIHAPUS.size;
-        if (!n && !m) { elStatus.textContent = 'Belum ada perubahan.'; return; }
+        const n = DIUBAH.size, m = DIHAPUS.size, h = DISEMBUNYIKAN.size;
+        if (!n && !m && !h) { elStatus.textContent = 'Belum ada perubahan.'; return; }
         const bagian = [];
         if (n) bagian.push(`${n} ikon dipindahkan`);
         if (m) bagian.push(`${m} dikembalikan ke posisi bawaan`);
+        if (h) bagian.push(`${h} disembunyikan`);
         elStatus.className = 'pp-status ubah';
         elStatus.textContent = bagian.join(', ') + ' — belum disimpan.';
     }
-    const adaPerubahan = () => DIUBAH.size > 0 || DIHAPUS.size > 0;
+    const adaPerubahan = () => DIUBAH.size > 0 || DIHAPUS.size > 0 || DISEMBUNYIKAN.size > 0;
 
     function getCookie(name) {
         const m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
@@ -758,8 +793,9 @@ let pilihPin = () => {}, mulaiSeret = () => {};   // diisi blok di bawah bila be
                 method: 'POST',
                 headers: {'X-CSRFToken': csrf, 'Content-Type': 'application/json'},
                 body: JSON.stringify({
-                    posisi: [...DIUBAH].map(k => ({pk: POS[k].pk, x: POS[k].x, y: POS[k].y})),
-                    hapus:  [...DIHAPUS].map(k => (POS[k] || {}).pk).filter(Boolean),
+                    posisi:   [...DIUBAH].map(k => ({pk: POS[k].pk, x: POS[k].x, y: POS[k].y})),
+                    hapus:    [...DIHAPUS].map(k => (POS[k] || {}).pk).filter(Boolean),
+                    sembunyi: [...DISEMBUNYIKAN].map(k => (POS[k] || {}).pk).filter(Boolean),
                 }),
             });
             let j = null;

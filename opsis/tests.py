@@ -351,7 +351,7 @@ class PetaPembangkitTest(TestCase):
             self.assertIn(p.nama, isi)        # semua unit masuk tabel
         # Yang punya koordinat dapat pin; yang tidak, hanya masuk tabel.
         self.assertEqual(len(r.context['pins']), 5)
-        self.assertEqual([t['kode'] for t in r.context['tanpa_posisi']], ['XYZ'])
+        self.assertEqual([t['kode'] for t in r.context['tak_tampil']], ['XYZ'])
 
     def test_pin_serumpun_tidak_saling_menutup(self):
         r = self.client.get('/opsis/peta/')
@@ -538,3 +538,63 @@ class ModePemeliharaanTest(TestCase):
         ModePemeliharaan(aktif=True, judul='Baris kedua').save()
         self.assertEqual(ModePemeliharaan.objects.count(), 1)
         self.assertEqual(ModePemeliharaan.objects.get().judul, 'Baris kedua')
+
+
+class PetaSembunyikanIkonTest(TestCase):
+    """Ikon bisa dihilangkan dari peta tanpa menghilangkan pembangkitnya dari tabel."""
+
+    @classmethod
+    def setUpTestData(cls):
+        # PLTU Barru punya posisi bawaan di hop_map, jadi mengosongkan koordinat
+        # saja tidak cukup untuk menghilangkan ikonnya — itulah yang diuji di sini.
+        cls.pb = Pembangkit.objects.create(nama='PLTU Barru', kode='BLUSU5', jenis='PLTU')
+
+    def setUp(self):
+        user = User.objects.create_superuser('adm-sembunyi', 'sb@contoh.id', 'rahasia-tes-123')
+        profile = getattr(user, 'profile', None)
+        if profile is not None:
+            profile.force_password_change = False
+            profile.save(update_fields=['force_password_change'])
+        self.client.force_login(user)
+
+    def _kirim(self, data):
+        return self.client.post('/opsis/peta/simpan/', data=json.dumps(data),
+                                content_type='application/json')
+
+    def test_bawaan_semua_pembangkit_tampil(self):
+        self.assertTrue(self.pb.tampil_di_peta)
+        r = self.client.get('/opsis/peta/')
+        self.assertEqual([p['kode'] for p in r.context['pins']], ['BLUSU5'])
+
+    def test_sembunyikan_menghilangkan_ikon_tapi_tetap_di_tabel(self):
+        r = self._kirim({'sembunyi': [self.pb.pk]})
+        self.assertEqual(r.status_code, 200)
+        self.pb.refresh_from_db()
+        self.assertFalse(self.pb.tampil_di_peta)
+
+        r = self.client.get('/opsis/peta/')
+        self.assertEqual(r.context['pins'], [])                       # ikon hilang dari peta
+        self.assertEqual([t['kode'] for t in r.context['tak_tampil']], ['BLUSU5'])
+        self.assertContains(r, 'PLTU Barru')                          # tetap ada di tabel daya
+
+    def test_mengosongkan_koordinat_tidak_menyembunyikan_ikon(self):
+        Pembangkit.objects.filter(pk=self.pb.pk).update(peta_x=50, peta_y=50)
+        self._kirim({'hapus': [self.pb.pk]})
+        self.pb.refresh_from_db()
+        self.assertIsNone(self.pb.peta_x)
+        self.assertTrue(self.pb.tampil_di_peta)
+        self.assertEqual(len(self.client.get('/opsis/peta/').context['pins']), 1)
+
+    def test_menaruh_kembali_di_peta_menampilkan_lagi(self):
+        self._kirim({'sembunyi': [self.pb.pk]})
+        self._kirim({'posisi': [{'pk': self.pb.pk, 'x': 30, 'y': 40}]})
+        self.pb.refresh_from_db()
+        self.assertTrue(self.pb.tampil_di_peta)
+        self.assertEqual((self.pb.peta_x, self.pb.peta_y), (30.0, 40.0))
+        self.assertEqual(len(self.client.get('/opsis/peta/').context['pins']), 1)
+
+    def test_sembunyi_tidak_menghapus_koordinat_lama(self):
+        Pembangkit.objects.filter(pk=self.pb.pk).update(peta_x=12.5, peta_y=67.5)
+        self._kirim({'sembunyi': [self.pb.pk]})
+        self.pb.refresh_from_db()
+        self.assertEqual((self.pb.peta_x, self.pb.peta_y), (12.5, 67.5))

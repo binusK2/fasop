@@ -78,6 +78,14 @@ class Pembangkit(models.Model):
                                       help_text='0–100, persen dari kiri peta. Kosongkan untuk posisi bawaan.')
     peta_y        = models.FloatField(null=True, blank=True, verbose_name='Posisi Peta Y (%)',
                                       help_text='0–100, persen dari atas peta. Kosongkan untuk posisi bawaan.')
+    # Sakelar tampil/sembunyi ikon. Dipisah dari peta_x/peta_y karena mengosongkan
+    # koordinat TIDAK menghilangkan ikon — pembangkit yang namanya terdaftar di
+    # opsis.hop_map akan kembali muncul di posisi bawaannya.
+    tampil_di_peta = models.BooleanField(
+        default=True, verbose_name='Tampilkan Ikon di Peta',
+        help_text='Hilangkan centang untuk menyembunyikan ikon pembangkit ini dari '
+                  'Peta Pembangkit (mis. hanya menampilkan pembangkit berbeban besar). '
+                  'Pembangkitnya tetap masuk tabel daya di sebelah peta.')
     # Penanda data tidak valid / tidak sesuai kondisi real (diisi manual oleh
     # superuser / role Opsis dari dashboard). Bila False, tampilan dashboard
     # tidak berubah; bila True, kartu diberi label ketidaksesuaian.

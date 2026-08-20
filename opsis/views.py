@@ -176,14 +176,15 @@ def peta_pembangkit(request):
     """
     pembangkit_list = _pembangkit_aktif()
 
-    pins, tanpa_posisi = [], []
+    pins, tak_tampil = [], []
     for p in pembangkit_list:
         item = {'pk': p.pk, 'kode': p.kode, 'nama': p.nama, 'jenis': p.jenis,
                 'warna': JENIS_WARNA.get(p.jenis, JENIS_WARNA['LAIN'])}
         pos = p.posisi_peta()
-        if pos is None:
-            # Belum punya koordinat — tetap masuk tabel, hanya tak muncul di peta.
-            tanpa_posisi.append(item)
+        if pos is None or not p.tampil_di_peta:
+            # Belum punya koordinat, atau sengaja disembunyikan lewat sakelar
+            # tampil_di_peta — tetap masuk tabel daya, hanya ikonnya tidak digambar.
+            tak_tampil.append(item)
             continue
         # manual = digeser sendiri lewat mode Atur Peta (peta_x/peta_y terisi).
         # bawaan = posisi dari tabel nama di hop_map, dipakai tombol "posisi
@@ -212,7 +213,7 @@ def peta_pembangkit(request):
     return render(request, 'opsis/peta_pembangkit.html', {
         'pembangkit_list': pembangkit_list,
         'pins':            pins,
-        'tanpa_posisi':    tanpa_posisi,
+        'tak_tampil':      tak_tampil,
         'legenda':         legenda,
         'jenis_warna':     JENIS_WARNA,
         'bisa_atur':       _bisa_atur_peta(request.user),
@@ -235,9 +236,15 @@ def peta_simpan(request):
     """
     Simpan hasil seret-lepas pin Peta Pembangkit (AJAX POST, body JSON).
 
-    Body: {"posisi": [{"pk": 1, "x": 12.3, "y": 45.6}, …], "hapus": [pk, …]}
-    `posisi` mengisi peta_x/peta_y (persen viewBox), `hapus` mengosongkannya
-    sehingga pembangkit kembali memakai posisi bawaan opsis/hop_map.py.
+    Body: {"posisi": [{"pk": 1, "x": 12.3, "y": 45.6}, …],
+           "hapus": [pk, …], "sembunyi": [pk, …]}
+
+    - `posisi`   mengisi peta_x/peta_y (persen viewBox) sekaligus menyalakan
+                 tampil_di_peta — menaruh ikon di peta berarti menampilkannya.
+    - `hapus`    mengosongkan peta_x/peta_y sehingga pembangkit kembali ke posisi
+                 bawaan opsis/hop_map.py (ikonnya TETAP tampil).
+    - `sembunyi` mematikan tampil_di_peta sehingga ikonnya hilang dari peta;
+                 koordinatnya dibiarkan agar posisi lama kembali saat ditampilkan lagi.
     """
     if not _bisa_atur_peta(request.user):
         return JsonResponse({'ok': False, 'error': 'Tidak diizinkan.'}, status=403)
@@ -248,23 +255,30 @@ def peta_simpan(request):
     except (ValueError, UnicodeDecodeError):
         return JsonResponse({'ok': False, 'error': 'Data tidak dapat dibaca.'}, status=400)
 
-    posisi = payload.get('posisi') or []
-    hapus  = payload.get('hapus') or []
-    if not isinstance(posisi, list) or not isinstance(hapus, list):
+    posisi   = payload.get('posisi') or []
+    hapus    = payload.get('hapus') or []
+    sembunyi = payload.get('sembunyi') or []
+    if not all(isinstance(v, list) for v in (posisi, hapus, sembunyi)):
         return JsonResponse({'ok': False, 'error': 'Bentuk data salah.'}, status=400)
 
-    # Kumpulkan dulu, validasi semua, baru simpan — supaya satu nilai rusak tidak
-    # menyisakan setengah perubahan tersimpan.
+    # Kumpulkan dulu sebagai {pk: {field: nilai}}, validasi semua, baru simpan —
+    # supaya satu nilai rusak tidak menyisakan setengah perubahan tersimpan. Urutan
+    # di bawah menentukan pemenang bila satu pk muncul di lebih dari satu daftar:
+    # menaruh ikon di peta (posisi) selalu menang atas menyembunyikannya.
     perubahan = {}
     try:
+        for pk in sembunyi:
+            # Koordinat sengaja tidak disentuh: posisi lamanya dipakai lagi
+            # begitu pembangkit ini ditampilkan kembali.
+            perubahan[int(pk)] = {'tampil_di_peta': False}
+        for pk in hapus:
+            perubahan[int(pk)] = {'peta_x': None, 'peta_y': None, 'tampil_di_peta': True}
         for row in posisi:
             pk = int(row['pk'])
             x, y = float(row['x']), float(row['y'])
             if not (0 <= x <= 100 and 0 <= y <= 100):
                 return JsonResponse({'ok': False, 'error': f'Posisi di luar peta (pk {pk}).'}, status=400)
-            perubahan[pk] = (round(x, 2), round(y, 2))
-        for pk in hapus:
-            perubahan[int(pk)] = (None, None)
+            perubahan[pk] = {'peta_x': round(x, 2), 'peta_y': round(y, 2), 'tampil_di_peta': True}
     except (KeyError, TypeError, ValueError):
         return JsonResponse({'ok': False, 'error': 'Nilai posisi tidak valid.'}, status=400)
 
@@ -273,10 +287,12 @@ def peta_simpan(request):
     if tidak_dikenal:
         return JsonResponse({'ok': False, 'error': f'Pembangkit tidak ditemukan: {tidak_dikenal}.'}, status=400)
 
-    for pk, (x, y) in perubahan.items():
-        obj[pk].peta_x, obj[pk].peta_y = x, y
-    Pembangkit.objects.bulk_update(obj.values(), ['peta_x', 'peta_y'])
-    return JsonResponse({'ok': True, 'disimpan': len(posisi), 'dikembalikan': len(hapus)})
+    for pk, nilai in perubahan.items():
+        for field, v in nilai.items():
+            setattr(obj[pk], field, v)
+    Pembangkit.objects.bulk_update(obj.values(), ['peta_x', 'peta_y', 'tampil_di_peta'])
+    return JsonResponse({'ok': True, 'disimpan': len(posisi),
+                         'dikembalikan': len(hapus), 'disembunyikan': len(sembunyi)})
 
 
 def _flag_info(p):

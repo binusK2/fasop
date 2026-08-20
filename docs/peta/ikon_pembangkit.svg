@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Ikon jenis pembangkit — Peta Pembangkit FASOP (/opsis/peta/)
+
+  Sumber sebenarnya: blok <defs><symbol id="ic-…"> di
+  opsis/templates/opsis/peta_pembangkit.html. File ini dibuat dari blok itu.
+
+  CARA MENGEMBALIKAN HASIL EDIT KE APLIKASI
+  1. Edit gambar di dalam salah satu <g id="ic-…"> di bawah.
+  2. Salin isinya (path/rect/circle-nya saja, tanpa <g> pembungkus).
+  3. Tempel menggantikan isi <symbol id="ic-…"> yang sesuai di template tadi.
+
+  ATURAN YANG HARUS DIJAGA
+  - Gambar harus muat di kotak 24x24 (di sini ditampilkan 2.2x agar mudah diedit;
+    yang disalin ke template adalah koordinat 24x24 aslinya — jangan ikut
+    menyalin transform="translate(...) scale(2.2)").
+  - Pakai fill="currentColor" / stroke="currentColor", jangan warna tetap:
+    warnanya ditentukan JENIS_WARNA di opsis/models.py dan ikonnya selalu putih
+    di atas lingkaran berwarna. Lingkaran berwarna di file ini hanya pratinjau.
+  - Nama id harus tetap ic-plta, ic-pltu, dst. — template memilih ikon dari
+    kode jenis pembangkit (huruf kecil).
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 300"
+     width="600" height="300">
+  <rect width="100%" height="100%" fill="#0b1120"/>
+  <g>
+    <g class="kartu" transform="translate(0,0)">
+      <circle cx="75" cy="62" r="42" fill="#3b82f6"/>
+      <!-- ikon PLTA — digambar pada kotak 24x24, diperbesar 2.2x -->
+      <g id="ic-plta" color="#ffffff" transform="translate(49,36) scale(2.2)">
+        <path fill="currentColor" d="M12 2.2c3.7 4.4 6.1 7.7 6.1 10.4a6.1 6.1 0 0 1-12.2 0C5.9 9.9 8.3 6.6 12 2.2z"/>
+      </g>
+      <text x="75" y="128" text-anchor="middle" fill="#94a3b8"
+            font-family="sans-serif" font-size="15" font-weight="700">PLTA</text>
+    </g>
+    <g class="kartu" transform="translate(150,0)">
+      <circle cx="75" cy="62" r="42" fill="#f59e0b"/>
+      <!-- ikon PLTU — digambar pada kotak 24x24, diperbesar 2.2x -->
+      <g id="ic-pltu" color="#ffffff" transform="translate(49,36) scale(2.2)">
+        <path fill="currentColor" d="M7.6 21.8 9.4 11h5.2l1.8 10.8z"/>
+                      <rect x="8.9" y="9.2" width="6.2" height="1.9" rx=".6" fill="currentColor"/>
+                      <path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"
+                            d="M10.6 7.2c0-1.2 1.5-1.2 1.5-2.4s-1.5-1.2-1.5-2.4M14.9 7.2c0-1 1.2-1 1.2-2"/>
+      </g>
+      <text x="75" y="128" text-anchor="middle" fill="#94a3b8"
+            font-family="sans-serif" font-size="15" font-weight="700">PLTU</text>
+    </g>
+    <g class="kartu" transform="translate(300,0)">
+      <circle cx="75" cy="62" r="42" fill="#ef4444"/>
+      <!-- ikon PLTD — digambar pada kotak 24x24, diperbesar 2.2x -->
+      <g id="ic-pltd" color="#ffffff" transform="translate(49,36) scale(2.2)">
+        <path fill="currentColor" d="M4.2 2.6h8.4c.9 0 1.6.7 1.6 1.6v17.6H2.6V4.2c0-.9.7-1.6 1.6-1.6z"/>
+                      <rect x="4.6" y="5" width="7.6" height="5" rx=".8" fill="#0b1120" opacity=".5"/>
+                      <path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+                            d="M14.2 8.8h2.6c1 0 1.8.8 1.8 1.8v7.2a1.6 1.6 0 0 0 3.2 0v-6.6l-1.8-2.4"/>
+      </g>
+      <text x="75" y="128" text-anchor="middle" fill="#94a3b8"
+            font-family="sans-serif" font-size="15" font-weight="700">PLTD</text>
+    </g>
+    <g class="kartu" transform="translate(450,0)">
+      <circle cx="75" cy="62" r="42" fill="#a855f7"/>
+      <!-- ikon PLTG — digambar pada kotak 24x24, diperbesar 2.2x -->
+      <g id="ic-pltg" color="#ffffff" transform="translate(49,36) scale(2.2)">
+        <path fill="currentColor" d="M11.1 1.6c.8 3.4-.9 5-2.6 6.8C6.6 10.4 4.9 12.4 4.9 15.3a7.1 7.1 0 0 0 14.2 0c0-2.6-1.2-4.5-2.7-6.4-.5 1.2-1.3 1.9-2.3 2.3 1-4-.6-7.7-3-9.6z"/>
+      </g>
+      <text x="75" y="128" text-anchor="middle" fill="#94a3b8"
+            font-family="sans-serif" font-size="15" font-weight="700">PLTG</text>
+    </g>
+    <g class="kartu" transform="translate(0,150)">
+      <circle cx="75" cy="62" r="42" fill="#06b6d4"/>
+      <!-- ikon PLTGU — digambar pada kotak 24x24, diperbesar 2.2x -->
+      <g id="ic-pltgu" color="#ffffff" transform="translate(49,36) scale(2.2)">
+        <path fill="currentColor" d="M8.2 4.6c.6 2.5-.7 3.7-1.9 5C4.9 11.1 3.7 12.6 3.7 14.7a5.2 5.2 0 0 0 10.4 0c0-1.9-.9-3.3-2-4.7-.4.9-1 1.4-1.7 1.7.7-2.9-.5-5.6-2.2-7.1z"/>
+                      <path fill="currentColor" d="M15.6 21.8 16.9 13h3.6l1.3 8.8z"/>
+      </g>
+      <text x="75" y="128" text-anchor="middle" fill="#94a3b8"
+            font-family="sans-serif" font-size="15" font-weight="700">PLTGU</text>
+    </g>
+    <g class="kartu" transform="translate(150,150)">
+      <circle cx="75" cy="62" r="42" fill="#22c55e"/>
+      <!-- ikon PLTB — digambar pada kotak 24x24, diperbesar 2.2x -->
+      <g id="ic-pltb" color="#ffffff" transform="translate(49,36) scale(2.2)">
+        <path fill="currentColor" d="M11 12.6h2l.9 9.4h-3.8z"/>
+                      <circle cx="12" cy="11.4" r="1.8" fill="currentColor"/>
+                      <path fill="currentColor" d="M11.2 9.9 10.3 1.6l3-.3.8 8.4zM13.5 11.9l7.6 3.4-1.3 2.7-7-4.1zM10.5 11.9 3.6 17.2 1.8 14.8l7.5-4.4z"/>
+      </g>
+      <text x="75" y="128" text-anchor="middle" fill="#94a3b8"
+            font-family="sans-serif" font-size="15" font-weight="700">PLTB</text>
+    </g>
+    <g class="kartu" transform="translate(300,150)">
+      <circle cx="75" cy="62" r="42" fill="#eab308"/>
+      <!-- ikon PLTS — digambar pada kotak 24x24, diperbesar 2.2x -->
+      <g id="ic-plts" color="#ffffff" transform="translate(49,36) scale(2.2)">
+        <circle cx="12" cy="12" r="4.8" fill="currentColor"/>
+                      <path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"
+                            d="M12 1.4v2.8M12 19.8v2.8M22.6 12h-2.8M4.2 12H1.4M19.5 4.5l-2 2M6.5 17.5l-2 2M19.5 19.5l-2-2M6.5 6.5l-2-2"/>
+      </g>
+      <text x="75" y="128" text-anchor="middle" fill="#94a3b8"
+            font-family="sans-serif" font-size="15" font-weight="700">PLTS</text>
+    </g>
+    <g class="kartu" transform="translate(450,150)">
+      <circle cx="75" cy="62" r="42" fill="#64748b"/>
+      <!-- ikon LAIN — digambar pada kotak 24x24, diperbesar 2.2x -->
+      <g id="ic-lain" color="#ffffff" transform="translate(49,36) scale(2.2)">
+        <path fill="currentColor" d="M13.8 1.4 5 13.6h5.4L9.6 22.6 19.4 9.9h-5.6z"/>
+      </g>
+      <text x="75" y="128" text-anchor="middle" fill="#94a3b8"
+            font-family="sans-serif" font-size="15" font-weight="700">LAIN</text>
+    </g>
+  </g>
+</svg>
