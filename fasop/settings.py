@@ -361,6 +361,12 @@ WA_TIMEOUT       = config('WA_TIMEOUT',    default=10, cast=int)  # detik
 
 WA_CHAT_IDS_INSPECTION = config('WA_CHAT_IDS_INSPECTION', default='')
 
+# Tujuan blast WhatsApp untuk host Zabbix (device_mon). Kosong = pakai
+# WA_CHAT_IDS di atas. Blast tetap per host: hanya host yang dicentang
+# "Blast WhatsApp" di Admin yang dikirim, dan sebuah host bisa menimpa
+# tujuan ini lewat kolom "Grup WA Khusus".
+WA_CHAT_IDS_ZABBIX = config('WA_CHAT_IDS_ZABBIX', default='')
+
 # -------------------------------------------------------------------
 # Zabbix Integration (device_mon) — status peralatan dari Zabbix dipantau
 # di FASOP lewat dua jalur yang saling melengkapi, satu app dengan RTU

@@ -1,5 +1,15 @@
 from django.db import models
 
+from device_mon.zabbix_api import SEVERITY_LABELS
+
+# Pilihan severity untuk ambang blast WhatsApp host Zabbix — diturunkan dari
+# SEVERITY_LABELS supaya tidak ada daftar kembar yang bisa melenceng kalau
+# Zabbix menambah level baru.
+SEVERITY_CHOICES = sorted(
+    ((idx, label) for idx, label in SEVERITY_LABELS.items()),
+    key=lambda x: int(x[0]),
+)
+
 
 class RTU(models.Model):
     """
@@ -11,6 +21,12 @@ class RTU(models.Model):
     lokasi      = models.CharField(max_length=100, blank=True, verbose_name='Lokasi / Gardu')
     urutan      = models.PositiveIntegerField(default=0, verbose_name='Urutan Tampil')
     aktif       = models.BooleanField(default=True, verbose_name='Aktif')
+    wa_alert    = models.BooleanField(
+        default=True, verbose_name='Blast WhatsApp',
+        help_text='Kirim Early Warning WA saat RTU ini DOWN/pulih. '
+                  'Hilangkan centang untuk membisukan satu RTU tanpa menonaktifkannya '
+                  'dari monitoring.',
+    )
 
     # ── State terkini (diperbarui setiap collect_rtu) ──────────────────
     state       = models.CharField(max_length=10, default='UNKNOWN', verbose_name='State')
@@ -156,6 +172,27 @@ class ZabbixHost(models.Model):
     urutan = models.PositiveIntegerField(default=0, verbose_name='Urutan Tampil')
     aktif = models.BooleanField(default=True, verbose_name='Aktif')
 
+    # ── Early Warning WhatsApp (per host, opsional) ────────────────────
+    # Default mati: host baru hasil sync_zabbix tidak boleh langsung
+    # membanjiri grup WA. Operator yang memilih host mana yang layak
+    # di-blast lewat Admin (mis. VoIP Makassar).
+    wa_alert = models.BooleanField(
+        default=False, verbose_name='Blast WhatsApp',
+        help_text='Centang agar transisi PROBLEM/pulih host ini dikirim ke grup WhatsApp '
+                  'lewat OpenWA. Butuh WA_ALERT_ENABLED=True di .env.',
+    )
+    wa_min_severity = models.CharField(
+        max_length=1, choices=SEVERITY_CHOICES, default='3',
+        verbose_name='Severity Minimum',
+        help_text='Blast PROBLEM hanya dikirim bila severity-nya minimal ini. '
+                  'Naikkan kalau grup terlalu berisik.',
+    )
+    wa_chat_ids = models.CharField(
+        max_length=255, blank=True, verbose_name='Grup WA Khusus',
+        help_text='Opsional — chatId tujuan khusus host ini (pisahkan koma, grup berakhiran '
+                  '"@g.us"). Kosongkan untuk memakai WA_CHAT_IDS_ZABBIX dari .env.',
+    )
+
     # ── State terkini (diperbarui oleh sync_zabbix / webhook) ──────────
     state = models.CharField(max_length=10, choices=STATE_CHOICES, default='UNKNOWN')
     severity = models.CharField(max_length=30, blank=True, verbose_name='Severity Tertinggi')
@@ -300,3 +337,36 @@ class ZabbixGroup(models.Model):
 
     def __str__(self):
         return self.nama
+
+
+class ZabbixAlertLog(models.Model):
+    """
+    Audit trail blast WhatsApp untuk host Zabbix.
+    Satu baris per transisi yang *dipertimbangkan* untuk dikirim — termasuk
+    yang sengaja dilewati (severity di bawah ambang, tujuan belum diisi),
+    supaya pertanyaan "kenapa notif tidak masuk" bisa dijawab dari Admin
+    tanpa membaca log server. Sepadan dengan RTUAlertLog di atas.
+    """
+    JENIS_CHOICES = [
+        ('PROBLEM', 'Problem'),
+        ('OK',      'Pulih'),
+    ]
+
+    host       = models.ForeignKey(ZabbixHost, on_delete=models.CASCADE, related_name='alerts')
+    jenis      = models.CharField(max_length=10, choices=JENIS_CHOICES)
+    pesan      = models.TextField(verbose_name='Isi pesan')
+    terkirim   = models.BooleanField(default=False, verbose_name='Terkirim')
+    keterangan = models.CharField(max_length=255, blank=True,
+                                  verbose_name='Keterangan / error')
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [models.Index(fields=['host', '-created_at'],
+                                name='zbx_alert_host_created_idx')]
+        verbose_name = 'Log Blast WA Zabbix'
+        verbose_name_plural = 'Log Blast WA Zabbix'
+
+    def __str__(self):
+        status = 'OK' if self.terkirim else 'GAGAL'
+        return f'{self.host.nama} {self.jenis} [{status}] @ {self.created_at:%Y-%m-%d %H:%M}'

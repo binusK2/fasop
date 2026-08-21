@@ -154,6 +154,9 @@ def alert_rtu(rtu, jenis, sejak=None, durasi_menit=None):
     """
     from device_mon.models import RTUAlertLog   # hindari circular import
 
+    if not getattr(rtu, 'wa_alert', True):
+        return False
+
     try:
         if jenis == 'DOWN':
             pesan = pesan_down(rtu, sejak=sejak)
@@ -175,44 +178,187 @@ def alert_rtu(rtu, jenis, sejak=None, durasi_menit=None):
         return False
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-#  Notifikasi in-app (bukan WhatsApp) untuk transisi state host Zabbix.
+# ===========================================================================
+#  Notifikasi transisi state host Zabbix - dua jalur yang independen:
 #
-#  Memakai helper generik notifikasi.views.notif_ke_am() (lihat "Notification
-#  fan-out" di CLAUDE.md) — bukan jalur WA seperti alert_rtu() di atas, karena
-#  Zabbix sendiri sudah punya jalur alerting sendiri (email/telegram/dsb di
-#  sisi Zabbix Action); FASOP cukup menandai di pusat notifikasi in-app
-#  supaya AM/superuser melihatnya saat login.
-# ═══════════════════════════════════════════════════════════════════════════
-def notif_zabbix_transisi(host, state, dur_tutup_menit=None):
-    """Kirim notifikasi in-app ke AM + superuser saat host Zabbix PROBLEM/pulih.
+#  1. In-app  : selalu, ke AM + superuser lewat helper generik
+#               notifikasi.views.notif_ke_am() (lihat "Notification fan-out"
+#               di CLAUDE.md).
+#  2. WhatsApp: hanya untuk host yang dicentang `wa_alert` di Admin, lewat
+#               kirim_wa() yang sama dengan Early Warning RTU di atas. Default
+#               mati supaya host baru hasil sync_zabbix tidak langsung
+#               membanjiri grup.
+#
+#  Dipanggil dari dua titik transisi - `sync_zabbix` (pull API) dan
+#  `views.zbx_webhook_receiver` (push webhook) - lewat satu entry point
+#  notif_zabbix_transisi(), jadi menambah jalur notifikasi baru cukup di sini
+#  tanpa menyentuh kedua pemanggil.
+# ===========================================================================
+def _durasi_str(menit):
+    """120 -> '2 jam', 90 -> '1 jam 30 menit', 45 -> '45 menit'."""
+    if menit is None:
+        return '-'
+    if menit < 60:
+        return f'{menit} menit'
+    j, m = divmod(menit, 60)
+    return f'{j} jam {m} menit' if m else f'{j} jam'
 
-    Tidak pernah raise — kegagalan cukup dicatat ke log.
+
+def _lokasi_str(host):
+    """ZabbixHost.lokasi adalah FK ke devices.SiteLocation (boleh kosong)."""
+    return host.lokasi.nama if host.lokasi else '-'
+
+
+def _notif_zbx_in_app(host, state, dur_tutup_menit=None):
+    from notifikasi.views import notif_ke_am
+    from fasop.hashids_helper import encode
+
+    if state == 'PROBLEM':
+        judul = f'Zabbix: {host.nama} PROBLEM'
+        pesan = host.problem_name or 'Trigger problem terdeteksi.'
+        if host.severity:
+            pesan = f'[{host.severity}] {pesan}'
+        level = 'danger'
+    else:
+        judul = f'Zabbix: {host.nama} pulih (OK)'
+        if dur_tutup_menit is not None:
+            pesan = f'Kembali OK setelah {_durasi_str(dur_tutup_menit)} problem.'
+        else:
+            pesan = 'Kembali OK.'
+        level = 'success'
+
+    url = f'/device-mon/zabbix/host/{encode(host.pk)}/'
+    notif_ke_am(tipe='zabbix_state', judul=judul, pesan=pesan, level=level, url=url)
+
+
+# -- Blast WhatsApp host Zabbix (opt-in per host) ----------------------
+def _split(raw):
+    return [c.strip() for c in (raw or '').split(',') if c.strip()]
+
+
+def zbx_targets_default():
+    """chatId tujuan default untuk seluruh host Zabbix.
+
+    WA_CHAT_IDS_ZABBIX -> WA_CHAT_IDS. Fallback ke grup RTU disengaja:
+    sebagian besar deployment cuma punya satu grup operasional, dan blast
+    tetap tidak jalan sampai `wa_alert` dicentang manual per host.
+    """
+    raw = (getattr(settings, 'WA_CHAT_IDS_ZABBIX', '') or '').strip()
+    return _split(raw or getattr(settings, 'WA_CHAT_IDS', ''))
+
+
+def zbx_targets(host):
+    """chatId tujuan untuk satu host - kolom `wa_chat_ids` menimpa default."""
+    return _split(host.wa_chat_ids) or zbx_targets_default()
+
+
+def pesan_zbx_problem(host):
+    tz = timezone.get_current_timezone()
+    jam = (host.state_sejak.astimezone(tz).strftime('%H:%M:%S')
+           if host.state_sejak else _now_wib())
+    return (
+        '\U0001F534 *EARLY WARNING \u2014 PROBLEM*\n'
+        f'Perangkat : {host.nama}\n'
+        f'Lokasi    : {_lokasi_str(host)}\n'
+        f'Severity  : {host.severity or "-"}\n'
+        f'Problem   : {host.problem_name or "-"}\n'
+        f'Sejak     : {jam}\n'
+        '\n_FASOP \u2014 Monitoring Zabbix_'
+    )
+
+
+def pesan_zbx_ok(host, durasi_menit=None):
+    return (
+        '\U0001F7E2 *PERANGKAT PULIH (OK)*\n'
+        f'Perangkat     : {host.nama}\n'
+        f'Lokasi        : {_lokasi_str(host)}\n'
+        f'Durasi problem: {_durasi_str(durasi_menit)}\n'
+        f'Kembali OK    : {_now_wib()}\n'
+        '\n_FASOP \u2014 Monitoring Zabbix_'
+    )
+
+
+def _zbx_min_severity(host):
+    try:
+        return int(host.wa_min_severity)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _zbx_problem_terkirim(host):
+    """True kalau blast PROBLEM terakhir host ini benar-benar terkirim.
+
+    Dipakai supaya tidak ada pesan "pulih" yang muncul di grup untuk problem
+    yang pesannya sendiri tidak pernah masuk (di bawah ambang severity, atau
+    gateway sedang mati).
+    """
+    from device_mon.models import ZabbixAlertLog
+
+    terakhir = ZabbixAlertLog.objects.filter(host=host).order_by('-created_at').first()
+    return bool(terakhir and terakhir.jenis == 'PROBLEM' and terakhir.terkirim)
+
+
+def alert_zabbix(host, state, dur_tutup_menit=None):
+    """Blast satu transisi host ke grup WhatsApp; catat ke ZabbixAlertLog.
+
+    Return True kalau ada minimal satu tujuan yang berhasil dikirimi.
+    Tidak pernah raise.
+    """
+    from device_mon.models import ZabbixAlertLog
+    from device_mon.zabbix_api import severity_index
+
+    if not host.wa_alert:
+        return False
+
+    jenis = 'PROBLEM' if state == 'PROBLEM' else 'OK'
+
+    if jenis == 'PROBLEM':
+        if severity_index(host.severity) < _zbx_min_severity(host):
+            ZabbixAlertLog.objects.create(
+                host=host, jenis=jenis, pesan=pesan_zbx_problem(host), terkirim=False,
+                keterangan=f'Dilewati: severity "{host.severity or "-"}" di bawah ambang '
+                           f'{host.get_wa_min_severity_display()}.'[:255],
+            )
+            return False
+        pesan = pesan_zbx_problem(host)
+    else:
+        if not _zbx_problem_terkirim(host):
+            # Problem-nya tidak pernah masuk grup - pesan pulihnya jadi tanpa konteks.
+            return False
+        pesan = pesan_zbx_ok(host, durasi_menit=dur_tutup_menit)
+
+    chat_ids = zbx_targets(host)
+    if not chat_ids:
+        ZabbixAlertLog.objects.create(
+            host=host, jenis=jenis, pesan=pesan, terkirim=False,
+            keterangan='Tujuan WA kosong - isi WA_CHAT_IDS_ZABBIX di .env atau '
+                       'kolom "Grup WA Khusus" pada host ini.',
+        )
+        return False
+
+    terkirim, total, ket = kirim_wa(pesan, chat_ids=chat_ids)
+    ZabbixAlertLog.objects.create(
+        host=host, jenis=jenis, pesan=pesan,
+        terkirim=terkirim > 0, keterangan=(ket or '')[:255],
+    )
+    return terkirim > 0
+
+
+# -- Entry point dipanggil sync_zabbix + zbx_webhook_receiver ----------
+def notif_zabbix_transisi(host, state, dur_tutup_menit=None):
+    """Fan-out satu transisi state host Zabbix ke seluruh jalur notifikasi.
+
+    Kedua jalur dibungkus terpisah: WhatsApp gagal tidak boleh membuat
+    notifikasi in-app ikut hilang, dan sebaliknya. Tidak pernah raise.
     """
     try:
-        from notifikasi.views import notif_ke_am
-        from fasop.hashids_helper import encode
-
-        if state == 'PROBLEM':
-            judul = f'Zabbix: {host.nama} PROBLEM'
-            pesan = host.problem_name or 'Trigger problem terdeteksi.'
-            if host.severity:
-                pesan = f'[{host.severity}] {pesan}'
-            level = 'danger'
-        else:
-            judul = f'Zabbix: {host.nama} pulih (OK)'
-            if dur_tutup_menit is not None:
-                if dur_tutup_menit < 60:
-                    durasi = f'{dur_tutup_menit} menit'
-                else:
-                    j, m = divmod(dur_tutup_menit, 60)
-                    durasi = f'{j} jam {m} menit' if m else f'{j} jam'
-                pesan = f'Kembali OK setelah {durasi} problem.'
-            else:
-                pesan = 'Kembali OK.'
-            level = 'success'
-
-        url = f'/device-mon/zabbix/host/{encode(host.pk)}/'
-        notif_ke_am(tipe='zabbix_state', judul=judul, pesan=pesan, level=level, url=url)
+        _notif_zbx_in_app(host, state, dur_tutup_menit=dur_tutup_menit)
     except Exception as e:
-        logger.error('notif_zabbix_transisi error [%s %s]: %s', getattr(host, 'nama', '?'), state, e)
+        logger.error('notif_zabbix_transisi in-app error [%s %s]: %s',
+                     getattr(host, 'nama', '?'), state, e)
+
+    try:
+        alert_zabbix(host, state, dur_tutup_menit=dur_tutup_menit)
+    except Exception as e:
+        logger.error('notif_zabbix_transisi WA error [%s %s]: %s',
+                     getattr(host, 'nama', '?'), state, e)
