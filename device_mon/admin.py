@@ -1,6 +1,6 @@
-from django.contrib import admin
+from django.contrib import admin, messages
 from .models import (RTU, RTULog, RTUAlertLog, ZabbixHost, ZabbixEventLog,
-                     ZabbixWebhookLog, ZabbixGroup)
+                     ZabbixWebhookLog, ZabbixGroup, ZabbixAlertLog)
 
 
 class RTULogInline(admin.TabularInline):
@@ -14,10 +14,10 @@ class RTULogInline(admin.TabularInline):
 
 @admin.register(RTU)
 class RTUAdmin(admin.ModelAdmin):
-    list_display  = ('nama', 'lokasi', 'state', 'state_sejak', 'urutan', 'aktif')
-    list_editable = ('lokasi', 'urutan', 'aktif')
+    list_display  = ('nama', 'lokasi', 'state', 'state_sejak', 'urutan', 'aktif', 'wa_alert')
+    list_editable = ('lokasi', 'urutan', 'aktif', 'wa_alert')
     list_display_links = ('nama',)
-    list_filter   = ('state', 'aktif')
+    list_filter   = ('state', 'aktif', 'wa_alert')
     search_fields = ('nama', 'lokasi')
     readonly_fields = ('state', 'state_sejak')
     inlines       = [RTULogInline]
@@ -51,15 +51,26 @@ class ZabbixEventLogInline(admin.TabularInline):
     ordering = ('-mulai',)
 
 
+class ZabbixAlertLogInline(admin.TabularInline):
+    model = ZabbixAlertLog
+    extra = 0
+    readonly_fields = ('jenis', 'terkirim', 'keterangan', 'created_at')
+    fields = ('created_at', 'jenis', 'terkirim', 'keterangan')
+    can_delete = False
+    max_num = 10
+    ordering = ('-created_at',)
+    verbose_name_plural = 'Blast WA terakhir'
+
+
 @admin.register(ZabbixHost)
 class ZabbixHostAdmin(admin.ModelAdmin):
     list_display = ('nama', 'zabbix_hostid', 'device', 'lokasi', 'state', 'severity',
-                    'state_sejak', 'urutan', 'aktif')
-    list_editable = ('urutan', 'aktif')
+                    'state_sejak', 'urutan', 'aktif', 'wa_alert', 'wa_min_severity')
+    list_editable = ('urutan', 'aktif', 'wa_alert', 'wa_min_severity')
     list_display_links = ('nama',)
-    list_filter = ('state', 'aktif', 'lokasi')
+    list_filter = ('state', 'aktif', 'lokasi', 'wa_alert', 'wa_min_severity')
     search_fields = ('nama', 'zabbix_host', 'zabbix_hostid', 'lokasi__nama')
-    # autocomplete: dropdown search-as-you-type, bukan pilihan bebas — 'lokasi'
+    # autocomplete: dropdown search-as-you-type, bukan pilihan bebas - 'lokasi'
     # butuh SiteLocationAdmin.search_fields (sudah ada, lihat devices/admin.py).
     autocomplete_fields = ('device', 'lokasi')
     # 'groups' readonly: SELALU ditimpa ulang oleh sync_zabbix dari Host Group
@@ -67,7 +78,83 @@ class ZabbixHostAdmin(admin.ModelAdmin):
     # tampilan dashboard, pakai Grup Host Zabbix (ZabbixGroup) yang manual.
     readonly_fields = ('groups', 'state', 'severity', 'problem_name',
                        'state_sejak', 'last_synced_at')
-    inlines = [ZabbixEventLogInline]
+    inlines = [ZabbixAlertLogInline, ZabbixEventLogInline]
+    actions = ('aktifkan_blast', 'matikan_blast', 'kirim_uji_wa')
+
+    fieldsets = (
+        (None, {
+            'fields': ('zabbix_hostid', 'zabbix_host', 'nama', 'device', 'lokasi',
+                       'groups', 'urutan', 'aktif'),
+        }),
+        ('Blast WhatsApp', {
+            'fields': ('wa_alert', 'wa_min_severity', 'wa_chat_ids'),
+            'description': (
+                'Pilih host mana yang transisinya dikirim ke grup WhatsApp lewat OpenWA. '
+                'Butuh <code>WA_ALERT_ENABLED=True</code> di <code>.env</code>. '
+                'Tujuan default diambil dari <code>WA_CHAT_IDS_ZABBIX</code>; isi '
+                '"Grup WA Khusus" hanya kalau host ini perlu grup yang berbeda. '
+                'Pakai action "Kirim pesan uji WA" di daftar host untuk mengetes tujuan '
+                'tanpa menunggu problem betulan.'
+            ),
+        }),
+        ('State terkini (otomatis)', {
+            'fields': ('state', 'severity', 'problem_name', 'state_sejak', 'last_synced_at'),
+        }),
+    )
+
+    @admin.action(description='Aktifkan blast WhatsApp')
+    def aktifkan_blast(self, request, queryset):
+        n = queryset.update(wa_alert=True)
+        self.message_user(request, f'{n} host diaktifkan untuk blast WhatsApp.',
+                          messages.SUCCESS)
+
+    @admin.action(description='Matikan blast WhatsApp')
+    def matikan_blast(self, request, queryset):
+        n = queryset.update(wa_alert=False)
+        self.message_user(request, f'{n} host dimatikan dari blast WhatsApp.',
+                          messages.SUCCESS)
+
+    @admin.action(description='Kirim pesan uji WA ke tujuan host terpilih')
+    def kirim_uji_wa(self, request, queryset):
+        from django.utils import timezone
+        from device_mon.notifications import kirim_wa, zbx_targets
+
+        for host in queryset:
+            chat_ids = zbx_targets(host)
+            if not chat_ids:
+                self.message_user(
+                    request,
+                    f'{host.nama}: tujuan WA kosong - isi WA_CHAT_IDS_ZABBIX di .env '
+                    f'atau kolom "Grup WA Khusus".',
+                    messages.WARNING,
+                )
+                continue
+
+            now = timezone.localtime(timezone.now())
+            pesan = (
+                '\U0001F514 *Tes Blast Zabbix FASOP*\n'
+                f'Perangkat : {host.nama}\n'
+                f'Lokasi    : {host.lokasi.nama if host.lokasi else "-"}\n'
+                f'Waktu     : {now:%d-%m-%Y %H:%M:%S}\n'
+                '\n_Pesan uji - bukan gangguan._'
+            )
+            terkirim, total, ket = kirim_wa(pesan, chat_ids=chat_ids)
+            if terkirim:
+                self.message_user(request, f'{host.nama}: terkirim ke {terkirim}/{total} grup.',
+                                  messages.SUCCESS)
+            else:
+                self.message_user(request, f'{host.nama}: gagal kirim (0/{total}). {ket}',
+                                  messages.ERROR)
+
+
+@admin.register(ZabbixAlertLog)
+class ZabbixAlertLogAdmin(admin.ModelAdmin):
+    list_display = ('host', 'jenis', 'terkirim', 'keterangan', 'created_at')
+    list_filter = ('jenis', 'terkirim', 'host')
+    date_hierarchy = 'created_at'
+    search_fields = ('host__nama', 'keterangan', 'pesan')
+    readonly_fields = ('host', 'jenis', 'pesan', 'terkirim', 'keterangan', 'created_at')
+    ordering = ('-created_at',)
 
 
 @admin.register(ZabbixEventLog)

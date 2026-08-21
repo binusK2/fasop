@@ -60,7 +60,7 @@ Each of the 15 `INSTALLED_APPS` Django apps follows a standard layout (`models.p
 | `health_index/` | Equipment health scoring (0–100), computed (not stored) from 9 weighted factors |
 | `inspection/` | Inservice inspection for Operator role |
 | `gudang/` | Warehouse / spare parts inventory; stock level is computed from `MutasiSparepart`, not a stored field |
-| `device_mon/` | Realtime equipment status monitoring — RTU UP/DOWN via MSSQL (`collect_rtu` cron) at `/device-mon/`, plus Zabbix host status at `/device-mon/zabbix/`: pull periodically via Zabbix API (`zabbix_api.py`, cron `sync_zabbix`) + push realtime via webhook (`/device-mon/zabbix/webhook/`, token `ZABBIX_WEBHOOK_TOKEN`); `ZabbixHost` optionally linked to `devices.Device`; full setup in `deploy/ZABBIX_INTEGRATION.md`. Both sources live in one app deliberately — "realtime equipment status" belongs together regardless of data source |
+| `device_mon/` | Realtime equipment status monitoring — RTU UP/DOWN via MSSQL (`collect_rtu` cron) at `/device-mon/`, plus Zabbix host status at `/device-mon/zabbix/`: pull periodically via Zabbix API (`zabbix_api.py`, cron `sync_zabbix`) + push realtime via webhook (`/device-mon/zabbix/webhook/`, token `ZABBIX_WEBHOOK_TOKEN`); `ZabbixHost` optionally linked to `devices.Device`; WhatsApp blast is **opt-in per host** from Admin (`wa_alert` + `wa_min_severity` threshold) — see "Early Warning WhatsApp" below; full setup in `deploy/ZABBIX_INTEGRATION.md`. Both sources live in one app deliberately — "realtime equipment status" belongs together regardless of data source |
 | `scada_av/` | SCADA/RTU availability and RCD success rate; wraps the `spectrum7_av/` calculation library |
 | `notifikasi/` | In-app notification center (per-user + broadcast); other apps push notifications via `notif_ke_user()` / `notif_ke_am()` helpers |
 | `jadwal/` | Monthly preventive-maintenance visit scheduling per location, with HI/age/device-count priority ranking |
@@ -230,6 +230,16 @@ MSSQL_FREQ_TABLE=dbo.SYS_FREQ_HIS
 MSSQL_DRIVER=ODBC Driver 17 for SQL Server
 
 API_KEY=              # For /api/v1/ integrations
+
+# Early Warning WhatsApp (OpenWA gateway) — see "Early Warning WhatsApp" below
+WA_ALERT_ENABLED=False        # master switch; False = no WhatsApp notifications at all
+WA_API_BASE=http://localhost:2785
+WA_API_KEY=                   # X-API-Key of the OpenWA gateway
+WA_SESSION_ID=                # WhatsApp session id in OpenWA
+WA_CHAT_IDS=                  # RTU Early Warning targets (groups end in @g.us, comma-separated)
+WA_CHAT_IDS_INSPECTION=       # inspection alarm targets; empty = not sent
+WA_CHAT_IDS_ZABBIX=           # Zabbix host blast targets; empty = falls back to WA_CHAT_IDS
+WA_TIMEOUT=10
 
 # Zabbix Integration (device_mon app) — see deploy/ZABBIX_INTEGRATION.md for full setup
 # Sumber prediksi beban OPSIS — 'sheet' (default, spreadsheet via n8n) | 'ml'
@@ -428,6 +438,63 @@ akan pindah sendiri begitu halaman dimuat ulang.
 Warna per jenis pembangkit hidup di `opsis.models.JENIS_WARNA` dan dikirim ke
 template lewat `json_script`. Jangan menyalin dict warna itu ke dalam `<script>`
 template baru.
+
+---
+
+## Early Warning WhatsApp (OpenWA)
+
+One self-hosted OpenWA gateway serves **three** alert sources. All of them go
+through `device_mon.notifications.kirim_wa()` — the only place that speaks HTTP
+to OpenWA. If the gateway is ever replaced, adjust `_build_url` /
+`_build_headers` / `_build_payload` there; don't add a second client per app.
+
+| Source | Trigger | Who gets sent | Destination |
+|---|---|---|---|
+| RTU (`alert_rtu`) | `collect_rtu` on UP/DOWN transition | RTU with `wa_alert=True` (default **True** — legacy behaviour) | `WA_CHAT_IDS` |
+| `inspection` | Operator inspection alarm | always | `WA_CHAT_IDS_INSPECTION` |
+| Zabbix (`alert_zabbix`) | `sync_zabbix` (pull) **and** the webhook (push) | host with `wa_alert=True` (default **False**) and severity ≥ `wa_min_severity` | host's `wa_chat_ids` → `WA_CHAT_IDS_ZABBIX` → `WA_CHAT_IDS` |
+
+The differing defaults are deliberate: the RTU list is curated by hand, whereas
+`ZabbixHost` rows are created **automatically** by `sync_zabbix` whenever a new
+host appears in Zabbix. If the default were on, adding one host in Zabbix would
+immediately flood the WhatsApp group with nobody having decided that. So new
+hosts stay silent until ticked in Admin (`/secure-panel/` → Device Mon → Host
+Zabbix), per host or via the bulk action "Aktifkan blast WhatsApp".
+
+Rules that are easy to miss when adding a new alert:
+
+- **There are two Zabbix transition points** (`sync_zabbix` and
+  `views.zbx_webhook_receiver`), and both call the same `notif_zabbix_transisi()`.
+  Add new notification channels inside that function, not in the two callers —
+  otherwise the alert lives on the pull path and stays silent on the push path
+  (or vice versa).
+- **A "recovered" message is only sent if its PROBLEM message actually went out**
+  (`_zbx_problem_terkirim()`). Without that the group receives "back to OK" for
+  an incident they never heard about — which happens every time the problem was
+  below the severity threshold or the gateway was down.
+- **Skips are logged too.** `ZabbixAlertLog` / `RTUAlertLog` get a row even for
+  deliberately skipped alerts, with the reason in `keterangan`. That is what
+  answers "why didn't the notification arrive?" from Admin without reading
+  server logs.
+- `kirim_wa()` **never raises** — cron and webhook must keep working even when
+  the WA gateway is dead. Preserve that property in any new helper.
+
+Test the configuration without waiting for a real incident:
+
+```bash
+python manage.py test_wa --target rtu         # WA_CHAT_IDS
+python manage.py test_wa --target inspection  # WA_CHAT_IDS_INSPECTION
+python manage.py test_wa --target zabbix      # WA_CHAT_IDS_ZABBIX
+```
+
+Hosts using their own `wa_chat_ids` are not covered by that command — test them
+with the **"Kirim pesan uji WA ke tujuan host terpilih"** action in
+Admin > Host Zabbix.
+
+The OpenWA gateway itself (Docker, same server) lives outside this repo:
+`https://github.com/rmyndharis/OpenWA`. Its compose customisations belong in
+`docker-compose.override.yml` in the OpenWA directory — never edit the tracked
+`docker-compose.yml`, or `git checkout` during an upgrade will refuse to switch.
 
 ---
 

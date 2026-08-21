@@ -1,19 +1,25 @@
 """
 Management command: test_wa
 Kirim satu pesan uji ke grup WhatsApp (OpenWA) untuk memverifikasi
-konfigurasi Early Warning tanpa menunggu RTU benar-benar DOWN, atau
-konfigurasi grup alarm inspeksi (--target inspection).
+konfigurasi Early Warning tanpa menunggu RTU benar-benar DOWN, alarm
+inspeksi (--target inspection), atau blast host Zabbix (--target zabbix).
 
 Contoh:
     python manage.py test_wa
     python manage.py test_wa --target inspection
+    python manage.py test_wa --target zabbix
     python manage.py test_wa --pesan "Tes notifikasi FASOP"
+
+Catatan: --target zabbix mengetes tujuan *default* (WA_CHAT_IDS_ZABBIX).
+Host yang memakai kolom "Grup WA Khusus" diuji lewat action "Kirim pesan
+uji WA" di Admin > Host Zabbix.
 """
 from django.conf import settings
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
-from device_mon.notifications import kirim_wa, _targets as _targets_rtu
+from device_mon.notifications import (kirim_wa, _targets as _targets_rtu,
+                                      zbx_targets_default as _targets_zabbix)
 from inspection.notifications import _targets as _targets_inspection
 
 
@@ -22,20 +28,30 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument('--pesan', default=None, help='Isi pesan uji')
-        parser.add_argument('--target', default='rtu', choices=['rtu', 'inspection'],
-                             help='rtu (default, WA_CHAT_IDS) atau inspection (WA_CHAT_IDS_INSPECTION)')
+        parser.add_argument('--target', default='rtu',
+                             choices=['rtu', 'inspection', 'zabbix'],
+                             help='rtu (default, WA_CHAT_IDS), inspection '
+                                  '(WA_CHAT_IDS_INSPECTION), atau zabbix (WA_CHAT_IDS_ZABBIX)')
 
     def handle(self, *args, **options):
         now = timezone.now().astimezone(timezone.get_current_timezone())
         target = options['target']
-        label = 'Early Warning RTU' if target == 'rtu' else 'Alarm Inspeksi'
+        label = {
+            'rtu': 'Early Warning RTU',
+            'inspection': 'Alarm Inspeksi',
+            'zabbix': 'Blast Zabbix',
+        }[target]
         pesan = options['pesan'] or (
             f'🔔 *Tes {label} FASOP*\n'
             f'Konfigurasi WhatsApp berhasil.\n'
             f'Waktu: {now:%d-%m-%Y %H:%M:%S}'
         )
 
-        chat_ids = _targets_rtu() if target == 'rtu' else _targets_inspection()
+        chat_ids = {
+            'rtu': _targets_rtu,
+            'inspection': _targets_inspection,
+            'zabbix': _targets_zabbix,
+        }[target]()
 
         # Ringkasan konfigurasi (API key disamarkan)
         key = getattr(settings, 'WA_API_KEY', '') or ''
