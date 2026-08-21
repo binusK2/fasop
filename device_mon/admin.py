@@ -13,10 +13,10 @@ class RTULogInline(admin.TabularInline):
 
 @admin.register(RTU)
 class RTUAdmin(admin.ModelAdmin):
-    list_display  = ('nama', 'lokasi', 'state', 'state_sejak', 'urutan', 'aktif')
-    list_editable = ('lokasi', 'urutan', 'aktif')
+    list_display  = ('nama', 'lokasi', 'state', 'state_sejak', 'urutan', 'aktif', 'wa_alert')
+    list_editable = ('lokasi', 'urutan', 'aktif', 'wa_alert')
     list_display_links = ('nama',)
-    list_filter   = ('state', 'aktif')
+    list_filter   = ('state', 'aktif', 'wa_alert')
     search_fields = ('nama', 'lokasi')
     readonly_fields = ('state', 'state_sejak')
     inlines       = [RTULogInline]

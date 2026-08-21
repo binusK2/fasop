@@ -69,7 +69,7 @@ Each of the 15 `INSTALLED_APPS` Django apps follows a standard layout (`models.p
 | `auditlog/` | Custom (not django-auditlog) superuser audit log; entries are created by explicit `log_action()` calls in views, not signals |
 | `streaming/` | Field maintenance live streaming (WebRTC WHIP/WHEP via MediaMTX, `deploy/mediamtx.yml`); Teknisi broadcasts, Teknisi/AM view, only AM can join as Pengawas for 2-way talkback; teknisi's video is recorded (server-side ffmpeg transcode, see below) and pengawas's talkback audio is recorded as a **separate** clip (`LiveSession.talkback_recording_path`) rather than mixed into one file; recordings kept 7 days (`purge_old_recordings` cron) |
 | `up2bmakassar/` | Kinerja SCADATEL (`/kinerja-scadatel/`) — availability harian titik Telemetering/Telesignal, log RC, dan SOE log, dibaca **read-only** dari OFDB (`dbup2bmakasar` di MSSQL, `ofdb.py`); lihat "Kinerja SCADATEL — OFDB" di bawah |
-| `zabbix_mon/` | Status host Zabbix di dashboard FASOP (`/zabbix/`) — pull periodik lewat Zabbix API (`zabbix_api.py`, cron `sync_zabbix`) + push realtime lewat webhook (`/zabbix/webhook/`, token `ZABBIX_WEBHOOK_TOKEN`); `ZabbixHost` opsional dihubungkan ke `devices.Device`; setup lengkap di `deploy/ZABBIX_INTEGRATION.md` |
+| `zabbix_mon/` | Status host Zabbix di dashboard FASOP (`/zabbix/`) — pull periodik lewat Zabbix API (`zabbix_api.py`, cron `sync_zabbix`) + push realtime lewat webhook (`/zabbix/webhook/`, token `ZABBIX_WEBHOOK_TOKEN`); `ZabbixHost` opsional dihubungkan ke `devices.Device`; blast WhatsApp **opt-in per host** lewat Admin (`wa_alert` + ambang `wa_min_severity`) — lihat "Early Warning WhatsApp" di bawah; setup lengkap di `deploy/ZABBIX_INTEGRATION.md` |
 | `api/` | REST API for n8n / Google Sheets integrations (no models — not in `INSTALLED_APPS`, but `urls.py` is still wired into `fasop/urls.py` at `/api/v1/`) |
 | `fasop/` | Root settings, URL routing, Hashids helper, URL converters |
 
@@ -231,6 +231,16 @@ MSSQL_DRIVER=ODBC Driver 17 for SQL Server
 
 API_KEY=              # For /api/v1/ integrations
 
+# Early Warning WhatsApp (OpenWA gateway) — lihat "Early Warning WhatsApp" di bawah
+WA_ALERT_ENABLED=False        # master switch; False = tidak ada notif WA sama sekali
+WA_API_BASE=http://localhost:2785
+WA_API_KEY=                   # X-API-Key OpenWA
+WA_SESSION_ID=                # id sesi WhatsApp di OpenWA
+WA_CHAT_IDS=                  # tujuan Early Warning RTU (grup berakhiran @g.us, pisahkan koma)
+WA_CHAT_IDS_INSPECTION=       # tujuan alarm inspeksi; kosong = tidak dikirim
+WA_CHAT_IDS_ZABBIX=           # tujuan blast host Zabbix; kosong = pakai WA_CHAT_IDS
+WA_TIMEOUT=10
+
 # Sumber prediksi beban OPSIS — 'sheet' (default, spreadsheet via n8n) | 'ml'
 OPSIS_FORECAST_SOURCE=sheet
 # Zabbix Integration (zabbix_mon app) — see deploy/ZABBIX_INTEGRATION.md for full setup
@@ -340,6 +350,61 @@ Baris `PrakiraanBeban` hari lampau **tidak pernah dihapus** — histori itulah y
 dipakai `evaluate_accuracy()` untuk membandingkan prakiraan vs realisasi `SnapLive`.
 Menimpa kurva hari yang sudah lewat dengan angka realisasi akan membuat akurasi
 terlihat sempurna secara palsu.
+
+---
+
+## Early Warning WhatsApp (OpenWA)
+
+Satu gateway OpenWA self-hosted melayani **tiga** sumber alert. Semuanya lewat
+`device_mon.notifications.kirim_wa()` — itu satu-satunya tempat yang bicara HTTP
+ke OpenWA. Kalau gateway diganti, cukup sesuaikan `_build_url` / `_build_headers`
+/ `_build_payload` di sana, jangan bikin klien baru per app.
+
+| Sumber | Pemicu | Siapa yang dikirim | Tujuan |
+|---|---|---|---|
+| `device_mon` (RTU) | `collect_rtu` saat transisi UP/DOWN | RTU dengan `wa_alert=True` (default **True** — perilaku lama) | `WA_CHAT_IDS` |
+| `inspection` | alarm hasil inspeksi Operator | selalu | `WA_CHAT_IDS_INSPECTION` |
+| `zabbix_mon` | `sync_zabbix` (pull) **dan** webhook (push) | host dengan `wa_alert=True` (default **False**) dan severity ≥ `wa_min_severity` | kolom `wa_chat_ids` host → `WA_CHAT_IDS_ZABBIX` → `WA_CHAT_IDS` |
+
+Beda default itu disengaja: daftar RTU dikurasi manual, sedangkan `ZabbixHost`
+dibuat **otomatis** oleh `sync_zabbix` setiap ada host baru di Zabbix. Kalau
+default-nya menyala, menambah satu host di Zabbix langsung membanjiri grup WA
+tanpa ada yang memutuskan. Jadi host baru selalu bisu sampai dicentang di Admin
+(`/secure-panel/` → Zabbix → Host Zabbix), per host atau lewat action massal
+"Aktifkan blast WhatsApp".
+
+Aturan yang gampang terlewat saat menambah alert baru:
+
+- **Titik transisi Zabbix ada dua** (`sync_zabbix` dan `views.webhook_receiver`),
+  dan keduanya memanggil `notif_transisi()` yang sama. Tambahkan jalur notifikasi
+  baru di dalam fungsi itu, bukan di kedua pemanggil — kalau tidak, alert akan
+  hidup di jalur pull saja dan diam di jalur push (atau sebaliknya).
+- **Pesan "pulih" hanya dikirim kalau pesan PROBLEM-nya benar-benar terkirim**
+  (`_problem_terkirim()`). Tanpa itu grup menerima "sudah pulih" untuk gangguan
+  yang tak pernah mereka dengar — terjadi tiap kali problem-nya di bawah ambang
+  severity atau gateway sedang putus.
+- **Skip juga dicatat.** `ZabbixAlertLog` / `RTUAlertLog` diisi termasuk untuk
+  alert yang sengaja dilewati, dengan alasannya di `keterangan`. Itu yang menjawab
+  "kenapa notif tidak masuk" dari Admin tanpa membaca log server.
+- `kirim_wa()` **tidak pernah raise** — cron/webhook harus tetap jalan meski
+  gateway WA mati. Pertahankan properti itu di helper baru mana pun.
+
+Uji konfigurasi tanpa menunggu gangguan betulan:
+
+```bash
+python manage.py test_wa --target rtu         # WA_CHAT_IDS
+python manage.py test_wa --target inspection  # WA_CHAT_IDS_INSPECTION
+python manage.py test_wa --target zabbix      # WA_CHAT_IDS_ZABBIX
+```
+
+Host yang memakai `wa_chat_ids` sendiri tidak tercakup command di atas — uji lewat
+action **"Kirim pesan uji WA ke tujuan host terpilih"** di Admin > Host Zabbix.
+
+Gateway OpenWA-nya sendiri (Docker, di server yang sama) di luar repo ini:
+`https://github.com/rmyndharis/OpenWA`. Kustomisasi compose-nya ada di
+`docker-compose.override.yml` di direktori OpenWA — jangan pernah mengedit
+`docker-compose.yml` yang di-track, karena `git checkout` saat upgrade akan
+tertahan olehnya.
 
 ---
 

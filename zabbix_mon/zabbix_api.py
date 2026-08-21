@@ -37,6 +37,9 @@ SEVERITY_LABELS = {
     '5': 'Disaster',
 }
 
+# Kebalikannya (label lowercase -> index) untuk severity_index() di bawah.
+_SEVERITY_INDEX = {label.lower(): int(idx) for idx, label in SEVERITY_LABELS.items()}
+
 
 class ZabbixAPIError(Exception):
     pass
@@ -241,3 +244,19 @@ def get_current_status(group_names=None):
                 'clock': None,
             }
     return out
+
+
+def severity_index(sev):
+    """Kebalikan severity_label(): 'High' -> 4, '4' -> 4, '' -> 0.
+
+    Dipakai untuk membandingkan severity yang tersimpan sebagai label di
+    ZabbixHost.severity dengan ambang ZabbixHost.wa_min_severity yang
+    tersimpan sebagai angka. Nilai tak dikenal dianggap 0 (paling rendah)
+    supaya alert yang severity-nya aneh tidak lolos ambang secara tak sengaja.
+    """
+    if sev in (None, ''):
+        return 0
+    s = str(sev).strip()
+    if s.isdigit():
+        return int(s) if s in SEVERITY_LABELS else 0
+    return _SEVERITY_INDEX.get(s.lower(), 0)

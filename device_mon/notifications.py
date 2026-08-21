@@ -154,6 +154,9 @@ def alert_rtu(rtu, jenis, sejak=None, durasi_menit=None):
     """
     from device_mon.models import RTUAlertLog   # hindari circular import
 
+    if not getattr(rtu, 'wa_alert', True):
+        return False
+
     try:
         if jenis == 'DOWN':
             pesan = pesan_down(rtu, sejak=sejak)

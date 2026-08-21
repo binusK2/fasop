@@ -11,6 +11,12 @@ class RTU(models.Model):
     lokasi      = models.CharField(max_length=100, blank=True, verbose_name='Lokasi / Gardu')
     urutan      = models.PositiveIntegerField(default=0, verbose_name='Urutan Tampil')
     aktif       = models.BooleanField(default=True, verbose_name='Aktif')
+    wa_alert    = models.BooleanField(
+        default=True, verbose_name='Blast WhatsApp',
+        help_text='Kirim Early Warning WA saat RTU ini DOWN/pulih. '
+                  'Hilangkan centang untuk membisukan satu RTU tanpa menonaktifkannya '
+                  'dari monitoring.',
+    )
 
     # ── State terkini (diperbarui setiap collect_rtu) ──────────────────
     state       = models.CharField(max_length=10, default='UNKNOWN', verbose_name='State')

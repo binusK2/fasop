@@ -201,7 +201,83 @@ Opsional — hubungkan host Zabbix ke aset FASOP yang sudah ada: buka
 **Perangkat FASOP** (autocomplete dari `devices.Device`). Tidak wajib —
 dashboard tetap berfungsi penuh tanpa mapping ini.
 
-## 5. Debug cepat
+## 5. Blast WhatsApp per host (opsional)
+
+Transisi host Zabbix bisa ikut dikirim ke grup WhatsApp lewat gateway OpenWA
+yang sama dengan Early Warning RTU. **Opt-in per host** — host baru yang
+muncul otomatis dari `sync_zabbix` tidak akan mengirim apa pun sampai
+dicentang manual, supaya menambah host di Zabbix tidak diam-diam membanjiri
+grup operasional.
+
+### Prasyarat
+
+Gateway OpenWA harus sudah jalan dan sesi WhatsApp-nya tersambung. Isi di
+`.env` FASOP:
+
+```env
+WA_ALERT_ENABLED=True
+WA_API_BASE=http://localhost:2785
+WA_API_KEY=<X-API-Key OpenWA>
+WA_SESSION_ID=<id sesi WhatsApp>
+WA_CHAT_IDS_ZABBIX=1203630xxxxxxxxx@g.us    # kosong = pakai WA_CHAT_IDS (grup RTU)
+```
+
+`chatId` grup didapat dari `GET {WA_API_BASE}/api/sessions/{WA_SESSION_ID}/groups`
+(atau command `python manage.py wa_groups`). Grup selalu berakhiran `@g.us`.
+
+Verifikasi tujuan default sebelum mengaktifkan host mana pun:
+
+```bash
+python manage.py test_wa --target zabbix
+```
+
+### Mengaktifkan sebuah host
+
+**Secure Panel → Zabbix Monitor → Host Zabbix**, pilih host (mis. *VoIP
+Makassar*), lalu di panel **Blast WhatsApp**:
+
+| Field | Arti |
+|---|---|
+| **Blast WhatsApp** | Master switch host ini. Mati = tidak pernah kirim. |
+| **Severity Minimum** | PROBLEM dikirim hanya bila severity-nya ≥ nilai ini. Default *Average*. Naikkan ke *High* kalau grup terlalu berisik. |
+| **Grup WA Khusus** | Kosongkan untuk memakai `WA_CHAT_IDS_ZABBIX`. Isi hanya kalau host ini perlu grup berbeda (mis. VoIP ke grup telekomunikasi, bukan grup SCADA). |
+
+Untuk banyak host sekaligus: centang di daftar, lalu action **"Aktifkan blast
+WhatsApp"**. Kolom **Blast WhatsApp** dan **Severity Minimum** juga bisa
+diedit langsung dari daftar (`list_editable`).
+
+Sebelum menunggu gangguan betulan, tes tujuannya dengan action **"Kirim pesan
+uji WA ke tujuan host terpilih"** — ini memakai resolusi tujuan yang sama
+persis dengan alert sungguhan, termasuk kolom Grup WA Khusus.
+
+### Perilaku yang perlu diketahui
+
+- Blast dikirim dari **kedua** jalur (cron `sync_zabbix` maupun webhook),
+  mana pun yang lebih dulu mendeteksi transisi. Idempotensi `eventid` di
+  webhook mencegah pesan dobel.
+- Pesan **pulih (OK)** hanya dikirim kalau pesan PROBLEM-nya tadi benar-benar
+  terkirim. Kalau problem-nya dilewati karena di bawah ambang severity — atau
+  gateway WA sedang mati — grup tidak akan menerima "sudah pulih" untuk
+  gangguan yang tak pernah mereka dengar.
+- Notifikasi **in-app** ke AM/superuser tidak terpengaruh setting ini: selalu
+  dikirim untuk setiap transisi host yang `aktif`, dengan atau tanpa WhatsApp.
+
+### Kalau blast tidak masuk
+
+Buka **Secure Panel → Zabbix Monitor → Log Blast WA Zabbix** (atau panel
+"Blast WA terakhir" di halaman host). Setiap transisi yang dipertimbangkan
+tercatat di sana, termasuk yang sengaja dilewati, dengan alasannya di kolom
+Keterangan:
+
+| Keterangan | Artinya |
+|---|---|
+| *(kosong sama sekali)* | `wa_alert` host belum dicentang, atau transisi-nya memang belum pernah terjadi. |
+| `Dilewati: severity ... di bawah ambang ...` | Bekerja sesuai setting — turunkan **Severity Minimum** kalau memang mau dikirim. |
+| `Tujuan WA kosong ...` | `WA_CHAT_IDS_ZABBIX` dan `WA_CHAT_IDS` dua-duanya kosong. |
+| `WA_ALERT_ENABLED=False` | Master switch di `.env` masih mati. |
+| `HTTP 4xx/5xx ...` | Gateway OpenWA menjawab error — sesi WhatsApp kemungkinan putus, cek dashboard OpenWA. |
+
+## 6. Debug cepat
 
 - Host tidak muncul sama sekali → jalankan `python manage.py sync_zabbix
   --dry-run` dan baca error-nya (URL salah, token/kredensial salah,
