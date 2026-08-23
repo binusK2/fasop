@@ -35,6 +35,16 @@ INSPECTABLE_JENIS = {
 TELECOM_JENIS = {'Radio', 'VoIP'}
 
 
+def perangkat_operasi(qs):
+    """Buang perangkat berstatus 'Tidak Operasi' dari queryset Device.
+
+    Perangkat yang sudah tidak beroperasi tidak boleh muncul di halaman
+    inspeksi operator, dan tidak ikut jadi pembagi progres inspeksi
+    (kalau ikut dihitung, ia selamanya berstatus "belum diinspeksi").
+    """
+    return qs.exclude(status_operasi='tidak_operasi')
+
+
 def _is_alarm_inspection(insp):
     """True bila hasil satu inspeksi menunjukkan kondisi alarm/tidak normal,
     berdasarkan field yang benar-benar diisi lewat form.html untuk masing-masing jenis."""
@@ -114,7 +124,7 @@ def inspection_lokasi(request):
         pass
 
     lokasi_qs = (
-        Device.objects
+        perangkat_operasi(Device.objects)
         .filter(is_deleted=False, jenis__name__in=jenis_names)
         .exclude(lokasi__isnull=True).exclude(lokasi='')
         .values_list('lokasi', flat=True)
@@ -131,7 +141,7 @@ def inspection_lokasi(request):
         insp_today = Inspection.objects.filter(
             device__lokasi=lok, tanggal__date=today,
         ).count()
-        total_device = Device.objects.filter(
+        total_device = perangkat_operasi(Device.objects).filter(
             is_deleted=False, jenis__name__in=jenis_names, lokasi=lok
         ).count()
         lokasi_stats.append({
@@ -168,7 +178,7 @@ def inspection_device_list(request, lokasi):
         jenis_names = [j for j in INSPECTABLE_JENIS if j not in TELECOM_JENIS]
 
     devices = (
-        Device.objects
+        perangkat_operasi(Device.objects)
         .filter(is_deleted=False, jenis__name__in=jenis_names, lokasi=lokasi)
         .select_related('jenis')
         .order_by('jenis__name', 'nama')
@@ -217,6 +227,13 @@ def inspection_form(request, device_pk):
     if not jenis_key:
         return render(request, '403.html',
                       {'message': f'Perangkat jenis "{jenis_name}" belum didukung untuk inspeksi.'})
+
+    # Perangkat yang sudah tidak beroperasi tidak diinspeksi — tutup juga
+    # jalur akses langsung lewat URL, bukan cuma disembunyikan dari daftar.
+    if device.status_operasi == 'tidak_operasi':
+        return render(request, '403.html',
+                      {'message': f'{device.nama} berstatus Tidak Operasi, sehingga tidak dapat diinspeksi.'},
+                      status=403)
 
     # Radio & VoIP hanya untuk Dispatcher (via pengujian telecom), bukan inservice inspection
     if jenis_name in TELECOM_JENIS:
@@ -947,7 +964,8 @@ def inspection_export_ultg(request):
     }
 
     for jenis_name, jenis_key in INSPECTABLE.items():
-        devs_qs = Device.objects.filter(is_deleted=False, jenis__name=jenis_name)
+        devs_qs = perangkat_operasi(Device.objects).filter(
+            is_deleted=False, jenis__name=jenis_name)
         if lokasi_names:
             devs_qs = devs_qs.filter(lokasi__in=lokasi_names)
         total = devs_qs.count()
@@ -987,7 +1005,7 @@ def inspection_export_ultg(request):
     # SHEET PER JENIS PERANGKAT
     # ─────────────────────────────────────────────────────────────
     for jenis_name, jenis_key in INSPECTABLE.items():
-        devs_qs = Device.objects.filter(
+        devs_qs = perangkat_operasi(Device.objects).filter(
             is_deleted=False, jenis__name=jenis_name
         ).select_related('jenis').order_by('lokasi', 'nama')
         if lokasi_names:
@@ -1177,7 +1195,7 @@ def inspection_dashboard(request):
     )
 
     # Device total inspectable
-    total_device_inspectable = Device.objects.filter(
+    total_device_inspectable = perangkat_operasi(Device.objects).filter(
         is_deleted=False, jenis__name__in=INSPECTABLE
     ).count()
 
@@ -1194,7 +1212,7 @@ def inspection_dashboard(request):
         lokasi_names = ultg.get_lokasi_names()
         if not lokasi_names:
             continue
-        devs = Device.objects.filter(
+        devs = perangkat_operasi(Device.objects).filter(
             is_deleted=False, jenis__name__in=INSPECTABLE, lokasi__in=lokasi_names
         )
         total = devs.count()
@@ -1230,7 +1248,8 @@ def inspection_dashboard(request):
     # ── Progress per jenis perangkat ─────────────────────────────
     jenis_stats = []
     for jenis_name in INSPECTABLE:
-        devs  = Device.objects.filter(is_deleted=False, jenis__name=jenis_name)
+        devs  = perangkat_operasi(Device.objects).filter(
+            is_deleted=False, jenis__name=jenis_name)
         total = devs.count()
         if total == 0:
             continue
@@ -1315,7 +1334,7 @@ def inspection_dashboard_ultg(request, pk):
 
     today = date.today()
 
-    devs = Device.objects.filter(
+    devs = perangkat_operasi(Device.objects).filter(
         is_deleted=False, jenis__name__in=INSPECTABLE, lokasi__in=lokasi_names
     )
     total = devs.count()
@@ -1539,13 +1558,13 @@ def _filter_by_branch(qs, user):
 def _pengujian_form_impl(request, jenis):
     """Shared implementation for pengujian form (radio / voip / all)."""
     radio_qs = (
-        Device.objects
+        perangkat_operasi(Device.objects)
         .filter(is_deleted=False, jenis__name='Radio')
         .select_related('jenis')
         .order_by('lokasi', 'nama')
     )
     voip_qs = (
-        Device.objects
+        perangkat_operasi(Device.objects)
         .filter(is_deleted=False, jenis__name='VoIP')
         .select_related('jenis')
         .order_by('lokasi', 'nama')
