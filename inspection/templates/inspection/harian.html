@@ -1,0 +1,211 @@
+{% extends 'base.html' %}
+{% block title %}Hasil Inspeksi Harian — FASOP{% endblock %}
+{% block page_title %}Hasil Inspeksi Harian{% endblock %}
+
+{% block content %}
+
+<!-- HEADER: tanggal + ringkasan + export -->
+<div class="card mb-3" style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);border:none;">
+    <div class="card-body py-3 px-4">
+        <div class="d-flex align-items-center gap-3 flex-wrap">
+            <div style="width:46px;height:46px;background:rgba(59,130,246,0.2);border-radius:12px;display:flex;align-items:center;justify-content:center;">
+                <i class="bi bi-calendar2-check" style="font-size:22px;color:#93c5fd;"></i>
+            </div>
+            <div>
+                <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;">Hasil Inspeksi</div>
+                <div style="font-size:18px;font-weight:700;color:#f1f5f9;">{{ tanggal|date:"l, d F Y" }}</div>
+                <div style="font-size:12px;color:#94a3b8;">
+                    {{ total.sudah }} dari {{ total.total }} perangkat terinspeksi ({{ total.pct }}%)
+                    &middot; {{ total.alarm }} alarm &middot; {{ total.belum }} belum
+                    {% if ultg %}&middot; ULTG {{ ultg.nama }}{% endif %}
+                </div>
+            </div>
+
+            <div class="ms-auto d-flex align-items-center gap-2 flex-wrap">
+                <a href="?tanggal={{ kemarin }}&jenis={{ jenis_aktif }}" class="btn btn-sm btn-outline-light"
+                   style="font-size:12px;" title="Hari sebelumnya">
+                    <i class="bi bi-chevron-left"></i>
+                </a>
+                <form method="get" class="d-flex align-items-center gap-2 mb-0">
+                    <input type="hidden" name="jenis" value="{{ jenis_aktif }}">
+                    <input type="date" name="tanggal" value="{{ tanggal_str }}" max="{{ hari_ini|date:'Y-m-d' }}"
+                           class="form-control form-control-sm" style="font-size:12px;width:160px;"
+                           onchange="this.form.submit()">
+                </form>
+                {% if ada_besok %}
+                <a href="?tanggal={{ besok }}&jenis={{ jenis_aktif }}" class="btn btn-sm btn-outline-light"
+                   style="font-size:12px;" title="Hari berikutnya">
+                    <i class="bi bi-chevron-right"></i>
+                </a>
+                {% endif %}
+                <a href="{% url 'inspection_harian_export' %}?tanggal={{ tanggal_str }}"
+                   class="btn btn-sm" style="background:#16a34a;color:#fff;font-size:12px;">
+                    <i class="bi bi-file-earmark-excel me-1"></i>Export Excel
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- TAB PER JENIS PERALATAN -->
+<div class="card mb-3">
+    <div class="card-body p-2">
+        <div class="d-flex gap-2 flex-wrap">
+            {% for t in tabs %}
+            <a href="?tanggal={{ tanggal_str }}&jenis={{ t.key }}"
+               class="text-decoration-none"
+               style="display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:10px;
+                      border:1px solid {% if t.aktif %}{{ t.warna }}{% else %}#e2e8f0{% endif %};
+                      background:{% if t.aktif %}{{ t.warna }}{% else %}#fff{% endif %};
+                      color:{% if t.aktif %}#fff{% else %}#334155{% endif %};">
+                <i class="bi {{ t.ikon }}" style="font-size:15px;"></i>
+                <span style="font-size:13px;font-weight:600;">{{ t.label }}</span>
+                <span style="font-size:11px;font-weight:700;padding:1px 8px;border-radius:10px;
+                             background:{% if t.aktif %}rgba(255,255,255,0.25){% else %}#f1f5f9{% endif %};">
+                    {{ t.stat.sudah }}/{{ t.stat.total }}
+                </span>
+                {% if t.stat.alarm %}
+                <span style="font-size:11px;font-weight:700;padding:1px 7px;border-radius:10px;background:#fee2e2;color:#991b1b;">
+                    <i class="bi bi-exclamation-triangle-fill"></i> {{ t.stat.alarm }}
+                </span>
+                {% endif %}
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- RINGKASAN JENIS AKTIF -->
+<div class="row g-2 mb-3">
+    {% with s=stat_aktif %}
+    <div class="col-6 col-md">
+        <div class="card h-100"><div class="card-body py-2 px-3">
+            <div style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;">Total Perangkat</div>
+            <div style="font-size:20px;font-weight:700;color:#0f172a;">{{ s.total }}</div>
+        </div></div>
+    </div>
+    <div class="col-6 col-md">
+        <div class="card h-100"><div class="card-body py-2 px-3">
+            <div style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;">Terinspeksi</div>
+            <div style="font-size:20px;font-weight:700;color:#166534;">{{ s.sudah }} <span style="font-size:12px;color:#64748b;">({{ s.pct }}%)</span></div>
+        </div></div>
+    </div>
+    <div class="col-6 col-md">
+        <div class="card h-100"><div class="card-body py-2 px-3">
+            <div style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;">Normal</div>
+            <div style="font-size:20px;font-weight:700;color:#0f766e;">{{ s.normal }}</div>
+        </div></div>
+    </div>
+    <div class="col-6 col-md">
+        <div class="card h-100"><div class="card-body py-2 px-3">
+            <div style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;">Alarm</div>
+            <div style="font-size:20px;font-weight:700;color:#991b1b;">{{ s.alarm }}</div>
+        </div></div>
+    </div>
+    <div class="col-6 col-md">
+        <div class="card h-100"><div class="card-body py-2 px-3">
+            <div style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;">Belum</div>
+            <div style="font-size:20px;font-weight:700;color:#64748b;">{{ s.belum }}</div>
+        </div></div>
+    </div>
+    {% endwith %}
+</div>
+
+<!-- TABEL HASIL -->
+<div class="card">
+    <div class="card-header bg-white d-flex align-items-center gap-2 flex-wrap" style="border-bottom:1px solid #e2e8f0;">
+        <div style="font-size:14px;font-weight:700;color:#0f172a;">{{ label_aktif }}</div>
+        <div class="ms-auto d-flex align-items-center gap-3">
+            <div class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" id="sembunyiBelum">
+                <label class="form-check-label" for="sembunyiBelum" style="font-size:12px;color:#475569;">
+                    Sembunyikan yang belum diinspeksi
+                </label>
+            </div>
+            <input type="search" id="cariBaris" class="form-control form-control-sm"
+                   placeholder="Cari perangkat / lokasi…" style="font-size:12px;width:220px;">
+        </div>
+    </div>
+    <div class="card-body p-0">
+        {% if baris %}
+        <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0 align-middle" id="tabelHarian" style="font-size:12px;white-space:nowrap;">
+                <thead style="background:#f1f5f9;position:sticky;top:0;z-index:2;">
+                    <tr>
+                        <th style="padding:10px 12px;">Perangkat</th>
+                        <th style="padding:10px 12px;">Lokasi / GI</th>
+                        <th style="padding:10px 12px;">Jam</th>
+                        <th style="padding:10px 12px;">Operator</th>
+                        {% for k in kolom %}
+                        <th style="padding:10px 12px;">{{ k.label }}</th>
+                        {% endfor %}
+                        <th style="padding:10px 12px;">Catatan</th>
+                        <th style="padding:10px 12px;text-align:center;">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for b in baris %}
+                    <tr data-status="{{ b.status }}" data-cari="{{ b.nama|lower }} {{ b.lokasi|lower }}"
+                        {% if b.status == 'belum' %}style="background:#f8fafc;color:#94a3b8;"{% endif %}>
+                        <td style="padding:8px 12px;font-weight:600;">
+                            {% if b.insp %}
+                            <a href="{% url 'inspection_riwayat' b.insp.pk %}" class="text-decoration-none" style="color:#1d4ed8;">{{ b.nama }}</a>
+                            {% else %}{{ b.nama }}{% endif %}
+                        </td>
+                        <td style="padding:8px 12px;color:#64748b;">{{ b.lokasi }}</td>
+                        <td style="padding:8px 12px;">{{ b.jam }}</td>
+                        <td style="padding:8px 12px;color:#64748b;">{{ b.operator }}</td>
+                        {% for s in b.sel %}
+                        <td style="padding:8px 12px;
+                            {% if s.status == 'alarm' %}background:#fee2e2;color:#991b1b;font-weight:700;
+                            {% elif s.status == 'perhatian' %}background:#fef9c3;color:#854d0e;font-weight:600;
+                            {% elif s.status == 'kosong' %}color:#cbd5e1;{% endif %}">
+                            {% if s.status == 'alarm' %}<i class="bi bi-exclamation-triangle-fill me-1"></i>{% endif %}{{ s.display }}
+                        </td>
+                        {% endfor %}
+                        <td style="padding:8px 12px;color:#64748b;white-space:normal;max-width:260px;">{{ b.catatan|default:"—" }}</td>
+                        <td style="padding:8px 12px;text-align:center;">
+                            <span style="font-size:11px;padding:3px 10px;border-radius:20px;font-weight:700;
+                                {% if b.status == 'alarm' %}background:#fee2e2;color:#991b1b;
+                                {% elif b.status == 'flag' %}background:#fef3c7;color:#92400e;
+                                {% elif b.status == 'belum' %}background:#f1f5f9;color:#64748b;
+                                {% else %}background:#dcfce7;color:#166534;{% endif %}">
+                                {{ b.status_label }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5" style="color:#94a3b8;">
+            <i class="bi bi-inbox" style="font-size:32px;"></i>
+            <div style="font-size:13px;margin-top:8px;">Tidak ada perangkat {{ label_aktif }} yang beroperasi.</div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+(function () {
+    const tabel   = document.getElementById('tabelHarian');
+    if (!tabel) return;
+    const rows    = Array.from(tabel.tBodies[0].rows);
+    const sembunyi = document.getElementById('sembunyiBelum');
+    const cari     = document.getElementById('cariBaris');
+
+    function terapkan() {
+        const q = (cari.value || '').trim().toLowerCase();
+        rows.forEach(function (tr) {
+            const belum = tr.dataset.status === 'belum';
+            const cocok = !q || (tr.dataset.cari || '').indexOf(q) !== -1;
+            tr.style.display = (sembunyi.checked && belum) || !cocok ? 'none' : '';
+        });
+    }
+    sembunyi.addEventListener('change', terapkan);
+    cari.addEventListener('input', terapkan);
+})();
+</script>
+
+{% endblock %}

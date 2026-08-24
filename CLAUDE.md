@@ -58,7 +58,7 @@ Each of the 15 `INSTALLED_APPS` Django apps follows a standard layout (`models.p
 | `gangguan/` | Fault ticket CRUD, status workflow, public status page (token-based, no login) |
 | `opsis/` | Real-time power monitoring dashboard, MSSQL historian, data collection cron commands |
 | `health_index/` | Equipment health scoring (0–100), computed (not stored) from 9 weighted factors |
-| `inspection/` | Inservice inspection for Operator role |
+| `inspection/` | Inservice inspection for Operator role, plus the daily-results page (`/inspection/harian/`) and its Excel archive — column schema per equipment type lives in `inspection/laporan.py` |
 | `gudang/` | Warehouse / spare parts inventory; stock level is computed from `MutasiSparepart`, not a stored field |
 | `device_mon/` | Realtime equipment status monitoring — RTU UP/DOWN via MSSQL (`collect_rtu` cron) at `/device-mon/`, plus Zabbix host status at `/device-mon/zabbix/`: pull periodically via Zabbix API (`zabbix_api.py`, cron `sync_zabbix`) + push realtime via webhook (`/device-mon/zabbix/webhook/`, token `ZABBIX_WEBHOOK_TOKEN`); `ZabbixHost` optionally linked to `devices.Device`; WhatsApp blast is **opt-in per host** from Admin (`wa_alert` + `wa_min_severity` threshold) — see "Early Warning WhatsApp" below; full setup in `deploy/ZABBIX_INTEGRATION.md`. Both sources live in one app deliberately — "realtime equipment status" belongs together regardless of data source |
 | `scada_av/` | SCADA/RTU availability and RCD success rate; wraps the `spectrum7_av/` calculation library |
@@ -164,6 +164,7 @@ Roles are stored in `UserProfile` (ForeignKey to User). Middleware enforces rout
 | `arsip_titik_kinerja` | up2bmakassar | Arsipkan daftar titik `kinerja=1` dari OFDB ke CSV — jalankan sebelum apa pun diubah di 19.1 |
 | `daftar_station` | up2bmakassar | Daftar station (PATH1) di data kinerja + status aktif/nonaktifnya, untuk dicocokkan dengan daftar station UP2B |
 | `cek_kinerja_ofdb` | up2bmakassar | Diagnosa read-only — koneksi OFDB, induk point type yang ketemu, jumlah titik per jenis, lama query harian, dan jumlah baris tersimpan |
+| `export_inspeksi_harian` | inspection | Cron, harian 12.00 — tulis laporan Excel hasil inspeksi hari itu ke `INSPEKSI_EXPORT_DIR` (`<dir>/<YYYY-MM>/Inspeksi_Harian_<tgl>.xlsx`); `--tanggal`, `--days` (tulis ulang N hari terakhir), `--dir`, `--dry-run` |
 | `sync_zabbix` | device_mon | Cron, every 2-5 min — pull host/problem status via Zabbix API (JSON-RPC) → `ZabbixHost`/`ZabbixEventLog`; complements the `/device-mon/zabbix/webhook/` push path; supports `--dry-run` |
 
 ---
@@ -244,6 +245,10 @@ WA_TIMEOUT=10
 # Zabbix Integration (device_mon app) — see deploy/ZABBIX_INTEGRATION.md for full setup
 # Sumber prediksi beban OPSIS — 'sheet' (default, spreadsheet via n8n) | 'ml'
 OPSIS_FORECAST_SOURCE=sheet
+
+# Arsip Excel hasil inspeksi harian (cron export_inspeksi_harian jam 12.00).
+# Path biasa — share Windows harus sudah di-mount; lihat deploy/EXPORT_INSPEKSI_HARIAN.md
+INSPEKSI_EXPORT_DIR="/mnt/fasop/inspeksi harian"   # kosong = cron export dimatikan
 # Zabbix Integration (zabbix_mon app) — see deploy/ZABBIX_INTEGRATION.md for full setup
 ZABBIX_API_URL=               # e.g. http://zabbix.domain/api_jsonrpc.php
 ZABBIX_API_TOKEN=             # preferred auth (Zabbix >= 5.4, Administration > API tokens)
@@ -290,6 +295,49 @@ The `streaming` app doesn't add any new pip packages — WebRTC is handled entir
 | nginx (optional, recordings) | Faster recording playback — nginx serves the recording file bytes directly (`X-Accel-Redirect`, including Range requests for seeking) instead of Django/gunicorn streaming them manually. Opt-in, off by default | Add a `location /internal-recordings/ { internal; alias <STREAMING_RECORDINGS_ROOT>/; }` snippet to the **existing** FASOP nginx server block, then set `STREAMING_USE_X_ACCEL_REDIRECT=True` — see `deploy/nginx-recordings-x-accel.conf.example` |
 
 Setup script: `bash deploy/setup_streaming.sh` — idempotent, generates `deploy/mediamtx.generated.yml` (gitignored, contains secrets) from the `deploy/mediamtx.yml` template + `.env`, checks for `ffmpeg`, sets up the `purge_old_recordings` cron. **`mediamtx.generated.yml` is rewritten from scratch on every run** — never hand-edit it directly (origin/TURN values in particular have been lost this way before); all environment-specific values belong in `.env` (see table above) so re-running the script is always safe. Full walkthrough: `deploy/DEPLOY_CHECKLIST.md`.
+
+---
+
+## Inspeksi — Skema Kolom & Laporan Harian (`inspection/laporan.py`)
+
+`inspection/laporan.py` adalah **satu-satunya** tempat yang mendefinisikan kolom
+hasil inspeksi per jenis peralatan (`KOLOM_JENIS`). Tiga konsumennya memakai
+skema yang sama, jadi tampilan layar, file Excel harian, dan rekap bulanan tidak
+mungkin berbeda kolom:
+
+| Konsumen | Kode |
+|---|---|
+| Halaman **Hasil Inspeksi Harian** (`/inspection/harian/`) — pilih tanggal, tab per jenis peralatan | `views.inspection_harian` |
+| Export Excel harian (tombol di halaman itu **dan** cron jam 12.00) | `views.inspection_harian_export`, `management/commands/export_inspeksi_harian.py` |
+| Rekap bulanan per ULTG | `views.inspection_export_ultg` |
+
+Yang perlu diketahui saat menambah field inspeksi baru:
+
+- **Tambahkan kolomnya di `KOLOM_JENIS`, bukan di header masing-masing view.**
+  Sebelum ini header ditulis ulang per view; akibatnya sheet non-Catu-Daya
+  memakai kolom rele (`kebersihan_panel`/`kondisi_relay`/`sumber_dc`) untuk
+  semua jenis — kalau DFR/Server ADS diikutkan, seluruh barisnya jatuh ke blok
+  `except` dan keluar sebagai strip.
+- **`ok=` harus salah satu nilai `*_CHOICES` field itu.** Salah ketik membuat
+  nilai normal ditandai alarm selamanya. Nilai `ok` UFLS memang beda dengan
+  Master Trip (`on_aktif`/`terpasang` vs `on`/`normal`) meski labelnya mirip.
+- **`alarm=True` harus konsisten dengan `is_alarm_inspection()`** di file yang
+  sama — itu yang dipakai dashboard dan notifikasi WhatsApp, jadi kalau
+  keduanya berbeda, angka "alarm" di laporan tidak cocok dengan yang di
+  dashboard.
+- Perangkat yang **belum** diinspeksi ikut dikembalikan `baris_harian()` dengan
+  status `belum` — laporan harian gunanya menunjukkan cakupan, bukan cuma yang
+  terisi. Perangkat berstatus Tidak Operasi tidak pernah ikut
+  (`perangkat_operasi()`).
+- Hasil telekomunikasi punya **dua jalur** (`Inspection` jenis `telecom` dari
+  form inservice, dan `PengujianTelecomItem` dari form batch dispatcher).
+  `baris_harian()` menggabungkan keduanya; kalau hanya satu yang dibaca,
+  Radio/VoIP tampil "belum diinspeksi" padahal dispatcher sudah mengujinya.
+
+Arsip harian ke share `\\192.168.77.5\fasop\inspeksi harian` memakai path yang
+sudah di-mount (Django menulis file biasa, tidak berbicara SMB sendiri) —
+pemasangan mount, `.env`, dan cron-nya di `deploy/EXPORT_INSPEKSI_HARIAN.md`
+(`bash deploy/setup_inspeksi_export_cron.sh`).
 
 ---
 

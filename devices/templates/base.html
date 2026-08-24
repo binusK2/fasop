@@ -847,11 +847,16 @@
         {% endif %}
         {% if not user_is_dispatcher %}
         <a href="{% url 'inspection_lokasi' %}"
-           class="sidebar-link {% if 'inspection' in request.resolver_match.url_name and request.resolver_match.url_name != 'inspection_dashboard' %}active{% endif %}">
+           class="sidebar-link {% if 'inspection' in request.resolver_match.url_name and request.resolver_match.url_name != 'inspection_dashboard' and request.resolver_match.url_name != 'inspection_harian' %}active{% endif %}">
             <span class="si-icon"><i class="bi bi-clipboard2-check-fill"></i></span>
             Inservice Inspection
         </a>
         {% endif %}
+        <a href="{% url 'inspection_harian' %}"
+           class="sidebar-link {% if request.resolver_match.url_name == 'inspection_harian' %}active{% endif %}">
+            <span class="si-icon"><i class="bi bi-calendar2-check"></i></span>
+            Hasil Inspeksi Harian
+        </a>
         {% if not user_is_operator and not user_is_dispatcher %}
         <a href="{% url 'kesiapan_list' %}"
            class="sidebar-link {% if 'kesiapan_' in request.resolver_match.url_name|default:'' %}active{% endif %}">
