@@ -17,68 +17,12 @@ import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
-
-# ── Jenis perangkat yang bisa diinspeksi ────────────────────────────
-# Key HARUS persis sama dengan DeviceType.name di database (case-sensitive)
-INSPECTABLE_JENIS = {
-    'Catu Daya':           'catu_daya',
-    'RELE DEFENSE SCHEME': 'defense_scheme',
-    'MASTER TRIP':         'master_trip',
-    'UFLS':                'ufls',
-    'DFR':                 'dfr',
-    'SERVER PROSIS':       'server_ads',
-    'Radio':               'telecom',
-    'VoIP':                'telecom',
-}
-
-# Jenis khusus Dispatcher
-TELECOM_JENIS = {'Radio', 'VoIP'}
-
-
-def perangkat_operasi(qs):
-    """Buang perangkat berstatus 'Tidak Operasi' dari queryset Device.
-
-    Perangkat yang sudah tidak beroperasi tidak boleh muncul di halaman
-    inspeksi operator, dan tidak ikut jadi pembagi progres inspeksi
-    (kalau ikut dihitung, ia selamanya berstatus "belum diinspeksi").
-    """
-    return qs.exclude(status_operasi='tidak_operasi')
-
-
-def _is_alarm_inspection(insp):
-    """True bila hasil satu inspeksi menunjukkan kondisi alarm/tidak normal,
-    berdasarkan field yang benar-benar diisi lewat form.html untuk masing-masing jenis."""
-    try:
-        if insp.jenis == 'catu_daya':
-            d = insp.detail_catu_daya
-            return (d.kondisi_rectifier == 'alarm'
-                    or d.alarm_ground_fault == 'ada'
-                    or d.alarm_min_ac_fault == 'ada'
-                    or d.alarm_recti_fault == 'ada'
-                    or d.level_air_bank in ('bawah_level', 'atas_level')
-                    or d.exhaust_fan == 'mati'
-                    or d.kondisi_baterai == 'kotor'
-                    or d.kondisi_keseluruhan == 'kotor')
-        if insp.jenis == 'defense_scheme':
-            d = insp.detail_defense_scheme
-            return d.kondisi_relay == 'alarm' or d.status_indikator == 'tidak_normal'
-        if insp.jenis in ('master_trip', 'ufls'):
-            d = insp.detail_master_trip if insp.jenis == 'master_trip' else insp.detail_ufls
-            return d.kondisi_relay == 'alarm' or d.indikator_led == 'tidak_normal'
-        if insp.jenis == 'dfr':
-            d = insp.detail_dfr
-            return (d.kondisi_dfr == 'faulty' or d.healthy_status in ('faulty', 'alarm')
-                    or d.indikasi_led_alarm == 'ada' or d.status_indikator == 'tidak_normal')
-        if insp.jenis == 'server_ads':
-            d = insp.detail_server_ads
-            return (d.peralatan_server_ads == 'tidak_normal' or d.tampilan_hmi == 'tidak_normal'
-                    or d.peralatan_gateway_ic3 == 'tidak_normal' or d.kondisi_switch_lan == 'mati'
-                    or d.peralatan_power_supply == 'tidak_normal' or d.fan_panel == 'mati')
-        if insp.jenis == 'telecom':
-            return insp.detail_telecom.hasil_komunikasi == 'tidak_normal'
-    except Exception:
-        pass
-    return False
+# Skema kolom laporan + helper perangkat: satu sumber untuk layar dan Excel.
+from .laporan import (INSPECTABLE_JENIS, TELECOM_JENIS, JENIS_URUT, JENIS_LABEL,
+                      JENIS_IKON, JENIS_WARNA, kolom_jenis, baris_harian,
+                      baris_bulanan, ringkasan_baris, tulis_sheet_jenis,
+                      workbook_harian, nama_file_harian, perangkat_operasi,
+                      is_alarm_inspection as _is_alarm_inspection)
 
 
 def require_operator(view_func):
@@ -897,11 +841,15 @@ def inspection_export_ultg(request):
         lokasi_names = None
         ultg_label   = 'Semua ULTG'
 
+    # DFR dan Server ADS ikut diekspor — keduanya dihitung di dashboard, jadi
+    # kalau tidak ada sheetnya, angka rekap tidak bisa ditelusuri ke perangkat.
     INSPECTABLE = {
         'Catu Daya':           'catu_daya',
         'RELE DEFENSE SCHEME': 'defense_scheme',
         'MASTER TRIP':         'master_trip',
         'UFLS':                'ufls',
+        'DFR':                 'dfr',
+        'SERVER PROSIS':       'server_ads',
     }
 
     # ── Style helpers ────────────────────────────────────────────
@@ -910,10 +858,6 @@ def inspection_export_ultg(request):
     hdr_font = Font(bold=True, color='FFFFFF', size=9)
     hdr_aln  = Alignment(horizontal='center', vertical='center', wrap_text=True)
     c_aln    = Alignment(horizontal='center', vertical='center')
-    l_aln    = Alignment(vertical='center', wrap_text=True)
-    alt_fill = PatternFill('solid', fgColor='F8FAFC')
-    alarm_fill = PatternFill('solid', fgColor='FEE2E2')
-    flag_fill  = PatternFill('solid', fgColor='FEF9C3')
 
     wb = openpyxl.Workbook()
     wb.remove(wb.active)
@@ -1003,155 +947,16 @@ def inspection_export_ultg(request):
 
     # ─────────────────────────────────────────────────────────────
     # SHEET PER JENIS PERANGKAT
+    # Kolomnya diambil dari laporan.KOLOM_JENIS — jadi sheet DFR berisi kolom
+    # DFR dan sheet Server ADS berisi kolom Server ADS, bukan kolom rele untuk
+    # semua jenis seperti sebelumnya.
     # ─────────────────────────────────────────────────────────────
-    for jenis_name, jenis_key in INSPECTABLE.items():
-        devs_qs = perangkat_operasi(Device.objects).filter(
-            is_deleted=False, jenis__name=jenis_name
-        ).select_related('jenis').order_by('lokasi', 'nama')
-        if lokasi_names:
-            devs_qs = devs_qs.filter(lokasi__in=lokasi_names)
-        if not devs_qs.exists():
+    for jenis_key in INSPECTABLE.values():
+        baris = baris_bulanan(jenis_key, year, month, lokasi_names)
+        if not baris:
             continue
-
-        # Inspeksi bulan ini per device (ambil yang terbaru)
-        insp_map = {}
-        for insp in Inspection.objects.filter(
-            device__in=devs_qs,
-            tanggal__year=year, tanggal__month=month,
-            jenis=jenis_key
-        ).select_related('device', 'operator').order_by('device_id', '-tanggal'):
-            if insp.device_id not in insp_map:
-                insp_map[insp.device_id] = insp
-
-        color  = JENIS_COLORS.get(jenis_name, '334155')
-        ws     = wb.create_sheet(jenis_name[:31])
-        ws.sheet_properties.tabColor = color
-
-        # Header
-        if jenis_key == 'catu_daya':
-            headers = ['No','Nama Perangkat','Lokasi','Tgl Inspeksi','Operator',
-                       'Kond. Rectifier','Mode Recti','Alarm GF','Alarm AC','Alarm Recti',
-                       'Kebersihan Ruangan','Level Air Bank','Exhaust Fan',
-                       'Teg Load DC (V)','Teg Baterai DC (V)','Arus Load DC (A)','Status']
-            col_w  = [4,28,22,14,16,16,14,12,12,12,18,16,12,16,18,16,12]
-        else:
-            headers = ['No','Nama Perangkat','Lokasi','Tgl Inspeksi','Operator',
-                       'Suhu Ruangan (°C)','Kebersihan Panel','Lampu Panel',
-                       'Kondisi Rele','Status Indikator',
-                       'Posisi Selektor','Kabel LAN','Sumber DC (V)','Status']
-            col_w  = [4,28,22,14,16,14,16,14,14,14,16,14,14,12]
-
-        ncols = len(headers)
-        last_col = get_column_letter(ncols + 1)
-
-        # Title sheet
-        ws.merge_cells(f'B1:{last_col}1')
-        ws['B1'].value     = f'{jenis_name.upper()} — {title_main}'
-        ws['B1'].font      = Font(bold=True, size=11)
-        ws['B1'].alignment = Alignment(horizontal='center', vertical='center')
-        ws['B1'].fill      = PatternFill('solid', fgColor='EFF6FF')
-        ws.row_dimensions[1].height = 26
-
-        ws.merge_cells(f'B2:{last_col}2')
-        ws['B2'].value     = f"Dicetak: {date.today().strftime('%d %B %Y')} | {terinspeksi if (devs_qs.count() > 0) else '?'} dari {devs_qs.count()} perangkat terinspeksi"
-        ws['B2'].font      = Font(size=10, italic=True, color='64748B')
-        ws['B2'].alignment = Alignment(horizontal='center')
-
-        ws.column_dimensions['A'].width = 2
-        hdr_fill_j = PatternFill('solid', fgColor=color)
-        for ci, (h, w) in enumerate(zip(headers, col_w), 2):
-            cell = ws.cell(row=4, column=ci, value=h)
-            cell.font      = hdr_font
-            cell.fill      = hdr_fill_j
-            cell.alignment = hdr_aln
-            cell.border    = brd
-            ws.column_dimensions[get_column_letter(ci)].width = w
-        ws.row_dimensions[4].height = 22
-        ws.freeze_panes = f'B5'
-
-        # Data rows
-        for ri, dev in enumerate(devs_qs, 1):
-            wr   = ri + 4
-            insp = insp_map.get(dev.pk)
-
-            if insp:
-                tgl_str  = insp.tanggal.strftime('%d/%m/%Y %H:%M')
-                op_str   = insp.operator.get_full_name() or insp.operator.username if insp.operator else '—'
-                is_alarm = False
-                is_flag  = insp.is_flagged
-
-                if jenis_key == 'catu_daya':
-                    try:
-                        d = insp.detail_catu_daya
-                        is_alarm = d.kondisi_rectifier == 'alarm'
-                        row_vals = [
-                            ri, dev.nama, dev.lokasi or '—', tgl_str, op_str,
-                            d.get_kondisi_rectifier_display() if d.kondisi_rectifier else '—',
-                            d.get_mode_recti_display() if d.mode_recti else '—',
-                            d.get_alarm_ground_fault_display() if d.alarm_ground_fault else '—',
-                            d.get_alarm_min_ac_fault_display() if d.alarm_min_ac_fault else '—',
-                            d.get_alarm_recti_fault_display() if d.alarm_recti_fault else '—',
-                            d.get_kebersihan_ruangan_display() if d.kebersihan_ruangan else '—',
-                            d.get_level_air_bank_display() if d.level_air_bank else '—',
-                            d.get_exhaust_fan_display() if d.exhaust_fan else '—',
-                            d.tegangan_load_dc or '—',
-                            d.tegangan_baterai_dc or '—',
-                            d.arus_load_dc or '—',
-                            '⚠ ALARM' if is_alarm else ('🚩 Flag' if is_flag else '✓ Normal'),
-                        ]
-                    except Exception:
-                        row_vals = [ri, dev.nama, dev.lokasi or '—', tgl_str, op_str] + ['—'] * (len(headers) - 5)
-                else:
-                    try:
-                        attr = 'detail_defense_scheme' if jenis_key == 'defense_scheme' else f'detail_{jenis_key}'
-                        d = getattr(insp, attr)
-                        is_alarm = _is_alarm_inspection(insp)
-                        status_field = 'status_indikator' if jenis_key == 'defense_scheme' else 'indikator_led'
-                        status_display_fn = f'get_{status_field}_display'
-                        status_val = getattr(d, status_field)
-                        row_vals = [
-                            ri, dev.nama, dev.lokasi or '—', tgl_str, op_str,
-                            d.suhu_ruangan if d.suhu_ruangan is not None else '—',
-                            d.get_kebersihan_panel_display() if d.kebersihan_panel else '—',
-                            d.get_lampu_panel_display() if d.lampu_panel else '—',
-                            d.get_kondisi_relay_display() if d.kondisi_relay else '—',
-                            getattr(d, status_display_fn)() if status_val else '—',
-                            d.get_posisi_selektor_display() if d.posisi_selektor else '—',
-                            d.get_kondisi_kabel_lan_display() if d.kondisi_kabel_lan else '—',
-                            d.sumber_dc if d.sumber_dc is not None else '—',
-                            '⚠ Faulty' if is_alarm else ('🚩 Flag' if is_flag else '✓ Normal'),
-                        ]
-                    except Exception:
-                        row_vals = [ri, dev.nama, dev.lokasi or '—', tgl_str, op_str] + ['—'] * (len(headers) - 5)
-            else:
-                # Belum diinspeksi
-                is_alarm = False
-                is_flag  = False
-                row_vals = [ri, dev.nama, dev.lokasi or '—', '—', '—'] + ['—'] * (len(headers) - 5)
-                row_vals[-1] = 'Belum Diinspeksi'
-
-            status_val = row_vals[-1]
-            for ci, val in enumerate(row_vals, 2):
-                cell = ws.cell(row=wr, column=ci, value=val)
-                cell.border    = brd
-                cell.alignment = c_aln if ci in [2, 4] else l_aln
-                # Warna status
-                if ci == len(headers) + 1:
-                    if '⚠' in str(status_val) or 'Faulty' in str(status_val):
-                        cell.fill = alarm_fill
-                        cell.font = Font(bold=True, color='991B1B', size=9)
-                    elif '🚩' in str(status_val):
-                        cell.fill = flag_fill
-                        cell.font = Font(bold=True, color='92400E', size=9)
-                    elif 'Belum' in str(status_val):
-                        cell.fill = PatternFill('solid', fgColor='F1F5F9')
-                        cell.font = Font(color='64748B', size=9)
-                    else:
-                        cell.fill = PatternFill('solid', fgColor='DCFCE7')
-                        cell.font = Font(bold=True, color='166534', size=9)
-                elif ri % 2 == 0 and ci != len(headers) + 1:
-                    cell.fill = alt_fill
-            ws.row_dimensions[wr].height = 18
+        judul = f'{JENIS_LABEL[jenis_key].upper()} — {ultg_label.upper()} — {bulan_str} {year}'
+        tulis_sheet_jenis(wb, jenis_key, baris, judul, pakai_tanggal=True)
 
     # Response
     resp = HttpResponse(
@@ -1369,6 +1174,103 @@ def inspection_dashboard_ultg(request, pk):
         'alarm_list':     alarm_list,
         'today':          today,
     })
+
+
+# ─────────────────────────────────────────────────────────────────────
+# HASIL INSPEKSI HARIAN — pilih tanggal, tab per jenis peralatan
+# ─────────────────────────────────────────────────────────────────────
+def _tanggal_dari_request(request):
+    """Tanggal dari querystring (?tanggal=YYYY-MM-DD); default hari ini."""
+    teks = (request.GET.get('tanggal') or '').strip()
+    if teks:
+        try:
+            return date.fromisoformat(teks)
+        except ValueError:
+            pass
+    return timezone.localdate()
+
+
+def _lokasi_ultg_user(request):
+    """Batas lokasi sesuai ULTG user (khusus operator); None = tanpa batas."""
+    try:
+        profile = request.user.profile
+        if profile.role == 'operator' and profile.ultg:
+            return profile.ultg, profile.ultg.get_lokasi_names()
+    except Exception:
+        pass
+    return None, None
+
+
+@login_required
+@require_operator
+def inspection_harian(request):
+    """Hasil inspeksi satu hari, dikelompokkan per jenis peralatan.
+
+    Kolom tabelnya diambil dari laporan.KOLOM_JENIS — sama persis dengan kolom
+    file Excel-nya, supaya yang dilihat di layar dan yang diarsipkan tidak beda.
+    """
+    tanggal = _tanggal_dari_request(request)
+    ultg, lokasi_names = _lokasi_ultg_user(request)
+
+    aktif = request.GET.get('jenis') or JENIS_URUT[0]
+    if aktif not in JENIS_URUT:
+        aktif = JENIS_URUT[0]
+
+    tabs, baris_aktif, total = [], [], {
+        'total': 0, 'sudah': 0, 'belum': 0, 'alarm': 0, 'flag': 0, 'normal': 0,
+    }
+    for jenis_key in JENIS_URUT:
+        baris = baris_harian(tanggal, jenis_key, lokasi_names)
+        r = ringkasan_baris(baris)
+        for k in total:
+            total[k] += r[k]
+        tabs.append({
+            'key':    jenis_key,
+            'label':  JENIS_LABEL[jenis_key],
+            'ikon':   JENIS_IKON[jenis_key],
+            'warna':  '#' + JENIS_WARNA[jenis_key],
+            'aktif':  jenis_key == aktif,
+            'stat':   r,
+        })
+        if jenis_key == aktif:
+            baris_aktif = baris
+    total['pct'] = round(total['sudah'] / total['total'] * 100) if total['total'] else 0
+
+    from datetime import timedelta
+    hari_ini = timezone.localdate()
+    return render(request, 'inspection/harian.html', {
+        'tanggal':      tanggal,
+        'tanggal_str':  tanggal.isoformat(),
+        'hari_ini':     hari_ini,
+        'kemarin':      (tanggal - timedelta(days=1)).isoformat(),
+        'besok':        (tanggal + timedelta(days=1)).isoformat(),
+        'ada_besok':    tanggal < hari_ini,
+        'tabs':         tabs,
+        'jenis_aktif':  aktif,
+        'label_aktif':  JENIS_LABEL[aktif],
+        'kolom':        kolom_jenis(aktif),
+        'baris':        baris_aktif,
+        'stat_aktif':   ringkasan_baris(baris_aktif),
+        'total':        total,
+        'ultg':         ultg,
+    })
+
+
+@login_required
+@require_operator
+def inspection_harian_export(request):
+    """Unduh laporan harian (semua jenis peralatan) sebagai satu file Excel."""
+    tanggal = _tanggal_dari_request(request)
+    ultg, lokasi_names = _lokasi_ultg_user(request)
+
+    wb = workbook_harian(tanggal, lokasi_names,
+                         judul_lokasi=ultg.nama if ultg else 'Seluruh UIP3B Sulawesi')
+    resp = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    resp['Content-Disposition'] = f'attachment; filename="{nama_file_harian(tanggal)}"'
+    wb.save(resp)
+    return resp
 
 
 # EXPORT LAPORAN EXCEL
