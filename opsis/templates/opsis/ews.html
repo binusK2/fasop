@@ -28,15 +28,21 @@
       border-radius:7px; padding:6px 9px; font-size:12.5px; font-family:inherit; }
   .ews-ctrl input[type=text] { min-width:230px; }
   .ews-count { font-size:11.5px; color:var(--muted); margin-left:auto; }
+  .ews-btn { border:1px solid var(--card-bd); background:var(--card-bg); color:var(--text);
+      border-radius:7px; padding:6px 10px; font-size:12.5px; font-family:inherit;
+      cursor:pointer; display:inline-flex; align-items:center; gap:6px; }
+  .ews-btn:hover { background:rgba(255,255,255,.05); }
+  .ews-btn.aktif { border-color:var(--blue); color:#60a5fa; background:rgba(59,130,246,.12); }
 
   .ews-offline { display:none; font-size:11.5px; color:var(--yellow);
       background:rgba(245,158,11,.12); border-radius:8px; padding:8px 11px;
       margin-bottom:12px; line-height:1.5; }
   .ews-offline.show { display:block; }
 
-  .ews-cols { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; align-items:start; }
-  @media (max-width:1500px) { .ews-cols { grid-template-columns:repeat(2,1fr); } }
-  @media (max-width:1020px) { .ews-cols { grid-template-columns:1fr; } }
+  /* Kolom melebar/menyempit sendiri mengikuti layar: 1 lajur di layar sempit,
+     sampai selebar yang muat di monitor lebar. */
+  .ews-cols { display:grid; grid-template-columns:repeat(auto-fit, minmax(330px, 1fr));
+              gap:14px; align-items:start; }
   .ews-col { background:var(--card-bg); border:1px solid var(--card-bd); border-radius:12px;
              padding:14px; display:flex; flex-direction:column; min-width:0; }
   .ews-col-head { border-left:4px solid var(--ck); padding-left:10px; margin-bottom:10px; }
@@ -50,6 +56,60 @@
   .ews-list { display:flex; flex-direction:column; gap:3px; max-height:1180px;
               overflow-y:auto; padding-right:4px; }
   .ews-empty { padding:24px; text-align:center; color:var(--muted); font-size:11.5px; }
+
+  /* Baris ringkasan titik yang belum diarahkan ke MSSQL. Dilipat karena tidak
+     punya nilai hidup untuk dipantau — 3/4 halaman tadinya dipakai untuk ini. */
+  .ews-lipat { margin-top:6px; }
+  .ews-lipat button { width:100%; text-align:left; cursor:pointer; font:inherit;
+      font-size:11px; color:var(--muted); background:rgba(148,163,184,.07);
+      border:1px dashed var(--card-bd); border-radius:8px; padding:6px 9px;
+      display:flex; align-items:center; gap:6px; }
+  .ews-lipat button:hover { background:rgba(148,163,184,.13); color:var(--text); }
+  .ews-lipat .car { transition:transform .15s; }
+  .ews-lipat.buka .car { transform:rotate(90deg); }
+
+  /* ---- Mode ringkas: satu baris ~30px, bukan kartu ~115px ----
+     Struktur DOM kartu tidak berubah; display:contents menaikkan isi
+     .ews-it-top/.ews-it-bot jadi sel grid .ews-item, lalu diurutkan ulang. */
+  /* display:block wajib — CSS multi-column tidak berlaku pada flex container,
+     jadi tanpa ini sub-lajurnya tidak pernah terbentuk di monitor lebar. */
+  .ringkas .ews-list { display:block; max-height:none; overflow:visible;
+      column-width:330px; column-gap:12px; }
+  .ringkas .ews-list > .ews-item { margin-bottom:1px; }
+  .ringkas .ews-item { display:grid; align-items:center; gap:7px; padding:2px 7px;
+      grid-template-columns:auto minmax(0,1fr) 82px auto auto; line-height:1.25;
+      break-inside:avoid; -webkit-column-break-inside:avoid; }
+  .ringkas .ews-it-top, .ringkas .ews-it-bot { display:contents; }
+  .ringkas .ews-tag       { order:1; }
+  .ringkas .ews-it-name   { order:2; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ringkas .ews-it-name .meta { display:none; }
+  .ringkas .ews-track     { order:3; height:13px; }
+  .ringkas .ews-scale     { display:none; }
+  .ringkas .ews-it-bot > span { order:4; text-align:right; white-space:nowrap; }
+  .ringkas .ews-chip      { order:5; }
+  .ringkas .ews-chip span.t{ display:none; }
+  .ringkas .ews-val       { font-size:12px; }
+  .ringkas .ews-mar       { display:none; }
+  .ringkas .ews-noset     { font-size:8px; }
+  .ringkas .ews-detail    { order:6; grid-column:1/-1; margin-top:4px; }
+  /* Ruang tetap per kolom ikut dipangkas — di mode ringkas tujuannya
+     memuat sebanyak mungkin baris, bukan menjelaskan lagi. */
+  .ringkas .ews-col      { padding:10px; }
+  .ringkas .ews-col-head { margin-bottom:7px; }
+  .ringkas .ews-col-head .what { display:none; }
+  .ringkas .ews-mini     { gap:4px; margin-bottom:7px; }
+  .ringkas .ews-mini .m  { padding:3px 6px; }
+  .ringkas .ews-mini .n  { font-size:14px; }
+  .ringkas .ews-legend   { display:none; }
+  @media (max-width:700px) {
+    .ringkas .ews-item { grid-template-columns:auto minmax(0,1fr) auto auto; }
+    .ringkas .ews-track { display:none; }
+  }
+
+  /* ---- Mode layar penuh (papan pantau) ---- */
+  body.ews-kios .sidebar, body.ews-kios .topbar,
+  body.ews-kios .ews-head, body.ews-kios .ews-note { display:none !important; }
+  body.ews-kios .main-content { padding:10px !important; }
 
   .ews-item { border:1px solid transparent; border-radius:9px; padding:8px 9px; cursor:pointer; }
   .ews-item:hover { background:rgba(255,255,255,.03); }
@@ -147,6 +207,10 @@
     {% for s in sistem_list %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
   </select>
   <input type="text" id="ewsCari" placeholder="Cari nama GI / skema / target&hellip;">
+  <button type="button" class="ews-btn" id="ewsRingkas" title="Padatkan jadi satu baris per titik">
+    <i class="bi bi-list"></i> <span>Ringkas</span></button>
+  <button type="button" class="ews-btn" id="ewsKios" title="Sembunyikan menu & header untuk papan pantau">
+    <i class="bi bi-arrows-fullscreen"></i></button>
   <span class="ews-count" id="ewsCount">&mdash;</span>
 </div>
 
@@ -169,6 +233,7 @@
       <div class="m"><div class="n" data-c="belum"    style="color:var(--muted)">0</div><div class="l">Belum<br>terpantau</div></div>
     </div>
     <div class="ews-list"></div>
+    <div class="ews-lipat" style="display:none"><button type="button"></button></div>
     <div class="ews-legend">
       <span class="i"><span class="sw" style="background:var(--green)"></span>Normal</span>
       <span class="i"><span class="sw" style="background:var(--yellow)"></span>Waspada</span>
@@ -222,6 +287,20 @@ const PERINGKAT = {critical:0, unknown:1, warning:2, good:3, plan:4};
 
 let NILAI = {};      // pk -> {nilai, status, margin}
 let terbuka = null;  // pk kartu yang panel detailnya terbuka
+let lipat = {};      // id kolom -> true bila daftar "belum termonitor" dibuka
+
+const SIMPAN = {
+  ringkas: 'opsis_ews_ringkas',
+  lipat:   'opsis_ews_lipat',
+};
+function baca(kunci, bawaan) {
+  try { const v = localStorage.getItem(kunci); return v === null ? bawaan : JSON.parse(v); }
+  catch (e) { return bawaan; }
+}
+function tulis(kunci, nilai) {
+  try { localStorage.setItem(kunci, JSON.stringify(nilai)); } catch (e) {}
+}
+lipat = baca(SIMPAN.lipat, {});
 
 /* ---------- format ---------- */
 function desimal(c) {
@@ -328,7 +407,7 @@ function kartu(pk, c, n) {
       ${bar(c, v, s)}
       <div class="ews-it-bot">
         <span>${nilaiHtml}<span class="ews-mar">${teksMargin(c, m)}</span></span>
-        <span class="ews-chip ${s}">${IKON[s]}${LABEL[s]}</span>
+        <span class="ews-chip ${s}" title="${LABEL[s]}">${IKON[s]}<span class="t">${LABEL[s]}</span></span>
       </div>
       ${detail}
     </div>`;
@@ -355,6 +434,11 @@ function render() {
     const hitung = {good:0, warning:0, critical:0, unknown:0, plan:0};
     const baris = [];
 
+    const belum = [];   // titik yang belum diarahkan ke tabel MSSQL
+    // Saat filter status justru "plan", yang belum termonitor ikut ditampilkan
+    // utuh — kalau dilipat, filternya jadi tidak ada gunanya.
+    const cariPlan = document.getElementById('ewsStatus').value === 'plan';
+
     Object.keys(KONFIG).forEach(pk => {
       const c = KONFIG[pk];
       if (c.kolom !== kid) return;
@@ -363,7 +447,11 @@ function render() {
       hitung[n.status] = (hitung[n.status] || 0) + 1;
       global[n.status] = (global[n.status] || 0) + 1;
       total++;
-      if (lolosFilter(c)) baris.push({pk, c, n});
+      if (!lolosFilter(c)) return;
+      // Titik bersumber yang nilainya gagal terbaca TIDAK ikut dilipat —
+      // telemetri putus itu keadaan yang harus terlihat, bukan disembunyikan.
+      if (c.termonitor || cariPlan) baris.push({pk, c, n});
+      else belum.push({pk, c, n});
     });
 
     baris.sort((a, b) =>
@@ -381,10 +469,25 @@ function render() {
     // kembali ke atas.
     const daftar = kol.querySelector('.ews-list');
     const posisi = daftar.scrollTop;
-    daftar.innerHTML = baris.length
-      ? baris.map(b => kartu(b.pk, b.c, b.n)).join('')
+    const dibuka = !!lipat[kid];
+    const isi = baris.map(b => kartu(b.pk, b.c, b.n));
+    if (dibuka) belum.forEach(b => isi.push(kartu(b.pk, b.c, b.n)));
+    daftar.innerHTML = isi.length
+      ? isi.join('')
       : '<div class="ews-empty">Tidak ada titik yang cocok dengan filter.</div>';
     daftar.scrollTop = posisi;
+    ditampilkan += dibuka ? belum.length : 0;
+
+    const lip = kol.querySelector('.ews-lipat');
+    if (belum.length) {
+      lip.style.display = '';
+      lip.classList.toggle('buka', dibuka);
+      lip.querySelector('button').innerHTML =
+        `<span class="car">&#9656;</span> ${belum.length} titik belum termonitor` +
+        (dibuka ? ' &mdash; klik untuk sembunyikan' : '');
+    } else {
+      lip.style.display = 'none';
+    }
   });
 
   document.getElementById('ewsCount').textContent =
@@ -405,10 +508,51 @@ function render() {
 
 /* ---------- interaksi & polling ---------- */
 document.addEventListener('click', e => {
+  const lip = e.target.closest('.ews-lipat');
+  if (lip) {
+    const kid = parseInt(lip.closest('.ews-col').dataset.kolom, 10);
+    lipat[kid] = !lipat[kid];
+    tulis(SIMPAN.lipat, lipat);
+    render();
+    return;
+  }
   const item = e.target.closest('.ews-item');
   if (!item) return;
   terbuka = (terbuka === item.dataset.pk) ? null : item.dataset.pk;
   render();
+});
+
+const kolsEl = document.getElementById('ewsCols');
+const tblRingkas = document.getElementById('ewsRingkas');
+function terapkanRingkas(on) {
+  if (kolsEl) kolsEl.classList.toggle('ringkas', on);
+  tblRingkas.classList.toggle('aktif', on);
+  tblRingkas.querySelector('span').textContent = on ? 'Lengkap' : 'Ringkas';
+}
+let ringkas = baca(SIMPAN.ringkas, false);
+terapkanRingkas(ringkas);
+tblRingkas.addEventListener('click', () => {
+  ringkas = !ringkas;
+  tulis(SIMPAN.ringkas, ringkas);
+  terapkanRingkas(ringkas);
+});
+
+document.getElementById('ewsKios').addEventListener('click', () => {
+  const on = !document.body.classList.contains('ews-kios');
+  document.body.classList.toggle('ews-kios', on);
+  document.getElementById('ewsKios').classList.toggle('aktif', on);
+  if (on && document.documentElement.requestFullscreen) {
+    document.documentElement.requestFullscreen().catch(() => {});
+  } else if (!on && document.fullscreenElement && document.exitFullscreen) {
+    document.exitFullscreen().catch(() => {});
+  }
+});
+// Keluar dari layar penuh lewat Esc juga mengembalikan tampilan normal.
+document.addEventListener('fullscreenchange', () => {
+  if (!document.fullscreenElement) {
+    document.body.classList.remove('ews-kios');
+    document.getElementById('ewsKios').classList.remove('aktif');
+  }
 });
 ['ewsStatus', 'ewsSistem', 'ewsCari'].forEach(id =>
   document.getElementById(id).addEventListener('input', render));
