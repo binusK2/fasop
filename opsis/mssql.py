@@ -1450,3 +1450,154 @@ def probe_freq_rt(limit=10):
         logger.error('probe_freq_rt error: %s', e)
         out['error'] = str(e)
     return out
+
+
+# ── EWS Defense Scheme ───────────────────────────────────────────────────────
+
+# Batas parameter satu statement di SQL Server adalah 2100; 200 kunci per query
+# sudah jauh di bawah itu sekaligus menjaga rencana eksekusi tetap sederhana.
+_EWS_CHUNK = 200
+
+
+def get_nilai_ews(specs):
+    """
+    Baca nilai ukur realtime untuk titik-titik EWS Defense Scheme.
+
+    specs = daftar dict dari opsis.models.TitikEWS.spesifikasi_sumber():
+        pk           primary key titik (kunci hasil)
+        tabel        nama tabel MSSQL, mis. dbo.KIT_REALTIME
+        kolom_nilai  kolom berisi angkanya, mis. VALUE
+        kolom_kunci  kolom penanda titik, mis. ANALOG. Kosong = tabel satu baris,
+                     nilai diambil dari baris pertama.
+        nilai_kunci  nilai yang dicari pada kolom_kunci
+        faktor       pengali satuan (mis. 0.001 untuk Volt → kV)
+
+    Titik dikelompokkan per (tabel, kolom_kunci, kolom_nilai) lalu dibaca dengan
+    SATU query per kelompok memakai IN (...). Jangan diganti menjadi satu query
+    per titik: dengan puluhan skema yang menunjuk tabel yang sama itu berarti
+    puluhan round-trip ke historian setiap kali halaman di-poll.
+
+    Nama tabel/kolom berasal dari input admin sehingga tidak bisa dikirim sebagai
+    bind parameter — semuanya divalidasi _TABLE_RE/_COLUMN_RE dulu, dan kelompok
+    yang tidak lolos dilewati tanpa pernah menyentuh SQL. Nilai kunci tetap lewat
+    parameter '?' seperti biasa.
+
+    Return {pk: float|None}. Tidak pernah raise: MSSQL mati/tak terkonfigurasi
+    menghasilkan dict berisi None, bukan exception.
+    """
+    hasil = {s['pk']: None for s in specs}
+    if not specs or not getattr(settings, 'MSSQL_HOST', ''):
+        return hasil
+
+    # Kelompokkan: (tabel, kolom_kunci, kolom_nilai) → {nilai_kunci: [spec, ...]}
+    grup = {}
+    for s in specs:
+        tabel = (s.get('tabel') or '').strip()
+        kolom_nilai = (s.get('kolom_nilai') or '').strip()
+        kolom_kunci = (s.get('kolom_kunci') or '').strip()
+        if not _TABLE_RE.match(tabel):
+            logger.error('get_nilai_ews: nama tabel invalid %r (titik %s)', tabel, s['pk'])
+            continue
+        if not _COLUMN_RE.match(kolom_nilai):
+            logger.error('get_nilai_ews: kolom nilai invalid %r (titik %s)', kolom_nilai, s['pk'])
+            continue
+        if kolom_kunci and not _COLUMN_RE.match(kolom_kunci):
+            logger.error('get_nilai_ews: kolom kunci invalid %r (titik %s)', kolom_kunci, s['pk'])
+            continue
+        grup.setdefault((tabel, kolom_kunci, kolom_nilai), {}) \
+            .setdefault((s.get('nilai_kunci') or '').strip(), []).append(s)
+
+    if not grup:
+        return hasil
+
+    conn = None
+    try:
+        conn = _get_connection()
+        cursor = conn.cursor()
+        for (tabel, kolom_kunci, kolom_nilai), per_kunci in grup.items():
+            try:
+                if not kolom_kunci:
+                    # Tabel realtime satu baris (mis. SYS_FREQ_RT) — tidak ada
+                    # kunci untuk dicocokkan, semua titik di sini membaca angka
+                    # yang sama.
+                    cursor.execute(
+                        f'SELECT TOP 1 {kolom_nilai} FROM {tabel} WITH (NOLOCK)')
+                    row = cursor.fetchone()
+                    nilai = float(row[0]) if row and row[0] is not None else None
+                    for daftar in per_kunci.values():
+                        for s in daftar:
+                            hasil[s['pk']] = _skala_ews(nilai, s)
+                    continue
+
+                kunci = [k for k in per_kunci if k]
+                for i in range(0, len(kunci), _EWS_CHUNK):
+                    bagian = kunci[i:i + _EWS_CHUNK]
+                    tanda = ', '.join('?' * len(bagian))
+                    cursor.execute(
+                        f'SELECT RTRIM({kolom_kunci}), {kolom_nilai} '
+                        f'FROM {tabel} WITH (NOLOCK) '
+                        f'WHERE RTRIM({kolom_kunci}) IN ({tanda})',
+                        bagian,
+                    )
+                    for k, v in cursor.fetchall():
+                        for s in per_kunci.get((k or '').strip(), []):
+                            hasil[s['pk']] = _skala_ews(
+                                float(v) if v is not None else None, s)
+            except Exception as e:
+                # Satu tabel bermasalah tidak boleh menghapus nilai tabel lain.
+                logger.error('get_nilai_ews(%s) error: %s', tabel, e)
+        return hasil
+    except Exception as e:
+        logger.error('get_nilai_ews error: %s', e)
+        return hasil
+    finally:
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+
+def _skala_ews(nilai, spec):
+    """Terapkan faktor skala titik EWS; None tetap None."""
+    if nilai is None:
+        return None
+    try:
+        return nilai * float(spec.get('faktor') or 1.0)
+    except (TypeError, ValueError):
+        return nilai
+
+
+def probe_tabel(tabel, limit=20):
+    """
+    Diagnosa: daftar kolom + beberapa baris pertama sebuah tabel MSSQL, supaya
+    admin tahu nama kolom yang harus diisi ke TitikEWS.sumber_kolom_*.
+
+    Versi umum dari probe_dmp() — tabelnya datang dari pemanggil, jadi tetap
+    divalidasi _TABLE_RE sebelum masuk query.
+
+    Return {'tabel', 'kolom': [...], 'rows': [ {kolom: nilai} ], 'error': str|None}.
+    """
+    tabel = (tabel or '').strip()
+    kosong = {'tabel': tabel, 'kolom': [], 'rows': []}
+    if not getattr(settings, 'MSSQL_HOST', ''):
+        return {**kosong, 'error': 'MSSQL_HOST belum dikonfigurasi'}
+    if not _TABLE_RE.match(tabel):
+        return {**kosong, 'error': 'Nama tabel invalid'}
+    conn = None
+    try:
+        conn = _get_connection()
+        cursor = conn.cursor()
+        cursor.execute(f'SELECT TOP {int(limit)} * FROM {tabel} WITH (NOLOCK)')
+        kolom = [c[0] for c in cursor.description]
+        rows = [dict(zip(kolom, r)) for r in cursor.fetchall()]
+        return {'tabel': tabel, 'kolom': kolom, 'rows': rows, 'error': None}
+    except Exception as e:
+        logger.error('probe_tabel(%s) error: %s', tabel, e)
+        return {**kosong, 'error': str(e)}
+    finally:
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:
+                pass

@@ -12,7 +12,7 @@ from django.urls import reverse
 from .models import (Pembangkit, SnapLive, SnapFreq, SnapFreqRT, Trafo, SnapTrafo,
                      HopPembangkit, HopSnapshot, HOP_KATEGORI_CHOICES, JENIS_CHOICES,
                      JENIS_WARNA, KelompokPeta, hop_status, hop_deskripsi_band,
-                     hop_garis_ambang)
+                     hop_garis_ambang, KolomEWS, TitikEWS, SKEMA_WARNA)
 from . import mssql
 from . import prediksi
 from . import hop as hop_io
@@ -2005,3 +2005,100 @@ def respon_pdf_download(request):
     resp = HttpResponse(pdf, content_type='application/pdf')
     resp['Content-Disposition'] = f'attachment; filename="{fname}"'
     return resp
+
+
+# ── EWS Defense Scheme ───────────────────────────────────────────────────────
+
+def _titik_ews():
+    """Titik EWS aktif beserta kolomnya, urut sesuai urutan tampil."""
+    return list(TitikEWS.objects.filter(aktif=True, kolom__aktif=True)
+                .select_related('kolom'))
+
+
+def _baca_ews(titik_list):
+    """
+    Nilai ukur + status semua titik EWS: {pk: {'nilai', 'status', 'margin'}}.
+
+    Satu panggilan mssql.get_nilai_ews() untuk seluruh titik — fungsi itu yang
+    mengelompokkan per tabel supaya jumlah query tetap sedikit meski titiknya
+    banyak.
+    """
+    specs = [s for s in (t.spesifikasi_sumber() for t in titik_list) if s]
+    nilai = mssql.get_nilai_ews(specs) if specs else {}
+    hasil = {}
+    for t in titik_list:
+        v = nilai.get(t.pk)
+        m = t.margin(v)
+        hasil[t.pk] = {
+            'nilai':  round(v, 3) if v is not None else None,
+            'status': t.status(v),
+            'margin': round(m, 5) if m is not None else None,
+        }
+    return hasil
+
+
+def _ews_cached():
+    """
+    Pembacaan EWS dengan cache pendek per worker.
+
+    Halaman EWS di-poll tiap 5 detik oleh setiap tab yang terbuka. Tanpa
+    penjaga, tiap poll dari tiap klien menembak MSSQL sendiri — persoalan yang
+    sama yang membuat helper _hz_cached() ini ada (lihat catatan di atas dan di
+    mssql.py). TTL 2 detik jauh lebih pendek dari interval poll, jadi kesegaran
+    datanya praktis tidak berkurang.
+    """
+    return _hz_cached('ews', lambda: _baca_ews(_titik_ews())) or {}
+
+
+@login_required
+def ews(request):
+    """
+    Halaman EWS Defense Scheme — margin nilai ukur realtime terhadap ambang
+    setting rele, dikelompokkan per kolom parameter.
+
+    Identitas & setting dikirim sekali lewat json_script; hanya nilai ukur yang
+    di-poll dari /opsis/api/ews/.
+    """
+    titik_list = _titik_ews()
+    kolom_list = [k for k in KolomEWS.objects.filter(aktif=True)
+                  if any(t.kolom_id == k.pk for t in titik_list)]
+
+    konfig = {}
+    for t in titik_list:
+        konfig[str(t.pk)] = {
+            'kolom':      t.kolom_id,
+            'nama':       t.nama,
+            'skema':      t.skema,
+            'sistem':     t.sistem,
+            'subsistem':  t.subsistem,
+            'nomor':      t.nomor,
+            'kode':       t.kode,
+            'target':     t.target,
+            'td':         t.time_delay,
+            'status_skema': t.status_skema,
+            'catatan':    [b.strip() for b in t.catatan.splitlines() if b.strip()],
+            'besaran':    t.besaran,
+            'satuan':     t.satuan_tampil,
+            'nominal':    t.nominal,
+            'setting':    t.setting,
+            'arah':       t.arah,
+            'ambang':     t.ambang(),
+            'termonitor': t.pakai_sumber,
+        }
+
+    return render(request, 'opsis/ews.html', {
+        'kolom_list':  kolom_list,
+        'titik_count': len(titik_list),
+        'konfig':      konfig,
+        'skema_warna': SKEMA_WARNA,
+        'sistem_list': sorted({t.sistem for t in titik_list if t.sistem}),
+    })
+
+
+@login_required
+def api_ews(request):
+    """JSON: nilai ukur + status semua titik EWS. Dipanggil setiap 5 detik."""
+    return JsonResponse({
+        'data':     _ews_cached(),
+        'terputus': not mssql.is_reachable(),
+    })

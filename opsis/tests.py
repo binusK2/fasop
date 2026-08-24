@@ -12,9 +12,9 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import (KelompokPeta, ModePemeliharaan, Pembangkit, PrakiraanBeban,
-                     SnapLive)
-from . import hop_map, prakiraan, prediksi, views
+from .models import (KelompokPeta, KolomEWS, ModePemeliharaan, Pembangkit,
+                     PrakiraanBeban, SnapLive, TitikEWS)
+from . import hop_map, mssql, prakiraan, prediksi, views
 
 API_KEY = 'kunci-tes-prakiraan'
 
@@ -715,3 +715,263 @@ class KelompokPetaTest(TestCase):
         self.assertEqual((k['x'], k['y']), (15.11, 80.6))
         barru = next(p for p in ctx['pins'] if p['kode'] == 'BLUSU5')
         self.assertNotEqual((barru['x'], barru['y']), (15.11, 80.6))
+
+
+class TitikEWSAmbangTest(TestCase):
+    """Margin dan status titik EWS dihitung di model, bukan di JavaScript."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.kolom = KolomEWS.objects.create(nama='Tegangan')
+
+    def _titik(self, **kwargs):
+        data = dict(kolom=self.kolom, nama='GI Uji', skema='UVLS', besaran='v',
+                    nominal=150, setting=135, arah='bawah',
+                    sumber_tabel='dbo.UJI', sumber_kolom_nilai='VALUE',
+                    sumber_kolom_kunci='ANALOG', sumber_nilai_kunci='UJI')
+        data.update(kwargs)
+        return TitikEWS.objects.create(**data)
+
+    def test_margin_ambang_bawah_relatif_nominal(self):
+        t = self._titik()
+        self.assertAlmostEqual(t.margin(150), 0.1)
+        self.assertAlmostEqual(t.margin(135), 0.0)
+        self.assertAlmostEqual(t.margin(130), -1 / 30)
+
+    def test_margin_ambang_atas_berlawanan_arah(self):
+        t = self._titik(skema='OVTS', setting=165, arah='atas')
+        self.assertAlmostEqual(t.margin(150), 0.1)
+        self.assertAlmostEqual(t.margin(170), -1 / 30)
+
+    def test_margin_frekuensi_dalam_hz_absolut(self):
+        t = self._titik(besaran='f', nominal=50, setting=49.2, arah='bawah')
+        self.assertAlmostEqual(t.margin(50.0), 0.8)
+        self.assertAlmostEqual(t.margin(49.0), -0.2)
+
+    def test_margin_arus_relatif_setting(self):
+        t = self._titik(besaran='i', nominal=None, setting=200, arah='atas')
+        self.assertAlmostEqual(t.margin(100), 0.5)
+        self.assertAlmostEqual(t.margin(220), -0.1)
+
+    def test_status_lima_keadaan(self):
+        t = self._titik()
+        self.assertEqual(t.status(150), 'good')
+        self.assertEqual(t.status(139), 'warning')     # margin 2,67% < ambang 3%
+        self.assertEqual(t.status(135), 'critical')    # tepat di setting = sudah bekerja
+        self.assertEqual(t.status(130), 'critical')
+        self.assertEqual(t.status(None), 'plan')       # nilai belum terbaca
+
+    def test_status_rencana_dan_belum_termonitor_selalu_plan(self):
+        self.assertEqual(self._titik(status_skema='rencana').status(150), 'plan')
+        self.assertEqual(self._titik(sumber_tabel='').status(150), 'plan')
+
+    def test_status_unknown_bila_setting_belum_diisi(self):
+        t = self._titik(setting=None)
+        self.assertEqual(t.status(150), 'unknown')
+        self.assertIsNone(t.margin(150))
+
+    def test_ambang_waspada_bisa_ditimpa_per_titik(self):
+        self.assertEqual(self._titik().ambang(), 0.03)
+        self.assertEqual(self._titik(ambang_waspada=0.10).ambang(), 0.10)
+        # dengan ambang 10%, 139 kV (margin 2,67%) tetap waspada, 150 kV jadi good
+        t = self._titik(ambang_waspada=0.10)
+        self.assertEqual(t.status(146), 'warning')
+        self.assertEqual(t.status(150), 'good')
+
+    def test_satuan_bawaan_mengikuti_besaran(self):
+        self.assertEqual(self._titik().satuan_tampil, 'kV')
+        self.assertEqual(self._titik(besaran='f').satuan_tampil, 'Hz')
+        self.assertEqual(self._titik(besaran='i').satuan_tampil, 'A')
+        self.assertEqual(self._titik(satuan='MVAr').satuan_tampil, 'MVAr')
+
+    def test_spesifikasi_sumber_none_bila_belum_diarahkan(self):
+        self.assertIsNone(self._titik(sumber_tabel='').spesifikasi_sumber())
+        spec = self._titik().spesifikasi_sumber()
+        self.assertEqual(spec['tabel'], 'dbo.UJI')
+        self.assertEqual(spec['kolom_kunci'], 'ANALOG')
+        self.assertEqual(spec['faktor'], 1.0)
+
+
+class GetNilaiEWSTest(TestCase):
+    """
+    Pengelompokan query dan penjagaan identifier di mssql.get_nilai_ews().
+    Koneksi MSSQL diganti palsu supaya tes tidak butuh historian.
+    """
+
+    def setUp(self):
+        self.dijalankan = []          # (sql, params) tiap execute()
+        self.baris = {}               # nilai balikan per nilai kunci
+        uji = self
+
+        class KursorPalsu:
+            def __init__(self):
+                self._hasil = []
+
+            def execute(self, sql, params=None):
+                uji.dijalankan.append((' '.join(sql.split()), list(params or [])))
+                if params:
+                    self._hasil = [(k, uji.baris[k]) for k in params if k in uji.baris]
+                else:
+                    self._hasil = [(next(iter(uji.baris.values())),)] if uji.baris else []
+
+            def fetchall(self):
+                return self._hasil
+
+            def fetchone(self):
+                return self._hasil[0] if self._hasil else None
+
+        class KoneksiPalsu:
+            def cursor(self):
+                return KursorPalsu()
+
+            def close(self):
+                pass
+
+        self._asli = mssql._get_connection
+        mssql._get_connection = lambda: KoneksiPalsu()
+        self.addCleanup(lambda: setattr(mssql, '_get_connection', self._asli))
+
+    def _spec(self, pk, **kwargs):
+        spec = {'pk': pk, 'tabel': 'dbo.RT', 'kolom_nilai': 'VALUE',
+                'kolom_kunci': 'ANALOG', 'nilai_kunci': f'TAG{pk}', 'faktor': 1.0}
+        spec.update(kwargs)
+        return spec
+
+    @override_settings(MSSQL_HOST='127.0.0.1,1433')
+    def test_satu_query_untuk_banyak_titik_di_tabel_sama(self):
+        self.baris = {'TAG1': 10.0, 'TAG2': 20.0, 'TAG3': 30.0}
+        hasil = mssql.get_nilai_ews([self._spec(1), self._spec(2), self._spec(3)])
+        self.assertEqual(hasil, {1: 10.0, 2: 20.0, 3: 30.0})
+        self.assertEqual(len(self.dijalankan), 1)
+        sql, params = self.dijalankan[0]
+        self.assertIn('IN (?, ?, ?)', sql)
+        self.assertEqual(sorted(params), ['TAG1', 'TAG2', 'TAG3'])
+
+    @override_settings(MSSQL_HOST='127.0.0.1,1433')
+    def test_titik_yang_menunjuk_kunci_sama_ikut_terisi(self):
+        """Semua skema frekuensi satu sistem membaca satu titik ukur yang sama."""
+        self.baris = {'FREQ': 50.02}
+        hasil = mssql.get_nilai_ews([
+            self._spec(1, nilai_kunci='FREQ'),
+            self._spec(2, nilai_kunci='FREQ'),
+        ])
+        self.assertEqual(hasil, {1: 50.02, 2: 50.02})
+        self.assertEqual(len(self.dijalankan), 1)
+
+    @override_settings(MSSQL_HOST='127.0.0.1,1433')
+    def test_tabel_berbeda_dipisah_jadi_query_sendiri(self):
+        self.baris = {'TAG1': 1.0, 'TAG2': 2.0}
+        mssql.get_nilai_ews([self._spec(1), self._spec(2, tabel='dbo.LAIN')])
+        self.assertEqual(len(self.dijalankan), 2)
+
+    @override_settings(MSSQL_HOST='127.0.0.1,1433')
+    def test_faktor_skala_diterapkan(self):
+        self.baris = {'TAG1': 150000.0}
+        hasil = mssql.get_nilai_ews([self._spec(1, faktor=0.001)])
+        self.assertEqual(hasil[1], 150.0)
+
+    @override_settings(MSSQL_HOST='127.0.0.1,1433')
+    def test_kolom_kunci_kosong_membaca_baris_pertama(self):
+        self.baris = {'X': 49.98}
+        hasil = mssql.get_nilai_ews([self._spec(1, kolom_kunci='', nilai_kunci='')])
+        self.assertEqual(hasil[1], 49.98)
+        sql, params = self.dijalankan[0]
+        self.assertIn('SELECT TOP 1', sql)
+        self.assertEqual(params, [])
+
+    @override_settings(MSSQL_HOST='127.0.0.1,1433')
+    def test_identifier_berbahaya_tidak_pernah_masuk_query(self):
+        self.baris = {'TAG4': 7.0}
+        hasil = mssql.get_nilai_ews([
+            self._spec(1, tabel='dbo.X; DROP TABLE Y'),
+            self._spec(2, kolom_nilai='VALUE; DELETE FROM Z'),
+            self._spec(3, kolom_kunci='ANALOG OR 1=1'),
+            self._spec(4),
+        ])
+        self.assertEqual(hasil, {1: None, 2: None, 3: None, 4: 7.0})
+        semua_sql = ' '.join(sql for sql, _ in self.dijalankan)
+        for jahat in ('DROP TABLE', 'DELETE FROM', 'OR 1=1'):
+            self.assertNotIn(jahat, semua_sql)
+
+    @override_settings(MSSQL_HOST='127.0.0.1,1433')
+    def test_nilai_kunci_lewat_bind_parameter(self):
+        self.baris = {}
+        mssql.get_nilai_ews([self._spec(1, nilai_kunci="x' OR '1'='1")])
+        sql, params = self.dijalankan[0]
+        self.assertNotIn("OR '1'='1", sql)
+        self.assertEqual(params, ["x' OR '1'='1"])
+
+    @override_settings(MSSQL_HOST='')
+    def test_tanpa_mssql_host_kembalikan_none_tanpa_query(self):
+        hasil = mssql.get_nilai_ews([self._spec(1)])
+        self.assertEqual(hasil, {1: None})
+        self.assertEqual(self.dijalankan, [])
+
+    @override_settings(MSSQL_HOST='127.0.0.1,1433')
+    def test_koneksi_gagal_tidak_melempar_exception(self):
+        def gagal():
+            raise ConnectionError('historian mati')
+        mssql._get_connection = gagal
+        self.assertEqual(mssql.get_nilai_ews([self._spec(1)]), {1: None})
+
+
+class HalamanEWSTest(TestCase):
+    """Halaman & endpoint EWS tetap tampil meski MSSQL tidak tersedia."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_superuser('ews-user', 'ews@contoh.id', 'rahasia-tes-123')
+        # ForcePasswordChangeMiddleware mengalihkan user baru ke /ganti-password/
+        # sebelum sempat sampai ke halaman EWS (lihat KeteranganSumberDashboardTest).
+        profile = getattr(cls.user, 'profile', None)
+        if profile is not None:
+            profile.force_password_change = False
+            profile.save(update_fields=['force_password_change'])
+        cls.kolom = KolomEWS.objects.create(nama='Parameter Tegangan', urutan=1)
+        cls.kolom_mati = KolomEWS.objects.create(nama='Kolom Nonaktif', aktif=False)
+        cls.titik = TitikEWS.objects.create(
+            kolom=cls.kolom, nama='GI Uji', skema='UVLS', sistem='Sulbagsel',
+            besaran='v', nominal=150, setting=135, arah='bawah')
+        cls.titik_mati = TitikEWS.objects.create(
+            kolom=cls.kolom, nama='GI Nonaktif', skema='UVLS', aktif=False)
+        cls.titik_kolom_mati = TitikEWS.objects.create(
+            kolom=cls.kolom_mati, nama='GI Kolom Mati', skema='UVLS')
+
+    def setUp(self):
+        self.client.force_login(self.user)
+
+    @override_settings(MSSQL_HOST='')
+    def test_halaman_tampil_tanpa_mssql(self):
+        resp = self.client.get(reverse('opsis_ews'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, 'EWS Defense Scheme')
+        self.assertContains(resp, 'Parameter Tegangan')
+
+    @override_settings(MSSQL_HOST='')
+    def test_kolom_dan_titik_nonaktif_tidak_ikut(self):
+        resp = self.client.get(reverse('opsis_ews'))
+        self.assertEqual(resp.context['titik_count'], 1)
+        self.assertNotContains(resp, 'GI Nonaktif')
+        self.assertNotContains(resp, 'Kolom Nonaktif')
+
+    @override_settings(MSSQL_HOST='')
+    def test_kolom_tanpa_titik_tidak_digambar(self):
+        KolomEWS.objects.create(nama='Kolom Kosong')
+        resp = self.client.get(reverse('opsis_ews'))
+        self.assertNotContains(resp, 'Kolom Kosong')
+
+    @override_settings(MSSQL_HOST='')
+    def test_api_kembalikan_status_plan_saat_mssql_kosong(self):
+        resp = self.client.get(reverse('opsis_api_ews'))
+        self.assertEqual(resp.status_code, 200)
+        data = json.loads(resp.content)
+        self.assertTrue(data['terputus'])
+        self.assertEqual(data['data'][str(self.titik.pk)],
+                         {'nilai': None, 'status': 'plan', 'margin': None})
+
+    def test_butuh_login(self):
+        self.client.logout()
+        for nama in ('opsis_ews', 'opsis_api_ews'):
+            resp = self.client.get(reverse(nama))
+            self.assertEqual(resp.status_code, 302)
+            self.assertIn('/login', resp['Location'])
