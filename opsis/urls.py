@@ -19,6 +19,10 @@ urlpatterns = [
     path('api/hz-luwuk/',        views.api_hz_luwuk,    name='opsis_api_hz_luwuk'),
     path('api/ping/',            views.api_ping,     name='opsis_api_ping'),
     path('api/diagnose/',       views.api_diagnose, name='opsis_api_diagnose'),
+
+    # EWS Defense Scheme
+    path('ews/',                views.ews,          name='opsis_ews'),
+    path('api/ews/',            views.api_ews,      name='opsis_api_ews'),
     path('api/history/<int:pk>/', views.api_history,        name='opsis_api_history'),
     path('export/frekuensi/',     views.export_frekuensi,   name='opsis_export_frekuensi'),
     path('export/beban/',         views.export_beban,        name='opsis_export_beban'),

@@ -1,7 +1,9 @@
-from django.contrib import admin
+from django.contrib import admin, messages
+from . import mssql
 from .models import (Pembangkit, SnapLive, SnapUnit, SnapFreq, SnapFreqRT, SnapFreqArea,
                      Trafo, SnapTrafo, HopPembangkit, HopSnapshot,
-                     PrakiraanBeban, ModePemeliharaan, KelompokPeta)
+                     PrakiraanBeban, ModePemeliharaan, KelompokPeta,
+                     KolomEWS, TitikEWS)
 
 
 @admin.register(KelompokPeta)
@@ -238,3 +240,119 @@ class PrakiraanBebanAdmin(admin.ModelAdmin):
     list_filter    = ('sumber',)
     date_hierarchy = 'tanggal'
     ordering       = ('-tanggal', 'menit')
+
+
+# ── EWS Defense Scheme ───────────────────────────────────────────────────────
+
+@admin.register(KolomEWS)
+class KolomEWSAdmin(admin.ModelAdmin):
+    """Kolom parameter di halaman /opsis/ews/ — judul dan jumlahnya diatur di sini."""
+    list_display  = ('urutan', 'nama', 'warna', 'jumlah_titik', 'aktif')
+    list_editable = ('urutan', 'aktif')
+    list_display_links = ('nama',)
+    search_fields = ('nama',)
+
+    @admin.display(description='Jumlah Titik')
+    def jumlah_titik(self, obj):
+        return obj.titik.count()
+
+
+@admin.register(TitikEWS)
+class TitikEWSAdmin(admin.ModelAdmin):
+    """
+    Pendaftaran peralatan EWS: identitas skema, ambang setting relenya, dan
+    tabel/kolom MSSQL tempat nilai ukurnya dibaca. Tidak butuh migrasi —
+    menambah baris di sini langsung muncul di /opsis/ews/.
+    """
+    list_display  = ('nama', 'skema', 'sistem', 'kolom', 'setting_tampil',
+                     'status_skema', 'sumber_siap', 'urutan', 'aktif')
+    list_editable = ('urutan', 'aktif')
+    list_display_links = ('nama',)
+    list_filter   = ('kolom', 'besaran', 'skema', 'status_skema', 'sistem', 'aktif')
+    search_fields = ('nama', 'kode', 'nomor', 'target')
+    actions       = ('uji_baca_mssql', 'lihat_kolom_tabel')
+
+    fieldsets = (
+        ('Identitas Skema', {
+            'fields': ('kolom', 'nama', 'skema', ('sistem', 'subsistem'),
+                       ('nomor', 'kode'), 'target', 'time_delay',
+                       'status_skema', 'catatan', ('urutan', 'aktif')),
+        }),
+        ('Ambang Setting Rele', {
+            'description': 'Angka dari berkas Defense Scheme. Setting yang dikosongkan '
+                           'membuat kartu ditandai "setting belum diisi" — margin tidak '
+                           'dihitung, tapi titiknya tetap tampil.',
+            'fields': ('besaran', 'satuan', 'nominal', 'setting', 'arah', 'ambang_waspada'),
+        }),
+        ('Sumber Data Realtime (MSSQL)', {
+            'classes': ('collapse',),
+            'description': 'Arahkan titik ini ke nilai ukurnya di historian. Contoh: '
+                           'Tabel Sumber <code>dbo.KIT_REALTIME</code>, Kolom Nilai '
+                           '<code>VALUE</code>, Kolom Kunci <code>ANALOG</code>, Nilai Kunci '
+                           '<code>FREQ_MKS</code>. Belum tahu nama kolomnya? Pakai aksi '
+                           '"Lihat kolom tabel sumber" di daftar, atau jalankan '
+                           '<code>python manage.py probe_tabel_ews &lt;tabel&gt;</code>. '
+                           'Kosongkan Tabel Sumber bila titik ini memang belum termonitor.',
+            'fields': ('sumber_tabel', 'sumber_kolom_nilai',
+                       'sumber_kolom_kunci', 'sumber_nilai_kunci', 'faktor_skala'),
+        }),
+    )
+
+    @admin.display(description='Setting')
+    def setting_tampil(self, obj):
+        if obj.setting is None:
+            return '—'
+        return f'{obj.setting:g} {obj.satuan_tampil}'
+
+    @admin.display(boolean=True, description='Sumber MSSQL')
+    def sumber_siap(self, obj):
+        return obj.pakai_sumber
+
+    @admin.action(description='Uji baca nilai dari MSSQL')
+    def uji_baca_mssql(self, request, queryset):
+        """
+        Baca nilai titik terpilih sekarang juga. Ini yang menjawab "kenapa kartu
+        saya kosong" tanpa harus membuka log server.
+        """
+        titik = list(queryset)
+        specs = [s for s in (t.spesifikasi_sumber() for t in titik) if s]
+        if not specs:
+            self.message_user(request, 'Tidak ada titik terpilih yang sudah diisi '
+                                       'Tabel Sumber.', level=messages.WARNING)
+            return
+        nilai = mssql.get_nilai_ews(specs)
+        for t in titik:
+            if not t.pakai_sumber:
+                self.message_user(request, f'{t.nama}: belum diarahkan ke tabel MSSQL.',
+                                  level=messages.WARNING)
+                continue
+            v = nilai.get(t.pk)
+            if v is None:
+                self.message_user(
+                    request,
+                    f'{t.nama}: nilai tidak terbaca dari {t.sumber_tabel} '
+                    f'(cek nama kolom/nilai kunci, atau koneksi MSSQL).',
+                    level=messages.ERROR)
+            else:
+                self.message_user(
+                    request,
+                    f'{t.nama}: {v:g} {t.satuan_tampil} — status {t.status(v)}.',
+                    level=messages.SUCCESS)
+
+    @admin.action(description='Lihat kolom tabel sumber')
+    def lihat_kolom_tabel(self, request, queryset):
+        """Daftar kolom tabel sumber dari baris terpilih pertama yang sudah diisi."""
+        titik = next((t for t in queryset if t.pakai_sumber), None)
+        if titik is None:
+            self.message_user(request, 'Pilih minimal satu titik yang sudah diisi '
+                                       'Tabel Sumber.', level=messages.WARNING)
+            return
+        hasil = mssql.probe_tabel(titik.sumber_tabel)
+        if hasil.get('error'):
+            self.message_user(request, f"{hasil['tabel']}: {hasil['error']}",
+                              level=messages.ERROR)
+            return
+        self.message_user(
+            request,
+            f"{hasil['tabel']} — kolom: {', '.join(hasil['kolom']) or '(kosong)'}",
+            level=messages.INFO)

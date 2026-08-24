@@ -1,0 +1,437 @@
+{% extends 'opsis/opsis_base.html' %}
+{% block title %}EWS Defense Scheme{% endblock %}
+
+{% block extra_head %}
+<style>
+  :root {
+    --ews-track:  #1b2a44;
+    --ews-danger: #3a1c1c;
+    --ews-caution:#33280d;
+    --ews-plan:   #55534d;
+  }
+
+  .ews-head { display:flex; align-items:flex-start; justify-content:space-between;
+              flex-wrap:wrap; gap:12px; margin-bottom:14px; }
+  .ews-head h1 { font-size:19px; font-weight:700; margin:0 0 3px; }
+  .ews-head .sub { font-size:12px; color:var(--muted); margin:0; }
+  .ews-head-right { display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
+  .ews-clock { font-family:'JetBrains Mono',monospace; font-size:12.5px; color:var(--muted); }
+  .ews-pill { display:inline-flex; align-items:center; gap:6px; padding:6px 12px;
+              border-radius:999px; font-size:12.5px; font-weight:600; }
+  .ews-pill.good     { background:rgba(16,185,129,.14); color:var(--green); }
+  .ews-pill.warning  { background:rgba(245,158,11,.14); color:var(--yellow); }
+  .ews-pill.critical { background:rgba(239,68,68,.14);  color:var(--red); }
+
+  .ews-ctrl { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:12px; }
+  .ews-ctrl select, .ews-ctrl input[type=text] {
+      border:1px solid var(--card-bd); background:var(--card-bg); color:var(--text);
+      border-radius:7px; padding:6px 9px; font-size:12.5px; font-family:inherit; }
+  .ews-ctrl input[type=text] { min-width:230px; }
+  .ews-count { font-size:11.5px; color:var(--muted); margin-left:auto; }
+
+  .ews-offline { display:none; font-size:11.5px; color:var(--yellow);
+      background:rgba(245,158,11,.12); border-radius:8px; padding:8px 11px;
+      margin-bottom:12px; line-height:1.5; }
+  .ews-offline.show { display:block; }
+
+  .ews-cols { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; align-items:start; }
+  @media (max-width:1500px) { .ews-cols { grid-template-columns:repeat(2,1fr); } }
+  @media (max-width:1020px) { .ews-cols { grid-template-columns:1fr; } }
+  .ews-col { background:var(--card-bg); border:1px solid var(--card-bd); border-radius:12px;
+             padding:14px; display:flex; flex-direction:column; min-width:0; }
+  .ews-col-head { border-left:4px solid var(--ck); padding-left:10px; margin-bottom:10px; }
+  .ews-col-head h2 { font-size:15px; font-weight:700; margin:0 0 3px; }
+  .ews-col-head .what { font-size:11.5px; color:var(--muted); line-height:1.5; }
+  .ews-mini { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-bottom:10px; }
+  .ews-mini .m { border:1px solid var(--card-bd); border-radius:8px; padding:7px 8px; text-align:center; }
+  .ews-mini .n { font-family:'JetBrains Mono',monospace; font-size:17px; font-weight:700; line-height:1.1; }
+  .ews-mini .l { font-size:9.5px; color:var(--muted); margin-top:2px; line-height:1.25; }
+
+  .ews-list { display:flex; flex-direction:column; gap:3px; max-height:1180px;
+              overflow-y:auto; padding-right:4px; }
+  .ews-empty { padding:24px; text-align:center; color:var(--muted); font-size:11.5px; }
+
+  .ews-item { border:1px solid transparent; border-radius:9px; padding:8px 9px; cursor:pointer; }
+  .ews-item:hover { background:rgba(255,255,255,.03); }
+  .ews-item.open  { background:rgba(255,255,255,.04); border-color:var(--card-bd); }
+  .ews-item.plan  { opacity:.62; }
+  .ews-it-top { display:flex; align-items:flex-start; justify-content:space-between;
+                gap:8px; margin-bottom:6px; }
+  .ews-it-name { font-size:12px; font-weight:600; line-height:1.35; min-width:0; }
+  .ews-it-name .meta { display:block; font-size:10px; color:var(--muted); font-weight:500; margin-top:1px; }
+  .ews-tag { font-size:9.5px; font-weight:700; padding:2px 6px; border-radius:5px;
+             border:1px solid currentColor; white-space:nowrap; display:inline-flex;
+             align-items:center; gap:4px; flex:none; }
+  .ews-tag .sw { width:6px; height:6px; border-radius:2px; background:currentColor; }
+
+  .ews-track { position:relative; height:19px; border-radius:5px;
+               background:var(--ews-track); overflow:hidden; }
+  .ews-band { position:absolute; top:0; bottom:0; }
+  .ews-band.danger  { background:var(--ews-danger); }
+  .ews-band.caution { background:var(--ews-caution); }
+  .ews-fill { position:absolute; top:5px; bottom:5px; border-radius:3px; opacity:.42;
+              transition:left .5s, width .5s; }
+  .ews-fill.good{background:var(--green)} .ews-fill.warning{background:var(--yellow)}
+  .ews-fill.critical{background:var(--red)}
+  .ews-needle { position:absolute; top:2px; bottom:2px; width:5px; border-radius:3px;
+                margin-left:-2.5px; box-shadow:0 0 0 2px var(--card-bg);
+                transition:left .5s, background .3s; }
+  .ews-needle.good{background:var(--green)} .ews-needle.warning{background:var(--yellow)}
+  .ews-needle.critical{background:var(--red)}
+  .ews-tick { position:absolute; top:0; bottom:0; width:2px; }
+  .ews-tick.set { background:var(--red); }
+  .ews-tick.nom { background:#475569; }
+  .ews-scale { position:relative; height:12px; margin-top:1px; }
+  .ews-tick-lab { position:absolute; font-size:9px; color:var(--muted); white-space:nowrap;
+                  font-family:'JetBrains Mono',monospace; transform:translateX(-50%); }
+  .ews-noset { position:absolute; inset:0; display:flex; align-items:center;
+               justify-content:center; font-size:9.5px; font-weight:600; color:var(--red);
+               text-align:center; padding:0 4px;
+               background:repeating-linear-gradient(45deg,transparent,transparent 5px,
+                          var(--ews-danger) 5px,var(--ews-danger) 10px); }
+
+  .ews-it-bot { display:flex; align-items:baseline; justify-content:space-between;
+                gap:8px; margin-top:5px; }
+  .ews-val { font-family:'JetBrains Mono',monospace; font-size:14px; font-weight:700; white-space:nowrap; }
+  .ews-val .u { font-size:9.5px; color:var(--muted); margin-left:2px; font-weight:600; }
+  .ews-val.na { font-family:'DM Sans',sans-serif; font-size:10.5px; color:var(--muted); font-weight:600; }
+  .ews-mar { font-size:10px; color:var(--muted); font-family:'JetBrains Mono',monospace; margin-left:6px; }
+  .ews-chip { display:inline-flex; align-items:center; gap:4px; font-size:9.5px; font-weight:700;
+              padding:3px 7px; border-radius:999px; white-space:nowrap; flex:none; }
+  .ews-chip svg { width:10px; height:10px; flex:none; }
+  .ews-chip.good     { background:rgba(16,185,129,.14); color:var(--green); }
+  .ews-chip.warning  { background:rgba(245,158,11,.14); color:var(--yellow); }
+  .ews-chip.critical { background:rgba(239,68,68,.14);  color:var(--red); }
+  .ews-chip.unknown  { background:rgba(239,68,68,.14);  color:var(--red); }
+  .ews-chip.plan     { background:rgba(148,163,184,.12); color:var(--muted); }
+
+  .ews-detail { margin-top:8px; padding-top:8px; border-top:1px dashed var(--card-bd);
+                font-size:11px; color:var(--muted); line-height:1.6; }
+  .ews-detail b { color:var(--text); font-weight:600; }
+  .ews-detail .fl { color:var(--red); font-weight:600; display:block; margin-top:4px; }
+
+  .ews-legend { display:flex; gap:12px; flex-wrap:wrap; font-size:10.5px; color:var(--muted);
+                margin-top:10px; padding-top:9px; border-top:1px solid var(--card-bd); }
+  .ews-legend span.i { display:flex; align-items:center; gap:5px; }
+  .ews-legend .sw { width:11px; height:11px; border-radius:3px; }
+  .ews-legend .ln { width:2px; height:12px; }
+  .ews-note { margin-top:14px; font-size:11.5px; color:var(--muted); line-height:1.65; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="ews-head">
+  <div>
+    <h1>EWS Defense Scheme</h1>
+    <p class="sub">Jarak nilai ukur realtime terhadap ambang setting rele defense scheme.
+       Peralatan, ambang setting, dan sumber datanya didaftarkan lewat
+       <em>Admin &rsaquo; Opsis &rsaquo; Titik EWS</em>.</p>
+  </div>
+  <div class="ews-head-right">
+    <span id="ewsClock" class="ews-clock"></span>
+    <span id="ewsPill" class="ews-pill good">&mdash;</span>
+  </div>
+</div>
+
+<div class="ews-ctrl">
+  <select id="ewsStatus">
+    <option value="all">Semua status</option>
+    <option value="critical">Melewati setting</option>
+    <option value="warning">Waspada</option>
+    <option value="good">Normal</option>
+    <option value="unknown">Setting belum diisi</option>
+    <option value="plan">Belum termonitor</option>
+  </select>
+  <select id="ewsSistem">
+    <option value="all">Semua sistem</option>
+    {% for s in sistem_list %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+  </select>
+  <input type="text" id="ewsCari" placeholder="Cari nama GI / skema / target&hellip;">
+  <span class="ews-count" id="ewsCount">&mdash;</span>
+</div>
+
+<div class="ews-offline" id="ewsOffline">
+  &#9888; Koneksi ke historian SCADA terputus &mdash; nilai ukur di bawah ini tidak sedang diperbarui.
+</div>
+
+{% if kolom_list %}
+<div class="ews-cols" id="ewsCols">
+  {% for k in kolom_list %}
+  <div class="ews-col" style="--ck:{{ k.warna }}" data-kolom="{{ k.pk }}">
+    <div class="ews-col-head">
+      <h2>{{ k.nama }}</h2>
+      {% if k.keterangan %}<div class="what">{{ k.keterangan }}</div>{% endif %}
+    </div>
+    <div class="ews-mini">
+      <div class="m"><div class="n" data-c="good"     style="color:var(--green)">0</div><div class="l">Normal</div></div>
+      <div class="m"><div class="n" data-c="warning"  style="color:var(--yellow)">0</div><div class="l">Waspada</div></div>
+      <div class="m"><div class="n" data-c="critical" style="color:var(--red)">0</div><div class="l">Melewati<br>setting</div></div>
+      <div class="m"><div class="n" data-c="belum"    style="color:var(--muted)">0</div><div class="l">Belum<br>terpantau</div></div>
+    </div>
+    <div class="ews-list"></div>
+    <div class="ews-legend">
+      <span class="i"><span class="sw" style="background:var(--green)"></span>Normal</span>
+      <span class="i"><span class="sw" style="background:var(--yellow)"></span>Waspada</span>
+      <span class="i"><span class="sw" style="background:var(--red)"></span>Melewati setting</span>
+      <span class="i"><span class="ln" style="background:var(--red)"></span>Ambang</span>
+      <span class="i"><span class="sw" style="background:var(--ews-danger)"></span>Zona kerja</span>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="ews-col">
+  <div class="ews-empty">
+    Belum ada titik EWS yang terdaftar.<br>
+    Tambahkan lewat <b>Admin &rsaquo; Opsis &rsaquo; Kolom EWS</b> lalu <b>Titik EWS</b>.
+  </div>
+</div>
+{% endif %}
+
+<p class="ews-note">
+  Status dihitung dari selisih nilai ukur terhadap setting rele: <b>Melewati setting</b> bila
+  nilainya sudah menembus ambang, <b>Waspada</b> bila marginnya lebih kecil dari ambang waspada
+  titik tersebut (bawaan 3% Vn untuk tegangan, 0,15 Hz untuk frekuensi, 5% I Set untuk arus,
+  10% ambang untuk daya &mdash; bisa ditimpa per titik dari admin).
+  Titik yang belum diarahkan ke tabel MSSQL tampil sebagai <b>belum termonitor</b>;
+  yang settingnya belum tercantum di berkas sumber tampil sebagai <b>setting belum diisi</b>.
+</p>
+
+{{ konfig|json_script:"ews-konfig" }}
+{{ skema_warna|json_script:"ews-warna" }}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+"use strict";
+
+const KONFIG = JSON.parse(document.getElementById('ews-konfig').textContent);
+const WARNA  = JSON.parse(document.getElementById('ews-warna').textContent);
+
+const LABEL = {good:'Normal', warning:'Waspada', critical:'Melewati Setting',
+                unknown:'Setting Belum Ada', plan:'Belum Termonitor'};
+const IKON = {
+  good:'<svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.4" stroke="currentColor" stroke-width="1.6"/><path d="M5.2 8.2l1.8 1.8 3.8-4.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  warning:'<svg viewBox="0 0 16 16" fill="none"><path d="M8 2.2l6.3 11H1.7L8 2.2z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M8 6.6v3.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="11.6" r=".9" fill="currentColor"/></svg>',
+  critical:'<svg viewBox="0 0 16 16" fill="none"><path d="M5.2 1.5h5.6L14.5 5.2v5.6L10.8 14.5H5.2L1.5 10.8V5.2L5.2 1.5z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M8 5.4v3.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="10.4" r=".9" fill="currentColor"/></svg>',
+  unknown:'<svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.4" stroke="currentColor" stroke-width="1.5"/><path d="M6.2 6.2c.2-1 1-1.6 1.9-1.6 1 0 1.8.7 1.8 1.6 0 1.3-1.7 1.4-1.8 2.7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="11.4" r=".9" fill="currentColor"/></svg>',
+  plan:'<svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.4" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2.6 2.2"/></svg>'
+};
+const PERINGKAT = {critical:0, unknown:1, warning:2, good:3, plan:4};
+
+let NILAI = {};      // pk -> {nilai, status, margin}
+let terbuka = null;  // pk kartu yang panel detailnya terbuka
+
+/* ---------- format ---------- */
+function desimal(c) {
+  if (c.besaran === 'f') return 2;
+  if (c.besaran === 'i') return (c.setting !== null && c.setting >= 500) ? 0 : 1;
+  return 1;
+}
+function teksMargin(c, m) {
+  if (m === null || m === undefined) return '—';
+  const awalan = m <= 0 ? '' : 'margin ';
+  if (c.besaran === 'f') return awalan + m.toFixed(2) + ' Hz';
+  if (c.besaran === 'v') return awalan + (m * 100).toFixed(1) + '% Vn';
+  if (c.besaran === 'p') return awalan + (m * 100).toFixed(0) + '% ambang';
+  return awalan + (m * 100).toFixed(0) + '% I Set';
+}
+function skala(c) {
+  if (c.besaran === 'v') { const n = c.nominal || c.setting || 100; return [n * 0.86, n * 1.14]; }
+  if (c.besaran === 'f') { const n = c.nominal || 50; return [n - 2.5, n + 2.5]; }
+  return [0, (c.setting || 100) * 1.45];
+}
+const esc = s => String(s === null || s === undefined ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+/* ---------- bar ambang ---------- */
+function bar(c, v, s) {
+  if (c.setting === null || c.setting === undefined) {
+    return '<div class="ews-track"><div class="ews-noset">Setting belum diisi</div></div>' +
+           '<div class="ews-scale"></div>';
+  }
+  const [lo, hi] = skala(c), rentang = hi - lo || 1;
+  const P = x => Math.max(0, Math.min(100, ((x - lo) / rentang) * 100));
+  const pS = P(c.setting);
+  const pN = (c.nominal !== null && c.nominal !== undefined) ? P(c.nominal) : null;
+  const bahaya = c.arah === 'bawah' ? `left:0;width:${pS}%` : `left:${pS}%;right:0`;
+
+  // lebar band waspada dinyatakan dalam satuan sumbu, mengikuti ambang titik ini
+  const refWaspada = c.besaran === 'v' ? c.ambang * (c.nominal || c.setting)
+                   : c.besaran === 'f' ? c.ambang
+                   : c.ambang * c.setting;
+  const lw = (refWaspada / rentang) * 100;
+  const hati = c.arah === 'bawah' ? `left:${pS}%;width:${lw}%`
+                                  : `left:${Math.max(0, pS - lw)}%;width:${lw}%`;
+
+  let tengah = '';
+  if (v !== null && v !== undefined) {
+    const pV = P(v), jangkar = pN !== null ? pN : 0;
+    tengah = `<div class="ews-fill ${s}" style="left:${Math.min(pV, jangkar)}%;` +
+             `width:${Math.abs(pV - jangkar)}%"></div>` +
+             `<div class="ews-needle ${s}" style="left:${pV}%"></div>`;
+  }
+  const d = desimal(c);
+  return `<div class="ews-track">
+      <div class="ews-band danger" style="${bahaya}"></div>
+      <div class="ews-band caution" style="${hati}"></div>
+      ${tengah}
+      ${pN !== null ? `<div class="ews-tick nom" style="left:${pN}%"></div>` : ''}
+      <div class="ews-tick set" style="left:${pS}%"></div>
+    </div>
+    <div class="ews-scale">
+      <span class="ews-tick-lab" style="left:0;transform:none">${lo.toFixed(d === 2 ? 1 : 0)}</span>
+      <span class="ews-tick-lab" style="left:${pS}%;color:var(--red);font-weight:700">${c.setting.toFixed(d)} ${esc(c.satuan)}</span>
+      ${pN !== null && Math.abs(pN - pS) > 16 ? `<span class="ews-tick-lab" style="left:${pN}%">${c.nominal}</span>` : ''}
+      <span class="ews-tick-lab" style="left:100%;transform:translateX(-100%)">${hi.toFixed(d === 2 ? 1 : 0)}</span>
+    </div>`;
+}
+
+/* ---------- kartu ---------- */
+function kartu(pk, c, n) {
+  const v = n.nilai, s = n.status, m = n.margin, d = desimal(c);
+  const buka = (pk === terbuka);
+  const meta = [c.sistem, c.nomor ? 'No. ' + c.nomor : '', c.kode ? 'kode ' + c.kode : '']
+      .filter(Boolean).map(esc).join(' &middot; ');
+  const nonaktif = c.status_skema === 'nonaktif'
+      ? ' &middot; <span style="color:var(--yellow);font-weight:600">skema tidak aktif</span>' : '';
+
+  const nilaiHtml = (v !== null && v !== undefined)
+      ? `<span class="ews-val">${v.toFixed(d)}<span class="u">${esc(c.satuan)}</span></span>`
+      : `<span class="ews-val na">${c.termonitor ? 'nilai tidak terbaca' : 'belum ada telemetri'}</span>`;
+
+  let detail = '';
+  if (buka) {
+    const setTxt = (c.setting !== null && c.setting !== undefined)
+        ? `${c.setting} ${esc(c.satuan)}` +
+          (c.besaran === 'v' && c.nominal ? ` (${(c.setting / c.nominal).toFixed(3)} &times; Vn)` : '')
+        : 'belum diisi';
+    const statusTxt = c.status_skema === 'aktif' ? 'Terpasang &amp; Aktif'
+                    : c.status_skema === 'nonaktif' ? 'Terpasang, Tidak Aktif' : 'Rencana';
+    detail = `<div class="ews-detail">
+        <b>Setting:</b> ${setTxt}${c.td ? ` &middot; <b>td:</b> ${esc(c.td)}` : ''}<br>
+        <b>Arah kerja:</b> ${c.arah === 'bawah' ? 'ambang bawah' : 'ambang atas'}` +
+        `${c.nominal ? ` &middot; <b>Nominal:</b> ${c.nominal} ${esc(c.satuan)}` : ''}<br>
+        ${c.target ? `<b>Target:</b> ${esc(c.target)}<br>` : ''}
+        <b>Status skema:</b> ${statusTxt}
+        ${!c.termonitor ? '<br><b>Sumber data:</b> belum diarahkan ke tabel MSSQL' : ''}
+        ${c.catatan.length ? `<span class="fl">&#9873; ${c.catatan.map(esc).join(' &middot; ')}</span>` : ''}
+      </div>`;
+  }
+
+  return `<div class="ews-item${buka ? ' open' : ''}${c.status_skema === 'rencana' ? ' plan' : ''}" data-pk="${pk}">
+      <div class="ews-it-top">
+        <span class="ews-it-name">${esc(c.nama)}<span class="meta">${meta}${nonaktif}</span></span>
+        <span class="ews-tag" style="color:${WARNA[c.skema] || 'var(--muted)'}"><span class="sw"></span>${esc(c.skema)}</span>
+      </div>
+      ${bar(c, v, s)}
+      <div class="ews-it-bot">
+        <span>${nilaiHtml}<span class="ews-mar">${teksMargin(c, m)}</span></span>
+        <span class="ews-chip ${s}">${IKON[s]}${LABEL[s]}</span>
+      </div>
+      ${detail}
+    </div>`;
+}
+
+/* ---------- render ---------- */
+function lolosFilter(c) {
+  const st = document.getElementById('ewsStatus').value;
+  const si = document.getElementById('ewsSistem').value;
+  const q  = document.getElementById('ewsCari').value.trim().toLowerCase();
+  const s  = (NILAI[c._pk] || {}).status || 'plan';
+  if (st !== 'all' && s !== st) return false;
+  if (si !== 'all' && c.sistem !== si) return false;
+  if (!q) return true;
+  return (c.nama + ' ' + c.skema + ' ' + c.target).toLowerCase().includes(q);
+}
+
+function render() {
+  let ditampilkan = 0, total = 0;
+  const global = {good:0, warning:0, critical:0, unknown:0, plan:0};
+
+  document.querySelectorAll('.ews-col').forEach(kol => {
+    const kid = parseInt(kol.dataset.kolom, 10);
+    const hitung = {good:0, warning:0, critical:0, unknown:0, plan:0};
+    const baris = [];
+
+    Object.keys(KONFIG).forEach(pk => {
+      const c = KONFIG[pk];
+      if (c.kolom !== kid) return;
+      c._pk = pk;
+      const n = NILAI[pk] || {nilai:null, status:'plan', margin:null};
+      hitung[n.status] = (hitung[n.status] || 0) + 1;
+      global[n.status] = (global[n.status] || 0) + 1;
+      total++;
+      if (lolosFilter(c)) baris.push({pk, c, n});
+    });
+
+    baris.sort((a, b) =>
+      (PERINGKAT[a.n.status] - PERINGKAT[b.n.status]) ||
+      ((a.n.margin === null ? 9 : a.n.margin) - (b.n.margin === null ? 9 : b.n.margin)) ||
+      a.c.nama.localeCompare(b.c.nama));
+    ditampilkan += baris.length;
+
+    kol.querySelectorAll('.ews-mini .n').forEach(el => {
+      const k = el.dataset.c;
+      el.textContent = k === 'belum' ? (hitung.plan + hitung.unknown) : hitung[k];
+    });
+    // Simpan & pulihkan posisi scroll: daftar ini digambar ulang tiap 5 detik,
+    // tanpa ini pembaca yang sedang menelusuri kolom panjang selalu dilempar
+    // kembali ke atas.
+    const daftar = kol.querySelector('.ews-list');
+    const posisi = daftar.scrollTop;
+    daftar.innerHTML = baris.length
+      ? baris.map(b => kartu(b.pk, b.c, b.n)).join('')
+      : '<div class="ews-empty">Tidak ada titik yang cocok dengan filter.</div>';
+    daftar.scrollTop = posisi;
+  });
+
+  document.getElementById('ewsCount').textContent =
+      `${ditampilkan} dari ${total} titik ditampilkan`;
+
+  const pill = document.getElementById('ewsPill');
+  if (global.critical) {
+    pill.className = 'ews-pill critical';
+    pill.textContent = `● ${global.critical} melewati setting · ${global.warning} waspada`;
+  } else if (global.warning) {
+    pill.className = 'ews-pill warning';
+    pill.textContent = `● ${global.warning} waspada`;
+  } else {
+    pill.className = 'ews-pill good';
+    pill.textContent = '● Seluruh margin aman';
+  }
+}
+
+/* ---------- interaksi & polling ---------- */
+document.addEventListener('click', e => {
+  const item = e.target.closest('.ews-item');
+  if (!item) return;
+  terbuka = (terbuka === item.dataset.pk) ? null : item.dataset.pk;
+  render();
+});
+['ewsStatus', 'ewsSistem', 'ewsCari'].forEach(id =>
+  document.getElementById(id).addEventListener('input', render));
+
+async function poll() {
+  try {
+    const resp = await fetch('/opsis/api/ews/');
+    if (!resp.ok) return;
+    const json = await resp.json();
+    NILAI = json.data || {};
+    document.getElementById('ewsOffline').classList.toggle('show', !!json.terputus);
+    render();
+  } catch (e) {}
+}
+
+function jam() {
+  document.getElementById('ewsClock').textContent =
+    new Date().toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit', second:'2-digit'}) + ' WITA';
+}
+
+render(); jam(); poll();
+setInterval(jam, 1000);
+setInterval(poll, 5000);
+})();
+</script>
+{% endblock %}

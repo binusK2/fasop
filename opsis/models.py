@@ -667,3 +667,250 @@ class ModePemeliharaan(models.Model):
             return cache['obj']
         cls._cache = {'obj': obj, 'ts': now}
         return obj
+
+
+# ── EWS Defense Scheme ───────────────────────────────────────────────────────
+#
+# Halaman /opsis/ews/ membandingkan nilai ukur realtime dengan ambang setting
+# rele defense scheme. Seluruh isinya berasal dari database — kolom parameter
+# (KolomEWS) maupun titiknya (TitikEWS) didaftarkan lewat site admin, termasuk
+# tabel/kolom MSSQL tempat nilai ukurnya dibaca. Tidak ada nama tabel/kolom
+# yang di-hardcode di kode, jadi menambah skema baru tidak butuh migrasi.
+
+SKEMA_CHOICES = [
+    ('UVLS',   'UVLS — Under Voltage Load Shedding'),
+    ('OVTS',   'OVTS — Over Voltage Transmission Shedding'),
+    ('OVCS',   'OVCS — Over Voltage Capacitor Switching'),
+    ('UVRS',   'UVRS — Under Voltage Reactor Switching'),
+    ('OFGS',   'OFGS — Over Frequency Generator Shedding'),
+    ('UFLS',   'UFLS — Under Frequency Load Shedding'),
+    ('OLS',    'OLS — Over Load Shedding'),
+    ('OGS',    'OGS — Over Generation Shedding'),
+    ('ADS',    'ADS — Anti Discharge Scheme'),
+    ('UPLS',   'UPLS — Under Power Load Shedding'),
+    ('ISLAND', 'ISLAND — Islanding Scheme'),
+]
+
+# Warna tag per jenis skema. Sama seperti JENIS_WARNA: ini satu-satunya
+# definisi, view mengirimnya ke template lewat json_script.
+SKEMA_WARNA = {
+    'UVLS':   '#3987e5',
+    'OVTS':   '#d95926',
+    'OVCS':   '#199e70',
+    'UVRS':   '#9085e9',
+    'OFGS':   '#d95926',
+    'UFLS':   '#3987e5',
+    'OLS':    '#199e70',
+    'OGS':    '#c98500',
+    'ADS':    '#c98500',
+    'UPLS':   '#d55181',
+    'ISLAND': '#9085e9',
+}
+
+BESARAN_CHOICES = [
+    ('v', 'Tegangan (kV)'),
+    ('f', 'Frekuensi (Hz)'),
+    ('i', 'Arus (A)'),
+    ('p', 'Daya (MW)'),
+]
+
+SATUAN_DEFAULT = {'v': 'kV', 'f': 'Hz', 'i': 'A', 'p': 'MW'}
+
+# Ambang "waspada" bawaan per besaran — seberapa dekat ke setting sebelum
+# kartu berubah kuning. Tegangan/arus/daya dalam pecahan (3% = 0.03), frekuensi
+# dalam Hz absolut. Bisa ditimpa per titik lewat TitikEWS.ambang_waspada.
+AMBANG_WASPADA_DEFAULT = {'v': 0.03, 'f': 0.15, 'i': 0.05, 'p': 0.10}
+
+ARAH_CHOICES = [
+    ('bawah', 'Ambang bawah — skema bekerja saat nilai turun melewati setting'),
+    ('atas',  'Ambang atas — skema bekerja saat nilai naik melewati setting'),
+]
+
+STATUS_SKEMA_CHOICES = [
+    ('aktif',    'Terpasang & Aktif'),
+    ('nonaktif', 'Terpasang, Tidak Aktif'),
+    ('rencana',  'Rencana'),
+]
+
+
+class KolomEWS(models.Model):
+    """
+    Satu kolom parameter di halaman EWS (mis. Tegangan / Frekuensi / Sensing
+    Lainnya). Jumlah dan judul kolom ditentukan dari admin, bukan dari kode —
+    itulah yang membuat halamannya bisa dipakai ulang untuk pengelompokan lain.
+    """
+    nama       = models.CharField(max_length=100, verbose_name='Nama Kolom')
+    keterangan = models.TextField(
+        blank=True, default='', verbose_name='Keterangan',
+        help_text='Teks kecil di bawah judul kolom — menjelaskan skema apa saja '
+                  'yang masuk kolom ini.')
+    warna      = models.CharField(
+        max_length=20, default='#3987e5', verbose_name='Warna Aksen',
+        help_text='Kode warna garis di kiri judul kolom, mis. #3987e5.')
+    urutan     = models.PositiveIntegerField(default=0, verbose_name='Urutan Tampil')
+    aktif      = models.BooleanField(default=True, verbose_name='Aktif')
+
+    class Meta:
+        ordering = ['urutan', 'nama']
+        verbose_name = 'Kolom EWS'
+        verbose_name_plural = 'Kolom EWS'
+
+    def __str__(self):
+        return self.nama
+
+
+class TitikEWS(models.Model):
+    """
+    Satu skema defense scheme yang dipantau: identitas dari berkas Defense
+    Scheme, ambang setting relenya, dan penunjuk ke nilai ukur realtime di
+    MSSQL.
+
+    Sumber data (field 'sumber_*') mengikuti bentuk yang sama dengan
+    opsis.Trafo.sumber_* — nama tabel dan kolom diisi dari admin, lalu
+    divalidasi regex di opsis.mssql.get_nilai_ews() sebelum masuk ke SQL.
+    Selama 'sumber_tabel' kosong, titik ini tampil sebagai "belum termonitor".
+    """
+    kolom        = models.ForeignKey(
+        KolomEWS, on_delete=models.PROTECT, related_name='titik',
+        verbose_name='Kolom Parameter')
+    nama         = models.CharField(max_length=150, verbose_name='Nama Titik / Lokasi Rele')
+    skema        = models.CharField(max_length=10, choices=SKEMA_CHOICES, verbose_name='Jenis Skema')
+    sistem       = models.CharField(
+        max_length=50, default='Sulbagsel', verbose_name='Sistem',
+        help_text='Mis. Sulbagsel / BauBau / Luwuk. Dipakai sebagai filter di halaman EWS.')
+    subsistem    = models.CharField(max_length=50, blank=True, default='', verbose_name='Subsistem')
+    nomor        = models.CharField(max_length=10, blank=True, default='', verbose_name='No. Berkas')
+    kode         = models.CharField(max_length=20, blank=True, default='', verbose_name='Kode Skema')
+    target       = models.TextField(
+        blank=True, default='', verbose_name='Target Kerja',
+        help_text='Beban/pembangkit yang dilepas saat skema bekerja.')
+    time_delay   = models.CharField(max_length=30, blank=True, default='', verbose_name='Time Delay')
+    status_skema = models.CharField(
+        max_length=10, choices=STATUS_SKEMA_CHOICES, default='aktif', verbose_name='Status Skema')
+    catatan      = models.TextField(
+        blank=True, default='', verbose_name='Catatan / Ketidaksesuaian',
+        help_text='Satu catatan per baris. Ditampilkan bertanda bendera di panel detail.')
+    urutan       = models.PositiveIntegerField(default=0, verbose_name='Urutan Tampil')
+    aktif        = models.BooleanField(default=True, verbose_name='Aktif')
+
+    besaran        = models.CharField(
+        max_length=2, choices=BESARAN_CHOICES, default='v', verbose_name='Besaran Ukur')
+    satuan         = models.CharField(
+        max_length=10, blank=True, default='', verbose_name='Satuan',
+        help_text='Kosongkan untuk memakai satuan bawaan besaran (kV/Hz/A/MW).')
+    nominal        = models.FloatField(
+        null=True, blank=True, verbose_name='Nilai Nominal',
+        help_text='Mis. 150 untuk bus 150 kV, 50 untuk frekuensi. Kosongkan untuk arus.')
+    setting        = models.FloatField(
+        null=True, blank=True, verbose_name='Setting Rele',
+        help_text='Vset/Fset/Iset. Kosongkan bila belum tercantum — kartu ditandai '
+                  '"setting belum diisi" dan margin tidak dihitung.')
+    arah           = models.CharField(
+        max_length=5, choices=ARAH_CHOICES, default='bawah', verbose_name='Arah Kerja')
+    ambang_waspada = models.FloatField(
+        null=True, blank=True, verbose_name='Ambang Waspada',
+        help_text='Kosongkan untuk memakai bawaan: 3% Vn (tegangan), 0,15 Hz (frekuensi), '
+                  '5% I Set (arus), 10% ambang (daya). Tegangan/arus/daya diisi dalam '
+                  'pecahan (0.03 = 3%), frekuensi dalam Hz.')
+
+    sumber_tabel       = models.CharField(
+        max_length=100, blank=True, default='', verbose_name='Tabel Sumber (MSSQL)',
+        help_text='Kosongkan bila titik ini belum termonitor. Contoh: dbo.KIT_REALTIME')
+    sumber_kolom_nilai = models.CharField(
+        max_length=50, blank=True, default='VALUE', verbose_name='Kolom Nilai',
+        help_text='Kolom berisi angka yang dibaca. Umumnya VALUE.')
+    sumber_kolom_kunci = models.CharField(
+        max_length=50, blank=True, default='', verbose_name='Kolom Kunci',
+        help_text='Kolom penanda titik, mis. ANALOG atau KIT. Kosongkan bila tabelnya '
+                  'hanya berisi satu baris (nilai diambil dari baris pertama).')
+    sumber_nilai_kunci = models.CharField(
+        max_length=100, blank=True, default='', verbose_name='Nilai Kunci',
+        help_text='Nilai yang dicari pada Kolom Kunci, mis. FREQ_MKS.')
+    faktor_skala       = models.FloatField(
+        default=1.0, verbose_name='Faktor Skala',
+        help_text='Nilai MSSQL dikalikan angka ini. Mis. 0.001 bila historian menyimpan '
+                  'Volt sementara halaman menampilkan kV.')
+
+    class Meta:
+        ordering = ['kolom__urutan', 'urutan', 'nama']
+        verbose_name = 'Titik EWS'
+        verbose_name_plural = 'Titik EWS'
+
+    def __str__(self):
+        return f'{self.skema} — {self.nama}'
+
+    @property
+    def satuan_tampil(self):
+        return self.satuan.strip() or SATUAN_DEFAULT.get(self.besaran, '')
+
+    @property
+    def pakai_sumber(self):
+        """True bila titik ini sudah diarahkan ke sebuah tabel MSSQL."""
+        return bool(self.sumber_tabel.strip())
+
+    def spesifikasi_sumber(self):
+        """
+        Spesifikasi untuk opsis.mssql.get_nilai_ews(). None bila titik ini
+        belum diarahkan ke tabel mana pun.
+        """
+        if not self.pakai_sumber:
+            return None
+        return {
+            'pk':          self.pk,
+            'tabel':       self.sumber_tabel.strip(),
+            'kolom_nilai': (self.sumber_kolom_nilai or 'VALUE').strip(),
+            'kolom_kunci': self.sumber_kolom_kunci.strip(),
+            'nilai_kunci': self.sumber_nilai_kunci.strip(),
+            'faktor':      self.faktor_skala if self.faktor_skala is not None else 1.0,
+        }
+
+    def ambang(self):
+        """Ambang waspada efektif titik ini."""
+        if self.ambang_waspada is not None:
+            return self.ambang_waspada
+        return AMBANG_WASPADA_DEFAULT.get(self.besaran, 0.05)
+
+    def margin(self, nilai):
+        """
+        Jarak nilai ukur ke setting, dinormalkan supaya bisa dibandingkan antar
+        titik: pecahan terhadap nominal (tegangan) atau terhadap setting
+        (arus/daya), dan Hz absolut untuk frekuensi. Negatif berarti sudah
+        melewati setting. None bila nilai atau settingnya belum ada.
+        """
+        if nilai is None or self.setting is None:
+            return None
+        if self.besaran == 'v':
+            ref = self.nominal or self.setting
+        elif self.besaran == 'f':
+            ref = 1
+        else:
+            ref = self.setting
+        if not ref:
+            return None
+        if self.arah == 'bawah':
+            return (nilai - self.setting) / ref
+        return (self.setting - nilai) / ref
+
+    def status(self, nilai):
+        """
+        Status kartu, dihitung di sini (bukan di JavaScript) supaya API dan
+        pemakai lain — termasuk alerting nanti — memakai aturan yang sama.
+
+        plan     rencana, belum diarahkan ke MSSQL, atau nilainya belum terbaca
+        unknown  setting rele belum diisi, margin tidak bisa dihitung
+        critical nilai sudah melewati setting
+        warning  margin lebih kecil dari ambang waspada
+        good     aman
+        """
+        if self.status_skema == 'rencana' or not self.pakai_sumber or nilai is None:
+            return 'plan'
+        if self.setting is None:
+            return 'unknown'
+        m = self.margin(nilai)
+        if m is None:
+            return 'unknown'
+        if m <= 0:
+            return 'critical'
+        if m < self.ambang():
+            return 'warning'
+        return 'good'

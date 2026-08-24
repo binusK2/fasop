@@ -56,7 +56,7 @@ Each of the 15 `INSTALLED_APPS` Django apps follows a standard layout (`models.p
 | `devices/` | Core asset inventory (Device, FiberOptic, SiteLocation), dashboard, wiring diagram editor, device audit trail (DeviceLog/DeviceEvent), single-session + login auditing (`signals.py`) |
 | `maintenance/` | Preventive/corrective maintenance, Berita Acara (BA), digital signature workflow, PDF export (WeasyPrint, `pdf_weasy.py`) |
 | `gangguan/` | Fault ticket CRUD, status workflow, public status page (token-based, no login) |
-| `opsis/` | Real-time power monitoring dashboard, MSSQL historian, data collection cron commands |
+| `opsis/` | Real-time power monitoring dashboard, MSSQL historian, data collection cron commands; EWS Defense Scheme (`/opsis/ews/`) — margin nilai ukur realtime terhadap ambang setting rele, peralatan & pemetaan tabel/kolom MSSQL-nya didaftarkan dari Admin (lihat "OPSIS — EWS Defense Scheme") |
 | `health_index/` | Equipment health scoring (0–100), computed (not stored) from 9 weighted factors |
 | `inspection/` | Inservice inspection for Operator role, plus the daily-results page (`/inspection/harian/`) and its Excel archive — column schema per equipment type lives in `inspection/laporan.py` |
 | `gudang/` | Warehouse / spare parts inventory; stock level is computed from `MutasiSparepart`, not a stored field |
@@ -166,6 +166,8 @@ Roles are stored in `UserProfile` (ForeignKey to User). Middleware enforces rout
 | `cek_kinerja_ofdb` | up2bmakassar | Diagnosa read-only — koneksi OFDB, induk point type yang ketemu, jumlah titik per jenis, lama query harian, dan jumlah baris tersimpan |
 | `export_inspeksi_harian` | inspection | Cron, harian 12.00 — tulis laporan Excel hasil inspeksi hari itu ke `INSPEKSI_EXPORT_DIR` (`<dir>/<YYYY-MM>/Inspeksi_Harian_<tgl>.xlsx`); `--tanggal`, `--days` (tulis ulang N hari terakhir), `--dir`, `--dry-run` |
 | `sync_zabbix` | device_mon | Cron, every 2-5 min — pull host/problem status via Zabbix API (JSON-RPC) → `ZabbixHost`/`ZabbixEventLog`; complements the `/device-mon/zabbix/webhook/` push path; supports `--dry-run` |
+| `probe_tabel_ews` | opsis | Diagnosa read-only — daftar kolom + baris contoh sebuah tabel MSSQL, untuk memetakan `TitikEWS.sumber_*` |
+| `seed_ews` | opsis | One-off, idempotent — isi kolom & 93 titik EWS Defense Scheme dari berkas DS UP2B Makassar 2026 (tanpa pemetaan MSSQL); `--dry-run`, `--perbarui` |
 
 ---
 
@@ -486,6 +488,59 @@ akan pindah sendiri begitu halaman dimuat ulang.
 Warna per jenis pembangkit hidup di `opsis.models.JENIS_WARNA` dan dikirim ke
 template lewat `json_script`. Jangan menyalin dict warna itu ke dalam `<script>`
 template baru.
+
+---
+
+## OPSIS — EWS Defense Scheme (`/opsis/ews/`)
+
+Halaman peringatan dini yang menunjukkan **jarak nilai ukur realtime terhadap
+ambang setting rele defense scheme** (UVLS, OVTS, OVCS, UVRS, OFGS, UFLS, OLS,
+OGS, ADS, UPLS, ISLAND) — supaya skema yang mendekati ambang kerjanya terlihat
+sebelum skema itu benar-benar bekerja.
+
+Seluruh isinya **data, bukan kode**: kolom parameter (`opsis.KolomEWS`) dan
+titiknya (`opsis.TitikEWS`) didaftarkan lewat site admin — termasuk tabel dan
+kolom MSSQL tempat nilai ukurnya dibaca. Menambah skema baru **tidak perlu
+migrasi maupun redeploy**, sama seperti menambah Pembangkit. Isi awal 93 titik
+dari berkas *Defense Scheme UP2B Makassar 2026.xlsx* dipasang dengan
+`python manage.py seed_ews` (idempotent).
+
+**Pemetaan ke MSSQL: tabel + kolom nilai + kolom kunci + nilai kunci.** Bentuknya
+sengaja sama dengan `opsis.Trafo.sumber_*` — mis. `dbo.SYS_FREQ_RT` / `VALUE` /
+`ANALOG` / `FREQ_MKS`. `faktor_skala` mengubah satuan (0.001 bila historian
+menyimpan Volt sementara halaman menampilkan kV). Kolom kunci yang dikosongkan
+berarti tabelnya hanya satu baris (`SELECT TOP 1`). `sumber_tabel` kosong =
+titik tampil "belum termonitor", bukan error.
+
+Yang perlu diketahui saat mengubahnya:
+
+- **`get_nilai_ews()` mengelompokkan titik per `(tabel, kolom_kunci, kolom_nilai)`
+  dan menembak SATU query `IN (...)` per kelompok.** Jangan diubah jadi satu
+  query per titik: 93 titik pada 2 tabel harus tetap 2 query tiap poll, bukan 93.
+  Pola per-titik inilah yang dulu membuat sinkronisasi OFDB praktis tidak selesai
+  (lihat "Kinerja SCADATEL"). Kunci di-chunk 200 per query (batas 2100 parameter
+  SQL Server).
+- **Nama tabel/kolom datang dari input admin, jadi tidak bisa jadi bind parameter.**
+  Semuanya divalidasi `_TABLE_RE`/`_COLUMN_RE` dulu dan kelompok yang tidak lolos
+  dilewati dengan `logger.error` tanpa pernah menyentuh SQL; **nilai** kunci tetap
+  lewat `?`. Aturan ini wajib diikuti kalau menambah field sumber baru.
+- **Margin dan status dihitung di `TitikEWS.margin()`/`.status()` (Python), bukan
+  di JavaScript.** Template hanya menggambar. Kalau nanti ditambah blast WhatsApp,
+  alert dan tampilan otomatis memakai aturan yang sama — jangan menyalin ulang
+  perhitungannya ke `<script>`.
+- Margin dinormalkan agar bisa diurutkan lintas besaran: pecahan terhadap nominal
+  (tegangan), Hz absolut (frekuensi), pecahan terhadap setting (arus/daya).
+  Ambang waspada bawaan ada di `AMBANG_WASPADA_DEFAULT`, bisa ditimpa per titik.
+- `/opsis/api/ews/` dibungkus `_hz_cached('ews', ...)` TTL 2 detik sementara
+  browser memoll tiap 5 detik — satu query per worker walau banyak tab terbuka.
+  Ini penjaga yang sama dengan endpoint Hz; jangan dilepas.
+- Warna tag skema hidup di `opsis.models.SKEMA_WARNA` dan dikirim ke template
+  lewat `json_script`. Jangan menyalin dict itu ke `<script>` template baru.
+
+Belum tahu nama kolom sebuah tabel historian? `python manage.py probe_tabel_ews
+dbo.KIT_REALTIME` menampilkan daftar kolom + baris contoh. Dari admin, aksi
+**"Lihat kolom tabel sumber"** dan **"Uji baca nilai dari MSSQL"** (Opsis → Titik
+EWS) menjawab "kenapa kartu saya kosong" tanpa membuka log server.
 
 ---
 
