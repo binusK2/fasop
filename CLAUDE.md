@@ -537,6 +537,18 @@ Yang perlu diketahui saat mengubahnya:
 - Warna tag skema hidup di `opsis.models.SKEMA_WARNA` dan dikirim ke template
   lewat `json_script`. Jangan menyalin dict itu ke `<script>` template baru.
 
+**Ambang setting disunting langsung dari kartu, pemetaan MSSQL tidak.** Tombol
+pensil di kartu (`/opsis/ews/simpan/`) membuka isian setting/nominal/arah/ambang
+waspada/time delay untuk **teknisi (`role='technician'`) dan superuser** —
+setting rele berubah di lapangan tanpa harus menunggu akses site admin. Field
+`sumber_*` sengaja **tidak** ada di endpoint itu: salah ketik nama tabel tidak
+boleh bisa terjadi dari layar monitoring, jadi mengarahkan titik ke historian
+tetap hanya lewat site admin. Endpoint menerima koma desimal (`133,5`) karena
+begitulah operator mengetik, dan setiap perubahan dicatat ke `auditlog` lengkap
+dengan nilai lama → baru. Saat sebuah kartu sedang disunting, kolomnya tidak
+digambar ulang oleh polling — kalau aturan itu dilepas, isian dan fokus kursor
+akan terhapus tiap 5 detik di tengah pengetikan.
+
 Belum tahu nama kolom sebuah tabel historian? `python manage.py probe_tabel_ews
 dbo.KIT_REALTIME` menampilkan daftar kolom + baris contoh. Dari admin, aksi
 **"Lihat kolom tabel sumber"** dan **"Uji baca nilai dari MSSQL"** (Opsis → Titik

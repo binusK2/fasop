@@ -12,7 +12,9 @@ from django.urls import reverse
 from .models import (Pembangkit, SnapLive, SnapFreq, SnapFreqRT, Trafo, SnapTrafo,
                      HopPembangkit, HopSnapshot, HOP_KATEGORI_CHOICES, JENIS_CHOICES,
                      JENIS_WARNA, KelompokPeta, hop_status, hop_deskripsi_band,
-                     hop_garis_ambang, KolomEWS, TitikEWS, SKEMA_WARNA)
+                     hop_garis_ambang, KolomEWS, TitikEWS, SKEMA_WARNA, ARAH_CHOICES)
+from auditlog.models import AuditLog
+from auditlog.utils import log_action
 from . import mssql
 from . import prediksi
 from . import hop as hop_io
@@ -2089,6 +2091,7 @@ def ews(request):
     return render(request, 'opsis/ews.html', {
         'kolom_list':  kolom_list,
         'titik_count': len(titik_list),
+        'bisa_edit':   _bisa_edit_ews(request.user),
         'konfig':      konfig,
         'skema_warna': SKEMA_WARNA,
         'sistem_list': sorted({t.sistem for t in titik_list if t.sistem}),
@@ -2102,3 +2105,122 @@ def api_ews(request):
         'data':     _ews_cached(),
         'terputus': not mssql.is_reachable(),
     })
+
+
+def _bisa_edit_ews(user):
+    """
+    Siapa yang boleh mengubah ambang setting langsung dari kartu EWS.
+
+    Teknisi karena merekalah yang tahu setting rele di lapangan berubah, dan
+    superuser. Pemetaan ke tabel MSSQL sengaja TIDAK ikut di sini — itu tetap
+    hanya lewat site admin.
+    """
+    return user.is_superuser or getattr(getattr(user, 'profile', None), 'role', '') == 'technician'
+
+
+def _angka_ews(nilai, label, boleh_kosong=True):
+    """
+    Baca satu angka dari payload JSON. Return (nilai, galat) — persis satu di
+    antaranya None. String kosong/None dianggap "dikosongkan".
+    """
+    if nilai is None or (isinstance(nilai, str) and not nilai.strip()):
+        if boleh_kosong:
+            return None, None
+        return None, f'{label} tidak boleh kosong.'
+    try:
+        return float(str(nilai).replace(',', '.')), None
+    except (TypeError, ValueError):
+        return None, f'{label} harus berupa angka.'
+
+
+@login_required
+def ews_simpan(request):
+    """
+    Simpan perubahan ambang setting satu titik EWS dari kartunya.
+
+    Field yang boleh diubah di sini hanya blok "Ambang Setting Rele" plus time
+    delay. Field sumber_* (tabel/kolom MSSQL) TIDAK bisa disentuh lewat endpoint
+    ini — mengarahkan titik ke historian tetap lewat site admin, supaya salah
+    ketik nama tabel tidak bisa terjadi dari layar monitoring.
+
+    Pola sama dengan peta_simpan(): gerbang peran → gerbang metode → gerbang
+    JSON → validasi seluruhnya dulu → baru menulis.
+    """
+    if not _bisa_edit_ews(request.user):
+        return JsonResponse({'ok': False, 'error': 'Tidak berwenang mengubah setting.'}, status=403)
+    if request.method != 'POST':
+        return JsonResponse({'ok': False, 'error': 'Harus POST.'}, status=405)
+    try:
+        data = json.loads(request.body.decode('utf-8'))
+    except (ValueError, UnicodeDecodeError):
+        return JsonResponse({'ok': False, 'error': 'Data tidak terbaca.'}, status=400)
+
+    try:
+        pk = int(data.get('pk'))
+    except (TypeError, ValueError):
+        return JsonResponse({'ok': False, 'error': 'Titik tidak dikenali.'}, status=400)
+
+    titik = TitikEWS.objects.filter(pk=pk).select_related('kolom').first()
+    if titik is None:
+        return JsonResponse({'ok': False, 'error': 'Titik tidak ditemukan.'}, status=404)
+
+    baru = {}
+
+    for field, label in (('setting', 'Setting rele'), ('nominal', 'Nilai nominal'),
+                         ('ambang_waspada', 'Ambang waspada')):
+        if field not in data:
+            continue
+        nilai, galat = _angka_ews(data.get(field), label)
+        if galat:
+            return JsonResponse({'ok': False, 'error': galat}, status=400)
+        baru[field] = nilai
+
+    if baru.get('ambang_waspada') is not None and baru['ambang_waspada'] <= 0:
+        return JsonResponse({'ok': False, 'error': 'Ambang waspada harus lebih besar dari 0.'},
+                            status=400)
+
+    if 'arah' in data:
+        arah = str(data.get('arah') or '').strip()
+        if arah not in dict(ARAH_CHOICES):
+            return JsonResponse({'ok': False, 'error': 'Arah kerja tidak dikenali.'}, status=400)
+        baru['arah'] = arah
+
+    if 'time_delay' in data:
+        td = str(data.get('time_delay') or '').strip()
+        if len(td) > 30:
+            return JsonResponse({'ok': False, 'error': 'Time delay maksimal 30 karakter.'},
+                                status=400)
+        baru['time_delay'] = td
+
+    if not baru:
+        return JsonResponse({'ok': False, 'error': 'Tidak ada perubahan.'}, status=400)
+
+    # Catat nilai lama sebelum ditimpa — perubahan ambang rele harus bisa
+    # ditelusuri siapa yang mengubah dan dari berapa ke berapa.
+    perubahan = [f'{f}: {getattr(titik, f)} → {v}'
+                 for f, v in baru.items() if getattr(titik, f) != v]
+    if not perubahan:
+        return JsonResponse({'ok': True, 'berubah': False, 'titik': _ews_ringkas(titik)})
+
+    for field, nilai in baru.items():
+        setattr(titik, field, nilai)
+    titik.save(update_fields=list(baru.keys()))
+
+    log_action(request, AuditLog.UPDATE, 'opsis', 'TitikEWS',
+               object_id=titik.pk, object_repr=str(titik),
+               detail='Ubah ambang setting dari kartu EWS — ' + '; '.join(perubahan))
+
+    return JsonResponse({'ok': True, 'berubah': True, 'titik': _ews_ringkas(titik)})
+
+
+def _ews_ringkas(titik):
+    """Potongan konfigurasi satu titik, bentuknya sama dengan isi json_script."""
+    return {
+        'setting':        titik.setting,
+        'nominal':        titik.nominal,
+        'arah':           titik.arah,
+        'ambang':         titik.ambang(),
+        'ambang_waspada': titik.ambang_waspada,
+        'td':             titik.time_delay,
+        'satuan':         titik.satuan_tampil,
+    }

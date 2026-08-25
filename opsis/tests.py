@@ -15,6 +15,7 @@ from django.utils import timezone
 from .models import (KelompokPeta, KolomEWS, ModePemeliharaan, Pembangkit,
                      PrakiraanBeban, SnapLive, TitikEWS)
 from . import hop_map, mssql, prakiraan, prediksi, views
+from auditlog.models import AuditLog
 
 API_KEY = 'kunci-tes-prakiraan'
 
@@ -975,3 +976,165 @@ class HalamanEWSTest(TestCase):
             resp = self.client.get(reverse(nama))
             self.assertEqual(resp.status_code, 302)
             self.assertIn('/login', resp['Location'])
+
+
+class EWSSuntingKartuTest(TestCase):
+    """
+    Sunting ambang setting langsung dari kartu EWS: siapa yang boleh, apa yang
+    divalidasi, dan apa yang TIDAK boleh ikut berubah dari sini.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.kolom = KolomEWS.objects.create(nama='Tegangan')
+        cls.titik = TitikEWS.objects.create(
+            kolom=cls.kolom, nama='GI Uji', skema='UVLS', sistem='Sulbagsel',
+            besaran='v', nominal=150, setting=135, arah='bawah', time_delay='1 s',
+            sumber_tabel='dbo.RT', sumber_kolom_nilai='VALUE',
+            sumber_kolom_kunci='ANALOG', sumber_nilai_kunci='TAG')
+
+    def _user(self, nama, role=None, super_=False):
+        if super_:
+            u = User.objects.create_superuser(nama, f'{nama}@contoh.id', 'rahasia-tes-123')
+        else:
+            u = User.objects.create_user(nama, f'{nama}@contoh.id', 'rahasia-tes-123')
+        profile = getattr(u, 'profile', None)
+        if profile is not None:
+            profile.force_password_change = False
+            if role:
+                profile.role = role
+            profile.save()
+        return u
+
+    def _simpan(self, muatan):
+        return self.client.post(reverse('opsis_ews_simpan'),
+                                data=json.dumps(muatan), content_type='application/json')
+
+    # ---- izin --------------------------------------------------------------
+
+    def test_teknisi_boleh_menyimpan(self):
+        self.client.force_login(self._user('tek', role='technician'))
+        r = self._simpan({'pk': self.titik.pk, 'setting': '133.5'})
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(json.loads(r.content)['ok'])
+        self.titik.refresh_from_db()
+        self.assertEqual(self.titik.setting, 133.5)
+
+    def test_superuser_boleh_menyimpan(self):
+        self.client.force_login(self._user('adm', super_=True))
+        r = self._simpan({'pk': self.titik.pk, 'setting': '134'})
+        self.assertEqual(r.status_code, 200)
+
+    def test_viewer_ditolak(self):
+        self.client.force_login(self._user('lihat', role='viewer'))
+        r = self._simpan({'pk': self.titik.pk, 'setting': '100'})
+        self.assertEqual(r.status_code, 403)
+        self.titik.refresh_from_db()
+        self.assertEqual(self.titik.setting, 135)      # tidak berubah
+
+    def test_anonim_dialihkan_ke_login(self):
+        r = self._simpan({'pk': self.titik.pk, 'setting': '100'})
+        self.assertEqual(r.status_code, 302)
+        self.assertIn('/login', r['Location'])
+
+    def test_tombol_pensil_hanya_untuk_yang_berwenang(self):
+        self.client.force_login(self._user('tek2', role='technician'))
+        self.assertTrue(self.client.get(reverse('opsis_ews')).context['bisa_edit'])
+        self.client.force_login(self._user('lihat2', role='viewer'))
+        resp = self.client.get(reverse('opsis_ews'))
+        self.assertFalse(resp.context['bisa_edit'])
+        # Nama 'ewsCsrf' selalu ada di dalam JS dan base template punya token
+        # sendiri untuk form logout, jadi yang dicek elemen formulirnya.
+        self.assertNotContains(resp, 'id="ewsCsrf"')
+        self.assertContains(resp, 'id="ews-bisa-edit"')
+
+    # ---- batas kewenangan --------------------------------------------------
+
+    def test_pemetaan_mssql_tidak_bisa_diubah_dari_kartu(self):
+        """Field sumber_* hanya lewat site admin — payload nakal harus diabaikan."""
+        self.client.force_login(self._user('tek3', role='technician'))
+        r = self._simpan({
+            'pk': self.titik.pk, 'setting': '130',
+            'sumber_tabel': 'dbo.JAHAT', 'sumber_kolom_kunci': 'X',
+            'sumber_nilai_kunci': 'Y', 'faktor_skala': 99,
+        })
+        self.assertEqual(r.status_code, 200)
+        self.titik.refresh_from_db()
+        self.assertEqual(self.titik.setting, 130)          # yang boleh, berubah
+        self.assertEqual(self.titik.sumber_tabel, 'dbo.RT')  # yang tidak boleh, utuh
+        self.assertEqual(self.titik.sumber_kolom_kunci, 'ANALOG')
+        self.assertEqual(self.titik.sumber_nilai_kunci, 'TAG')
+        self.assertEqual(self.titik.faktor_skala, 1.0)
+
+    # ---- validasi ----------------------------------------------------------
+
+    def test_metode_selain_post_ditolak(self):
+        self.client.force_login(self._user('tek4', role='technician'))
+        self.assertEqual(self.client.get(reverse('opsis_ews_simpan')).status_code, 405)
+
+    def test_json_rusak_ditolak(self):
+        self.client.force_login(self._user('tek5', role='technician'))
+        r = self.client.post(reverse('opsis_ews_simpan'), data='bukan json',
+                             content_type='application/json')
+        self.assertEqual(r.status_code, 400)
+
+    def test_titik_tidak_ada_ditolak(self):
+        self.client.force_login(self._user('tek6', role='technician'))
+        self.assertEqual(self._simpan({'pk': 999999, 'setting': '1'}).status_code, 404)
+
+    def test_nilai_bukan_angka_ditolak(self):
+        self.client.force_login(self._user('tek7', role='technician'))
+        r = self._simpan({'pk': self.titik.pk, 'setting': 'seratus'})
+        self.assertEqual(r.status_code, 400)
+        self.assertIn('angka', json.loads(r.content)['error'])
+        self.titik.refresh_from_db()
+        self.assertEqual(self.titik.setting, 135)
+
+    def test_arah_tidak_dikenal_ditolak(self):
+        self.client.force_login(self._user('tek8', role='technician'))
+        self.assertEqual(self._simpan({'pk': self.titik.pk, 'arah': 'miring'}).status_code, 400)
+
+    def test_ambang_waspada_harus_positif(self):
+        self.client.force_login(self._user('tek9', role='technician'))
+        self.assertEqual(self._simpan({'pk': self.titik.pk, 'ambang_waspada': '0'}).status_code, 400)
+        self.assertEqual(self._simpan({'pk': self.titik.pk, 'ambang_waspada': '-1'}).status_code, 400)
+
+    def test_koma_desimal_diterima(self):
+        """Operator lapangan terbiasa mengetik 133,5 — jangan ditolak."""
+        self.client.force_login(self._user('tek10', role='technician'))
+        r = self._simpan({'pk': self.titik.pk, 'setting': '133,5'})
+        self.assertEqual(r.status_code, 200)
+        self.titik.refresh_from_db()
+        self.assertEqual(self.titik.setting, 133.5)
+
+    def test_setting_boleh_dikosongkan(self):
+        self.client.force_login(self._user('tek11', role='technician'))
+        r = self._simpan({'pk': self.titik.pk, 'setting': ''})
+        self.assertEqual(r.status_code, 200)
+        self.titik.refresh_from_db()
+        self.assertIsNone(self.titik.setting)
+
+    def test_time_delay_kepanjangan_ditolak(self):
+        self.client.force_login(self._user('tek12', role='technician'))
+        self.assertEqual(
+            self._simpan({'pk': self.titik.pk, 'time_delay': 'x' * 31}).status_code, 400)
+
+    # ---- jejak audit -------------------------------------------------------
+
+    def test_perubahan_tercatat_di_auditlog(self):
+        self.client.force_login(self._user('tek13', role='technician'))
+        self._simpan({'pk': self.titik.pk, 'setting': '130', 'arah': 'atas'})
+        entri = AuditLog.objects.filter(model_name='TitikEWS').order_by('-id').first()
+        self.assertIsNotNone(entri)
+        self.assertEqual(entri.action, AuditLog.UPDATE)
+        self.assertIn('135.0', entri.detail)     # nilai lama ikut tercatat
+        self.assertIn('130.0', entri.detail)     # dan nilai barunya
+        self.assertIn('arah', entri.detail)
+
+    def test_tanpa_perubahan_tidak_menulis_auditlog(self):
+        self.client.force_login(self._user('tek14', role='technician'))
+        awal = AuditLog.objects.filter(model_name='TitikEWS').count()
+        r = self._simpan({'pk': self.titik.pk, 'setting': '135'})   # sama seperti sekarang
+        self.assertEqual(r.status_code, 200)
+        self.assertFalse(json.loads(r.content)['berubah'])
+        self.assertEqual(AuditLog.objects.filter(model_name='TitikEWS').count(), awal)

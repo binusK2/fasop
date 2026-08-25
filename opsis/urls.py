@@ -23,6 +23,7 @@ urlpatterns = [
     # EWS Defense Scheme
     path('ews/',                views.ews,          name='opsis_ews'),
     path('api/ews/',            views.api_ews,      name='opsis_api_ews'),
+    path('ews/simpan/',         views.ews_simpan,   name='opsis_ews_simpan'),
     path('api/history/<int:pk>/', views.api_history,        name='opsis_api_history'),
     path('export/frekuensi/',     views.export_frekuensi,   name='opsis_export_frekuensi'),
     path('export/beban/',         views.export_beban,        name='opsis_export_beban'),
