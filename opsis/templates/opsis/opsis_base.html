@@ -334,6 +334,10 @@ body { font-family:'DM Sans', sans-serif; background:var(--body-bg); color:var(-
             <i class="bi bi-shield-exclamation sb-icon"></i>
             <span class="sb-label">EWS Defense Scheme</span>
         </a>
+        <a href="/opsis/sumber-data/" class="sb-link {% if request.resolver_match.url_name == 'opsis_sumber_data' %}active{% endif %}">
+            <i class="bi bi-diagram-2 sb-icon"></i>
+            <span class="sb-label">Peta Sumber Data</span>
+        </a>
         {% endif %}
         <a href="/opsis/up2d/" class="sb-link {% if request.resolver_match.url_name == 'opsis_up2d' %}active{% endif %}">
             <i class="bi bi-diagram-3-fill sb-icon"></i>

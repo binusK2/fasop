@@ -14,7 +14,7 @@ from django.utils import timezone
 
 from .models import (KelompokPeta, KolomEWS, ModePemeliharaan, Pembangkit,
                      PrakiraanBeban, SnapFreq, SnapFreqRT, SnapLive, TitikEWS)
-from . import freq_history, hop_map, mssql, prakiraan, prediksi, views
+from . import freq_history, hop_map, mssql, prakiraan, prediksi, sumber_data, views
 from auditlog.models import AuditLog
 
 API_KEY = 'kunci-tes-prakiraan'
@@ -1469,3 +1469,65 @@ class CekArmadaKitTest(TestCase):
         keluaran = StringIO()
         call_command('cek_armada_kit', stdout=keluaran, stderr=StringIO())
         self.assertIn('ZZZTEST', keluaran.getvalue())
+
+
+class PetaSumberDataTest(TestCase):
+    """Peta sumber data: klasifikasi kesegaran & urutan lapisan."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_superuser('sd', 'sd@contoh.id', 'rahasia-tes-123')
+        profile = getattr(cls.user, 'profile', None)
+        if profile is not None:
+            profile.force_password_change = False
+            profile.save(update_fields=['force_password_change'])
+
+    def setUp(self):
+        self.client.force_login(self.user)
+
+    @override_settings(MSSQL_HOST='')
+    def test_halaman_tampil_tanpa_mssql(self):
+        resp = self.client.get(reverse('opsis_sumber_data'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, 'Peta Sumber Data')
+        self.assertContains(resp, 'dbo.KIT_REALTIME')
+
+    @override_settings(MSSQL_HOST='')
+    def test_lapisan_terurut_agar_regroup_tidak_pecah(self):
+        """{% regroup %} hanya menggabungkan yang berurutan — urutan wajib rapi."""
+        from itertools import groupby
+        hasil = sumber_data.periksa_semua(dengan_mssql=False)
+        urut = [k for k, _ in groupby(b['lapis'] for b in hasil)]
+        self.assertEqual(urut, sorted(set(urut), key=lambda x: sumber_data.LAPIS_URUT[x]))
+        self.assertEqual(len(urut), len(set(urut)))     # tiap lapis muncul sekali
+
+    def test_status_segar_telat_mati(self):
+        sekarang = timezone.now()
+        self.assertEqual(sumber_data._status_dari_waktu(sekarang)[0], 'segar')
+        self.assertEqual(
+            sumber_data._status_dari_waktu(sekarang - datetime.timedelta(hours=2))[0], 'telat')
+        self.assertEqual(
+            sumber_data._status_dari_waktu(sekarang - datetime.timedelta(days=3))[0], 'mati')
+        self.assertEqual(sumber_data._status_dari_waktu(None)[0], 'kosong')
+
+    @override_settings(MSSQL_HOST='')
+    def test_setiap_entri_punya_kolom_wajib(self):
+        for b in sumber_data.periksa_semua(dengan_mssql=False):
+            for kunci in ('fitur', 'lapis', 'sumber', 'diisi', 'periksa'):
+                self.assertIn(kunci, b, f'{b.get("sumber")} kehilangan {kunci}')
+
+    def test_postgres_kosong_dilaporkan_kosong(self):
+        hasil = {b['sumber']: b['periksa'] for b in sumber_data.periksa_semua(dengan_mssql=False)}
+        self.assertEqual(hasil['opsis.SnapLive']['status'], 'kosong')
+
+    def test_postgres_terisi_dilaporkan_segar(self):
+        kit = Pembangkit.objects.create(kode='SDX', nama='PLTU Sumber Data')
+        SnapLive.objects.create(pembangkit=kit, waktu=timezone.now(), mw=1.0)
+        hasil = {b['sumber']: b['periksa'] for b in sumber_data.periksa_semua(dengan_mssql=False)}
+        self.assertEqual(hasil['opsis.SnapLive']['status'], 'segar')
+
+    def test_butuh_login(self):
+        self.client.logout()
+        resp = self.client.get(reverse('opsis_sumber_data'))
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn('/login', resp['Location'])

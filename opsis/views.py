@@ -2446,3 +2446,23 @@ def export_beban_pembangkit(request):
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     wb.save(response)
     return response
+
+
+@login_required
+def sumber_data(request):
+    """
+    Peta sumber data OPSIS — fitur mana membaca tabel/database mana, siapa yang
+    mengisinya, dan kapan terakhir terisi.
+
+    Halaman ini ada karena OPSIS menarik angka dari belasan tempat sekaligus;
+    tanpa peta, "angka ini dari mana" tidak terjawab dan sumber yang mati bisa
+    berhari-hari tidak ketahuan.
+    """
+    from opsis import sumber_data as SD
+    hasil = SD.periksa_semua()
+    return render(request, 'opsis/sumber_data.html', {
+        'hasil':    hasil,
+        'ringkas':  SD.ringkas(hasil),
+        'segar_menit': SD.SEGAR_MENIT,
+        'telat_jam':   SD.TELAT_JAM,
+    })
