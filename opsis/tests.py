@@ -13,7 +13,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from .models import (KelompokPeta, KolomEWS, ModePemeliharaan, Pembangkit,
-                     PrakiraanBeban, SnapLive, SnapFreqRT, TitikEWS)
+                     PrakiraanBeban, SnapFreq, SnapFreqRT, SnapLive, TitikEWS)
 from . import freq_history, hop_map, mssql, prakiraan, prediksi, views
 from auditlog.models import AuditLog
 
@@ -1250,7 +1250,50 @@ class FreqHistoryGabunganTest(TestCase):
         _, info = freq_history.ambil_range_detail(self.t0, self.t1)
         teks = freq_history.keterangan(info)
         self.assertIn('Historian SCADA', teks)
-        self.assertIn('1 detik ditambal', teks)
+        self.assertIn('1 detik', teks)
+
+    # ---- sumber ketiga: SnapFreq (cermin historian di PostgreSQL) ----------
+
+    def _snapfreq(self, pasangan):
+        """Isi opsis.SnapFreq — cermin SYS_FREQ_HIS yang diisi cron collect_freq."""
+        for d, hz in pasangan:
+            SnapFreq.objects.create(
+                waktu=timezone.make_aware(self.t0 + datetime.timedelta(seconds=d)), hz=hz)
+
+    def test_snapfreq_dipakai_saat_mssql_tak_terjangkau(self):
+        """Koneksi MSSQL putus, tapi cerminnya di PostgreSQL masih terbaca."""
+        def meledak(a, b):
+            raise ConnectionError('MSSQL tak terjangkau')
+        mssql.get_freq_range = meledak
+        self._snapfreq([(0, 50.0), (1, 50.1)])
+        deret, info = freq_history.ambil_range_detail(self.t0, self.t1)
+        self.assertEqual([h for _, h in deret], [50.0, 50.1])
+        self.assertEqual(info['sumber'], 'snapfreq')
+        self.assertEqual((info['historian'], info['snapfreq'], info['postgres']), (0, 2, 0))
+
+    def test_urutan_prioritas_tiga_sumber(self):
+        """historian > snapfreq > snapfreqrt; yang lebih dulu tidak ditimpa."""
+        self._historian([(0, 50.0)])
+        self._snapfreq([(0, 11.1), (1, 50.1)])          # detik 0 kalah dari historian
+        self._postgres([(0, 22.2), (1, 33.3), (2, 49.2)])  # detik 0,1 kalah
+        deret, info = freq_history.ambil_range_detail(self.t0, self.t1)
+        self.assertEqual([h for _, h in deret], [50.0, 50.1, 49.2])
+        self.assertEqual((info['historian'], info['snapfreq'], info['postgres']), (1, 1, 1))
+        self.assertEqual(info['sumber'], 'gabungan')
+
+    def test_snapfreq_tidak_menolong_saat_historian_berhenti_diisi(self):
+        """
+        Kasus 24 Agustus 2026: SYS_FREQ_HIS berhenti, jadi cerminnya (SnapFreq)
+        ikut kosong untuk rentang itu. Hanya SnapFreqRT yang punya isinya —
+        inilah alasan sumber ketiga tidak bisa menggantikan yang kedua.
+        """
+        self._historian([])                # historian berhenti diisi
+        # SnapFreq juga tidak punya apa-apa di rentang ini
+        self._postgres([(0, 49.9), (1, 49.8)])
+        deret, info = freq_history.ambil_range_detail(self.t0, self.t1)
+        self.assertEqual([h for _, h in deret], [49.9, 49.8])
+        self.assertEqual(info['snapfreq'], 0)
+        self.assertEqual(info['sumber'], 'postgres')
 
 
 class ResponGetterSumberTest(TestCase):

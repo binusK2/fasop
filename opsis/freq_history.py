@@ -1,5 +1,5 @@
 """
-Riwayat frekuensi sistem per detik — dari DUA sumber sekaligus.
+Riwayat frekuensi sistem per detik — dari TIGA sumber sekaligus.
 
 Latar: `SYS_FREQ_HIS` di historian MSSQL adalah sumber aslinya (1 baris/detik),
 tapi job penulisnya di sisi SCADA pernah berhenti berhari-hari tanpa ketahuan —
@@ -7,13 +7,22 @@ seluruh Respons Pembangkit ikut mati karenanya, padahal `SYS_FREQ_RT` (nilai
 realtime) di server yang sama tetap hidup. Karena itu FASOP juga merekam
 frekuensi sendiri ke PostgreSQL lewat `collect_freq_rt` (`opsis.SnapFreqRT`).
 
-Modul ini menggabungkan keduanya. Aturannya:
+Modul ini menggabungkan TIGA sumber, berurut prioritas. Detik yang sudah
+terisi sumber di atasnya tidak pernah ditimpa sumber di bawahnya:
 
-  * Historian MSSQL adalah acuan — di detik mana pun ia punya data, itu yang
-    dipakai. Ia sumber asli dan resolusinya penuh.
-  * PostgreSQL menambal detik yang TIDAK dipunyai historian. Jadi lubang
-    seperti 24 Agustus 2026 15:17 dan seterusnya tetap ada isinya, dan begitu
-    historian pulih ia otomatis kembali jadi acuan tanpa perlu ganti setelan.
+  1. `SYS_FREQ_HIS` (MSSQL) — sumber asli, acuan. Resolusi 1 baris/detik.
+  2. `opsis.SnapFreq` (PostgreSQL) — cermin no.1, diisi cron `collect_freq`.
+     Isinya identik, tapi tetap terbaca saat MSSQL-nya sendiri tak terjangkau
+     (koneksi putus / circuit breaker terbuka — lihat mssql._conn_circuit).
+     Ia TIDAK menolong saat job penulis SYS_FREQ_HIS yang berhenti, karena
+     cermin ikut berhenti bersama sumbernya.
+  3. `opsis.SnapFreqRT` (PostgreSQL) — rekaman FASOP sendiri dari
+     `SYS_FREQ_RT` lewat cron `collect_freq_rt`. Ini satu-satunya sumber yang
+     tetap terisi saat SYS_FREQ_HIS berhenti, karena sumbernya berbeda.
+
+Dua mode kegagalan itu berbeda dan butuh penambal berbeda — no.2 untuk MSSQL
+tak terjangkau, no.3 untuk historian berhenti diisi. Jangan hapus salah satu
+dengan alasan "sudah ada yang lain".
 
 Ini satu-satunya tempat yang boleh dipanggil pemakai riwayat frekuensi
 (views, management command). Jangan memanggil `mssql.get_freq_range()` langsung
@@ -28,7 +37,7 @@ from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
-# Resolusi penggabungan. Kedua sumber sama-sama 1 baris/detik, jadi detik
+# Resolusi penggabungan. Ketiga sumber sama-sama 1 baris/detik, jadi detik
 # dipakai sebagai kunci — cukup untuk menyatakan "detik ini sudah terisi".
 def _kunci(waktu):
     return waktu.replace(microsecond=0)
@@ -40,7 +49,7 @@ def _ke_naive_lokal(waktu):
 
     MSSQL mengembalikan naive (sudah waktu lokal server historian), sedangkan
     PostgreSQL menyimpan aware (UTC) karena USE_TZ=True. Tanpa penyamaan ini
-    kedua deret akan meleset 8 jam saat digabung.
+    deretnya akan meleset 8 jam saat digabung.
     """
     if waktu is None:
         return None
@@ -78,42 +87,62 @@ def _dari_postgres(t0, t1):
         return []
 
 
+def _dari_snapfreq(t0, t1):
+    """Deret dari opsis.SnapFreq — cermin SYS_FREQ_HIS di PostgreSQL."""
+    from opsis.models import SnapFreq
+    try:
+        a, b = t0, t1
+        if timezone.is_naive(a):
+            a = timezone.make_aware(a)
+        if timezone.is_naive(b):
+            b = timezone.make_aware(b)
+        return [(_ke_naive_lokal(w), float(hz)) for w, hz in
+                SnapFreq.objects.filter(waktu__gte=a, waktu__lte=b)
+                                .order_by('waktu').values_list('waktu', 'hz')]
+    except Exception as e:
+        logger.error('freq_history: snapfreq gagal: %s', e)
+        return []
+
+
 def ambil_range_detail(t0, t1):
     """
     Deret frekuensi gabungan + keterangan asal datanya.
 
     Return (deret, info) dengan info =
-        {'historian': n, 'postgres': n, 'sumber': 'historian'|'postgres'|'gabungan'|'kosong'}
-    di mana n adalah jumlah detik yang benar-benar DIPAKAI dari sumber itu —
-    bukan jumlah baris yang terbaca, supaya angkanya bisa dipercaya sebagai
-    "berapa banyak yang ditambal PostgreSQL".
+        {'historian': n, 'snapfreq': n, 'postgres': n,
+         'sumber': 'historian'|'snapfreq'|'postgres'|'gabungan'|'kosong'}
+
+    Tiap n adalah jumlah detik yang benar-benar DIPAKAI dari sumber itu, bukan
+    jumlah baris yang terbaca — supaya angkanya bisa dipercaya sebagai "berapa
+    banyak yang ditambal", bukan sekadar "berapa yang tersedia".
     """
-    his = _dari_historian(t0, t1)
     gabung = {}
-    for t, h in his:
-        if t is not None:
-            gabung[_kunci(t)] = h
-    n_his = len(gabung)
+    dipakai = {}
 
-    n_pg = 0
-    for t, h in _dari_postgres(t0, t1):
-        if t is None:
-            continue
-        k = _kunci(t)
-        if k not in gabung:                     # historian selalu menang
-            gabung[k] = h
-            n_pg += 1
+    # Urutan panggilan = urutan prioritas; yang lebih dulu tidak pernah ditimpa.
+    for nama, ambil in (('historian', _dari_historian),
+                        ('snapfreq',  _dari_snapfreq),
+                        ('postgres',  _dari_postgres)):
+        n = 0
+        for t, h in ambil(t0, t1):
+            if t is None:
+                continue
+            k = _kunci(t)
+            if k not in gabung:
+                gabung[k] = h
+                n += 1
+        dipakai[nama] = n
 
-    deret = sorted(gabung.items())
-    if n_his and n_pg:
+    berkontribusi = [nama for nama, n in dipakai.items() if n]
+    if len(berkontribusi) > 1:
         sumber = 'gabungan'
-    elif n_his:
-        sumber = 'historian'
-    elif n_pg:
-        sumber = 'postgres'
+    elif berkontribusi:
+        sumber = berkontribusi[0]
     else:
         sumber = 'kosong'
-    return deret, {'historian': n_his, 'postgres': n_pg, 'sumber': sumber}
+
+    info = dict(dipakai, sumber=sumber)
+    return sorted(gabung.items()), info
 
 
 def ambil_range(t0, t1):
@@ -127,15 +156,16 @@ def ambil_range(t0, t1):
 
 KETERANGAN_SUMBER = {
     'historian': 'Historian SCADA (SYS_FREQ_HIS)',
+    'snapfreq':  'Cermin historian di PostgreSQL (SnapFreq)',
     'postgres':  'Rekaman FASOP (SnapFreqRT, dari SYS_FREQ_RT)',
-    'gabungan':  'Historian SCADA + rekaman FASOP',
     'kosong':    'Tidak ada data frekuensi pada rentang ini',
 }
 
 
 def keterangan(info):
     """Teks asal data untuk ditampilkan di halaman/PDF."""
-    dasar = KETERANGAN_SUMBER.get(info.get('sumber'), '')
-    if info.get('sumber') == 'gabungan':
-        return f"{dasar} — {info['postgres']} detik ditambal dari rekaman FASOP"
-    return dasar
+    if info.get('sumber') != 'gabungan':
+        return KETERANGAN_SUMBER.get(info.get('sumber'), '')
+    bagian = [f'{KETERANGAN_SUMBER[n]}: {info[n]} detik'
+              for n in ('historian', 'snapfreq', 'postgres') if info.get(n)]
+    return ' + '.join(bagian)
