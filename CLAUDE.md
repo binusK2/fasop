@@ -167,6 +167,7 @@ Roles are stored in `UserProfile` (ForeignKey to User). Middleware enforces rout
 | `export_inspeksi_harian` | inspection | Cron, harian 12.00 — tulis laporan Excel hasil inspeksi hari itu ke `INSPEKSI_EXPORT_DIR` (`<dir>/<YYYY-MM>/Inspeksi_Harian_<tgl>.xlsx`); `--tanggal`, `--days` (tulis ulang N hari terakhir), `--dir`, `--dry-run` |
 | `sync_zabbix` | device_mon | Cron, every 2-5 min — pull host/problem status via Zabbix API (JSON-RPC) → `ZabbixHost`/`ZabbixEventLog`; complements the `/device-mon/zabbix/webhook/` push path; supports `--dry-run` |
 | `collect_freq_rt` | opsis | Cron tiap menit — Hz dari MSSQL `SYS_FREQ_RT` → `SnapFreqRT`; pakai `--loop --interval 1 --durasi 55` (1 sampel/detik) lewat `deploy/setup_freq_rt_cron.sh`, lihat "Riwayat Frekuensi (dua sumber)" |
+| `cek_armada_kit` | opsis | Diagnosa read-only — bandingkan armada KIT di `KIT_REALTIME`, `HIS_MEAS_KIT`, `Pembangkit`, dan `RESPON_PLANTS`; jalankan sebelum menyimpulkan selisih MW |
 | `probe_tabel_ews` | opsis | Diagnosa read-only — daftar kolom + baris contoh sebuah tabel MSSQL, untuk memetakan `TitikEWS.sumber_*` |
 | `seed_ews` | opsis | One-off, idempotent — isi kolom & 93 titik EWS Defense Scheme dari berkas DS UP2B Makassar 2026 (tanpa pemetaan MSSQL); `--dry-run`, `--perbarui` |
 
@@ -402,6 +403,42 @@ Baris `PrakiraanBeban` hari lampau **tidak pernah dihapus** — histori itulah y
 dipakai `evaluate_accuracy()` untuk membandingkan prakiraan vs realisasi `SnapLive`.
 Menimpa kurva hari yang sudah lewat dengan angka realisasi akan membuat akurasi
 terlihat sempurna secara palsu.
+
+---
+
+## OPSIS — Armada KIT: Dashboard vs Respons Pembangkit
+
+Dashboard dan Respons Pembangkit membaca **tabel historian yang berbeda**, dan
+isi armadanya tidak selalu sama:
+
+| | Dashboard | Respons Pembangkit |
+|---|---|---|
+| Sumber MSSQL | `KIT_REALTIME` | `HIS_MEAS_KIT` |
+| Penentu daftar | `opsis.Pembangkit` (`kit_source()` + `unit_whitelist()`) | `RESPON_PLANTS` (`opsis/respon_registry.py`) |
+
+Perhitungan MW-nya **sama** di kedua jalur (`abs(P)` per unit lalu dijumlahkan),
+jadi kalau totalnya berbeda, penyebabnya hampir pasti armada — bukan rumus.
+Pernah terukur selisih 32 MW: `BMPP25` (BMPP WOLO, ~58 MW) ada di `KIT_REALTIME`
+tapi **sama sekali tidak direkam di `HIS_MEAS_KIT`**, sementara `PLTMH` (~27 MW)
+sebaliknya — ada di historian tapi belum punya baris `Pembangkit` sehingga tidak
+ikut terhitung di Dashboard.
+
+Jalankan `python manage.py cek_armada_kit` sebelum menyimpulkan apa pun tentang
+selisih MW. Command itu membandingkan keempat tempat sekaligus (KIT_REALTIME,
+HIS_MEAS_KIT, `Pembangkit`, `RESPON_PLANTS`) dan menyebut mana yang bisa
+diperbaiki dari FASOP dan mana yang tidak:
+
+- **KIT ada di `KIT_REALTIME` tapi tidak di `HIS_MEAS_KIT`** — tidak bisa
+  diperbaiki dari FASOP. Menambahkannya ke `RESPON_PLANTS` percuma, datanya
+  memang tidak ada; yang perlu diminta adalah pengelola historian merekamnya.
+- **KIT ada di historian tapi tidak punya `Pembangkit`** — cukup tambah barisnya
+  di Admin → Opsis → Pembangkit, tanpa ubah kode.
+- **KIT di `RESPON_PLANTS` yang tidak punya data** — kode lama, bersihkan dari
+  registry supaya tidak menyesatkan.
+
+Catatan lain: kolom `DATE` di `KIT_REALTIME` **tidak dipelihara** — banyak baris
+bertanggal 2022–2025 padahal nilainya terbarui terus. Jangan pakai kolom itu
+untuk menilai kesegaran data.
 
 ---
 

@@ -1446,3 +1446,26 @@ class ExportBebanPembangkitTest(TestCase):
         resp = self.client.get(reverse('opsis_export_beban_pembangkit'))
         self.assertEqual(resp.status_code, 302)
         self.assertIn('/login', resp['Location'])
+
+
+class CekArmadaKitTest(TestCase):
+    """Diagnosa armada KIT harus tetap jalan (dan diam) saat MSSQL tidak ada."""
+
+    @override_settings(MSSQL_HOST='')
+    def test_jalan_tanpa_mssql(self):
+        from io import StringIO
+        from django.core.management import call_command
+        keluaran = StringIO()
+        call_command('cek_armada_kit', stdout=keluaran, stderr=StringIO())
+        teks = keluaran.getvalue()
+        self.assertIn('KIT_REALTIME', teks)
+        self.assertIn('RESPON_PLANTS', teks)
+
+    @override_settings(MSSQL_HOST='')
+    def test_pembangkit_tanpa_padanan_dilaporkan(self):
+        from io import StringIO
+        from django.core.management import call_command
+        Pembangkit.objects.create(kode='ZZZTEST', nama='PLTU Uji Armada')
+        keluaran = StringIO()
+        call_command('cek_armada_kit', stdout=keluaran, stderr=StringIO())
+        self.assertIn('ZZZTEST', keluaran.getvalue())
