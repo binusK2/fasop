@@ -85,7 +85,10 @@ class Command(BaseCommand):
 
         from opsis.respon_registry import RESPON_PLANTS
         kits = sorted({b1 for us in RESPON_PLANTS.values() for b1, _ in us})
-        get_freq = mssql.get_freq_range
+        # Gabungan SYS_FREQ_HIS + rekaman PostgreSQL — cron ini harus tetap
+        # mendeteksi event walau job penulis SYS_FREQ_HIS sedang berhenti.
+        from opsis import freq_history
+        get_freq = freq_history.ambil_range
         get_mw   = lambda a, b: R.gabung_plants(
             mssql.get_all_kit_unit_mw_range(a, b, kits=kits), RESPON_PLANTS)
 

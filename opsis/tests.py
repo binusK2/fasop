@@ -13,8 +13,8 @@ from django.urls import reverse
 from django.utils import timezone
 
 from .models import (KelompokPeta, KolomEWS, ModePemeliharaan, Pembangkit,
-                     PrakiraanBeban, SnapLive, TitikEWS)
-from . import hop_map, mssql, prakiraan, prediksi, views
+                     PrakiraanBeban, SnapLive, SnapFreqRT, TitikEWS)
+from . import freq_history, hop_map, mssql, prakiraan, prediksi, views
 from auditlog.models import AuditLog
 
 API_KEY = 'kunci-tes-prakiraan'
@@ -1138,3 +1138,124 @@ class EWSSuntingKartuTest(TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertFalse(json.loads(r.content)['berubah'])
         self.assertEqual(AuditLog.objects.filter(model_name='TitikEWS').count(), awal)
+
+
+class FreqHistoryGabunganTest(TestCase):
+    """
+    Riwayat frekuensi dari dua sumber: SYS_FREQ_HIS (historian) + SnapFreqRT
+    (rekaman FASOP sendiri). Historian jadi acuan, PostgreSQL menambal lubang.
+    """
+
+    def setUp(self):
+        self.t0 = datetime.datetime(2026, 8, 24, 15, 0, 0)
+        self.t1 = datetime.datetime(2026, 8, 24, 15, 0, 10)
+        self._asli = mssql.get_freq_range
+        self.addCleanup(lambda: setattr(mssql, 'get_freq_range', self._asli))
+
+    def _historian(self, pasangan):
+        """Palsukan SYS_FREQ_HIS: [(detik_ke, hz)] relatif t0, naive seperti MSSQL."""
+        data = [(self.t0 + datetime.timedelta(seconds=d), hz) for d, hz in pasangan]
+        mssql.get_freq_range = lambda a, b: list(data)
+
+    def _postgres(self, pasangan):
+        """Isi SnapFreqRT — aware (USE_TZ), sebagaimana collect_freq_rt menyimpannya."""
+        for d, hz in pasangan:
+            SnapFreqRT.objects.create(
+                waktu=timezone.make_aware(self.t0 + datetime.timedelta(seconds=d)), hz=hz)
+
+    def test_historian_saja(self):
+        self._historian([(0, 50.0), (1, 50.1)])
+        deret, info = freq_history.ambil_range_detail(self.t0, self.t1)
+        self.assertEqual(deret, [(self.t0, 50.0),
+                                 (self.t0 + datetime.timedelta(seconds=1), 50.1)])
+        self.assertEqual(info['sumber'], 'historian')
+        self.assertEqual((info['historian'], info['postgres']), (2, 0))
+
+    def test_postgres_saja_saat_historian_mati(self):
+        """Kasus 24 Agustus 2026: SYS_FREQ_HIS berhenti, rekaman FASOP jalan."""
+        self._historian([])
+        self._postgres([(0, 49.9), (1, 49.8)])
+        deret, info = freq_history.ambil_range_detail(self.t0, self.t1)
+        self.assertEqual([h for _, h in deret], [49.9, 49.8])
+        self.assertEqual(info['sumber'], 'postgres')
+        self.assertEqual((info['historian'], info['postgres']), (0, 2))
+
+    def test_postgres_menambal_lubang_historian(self):
+        """Historian punya detik 0 dan 3; detik 1-2 ditambal dari PostgreSQL."""
+        self._historian([(0, 50.0), (3, 50.3)])
+        self._postgres([(1, 49.1), (2, 49.2)])
+        deret, info = freq_history.ambil_range_detail(self.t0, self.t1)
+        self.assertEqual([h for _, h in deret], [50.0, 49.1, 49.2, 50.3])
+        self.assertEqual(info['sumber'], 'gabungan')
+        self.assertEqual((info['historian'], info['postgres']), (2, 2))
+
+    def test_historian_menang_saat_detik_yang_sama_ada_di_dua_sumber(self):
+        """Historian sumber asli — nilainya tidak boleh ditimpa rekaman FASOP."""
+        self._historian([(0, 50.0), (1, 50.1)])
+        self._postgres([(0, 11.1), (1, 22.2), (2, 49.5)])
+        deret, info = freq_history.ambil_range_detail(self.t0, self.t1)
+        self.assertEqual([h for _, h in deret], [50.0, 50.1, 49.5])
+        self.assertEqual((info['historian'], info['postgres']), (2, 1))
+
+    def test_hasil_selalu_terurut_waktu(self):
+        self._historian([(4, 50.4), (0, 50.0)])
+        self._postgres([(2, 49.2)])
+        deret, _ = freq_history.ambil_range_detail(self.t0, self.t1)
+        self.assertEqual([t for t, _ in deret], sorted(t for t, _ in deret))
+        self.assertEqual([h for _, h in deret], [50.0, 49.2, 50.4])
+
+    def test_waktu_postgres_disamakan_ke_naive_lokal(self):
+        """
+        MSSQL mengembalikan naive waktu lokal, PostgreSQL aware (UTC). Tanpa
+        penyamaan, kedua deret meleset sejauh offset zona waktu saat digabung.
+        """
+        self._historian([])
+        self._postgres([(0, 49.9)])
+        deret, _ = freq_history.ambil_range_detail(self.t0, self.t1)
+        waktu = deret[0][0]
+        self.assertTrue(timezone.is_naive(waktu))
+        self.assertEqual(waktu, self.t0)
+
+    def test_di_luar_rentang_tidak_ikut(self):
+        self._historian([])
+        self._postgres([(-30, 48.0), (0, 49.9), (300, 51.0)])
+        deret, _ = freq_history.ambil_range_detail(self.t0, self.t1)
+        self.assertEqual([h for _, h in deret], [49.9])
+
+    def test_dua_sumber_kosong(self):
+        self._historian([])
+        deret, info = freq_history.ambil_range_detail(self.t0, self.t1)
+        self.assertEqual(deret, [])
+        self.assertEqual(info['sumber'], 'kosong')
+
+    def test_historian_meledak_tetap_pakai_postgres(self):
+        """Analisis tidak boleh ikut mati kalau MSSQL melempar exception."""
+        def meledak(a, b):
+            raise RuntimeError('historian mati')
+        mssql.get_freq_range = meledak
+        self._postgres([(0, 49.9)])
+        deret, info = freq_history.ambil_range_detail(self.t0, self.t1)
+        self.assertEqual([h for _, h in deret], [49.9])
+        self.assertEqual(info['sumber'], 'postgres')
+
+    def test_ambil_range_bentuknya_sama_dengan_getter_lama(self):
+        """Dipakai sebagai pengganti langsung mssql.get_freq_range."""
+        self._historian([(0, 50.0)])
+        self.assertEqual(freq_history.ambil_range(self.t0, self.t1),
+                         [(self.t0, 50.0)])
+
+    def test_keterangan_menyebut_jumlah_tambalan(self):
+        self._historian([(0, 50.0)])
+        self._postgres([(1, 49.1)])
+        _, info = freq_history.ambil_range_detail(self.t0, self.t1)
+        teks = freq_history.keterangan(info)
+        self.assertIn('Historian SCADA', teks)
+        self.assertIn('1 detik ditambal', teks)
+
+
+class ResponGetterSumberTest(TestCase):
+    """Respon Pembangkit harus memakai getter gabungan, bukan MSSQL langsung."""
+
+    def test_getter_respon_memakai_freq_history(self):
+        get_freq, _ = views._respon_getters()
+        self.assertIs(get_freq, freq_history.ambil_range)
