@@ -166,6 +166,7 @@ Roles are stored in `UserProfile` (ForeignKey to User). Middleware enforces rout
 | `cek_kinerja_ofdb` | up2bmakassar | Diagnosa read-only — koneksi OFDB, induk point type yang ketemu, jumlah titik per jenis, lama query harian, dan jumlah baris tersimpan |
 | `export_inspeksi_harian` | inspection | Cron, harian 12.00 — tulis laporan Excel hasil inspeksi hari itu ke `INSPEKSI_EXPORT_DIR` (`<dir>/<YYYY-MM>/Inspeksi_Harian_<tgl>.xlsx`); `--tanggal`, `--days` (tulis ulang N hari terakhir), `--dir`, `--dry-run` |
 | `sync_zabbix` | device_mon | Cron, every 2-5 min — pull host/problem status via Zabbix API (JSON-RPC) → `ZabbixHost`/`ZabbixEventLog`; complements the `/device-mon/zabbix/webhook/` push path; supports `--dry-run` |
+| `collect_freq_rt` | opsis | Cron tiap menit — Hz dari MSSQL `SYS_FREQ_RT` → `SnapFreqRT`; pakai `--loop --interval 1 --durasi 55` (1 sampel/detik) lewat `deploy/setup_freq_rt_cron.sh`, lihat "Riwayat Frekuensi (dua sumber)" |
 | `probe_tabel_ews` | opsis | Diagnosa read-only — daftar kolom + baris contoh sebuah tabel MSSQL, untuk memetakan `TitikEWS.sumber_*` |
 | `seed_ews` | opsis | One-off, idempotent — isi kolom & 93 titik EWS Defense Scheme dari berkas DS UP2B Makassar 2026 (tanpa pemetaan MSSQL); `--dry-run`, `--perbarui` |
 
@@ -401,6 +402,50 @@ Baris `PrakiraanBeban` hari lampau **tidak pernah dihapus** — histori itulah y
 dipakai `evaluate_accuracy()` untuk membandingkan prakiraan vs realisasi `SnapLive`.
 Menimpa kurva hari yang sudah lewat dengan angka realisasi akan membuat akurasi
 terlihat sempurna secara palsu.
+
+---
+
+## OPSIS — Riwayat Frekuensi (dua sumber)
+
+Riwayat frekuensi sistem dibaca lewat **`opsis/freq_history.py`** — satu-satunya
+modul yang boleh dipanggil views/command. Jangan kembali memanggil
+`mssql.get_freq_range()` langsung: kalau begitu salah satu jalur (halaman atau
+cron `deteksi_respon`) akan kehilangan tambalannya.
+
+Ada **dua** sumber, digabung per detik:
+
+| Sumber | Asal | Peran |
+|---|---|---|
+| `SYS_FREQ_HIS` (MSSQL) | historian SCADA, 1 baris/detik | **acuan** — dipakai di detik mana pun ia punya data |
+| `opsis.SnapFreqRT` (PostgreSQL) | rekaman FASOP sendiri dari `SYS_FREQ_RT` lewat cron `collect_freq_rt` | **penambal** — mengisi detik yang tidak dipunyai historian |
+
+Kenapa begitu: job penulis `SYS_FREQ_HIS` di sisi SCADA pernah berhenti
+berhari-hari (24 Agustus 2026 15:17, didahului pemadaman parsial sejak 19
+Agustus) dan **seluruh Respons Pembangkit ikut mati** — padahal `SYS_FREQ_RT` di
+server yang sama tetap hidup, dan kartu Hz di dashboard (yang membaca RT) tetap
+normal sehingga masalahnya tidak kelihatan selama ±42 jam. Dengan penggabungan
+ini, historian tetap jadi acuan begitu pulih, tanpa perlu mengganti setelan.
+
+Yang perlu diketahui saat mengubahnya:
+
+- **Historian selalu menang** di detik yang sama. `SnapFreqRT` hanya mengisi
+  detik kosong, jadi angka resmi tidak pernah tertimpa rekaman sendiri.
+- **Zona waktu harus disamakan.** MSSQL mengembalikan datetime *naive* (waktu
+  lokal server historian), PostgreSQL menyimpan *aware* (UTC, karena
+  `USE_TZ=True`). Tanpa `_ke_naive_lokal()`, kedua deret meleset 8 jam saat
+  digabung — dan hasilnya tetap "terlihat wajar", jadi tidak akan ketahuan
+  kecuali dicek.
+- **Resolusi menentukan gunanya.** Analisis respons memakai jendela −60/+180
+  detik; pada 1 sampel/menit itu cuma ~4 titik dan ayunan 10–20 detik tak
+  terlihat. Cron harus `collect_freq_rt --loop --interval 1 --durasi 55`
+  (1 sampel/detik, menyamai `SYS_FREQ_HIS`), bukan `collect_freq_rt` polos.
+  Pasang lewat `bash deploy/setup_freq_rt_cron.sh` (idempotent).
+- `ambil_range_detail()` mengembalikan `(deret, info)` dengan hitungan berapa
+  detik berasal dari masing-masing sumber; `keterangan(info)` memberi teksnya
+  untuk ditampilkan. Pakai itu daripada mengarang label sumber di template.
+- Rekaman ini **tidak bisa mengisi masa lalu**. Lubang sebelum cron dipasang
+  hanya bisa dipulihkan dari arsip historian — perbaikan di sisi SCADA tetap
+  perlu dikejar.
 
 ---
 

@@ -1825,8 +1825,12 @@ def _bisa_respon(user):
 
 def _respon_getters():
     """Getter frekuensi + MW per-PLANT (nama & pengelompokan persis Excel
-    Respons Kit) dari historian HIS_MEAS_KIT."""
-    from opsis import mssql, respon as R
+    Respons Kit) dari historian HIS_MEAS_KIT.
+
+    Frekuensi lewat opsis.freq_history — gabungan SYS_FREQ_HIS + rekaman
+    PostgreSQL, supaya analisis tetap jalan saat job penulis SYS_FREQ_HIS di
+    sisi SCADA berhenti. Jangan dikembalikan ke mssql.get_freq_range langsung."""
+    from opsis import mssql, respon as R, freq_history
     from opsis.respon_registry import RESPON_PLANTS
     kits = sorted({b1 for us in RESPON_PLANTS.values() for b1, _ in us})
 
@@ -1834,7 +1838,7 @@ def _respon_getters():
         raw = mssql.get_all_kit_unit_mw_range(a, b, kits=kits)
         return R.gabung_plants(raw, RESPON_PLANTS)
 
-    return mssql.get_freq_range, get_mw
+    return freq_history.ambil_range, get_mw
 
 
 def _parse_pusat(s):
