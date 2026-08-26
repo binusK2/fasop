@@ -2228,3 +2228,221 @@ def _ews_ringkas(titik):
         'td':             titik.time_delay,
         'satuan':         titik.satuan_tampil,
     }
+
+
+# Batas rentang ekspor per-pembangkit. Satu hari ~1.440 baris x jumlah
+# pembangkit; 7 hari dengan 23 pembangkit sudah ~232 ribu baris. Lebih dari itu
+# berkas xlsx-nya berat dan satu worker gunicorn tertahan lama merakitnya.
+EXPORT_KIT_MAKS_HARI = 7
+
+# Karakter yang dilarang Excel pada nama sheet, plus batas 31 karakter.
+_SHEET_TERLARANG = r'[]:*?/\\'
+
+
+def _nama_sheet(nama, terpakai):
+    """
+    Nama sheet Excel yang aman dan unik.
+
+    Excel menolak []:*?/\\ dan memotong di 31 karakter — dua pembangkit dengan
+    awalan nama sama karenanya bisa bertabrakan, dan openpyxl akan melempar
+    error di tengah perakitan. Karena itu tabrakan diselesaikan di sini dengan
+    akhiran angka, bukan diserahkan ke openpyxl.
+    """
+    bersih = ''.join('-' if c in _SHEET_TERLARANG else c for c in (nama or '')).strip()
+    bersih = bersih[:31] or 'Pembangkit'
+    if bersih not in terpakai:
+        terpakai.add(bersih)
+        return bersih
+    for i in range(2, 100):
+        akhiran = f' ({i})'
+        kandidat = bersih[:31 - len(akhiran)] + akhiran
+        if kandidat not in terpakai:
+            terpakai.add(kandidat)
+            return kandidat
+    terpakai.add(bersih)
+    return bersih
+
+
+def _rentang_ekspor(request):
+    """
+    Tentukan rentang tanggal ekspor dari query string.
+
+    ?tanggal=YYYY-MM-DD          satu hari (dipakai tombol di dashboard)
+    ?mulai=...&selesai=...       rentang, maksimal EXPORT_KIT_MAKS_HARI hari
+
+    Return (mulai, selesai, galat) — galat berisi teks bila permintaannya tidak
+    masuk akal, supaya pemanggil bisa menolak dengan pesan yang jelas.
+    """
+    hari_ini = timezone.localdate()
+
+    def _tanggal(nilai):
+        try:
+            return datetime.date.fromisoformat(nilai)
+        except (TypeError, ValueError):
+            return None
+
+    mulai = _tanggal(request.GET.get('mulai'))
+    selesai = _tanggal(request.GET.get('selesai'))
+    if mulai and selesai:
+        if selesai < mulai:
+            return None, None, 'Tanggal "selesai" harus setelah "mulai".'
+        if (selesai - mulai).days + 1 > EXPORT_KIT_MAKS_HARI:
+            return None, None, (f'Rentang maksimal {EXPORT_KIT_MAKS_HARI} hari. '
+                                f'Pecah menjadi beberapa unduhan.')
+        return mulai, selesai, None
+
+    satu = _tanggal(request.GET.get('tanggal')) or hari_ini
+    return satu, satu, None
+
+
+@login_required
+def export_beban_pembangkit(request):
+    """
+    Unduh riwayat beban SEMUA pembangkit ke Excel — satu sheet per pembangkit.
+
+    Sumbernya PostgreSQL (SnapLive), bukan MSSQL, jadi tetap bisa diunduh saat
+    historian tidak terjangkau. Ini cadangan manual untuk analisis Respons
+    Pembangkit: tiap sheet berisi MW, MVAR, dan Hz sistem per menit sehingga
+    respons tiap pembangkit terhadap ayunan frekuensi masih bisa ditelusuri
+    walau fitur Respons Kit sedang tidak jalan.
+
+    ?tanggal=YYYY-MM-DD        satu hari (default: hari ini)
+    ?mulai=&selesai=           rentang, maksimal EXPORT_KIT_MAKS_HARI hari
+    """
+    import openpyxl
+    from openpyxl.cell import WriteOnlyCell
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from openpyxl.utils import get_column_letter
+    from django.db.models import Sum, Avg
+    from django.http import HttpResponse
+
+    mulai, selesai, galat = _rentang_ekspor(request)
+    if galat:
+        messages.error(request, galat)
+        return redirect('opsis_dashboard')
+
+    tz_local = timezone.get_current_timezone()
+    pembangkit_list = _pembangkit_aktif()
+
+    # Batas rentang sebagai datetime, BUKAN lookup __date. `waktu__date__gte`
+    # membungkus kolom dalam fungsi cast sehingga indeks (pembangkit, -waktu)
+    # tidak terpakai dan tiap sheet memicu sequential scan atas jutaan baris —
+    # itulah kenapa ekspor 1 hari dan 3 hari dulu sama-sama lambat.
+    awal  = timezone.make_aware(
+        datetime.datetime.combine(mulai, datetime.time.min), tz_local)
+    akhir = timezone.make_aware(
+        datetime.datetime.combine(selesai + datetime.timedelta(days=1), datetime.time.min),
+        tz_local)
+
+    # write_only: openpyxl mode biasa merakit objek Cell untuk tiap sel, dan
+    # satu hari x 23 pembangkit (~200 ribu sel) sudah makan ~19 detik — rentang
+    # 7 hari akan menembus timeout gunicorn. Mode ini menulis lurus ke stream,
+    # jauh lebih cepat dan hemat memori. Konsekuensinya sel tidak bisa disentuh
+    # lagi setelah append, jadi semua gaya dipasang saat baris dibuat.
+    wb = openpyxl.Workbook(write_only=True)
+
+    hdr_fill = PatternFill('solid', fgColor='0F172A')
+    hdr_font = Font(bold=True, color='34D399', size=10)
+    center   = Alignment(horizontal='center', vertical='center')
+
+    def _buat_sheet(judul, headers, lebar):
+        ws = wb.create_sheet(judul)
+        for i, w in enumerate(lebar, 1):
+            ws.column_dimensions[get_column_letter(i)].width = w
+        baris = []
+        for teks in headers:
+            sel = WriteOnlyCell(ws, value=teks)
+            sel.font, sel.fill, sel.alignment = hdr_font, hdr_fill, center
+            baris.append(sel)
+        ws.append(baris)
+        return ws
+
+    # ── Sheet 1: ringkasan sistem (total MW + Hz per menit) ──
+    # Sengaja jadi sheet pertama: inilah yang menggantikan grafik Respons Kit
+    # kalau fiturnya sedang tidak jalan.
+    ws = _buat_sheet('Ringkasan Sistem',
+                     ['No', 'Tanggal', 'Waktu', 'Total Beban (MW)', 'Frekuensi (Hz)'],
+                     [6, 13, 10, 18, 15])
+
+    ringkas = (SnapLive.objects
+               .filter(waktu__gte=awal, waktu__lt=akhir)
+               .values('waktu')
+               .annotate(total_mw=Sum('mw'), hz=Avg('frekuensi'))
+               .order_by('waktu'))
+    baris_ringkas = 0
+    for i, r in enumerate(ringkas.iterator(chunk_size=2000), 1):
+        w = r['waktu'].astimezone(tz_local)
+        ws.append([i, w.strftime('%Y-%m-%d'), w.strftime('%H:%M'),
+                   round(r['total_mw'], 2) if r['total_mw'] is not None else None,
+                   round(r['hz'], 3) if r['hz'] is not None else None])
+        baris_ringkas = i
+
+    # ── Sheet per pembangkit ──
+    terpakai = {'Ringkasan Sistem'}
+    isi = {}
+    for p in pembangkit_list:
+        wsp = _buat_sheet(_nama_sheet(p.nama, terpakai),
+                          ['No', 'Tanggal', 'Waktu', 'MW', 'MVAR', 'Frekuensi (Hz)'],
+                          [6, 13, 10, 12, 12, 15])
+
+        rows = (SnapLive.objects
+                .filter(pembangkit=p, waktu__gte=awal, waktu__lt=akhir)
+                .order_by('waktu')
+                .values_list('waktu', 'mw', 'mvar', 'frekuensi'))
+
+        n = 0
+        jml, terkecil, terbesar = 0.0, None, None
+        for n, (waktu, mw, mvar, hz) in enumerate(rows.iterator(chunk_size=2000), 1):
+            w = waktu.astimezone(tz_local)
+            wsp.append([n, w.strftime('%Y-%m-%d'), w.strftime('%H:%M'),
+                        round(mw, 2) if mw is not None else None,
+                        round(mvar, 2) if mvar is not None else None,
+                        round(hz, 3) if hz is not None else None])
+            if mw is not None:
+                jml += mw
+                terkecil = mw if terkecil is None else min(terkecil, mw)
+                terbesar = mw if terbesar is None else max(terbesar, mw)
+
+        if terkecil is not None:
+            wsp.append([])
+            wsp.append(['', '', 'Rata-rata', round(jml / n, 2)])
+            wsp.append(['', '', 'Minimum',   round(terkecil, 2)])
+            wsp.append(['', '', 'Maksimum',  round(terbesar, 2)])
+        elif n == 0:
+            wsp.append(['', 'Tidak ada data pada rentang ini'])
+        isi[p.nama] = n
+
+    # ── Sheet terakhir: keterangan, supaya berkasnya bisa dibaca sendiri ──
+    wsk = wb.create_sheet('Keterangan')
+    wsk.column_dimensions['A'].width = 26
+    wsk.column_dimensions['B'].width = 62
+    tebal = Font(bold=True, size=10)
+    for k, v in [
+        ('Rentang',       f'{mulai} s/d {selesai}'),
+        ('Sumber data',   'PostgreSQL opsis.SnapLive (kolektor collect_live, 1 baris/menit)'),
+        ('Zona waktu',    str(tz_local)),
+        ('Diunduh',       timezone.localtime().strftime('%Y-%m-%d %H:%M:%S')),
+        ('Oleh',          request.user.get_full_name() or request.user.username),
+        ('Jumlah sheet',  f'{len(pembangkit_list)} pembangkit + ringkasan'),
+        ('Baris ringkasan', baris_ringkas),
+        ('Catatan',       'MW/MVAR adalah nilai per menit hasil snapshot, bukan rata-rata '
+                          'jam. Frekuensi adalah Hz sistem saat snapshot diambil, sama '
+                          'untuk semua pembangkit pada menit yang sama.'),
+    ]:
+        sel = WriteOnlyCell(wsk, value=k)
+        sel.font = tebal
+        wsk.append([sel, v])
+
+    for nama, n in sorted(isi.items()):
+        wsk.append([nama, f'{n} baris'])
+
+    if mulai == selesai:
+        filename = f'BebanPembangkit_{mulai}.xlsx'
+    else:
+        filename = f'BebanPembangkit_{mulai}_sd_{selesai}.xlsx'
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    wb.save(response)
+    return response

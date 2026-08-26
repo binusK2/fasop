@@ -405,6 +405,39 @@ terlihat sempurna secara palsu.
 
 ---
 
+## OPSIS — Ekspor Beban per Pembangkit (`/opsis/export/beban-pembangkit/`)
+
+Unduhan Excel berisi riwayat beban **semua pembangkit aktif**, satu sheet per
+pembangkit (nama sheet = nama pembangkit), plus sheet **Ringkasan Sistem** di
+depan (total MW + Hz per menit) dan sheet **Keterangan** di belakang. Tombolnya
+di dashboard, di atas grid pembangkit, dengan dua kotak tanggal.
+
+Gunanya bukan sekadar ekspor: ini **cadangan manual untuk analisis Respons
+Pembangkit**. Sumbernya PostgreSQL (`SnapLive`), bukan MSSQL, jadi tetap bisa
+diunduh saat historian tak terjangkau atau saat Respons Kit sedang tidak jalan —
+tiap sheet memuat MW, MVAR, dan Hz sistem per menit sehingga respons tiap
+pembangkit terhadap ayunan frekuensi masih bisa ditelusuri manual.
+
+Dua hal yang menentukan halaman ini tetap cepat, jangan dibalik tanpa mengukur:
+
+- **Batas rentang memakai datetime, bukan lookup `__date`.** `waktu__date__gte`
+  membungkus kolom dalam fungsi cast sehingga indeks `(pembangkit, -waktu)`
+  tidak terpakai dan tiap sheet memicu sequential scan atas jutaan baris
+  `SnapLive`. Mengukurnya: ekspor 1 hari turun dari 18,9 detik jadi 5,6 detik
+  setelah diganti `waktu__gte=awal, waktu__lt=akhir`.
+- **`openpyxl.Workbook(write_only=True)`.** Mode biasa merakit objek `Cell`
+  untuk tiap sel; satu hari × 23 pembangkit sudah ~200 ribu sel. Konsekuensinya
+  sel tidak bisa disentuh lagi setelah `append`, jadi seluruh gaya dipasang saat
+  baris dibuat (lihat `_buat_sheet`).
+
+Rentang dibatasi `EXPORT_KIT_MAKS_HARI` (7 hari, ~30 detik) supaya satu worker
+gunicorn tidak tertahan sampai timeout. Nama sheet dibersihkan dan diunikkan
+sendiri oleh `_nama_sheet()` — Excel melarang `[]:*?/\` dan memotong di 31
+karakter, jadi dua pembangkit berawalan sama bisa bertabrakan dan openpyxl akan
+melempar error di tengah perakitan kalau tidak ditangani lebih dulu.
+
+---
+
 ## OPSIS — Riwayat Frekuensi (tiga sumber)
 
 Riwayat frekuensi sistem dibaca lewat **`opsis/freq_history.py`** — satu-satunya
