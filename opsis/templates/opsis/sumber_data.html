@@ -1,0 +1,153 @@
+{% extends 'opsis/opsis_base.html' %}
+{% block title %}Peta Sumber Data{% endblock %}
+
+{% block extra_head %}
+<style>
+  .sd-head h1 { font-size:19px; font-weight:700; margin:0 0 3px; }
+  .sd-head .sub { font-size:12px; color:var(--muted); margin:0 0 14px; line-height:1.6; }
+
+  .sd-kartu { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+              gap:10px; margin-bottom:16px; }
+  .sd-kartu .k { background:var(--card-bg); border:1px solid var(--card-bd);
+                 border-radius:10px; padding:10px 12px; }
+  .sd-kartu .n { font-family:'JetBrains Mono',monospace; font-size:21px; font-weight:700; line-height:1.1; }
+  .sd-kartu .l { font-size:10.5px; color:var(--muted); margin-top:3px; }
+
+  .sd-lapis { margin-bottom:18px; }
+  .sd-lapis h2 { font-size:14px; font-weight:700; margin:0 0 3px; }
+  .sd-lapis .ket { font-size:11.5px; color:var(--muted); margin:0 0 8px; line-height:1.55; }
+
+  .sd-tabel { width:100%; border-collapse:collapse; background:var(--card-bg);
+              border:1px solid var(--card-bd); border-radius:10px; overflow:hidden; }
+  .sd-tabel th { text-align:left; font-size:10px; text-transform:uppercase; letter-spacing:.4px;
+                 color:var(--muted); font-weight:600; padding:8px 10px;
+                 background:rgba(255,255,255,.03); border-bottom:1px solid var(--card-bd); }
+  .sd-tabel td { padding:8px 10px; font-size:11.5px; vertical-align:top;
+                 border-bottom:1px solid rgba(30,45,69,.6); line-height:1.5; }
+  .sd-tabel tr:last-child td { border-bottom:none; }
+  .sd-tabel td.mono { font-family:'JetBrains Mono',monospace; white-space:nowrap; }
+  .sd-fitur { color:var(--text); font-weight:600; }
+  .sd-catatan { color:var(--muted); font-size:10.5px; }
+  .sd-hulu { color:var(--muted); font-size:10.5px; }
+
+  .sd-chip { display:inline-block; font-size:9.5px; font-weight:700; padding:2px 7px;
+             border-radius:999px; white-space:nowrap; }
+  .sd-segar        { background:rgba(16,185,129,.14); color:var(--green); }
+  .sd-telat        { background:rgba(245,158,11,.14); color:var(--yellow); }
+  .sd-mati         { background:rgba(239,68,68,.16);  color:var(--red); }
+  .sd-kosong       { background:rgba(239,68,68,.14);  color:var(--red); }
+  .sd-galat        { background:rgba(239,68,68,.14);  color:var(--red); }
+  .sd-takterjangkau{ background:rgba(239,68,68,.14);  color:var(--red); }
+  .sd-tanpa_waktu  { background:rgba(148,163,184,.14); color:var(--muted); }
+  .sd-dilewati     { background:rgba(148,163,184,.14); color:var(--muted); }
+  .sd-tak_andal    { background:rgba(148,163,184,.14); color:var(--muted); }
+
+  .sd-note { margin-top:16px; font-size:11.5px; color:var(--muted); line-height:1.7; }
+  .sd-note code { color:#60a5fa; }
+  @media (max-width:900px) {
+    .sd-tabel thead { display:none; }
+    .sd-tabel td { display:block; border-bottom:none; padding:3px 10px; }
+    .sd-tabel tr { display:block; border-bottom:1px solid var(--card-bd); padding:6px 0; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="sd-head">
+  <h1>Peta Sumber Data OPSIS</h1>
+  <p class="sub">
+    Fitur mana membaca tabel mana, siapa yang mengisinya, dan kapan terakhir terisi.
+    Segar = &le;{{ segar_menit }} menit; telat = &le;{{ telat_jam }} jam; lebih dari itu dianggap mati.
+  </p>
+</div>
+
+<div class="sd-kartu">
+  <div class="k"><div class="n" style="color:var(--green)">{{ ringkas.segar|default:0 }}</div><div class="l">Segar</div></div>
+  <div class="k"><div class="n" style="color:var(--yellow)">{{ ringkas.telat|default:0 }}</div><div class="l">Telat</div></div>
+  <div class="k"><div class="n" style="color:var(--red)">{{ ringkas.mati|default:0 }}</div><div class="l">Mati / kosong</div></div>
+  <div class="k"><div class="n" style="color:var(--muted)">{{ ringkas.tanpa_waktu|default:0 }}</div><div class="l">Tanpa penanda waktu</div></div>
+</div>
+
+{% regroup hasil by lapis as kelompok %}
+{% for grup in kelompok %}
+<div class="sd-lapis">
+  <h2>
+    {% if grup.grouper == 'mssql' %}MSSQL — historian SCADA
+    {% elif grup.grouper == 'postgres' %}PostgreSQL — snapshot hasil cron
+    {% else %}Sumber luar — spreadsheet &amp; integrasi{% endif %}
+  </h2>
+  <p class="ket">
+    {% if grup.grouper == 'mssql' %}
+      Dibaca langsung saat halaman dibuka. FASOP tidak pernah menulis ke sini.
+    {% elif grup.grouper == 'postgres' %}
+      Salinan di database FASOP, diisi cron. Tetap terbaca walau MSSQL putus —
+      tapi ikut berhenti kalau cron atau tabel hulunya berhenti.
+    {% else %}
+      Masuk lewat n8n atau unggahan manual, bukan dari SCADA.
+    {% endif %}
+  </p>
+
+  <table class="sd-tabel">
+    <thead>
+      <tr>
+        <th style="width:26%">Dipakai oleh</th>
+        <th style="width:20%">Sumber</th>
+        <th style="width:18%">Diisi oleh</th>
+        <th style="width:19%">Data terakhir</th>
+        <th style="width:17%">Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for b in grup.list %}
+      <tr>
+        <td>
+          <span class="sd-fitur">{{ b.fitur }}</span>
+          {% if b.catatan %}<div class="sd-catatan">{{ b.catatan }}</div>{% endif %}
+        </td>
+        <td class="mono">{{ b.sumber }}
+          {% if b.hulu %}<div class="sd-hulu">&larr; {{ b.hulu }}</div>{% endif %}
+        </td>
+        <td>{{ b.diisi }}</td>
+        <td class="mono">
+          {% if b.periksa.waktu %}{{ b.periksa.waktu|date:"d/m/Y H:i:s" }}
+          {% else %}&mdash;{% endif %}
+          {% if b.periksa.pesan %}<div class="sd-catatan">{{ b.periksa.pesan }}</div>{% endif %}
+        </td>
+        <td>
+          <span class="sd-chip sd-{{ b.periksa.status }}">
+            {% if b.periksa.status == 'segar' %}Segar
+            {% elif b.periksa.status == 'telat' %}Telat
+            {% elif b.periksa.status == 'mati' %}Tidak diperbarui
+            {% elif b.periksa.status == 'kosong' %}Kosong
+            {% elif b.periksa.status == 'galat' %}Gagal dibaca
+            {% elif b.periksa.status == 'takterjangkau' %}Tak terjangkau
+            {% elif b.periksa.status == 'dilewati' %}Dilewati
+            {% elif b.periksa.status == 'tak_andal' %}Waktu tak andal
+            {% else %}Tanpa penanda waktu{% endif %}
+          </span>
+          {% if b.periksa.waktu and b.periksa.status != 'segar' and b.periksa.status != 'tak_andal' %}
+            <div class="sd-catatan">{{ b.periksa.waktu|timesince }} lalu</div>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endfor %}
+
+<p class="sd-note">
+  <strong>Kenapa banyak yang "tanpa penanda waktu".</strong> Tabel realtime MSSQL
+  (<code>SYS_FREQ_RT</code>, <code>ALL_TRANS_DATA</code>, <code>IND_LOAD</code>,
+  <code>TRANS_*_RT</code>) menimpa nilainya di tempat dan tidak menyimpan kolom waktu —
+  jadi mustahil tahu dari tabel itu sendiri apakah datanya masih hidup. Yang bisa
+  diperiksa adalah tabel snapshot PostgreSQL yang menyalinnya, karena di sana ada
+  kolom waktu. Kolom <code>DATE</code> di <code>KIT_REALTIME</code> ada tapi tidak
+  dipelihara — sengaja tidak dipakai menilai kesegaran.
+  <br><br>
+  <strong>Alat bantu terkait.</strong>
+  <code>python manage.py cek_armada_kit</code> membandingkan daftar pembangkit antara
+  KIT_REALTIME, HIS_MEAS_KIT, master Pembangkit, dan registry Respons — jalankan itu
+  dulu setiap kali total MW di dua halaman berbeda.
+</p>
+{% endblock %}
