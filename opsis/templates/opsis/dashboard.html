@@ -487,6 +487,25 @@
 
 <!-- Grid pembangkit — semua jenis sejajar, unit vertikal di tiap kolom -->
 {% if grouped %}
+<div class="chart-head" style="margin-bottom:10px;">
+    <div class="chart-title">
+        <i class="bi bi-hdd-stack me-1" style="color:#34d399;"></i>Beban per Pembangkit
+    </div>
+    <div style="display:flex; align-items:center; gap:10px;">
+        <span style="font-size:11px; color:var(--muted);">Riwayat per menit — semua pembangkit, 1 sheet per pembangkit</span>
+        <input type="date" id="dl-kit-mulai" title="Tanggal mulai"
+               style="font-size:11px; color:#34d399; background:transparent; color-scheme:dark;
+                      border:1px solid rgba(52,211,153,.3); padding:1px 6px; border-radius:5px;">
+        <input type="date" id="dl-kit-selesai" title="Tanggal selesai (maks. 7 hari)"
+               style="font-size:11px; color:#34d399; background:transparent; color-scheme:dark;
+                      border:1px solid rgba(52,211,153,.3); padding:1px 6px; border-radius:5px;">
+        <a id="btn-dl-kit" href="/opsis/export/beban-pembangkit/" target="_blank"
+           style="font-size:11px; color:#34d399; text-decoration:none; border:1px solid rgba(52,211,153,.3);
+                  padding:2px 8px; border-radius:5px; white-space:nowrap;">
+            <i class="bi bi-download me-1"></i>Excel
+        </a>
+    </div>
+</div>
 <div class="jenis-outer-grid">
     {% for jenis, cards in grouped.items %}
     <div>
@@ -1463,6 +1482,23 @@ setInterval(loadKttChart, 2000); // refresh tiap 2 detik
     const tglFreq = document.getElementById('dl-freq-tgl');
     if (dlFreq)  dlFreq.href  = `/opsis/export/frekuensi/?tanggal=${today}`;
     if (dlBeban) dlBeban.href = `/opsis/export/beban/?tanggal=${today}`;
+
+    // ── Unduh beban per pembangkit (1 sheet per pembangkit) ──
+    const kitMulai = document.getElementById('dl-kit-mulai');
+    const kitSelesai = document.getElementById('dl-kit-selesai');
+    const btnKit = document.getElementById('btn-dl-kit');
+    if (kitMulai && kitSelesai && btnKit) {
+        kitMulai.value = kitMulai.value || today;
+        kitSelesai.value = kitSelesai.value || today;
+        const segarkanKit = () => {
+            const a = kitMulai.value || today;
+            const b = kitSelesai.value || a;
+            btnKit.href = `/opsis/export/beban-pembangkit/?mulai=${a}&selesai=${b}`;
+        };
+        kitMulai.addEventListener('change', segarkanKit);
+        kitSelesai.addEventListener('change', segarkanKit);
+        segarkanKit();
+    }
     if (tglFreq && dlFreq) {
         tglFreq.value = today;
         tglFreq.max   = today;

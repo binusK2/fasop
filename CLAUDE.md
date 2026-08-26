@@ -405,19 +405,59 @@ terlihat sempurna secara palsu.
 
 ---
 
-## OPSIS — Riwayat Frekuensi (dua sumber)
+## OPSIS — Ekspor Beban per Pembangkit (`/opsis/export/beban-pembangkit/`)
+
+Unduhan Excel berisi riwayat beban **semua pembangkit aktif**, satu sheet per
+pembangkit (nama sheet = nama pembangkit), plus sheet **Ringkasan Sistem** di
+depan (total MW + Hz per menit) dan sheet **Keterangan** di belakang. Tombolnya
+di dashboard, di atas grid pembangkit, dengan dua kotak tanggal.
+
+Gunanya bukan sekadar ekspor: ini **cadangan manual untuk analisis Respons
+Pembangkit**. Sumbernya PostgreSQL (`SnapLive`), bukan MSSQL, jadi tetap bisa
+diunduh saat historian tak terjangkau atau saat Respons Kit sedang tidak jalan —
+tiap sheet memuat MW, MVAR, dan Hz sistem per menit sehingga respons tiap
+pembangkit terhadap ayunan frekuensi masih bisa ditelusuri manual.
+
+Dua hal yang menentukan halaman ini tetap cepat, jangan dibalik tanpa mengukur:
+
+- **Batas rentang memakai datetime, bukan lookup `__date`.** `waktu__date__gte`
+  membungkus kolom dalam fungsi cast sehingga indeks `(pembangkit, -waktu)`
+  tidak terpakai dan tiap sheet memicu sequential scan atas jutaan baris
+  `SnapLive`. Mengukurnya: ekspor 1 hari turun dari 18,9 detik jadi 5,6 detik
+  setelah diganti `waktu__gte=awal, waktu__lt=akhir`.
+- **`openpyxl.Workbook(write_only=True)`.** Mode biasa merakit objek `Cell`
+  untuk tiap sel; satu hari × 23 pembangkit sudah ~200 ribu sel. Konsekuensinya
+  sel tidak bisa disentuh lagi setelah `append`, jadi seluruh gaya dipasang saat
+  baris dibuat (lihat `_buat_sheet`).
+
+Rentang dibatasi `EXPORT_KIT_MAKS_HARI` (7 hari, ~30 detik) supaya satu worker
+gunicorn tidak tertahan sampai timeout. Nama sheet dibersihkan dan diunikkan
+sendiri oleh `_nama_sheet()` — Excel melarang `[]:*?/\` dan memotong di 31
+karakter, jadi dua pembangkit berawalan sama bisa bertabrakan dan openpyxl akan
+melempar error di tengah perakitan kalau tidak ditangani lebih dulu.
+
+---
+
+## OPSIS — Riwayat Frekuensi (tiga sumber)
 
 Riwayat frekuensi sistem dibaca lewat **`opsis/freq_history.py`** — satu-satunya
 modul yang boleh dipanggil views/command. Jangan kembali memanggil
 `mssql.get_freq_range()` langsung: kalau begitu salah satu jalur (halaman atau
 cron `deteksi_respon`) akan kehilangan tambalannya.
 
-Ada **dua** sumber, digabung per detik:
+Ada **tiga** sumber, digabung per detik menurut prioritas. Detik yang sudah
+terisi sumber di atasnya tidak pernah ditimpa sumber di bawahnya:
 
-| Sumber | Asal | Peran |
-|---|---|---|
-| `SYS_FREQ_HIS` (MSSQL) | historian SCADA, 1 baris/detik | **acuan** — dipakai di detik mana pun ia punya data |
-| `opsis.SnapFreqRT` (PostgreSQL) | rekaman FASOP sendiri dari `SYS_FREQ_RT` lewat cron `collect_freq_rt` | **penambal** — mengisi detik yang tidak dipunyai historian |
+| # | Sumber | Asal | Menolong saat |
+|---|---|---|---|
+| 1 | `SYS_FREQ_HIS` (MSSQL) | historian SCADA, 1 baris/detik | **acuan** — dipakai di detik mana pun ia punya data |
+| 2 | `opsis.SnapFreq` (PostgreSQL) | cermin no.1, diisi cron `collect_freq` | **MSSQL tak terjangkau** (koneksi putus / circuit breaker terbuka) |
+| 3 | `opsis.SnapFreqRT` (PostgreSQL) | rekaman FASOP sendiri dari `SYS_FREQ_RT` lewat cron `collect_freq_rt` | **job penulis `SYS_FREQ_HIS` berhenti diisi** |
+
+Dua mode kegagalan terakhir itu **berbeda dan butuh penambal berbeda**. No.2
+tidak bisa menggantikan no.3: ia cermin dari no.1, jadi saat sumbernya berhenti
+diisi, cerminnya ikut kosong di rentang yang sama. Jangan hapus salah satunya
+dengan alasan "sudah ada yang lain".
 
 Kenapa begitu: job penulis `SYS_FREQ_HIS` di sisi SCADA pernah berhenti
 berhari-hari (24 Agustus 2026 15:17, didahului pemadaman parsial sejak 19
@@ -441,8 +481,12 @@ Yang perlu diketahui saat mengubahnya:
   (1 sampel/detik, menyamai `SYS_FREQ_HIS`), bukan `collect_freq_rt` polos.
   Pasang lewat `bash deploy/setup_freq_rt_cron.sh` (idempotent).
 - `ambil_range_detail()` mengembalikan `(deret, info)` dengan hitungan berapa
-  detik berasal dari masing-masing sumber; `keterangan(info)` memberi teksnya
-  untuk ditampilkan. Pakai itu daripada mengarang label sumber di template.
+  detik benar-benar DIPAKAI dari masing-masing sumber (`historian`/`snapfreq`/
+  `postgres`) — bukan berapa yang tersedia, supaya angkanya terbaca sebagai
+  "berapa yang ditambal". `keterangan(info)` memberi teksnya untuk ditampilkan;
+  pakai itu daripada mengarang label sumber di template.
+- Urutan prioritas ditentukan **urutan tuple** di `ambil_range_detail()`. Menukar
+  barisnya menukar siapa yang menang — jangan diubah tanpa sengaja.
 - Rekaman ini **tidak bisa mengisi masa lalu**. Lubang sebelum cron dipasang
   hanya bisa dipulihkan dari arsip historian — perbaikan di sisi SCADA tetap
   perlu dikejar.

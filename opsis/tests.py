@@ -13,7 +13,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from .models import (KelompokPeta, KolomEWS, ModePemeliharaan, Pembangkit,
-                     PrakiraanBeban, SnapLive, SnapFreqRT, TitikEWS)
+                     PrakiraanBeban, SnapFreq, SnapFreqRT, SnapLive, TitikEWS)
 from . import freq_history, hop_map, mssql, prakiraan, prediksi, views
 from auditlog.models import AuditLog
 
@@ -1250,7 +1250,50 @@ class FreqHistoryGabunganTest(TestCase):
         _, info = freq_history.ambil_range_detail(self.t0, self.t1)
         teks = freq_history.keterangan(info)
         self.assertIn('Historian SCADA', teks)
-        self.assertIn('1 detik ditambal', teks)
+        self.assertIn('1 detik', teks)
+
+    # ---- sumber ketiga: SnapFreq (cermin historian di PostgreSQL) ----------
+
+    def _snapfreq(self, pasangan):
+        """Isi opsis.SnapFreq — cermin SYS_FREQ_HIS yang diisi cron collect_freq."""
+        for d, hz in pasangan:
+            SnapFreq.objects.create(
+                waktu=timezone.make_aware(self.t0 + datetime.timedelta(seconds=d)), hz=hz)
+
+    def test_snapfreq_dipakai_saat_mssql_tak_terjangkau(self):
+        """Koneksi MSSQL putus, tapi cerminnya di PostgreSQL masih terbaca."""
+        def meledak(a, b):
+            raise ConnectionError('MSSQL tak terjangkau')
+        mssql.get_freq_range = meledak
+        self._snapfreq([(0, 50.0), (1, 50.1)])
+        deret, info = freq_history.ambil_range_detail(self.t0, self.t1)
+        self.assertEqual([h for _, h in deret], [50.0, 50.1])
+        self.assertEqual(info['sumber'], 'snapfreq')
+        self.assertEqual((info['historian'], info['snapfreq'], info['postgres']), (0, 2, 0))
+
+    def test_urutan_prioritas_tiga_sumber(self):
+        """historian > snapfreq > snapfreqrt; yang lebih dulu tidak ditimpa."""
+        self._historian([(0, 50.0)])
+        self._snapfreq([(0, 11.1), (1, 50.1)])          # detik 0 kalah dari historian
+        self._postgres([(0, 22.2), (1, 33.3), (2, 49.2)])  # detik 0,1 kalah
+        deret, info = freq_history.ambil_range_detail(self.t0, self.t1)
+        self.assertEqual([h for _, h in deret], [50.0, 50.1, 49.2])
+        self.assertEqual((info['historian'], info['snapfreq'], info['postgres']), (1, 1, 1))
+        self.assertEqual(info['sumber'], 'gabungan')
+
+    def test_snapfreq_tidak_menolong_saat_historian_berhenti_diisi(self):
+        """
+        Kasus 24 Agustus 2026: SYS_FREQ_HIS berhenti, jadi cerminnya (SnapFreq)
+        ikut kosong untuk rentang itu. Hanya SnapFreqRT yang punya isinya —
+        inilah alasan sumber ketiga tidak bisa menggantikan yang kedua.
+        """
+        self._historian([])                # historian berhenti diisi
+        # SnapFreq juga tidak punya apa-apa di rentang ini
+        self._postgres([(0, 49.9), (1, 49.8)])
+        deret, info = freq_history.ambil_range_detail(self.t0, self.t1)
+        self.assertEqual([h for _, h in deret], [49.9, 49.8])
+        self.assertEqual(info['snapfreq'], 0)
+        self.assertEqual(info['sumber'], 'postgres')
 
 
 class ResponGetterSumberTest(TestCase):
@@ -1259,3 +1302,147 @@ class ResponGetterSumberTest(TestCase):
     def test_getter_respon_memakai_freq_history(self):
         get_freq, _ = views._respon_getters()
         self.assertIs(get_freq, freq_history.ambil_range)
+
+
+class NamaSheetExcelTest(TestCase):
+    """Nama sheet Excel: karakter terlarang, batas 31 huruf, dan tabrakan."""
+
+    def test_karakter_terlarang_diganti(self):
+        nama = views._nama_sheet('PLTU A/B [1]:2*3?4', set())
+        for c in r'[]:*?/\\':
+            self.assertNotIn(c, nama)
+
+    def test_dipotong_31_karakter(self):
+        nama = views._nama_sheet('P' * 60, set())
+        self.assertEqual(len(nama), 31)
+
+    def test_nama_kembar_diberi_akhiran(self):
+        terpakai = set()
+        a = views._nama_sheet('PLTA POSO', terpakai)
+        b = views._nama_sheet('PLTA POSO', terpakai)
+        self.assertEqual(a, 'PLTA POSO')
+        self.assertNotEqual(a, b)
+        self.assertIn('(2)', b)
+
+    def test_nama_panjang_kembar_tetap_muat_31(self):
+        """Dua nama yang sama-sama terpotong di 31 huruf tidak boleh bertabrakan."""
+        terpakai = set()
+        a = views._nama_sheet('PEMBANGKIT DENGAN NAMA SANGAT PANJANG SEKALI 1', terpakai)
+        b = views._nama_sheet('PEMBANGKIT DENGAN NAMA SANGAT PANJANG SEKALI 2', terpakai)
+        self.assertNotEqual(a, b)
+        self.assertLessEqual(len(a), 31)
+        self.assertLessEqual(len(b), 31)
+
+    def test_nama_kosong_tetap_dapat_judul(self):
+        self.assertTrue(views._nama_sheet('', set()))
+
+
+class ExportBebanPembangkitTest(TestCase):
+    """Ekspor Excel beban semua pembangkit — satu sheet per pembangkit."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_superuser('exp', 'exp@contoh.id', 'rahasia-tes-123')
+        profile = getattr(cls.user, 'profile', None)
+        if profile is not None:
+            profile.force_password_change = False
+            profile.save(update_fields=['force_password_change'])
+
+        cls.a = Pembangkit.objects.create(kode='KITA', nama='PLTA Alpha')
+        cls.b = Pembangkit.objects.create(kode='KITB', nama='PLTU Beta')
+        cls.mati = Pembangkit.objects.create(kode='KITC', nama='PLTD Nonaktif', aktif=False)
+
+        cls.tanggal = datetime.date(2026, 7, 10)
+        tz = timezone.get_current_timezone()
+        for menit, (mw_a, mw_b) in enumerate([(10.0, 20.0), (12.0, 22.0), (14.0, 24.0)]):
+            w = timezone.make_aware(
+                datetime.datetime.combine(cls.tanggal, datetime.time(0, menit)), tz)
+            SnapLive.objects.create(pembangkit=cls.a, waktu=w, mw=mw_a, mvar=1.0, frekuensi=50.0)
+            SnapLive.objects.create(pembangkit=cls.b, waktu=w, mw=mw_b, mvar=2.0, frekuensi=50.0)
+
+    def setUp(self):
+        self.client.force_login(self.user)
+
+    def _unduh(self, query=''):
+        import io as _io
+        import openpyxl
+        resp = self.client.get(reverse('opsis_export_beban_pembangkit') + query)
+        self.assertEqual(resp.status_code, 200)
+        return resp, openpyxl.load_workbook(_io.BytesIO(resp.content))
+
+    def test_berkas_xlsx_dengan_nama_yang_menyebut_tanggal(self):
+        resp, _ = self._unduh('?tanggal=2026-07-10')
+        self.assertIn('spreadsheetml.sheet', resp['Content-Type'])
+        self.assertIn('BebanPembangkit_2026-07-10.xlsx', resp['Content-Disposition'])
+
+    def test_satu_sheet_per_pembangkit_aktif(self):
+        _, wb = self._unduh('?tanggal=2026-07-10')
+        self.assertIn('PLTA Alpha', wb.sheetnames)
+        self.assertIn('PLTU Beta', wb.sheetnames)
+        self.assertNotIn('PLTD Nonaktif', wb.sheetnames)   # nonaktif tidak ikut
+
+    def test_ringkasan_di_depan_keterangan_di_belakang(self):
+        _, wb = self._unduh('?tanggal=2026-07-10')
+        self.assertEqual(wb.sheetnames[0], 'Ringkasan Sistem')
+        self.assertEqual(wb.sheetnames[-1], 'Keterangan')
+
+    def test_isi_sheet_pembangkit(self):
+        _, wb = self._unduh('?tanggal=2026-07-10')
+        ws = wb['PLTA Alpha']
+        baris = list(ws.iter_rows(values_only=True))
+        self.assertEqual(baris[0], ('No', 'Tanggal', 'Waktu', 'MW', 'MVAR', 'Frekuensi (Hz)'))
+        self.assertEqual([b[3] for b in baris[1:4]], [10.0, 12.0, 14.0])
+        self.assertEqual(baris[1][1], '2026-07-10')
+        # ringkasan statistik di kaki sheet
+        ekor = [b[2] for b in baris if b and b[2] in ('Rata-rata', 'Minimum', 'Maksimum')]
+        self.assertEqual(ekor, ['Rata-rata', 'Minimum', 'Maksimum'])
+
+    def test_ringkasan_menjumlah_semua_pembangkit(self):
+        _, wb = self._unduh('?tanggal=2026-07-10')
+        baris = list(wb['Ringkasan Sistem'].iter_rows(values_only=True))
+        self.assertEqual([b[3] for b in baris[1:4]], [30.0, 34.0, 38.0])   # 10+20, 12+22, 14+24
+        self.assertEqual([b[4] for b in baris[1:4]], [50.0, 50.0, 50.0])   # Hz ikut terbawa
+
+    def test_pembangkit_tanpa_data_tetap_punya_sheet(self):
+        kosong = Pembangkit.objects.create(kode='KITD', nama='PLTS Kosong')
+        _, wb = self._unduh('?tanggal=2026-07-10')
+        self.assertIn('PLTS Kosong', wb.sheetnames)
+        isi = list(wb['PLTS Kosong'].iter_rows(values_only=True))
+        self.assertIn('Tidak ada data pada rentang ini', [c for b in isi for c in b])
+
+    def test_rentang_beberapa_hari(self):
+        resp, wb = self._unduh('?mulai=2026-07-08&selesai=2026-07-10')
+        self.assertIn('BebanPembangkit_2026-07-08_sd_2026-07-10.xlsx',
+                      resp['Content-Disposition'])
+        self.assertEqual(len(list(wb['PLTA Alpha'].iter_rows(values_only=True))) - 1, 3 + 4)
+
+    def test_hari_lain_tidak_ikut_terbawa(self):
+        tz = timezone.get_current_timezone()
+        SnapLive.objects.create(
+            pembangkit=self.a,
+            waktu=timezone.make_aware(
+                datetime.datetime.combine(datetime.date(2026, 7, 11), datetime.time(0, 0)), tz),
+            mw=99.0)
+        _, wb = self._unduh('?tanggal=2026-07-10')
+        nilai = [b[3] for b in wb['PLTA Alpha'].iter_rows(values_only=True)][1:4]
+        self.assertNotIn(99.0, nilai)
+
+    def test_rentang_terbalik_ditolak(self):
+        resp = self.client.get(reverse('opsis_export_beban_pembangkit')
+                               + '?mulai=2026-07-10&selesai=2026-07-08')
+        self.assertEqual(resp.status_code, 302)
+
+    def test_rentang_terlalu_panjang_ditolak(self):
+        resp = self.client.get(reverse('opsis_export_beban_pembangkit')
+                               + '?mulai=2026-06-01&selesai=2026-07-10')
+        self.assertEqual(resp.status_code, 302)
+
+    def test_tanggal_ngawur_jatuh_ke_hari_ini(self):
+        resp, _ = self._unduh('?tanggal=bukan-tanggal')
+        self.assertIn(str(timezone.localdate()), resp['Content-Disposition'])
+
+    def test_butuh_login(self):
+        self.client.logout()
+        resp = self.client.get(reverse('opsis_export_beban_pembangkit'))
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn('/login', resp['Location'])
