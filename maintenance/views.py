@@ -8,6 +8,7 @@ from .forms import MaintenanceForm, MaintenancePLCForm, MaintenanceRouterForm, M
 from devices.models import Device, DeviceType
 from gangguan.models import Gangguan
 from inspection.models import InspectionCatuDaya
+from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q, Count
 from django.db.models.functions import Trim
 from django.http import HttpResponse
@@ -822,6 +823,27 @@ def maintenance_detail(request, pk):
     })
 
 
+def _detail_instance(maintenance, detail_form_class):
+    """Baris detail yang sudah tersimpan untuk form ini, None kalau belum ada.
+
+    Ditelusuri dari relasi OneToOne di model — bukan daftar if/elif per nama
+    form. Daftar manualnya sempat ketinggalan MaintenanceFrequencyRelayForm
+    (UFLS/UFR Island/OFGS/CDSAS), dan akibatnya fatal: form edit terbuka kosong
+    seolah datanya hilang, lalu `dform.save()` membuat baris detail KEDUA untuk
+    pemeliharaan yang sama sehingga menabrak unique constraint OneToOne —
+    Internal Server Error. Dengan penelusuran relasi, jenis perangkat baru
+    otomatis ikut tanpa perlu menambah cabang di sini.
+    """
+    model = getattr(getattr(detail_form_class, '_meta', None), 'model', None)
+    if model is None:
+        return None
+    for field in maintenance._meta.get_fields():
+        if field.one_to_one and field.auto_created and field.related_model is model:
+            try:
+                return getattr(maintenance, field.get_accessor_name())
+            except ObjectDoesNotExist:
+                return None
+    return None
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -837,47 +859,7 @@ def maintenance_edit(request, pk):
     detail_form_class, template = _get_detail_form_config(device)
 
     # Ambil detail object yang sudah ada (jika ada)
-    detail_instance = None
-    if detail_form_class:
-        try:
-            if detail_form_class.__name__ == 'MaintenancePLCForm':
-                detail_instance = maintenance.maintenanceplc
-            elif detail_form_class.__name__ == 'MaintenanceRouterForm':
-                detail_instance = maintenance.maintenancerouter
-            elif detail_form_class.__name__ == 'MaintenanceRadioForm':
-                detail_instance = maintenance.maintenanceradio
-            elif detail_form_class.__name__ == 'MaintenanceRepeaterForm':
-                detail_instance = maintenance.maintenancerepeater
-            elif detail_form_class.__name__ == 'MaintenanceVoIPForm':
-                detail_instance = maintenance.maintenancevoip
-            elif detail_form_class.__name__ == 'MaintenanceMuxForm':
-                detail_instance = maintenance.maintenancemux
-            elif detail_form_class.__name__ == 'MaintenanceRectifierForm':
-                detail_instance = maintenance.maintenancerectifier
-            elif detail_form_class.__name__ == 'MaintenanceTeleproteksiForm':
-                detail_instance = maintenance.maintenanceteleproteksi
-            elif detail_form_class.__name__ == 'MaintenanceGensetForm':
-                detail_instance = maintenance.maintenancegenset
-            elif detail_form_class.__name__ == 'MaintenanceRTUForm':
-                detail_instance = maintenance.maintenancertu
-            elif detail_form_class.__name__ == 'MaintenanceSASForm':
-                detail_instance = maintenance.maintenancesas
-            elif detail_form_class.__name__ == 'MaintenanceRTUGenericForm':
-                detail_instance = maintenance.maintenancertugeneric
-            elif detail_form_class.__name__ == 'MaintenanceBCUForm':
-                detail_instance = maintenance.maintenancebcu
-            elif detail_form_class.__name__ == 'MaintenanceRoIPForm':
-                detail_instance = maintenance.maintenanceroip
-            elif detail_form_class.__name__ == 'MaintenanceUPSForm':
-                detail_instance = maintenance.maintenanceups
-            elif detail_form_class.__name__ == 'MaintenanceMasterTripForm':
-                detail_instance = maintenance.maintenancemastertrip
-            elif detail_form_class.__name__ == 'MaintenanceDFRForm':
-                detail_instance = maintenance.maintenancedfr
-            elif detail_form_class.__name__ == 'MaintenanceMasterStationForm':
-                detail_instance = maintenance.maintenancemasterstation
-        except Exception:
-            pass
+    detail_instance = _detail_instance(maintenance, detail_form_class)
 
     # Gunakan template edit yang sama dengan create
     edit_template = template  # reuse template yang sama
