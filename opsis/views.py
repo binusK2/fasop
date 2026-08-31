@@ -17,6 +17,7 @@ from auditlog.models import AuditLog
 from auditlog.utils import log_action
 from . import mssql
 from . import prediksi
+from devices.permissions import can_view_opsis, can_write_opsis, can_edit_ews
 from . import hop as hop_io
 from .hop_map import SULAWESI_PATH, MAP_W, MAP_H, DEFAULT_MAP_POS, posisi_pembangkit
 from .models import HOP_BANDS
@@ -418,8 +419,9 @@ def api_live(request):
 
 
 def _bisa_flag(user):
-    """Boleh menandai ketidaksesuaian data: superuser atau role Opsis."""
-    return user.is_superuser or getattr(getattr(user, 'profile', None), 'role', '') == 'opsis'
+    """Boleh menandai ketidaksesuaian data: superuser, role Opsis, atau AM.
+    Aturan rolenya di devices.models.UserProfile.bisa_tulis_opsis."""
+    return can_write_opsis(user)
 
 
 @login_required
@@ -1572,7 +1574,8 @@ def hop_import(request):
 
 
 def _bisa_input_hop(user):
-    return user.is_superuser or getattr(getattr(user, 'profile', None), 'role', '') == 'opsis'
+    """Superuser, role Opsis, atau AM — bukan Opsis View (lihat-saja)."""
+    return can_write_opsis(user)
 
 
 @login_required
@@ -1819,8 +1822,8 @@ RESPON_MAX_RENTANG_MENIT = 60   # batas aman rentang analisa manual (query per d
 
 
 def _bisa_respon(user):
-    return user.is_superuser or getattr(
-        getattr(user, 'profile', None), 'role', '') in ('opsis', 'opsis_view')
+    """Superuser, role Opsis/Opsis View, atau AM."""
+    return can_view_opsis(user)
 
 
 def _respon_getters():
@@ -2119,7 +2122,7 @@ def _bisa_edit_ews(user):
     superuser. Pemetaan ke tabel MSSQL sengaja TIDAK ikut di sini — itu tetap
     hanya lewat site admin.
     """
-    return user.is_superuser or getattr(getattr(user, 'profile', None), 'role', '') == 'technician'
+    return can_edit_ews(user)
 
 
 def _angka_ews(nilai, label, boleh_kosong=True):

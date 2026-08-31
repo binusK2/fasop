@@ -58,6 +58,35 @@ def is_dispatcher(user):
     return p.is_dispatcher if p else False
 
 
+# ── OPSIS ─────────────────────────────────────────────────────────────
+# Pembungkus properti UserProfile (devices.models) supaya view tidak perlu
+# menangani sendiri kasus user tanpa profile. Aturan role-nya HANYA ada di
+# model — jangan menuliskan ulang tuple role di sini atau di view.
+
+def can_view_opsis(user):
+    """Halaman OPSIS terbatas: Respons Pembangkit & Logsheet."""
+    if user.is_superuser:
+        return True
+    p = get_profile(user)
+    return p.bisa_lihat_opsis if p else False
+
+
+def can_write_opsis(user):
+    """Input HOP, penanda 'data tidak sesuai', mode Atur Peta."""
+    if user.is_superuser:
+        return True
+    p = get_profile(user)
+    return p.bisa_tulis_opsis if p else False
+
+
+def can_edit_ews(user):
+    """Sunting ambang setting rele di EWS Defense Scheme."""
+    if user.is_superuser:
+        return True
+    p = get_profile(user)
+    return p.bisa_sunting_ews if p else False
+
+
 def require_can_edit(view_func):
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):

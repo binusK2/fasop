@@ -318,10 +318,46 @@ class UserProfile(models.Model):
     def is_opsis_view(self):
         return self.role == 'opsis_view'
 
+    # ── OPSIS ─────────────────────────────────────────────────────
+    # Tiga tingkat akses OPSIS, didefinisikan SEKALI di sini lalu dipakai
+    # ulang oleh view (lewat devices.permissions) dan template. Sebelumnya
+    # tuple role-nya disalin di lima tempat lintas dua app; begitu salah satu
+    # tertinggal saat diubah, gejalanya menu tampil tapi halamannya menolak.
+    OPSIS_ROLE_LIHAT   = ('opsis', 'opsis_view', 'asisten_manager')
+    OPSIS_ROLE_TULIS   = ('opsis', 'asisten_manager')
+    OPSIS_ROLE_EWS     = ('technician', 'asisten_manager')
+
+    @property
+    def bisa_lihat_opsis(self):
+        """
+        Halaman OPSIS yang dibatasi role — Respons Pembangkit & Logsheet.
+        Halaman OPSIS lain terbuka untuk semua user yang sudah login, jadi
+        properti ini bukan gerbang masuk /opsis/ secara umum.
+        """
+        return self.user.is_superuser or self.role in self.OPSIS_ROLE_LIHAT
+
+    @property
+    def bisa_tulis_opsis(self):
+        """
+        Aksi yang mengubah data OPSIS: input HOP harian, penanda 'data tidak
+        sesuai', dan mode Atur Peta. Opsis View sengaja TIDAK termasuk —
+        role itu memang lihat-saja.
+        """
+        return self.user.is_superuser or self.role in self.OPSIS_ROLE_TULIS
+
+    @property
+    def bisa_sunting_ews(self):
+        """
+        Sunting ambang setting rele di EWS Defense Scheme. Teknisi karena
+        merekalah yang tahu setting di lapangan berubah, plus AM. Pemetaan ke
+        tabel MSSQL tetap hanya lewat site admin.
+        """
+        return self.user.is_superuser or self.role in self.OPSIS_ROLE_EWS
+
     @property
     def can_input_hop(self):
-        """Boleh input data HOP harian: superuser atau role Opsis (bukan Opsis View)."""
-        return self.user.is_superuser or self.role == 'opsis'
+        """Boleh input data HOP harian — lihat bisa_tulis_opsis."""
+        return self.bisa_tulis_opsis
 
     @property
     def can_manage_lokasi(self):
