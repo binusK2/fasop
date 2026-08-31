@@ -1531,3 +1531,74 @@ class PetaSumberDataTest(TestCase):
         resp = self.client.get(reverse('opsis_sumber_data'))
         self.assertEqual(resp.status_code, 302)
         self.assertIn('/login', resp['Location'])
+
+
+@override_settings(MSSQL_HOST='')   # jangan menembak historian saat menguji akses
+class AksesOpsisAMTest(TestCase):
+    """
+    Role AM (asisten_manager) boleh membuka SELURUH menu /opsis/* dan
+    melakukan aksi tulisnya. Sebelum ini AM tertahan di Respons Pembangkit,
+    Logsheet, dan Input HOP.
+
+    Aturan role-nya tinggal di devices.models.UserProfile — tes ini menjaga
+    supaya halaman dan properti tidak berbeda pendapat.
+    """
+
+    HALAMAN_TERBATAS = ['/opsis/respon/', '/opsis/logsheet/', '/opsis/hop/input/']
+
+    def _buat(self, username, role):
+        user = User.objects.create_user(username, f'{username}@contoh.id', 'rahasia-tes-123')
+        profil = user.profile
+        profil.role = role
+        profil.force_password_change = False
+        profil.save()
+        return user
+
+    def _klien(self, user):
+        c = self.client_class()
+        c.force_login(user)      # force_login: AxesBackend menolak authenticate() tanpa request
+        return c
+
+    def test_am_bisa_buka_halaman_opsis_terbatas(self):
+        c = self._klien(self._buat('am-akses', 'asisten_manager'))
+        for url in self.HALAMAN_TERBATAS:
+            with self.subTest(url=url):
+                self.assertEqual(c.get(url).status_code, 200)
+
+    def test_am_bisa_semua_aksi_tulis_opsis(self):
+        profil = self._buat('am-tulis', 'asisten_manager').profile
+        self.assertTrue(profil.bisa_lihat_opsis)
+        self.assertTrue(profil.bisa_tulis_opsis)
+        self.assertTrue(profil.bisa_sunting_ews)
+        self.assertTrue(profil.can_input_hop)
+
+    def test_opsis_view_tetap_lihat_saja(self):
+        profil = self._buat('ov-akses', 'opsis_view').profile
+        self.assertTrue(profil.bisa_lihat_opsis)
+        self.assertFalse(profil.bisa_tulis_opsis)
+
+    def test_viewer_tetap_tertutup(self):
+        user = self._buat('viewer-akses', 'viewer')
+        self.assertFalse(user.profile.bisa_lihat_opsis)
+        c = self._klien(user)
+        for url in self.HALAMAN_TERBATAS:
+            with self.subTest(url=url):
+                self.assertEqual(c.get(url).status_code, 302)
+
+    def test_teknisi_tetap_bisa_sunting_ews_tapi_bukan_tulis_opsis(self):
+        # Sunting setting rele memang milik Teknisi; menambah AM tidak boleh
+        # diam-diam memberi Teknisi akses input HOP / penanda data.
+        profil = self._buat('tek-akses', 'technician').profile
+        self.assertTrue(profil.bisa_sunting_ews)
+        self.assertFalse(profil.bisa_tulis_opsis)
+        self.assertFalse(profil.bisa_lihat_opsis)
+
+    def test_menu_input_hop_muncul_untuk_am(self):
+        c = self._klien(self._buat('am-menu', 'asisten_manager'))
+        isi = c.get('/opsis/hop/').content.decode()
+        self.assertIn('/opsis/hop/input/', isi)
+
+    def test_menu_input_hop_tersembunyi_untuk_opsis_view(self):
+        c = self._klien(self._buat('ov-menu', 'opsis_view'))
+        isi = c.get('/opsis/hop/').content.decode()
+        self.assertNotIn('/opsis/hop/input/', isi)

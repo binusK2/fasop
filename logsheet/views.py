@@ -5,6 +5,7 @@ from django.contrib import messages
 from django.utils import timezone
 from django.db.models import Count
 
+from devices.permissions import can_view_opsis
 from .models import LogsheetTitik, LogsheetNilai
 from . import export as xls
 
@@ -20,8 +21,9 @@ def _slot_label(i):
 
 
 def _bisa_logsheet(user):
-    return user.is_superuser or getattr(
-        getattr(user, 'profile', None), 'role', '') in ('opsis', 'opsis_view')
+    """Superuser, role Opsis/Opsis View, atau AM — sama dengan Respons
+    Pembangkit. Aturan rolenya di devices.models.UserProfile.bisa_lihat_opsis."""
+    return can_view_opsis(user)
 
 
 def _pembangkit_list():

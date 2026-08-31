@@ -125,11 +125,34 @@ Roles are stored in `UserProfile` (ForeignKey to User). Middleware enforces rout
 |---|---|
 | Superuser | Everything |
 | Teknisi | Create/edit devices and maintenance |
-| Asisten Manager (AM) | Approve maintenance, manage locations |
+| Asisten Manager (AM) | Approve maintenance, manage locations, **full OPSIS access** (see below) |
 | Viewer | Read-only |
 | Operator | `/inspection/` only; shared session allowed |
 | Opsis | `/opsis/` only |
+| Opsis View | `/opsis/` only, lihat-saja (multi-sesi) |
 | Dispatcher | Telecom testing only |
+
+**Akses OPSIS didefinisikan sekali di `UserProfile`, bukan di tiap view.** Sebagian
+besar halaman `/opsis/*` hanya butuh login, tapi tiga tingkat di bawah ini
+dibatasi role — dan tuple role-nya dulu disalin di lima tempat lintas dua app,
+sehingga sekali lupa memperbaruinya, menu tampil tapi halamannya menolak:
+
+| Properti (`UserProfile`) | Menjaga | Role |
+|---|---|---|
+| `bisa_lihat_opsis` | Respons Pembangkit (`/opsis/respon/`), Logsheet (`/opsis/logsheet/`) | Opsis, Opsis View, AM |
+| `bisa_tulis_opsis` | Input HOP, penanda "data tidak sesuai", mode Atur Peta | Opsis, AM |
+| `bisa_sunting_ews` | Sunting ambang setting rele di `/opsis/ews/` | Teknisi, AM |
+
+View memakai pembungkusnya di `devices/permissions.py` (`can_view_opsis` /
+`can_write_opsis` / `can_edit_ews`) yang menangani user tanpa profile; template
+membaca propertinya langsung. Jangan menuliskan ulang tuple role di view atau
+template — `logsheet/views.py` juga mengimpor helper yang sama supaya halaman
+Logsheet tidak pernah berbeda aturan dengan Respons Pembangkit.
+
+`OpsisAccessMiddleware` adalah hal yang berbeda: ia MEMBATASI role Opsis/Opsis
+View supaya hanya bisa keluar-masuk `/opsis/*`, bukan menentukan siapa yang
+boleh masuk. AM tidak terkena middleware itu dan tetap punya akses penuh ke
+seluruh FASOP.
 
 ### Maintenance Signature Workflow
 
