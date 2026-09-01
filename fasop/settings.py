@@ -331,6 +331,26 @@ STREAMING_X_ACCEL_REDIRECT_PREFIX = config(
     'STREAMING_X_ACCEL_REDIRECT_PREFIX', default='/internal-recordings/',
 )
 
+# -------------------------------------------------------------------
+# Ezviz Open Platform (open.ys7.com) — sumber video CCTV untuk Live
+# Streaming. Kamera Ezviz TIDAK melewati MediaMTX: browser penonton
+# memutar langsung dari cloud Ezviz lewat EZUIKit (lihat streaming/ezviz.py
+# dan catatan "Live Streaming — Sumber Kamera Ezviz" di CLAUDE.md).
+#
+# appKey/appSecret didapat dari Ezviz Open Platform console. Kosongkan
+# keduanya untuk mematikan fitur sumber Ezviz sepenuhnya — halaman live
+# tetap jalan dengan kamera HP/laptop seperti biasa.
+#
+# EZVIZ_API_BASE diganti kalau akun terdaftar di region luar Tiongkok,
+# mis. https://isgpopen.ezvizlife.com (Singapura). Nilainya HARUS sama
+# dengan `env.domain` yang dikirim ke EZUIKit di browser — kalau beda,
+# token dari server ini tidak dikenali oleh domain yang dipanggil player.
+# -------------------------------------------------------------------
+EZVIZ_APP_KEY    = config('EZVIZ_APP_KEY',    default='')
+EZVIZ_APP_SECRET = config('EZVIZ_APP_SECRET', default='')
+EZVIZ_API_BASE   = config('EZVIZ_API_BASE',   default='https://open.ys7.com')
+EZVIZ_TIMEOUT    = config('EZVIZ_TIMEOUT',    default=10, cast=int)
+
 # ── Arsip laporan inspeksi harian (cron export_inspeksi_harian jam 12.00) ──
 # Folder tujuan file Excel harian. Di server Linux ini harus berupa path yang
 # sudah di-mount, mis. share //192.168.77.5/fasop di-mount ke /mnt/fasop lalu

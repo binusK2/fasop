@@ -1,0 +1,308 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Live CCTV — {{ session.judul }}{% endblock %}
+{% block page_title %}Live Streaming — CCTV Ezviz{% endblock %}
+
+{% comment %}
+Satu template untuk KETIGA peran (teknisi pemilik sesi, pengawas, viewer).
+Beda dari sesi kamera perangkat yang punya broadcast/pengawas/viewer.html
+terpisah: di sesi Ezviz tidak ada seorang pun yang mem-publish video dari
+browsernya — semua orang menonton stream cloud yang sama. Yang berbeda per
+peran cuma tombolnya, jadi memecah jadi tiga file hanya akan membuat tiga
+salinan logika pemutar yang harus dijaga tetap sama.
+{% endcomment %}
+
+{% block extra_head %}
+<style>
+.video-wrap { background:#0f172a; border-radius:12px; overflow:hidden; position:relative; aspect-ratio:16/9; }
+.video-wrap #ezviz-player { width:100%; height:100%; }
+.live-badge { position:absolute; top:12px; left:12px; z-index:5; background:#ef4444; color:#fff; font-size:11px; font-weight:700; padding:3px 10px; border-radius:20px; letter-spacing:.5px; }
+.cctv-badge { position:absolute; top:12px; left:70px; z-index:5; background:rgba(79,70,229,.9); color:#fff; font-size:11px; font-weight:700; padding:3px 10px; border-radius:20px; }
+.mic-badge { position:absolute; top:12px; right:12px; z-index:5; background:rgba(16,185,129,.9); color:#fff; font-size:11px; font-weight:700; padding:3px 10px; border-radius:20px; display:none; }
+.ezviz-overlay { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; text-align:center; color:#cbd5e1; font-size:13px; padding:24px; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+    <div>
+        <h2 class="mb-0" style="font-size:20px;font-weight:700;">{{ session.judul }}</h2>
+        <p class="text-muted mb-0" style="font-size:13px;">
+            Kamera: {{ session.kamera|default:"kamera sudah dihapus dari daftar" }} ·
+            Dibuka oleh {{ session.teknisi.profile.get_display_name|default:session.teknisi.username }}
+            {% if is_pengawas %}· Anda pengawas sesi ini{% elif is_broadcaster %}· Anda pemilik sesi ini{% endif %}
+        </p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'streaming:grid' %}" class="btn btn-outline-primary btn-sm"><i class="bi bi-grid-3x3-gap-fill me-1"></i>Multi View</a>
+        <a href="{% url 'streaming:list' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i>Kembali</a>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-8">
+        <div class="video-wrap mb-3" id="video-wrap">
+            {% if session.is_live %}<span class="live-badge">LIVE</span>{% endif %}
+            <span class="cctv-badge"><i class="bi bi-cctv me-1"></i>CCTV Ezviz</span>
+            {% if is_pengawas %}<span class="mic-badge" id="badge-mic"><i class="bi bi-mic-fill me-1"></i>Mic Aktif</span>{% endif %}
+            <div class="ezviz-overlay" id="ezviz-overlay">Menyiapkan pemutar kamera…</div>
+            <div id="ezviz-player"></div>
+        </div>
+
+        <div class="d-flex gap-2 flex-wrap">
+            {% if is_pengawas %}
+            <button type="button" id="btn-mic-on" class="btn btn-success btn-sm"><i class="bi bi-mic-fill me-1"></i>Aktifkan Mic Talkback</button>
+            <button type="button" id="btn-mic-off" class="btn btn-outline-danger btn-sm" disabled><i class="bi bi-mic-mute-fill me-1"></i>Matikan Mic</button>
+            {% endif %}
+            {% if is_broadcaster and session.is_live %}
+            <button type="button" id="btn-end-live" class="btn btn-danger btn-sm"><i class="bi bi-x-circle me-1"></i>Akhiri Sesi</button>
+            {% endif %}
+        </div>
+        <div id="status-msg" class="text-muted mt-2" style="font-size:12px;"></div>
+        <div id="mic-status-msg" class="text-muted" style="font-size:12px;"></div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-body">
+                <h6><i class="bi bi-info-circle me-1"></i>Info Sesi</h6>
+                <p class="mb-1" style="font-size:13px;">Status: <strong>{{ session.get_status_display }}</strong></p>
+                <p class="mb-1" style="font-size:13px;">Mulai: {{ session.started_at|date:"d/m/Y H:i" }}</p>
+                <p class="mb-2" style="font-size:13px;">Pengawas: {% if session.pengawas %}{{ session.pengawas.profile.get_display_name|default:session.pengawas.username }}{% else %}belum ada{% endif %}</p>
+
+                {% if can_claim_pengawas %}
+                <form method="post" action="{% url 'streaming:join_pengawas' pk=session.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-success btn-sm w-100">
+                        <i class="bi bi-mic-fill me-1"></i>Jadi Pengawas (Komunikasi 2 Arah)
+                    </button>
+                </form>
+                <p class="text-muted mt-2 mb-0" style="font-size:11px;">Suara pengawas terdengar oleh pemilik sesi ini, bukan lewat kamera CCTV-nya.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-body">
+                <h6><i class="bi bi-record-circle me-1"></i>Rekaman</h6>
+                <p class="text-muted mb-0" style="font-size:12px;">
+                    Sesi CCTV Ezviz <strong>tidak direkam oleh FASOP</strong> — videonya ditarik browser
+                    langsung dari cloud Ezviz tanpa melewati server FASOP. Rekamannya ada di cloud/kartu SD
+                    kamera itu sendiri dan diputar lewat aplikasi Ezviz.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if is_broadcaster %}
+<form method="post" action="{% url 'streaming:end' pk=session.pk %}" id="end-form" style="display:none;">{% csrf_token %}</form>
+<audio id="talkback-audio" autoplay></audio>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'streaming/webrtc.js' %}"></script>
+<script src="{% static 'streaming/ezuikit.js' %}"></script>
+<script src="{% static 'streaming/ezviz-player.js' %}"></script>
+<script>
+const TOKEN_URL     = '{% url "streaming:ezviz_token" %}';
+const EZOPEN_URL    = '{{ session.ezopen_url }}';
+const EZVIZ_DOMAIN  = '{{ ezviz_domain }}';
+const STATUS_URL    = '{% url "streaming:status" pk=session.pk %}';
+const HEARTBEAT_URL = '{% url "streaming:heartbeat" pk=session.pk %}';
+const CSRF_TOKEN    = document.querySelector('meta[name="csrf-token"]').content;
+let   IS_LIVE       = {{ session.is_live|yesno:"true,false" }};
+
+const IS_BROADCASTER = {{ is_broadcaster|yesno:"true,false" }};
+const IS_PENGAWAS    = {{ is_pengawas|yesno:"true,false" }};
+const ICE_SERVERS    = JSON.parse('{{ ice_servers_json|escapejs }}');
+const WHIP_URL       = '{{ whip_url }}';
+const WHEP_URL       = '{{ whep_url }}';
+const TALKBACK_PATH  = '{{ session.talkback_path }}';
+const STREAM_KEY     = '{{ session.stream_key }}';
+const PENGAWAS_KEY   = '{{ session.pengawas_key }}';
+
+const videoWrap  = document.getElementById('video-wrap');
+const overlay    = document.getElementById('ezviz-overlay');
+const statusMsg  = document.getElementById('status-msg');
+const micStatusMsg = document.getElementById('mic-status-msg');
+
+let player = null, ended = false;
+let statusPollTimer = null, heartbeatTimer = null;
+
+function ukuranPemutar() {
+    const w = Math.max(320, Math.round(videoWrap.clientWidth));
+    return { width: w, height: Math.round(w * 9 / 16) };
+}
+
+async function mulaiPemutar() {
+    if (!EZOPEN_URL) {
+        overlay.textContent = 'Sesi ini tidak punya kamera CCTV — kameranya sudah dihapus dari daftar.';
+        return;
+    }
+    if (!IS_LIVE) {
+        overlay.textContent = 'Sesi sudah berakhir.';
+        return;
+    }
+    const { width, height } = ukuranPemutar();
+    try {
+        player = await buatPemutarEzviz('ezviz-player', {
+            tokenUrl: TOKEN_URL,
+            url: EZOPEN_URL,
+            domain: EZVIZ_DOMAIN,
+            width, height,
+            // Halaman sesi tunggal: suara kamera langsung hidup — beda dari
+            // Multi View yang membisukan semuanya karena 9 kamera berbunyi
+            // bersamaan tidak bisa didengarkan.
+            audio: true,
+            template: 'pcLive',
+            onError: (pesan) => { statusMsg.textContent = pesan; },
+        });
+        overlay.style.display = 'none';
+        statusMsg.textContent = 'Terhubung ke cloud Ezviz.';
+    } catch (err) {
+        console.error(err);
+        overlay.textContent = err.message || 'Gagal menyiapkan pemutar kamera Ezviz.';
+    }
+}
+
+/* EZUIKit menggambar ke canvas berukuran tetap — tanpa resize eksplisit,
+   video tetap seukuran saat halaman pertama dibuka dan jadi kekecilan
+   setelah sidebar disembunyikan atau jendela diperbesar. */
+let resizeTimer = null;
+window.addEventListener('resize', () => {
+    if (!player || typeof player.resize !== 'function') return;
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+        const { width, height } = ukuranPemutar();
+        try { player.resize(width, height); } catch (e) { /* noop */ }
+    }, 250);
+});
+
+function sesiBerakhir() {
+    ended = true;
+    IS_LIVE = false;
+    if (statusPollTimer) { clearInterval(statusPollTimer); statusPollTimer = null; }
+    if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
+    hentikanPemutarEzviz(player);
+    player = null;
+    overlay.style.display = '';
+    overlay.textContent = 'Sesi CCTV ini telah diakhiri.';
+    statusMsg.textContent = '';
+    const liveBadge = document.querySelector('.live-badge');
+    if (liveBadge) liveBadge.remove();
+    const btnEnd = document.getElementById('btn-end-live');
+    if (btnEnd) btnEnd.style.display = 'none';
+}
+
+async function pollStatus() {
+    if (ended) return;
+    try {
+        const resp = await fetch(STATUS_URL);
+        if (!resp.ok) return;
+        const data = await resp.json();
+        if (!data.is_live) { sesiBerakhir(); return; }
+        if (IS_BROADCASTER && data.has_pengawas && !talkbackStarted && Date.now() - lastTalkbackAttempt >= TALKBACK_RETRY_MS) {
+            startTalkbackListener();
+        }
+    } catch (e) { /* koneksi sempat putus — coba lagi di polling berikutnya */ }
+}
+
+async function sendHeartbeat() {
+    if (ended) return;
+    try {
+        await fetch(HEARTBEAT_URL, { method: 'POST', headers: { 'X-CSRFToken': CSRF_TOKEN } });
+    } catch (e) { /* tidak fatal */ }
+}
+
+/* ── Talkback ───────────────────────────────────────────────────────────
+   Sama persis dengan sesi kamera perangkat: suara pengawas TETAP lewat
+   MediaMTX, bukan lewat Ezviz. Fitur "对讲" bawaan EZUIKit sengaja tidak
+   dipakai karena itu bicara ke SPEAKER KAMERA (terdengar semua orang di
+   lokasi), bukan ke telinga teknisi yang membuka sesi ini. */
+let talkbackStarted = false, lastTalkbackAttempt = 0;
+const TALKBACK_RETRY_MS = 15000;
+let talkbackPc = null, talkbackResource = null;
+
+async function startTalkbackListener() {
+    talkbackStarted = true;
+    lastTalkbackAttempt = Date.now();
+    try {
+        const audioEl = document.getElementById('talkback-audio');
+        const { pc, resourceUrl } = await whepPlay(WHEP_URL, TALKBACK_PATH, STREAM_KEY, audioEl, ICE_SERVERS);
+        talkbackPc = pc;
+        talkbackResource = resourceUrl;
+        micStatusMsg.textContent = 'Suara pengawas terhubung.';
+    } catch (e) {
+        console.warn('Talkback belum aktif:', e.message);
+        talkbackStarted = false;
+    }
+}
+
+let micStream = null, micPc = null, micResource = null;
+
+async function startTalkback() {
+    const btnOn = document.getElementById('btn-mic-on');
+    const btnOff = document.getElementById('btn-mic-off');
+    btnOn.disabled = true;
+    micStatusMsg.textContent = 'Meminta akses mikrofon...';
+    try {
+        micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const { pc, resourceUrl } = await whipPublish(WHIP_URL, TALKBACK_PATH, PENGAWAS_KEY, micStream, ICE_SERVERS);
+        micPc = pc;
+        micResource = resourceUrl;
+        document.getElementById('badge-mic').style.display = 'inline-block';
+        btnOff.disabled = false;
+        micStatusMsg.textContent = 'Mic talkback aktif — pemilik sesi bisa mendengar Anda.';
+    } catch (err) {
+        console.error(err);
+        micStatusMsg.textContent = 'Gagal aktifkan mic: ' + err.message;
+        btnOn.disabled = false;
+    }
+}
+
+async function stopTalkback() {
+    const btnOn = document.getElementById('btn-mic-on');
+    const btnOff = document.getElementById('btn-mic-off');
+    btnOff.disabled = true;
+    await whipWhepStop(micPc, micResource);
+    micPc = null;
+    micResource = null;
+    if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+    document.getElementById('badge-mic').style.display = 'none';
+    btnOn.disabled = false;
+    micStatusMsg.textContent = 'Mic talkback dimatikan.';
+}
+
+if (IS_PENGAWAS) {
+    document.getElementById('btn-mic-on').addEventListener('click', startTalkback);
+    document.getElementById('btn-mic-off').addEventListener('click', stopTalkback);
+}
+
+const btnEndLive = document.getElementById('btn-end-live');
+if (btnEndLive) {
+    btnEndLive.addEventListener('click', () => {
+        if (!confirm('Akhiri sesi CCTV ini?')) return;
+        hentikanPemutarEzviz(player);
+        document.getElementById('end-form').submit();
+    });
+}
+
+mulaiPemutar();
+if (IS_LIVE) {
+    sendHeartbeat();
+    statusPollTimer = setInterval(pollStatus, 5000);
+    heartbeatTimer = setInterval(sendHeartbeat, 10000);
+    if (IS_BROADCASTER && {{ session.pengawas_id|yesno:"true,false" }}) startTalkbackListener();
+}
+
+window.addEventListener('pagehide', () => {
+    hentikanPemutarEzviz(player);
+    if (talkbackPc) whipWhepStop(talkbackPc, talkbackResource);
+    if (micPc) whipWhepStop(micPc, micResource);
+});
+</script>
+{% endblock %}

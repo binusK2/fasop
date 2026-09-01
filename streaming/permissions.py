@@ -44,6 +44,21 @@ def can_join_as_pengawas(user):
     return bool(p and p.is_asisten_manager)
 
 
+def can_manage_ezviz(user):
+    """
+    Siapa yang boleh menyinkronkan daftar kamera dari akun Ezviz.
+
+    Sengaja lebih sempit daripada can_start_stream: sinkronisasi menyentuh
+    master data (membuat baris KameraEzviz untuk SELURUH akun Ezviz), bukan
+    sekadar memulai satu sesi. Teknisi tetap bisa memakai kamera yang sudah
+    terdaftar, cuma tidak menambah/menandai yang hilang.
+    """
+    if user.is_superuser:
+        return True
+    p = get_profile(user)
+    return bool(p and p.is_asisten_manager)
+
+
 def require_streaming_access(view_func):
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
