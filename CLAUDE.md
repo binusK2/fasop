@@ -67,7 +67,7 @@ Each of the 15 `INSTALLED_APPS` Django apps follows a standard layout (`models.p
 | `common_enemy/` | Cross-cutting multi-site issue tickets (SCADA/telkom/prosis), auto-numbered `CE-YYYYMM-XXXX` |
 | `dokumentasi/` | Relay setting & wiring-diagram document repository with uploader→checker approval workflow |
 | `auditlog/` | Custom (not django-auditlog) superuser audit log; entries are created by explicit `log_action()` calls in views, not signals |
-| `streaming/` | Field maintenance live streaming (WebRTC WHIP/WHEP via MediaMTX, `deploy/mediamtx.yml`); Teknisi broadcasts, Teknisi/AM view, only AM can join as Pengawas for 2-way talkback; teknisi's video is recorded (server-side ffmpeg transcode, see below) and pengawas's talkback audio is recorded as a **separate** clip (`LiveSession.talkback_recording_path`) rather than mixed into one file; recordings kept 7 days (`purge_old_recordings` cron). Sesi juga bisa bersumber dari **kamera CCTV Ezviz** alih-alih kamera teknisi, dan semua sesi live bisa ditonton sekaligus di **Multi View** (`/streaming/dinding/`) — lihat "Live Streaming — Sumber Ezviz & Multi View" |
+| `streaming/` | Field maintenance live streaming (WebRTC WHIP/WHEP via MediaMTX, `deploy/mediamtx.yml`); Teknisi broadcasts, Teknisi/AM view, only AM can join as Pengawas for 2-way talkback; teknisi's video is recorded (server-side ffmpeg transcode, see below) and pengawas's talkback audio is recorded as a **separate** clip (`LiveSession.talkback_recording_path`) rather than mixed into one file; recordings kept 7 days (`purge_old_recordings` cron). Sesi juga bisa bersumber dari **kamera CCTV Ezviz** alih-alih kamera teknisi, dan semua sesi live bisa ditonton sekaligus di **Multi View** (`/streaming/multi-view/`) — lihat "Live Streaming — Sumber Ezviz & Multi View" |
 | `up2bmakassar/` | Kinerja SCADATEL (`/kinerja-scadatel/`) — availability harian titik Telemetering/Telesignal, log RC, dan SOE log, dibaca **read-only** dari OFDB (`dbup2bmakasar` di MSSQL, `ofdb.py`); lihat "Kinerja SCADATEL — OFDB" di bawah |
 | `api/` | REST API for n8n / Google Sheets integrations (no models — not in `INSTALLED_APPS`, but `urls.py` is still wired into `fasop/urls.py` at `/api/v1/`) |
 | `fasop/` | Root settings, URL routing, Hashids helper, URL converters |
@@ -463,11 +463,14 @@ Tiga aturan `sinkron_kamera()` yang sengaja dipilih:
 basi beberapa menit dan kamera yang dilaporkan offline masih sering bisa
 ditarik streamnya.
 
-### Multi View (`/streaming/dinding/`)
+### Multi View (`/streaming/multi-view/`)
 
-Path URL-nya masih `dinding/` — nama lama halaman ini sebelum labelnya diganti
-jadi "Multi View". Sengaja dibiarkan supaya tautan yang sudah dibagikan tidak
-mati; kalau nanti diganti, ganti sekaligus dengan redirect dari path lama.
+Path lamanya, `/streaming/dinding/`, masih hidup sebagai **pengalihan
+sementara (302, bukan 301)** supaya tautan yang terlanjur dibagikan atau
+di-bookmark di layar ruang operasi tidak mati. Sengaja bukan 301: 301 disimpan
+permanen di cache browser, jadi kalau path itu suatu saat dipakai untuk hal
+lain, browser yang pernah membukanya tidak akan pernah menanyakannya lagi ke
+server.
 
 Semua sesi live sekaligus dalam satu layar grid — klik satu kotak untuk
 memperbesar (2×2) sekaligus menyalakan suaranya. Kotak campur: sesi kamera
