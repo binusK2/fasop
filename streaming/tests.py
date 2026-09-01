@@ -318,6 +318,23 @@ class SiaranTerputusTests(TestCase):
         self.assertTrue(sesi.siaran_aktif)
 
 
+class UrlMultiViewTests(TestCase):
+    def test_path_lama_dialihkan_ke_multi_view(self):
+        """
+        `/streaming/dinding/` adalah nama halaman ini sebelum labelnya jadi
+        "Multi View". Dipertahankan sebagai pengalihan karena layar ruang
+        operasi kemungkinan sudah menyimpannya sebagai bookmark — dan 302,
+        bukan 301, supaya path itu tidak terkunci selamanya di cache browser.
+        """
+        self.client.force_login(_buat_user('teknisi8'))
+        resp = self.client.get('/streaming/dinding/')
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(resp['Location'], reverse('streaming:grid'))
+
+    def test_url_baru_dipakai_saat_membangun_tautan(self):
+        self.assertEqual(reverse('streaming:grid'), '/streaming/multi-view/')
+
+
 class SesiTerbengkalaiTests(TestCase):
     def setUp(self):
         self.user = _buat_user('teknisi7')

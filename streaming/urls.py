@@ -1,4 +1,5 @@
 from django.urls import path
+from django.views.generic import RedirectView
 
 from . import views
 
@@ -7,7 +8,14 @@ app_name = 'streaming'
 urlpatterns = [
     path('', views.session_list, name='list'),
     path('mulai/', views.start_session, name='start'),
-    path('dinding/', views.session_grid, name='grid'),
+    path('multi-view/', views.session_grid, name='grid'),
+    # Path lama sebelum halamannya diberi label "Multi View". Dipertahankan
+    # sebagai pengalihan supaya tautan yang sudah terlanjur dibagikan (atau
+    # di-bookmark di layar ruang operasi) tidak mati. Pengalihan SEMENTARA,
+    # bukan 301: 301 disimpan permanen di cache browser, jadi kalau path ini
+    # nanti dipakai untuk hal lain, browser yang pernah membukanya tidak akan
+    # pernah menanyakannya lagi ke server.
+    path('dinding/', RedirectView.as_view(pattern_name='streaming:grid', permanent=False)),
     path('api/sesi-live/', views.api_live_sessions, name='api_live_sessions'),
     path('api/ezviz-token/', views.ezviz_token, name='ezviz_token'),
     path('ezviz/sinkron/', views.ezviz_sync, name='ezviz_sync'),
