@@ -328,6 +328,22 @@
         </div>
         <div style="font-size:11px; color:var(--muted); margin-top:4px;" id="trafo-ibt-updated">&nbsp;</div>
     </div>
+
+    <!-- Total Padam — kartu opsional, diatur di admin (Opsis > Kartu Total Padam).
+         Selalu ikut dirender tapi disembunyikan saat kartunya mati: tampil/tidaknya
+         disinkronkan tiap poll, supaya dinyalakan/dimatikan dari admin langsung
+         terlihat di layar monitoring tanpa ada yang perlu me-refresh. -->
+    <div id="padam-card"
+         style="background:var(--card-bg); border:1px solid {{ kartu_padam.warna_lembut|default:'#f871714d' }};
+                border-radius:14px; padding:18px 20px;{% if not kartu_padam.aktif %} display:none;{% endif %}">
+        <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); margin-bottom:6px;">
+            <i class="bi bi-lightbulb-off me-1" style="color:{{ kartu_padam.warna|default:'#f87171' }};"></i><span id="padam-judul">{{ kartu_padam.judul|default:'Total Padam' }}</span>
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace; font-size:28px; font-weight:700; color:{{ kartu_padam.warna|default:'#f87171' }};" id="padam-nilai">
+            —<span style="font-size:14px; font-weight:400; color:var(--muted); margin-left:4px;">{{ kartu_padam.satuan|default:'MW' }}</span>
+        </div>
+        <div style="font-size:11px; color:var(--muted); margin-top:4px;" id="padam-ket">&nbsp;</div>
+    </div>
 </div>
 
 <!-- Chart Beban Kit Hari Ini -->
@@ -748,6 +764,52 @@ async function pollLive() {
 }
 pollLive();
 setInterval(pollLive, 1000);
+
+// ── Total Padam (5 detik) — kartu opsional dari admin ────────────────
+// Judul/satuan/warna ikut datang dari server, bukan hanya angkanya: mengubahnya
+// di admin harus terlihat di layar yang tidak pernah di-refresh, sama seperti
+// menyalakan/mematikan kartunya.
+async function pollPadam() {
+    const card = document.getElementById('padam-card');
+    if (!card) return;
+    try {
+        const r = await fetch('/opsis/api/total-padam/');
+        if (!r.ok) return;
+        const d = await r.json();
+        card.style.display = d.aktif ? '' : 'none';
+        if (!d.aktif) return;
+
+        const warna = d.warna || '#f87171';
+        card.style.borderColor = d.warna_tepi || warna;
+        const judul = document.getElementById('padam-judul');
+        if (judul) {
+            judul.textContent = d.judul || 'Total Padam';
+            const ikon = judul.previousElementSibling;
+            if (ikon) ikon.style.color = warna;
+        }
+        const desimal = Number.isInteger(d.desimal) ? d.desimal : 2;
+        const el = document.getElementById('padam-nilai');
+        if (el) {
+            el.style.color = warna;
+            el.innerHTML = (d.nilai !== null && d.nilai !== undefined
+                                ? parseFloat(d.nilai).toFixed(desimal) : '—')
+                + '<span style="font-size:14px;font-weight:400;color:var(--muted);margin-left:4px;">'
+                + (d.satuan || '') + '</span>';
+        }
+        // Keterangan bawaan menyebutkan sumbernya — kalau angkanya mencurigakan,
+        // yang pertama ditanyakan selalu "ini dibaca dari mana".
+        const ket = document.getElementById('padam-ket');
+        if (ket) {
+            if (d.error)            ket.textContent = d.error;
+            else if (d.keterangan)  ket.textContent = d.keterangan;
+            else if (d.nilai === null) ket.textContent = 'Data belum terbaca';
+            else                    ket.textContent = `${d.baris} baris · ${d.sumber || ''}`.trim();
+            ket.style.color = d.error ? '#f87171' : 'var(--muted)';
+        }
+    } catch (e) {}
+}
+pollPadam();
+setInterval(pollPadam, 5000);
 
 // ── Hz polling (1 detik) — endpoint ringan khusus Hz ─────────────────
 async function pollHz() {

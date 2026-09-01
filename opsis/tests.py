@@ -12,7 +12,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import (KelompokPeta, KolomEWS, ModePemeliharaan, Pembangkit,
+from .models import (KartuPadam, KelompokPeta, KolomEWS, ModePemeliharaan, Pembangkit,
                      PrakiraanBeban, SnapFreq, SnapFreqRT, SnapLive, TitikEWS)
 from . import freq_history, hop_map, mssql, prakiraan, prediksi, sumber_data, views
 from auditlog.models import AuditLog
@@ -1602,3 +1602,293 @@ class AksesOpsisAMTest(TestCase):
         c = self._klien(self._buat('ov-menu', 'opsis_view'))
         isi = c.get('/opsis/hop/').content.decode()
         self.assertNotIn('/opsis/hop/input/', isi)
+
+
+class KartuPadamModelTest(TestCase):
+    """Baris pengaturan kartu Total Padam dan spesifikasi sumbernya."""
+
+    def setUp(self):
+        KartuPadam._cache = {'obj': None, 'ts': 0.0}
+
+    def test_baris_pengaturan_selalu_tunggal(self):
+        satu = KartuPadam.ambil()
+        satu.aktif = True
+        satu.save()
+        KartuPadam(judul='Coba Ganda', aktif=False).save()
+        self.assertEqual(KartuPadam.objects.count(), 1)
+        self.assertEqual(KartuPadam.objects.get().judul, 'Coba Ganda')
+
+    def test_bawaan_kartu_mati(self):
+        """Kartu baru tidak boleh langsung tampil — belum ada yang memutuskan
+        sumbernya, jadi angkanya pasti kosong."""
+        self.assertFalse(KartuPadam.ambil().aktif)
+
+    def test_tanpa_tabel_sumber_spesifikasi_none(self):
+        obj = KartuPadam.ambil()
+        self.assertFalse(obj.pakai_sumber)
+        self.assertIsNone(obj.spesifikasi_sumber())
+
+    def test_nilai_kunci_dipisah_koma(self):
+        obj = KartuPadam.ambil()
+        obj.sumber_tabel = 'dbo.PADAM_RT'
+        obj.sumber_kolom_kunci = 'ANALOG'
+        obj.sumber_nilai_kunci = 'PADAM_MKS, PADAM_KDI ,, '
+        obj.save()
+        spec = obj.spesifikasi_sumber()
+        self.assertEqual(spec['nilai_kunci'], ['PADAM_MKS', 'PADAM_KDI'])
+        self.assertEqual(spec['tabel'], 'dbo.PADAM_RT')
+        self.assertEqual(spec['agregasi'], 'jumlah')
+        self.assertEqual(spec['faktor'], 1.0)
+
+    def test_warna_tepi_hanya_ditambahi_alfa_bila_heksa(self):
+        """Salah ketik warna tidak boleh membuat kartu kehilangan garis tepi:
+        '#f871714d' sah, 'merah4d' tidak dan akan dibuang browser."""
+        obj = KartuPadam.ambil()
+        obj.warna = '#f87171'
+        self.assertEqual(obj.warna_lembut, '#f871714d')
+        obj.warna = 'tomato'
+        self.assertEqual(obj.warna_lembut, 'tomato')
+        obj.warna = ''
+        self.assertEqual(obj.warna_lembut, '#f871714d')
+
+    def test_setelan_menyegarkan_cache_saat_disimpan(self):
+        """Menyalakan kartu dari admin harus langsung terlihat di worker itu —
+        bukan setelah TTL cache habis."""
+        obj = KartuPadam.ambil()
+        self.assertFalse(KartuPadam.setelan().aktif)
+        obj.aktif = True
+        obj.save()
+        self.assertTrue(KartuPadam.setelan().aktif)
+
+
+class GetTotalPadamTest(TestCase):
+    """
+    Query dan penjagaan identifier di mssql.get_total_padam().
+    Koneksi MSSQL diganti palsu supaya tes tidak butuh historian.
+    """
+
+    def setUp(self):
+        self.dijalankan = []          # (sql, params) tiap execute()
+        self.hasil_baris = None       # baris balikan fetchone()
+        uji = self
+
+        class KursorPalsu:
+            def execute(self, sql, params=None):
+                uji.dijalankan.append((' '.join(sql.split()), list(params or [])))
+
+            def fetchone(self):
+                return uji.hasil_baris
+
+        class KoneksiPalsu:
+            def cursor(self):
+                return KursorPalsu()
+
+            def close(self):
+                pass
+
+        self._asli = mssql._get_connection
+        mssql._get_connection = lambda: KoneksiPalsu()
+        self.addCleanup(lambda: setattr(mssql, '_get_connection', self._asli))
+
+    def _spec(self, **kwargs):
+        spec = {'tabel': 'dbo.PADAM_RT', 'kolom_nilai': 'VALUE',
+                'kolom_kunci': 'ANALOG', 'nilai_kunci': ['PADAM_MKS'],
+                'agregasi': 'jumlah', 'faktor': 1.0}
+        spec.update(kwargs)
+        return spec
+
+    @override_settings(MSSQL_HOST='127.0.0.1,1433')
+    def test_jumlah_memakai_sum_dan_bind_parameter(self):
+        self.hasil_baris = (42.5, 3)
+        hasil = mssql.get_total_padam(self._spec(nilai_kunci=['PADAM_MKS', 'PADAM_KDI']))
+        self.assertEqual(hasil['nilai'], 42.5)
+        self.assertEqual(hasil['baris'], 3)
+        self.assertIsNone(hasil['error'])
+        sql, params = self.dijalankan[0]
+        self.assertIn('SUM(CAST(VALUE AS FLOAT))', sql)
+        self.assertIn('IN (?, ?)', sql)
+        self.assertEqual(params, ['PADAM_MKS', 'PADAM_KDI'])
+
+    @override_settings(MSSQL_HOST='127.0.0.1,1433')
+    def test_hitung_menghitung_baris_tanpa_kolom_nilai(self):
+        self.hasil_baris = (7, 7)
+        hasil = mssql.get_total_padam(self._spec(agregasi='hitung', kolom_nilai=''))
+        self.assertEqual(hasil['nilai'], 7)
+        sql, _ = self.dijalankan[0]
+        self.assertIn('COUNT(*)', sql)
+
+    @override_settings(MSSQL_HOST='127.0.0.1,1433')
+    def test_nilai_tunggal_memakai_top_1(self):
+        self.hasil_baris = (12.0, 1)
+        hasil = mssql.get_total_padam(self._spec(agregasi='nilai'))
+        self.assertEqual(hasil['nilai'], 12.0)
+        sql, _ = self.dijalankan[0]
+        self.assertIn('TOP 1 VALUE', sql)
+
+    @override_settings(MSSQL_HOST='127.0.0.1,1433')
+    def test_kolom_kunci_kosong_membaca_seluruh_tabel(self):
+        self.hasil_baris = (10.0, 2)
+        mssql.get_total_padam(self._spec(kolom_kunci='', nilai_kunci=[]))
+        sql, params = self.dijalankan[0]
+        self.assertNotIn('WHERE', sql)
+        self.assertEqual(params, [])
+
+    @override_settings(MSSQL_HOST='127.0.0.1,1433')
+    def test_faktor_skala_diterapkan(self):
+        self.hasil_baris = (1500.0, 1)
+        hasil = mssql.get_total_padam(self._spec(faktor=0.001))
+        self.assertEqual(hasil['nilai'], 1.5)
+
+    @override_settings(MSSQL_HOST='127.0.0.1,1433')
+    def test_kunci_dipecah_dan_hasilnya_dijumlahkan(self):
+        """Lebih dari _EWS_CHUNK kunci tetap boleh — batas 2100 parameter SQL
+        Server dijaga dengan memecah query, bukan dengan membuang kunci."""
+        self.hasil_baris = (5.0, 1)
+        banyak = [f'TAG{i}' for i in range(mssql._EWS_CHUNK + 10)]
+        hasil = mssql.get_total_padam(self._spec(nilai_kunci=banyak))
+        self.assertEqual(len(self.dijalankan), 2)
+        self.assertEqual(hasil['nilai'], 10.0)      # 5.0 dari tiap chunk
+
+    @override_settings(MSSQL_HOST='127.0.0.1,1433')
+    def test_identifier_berbahaya_tidak_pernah_masuk_query(self):
+        for jahat in ({'tabel': 'dbo.X; DROP TABLE Y'},
+                      {'kolom_nilai': 'VALUE; DELETE FROM Z'},
+                      {'kolom_kunci': 'ANALOG OR 1=1'}):
+            with self.subTest(**jahat):
+                self.dijalankan = []
+                hasil = mssql.get_total_padam(self._spec(**jahat))
+                self.assertIsNone(hasil['nilai'])
+                self.assertTrue(hasil['error'])
+                self.assertEqual(self.dijalankan, [])
+
+    @override_settings(MSSQL_HOST='127.0.0.1,1433')
+    def test_nilai_kunci_lewat_bind_parameter(self):
+        self.hasil_baris = None
+        mssql.get_total_padam(self._spec(nilai_kunci=["x' OR '1'='1"]))
+        sql, params = self.dijalankan[0]
+        self.assertNotIn("OR '1'='1", sql)
+        self.assertEqual(params, ["x' OR '1'='1"])
+
+    @override_settings(MSSQL_HOST='127.0.0.1,1433')
+    def test_tidak_ada_baris_cocok_bukan_error(self):
+        self.hasil_baris = (None, 0)
+        hasil = mssql.get_total_padam(self._spec())
+        self.assertIsNone(hasil['nilai'])
+        self.assertIsNone(hasil['error'])
+
+    @override_settings(MSSQL_HOST='')
+    def test_tanpa_mssql_host_tidak_ada_query(self):
+        hasil = mssql.get_total_padam(self._spec())
+        self.assertIsNone(hasil['nilai'])
+        self.assertTrue(hasil['error'])
+        self.assertEqual(self.dijalankan, [])
+
+    @override_settings(MSSQL_HOST='127.0.0.1,1433')
+    def test_koneksi_gagal_tidak_melempar_exception(self):
+        def gagal():
+            raise ConnectionError('historian mati')
+        mssql._get_connection = gagal
+        hasil = mssql.get_total_padam(self._spec())
+        self.assertIsNone(hasil['nilai'])
+        self.assertIn('historian mati', hasil['error'])
+
+    def test_spesifikasi_kosong_ditolak_tanpa_koneksi(self):
+        hasil = mssql.get_total_padam(None)
+        self.assertIsNone(hasil['nilai'])
+        self.assertTrue(hasil['error'])
+        self.assertEqual(self.dijalankan, [])
+
+
+class KartuPadamDashboardTest(TestCase):
+    """Kartu Total Padam di dashboard + endpoint pollingnya."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User.objects.create_superuser('padam-user', 'padam@contoh.id',
+                                                 'rahasia-tes-123')
+        # ForcePasswordChangeMiddleware mengalihkan user baru ke /ganti-password/.
+        profile = getattr(cls.user, 'profile', None)
+        if profile is not None:
+            profile.force_password_change = False
+            profile.save(update_fields=['force_password_change'])
+
+    def setUp(self):
+        self.client.force_login(self.user)
+        KartuPadam._cache = {'obj': None, 'ts': 0.0}
+        views._hz_cache.pop('total_padam', None)
+        self.addCleanup(views._hz_cache.pop, 'total_padam', None)
+
+    def _nyalakan(self, **kwargs):
+        obj = KartuPadam.ambil()
+        obj.aktif = True
+        for k, v in kwargs.items():
+            setattr(obj, k, v)
+        obj.save()
+        return obj
+
+    @override_settings(MSSQL_HOST='')
+    def test_kartu_disembunyikan_saat_nonaktif(self):
+        resp = self.client.get(reverse('opsis_dashboard'))
+        self.assertEqual(resp.status_code, 200)
+        # Kartunya tetap ada di HTML (poll bisa memunculkannya tanpa reload),
+        # tapi dirender tersembunyi.
+        self.assertContains(resp, 'id="padam-card"')
+        self.assertIn('display:none', resp.content.decode().split('id="padam-card"')[1][:400])
+
+    @override_settings(MSSQL_HOST='')
+    def test_kartu_tampil_dengan_judul_dari_admin(self):
+        self._nyalakan(judul='Padam Sulselrabar', satuan='MVA')
+        isi = self.client.get(reverse('opsis_dashboard')).content.decode()
+        potongan = isi.split('id="padam-card"')[1][:800]
+        self.assertNotIn('display:none', potongan)
+        self.assertIn('Padam Sulselrabar', potongan)
+        self.assertIn('MVA', potongan)
+
+    @override_settings(MSSQL_HOST='')
+    def test_endpoint_melaporkan_kartu_mati(self):
+        data = self.client.get(reverse('opsis_api_total_padam')).json()
+        self.assertFalse(data['aktif'])
+        self.assertIsNone(data['nilai'])
+
+    @override_settings(MSSQL_HOST='')
+    def test_endpoint_tanpa_sumber_tetap_200(self):
+        """Kartu menyala tapi belum diarahkan ke tabel mana pun: bukan error
+        HTTP, hanya nilai kosong berkerangan."""
+        self._nyalakan()
+        resp = self.client.get(reverse('opsis_api_total_padam'))
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertTrue(data['aktif'])
+        self.assertIsNone(data['nilai'])
+        self.assertTrue(data['error'])
+
+    @override_settings(MSSQL_HOST='127.0.0.1,1433')
+    def test_endpoint_mengirim_angka_dan_tampilan(self):
+        self._nyalakan(judul='Total Padam', satuan='MW', desimal=1,
+                       warna='#ff0000', sumber_tabel='dbo.PADAM_RT',
+                       sumber_kolom_nilai='VALUE', sumber_kolom_kunci='ANALOG',
+                       sumber_nilai_kunci='PADAM_MKS')
+        asli = mssql.get_total_padam
+        mssql.get_total_padam = lambda spec: {'nilai': 25.0, 'baris': 2, 'error': None}
+        self.addCleanup(lambda: setattr(mssql, 'get_total_padam', asli))
+        data = self.client.get(reverse('opsis_api_total_padam')).json()
+        self.assertTrue(data['aktif'])
+        self.assertEqual(data['nilai'], 25.0)
+        self.assertEqual(data['baris'], 2)
+        self.assertEqual(data['satuan'], 'MW')
+        self.assertEqual(data['desimal'], 1)
+        self.assertEqual(data['warna'], '#ff0000')
+        self.assertEqual(data['sumber'], 'dbo.PADAM_RT')
+
+    @override_settings(MSSQL_HOST='')
+    def test_endpoint_butuh_login(self):
+        self.client.logout()
+        resp = self.client.get(reverse('opsis_api_total_padam'))
+        self.assertEqual(resp.status_code, 302)
+
+    @override_settings(MSSQL_HOST='')
+    def test_sumber_data_menyebut_kartu_padam(self):
+        """Peta sumber data harus menyebut kartu ini juga — halaman itulah yang
+        pertama dibuka saat sebuah angka mencurigakan."""
+        fitur = [e['fitur'] for e in sumber_data.SUMBER]
+        self.assertIn('Dashboard — kartu Total Padam', fitur)

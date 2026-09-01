@@ -3,7 +3,7 @@ from . import mssql
 from .models import (Pembangkit, SnapLive, SnapUnit, SnapFreq, SnapFreqRT, SnapFreqArea,
                      Trafo, SnapTrafo, HopPembangkit, HopSnapshot,
                      PrakiraanBeban, ModePemeliharaan, KelompokPeta,
-                     KolomEWS, TitikEWS)
+                     KolomEWS, TitikEWS, KartuPadam)
 
 
 @admin.register(KelompokPeta)
@@ -68,6 +68,102 @@ class ModePemeliharaanAdmin(admin.ModelAdmin):
     def save_model(self, request, obj, form, change):
         obj.diubah_oleh = request.user
         super().save_model(request, obj, form, change)
+
+
+@admin.register(KartuPadam)
+class KartuPadamAdmin(admin.ModelAdmin):
+    """
+    Pengaturan kartu Total Padam di dashboard OPSIS — hanya ada satu baris,
+    jadi tombol Tambah/Hapus dimatikan dan daftar langsung membuka baris itu.
+
+    Dua aksi di bawah menjawab "kenapa kartu saya kosong" tanpa membuka log
+    server: satu memperlihatkan kolom tabel sumbernya, satu lagi membaca
+    angkanya sekarang juga.
+    """
+    list_display    = ('status_ringkas', 'judul', 'agregasi', 'sumber_tabel',
+                       'diubah_oleh', 'diubah_pada')
+    readonly_fields = ('diubah_oleh', 'diubah_pada')
+    actions         = ('uji_baca_mssql', 'lihat_kolom_tabel')
+    fieldsets = (
+        (None, {
+            'description': 'Kartu Total Padam muncul di baris kartu beban dashboard OPSIS. '
+                           'Mematikan sakelar ini menyembunyikan kartunya dari semua layar '
+                           'dalam beberapa detik — layar monitoring tidak perlu di-refresh.',
+            'fields': ('aktif',),
+        }),
+        ('Tampilan Kartu', {'fields': ('judul', 'satuan', 'desimal', 'warna', 'keterangan')}),
+        ('Sumber Data (MSSQL)', {
+            'description': 'Arahkan kartu ini ke angkanya di historian. Contoh: Tabel Sumber '
+                           '<code>dbo.PADAM_RT</code>, Kolom Nilai <code>VALUE</code>, Kolom '
+                           'Kunci <code>ANALOG</code>, Nilai Kunci '
+                           '<code>PADAM_MKS,PADAM_KDI</code>. Kolom Kunci yang dikosongkan '
+                           'berarti seluruh isi tabel dipakai. Belum tahu nama kolomnya? '
+                           'Pakai aksi "Lihat kolom tabel sumber" di daftar, atau jalankan '
+                           '<code>python manage.py probe_tabel_ews &lt;tabel&gt;</code>.',
+            'fields': ('agregasi', 'sumber_tabel', 'sumber_kolom_nilai',
+                       'sumber_kolom_kunci', 'sumber_nilai_kunci', 'faktor_skala'),
+        }),
+        ('Riwayat', {'fields': ('diubah_oleh', 'diubah_pada')}),
+    )
+
+    @admin.display(description='Tampil', boolean=True)
+    def status_ringkas(self, obj):
+        return obj.aktif
+
+    def has_add_permission(self, request):
+        # Baris tunggal: dibuat otomatis oleh changelist_view di bawah.
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def changelist_view(self, request, extra_context=None):
+        KartuPadam.ambil()            # pastikan barisnya ada sebelum daftar dirender
+        return super().changelist_view(request, extra_context)
+
+    def save_model(self, request, obj, form, change):
+        obj.diubah_oleh = request.user
+        super().save_model(request, obj, form, change)
+
+    @admin.action(description='Uji baca nilai dari MSSQL')
+    def uji_baca_mssql(self, request, queryset):
+        """Baca angka kartu sekarang juga, dengan pengaturan yang tersimpan."""
+        obj = queryset.first() or KartuPadam.ambil()
+        if not obj.pakai_sumber:
+            self.message_user(request, 'Tabel Sumber belum diisi.', level=messages.WARNING)
+            return
+        hasil = mssql.get_total_padam(obj.spesifikasi_sumber())
+        if hasil['error']:
+            self.message_user(request, f"{obj.sumber_tabel}: {hasil['error']}",
+                              level=messages.ERROR)
+        elif hasil['nilai'] is None:
+            self.message_user(
+                request,
+                f'{obj.sumber_tabel}: tidak ada baris yang cocok — cek Kolom Kunci / '
+                f'Nilai Kunci.', level=messages.WARNING)
+        else:
+            self.message_user(
+                request,
+                f"{obj.judul}: {hasil['nilai']:g} {obj.satuan} "
+                f"(dari {hasil['baris']} baris {obj.sumber_tabel}).",
+                level=messages.SUCCESS)
+
+    @admin.action(description='Lihat kolom tabel sumber')
+    def lihat_kolom_tabel(self, request, queryset):
+        """Daftar kolom tabel sumber, untuk mengisi Kolom Nilai/Kolom Kunci."""
+        obj = queryset.first() or KartuPadam.ambil()
+        if not obj.pakai_sumber:
+            self.message_user(request, 'Tabel Sumber belum diisi.', level=messages.WARNING)
+            return
+        hasil = mssql.probe_tabel(obj.sumber_tabel)
+        if hasil.get('error'):
+            self.message_user(request, f"{hasil['tabel']}: {hasil['error']}",
+                              level=messages.ERROR)
+            return
+        self.message_user(
+            request,
+            f"{hasil['tabel']} — kolom: {', '.join(hasil['kolom']) or '(kosong)'}",
+            level=messages.INFO)
 
 
 @admin.register(Pembangkit)
