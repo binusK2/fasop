@@ -5,6 +5,7 @@ import os
 import re
 
 from django.conf import settings
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import (
     Http404,
@@ -20,11 +21,14 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
+from fasop.hashids_helper import decode, encode
 from notifikasi.views import notif_ke_am, notif_ke_teknisi
 
-from .models import LiveSession, LiveViewerHeartbeat
+from . import ezviz
+from .models import KameraEzviz, LiveSession, LiveViewerHeartbeat
 from .permissions import (
     can_join_as_pengawas,
+    can_manage_ezviz,
     can_start_stream,
     require_streaming_access,
 )
@@ -36,10 +40,21 @@ logger = logging.getLogger(__name__)
 # (10 detik) supaya toleran jaringan lambat, tapi tetap terasa "real-time".
 VIEWER_HEARTBEAT_STALE_SECONDS = 20
 
+# Batas jumlah kotak yang digambar sekaligus di Multi View
+# (streaming/grid.html). Tiap kotak = satu koneksi WebRTC (sesi kamera
+# perangkat) atau satu decoder wasm EZUIKit (sesi Ezviz); di atas angka ini
+# browser kelas laptop kantor mulai patah-patah dan CPU-nya habis. Sesi
+# selebihnya tetap terdaftar dan bisa dibuka satu per satu dari daftar.
+GRID_MAKS_TILE = 9
+
 
 @login_required
 @require_streaming_access
 def session_list(request):
+    # Bereskan sesi hantu sebelum menggambar daftarnya — kalau tidak, sesi
+    # yang penyiarnya sudah lama pergi akan terus tampil "Sedang Live".
+    LiveSession.akhiri_yang_terbengkalai()
+
     active_sessions = (
         LiveSession.objects.filter(status='live')
         .select_related('teknisi', 'teknisi__profile', 'pengawas', 'pengawas__profile')
@@ -52,6 +67,9 @@ def session_list(request):
         'active_sessions': active_sessions,
         'recent_sessions': recent_sessions,
         'can_start': can_start_stream(request.user),
+        'kamera_list': KameraEzviz.objects.filter(aktif=True),
+        'ezviz_siap': ezviz.terkonfigurasi(),
+        'can_sync_ezviz': can_manage_ezviz(request.user),
     })
 
 
@@ -65,9 +83,28 @@ def start_session(request):
     judul = request.POST.get('judul', '').strip()
     nama_teknisi = request.user.profile.get_display_name() if hasattr(request.user, 'profile') else request.user.username
 
+    # Sumber video dipilih di modal "Mulai Live". Nilai tak dikenal jatuh ke
+    # 'perangkat' — sumber yang selalu tersedia dan tidak bergantung pada
+    # konfigurasi/koneksi luar apa pun.
+    sumber = request.POST.get('sumber', 'perangkat')
+    if sumber not in dict(LiveSession.SUMBER_CHOICES):
+        sumber = 'perangkat'
+
+    kamera = None
+    if sumber == 'ezviz':
+        if not ezviz.terkonfigurasi():
+            messages.error(request, 'Sumber Ezviz belum dikonfigurasi (EZVIZ_APP_KEY/EZVIZ_APP_SECRET kosong).')
+            return redirect('streaming:list')
+        kamera = KameraEzviz.objects.filter(pk=request.POST.get('kamera') or 0, aktif=True).first()
+        if kamera is None:
+            messages.error(request, 'Pilih dulu kamera CCTV Ezviz yang mau disiarkan.')
+            return redirect('streaming:list')
+
     session = LiveSession.objects.create(
         teknisi=request.user,
-        judul=judul or f'Live Pemeliharaan — {nama_teknisi}',
+        judul=judul or (f'CCTV {kamera.nama}' if kamera else f'Live Pemeliharaan — {nama_teknisi}'),
+        sumber=sumber,
+        kamera=kamera,
     )
 
     detail_url = reverse('streaming:detail', kwargs={'pk': session.pk})
@@ -103,13 +140,81 @@ def session_detail(request, pk):
         'whip_url': settings.MEDIAMTX_WHIP_URL,
         'whep_url': settings.MEDIAMTX_WHEP_URL,
         'ice_servers_json': settings.WEBRTC_ICE_SERVERS,
+        'pernah_tersiar': session.pernah_tersiar,
     }
+
+    # Sesi Ezviz dilayani SATU template untuk ketiga peran (teknisi, pengawas,
+    # viewer) — beda dari sesi kamera perangkat yang punya tiga template.
+    # Alasannya: yang membedakan ketiga peran di sesi Ezviz cuma tombol
+    # (akhiri live / mic talkback / jadi pengawas), sedangkan videonya sama
+    # persis untuk semua orang — tidak ada yang mem-publish video dari
+    # browsernya, jadi tidak ada logika kamera lokal yang perlu dipisah.
+    if session.is_ezviz:
+        context['ezviz_domain'] = settings.EZVIZ_API_BASE
+        return render(request, 'streaming/ezviz.html', context)
 
     if is_broadcaster:
         return render(request, 'streaming/broadcast.html', context)
     if is_pengawas:
         return render(request, 'streaming/pengawas.html', context)
     return render(request, 'streaming/viewer.html', context)
+
+
+@login_required
+@require_streaming_access
+def ezviz_token(request):
+    """
+    accessToken akun Ezviz untuk dipakai EZUIKit di browser.
+
+    Sengaja endpoint terpisah, bukan ditanam di HTML halaman:
+      - Multi View butuh SATU token untuk banyak kotak sekaligus; menanam
+        token di tiap kotak berarti me-render ulang halaman tiap kali daftar
+        sesi berubah.
+      - Token berumur 7 hari dan bisa dicabut kapan saja dari sisi Ezviz;
+        halaman yang dibiarkan terbuka semalaman bisa mengambil yang baru
+        tanpa reload.
+
+    CATATAN KEAMANAN: token ini berlaku untuk SELURUH akun Ezviz, bukan per
+    kamera — itu memang bentuk yang disediakan Open Platform untuk EZUIKit.
+    Karena itu endpoint ini dijaga login + require_streaming_access (Teknisi
+    & AM saja), dan token tidak pernah muncul di halaman yang bisa dibuka
+    tanpa login.
+    """
+    if not ezviz.terkonfigurasi():
+        return JsonResponse({'ok': False, 'error': 'Sumber Ezviz belum dikonfigurasi di server.'}, status=503)
+    try:
+        token = ezviz.ambil_access_token()
+    except ezviz.EzvizError as e:
+        logger.warning('Gagal ambil accessToken Ezviz: %s', e)
+        return JsonResponse({'ok': False, 'error': str(e)}, status=502)
+    return JsonResponse({'ok': True, 'access_token': token, 'domain': settings.EZVIZ_API_BASE})
+
+
+@login_required
+@require_streaming_access
+@require_POST
+def ezviz_sync(request):
+    """Tarik daftar kamera dari akun Ezviz ke tabel KameraEzviz (lihat ezviz.sinkron_kamera)."""
+    if not can_manage_ezviz(request.user):
+        return HttpResponseForbidden('Hanya Asisten Manager yang bisa menyinkronkan daftar kamera Ezviz.')
+    if not ezviz.terkonfigurasi():
+        messages.error(request, 'Sumber Ezviz belum dikonfigurasi (EZVIZ_APP_KEY/EZVIZ_APP_SECRET kosong).')
+        return redirect('streaming:list')
+
+    try:
+        hasil = ezviz.sinkron_kamera()
+    except ezviz.EzvizError as e:
+        messages.error(request, f'Sinkronisasi kamera Ezviz gagal: {e}')
+        return redirect('streaming:list')
+
+    pesan = (
+        f"Sinkronisasi Ezviz selesai — {hasil['total']} kamera di cloud: "
+        f"{hasil['dibuat']} baru, {hasil['diperbarui']} diperbarui"
+    )
+    if hasil['hilang']:
+        pesan += f", {hasil['hilang']} tidak lagi ada di cloud (ditandai, tidak dihapus)"
+    messages.success(request, pesan + '.')
+    return redirect('streaming:list')
 
 
 @login_required
@@ -126,6 +231,10 @@ def session_status(request, pk):
     viewer_count = LiveViewerHeartbeat.objects.filter(session=session, last_seen__gte=batas).count()
     return JsonResponse({
         'is_live': session.is_live,
+        # Beda dari is_live: sesi bisa 'live' tapi tidak ada video sama sekali
+        # (halaman teknisi ter-refresh / tabnya tertutup). Penonton perlu tahu
+        # bedanya, kalau tidak ia menunggu gambar yang memang tidak akan datang.
+        'siaran_aktif': session.siaran_aktif,
         'has_pengawas': session.pengawas_id is not None,
         'viewer_count': viewer_count,
     })
@@ -138,6 +247,36 @@ def session_heartbeat(request, pk):
     """Dipanggil berkala oleh viewer.html/pengawas.html selama nonton — dasar hitung penonton aktif."""
     session = get_object_or_404(LiveSession, pk=pk)
     LiveViewerHeartbeat.objects.update_or_create(session=session, user=request.user)
+    return JsonResponse({'ok': True})
+
+
+@login_required
+@require_streaming_access
+@require_POST
+def publisher_heartbeat(request, pk):
+    """
+    Dikirim browser TEKNISI selama WHIP publish-nya hidup — dasar
+    `LiveSession.siaran_aktif` dan pembersihan sesi terbengkalai.
+
+    Terpisah dari session_heartbeat (yang menghitung PENONTON): yang satu
+    menjawab "berapa orang menonton", yang ini menjawab "apakah ada yang
+    dikirim sama sekali". Dulu tidak ada yang menjawab pertanyaan kedua,
+    sehingga sesi yang penyiarnya sudah pergi tetap tampil Sedang Live.
+
+    `berhenti=1` mengosongkan penanda seketika (dipakai saat teknisi menekan
+    stop dan saat halaman ditutup lewat sendBeacon) — supaya statusnya tidak
+    perlu menunggu PUBLISHER_STALE_SECONDS lewat dulu.
+    """
+    session = get_object_or_404(LiveSession, pk=pk)
+    if request.user.id != session.teknisi_id:
+        return HttpResponseForbidden('Hanya teknisi pemilik sesi yang mengirim status siaran.')
+
+    berhenti = request.POST.get('berhenti') == '1'
+    # .update() supaya tidak menyentuh field lain (dan tidak menimpa perubahan
+    # yang sedang dilakukan tab lain) — ini dipanggil tiap 10 detik.
+    LiveSession.objects.filter(pk=session.pk).update(
+        publisher_last_seen=None if berhenti else timezone.now(),
+    )
     return JsonResponse({'ok': True})
 
 
@@ -165,6 +304,96 @@ def end_session(request, pk):
         return HttpResponseForbidden('Hanya Teknisi yang memulai sesi ini yang bisa mengakhiri.')
     session.end()
     return redirect('streaming:list')
+
+
+@login_required
+@require_streaming_access
+def session_grid(request):
+    """
+    Multi View — semua sesi live sekaligus dalam satu layar grid.
+
+    Halaman ini SENGAJA tidak menerima daftar sesi lewat context render:
+    isinya digambar dari /streaming/api/sesi-live/ dan disegarkan berkala,
+    supaya sesi yang mulai/berakhir setelah halaman dibuka muncul & hilang
+    sendiri. Halaman ini dipasang di layar monitoring yang dibiarkan menyala
+    berjam-jam — kalau isinya ditentukan saat render, layar itu akan
+    membeku pada keadaan beberapa jam lalu tanpa ada yang sadar.
+    """
+    return render(request, 'streaming/grid.html', {
+        'whep_url': settings.MEDIAMTX_WHEP_URL,
+        'ice_servers_json': settings.WEBRTC_ICE_SERVERS,
+        'ezviz_domain': settings.EZVIZ_API_BASE,
+        'maks_tile': GRID_MAKS_TILE,
+    })
+
+
+def _data_sesi(session):
+    """Bentuk satu sesi live jadi dict siap dipakai satu kotak di Multi View."""
+    teknisi = session.teknisi
+    nama = teknisi.username
+    profile = getattr(teknisi, 'profile', None)
+    if profile:
+        nama = profile.get_display_name() or nama
+
+    data = {
+        # Hashid, bukan pk mentah — PK integer tidak pernah diekspos ke
+        # browser di FASOP (lihat fasop/hashids_helper.py).
+        'id': encode(session.pk),
+        'judul': session.judul,
+        'teknisi': nama,
+        'sumber': session.sumber,
+        'mulai': timezone.localtime(session.started_at).strftime('%d/%m %H:%M'),
+        'ada_pengawas': session.pengawas_id is not None,
+        # Kotak Multi View perlu membedakan "belum tersambung" dari "penyiarnya
+        # memang sudah tidak ada" — dua keadaan yang tampak sama-sama hitam.
+        'siaran_aktif': session.siaran_aktif,
+        'detail_url': reverse('streaming:detail', kwargs={'pk': session.pk}),
+    }
+    if session.is_ezviz:
+        # Tanpa accessToken — token diambil sekali oleh halaman lewat
+        # /streaming/api/ezviz-token/, bukan diulang di tiap kotak tiap poll.
+        data['ezopen_url'] = session.ezopen_url
+        data['kamera'] = str(session.kamera) if session.kamera_id else ''
+    else:
+        data['video_path'] = session.video_path
+        data['view_token'] = session.view_token
+    return data
+
+
+@login_required
+@require_streaming_access
+def api_live_sessions(request):
+    """
+    Daftar sesi yang sedang live, untuk Multi View.
+
+    Query `nonton=<id>,<id>,...` sekaligus mencatat heartbeat penonton untuk
+    sesi-sesi itu. Digabung ke satu request DENGAN SENGAJA: Multi View menonton
+    sampai 9 sesi sekaligus, dan heartbeat terpisah per kotak berarti 9 POST
+    tiap 10 detik dari satu tab saja. Hitungan "x menonton" yang dilihat
+    teknisi tetap sama akuratnya.
+    """
+    LiveSession.akhiri_yang_terbengkalai()
+
+    sessions = list(
+        LiveSession.objects.filter(status='live')
+        .select_related('teknisi', 'teknisi__profile', 'kamera')
+    )
+
+    # `nonton` berisi hashid (bentuk yang sama dengan yang dikirim _data_sesi),
+    # jadi harus di-decode dulu. decode() mengembalikan None untuk id ngawur,
+    # dan pencocokan dibatasi ke sesi yang memang sedang live — id asing tidak
+    # bisa membuat baris heartbeat apa pun.
+    nonton = {decode(x) for x in request.GET.get('nonton', '').split(',') if x}
+    nonton.discard(None)
+    if nonton:
+        for sesi in sessions:
+            if sesi.pk in nonton:
+                LiveViewerHeartbeat.objects.update_or_create(session=sesi, user=request.user)
+
+    return JsonResponse({
+        'sessions': [_data_sesi(x) for x in sessions],
+        'maks_tile': GRID_MAKS_TILE,
+    })
 
 
 @csrf_exempt

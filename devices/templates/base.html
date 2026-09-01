@@ -541,7 +541,34 @@
             -webkit-box-orient: vertical;
             overflow: hidden;
         }
+
+        /* Titik merah berdenyut penanda "sedang live" — dipakai halaman
+           daftar & Multi View Live Streaming. Di sini, bukan di blok
+           extra_head masing-masing, karena halaman daftar tidak punya blok
+           CSS sendiri dan dua tempat yang menyalin definisi yang sama pasti
+           akan berbeda warna/ukuran cepat atau lambat. */
+        .live-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            margin-right: 6px;
+            border-radius: 50%;
+            background: #ef4444;
+            animation: live-dot-pulse 1.4s ease-in-out infinite;
+        }
+        @keyframes live-dot-pulse {
+            0%, 100% { opacity: 1; }
+            50%      { opacity: .25; }
+        }
     </style>
+
+    {% comment %}
+    CSS khusus per halaman. Template streaming (viewer/broadcast/pengawas/
+    playback/ezviz/grid) sudah lama mengisi blok ini, tapi blok-nya belum
+    pernah ada di sini — akibatnya seluruh gayanya (kotak video, badge LIVE,
+    titik merah "sedang live") tidak pernah ikut ter-render.
+    {% endcomment %}
+    {% block extra_head %}{% endblock %}
 </head>
 
 <body>

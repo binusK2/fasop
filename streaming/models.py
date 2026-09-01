@@ -1,5 +1,7 @@
 import secrets
 
+from django.db.models import Q
+
 from django.contrib.auth.models import User
 from django.db import models
 from django.utils import timezone
@@ -7,6 +9,114 @@ from django.utils import timezone
 
 def _gen_token():
     return secrets.token_urlsafe(24)
+
+
+# Sesi dianggap TIDAK sedang tersiar kalau penyiarnya tidak mengirim kabar
+# selama sekian detik. Harus lebih besar dari interval kirim di broadcast.html
+# (10 detik) supaya toleran jaringan lambat, tapi tetap cepat terasa: inilah
+# yang membedakan "live beneran" dari "live tapi kotaknya hitam".
+PUBLISHER_STALE_SECONDS = 30
+
+# Setelah sekian detik tanpa penyiar, sesi diakhiri sendiri. Ini yang
+# membereskan sesi hantu: teknisi tidak sengaja refresh/back/tab tertutup,
+# lalu sesinya menggantung "Sedang Live" selamanya karena satu-satunya yang
+# bisa mengakhiri adalah orang yang sudah pergi dari halamannya.
+PUBLISHER_ABANDON_SECONDS = 300
+
+# Ambang TERPISAH, dan jauh lebih longgar, untuk sesi yang belum pernah
+# menyiar sekali pun. Teknisi lazim menekan "Mulai Live" dari kantor lalu
+# berjalan dulu ke peralatannya; menutup sesinya setelah 5 menit berarti
+# tombol "Mulai Kirim" ditolak MediaMTX (webhook auth mensyaratkan sesi masih
+# live) tepat saat ia akhirnya siap. Yang dibereskan ambang ini cuma kasus
+# jelas: sesi dibuat lalu tabnya ditutup dan tidak pernah disentuh lagi.
+NEVER_STARTED_ABANDON_SECONDS = 1800
+
+
+class KameraEzviz(models.Model):
+    """
+    Satu kamera CCTV Ezviz yang boleh dipakai sebagai sumber sesi live.
+
+    Didaftarkan lewat site admin (Streaming → Kamera CCTV Ezviz) ATAU
+    ditarik otomatis dari akun Ezviz lewat tombol "Sinkronkan dari Ezviz"
+    di halaman daftar live — pola yang sama dengan Pembangkit/Titik EWS:
+    menambah kamera tidak butuh migrasi maupun redeploy.
+
+    Yang menentukan video mana yang diputar cuma `serial` + `channel`;
+    `nama`/`lokasi` murni label untuk manusia, jadi hasil sinkronisasi dari
+    Ezviz tidak pernah menimpa nama yang sudah diedit orang di sini (lihat
+    streaming.ezviz.sinkron_kamera).
+    """
+    nama       = models.CharField(max_length=150, verbose_name='Nama Kamera')
+    serial     = models.CharField(max_length=64, verbose_name='Serial Perangkat', help_text='Device serial di akun Ezviz, mis. BD3957004')
+    channel    = models.PositiveSmallIntegerField(default=1, verbose_name='Channel', help_text='Nomor channel kamera. NVR punya banyak channel; kamera tunggal biasanya 1.')
+    lokasi     = models.CharField(max_length=150, blank=True, verbose_name='Lokasi / Gardu Induk')
+    hd         = models.BooleanField(default=True, verbose_name='Putar Kualitas HD', help_text='Nonaktifkan kalau jaringan lokasi lemah — kualitas turun, tapi lebih jarang buffering.')
+    aktif      = models.BooleanField(default=True, verbose_name='Aktif', help_text='Hanya kamera aktif yang muncul di pilihan sumber saat memulai live.')
+    keterangan = models.CharField(max_length=250, blank=True, verbose_name='Keterangan')
+
+    # Diisi sinkronisasi dari API Ezviz — sekadar informasi di admin/daftar,
+    # TIDAK dipakai untuk memblokir pemutaran: status di cloud kadang basi
+    # beberapa menit, dan kamera yang dilaporkan offline masih sering bisa
+    # ditarik streamnya.
+    status_cloud     = models.CharField(max_length=20, blank=True, editable=False, verbose_name='Status di Cloud Ezviz')
+    terakhir_sinkron = models.DateTimeField(null=True, blank=True, editable=False, verbose_name='Terakhir Disinkronkan')
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['lokasi', 'nama']
+        unique_together = ('serial', 'channel')
+        verbose_name = 'Kamera CCTV Ezviz'
+        verbose_name_plural = 'Kamera CCTV Ezviz'
+
+    def __str__(self):
+        if self.lokasi:
+            return f'{self.nama} — {self.lokasi}'
+        return self.nama
+
+    @property
+    def ezopen_url(self):
+        """
+        Alamat ezopen:// yang dimakan EZUIKitPlayer di browser.
+        Format live: ezopen://open.ys7.com/{serial}/{channel}.live
+        (varian HD menyisipkan ".hd" sebelum ".live").
+        Host di URL ini SELALU open.ys7.com walau akun ada di region lain —
+        region ditentukan lewat `env.domain` yang dikirim terpisah ke player
+        (lihat settings.EZVIZ_API_BASE), bukan lewat host di sini.
+        """
+        mutu = 'hd.live' if self.hd else 'live'
+        return f'ezopen://open.ys7.com/{self.serial}/{self.channel}.{mutu}'
+
+
+class EzvizToken(models.Model):
+    """
+    Satu baris (pk=1) penampung accessToken akun Ezviz.
+
+    Disimpan di DB, BUKAN di cache proses, karena FASOP jalan multi-worker
+    gunicorn: dengan cache lokal tiap worker akan meminta token sendiri ke
+    Ezviz dan gampang kena rate limit endpoint /api/lapp/token/get. Token
+    berumur ~7 hari, jadi satu baris DB yang dibagi semua worker jauh lebih
+    hemat daripada satu token per worker.
+    """
+    token      = models.CharField(max_length=255, blank=True)
+    expire_at  = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Token Ezviz'
+        verbose_name_plural = 'Token Ezviz'
+
+    def __str__(self):
+        return f'Token Ezviz (kedaluwarsa {self.expire_at:%d/%m/%Y %H:%M})' if self.expire_at else 'Token Ezviz (belum ada)'
+
+    @property
+    def masih_berlaku(self):
+        # Margin 1 jam — jangan tunggu benar-benar kedaluwarsa, kalau tidak
+        # sesi yang sedang diputar bisa mati di tengah jalan saat token habis.
+        if not self.token or not self.expire_at:
+            return False
+        return self.expire_at > timezone.now() + timezone.timedelta(hours=1)
 
 
 class LiveSession(models.Model):
@@ -25,9 +135,29 @@ class LiveSession(models.Model):
         ('ended', 'Selesai'),
     )
 
+    # Dari mana videonya datang. Dua sumber ini menempuh jalur yang BERBEDA
+    # total sampai ke mata penonton:
+    #   perangkat — kamera HP/laptop teknisi → WHIP → MediaMTX → WHEP ke
+    #               penonton; ikut direkam server (recording_path).
+    #   ezviz     — kamera CCTV di cloud Ezviz; browser penonton menarik
+    #               langsung dari Ezviz lewat EZUIKit, TIDAK lewat MediaMTX
+    #               dan karena itu TIDAK direkam FASOP (rekamannya ada di
+    #               cloud/SD card kamera itu sendiri).
+    # Talkback pengawas tetap lewat MediaMTX untuk kedua sumber.
+    SUMBER_CHOICES = (
+        ('perangkat', 'Kamera HP / Laptop'),
+        ('ezviz',     'Kamera CCTV Ezviz'),
+    )
+
     teknisi      = models.ForeignKey(User, on_delete=models.CASCADE, related_name='live_sessions', verbose_name='Teknisi')
     pengawas     = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='live_sessions_pengawas', verbose_name='Pengawas (AM)')
     judul        = models.CharField(max_length=200, blank=True, verbose_name='Judul / Lokasi Pemeliharaan')
+    sumber       = models.CharField(max_length=10, choices=SUMBER_CHOICES, default='perangkat', verbose_name='Sumber Video')
+    kamera       = models.ForeignKey(
+        'KameraEzviz', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='sesi', verbose_name='Kamera CCTV Ezviz',
+        help_text='Hanya dipakai kalau sumber = Kamera CCTV Ezviz.',
+    )
 
     # Token rahasia untuk otorisasi publish/read di MediaMTX — jangan pernah ditampilkan di UI publik
     stream_key   = models.CharField(max_length=64, unique=True, editable=False, verbose_name='Token Publish Video')
@@ -37,6 +167,25 @@ class LiveSession(models.Model):
     status       = models.CharField(max_length=10, choices=STATUS_CHOICES, default='live')
     started_at   = models.DateTimeField(auto_now_add=True)
     ended_at     = models.DateTimeField(null=True, blank=True)
+
+    # Kapan terakhir kali browser teknisi mengabarkan bahwa WHIP publish-nya
+    # masih hidup (lihat streaming.views.publisher_heartbeat).
+    #
+    # `status` saja tidak cukup untuk tahu sebuah sesi benar-benar tersiar:
+    # status hanya berubah kalau ADA YANG MENEKAN "Akhiri Live". Begitu
+    # teknisi tidak sengaja me-refresh, menekan back, atau tabnya tertutup,
+    # publish-nya mati tapi barisnya tetap 'live' — sesi tampil "Sedang Live"
+    # ke semua orang padahal tidak ada apa-apa untuk ditonton, dan orang yang
+    # bisa mengakhirinya sudah pergi dari halaman itu. Kolom inilah yang
+    # membuat keadaan tersebut bisa dilihat (dan dibereskan sendiri).
+    #
+    # NULL = tidak sedang menyiar. Kosong sejak awal (sesi baru dibuat, belum
+    # menekan Mulai Kirim) DAN dikosongkan lagi secara eksplisit saat teknisi
+    # berhenti/menutup halaman, supaya statusnya berubah seketika alih-alih
+    # menunggu PUBLISHER_STALE_SECONDS lewat.
+    publisher_last_seen = models.DateTimeField(
+        null=True, blank=True, editable=False, verbose_name='Penyiar Terakhir Terlihat',
+    )
 
     # Path absolut file rekaman di disk (ditulis MediaMTX, didaftarkan lewat
     # webhook streaming.views.mediamtx_record_webhook). Kosong = belum/tidak
@@ -72,6 +221,72 @@ class LiveSession(models.Model):
     @property
     def is_live(self):
         return self.status == 'live'
+
+    @property
+    def siaran_aktif(self):
+        """
+        True kalau sesi ini benar-benar mengalirkan video SEKARANG.
+
+        Beda dari `is_live` (yang cuma bilang sesinya belum diakhiri).
+        Sesi Ezviz selalu dianggap tersiar: videonya datang dari cloud, tidak
+        ada browser yang mem-publish, jadi tidak ada yang bisa "putus" di
+        sisi FASOP.
+        """
+        if not self.is_live:
+            return False
+        if self.is_ezviz:
+            return True
+        if not self.publisher_last_seen:
+            return False
+        return self.publisher_last_seen >= timezone.now() - timezone.timedelta(seconds=PUBLISHER_STALE_SECONDS)
+
+    @property
+    def pernah_tersiar(self):
+        """
+        True kalau sesi ini pernah benar-benar mengirim video.
+
+        Dipakai broadcast.html untuk membedakan "sesi baru, teknisi masih
+        memilih kamera" dari "sesi yang tadi sudah jalan lalu halamannya
+        ter-refresh" — hanya kasus kedua yang disambung ulang otomatis.
+        """
+        return self.publisher_last_seen is not None or bool(self.recording_path)
+
+    @classmethod
+    def akhiri_yang_terbengkalai(cls):
+        """
+        Akhiri sesi yang penyiarnya sudah lama menghilang. Dipanggil sambil
+        lalu dari halaman daftar & API Multi View — sengaja BUKAN cron: kondisi
+        ini hanya perlu benar saat ada yang melihat daftarnya, dan satu
+        UPDATE murah jauh lebih sederhana daripada satu job terjadwal lagi.
+
+        Sesi Ezviz dikecualikan: tidak ada penyiar yang bisa menghilang, dan
+        kameranya memang masih mengalir walau tidak ada yang menonton.
+        """
+        sekarang = timezone.now()
+        batas_putus = sekarang - timezone.timedelta(seconds=PUBLISHER_ABANDON_SECONDS)
+        batas_diam = sekarang - timezone.timedelta(seconds=NEVER_STARTED_ABANDON_SECONDS)
+        return (
+            cls.objects
+            .filter(status='live')
+            .exclude(sumber='ezviz')
+            .filter(
+                # Pernah menyiar lalu hilang (cepat dibereskan), ATAU tidak
+                # pernah menyiar sama sekali sejak dibuat (dibereskan jauh
+                # lebih lambat — lihat catatan di NEVER_STARTED_ABANDON_SECONDS).
+                Q(publisher_last_seen__lt=batas_putus)
+                | Q(publisher_last_seen__isnull=True, started_at__lt=batas_diam)
+            )
+            .update(status='ended', ended_at=sekarang)
+        )
+
+    @property
+    def is_ezviz(self):
+        """True kalau video sesi ini datang dari cloud Ezviz, bukan dari MediaMTX."""
+        return self.sumber == 'ezviz'
+
+    @property
+    def ezopen_url(self):
+        return self.kamera.ezopen_url if self.kamera_id and self.kamera else ''
 
     @property
     def video_path(self):

@@ -9,11 +9,24 @@
         <h2 class="mb-0" style="font-size:20px;font-weight:700;">Live Streaming Pemeliharaan</h2>
         <p class="text-muted mb-0" style="font-size:13px;">Siaran langsung dari lapangan — Teknisi mengirim video, Asisten Manager bisa jadi pengawas dengan komunikasi 2 arah.</p>
     </div>
-    {% if can_start %}
-    <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalMulaiLive">
-        <i class="bi bi-camera-video-fill me-1"></i>Mulai Live
-    </button>
-    {% endif %}
+    <div class="d-flex gap-2 flex-wrap">
+        <a href="{% url 'streaming:grid' %}" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-grid-3x3-gap-fill me-1"></i>Multi View
+        </a>
+        {% if can_sync_ezviz and ezviz_siap %}
+        <form method="post" action="{% url 'streaming:ezviz_sync' %}" class="d-inline">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-repeat me-1"></i>Sinkronkan Kamera Ezviz
+            </button>
+        </form>
+        {% endif %}
+        {% if can_start %}
+        <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalMulaiLive">
+            <i class="bi bi-camera-video-fill me-1"></i>Mulai Live
+        </button>
+        {% endif %}
+    </div>
 </div>
 
 {% if messages %}
@@ -31,6 +44,7 @@
             <thead>
                 <tr>
                     <th>Judul</th>
+                    <th>Sumber</th>
                     <th>Teknisi</th>
                     <th>Pengawas</th>
                     <th>Mulai</th>
@@ -40,7 +54,27 @@
             <tbody>
             {% for session in active_sessions %}
                 <tr>
-                    <td>{{ session.judul }}</td>
+                    <td>
+                        {{ session.judul }}
+                        {% if not session.siaran_aktif %}
+                        {% comment %}
+                        Sesi masih terbuka tapi tidak ada video yang masuk — hampir selalu
+                        karena halaman teknisi ter-refresh/tertutup. Ditandai di sini supaya
+                        tidak ada yang membukanya lalu menyangka aplikasinya rusak; sesinya
+                        sendiri akan berakhir kalau penyiarnya tidak kembali
+                        (LiveSession.akhiri_yang_terbengkalai).
+                        {% endcomment %}
+                        <div><span class="badge" style="background:#fef3c7;color:#b45309;"><i class="bi bi-exclamation-triangle-fill me-1"></i>Siaran terputus</span></div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if session.is_ezviz %}
+                            <span class="badge" style="background:#e0e7ff;color:#4338ca;"><i class="bi bi-cctv me-1"></i>CCTV Ezviz</span>
+                            <div class="text-muted" style="font-size:11px;">{{ session.kamera|default:"kamera dihapus" }}</div>
+                        {% else %}
+                            <span class="badge" style="background:#fee2e2;color:#b91c1c;"><i class="bi bi-phone me-1"></i>Kamera Teknisi</span>
+                        {% endif %}
+                    </td>
                     <td>{{ session.teknisi.profile.get_display_name|default:session.teknisi.username }}</td>
                     <td>
                         {% if session.pengawas %}
@@ -50,14 +84,35 @@
                         {% endif %}
                     </td>
                     <td>{{ session.started_at|date:"d/m H:i" }}</td>
-                    <td class="text-end">
+                    <td class="text-end text-nowrap">
+                        {% if session.teknisi_id == user.id %}
+                        <a href="{% url 'streaming:detail' pk=session.pk %}" class="btn btn-primary btn-sm">
+                            <i class="bi bi-broadcast me-1"></i>{% if session.siaran_aktif %}Buka Siaran{% else %}Lanjutkan Siaran{% endif %}
+                        </a>
+                        {% else %}
                         <a href="{% url 'streaming:detail' pk=session.pk %}" class="btn btn-outline-primary btn-sm">
                             <i class="bi bi-eye-fill me-1"></i>Tonton
                         </a>
+                        {% endif %}
+                        {% if session.teknisi_id == user.id or user.is_superuser %}
+                        {% comment %}
+                        Jalan keluar dari halaman daftar. Sebelumnya tombol akhiri HANYA ada
+                        di overlay video halaman siaran dan baru muncul setelah siaran jalan —
+                        teknisi yang halamannya ter-refresh tidak punya cara apa pun menutup
+                        sesinya sendiri.
+                        {% endcomment %}
+                        <form method="post" action="{% url 'streaming:end' pk=session.pk %}" class="d-inline"
+                              onsubmit="return confirm('Akhiri sesi live ini?');">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-outline-danger btn-sm" title="Akhiri sesi">
+                                <i class="bi bi-x-circle"></i>
+                            </button>
+                        </form>
+                        {% endif %}
                     </td>
                 </tr>
             {% empty %}
-                <tr><td colspan="5" class="text-center text-muted py-3">Tidak ada sesi live saat ini.</td></tr>
+                <tr><td colspan="6" class="text-center text-muted py-3">Tidak ada sesi live saat ini.</td></tr>
             {% endfor %}
             </tbody>
         </table>
@@ -116,9 +171,51 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
+                <label class="form-label">Sumber Video</label>
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <input type="radio" class="btn-check" name="sumber" id="sumber-perangkat" value="perangkat" checked>
+                        <label class="btn btn-outline-primary w-100 text-start py-2" for="sumber-perangkat">
+                            <i class="bi bi-phone me-1"></i><strong>Kamera HP / Laptop</strong>
+                            <div class="text-muted" style="font-size:11px;line-height:1.3;">Teknisi menyiarkan dari perangkatnya. Direkam otomatis.</div>
+                        </label>
+                    </div>
+                    <div class="col-6">
+                        <input type="radio" class="btn-check" name="sumber" id="sumber-ezviz" value="ezviz"
+                               {% if not ezviz_siap or not kamera_list %}disabled{% endif %}>
+                        <label class="btn btn-outline-primary w-100 text-start py-2" for="sumber-ezviz">
+                            <i class="bi bi-cctv me-1"></i><strong>Kamera CCTV Ezviz</strong>
+                            <div class="text-muted" style="font-size:11px;line-height:1.3;">Tarik langsung dari cloud Ezviz. Tidak perlu kamera di tangan.</div>
+                        </label>
+                    </div>
+                </div>
+
+                {% if not ezviz_siap %}
+                <div class="alert alert-warning py-2 mb-3" style="font-size:12px;">
+                    Sumber Ezviz belum aktif — <code>EZVIZ_APP_KEY</code>/<code>EZVIZ_APP_SECRET</code> belum diisi di <code>.env</code> server.
+                </div>
+                {% elif not kamera_list %}
+                <div class="alert alert-warning py-2 mb-3" style="font-size:12px;">
+                    Belum ada kamera Ezviz aktif yang terdaftar.
+                    {% if can_sync_ezviz %}Tekan <strong>Sinkronkan Kamera Ezviz</strong> di halaman ini, atau daftarkan manual dari Admin.{% else %}Minta Asisten Manager menyinkronkan daftar kamera dulu.{% endif %}
+                </div>
+                {% endif %}
+
+                <div id="blok-kamera" style="display:none;" class="mb-3">
+                    <label class="form-label">Kamera CCTV</label>
+                    <select name="kamera" class="form-select" id="pilih-kamera">
+                        {% for kamera in kamera_list %}
+                        <option value="{{ kamera.pk }}">
+                            {{ kamera.nama }}{% if kamera.lokasi %} — {{ kamera.lokasi }}{% endif %}{% if kamera.status_cloud == 'offline' %} (offline di cloud){% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <div class="form-text">Kamera yang statusnya offline di cloud masih boleh dicoba — status di Ezviz kadang telat beberapa menit.</div>
+                </div>
+
                 <label class="form-label">Judul / Lokasi Pemeliharaan</label>
                 <input type="text" name="judul" class="form-control" placeholder="Mis. Pemeliharaan RTU Gardu Induk Sungguminasa" maxlength="200">
-                <div class="form-text">Kosongkan untuk pakai judul default. Kamera akan diminta izin akses setelah ini.</div>
+                <div class="form-text" id="teks-bantuan-judul">Kosongkan untuk pakai judul default. Kamera akan diminta izin akses setelah ini.</div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
@@ -130,3 +227,29 @@
 {% endif %}
 
 {% endblock %}
+
+{% block extra_js %}
+<script>
+/* Pilihan kamera hanya relevan untuk sumber Ezviz — disembunyikan (bukan
+   dihapus) supaya pilihan yang sudah dibuat tidak hilang kalau pengguna
+   bolak-balik antar sumber. Selectnya tetap ikut terkirim saat sumber
+   'perangkat', tapi view mengabaikannya sepenuhnya di jalur itu. */
+(function () {
+    const blokKamera  = document.getElementById('blok-kamera');
+    const bantuanJudul = document.getElementById('teks-bantuan-judul');
+    if (!blokKamera) return;
+
+    const TEKS_PERANGKAT = 'Kosongkan untuk pakai judul default. Kamera akan diminta izin akses setelah ini.';
+    const TEKS_EZVIZ      = 'Kosongkan untuk pakai nama kamera sebagai judul. Tidak ada permintaan izin kamera — video ditarik dari cloud Ezviz.';
+
+    function perbarui() {
+        const ezviz = document.getElementById('sumber-ezviz').checked;
+        blokKamera.style.display = ezviz ? '' : 'none';
+        bantuanJudul.textContent = ezviz ? TEKS_EZVIZ : TEKS_PERANGKAT;
+    }
+    document.querySelectorAll('input[name="sumber"]').forEach(el => el.addEventListener('change', perbarui));
+    perbarui();
+})();
+</script>
+{% endblock %}
+

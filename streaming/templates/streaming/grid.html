@@ -1,0 +1,371 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Multi View — FASOP{% endblock %}
+{% block page_title %}Live Streaming — Multi View{% endblock %}
+
+{% block extra_head %}
+<style>
+.wall { display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:12px; }
+.wall.kolom-1 { grid-template-columns:1fr; }
+.wall.kolom-2 { grid-template-columns:repeat(2, 1fr); }
+
+.tile { background:#0f172a; border-radius:10px; overflow:hidden; position:relative; aspect-ratio:16/9; cursor:pointer; border:2px solid transparent; transition:border-color .15s; }
+.tile:hover { border-color:#3b82f6; }
+.tile.fokus { grid-column:span 2; grid-row:span 2; border-color:#22c55e; }
+.tile video { width:100%; height:100%; object-fit:contain; background:#000; }
+.tile .ez-host { width:100%; height:100%; }
+
+.tile-bar { position:absolute; left:0; right:0; bottom:0; z-index:6; background:linear-gradient(transparent, rgba(15,23,42,.92)); color:#e2e8f0; padding:18px 10px 7px; font-size:12px; line-height:1.35; pointer-events:none; }
+.tile-bar .judul { font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.tile-bar .meta { color:#94a3b8; font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+.tile-tag { position:absolute; top:8px; left:8px; z-index:6; font-size:10px; font-weight:700; padding:2px 8px; border-radius:20px; letter-spacing:.4px; }
+.tag-perangkat { background:#ef4444; color:#fff; }
+.tag-ezviz { background:rgba(79,70,229,.95); color:#fff; }
+.tile-suara { position:absolute; top:8px; right:8px; z-index:7; background:rgba(15,23,42,.8); color:#e2e8f0; border:0; border-radius:20px; font-size:11px; padding:3px 9px; cursor:pointer; }
+
+.tile-pesan { position:absolute; inset:0; z-index:5; display:flex; align-items:center; justify-content:center; text-align:center; color:#94a3b8; font-size:12px; padding:16px; }
+.wall-kosong { border:1px dashed #cbd5e1; border-radius:12px; padding:48px 16px; text-align:center; color:#64748b; font-size:14px; }
+
+/* Mode layar penuh — halaman ini dipasang di monitor ruang operasi, jadi
+   sidebar/topbar cuma memakan tempat setelah tata letaknya selesai diatur. */
+body.wall-focus #sidebar, body.wall-focus #topbar { display:none !important; }
+body.wall-focus #main-content { margin-left:0 !important; }
+body.wall-focus .page-content { padding:10px !important; max-width:none; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2" id="wall-header">
+    <div>
+        <h2 class="mb-0" style="font-size:20px;font-weight:700;">Multi View</h2>
+        <p class="text-muted mb-0" style="font-size:13px;">
+            Semua sesi live sekaligus. Klik satu kotak untuk memperbesar &amp; menyalakan suaranya —
+            kotak lain tetap berjalan tanpa suara.
+        </p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap align-items-center">
+        <span class="badge" style="background:#f1f5f9;color:#334155;font-weight:600;">
+            <span class="live-dot"></span><span id="jumlah-live">0</span> live
+        </span>
+        <button type="button" id="btn-layar-penuh" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrows-fullscreen me-1"></i>Sembunyikan Menu
+        </button>
+        <a href="{% url 'streaming:list' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-list-ul me-1"></i>Daftar Sesi</a>
+    </div>
+</div>
+
+<div id="wall" class="wall"></div>
+
+<div id="wall-kosong" class="wall-kosong" style="display:none;">
+    <i class="bi bi-camera-video-off" style="font-size:28px;display:block;margin-bottom:8px;"></i>
+    Tidak ada sesi live saat ini. Halaman ini memantau sendiri — begitu ada yang mulai siaran, kotaknya muncul otomatis.
+</div>
+
+<div id="wall-catatan" class="text-muted mt-2" style="font-size:12px;"></div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'streaming/webrtc.js' %}"></script>
+<script src="{% static 'streaming/ezuikit.js' %}"></script>
+<script src="{% static 'streaming/ezviz-player.js' %}"></script>
+<script>
+const API_URL      = '{% url "streaming:api_live_sessions" %}';
+const TOKEN_URL    = '{% url "streaming:ezviz_token" %}';
+const EZVIZ_DOMAIN = '{{ ezviz_domain }}';
+const WHEP_URL     = '{{ whep_url }}';
+const ICE_SERVERS  = JSON.parse('{{ ice_servers_json|escapejs }}');
+const MAKS_TILE    = {{ maks_tile }};
+const INTERVAL_MS  = 10000;
+
+const wall     = document.getElementById('wall');
+const kosong   = document.getElementById('wall-kosong');
+const catatan  = document.getElementById('wall-catatan');
+const jumlahEl = document.getElementById('jumlah-live');
+
+/**
+ * Kotak yang sedang hidup, dikunci berdasarkan id sesi.
+ * { el, tipe, pc, resource, player, judul }
+ *
+ * Kunci desain halaman ini: sinkronisasi berbasis SELISIH, bukan
+ * menggambar ulang seluruh grid tiap poll. Menggambar ulang berarti
+ * memutus & menyambung lagi semua koneksi WebRTC/Ezviz tiap 10 detik —
+ * setiap kamera akan berkedip hitam terus-menerus dan MediaMTX dibanjiri
+ * sesi WHEP baru yang langsung dibuang.
+ */
+const kotak = new Map();
+let idFokus = null;
+
+function idTerpasang() {
+    return Array.from(kotak.keys());
+}
+
+function aturKolom(n) {
+    wall.classList.toggle('kolom-1', n === 1);
+    wall.classList.toggle('kolom-2', n === 2 || n === 4);
+}
+
+function buatElemenKotak(data) {
+    const el = document.createElement('div');
+    el.className = 'tile';
+    el.dataset.id = data.id;
+
+    const tag = data.sumber === 'ezviz'
+        ? '<span class="tile-tag tag-ezviz"><i class="bi bi-cctv"></i> CCTV</span>'
+        : '<span class="tile-tag tag-perangkat">LIVE</span>';
+
+    const isiVideo = data.sumber === 'ezviz'
+        ? `<div class="ez-host" id="ez-${data.id}"></div>`
+        : '<video autoplay playsinline muted></video>';
+
+    const meta = data.sumber === 'ezviz'
+        ? `${data.kamera || 'Kamera Ezviz'} · sejak ${data.mulai}`
+        : `${data.teknisi} · sejak ${data.mulai}`;
+
+    el.innerHTML = `
+        ${tag}
+        <button type="button" class="tile-suara"><i class="bi bi-volume-mute-fill"></i></button>
+        <div class="tile-pesan">Menghubungkan…</div>
+        ${isiVideo}
+        <div class="tile-bar">
+            <div class="judul">${escapeHtml(data.judul)}</div>
+            <div class="meta">${escapeHtml(meta)}</div>
+        </div>`;
+
+    el.addEventListener('click', () => fokuskan(data.id));
+    el.querySelector('.tile-suara').addEventListener('click', (e) => {
+        e.stopPropagation();
+        const k = kotak.get(data.id);
+        if (k) aturSuara(k, !k.bersuara);
+    });
+    return el;
+}
+
+function escapeHtml(teks) {
+    const d = document.createElement('div');
+    d.textContent = teks == null ? '' : teks;
+    return d.innerHTML;
+}
+
+function pesanKotak(k, teks) {
+    const p = k.el.querySelector('.tile-pesan');
+    if (!p) return;
+    if (teks) { p.textContent = teks; p.style.display = ''; }
+    else { p.style.display = 'none'; }
+}
+
+/**
+ * Hidup/matikan suara satu kotak. Suara SELALU eksklusif — menyalakan satu
+ * kotak membisukan yang lain: sembilan kamera berbunyi bersamaan tidak bisa
+ * didengarkan siapa pun, dan browser memang memblokir autoplay bersuara
+ * sampai ada klik dari pengguna.
+ */
+function aturSuara(k, nyala) {
+    if (nyala) {
+        kotak.forEach((lain) => { if (lain !== k && lain.bersuara) aturSuara(lain, false); });
+    }
+    k.bersuara = nyala;
+    if (k.tipe === 'ezviz' && k.player) {
+        try { nyala ? k.player.openSound() : k.player.closeSound(); } catch (e) { /* noop */ }
+    } else {
+        const v = k.el.querySelector('video');
+        if (v) v.muted = !nyala;
+    }
+    const ikon = k.el.querySelector('.tile-suara i');
+    if (ikon) ikon.className = nyala ? 'bi bi-volume-up-fill' : 'bi bi-volume-mute-fill';
+}
+
+function fokuskan(id) {
+    const k = kotak.get(id);
+    if (!k) return;
+    if (idFokus === id) {
+        k.el.classList.remove('fokus');
+        idFokus = null;
+    } else {
+        kotak.forEach((lain) => lain.el.classList.remove('fokus'));
+        k.el.classList.add('fokus');
+        idFokus = id;
+        aturSuara(k, true);
+    }
+    // Pemutar Ezviz menggambar ke canvas berukuran tetap — tanpa resize
+    // eksplisit, kotak yang diperbesar tetap menampilkan gambar sekecil
+    // ukuran semula di pojok kiri atas.
+    setTimeout(sesuaikanUkuranEzviz, 260);
+}
+
+function sesuaikanUkuranEzviz() {
+    kotak.forEach((k) => {
+        if (k.tipe !== 'ezviz' || !k.player || typeof k.player.resize !== 'function') return;
+        const w = Math.max(240, Math.round(k.el.clientWidth));
+        try { k.player.resize(w, Math.round(w * 9 / 16)); } catch (e) { /* noop */ }
+    });
+}
+
+async function pasangKotak(data) {
+    const el = buatElemenKotak(data);
+    wall.appendChild(el);
+    const k = {
+        el, tipe: data.sumber, pc: null, resource: null, player: null, bersuara: false,
+        video_path: data.video_path, view_token: data.view_token,
+    };
+    kotak.set(data.id, k);
+
+    if (data.sumber === 'ezviz') {
+        const w = Math.max(240, Math.round(el.clientWidth));
+        try {
+            k.player = await buatPemutarEzviz(`ez-${data.id}`, {
+                tokenUrl: TOKEN_URL,
+                url: data.ezopen_url,
+                domain: EZVIZ_DOMAIN,
+                width: w, height: Math.round(w * 9 / 16),
+                audio: false,          // Multi View selalu mulai bisu, lihat aturSuara()
+                template: 'simple',    // tanpa tombol bawaan — kontrolnya milik halaman ini
+                onError: (pesan) => pesanKotak(k, pesan),
+            });
+            pesanKotak(k, '');
+        } catch (err) {
+            console.error(err);
+            pesanKotak(k, err.message || 'Gagal memutar kamera Ezviz.');
+        }
+        return;
+    }
+
+    if (!data.siaran_aktif) {
+        pesanKotak(k, 'Siaran terputus — teknisi sedang tidak mengirim video.');
+        return;
+    }
+
+    try {
+        const video = el.querySelector('video');
+        const { pc, resourceUrl } = await whepPlay(WHEP_URL, data.video_path, data.view_token, video, ICE_SERVERS);
+        k.pc = pc;
+        k.resource = resourceUrl;
+        pesanKotak(k, '');
+    } catch (err) {
+        console.error(err);
+        // Wajar, bukan error: sesi sudah dibuat tapi teknisi belum menekan
+        // "Mulai Kirim" di HP-nya. Kotaknya dibiarkan berdiri dengan penanda
+        // supaya poll berikutnya menyambung sendiri — bukan dibongkar, karena
+        // membongkar-memasang kotak tiap 10 detik membuat grid berkedip.
+        pesanKotak(k, 'Menunggu video dari teknisi…');
+        k.perluCobaLagi = true;
+    }
+}
+
+/**
+ * Selaraskan satu kotak dengan keadaan terbaru sesinya.
+ *
+ * Yang penting di sini: sesi bisa berstatus 'live' tapi TIDAK mengirim video
+ * apa pun (halaman teknisi ter-refresh atau tertutup). Dulu kotaknya cuma
+ * menampilkan "Menunggu video dari teknisi…" selamanya, tidak terbedakan dari
+ * sesi yang baru saja dibuat. Koneksi WHEP yang mati juga dibongkar di sini,
+ * supaya begitu teknisi menyambung lagi kotak ini ikut menyambung — bukan
+ * memegang koneksi basi.
+ */
+async function perbaruiKeadaan(k, data) {
+    if (k.tipe === 'ezviz') return;   // tidak ada penyiar yang bisa putus
+    const terputus = !data.siaran_aktif;
+
+    if (terputus) {
+        if (k.pc) {
+            await whipWhepStop(k.pc, k.resource);
+            k.pc = null;
+            k.resource = null;
+        }
+        k.perluCobaLagi = false;
+        pesanKotak(k, 'Siaran terputus — teknisi sedang tidak mengirim video.');
+        return;
+    }
+
+    if (!k.pc) k.perluCobaLagi = true;      // siaran kembali → sambung lagi
+    else pesanKotak(k, '');
+}
+
+async function cobaLagiYangGagal() {
+    for (const [id, k] of kotak) {
+        if (!k.perluCobaLagi || k.tipe === 'ezviz') continue;
+        k.perluCobaLagi = false;
+        try {
+            const video = k.el.querySelector('video');
+            const { pc, resourceUrl } = await whepPlay(WHEP_URL, k.video_path, k.view_token, video, ICE_SERVERS);
+            k.pc = pc;
+            k.resource = resourceUrl;
+            pesanKotak(k, '');
+        } catch (e) {
+            k.perluCobaLagi = true;
+        }
+    }
+}
+
+async function lepasKotak(id) {
+    const k = kotak.get(id);
+    if (!k) return;
+    kotak.delete(id);
+    if (idFokus === id) idFokus = null;
+    if (k.tipe === 'ezviz') await hentikanPemutarEzviz(k.player);
+    else await whipWhepStop(k.pc, k.resource);
+    k.el.remove();
+}
+
+async function segarkan() {
+    let data;
+    try {
+        const url = API_URL + '?nonton=' + encodeURIComponent(idTerpasang().join(','));
+        const resp = await fetch(url);
+        if (!resp.ok) return;
+        data = await resp.json();
+    } catch (e) {
+        return; // jaringan sempat putus — kotak yang ada dibiarkan jalan
+    }
+
+    const semua = data.sessions || [];
+    jumlahEl.textContent = semua.length;
+
+    const tampil = semua.slice(0, MAKS_TILE);
+    const idTampil = new Set(tampil.map(x => x.id));
+
+    for (const id of idTerpasang()) {
+        if (!idTampil.has(id)) await lepasKotak(id);
+    }
+    for (const s of tampil) {
+        if (!kotak.has(s.id)) await pasangKotak(s);
+        else await perbaruiKeadaan(kotak.get(s.id), s);
+    }
+
+    await cobaLagiYangGagal();
+
+    kosong.style.display = semua.length ? 'none' : '';
+    aturKolom(tampil.length);
+    catatan.textContent = semua.length > MAKS_TILE
+        ? `Menampilkan ${MAKS_TILE} dari ${semua.length} sesi live — sisanya bisa dibuka satu per satu dari Daftar Sesi.`
+        : '';
+    sesuaikanUkuranEzviz();
+}
+
+document.getElementById('btn-layar-penuh').addEventListener('click', (e) => {
+    const aktif = document.body.classList.toggle('wall-focus');
+    e.currentTarget.innerHTML = aktif
+        ? '<i class="bi bi-fullscreen-exit me-1"></i>Tampilkan Menu'
+        : '<i class="bi bi-arrows-fullscreen me-1"></i>Sembunyikan Menu';
+    setTimeout(sesuaikanUkuranEzviz, 260);
+});
+
+let resizeTimer = null;
+window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(sesuaikanUkuranEzviz, 250);
+});
+
+window.addEventListener('pagehide', () => {
+    kotak.forEach((k) => {
+        if (k.tipe === 'ezviz') hentikanPemutarEzviz(k.player);
+        else whipWhepStop(k.pc, k.resource);
+    });
+});
+
+segarkan();
+setInterval(segarkan, INTERVAL_MS);
+</script>
+{% endblock %}

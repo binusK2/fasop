@@ -113,13 +113,34 @@ function handleSessionEnded() {
     if (liveBadge) liveBadge.remove();
 }
 
+/** Tampilkan/hilangkan keterangan "siaran terputus" tanpa menyentuh koneksi. */
+let terputusTerakhir = null;
+function siaranTerputus(terputus) {
+    if (terputus === terputusTerakhir) return;   // jangan tulis ulang tiap 5 detik
+    terputusTerakhir = terputus;
+    const badge = document.querySelector('.live-badge');
+    if (badge) {
+        badge.textContent = terputus ? 'TERPUTUS' : 'LIVE';
+        badge.style.background = terputus ? '#f59e0b' : '#ef4444';
+    }
+    if (terputus) {
+        statusMsg.textContent = 'Siaran terputus — teknisi sedang tidak mengirim video. '
+            + 'Halaman ini akan menyambung sendiri begitu videonya kembali.';
+    }
+}
+
 async function pollStatus() {
     if (ended) return;
     try {
         const resp = await fetch(STATUS_URL);
         if (!resp.ok) return;
         const data = await resp.json();
-        if (!data.is_live) handleSessionEnded();
+        if (!data.is_live) { handleSessionEnded(); return; }
+        // Sesi masih terbuka tapi tidak ada video yang dikirim — mis. halaman
+        // teknisi ter-refresh atau tabnya tertutup. Tanpa keterangan ini,
+        // penonton hanya melihat kotak hitam pada sesi yang jelas-jelas
+        // tertulis "Sedang Live", dan menyangka aplikasinya yang rusak.
+        siaranTerputus(!data.siaran_aktif);
     } catch (e) { /* koneksi sempat putus — coba lagi di polling berikutnya */ }
 }
 

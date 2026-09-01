@@ -9,6 +9,7 @@
 .video-wrap video { width:100%; height:100%; object-fit:cover; }
 .video-wrap.is-live { aspect-ratio:unset; height:min(80vh, 720px); }
 .live-badge { position:absolute; top:12px; left:12px; background:#ef4444; color:#fff; font-size:11px; font-weight:700; padding:3px 10px; border-radius:20px; letter-spacing:.5px; }
+.live-badge.is-terputus { background:#f59e0b; }
 .talk-badge { position:absolute; top:12px; left:100px; background:rgba(16,185,129,.9); color:#fff; font-size:11px; font-weight:700; padding:3px 10px; border-radius:20px; }
 .viewer-badge { position:absolute; top:12px; right:12px; background:rgba(15,23,42,.75); color:#e2e8f0; font-size:11px; font-weight:700; padding:3px 10px; border-radius:20px; }
 .end-live-btn { position:absolute; bottom:12px; right:12px; opacity:.55; transition:opacity .15s; }
@@ -44,7 +45,7 @@ body.streaming-focus .page-content { padding: 16px !important; max-width: 960px;
 <div class="row g-3">
     <div class="col-lg-8" id="col-video">
         <div class="video-wrap mb-3" id="video-wrap">
-            <span class="live-badge" id="badge-status">BELUM MULAI</span>
+            <span class="live-badge{% if pernah_tersiar and session.is_live %} is-terputus{% endif %}" id="badge-status">{% if pernah_tersiar and session.is_live %}TERPUTUS{% else %}BELUM MULAI{% endif %}</span>
             <span class="talk-badge" id="badge-talk" style="display:none;"><i class="bi bi-mic-fill me-1"></i>Talkback Aktif</span>
             <span class="viewer-badge" id="badge-viewers" style="display:none;"><i class="bi bi-eye-fill me-1"></i><span id="viewer-count">0</span> menonton</span>
             <video id="local-video" autoplay muted playsinline></video>
@@ -57,9 +58,29 @@ body.streaming-focus .page-content { padding: 16px !important; max-width: 960px;
             </button>
         </div>
 
+        {% if pernah_tersiar and session.is_live %}
+        <div class="alert alert-warning py-2 mb-2" style="font-size:13px;" id="banner-terputus">
+            <i class="bi bi-exclamation-triangle-fill me-1"></i>
+            Siaran ini sempat terputus (halaman ter-refresh atau tertutup). Sesi masih terbuka —
+            video akan disambungkan ulang otomatis. Kalau memang sudah selesai, tekan
+            <strong>Akhiri Sesi</strong> supaya tidak terus tampil sebagai live ke pengguna lain.
+        </div>
+        {% endif %}
+
         <div class="d-flex gap-2 flex-wrap align-items-center" id="camera-controls">
             <select id="camera-select" class="form-select form-select-sm" style="max-width:220px;"></select>
             <button type="button" id="btn-start" class="btn btn-primary btn-sm"><i class="bi bi-broadcast me-1"></i>Mulai Kirim</button>
+            {% if session.is_live %}
+            {% comment %}
+            Tombol akhiri yang TIDAK bersembunyi di overlay video. Tombol di
+            overlay hanya muncul setelah siaran jalan, jadi teknisi yang
+            halamannya ter-refresh dulunya tidak punya cara mengakhiri sesinya
+            sama sekali — sesinya menggantung "Sedang Live".
+            {% endcomment %}
+            <button type="button" id="btn-end-idle" class="btn btn-outline-danger btn-sm">
+                <i class="bi bi-x-circle me-1"></i>Akhiri Sesi
+            </button>
+            {% endif %}
         </div>
         <div id="status-msg" class="text-muted mt-2" style="font-size:12px;"></div>
     </div>
@@ -68,7 +89,7 @@ body.streaming-focus .page-content { padding: 16px !important; max-width: 960px;
         <div class="card">
             <div class="card-body">
                 <h6><i class="bi bi-info-circle me-1"></i>Info Sesi</h6>
-                <p class="mb-1" style="font-size:13px;">Status: <strong>{{ session.get_status_display }}</strong></p>
+                <p class="mb-1" style="font-size:13px;">Status: <strong id="info-status">{% if session.is_live and not pernah_tersiar %}Live — belum mengirim video{% elif pernah_tersiar and session.is_live %}Live — siaran terputus{% else %}{{ session.get_status_display }}{% endif %}</strong></p>
                 <p class="mb-1" style="font-size:13px;">Mulai: {{ session.started_at|date:"d/m/Y H:i" }}</p>
                 {% if session.pengawas %}
                 <p class="mb-0" style="font-size:13px;">Anda akan mendengar suara pengawas otomatis lewat speaker begitu terhubung.</p>
@@ -100,6 +121,13 @@ const STREAM_KEY     = '{{ session.stream_key }}';
 const HAS_PENGAWAS   = {{ session.pengawas_id|yesno:"true,false" }};
 const TALKBACK_PATH  = '{{ session.talkback_path }}';
 const STATUS_URL     = '{% url "streaming:status" pk=session.pk %}';
+const PUBLISHER_HEARTBEAT_URL = '{% url "streaming:publisher_heartbeat" pk=session.pk %}';
+const CSRF_TOKEN     = document.querySelector('meta[name="csrf-token"]').content;
+/* True kalau sesi ini SUDAH pernah mengirim video — artinya halaman ini
+   dibuka lagi setelah ter-refresh/back, bukan sesi baru yang teknisinya
+   masih memilih kamera. Hanya kasus pertama yang disambung ulang otomatis. */
+const PERNAH_TERSIAR = {{ pernah_tersiar|yesno:"true,false" }};
+const IS_LIVE        = {{ session.is_live|yesno:"true,false" }};
 
 let localStream   = null;
 let publishPc      = null;
@@ -107,6 +135,7 @@ let publishResource = null;
 let talkbackStarted = false;
 let statusPollTimer = null;
 let micMuted         = false;
+let publisherHeartbeatTimer = null;
 
 const localVideo     = document.getElementById('local-video');
 const videoWrap        = document.getElementById('video-wrap');
@@ -116,6 +145,9 @@ const btnEndLive          = document.getElementById('btn-end-live');
 const btnMuteMic           = document.getElementById('btn-mute-mic');
 const colInfo                = document.getElementById('col-info');
 const colVideo                = document.getElementById('col-video');
+const btnEndIdle               = document.getElementById('btn-end-idle');
+const bannerTerputus           = document.getElementById('banner-terputus');
+const infoStatus                = document.getElementById('info-status');
 const badgeStatus              = document.getElementById('badge-status');
 const badgeViewers               = document.getElementById('badge-viewers');
 const viewerCountEl                = document.getElementById('viewer-count');
@@ -195,15 +227,20 @@ async function startPublish() {
         btnMuteMic.classList.add('btn-secondary');
 
         badgeStatus.textContent = 'LIVE';
+        badgeStatus.classList.remove('is-terputus');
         badgeStatus.style.background = '#ef4444';
+        if (infoStatus) infoStatus.textContent = 'Live — sedang mengirim video';
+        if (bannerTerputus) bannerTerputus.style.display = 'none';
         statusMsg.textContent = 'Video terkirim.';
+        mulaiKabarSiaran();
         focusOnLiveView();
 
         if (HAS_PENGAWAS) startTalkbackListener();
-        statusPollTimer = setInterval(pollStatus, 5000);
+        if (!statusPollTimer) statusPollTimer = setInterval(pollStatus, 5000);
     } catch (err) {
         console.error(err);
-        statusMsg.textContent = 'Gagal mulai kirim: ' + err.message;
+        statusMsg.textContent = 'Gagal mulai kirim: ' + err.message
+            + ' — tekan "Mulai Kirim" untuk mencoba lagi, atau "Akhiri Sesi" kalau memang sudah selesai.';
         btnStart.disabled = false;
     }
 }
@@ -218,9 +255,12 @@ async function stopPublish() {
         localStream = null;
     }
     localVideo.srcObject = null;
-    badgeStatus.textContent = 'BELUM MULAI';
-    badgeStatus.style.background = '#ef4444';
-    statusMsg.textContent = 'Pengiriman video dihentikan.';
+    hentikanKabarSiaran(false);
+    badgeStatus.textContent = 'TERPUTUS';
+    badgeStatus.classList.add('is-terputus');
+    badgeStatus.style.background = '';
+    if (infoStatus) infoStatus.textContent = 'Live — siaran dihentikan sementara';
+    statusMsg.textContent = 'Pengiriman video dihentikan. Sesi masih terbuka — tekan "Mulai Kirim" untuk lanjut, atau "Akhiri Sesi" untuk menutupnya.';
     btnStart.disabled = false;
     exitLiveView();
 }
@@ -280,6 +320,47 @@ function toggleMic() {
     }
 }
 
+/* ── Kabar "saya sedang menyiar" ────────────────────────────────────────
+   Tanpa ini, satu-satunya penanda sesi masih hidup adalah kolom `status`,
+   yang hanya berubah kalau ADA YANG MENEKAN "Akhiri Live". Begitu halaman
+   ini ter-refresh atau tertutup, publish mati tapi sesinya tetap tampil
+   "Sedang Live" ke semua orang — dan orang yang bisa mengakhirinya sudah
+   tidak ada di halaman ini. */
+async function kirimKabarSiaran() {
+    try {
+        await fetch(PUBLISHER_HEARTBEAT_URL, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': CSRF_TOKEN },
+        });
+    } catch (e) { /* tidak fatal — coba lagi di interval berikutnya */ }
+}
+
+/** Tandai berhenti menyiar SEKARANG, tanpa menunggu kabar terakhir basi. */
+function kirimKabarBerhenti(pakaiBeacon) {
+    const body = new FormData();
+    body.append('csrfmiddlewaretoken', CSRF_TOKEN);
+    body.append('berhenti', '1');
+    if (pakaiBeacon && navigator.sendBeacon) {
+        // sendBeacon, bukan fetch: saat halaman sedang ditutup/berpindah,
+        // fetch biasa dibatalkan browser dan kabarnya tidak pernah sampai —
+        // justru di saat itulah kabar ini paling dibutuhkan.
+        navigator.sendBeacon(PUBLISHER_HEARTBEAT_URL, body);
+        return;
+    }
+    fetch(PUBLISHER_HEARTBEAT_URL, { method: 'POST', body, keepalive: true }).catch(() => {});
+}
+
+function mulaiKabarSiaran() {
+    kirimKabarSiaran();
+    if (publisherHeartbeatTimer) clearInterval(publisherHeartbeatTimer);
+    publisherHeartbeatTimer = setInterval(kirimKabarSiaran, 10000);
+}
+
+function hentikanKabarSiaran(pakaiBeacon) {
+    if (publisherHeartbeatTimer) { clearInterval(publisherHeartbeatTimer); publisherHeartbeatTimer = null; }
+    kirimKabarBerhenti(pakaiBeacon);
+}
+
 let lastTalkbackAttempt = 0;
 const TALKBACK_RETRY_MS = 15000; // jangan coba tiap 5 detik — pengawas mungkin belum aktifkan mic-nya
 
@@ -300,31 +381,86 @@ async function startTalkbackListener() {
     }
 }
 
-/** Poll berkala selama live: deteksi pengawas baru gabung + update jumlah penonton. */
+/**
+ * Sesi ditutup dari tempat lain — entah teknisi mengakhirinya di tab lain,
+ * superuser menutupnya, atau sesi ini dibereskan otomatis karena terlalu lama
+ * tanpa siaran (LiveSession.akhiri_yang_terbengkalai).
+ *
+ * Perlu ditangani secara eksplisit: tanpa ini, tombol "Mulai Kirim" tetap
+ * terlihat bisa ditekan padahal MediaMTX pasti menolak publish-nya (webhook
+ * auth mensyaratkan sesi masih live), dan teknisi cuma melihat "Gagal mulai
+ * kirim (HTTP 401)" tanpa tahu apa yang sebenarnya terjadi.
+ */
+async function sesiDitutup() {
+    if (statusPollTimer) { clearInterval(statusPollTimer); statusPollTimer = null; }
+    // DITUNGGU sampai selesai: stopPublish() menulis badge & tombolnya sendiri
+    // setelah await di dalamnya, jadi kalau tidak ditunggu, tulisan "SELESAI"
+    // di bawah ini akan langsung tertimpa "TERPUTUS" miliknya.
+    if (publishPc) await stopPublish();
+    btnStart.disabled = true;
+    if (btnEndIdle) btnEndIdle.style.display = 'none';
+    badgeStatus.textContent = 'SELESAI';
+    badgeStatus.classList.remove('is-terputus');
+    badgeStatus.style.background = '#64748b';
+    if (infoStatus) infoStatus.textContent = 'Selesai';
+    if (bannerTerputus) bannerTerputus.style.display = 'none';
+    statusMsg.textContent = 'Sesi ini sudah ditutup — mulai sesi baru dari halaman Live Streaming kalau masih perlu menyiar.';
+}
+
+/** Poll berkala: deteksi sesi ditutup, pengawas baru gabung, & jumlah penonton. */
 async function pollStatus() {
     try {
         const resp = await fetch(STATUS_URL);
         if (!resp.ok) return;
         const data = await resp.json();
-        if (!data.is_live) {
-            if (statusPollTimer) { clearInterval(statusPollTimer); statusPollTimer = null; }
-            return;
-        }
+        if (!data.is_live) { await sesiDitutup(); return; }
         const canRetryTalkback = Date.now() - lastTalkbackAttempt >= TALKBACK_RETRY_MS;
-        if (data.has_pengawas && !talkbackStarted && canRetryTalkback) startTalkbackListener();
+        if (publishPc && data.has_pengawas && !talkbackStarted && canRetryTalkback) startTalkbackListener();
         viewerCountEl.textContent = data.viewer_count;
     } catch (e) { /* koneksi sempat putus — coba lagi di polling berikutnya */ }
 }
 
-btnStart.addEventListener('click', startPublish);
-btnEndLive.addEventListener('click', () => {
-    if (!confirm('Akhiri sesi live ini?')) return;
+function akhiriSesi() {
+    if (!confirm('Akhiri sesi live ini? Sesi akan hilang dari daftar "Sedang Live".')) return;
     stopPublish();
     endForm.submit();
-});
+}
+
+btnStart.addEventListener('click', startPublish);
+btnEndLive.addEventListener('click', akhiriSesi);
+if (btnEndIdle) btnEndIdle.addEventListener('click', akhiriSesi);
 btnMuteMic.addEventListener('click', toggleMic);
 cameraSelect.addEventListener('change', switchCamera);
 navigator.mediaDevices.enumerateDevices().then(() => populateCameras());
-window.addEventListener('pagehide', () => { if (publishPc) whipWhepStop(publishPc, publishResource); });
+
+/* Sambung ulang otomatis. Dulu halaman ini selalu dibuka dalam keadaan
+   "BELUM MULAI" — teknisi yang tidak sengaja me-refresh harus sadar sendiri
+   bahwa ia perlu menekan "Mulai Kirim" lagi, padahal Info Sesi di sebelahnya
+   tetap bilang "Live". Dari sudut pandangnya, sesinya seperti berjalan tanpa
+   dia dan dia cuma menonton kotak hitam.
+
+   Hanya dilakukan kalau sesi ini MEMANG sudah pernah menyiar: sesi yang baru
+   dibuat tetap menunggu teknisi memilih kamera dulu. Izin kamera sudah
+   melekat pada origin ini sejak siaran pertama, jadi getUserMedia di sini
+   tidak butuh klik lagi; kalau toh ditolak, alurnya jatuh ke pesan gagal
+   biasa dengan tombol "Mulai Kirim" yang tetap bisa ditekan. */
+if (PERNAH_TERSIAR && IS_LIVE) {
+    statusMsg.textContent = 'Menyambungkan ulang siaran Anda...';
+    startPublish();
+}
+
+/* Polling dimulai sejak halaman dibuka, BUKAN hanya setelah menekan "Mulai
+   Kirim": teknisi bisa berdiam lama di halaman ini sebelum menyiar, dan
+   selama itu sesinya mungkin sudah ditutup dari tempat lain. */
+if (IS_LIVE && !statusPollTimer) statusPollTimer = setInterval(pollStatus, 5000);
+
+window.addEventListener('pagehide', () => {
+    // Kabari server DULU bahwa siaran berhenti — kalau tidak, sesi ini tetap
+    // terlihat "Sedang Live" selama PUBLISHER_STALE_SECONDS berikutnya.
+    if (publishPc) {
+        hentikanKabarSiaran(true);
+        whipWhepStop(publishPc, publishResource);
+    }
+});
 </script>
 {% endblock %}

@@ -67,7 +67,7 @@ Each of the 15 `INSTALLED_APPS` Django apps follows a standard layout (`models.p
 | `common_enemy/` | Cross-cutting multi-site issue tickets (SCADA/telkom/prosis), auto-numbered `CE-YYYYMM-XXXX` |
 | `dokumentasi/` | Relay setting & wiring-diagram document repository with uploader→checker approval workflow |
 | `auditlog/` | Custom (not django-auditlog) superuser audit log; entries are created by explicit `log_action()` calls in views, not signals |
-| `streaming/` | Field maintenance live streaming (WebRTC WHIP/WHEP via MediaMTX, `deploy/mediamtx.yml`); Teknisi broadcasts, Teknisi/AM view, only AM can join as Pengawas for 2-way talkback; teknisi's video is recorded (server-side ffmpeg transcode, see below) and pengawas's talkback audio is recorded as a **separate** clip (`LiveSession.talkback_recording_path`) rather than mixed into one file; recordings kept 7 days (`purge_old_recordings` cron) |
+| `streaming/` | Field maintenance live streaming (WebRTC WHIP/WHEP via MediaMTX, `deploy/mediamtx.yml`); Teknisi broadcasts, Teknisi/AM view, only AM can join as Pengawas for 2-way talkback; teknisi's video is recorded (server-side ffmpeg transcode, see below) and pengawas's talkback audio is recorded as a **separate** clip (`LiveSession.talkback_recording_path`) rather than mixed into one file; recordings kept 7 days (`purge_old_recordings` cron). Sesi juga bisa bersumber dari **kamera CCTV Ezviz** alih-alih kamera teknisi, dan semua sesi live bisa ditonton sekaligus di **Multi View** (`/streaming/dinding/`) — lihat "Live Streaming — Sumber Ezviz & Multi View" |
 | `up2bmakassar/` | Kinerja SCADATEL (`/kinerja-scadatel/`) — availability harian titik Telemetering/Telesignal, log RC, dan SOE log, dibaca **read-only** dari OFDB (`dbup2bmakasar` di MSSQL, `ofdb.py`); lihat "Kinerja SCADATEL — OFDB" di bawah |
 | `api/` | REST API for n8n / Google Sheets integrations (no models — not in `INSTALLED_APPS`, but `urls.py` is still wired into `fasop/urls.py` at `/api/v1/`) |
 | `fasop/` | Root settings, URL routing, Hashids helper, URL converters |
@@ -302,6 +302,14 @@ STREAMING_RECORDING_RETENTION_DAYS=7
 STREAMING_USE_X_ACCEL_REDIRECT=False   # True = serve recordings via nginx X-Accel-Redirect instead of
                                         # streaming through Django/gunicorn — see deploy/nginx-recordings-x-accel.conf.example
 STREAMING_X_ACCEL_REDIRECT_PREFIX=/internal-recordings/
+
+# Ezviz Open Platform — sumber kamera CCTV untuk Live Streaming.
+# Kosongkan keduanya untuk mematikan sumber Ezviz (sesi kamera HP/laptop tetap jalan).
+EZVIZ_APP_KEY=                # appKey dari console Ezviz Open Platform
+EZVIZ_APP_SECRET=             # appSecret-nya
+EZVIZ_API_BASE=https://open.ys7.com   # ganti kalau akun terdaftar di region lain
+                                       # (mis. https://isgpopen.ezvizlife.com untuk Singapura)
+EZVIZ_TIMEOUT=10
 ```
 
 Changing `SECRET_KEY` in production invalidates all Hashids-encoded URLs and active sessions.
@@ -322,6 +330,187 @@ The `streaming` app doesn't add any new pip packages — WebRTC is handled entir
 | nginx (optional, recordings) | Faster recording playback — nginx serves the recording file bytes directly (`X-Accel-Redirect`, including Range requests for seeking) instead of Django/gunicorn streaming them manually. Opt-in, off by default | Add a `location /internal-recordings/ { internal; alias <STREAMING_RECORDINGS_ROOT>/; }` snippet to the **existing** FASOP nginx server block, then set `STREAMING_USE_X_ACCEL_REDIRECT=True` — see `deploy/nginx-recordings-x-accel.conf.example` |
 
 Setup script: `bash deploy/setup_streaming.sh` — idempotent, generates `deploy/mediamtx.generated.yml` (gitignored, contains secrets) from the `deploy/mediamtx.yml` template + `.env`, checks for `ffmpeg`, sets up the `purge_old_recordings` cron. **`mediamtx.generated.yml` is rewritten from scratch on every run** — never hand-edit it directly (origin/TURN values in particular have been lost this way before); all environment-specific values belong in `.env` (see table above) so re-running the script is always safe. Full walkthrough: `deploy/DEPLOY_CHECKLIST.md`.
+
+---
+
+## Live Streaming — Sumber Ezviz & Multi View
+
+Sebuah sesi live sekarang punya **dua sumber video yang jalurnya berbeda
+total**, dipilih teknisi di modal "Mulai Live" (`LiveSession.sumber`):
+
+| | `perangkat` (bawaan) | `ezviz` |
+|---|---|---|
+| Video | kamera HP/laptop teknisi | kamera CCTV di cloud Ezviz |
+| Jalur | browser → WHIP → MediaMTX → WHEP → penonton | browser penonton → cloud Ezviz (EZUIKit), **tidak lewat server FASOP** |
+| Direkam FASOP | ya (`recording_path`, purge 7 hari) | **tidak** — rekaman ada di cloud/SD card kamera |
+| Talkback pengawas | MediaMTX | MediaMTX (sama persis) |
+
+Konsekuensi yang gampang terlupa: **sesi Ezviz tidak akan pernah punya
+rekaman di FASOP**, dan itu bukan bug. Kartu "Rekaman" di halamannya menyebut
+ini supaya tidak ada yang mencari file yang memang tidak pernah ditulis. Kalau
+suatu saat rekaman Ezviz dibutuhkan, jalurnya bukan menambal `recording_path`
+melainkan menarik stream Ezviz ke MediaMTX lebih dulu — keputusan yang sengaja
+ditunda karena latensi HLS Ezviz 10–20 detik.
+
+**Talkback tetap lewat MediaMTX, bukan fitur 对讲 EZUIKit.** EZUIKit punya
+tombol talk bawaan, tapi itu bicara ke **speaker kameranya** — terdengar semua
+orang di lokasi. Yang dibutuhkan pengawas adalah bicara ke telinga teknisi
+pembuka sesi, jadi jalurnya sama dengan sesi kamera perangkat.
+
+### Sesi live vs sesi yang benar-benar tersiar
+
+`LiveSession.status` **tidak** memberitahu apakah ada video yang mengalir — ia
+hanya berubah kalau ada yang menekan "Akhiri Live". Begitu halaman teknisi
+ter-refresh, ditekan back, atau tabnya tertutup, WHIP publish-nya mati tapi
+barisnya tetap `live`: sesi tampil "Sedang Live" ke semua orang padahal kosong,
+dan satu-satunya orang yang bisa mengakhirinya sudah pergi dari halaman itu.
+
+Yang menjawab pertanyaan "apakah ada yang dikirim sama sekali" adalah
+**`publisher_last_seen`**, diisi `POST /streaming/<pk>/siaran-heartbeat/` dari
+browser teknisi tiap 10 detik **selama WHIP publish hidup**. Jangan
+tertukar dengan `session_heartbeat` — itu menghitung PENONTON, pertanyaan yang
+berbeda:
+
+| | `session_heartbeat` | `publisher_heartbeat` |
+|---|---|---|
+| Dikirim oleh | setiap penonton | hanya teknisi pemilik sesi |
+| Menjawab | berapa orang menonton | apakah ada video yang dikirim |
+| Menyimpan ke | `LiveViewerHeartbeat` | `LiveSession.publisher_last_seen` |
+
+Turunannya: `siaran_aktif` (live **dan** kabar penyiar belum basi) dan
+`pernah_tersiar`. Keduanya dipakai halaman siaran, penonton, daftar, dan
+Multi View — jangan menghitung ulang aturannya di template.
+
+Yang perlu diketahui saat mengubahnya:
+
+- **`berhenti=1` mengosongkan penandanya seketika**, dikirim lewat
+  `navigator.sendBeacon` di `pagehide`. `fetch` biasa dibatalkan browser begitu
+  navigasi mulai — justru di saat itulah kabar ini paling dibutuhkan. Tanpa
+  jalur ini, sesi tetap terlihat menyiar selama `PUBLISHER_STALE_SECONDS`
+  berikutnya walau tabnya sudah ditutup rapi.
+- **Sesi Ezviz selalu `siaran_aktif`.** Tidak ada browser yang mem-publish;
+  videonya dari cloud, jadi tidak ada yang bisa "putus" di sisi FASOP. Sesi
+  Ezviz karena itu juga **tidak pernah** diakhiri otomatis.
+- **Halaman siaran menyambung ulang sendiri** kalau `pernah_tersiar` — dan hanya
+  kalau itu. Sesi yang baru dibuat tetap menunggu teknisi memilih kamera dulu.
+- **Halaman siaran memoll status sejak dibuka**, bukan hanya setelah menekan
+  "Mulai Kirim": teknisi bisa berdiam lama sebelum menyiar, dan selama itu
+  sesinya mungkin sudah ditutup dari tempat lain. Kalau tidak dipoll, tombol
+  "Mulai Kirim" tetap terlihat bisa ditekan padahal MediaMTX pasti menolaknya
+  (webhook auth mensyaratkan sesi masih live) dan yang terlihat cuma
+  "HTTP 401".
+
+### Pembersihan sesi terbengkalai
+
+`LiveSession.akhiri_yang_terbengkalai()` — satu `UPDATE`, dipanggil sambil lalu
+dari halaman daftar & API Multi View. **Sengaja bukan cron**: kondisinya hanya
+perlu benar saat ada yang melihat daftarnya.
+
+Dua ambang, dan bedanya penting:
+
+| Keadaan | Ambang | Alasan |
+|---|---|---|
+| Pernah menyiar lalu hilang | `PUBLISHER_ABANDON_SECONDS` (5 menit) | jelas terbengkalai — publisher-nya sudah mati |
+| Belum pernah menyiar sama sekali | `NEVER_STARTED_ABANDON_SECONDS` (30 menit) | teknisi lazim menekan "Mulai Live" dari kantor lalu berjalan dulu ke peralatannya |
+
+Menyamakan keduanya ke 5 menit adalah jebakan yang gampang: sesi sudah ditutup
+tepat saat teknisi akhirnya siap menekan "Mulai Kirim", dan publish-nya ditolak
+MediaMTX karena sesinya tidak lagi `live`.
+
+Teknisi pemilik sesi (dan superuser) juga punya tombol **Akhiri** langsung di
+halaman daftar, plus **Akhiri Sesi** di halaman siaran yang terlihat sebelum
+menyiar. Sebelumnya tombol akhiri hanya ada di overlay video dan baru muncul
+setelah siaran jalan — teknisi yang halamannya ter-refresh benar-benar tidak
+punya cara menutup sesinya sendiri.
+
+### Klien Ezviz (`streaming/ezviz.py`)
+
+Satu-satunya tempat FASOP bicara HTTP ke `open.ys7.com`. Dua hal yang menjaga
+modul ini tidak menjadi sumber masalah sendiri:
+
+- **`accessToken` disimpan di baris DB (`EzvizToken` pk=1), bukan cache proses.**
+  FASOP jalan multi-worker gunicorn; dengan cache lokal tiap worker meminta
+  token sendiri dan endpoint `/api/lapp/token/get` gampang kena rate limit.
+  Token dianggap basi 1 jam sebelum `expire_at` — kalau menunggu benar-benar
+  kedaluwarsa, sesi yang sedang diputar mati di tengah jalan.
+- **Ezviz SELALU membalas HTTP 200** walau operasinya gagal; status sebenarnya
+  ada di field `code` (`"200"` = sukses). Jangan pernah menyimpulkan sukses
+  dari `resp.ok`.
+
+**Token itu berlaku untuk SELURUH akun Ezviz, bukan per kamera** — memang
+begitu bentuk yang disediakan Open Platform untuk EZUIKit. Karena itu
+`/streaming/api/ezviz-token/` dijaga `require_streaming_access` (Teknisi & AM
+saja), bukan sekadar `@login_required`, dan token tidak pernah ditanam di HTML.
+
+### Daftar kamera (`KameraEzviz`)
+
+Didaftarkan dari site admin **atau** ditarik dari akun Ezviz lewat tombol
+**Sinkronkan Kamera Ezviz** (AM/superuser saja — sinkronisasi menyentuh master
+data seluruh akun, sedangkan teknisi cukup memakai yang sudah terdaftar).
+Yang menentukan video mana yang diputar hanya `serial` + `channel`; NVR berarti
+satu serial dengan banyak baris channel.
+
+Tiga aturan `sinkron_kamera()` yang sengaja dipilih:
+
+- **Nama/lokasi yang sudah ada tidak pernah ditimpa.** Nama dari Ezviz biasanya
+  bawaan pabrik ("C6N"); yang berguna di FASOP adalah nama versi PLN.
+- **Kamera baru dibuat aktif** — beda dari `ZabbixHost` yang dibuat cron tanpa
+  ada yang memutuskan apa pun; di sini ada orang yang menekan tombolnya.
+- **Kamera yang hilang dari cloud ditandai `status_cloud='hilang'`, tidak
+  dihapus** — menghapus barisnya memutus tautan sesi live lama yang menunjuknya.
+
+`status_cloud` tidak pernah dipakai memblokir pemutaran: status di cloud kadang
+basi beberapa menit dan kamera yang dilaporkan offline masih sering bisa
+ditarik streamnya.
+
+### Multi View (`/streaming/dinding/`)
+
+Path URL-nya masih `dinding/` — nama lama halaman ini sebelum labelnya diganti
+jadi "Multi View". Sengaja dibiarkan supaya tautan yang sudah dibagikan tidak
+mati; kalau nanti diganti, ganti sekaligus dengan redirect dari path lama.
+
+Semua sesi live sekaligus dalam satu layar grid — klik satu kotak untuk
+memperbesar (2×2) sekaligus menyalakan suaranya. Kotak campur: sesi kamera
+perangkat digambar dengan WHEP, sesi Ezviz dengan EZUIKit, di grid yang sama.
+
+- **Isinya tidak datang dari context render**, melainkan dari
+  `/streaming/api/sesi-live/` yang di-poll tiap 10 detik. Halaman ini dipasang
+  di layar yang menyala berjam-jam; kalau isinya ditentukan saat render, layar
+  itu membeku pada keadaan beberapa jam lalu tanpa ada yang sadar.
+- **Sinkronisasinya berbasis SELISIH, bukan gambar ulang.** Menggambar ulang
+  berarti memutus & menyambung semua koneksi tiap 10 detik — kamera berkedip
+  hitam terus-menerus dan MediaMTX dibanjiri sesi WHEP yang langsung dibuang.
+- **Heartbeat penonton menumpang query `?nonton=<hashid>,...` di endpoint yang
+  sama.** Satu Multi View menonton sampai 9 sesi; heartbeat terpisah per kotak berarti
+  9 POST tiap 10 detik dari satu tab saja.
+- **Suara selalu eksklusif** — menyalakan satu kotak membisukan yang lain.
+  Sembilan kamera berbunyi bersamaan tidak bisa didengarkan siapa pun, dan
+  browser memang memblokir autoplay bersuara sampai ada klik pengguna.
+- Batasnya `views.GRID_MAKS_TILE` (9). Tiap kotak = satu koneksi WebRTC atau
+  satu decoder wasm EZUIKit; di atas angka itu laptop kantor mulai patah-patah.
+  Sesi selebihnya tetap terdaftar dan bisa dibuka satu per satu.
+
+### Berkas statis & template
+
+- `streaming/static/streaming/ezuikit.js` — build UMD `ezuikit-js` v9.0.20
+  (~4 MB) yang **di-vendor**, bukan dari CDN (proyek ini tidak punya langkah
+  build Node). Global-nya `EZUIKit.EZUIKitPlayer`. Pustaka decoder-nya sendiri
+  masih ditarik dari CDN Ezviz saat pemutaran, jadi browser penonton tetap
+  butuh akses ke `open.ys7.com`.
+- `streaming/static/streaming/ezviz-player.js` — pembungkus tipis: token
+  diambil **sekali per halaman** (Promise yang dibagi semua kotak), dan bentuk
+  opsi player sama di semua halaman supaya kamera yang jalan di satu halaman
+  tidak gagal di halaman lain karena `env.domain` region berbeda.
+- `streaming/templates/streaming/ezviz.html` melayani **ketiga peran** (teknisi
+  pemilik, pengawas, viewer) dalam satu file — beda dari sesi kamera perangkat
+  yang punya tiga template. Di sesi Ezviz tidak ada seorang pun yang
+  mem-publish video dari browsernya, jadi yang berbeda per peran cuma
+  tombolnya; memecah jadi tiga file hanya melahirkan tiga salinan logika
+  pemutar yang harus dijaga tetap sama.
+
+`EZVIZ_API_BASE` di server **harus sama** dengan `env.domain` yang dikirim ke
+EZUIKit di browser (template mengirimkannya dari setting yang sama) — token
+yang diminta dari satu domain region tidak dikenali domain region lain.
 
 ---
 

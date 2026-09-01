@@ -1,11 +1,26 @@
 import json
 import os
 import tempfile
+from unittest import mock
 
 from django.contrib.auth.models import User
 from django.test import RequestFactory, TestCase, override_settings
+from django.urls import reverse
+from django.utils import timezone
 
-from .models import LiveSession
+from devices.models import UserProfile
+from fasop.hashids_helper import encode
+
+from . import ezviz
+from .models import (
+    NEVER_STARTED_ABANDON_SECONDS,
+    PUBLISHER_ABANDON_SECONDS,
+    PUBLISHER_STALE_SECONDS,
+    EzvizToken,
+    KameraEzviz,
+    LiveSession,
+    LiveViewerHeartbeat,
+)
 from .views import mediamtx_record_webhook
 
 
@@ -39,3 +54,346 @@ class MediaMtxRecordWebhookTests(TestCase):
             self.session.refresh_from_db()
             self.assertEqual(response.status_code, 200)
             self.assertEqual(self.session.recording_path, segment)
+
+
+def _buat_user(username, role='technician'):
+    user = User.objects.create_user(username=username, password='rahasia123')
+    UserProfile.objects.update_or_create(
+        user=user, defaults={'role': role, 'force_password_change': False},
+    )
+    return user
+
+
+class MulaiSesiEzvizTests(TestCase):
+    """
+    Sesi Ezviz berdiri di atas satu baris KameraEzviz — tanpa kamera, sesi itu
+    tidak punya apa pun untuk diputar. Tes di sini menjaga supaya kegagalan itu
+    ditangkap saat pembuatan sesi, bukan baru terlihat sebagai kotak hitam di
+    layar penonton.
+    """
+
+    def setUp(self):
+        self.user = _buat_user('teknisi1')
+        self.client.force_login(self.user)
+        self.kamera = KameraEzviz.objects.create(nama='CCTV Gardu A', serial='BD3957004', channel=1)
+
+    @override_settings(EZVIZ_APP_KEY='key', EZVIZ_APP_SECRET='secret')
+    def test_sesi_ezviz_menyimpan_kamera_terpilih(self):
+        resp = self.client.post(reverse('streaming:start'), {
+            'sumber': 'ezviz', 'kamera': self.kamera.pk, 'judul': '',
+        })
+        sesi = LiveSession.objects.get()
+        self.assertEqual(sesi.sumber, 'ezviz')
+        self.assertEqual(sesi.kamera, self.kamera)
+        # Judul kosong ikut nama kamera, bukan nama teknisi.
+        self.assertIn('CCTV Gardu A', sesi.judul)
+        self.assertRedirects(resp, reverse('streaming:detail', kwargs={'pk': sesi.pk}))
+
+    @override_settings(EZVIZ_APP_KEY='key', EZVIZ_APP_SECRET='secret')
+    def test_sesi_ezviz_tanpa_kamera_ditolak(self):
+        resp = self.client.post(reverse('streaming:start'), {'sumber': 'ezviz', 'kamera': ''})
+        self.assertRedirects(resp, reverse('streaming:list'))
+        self.assertFalse(LiveSession.objects.exists())
+
+    @override_settings(EZVIZ_APP_KEY='', EZVIZ_APP_SECRET='')
+    def test_sesi_ezviz_ditolak_kalau_kredensial_kosong(self):
+        self.client.post(reverse('streaming:start'), {'sumber': 'ezviz', 'kamera': self.kamera.pk})
+        self.assertFalse(LiveSession.objects.exists())
+
+    def test_sumber_tak_dikenal_jatuh_ke_kamera_perangkat(self):
+        self.client.post(reverse('streaming:start'), {'sumber': 'entah-apa'})
+        self.assertEqual(LiveSession.objects.get().sumber, 'perangkat')
+
+
+class ApiSesiLiveTests(TestCase):
+    def setUp(self):
+        self.user = _buat_user('teknisi2')
+        self.client.force_login(self.user)
+        self.kamera = KameraEzviz.objects.create(nama='CCTV Gardu B', serial='BC7900686', channel=2, hd=False)
+        self.sesi_perangkat = LiveSession.objects.create(teknisi=self.user, judul='Perangkat')
+        self.sesi_ezviz = LiveSession.objects.create(
+            teknisi=self.user, judul='CCTV', sumber='ezviz', kamera=self.kamera,
+        )
+
+    def test_tiap_sumber_membawa_data_pemutarnya_sendiri(self):
+        data = self.client.get(reverse('streaming:api_live_sessions')).json()
+        per_id = {x['id']: x for x in data['sessions']}
+
+        perangkat = per_id[encode(self.sesi_perangkat.pk)]
+        self.assertIn('view_token', perangkat)
+        self.assertNotIn('ezopen_url', perangkat)
+
+        sesi_ezviz = per_id[encode(self.sesi_ezviz.pk)]
+        self.assertEqual(sesi_ezviz['ezopen_url'], 'ezopen://open.ys7.com/BC7900686/2.live')
+        # Token baca MediaMTX tidak ada gunanya untuk sesi Ezviz — jangan
+        # dikirim ke browser sama sekali.
+        self.assertNotIn('view_token', sesi_ezviz)
+
+    def test_pk_tidak_pernah_bocor_sebagai_angka(self):
+        data = self.client.get(reverse('streaming:api_live_sessions')).json()
+        for sesi in data['sessions']:
+            self.assertNotEqual(sesi['id'], str(self.sesi_perangkat.pk))
+
+    def test_parameter_nonton_mencatat_heartbeat_penonton(self):
+        self.client.get(reverse('streaming:api_live_sessions'), {
+            'nonton': encode(self.sesi_ezviz.pk),
+        })
+        self.assertTrue(
+            LiveViewerHeartbeat.objects.filter(session=self.sesi_ezviz, user=self.user).exists()
+        )
+        self.assertFalse(
+            LiveViewerHeartbeat.objects.filter(session=self.sesi_perangkat, user=self.user).exists()
+        )
+
+    def test_id_ngawur_di_nonton_tidak_membuat_heartbeat(self):
+        self.client.get(reverse('streaming:api_live_sessions'), {'nonton': 'bukan-id,zzzz'})
+        self.assertFalse(LiveViewerHeartbeat.objects.exists())
+
+
+class SinkronKameraEzvizTests(TestCase):
+    """
+    Sinkronisasi menyentuh master data, jadi yang dijaga di sini justru apa
+    yang TIDAK boleh dilakukannya: menimpa nama versi PLN dengan nama pabrik,
+    dan menghapus baris yang masih ditunjuk sesi live lama.
+    """
+
+    def _mock_cloud(self, kamera):
+        return mock.patch.object(ezviz, 'daftar_kamera_cloud', return_value=kamera)
+
+    def test_kamera_baru_dibuat_aktif(self):
+        with self._mock_cloud([{'serial': 'AA1', 'channel': 1, 'nama': 'C6N', 'status': 'online'}]):
+            hasil = ezviz.sinkron_kamera()
+        kamera = KameraEzviz.objects.get(serial='AA1')
+        self.assertTrue(kamera.aktif)
+        self.assertEqual(kamera.status_cloud, 'online')
+        self.assertEqual(hasil['dibuat'], 1)
+
+    def test_nama_yang_sudah_diedit_tidak_ditimpa(self):
+        KameraEzviz.objects.create(nama='CCTV Bay Trafo 1', serial='AA1', channel=1, lokasi='GI Sungguminasa')
+        with self._mock_cloud([{'serial': 'AA1', 'channel': 1, 'nama': 'C6N', 'status': 'offline'}]):
+            ezviz.sinkron_kamera()
+        kamera = KameraEzviz.objects.get(serial='AA1')
+        self.assertEqual(kamera.nama, 'CCTV Bay Trafo 1')
+        self.assertEqual(kamera.lokasi, 'GI Sungguminasa')
+        self.assertEqual(kamera.status_cloud, 'offline')
+
+    def test_kamera_hilang_ditandai_bukan_dihapus(self):
+        KameraEzviz.objects.create(nama='Kamera Lama', serial='ZZ9', channel=1)
+        with self._mock_cloud([]):
+            hasil = ezviz.sinkron_kamera()
+        kamera = KameraEzviz.objects.get(serial='ZZ9')
+        self.assertEqual(kamera.status_cloud, 'hilang')
+        self.assertEqual(hasil['hilang'], 1)
+
+    def test_channel_berbeda_adalah_kamera_berbeda(self):
+        """NVR: satu serial, banyak channel — masing-masing punya barisnya sendiri."""
+        with self._mock_cloud([
+            {'serial': 'NVR1', 'channel': 1, 'nama': 'Ch1', 'status': 'online'},
+            {'serial': 'NVR1', 'channel': 2, 'nama': 'Ch2', 'status': 'online'},
+        ]):
+            ezviz.sinkron_kamera()
+        self.assertEqual(KameraEzviz.objects.filter(serial='NVR1').count(), 2)
+
+
+class AksesEzvizTests(TestCase):
+    def test_viewer_tidak_bisa_ambil_token_ezviz(self):
+        """
+        accessToken berlaku untuk SELURUH akun Ezviz, jadi endpointnya harus
+        tunduk pada pembatasan menu Live Streaming (Teknisi & AM saja) — bukan
+        sekadar @login_required.
+        """
+        # force_login: proyek ini memakai django-axes, yang menolak
+        # authenticate() tanpa request (lihat AxesBackend).
+        self.client.force_login(_buat_user('penonton', role='viewer'))
+        resp = self.client.get(reverse('streaming:ezviz_token'))
+        self.assertEqual(resp.status_code, 403)
+
+    @override_settings(EZVIZ_APP_KEY='', EZVIZ_APP_SECRET='')
+    def test_token_menjelaskan_kalau_kredensial_kosong(self):
+        self.client.force_login(_buat_user('teknisi3'))
+        resp = self.client.get(reverse('streaming:ezviz_token'))
+        self.assertEqual(resp.status_code, 503)
+        self.assertIn('belum dikonfigurasi', resp.json()['error'])
+
+    def test_teknisi_tidak_bisa_menyinkronkan_daftar_kamera(self):
+        """Sinkronisasi menyentuh master data seluruh akun — dibatasi ke AM/superuser."""
+        self.client.force_login(_buat_user('teknisi4'))
+        resp = self.client.post(reverse('streaming:ezviz_sync'))
+        self.assertEqual(resp.status_code, 403)
+
+
+class TokenEzvizTests(TestCase):
+    @override_settings(EZVIZ_APP_KEY='key', EZVIZ_APP_SECRET='secret')
+    def test_token_yang_masih_berlaku_tidak_meminta_ulang_ke_ezviz(self):
+        EzvizToken.objects.create(
+            pk=1, token='at.lama', expire_at=timezone.now() + timezone.timedelta(days=3),
+        )
+        with mock.patch.object(ezviz, '_minta_token_baru') as minta:
+            self.assertEqual(ezviz.ambil_access_token(), 'at.lama')
+        minta.assert_not_called()
+
+    @override_settings(EZVIZ_APP_KEY='key', EZVIZ_APP_SECRET='secret')
+    def test_token_yang_hampir_kedaluwarsa_diperbarui(self):
+        """
+        Margin 1 jam: token yang tinggal beberapa menit tidak boleh dipakai —
+        sesi yang sedang diputar akan mati di tengah jalan saat token habis.
+        """
+        EzvizToken.objects.create(
+            pk=1, token='at.hampir-habis', expire_at=timezone.now() + timezone.timedelta(minutes=10),
+        )
+        with mock.patch.object(ezviz, '_minta_token_baru', return_value='at.baru') as minta:
+            self.assertEqual(ezviz.ambil_access_token(), 'at.baru')
+        minta.assert_called_once()
+
+
+class AlamatEzopenTests(TestCase):
+    def test_hd_menyisipkan_penanda_kualitas(self):
+        hd = KameraEzviz(nama='A', serial='BD3957004', channel=1, hd=True)
+        sd = KameraEzviz(nama='B', serial='BD3957004', channel=3, hd=False)
+        self.assertEqual(hd.ezopen_url, 'ezopen://open.ys7.com/BD3957004/1.hd.live')
+        self.assertEqual(sd.ezopen_url, 'ezopen://open.ys7.com/BD3957004/3.live')
+
+
+class SiaranTerputusTests(TestCase):
+    """
+    `status='live'` saja tidak pernah cukup untuk tahu sebuah sesi benar-benar
+    mengirim video: status hanya berubah kalau ada yang menekan "Akhiri Live".
+    Begitu halaman teknisi ter-refresh atau tertutup, sesinya menggantung
+    "Sedang Live" padahal kosong. Tes di sini menjaga pembedaan itu.
+    """
+
+    def setUp(self):
+        self.user = _buat_user('teknisi5')
+        self.client.force_login(self.user)
+        self.sesi = LiveSession.objects.create(teknisi=self.user, judul='Uji')
+
+    def _geser_publisher(self, detik):
+        LiveSession.objects.filter(pk=self.sesi.pk).update(
+            publisher_last_seen=timezone.now() - timezone.timedelta(seconds=detik),
+        )
+        self.sesi.refresh_from_db()
+
+    def test_sesi_baru_belum_dianggap_tersiar(self):
+        self.assertTrue(self.sesi.is_live)
+        self.assertFalse(self.sesi.siaran_aktif)
+        self.assertFalse(self.sesi.pernah_tersiar)
+
+    def test_heartbeat_penyiar_membuat_sesi_dianggap_tersiar(self):
+        self.client.post(reverse('streaming:publisher_heartbeat', kwargs={'pk': self.sesi.pk}))
+        self.sesi.refresh_from_db()
+        self.assertTrue(self.sesi.siaran_aktif)
+        self.assertTrue(self.sesi.pernah_tersiar)
+
+    def test_kabar_penyiar_yang_basi_berarti_terputus(self):
+        self._geser_publisher(PUBLISHER_STALE_SECONDS + 5)
+        self.assertFalse(self.sesi.siaran_aktif)
+        # Tetap 'pernah tersiar' — inilah yang membuat halaman siaran
+        # menyambung ulang otomatis alih-alih menunggu klik.
+        self.assertTrue(self.sesi.pernah_tersiar)
+
+    def test_berhenti_mengosongkan_penanda_seketika(self):
+        """Menutup halaman tidak boleh menyisakan 30 detik status 'live' palsu."""
+        self.client.post(reverse('streaming:publisher_heartbeat', kwargs={'pk': self.sesi.pk}))
+        self.client.post(reverse('streaming:publisher_heartbeat', kwargs={'pk': self.sesi.pk}), {'berhenti': '1'})
+        self.sesi.refresh_from_db()
+        self.assertIsNone(self.sesi.publisher_last_seen)
+        self.assertFalse(self.sesi.siaran_aktif)
+
+    def test_hanya_pemilik_sesi_yang_boleh_mengabarkan_siaran(self):
+        self.client.force_login(_buat_user('teknisi6'))
+        resp = self.client.post(reverse('streaming:publisher_heartbeat', kwargs={'pk': self.sesi.pk}))
+        self.assertEqual(resp.status_code, 403)
+        self.sesi.refresh_from_db()
+        self.assertIsNone(self.sesi.publisher_last_seen)
+
+    def test_status_json_membedakan_live_dari_tersiar(self):
+        data = self.client.get(reverse('streaming:status', kwargs={'pk': self.sesi.pk})).json()
+        self.assertTrue(data['is_live'])
+        self.assertFalse(data['siaran_aktif'])
+
+    def test_sesi_ezviz_selalu_dianggap_tersiar(self):
+        """Tidak ada browser yang mem-publish sesi Ezviz — tidak ada yang bisa putus."""
+        kamera = KameraEzviz.objects.create(nama='CCTV', serial='EZ1', channel=1)
+        sesi = LiveSession.objects.create(teknisi=self.user, sumber='ezviz', kamera=kamera)
+        self.assertTrue(sesi.siaran_aktif)
+
+
+class SesiTerbengkalaiTests(TestCase):
+    def setUp(self):
+        self.user = _buat_user('teknisi7')
+        self.client.force_login(self.user)
+
+    def _tuakan(self, sesi, detik):
+        LiveSession.objects.filter(pk=sesi.pk).update(
+            started_at=timezone.now() - timezone.timedelta(seconds=detik),
+        )
+
+    def test_sesi_yang_penyiarnya_lama_hilang_diakhiri(self):
+        sesi = LiveSession.objects.create(teknisi=self.user)
+        LiveSession.objects.filter(pk=sesi.pk).update(
+            publisher_last_seen=timezone.now() - timezone.timedelta(seconds=PUBLISHER_ABANDON_SECONDS + 60),
+        )
+        LiveSession.akhiri_yang_terbengkalai()
+        sesi.refresh_from_db()
+        self.assertEqual(sesi.status, 'ended')
+        self.assertIsNotNone(sesi.ended_at)
+
+    def test_sesi_yang_tidak_pernah_menyiar_diakhiri_setelah_ambang_yang_longgar(self):
+        """Teknisi menekan "Mulai Live" lalu menutup tab tanpa pernah mengirim video."""
+        sesi = LiveSession.objects.create(teknisi=self.user)
+        self._tuakan(sesi, NEVER_STARTED_ABANDON_SECONDS + 60)
+        LiveSession.akhiri_yang_terbengkalai()
+        sesi.refresh_from_db()
+        self.assertEqual(sesi.status, 'ended')
+
+    def test_sesi_yang_belum_menyiar_tidak_ditutup_secepat_yang_terputus(self):
+        """
+        Teknisi lazim menekan "Mulai Live" dari kantor lalu berjalan ke
+        peralatannya. Kalau sesinya sudah ditutup saat ia akhirnya menekan
+        "Mulai Kirim", MediaMTX akan menolak publish-nya (webhook auth
+        mensyaratkan sesi masih live) — persis di saat ia siap bekerja.
+        """
+        sesi = LiveSession.objects.create(teknisi=self.user)
+        self._tuakan(sesi, PUBLISHER_ABANDON_SECONDS + 60)
+        LiveSession.akhiri_yang_terbengkalai()
+        sesi.refresh_from_db()
+        self.assertEqual(sesi.status, 'live')
+
+    def test_sesi_yang_baru_dibuat_tidak_ikut_diakhiri(self):
+        """Teknisi masih memilih kamera — jangan tutup sesinya di bawah kakinya."""
+        sesi = LiveSession.objects.create(teknisi=self.user)
+        LiveSession.akhiri_yang_terbengkalai()
+        sesi.refresh_from_db()
+        self.assertEqual(sesi.status, 'live')
+
+    def test_sesi_yang_sedang_menyiar_tidak_diakhiri(self):
+        sesi = LiveSession.objects.create(teknisi=self.user)
+        self._tuakan(sesi, NEVER_STARTED_ABANDON_SECONDS + 60)
+        LiveSession.objects.filter(pk=sesi.pk).update(publisher_last_seen=timezone.now())
+        LiveSession.akhiri_yang_terbengkalai()
+        sesi.refresh_from_db()
+        self.assertEqual(sesi.status, 'live')
+
+    def test_sesi_ezviz_tidak_pernah_diakhiri_otomatis(self):
+        """Tidak ada penyiar yang bisa menghilang; kameranya memang masih mengalir."""
+        kamera = KameraEzviz.objects.create(nama='CCTV', serial='EZ2', channel=1)
+        sesi = LiveSession.objects.create(teknisi=self.user, sumber='ezviz', kamera=kamera)
+        self._tuakan(sesi, NEVER_STARTED_ABANDON_SECONDS * 10)
+        LiveSession.akhiri_yang_terbengkalai()
+        sesi.refresh_from_db()
+        self.assertEqual(sesi.status, 'live')
+
+    def test_halaman_daftar_membereskan_sesi_hantu(self):
+        sesi = LiveSession.objects.create(teknisi=self.user)
+        self._tuakan(sesi, NEVER_STARTED_ABANDON_SECONDS + 60)
+        self.client.get(reverse('streaming:list'))
+        sesi.refresh_from_db()
+        self.assertEqual(sesi.status, 'ended')
+
+    def test_api_multi_view_membereskan_sesi_hantu(self):
+        sesi = LiveSession.objects.create(teknisi=self.user)
+        self._tuakan(sesi, NEVER_STARTED_ABANDON_SECONDS + 60)
+        data = self.client.get(reverse('streaming:api_live_sessions')).json()
+        sesi.refresh_from_db()
+        self.assertEqual(sesi.status, 'ended')
+        self.assertEqual(data['sessions'], [])
