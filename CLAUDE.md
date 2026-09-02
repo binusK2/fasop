@@ -180,6 +180,7 @@ seluruh FASOP.
 | `apply_rename_plan` | devices | One-off — applies a previously generated rename plan |
 | `audit_device_names` | devices | One-off — reports naming inconsistencies across `Device` |
 | `fix_notif_urls` | notifikasi | One-off — repairs malformed notification links |
+| `cek_ezviz` | streaming | Diagnosa read-only — kredensial, region yang benar-benar dipakai (areaDomain), daftar kamera cloud, dan apakah alamat ezopen tiap kamera DITERIMA server. Jalankan ini sebelum menebak kenapa kamera tidak tampil; `--serial`, `--channel`, `--cloud` |
 | `purge_old_recordings` | streaming | Cron, daily — deletes `LiveSession` recording files past `STREAMING_RECORDING_RETENTION_DAYS` (default 7 days since `ended_at`); supports `--dry-run` |
 | `sync_kinerja_analog` | up2bmakassar | Cron, daily ~01:00 — availability harian titik TELEMETERING dari OFDB → `KinerjaAnalogHarian`; `--date`, `--days` (backfill), `--dry-run` |
 | `sync_kinerja_digital` | up2bmakassar | Cron, daily ~01:00 — sama untuk titik digital; `--jenis TELESIGNAL` (default) / `RTU` / `MASTER` / `TELEKOMUNIKASI` / `ALL` |
@@ -449,6 +450,15 @@ Didaftarkan dari site admin **atau** ditarik dari akun Ezviz lewat tombol
 data seluruh akun, sedangkan teknisi cukup memakai yang sudah terdaftar).
 Yang menentukan video mana yang diputar hanya `serial` + `channel`; NVR berarti
 satu serial dengan banyak baris channel.
+
+**Huruf pada serial WAJIB kapital.** Ini aturan Ezviz, dan pelanggarannya
+ditolak server dengan `illegal parameter ezopen` (kode 10001) — pesan yang
+tidak menyebut serialnya sama sekali, jadi mustahil ditebak dari layar.
+`KameraEzviz.save()` menormalkannya (kapital + buang spasi, channel kosong
+jadi 1) supaya aturan itu ditegakkan di satu tempat, bukan di setiap perakit
+URL. Kode 10001 itu datang dari server Ezviz lewat `/api/lapp/live/url/ezopen`
+yang dipanggil EZUIKit di browser — **bukan** dari SDK, jadi jangan mencarinya
+di `ezuikit.js`.
 
 Tiga aturan `sinkron_kamera()` yang sengaja dipilih:
 

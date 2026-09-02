@@ -77,18 +77,35 @@ async function buatPemutarEzviz(containerId, opts) {
         env: { domain: data.domain || opts.domain || 'https://open.ys7.com' },
         loggerOptions: { level: 'ERROR', name: 'ezuikit' },
         handleError: (err) => {
-            console.error('EZUIKit error', err);
-            if (opts.onError) opts.onError(pesanErrorEzviz(err));
+            console.error('EZUIKit error', err, opts.url);
+            if (opts.onError) opts.onError(pesanErrorEzviz(err, opts.url));
         },
     });
 }
 
-/** Terjemahkan error EZUIKit jadi kalimat yang berguna buat operator. */
-function pesanErrorEzviz(err) {
-    const kode = err && err.data && err.data.nErrorCode;
-    if (kode === 5) return 'Kamera terenkripsi — perlu kode verifikasi perangkat.';
-    if (err && err.type === 'handleRunTimeInfoError') return `Cloud Ezviz menolak pemutaran (kode ${kode}).`;
-    return 'Gagal memutar kamera Ezviz — periksa koneksi ke cloud Ezviz.';
+/**
+ * Terjemahkan error EZUIKit jadi kalimat yang berguna buat operator.
+ *
+ * Alamat ezopen-nya SELALU ikut disebut. Kode 10001 datang dari server Ezviz
+ * (`/api/lapp/live/url/ezopen`), bukan dari SDK di browser, dan pesannya cuma
+ * "illegal parameter ezopen" — tanpa menyebut alamat mana yang ditolak, tidak
+ * ada yang bisa dilakukan selain menebak.
+ */
+function pesanErrorEzviz(err, url) {
+    const kode = String((err && (err.code ?? (err.data && err.data.nErrorCode))) ?? '');
+    const alamat = url ? ` Alamat yang dipakai: ${url}` : '';
+
+    if (kode === '10001') {
+        return 'Cloud Ezviz menolak alamat kamera ini (10001: illegal parameter ezopen).'
+            + alamat
+            + ' Periksa serial & channel kamera di Admin — huruf pada serial harus KAPITAL,'
+            + ' dan channel biasanya 1 untuk kamera tunggal.';
+    }
+    if (kode === '5') return 'Kamera terenkripsi — perlu kode verifikasi perangkat.' + alamat;
+    if (err && err.type === 'handleRunTimeInfoError') {
+        return `Cloud Ezviz menolak pemutaran (kode ${kode}).` + alamat;
+    }
+    return `Gagal memutar kamera Ezviz${kode ? ' (kode ' + kode + ')' : ''}.` + alamat;
 }
 
 /** Hentikan & bersihkan pemutar. Aman dipanggil untuk pemutar yang sudah mati. */

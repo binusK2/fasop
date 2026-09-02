@@ -337,6 +337,30 @@ class RegionTokenEzvizTests(TestCase):
 
 
 class AlamatEzopenTests(TestCase):
+    def test_serial_dinormalkan_jadi_kapital_tanpa_spasi(self):
+        """
+        Dokumentasi Ezviz mensyaratkan huruf pada serial ditulis KAPITAL.
+        Serial yang tidak memenuhi itu ditolak server dengan "illegal parameter
+        ezopen" (10001) — pesan yang tidak menyebut serialnya sama sekali, jadi
+        satu-satunya cara aman adalah menormalkannya sebelum disimpan.
+        """
+        k = KameraEzviz.objects.create(nama='A', serial='  bd3957004 ', channel=1)
+        k.refresh_from_db()
+        self.assertEqual(k.serial, 'BD3957004')
+        self.assertEqual(k.ezopen_url, 'ezopen://open.ys7.com/BD3957004/1.hd.live')
+
+    def test_channel_kosong_jatuh_ke_satu(self):
+        k = KameraEzviz.objects.create(nama='A', serial='BD3957004', channel=0)
+        k.refresh_from_db()
+        self.assertEqual(k.channel, 1)
+
+    def test_sinkron_menormalkan_serial_dari_cloud(self):
+        with mock.patch.object(ezviz, 'daftar_kamera_cloud', return_value=[
+            {'serial': 'bd3957004', 'channel': 1, 'nama': 'C6N', 'status': 'online'},
+        ]):
+            ezviz.sinkron_kamera()
+        self.assertTrue(KameraEzviz.objects.filter(serial='BD3957004').exists())
+
     def test_hd_menyisipkan_penanda_kualitas(self):
         hd = KameraEzviz(nama='A', serial='BD3957004', channel=1, hd=True)
         sd = KameraEzviz(nama='B', serial='BD3957004', channel=3, hd=False)
