@@ -119,19 +119,27 @@ async function periksaBerkasPemutar() {
 
     const detail = [];
     for (const [nama, url] of kurang) {
-        let status;
         try {
-            const resp = await fetch(url, { method: 'HEAD', cache: 'no-store' });
-            status = 'HTTP ' + resp.status;
+            // GET, bukan HEAD: status 200 sudah terbukti tidak cukup — yang
+            // menentukan adalah ISI yang benar-benar diterima. Tiga kegagalan
+            // yang berbeda hanya bisa dibedakan dari sini: berkas terpotong
+            // (byte < ukuran asli), halaman HTML yang menyamar jadi JS
+            // (proxy/login page membalas 200), dan tipe konten yang salah
+            // sehingga browser menolak menjalankannya.
+            const resp = await fetch(url, { cache: 'no-store' });
+            const teks = await resp.text();
+            const tipe = (resp.headers.get('content-type') || 'tanpa content-type').split(';')[0].trim();
+            const awal = teks.trim().slice(0, 40).replace(/\s+/g, ' ');
+            detail.push(`${nama}: HTTP ${resp.status}, ${tipe}, ${teks.length} byte, diawali "${awal}"`);
         } catch (e) {
-            status = 'tidak bisa dihubungi';
+            detail.push(`${nama}: tidak bisa dihubungi (${e.message})`);
         }
-        detail.push(nama + ' -> ' + status);
     }
-    return 'Berkas pemutar Ezviz gagal dimuat: ' + detail.join('; ')
-        + '. 404 = berkas tidak ada di /static/ (collectstatic / alias nginx); '
-        + '403 = izin berkas di staticfiles/; '
-        + '200 = berkas terkirim tapi tidak bisa dijalankan (kemungkinan terpotong di proxy — periksa console).';
+    return 'Berkas pemutar Ezviz gagal dimuat. ' + detail.join(' | ')
+        + ' — diawali "<!DOCTYPE" berarti yang terkirim halaman HTML, bukan berkas JS;'
+        + ' byte jauh lebih kecil dari ukuran aslinya berarti terpotong di proxy;'
+        + ' content-type bukan javascript berarti browser menolak menjalankannya.'
+        + ' Pesan aslinya ada di console browser.';
 }
 
 function idTerpasang() {
