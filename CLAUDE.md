@@ -1010,6 +1010,58 @@ Yang perlu diketahui saat mengubahnya:
 
 ---
 
+## OPSIS — Kartu Total Padam (`opsis.KartuPadam`)
+
+Kartu tambahan di baris kartu beban dashboard OPSIS, seluruhnya **data bukan
+kode**: baris tunggal (pk=1) di site admin (**Opsis → Kartu Total Padam**) yang
+menentukan kartunya tampil atau tidak, judul/satuan/warnanya, dan tabel MSSQL
+tempat angkanya dibaca. Menghidupkan, mematikan, atau memindahkan sumbernya
+tidak butuh migrasi maupun redeploy — sama seperti menambah Pembangkit atau
+titik EWS.
+
+Bentuk `sumber_*`-nya sengaja mengikuti `opsis.TitikEWS.sumber_*` (tabel + kolom
+nilai + kolom kunci + nilai kunci + faktor skala), ditambah `agregasi`:
+
+| `agregasi` | SQL | Dipakai saat |
+|---|---|---|
+| `jumlah` (bawaan) | `SUM(kolom nilai)` | total MW padam dari beberapa titik |
+| `hitung` | `COUNT(*)` | jumlah penyulang/GI yang padam |
+| `nilai` | `TOP 1 kolom nilai` | tabel yang sudah menyimpan totalnya |
+
+Nilai kunci boleh diisi beberapa dipisah koma (`PADAM_MKS,PADAM_KDI`);
+Kolom Kunci yang dikosongkan berarti seluruh isi tabel dipakai.
+
+Yang perlu diketahui saat mengubahnya:
+
+- **Status on/off ikut dikirim setiap poll, bukan hanya saat render.** Kartunya
+  selalu ada di HTML dan disembunyikan lewat JS. Dashboard ini dipasang di layar
+  yang menyala berjam-jam; kalau tampil-tidaknya hanya ditentukan saat render,
+  mematikannya dari admin tidak terlihat sampai ada orang yang me-refresh layar
+  ruang operasi. Judul, satuan, dan warna ikut jalur yang sama dengan alasan
+  yang sama.
+- **Nama tabel/kolom datang dari input admin, jadi tidak bisa jadi bind
+  parameter.** `mssql.get_total_padam()` memvalidasinya dengan
+  `_TABLE_RE`/`_COLUMN_RE` dan menolak spesifikasi yang tidak lolos **sebelum**
+  menyentuh SQL; **nilai** kunci tetap lewat `?`. Aturan yang sama dengan
+  `get_nilai_ews()` — wajib diikuti kalau menambah field sumber baru.
+- **Kolom kunci terisi tapi nilai kuncinya kosong = tanpa penyaring.** Menyaring
+  dengan daftar kosong akan mengembalikan 0 dan terbaca sebagai "tidak ada yang
+  padam", padahal yang salah adalah pengaturannya.
+- `/opsis/api/total-padam/` dibungkus `_hz_cached('total_padam', ...)` TTL 2
+  detik sementara browser memoll tiap 5 detik — penjaga yang sama dengan
+  endpoint Hz dan EWS; jangan dilepas.
+- **Kegagalan tampil di kartunya, bukan sebagai error HTTP.** MSSQL mati, tabel
+  salah ketik, atau sumber belum diatur semuanya menghasilkan `nilai: null`
+  plus teks `error` yang dicetak di bawah angka — itulah yang menjawab "kenapa
+  kartu saya kosong" tanpa membuka log server. Dari admin, aksi **"Uji baca
+  nilai dari MSSQL"** dan **"Lihat kolom tabel sumber"** menjawabnya lebih
+  cepat lagi.
+- Sumbernya terdaftar di `/opsis/sumber-data/` dengan `lewati_periksa: True` —
+  tabelnya berbeda per konfigurasi, jadi kesegarannya tidak bisa diperiksa dari
+  peta sumber data.
+
+---
+
 ## OPSIS — Peta Pembangkit (`/opsis/peta/`)
 
 Peta sebaran pembangkit se-Sulawesi: ikon per jenis (PLTA/PLTU/PLTD/…) berisi

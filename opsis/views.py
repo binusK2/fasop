@@ -12,7 +12,8 @@ from django.urls import reverse
 from .models import (Pembangkit, SnapLive, SnapFreq, SnapFreqRT, Trafo, SnapTrafo,
                      HopPembangkit, HopSnapshot, HOP_KATEGORI_CHOICES, JENIS_CHOICES,
                      JENIS_WARNA, KelompokPeta, PantauanKit, hop_status, hop_deskripsi_band,
-                     hop_garis_ambang, KolomEWS, TitikEWS, SKEMA_WARNA, ARAH_CHOICES)
+                     hop_garis_ambang, KolomEWS, TitikEWS, SKEMA_WARNA, ARAH_CHOICES,
+                     KartuPadam)
 from auditlog.models import AuditLog
 from auditlog.utils import log_action
 from . import mssql
@@ -109,6 +110,10 @@ def dashboard(request):
         'pantauan_tampil':   bool(anggota_pantauan) and pantauan.aktif,
         'pantauan_kode':     [p.kode for p in anggota_pantauan],
         'pantauan_nama':     [p.nama for p in anggota_pantauan],
+        # Kartu Total Padam: dirender hanya untuk isi awalnya. Tampil/tidaknya
+        # ikut dikirim tiap poll /opsis/api/total-padam/, jadi dimatikan dari
+        # admin langsung terlihat di layar yang tidak pernah di-refresh.
+        'kartu_padam':     KartuPadam.setelan(),
     })
 
 
@@ -733,6 +738,51 @@ def api_hz_sulteng(request):
 def api_hz_luwuk(request):
     """Hz terkini Luwuk dari TRANS_LUWUK5_RT (GI LUWUK / COMMON)."""
     return _hz_response('luwuk', mssql.get_freq_luwuk)
+
+
+# ── Kartu Total Padam ────────────────────────────────────────────────────────
+
+def _baca_total_padam():
+    """
+    Isi kartu Total Padam sekarang: pengaturannya + angka dari MSSQL.
+
+    Selalu mengembalikan dict siap kirim — kartu mati, sumber belum diatur, dan
+    MSSQL tak terjangkau semuanya menjadi payload biasa dengan 'nilai': None,
+    bukan error HTTP, supaya poller dashboard tidak perlu membedakan kasus.
+    """
+    setelan = KartuPadam.setelan()
+    if setelan is None or not setelan.aktif:
+        return {'aktif': False, 'nilai': None, 'baris': 0, 'error': None}
+    hasil = mssql.get_total_padam(setelan.spesifikasi_sumber())
+    nilai = hasil['nilai']
+    return {
+        'aktif':      True,
+        'judul':      setelan.judul,
+        'satuan':     setelan.satuan,
+        'desimal':    setelan.desimal,
+        'warna':      setelan.warna,
+        'warna_tepi': setelan.warna_lembut,
+        'keterangan': setelan.keterangan,
+        'sumber':     setelan.sumber_tabel,
+        'nilai':      round(nilai, 6) if nilai is not None else None,
+        'baris':      hasil['baris'],
+        'error':      hasil['error'],
+    }
+
+
+@login_required
+def api_total_padam(request):
+    """
+    JSON kartu Total Padam — di-poll dashboard tiap 5 detik.
+
+    Dibungkus _hz_cached() dengan alasan yang sama seperti endpoint Hz dan EWS:
+    TTL 2 detik jauh lebih pendek dari interval poll, jadi berapa pun tab yang
+    terbuka, satu worker tetap hanya sekali menembak MSSQL per TTL.
+    """
+    data = _hz_cached('total_padam', _baca_total_padam)
+    if data is None:                      # sedang disegarkan thread lain, belum ada nilai
+        data = {'aktif': False, 'nilai': None, 'baris': 0, 'error': None}
+    return JsonResponse({**data, 'terputus': not mssql.is_reachable()})
 
 
 @login_required

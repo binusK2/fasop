@@ -75,6 +75,15 @@ SUMBER = [
         'catatan': 'Tanpa kolom waktu.',
     },
     {
+        'fitur': 'Dashboard — kartu Total Padam',
+        'lapis': MSSQL, 'sumber': 'tabel yang didaftarkan di admin',
+        'kolom_waktu': None, 'lewati_periksa': True,
+        'diisi': 'SCADA (langsung)',
+        'catatan': 'Tabel/kolomnya dipetakan lewat Opsis > Kartu Total Padam di admin, '
+                   'jadi tidak bisa diperiksa dari sini. Pakai aksi "Uji baca nilai dari '
+                   'MSSQL" di halaman admin itu.',
+    },
+    {
         'fitur': 'Daya Mampu (DMN/DMP) di kartu pembangkit',
         'lapis': MSSQL, 'sumber': 'dbo.KIT_DMP',
         'kolom_waktu': 'DATE', 'waktu_andal': False,
@@ -109,7 +118,7 @@ SUMBER = [
 
     # ── Lapis 3: PostgreSQL (snapshot hasil cron) ───────────────────────────
     {
-        'fitur': 'Chart beban hari ini, Rangkuman, Ekspor beban pembangkit',
+        'fitur': 'Chart beban hari ini, Chart KIT Terpilih, Rangkuman, Ekspor beban pembangkit',
         'lapis': POSTGRES, 'sumber': 'opsis.SnapLive',
         'model': 'SnapLive', 'field_waktu': 'waktu',
         'hulu': 'dbo.KIT_REALTIME', 'diisi': 'cron collect_live (tiap menit)',
