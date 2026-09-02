@@ -1568,6 +1568,110 @@ def _skala_ews(nilai, spec):
         return nilai
 
 
+# ── Kartu Total Padam ────────────────────────────────────────────────────────
+
+def get_total_padam(spec):
+    """
+    Baca angka kartu "Total Padam" dari tabel MSSQL yang didaftarkan di site
+    admin (opsis.models.KartuPadam.spesifikasi_sumber()):
+
+        tabel        nama tabel MSSQL, mis. dbo.PADAM_RT
+        kolom_nilai  kolom berisi angkanya (tidak dipakai pada agregasi 'hitung')
+        kolom_kunci  kolom penyaring baris. Kosong = seluruh isi tabel dipakai.
+        nilai_kunci  daftar nilai yang dicari pada kolom_kunci. Kosong = tanpa saring.
+        agregasi     'jumlah' (SUM), 'hitung' (COUNT baris), 'nilai' (TOP 1)
+        faktor       pengali satuan (mis. 0.001 untuk kW → MW)
+
+    Seperti get_nilai_ews(): nama tabel/kolom berasal dari input admin sehingga
+    tidak bisa dikirim sebagai bind parameter — semuanya divalidasi
+    _TABLE_RE/_COLUMN_RE dulu dan spesifikasi yang tidak lolos ditolak sebelum
+    menyentuh SQL, sementara NILAI kunci tetap lewat parameter '?'.
+
+    Kunci di-chunk _EWS_CHUNK per query (batas 2100 parameter SQL Server); hasil
+    tiap chunk dijumlahkan untuk 'jumlah'/'hitung', dan chunk pertama yang berisi
+    dipakai untuk 'nilai'.
+
+    Return {'nilai': float|None, 'baris': int, 'error': str|None}. Tidak pernah
+    raise: MSSQL mati/tak terkonfigurasi menghasilkan nilai None + 'error' yang
+    bisa ditampilkan, bukan exception.
+    """
+    hasil = {'nilai': None, 'baris': 0, 'error': None}
+    if not spec:
+        return {**hasil, 'error': 'Sumber kartu belum diatur.'}
+
+    tabel       = (spec.get('tabel') or '').strip()
+    kolom_nilai = (spec.get('kolom_nilai') or '').strip()
+    kolom_kunci = (spec.get('kolom_kunci') or '').strip()
+    agregasi    = (spec.get('agregasi') or 'jumlah').strip()
+    kunci       = [k for k in (spec.get('nilai_kunci') or []) if k]
+
+    if not _TABLE_RE.match(tabel):
+        logger.error('get_total_padam: nama tabel invalid %r', tabel)
+        return {**hasil, 'error': f'Nama tabel tidak valid: {tabel!r}'}
+    if agregasi != 'hitung' and not _COLUMN_RE.match(kolom_nilai):
+        logger.error('get_total_padam: kolom nilai invalid %r', kolom_nilai)
+        return {**hasil, 'error': f'Nama kolom nilai tidak valid: {kolom_nilai!r}'}
+    if kolom_kunci and not _COLUMN_RE.match(kolom_kunci):
+        logger.error('get_total_padam: kolom kunci invalid %r', kolom_kunci)
+        return {**hasil, 'error': f'Nama kolom kunci tidak valid: {kolom_kunci!r}'}
+    if agregasi not in ('jumlah', 'hitung', 'nilai'):
+        return {**hasil, 'error': f'Cara menghitung tidak dikenal: {agregasi!r}'}
+
+    if not getattr(settings, 'MSSQL_HOST', ''):
+        return {**hasil, 'error': 'MSSQL belum dikonfigurasi (MSSQL_HOST kosong).'}
+
+    # Penyaring hanya dipasang bila kolom kunci DAN nilainya ada. Kolom kunci
+    # tanpa nilai berarti tidak ada yang bisa dicocokkan; membiarkannya menyaring
+    # dengan daftar kosong akan mengembalikan 0 dan terbaca sebagai "tidak ada
+    # yang padam" padahal yang salah adalah pengaturannya.
+    pakai_saring = bool(kolom_kunci and kunci)
+    bagian_kunci = ([kunci[i:i + _EWS_CHUNK] for i in range(0, len(kunci), _EWS_CHUNK)]
+                    if pakai_saring else [[]])
+
+    if agregasi == 'hitung':
+        pilih = 'COUNT(*), COUNT(*)'
+    elif agregasi == 'nilai':
+        pilih = f'TOP 1 {kolom_nilai}, 1'
+    else:
+        pilih = f'SUM(CAST({kolom_nilai} AS FLOAT)), COUNT({kolom_nilai})'
+
+    conn = None
+    try:
+        conn = _get_connection()
+        cursor = conn.cursor()
+        total, baris, terisi = 0.0, 0, False
+        for bagian in bagian_kunci:
+            where = ''
+            if bagian:
+                where = (f' WHERE RTRIM({kolom_kunci}) IN '
+                         f'({", ".join("?" * len(bagian))})')
+            cursor.execute(f'SELECT {pilih} FROM {tabel} WITH (NOLOCK){where}', bagian)
+            row = cursor.fetchone()
+            if not row or row[0] is None:
+                continue
+            terisi = True
+            total += float(row[0])
+            baris += int(row[1] or 0)
+            if agregasi == 'nilai':
+                break
+        if not terisi:
+            return {**hasil, 'error': None}
+        try:
+            faktor = float(spec.get('faktor') or 1.0)
+        except (TypeError, ValueError):
+            faktor = 1.0
+        return {'nilai': total * faktor, 'baris': baris, 'error': None}
+    except Exception as e:
+        logger.error('get_total_padam(%s) error: %s', tabel, e)
+        return {**hasil, 'error': str(e)}
+    finally:
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+
 def probe_tabel(tabel, limit=20):
     """
     Diagnosa: daftar kolom + beberapa baris pertama sebuah tabel MSSQL, supaya

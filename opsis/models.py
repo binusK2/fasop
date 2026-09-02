@@ -1,3 +1,4 @@
+import re
 import time
 
 from django.db import models
@@ -667,6 +668,177 @@ class ModePemeliharaan(models.Model):
             return cache['obj']
         cls._cache = {'obj': obj, 'ts': now}
         return obj
+
+
+# ── Kartu Total Padam ────────────────────────────────────────────────────────
+
+PADAM_AGREGASI_CHOICES = [
+    ('jumlah', 'Jumlah — SUM kolom nilai dari semua baris yang cocok'),
+    ('hitung', 'Hitung — COUNT baris yang cocok (kolom nilai tidak dipakai)'),
+    ('nilai',  'Nilai tunggal — TOP 1 kolom nilai dari baris yang cocok'),
+]
+
+
+class KartuPadam(models.Model):
+    """
+    Pengaturan kartu "Total Padam" di dashboard OPSIS — baris tunggal (pk=1)
+    yang diubah dari site admin.
+
+    Dua hal yang memang harus bisa diatur tanpa deploy:
+
+    * `aktif` menyalakan/mematikan kartunya. Kartu ini dipasang di layar yang
+      menyala berjam-jam, jadi status on/off ikut dikirim setiap poll — bukan
+      hanya saat halaman dirender — supaya mematikannya dari admin langsung
+      terlihat tanpa ada yang perlu me-refresh layar ruang operasi.
+    * `sumber_*` menunjuk tabel/kolom MSSQL tempat angkanya dibaca. Bentuknya
+      sengaja sama dengan opsis.TitikEWS.sumber_* (tabel + kolom nilai + kolom
+      kunci + nilai kunci + faktor skala): nama tabel/kolom datang dari input
+      admin sehingga divalidasi regex di opsis.mssql.get_total_padam() sebelum
+      masuk SQL, sedangkan NILAI kunci tetap lewat bind parameter.
+
+    Selama `sumber_tabel` kosong kartu tampil "sumber belum diatur", bukan
+    error — sama seperti titik EWS yang belum termonitor.
+    """
+
+    # Kartu ini dibaca saat render dashboard DAN tiap poll endpointnya. Cache
+    # pendek per proses seperti ModePemeliharaan: perubahan dari admin berlaku
+    # instan di worker yang menyimpan, paling lambat TTL_CACHE detik di worker
+    # lain.
+    TTL_CACHE = 5.0
+    _cache = {'obj': None, 'ts': 0.0}
+
+    aktif = models.BooleanField(
+        default=False, verbose_name='Tampilkan Kartu Total Padam',
+        help_text='Bila dicentang, kartu Total Padam muncul di dashboard OPSIS. '
+                  'Menghilangkan centang menyembunyikannya dari semua layar dalam '
+                  'beberapa detik, tanpa perlu reload.')
+    judul = models.CharField(
+        max_length=60, default='Total Padam', verbose_name='Judul Kartu',
+        help_text='Teks kecil di atas angka, mis. "Total Padam".')
+    satuan = models.CharField(
+        max_length=10, blank=True, default='MW', verbose_name='Satuan',
+        help_text='Ditampilkan di belakang angka. Kosongkan bila angkanya tanpa satuan '
+                  '(mis. jumlah penyulang).')
+    desimal = models.PositiveSmallIntegerField(
+        default=2, verbose_name='Jumlah Desimal',
+        help_text='Banyak angka di belakang koma. Isi 0 untuk bilangan bulat '
+                  '(cocok untuk mode Hitung).')
+    warna = models.CharField(
+        max_length=20, default='#f87171', verbose_name='Warna Aksen',
+        help_text='Warna angka dan garis tepi kartu, mis. #f87171.')
+    keterangan = models.CharField(
+        max_length=120, blank=True, default='', verbose_name='Keterangan',
+        help_text='Teks kecil di bawah angka. Kosongkan untuk memakai keterangan '
+                  'bawaan (jumlah baris sumber yang terbaca).')
+
+    agregasi = models.CharField(
+        max_length=10, choices=PADAM_AGREGASI_CHOICES, default='jumlah',
+        verbose_name='Cara Menghitung')
+    sumber_tabel = models.CharField(
+        max_length=100, blank=True, default='', verbose_name='Tabel Sumber (MSSQL)',
+        help_text='Kosongkan bila sumbernya belum ditentukan — kartu tampil '
+                  '"sumber belum diatur". Contoh: dbo.PADAM_RT')
+    sumber_kolom_nilai = models.CharField(
+        max_length=50, blank=True, default='VALUE', verbose_name='Kolom Nilai',
+        help_text='Kolom berisi angka yang dijumlahkan/dibaca. Tidak dipakai pada '
+                  'mode Hitung.')
+    sumber_kolom_kunci = models.CharField(
+        max_length=50, blank=True, default='', verbose_name='Kolom Kunci',
+        help_text='Kolom penyaring baris, mis. ANALOG atau STATUS. Kosongkan untuk '
+                  'memakai SELURUH isi tabel.')
+    sumber_nilai_kunci = models.CharField(
+        max_length=255, blank=True, default='', verbose_name='Nilai Kunci',
+        help_text='Nilai yang dicari pada Kolom Kunci. Pisahkan dengan koma untuk '
+                  'beberapa titik sekaligus, mis. PADAM_MKS,PADAM_KDI. Dikosongkan '
+                  'berarti tanpa penyaring.')
+    faktor_skala = models.FloatField(
+        default=1.0, verbose_name='Faktor Skala',
+        help_text='Hasil dikalikan angka ini. Mis. 0.001 bila historian menyimpan kW '
+                  'sementara kartu menampilkan MW.')
+
+    diubah_oleh = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL,
+                                    related_name='+', verbose_name='Diubah Oleh')
+    diubah_pada = models.DateTimeField(auto_now=True, verbose_name='Diubah Pada')
+
+    class Meta:
+        verbose_name = 'Kartu Total Padam'
+        verbose_name_plural = 'Kartu Total Padam'
+
+    def __str__(self):
+        if not self.aktif:
+            return 'Nonaktif — kartu tidak tampil'
+        return f'Aktif — {self.sumber_tabel or "sumber belum diatur"}'
+
+    def save(self, *args, **kwargs):
+        self.pk = 1                       # selalu satu baris, apa pun jalur simpannya
+        super().save(*args, **kwargs)
+        type(self)._cache = {'obj': self, 'ts': time.monotonic()}
+
+    @classmethod
+    def ambil(cls):
+        """Baris pengaturan, dibuat dengan nilai bawaan bila belum ada."""
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+    @classmethod
+    def setelan(cls):
+        """
+        Seperti ambil(), tapi memakai cache pendek dan tidak pernah melempar
+        exception: mengembalikan None bila tabelnya belum ada (mis. sebelum
+        migrate dijalankan). Pemanggil memperlakukan None sebagai "kartu mati",
+        supaya dashboard tidak ikut jatuh hanya karena kartu tambahan.
+        """
+        now = time.monotonic()
+        cache = cls._cache
+        if cache['obj'] is not None and (now - cache['ts']) < cls.TTL_CACHE:
+            return cache['obj']
+        try:
+            obj = cls.ambil()
+        except Exception:
+            return cache['obj']
+        cls._cache = {'obj': obj, 'ts': now}
+        return obj
+
+    @property
+    def pakai_sumber(self):
+        """True bila kartu ini sudah diarahkan ke sebuah tabel MSSQL."""
+        return bool(self.sumber_tabel.strip())
+
+    @property
+    def warna_lembut(self):
+        """
+        Warna aksen untuk garis tepi kartu — versi transparan dari `warna`.
+
+        Warna heksa ditambahi alfa (#f87171 → #f871714d) mengikuti kartu lain di
+        dashboard. Nilai yang bukan heksa 6 digit dikembalikan apa adanya:
+        menempelkan '4d' ke situ menghasilkan warna tidak sah dan browser
+        membuang SELURUH deklarasi border, jadi kartunya kehilangan tepi hanya
+        karena salah ketik di admin.
+        """
+        warna = (self.warna or '').strip() or '#f87171'
+        if re.fullmatch(r'#[0-9A-Fa-f]{6}', warna):
+            return warna + '4d'
+        return warna
+
+    def nilai_kunci_list(self):
+        """Nilai kunci sebagai daftar (dipisah koma, yang kosong dibuang)."""
+        return [b.strip() for b in self.sumber_nilai_kunci.split(',') if b.strip()]
+
+    def spesifikasi_sumber(self):
+        """
+        Spesifikasi untuk opsis.mssql.get_total_padam(). None bila kartu ini
+        belum diarahkan ke tabel mana pun.
+        """
+        if not self.pakai_sumber:
+            return None
+        return {
+            'tabel':       self.sumber_tabel.strip(),
+            'kolom_nilai': (self.sumber_kolom_nilai or 'VALUE').strip(),
+            'kolom_kunci': self.sumber_kolom_kunci.strip(),
+            'nilai_kunci': self.nilai_kunci_list(),
+            'agregasi':    self.agregasi,
+            'faktor':      self.faktor_skala if self.faktor_skala is not None else 1.0,
+        }
 
 
 # ── EWS Defense Scheme ───────────────────────────────────────────────────────
