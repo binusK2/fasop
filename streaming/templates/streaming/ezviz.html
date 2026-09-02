@@ -133,6 +133,23 @@ const micStatusMsg = document.getElementById('mic-status-msg');
 let player = null, ended = false;
 let statusPollTimer = null, heartbeatTimer = null;
 
+/**
+ * Pemutar Ezviz bergantung pada dua berkas statis (ezuikit.js sendiri ~4 MB).
+ * Kalau salah satunya tidak terserve — paling sering karena `collectstatic`
+ * belum dijalankan setelah deploy — satu-satunya jejak yang muncul adalah
+ * "buatPemutarEzviz is not defined" di console, sementara halamannya diam
+ * saja. Diperiksa lebih dulu supaya penyebabnya terbaca oleh orang yang
+ * membuka halaman, bukan hanya oleh yang membuka devtools.
+ */
+function periksaBerkasPemutar() {
+    const kurang = [];
+    if (typeof EZUIKit === 'undefined') kurang.push('streaming/ezuikit.js');
+    if (typeof buatPemutarEzviz !== 'function') kurang.push('streaming/ezviz-player.js');
+    if (!kurang.length) return '';
+    return 'Berkas pemutar Ezviz gagal dimuat (' + kurang.join(', ') + '). '
+        + 'Di server: jalankan "python manage.py collectstatic --noinput" lalu restart gunicorn.';
+}
+
 function ukuranPemutar() {
     const w = Math.max(320, Math.round(videoWrap.clientWidth));
     return { width: w, height: Math.round(w * 9 / 16) };
@@ -145,6 +162,11 @@ async function mulaiPemutar() {
     }
     if (!IS_LIVE) {
         overlay.textContent = 'Sesi sudah berakhir.';
+        return;
+    }
+    const berkasKurang = periksaBerkasPemutar();
+    if (berkasKurang) {
+        overlay.textContent = berkasKurang;
         return;
     }
     const { width, height } = ukuranPemutar();

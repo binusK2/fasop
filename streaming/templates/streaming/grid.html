@@ -98,6 +98,23 @@ const jumlahEl = document.getElementById('jumlah-live');
 const kotak = new Map();
 let idFokus = null;
 
+/**
+ * Pemutar Ezviz bergantung pada dua berkas statis (ezuikit.js sendiri ~4 MB).
+ * Kalau salah satunya tidak terserve — paling sering karena `collectstatic`
+ * belum dijalankan setelah deploy — satu-satunya jejak yang muncul adalah
+ * "buatPemutarEzviz is not defined" di console, sementara halamannya diam
+ * saja. Diperiksa lebih dulu supaya penyebabnya terbaca oleh orang yang
+ * membuka halaman, bukan hanya oleh yang membuka devtools.
+ */
+function periksaBerkasPemutar() {
+    const kurang = [];
+    if (typeof EZUIKit === 'undefined') kurang.push('streaming/ezuikit.js');
+    if (typeof buatPemutarEzviz !== 'function') kurang.push('streaming/ezviz-player.js');
+    if (!kurang.length) return '';
+    return 'Berkas pemutar Ezviz gagal dimuat (' + kurang.join(', ') + '). '
+        + 'Di server: jalankan "python manage.py collectstatic --noinput" lalu restart gunicorn.';
+}
+
 function idTerpasang() {
     return Array.from(kotak.keys());
 }
@@ -213,6 +230,11 @@ async function pasangKotak(data) {
     kotak.set(data.id, k);
 
     if (data.sumber === 'ezviz') {
+        const berkasKurang = periksaBerkasPemutar();
+        if (berkasKurang) {
+            pesanKotak(k, berkasKurang);
+            return;
+        }
         const w = Math.max(240, Math.round(el.clientWidth));
         try {
             k.player = await buatPemutarEzviz(`ez-${data.id}`, {

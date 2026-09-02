@@ -187,7 +187,10 @@ def ezviz_token(request):
     except ezviz.EzvizError as e:
         logger.warning('Gagal ambil accessToken Ezviz: %s', e)
         return JsonResponse({'ok': False, 'error': str(e)}, status=502)
-    return JsonResponse({'ok': True, 'access_token': token, 'domain': settings.EZVIZ_API_BASE})
+    # Domain yang dikirim ke browser adalah domain REGION dari Ezviz
+    # (areaDomain), bukan EZVIZ_API_BASE mentah — token hanya berlaku di
+    # region itu, jadi EZUIKit harus memanggil host yang sama.
+    return JsonResponse({'ok': True, 'access_token': token, 'domain': ezviz.domain_aktif()})
 
 
 @login_required

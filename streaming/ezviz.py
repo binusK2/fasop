@@ -30,8 +30,11 @@ logger = logging.getLogger(__name__)
 UMUR_TOKEN_CADANGAN_JAM = 24
 
 # Kode error Ezviz yang artinya "token tidak berlaku lagi" — satu-satunya
-# kondisi yang layak di-retry otomatis dengan token baru.
-KODE_TOKEN_BASI = ('10002', '10001')
+# kondisi yang layak di-retry otomatis dengan token baru. 10001 SENGAJA tidak
+# di sini: dokumentasi Ezviz menyebutnya "the parameter is empty or incorrect
+# format", jadi mengulanginya dengan token baru cuma membakar satu permintaan
+# token dan menyembunyikan bug parameter yang sebenarnya.
+KODE_TOKEN_BASI = ('10002',)
 
 # Kode error yang penyebab sebenarnya hampir selalu BUKAN yang tertulis di
 # pesannya. Pesan asli Ezviz juga datang dalam bahasa yang berbeda tergantung
@@ -60,11 +63,29 @@ def terkonfigurasi():
     return bool(settings.EZVIZ_APP_KEY and settings.EZVIZ_APP_SECRET)
 
 
-def _url(path):
-    return settings.EZVIZ_API_BASE.rstrip('/') + path
+def _url(path, base=None):
+    return (base or settings.EZVIZ_API_BASE).rstrip('/') + path
 
 
-def _panggil(path, data):
+def domain_aktif():
+    """
+    Host API yang benar untuk akun ini.
+
+    /api/lapp/token/get mengembalikan `areaDomain` — menurut dokumentasi
+    Ezviz, host region tempat accessToken itu SATU-SATUNYA berlaku. Memakai
+    nilai itu menghapus satu sumber kesalahan yang mahal: EZVIZ_API_BASE yang
+    diisi setengah benar (mis. host global sementara akunnya di Singapura)
+    membuat token berhasil diambil tapi setiap panggilan sesudahnya ditolak.
+
+    Jatuh kembali ke EZVIZ_API_BASE selama token belum pernah diambil.
+    """
+    baris = EzvizToken.objects.filter(pk=1).first()
+    if baris and baris.area_domain:
+        return baris.area_domain
+    return settings.EZVIZ_API_BASE
+
+
+def _panggil(path, data, base=None):
     """
     POST form-encoded ke Ezviz dan kembalikan isi `data` dari responsnya.
 
@@ -72,10 +93,11 @@ def _panggil(path, data):
     sebenarnya ada di field `code` ("200" = sukses). Jadi jangan pernah
     menyimpulkan sukses dari resp.ok saja.
     """
+    host = (base or settings.EZVIZ_API_BASE).rstrip('/')
     try:
-        resp = requests.post(_url(path), data=data, timeout=settings.EZVIZ_TIMEOUT)
+        resp = requests.post(_url(path, host), data=data, timeout=settings.EZVIZ_TIMEOUT)
     except requests.RequestException as e:
-        raise EzvizError(f'Tidak bisa menghubungi cloud Ezviz: {e}') from e
+        raise EzvizError(f'Tidak bisa menghubungi cloud Ezviz di {host}: {e}') from e
 
     if resp.status_code != 200:
         raise EzvizError(f'Cloud Ezviz membalas HTTP {resp.status_code}')
@@ -91,7 +113,7 @@ def _panggil(path, data):
         # Sebut host-nya: sebagian besar kegagalan di sini adalah permintaan
         # yang benar dikirim ke platform region yang salah, dan itu mustahil
         # terlihat dari pesan Ezviz sendiri.
-        keterangan = f'Ezviz ({settings.EZVIZ_API_BASE}) menolak permintaan ({kode}): {pesan}'
+        keterangan = f'Ezviz ({host}) menolak permintaan ({kode}): {pesan}'
         petunjuk = PETUNJUK_KODE.get(kode)
         if petunjuk:
             keterangan += f' — {petunjuk}'
@@ -117,10 +139,19 @@ def _minta_token_baru():
     else:
         expire_at = timezone.now() + datetime.timedelta(hours=UMUR_TOKEN_CADANGAN_JAM)
 
-    baris, _ = EzvizToken.objects.update_or_create(
-        pk=1, defaults={'token': token, 'expire_at': expire_at},
+    # areaDomain kosong di sebagian region/versi — kalau begitu, biarkan
+    # nilai lama (atau EZVIZ_API_BASE) yang dipakai, jangan ditimpa string
+    # kosong yang justru menghapus informasi yang sudah benar.
+    area_domain = (data.get('areaDomain') or '').strip()
+    nilai = {'token': token, 'expire_at': expire_at}
+    if area_domain:
+        nilai['area_domain'] = area_domain
+
+    baris, _ = EzvizToken.objects.update_or_create(pk=1, defaults=nilai)
+    logger.info(
+        'Token Ezviz baru diambil, berlaku sampai %s, region %s',
+        expire_at, baris.area_domain or settings.EZVIZ_API_BASE,
     )
-    logger.info('Token Ezviz baru diambil, berlaku sampai %s', expire_at)
     return baris.token
 
 
@@ -152,13 +183,15 @@ def _dengan_token(path, data=None):
     """
     payload = dict(data or {})
     payload['accessToken'] = ambil_access_token()
+    # domain_aktif() dibaca SETELAH token diambil: permintaan token itulah
+    # yang mengisi areaDomain untuk pertama kalinya.
     try:
-        return _panggil(path, payload)
+        return _panggil(path, payload, base=domain_aktif())
     except EzvizError as e:
         if e.kode not in KODE_TOKEN_BASI:
             raise
         payload['accessToken'] = ambil_access_token(paksa_baru=True)
-        return _panggil(path, payload)
+        return _panggil(path, payload, base=domain_aktif())
 
 
 def _halaman_penuh(path, keterangan):

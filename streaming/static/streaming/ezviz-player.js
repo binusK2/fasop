@@ -71,7 +71,10 @@ async function buatPemutarEzviz(containerId, opts) {
         // gambar sampai memenuhi kotak, dan kamera CCTV 4:3 di kotak 16:9
         // jadi gepeng — menyesatkan saat dipakai memeriksa keadaan lapangan.
         scaleMode: 1,
-        env: { domain: opts.domain || 'https://open.ys7.com' },
+        // Domain dari balasan token (areaDomain) menang atas nilai setting:
+        // accessToken hanya berlaku di region itu, jadi player harus memanggil
+        // host yang sama dengan yang menerbitkan tokennya.
+        env: { domain: data.domain || opts.domain || 'https://open.ys7.com' },
         loggerOptions: { level: 'ERROR', name: 'ezuikit' },
         handleError: (err) => {
             console.error('EZUIKit error', err);
