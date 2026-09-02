@@ -311,9 +311,9 @@ EZVIZ_APP_SECRET=             # appSecret-nya
 EZVIZ_API_BASE=https://open.ys7.com   # ganti kalau akun terdaftar di region lain
                                        # (mis. https://isgpopen.ezvizlife.com untuk Singapura)
 EZVIZ_TIMEOUT=10
-EZVIZ_EZOPEN_HOST=open.ys7.com   # host DI DALAM alamat ezopen:// (bukan host API).
-                                  # Ganti hanya kalau `manage.py cek_ezviz` bilang
-                                  # host lain yang diterima server.
+EZVIZ_EZOPEN_HOST=            # host DI DALAM alamat ezopen:// (bukan host API).
+                               # Kosong = otomatis dari platform. Isi hanya kalau
+                               # `manage.py cek_ezviz` menemukan host lain.
 ```
 
 Changing `SECRET_KEY` in production invalidates all Hashids-encoded URLs and active sessions.
@@ -453,6 +453,20 @@ Didaftarkan dari site admin **atau** ditarik dari akun Ezviz lewat tombol
 data seluruh akun, sedangkan teknisi cukup memakai yang sudah terdaftar).
 Yang menentukan video mana yang diputar hanya `serial` + `channel`; NVR berarti
 satu serial dengan banyak baris channel.
+
+**Host di dalam alamat `ezopen://` BUKAN `open.ys7.com` untuk akun
+internasional** — walau seluruh dokumentasi Ezviz mencontohkan host itu.
+Platform internasional menolaknya dengan `illegal parameter ezopen` (10001)
+dan hanya menerima **`open.ezviz.com`**. Terbukti di akun region Singapura
+UP2B: `open.ys7.com` DAN host region-nya sendiri (`isgpopen.ezvizlife.com`)
+sama-sama ditolak untuk 5 dari 5 kamera; `open.ezviz.com` diterima semuanya.
+
+`streaming.models.host_ezopen()` menyimpulkannya sendiri dari
+`EZVIZ_API_BASE` (mengandung `ys7.com` → platform Tiongkok → `open.ys7.com`;
+selain itu → `open.ezviz.com`), jadi pemasangan baru tidak perlu menemukannya
+lagi. `EZVIZ_EZOPEN_HOST` menimpanya kalau suatu saat ada region yang tidak
+mengikuti pola ini. Ingat bedanya: ini host di dalam STRING ezopen, sedangkan
+host API ditentukan terpisah oleh `areaDomain`.
 
 **Huruf pada serial WAJIB kapital.** Ini aturan Ezviz, dan pelanggarannya
 ditolak server dengan `illegal parameter ezopen` (kode 10001) — pesan yang
