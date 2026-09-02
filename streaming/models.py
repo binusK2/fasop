@@ -73,6 +73,14 @@ class KameraEzviz(models.Model):
     channel    = models.PositiveSmallIntegerField(default=1, verbose_name='Channel', help_text='Nomor channel kamera. NVR punya banyak channel; kamera tunggal biasanya 1.')
     lokasi     = models.CharField(max_length=150, blank=True, verbose_name='Lokasi / Gardu Induk')
     hd         = models.BooleanField(default=True, verbose_name='Putar Kualitas HD', help_text='Nonaktifkan kalau jaringan lokasi lemah — kualitas turun, tapi lebih jarang buffering.')
+    kode_verifikasi = models.CharField(
+        max_length=32, blank=True, verbose_name='Kode Verifikasi Perangkat',
+        help_text=(
+            'Wajib diisi kalau enkripsi video kamera masih aktif (bawaan pabrik EZVIZ). '
+            'Kodenya tercetak di stiker badan kamera dan terlihat di aplikasi EZVIZ. '
+            'Kosongkan kalau enkripsi sudah dimatikan dari aplikasi EZVIZ.'
+        ),
+    )
     aktif      = models.BooleanField(default=True, verbose_name='Aktif', help_text='Hanya kamera aktif yang muncul di pilihan sumber saat memulai live.')
     keterangan = models.CharField(max_length=250, blank=True, verbose_name='Keterangan')
 
@@ -105,6 +113,10 @@ class KameraEzviz(models.Model):
         # Spasi ikut dibuang karena serial lazim disalin-tempel dari email/WA.
         if self.serial:
             self.serial = self.serial.strip().upper()
+        if self.kode_verifikasi:
+            # Kode verifikasi EZVIZ selalu huruf kapital + angka; disalin dari
+            # stiker kamera, jadi lazim membawa spasi ikut tersalin.
+            self.kode_verifikasi = self.kode_verifikasi.strip().upper()
         # Channel 0 bukan nilai yang sah di Ezviz; kamera tunggal selalu 1.
         if not self.channel:
             self.channel = 1
@@ -122,8 +134,7 @@ class KameraEzviz(models.Model):
         Ini BUKAN host API; region API ditentukan terpisah lewat areaDomain
         (lihat streaming.ezviz.domain_aktif).
         """
-        mutu = 'hd.live' if self.hd else 'live'
-        return f'ezopen://{host_ezopen()}/{self.serial}/{self.channel}.{mutu}'
+        return self._alamat('hd.live' if self.hd else 'live')
 
     @property
     def ezopen_url_sd(self):
@@ -140,7 +151,19 @@ class KameraEzviz(models.Model):
         Ini juga cara kerja dinding CCTV sungguhan: sub-stream di grid, stream
         utama baru saat satu kamera dibuka sendiri.
         """
-        return f'ezopen://{host_ezopen()}/{self.serial}/{self.channel}.live'
+        return self._alamat('live')
+
+    def _alamat(self, mutu):
+        """
+        Rakit satu alamat ezopen, termasuk kode verifikasi kalau ada.
+
+        Bentuk berkode: ezopen://<kode>@host/serial/channel.live — segmen
+        antara "//" dan "@" dibaca EZUIKit sebagai validateCode (terverifikasi
+        di ezuikit.js). Tanpa itu, kamera yang enkripsi videonya masih aktif
+        (bawaan pabrik EZVIZ) berhenti di "perangkat dienkripsi" saat memuat.
+        """
+        awalan = f'{self.kode_verifikasi}@' if self.kode_verifikasi else ''
+        return f'ezopen://{awalan}{host_ezopen()}/{self.serial}/{self.channel}.{mutu}'
 
 
 class EzvizToken(models.Model):

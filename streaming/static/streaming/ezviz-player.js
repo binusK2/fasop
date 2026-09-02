@@ -108,7 +108,11 @@ function pesanErrorEzviz(err, url) {
             + ' Periksa serial & channel kamera di Admin — huruf pada serial harus KAPITAL,'
             + ' dan channel biasanya 1 untuk kamera tunggal.';
     }
-    if (kode === '5') return 'Kamera terenkripsi — perlu kode verifikasi perangkat.' + alamat;
+    if (kode === '5') {
+        return 'Enkripsi video kamera ini masih aktif, jadi streamnya perlu kode verifikasi. '
+            + 'Isi "Kode Verifikasi Perangkat" pada kamera ini di Admin (kodenya tercetak di '
+            + 'stiker badan kamera), atau matikan enkripsi video dari aplikasi EZVIZ.' + alamat;
+    }
     if (err && err.type === 'handleRunTimeInfoError') {
         return `Cloud Ezviz menolak pemutaran (kode ${kode}).` + alamat;
     }

@@ -16,7 +16,7 @@ class LiveSessionAdmin(admin.ModelAdmin):
 
 @admin.register(KameraEzviz)
 class KameraEzvizAdmin(admin.ModelAdmin):
-    list_display = ('nama', 'lokasi', 'serial', 'channel', 'hd', 'aktif', 'status_cloud', 'terakhir_sinkron')
+    list_display = ('nama', 'lokasi', 'serial', 'channel', 'hd', 'terenkripsi', 'aktif', 'status_cloud', 'terakhir_sinkron')
     list_filter = ('aktif', 'hd', 'status_cloud', 'lokasi')
     list_editable = ('aktif', 'hd')
     search_fields = ('nama', 'serial', 'lokasi', 'keterangan')
@@ -25,7 +25,7 @@ class KameraEzvizAdmin(admin.ModelAdmin):
     fieldsets = (
         (None, {'fields': ('nama', 'lokasi', 'keterangan', 'aktif')}),
         ('Alamat di Cloud Ezviz', {
-            'fields': ('serial', 'channel', 'hd', 'ezopen_url'),
+            'fields': ('serial', 'channel', 'hd', 'kode_verifikasi', 'ezopen_url'),
             'description': (
                 'Serial + channel inilah yang menentukan video mana yang diputar. '
                 'Nama & lokasi murni label untuk manusia dan tidak pernah ditimpa '
@@ -34,6 +34,10 @@ class KameraEzvizAdmin(admin.ModelAdmin):
         }),
         ('Sinkronisasi', {'fields': ('status_cloud', 'terakhir_sinkron', 'created_at', 'updated_at')}),
     )
+
+    @admin.display(boolean=True, description='Kode verifikasi terisi')
+    def terenkripsi(self, obj):
+        return bool(obj.kode_verifikasi)
 
     @admin.display(description='Alamat ezopen')
     def ezopen_url(self, obj):

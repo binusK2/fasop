@@ -501,6 +501,19 @@ ke ArrayBuffer dan berhasil) dan `POST .../statistics.do/opensdk_ezuikit 404`
 host region — pemutaran tetap lanjut. Yang menandakan stream BENAR-BENAR
 jalan adalah `PlayM4_Play mpRet:00000000` dan `fileHead:49 4d 4b 48` ("IMKH").
 
+**Enkripsi video kamera aktif secara bawaan pabrik.** Selama itu menyala,
+stream hanya bisa diputar kalau kode verifikasi perangkat ikut dikirim di
+alamatnya: `ezopen://<kode>@host/serial/channel.live` — segmen antara `//`
+dan `@` dibaca EZUIKit sebagai `validateCode` (terverifikasi langsung di
+`ezuikit.js`, bukan dari dokumentasi). Kodenya tercetak di stiker badan kamera
+dan terlihat di aplikasi EZVIZ; diisikan di `KameraEzviz.kode_verifikasi`.
+
+Alternatifnya mematikan enkripsi video dari aplikasi EZVIZ, tapi mengisi
+kodenya lebih baik — enkripsi tetap menyala di jalur kamera→cloud. Catatan
+keamanan yang jujur: kode itu ikut terkirim ke browser di dalam alamat ezopen
+(memang begitu cara EZUIKit bekerja), jadi ia hanya sekuat pembatasan halaman
+Live Streaming — Teknisi & AM.
+
 **Huruf pada serial WAJIB kapital.** Ini aturan Ezviz, dan pelanggarannya
 ditolak server dengan `illegal parameter ezopen` (kode 10001) — pesan yang
 tidak menyebut serialnya sama sekali, jadi mustahil ditebak dari layar.

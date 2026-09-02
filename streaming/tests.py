@@ -393,6 +393,26 @@ class AlamatEzopenTests(TestCase):
         self.assertEqual(k.ezopen_url, 'ezopen://open.ezviz.com/BF5628809/1.hd.live')
         self.assertEqual(k.ezopen_url_sd, 'ezopen://open.ezviz.com/BF5628809/1.live')
 
+    @override_settings(EZVIZ_EZOPEN_HOST='open.ezviz.com')
+    def test_kode_verifikasi_disisipkan_sebelum_host(self):
+        """
+        Kamera EZVIZ mengaktifkan enkripsi video secara bawaan; tanpa kode
+        verifikasi, pemuatan berhenti di "perangkat dienkripsi". Bentuk yang
+        dibaca EZUIKit adalah segmen antara "//" dan "@".
+        """
+        k = KameraEzviz.objects.create(
+            nama='A', serial='BF5628809', channel=1, hd=True, kode_verifikasi=' abcdef ',
+        )
+        k.refresh_from_db()
+        self.assertEqual(k.kode_verifikasi, 'ABCDEF')
+        self.assertEqual(k.ezopen_url, 'ezopen://ABCDEF@open.ezviz.com/BF5628809/1.hd.live')
+        self.assertEqual(k.ezopen_url_sd, 'ezopen://ABCDEF@open.ezviz.com/BF5628809/1.live')
+
+    @override_settings(EZVIZ_EZOPEN_HOST='open.ezviz.com')
+    def test_tanpa_kode_verifikasi_alamat_tetap_polos(self):
+        k = KameraEzviz(nama='A', serial='BF5628809', channel=1, hd=False)
+        self.assertEqual(k.ezopen_url, 'ezopen://open.ezviz.com/BF5628809/1.live')
+
     def test_hd_menyisipkan_penanda_kualitas(self):
         hd = KameraEzviz(nama='A', serial='BD3957004', channel=1, hd=True)
         sd = KameraEzviz(nama='B', serial='BD3957004', channel=3, hd=False)

@@ -131,9 +131,13 @@ class Command(BaseCommand):
         balasan server ini — tidak dari mana pun di UI.
         """
         mutu = ['hd.live', 'live'] if kamera.hd else ['live']
+        # Kode verifikasi ikut disertakan kalau ada — kamera yang enkripsi
+        # videonya masih aktif ditolak tanpa itu, dan hasil uji ini harus sama
+        # dengan yang benar-benar dipakai browser.
+        awalan = f'{kamera.kode_verifikasi}@' if kamera.kode_verifikasi else ''
         for host in hosts:
             for m in mutu:
-                yield host, m, f'ezopen://{host}/{kamera.serial}/{kamera.channel}.{m}'
+                yield host, m, f'ezopen://{awalan}{host}/{kamera.serial}/{kamera.channel}.{m}'
 
     # ── pemanggilan ──────────────────────────────────────────────────
     # Field yang dikirim EZUIKit ke endpoint ini (lihat ezuikit.js: isFlv,
