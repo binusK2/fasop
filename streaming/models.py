@@ -75,6 +75,19 @@ class KameraEzviz(models.Model):
             return f'{self.nama} — {self.lokasi}'
         return self.nama
 
+    def save(self, *args, **kwargs):
+        # Serial dinormalkan di satu tempat, bukan saat merakit URL: dokumentasi
+        # Ezviz mensyaratkan huruf pada serial ditulis KAPITAL, dan serial yang
+        # tidak memenuhi itu ditolak server dengan "illegal parameter ezopen"
+        # (kode 10001) — pesan yang sama sekali tidak menyebut serialnya.
+        # Spasi ikut dibuang karena serial lazim disalin-tempel dari email/WA.
+        if self.serial:
+            self.serial = self.serial.strip().upper()
+        # Channel 0 bukan nilai yang sah di Ezviz; kamera tunggal selalu 1.
+        if not self.channel:
+            self.channel = 1
+        super().save(*args, **kwargs)
+
     @property
     def ezopen_url(self):
         """

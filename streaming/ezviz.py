@@ -239,7 +239,7 @@ def daftar_kamera_cloud():
 
     hasil = []
     for c in kamera:
-        serial = c.get('deviceSerial')
+        serial = (c.get('deviceSerial') or '').strip().upper()
         if not serial:
             continue
         try:
