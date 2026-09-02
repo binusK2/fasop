@@ -33,6 +33,19 @@ UMUR_TOKEN_CADANGAN_JAM = 24
 # kondisi yang layak di-retry otomatis dengan token baru.
 KODE_TOKEN_BASI = ('10002', '10001')
 
+# Kode error yang penyebab sebenarnya hampir selalu BUKAN yang tertulis di
+# pesannya. Pesan asli Ezviz juga datang dalam bahasa yang berbeda tergantung
+# host (Mandarin di open.ys7.com, Inggris di host luar Tiongkok), jadi tidak
+# bisa diandalkan sendirian oleh orang yang membaca layar FASOP.
+PETUNJUK_KODE = {
+    '10017': (
+        'appKey hanya berlaku di platform tempat ia dibuat, jadi ini hampir selalu '
+        'salah region — bukan salah ketik. Setel EZVIZ_API_BASE ke host region akun '
+        'Anda (mis. https://isgpopen.ezvizlife.com untuk Singapura); bawaannya '
+        'https://open.ys7.com yang merupakan platform Tiongkok dengan akun terpisah.'
+    ),
+}
+
 
 class EzvizError(Exception):
     """Kegagalan memanggil API Ezviz. `kode` = kode error dari Ezviz kalau ada."""
@@ -75,7 +88,14 @@ def _panggil(path, data):
     kode = str(payload.get('code', ''))
     if kode != '200':
         pesan = payload.get('msg') or 'tanpa keterangan'
-        raise EzvizError(f'Ezviz menolak permintaan ({kode}): {pesan}', kode=kode)
+        # Sebut host-nya: sebagian besar kegagalan di sini adalah permintaan
+        # yang benar dikirim ke platform region yang salah, dan itu mustahil
+        # terlihat dari pesan Ezviz sendiri.
+        keterangan = f'Ezviz ({settings.EZVIZ_API_BASE}) menolak permintaan ({kode}): {pesan}'
+        petunjuk = PETUNJUK_KODE.get(kode)
+        if petunjuk:
+            keterangan += f' — {petunjuk}'
+        raise EzvizError(keterangan, kode=kode)
 
     return payload.get('data')
 
