@@ -356,6 +356,8 @@ def _data_sesi(session):
         # Tanpa accessToken — token diambil sekali oleh halaman lewat
         # /streaming/api/ezviz-token/, bukan diulang di tiap kotak tiap poll.
         data['ezopen_url'] = session.ezopen_url
+        # Varian sub-stream untuk Multi View — lihat KameraEzviz.ezopen_url_sd.
+        data['ezopen_url_sd'] = session.kamera.ezopen_url_sd if session.kamera_id else ''
         data['kamera'] = str(session.kamera) if session.kamera_id else ''
     else:
         data['video_path'] = session.video_path

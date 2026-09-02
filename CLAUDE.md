@@ -468,6 +468,31 @@ lagi. `EZVIZ_EZOPEN_HOST` menimpanya kalau suatu saat ada region yang tidak
 mengikuti pola ini. Ingat bedanya: ini host di dalam STRING ezopen, sedangkan
 host API ditentukan terpisah oleh `areaDomain`.
 
+**Pemutaran jatuh ke decoder perangkat lunak satu utas.** EZUIKit butuh
+SharedArrayBuffer untuk decoder multi-utas, dan itu hanya tersedia kalau
+halaman cross-origin isolated (COOP+COEP) — yang tidak bisa dinyalakan begitu
+saja di FASOP tanpa merusak resource lintas-origin lain. Di console terlihat
+sebagai `Sab:false` lalu `not support V3hard and V3Soft, switch V3 to V1`.
+
+Konsekuensinya nyata: satu stream utama 2K/4MP saja berat, sembilan sekaligus
+tidak akan pernah mengejar — dan gejalanya bukan error melainkan kotak yang
+memuat selamanya. Karena itu **Multi View selalu memakai sub-stream**
+(`KameraEzviz.ezopen_url_sd`), stream utama hanya di halaman sesi tunggal.
+Sama seperti cara kerja dinding CCTV sungguhan. Kalau satu kamera pun berat,
+matikan centang **Putar Kualitas HD**-nya di Admin.
+
+**Pemutar dimulai tanpa suara.** Browser memblokir autoplay bersuara sampai
+ada interaksi pengguna, dan pemutar yang menunggu izin audio bisa tertahan di
+"memuat" padahal streamnya sudah mengalir. Suara dinyalakan lewat tombol
+speaker (template `pcLive`) atau tombol kotak di Multi View.
+
+**Dua error di console yang TIDAK fatal** dan jangan dikejar: `wasm streaming
+compile failed ... Expected 'application/wasm'` (CDN Ezviz sendiri; SDK jatuh
+ke ArrayBuffer dan berhasil) dan `POST .../statistics.do/opensdk_ezuikit 404`
+(telemetri Ezviz). Begitu juga `/api/service/appKey/get` yang 404 + CORS di
+host region — pemutaran tetap lanjut. Yang menandakan stream BENAR-BENAR
+jalan adalah `PlayM4_Play mpRet:00000000` dan `fileHead:49 4d 4b 48` ("IMKH").
+
 **Huruf pada serial WAJIB kapital.** Ini aturan Ezviz, dan pelanggarannya
 ditolak server dengan `illegal parameter ezopen` (kode 10001) — pesan yang
 tidak menyebut serialnya sama sekali, jadi mustahil ditebak dari layar.

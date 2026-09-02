@@ -125,6 +125,23 @@ class KameraEzviz(models.Model):
         mutu = 'hd.live' if self.hd else 'live'
         return f'ezopen://{host_ezopen()}/{self.serial}/{self.channel}.{mutu}'
 
+    @property
+    def ezopen_url_sd(self):
+        """
+        Varian sub-stream (SD), apa pun setelan `hd` kamera ini.
+
+        Dipakai Multi View. Tanpa cross-origin isolation, browser tidak bisa
+        memakai SharedArrayBuffer sehingga EZUIKit jatuh ke decoder perangkat
+        lunak satu utas (terlihat di console sebagai "not support V3hard and
+        V3Soft, switch V3 to V1"). Satu stream utama 2K/4MP saja sudah berat
+        di jalur itu; sembilan sekaligus tidak akan pernah mengejar, dan
+        gejalanya bukan error melainkan kotak yang memuat selamanya.
+
+        Ini juga cara kerja dinding CCTV sungguhan: sub-stream di grid, stream
+        utama baru saat satu kamera dibuka sendiri.
+        """
+        return f'ezopen://{host_ezopen()}/{self.serial}/{self.channel}.live'
+
 
 class EzvizToken(models.Model):
     """
