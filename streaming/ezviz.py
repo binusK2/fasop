@@ -172,12 +172,26 @@ def ambil_access_token(paksa_baru=False):
             'Pengaturan Ezviz, atau lewat EZVIZ_APP_KEY/EZVIZ_APP_SECRET di .env.'
         )
 
-    if not paksa_baru:
-        baris = EzvizToken.objects.filter(pk=1).first()
-        if baris and baris.masih_berlaku:
-            return baris.token
+    baris = EzvizToken.objects.filter(pk=1).first()
+    if not paksa_baru and baris and baris.masih_berlaku:
+        return baris.token
 
-    return _minta_token_baru()
+    try:
+        return _minta_token_baru()
+    except EzvizError:
+        # Margin 1 jam di `masih_berlaku` berarti saat sampai di sini token
+        # lama BIASANYA masih sah beberapa puluh menit lagi. Aturan Ezviz:
+        # token berlaku 7 hari dan token baru TIDAK membatalkan yang lama,
+        # jadi memakai yang lama sama sekali tidak berisiko — sementara
+        # menyerah begitu saja akan memadamkan semua kamera hanya karena
+        # cloud Ezviz tersendat beberapa detik.
+        if not paksa_baru and baris and baris.token and baris.expire_at                 and baris.expire_at > timezone.now():
+            logger.warning(
+                'Gagal memperbarui token Ezviz; memakai token lama yang masih sah sampai %s.',
+                baris.expire_at,
+            )
+            return baris.token
+        raise
 
 
 def _dengan_token(path, data=None):
