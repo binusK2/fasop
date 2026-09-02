@@ -528,6 +528,27 @@ Bahasa pesan error bisa dipakai untuk memastikan host mana yang benar-benar
 dihubungi: `open.ys7.com` membalas Mandarin, host `i*open.ezvizlife.com`
 membalas Inggris.
 
+**`EZVIZ_API_BASE` cukup menunjuk PLATFORM yang benar, bukan region persisnya.**
+`/api/lapp/token/get` mengembalikan `areaDomain` — host region tempat token itu
+satu-satunya berlaku — dan nilai itu disimpan di `EzvizToken.area_domain` lalu
+dipakai `domain_aktif()` untuk semua panggilan berikutnya sekaligus dikirim ke
+EZUIKit sebagai `env.domain`. Jadi token diminta ke host entry, tapi
+`camera/list` dan pemutaran di browser mengikuti region yang ditentukan Ezviz
+sendiri. Balasan tanpa `areaDomain` (ada di sebagian region) **tidak** menimpa
+nilai lama dengan string kosong.
+
+`KODE_TOKEN_BASI` hanya berisi `10002`. `10001` sengaja tidak ikut: dokumentasi
+Ezviz menyebutnya "parameter is empty or incorrect format", jadi mengulanginya
+dengan token baru cuma membakar satu permintaan token dan menyembunyikan bug
+parameter yang sebenarnya.
+
+**Halaman Ezviz memeriksa dulu apakah berkas pemutarnya termuat.** `ezuikit.js`
+(~4 MB) dan `ezviz-player.js` adalah static file; kalau `collectstatic` belum
+dijalankan setelah deploy, satu-satunya jejaknya adalah
+`buatPemutarEzviz is not defined` di console sementara halamannya diam saja.
+`periksaBerkasPemutar()` di `ezviz.html` & `grid.html` menampilkan berkas mana
+yang hilang beserta perintah perbaikannya.
+
 ---
 
 ## Inspeksi — Skema Kolom & Laporan Harian (`inspection/laporan.py`)

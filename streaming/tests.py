@@ -276,6 +276,66 @@ class PesanErrorEzvizTests(TestCase):
         self.assertIn('isgpopen.ezvizlife.com', keterangan)
 
 
+class RegionTokenEzvizTests(TestCase):
+    """
+    /api/lapp/token/get mengembalikan `areaDomain`: host region tempat
+    accessToken itu satu-satunya berlaku. Memakainya berarti operator cukup
+    mengarahkan EZVIZ_API_BASE ke platform yang benar (Tiongkok vs
+    internasional) — region persisnya ditentukan Ezviz sendiri.
+    """
+
+    def _balasan(self, payload):
+        resp = mock.Mock(status_code=200)
+        resp.json.return_value = payload
+        return resp
+
+    @override_settings(EZVIZ_APP_KEY='k', EZVIZ_APP_SECRET='s',
+                       EZVIZ_API_BASE='https://open.ezvizlife.com')
+    def test_area_domain_disimpan_dan_dipakai_panggilan_berikutnya(self):
+        token_resp = self._balasan({
+            'code': '200',
+            'data': {
+                'accessToken': 'at.abc',
+                'expireTime': 4102444800000,
+                'areaDomain': 'https://isgpopen.ezvizlife.com',
+            },
+        })
+        list_resp = self._balasan({'code': '200', 'data': []})
+
+        with mock.patch.object(ezviz.requests, 'post', side_effect=[token_resp, list_resp]) as post:
+            ezviz._dengan_token('/api/lapp/camera/list', {'pageStart': 0, 'pageSize': 50})
+
+        self.assertEqual(EzvizToken.objects.get(pk=1).area_domain, 'https://isgpopen.ezvizlife.com')
+        # Token diminta ke host entry, tapi panggilan berikutnya ke host region.
+        self.assertEqual(post.call_args_list[0].args[0],
+                         'https://open.ezvizlife.com/api/lapp/token/get')
+        self.assertEqual(post.call_args_list[1].args[0],
+                         'https://isgpopen.ezvizlife.com/api/lapp/camera/list')
+
+    @override_settings(EZVIZ_API_BASE='https://open.ys7.com')
+    def test_tanpa_area_domain_jatuh_ke_setting(self):
+        self.assertEqual(ezviz.domain_aktif(), 'https://open.ys7.com')
+
+    @override_settings(EZVIZ_APP_KEY='k', EZVIZ_APP_SECRET='s',
+                       EZVIZ_API_BASE='https://open.ys7.com')
+    def test_area_domain_lama_tidak_dihapus_balasan_tanpa_area_domain(self):
+        """
+        Sebagian region tidak mengirim areaDomain. Menimpanya dengan string
+        kosong akan membuang informasi yang sudah benar dan memindahkan
+        panggilan berikutnya ke host yang salah.
+        """
+        EzvizToken.objects.create(pk=1, token='lama', area_domain='https://isgpopen.ezvizlife.com')
+        resp = self._balasan({'code': '200', 'data': {'accessToken': 'at.baru', 'expireTime': 4102444800000}})
+        with mock.patch.object(ezviz.requests, 'post', return_value=resp):
+            ezviz._minta_token_baru()
+        self.assertEqual(EzvizToken.objects.get(pk=1).area_domain, 'https://isgpopen.ezvizlife.com')
+
+    def test_kode_parameter_salah_tidak_memicu_permintaan_token_ulang(self):
+        """10001 = parameter salah menurut dokumentasi Ezviz, bukan token basi."""
+        self.assertNotIn('10001', ezviz.KODE_TOKEN_BASI)
+        self.assertIn('10002', ezviz.KODE_TOKEN_BASI)
+
+
 class AlamatEzopenTests(TestCase):
     def test_hd_menyisipkan_penanda_kualitas(self):
         hd = KameraEzviz(nama='A', serial='BD3957004', channel=1, hd=True)

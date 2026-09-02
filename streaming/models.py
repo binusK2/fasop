@@ -101,6 +101,18 @@ class EzvizToken(models.Model):
     """
     token      = models.CharField(max_length=255, blank=True)
     expire_at  = models.DateTimeField(null=True, blank=True)
+
+    # `areaDomain` dari balasan /api/lapp/token/get. Dokumentasi Ezviz
+    # menyebutnya "the open api domain name of the user's region, the
+    # accessToken is valid only in this region" — jadi host inilah yang
+    # benar untuk SEMUA panggilan berikutnya, dan juga yang harus dipakai
+    # EZUIKit di browser sebagai env.domain.
+    #
+    # Menyimpannya berarti operator cukup mengarahkan EZVIZ_API_BASE ke
+    # platform yang benar (Tiongkok vs internasional); region persisnya
+    # ditentukan sendiri oleh Ezviz, tidak perlu ditebak manual.
+    area_domain = models.CharField(max_length=200, blank=True, verbose_name='Domain Region dari Ezviz')
+
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
