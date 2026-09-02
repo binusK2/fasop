@@ -308,7 +308,10 @@ async function pasangKotak(data) {
         try {
             k.player = await buatPemutarEzviz(`ez-${data.id}`, {
                 tokenUrl: TOKEN_URL,
-                url: data.ezopen_url,
+                // Sub-stream, bukan stream utama: sembilan decoder perangkat
+                // lunak sekaligus tidak akan mengejar stream 2K/4MP, dan
+                // gejalanya bukan error melainkan kotak yang memuat selamanya.
+                url: data.ezopen_url_sd || data.ezopen_url,
                 domain: EZVIZ_DOMAIN,
                 width: w, height: Math.round(w * 9 / 16),
                 audio: false,          // Multi View selalu mulai bisu, lihat aturSuara()

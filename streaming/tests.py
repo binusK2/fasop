@@ -126,6 +126,8 @@ class ApiSesiLiveTests(TestCase):
 
         sesi_ezviz = per_id[encode(self.sesi_ezviz.pk)]
         self.assertEqual(sesi_ezviz['ezopen_url'], 'ezopen://open.ys7.com/BC7900686/2.live')
+        # Multi View memakai varian SD-nya sendiri.
+        self.assertEqual(sesi_ezviz['ezopen_url_sd'], 'ezopen://open.ys7.com/BC7900686/2.live')
         # Token baca MediaMTX tidak ada gunanya untuk sesi Ezviz — jangan
         # dikirim ke browser sama sekali.
         self.assertNotIn('view_token', sesi_ezviz)
@@ -383,6 +385,13 @@ class AlamatEzopenTests(TestCase):
     def test_setelan_eksplisit_menimpa_deteksi_otomatis(self):
         """Jalan keluar kalau ada region yang tidak mengikuti pola ini."""
         self.assertEqual(host_ezopen(), 'contoh.example.com')
+
+    @override_settings(EZVIZ_EZOPEN_HOST='open.ezviz.com')
+    def test_varian_sd_mengabaikan_setelan_hd(self):
+        """Multi View selalu sub-stream — lihat KameraEzviz.ezopen_url_sd."""
+        k = KameraEzviz(nama='A', serial='BF5628809', channel=1, hd=True)
+        self.assertEqual(k.ezopen_url, 'ezopen://open.ezviz.com/BF5628809/1.hd.live')
+        self.assertEqual(k.ezopen_url_sd, 'ezopen://open.ezviz.com/BF5628809/1.live')
 
     def test_hd_menyisipkan_penanda_kualitas(self):
         hd = KameraEzviz(nama='A', serial='BD3957004', channel=1, hd=True)

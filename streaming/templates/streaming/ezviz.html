@@ -245,10 +245,12 @@ async function mulaiPemutar() {
             url: EZOPEN_URL,
             domain: EZVIZ_DOMAIN,
             width, height,
-            // Halaman sesi tunggal: suara kamera langsung hidup — beda dari
-            // Multi View yang membisukan semuanya karena 9 kamera berbunyi
-            // bersamaan tidak bisa didengarkan.
-            audio: true,
+            // Mulai TANPA suara, lalu nyalakan lewat tombol speaker di
+            // template pcLive. Bukan preferensi tampilan: browser memblokir
+            // autoplay yang bersuara sampai ada interaksi pengguna, dan
+            // pemutar yang menunggu izin audio bisa tertahan di "memuat"
+            // padahal streamnya sendiri sudah mengalir.
+            audio: false,
             template: 'pcLive',
             onError: (pesan) => { statusMsg.textContent = pesan; },
         });
