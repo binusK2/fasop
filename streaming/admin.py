@@ -1,7 +1,9 @@
+from django import forms
 from django.contrib import admin, messages
+from django.utils.html import format_html
 
 from . import ezviz
-from .models import EzvizToken, KameraEzviz, LiveSession
+from .models import EzvizToken, KameraEzviz, LiveSession, PengaturanEzviz
 
 
 @admin.register(LiveSession)
@@ -97,3 +99,78 @@ class EzvizTokenAdmin(admin.ModelAdmin):
 
     def has_change_permission(self, request, obj=None):
         return False
+
+
+class PengaturanEzvizForm(forms.ModelForm):
+    """appSecret disembunyikan di layar, tapi TETAP terkirim saat form dibuka
+    (render_value) — kalau tidak, menyimpan perubahan kecil di kolom lain akan
+    diam-diam mengosongkan secret-nya."""
+
+    class Meta:
+        model = PengaturanEzviz
+        fields = '__all__'
+        widgets = {'app_secret': forms.PasswordInput(render_value=True)}
+
+
+@admin.register(PengaturanEzviz)
+class PengaturanEzvizAdmin(admin.ModelAdmin):
+    """
+    Satu baris pengaturan. Superuser saja (seperti seluruh site admin) —
+    appSecret adalah kredensial seluruh akun Ezviz, bukan sesuatu yang boleh
+    disunting pemakai biasa.
+    """
+    form = PengaturanEzvizForm
+    readonly_fields = ('status_token', 'updated_at')
+    fieldsets = (
+        ('Kredensial', {
+            'fields': ('app_key', 'app_secret'),
+            'description': (
+                'Dari console Ezviz Open Platform. Kolom yang dikosongkan jatuh ke '
+                'nilai di .env, jadi pemasangan yang sudah memakai .env tidak berubah. '
+                '<br><strong>appKey &amp; appSecret tidak kedaluwarsa</strong> — yang '
+                'berumur ~7 hari adalah accessToken, dan itu diperbarui sendiri.'
+            ),
+        }),
+        ('Endpoint', {
+            'fields': ('api_base', 'ezopen_host'),
+            'description': (
+                'Biarkan kosong kalau tidak yakin. Setelah menyimpan, jalankan '
+                '<code>python manage.py cek_ezviz</code> untuk memastikan kredensial '
+                'dan alamat kameranya diterima Ezviz.'
+            ),
+        }),
+        ('Status', {'fields': ('status_token', 'updated_at')}),
+    )
+
+    @admin.display(description='Token & region')
+    def status_token(self, obj):
+        baris = EzvizToken.objects.filter(pk=1).first()
+        if not baris or not baris.token:
+            return 'Belum ada token — akan diambil otomatis saat kamera pertama kali diputar.'
+        return format_html(
+            'Berlaku sampai <strong>{}</strong> ({}) · region: {}',
+            baris.expire_at.strftime('%d/%m/%Y %H:%M') if baris.expire_at else '—',
+            'masih berlaku' if baris.masih_berlaku else 'sudah basi, akan diperbarui',
+            baris.area_domain or 'mengikuti Host API',
+        )
+
+    def has_add_permission(self, request):
+        # Baris tunggal: dibuat otomatis saat pertama kali dibuka.
+        return not PengaturanEzviz.objects.exists()
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def changelist_view(self, request, extra_context=None):
+        PengaturanEzviz.objects.get_or_create(pk=1)
+        return super().changelist_view(request, extra_context)
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        if any(f in form.changed_data for f in ('app_key', 'app_secret', 'api_base')):
+            self.message_user(
+                request,
+                'Kredensial berubah — token lama dibuang, token baru diambil otomatis '
+                'saat kamera berikutnya diputar. Jalankan "manage.py cek_ezviz" untuk memastikan.',
+                messages.WARNING,
+            )

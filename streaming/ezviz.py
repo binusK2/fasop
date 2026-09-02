@@ -20,7 +20,7 @@ import requests
 from django.conf import settings
 from django.utils import timezone
 
-from .models import EzvizToken
+from .models import EzvizToken, konfigurasi_ezviz
 
 logger = logging.getLogger(__name__)
 
@@ -60,11 +60,12 @@ class EzvizError(Exception):
 
 def terkonfigurasi():
     """False = appKey/appSecret belum diisi, fitur sumber Ezviz dimatikan total."""
-    return bool(settings.EZVIZ_APP_KEY and settings.EZVIZ_APP_SECRET)
+    konf = konfigurasi_ezviz()
+    return bool(konf.app_key and konf.app_secret)
 
 
 def _url(path, base=None):
-    return (base or settings.EZVIZ_API_BASE).rstrip('/') + path
+    return (base or konfigurasi_ezviz().api_base).rstrip('/') + path
 
 
 def domain_aktif():
@@ -82,7 +83,7 @@ def domain_aktif():
     baris = EzvizToken.objects.filter(pk=1).first()
     if baris and baris.area_domain:
         return baris.area_domain
-    return settings.EZVIZ_API_BASE
+    return konfigurasi_ezviz().api_base
 
 
 def _panggil(path, data, base=None):
@@ -93,7 +94,7 @@ def _panggil(path, data, base=None):
     sebenarnya ada di field `code` ("200" = sukses). Jadi jangan pernah
     menyimpulkan sukses dari resp.ok saja.
     """
-    host = (base or settings.EZVIZ_API_BASE).rstrip('/')
+    host = (base or konfigurasi_ezviz().api_base).rstrip('/')
     try:
         resp = requests.post(_url(path, host), data=data, timeout=settings.EZVIZ_TIMEOUT)
     except requests.RequestException as e:
@@ -123,9 +124,10 @@ def _panggil(path, data, base=None):
 
 
 def _minta_token_baru():
+    konf = konfigurasi_ezviz()
     data = _panggil('/api/lapp/token/get', {
-        'appKey': settings.EZVIZ_APP_KEY,
-        'appSecret': settings.EZVIZ_APP_SECRET,
+        'appKey': konf.app_key,
+        'appSecret': konf.app_secret,
     }) or {}
 
     token = data.get('accessToken')
@@ -150,7 +152,7 @@ def _minta_token_baru():
     baris, _ = EzvizToken.objects.update_or_create(pk=1, defaults=nilai)
     logger.info(
         'Token Ezviz baru diambil, berlaku sampai %s, region %s',
-        expire_at, baris.area_domain or settings.EZVIZ_API_BASE,
+        expire_at, baris.area_domain or konfigurasi_ezviz().api_base,
     )
     return baris.token
 
@@ -165,7 +167,10 @@ def ambil_access_token(paksa_baru=False):
     token terlalu sering bisa kena rate limit endpoint /token/get.
     """
     if not terkonfigurasi():
-        raise EzvizError('EZVIZ_APP_KEY/EZVIZ_APP_SECRET belum diisi di .env')
+        raise EzvizError(
+            'appKey/appSecret Ezviz belum diisi — isi di Admin → Streaming → '
+            'Pengaturan Ezviz, atau lewat EZVIZ_APP_KEY/EZVIZ_APP_SECRET di .env.'
+        )
 
     if not paksa_baru:
         baris = EzvizToken.objects.filter(pk=1).first()

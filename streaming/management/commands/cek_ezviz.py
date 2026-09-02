@@ -20,7 +20,7 @@ from django.conf import settings
 from django.core.management.base import BaseCommand
 
 from streaming import ezviz
-from streaming.models import KameraEzviz
+from streaming.models import KameraEzviz, PengaturanEzviz, konfigurasi_ezviz
 
 
 class Command(BaseCommand):
@@ -47,8 +47,11 @@ class Command(BaseCommand):
                 'EZVIZ_APP_KEY/EZVIZ_APP_SECRET kosong — fitur Ezviz mati total.'
             ))
             return
-        self.stdout.write(f'  appKey        : {settings.EZVIZ_APP_KEY[:6]}… ({len(settings.EZVIZ_APP_KEY)} karakter)')
-        self.stdout.write(f'  EZVIZ_API_BASE: {settings.EZVIZ_API_BASE}')
+        konf = konfigurasi_ezviz()
+        baris = PengaturanEzviz.ambil()
+        sumber = 'Admin → Pengaturan Ezviz' if baris.app_key else '.env'
+        self.stdout.write(f'  appKey        : {konf.app_key[:6]}… ({len(konf.app_key)} karakter, dari {sumber})')
+        self.stdout.write(f'  Host API      : {konf.api_base}')
 
         self._bagian('Token & region')
         try:
@@ -59,7 +62,7 @@ class Command(BaseCommand):
         domain = ezviz.domain_aktif()
         self.stdout.write(self.style.SUCCESS(f'  accessToken   : {token[:12]}… (berhasil)'))
         self.stdout.write(f'  domain region : {domain}')
-        if domain != settings.EZVIZ_API_BASE:
+        if domain != konf.api_base:
             self.stdout.write(
                 '  catatan       : region ini datang dari Ezviz (areaDomain), '
                 'bukan dari EZVIZ_API_BASE — dan region inilah yang dipakai.'

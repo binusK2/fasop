@@ -427,6 +427,33 @@ menyiar. Sebelumnya tombol akhiri hanya ada di overlay video dan baru muncul
 setelah siaran jalan — teknisi yang halamannya ter-refresh benar-benar tidak
 punya cara menutup sesinya sendiri.
 
+### Kredensial: `.env` atau halaman admin
+
+`streaming.models.konfigurasi_ezviz()` adalah **satu-satunya** sumber nilai
+efektif appKey/appSecret/host — jangan membaca `settings.EZVIZ_*` langsung,
+kalau tidak perubahan dari halaman admin akan diam-diam diabaikan di satu
+jalur. Urutannya: baris `PengaturanEzviz` (pk=1, disunting di **Admin →
+Streaming → Pengaturan Ezviz**) → `.env`. Kolom yang DIKOSONGKAN jatuh ke
+`.env`, jadi pemasangan lama tidak berubah perilakunya.
+
+Gunanya bukan sekadar kenyamanan: mengganti kredensial jadi tidak butuh akses
+SSH, dan halamannya menampilkan masa berlaku token beserta region yang sedang
+dipakai.
+
+Dua hal yang menjaganya tidak menyesatkan:
+
+- **Mengganti kredensial membuang token lama.** Token berumur ~7 hari; tanpa
+  dibuang, token milik akun sebelumnya tetap dipakai seminggu penuh dan
+  perubahan di halaman itu terlihat "tidak berpengaruh".
+- **Barisnya di-cache per proses `TTL_CACHE` detik**, seperti
+  `opsis.ModePemeliharaan.status()`. Host ezopen dirakit per kamera per poll
+  Multi View — satu query per pemanggilan akan terasa.
+
+**appKey & appSecret TIDAK kedaluwarsa.** Yang berumur ~7 hari adalah
+`accessToken`, dan `ambil_access_token()` sudah memperbaruinya sendiri dengan
+margin 1 jam. Kalau ada gejala "berhenti jalan setelah seminggu", periksa
+pembaruan token itu — bukan kredensialnya.
+
 ### Klien Ezviz (`streaming/ezviz.py`)
 
 Satu-satunya tempat FASOP bicara HTTP ke `open.ys7.com`. Dua hal yang menjaga

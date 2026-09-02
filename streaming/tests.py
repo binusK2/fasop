@@ -20,7 +20,9 @@ from .models import (
     KameraEzviz,
     LiveSession,
     LiveViewerHeartbeat,
+    PengaturanEzviz,
     host_ezopen,
+    konfigurasi_ezviz,
 )
 from .views import mediamtx_record_webhook
 
@@ -196,6 +198,83 @@ class SinkronKameraEzvizTests(TestCase):
         ]):
             ezviz.sinkron_kamera()
         self.assertEqual(KameraEzviz.objects.filter(serial='NVR1').count(), 2)
+
+
+class PengaturanEzvizTests(TestCase):
+    """
+    Kredensial bisa diisi dari halaman admin, tapi .env tetap jadi cadangan —
+    pemasangan lama yang sudah mengisi .env tidak boleh berubah perilakunya
+    hanya karena model ini ada.
+    """
+
+    def setUp(self):
+        PengaturanEzviz.kosongkan_cache()
+
+    def tearDown(self):
+        PengaturanEzviz.kosongkan_cache()
+
+    @override_settings(EZVIZ_APP_KEY='dari-env', EZVIZ_APP_SECRET='rahasia-env',
+                       EZVIZ_API_BASE='https://open.ys7.com')
+    def test_tanpa_baris_pengaturan_jatuh_ke_env(self):
+        konf = konfigurasi_ezviz()
+        self.assertEqual(konf.app_key, 'dari-env')
+        self.assertEqual(konf.api_base, 'https://open.ys7.com')
+
+    @override_settings(EZVIZ_APP_KEY='dari-env', EZVIZ_APP_SECRET='rahasia-env',
+                       EZVIZ_API_BASE='https://open.ys7.com')
+    def test_baris_pengaturan_menimpa_env(self):
+        PengaturanEzviz(app_key='dari-admin', api_base='https://isgpopen.ezvizlife.com').save()
+        konf = konfigurasi_ezviz()
+        self.assertEqual(konf.app_key, 'dari-admin')
+        self.assertEqual(konf.api_base, 'https://isgpopen.ezvizlife.com')
+        # Kolom yang dikosongkan tetap jatuh ke .env, tidak jadi string kosong.
+        self.assertEqual(konf.app_secret, 'rahasia-env')
+
+    @override_settings(EZVIZ_APP_KEY='', EZVIZ_APP_SECRET='')
+    def test_host_ezopen_ikut_pengaturan_admin(self):
+        PengaturanEzviz(api_base='https://isgpopen.ezvizlife.com').save()
+        self.assertEqual(host_ezopen(), 'open.ezviz.com')
+
+    def test_ganti_kredensial_membuang_token_lama(self):
+        """
+        Token berumur ~7 hari. Tanpa dibuang, token milik akun sebelumnya tetap
+        dipakai sampai seminggu dan perubahan di halaman admin terlihat
+        "tidak berpengaruh".
+        """
+        EzvizToken.objects.create(pk=1, token='at.lama',
+                                  expire_at=timezone.now() + timezone.timedelta(days=5))
+        PengaturanEzviz(app_key='baru', app_secret='baru').save()
+        self.assertFalse(EzvizToken.objects.exists())
+
+    def test_menyimpan_tanpa_mengubah_kredensial_tidak_membuang_token(self):
+        PengaturanEzviz(app_key='tetap', app_secret='tetap').save()
+        EzvizToken.objects.create(pk=1, token='at.masih',
+                                  expire_at=timezone.now() + timezone.timedelta(days=5))
+        baris = PengaturanEzviz.objects.get(pk=1)
+        baris.ezopen_host = 'open.ezviz.com'
+        baris.save()
+        self.assertTrue(EzvizToken.objects.exists())
+
+    def test_halaman_admin_terbuka_dan_menyembunyikan_secret(self):
+        """Menjaga konfigurasi admin (fieldsets/readonly/form) tetap sah."""
+        admin_user = User.objects.create_superuser('adminuji', 'a@b.c', 'rahasia123')
+        UserProfile.objects.update_or_create(
+            user=admin_user, defaults={'role': 'technician', 'force_password_change': False},
+        )
+        PengaturanEzviz(app_key='kunci', app_secret='rahasia-sekali').save()
+        self.client.force_login(admin_user)
+        resp = self.client.get('/secure-panel/streaming/pengaturanezviz/1/change/')
+        self.assertEqual(resp.status_code, 200)
+        isi = resp.content.decode()
+        self.assertIn('type="password"', isi)
+        # appSecret tidak boleh terbaca sebagai teks biasa di halaman.
+        self.assertNotIn('>rahasia-sekali<', isi)
+
+    def test_selalu_satu_baris(self):
+        PengaturanEzviz(app_key='a').save()
+        PengaturanEzviz(app_key='b').save()
+        self.assertEqual(PengaturanEzviz.objects.count(), 1)
+        self.assertEqual(PengaturanEzviz.objects.get().app_key, 'b')
 
 
 class AksesEzvizTests(TestCase):

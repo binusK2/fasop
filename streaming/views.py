@@ -150,7 +150,7 @@ def session_detail(request, pk):
     # persis untuk semua orang — tidak ada yang mem-publish video dari
     # browsernya, jadi tidak ada logika kamera lokal yang perlu dipisah.
     if session.is_ezviz:
-        context['ezviz_domain'] = settings.EZVIZ_API_BASE
+        context['ezviz_domain'] = ezviz.domain_aktif()
         # Alamat sub-stream disertakan sebagai cadangan: stream utama bisa
         # H.265, dan decoder perangkat lunak yang tersisa di browser tanpa
         # cross-origin isolation tidak bisa mendekodenya — gejalanya "memuat"
@@ -330,7 +330,7 @@ def session_grid(request):
     return render(request, 'streaming/grid.html', {
         'whep_url': settings.MEDIAMTX_WHEP_URL,
         'ice_servers_json': settings.WEBRTC_ICE_SERVERS,
-        'ezviz_domain': settings.EZVIZ_API_BASE,
+        'ezviz_domain': ezviz.domain_aktif(),
         'maks_tile': GRID_MAKS_TILE,
     })
 
