@@ -109,6 +109,8 @@ salinan logika pemutar yang harus dijaga tetap sama.
 <script src="{% static 'streaming/ezviz-player.js' %}"></script>
 <script>
 const TOKEN_URL     = '{% url "streaming:ezviz_token" %}';
+const URL_EZUIKIT       = '{% static "streaming/ezuikit.js" %}';
+const URL_EZVIZ_PLAYER  = '{% static "streaming/ezviz-player.js" %}';
 const EZOPEN_URL    = '{{ session.ezopen_url }}';
 const EZVIZ_DOMAIN  = '{{ ezviz_domain }}';
 const STATUS_URL    = '{% url "streaming:status" pk=session.pk %}';
@@ -135,19 +137,36 @@ let statusPollTimer = null, heartbeatTimer = null;
 
 /**
  * Pemutar Ezviz bergantung pada dua berkas statis (ezuikit.js sendiri ~4 MB).
- * Kalau salah satunya tidak terserve — paling sering karena `collectstatic`
- * belum dijalankan setelah deploy — satu-satunya jejak yang muncul adalah
- * "buatPemutarEzviz is not defined" di console, sementara halamannya diam
- * saja. Diperiksa lebih dulu supaya penyebabnya terbaca oleh orang yang
- * membuka halaman, bukan hanya oleh yang membuka devtools.
+ * Kalau salah satunya tidak terserve, satu-satunya jejak yang muncul adalah
+ * "buatPemutarEzviz is not defined" di console sementara halamannya diam saja.
+ *
+ * Statusnya DIAMBIL ULANG lewat HEAD, bukan sekadar dilaporkan "gagal": tanpa
+ * itu, penyebab yang berbeda-beda (belum di-collectstatic, path /static/ salah
+ * di nginx, izin berkas, atau berkas 4 MB yang terpotong di tengah jalan)
+ * tampak persis sama dari layar, dan menebaknya berarti menyuruh orang
+ * menjalankan perintah yang tidak menyelesaikan apa pun.
  */
-function periksaBerkasPemutar() {
+async function periksaBerkasPemutar() {
     const kurang = [];
-    if (typeof EZUIKit === 'undefined') kurang.push('streaming/ezuikit.js');
-    if (typeof buatPemutarEzviz !== 'function') kurang.push('streaming/ezviz-player.js');
+    if (typeof EZUIKit === 'undefined') kurang.push(['streaming/ezuikit.js', URL_EZUIKIT]);
+    if (typeof buatPemutarEzviz !== 'function') kurang.push(['streaming/ezviz-player.js', URL_EZVIZ_PLAYER]);
     if (!kurang.length) return '';
-    return 'Berkas pemutar Ezviz gagal dimuat (' + kurang.join(', ') + '). '
-        + 'Di server: jalankan "python manage.py collectstatic --noinput" lalu restart gunicorn.';
+
+    const detail = [];
+    for (const [nama, url] of kurang) {
+        let status;
+        try {
+            const resp = await fetch(url, { method: 'HEAD', cache: 'no-store' });
+            status = 'HTTP ' + resp.status;
+        } catch (e) {
+            status = 'tidak bisa dihubungi';
+        }
+        detail.push(nama + ' -> ' + status);
+    }
+    return 'Berkas pemutar Ezviz gagal dimuat: ' + detail.join('; ')
+        + '. 404 = berkas tidak ada di /static/ (collectstatic / alias nginx); '
+        + '403 = izin berkas di staticfiles/; '
+        + '200 = berkas terkirim tapi tidak bisa dijalankan (kemungkinan terpotong di proxy — periksa console).';
 }
 
 function ukuranPemutar() {
@@ -164,7 +183,7 @@ async function mulaiPemutar() {
         overlay.textContent = 'Sesi sudah berakhir.';
         return;
     }
-    const berkasKurang = periksaBerkasPemutar();
+    const berkasKurang = await periksaBerkasPemutar();
     if (berkasKurang) {
         overlay.textContent = berkasKurang;
         return;
