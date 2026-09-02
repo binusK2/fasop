@@ -351,6 +351,13 @@ EZVIZ_APP_SECRET = config('EZVIZ_APP_SECRET', default='')
 EZVIZ_API_BASE   = config('EZVIZ_API_BASE',   default='https://open.ys7.com')
 EZVIZ_TIMEOUT    = config('EZVIZ_TIMEOUT',    default=10, cast=int)
 
+# Host yang ditulis DI DALAM alamat ezopen:// (bukan host API). Dokumentasi
+# Ezviz selalu memakai open.ys7.com dan itu yang jadi bawaan, tapi seluruh
+# platform ini terikat region — kalau server menolaknya dengan
+# "illegal parameter ezopen", `manage.py cek_ezviz` akan menyebutkan host mana
+# yang diterima dan nilainya diisikan ke sini.
+EZVIZ_EZOPEN_HOST = config('EZVIZ_EZOPEN_HOST', default='open.ys7.com')
+
 # ── Arsip laporan inspeksi harian (cron export_inspeksi_harian jam 12.00) ──
 # Folder tujuan file Excel harian. Di server Linux ini harus berupa path yang
 # sudah di-mount, mis. share //192.168.77.5/fasop di-mount ke /mnt/fasop lalu

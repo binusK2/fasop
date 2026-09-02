@@ -311,6 +311,9 @@ EZVIZ_APP_SECRET=             # appSecret-nya
 EZVIZ_API_BASE=https://open.ys7.com   # ganti kalau akun terdaftar di region lain
                                        # (mis. https://isgpopen.ezvizlife.com untuk Singapura)
 EZVIZ_TIMEOUT=10
+EZVIZ_EZOPEN_HOST=open.ys7.com   # host DI DALAM alamat ezopen:// (bukan host API).
+                                  # Ganti hanya kalau `manage.py cek_ezviz` bilang
+                                  # host lain yang diterima server.
 ```
 
 Changing `SECRET_KEY` in production invalidates all Hashids-encoded URLs and active sessions.
