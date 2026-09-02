@@ -1,9 +1,9 @@
 import secrets
 
-from django.db.models import Q
-
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.db import models
+from django.db.models import Q
 from django.utils import timezone
 
 
@@ -92,14 +92,20 @@ class KameraEzviz(models.Model):
     def ezopen_url(self):
         """
         Alamat ezopen:// yang dimakan EZUIKitPlayer di browser.
-        Format live: ezopen://open.ys7.com/{serial}/{channel}.live
+        Format live: ezopen://<host>/{serial}/{channel}.live
         (varian HD menyisipkan ".hd" sebelum ".live").
-        Host di URL ini SELALU open.ys7.com walau akun ada di region lain —
-        region ditentukan lewat `env.domain` yang dikirim terpisah ke player
-        (lihat settings.EZVIZ_API_BASE), bukan lewat host di sini.
+
+        Host-nya dari settings.EZVIZ_EZOPEN_HOST, bawaannya open.ys7.com
+        sesuai dokumentasi Ezviz. Dibuat bisa diganti karena seluruh platform
+        ini terikat region, dan host yang tidak diterima ditolak server dengan
+        "illegal parameter ezopen" — pesan yang tidak menyebut apa pun, jadi
+        satu-satunya cara menemukannya adalah mencoba: `manage.py cek_ezviz`.
+
+        Ini BUKAN host API; region API ditentukan terpisah lewat areaDomain
+        (lihat streaming.ezviz.domain_aktif).
         """
         mutu = 'hd.live' if self.hd else 'live'
-        return f'ezopen://open.ys7.com/{self.serial}/{self.channel}.{mutu}'
+        return f'ezopen://{settings.EZVIZ_EZOPEN_HOST}/{self.serial}/{self.channel}.{mutu}'
 
 
 class EzvizToken(models.Model):

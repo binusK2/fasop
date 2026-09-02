@@ -361,6 +361,16 @@ class AlamatEzopenTests(TestCase):
             ezviz.sinkron_kamera()
         self.assertTrue(KameraEzviz.objects.filter(serial='BD3957004').exists())
 
+    @override_settings(EZVIZ_EZOPEN_HOST='isgpopen.ezvizlife.com')
+    def test_host_ezopen_bisa_diganti_per_region(self):
+        """
+        Host di dalam alamat ezopen bukan host API, dan yang tidak diterima
+        ditolak server sebagai "illegal parameter ezopen" tanpa keterangan —
+        jadi harus bisa diganti tanpa mengubah kode.
+        """
+        k = KameraEzviz(nama='A', serial='BF5628809', channel=1, hd=False)
+        self.assertEqual(k.ezopen_url, 'ezopen://isgpopen.ezvizlife.com/BF5628809/1.live')
+
     def test_hd_menyisipkan_penanda_kualitas(self):
         hd = KameraEzviz(nama='A', serial='BD3957004', channel=1, hd=True)
         sd = KameraEzviz(nama='B', serial='BD3957004', channel=3, hd=False)
