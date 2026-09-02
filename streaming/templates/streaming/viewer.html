@@ -53,7 +53,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'streaming/webrtc.js' %}"></script>
+<script data-cfasync="false" src="{% static 'streaming/webrtc.js' %}"></script>
 <script>
 const ICE_SERVERS = JSON.parse('{{ ice_servers_json|escapejs }}');
 const WHEP_URL     = '{{ whep_url }}';

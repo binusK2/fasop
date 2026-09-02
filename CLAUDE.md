@@ -549,6 +549,22 @@ console sementara halamannya diam saja. `periksaBerkasPemutar()` di
 `ezviz.html` & `grid.html` menangkap itu, lalu **mengambil ulang URL-nya lewat
 HEAD dan menampilkan status HTTP-nya**.
 
+**Skrip pemutar tidak boleh diasumsikan sudah dieksekusi** saat skrip inline
+halaman berjalan. `<script src>` biasa memang berurutan, tapi jaminan itu
+hilang kalau ada optimizer di depan aplikasi yang mengubahnya jadi pemuatan
+asinkron — Cloudflare Rocket Loader (dan FASOP memang di belakang Cloudflare)
+melakukan persis itu. Gejalanya menyesatkan: berkas terkirim utuh, HTTP 200,
+content-type benar, ukuran byte tepat, tapi globalnya belum ada. Karena itu
+semua `<script>` streaming diberi `data-cfasync="false"` (opt-out resmi Rocket
+Loader per tag) DAN `tungguBerkasPemutar()` menunggu globalnya muncul sampai
+15 detik sebelum menyerah.
+
+Halaman siaran lama tidak pernah menunjukkan gejala ini karena baru memanggil
+fungsi `webrtc.js` setelah teknisi menekan tombol — jeda itu sudah cukup, dan
+`viewer.html` kebetulan tertolong oleh retry 4 detiknya. Halaman Ezviz
+memanggilnya begitu halaman dibuka, jadi ia yang pertama kali membongkar
+masalah ini.
+
 Statusnya penting, bukan hiasan: `collectstatic` yang belum jalan, `alias
 /static/` nginx yang salah, izin berkas, dan berkas 4 MB yang terpotong di
 proxy semuanya tampak identik dari layar (404 / 403 / 200-tapi-tidak-jalan),

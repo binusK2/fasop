@@ -68,9 +68,9 @@ body.wall-focus .page-content { padding:10px !important; max-width:none; }
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'streaming/webrtc.js' %}"></script>
-<script src="{% static 'streaming/ezuikit.js' %}"></script>
-<script src="{% static 'streaming/ezviz-player.js' %}"></script>
+<script data-cfasync="false" src="{% static 'streaming/webrtc.js' %}"></script>
+<script data-cfasync="false" src="{% static 'streaming/ezuikit.js' %}"></script>
+<script data-cfasync="false" src="{% static 'streaming/ezviz-player.js' %}"></script>
 <script>
 const API_URL      = '{% url "streaming:api_live_sessions" %}';
 const TOKEN_URL    = '{% url "streaming:ezviz_token" %}';
@@ -111,7 +111,46 @@ let idFokus = null;
  * tampak persis sama dari layar, dan menebaknya berarti menyuruh orang
  * menjalankan perintah yang tidak menyelesaikan apa pun.
  */
-async function periksaBerkasPemutar() {
+function berkasPemutarSiap() {
+    return typeof EZUIKit !== 'undefined' && typeof buatPemutarEzviz === 'function';
+}
+
+/**
+ * Tunggu sampai kedua berkas pemutar benar-benar DIEKSEKUSI, bukan sekadar
+ * sampai baris ini tercapai.
+ *
+ * `<script src>` biasa memang dijamin berurutan, tapi jaminan itu hilang
+ * kalau ada optimizer di depan aplikasi yang mengubahnya jadi pemuatan
+ * asinkron — Cloudflare Rocket Loader melakukan persis itu. Gejalanya
+ * menyesatkan: berkasnya terkirim utuh dengan HTTP 200 dan content-type yang
+ * benar, tapi globalnya belum ada saat skrip inline ini jalan.
+ *
+ * Halaman siaran lama tidak pernah terkena karena baru memanggil fungsi dari
+ * webrtc.js SETELAH teknisi menekan tombol — jeda itu sudah cukup. Halaman
+ * Ezviz memanggilnya begitu halaman dibuka, jadi harus menunggu sendiri.
+ */
+async function tungguBerkasPemutar(maksMs) {
+    const mulai = Date.now();
+    while (!berkasPemutarSiap() && Date.now() - mulai < (maksMs || 15000)) {
+        await new Promise((r) => setTimeout(r, 100));
+    }
+    return berkasPemutarSiap();
+}
+
+/**
+ * Hasilnya dibagi satu kali per halaman (Promise, bukan nilai) — Multi View
+ * memanggil ini sekali per kotak, dan tanpa berbagi, sembilan kotak akan
+ * masing-masing menunggu batas waktu penuh secara berurutan.
+ */
+let _cekBerkasPemutar = null;
+function periksaBerkasPemutar() {
+    if (!_cekBerkasPemutar) _cekBerkasPemutar = _periksaBerkasPemutar();
+    return _cekBerkasPemutar;
+}
+
+async function _periksaBerkasPemutar() {
+    if (await tungguBerkasPemutar()) return '';
+
     const kurang = [];
     if (typeof EZUIKit === 'undefined') kurang.push(['streaming/ezuikit.js', URL_EZUIKIT]);
     if (typeof buatPemutarEzviz !== 'function') kurang.push(['streaming/ezviz-player.js', URL_EZVIZ_PLAYER]);
@@ -139,6 +178,9 @@ async function periksaBerkasPemutar() {
         + ' — diawali "<!DOCTYPE" berarti yang terkirim halaman HTML, bukan berkas JS;'
         + ' byte jauh lebih kecil dari ukuran aslinya berarti terpotong di proxy;'
         + ' content-type bukan javascript berarti browser menolak menjalankannya.'
+        + ' Kalau semuanya terlihat benar (200, javascript, byte penuh), berkasnya'
+        + ' kemungkinan dieksekusi asinkron oleh optimizer di depan aplikasi'
+        + ' (mis. Cloudflare Rocket Loader) — matikan untuk domain ini.'
         + ' Pesan aslinya ada di console browser.';
 }
 

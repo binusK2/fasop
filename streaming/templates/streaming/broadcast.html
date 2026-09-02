@@ -111,7 +111,7 @@ body.streaming-focus .page-content { padding: 16px !important; max-width: 960px;
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'streaming/webrtc.js' %}"></script>
+<script data-cfasync="false" src="{% static 'streaming/webrtc.js' %}"></script>
 <script>
 const ICE_SERVERS   = JSON.parse('{{ ice_servers_json|escapejs }}');
 const WHIP_URL       = '{{ whip_url }}';
