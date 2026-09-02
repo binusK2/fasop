@@ -478,8 +478,16 @@ Konsekuensinya nyata: satu stream utama 2K/4MP saja berat, sembilan sekaligus
 tidak akan pernah mengejar — dan gejalanya bukan error melainkan kotak yang
 memuat selamanya. Karena itu **Multi View selalu memakai sub-stream**
 (`KameraEzviz.ezopen_url_sd`), stream utama hanya di halaman sesi tunggal.
-Sama seperti cara kerja dinding CCTV sungguhan. Kalau satu kamera pun berat,
-matikan centang **Putar Kualitas HD**-nya di Admin.
+Sama seperti cara kerja dinding CCTV sungguhan.
+
+**"Stream terbuka" dan "gambar muncul" adalah dua hal berbeda.** Kalau stream
+utama memakai H.265 sementara yang tersedia cuma decoder V1, pemutaran terbuka
+mulus (`PlayM4_Play mpRet:00000000`) lalu diam tanpa satu frame pun — tanpa
+error apa pun, hanya "memuat, harap tunggu" selamanya. Halaman sesi karena itu
+menunggu `handleSuccess` selama `BATAS_FRAME_PERTAMA_MS` (12 detik), lalu
+pindah sendiri ke sub-stream, dan kalau itu pun diam barulah menyimpulkan
+codec-nya yang tidak didukung. Jangan mengandalkan `handleError` untuk kasus
+ini: SDK tidak pernah melaporkannya sebagai error.
 
 **Pemutar dimulai tanpa suara.** Browser memblokir autoplay bersuara sampai
 ada interaksi pengguna, dan pemutar yang menunggu izin audio bisa tertahan di

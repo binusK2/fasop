@@ -151,6 +151,11 @@ def session_detail(request, pk):
     # browsernya, jadi tidak ada logika kamera lokal yang perlu dipisah.
     if session.is_ezviz:
         context['ezviz_domain'] = settings.EZVIZ_API_BASE
+        # Alamat sub-stream disertakan sebagai cadangan: stream utama bisa
+        # H.265, dan decoder perangkat lunak yang tersisa di browser tanpa
+        # cross-origin isolation tidak bisa mendekodenya — gejalanya "memuat"
+        # selamanya, bukan error (lihat catatan di KameraEzviz.ezopen_url_sd).
+        context['ezopen_url_sd'] = session.kamera.ezopen_url_sd if session.kamera_id else ''
         return render(request, 'streaming/ezviz.html', context)
 
     if is_broadcaster:

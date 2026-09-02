@@ -56,6 +56,10 @@ function ezvizToken(tokenUrl) {
  *                dengan 9 kamera bersuara sekaligus tidak bisa didengarkan)
  *   template   — tema EZUIKit ('simple' polos, 'pcLive' lengkap dengan tombol)
  *   onError    — dipanggil dengan pesan siap-tampil kalau gagal
+ *   onSukses   — dipanggil saat pemutaran BENAR-BENAR mulai. Dibutuhkan karena
+ *                "stream terbuka" dan "gambar muncul" adalah dua hal berbeda:
+ *                stream bisa terbuka mulus lalu diam tanpa frame kalau
+ *                codec-nya tidak didukung decoder yang tersedia di browser.
  */
 async function buatPemutarEzviz(containerId, opts) {
     const data = await ezvizToken(opts.tokenUrl);
@@ -76,6 +80,9 @@ async function buatPemutarEzviz(containerId, opts) {
         // host yang sama dengan yang menerbitkan tokennya.
         env: { domain: data.domain || opts.domain || 'https://open.ys7.com' },
         loggerOptions: { level: 'ERROR', name: 'ezuikit' },
+        handleSuccess: () => {
+            if (opts.onSukses) opts.onSukses();
+        },
         handleError: (err) => {
             console.error('EZUIKit error', err, opts.url);
             if (opts.onError) opts.onError(pesanErrorEzviz(err, opts.url));
