@@ -1,6 +1,9 @@
 import secrets
+import time
+from types import SimpleNamespace
 
 from django.conf import settings
+from django.db.utils import OperationalError, ProgrammingError
 from django.contrib.auth.models import User
 from django.db import models
 from django.db.models import Q
@@ -24,9 +27,10 @@ def host_ezopen():
     `EZVIZ_EZOPEN_HOST` tetap ada untuk menimpanya kalau suatu saat ada region
     yang tidak mengikuti pola ini — `manage.py cek_ezviz` yang menemukannya.
     """
-    if settings.EZVIZ_EZOPEN_HOST:
-        return settings.EZVIZ_EZOPEN_HOST
-    return 'open.ys7.com' if 'ys7.com' in settings.EZVIZ_API_BASE else 'open.ezviz.com'
+    konf = konfigurasi_ezviz()
+    if konf.ezopen_host:
+        return konf.ezopen_host
+    return 'open.ys7.com' if 'ys7.com' in konf.api_base else 'open.ezviz.com'
 
 
 def _gen_token():
@@ -54,6 +58,106 @@ PUBLISHER_ABANDON_SECONDS = 300
 NEVER_STARTED_ABANDON_SECONDS = 1800
 
 
+class PengaturanEzviz(models.Model):
+    """
+    Satu baris (pk=1) berisi kredensial & endpoint Ezviz, disunting dari site
+    admin supaya kredensial bisa diganti tanpa akses SSH ke server.
+
+    `.env` tetap jadi cadangan: kolom yang DIKOSONGKAN di sini jatuh ke
+    setting-nya masing-masing. Jadi pemasangan lama yang sudah mengisi .env
+    tidak berubah perilakunya sama sekali sampai ada yang benar-benar mengisi
+    baris ini.
+
+    Yang dikonfigurasi di sini cuma kredensial akun. Daftar kameranya tetap
+    di KameraEzviz, dan accessToken tetap diurus sendiri oleh
+    streaming.ezviz — token berumur ~7 hari dan diperbarui otomatis; appKey
+    dan appSecret sendiri TIDAK kedaluwarsa.
+    """
+    app_key    = models.CharField(max_length=128, blank=True, verbose_name='appKey',
+                                  help_text='Dari console Ezviz Open Platform. Kosong = pakai EZVIZ_APP_KEY di .env.')
+    app_secret = models.CharField(max_length=128, blank=True, verbose_name='appSecret',
+                                  help_text='Kosong = pakai EZVIZ_APP_SECRET di .env.')
+    api_base   = models.CharField(max_length=200, blank=True, verbose_name='Host API',
+                                  help_text='Mis. https://isgpopen.ezvizlife.com. Kosong = pakai EZVIZ_API_BASE di .env. '
+                                            'Region persisnya tetap ditentukan Ezviz sendiri lewat areaDomain.')
+    ezopen_host = models.CharField(max_length=200, blank=True, verbose_name='Host di alamat ezopen',
+                                   help_text='Kosong = disimpulkan otomatis (open.ys7.com untuk platform Tiongkok, '
+                                             'open.ezviz.com untuk yang lain). Isi hanya kalau manage.py cek_ezviz '
+                                             'menemukan host lain yang diterima.')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    # Dibaca berkali-kali per permintaan (host ezopen dirakit per kamera per
+    # poll Multi View), jadi hasilnya di-cache per proses seperti
+    # opsis.ModePemeliharaan.status() — bukan query per pemanggilan.
+    TTL_CACHE = 30
+    _cache = None
+    _cache_pada = 0.0
+
+    class Meta:
+        verbose_name = 'Pengaturan Ezviz'
+        verbose_name_plural = 'Pengaturan Ezviz'
+
+    def __str__(self):
+        return 'Pengaturan Ezviz'
+
+    @classmethod
+    def ambil(cls):
+        """Baris pk=1 (atau instance kosong kalau belum ada), di-cache TTL_CACHE detik."""
+        sekarang = time.monotonic()
+        if cls._cache is not None and sekarang - cls._cache_pada < cls.TTL_CACHE:
+            return cls._cache
+        try:
+            baris = cls.objects.filter(pk=1).first() or cls()
+        except (OperationalError, ProgrammingError):
+            # Tabelnya belum ada (mis. saat migrate pertama) — jangan sampai
+            # ini menghalangi manage.py apa pun.
+            baris = cls()
+        cls._cache = baris
+        cls._cache_pada = sekarang
+        return baris
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        for field in ('app_key', 'app_secret', 'api_base', 'ezopen_host'):
+            nilai = getattr(self, field)
+            setattr(self, field, (nilai or '').strip())
+
+        # Kredensial berubah = token lama tidak lagi sah. Kalau tidak dibuang,
+        # token milik akun sebelumnya tetap dipakai sampai ~7 hari ke depan dan
+        # perubahan di halaman ini terlihat "tidak berpengaruh".
+        lama = PengaturanEzviz.objects.filter(pk=1).first()
+        kredensial_berubah = lama is None or (
+            lama.app_key != self.app_key
+            or lama.app_secret != self.app_secret
+            or lama.api_base != self.api_base
+        )
+        super().save(*args, **kwargs)
+        if kredensial_berubah:
+            EzvizToken.objects.filter(pk=1).delete()
+        type(self).kosongkan_cache()
+
+    @classmethod
+    def kosongkan_cache(cls):
+        cls._cache = None
+        cls._cache_pada = 0.0
+
+
+def konfigurasi_ezviz():
+    """
+    Nilai efektif kredensial & endpoint Ezviz: baris PengaturanEzviz kalau
+    diisi, kalau tidak jatuh ke .env. Satu-satunya sumber yang boleh dibaca
+    kode lain — jangan membaca settings.EZVIZ_* langsung, kalau tidak
+    perubahan dari halaman admin akan diam-diam diabaikan di satu jalur.
+    """
+    baris = PengaturanEzviz.ambil()
+    return SimpleNamespace(
+        app_key=baris.app_key or settings.EZVIZ_APP_KEY,
+        app_secret=baris.app_secret or settings.EZVIZ_APP_SECRET,
+        api_base=baris.api_base or settings.EZVIZ_API_BASE,
+        ezopen_host=baris.ezopen_host or settings.EZVIZ_EZOPEN_HOST,
+    )
+
+
 class KameraEzviz(models.Model):
     """
     Satu kamera CCTV Ezviz yang boleh dipakai sebagai sumber sesi live.
@@ -73,6 +177,14 @@ class KameraEzviz(models.Model):
     channel    = models.PositiveSmallIntegerField(default=1, verbose_name='Channel', help_text='Nomor channel kamera. NVR punya banyak channel; kamera tunggal biasanya 1.')
     lokasi     = models.CharField(max_length=150, blank=True, verbose_name='Lokasi / Gardu Induk')
     hd         = models.BooleanField(default=True, verbose_name='Putar Kualitas HD', help_text='Nonaktifkan kalau jaringan lokasi lemah — kualitas turun, tapi lebih jarang buffering.')
+    kode_verifikasi = models.CharField(
+        max_length=32, blank=True, verbose_name='Kode Verifikasi Perangkat',
+        help_text=(
+            'Wajib diisi kalau enkripsi video kamera masih aktif (bawaan pabrik EZVIZ). '
+            'Kodenya tercetak di stiker badan kamera dan terlihat di aplikasi EZVIZ. '
+            'Kosongkan kalau enkripsi sudah dimatikan dari aplikasi EZVIZ.'
+        ),
+    )
     aktif      = models.BooleanField(default=True, verbose_name='Aktif', help_text='Hanya kamera aktif yang muncul di pilihan sumber saat memulai live.')
     keterangan = models.CharField(max_length=250, blank=True, verbose_name='Keterangan')
 
@@ -105,6 +217,10 @@ class KameraEzviz(models.Model):
         # Spasi ikut dibuang karena serial lazim disalin-tempel dari email/WA.
         if self.serial:
             self.serial = self.serial.strip().upper()
+        if self.kode_verifikasi:
+            # Kode verifikasi EZVIZ selalu huruf kapital + angka; disalin dari
+            # stiker kamera, jadi lazim membawa spasi ikut tersalin.
+            self.kode_verifikasi = self.kode_verifikasi.strip().upper()
         # Channel 0 bukan nilai yang sah di Ezviz; kamera tunggal selalu 1.
         if not self.channel:
             self.channel = 1
@@ -122,8 +238,7 @@ class KameraEzviz(models.Model):
         Ini BUKAN host API; region API ditentukan terpisah lewat areaDomain
         (lihat streaming.ezviz.domain_aktif).
         """
-        mutu = 'hd.live' if self.hd else 'live'
-        return f'ezopen://{host_ezopen()}/{self.serial}/{self.channel}.{mutu}'
+        return self._alamat('hd.live' if self.hd else 'live')
 
     @property
     def ezopen_url_sd(self):
@@ -140,7 +255,19 @@ class KameraEzviz(models.Model):
         Ini juga cara kerja dinding CCTV sungguhan: sub-stream di grid, stream
         utama baru saat satu kamera dibuka sendiri.
         """
-        return f'ezopen://{host_ezopen()}/{self.serial}/{self.channel}.live'
+        return self._alamat('live')
+
+    def _alamat(self, mutu):
+        """
+        Rakit satu alamat ezopen, termasuk kode verifikasi kalau ada.
+
+        Bentuk berkode: ezopen://<kode>@host/serial/channel.live — segmen
+        antara "//" dan "@" dibaca EZUIKit sebagai validateCode (terverifikasi
+        di ezuikit.js). Tanpa itu, kamera yang enkripsi videonya masih aktif
+        (bawaan pabrik EZVIZ) berhenti di "perangkat dienkripsi" saat memuat.
+        """
+        awalan = f'{self.kode_verifikasi}@' if self.kode_verifikasi else ''
+        return f'ezopen://{awalan}{host_ezopen()}/{self.serial}/{self.channel}.{mutu}'
 
 
 class EzvizToken(models.Model):

@@ -427,6 +427,33 @@ menyiar. Sebelumnya tombol akhiri hanya ada di overlay video dan baru muncul
 setelah siaran jalan — teknisi yang halamannya ter-refresh benar-benar tidak
 punya cara menutup sesinya sendiri.
 
+### Kredensial: `.env` atau halaman admin
+
+`streaming.models.konfigurasi_ezviz()` adalah **satu-satunya** sumber nilai
+efektif appKey/appSecret/host — jangan membaca `settings.EZVIZ_*` langsung,
+kalau tidak perubahan dari halaman admin akan diam-diam diabaikan di satu
+jalur. Urutannya: baris `PengaturanEzviz` (pk=1, disunting di **Admin →
+Streaming → Pengaturan Ezviz**) → `.env`. Kolom yang DIKOSONGKAN jatuh ke
+`.env`, jadi pemasangan lama tidak berubah perilakunya.
+
+Gunanya bukan sekadar kenyamanan: mengganti kredensial jadi tidak butuh akses
+SSH, dan halamannya menampilkan masa berlaku token beserta region yang sedang
+dipakai.
+
+Dua hal yang menjaganya tidak menyesatkan:
+
+- **Mengganti kredensial membuang token lama.** Token berumur ~7 hari; tanpa
+  dibuang, token milik akun sebelumnya tetap dipakai seminggu penuh dan
+  perubahan di halaman itu terlihat "tidak berpengaruh".
+- **Barisnya di-cache per proses `TTL_CACHE` detik**, seperti
+  `opsis.ModePemeliharaan.status()`. Host ezopen dirakit per kamera per poll
+  Multi View — satu query per pemanggilan akan terasa.
+
+**appKey & appSecret TIDAK kedaluwarsa.** Yang berumur ~7 hari adalah
+`accessToken`, dan `ambil_access_token()` sudah memperbaruinya sendiri dengan
+margin 1 jam. Kalau ada gejala "berhenti jalan setelah seminggu", periksa
+pembaruan token itu — bukan kredensialnya.
+
 ### Klien Ezviz (`streaming/ezviz.py`)
 
 Satu-satunya tempat FASOP bicara HTTP ke `open.ys7.com`. Dua hal yang menjaga
@@ -500,6 +527,19 @@ ke ArrayBuffer dan berhasil) dan `POST .../statistics.do/opensdk_ezuikit 404`
 (telemetri Ezviz). Begitu juga `/api/service/appKey/get` yang 404 + CORS di
 host region — pemutaran tetap lanjut. Yang menandakan stream BENAR-BENAR
 jalan adalah `PlayM4_Play mpRet:00000000` dan `fileHead:49 4d 4b 48` ("IMKH").
+
+**Enkripsi video kamera aktif secara bawaan pabrik.** Selama itu menyala,
+stream hanya bisa diputar kalau kode verifikasi perangkat ikut dikirim di
+alamatnya: `ezopen://<kode>@host/serial/channel.live` — segmen antara `//`
+dan `@` dibaca EZUIKit sebagai `validateCode` (terverifikasi langsung di
+`ezuikit.js`, bukan dari dokumentasi). Kodenya tercetak di stiker badan kamera
+dan terlihat di aplikasi EZVIZ; diisikan di `KameraEzviz.kode_verifikasi`.
+
+Alternatifnya mematikan enkripsi video dari aplikasi EZVIZ, tapi mengisi
+kodenya lebih baik — enkripsi tetap menyala di jalur kamera→cloud. Catatan
+keamanan yang jujur: kode itu ikut terkirim ke browser di dalam alamat ezopen
+(memang begitu cara EZUIKit bekerja), jadi ia hanya sekuat pembatasan halaman
+Live Streaming — Teknisi & AM.
 
 **Huruf pada serial WAJIB kapital.** Ini aturan Ezviz, dan pelanggarannya
 ditolak server dengan `illegal parameter ezopen` (kode 10001) — pesan yang

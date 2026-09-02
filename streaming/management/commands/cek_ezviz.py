@@ -20,7 +20,7 @@ from django.conf import settings
 from django.core.management.base import BaseCommand
 
 from streaming import ezviz
-from streaming.models import KameraEzviz
+from streaming.models import KameraEzviz, PengaturanEzviz, konfigurasi_ezviz
 
 
 class Command(BaseCommand):
@@ -47,8 +47,11 @@ class Command(BaseCommand):
                 'EZVIZ_APP_KEY/EZVIZ_APP_SECRET kosong — fitur Ezviz mati total.'
             ))
             return
-        self.stdout.write(f'  appKey        : {settings.EZVIZ_APP_KEY[:6]}… ({len(settings.EZVIZ_APP_KEY)} karakter)')
-        self.stdout.write(f'  EZVIZ_API_BASE: {settings.EZVIZ_API_BASE}')
+        konf = konfigurasi_ezviz()
+        baris = PengaturanEzviz.ambil()
+        sumber = 'Admin → Pengaturan Ezviz' if baris.app_key else '.env'
+        self.stdout.write(f'  appKey        : {konf.app_key[:6]}… ({len(konf.app_key)} karakter, dari {sumber})')
+        self.stdout.write(f'  Host API      : {konf.api_base}')
 
         self._bagian('Token & region')
         try:
@@ -59,7 +62,7 @@ class Command(BaseCommand):
         domain = ezviz.domain_aktif()
         self.stdout.write(self.style.SUCCESS(f'  accessToken   : {token[:12]}… (berhasil)'))
         self.stdout.write(f'  domain region : {domain}')
-        if domain != settings.EZVIZ_API_BASE:
+        if domain != konf.api_base:
             self.stdout.write(
                 '  catatan       : region ini datang dari Ezviz (areaDomain), '
                 'bukan dari EZVIZ_API_BASE — dan region inilah yang dipakai.'
@@ -131,9 +134,13 @@ class Command(BaseCommand):
         balasan server ini — tidak dari mana pun di UI.
         """
         mutu = ['hd.live', 'live'] if kamera.hd else ['live']
+        # Kode verifikasi ikut disertakan kalau ada — kamera yang enkripsi
+        # videonya masih aktif ditolak tanpa itu, dan hasil uji ini harus sama
+        # dengan yang benar-benar dipakai browser.
+        awalan = f'{kamera.kode_verifikasi}@' if kamera.kode_verifikasi else ''
         for host in hosts:
             for m in mutu:
-                yield host, m, f'ezopen://{host}/{kamera.serial}/{kamera.channel}.{m}'
+                yield host, m, f'ezopen://{awalan}{host}/{kamera.serial}/{kamera.channel}.{m}'
 
     # ── pemanggilan ──────────────────────────────────────────────────
     # Field yang dikirim EZUIKit ke endpoint ini (lihat ezuikit.js: isFlv,
