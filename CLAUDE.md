@@ -464,6 +464,18 @@ modul ini tidak menjadi sumber masalah sendiri:
   token sendiri dan endpoint `/api/lapp/token/get` gampang kena rate limit.
   Token dianggap basi 1 jam sebelum `expire_at` — kalau menunggu benar-benar
   kedaluwarsa, sesi yang sedang diputar mati di tengah jalan.
+- **Kalau pembaruan token GAGAL tapi token lama belum benar-benar habis,
+  token lama tetap dipakai.** Aturan Ezviz: token berlaku 7 hari dan token
+  baru TIDAK membatalkan yang lama, jadi memakai yang lama nol risiko —
+  sedangkan menyerah akan memadamkan semua kamera hanya karena cloud Ezviz
+  tersendat beberapa detik. Margin 1 jam di atas berarti jendela pemulihan itu
+  biasanya masih puluhan menit. Pengecualiannya `paksa_baru=True`, yang
+  dipakai justru karena Ezviz sendiri menolak token itu.
+- Aturan Ezviz yang menjadi dasar keduanya: token berlaku 7 hari dan masa itu
+  tidak bisa diubah; token boleh dipakai ulang selama masih sah; dan tiap
+  token punya siklus 7 hari sendiri sehingga mengambil yang baru tidak
+  membatalkan yang lama (itu pula yang membuat balapan antar-worker aman).
+  **appKey/appSecret sendiri tidak kedaluwarsa.**
 - **Ezviz SELALU membalas HTTP 200** walau operasinya gagal; status sebenarnya
   ada di field `code` (`"200"` = sukses). Jangan pernah menyimpulkan sukses
   dari `resp.ok`.

@@ -418,6 +418,48 @@ class RegionTokenEzvizTests(TestCase):
         self.assertIn('10002', ezviz.KODE_TOKEN_BASI)
 
 
+class TokenTahanGangguanTests(TestCase):
+    """
+    Aturan Ezviz: token berlaku 7 hari, dan token baru TIDAK membatalkan yang
+    lama. Karena `masih_berlaku` memberi margin 1 jam, saat pembaruan gagal
+    token lama biasanya masih sah puluhan menit — memakainya sama sekali tidak
+    berisiko, sedangkan menyerah akan memadamkan semua kamera hanya karena
+    cloud Ezviz tersendat beberapa detik.
+    """
+
+    @override_settings(EZVIZ_APP_KEY='k', EZVIZ_APP_SECRET='s')
+    def test_gagal_memperbarui_tetap_memakai_token_lama_yang_masih_sah(self):
+        EzvizToken.objects.create(
+            pk=1, token='at.lama',
+            # Di dalam margin 1 jam: dianggap perlu diperbarui, tapi BELUM habis.
+            expire_at=timezone.now() + timezone.timedelta(minutes=30),
+        )
+        with mock.patch.object(ezviz, '_minta_token_baru',
+                               side_effect=ezviz.EzvizError('cloud tersendat')):
+            self.assertEqual(ezviz.ambil_access_token(), 'at.lama')
+
+    @override_settings(EZVIZ_APP_KEY='k', EZVIZ_APP_SECRET='s')
+    def test_token_yang_benar_benar_habis_tidak_dipakai_lagi(self):
+        EzvizToken.objects.create(
+            pk=1, token='at.mati', expire_at=timezone.now() - timezone.timedelta(minutes=1),
+        )
+        with mock.patch.object(ezviz, '_minta_token_baru',
+                               side_effect=ezviz.EzvizError('cloud tersendat')):
+            with self.assertRaises(ezviz.EzvizError):
+                ezviz.ambil_access_token()
+
+    @override_settings(EZVIZ_APP_KEY='k', EZVIZ_APP_SECRET='s')
+    def test_paksa_baru_tidak_jatuh_ke_token_lama(self):
+        """paksa_baru dipakai justru KARENA Ezviz menolak token itu."""
+        EzvizToken.objects.create(
+            pk=1, token='at.ditolak', expire_at=timezone.now() + timezone.timedelta(days=5),
+        )
+        with mock.patch.object(ezviz, '_minta_token_baru',
+                               side_effect=ezviz.EzvizError('gagal')):
+            with self.assertRaises(ezviz.EzvizError):
+                ezviz.ambil_access_token(paksa_baru=True)
+
+
 class AlamatEzopenTests(TestCase):
     def test_serial_dinormalkan_jadi_kapital_tanpa_spasi(self):
         """
