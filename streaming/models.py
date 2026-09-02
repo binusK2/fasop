@@ -7,6 +7,28 @@ from django.db.models import Q
 from django.utils import timezone
 
 
+def host_ezopen():
+    """
+    Host yang ditulis DI DALAM alamat `ezopen://` — bukan host API.
+
+    Seluruh dokumentasi Ezviz mencontohkan `open.ys7.com`, dan itu memang
+    benar untuk platform Tiongkok. Platform internasional MENOLAKNYA: server
+    membalas `illegal parameter ezopen` (kode 10001) untuk host itu, dan hanya
+    menerima `open.ezviz.com`. Terbukti di akun region Singapura milik UP2B —
+    5 dari 5 kamera ditolak dengan open.ys7.com maupun host region-nya
+    sendiri, dan diterima semua dengan open.ezviz.com.
+
+    Pesan errornya tidak menyebut host, serial, maupun apa pun yang bisa
+    ditindaklanjuti, jadi menebaknya mahal. Karena itu disimpulkan sendiri di
+    sini dari platform yang dipakai, bukan dibebankan ke orang yang memasang.
+    `EZVIZ_EZOPEN_HOST` tetap ada untuk menimpanya kalau suatu saat ada region
+    yang tidak mengikuti pola ini — `manage.py cek_ezviz` yang menemukannya.
+    """
+    if settings.EZVIZ_EZOPEN_HOST:
+        return settings.EZVIZ_EZOPEN_HOST
+    return 'open.ys7.com' if 'ys7.com' in settings.EZVIZ_API_BASE else 'open.ezviz.com'
+
+
 def _gen_token():
     return secrets.token_urlsafe(24)
 
@@ -95,17 +117,13 @@ class KameraEzviz(models.Model):
         Format live: ezopen://<host>/{serial}/{channel}.live
         (varian HD menyisipkan ".hd" sebelum ".live").
 
-        Host-nya dari settings.EZVIZ_EZOPEN_HOST, bawaannya open.ys7.com
-        sesuai dokumentasi Ezviz. Dibuat bisa diganti karena seluruh platform
-        ini terikat region, dan host yang tidak diterima ditolak server dengan
-        "illegal parameter ezopen" — pesan yang tidak menyebut apa pun, jadi
-        satu-satunya cara menemukannya adalah mencoba: `manage.py cek_ezviz`.
-
+        Host-nya ditentukan `host_ezopen()` (lihat catatan panjang di sana —
+        open.ys7.com untuk platform Tiongkok, open.ezviz.com untuk yang lain).
         Ini BUKAN host API; region API ditentukan terpisah lewat areaDomain
         (lihat streaming.ezviz.domain_aktif).
         """
         mutu = 'hd.live' if self.hd else 'live'
-        return f'ezopen://{settings.EZVIZ_EZOPEN_HOST}/{self.serial}/{self.channel}.{mutu}'
+        return f'ezopen://{host_ezopen()}/{self.serial}/{self.channel}.{mutu}'
 
 
 class EzvizToken(models.Model):

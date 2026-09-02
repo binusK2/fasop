@@ -20,6 +20,7 @@ from .models import (
     KameraEzviz,
     LiveSession,
     LiveViewerHeartbeat,
+    host_ezopen,
 )
 from .views import mediamtx_record_webhook
 
@@ -361,15 +362,27 @@ class AlamatEzopenTests(TestCase):
             ezviz.sinkron_kamera()
         self.assertTrue(KameraEzviz.objects.filter(serial='BD3957004').exists())
 
-    @override_settings(EZVIZ_EZOPEN_HOST='isgpopen.ezvizlife.com')
-    def test_host_ezopen_bisa_diganti_per_region(self):
+    @override_settings(EZVIZ_EZOPEN_HOST='', EZVIZ_API_BASE='https://open.ys7.com')
+    def test_platform_tiongkok_memakai_open_ys7(self):
+        self.assertEqual(host_ezopen(), 'open.ys7.com')
+
+    @override_settings(EZVIZ_EZOPEN_HOST='', EZVIZ_API_BASE='https://isgpopen.ezvizlife.com')
+    def test_platform_internasional_memakai_open_ezviz(self):
         """
-        Host di dalam alamat ezopen bukan host API, dan yang tidak diterima
-        ditolak server sebagai "illegal parameter ezopen" tanpa keterangan —
-        jadi harus bisa diganti tanpa mengubah kode.
+        Terbukti di akun region Singapura UP2B: open.ys7.com (yang dicontohkan
+        SELURUH dokumentasi Ezviz) dan host region-nya sendiri sama-sama
+        ditolak "illegal parameter ezopen"; hanya open.ezviz.com yang
+        diterima, untuk 5 dari 5 kamera.
         """
-        k = KameraEzviz(nama='A', serial='BF5628809', channel=1, hd=False)
-        self.assertEqual(k.ezopen_url, 'ezopen://isgpopen.ezvizlife.com/BF5628809/1.live')
+        self.assertEqual(host_ezopen(), 'open.ezviz.com')
+        k = KameraEzviz(nama='A', serial='BF5628809', channel=1, hd=True)
+        self.assertEqual(k.ezopen_url, 'ezopen://open.ezviz.com/BF5628809/1.hd.live')
+
+    @override_settings(EZVIZ_EZOPEN_HOST='contoh.example.com',
+                       EZVIZ_API_BASE='https://isgpopen.ezvizlife.com')
+    def test_setelan_eksplisit_menimpa_deteksi_otomatis(self):
+        """Jalan keluar kalau ada region yang tidak mengikuti pola ini."""
+        self.assertEqual(host_ezopen(), 'contoh.example.com')
 
     def test_hd_menyisipkan_penanda_kualitas(self):
         hd = KameraEzviz(nama='A', serial='BD3957004', channel=1, hd=True)
