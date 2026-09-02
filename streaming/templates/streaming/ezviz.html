@@ -112,6 +112,7 @@ const TOKEN_URL     = '{% url "streaming:ezviz_token" %}';
 const URL_EZUIKIT       = '{% static "streaming/ezuikit.js" %}';
 const URL_EZVIZ_PLAYER  = '{% static "streaming/ezviz-player.js" %}';
 const EZOPEN_URL    = '{{ session.ezopen_url }}';
+const EZOPEN_URL_SD = '{{ ezopen_url_sd }}';
 const EZVIZ_DOMAIN  = '{{ ezviz_domain }}';
 const STATUS_URL    = '{% url "streaming:status" pk=session.pk %}';
 const HEARTBEAT_URL = '{% url "streaming:heartbeat" pk=session.pk %}';
@@ -224,6 +225,23 @@ function ukuranPemutar() {
     return { width: w, height: Math.round(w * 9 / 16) };
 }
 
+/*
+ * Batas tunggu sebelum menyerah pada stream utama.
+ *
+ * "Stream terbuka" dan "gambar muncul" adalah dua hal berbeda: kalau stream
+ * utama memakai H.265 sementara browser hanya punya decoder perangkat lunak
+ * V1 (tanpa cross-origin isolation, SharedArrayBuffer mati sehingga decoder
+ * yang lebih baru tidak bisa dipakai), pemutaran terbuka mulus lalu diam
+ * tanpa satu frame pun. Tidak ada error yang dilempar — yang terlihat cuma
+ * "memuat, harap tunggu" selamanya. Karena itu batas waktu ini, lalu pindah
+ * ke sub-stream yang lazimnya H.264.
+ */
+const BATAS_FRAME_PERTAMA_MS = 12000;
+
+let sudahAdaGambar = false;
+let urlSedangDiputar = '';
+let timerCadangan = null;
+
 async function mulaiPemutar() {
     if (!EZOPEN_URL) {
         overlay.textContent = 'Sesi ini tidak punya kamera CCTV — kameranya sudah dihapus dari daftar.';
@@ -238,11 +256,16 @@ async function mulaiPemutar() {
         overlay.textContent = berkasKurang;
         return;
     }
+    await pasangPemutar(EZOPEN_URL);
+}
+
+async function pasangPemutar(url) {
+    urlSedangDiputar = url;
     const { width, height } = ukuranPemutar();
     try {
         player = await buatPemutarEzviz('ezviz-player', {
             tokenUrl: TOKEN_URL,
-            url: EZOPEN_URL,
+            url: url,
             domain: EZVIZ_DOMAIN,
             width, height,
             // Mulai TANPA suara, lalu nyalakan lewat tombol speaker di
@@ -252,14 +275,50 @@ async function mulaiPemutar() {
             // padahal streamnya sendiri sudah mengalir.
             audio: false,
             template: 'pcLive',
+            onSukses: () => {
+                sudahAdaGambar = true;
+                if (timerCadangan) { clearTimeout(timerCadangan); timerCadangan = null; }
+                statusMsg.textContent = mutuTeks(url) + ' — gambar berjalan.';
+            },
             onError: (pesan) => { statusMsg.textContent = pesan; },
         });
         overlay.style.display = 'none';
-        statusMsg.textContent = 'Terhubung ke cloud Ezviz.';
+        statusMsg.textContent = 'Terhubung ke cloud Ezviz (' + mutuTeks(url) + '), menunggu gambar…';
+        jadwalkanCadangan(url);
     } catch (err) {
         console.error(err);
         overlay.textContent = err.message || 'Gagal menyiapkan pemutar kamera Ezviz.';
     }
+}
+
+function mutuTeks(url) {
+    return url.includes('.hd.live') ? 'kualitas HD' : 'kualitas SD';
+}
+
+/** Pindah ke sub-stream kalau stream utama tidak menghasilkan gambar. */
+function jadwalkanCadangan(url) {
+    if (timerCadangan) clearTimeout(timerCadangan);
+    // Hanya sekali, dan hanya kalau memang ada sub-stream yang berbeda.
+    if (!EZOPEN_URL_SD || url === EZOPEN_URL_SD) return;
+
+    timerCadangan = setTimeout(async () => {
+        if (sudahAdaGambar || ended) return;
+        statusMsg.textContent = 'Stream utama tidak menghasilkan gambar — mencoba kualitas SD…';
+        await hentikanPemutarEzviz(player);
+        player = null;
+        await pasangPemutar(EZOPEN_URL_SD);
+
+        // Beri sub-stream waktu yang sama sebelum menyerah. Menulis pesannya
+        // langsung setelah pasangPemutar() akan selalu tampil, karena gambar
+        // pertama memang belum mungkin ada semilidetik setelah pemutar dibuat.
+        setTimeout(() => {
+            if (sudahAdaGambar || ended) return;
+            statusMsg.textContent = 'Sub-stream juga tidak menghasilkan gambar. '
+                + 'Kemungkinan kameranya memakai codec yang tidak didukung browser ini '
+                + '(H.265 tanpa dukungan perangkat keras). Coba dari browser/perangkat lain, '
+                + 'atau turunkan codec kamera ke H.264 lewat aplikasi Ezviz.';
+        }, BATAS_FRAME_PERTAMA_MS);
+    }, BATAS_FRAME_PERTAMA_MS);
 }
 
 /* EZUIKit menggambar ke canvas berukuran tetap — tanpa resize eksplisit,
@@ -280,6 +339,7 @@ function sesiBerakhir() {
     IS_LIVE = false;
     if (statusPollTimer) { clearInterval(statusPollTimer); statusPollTimer = null; }
     if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
+    if (timerCadangan) { clearTimeout(timerCadangan); timerCadangan = null; }
     hentikanPemutarEzviz(player);
     player = null;
     overlay.style.display = '';
