@@ -791,6 +791,38 @@ terlihat sempurna secara palsu.
 
 ---
 
+## OPSIS — Kartu "KIT Terpilih" (`opsis.PantauanKit`)
+
+Sepasang kartu di dashboard: kartu kecil berisi total MW sekelompok pembangkit
+pilihan, dan chart 24 jam di sebelahnya. Anggotanya dipilih di **Admin → Opsis →
+Pantauan KIT Terpilih** (baris tunggal pk=1, tombol Tambah/Hapus dimatikan) —
+menambah/mengurangi pembangkit yang dipantau tidak butuh perubahan kode maupun
+migrasi, sama seperti `KelompokPeta`.
+
+Dua sumber angka yang sengaja dipilih, keduanya menyamai kartu/chart di
+sebelahnya supaya tidak ada dua angka berbeda di satu layar:
+
+| Bagian | Sumber | Catatan |
+|---|---|---|
+| Kartu kecil (live MW) | dijumlahkan **di browser** dari `/opsis/api/live/` | Tidak punya endpoint sendiri — persis pola ikon Kelompok Peta |
+| Chart 24 jam | `/opsis/api/beban-kit-terpilih/` → `SnapLive` | Sumber yang sama dengan chart "Beban Kit — Hari Ini" |
+
+Konsekuensi yang perlu diketahui:
+
+- **Mengubah keanggotaan dari admin baru terlihat setelah halaman dimuat ulang**
+  — daftar kode anggota ditanam saat render (`json_script`), bukan ikut polling.
+- **Kartu tidak digambar sama sekali** kalau `aktif` mati ATAU tidak ada anggota
+  aktif (`PantauanKit.tampil()`), jadi pemasangan baru tidak menampilkan kartu
+  kosong sebelum ada yang mengisinya.
+- Chart-nya dipoll **60 detik**, bukan 5 detik seperti kartu live: `SnapLive`
+  hanya bertambah satu titik per menit, jadi memoll lebih sering hanya menambah
+  query tanpa menambah informasi.
+- Rentang chart memakai `waktu__gte`/`waktu__lt`, **bukan** `waktu__date` —
+  alasan yang sama dengan ekspor beban pembangkit: lookup `__date` membungkus
+  kolom dalam cast sehingga indeks `(pembangkit, -waktu)` tidak terpakai.
+
+---
+
 ## OPSIS — Peta Sumber Data (`/opsis/sumber-data/`)
 
 OPSIS menarik angka dari **17 sumber**: 9 tabel MSSQL, 6 tabel snapshot

@@ -2,7 +2,7 @@ from django.contrib import admin, messages
 from . import mssql
 from .models import (Pembangkit, SnapLive, SnapUnit, SnapFreq, SnapFreqRT, SnapFreqArea,
                      Trafo, SnapTrafo, HopPembangkit, HopSnapshot,
-                     PrakiraanBeban, ModePemeliharaan, KelompokPeta,
+                     PrakiraanBeban, ModePemeliharaan, KelompokPeta, PantauanKit,
                      KolomEWS, TitikEWS)
 
 
@@ -28,6 +28,44 @@ class KelompokPetaAdmin(admin.ModelAdmin):
     @admin.display(description='Anggota')
     def jumlah_anggota(self, obj):
         return obj.anggota.count()
+
+
+@admin.register(PantauanKit)
+class PantauanKitAdmin(admin.ModelAdmin):
+    """
+    Daftar pembangkit yang dipantau terpisah di dashboard (kartu total + chart
+    24 jam). Baris tunggal, jadi tombol Tambah/Hapus dimatikan dan daftar
+    langsung membuka baris itu — sama seperti Mode Pemeliharaan.
+    """
+    list_display      = ('nama', 'jumlah_anggota', 'aktif', 'diubah_pada')
+    readonly_fields   = ('diubah_pada',)
+    filter_horizontal = ('anggota',)
+    fieldsets = (
+        (None, {
+            'description': 'Kartu "Total KIT Terpilih" di dashboard OPSIS beserta chart 24 '
+                           'jam-nya. Totalnya dijumlahkan dari pembangkit yang dipilih di '
+                           'bawah — sumber angkanya sama persis dengan kartu pembangkit di '
+                           'dashboard, jadi keduanya tidak mungkin berbeda. Perubahan di '
+                           'sini baru terlihat setelah halaman dashboard dimuat ulang.',
+            'fields': ('aktif', 'nama', 'warna', 'anggota'),
+        }),
+        ('Info', {'fields': ('diubah_pada',)}),
+    )
+
+    @admin.display(description='Anggota')
+    def jumlah_anggota(self, obj):
+        return obj.anggota.count()
+
+    def has_add_permission(self, request):
+        # Baris tunggal: dibuat otomatis oleh changelist_view di bawah.
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def changelist_view(self, request, extra_context=None):
+        PantauanKit.ambil()           # pastikan barisnya ada sebelum daftar dirender
+        return super().changelist_view(request, extra_context)
 
 
 @admin.register(ModePemeliharaan)

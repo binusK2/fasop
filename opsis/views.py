@@ -11,7 +11,7 @@ from django.shortcuts import redirect
 from django.urls import reverse
 from .models import (Pembangkit, SnapLive, SnapFreq, SnapFreqRT, Trafo, SnapTrafo,
                      HopPembangkit, HopSnapshot, HOP_KATEGORI_CHOICES, JENIS_CHOICES,
-                     JENIS_WARNA, KelompokPeta, hop_status, hop_deskripsi_band,
+                     JENIS_WARNA, KelompokPeta, PantauanKit, hop_status, hop_deskripsi_band,
                      hop_garis_ambang, KolomEWS, TitikEWS, SKEMA_WARNA, ARAH_CHOICES)
 from auditlog.models import AuditLog
 from auditlog.utils import log_action
@@ -93,11 +93,22 @@ def dashboard(request):
     grouped = {}
     for p in pembangkit_list:
         grouped.setdefault(p.jenis, []).append(p)
+
+    # Kartu + chart "KIT Terpilih". Daftar KODE anggotanya dikirim ke browser
+    # supaya totalnya dijumlahkan dari /opsis/api/live/ yang sama dengan kartu
+    # pembangkit — bukan dihitung terpisah di server, yang bisa membuat dua
+    # angka di layar yang sama berbeda tanpa ada yang bisa menjelaskannya.
+    pantauan = PantauanKit.ambil()
+    anggota_pantauan = pantauan.anggota_aktif()
     return render(request, 'opsis/dashboard.html', {
         'pembangkit_list': pembangkit_list,
         'grouped':         grouped,
         'bisa_flag':       _bisa_flag(request.user),
         'jenis_warna':     JENIS_WARNA,
+        'pantauan':          pantauan,
+        'pantauan_tampil':   bool(anggota_pantauan) and pantauan.aktif,
+        'pantauan_kode':     [p.kode for p in anggota_pantauan],
+        'pantauan_nama':     [p.nama for p in anggota_pantauan],
     })
 
 
@@ -793,6 +804,59 @@ def api_beban(request):
         'prediksi_puncak_siang': None, 'prediksi_puncak_malam': None,
         'realisasi_puncak_siang': None, 'realisasi_puncak_malam': None,
         'terputus': not mssql.is_reachable(),
+    })
+
+
+@login_required
+def api_beban_kit_terpilih(request):
+    """
+    Seri 24 jam (hari ini, resolusi per menit) untuk chart "KIT Terpilih":
+    jumlah MW anggota PantauanKit dari SnapLive.
+
+    Sumbernya PostgreSQL, sama dengan chart "Beban Kit — Hari Ini", jadi dua
+    chart yang bersebelahan di dashboard tidak mungkin bercerita berbeda.
+    Sumbu-x memakai menit sejak 00:00 waktu lokal, konvensi yang sama pula.
+
+    Batas rentang memakai datetime, bukan lookup __date — membungkus kolom
+    waktu dalam fungsi cast membuat indeks (pembangkit, -waktu) tak terpakai
+    dan berubah jadi sequential scan atas jutaan baris SnapLive (catatan yang
+    sama seperti di export beban pembangkit).
+    """
+    from django.db.models import Sum
+
+    pantauan = PantauanKit.ambil()
+    anggota  = pantauan.anggota_aktif()
+    if not (pantauan.aktif and anggota):
+        return JsonResponse({'aktif': False, 'nama': pantauan.nama,
+                             'warna': pantauan.warna, 'anggota': [], 'rows': []})
+
+    tz    = timezone.get_current_timezone()
+    awal  = timezone.make_aware(
+        datetime.datetime.combine(timezone.localdate(), datetime.time.min), tz)
+    akhir = awal + datetime.timedelta(days=1)
+
+    qs = (SnapLive.objects
+          .filter(pembangkit__in=anggota, waktu__gte=awal, waktu__lt=akhir,
+                  mw__isnull=False)
+          .values('waktu')
+          .annotate(total=Sum('mw'))
+          .order_by('waktu'))
+
+    rows = []
+    for r in qs:
+        if r['total'] is None:
+            continue
+        lokal = timezone.localtime(r['waktu'])
+        rows.append({'minute': lokal.hour * 60 + lokal.minute,
+                     'mw': round(float(r['total']), 2)})
+
+    return JsonResponse({
+        'aktif':    True,
+        'nama':     pantauan.nama,
+        'warna':    pantauan.warna,
+        'anggota':  [p.nama for p in anggota],
+        'rows':     rows,
+        'terakhir': rows[-1]['mw'] if rows else None,
     })
 
 
