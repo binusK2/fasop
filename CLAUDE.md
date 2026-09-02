@@ -543,11 +543,19 @@ dengan token baru cuma membakar satu permintaan token dan menyembunyikan bug
 parameter yang sebenarnya.
 
 **Halaman Ezviz memeriksa dulu apakah berkas pemutarnya termuat.** `ezuikit.js`
-(~4 MB) dan `ezviz-player.js` adalah static file; kalau `collectstatic` belum
-dijalankan setelah deploy, satu-satunya jejaknya adalah
-`buatPemutarEzviz is not defined` di console sementara halamannya diam saja.
-`periksaBerkasPemutar()` di `ezviz.html` & `grid.html` menampilkan berkas mana
-yang hilang beserta perintah perbaikannya.
+(~4 MB) dan `ezviz-player.js` adalah static file; kalau salah satunya tidak
+terserve, satu-satunya jejaknya adalah `buatPemutarEzviz is not defined` di
+console sementara halamannya diam saja. `periksaBerkasPemutar()` di
+`ezviz.html` & `grid.html` menangkap itu, lalu **mengambil ulang URL-nya lewat
+HEAD dan menampilkan status HTTP-nya**.
+
+Statusnya penting, bukan hiasan: `collectstatic` yang belum jalan, `alias
+/static/` nginx yang salah, izin berkas, dan berkas 4 MB yang terpotong di
+proxy semuanya tampak identik dari layar (404 / 403 / 200-tapi-tidak-jalan),
+dan menebaknya berarti menyuruh orang menjalankan perintah yang tidak
+menyelesaikan apa pun — persis yang pernah terjadi: `collectstatic` disarankan
+padahal berkasnya sudah lama ada di `staticfiles/` dan masalahnya di sisi
+penyajian.
 
 ---
 
