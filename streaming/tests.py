@@ -246,6 +246,36 @@ class TokenEzvizTests(TestCase):
         minta.assert_called_once()
 
 
+class PesanErrorEzvizTests(TestCase):
+    """
+    Pesan Ezviz sendiri tidak cukup untuk menjelaskan kegagalan yang paling
+    sering terjadi. Kejadian nyata: appKey dari platform Singapura dikirim ke
+    host bawaan open.ys7.com, dan yang muncul di layar hanya "appKey不存在" —
+    dalam bahasa Mandarin, tanpa menyebut host mana pun.
+    """
+
+    def _tolak(self, kode, pesan):
+        resp = mock.Mock(status_code=200)
+        resp.json.return_value = {'code': kode, 'msg': pesan}
+        return mock.patch.object(ezviz.requests, 'post', return_value=resp)
+
+    @override_settings(EZVIZ_API_BASE='https://open.ys7.com')
+    def test_error_menyebut_host_yang_dihubungi(self):
+        with self._tolak('10005', 'appKey异常'):
+            with self.assertRaises(ezviz.EzvizError) as ctx:
+                ezviz._panggil('/api/lapp/token/get', {})
+        self.assertIn('https://open.ys7.com', str(ctx.exception))
+
+    @override_settings(EZVIZ_API_BASE='https://open.ys7.com')
+    def test_appkey_tidak_dikenal_menyebut_kemungkinan_salah_region(self):
+        with self._tolak('10017', 'appKey不存在'):
+            with self.assertRaises(ezviz.EzvizError) as ctx:
+                ezviz._panggil('/api/lapp/token/get', {})
+        keterangan = str(ctx.exception)
+        self.assertIn('EZVIZ_API_BASE', keterangan)
+        self.assertIn('isgpopen.ezvizlife.com', keterangan)
+
+
 class AlamatEzopenTests(TestCase):
     def test_hd_menyisipkan_penanda_kualitas(self):
         hd = KameraEzviz(nama='A', serial='BD3957004', channel=1, hd=True)

@@ -515,6 +515,19 @@ perangkat digambar dengan WHEP, sesi Ezviz dengan EZUIKit, di grid yang sama.
 EZUIKit di browser (template mengirimkannya dari setting yang sama) — token
 yang diminta dari satu domain region tidak dikenali domain region lain.
 
+**Mengisi appKey/appSecret saja tidak cukup kalau akunnya bukan region
+Tiongkok.** Bawaan `EZVIZ_API_BASE` adalah `https://open.ys7.com`, platform
+Tiongkok yang sistem akunnya TERPISAH dari platform internasional. appKey yang
+dibuat di console luar (mis. Singapura) akan ditolak di sana dengan kode
+`10017` — dan pesan aslinya datang dalam bahasa Mandarin (`appKey不存在`) tanpa
+menyebut host mana pun, sehingga terbaca seperti salah ketik appKey. Karena itu
+`_panggil()` selalu menyebutkan host yang dihubungi di pesan errornya, dan kode
+10017 diberi petunjuk region lewat `PETUNJUK_KODE`.
+
+Bahasa pesan error bisa dipakai untuk memastikan host mana yang benar-benar
+dihubungi: `open.ys7.com` membalas Mandarin, host `i*open.ezvizlife.com`
+membalas Inggris.
+
 ---
 
 ## Inspeksi — Skema Kolom & Laporan Harian (`inspection/laporan.py`)
