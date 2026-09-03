@@ -202,6 +202,11 @@
 @media (max-width: 700px) {
     .summary-row-freq { grid-template-columns: repeat(2, 1fr); }
 }
+/* Kartu "KIT Terpilih": total di kiri, chart di kanan. Di layar sempit
+   ditumpuk supaya chart tidak tersisa beberapa puluh piksel. */
+@media (max-width: 700px) {
+    .pantauan-row { grid-template-columns: 1fr !important; }
+}
 </style>
 {% endblock %}
 
@@ -408,6 +413,43 @@
     </div>
 </div>
 
+{% if pantauan_tampil %}
+<!-- KIT Terpilih: kartu total (kecil) + chart 24 jam (besar) di sebelahnya.
+     Anggotanya dipilih di Admin -> Opsis -> Pantauan KIT Terpilih. -->
+<div style="display:grid; grid-template-columns:minmax(200px, 240px) 1fr; gap:16px; margin-bottom:16px;"
+     class="pantauan-row">
+    <div style="background:var(--card-bg); border:1px solid {{ pantauan.warna }}55; border-radius:14px; padding:18px 20px; display:flex; flex-direction:column; justify-content:center;">
+        <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); margin-bottom:6px;">
+            <i class="bi bi-bullseye me-1" style="color:{{ pantauan.warna }};"></i>{{ pantauan.nama }}
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace; font-size:28px; font-weight:700; color:{{ pantauan.warna }};" id="pantauan-mw">
+            —<span style="font-size:14px; font-weight:400; color:var(--muted); margin-left:4px;">MW</span>
+        </div>
+        <div style="font-size:10px; color:var(--muted); margin-top:6px; line-height:1.5;"
+             title="{% for n in pantauan_nama %}{{ n }}{% if not forloop.last %}, {% endif %}{% endfor %}">
+            {{ pantauan_kode|length }} pembangkit
+        </div>
+    </div>
+
+    <div class="chart-card">
+        <div class="chart-head">
+            <div class="chart-title">
+                <i class="bi bi-graph-up me-1" style="color:{{ pantauan.warna }};"></i>{{ pantauan.nama }} — Hari Ini
+            </div>
+            <span id="pantauan-updated" style="font-size:11px; color:var(--muted);">memuat...</span>
+        </div>
+        <div style="position:relative; height:160px; overflow:visible;">
+            <canvas id="chart-pantauan"></canvas>
+        </div>
+        <div style="font-size:10px; color:var(--muted); margin-top:8px; line-height:1.5;">
+            <i class="bi bi-info-circle me-1"></i>Jumlah MW
+            {% for n in pantauan_nama %}<strong>{{ n }}</strong>{% if not forloop.last %}, {% endif %}{% endfor %}
+            — sumbernya SnapLive, sama dengan chart Beban Kit di atas.
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <!-- Chart Beban Trafo per GI -->
 <div class="chart-card" style="margin-bottom:16px;">
     <div class="chart-head">
@@ -605,7 +647,11 @@
 {% block extra_js %}
 {# Warna per jenis pembangkit — satu-satunya definisi ada di opsis/models.py (JENIS_WARNA) #}
 {{ jenis_warna|json_script:"jenis-warna" }}
+{# Kode pembangkit anggota kartu "KIT Terpilih" — totalnya dijumlahkan di browser
+   dari /opsis/api/live/ yang sama, supaya tidak mungkin beda dengan kartu di bawah. #}
+{{ pantauan_kode|json_script:"pantauan-kode" }}
 <script>
+const PANTAUAN_KODE = JSON.parse(document.getElementById('pantauan-kode').textContent);
 const KODE_LIST = [{% for p in pembangkit_list %}"{{ p.kode }}"{% if not forloop.last %},{% endif %}{% endfor %}];
 const JENIS_WARNA = JSON.parse(document.getElementById('jenis-warna').textContent);
 
@@ -725,6 +771,23 @@ async function pollLive() {
         const sysMwEl = document.getElementById('sys-mw');
         if (sysMwEl) sysMwEl.innerHTML = (hasMw ? totalMw.toFixed(2) : '—')
             + '<span style="font-size:14px;font-weight:400;color:var(--muted);margin-left:4px;">MW</span>';
+
+        // Kartu "KIT Terpilih" — dijumlahkan dari objek `data` yang sama dengan
+        // kartu pembangkit di bawah, bukan dari endpoint sendiri. Kalau dihitung
+        // terpisah di server, dua angka di layar yang sama bisa berbeda dan tak
+        // ada yang bisa menjelaskan selisihnya. Pola yang sama dipakai ikon
+        // Kelompok Peta di /opsis/peta/.
+        const pantauanEl = document.getElementById('pantauan-mw');
+        if (pantauanEl && PANTAUAN_KODE.length) {
+            let pMw = 0, pAda = false;
+            for (const kode of PANTAUAN_KODE) {
+                const d = data[kode];
+                if (!d || d.mw === null || d.mw === undefined) continue;
+                pMw += parseFloat(d.mw); pAda = true;
+            }
+            pantauanEl.innerHTML = (pAda ? pMw.toFixed(2) : '—')
+                + '<span style="font-size:14px;font-weight:400;color:var(--muted);margin-left:4px;">MW</span>';
+        }
 
         document.getElementById('terputus-notice')?.classList.toggle('show', !!json.terputus);
         setLastUpdate();
@@ -1236,6 +1299,89 @@ async function loadFreqHariChart() {
 
 loadFreqHariChart();
 setInterval(loadFreqHariChart, 5000); // refresh tiap 5 detik — data per detik
+
+// ── Chart "KIT Terpilih" — 24 jam, satu garis total ──────────────────
+// Sumbu-x sama dengan chart Beban Kit (menit sejak 00:00) supaya kedua chart
+// yang bersebelahan bisa dibaca berdampingan tanpa mengonversi apa pun.
+let chartPantauan = null;
+
+function initPantauanChart(rows, warna) {
+    const el = document.getElementById('chart-pantauan');
+    if (!el) return;
+    chartPantauan = new Chart(el.getContext('2d'), {
+        type: 'line',
+        data: {
+            datasets: [{
+                label: 'MW',
+                data: rows.map(p => ({ x: p.minute, y: p.mw })),
+                borderColor: warna,
+                backgroundColor: warna + '1f',
+                borderWidth: 1.5, pointRadius: 0, tension: 0.4, fill: true,
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            animation: false, parsing: false,
+            interaction: { intersect: false, mode: 'nearest', axis: 'x' },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    ...tooltipOpts,
+                    callbacks: {
+                        title: items => items.length ? _minuteLabel(items[0].parsed.x) : '',
+                        label: ctx => ctx.parsed.y == null ? null
+                            : ctx.parsed.y.toFixed(2) + ' MW',
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    type: 'linear', min: 0, max: 24 * 60 - 1,
+                    afterBuildTicks: axis => {
+                        axis.ticks = [];
+                        for (let m = 0; m <= 24 * 60 - 30; m += 30) axis.ticks.push({ value: m });
+                    },
+                    grid: { color: '#1e2d45' },
+                    ticks: {
+                        maxRotation: 0, autoSkip: false,
+                        callback: v => (v % 60 === 0 ? _minuteLabel(v) : ''),
+                    }
+                },
+                y: {
+                    grid: { color: '#1e2d45' }, grace: '10%',
+                    title: { display: true, text: 'MW', color: '#64748b' },
+                    ticks: { callback: v => v.toFixed(0) },
+                }
+            }
+        },
+    });
+}
+
+async function loadPantauanChart() {
+    if (!document.getElementById('chart-pantauan')) return;   // kartu dimatikan di admin
+    try {
+        const r = await fetch("{% url 'opsis_api_beban_kit_terpilih' %}");
+        if (!r.ok) return;
+        const d = await r.json();
+        const rows = d.rows || [];
+        const el = document.getElementById('pantauan-updated');
+        if (el) el.textContent = rows.length
+            ? 'Update: ' + new Date().toLocaleTimeString('id-ID')
+            : 'Belum ada data hari ini';
+        if (!rows.length) return;
+        if (!chartPantauan) {
+            initPantauanChart(rows, d.warna || '#38bdf8');
+        } else {
+            chartPantauan.data.datasets[0].data = rows.map(p => ({ x: p.minute, y: p.mw }));
+            chartPantauan.update('none');
+        }
+    } catch (e) {}
+}
+
+// 60 detik: SnapLive hanya bertambah satu titik per menit, jadi memoll lebih
+// sering hanya menambah query tanpa menambah informasi.
+loadPantauanChart();
+setInterval(loadPantauanChart, 60000);
 
 // ── Chart Beban Trafo per GI (bar horizontal) ────────────────────────
 let chartTrafo = null;

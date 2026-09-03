@@ -588,6 +588,70 @@ class KelompokPeta(models.Model):
         return self.nama
 
 
+class PantauanKit(models.Model):
+    """
+    Sekelompok pembangkit yang dipantau terpisah di dashboard OPSIS: satu kartu
+    kecil berisi total MW-nya, dan satu chart 24 jam di sebelahnya. Anggotanya
+    dipilih dari site admin — menambah/mengurangi pembangkit yang dipantau
+    tidak butuh perubahan kode maupun migrasi, sama seperti KelompokPeta.
+
+    Baris tunggal (pk=1): dashboard hanya punya satu pasang kartu ini.
+
+    Angka di kartu kecil TIDAK disimpan dan tidak punya endpoint sendiri —
+    dijumlahkan di browser dari /opsis/api/live/, sumber yang sama dengan
+    kartu pembangkit di bawahnya. Ini disengaja: kalau dihitung terpisah di
+    server, total kartu ini bisa berbeda dari jumlah kartu-kartu yang terlihat
+    di layar yang sama, dan tidak ada yang bisa menjelaskan selisihnya.
+    Konsekuensinya, mengubah keanggotaan dari admin baru terlihat setelah
+    halaman dimuat ulang.
+
+    Chart 24 jam-nya sumbernya SnapLive (PostgreSQL), sama dengan chart
+    "Beban Kit — Hari Ini", jadi kedua chart selalu bercerita hal yang sama.
+    """
+
+    nama    = models.CharField(
+        max_length=80, default='KIT Terpilih', verbose_name='Judul Kartu',
+        help_text='Tampil sebagai judul kartu kecil dan chart-nya di dashboard.')
+    anggota = models.ManyToManyField(
+        'Pembangkit', blank=True, related_name='pantauan_kit',
+        verbose_name='Pembangkit yang Dipantau',
+        help_text='Pilih satu atau beberapa. Totalnya yang tampil di kartu dan chart. '
+                  'Pembangkit yang tidak aktif tidak ikut terhitung.')
+    warna   = models.CharField(
+        max_length=7, default='#38bdf8', verbose_name='Warna',
+        help_text='Warna angka kartu dan garis chart, mis. #38bdf8.')
+    aktif   = models.BooleanField(
+        default=False, verbose_name='Tampilkan di Dashboard',
+        help_text='Hilangkan centang untuk menyembunyikan kartu dan chart-nya '
+                  'tanpa menghapus daftar anggotanya.')
+    diubah_pada = models.DateTimeField(auto_now=True, verbose_name='Diubah Pada')
+
+    class Meta:
+        verbose_name = 'Pantauan KIT Terpilih'
+        verbose_name_plural = 'Pantauan KIT Terpilih'
+
+    def __str__(self):
+        return f'{self.nama} — {self.anggota.count()} pembangkit'
+
+    def save(self, *args, **kwargs):
+        self.pk = 1                       # selalu satu baris, apa pun jalur simpannya
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def ambil(cls):
+        """Baris pengaturan, dibuat dengan nilai bawaan bila belum ada."""
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+    def anggota_aktif(self):
+        """Anggota yang pembangkitnya masih aktif, urut seperti dashboard."""
+        return list(self.anggota.filter(aktif=True).order_by('urutan', 'nama'))
+
+    def tampil(self):
+        """Kartu digambar hanya bila dinyalakan DAN ada anggotanya."""
+        return self.aktif and bool(self.anggota_aktif())
+
+
 class ModePemeliharaan(models.Model):
     """
     Sakelar "OPSIS sedang dalam pemeliharaan" — baris tunggal (pk=1) yang diubah

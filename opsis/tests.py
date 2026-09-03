@@ -12,8 +12,9 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import (KartuPadam, KelompokPeta, KolomEWS, ModePemeliharaan, Pembangkit,
-                     PrakiraanBeban, SnapFreq, SnapFreqRT, SnapLive, TitikEWS)
+from .models import (KartuPadam, KelompokPeta, KolomEWS, ModePemeliharaan,
+                     PantauanKit, Pembangkit, PrakiraanBeban, SnapFreq, SnapFreqRT,
+                     SnapLive, TitikEWS)
 from . import freq_history, hop_map, mssql, prakiraan, prediksi, sumber_data, views
 from auditlog.models import AuditLog
 
@@ -1602,6 +1603,115 @@ class AksesOpsisAMTest(TestCase):
         c = self._klien(self._buat('ov-menu', 'opsis_view'))
         isi = c.get('/opsis/hop/').content.decode()
         self.assertNotIn('/opsis/hop/input/', isi)
+
+
+@override_settings(MSSQL_HOST='')   # dashboard tidak perlu menembak historian
+class PantauanKitTest(TestCase):
+    """
+    Kartu "KIT Terpilih" di dashboard: total MW pembangkit pilihan + chart
+    24 jam-nya. Anggotanya dipilih di site admin, jadi tes ini menjaga supaya
+    kartu tidak muncul sebelum dikonfigurasi dan angkanya hanya menjumlahkan
+    anggota yang benar.
+    """
+
+    def setUp(self):
+        self.hari_ini = timezone.localdate()
+        self.a = Pembangkit.objects.create(kode='PKA', nama='PLTU A', kode_kit='PKA', urutan=1)
+        self.b = Pembangkit.objects.create(kode='PKB', nama='PLTU B', kode_kit='PKB', urutan=2)
+        self.luar = Pembangkit.objects.create(kode='PKC', nama='PLTD C', kode_kit='PKC', urutan=3)
+        self.url = reverse('opsis_api_beban_kit_terpilih')
+
+    def _user_login(self):
+        user = User.objects.create_user('pantau-tes', 'p@contoh.id', 'rahasia-tes-123')
+        profil = user.profile
+        profil.force_password_change = False
+        profil.save()
+        self.client.force_login(user)
+        return user
+
+    def _snap(self, pembangkit, menit, mw):
+        SnapLive.objects.create(pembangkit=pembangkit, mw=mw,
+                                waktu=_waktu_lokal(self.hari_ini, menit))
+
+    def _nyalakan(self, *anggota):
+        pantauan = PantauanKit.ambil()
+        pantauan.aktif = True
+        pantauan.save()
+        pantauan.anggota.set(anggota)
+        return pantauan
+
+    def test_singleton_dan_bawaan_mati(self):
+        p1 = PantauanKit.ambil()
+        p2 = PantauanKit.ambil()
+        self.assertEqual(p1.pk, p2.pk)
+        self.assertEqual(PantauanKit.objects.count(), 1)
+        self.assertFalse(p1.aktif)
+        self.assertFalse(p1.tampil())
+
+    def test_selalu_satu_baris_walau_dipaksa_simpan_baru(self):
+        PantauanKit.ambil()
+        PantauanKit(nama='Coba Kedua').save()
+        self.assertEqual(PantauanKit.objects.count(), 1)
+        self.assertEqual(PantauanKit.objects.get().nama, 'Coba Kedua')
+
+    def test_api_menjumlahkan_hanya_anggota(self):
+        self._nyalakan(self.a, self.b)
+        self._snap(self.a, 600, 100.0)
+        self._snap(self.b, 600, 25.5)
+        self._snap(self.luar, 600, 999.0)      # bukan anggota -> tidak boleh ikut
+        self._snap(self.a, 660, 110.0)
+
+        self._user_login()
+        body = self.client.get(self.url).json()
+
+        self.assertTrue(body['aktif'])
+        self.assertEqual(body['rows'], [{'minute': 600, 'mw': 125.5},
+                                        {'minute': 660, 'mw': 110.0}])
+        self.assertEqual(body['terakhir'], 110.0)
+        self.assertEqual(body['anggota'], ['PLTU A', 'PLTU B'])
+
+    def test_api_abaikan_hari_lain(self):
+        self._nyalakan(self.a)
+        kemarin = self.hari_ini - datetime.timedelta(days=1)
+        SnapLive.objects.create(pembangkit=self.a, mw=500.0,
+                                waktu=_waktu_lokal(kemarin, 600))
+        self._user_login()
+        self.assertEqual(self.client.get(self.url).json()['rows'], [])
+
+    def test_api_diam_saat_belum_dikonfigurasi(self):
+        self._user_login()
+        body = self.client.get(self.url).json()
+        self.assertFalse(body['aktif'])
+        self.assertEqual(body['rows'], [])
+
+    def test_anggota_nonaktif_tidak_ikut(self):
+        pantauan = self._nyalakan(self.a, self.b)
+        self.b.aktif = False
+        self.b.save()
+        self.assertEqual([p.kode for p in pantauan.anggota_aktif()], ['PKA'])
+
+        self._snap(self.a, 600, 100.0)
+        self._snap(self.b, 600, 25.5)
+        self._user_login()
+        self.assertEqual(self.client.get(self.url).json()['rows'],
+                         [{'minute': 600, 'mw': 100.0}])
+
+    def test_kartu_muncul_di_dashboard_hanya_saat_dinyalakan(self):
+        self._user_login()
+        self.assertNotIn('id="chart-pantauan"', self.client.get('/opsis/').content.decode())
+
+        self._nyalakan(self.a)
+        isi = self.client.get('/opsis/').content.decode()
+        self.assertIn('id="chart-pantauan"', isi)
+        self.assertIn('id="pantauan-mw"', isi)
+
+    def test_kartu_tersembunyi_bila_aktif_tapi_tanpa_anggota(self):
+        pantauan = PantauanKit.ambil()
+        pantauan.aktif = True
+        pantauan.save()
+        self.assertFalse(pantauan.tampil())
+        self._user_login()
+        self.assertNotIn('id="chart-pantauan"', self.client.get('/opsis/').content.decode())
 
 
 class KartuPadamModelTest(TestCase):

@@ -17,6 +17,8 @@ urlpatterns = [
     path('api/hz-baubau/',       views.api_hz_baubau,   name='opsis_api_hz_baubau'),
     path('api/hz-sulteng/',      views.api_hz_sulteng,  name='opsis_api_hz_sulteng'),
     path('api/hz-luwuk/',        views.api_hz_luwuk,    name='opsis_api_hz_luwuk'),
+    path('api/beban-kit-terpilih/', views.api_beban_kit_terpilih,
+                                                 name='opsis_api_beban_kit_terpilih'),
     path('api/total-padam/',     views.api_total_padam, name='opsis_api_total_padam'),
     path('api/ping/',            views.api_ping,     name='opsis_api_ping'),
     path('api/diagnose/',       views.api_diagnose, name='opsis_api_diagnose'),
