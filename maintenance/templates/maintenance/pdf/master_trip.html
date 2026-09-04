@@ -1,0 +1,253 @@
+{# maintenance/templates/maintenance/pdf/master_trip.html #}
+{# Form Checklist Master Trip / Rele Defense Scheme (OLS / OGS / UPLS) #}
+{% extends 'maintenance/pdf/_base.html' %}
+
+{% block header_title %}
+<div style="font-weight:bold; font-size:9pt; color:#0F172A; line-height:1.5;">FORM CHECKLIST MASTER TRIP / RELE DEFENSE SCHEME</div>
+<div style="font-size:7.5pt; font-weight:bold; color:#1A3A5C;">
+    ( <span {% if not mt_is_defense %}style="text-decoration:underline;"{% endif %}>MASTER TRIP</span> &nbsp;/&nbsp;
+    <span {% if mt_is_defense %}style="text-decoration:underline;"{% endif %}>RELE DEFENSE SCHEME</span> )
+</div>
+{% endblock %}
+
+{% block extra_css %}
+.chk-box { display: inline-block; width: 5pt; height: 5pt; border: 0.5pt solid #0F172A; margin-right: 1.5pt; vertical-align: middle; }
+.chk-filled { background: #1A3A5C; }
+.vi-label  { width: 36%; font-weight: bold; background: #E0F2FE; font-size: 6.5pt; }
+.vi-chk    { width: 42%; font-size: 6pt; color: #1A3A5C; }
+.vi-status { width: 22%; font-size: 6.5pt; font-weight: bold; text-align: center; }
+.meas-par  { background: #E0F2FE; font-weight: bold; font-size: 6.5pt; width: 40%; }
+.val       { color: #2563EB; font-weight: bold; text-align: center; font-family: Courier, monospace; }
+.unit      { text-align: center; font-size: 6pt; color: #64748B; width: 18%; }
+.rl-hdr    { background: #BFDBFE; text-align: center; font-weight: bold; font-size: 6pt; }
+.rl-hdr-n  { background: #BBF7D0; text-align: center; font-weight: bold; font-size: 6pt; }
+.rl-rl     { width: 20%; text-align: center; font-weight: bold; background: #EFF6FF; font-size: 6.5pt; }
+.rl-rl-n   { width: 20%; text-align: center; font-weight: bold; background: #F0FDF4; font-size: 6.5pt; }
+.rl-val    { text-align: center; font-family: Courier, monospace; font-size: 6.5pt; color: #2563EB; font-weight: bold; }
+.rl-val-n  { text-align: center; font-family: Courier, monospace; font-size: 6.5pt; color: #16A34A; font-weight: bold; }
+.aux-rl    { width: 25%; text-align: center; font-weight: bold; background: #DBEAFE; font-size: 6.5pt; }
+.aux-tf    { text-align: center; font-family: Courier, monospace; font-size: 6.5pt; color: #2563EB; font-weight: bold; }
+.aux-led   { text-align: center; font-size: 6.5pt; background: #FEF9C3; }
+.dev-hdr   { background: #FEE2E2; font-weight: bold; font-size: 6pt; text-align: center; }
+.dev-nama  { font-size: 6.5pt; }
+.dev-st    { width: 14%; text-align: center; font-size: 6.5pt; font-weight: bold; }
+/* Formulir ini padat (8 seksi). Sel dan blok pengesahan dirapatkan supaya
+   seluruh checklist + tanda tangan tetap muat pada satu halaman A4. */
+td, th { padding: 1pt 3pt; }
+.sec  { padding: 2.5pt 6pt; margin-top: 1.5mm; }
+.peng { margin-top: 2.5mm; }
+.ttd  { min-height: 15mm; }
+.ttd > div { padding: 2mm; }
+.ttd .sig { padding-top: 3mm; }
+.ttd .sig img { max-height: 13mm; }
+{% endblock %}
+
+{% block info_extra %}
+<table>
+    <tr>
+        <td class="lbl" style="width:18%;">Merek Rele</td>
+        <td style="width:32%;" class="vb">{{ mt.merek|default:"" }}</td>
+        <td class="lbl" style="width:18%;">No. Seri Rele</td>
+        <td style="width:32%;" class="vb">{{ mt.no_seri|default:"" }}</td>
+    </tr>
+    <tr class="alt">
+        <td class="lbl">Target (Trafo / Penyulang)</td>
+        <td class="vb">{{ mt.target|default:"" }}</td>
+        <td class="lbl">Fungsi</td>
+        <td class="vb">{{ mt.fungsi|default:"OLS / OGS / UPLS" }}</td>
+    </tr>
+    <tr>
+        <td class="lbl">Rasio CT</td>
+        <td class="vb">{{ mt.rasio_ct|default:"" }}</td>
+        <td class="lbl">*Supply DC / *Selektor</td>
+        <td class="vb">{{ mt.supply_dc|default:"" }}{% if mt.supply_dc and mt.selektor %} / {% endif %}{{ mt.selektor|default:"" }}</td>
+    </tr>
+</table>
+{% endblock %}
+
+{% block content %}
+
+{# ── II. VISUAL INSPECTION + III. PENGUKURAN + IV. SETTING RELAY ── #}
+<div class="two-col" style="gap:2mm; margin-top:0;">
+    <div style="flex:0 0 44%;">
+
+        <div class="sec">II.&nbsp;&nbsp;VISUAL INSPECTION</div>
+        <table>
+            <tr>
+                <td class="vi-label">Healthy</td>
+                <td class="vi-chk">
+                    {% if mt.healthy == 'Normal' %}<span class="chk-box chk-filled"></span>{% else %}<span class="chk-box"></span>{% endif %}
+                    Normal &nbsp;&nbsp;
+                    {% if mt.healthy == 'Abnormal' %}<span class="chk-box chk-filled"></span>{% else %}<span class="chk-box"></span>{% endif %}
+                    Abnormal
+                </td>
+                <td class="vi-status {% if mt.healthy == 'Normal' %}ok{% elif mt.healthy == 'Abnormal' %}nok{% endif %}">{{ mt.healthy|default:"—" }}</td>
+            </tr>
+            <tr class="alt">
+                <td class="vi-label">Trip LED</td>
+                <td class="vi-chk">
+                    {% if mt.trip_led == 'Normal' %}<span class="chk-box chk-filled"></span>{% else %}<span class="chk-box"></span>{% endif %}
+                    Normal &nbsp;&nbsp;
+                    {% if mt.trip_led == 'Abnormal' %}<span class="chk-box chk-filled"></span>{% else %}<span class="chk-box"></span>{% endif %}
+                    Abnormal
+                </td>
+                <td class="vi-status {% if mt.trip_led == 'Normal' %}ok{% elif mt.trip_led == 'Abnormal' %}nok{% endif %}">{{ mt.trip_led|default:"—" }}</td>
+            </tr>
+            <tr>
+                <td class="vi-label">Alarm</td>
+                <td class="vi-chk">
+                    {% if mt.alarm == 'Normal' %}<span class="chk-box chk-filled"></span>{% else %}<span class="chk-box"></span>{% endif %}
+                    Normal &nbsp;&nbsp;
+                    {% if mt.alarm == 'Abnormal' %}<span class="chk-box chk-filled"></span>{% else %}<span class="chk-box"></span>{% endif %}
+                    Abnormal
+                </td>
+                <td class="vi-status {% if mt.alarm == 'Normal' %}ok{% elif mt.alarm == 'Abnormal' %}nok{% endif %}">{{ mt.alarm|default:"—" }}</td>
+            </tr>
+        </table>
+
+        <div class="sec" style="margin-top:1.5mm;">III.&nbsp;&nbsp;PENGUKURAN</div>
+        <table>
+            <tr style="background:#DBEAFE; font-weight:bold; font-size:6.5pt;">
+                <td class="meas-par">Parameter</td>
+                <td style="text-align:center;">Nilai Ukur</td>
+                <td class="unit">Satuan</td>
+            </tr>
+            {% for m in arus_items %}
+            <tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %} style="height:3.9mm;">
+                <td class="meas-par">{{ m.label }}</td>
+                <td class="val">{{ m.value|default:"&nbsp;" }}</td>
+                <td class="unit">{{ m.unit }}</td>
+            </tr>
+            {% endfor %}
+            {% for m in tegangan_items %}
+            <tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %} style="height:3.9mm;">
+                <td class="meas-par">{{ m.label }}</td>
+                <td class="val">{{ m.value|default:"&nbsp;" }}</td>
+                <td class="unit">{{ m.unit }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+
+        <div class="sec" style="margin-top:1.5mm;">IV.&nbsp;&nbsp;SETTING RELAY</div>
+        <table>
+            <tr style="background:#FEF3C7; font-weight:bold; font-size:6.5pt;">
+                <td class="meas-par">Parameter</td>
+                <td style="text-align:center;">Setting</td>
+                <td style="text-align:center; width:22%;">Waktu (s)</td>
+            </tr>
+            {% for s in setting_items %}
+            <tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %} style="height:3.9mm;">
+                <td class="meas-par">{{ s.label }}</td>
+                <td class="val">{{ s.setting|default:"&nbsp;" }}{% if s.setting %} <span style="font-size:5.5pt; color:#64748B;">{{ s.unit }}</span>{% endif %}</td>
+                <td class="val">{{ s.waktu|default:"&nbsp;" }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+
+    </div>{# end kiri #}
+
+    <div style="flex:1;">
+
+        {# ── V. COMMON RL ── #}
+        <div class="sec">V.&nbsp;&nbsp;COMMON RL</div>
+        <table>
+            <tr>
+                <td colspan="5" class="rl-hdr">Common (+) RL — Belakang Rele</td>
+            </tr>
+            <tr>
+                <td class="rl-hdr" style="width:20%;">RL / DO</td>
+                <td class="rl-hdr" style="width:20%;">= VDC</td>
+                <td class="rl-hdr" style="width:20%;">Pin</td>
+                <td class="rl-hdr" style="width:20%;">Tahap VDC</td>
+                <td class="rl-hdr" style="width:20%;">Pin</td>
+            </tr>
+            {% for r in pos_rows %}
+            <tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %} style="height:3.9mm;">
+                <td class="rl-rl">{{ r.rl|default:"&nbsp;" }}</td>
+                <td class="rl-val">{{ r.vdc|default:"&nbsp;" }}</td>
+                <td class="rl-val">{{ r.pin|default:"&nbsp;" }}</td>
+                <td class="rl-val">{{ r.tahap_vdc|default:"&nbsp;" }}</td>
+                <td class="rl-val">{{ r.tahap_pin|default:"&nbsp;" }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+        <table style="margin-top:1.5mm;">
+            <tr>
+                <td colspan="5" class="rl-hdr-n">Common (&minus;) RL — Selektor Switch</td>
+            </tr>
+            <tr>
+                <td class="rl-hdr-n" style="width:20%;">RL / DO</td>
+                <td class="rl-hdr-n" style="width:20%;">= VDC</td>
+                <td class="rl-hdr-n" style="width:20%;">Pin</td>
+                <td class="rl-hdr-n" style="width:20%;">Tahap VDC</td>
+                <td class="rl-hdr-n" style="width:20%;">Pin</td>
+            </tr>
+            {% for r in neg_rows %}
+            <tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %} style="height:3.9mm;">
+                <td class="rl-rl-n">{{ r.rl|default:"&nbsp;" }}</td>
+                <td class="rl-val-n">{{ r.vdc|default:"&nbsp;" }}</td>
+                <td class="rl-val-n">{{ r.pin|default:"&nbsp;" }}</td>
+                <td class="rl-val-n">{{ r.tahap_vdc|default:"&nbsp;" }}</td>
+                <td class="rl-val-n">{{ r.tahap_pin|default:"&nbsp;" }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+
+    </div>{# end kanan #}
+</div>
+
+{# ── VI. AUX RL/BO + VII. STATUS KESIAPAN ── #}
+<div class="two-col" style="gap:2mm; margin-top:1.5mm;">
+    <div style="flex:0 0 34%;">
+        <div class="sec">VI.&nbsp;&nbsp;SETTING AUX RL / BO</div>
+        <table>
+            <tr style="background:#DBEAFE; font-weight:bold; font-size:6.5pt; text-align:center;">
+                <td style="width:25%;">RL / DO</td>
+                <td style="width:37.5%;">TF</td>
+                <td style="width:37.5%;">LED</td>
+            </tr>
+            {% for a in aux_rows %}
+            <tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %} style="height:3.9mm;">
+                <td class="aux-rl">{{ a.rl|default:"&nbsp;" }}</td>
+                <td class="aux-tf">{{ a.tf|default:"&nbsp;" }}</td>
+                <td class="aux-led">{{ a.led|default:"&nbsp;" }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+    <div style="flex:1;">
+        <div class="sec">VII.&nbsp;&nbsp;STATUS KESIAPAN DEVICE &amp; SINYAL TRIP PADA TARGET</div>
+        <table>
+            <tr>
+                <td class="dev-hdr" style="text-align:left; width:40%;">Device (MT / RELE)</td>
+                <td class="dev-hdr" style="width:32%;">GI / Bay</td>
+                <td class="dev-hdr" style="width:14%;">READY / NOT</td>
+                <td class="dev-hdr" style="width:14%;">Test COMM</td>
+            </tr>
+            {% for d in dev_rows %}
+            <tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %} style="height:3.9mm;">
+                <td class="dev-nama">{{ d.nama|default:"&nbsp;" }}</td>
+                <td class="dev-nama">{{ d.gi|default:"&nbsp;" }}</td>
+                <td class="dev-st {% if d.nama %}{% if d.ready == 'READY' %}ok{% elif d.ready == 'NOT' %}nok{% endif %}{% endif %}">{% if d.nama %}{{ d.ready|default:"&nbsp;" }}{% else %}&nbsp;{% endif %}</td>
+                <td class="dev-st {% if d.nama %}{% if d.comm == 'OK' %}ok{% elif d.comm == 'NOT' %}nok{% endif %}{% endif %}">{% if d.nama %}{{ d.comm|default:"&nbsp;" }}{% else %}&nbsp;{% endif %}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+</div>
+
+{# ── VIII. CATATAN ── #}
+<div class="sec" style="margin-top:1.5mm;">VIII.&nbsp;&nbsp;CATATAN / SARAN PERBAIKAN</div>
+<table>
+    <tr style="height:8mm;">
+        <td style="vertical-align:top; font-size:6.5pt; padding:3pt;">{{ catatan|default:"" }}</td>
+    </tr>
+</table>
+
+<div style="margin-top:1mm; font-size:5.5pt; color:#64748B; font-style:italic; line-height:1.5;">
+    <strong style="font-style:normal; color:#475569;">Keterangan:</strong><br>
+    &bull; OLS = <em>Over Load Shedding</em> &nbsp;|&nbsp; OGS = <em>Over Generation Shedding</em> &nbsp;|&nbsp; UPLS = <em>Under Power Load Shedding</em> &nbsp;|&nbsp; *) coret yang tidak perlu<br>
+    &bull; Common (+) RL = tegangan positif di belakang rele (relay coil) &nbsp;|&nbsp; Common (&minus;) RL = tegangan negatif pada selektor switch &nbsp;|&nbsp; Test COMM = hasil uji komunikasi ke target
+</div>
+
+{% endblock %}

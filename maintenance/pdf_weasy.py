@@ -53,6 +53,9 @@ _TEMPLATE_MAP = {
     'OFGS':            'maintenance/pdf/ufls.html',
     'CDSAS':           'maintenance/pdf/ufls.html',
     'FREQUENCY RELAY': 'maintenance/pdf/ufls.html',
+    'MASTER TRIP':          'maintenance/pdf/master_trip.html',
+    'RELE DEFENSE SCHEME':  'maintenance/pdf/master_trip.html',
+    'DEFENSE SCHEME':       'maintenance/pdf/master_trip.html',
 }
 
 _CORRECTIVE_TEMPLATE = 'maintenance/pdf/corrective.html'
@@ -89,6 +92,9 @@ _TITLES = {
     'OFGS':            'Form Checklist Frequency Relay — OFGS',
     'CDSAS':           'Form Checklist Frequency Relay — CDSAS',
     'FREQUENCY RELAY': 'Form Checklist Frequency Relay',
+    'MASTER TRIP':         'Form Checklist Master Trip',
+    'RELE DEFENSE SCHEME': 'Form Checklist Rele Defense Scheme',
+    'DEFENSE SCHEME':      'Form Checklist Rele Defense Scheme',
 }
 
 _CORRECTIVE_TITLE = 'Laporan Corrective Maintenance'
@@ -128,6 +134,9 @@ _DOC_CODES = {
     'OFGS':            '',
     'CDSAS':           '',
     'FREQUENCY RELAY': '',
+    'MASTER TRIP':         '',
+    'RELE DEFENSE SCHEME': '',
+    'DEFENSE SCHEME':      '',
 }
 
 
@@ -677,6 +686,83 @@ _CTX_BUILDERS['UFR ISLAND']      = _ctx_freq_relay
 _CTX_BUILDERS['OFGS']            = _ctx_freq_relay
 _CTX_BUILDERS['CDSAS']           = _ctx_freq_relay
 _CTX_BUILDERS['FREQUENCY RELAY'] = _ctx_freq_relay
+
+
+def _ctx_master_trip(data, ctx):
+    """Master Trip / Rele Defense Scheme.
+
+    Barisnya selalu dibangun 6 baris walau `master_trip` kosong, supaya
+    `blank_maintenance_pdf` (Cetak Formulir) menghasilkan formulir kosong
+    dengan kotak isian yang sama persis dengan laporan berisi data.
+    """
+    raw = data.get('master_trip') or {}
+    # Semua kunci skalar selalu ada (string kosong bila tak terisi) supaya
+    # formulir kosong tidak menyisakan variabel template yang tak terdefinisi.
+    mt = {k: '' for k in (
+        'healthy', 'trip_led', 'alarm', 'merek', 'no_seri', 'target', 'fungsi',
+        'rasio_ct', 'supply_dc', 'selektor', 'catatan',
+    )}
+    mt.update(raw)
+
+    def _rows(prefix):
+        return [{
+            'rl':        mt.get(f'{prefix}{n}_rl', ''),
+            'vdc':       mt.get(f'{prefix}{n}_vdc', ''),
+            'pin':       mt.get(f'{prefix}{n}_pin', ''),
+            'tahap_vdc': mt.get(f'{prefix}{n}_tahap_vdc', ''),
+            'tahap_pin': mt.get(f'{prefix}{n}_tahap_pin', ''),
+        } for n in range(1, 7)]
+
+    aux_rows = [{
+        'rl':  mt.get(f'aux{n}_rl', ''),
+        'tf':  mt.get(f'aux{n}_tf', ''),
+        'led': mt.get(f'aux{n}_led', ''),
+    } for n in range(1, 7)]
+
+    dev_rows = [{
+        'nama':  mt.get(f'dev{n}_nama', ''),
+        'gi':    mt.get(f'dev{n}_gi', ''),
+        'ready': mt.get(f'dev{n}_ready', ''),
+        'comm':  mt.get(f'dev{n}_comm', ''),
+    } for n in range(1, 7)]
+
+    arus_items = [
+        {'label': 'I A', 'value': mt.get('i_a', ''), 'unit': 'A'},
+        {'label': 'I B', 'value': mt.get('i_b', ''), 'unit': 'A'},
+        {'label': 'I C', 'value': mt.get('i_c', ''), 'unit': 'A'},
+    ]
+    tegangan_items = [
+        {'label': 'V A',       'value': mt.get('v_a', ''),       'unit': 'kV'},
+        {'label': 'V B',       'value': mt.get('v_b', ''),       'unit': 'kV'},
+        {'label': 'V C',       'value': mt.get('v_c', ''),       'unit': 'kV'},
+        {'label': 'Frekuensi', 'value': mt.get('frekuensi', ''), 'unit': 'Hz'},
+    ]
+    setting_items = [
+        {'label': 'I >',         'setting': mt.get('setting_i', ''),   'waktu': mt.get('waktu_i', ''),     'unit': 'A'},
+        {'label': 'I >>',        'setting': mt.get('setting_ii', ''),  'waktu': mt.get('waktu_ii', ''),    'unit': 'A'},
+        {'label': 'Under Power', 'setting': mt.get('under_power', ''), 'waktu': mt.get('waktu_under', ''), 'unit': 'kV'},
+        {'label': 'Over Power',  'setting': mt.get('over_power', ''),  'waktu': mt.get('waktu_over', ''),  'unit': 'kV'},
+    ]
+
+    kind = data.get('device_kind', '').strip().upper()
+
+    ctx.update({
+        'mt':              mt,
+        'mt_is_defense':   'DEFENSE' in kind,
+        'pos_rows':        _rows('p'),
+        'neg_rows':        _rows('n'),
+        'aux_rows':        aux_rows,
+        'dev_rows':        dev_rows,
+        'arus_items':      arus_items,
+        'tegangan_items':  tegangan_items,
+        'setting_items':   setting_items,
+        'catatan':         mt.get('catatan', ''),
+    })
+
+
+_CTX_BUILDERS['MASTER TRIP']         = _ctx_master_trip
+_CTX_BUILDERS['RELE DEFENSE SCHEME'] = _ctx_master_trip
+_CTX_BUILDERS['DEFENSE SCHEME']      = _ctx_master_trip
 
 
 def _ctx_corrective(data, ctx):
