@@ -70,6 +70,16 @@ class Pembangkit(models.Model):
     dmp_kolom_dmp = models.CharField(max_length=50, blank=True, default='', verbose_name='Kolom DMP',
                                       help_text='Nama kolom KIT_DMP berisi Daya Mampu Pasok (MW). '
                                                 'Kosongkan bila DMP tidak tersedia.')
+    # ── Inersia (kartu Inersia Sistem di dashboard) ────────────────────
+    # Energi kinetik tersimpan sebuah mesin = MVA x H. Keduanya sifat mesin,
+    # bukan hasil ukur, jadi diisi manual di admin. Dikosongkan = pembangkit
+    # ini tidak ikut perhitungan inersia sama sekali (bukan dianggap nol).
+    mva       = models.FloatField(null=True, blank=True, verbose_name='Kapasitas S (MVA)',
+                                  help_text='Daya semu terpasang dalam MVA. Kosongkan bila '
+                                            'pembangkit ini tidak diikutkan hitungan inersia.')
+    inersia_h = models.FloatField(null=True, blank=True, verbose_name='Konstanta Inersia H (detik)',
+                                  help_text='Konstanta inersia mesin dalam detik, umumnya 2-9 s. '
+                                            'Energi kinetiknya = MVA x H (MWs).')
     # ── Posisi pin pada Peta Pembangkit (/opsis/peta/) ─────────────────
     # Persen terhadap viewBox peta Sulawesi: peta_x 0=barat, 100=timur;
     # peta_y 0=utara, 100=selatan. Kosongkan untuk memakai posisi bawaan
@@ -104,6 +114,18 @@ class Pembangkit(models.Model):
 
     def __str__(self):
         return self.nama
+
+    @property
+    def energi_kinetik_mws(self):
+        """
+        Energi kinetik tersimpan (MWs) = MVA x H. None bila salah satunya
+        belum diisi — sengaja None, bukan 0, supaya pembangkit yang datanya
+        belum lengkap terlihat sebagai 'belum diisi' di admin dan tidak
+        diam-diam menyusutkan total inersia sistem.
+        """
+        if self.mva is None or self.inersia_h is None:
+            return None
+        return self.mva * self.inersia_h
 
     def kit_source(self):
         """Kode KIT_REALTIME yang dibaca — kode_kit jika diisi, else kode."""
@@ -650,6 +672,106 @@ class PantauanKit(models.Model):
     def tampil(self):
         """Kartu digambar hanya bila dinyalakan DAN ada anggotanya."""
         return self.aktif and bool(self.anggota_aktif())
+
+
+class PengaturanInersia(models.Model):
+    """
+    Kartu "Inersia Sistem" di dashboard OPSIS: energi kinetik tersimpan seluruh
+    pembangkit yang sedang beroperasi, dan berapa MW yang boleh lepas pada
+    batas ROCOF tertentu.
+
+        E    = SUM(MVA x H) pembangkit yang ikut dihitung        [MWs]
+        dP   = 2 x E x ROCOF_batas / f0                          [MW]
+
+    Contoh dari lapangan: E = 11890 MWs, ROCOF 1 Hz/s, f0 50 Hz
+                          -> dP = 2 x 11890 x 1 / 50 = 475,6 MW
+
+    ROCOF dan f0 di sini adalah PARAMETER RENCANA, bukan hasil ukur — dP yang
+    dihasilkan berarti "batas aman lepas pembangkit", bukan "besar gangguan
+    yang barusan terjadi". Kalau suatu saat yang dibutuhkan adalah yang kedua,
+    ROCOF-nya harus datang dari SnapFreqRT dan itu perhitungan yang berbeda.
+
+    MVA & H per pembangkit ada di Pembangkit.mva / .inersia_h. Baris tunggal
+    (pk=1) seperti PantauanKit dan ModePemeliharaan.
+    """
+
+    aktif = models.BooleanField(
+        default=False, verbose_name='Tampilkan di Dashboard',
+        help_text='Hilangkan centang untuk menyembunyikan kartu dan chart-nya tanpa '
+                  'menghapus pengaturannya.')
+    nama  = models.CharField(
+        max_length=80, default='Inersia Sistem', verbose_name='Judul Kartu',
+        help_text='Tampil sebagai judul kartu kecil dan chart-nya di dashboard.')
+
+    rocof_batas = models.FloatField(
+        default=1.0, verbose_name='Batas ROCOF (Hz/s)',
+        help_text='Laju perubahan frekuensi yang masih dianggap aman, mis. 1 Hz/s. '
+                  'Dipakai menghitung dP = 2 x E x ROCOF / f0.')
+    frekuensi_nominal = models.FloatField(
+        default=50.0, verbose_name='Frekuensi Nominal f0 (Hz)',
+        help_text='Umumnya 50 Hz.')
+
+    hanya_beroperasi = models.BooleanField(
+        default=True, verbose_name='Hitung Hanya Pembangkit yang Beroperasi',
+        help_text='Hanya mesin yang tersinkron menyimpan energi kinetik, jadi bawaannya '
+                  'dicentang — pembangkit dengan MW di bawah ambang di bawah ini tidak '
+                  'ikut dihitung. Hilangkan centang untuk memakai seluruh pembangkit '
+                  'yang punya MVA & H (angkanya jadi kapasitas inersia terpasang, dan '
+                  'grafiknya praktis datar).')
+    ambang_mw = models.FloatField(
+        default=1.0, verbose_name='Ambang MW Dianggap Beroperasi',
+        help_text='Pembangkit dengan MW lebih besar dari angka ini dianggap tersinkron. '
+                  'Bukan nol supaya derau pengukuran kecil tidak terbaca sebagai '
+                  'mesin yang berputar.')
+
+    warna       = models.CharField(
+        max_length=7, default='#22d3ee', verbose_name='Warna Energi Kinetik',
+        help_text='Warna angka E dan garis chart-nya, mis. #22d3ee.')
+    warna_delta = models.CharField(
+        max_length=7, default='#fb923c', verbose_name='Warna dP',
+        help_text='Warna angka dP dan garis chart-nya.')
+    diubah_pada = models.DateTimeField(auto_now=True, verbose_name='Diubah Pada')
+
+    class Meta:
+        verbose_name = 'Pengaturan Inersia Sistem'
+        verbose_name_plural = 'Pengaturan Inersia Sistem'
+
+    def __str__(self):
+        return f'{self.nama} — ROCOF {self.rocof_batas} Hz/s @ {self.frekuensi_nominal} Hz'
+
+    def save(self, *args, **kwargs):
+        self.pk = 1                       # selalu satu baris, apa pun jalur simpannya
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def ambil(cls):
+        """Baris pengaturan, dibuat dengan nilai bawaan bila belum ada."""
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+    def pembangkit_terhitung(self):
+        """
+        Pembangkit aktif yang MVA dan H-nya sudah diisi — kandidat penyumbang
+        inersia. Apakah masing-masing benar-benar ikut pada suatu waktu masih
+        bergantung `hanya_beroperasi`.
+        """
+        return list(Pembangkit.objects
+                    .filter(aktif=True, mva__isnull=False, inersia_h__isnull=False)
+                    .order_by('urutan', 'nama'))
+
+    def delta_p(self, energi_mws):
+        """
+        dP = 2 x E x ROCOF_batas / f0. None bila E tidak diketahui atau f0
+        nol (pembagian nol hanya bisa terjadi kalau seseorang mengisi 0 di
+        admin — dijawab dengan None, bukan exception di tengah render).
+        """
+        if energi_mws is None or not self.frekuensi_nominal:
+            return None
+        return 2.0 * energi_mws * self.rocof_batas / self.frekuensi_nominal
+
+    def tampil(self):
+        """Kartu digambar hanya bila dinyalakan DAN ada pembangkit yang terisi."""
+        return self.aktif and bool(self.pembangkit_terhitung())
 
 
 class ModePemeliharaan(models.Model):

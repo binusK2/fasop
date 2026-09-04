@@ -6,6 +6,7 @@ Jalankan: python manage.py test opsis
 """
 import datetime
 import json
+import re
 
 from django.contrib.auth.models import User
 from django.test import TestCase, override_settings
@@ -13,8 +14,8 @@ from django.urls import reverse
 from django.utils import timezone
 
 from .models import (KartuPadam, KelompokPeta, KolomEWS, ModePemeliharaan,
-                     PantauanKit, Pembangkit, PrakiraanBeban, SnapFreq, SnapFreqRT,
-                     SnapLive, TitikEWS)
+                     PantauanKit, Pembangkit, PengaturanInersia, PrakiraanBeban,
+                     SnapFreq, SnapFreqRT, SnapLive, TitikEWS)
 from . import freq_history, hop_map, mssql, prakiraan, prediksi, sumber_data, views
 from auditlog.models import AuditLog
 
@@ -2002,3 +2003,153 @@ class KartuPadamDashboardTest(TestCase):
         pertama dibuka saat sebuah angka mencurigakan."""
         fitur = [e['fitur'] for e in sumber_data.SUMBER]
         self.assertIn('Dashboard — kartu Total Padam', fitur)
+
+
+@override_settings(MSSQL_HOST='')   # dashboard tidak perlu menembak historian
+class InersiaTest(TestCase):
+    """
+    Kartu Inersia Sistem: E = SUM(MVA x H) pembangkit yang dihitung, dan
+    dP = 2 x E x ROCOF / f0.
+
+    Contoh acuan dari lapangan: E 11890 MWs, ROCOF 1 Hz/s, f0 50 Hz -> 475,6 MW.
+    """
+
+    def setUp(self):
+        self.hari_ini = timezone.localdate()
+        self.url = reverse('opsis_api_inersia')
+        # 100 MVA x 5 s = 500 MWs ; 200 MVA x 4 s = 800 MWs
+        self.a = Pembangkit.objects.create(kode='INA', nama='PLTU A', kode_kit='INA',
+                                           urutan=1, mva=100, inersia_h=5)
+        self.b = Pembangkit.objects.create(kode='INB', nama='PLTU B', kode_kit='INB',
+                                           urutan=2, mva=200, inersia_h=4)
+        # Tidak lengkap: hanya MVA, H kosong -> harus dilewati, bukan dihitung nol
+        self.c = Pembangkit.objects.create(kode='INC', nama='PLTD C', kode_kit='INC',
+                                           urutan=3, mva=50)
+
+    def _user_login(self):
+        user = User.objects.create_user('inersia-tes', 'i@contoh.id', 'rahasia-tes-123')
+        profil = user.profile
+        profil.force_password_change = False
+        profil.save()
+        self.client.force_login(user)
+        return user
+
+    def _snap(self, pembangkit, menit, mw):
+        SnapLive.objects.create(pembangkit=pembangkit, mw=mw,
+                                waktu=_waktu_lokal(self.hari_ini, menit))
+
+    def _nyalakan(self, **ubah):
+        cfg = PengaturanInersia.ambil()
+        cfg.aktif = True
+        for k, v in ubah.items():
+            setattr(cfg, k, v)
+        cfg.save()
+        return cfg
+
+    # ── Rumus ─────────────────────────────────────────────────────────
+    def test_energi_kinetik_per_pembangkit(self):
+        self.assertEqual(self.a.energi_kinetik_mws, 500)
+        self.assertEqual(self.b.energi_kinetik_mws, 800)
+
+    def test_pembangkit_tanpa_h_dilewati_bukan_dianggap_nol(self):
+        self.assertIsNone(self.c.energi_kinetik_mws)
+        cfg = PengaturanInersia.ambil()
+        self.assertEqual([p.kode for p in cfg.pembangkit_terhitung()], ['INA', 'INB'])
+
+    def test_delta_p_sesuai_contoh_lapangan(self):
+        cfg = PengaturanInersia.ambil()      # bawaan: ROCOF 1 Hz/s, f0 50 Hz
+        self.assertAlmostEqual(cfg.delta_p(11890), 475.6, places=1)
+
+    def test_delta_p_mengikuti_parameter(self):
+        cfg = PengaturanInersia.ambil()
+        cfg.rocof_batas = 0.5
+        self.assertAlmostEqual(cfg.delta_p(11890), 237.8, places=1)
+        cfg.rocof_batas, cfg.frekuensi_nominal = 1.0, 60.0
+        self.assertAlmostEqual(cfg.delta_p(11890), 396.333, places=2)
+
+    def test_f0_nol_tidak_melempar(self):
+        cfg = PengaturanInersia.ambil()
+        cfg.frekuensi_nominal = 0
+        self.assertIsNone(cfg.delta_p(11890))
+
+    # ── Endpoint chart ────────────────────────────────────────────────
+    def test_hanya_pembangkit_beroperasi_yang_dihitung(self):
+        self._nyalakan(ambang_mw=1.0)
+        self._snap(self.a, 600, 50.0)     # jalan  -> 500 MWs
+        self._snap(self.b, 600, 0.0)      # padam  -> tidak ikut
+        self._snap(self.a, 660, 50.0)
+        self._snap(self.b, 660, 80.0)     # ikut   -> 500 + 800 = 1300 MWs
+        self._user_login()
+
+        rows = self.client.get(self.url).json()['rows']
+        self.assertEqual([r['minute'] for r in rows], [600, 660])
+        self.assertEqual(rows[0]['mws'], 500.0)
+        self.assertEqual(rows[1]['mws'], 1300.0)
+        # dP = 2 x E x 1 / 50 = E x 0,04
+        self.assertAlmostEqual(rows[0]['dp'], 20.0, places=2)
+        self.assertAlmostEqual(rows[1]['dp'], 52.0, places=2)
+
+    def test_mode_semua_terdaftar_mengabaikan_mw(self):
+        self._nyalakan(hanya_beroperasi=False)
+        self._snap(self.a, 600, 0.0)
+        self._snap(self.b, 600, 0.0)
+        self._user_login()
+        rows = self.client.get(self.url).json()['rows']
+        self.assertEqual(rows[0]['mws'], 1300.0)
+
+    def test_pembangkit_tanpa_mva_tidak_pernah_menyumbang(self):
+        self._nyalakan()
+        self._snap(self.c, 600, 30.0)     # beroperasi, tapi H kosong
+        self._user_login()
+        self.assertEqual(self.client.get(self.url).json()['rows'], [])
+
+    def test_abaikan_hari_lain(self):
+        self._nyalakan()
+        kemarin = self.hari_ini - datetime.timedelta(days=1)
+        SnapLive.objects.create(pembangkit=self.a, mw=50.0,
+                                waktu=_waktu_lokal(kemarin, 600))
+        self._user_login()
+        self.assertEqual(self.client.get(self.url).json()['rows'], [])
+
+    def test_endpoint_diam_saat_belum_dinyalakan(self):
+        self._user_login()
+        body = self.client.get(self.url).json()
+        self.assertFalse(body['aktif'])
+        self.assertEqual(body['rows'], [])
+
+    # ── Dashboard ─────────────────────────────────────────────────────
+    def test_kartu_muncul_hanya_saat_dinyalakan(self):
+        self._user_login()
+        self.assertNotIn('id="chart-inersia"', self.client.get('/opsis/').content.decode())
+
+        self._nyalakan()
+        isi = self.client.get('/opsis/').content.decode()
+        self.assertIn('id="chart-inersia"', isi)
+        self.assertIn('id="inersia-mws"', isi)
+        self.assertIn('id="inersia-dp"', isi)
+
+    def test_kartu_tersembunyi_bila_belum_ada_mva_dan_h(self):
+        Pembangkit.objects.all().update(mva=None, inersia_h=None)
+        cfg = self._nyalakan()
+        self.assertFalse(cfg.tampil())
+        self._user_login()
+        self.assertNotIn('id="chart-inersia"', self.client.get('/opsis/').content.decode())
+
+    def test_energi_per_kode_dikirim_ke_browser(self):
+        self._nyalakan()
+        self._user_login()
+        isi = self.client.get('/opsis/').content.decode()
+        # Diperiksa DI DALAM blok json_script-nya saja: kode pembangkit juga
+        # muncul di KODE_LIST dan di kartu-kartu, jadi mencari di seluruh
+        # halaman akan selalu menemukannya dan tesnya jadi tidak berarti.
+        blok = re.search(
+            r'<script id="inersia-mws-data"[^>]*>(.*?)</script>', isi, re.S)
+        self.assertIsNotNone(blok, 'blok json_script inersia tidak dirender')
+        peta = json.loads(blok.group(1))
+        self.assertEqual(peta, {'INA': 500.0, 'INB': 800.0})
+
+    def test_pengaturan_selalu_satu_baris(self):
+        PengaturanInersia.ambil()
+        PengaturanInersia(nama='Coba Kedua').save()
+        self.assertEqual(PengaturanInersia.objects.count(), 1)
+        self.assertEqual(PengaturanInersia.objects.get().nama, 'Coba Kedua')

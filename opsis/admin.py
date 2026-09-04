@@ -3,6 +3,7 @@ from . import mssql
 from .models import (Pembangkit, SnapLive, SnapUnit, SnapFreq, SnapFreqRT, SnapFreqArea,
                      Trafo, SnapTrafo, HopPembangkit, HopSnapshot,
                      PrakiraanBeban, ModePemeliharaan, KelompokPeta, PantauanKit,
+                     PengaturanInersia,
                      KolomEWS, TitikEWS, KartuPadam)
 
 
@@ -65,6 +66,80 @@ class PantauanKitAdmin(admin.ModelAdmin):
 
     def changelist_view(self, request, extra_context=None):
         PantauanKit.ambil()           # pastikan barisnya ada sebelum daftar dirender
+        return super().changelist_view(request, extra_context)
+
+
+@admin.register(PengaturanInersia)
+class PengaturanInersiaAdmin(admin.ModelAdmin):
+    """
+    Parameter kartu Inersia Sistem. Baris tunggal, jadi tombol Tambah/Hapus
+    dimatikan dan daftar langsung membuka baris itu — sama seperti Mode
+    Pemeliharaan dan Pantauan KIT Terpilih.
+
+    MVA & H per pembangkit TIDAK diatur di sini melainkan di Opsis >
+    Pembangkit, supaya angkanya duduk bersama data mesin lain.
+    """
+    list_display    = ('nama', 'aktif', 'rocof_batas', 'frekuensi_nominal',
+                       'jumlah_pembangkit', 'energi_terpasang', 'diubah_pada')
+    readonly_fields = ('diubah_pada', 'ringkasan_hitungan')
+    fieldsets = (
+        (None, {
+            'description': 'Kartu "Inersia Sistem" di dashboard OPSIS beserta chart 24 jam-nya. '
+                           'MVA dan H tiap mesin diisi di Opsis &gt; Pembangkit; di sini hanya '
+                           'parameter perhitungannya. Perubahan baru terlihat setelah halaman '
+                           'dashboard dimuat ulang.',
+            'fields': ('aktif', 'nama', 'warna', 'warna_delta'),
+        }),
+        ('Parameter Perhitungan', {
+            'description': 'E = jumlah (MVA x H) pembangkit yang dihitung. '
+                           'dP = 2 x E x ROCOF / f0. '
+                           'Contoh: E 11890 MWs, ROCOF 1 Hz/s, f0 50 Hz -> dP 475,6 MW.',
+            'fields': ('rocof_batas', 'frekuensi_nominal', 'hanya_beroperasi', 'ambang_mw'),
+        }),
+        ('Pemeriksaan', {'fields': ('ringkasan_hitungan', 'diubah_pada')}),
+    )
+
+    @admin.display(description='Pembangkit Terisi')
+    def jumlah_pembangkit(self, obj):
+        return len(obj.pembangkit_terhitung())
+
+    @admin.display(description='E Terpasang (MWs)')
+    def energi_terpasang(self, obj):
+        total = sum(p.energi_kinetik_mws for p in obj.pembangkit_terhitung())
+        return f'{total:,.0f}'
+
+    @admin.display(description='Hasil bila SEMUA pembangkit terisi ikut dihitung')
+    def ringkasan_hitungan(self, obj):
+        """
+        Angka pembanding supaya parameter bisa diperiksa tanpa membuka
+        dashboard. Ini kapasitas TERPASANG — angka di dashboard umumnya lebih
+        kecil karena hanya mesin yang sedang beroperasi yang dihitung.
+        """
+        from django.utils.html import format_html
+        baris = obj.pembangkit_terhitung()
+        if not baris:
+            return 'Belum ada pembangkit yang MVA dan H-nya terisi.'
+        total = sum(p.energi_kinetik_mws for p in baris)
+        dp = obj.delta_p(total)
+        return format_html(
+            'E = {} MWs dari {} pembangkit<br>'
+            'dP = 2 &times; {} &times; {} / {} = <b>{} MW</b><br>'
+            '<span style="color:#666">Dashboard menampilkan angka yang lebih kecil bila '
+            '"hitung hanya pembangkit yang beroperasi" dicentang.</span>',
+            f'{total:,.0f}', len(baris),
+            f'{total:,.0f}', obj.rocof_batas, obj.frekuensi_nominal,
+            '—' if dp is None else f'{dp:,.1f}',
+        )
+
+    def has_add_permission(self, request):
+        # Baris tunggal: dibuat otomatis oleh changelist_view di bawah.
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def changelist_view(self, request, extra_context=None):
+        PengaturanInersia.ambil()     # pastikan barisnya ada sebelum daftar dirender
         return super().changelist_view(request, extra_context)
 
 
@@ -207,7 +282,7 @@ class KartuPadamAdmin(admin.ModelAdmin):
 @admin.register(Pembangkit)
 class PembangkitAdmin(admin.ModelAdmin):
     list_display  = ('urutan', 'nama', 'kode', 'jenis', 'supply', 'warna', 'aktif',
-                     'tampil_di_peta', 'data_tidak_sesuai', 'pakai_dmp')
+                     'tampil_di_peta', 'data_tidak_sesuai', 'pakai_dmp', 'mws')
     list_editable = ('urutan', 'jenis', 'supply', 'aktif', 'tampil_di_peta')
     list_filter   = ('jenis', 'supply', 'aktif', 'tampil_di_peta', 'data_tidak_sesuai')
     search_fields = ('nama', 'kode')
@@ -230,6 +305,14 @@ class PembangkitAdmin(admin.ModelAdmin):
             'description': 'Diisi manual (juga bisa dari dashboard OPSIS oleh superuser/Opsis). '
                             'Bila dicentang, kartu pembangkit di dashboard diberi label ketidaksesuaian.',
             'fields': ('data_tidak_sesuai', 'data_keterangan', 'ditandai_oleh', 'ditandai_pada'),
+        }),
+        ('Inersia — MVA & H', {
+            'description': 'Dipakai kartu "Inersia Sistem" di dashboard: energi kinetik '
+                           'tersimpan = MVA x H (MWs). Kosongkan salah satunya bila '
+                           'pembangkit ini belum diikutkan — ia akan dilewati, bukan '
+                           'dihitung nol. Pengaturan ROCOF/f0 ada di Opsis > Pengaturan '
+                           'Inersia Sistem.',
+            'fields': ('mva', 'inersia_h'),
         }),
         ('Sumber Data KIT_REALTIME', {
             'description': 'Kosongkan Kode KIT dan Unit yang Dipakai untuk perilaku default '
@@ -256,6 +339,13 @@ class PembangkitAdmin(admin.ModelAdmin):
     @admin.display(boolean=True, description='DMN/DMP')
     def pakai_dmp(self, obj):
         return obj.pakai_dmp()
+
+    @admin.display(description='E (MWs)')
+    def mws(self, obj):
+        """Energi kinetik tersimpan. Strip = MVA atau H belum diisi, jadi
+        pembangkit ini belum ikut hitungan inersia."""
+        nilai = obj.energi_kinetik_mws
+        return '—' if nilai is None else f'{nilai:,.0f}'
 
 
 @admin.register(Trafo)

@@ -11,7 +11,8 @@ from django.shortcuts import redirect
 from django.urls import reverse
 from .models import (Pembangkit, SnapLive, SnapFreq, SnapFreqRT, Trafo, SnapTrafo,
                      HopPembangkit, HopSnapshot, HOP_KATEGORI_CHOICES, JENIS_CHOICES,
-                     JENIS_WARNA, KelompokPeta, PantauanKit, hop_status, hop_deskripsi_band,
+                     JENIS_WARNA, KelompokPeta, PantauanKit, PengaturanInersia,
+                     hop_status, hop_deskripsi_band,
                      hop_garis_ambang, KolomEWS, TitikEWS, SKEMA_WARNA, ARAH_CHOICES,
                      KartuPadam)
 from auditlog.models import AuditLog
@@ -101,6 +102,8 @@ def dashboard(request):
     # angka di layar yang sama berbeda tanpa ada yang bisa menjelaskannya.
     pantauan = PantauanKit.ambil()
     anggota_pantauan = pantauan.anggota_aktif()
+    inersia = PengaturanInersia.ambil()
+    pembangkit_inersia = inersia.pembangkit_terhitung()
     return render(request, 'opsis/dashboard.html', {
         'pembangkit_list': pembangkit_list,
         'grouped':         grouped,
@@ -110,6 +113,19 @@ def dashboard(request):
         'pantauan_tampil':   bool(anggota_pantauan) and pantauan.aktif,
         'pantauan_kode':     [p.kode for p in anggota_pantauan],
         'pantauan_nama':     [p.nama for p in anggota_pantauan],
+        # Inersia: sama polanya dengan kartu KIT Terpilih — energi kinetik tiap
+        # pembangkit itu KONSTANTA (MVA x H), jadi dikirim sekali saat render dan
+        # penjumlahannya di browser memakai MW dari /opsis/api/live/ yang sama.
+        'inersia':           inersia,
+        'inersia_tampil':    inersia.tampil(),
+        'inersia_mws':       {p.kode: round(p.energi_kinetik_mws, 2)
+                              for p in pembangkit_inersia},
+        'inersia_cfg':       {
+            'rocof':            inersia.rocof_batas,
+            'f0':               inersia.frekuensi_nominal,
+            'hanya_beroperasi': inersia.hanya_beroperasi,
+            'ambang_mw':        inersia.ambang_mw,
+        },
         # Kartu Total Padam: dirender hanya untuk isi awalnya. Tampil/tidaknya
         # ikut dikirim tiap poll /opsis/api/total-padam/, jadi dimatikan dari
         # admin langsung terlihat di layar yang tidak pernah di-refresh.
@@ -907,6 +923,74 @@ def api_beban_kit_terpilih(request):
         'anggota':  [p.nama for p in anggota],
         'rows':     rows,
         'terakhir': rows[-1]['mw'] if rows else None,
+    })
+
+
+@login_required
+def api_inersia(request):
+    """
+    Seri 24 jam (hari ini, resolusi per menit) untuk chart "Inersia Sistem":
+    energi kinetik tersimpan E (MWs) dan dP (MW) = 2 x E x ROCOF / f0.
+
+    E tiap menit dijumlahkan dari pembangkit yang MW-nya di atas ambang pada
+    menit itu — hanya mesin yang tersinkron yang menyimpan energi kinetik,
+    dan itu pula yang membuat garisnya bergerak mengikuti unit yang masuk dan
+    keluar. Bila `hanya_beroperasi` dimatikan, seluruh pembangkit terisi
+    dihitung dan garisnya menjadi datar.
+
+    Penjumlahannya dilakukan di Python, bukan SUM di SQL: bobot tiap baris
+    (MVA x H) adalah konstanta per pembangkit, bukan kolom di SnapLive. Yang
+    ditarik hanya (waktu, pembangkit_id) untuk baris di atas ambang — sekitar
+    30 ribu tuple untuk sehari penuh, jauh lebih ringan daripada memuat objek.
+
+    Batas rentang memakai datetime, bukan lookup __date — alasan yang sama
+    dengan ekspor beban pembangkit: cast pada kolom waktu membuat indeks
+    (pembangkit, -waktu) tidak terpakai.
+    """
+    inersia = PengaturanInersia.ambil()
+    pembangkit = inersia.pembangkit_terhitung()
+    if not (inersia.aktif and pembangkit):
+        return JsonResponse({'aktif': False, 'nama': inersia.nama, 'rows': [],
+                             'warna': inersia.warna, 'warna_delta': inersia.warna_delta})
+
+    mws = {p.pk: p.energi_kinetik_mws for p in pembangkit}
+    faktor = (2.0 * inersia.rocof_batas / inersia.frekuensi_nominal
+              if inersia.frekuensi_nominal else None)
+
+    tz    = timezone.get_current_timezone()
+    awal  = timezone.make_aware(
+        datetime.datetime.combine(timezone.localdate(), datetime.time.min), tz)
+    akhir = awal + datetime.timedelta(days=1)
+
+    qs = (SnapLive.objects
+          .filter(pembangkit__in=pembangkit, waktu__gte=awal, waktu__lt=akhir)
+          .order_by('waktu'))
+    if inersia.hanya_beroperasi:
+        qs = qs.filter(mw__gt=inersia.ambang_mw)
+    else:
+        qs = qs.filter(mw__isnull=False)
+
+    per_menit = {}
+    for waktu, pk in qs.values_list('waktu', 'pembangkit_id'):
+        lokal = timezone.localtime(waktu)
+        menit = lokal.hour * 60 + lokal.minute
+        per_menit[menit] = per_menit.get(menit, 0.0) + mws.get(pk, 0.0)
+
+    rows = [{'minute': m,
+             'mws': round(e, 1),
+             'dp': None if faktor is None else round(e * faktor, 2)}
+            for m, e in sorted(per_menit.items())]
+
+    return JsonResponse({
+        'aktif':        True,
+        'nama':         inersia.nama,
+        'warna':        inersia.warna,
+        'warna_delta':  inersia.warna_delta,
+        'rocof':        inersia.rocof_batas,
+        'f0':           inersia.frekuensi_nominal,
+        'jumlah_kit':   len(pembangkit),
+        'rows':         rows,
+        'terakhir':     rows[-1] if rows else None,
     })
 
 
