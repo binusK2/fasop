@@ -1,0 +1,209 @@
+{# maintenance/templates/maintenance/pdf/dfr.html #}
+{# Form Checklist DFR / PMU (Digital Fault Recorder / Phasor Measurement Unit) #}
+{% extends 'maintenance/pdf/_base.html' %}
+
+{% block header_title %}
+<div style="font-weight:bold; font-size:9pt; color:#0F172A; line-height:1.5;">FORM CHECKLIST DIGITAL FAULT RECORDER</div>
+<div style="font-size:7.5pt; font-weight:bold; color:#1A3A5C;">
+    ( <span {% if not dfr_is_pmu %}style="text-decoration:underline;"{% endif %}>DFR</span> &nbsp;/&nbsp;
+    <span {% if dfr_is_pmu %}style="text-decoration:underline;"{% endif %}>PMU</span> )
+</div>
+{% endblock %}
+
+{% block extra_css %}
+.it-label  { width: 58%; font-weight: bold; background: #E0F2FE; font-size: 6.5pt; }
+.it-val    { font-size: 6.5pt; font-weight: bold; text-align: center; color: #1A3A5C; }
+.spek-lbl  { width: 34%; font-weight: bold; background: #F1F5F9; font-size: 6.5pt; }
+.spek-val  { font-size: 6.5pt; color: #2563EB; font-weight: bold; }
+.media-hdr { background: #EDE9FE; font-weight: bold; font-size: 6pt; text-align: center; }
+.media-lbl { width: 44%; font-weight: bold; background: #F5F3FF; font-size: 6.5pt; }
+.media-val { text-align: center; font-size: 6.5pt; font-weight: bold; }
+.ping-hdr  { background: #DBEAFE; font-weight: bold; font-size: 6pt; text-align: center; }
+.ping-lbl  { width: 34%; font-weight: bold; background: #EFF6FF; font-size: 6.5pt; }
+.ping-val  { text-align: center; font-family: Courier, monospace; font-size: 6.5pt; color: #2563EB; font-weight: bold; }
+.bay-hdr   { background: #DBEAFE; color: #1E40AF; font-weight: bold; font-size: 6pt; text-align: center; }
+.bay-hz    { background: #E0E7FF; color: #3730A3; font-weight: bold; font-size: 6pt; text-align: center; }
+.bay-src   { width: 26%; font-weight: bold; font-size: 6.5pt; }
+.bay-src-d { background: #EFF6FF; color: #1E40AF; }
+.bay-src-i { background: #F0FDF4; color: #065F46; }
+.bay-val   { text-align: center; font-family: Courier, monospace; font-size: 6.5pt; color: #2563EB; font-weight: bold; }
+.bay-val-i { text-align: center; font-family: Courier, monospace; font-size: 6.5pt; color: #16A34A; font-weight: bold; }
+/* Formulir ini panjang (5 seksi + 2 tabel BAY). Sel dan blok pengesahan
+   dirapatkan supaya seluruh checklist + tanda tangan tetap muat 1 halaman A4. */
+td, th { padding: 1pt 3pt; }
+.sec  { padding: 2.5pt 6pt; margin-top: 1.5mm; }
+.peng { margin-top: 2.5mm; }
+.ttd  { min-height: 15mm; }
+.ttd > div { padding: 2mm; }
+.ttd .sig { padding-top: 3mm; }
+.ttd .sig img { max-height: 13mm; }
+{% endblock %}
+
+{% block info_extra %}
+<table>
+    <tr>
+        <td class="lbl" style="width:18%;">BAY / Feeder 1</td>
+        <td style="width:32%;" class="vb">{{ dfr.bay_feeder_1|default:"" }}</td>
+        <td class="lbl" style="width:18%;">BAY / Feeder 2</td>
+        <td style="width:32%;" class="vb">{{ dfr.bay_feeder_2|default:"" }}</td>
+    </tr>
+    <tr class="alt">
+        <td class="lbl">Rasio CT 1 / PT 1</td>
+        <td class="vb">{{ dfr.rasio_ct_1|default:"" }}{% if dfr.rasio_ct_1 and dfr.rasio_pt_1 %} / {% endif %}{{ dfr.rasio_pt_1|default:"" }}</td>
+        <td class="lbl">Rasio CT 2 / PT 2</td>
+        <td class="vb">{{ dfr.rasio_ct_2|default:"" }}{% if dfr.rasio_ct_2 and dfr.rasio_pt_2 %} / {% endif %}{{ dfr.rasio_pt_2|default:"" }}</td>
+    </tr>
+    <tr>
+        <td class="lbl">Suhu Ruangan</td>
+        <td class="vb">{{ dfr.suhu_ruangan|default:"" }}{% if dfr.suhu_ruangan %} &deg;C{% endif %}</td>
+        <td class="lbl">Kelembaban</td>
+        <td class="vb">{{ dfr.kelembaban|default:"" }}{% if dfr.kelembaban %} %{% endif %}</td>
+    </tr>
+</table>
+{% endblock %}
+
+{% block content %}
+
+{# ── II. PANEL + III. GPS/DFR + IV. MEDIA KOMUNIKASI ── #}
+<div class="two-col" style="gap:2mm; margin-top:0;">
+
+    <div style="flex:0 0 34%;">
+        <div class="sec">II.&nbsp;&nbsp;PENGECEKAN PANEL DFR</div>
+        <table>
+            {% for it in panel_items %}
+            <tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %} style="height:3.9mm;">
+                <td class="it-label">{{ it.label }}</td>
+                <td class="it-val">{{ it.value|default:"&nbsp;" }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+        <table style="margin-top:1mm;">
+            <tr style="height:3.9mm;"><td class="spek-lbl">Type DFR</td><td class="spek-val">{{ dfr.type_dfr|default:"&nbsp;" }}</td></tr>
+            <tr class="alt" style="height:3.9mm;"><td class="spek-lbl">Merk DFR</td><td class="spek-val">{{ dfr.merk_dfr|default:"&nbsp;" }}</td></tr>
+            <tr style="height:3.9mm;"><td class="spek-lbl">SN DFR</td><td class="spek-val">{{ dfr.sn_dfr|default:"&nbsp;" }}</td></tr>
+        </table>
+    </div>
+
+    <div style="flex:0 0 32%;">
+        <div class="sec">III.&nbsp;&nbsp;GPS &amp; DISPLAY DFR</div>
+        <table>
+            {% for it in gps_items %}
+            <tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %} style="height:3.9mm;">
+                <td class="it-label">{{ it.label }}</td>
+                <td class="it-val">{{ it.value|default:"&nbsp;" }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+        <div class="sec">IV.&nbsp;&nbsp;DISTURBANCE FAULT RECORDER</div>
+        <table>
+            {% for it in dfr_items %}
+            <tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %} style="height:3.9mm;">
+                <td class="it-label">{{ it.label }}</td>
+                <td class="it-val">{{ it.value|default:"&nbsp;" }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+
+    <div style="flex:1;">
+        <div class="sec">V.&nbsp;&nbsp;JENIS MEDIA KOMUNIKASI</div>
+        <table>
+            <tr style="height:3.9mm;">
+                <td class="spek-lbl">Visual &amp; 5R</td>
+                <td class="spek-val">{{ dfr.visual_5r|default:"&nbsp;" }}</td>
+            </tr>
+            <tr class="alt" style="height:3.9mm;">
+                <td class="spek-lbl">Front / Rear Port IP</td>
+                <td class="spek-val">{{ dfr.front_port_ip|default:"" }}{% if dfr.front_port_ip and dfr.rear_port_ip %} / {% endif %}{{ dfr.rear_port_ip|default:"" }}</td>
+            </tr>
+        </table>
+        <table style="margin-top:1mm;">
+            <tr>
+                <td class="media-hdr" style="text-align:left;">Media</td>
+                <td class="media-hdr" style="width:28%;">Tx</td>
+                <td class="media-hdr" style="width:28%;">Rx</td>
+            </tr>
+            {% for m in media_rows %}
+            <tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %} style="height:3.9mm;">
+                <td class="media-lbl">{{ m.media }}</td>
+                <td class="media-val">{{ m.tx|default:"&nbsp;" }}</td>
+                <td class="media-val">{{ m.rx|default:"&nbsp;" }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+        <table style="margin-top:1mm;">
+            <tr>
+                <td class="ping-hdr" style="text-align:left;">Test Communication (ping &lt; 20% loss)</td>
+                <td class="ping-hdr" style="width:16%;">#1 (ms)</td>
+                <td class="ping-hdr" style="width:16%;">#2 (ms)</td>
+                <td class="ping-hdr" style="width:22%;">Status</td>
+            </tr>
+            {% for p in ping_rows %}
+            <tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %} style="height:3.9mm;">
+                <td class="ping-lbl">{{ p.target }}</td>
+                <td class="ping-val">{{ p.ms1|default:"&nbsp;" }}</td>
+                <td class="ping-val">{{ p.ms2|default:"&nbsp;" }}</td>
+                <td class="media-val">{{ p.status|default:"&nbsp;" }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+</div>
+
+{# ── VI. SOFTWARE / BACKUP CONFIG / SUPPLY POWER ── #}
+<div class="sec">VI.&nbsp;&nbsp;SOFTWARE / BACKUP CONFIG / SUPPLY POWER DFR</div>
+{% comment %}Tiga pasang label/nilai per baris — enam pasang dalam satu baris
+membuat kolom nilainya terlalu sempit sehingga PMU ID terpotong ke baris kedua.{% endcomment %}
+<table>
+    {% for it in software_items %}
+    {% if forloop.counter0|divisibleby:3 %}<tr{% if forloop.counter > 3 %} class="alt"{% endif %} style="height:3.9mm;">{% endif %}
+        <td class="spek-lbl" style="width:15%;">{{ it.label }}</td>
+        <td class="spek-val" style="width:18.3%; text-align:center;">{{ it.value|default:"&nbsp;" }}{% if it.value and it.unit %} <span style="font-size:5.5pt; color:#64748B;">{{ it.unit }}</span>{% endif %}</td>
+    {% if forloop.counter|divisibleby:3 %}</tr>{% endif %}
+    {% endfor %}
+</table>
+
+{# ── VII. PEMBACAAN PENGUKURAN PER BAY ── #}
+{% for bay in bays %}
+<div class="sec">{% if forloop.first %}VII{% else %}VIII{% endif %}.&nbsp;&nbsp;PEMBACAAN PENGUKURAN — BAY {{ bay.nomor }}{% if bay.feeder %} : {{ bay.feeder }}{% endif %}</div>
+<table>
+    <tr>
+        <td class="bay-hdr" style="text-align:left; width:26%;">Pembacaan</td>
+        <td class="bay-hdr" style="width:13%;">R</td>
+        <td class="bay-hdr" style="width:13%;">S</td>
+        <td class="bay-hdr" style="width:13%;">T</td>
+        <td class="bay-hdr" style="width:13%;">N</td>
+        <td class="bay-hz"  style="width:10%;">Satuan</td>
+        <td class="bay-hz"  style="width:12%;">Frekuensi (Hz)</td>
+    </tr>
+    {% for r in bay.rows %}
+    <tr{% if forloop.counter|divisibleby:2 %} class="alt"{% endif %} style="height:3.9mm;">
+        <td class="bay-src {% if forloop.counter < 3 %}bay-src-d{% else %}bay-src-i{% endif %}">{{ r.sumber }} — {{ r.besaran }}</td>
+        <td class="{% if forloop.counter < 3 %}bay-val{% else %}bay-val-i{% endif %}">{{ r.r|default:"&nbsp;" }}</td>
+        <td class="{% if forloop.counter < 3 %}bay-val{% else %}bay-val-i{% endif %}">{{ r.s|default:"&nbsp;" }}</td>
+        <td class="{% if forloop.counter < 3 %}bay-val{% else %}bay-val-i{% endif %}">{{ r.t|default:"&nbsp;" }}</td>
+        <td class="{% if forloop.counter < 3 %}bay-val{% else %}bay-val-i{% endif %}">{{ r.n|default:"&nbsp;" }}</td>
+        <td class="bay-val" style="color:#64748B; font-weight:normal;">{{ r.satuan }}</td>
+        {% if r.hz is not None %}
+        <td class="{% if forloop.counter < 3 %}bay-val{% else %}bay-val-i{% endif %}" rowspan="2">{{ r.hz|default:"&nbsp;" }}</td>
+        {% endif %}
+    </tr>
+    {% endfor %}
+</table>
+{% endfor %}
+
+{# ── IX. CATATAN KHUSUS ── #}
+<div class="sec">IX.&nbsp;&nbsp;CATATAN KHUSUS DFR</div>
+<table>
+    <tr style="height:8mm;">
+        <td style="vertical-align:top; font-size:6.5pt; padding:3pt;">{{ catatan|default:"" }}</td>
+    </tr>
+</table>
+
+<div style="margin-top:1mm; font-size:5.5pt; color:#64748B; font-style:italic; line-height:1.5;">
+    <strong style="font-style:normal; color:#475569;">Keterangan:</strong><br>
+    &bull; Catatan khusus mencakup PMU / IA PMU / data PMU via HRMS atau PMU Connection Tester<br>
+    &bull; Analog Input DFR = pembacaan pada DFR &nbsp;|&nbsp; IED Meter Pembanding = pembacaan meter acuan di bay yang sama
+</div>
+
+{% endblock %}

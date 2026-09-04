@@ -56,6 +56,8 @@ _TEMPLATE_MAP = {
     'MASTER TRIP':          'maintenance/pdf/master_trip.html',
     'RELE DEFENSE SCHEME':  'maintenance/pdf/master_trip.html',
     'DEFENSE SCHEME':       'maintenance/pdf/master_trip.html',
+    'DFR':                  'maintenance/pdf/dfr.html',
+    'PMU':                  'maintenance/pdf/dfr.html',
 }
 
 _CORRECTIVE_TEMPLATE = 'maintenance/pdf/corrective.html'
@@ -95,6 +97,8 @@ _TITLES = {
     'MASTER TRIP':         'Form Checklist Master Trip',
     'RELE DEFENSE SCHEME': 'Form Checklist Rele Defense Scheme',
     'DEFENSE SCHEME':      'Form Checklist Rele Defense Scheme',
+    'DFR':                 'Form Checklist DFR / PMU',
+    'PMU':                 'Form Checklist DFR / PMU',
 }
 
 _CORRECTIVE_TITLE = 'Laporan Corrective Maintenance'
@@ -137,6 +141,8 @@ _DOC_CODES = {
     'MASTER TRIP':         '',
     'RELE DEFENSE SCHEME': '',
     'DEFENSE SCHEME':      '',
+    'DFR':                 '',
+    'PMU':                 '',
 }
 
 
@@ -763,6 +769,105 @@ def _ctx_master_trip(data, ctx):
 _CTX_BUILDERS['MASTER TRIP']         = _ctx_master_trip
 _CTX_BUILDERS['RELE DEFENSE SCHEME'] = _ctx_master_trip
 _CTX_BUILDERS['DEFENSE SCHEME']      = _ctx_master_trip
+
+
+def _ctx_dfr(data, ctx):
+    """DFR / PMU (Digital Fault Recorder).
+
+    Tabel BAY selalu dibangun walau `dfr` kosong, dengan alasan yang sama
+    seperti Master Trip: `blank_maintenance_pdf` harus menghasilkan formulir
+    kosong yang bentuknya sama persis dengan laporan berisi data.
+    """
+    raw = data.get('dfr') or {}
+    d = {k: '' for k in (
+        'bay_feeder_1', 'bay_feeder_2', 'rasio_ct_1', 'rasio_ct_2',
+        'rasio_pt_1', 'rasio_pt_2', 'suhu_ruangan', 'kelembaban',
+        'kartu_kontrol', 'outdoor_panel', 'indoor_panel', 'tergrounding',
+        'type_dfr', 'merk_dfr', 'sn_dfr',
+        'kondisi_gps', 'kondisi_lcd', 'waktu_dfr',
+        'dfr_aktif', 'fisik_alarm', 'fungsi_rekaman',
+        'visual_5r', 'front_port_ip', 'rear_port_ip',
+        'software_config', 'rekaman_gangguan', 'v_input_power', 'v_backup',
+        'kapasitas_memory', 'pmu_id', 'catatan_khusus',
+    )}
+    d.update(raw)
+
+    panel_items = [
+        {'label': 'Isi Kartu Kontrol', 'value': d.get('kartu_kontrol', '')},
+        {'label': 'Outdoor Panel',     'value': d.get('outdoor_panel', '')},
+        {'label': 'Indoor Panel',      'value': d.get('indoor_panel', '')},
+        {'label': 'Tergrounding',      'value': d.get('tergrounding', '')},
+    ]
+    gps_items = [
+        {'label': 'Kondisi Koneksi GPS', 'value': d.get('kondisi_gps', '')},
+        {'label': 'LCD & Keypad',        'value': d.get('kondisi_lcd', '')},
+        {'label': 'Pengecekan Waktu DFR','value': d.get('waktu_dfr', '')},
+    ]
+    dfr_items = [
+        {'label': 'DFR Aktif',            'value': d.get('dfr_aktif', '')},
+        {'label': 'Pemeriksaan Fisik & Alarm', 'value': d.get('fisik_alarm', '')},
+        {'label': 'Pemeriksaan Fungsi Rekaman', 'value': d.get('fungsi_rekaman', '')},
+    ]
+    media_rows = [
+        {'media': 'Fiber Optic (FO)',  'tx': d.get('fo_tx', ''),   'rx': d.get('fo_rx', '')},
+        {'media': 'Converter FO → ETH','tx': d.get('conv_tx', ''), 'rx': d.get('conv_rx', '')},
+        {'media': 'LAN Cable ETH',     'tx': d.get('lan_tx', ''),  'rx': d.get('lan_rx', '')},
+    ]
+    ping_rows = [
+        {'target': 'To Server',     'ms1': d.get('ping_server_1', ''),
+         'ms2': d.get('ping_server_2', ''), 'status': d.get('ping_server_status', '')},
+        {'target': 'To Device DFR', 'ms1': d.get('ping_dfr_1', ''),
+         'ms2': d.get('ping_dfr_2', ''), 'status': d.get('ping_dfr_status', '')},
+    ]
+    software_items = [
+        {'label': 'Software / Config',      'value': d.get('software_config', '')},
+        {'label': 'Rekaman Gangguan',       'value': d.get('rekaman_gangguan', '')},
+        {'label': 'Tegangan Input Power',   'value': d.get('v_input_power', ''),  'unit': 'VDC'},
+        {'label': 'Tegangan Backup',        'value': d.get('v_backup', ''),       'unit': 'VDC'},
+        {'label': 'Kapasitas Memory DFR',   'value': d.get('kapasitas_memory', '')},
+        {'label': 'PMU ID',                 'value': d.get('pmu_id', '')},
+    ]
+
+    def _bay(n):
+        """Empat baris pembacaan satu BAY: DFR & IED, tegangan & arus."""
+        def _row(sumber, besaran, pfx, satuan, hz):
+            return {
+                'sumber':  sumber,
+                'besaran': besaran,
+                'satuan':  satuan,
+                'r': d.get(f'{pfx}_r', ''), 's': d.get(f'{pfx}_s', ''),
+                't': d.get(f'{pfx}_t', ''), 'n': d.get(f'{pfx}_n', ''),
+                'hz': d.get(hz, '') if hz else None,
+            }
+        return {
+            'nomor': n,
+            'feeder': d.get(f'bay_feeder_{n}', ''),
+            'rasio_ct': d.get(f'rasio_ct_{n}', ''),
+            'rasio_pt': d.get(f'rasio_pt_{n}', ''),
+            'rows': [
+                _row('Analog Input DFR', 'Tegangan', f'bay{n}_dfr_v', 'kV', f'bay{n}_dfr_hz'),
+                _row('Analog Input DFR', 'Beban',    f'bay{n}_dfr_i', 'A',  None),
+                _row('IED Meter Pembanding', 'Tegangan', f'bay{n}_ied_v', 'kV', f'bay{n}_ied_hz'),
+                _row('IED Meter Pembanding', 'Beban',    f'bay{n}_ied_i', 'A',  None),
+            ],
+        }
+
+    ctx.update({
+        'dfr':             d,
+        'dfr_is_pmu':      data.get('device_kind', '').strip().upper() == 'PMU',
+        'panel_items':     panel_items,
+        'gps_items':       gps_items,
+        'dfr_items':       dfr_items,
+        'media_rows':      media_rows,
+        'ping_rows':       ping_rows,
+        'software_items':  software_items,
+        'bays':            [_bay(1), _bay(2)],
+        'catatan':         d.get('catatan_khusus', ''),
+    })
+
+
+_CTX_BUILDERS['DFR'] = _ctx_dfr
+_CTX_BUILDERS['PMU'] = _ctx_dfr
 
 
 def _ctx_corrective(data, ctx):
