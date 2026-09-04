@@ -12,6 +12,7 @@ from django.urls import reverse
 from .models import (Pembangkit, SnapLive, SnapFreq, SnapFreqRT, Trafo, SnapTrafo,
                      HopPembangkit, HopSnapshot, HOP_KATEGORI_CHOICES, JENIS_CHOICES,
                      JENIS_WARNA, KelompokPeta, PantauanKit, PengaturanInersia,
+                     PengaturanDashboard,
                      hop_status, hop_deskripsi_band,
                      hop_garis_ambang, KolomEWS, TitikEWS, SKEMA_WARNA, ARAH_CHOICES,
                      KartuPadam)
@@ -104,6 +105,9 @@ def dashboard(request):
     anggota_pantauan = pantauan.anggota_aktif()
     inersia = PengaturanInersia.ambil()
     pembangkit_inersia = inersia.pembangkit_terhitung()
+    # Keadaan awal supaya bagian yang dimatikan tidak sempat berkedip muncul
+    # sebelum poll pertama datang.
+    tampilan = PengaturanDashboard.status()
     return render(request, 'opsis/dashboard.html', {
         'pembangkit_list': pembangkit_list,
         'grouped':         grouped,
@@ -116,6 +120,7 @@ def dashboard(request):
         # Inersia: sama polanya dengan kartu KIT Terpilih — energi kinetik tiap
         # pembangkit itu KONSTANTA (MVA x H), jadi dikirim sekali saat render dan
         # penjumlahannya di browser memakai MW dari /opsis/api/live/ yang sama.
+        'tampilan':          tampilan,
         'inersia':           inersia,
         'inersia_tampil':    inersia.tampil(),
         'inersia_mws':       {p.kode: round(p.energi_kinetik_mws, 2)
@@ -446,6 +451,13 @@ def api_live(request):
         'terputus':          not mssql.is_reachable(),
         'flags':             flags,
         'daya_mampu':        daya_mampu,
+        # Sakelar tampil bagian dashboard (Admin > Opsis > Pengaturan Tampilan
+        # Dashboard). Ikut tiap poll, bukan hanya saat render: dashboard ini
+        # dipasang di layar yang menyala berjam-jam, jadi kalau tampil-tidaknya
+        # cuma ditentukan saat render, mematikannya dari admin tidak terlihat
+        # sampai ada yang me-refresh layar ruang operasi. Alasan yang sama
+        # dengan kartu Total Padam.
+        'dashboard':         PengaturanDashboard.status().sebagai_dict(),
     }
     return JsonResponse(response)
 
@@ -1610,6 +1622,121 @@ def api_prediksi_beban(request):
         'akurasi': akurasi,
         'besok': besok,
         'sumber': prediksi.sumber_aktif(),
+    })
+
+
+# ── Config Inersia — isi MVA & H tanpa membuka site admin ──────────────────
+
+def _angka_inersia(raw, label, minimal=0.0):
+    """
+    Baca satu angka dari form. Return (nilai, galat) — persis satu di antaranya
+    None. Kolom kosong berarti "dikosongkan" (None, bukan galat), dan koma
+    desimal diterima karena begitulah operator mengetik — aturan yang sama
+    dengan endpoint sunting EWS.
+    """
+    teks = (raw or '').strip().replace(',', '.')
+    if teks == '':
+        return None, None
+    try:
+        nilai = float(teks)
+    except ValueError:
+        return None, f'{label} bukan angka: {raw!r}'
+    if nilai <= minimal:
+        return None, f'{label} harus lebih besar dari {minimal:g} (diisi {nilai:g})'
+    return nilai, None
+
+
+@login_required
+def inersia_config(request):
+    """
+    Halaman isi Kapasitas S (MVA) dan Konstanta Inersia H per pembangkit,
+    plus parameter perhitungannya — supaya operator tidak perlu akses site
+    admin hanya untuk memperbarui data mesin.
+
+    Akses: sama dengan aksi tulis OPSIS lain (superuser, role Opsis, AM) lewat
+    can_write_opsis(). Jangan menuliskan ulang tuple role di sini — aturannya
+    tinggal di devices.models.UserProfile.bisa_tulis_opsis.
+
+    Judul & warna kartu sengaja TIDAK ada di halaman ini: itu kosmetik yang
+    nyaris tak pernah berubah, dan halaman ini dijaga tetap sempit pada hal
+    yang benar-benar memengaruhi angkanya.
+    """
+    if not can_write_opsis(request.user):
+        messages.error(request, 'Anda tidak memiliki akses untuk mengubah konfigurasi inersia.')
+        return redirect('opsis_dashboard')
+
+    cfg = PengaturanInersia.ambil()
+    plants = list(Pembangkit.objects.filter(aktif=True).order_by('urutan', 'nama'))
+
+    if request.method == 'POST':
+        galat, perubahan = [], []
+
+        # ── Parameter perhitungan ──────────────────────────────────────
+        param_baru = {}
+        for field, label, minimal in (('rocof_batas', 'Batas ROCOF', 0.0),
+                                      ('frekuensi_nominal', 'Frekuensi nominal f0', 0.0),
+                                      ('ambang_mw', 'Ambang MW', -1.0)):
+            nilai, e = _angka_inersia(request.POST.get(field), label, minimal)
+            if e:
+                galat.append(e)
+            elif nilai is not None:
+                param_baru[field] = nilai
+        param_baru['aktif'] = bool(request.POST.get('aktif'))
+        param_baru['hanya_beroperasi'] = bool(request.POST.get('hanya_beroperasi'))
+
+        for field, nilai in param_baru.items():
+            if getattr(cfg, field) != nilai:
+                perubahan.append(f'{field}: {getattr(cfg, field)} → {nilai}')
+                setattr(cfg, field, nilai)
+        if perubahan:
+            cfg.save()
+
+        # ── MVA & H per pembangkit ─────────────────────────────────────
+        n_isi = n_kosong = 0
+        for p in plants:
+            mva, e1 = _angka_inersia(request.POST.get(f'mva_{p.pk}'), f'MVA {p.nama}')
+            h,   e2 = _angka_inersia(request.POST.get(f'h_{p.pk}'), f'H {p.nama}')
+            if e1 or e2:
+                galat.extend(x for x in (e1, e2) if x)
+                continue                      # baris bergalat tidak disentuh sama sekali
+            if p.mva == mva and p.inersia_h == h:
+                continue
+            perubahan.append(f'{p.kode}: MVA {p.mva} → {mva}, H {p.inersia_h} → {h}')
+            p.mva, p.inersia_h = mva, h
+            p.save(update_fields=['mva', 'inersia_h'])
+            if mva is None or h is None:
+                n_kosong += 1
+            else:
+                n_isi += 1
+
+        if perubahan:
+            log_action(request, AuditLog.UPDATE, 'opsis', 'PengaturanInersia',
+                       object_id=cfg.pk, object_repr=str(cfg),
+                       detail='Ubah konfigurasi inersia dari dashboard — '
+                              + '; '.join(perubahan))
+
+        if galat:
+            for g in galat[:8]:
+                messages.error(request, g)
+        if n_isi or n_kosong or perubahan:
+            messages.success(request, (
+                f'{n_isi} pembangkit tersimpan'
+                + (f', {n_kosong} dikosongkan' if n_kosong else '')
+                + '. Dashboard menyesuaikan setelah halaman dimuat ulang.'))
+        elif not galat:
+            messages.success(request, 'Tidak ada perubahan.')
+        return redirect('opsis_inersia_config')
+
+    # ── GET ────────────────────────────────────────────────────────────
+    terisi = [p for p in plants if p.energi_kinetik_mws is not None]
+    total = sum(p.energi_kinetik_mws for p in terisi)
+    return render(request, 'opsis/inersia_config.html', {
+        'pembangkit_list': _pembangkit_aktif(),
+        'cfg':             cfg,
+        'plants':          plants,
+        'jumlah_terisi':   len(terisi),
+        'total_mws':       total,
+        'total_dp':        cfg.delta_p(total),
     })
 
 

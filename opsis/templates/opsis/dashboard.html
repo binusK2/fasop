@@ -318,8 +318,11 @@
         <div style="font-size:11px; color:var(--muted); margin-top:4px;" id="ktt-jumlah">— konsumen</div>
     </div>
 
-    <!-- Beban Trafo Distribusi total -->
-    <div style="background:var(--card-bg); border:1px solid rgba(245,158,11,.3); border-radius:14px; padding:18px 20px;">
+    <!-- Beban Trafo Distribusi total — bisa dimatikan di Admin > Opsis >
+         Pengaturan Tampilan Dashboard. Tetap dirender lalu disembunyikan,
+         karena status tampilnya ikut tiap poll /opsis/api/live/. -->
+    <div id="kartu-trafo-distribusi"
+         style="background:var(--card-bg); border:1px solid rgba(245,158,11,.3); border-radius:14px; padding:18px 20px;{% if not tampilan.tampil_trafo_distribusi %} display:none;{% endif %}">
         <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); margin-bottom:6px;">
             <i class="bi bi-lightning-charge me-1" style="color:#f59e0b;"></i>Beban Trafo Distribusi
         </div>
@@ -329,8 +332,9 @@
         <div style="font-size:11px; color:var(--muted); margin-top:4px;" id="trafo-distribusi-updated">&nbsp;</div>
     </div>
 
-    <!-- Beban Trafo IBT total -->
-    <div style="background:var(--card-bg); border:1px solid rgba(129,140,248,.3); border-radius:14px; padding:18px 20px;">
+    <!-- Beban Trafo IBT total — sakelarnya di Pengaturan Tampilan Dashboard. -->
+    <div id="kartu-trafo-ibt"
+         style="background:var(--card-bg); border:1px solid rgba(129,140,248,.3); border-radius:14px; padding:18px 20px;{% if not tampilan.tampil_trafo_ibt %} display:none;{% endif %}">
         <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); margin-bottom:6px;">
             <i class="bi bi-lightning-charge me-1" style="color:#818cf8;"></i>Beban Trafo IBT
             <a href="{% url 'opsis_beban_trafo_ibt' %}" style="font-size:10px; color:#818cf8; text-decoration:none;
@@ -515,8 +519,9 @@
 </div>
 {% endif %}
 
-<!-- Chart Beban Trafo per GI -->
-<div class="chart-card" style="margin-bottom:16px;">
+<!-- Chart Beban Trafo per GI — satu sakelar dengan kartu ringkasannya. -->
+<div id="chart-card-trafo-distribusi" class="chart-card"
+     style="margin-bottom:16px;{% if not tampilan.tampil_trafo_distribusi %} display:none;{% endif %}">
     <div class="chart-head">
         <div class="chart-title"><i class="bi bi-lightning-charge me-1" style="color:#f59e0b;"></i>Beban Trafo Distribusi — per GI</div>
         <div style="display:flex; align-items:center; gap:10px;">
@@ -533,8 +538,9 @@
     </div>
 </div>
 
-<!-- Chart Beban Trafo IBT per trafo, dikelompokkan per GI -->
-<div class="chart-card" style="margin-bottom:16px;">
+<!-- Chart Beban Trafo IBT per trafo — satu sakelar dengan kartu ringkasannya. -->
+<div id="chart-card-trafo-ibt" class="chart-card"
+     style="margin-bottom:16px;{% if not tampilan.tampil_trafo_ibt %} display:none;{% endif %}">
     <div class="chart-head">
         <div class="chart-title"><i class="bi bi-lightning-charge me-1" style="color:#818cf8;"></i>Beban Trafo IBT — per Trafo</div>
         <div style="display:flex; align-items:center; gap:10px;">
@@ -712,11 +718,15 @@
 {% block extra_js %}
 {# Warna per jenis pembangkit — satu-satunya definisi ada di opsis/models.py (JENIS_WARNA) #}
 {{ jenis_warna|json_script:"jenis-warna" }}
-{# Kode pembangkit anggota kartu "KIT Terpilih" — totalnya dijumlahkan di browser
-   dari /opsis/api/live/ yang sama, supaya tidak mungkin beda dengan kartu di bawah. #}
+{% comment %}
+Kode pembangkit anggota kartu "KIT Terpilih" — totalnya dijumlahkan di browser
+dari /opsis/api/live/ yang sama, supaya tidak mungkin beda dengan kartu di bawah.
+{% endcomment %}
 {{ pantauan_kode|json_script:"pantauan-kode" }}
-{# Energi kinetik (MVA x H) per pembangkit + parameter ROCOF/f0. Konstanta, jadi
-   ditanam saat render; yang berubah tiap poll hanya MW dari /opsis/api/live/. #}
+{% comment %}
+Energi kinetik (MVA x H) per pembangkit + parameter ROCOF/f0. Konstanta, jadi
+ditanam saat render; yang berubah tiap poll hanya MW dari /opsis/api/live/.
+{% endcomment %}
 {{ inersia_mws|json_script:"inersia-mws-data" }}
 {{ inersia_cfg|json_script:"inersia-cfg" }}
 <script>
@@ -814,6 +824,33 @@ function fmt(val, dec) {
     return parseFloat(val).toFixed(dec);
 }
 
+// ── Sakelar tampil bagian dashboard (Admin > Opsis > Pengaturan Tampilan
+//    Dashboard) ──────────────────────────────────────────────────────
+// Nilai awalnya dari render, lalu disegarkan tiap poll /opsis/api/live/.
+// Dipegang di satu objek karena dua hal membacanya: penyembunyian elemen dan
+// gerbang polling trafo — kalau keduanya membaca sumber berbeda, elemennya
+// bisa hilang sementara pollingnya jalan terus (atau sebaliknya).
+const TAMPIL = {
+    trafo_distribusi: {{ tampilan.tampil_trafo_distribusi|yesno:"true,false" }},
+    trafo_ibt:        {{ tampilan.tampil_trafo_ibt|yesno:"true,false" }},
+};
+
+function terapkanTampilanDashboard(cfg) {
+    if (!cfg) return;
+    const bagian = [
+        ['trafo_distribusi', ['kartu-trafo-distribusi', 'chart-card-trafo-distribusi']],
+        ['trafo_ibt',        ['kartu-trafo-ibt', 'chart-card-trafo-ibt']],
+    ];
+    for (const [kunci, ids] of bagian) {
+        if (typeof cfg[kunci] !== 'boolean') continue;
+        TAMPIL[kunci] = cfg[kunci];
+        for (const id of ids) {
+            const el = document.getElementById(id);
+            if (el) el.style.display = cfg[kunci] ? '' : 'none';
+        }
+    }
+}
+
 // ── Live polling MW/MVAR (5 detik) ───────────────────────────────────
 async function pollLive() {
     try {
@@ -888,6 +925,8 @@ async function pollLive() {
             pantauanEl.innerHTML = (pAda ? pMw.toFixed(2) : '—')
                 + '<span style="font-size:14px;font-weight:400;color:var(--muted);margin-left:4px;">MW</span>';
         }
+
+        terapkanTampilanDashboard(json.dashboard);
 
         document.getElementById('terputus-notice')?.classList.toggle('show', !!json.terputus);
         setLastUpdate();
@@ -1670,8 +1709,12 @@ async function loadTrafoChart() {
     } catch (e) {}
 }
 
-loadTrafoChart();
-setInterval(loadTrafoChart, 2000); // refresh tiap 2 detik
+if (TAMPIL.trafo_distribusi) loadTrafoChart();
+// Dilewati saat bagiannya dimatikan dari admin — endpoint ini menembak MSSQL
+// tiap 2 detik, dan menariknya untuk sesuatu yang tidak dilihat siapa pun
+// hanya membebani historian. Interval tetap jalan supaya menyalakannya lagi
+// dari admin langsung terlihat tanpa reload.
+setInterval(() => { if (TAMPIL.trafo_distribusi) loadTrafoChart(); }, 2000);
 
 // ── Chart Beban Trafo IBT per GI (grouped bar: 1 label per SITE, 1 bar per trafo) ──
 let chartTrafoIbt = null;
@@ -1782,8 +1825,8 @@ async function loadTrafoIbtChart() {
     } catch (e) {}
 }
 
-loadTrafoIbtChart();
-setInterval(loadTrafoIbtChart, 2000); // refresh tiap 2 detik
+if (TAMPIL.trafo_ibt) loadTrafoIbtChart();
+setInterval(() => { if (TAMPIL.trafo_ibt) loadTrafoIbtChart(); }, 2000);
 
 // ── Chart Beban KTT (bar horizontal per konsumen) ─────────────────────
 let chartKtt = null;

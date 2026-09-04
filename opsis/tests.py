@@ -14,8 +14,9 @@ from django.urls import reverse
 from django.utils import timezone
 
 from .models import (KartuPadam, KelompokPeta, KolomEWS, ModePemeliharaan,
-                     PantauanKit, Pembangkit, PengaturanInersia, PrakiraanBeban,
-                     SnapFreq, SnapFreqRT, SnapLive, TitikEWS)
+                     PantauanKit, Pembangkit, PengaturanDashboard,
+                     PengaturanInersia, PrakiraanBeban, SnapFreq, SnapFreqRT,
+                     SnapLive, TitikEWS)
 from . import freq_history, hop_map, mssql, prakiraan, prediksi, sumber_data, views
 from auditlog.models import AuditLog
 
@@ -2174,3 +2175,258 @@ class InersiaTest(TestCase):
         # Lebarnya hanya boleh hidup di blok <style>, tidak di atribut style
         # masing-masing baris.
         self.assertNotIn('grid-template-columns:minmax', isi)
+
+
+@override_settings(MSSQL_HOST='')   # dashboard tidak perlu menembak historian
+class PengaturanDashboardTest(TestCase):
+    """
+    Sakelar tampil/sembunyi Beban Trafo Distribusi & IBT di dashboard.
+    Satu sakelar mengatur kartu ringkasan DAN chart-nya sekaligus, dan
+    statusnya ikut tiap poll /opsis/api/live/ supaya layar yang tidak pernah
+    di-refresh tetap ikut berubah.
+    """
+
+    ELEMEN = {
+        'trafo_distribusi': ('id="kartu-trafo-distribusi"', 'id="chart-card-trafo-distribusi"'),
+        'trafo_ibt':        ('id="kartu-trafo-ibt"', 'id="chart-card-trafo-ibt"'),
+    }
+
+    def setUp(self):
+        PengaturanDashboard._cache = {'obj': None, 'ts': 0.0}
+
+    def _user_login(self):
+        user = User.objects.create_user('tampil-tes', 't@contoh.id', 'rahasia-tes-123')
+        profil = user.profile
+        profil.force_password_change = False
+        profil.save()
+        self.client.force_login(user)
+        return user
+
+    def _potongan(self, isi, penanda):
+        """Atribut style elemen ber-penanda itu, untuk memeriksa display:none."""
+        awal = isi.index(penanda)
+        return isi[awal:awal + 400]
+
+    def test_bawaan_semua_tampil(self):
+        cfg = PengaturanDashboard.ambil()
+        self.assertTrue(cfg.tampil_trafo_distribusi)
+        self.assertTrue(cfg.tampil_trafo_ibt)
+        self.assertEqual(cfg.sebagai_dict(),
+                         {'trafo_distribusi': True, 'trafo_ibt': True})
+
+    def test_selalu_satu_baris(self):
+        PengaturanDashboard.ambil()
+        PengaturanDashboard(tampil_trafo_ibt=False).save()
+        self.assertEqual(PengaturanDashboard.objects.count(), 1)
+        self.assertFalse(PengaturanDashboard.objects.get().tampil_trafo_ibt)
+
+    def test_dimatikan_disembunyikan_sejak_render(self):
+        cfg = PengaturanDashboard.ambil()
+        cfg.tampil_trafo_distribusi = False
+        cfg.save()
+        self._user_login()
+        isi = self.client.get('/opsis/').content.decode()
+
+        # Elemennya tetap ada (statusnya ikut polling), tapi disembunyikan —
+        # kalau dihapus dari HTML, menyalakannya lagi dari admin tidak akan
+        # pernah terlihat tanpa reload.
+        for penanda in self.ELEMEN['trafo_distribusi']:
+            with self.subTest(penanda=penanda):
+                self.assertIn(penanda, isi)
+                self.assertIn('display:none', self._potongan(isi, penanda))
+        # Yang tidak dimatikan tidak boleh ikut tersembunyi.
+        for penanda in self.ELEMEN['trafo_ibt']:
+            with self.subTest(penanda=penanda):
+                self.assertNotIn('display:none', self._potongan(isi, penanda))
+
+    def test_status_ikut_di_api_live(self):
+        cfg = PengaturanDashboard.ambil()
+        cfg.tampil_trafo_ibt = False
+        cfg.save()
+        self._user_login()
+        body = self.client.get(reverse('opsis_api_live')).json()
+        self.assertEqual(body['dashboard'],
+                         {'trafo_distribusi': True, 'trafo_ibt': False})
+
+    def test_keadaan_awal_js_ikut_sakelarnya(self):
+        cfg = PengaturanDashboard.ambil()
+        cfg.tampil_trafo_ibt = False
+        cfg.save()
+        self._user_login()
+        isi = self.client.get('/opsis/').content.decode()
+        self.assertIn('trafo_ibt:        false', isi)
+        self.assertIn('trafo_distribusi: true', isi)
+
+    def test_cache_disegarkan_saat_disimpan(self):
+        cfg = PengaturanDashboard.ambil()
+        cfg.tampil_trafo_distribusi = False
+        cfg.save()
+        # save() menyegarkan cache di worker yang menyimpan, jadi status()
+        # tidak boleh mengembalikan nilai lama.
+        self.assertFalse(PengaturanDashboard.status().tampil_trafo_distribusi)
+
+
+@override_settings(MSSQL_HOST='')   # halaman ini tidak menembak historian
+class ConfigInersiaTest(TestCase):
+    """
+    Halaman /opsis/inersia/config/ — isi MVA & H tanpa membuka site admin.
+    Aksesnya mengikuti UserProfile.bisa_tulis_opsis, aturan yang sama dengan
+    Input HOP; menu dan penjaga view membaca properti yang sama.
+    """
+
+    def setUp(self):
+        self.url = reverse('opsis_inersia_config')
+        self.a = Pembangkit.objects.create(kode='CIA', nama='PLTU A', kode_kit='CIA', urutan=1)
+        self.b = Pembangkit.objects.create(kode='CIB', nama='PLTU B', kode_kit='CIB', urutan=2)
+
+    def _login(self, role):
+        user = User.objects.create_user(f'ci-{role}', f'{role}@contoh.id', 'rahasia-tes-123')
+        profil = user.profile
+        profil.role = role
+        profil.force_password_change = False
+        profil.save()
+        self.client.force_login(user)
+        return user
+
+    def _isi(self, **ubah):
+        """Payload lengkap; tanpa ubah = nilai yang sudah ada di form."""
+        data = {
+            'rocof_batas': '1.0', 'frekuensi_nominal': '50', 'ambang_mw': '1.0',
+            'aktif': 'on', 'hanya_beroperasi': 'on',
+            f'mva_{self.a.pk}': '', f'h_{self.a.pk}': '',
+            f'mva_{self.b.pk}': '', f'h_{self.b.pk}': '',
+        }
+        data.update(ubah)
+        return data
+
+    # ── Akses ─────────────────────────────────────────────────────────
+    def test_role_opsis_boleh(self):
+        self._login('opsis')
+        self.assertEqual(self.client.get(self.url).status_code, 200)
+
+    def test_superuser_boleh(self):
+        user = User.objects.create_superuser('ci-super', 's@contoh.id', 'rahasia-tes-123')
+        profil = user.profile
+        profil.force_password_change = False
+        profil.save()
+        self.client.force_login(user)
+        self.assertEqual(self.client.get(self.url).status_code, 200)
+
+    def test_opsis_view_ditolak(self):
+        self._login('opsis_view')
+        self.assertEqual(self.client.get(self.url).status_code, 302)
+
+    def test_viewer_ditolak(self):
+        self._login('viewer')
+        self.assertEqual(self.client.get(self.url).status_code, 302)
+
+    def test_opsis_view_tidak_bisa_menyimpan(self):
+        self._login('opsis_view')
+        self.client.post(self.url, self._isi(**{f'mva_{self.a.pk}': '100',
+                                                f'h_{self.a.pk}': '5'}))
+        self.a.refresh_from_db()
+        self.assertIsNone(self.a.mva)
+
+    def test_tidak_ada_komentar_template_yang_tercetak(self):
+        """
+        Sintaks {# #} Django hanya untuk SATU baris; yang multi-baris keluar
+        apa adanya sebagai teks di halaman. Pernah terjadi di sidebar OPSIS
+        dan di dashboard, dan tidak akan pernah ketahuan dari tes yang cuma
+        memeriksa status code.
+        """
+        self._login('opsis')
+        for url in ('/opsis/', self.url):
+            with self.subTest(url=url):
+                isi = self.client.get(url).content.decode()
+                self.assertNotIn('{#', isi)
+                self.assertNotIn('#}', isi)
+                self.assertNotIn('{% comment %}', isi)
+
+    def test_menu_hanya_untuk_yang_boleh(self):
+        self._login('opsis')
+        self.assertIn('/opsis/inersia/config/', self.client.get('/opsis/').content.decode())
+        self.client.logout()
+        self._login('opsis_view')
+        self.assertNotIn('/opsis/inersia/config/', self.client.get('/opsis/').content.decode())
+
+    # ── Simpan ────────────────────────────────────────────────────────
+    def test_simpan_mva_dan_h(self):
+        self._login('opsis')
+        self.client.post(self.url, self._isi(**{
+            f'mva_{self.a.pk}': '100', f'h_{self.a.pk}': '5',
+            f'mva_{self.b.pk}': '200', f'h_{self.b.pk}': '4',
+        }))
+        self.a.refresh_from_db(); self.b.refresh_from_db()
+        self.assertEqual(self.a.energi_kinetik_mws, 500)
+        self.assertEqual(self.b.energi_kinetik_mws, 800)
+
+    def test_koma_desimal_diterima(self):
+        self._login('opsis')
+        self.client.post(self.url, self._isi(**{
+            f'mva_{self.a.pk}': '100,5', f'h_{self.a.pk}': '4,5'}))
+        self.a.refresh_from_db()
+        self.assertAlmostEqual(self.a.mva, 100.5)
+        self.assertAlmostEqual(self.a.inersia_h, 4.5)
+
+    def test_kolom_dikosongkan_menghapus_nilai(self):
+        self.a.mva, self.a.inersia_h = 100, 5
+        self.a.save()
+        self._login('opsis')
+        self.client.post(self.url, self._isi())
+        self.a.refresh_from_db()
+        self.assertIsNone(self.a.mva)
+        self.assertIsNone(self.a.inersia_h)
+
+    def test_baris_bergalat_tidak_menyentuh_nilai_lama(self):
+        """Salah ketik pada satu baris tidak boleh menghapus nilai yang sudah
+        benar di baris itu — juga tidak boleh menggagalkan baris lain."""
+        self.a.mva, self.a.inersia_h = 100, 5
+        self.a.save()
+        self._login('opsis')
+        r = self.client.post(self.url, self._isi(**{
+            f'mva_{self.a.pk}': 'abc', f'h_{self.a.pk}': '5',
+            f'mva_{self.b.pk}': '200', f'h_{self.b.pk}': '4',
+        }), follow=True)
+        self.a.refresh_from_db(); self.b.refresh_from_db()
+        self.assertEqual(self.a.mva, 100)          # utuh
+        self.assertEqual(self.b.energi_kinetik_mws, 800)   # baris lain tetap tersimpan
+        self.assertTrue(any('bukan angka' in str(m) for m in r.context['messages']))
+
+    def test_nilai_nol_atau_negatif_ditolak(self):
+        self._login('opsis')
+        r = self.client.post(self.url, self._isi(**{
+            f'mva_{self.a.pk}': '0', f'h_{self.a.pk}': '5'}), follow=True)
+        self.a.refresh_from_db()
+        self.assertIsNone(self.a.mva)
+        self.assertTrue(any('lebih besar' in str(m) for m in r.context['messages']))
+
+    def test_parameter_tersimpan(self):
+        self._login('opsis')
+        self.client.post(self.url, self._isi(rocof_batas='0,5', frekuensi_nominal='60',
+                                             hanya_beroperasi=''))
+        cfg = PengaturanInersia.ambil()
+        self.assertAlmostEqual(cfg.rocof_batas, 0.5)
+        self.assertAlmostEqual(cfg.frekuensi_nominal, 60)
+        self.assertFalse(cfg.hanya_beroperasi)
+        self.assertTrue(cfg.aktif)
+
+    def test_perubahan_dicatat_di_auditlog(self):
+        self._login('opsis')
+        self.client.post(self.url, self._isi(**{
+            f'mva_{self.a.pk}': '100', f'h_{self.a.pk}': '5'}))
+        entri = AuditLog.objects.filter(model_name='PengaturanInersia').first()
+        self.assertIsNotNone(entri)
+        self.assertIn('CIA', entri.detail)
+
+    def test_menyimpan_ulang_isi_yang_sama_tidak_menulis_auditlog(self):
+        """Auditlog harus mencatat PERUBAHAN, bukan setiap kali tombol Simpan
+        ditekan — kalau tidak, riwayatnya penuh entri yang tidak mengubah apa
+        pun dan perubahan sungguhan jadi sulit ditemukan."""
+        self._login('opsis')
+        isi = self._isi(**{f'mva_{self.a.pk}': '100', f'h_{self.a.pk}': '5'})
+        self.client.post(self.url, isi)
+        jumlah = AuditLog.objects.filter(model_name='PengaturanInersia').count()
+        self.assertEqual(jumlah, 1)
+
+        self.client.post(self.url, isi)          # payload identik
+        self.assertEqual(AuditLog.objects.filter(model_name='PengaturanInersia').count(), 1)

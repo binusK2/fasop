@@ -1,0 +1,178 @@
+{% extends "opsis/opsis_base.html" %}
+{% block title %}Config Inersia{% endblock %}
+
+{% block extra_head %}
+<style>
+.ic-head { display:flex; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:6px; }
+.ic-head h1 { font-size:20px; font-weight:800; color:#fff; display:flex; align-items:center; gap:10px; }
+.ic-sub { font-size:12.5px; color:var(--muted); margin-bottom:18px; line-height:1.6; }
+
+.ic-panel { background:var(--card-bg); border:1px solid var(--card-bd); border-radius:12px;
+    padding:16px 18px; margin-bottom:18px; }
+.ic-panel h2 { font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.6px;
+    color:#cbd5e1; margin-bottom:12px; display:flex; align-items:center; gap:8px; }
+.ic-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(190px, 1fr)); gap:14px; }
+.ic-field label { display:block; font-size:11px; font-weight:700; text-transform:uppercase;
+    letter-spacing:.5px; color:var(--muted); margin-bottom:5px; }
+.ic-field .hint { font-size:10.5px; color:var(--muted); margin-top:4px; line-height:1.5; }
+.ic-input { width:100%; background:#0b1120; border:1px solid var(--card-bd); color:var(--text);
+    border-radius:8px; padding:8px 11px; font-family:'JetBrains Mono',monospace; font-size:14px; }
+.ic-input:focus { outline:none; border-color:var(--blue); }
+.ic-check { display:flex; align-items:flex-start; gap:9px; font-size:12.5px; color:var(--text); }
+.ic-check input { margin-top:3px; width:15px; height:15px; accent-color:var(--blue); }
+.ic-check .hint { font-size:10.5px; color:var(--muted); margin-top:3px; line-height:1.5; }
+
+.ic-rumus { background:#0b1120; border:1px solid var(--card-bd); border-radius:10px;
+    padding:12px 14px; font-family:'JetBrains Mono',monospace; font-size:12.5px;
+    color:#cbd5e1; line-height:1.9; }
+.ic-rumus b { color:#22d3ee; }
+
+.ic-table-wrap { border:1px solid var(--card-bd); border-radius:12px; overflow-x:auto; background:var(--card-bg); }
+table.ic-table { width:100%; border-collapse:collapse; font-size:13px; min-width:680px; }
+.ic-table th { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.4px;
+    color:var(--muted); padding:10px 12px; border-bottom:1px solid var(--card-bd);
+    text-align:center; white-space:nowrap; background:rgba(255,255,255,.02); }
+.ic-table td { padding:8px 12px; border-bottom:1px solid rgba(30,45,69,.5); text-align:center; vertical-align:middle; }
+.ic-table tr:last-child td { border-bottom:none; }
+.ic-nm { text-align:left; font-weight:600; color:var(--text); }
+.ic-kode { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--muted); }
+.ic-num { width:120px; background:#0b1120; border:1px solid var(--card-bd); color:var(--text);
+    border-radius:8px; padding:7px 10px; font-family:'JetBrains Mono',monospace;
+    font-size:14px; text-align:center; }
+.ic-num:focus { outline:none; border-color:var(--blue); }
+.ic-mws { font-family:'JetBrains Mono',monospace; font-weight:700; color:#22d3ee; }
+.ic-mws.kosong { color:var(--muted); font-weight:400; }
+
+.ic-actions { position:sticky; bottom:0; display:flex; align-items:center; gap:14px; margin-top:8px;
+    background:linear-gradient(transparent, var(--body-bg) 40%); padding:14px 2px 4px; flex-wrap:wrap; }
+.ic-btn { display:inline-flex; align-items:center; gap:7px; font-size:13px; font-weight:600;
+    font-family:inherit; padding:9px 18px; border-radius:8px; border:1px solid var(--card-bd);
+    background:var(--card-bg); color:#cbd5e1; cursor:pointer; text-decoration:none; }
+.ic-btn:hover { border-color:var(--blue); color:#fff; }
+.ic-btn.primary { background:var(--blue); border-color:var(--blue); color:#fff; }
+.ic-btn.primary:hover { background:#2563eb; }
+.ic-actions .note { font-size:11.5px; color:var(--muted); }
+
+.msg { margin-bottom:14px; padding:10px 14px; border-radius:8px; font-size:12.5px; }
+.msg-success { background:rgba(16,185,129,.12); color:#6ee7b7; border:1px solid rgba(16,185,129,.3); }
+.msg-error   { background:rgba(239,68,68,.12); color:#fca5a5; border:1px solid rgba(239,68,68,.3); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="ic-head">
+    <h1><i class="bi bi-sliders" style="color:#22d3ee;"></i> Config Inersia</h1>
+</div>
+<div class="ic-sub">
+    Kapasitas S (MVA) dan konstanta inersia H tiap mesin, beserta parameter perhitungannya.
+    Kolom yang <strong>dikosongkan berarti pembangkit itu dilewati</strong> — bukan dihitung nol —
+    supaya data yang belum lengkap tidak diam-diam menyusutkan inersia sistem.
+</div>
+
+{% if messages %}
+    {% for m in messages %}
+    <div class="msg {% if m.tags == 'error' %}msg-error{% else %}msg-success{% endif %}">{{ m }}</div>
+    {% endfor %}
+{% endif %}
+
+<div class="ic-panel">
+    <h2><i class="bi bi-calculator" style="color:#22d3ee;"></i>Hasil saat ini</h2>
+    <div class="ic-rumus">
+        E&nbsp;&nbsp;= &sum;(MVA &times; H) dari {{ jumlah_terisi }} pembangkit terisi
+        = <b>{{ total_mws|floatformat:2 }} MWs</b><br>
+        &Delta;P = 2 &times; E &times; {{ cfg.rocof_batas }} &divide; {{ cfg.frekuensi_nominal }}
+        = <b>{% if total_dp is None %}—{% else %}{{ total_dp|floatformat:2 }} MW{% endif %}</b>
+    </div>
+    <div class="ic-sub" style="margin:10px 0 0;">
+        Ini kapasitas <strong>terpasang</strong>. Angka di dashboard umumnya lebih kecil karena
+        hanya mesin yang sedang beroperasi yang dihitung.
+    </div>
+</div>
+
+<form method="post">
+    {% csrf_token %}
+
+    <div class="ic-panel">
+        <h2><i class="bi bi-gear" style="color:#60a5fa;"></i>Parameter Perhitungan</h2>
+        <div class="ic-grid">
+            <div class="ic-field">
+                <label for="rocof_batas">Batas ROCOF (Hz/s)</label>
+                <input class="ic-input" type="text" id="rocof_batas" name="rocof_batas"
+                       value="{{ cfg.rocof_batas }}" inputmode="decimal">
+                <div class="hint">Laju perubahan frekuensi yang masih dianggap aman. Parameter
+                    rencana, bukan hasil ukur.</div>
+            </div>
+            <div class="ic-field">
+                <label for="frekuensi_nominal">Frekuensi Nominal f<sub>0</sub> (Hz)</label>
+                <input class="ic-input" type="text" id="frekuensi_nominal" name="frekuensi_nominal"
+                       value="{{ cfg.frekuensi_nominal }}" inputmode="decimal">
+                <div class="hint">Umumnya 50.</div>
+            </div>
+            <div class="ic-field">
+                <label for="ambang_mw">Ambang MW Dianggap Beroperasi</label>
+                <input class="ic-input" type="text" id="ambang_mw" name="ambang_mw"
+                       value="{{ cfg.ambang_mw }}" inputmode="decimal">
+                <div class="hint">Pembangkit di atas angka ini dianggap tersinkron.</div>
+            </div>
+        </div>
+        <div class="ic-grid" style="margin-top:14px;">
+            <label class="ic-check">
+                <input type="checkbox" name="aktif" {% if cfg.aktif %}checked{% endif %}>
+                <span>Tampilkan kartu di dashboard
+                    <div class="hint">Kartu tetap tersembunyi selama belum ada pembangkit yang terisi.</div>
+                </span>
+            </label>
+            <label class="ic-check">
+                <input type="checkbox" name="hanya_beroperasi" {% if cfg.hanya_beroperasi %}checked{% endif %}>
+                <span>Hitung hanya pembangkit yang beroperasi
+                    <div class="hint">Hanya mesin tersinkron yang menyimpan energi kinetik. Dimatikan =
+                        kapasitas terpasang, grafiknya praktis datar.</div>
+                </span>
+            </label>
+        </div>
+    </div>
+
+    <div class="ic-panel" style="padding:0; overflow:hidden;">
+        <div class="ic-table-wrap" style="border:none;">
+            <table class="ic-table">
+                <thead>
+                    <tr>
+                        <th style="text-align:left;">Pembangkit</th>
+                        <th>Jenis</th>
+                        <th>Kapasitas S (MVA)</th>
+                        <th>Inersia H (detik)</th>
+                        <th>E = MVA &times; H (MWs)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for p in plants %}
+                    <tr>
+                        <td class="ic-nm">{{ p.nama }}<div class="ic-kode">{{ p.kode }}</div></td>
+                        <td class="ic-kode">{{ p.jenis }}</td>
+                        <td><input class="ic-num" type="text" name="mva_{{ p.pk }}"
+                                   value="{{ p.mva|default_if_none:'' }}" inputmode="decimal"
+                                   placeholder="—"></td>
+                        <td><input class="ic-num" type="text" name="h_{{ p.pk }}"
+                                   value="{{ p.inersia_h|default_if_none:'' }}" inputmode="decimal"
+                                   placeholder="—"></td>
+                        <td class="ic-mws{% if p.energi_kinetik_mws is None %} kosong{% endif %}">
+                            {% if p.energi_kinetik_mws is None %}—{% else %}{{ p.energi_kinetik_mws|floatformat:2 }}{% endif %}
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="5" style="padding:50px; color:var(--muted);">
+                        Belum ada pembangkit aktif.
+                    </td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="ic-actions">
+        <button type="submit" class="ic-btn primary"><i class="bi bi-save"></i> Simpan</button>
+        <a href="{% url 'opsis_dashboard' %}" class="ic-btn"><i class="bi bi-arrow-left"></i> Kembali</a>
+        <span class="note">Koma desimal diterima (mis. <code>4,5</code>). Kolom E dihitung ulang setelah disimpan.</span>
+    </div>
+</form>
+{% endblock %}

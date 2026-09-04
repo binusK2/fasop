@@ -835,10 +835,22 @@ E  = Σ (MVA × H) pembangkit yang dihitung          [MWs]
 contoh: E 11.890 MWs, ROCOF 1 Hz/s, f0 50 Hz  →  ΔP 475,6 MW
 ```
 
-**MVA & H diisi per mesin** di Admin → Opsis → Pembangkit (`mva`, `inersia_h`);
-parameter ROCOF/f0 dan sakelar tampilnya di Admin → Opsis → **Pengaturan Inersia
-Sistem** (baris tunggal pk=1). Tidak ada rumus yang di-hardcode di view maupun
-template — menambah pembangkit ke perhitungan cukup mengisi dua kolom.
+**Diisi dari halaman `/opsis/inersia/config/`** (menu **Config Inersia**), bukan
+site admin: MVA & H tiap mesin dalam satu tabel, plus ROCOF/f0, sakelar tampil,
+dan cakupan unit. Site admin tetap bisa dipakai (Opsis → Pembangkit dan Opsis →
+Pengaturan Inersia Sistem) dan itu satu-satunya tempat mengubah judul & warna
+kartu — kosmetik yang sengaja tidak diikutkan supaya halaman config tetap sempit
+pada hal yang memengaruhi angkanya. Tidak ada rumus yang di-hardcode di view
+maupun template — menambah pembangkit ke perhitungan cukup mengisi dua kolom.
+
+Akses halaman itu — dan menunya di sidebar — memakai `can_write_opsis()` /
+`UserProfile.bisa_tulis_opsis` (superuser, role Opsis, AM), aturan yang sama
+dengan Input HOP. Opsis View ditolak. Jangan menuliskan ulang tuple role di view
+atau template. Perubahannya dicatat ke `auditlog` lengkap dengan nilai lama →
+baru, dan hanya saat benar-benar ada yang berubah — kalau setiap penekanan
+tombol Simpan dicatat, riwayatnya penuh entri kosong dan perubahan sungguhan
+jadi sulit ditemukan. Baris yang salah ketik dilewati tanpa menyentuh nilai
+lamanya, dan baris lain tetap tersimpan.
 
 Yang perlu diketahui saat mengubahnya:
 
@@ -866,6 +878,12 @@ Yang perlu diketahui saat mengubahnya:
   Terpilih. Jangan kembali menulis `grid-template-columns` inline per baris:
   begitu angkanya berbeda sedikit saja, kolom kiri kedua kartu beda lebar dan
   chart-nya tidak lurus bersebelahan (dijaga tes).
+- **Komentar template harus `{% comment %}` kalau lebih dari satu baris.**
+  Sintaks `{# #}` Django hanya untuk SATU baris; yang multi-baris keluar apa
+  adanya sebagai teks di halaman. Sudah pernah terjadi di sidebar OPSIS dan di
+  dashboard, dan tidak ketahuan dari tes yang hanya memeriksa status code —
+  sekarang dijaga tes yang memastikan tidak ada `{#` / `{% comment %}` tersisa
+  di HTML hasil render.
 - **Angka ditulis `toFixed(2)` tanpa pemisah ribuan**, sama seperti semua kartu
   MW lain di dashboard. Jangan dipoles `toLocaleString('id-ID')`: di layar itu
   ada kartu yang memakai titik sebagai DESIMAL (`1593.51`), jadi E yang tampil
@@ -1062,6 +1080,41 @@ Yang perlu diketahui saat mengubahnya:
   lambat beberapa detik di worker lain — jangan ganti jadi query per request.
 - Cron pengumpul data (`collect_live`, `collect_freq`, dsb.) tidak lewat
   middleware sama sekali, jadi pengumpulan data tetap jalan selama pemeliharaan.
+
+---
+
+## OPSIS — Sakelar Tampilan Dashboard (`opsis.PengaturanDashboard`)
+
+Baris tunggal (pk=1) di **Admin → Opsis → Pengaturan Tampilan Dashboard** yang
+menyembunyikan bagian dashboard yang sedang tidak dibutuhkan. Saat ini dua
+sakelar: **Beban Trafo Distribusi** dan **Beban Trafo IBT**.
+
+Tiga aturan yang menentukan sakelar ini berguna, bukan sekadar `display:none`:
+
+- **Satu sakelar mematikan kartu ringkasan DAN chart-nya sekaligus.** Keduanya
+  membahas hal yang sama dan dilayani satu fungsi poll yang sama
+  (`loadTrafoChart` mengisi kartu sekaligus chart), jadi memisahkannya hanya
+  melahirkan kombinasi yang tidak berarti — chart tanpa kartunya.
+- **Mematikan juga MENGHENTIKAN polling-nya**, bukan sekadar menyembunyikan
+  elemennya. Endpoint trafo menembak MSSQL tiap 2 detik; menariknya terus untuk
+  sesuatu yang tidak dilihat siapa pun adalah beban percuma pada historian.
+  Interval-nya tetap hidup (isinya dijaga `if (TAMPIL...)`) supaya menyalakan
+  lagi dari admin langsung jalan tanpa reload.
+- **Status ikut tiap poll `/opsis/api/live/`**, bukan hanya saat render — alasan
+  yang sama dengan kartu Total Padam: dashboard ini dipasang di layar yang
+  menyala berjam-jam, jadi mematikannya dari admin tidak akan terlihat sampai
+  ada yang me-refresh layar ruang operasi. Karena itu elemennya **tetap
+  dirender** lalu disembunyikan, bukan dihapus dari HTML — kalau dihapus,
+  menyalakannya lagi tidak akan pernah terlihat tanpa reload.
+
+Keadaan tampil dipegang satu objek JS (`TAMPIL`) yang dibaca oleh penyembunyian
+elemen maupun gerbang polling. Kalau keduanya membaca sumber berbeda, elemennya
+bisa hilang sementara polling-nya jalan terus (atau sebaliknya).
+
+`PengaturanDashboard.status()` men-cache barisnya `TTL_CACHE` detik per proses
+dan `save()` menyegarkan cache di worker yang menyimpan — pola yang sama dengan
+`ModePemeliharaan`. Jangan diganti jadi query per request: ini ikut dibaca tiap
+poll `api_live()`.
 
 ---
 
