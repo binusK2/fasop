@@ -106,7 +106,7 @@ class PengaturanInersiaAdmin(admin.ModelAdmin):
     @admin.display(description='E Terpasang (MWs)')
     def energi_terpasang(self, obj):
         total = sum(p.energi_kinetik_mws for p in obj.pembangkit_terhitung())
-        return f'{total:,.0f}'
+        return f'{total:,.2f}'
 
     @admin.display(description='Hasil bila SEMUA pembangkit terisi ikut dihitung')
     def ringkasan_hitungan(self, obj):
@@ -126,9 +126,9 @@ class PengaturanInersiaAdmin(admin.ModelAdmin):
             'dP = 2 &times; {} &times; {} / {} = <b>{} MW</b><br>'
             '<span style="color:#666">Dashboard menampilkan angka yang lebih kecil bila '
             '"hitung hanya pembangkit yang beroperasi" dicentang.</span>',
-            f'{total:,.0f}', len(baris),
-            f'{total:,.0f}', obj.rocof_batas, obj.frekuensi_nominal,
-            '—' if dp is None else f'{dp:,.1f}',
+            f'{total:,.2f}', len(baris),
+            f'{total:,.2f}', obj.rocof_batas, obj.frekuensi_nominal,
+            '—' if dp is None else f'{dp:,.2f}',
         )
 
     def has_add_permission(self, request):
@@ -345,7 +345,7 @@ class PembangkitAdmin(admin.ModelAdmin):
         """Energi kinetik tersimpan. Strip = MVA atau H belum diisi, jadi
         pembangkit ini belum ikut hitungan inersia."""
         nilai = obj.energi_kinetik_mws
-        return '—' if nilai is None else f'{nilai:,.0f}'
+        return '—' if nilai is None else f'{nilai:,.2f}'
 
 
 @admin.register(Trafo)

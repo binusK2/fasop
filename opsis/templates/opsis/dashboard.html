@@ -202,10 +202,20 @@
 @media (max-width: 700px) {
     .summary-row-freq { grid-template-columns: repeat(2, 1fr); }
 }
-/* Kartu "KIT Terpilih": total di kiri, chart di kanan. Di layar sempit
-   ditumpuk supaya chart tidak tersisa beberapa puluh piksel. */
+/* Baris "kartu kecil + chart 24 jam" — dipakai KIT Terpilih dan Inersia
+   Sistem. Satu definisi bersama supaya kolom kirinya sama lebar dan kedua
+   chart-nya lurus bersebelahan; sebelumnya lebarnya ditulis inline di dua
+   tempat dengan angka yang sedikit berbeda (240px vs 260px), jadi kedua
+   chart itu tidak pernah sejajar. Di layar sempit ditumpuk supaya chart
+   tidak tersisa beberapa puluh piksel. */
+.kartu-pasangan {
+    display: grid;
+    grid-template-columns: minmax(210px, 260px) 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+}
 @media (max-width: 700px) {
-    .pantauan-row { grid-template-columns: 1fr !important; }
+    .kartu-pasangan { grid-template-columns: 1fr; }
 }
 </style>
 {% endblock %}
@@ -416,8 +426,7 @@
 {% if pantauan_tampil %}
 <!-- KIT Terpilih: kartu total (kecil) + chart 24 jam (besar) di sebelahnya.
      Anggotanya dipilih di Admin -> Opsis -> Pantauan KIT Terpilih. -->
-<div style="display:grid; grid-template-columns:minmax(200px, 240px) 1fr; gap:16px; margin-bottom:16px;"
-     class="pantauan-row">
+<div class="kartu-pasangan">
     <div style="background:var(--card-bg); border:1px solid {{ pantauan.warna }}55; border-radius:14px; padding:18px 20px; display:flex; flex-direction:column; justify-content:center;">
         <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); margin-bottom:6px;">
             <i class="bi bi-bullseye me-1" style="color:{{ pantauan.warna }};"></i>{{ pantauan.nama }}
@@ -454,8 +463,7 @@
 <!-- Inersia Sistem: kartu dua nilai (E & dP) + chart 24 jam di sebelahnya.
      MVA & H per mesin di Admin -> Opsis -> Pembangkit; parameter ROCOF/f0 di
      Admin -> Opsis -> Pengaturan Inersia Sistem. -->
-<div style="display:grid; grid-template-columns:minmax(210px, 260px) 1fr; gap:16px; margin-bottom:16px;"
-     class="pantauan-row">
+<div class="kartu-pasangan">
     <div style="background:var(--card-bg); border:1px solid {{ inersia.warna }}55; border-radius:14px; padding:18px 20px; display:flex; flex-direction:column; justify-content:center; gap:12px;">
         <div>
             <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); margin-bottom:6px;">
@@ -853,10 +861,14 @@ async function pollLive() {
                 e += INERSIA_MWS[kode]; ada = true;
             }
             const dp = INERSIA_CFG.f0 ? 2 * e * INERSIA_CFG.rocof / INERSIA_CFG.f0 : null;
-            inersiaEl.innerHTML = (ada ? Math.round(e).toLocaleString('id-ID') : '—')
+            // Dua desimal tanpa pemisah ribuan — format yang sama dengan kartu
+            // MW lain di layar ini. Sebelumnya E dipoles toLocaleString('id-ID')
+            // sehingga tampil "11.890", padahal titik di kartu sebelahnya berarti
+            // DESIMAL ("1593.51"): satu karakter dengan dua arti di satu layar.
+            inersiaEl.innerHTML = (ada ? e.toFixed(2) : '—')
                 + '<span style="font-size:13px;font-weight:400;color:var(--muted);margin-left:4px;">MWs</span>';
             const dpEl = document.getElementById('inersia-dp');
-            if (dpEl) dpEl.innerHTML = (ada && dp !== null ? dp.toFixed(1) : '—')
+            if (dpEl) dpEl.innerHTML = (ada && dp !== null ? dp.toFixed(2) : '—')
                 + '<span style="font-size:12px;font-weight:400;color:var(--muted);margin-left:4px;">MW</span>';
         }
 
@@ -1511,8 +1523,8 @@ function initInersiaChart(rows, warna, warnaDelta) {
                         label: ctx => {
                             if (ctx.parsed.y == null) return null;
                             return ctx.datasetIndex === 0
-                                ? 'E: ' + Math.round(ctx.parsed.y).toLocaleString('id-ID') + ' MWs'
-                                : 'ΔP: ' + ctx.parsed.y.toFixed(1) + ' MW';
+                                ? 'E: ' + ctx.parsed.y.toFixed(2) + ' MWs'
+                                : 'ΔP: ' + ctx.parsed.y.toFixed(2) + ' MW';
                         },
                     }
                 }
@@ -1533,7 +1545,7 @@ function initInersiaChart(rows, warna, warnaDelta) {
                 y: {
                     position: 'left', grid: { color: '#1e2d45' }, grace: '10%',
                     title: { display: true, text: 'MWs', color: '#64748b' },
-                    ticks: { callback: v => Math.round(v).toLocaleString('id-ID') },
+                    ticks: { callback: v => v.toFixed(0) },
                 },
                 y1: {
                     position: 'right', grid: { drawOnChartArea: false }, grace: '10%',
