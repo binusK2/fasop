@@ -397,6 +397,19 @@ body { font-family:'DM Sans', sans-serif; background:var(--body-bg); color:var(-
             <span class="sb-label">Input HOP</span>
         </a>
         {% endif %}
+        {% comment %}
+        Config Inersia — hanya untuk yang boleh menulis di OPSIS. Aturan
+        role-nya tinggal di UserProfile.bisa_tulis_opsis, sama dengan penjaga
+        view-nya, supaya menu dan izin tidak pernah beda pendapat.
+        Dipakai {% comment %}, bukan {##}: sintaks {##} hanya untuk SATU baris —
+        yang multi-baris tercetak apa adanya ke halaman.
+        {% endcomment %}
+        {% if request.user.profile.bisa_tulis_opsis %}
+        <a href="/opsis/inersia/config/" class="sb-link {% if request.resolver_match.url_name == 'opsis_inersia_config' %}active{% endif %}">
+            <i class="bi bi-sliders sb-icon"></i>
+            <span class="sb-label">Config Inersia</span>
+        </a>
+        {% endif %}
 
         {% if pembangkit_list and request.user.profile.role != 'up2d' %}
         <button id="btn-pb-toggle" onclick="togglePembangkit()"

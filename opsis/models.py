@@ -774,6 +774,84 @@ class PengaturanInersia(models.Model):
         return self.aktif and bool(self.pembangkit_terhitung())
 
 
+class PengaturanDashboard(models.Model):
+    """
+    Sakelar tampil/sembunyi bagian-bagian dashboard OPSIS yang tidak selalu
+    dibutuhkan. Baris tunggal (pk=1) di site admin.
+
+    Satu sakelar mematikan kartu ringkasan DAN chart-nya sekaligus — keduanya
+    membahas hal yang sama dan dilayani satu endpoint yang sama, jadi
+    memisahkannya hanya melahirkan kombinasi yang tidak berarti (chart tanpa
+    kartunya).
+
+    Mematikan sebuah bagian juga MENGHENTIKAN polling-nya di browser, bukan
+    sekadar menyembunyikan elemennya: endpoint trafo menembak MSSQL tiap 2
+    detik, dan menariknya terus untuk sesuatu yang tidak dilihat siapa pun
+    adalah beban yang percuma.
+    """
+
+    # Dibaca pada tiap poll /opsis/api/live/ (5 detik), jadi hasilnya di-cache
+    # sebentar per proses — pola yang sama dengan ModePemeliharaan.status().
+    TTL_CACHE = 5.0
+    _cache = {'obj': None, 'ts': 0.0}
+
+    tampil_trafo_distribusi = models.BooleanField(
+        default=True, verbose_name='Tampilkan Beban Trafo Distribusi',
+        help_text='Kartu ringkasan dan chart "Beban Trafo Distribusi — per GI" di '
+                  'dashboard. Dimatikan = keduanya hilang dan polling-nya berhenti.')
+    tampil_trafo_ibt = models.BooleanField(
+        default=True, verbose_name='Tampilkan Beban Trafo IBT',
+        help_text='Kartu ringkasan dan chart "Beban Trafo IBT — per Trafo" di '
+                  'dashboard. Dimatikan = keduanya hilang dan polling-nya berhenti.')
+    diubah_pada = models.DateTimeField(auto_now=True, verbose_name='Diubah Pada')
+
+    class Meta:
+        verbose_name = 'Pengaturan Tampilan Dashboard'
+        verbose_name_plural = 'Pengaturan Tampilan Dashboard'
+
+    def __str__(self):
+        mati = [n for n, v in (('Trafo Distribusi', self.tampil_trafo_distribusi),
+                               ('Trafo IBT', self.tampil_trafo_ibt)) if not v]
+        return 'Semua bagian tampil' if not mati else 'Disembunyikan: ' + ', '.join(mati)
+
+    def save(self, *args, **kwargs):
+        self.pk = 1                       # selalu satu baris, apa pun jalur simpannya
+        super().save(*args, **kwargs)
+        type(self)._cache = {'obj': self, 'ts': time.monotonic()}
+
+    @classmethod
+    def ambil(cls):
+        """Baris pengaturan, dibuat dengan nilai bawaan bila belum ada."""
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+    @classmethod
+    def status(cls):
+        """
+        Seperti ambil(), tapi memakai cache pendek karena ikut dibaca tiap poll
+        /opsis/api/live/. Mengembalikan baris bawaan (semua tampil) bila
+        tabelnya belum ada — mis. sebelum migrate dijalankan — supaya kegagalan
+        di sini tidak mengosongkan dashboard.
+        """
+        now = time.monotonic()
+        cache = cls._cache
+        if cache['obj'] is not None and (now - cache['ts']) < cls.TTL_CACHE:
+            return cache['obj']
+        try:
+            obj = cls.ambil()
+        except Exception:
+            return cache['obj'] or cls()
+        cls._cache = {'obj': obj, 'ts': now}
+        return obj
+
+    def sebagai_dict(self):
+        """Bentuk yang dikirim ke browser lewat /opsis/api/live/."""
+        return {
+            'trafo_distribusi': self.tampil_trafo_distribusi,
+            'trafo_ibt':        self.tampil_trafo_ibt,
+        }
+
+
 class ModePemeliharaan(models.Model):
     """
     Sakelar "OPSIS sedang dalam pemeliharaan" — baris tunggal (pk=1) yang diubah

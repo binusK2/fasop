@@ -3,7 +3,7 @@ from . import mssql
 from .models import (Pembangkit, SnapLive, SnapUnit, SnapFreq, SnapFreqRT, SnapFreqArea,
                      Trafo, SnapTrafo, HopPembangkit, HopSnapshot,
                      PrakiraanBeban, ModePemeliharaan, KelompokPeta, PantauanKit,
-                     PengaturanInersia,
+                     PengaturanInersia, PengaturanDashboard,
                      KolomEWS, TitikEWS, KartuPadam)
 
 
@@ -140,6 +140,38 @@ class PengaturanInersiaAdmin(admin.ModelAdmin):
 
     def changelist_view(self, request, extra_context=None):
         PengaturanInersia.ambil()     # pastikan barisnya ada sebelum daftar dirender
+        return super().changelist_view(request, extra_context)
+
+
+@admin.register(PengaturanDashboard)
+class PengaturanDashboardAdmin(admin.ModelAdmin):
+    """
+    Sakelar tampil/sembunyi bagian dashboard OPSIS. Baris tunggal, jadi tombol
+    Tambah/Hapus dimatikan dan daftar langsung membuka baris itu.
+    """
+    list_display    = ('__str__', 'tampil_trafo_distribusi', 'tampil_trafo_ibt', 'diubah_pada')
+    list_editable   = ('tampil_trafo_distribusi', 'tampil_trafo_ibt')
+    readonly_fields = ('diubah_pada',)
+    fieldsets = (
+        (None, {
+            'description': 'Hilangkan centang untuk menyembunyikan bagian itu dari dashboard '
+                           'OPSIS. Satu centang mengatur kartu ringkasan DAN chart-nya '
+                           'sekaligus, dan mematikannya juga menghentikan polling-nya ke '
+                           'MSSQL. Perubahan terlihat di semua layar dalam beberapa detik '
+                           'tanpa perlu reload.',
+            'fields': ('tampil_trafo_distribusi', 'tampil_trafo_ibt', 'diubah_pada'),
+        }),
+    )
+
+    def has_add_permission(self, request):
+        # Baris tunggal: dibuat otomatis oleh changelist_view di bawah.
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def changelist_view(self, request, extra_context=None):
+        PengaturanDashboard.ambil()   # pastikan barisnya ada sebelum daftar dirender
         return super().changelist_view(request, extra_context)
 
 
