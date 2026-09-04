@@ -1698,7 +1698,7 @@ def blank_maintenance_pdf(request, device_id):
         'catatan_tambahan': '',
         'plc': {}, 'radio': {}, 'repeater': {}, 'voip': {}, 'mux': {}, 'rectifier': {},
         'tp': {}, 'genset': {}, 'rtu': {}, 'sas': {}, 'bcu': {}, 'roip': {}, 'ups': {},
-        'freq_relay': {}, 'corrective': {},
+        'freq_relay': {}, 'corrective': {}, 'master_trip': {}, 'dfr': {},
     }
 
     buffer = BytesIO()
@@ -1733,6 +1733,7 @@ def export_maintenance_pdf(request, pk):
     # ── Ambil detail sesuai jenis ──────────────────────────────────
     router_detail = plc_detail = radio_detail = repeater_detail = None
     voip_detail = mux_detail = rect_detail = tp_detail = genset_detail = rtu_detail = sas_detail = roip_detail = ups_detail = freq_relay_detail = bcu_detail = None
+    master_trip_detail = dfr_detail = None
 
     def _try(fn):
         try: return fn()
@@ -1772,6 +1773,10 @@ def export_maintenance_pdf(request, pk):
         ups_detail = _try(lambda: maintenance.maintenanceups)
     elif device_kind in ('UFLS', 'UFR ISLAND', 'OFGS', 'CDSAS', 'FREQUENCY RELAY'):
         freq_relay_detail = _try(lambda: maintenance.maintenancefrequencyrelay)
+    elif device_kind in ('MASTER TRIP', 'RELE DEFENSE SCHEME', 'DEFENSE SCHEME'):
+        master_trip_detail = _try(lambda: maintenance.maintenancemastertrip)
+    elif device_kind in ('DFR', 'PMU'):
+        dfr_detail = _try(lambda: maintenance.maintenancedfr)
 
     ms_detail = None
     if device_kind in ('MASTER STATION', 'WORKSTATION SCADA', 'SERVER TELKOM', 'SERVER PROSIS', 'WORKSTATION PC'):
@@ -1792,6 +1797,14 @@ def export_maintenance_pdf(request, pk):
     def _g(obj, attr, default=None):
         val = getattr(obj, attr, default)
         return val if val not in (None, '') else default
+
+    def _disp(obj, attr):
+        """Label pilihan (get_<attr>_display) — bukan nilai mentahnya."""
+        if obj is None:
+            return ''
+        getter = getattr(obj, f'get_{attr}_display', None)
+        val = getter() if callable(getter) else getattr(obj, attr, '')
+        return val or ''
 
     # Signature dari asisten manager
     sigs = {}
@@ -2307,6 +2320,74 @@ def export_maintenance_pdf(request, pk):
             'bat_cells':         _g(ups_detail, 'bat_cells', []),
             'catatan':           _g(ups_detail, 'catatan', ''),
         } if ups_detail else {},
+
+        # Master Trip / Rele Defense Scheme — nilai pilihan dikirim sebagai
+        # LABEL (get_..._display) karena template PDF mencocokkannya dengan
+        # 'Normal'/'Abnormal', sama seperti template UFLS.
+        'master_trip': {
+            'healthy':  _disp(master_trip_detail, 'healthy'),
+            'trip_led': _disp(master_trip_detail, 'trip_led'),
+            'alarm':    _disp(master_trip_detail, 'alarm'),
+            'merek':    _g(master_trip_detail, 'merek', ''),
+            'no_seri':  _g(master_trip_detail, 'no_seri', ''),
+            'target':   _g(master_trip_detail, 'target', ''),
+            'fungsi':   _g(master_trip_detail, 'fungsi', ''),
+            'rasio_ct': _g(master_trip_detail, 'rasio_ct', ''),
+            'i_a': _g(master_trip_detail, 'i_a', ''),
+            'i_b': _g(master_trip_detail, 'i_b', ''),
+            'i_c': _g(master_trip_detail, 'i_c', ''),
+            'v_a': _g(master_trip_detail, 'v_a', ''),
+            'v_b': _g(master_trip_detail, 'v_b', ''),
+            'v_c': _g(master_trip_detail, 'v_c', ''),
+            'frekuensi': _g(master_trip_detail, 'frekuensi', ''),
+            'setting_i':   _g(master_trip_detail, 'setting_i', ''),
+            'waktu_i':     _g(master_trip_detail, 'waktu_i', ''),
+            'setting_ii':  _g(master_trip_detail, 'setting_ii', ''),
+            'waktu_ii':    _g(master_trip_detail, 'waktu_ii', ''),
+            'under_power': _g(master_trip_detail, 'under_power', ''),
+            'waktu_under': _g(master_trip_detail, 'waktu_under', ''),
+            'over_power':  _g(master_trip_detail, 'over_power', ''),
+            'waktu_over':  _g(master_trip_detail, 'waktu_over', ''),
+            **{f'{pfx}{n}_{suf}': _g(master_trip_detail, f'{pfx}{n}_{suf}', '')
+               for pfx in ('p', 'n') for n in range(1, 7)
+               for suf in ('rl', 'vdc', 'pin', 'tahap_vdc', 'tahap_pin')},
+            **{f'aux{n}_{suf}': _g(master_trip_detail, f'aux{n}_{suf}', '')
+               for n in range(1, 7) for suf in ('rl', 'tf', 'led')},
+            **{f'dev{n}_nama': _g(master_trip_detail, f'dev{n}_nama', '') for n in range(1, 7)},
+            **{f'dev{n}_gi':   _g(master_trip_detail, f'dev{n}_gi', '') for n in range(1, 7)},
+            **{f'dev{n}_ready': _disp(master_trip_detail, f'dev{n}_ready') for n in range(1, 7)},
+            **{f'dev{n}_comm':  _disp(master_trip_detail, f'dev{n}_comm') for n in range(1, 7)},
+            'supply_dc': _g(master_trip_detail, 'supply_dc', ''),
+            'selektor':  _g(master_trip_detail, 'selektor', ''),
+            'catatan':   _g(master_trip_detail, 'catatan', ''),
+        } if master_trip_detail else {},
+
+        # DFR / PMU — sama seperti master_trip, nilai pilihan dikirim sebagai
+        # label karena template menampilkannya apa adanya.
+        'dfr': {
+            **{f: _g(dfr_detail, f, '') for f in (
+                'bay_feeder_1', 'bay_feeder_2', 'rasio_ct_1', 'rasio_ct_2',
+                'rasio_pt_1', 'rasio_pt_2', 'suhu_ruangan', 'kelembaban',
+                'type_dfr', 'merk_dfr', 'sn_dfr',
+                'front_port_ip', 'rear_port_ip',
+                'ping_server_1', 'ping_server_2', 'ping_dfr_1', 'ping_dfr_2',
+                'v_input_power', 'v_backup', 'kapasitas_memory', 'pmu_id',
+                'catatan_khusus',
+            )},
+            **{f: _disp(dfr_detail, f) for f in (
+                'kartu_kontrol', 'outdoor_panel', 'indoor_panel', 'tergrounding',
+                'kondisi_gps', 'kondisi_lcd', 'waktu_dfr',
+                'dfr_aktif', 'fisik_alarm', 'fungsi_rekaman', 'visual_5r',
+                'fo_tx', 'fo_rx', 'conv_tx', 'conv_rx', 'lan_tx', 'lan_rx',
+                'ping_server_status', 'ping_dfr_status',
+                'software_config', 'rekaman_gangguan',
+            )},
+            **{f'bay{b}_{src}_{bes}_{fase}': _g(dfr_detail, f'bay{b}_{src}_{bes}_{fase}', '')
+               for b in (1, 2) for src in ('dfr', 'ied')
+               for bes in ('v', 'i') for fase in ('r', 's', 't', 'n')},
+            **{f'bay{b}_{src}_hz': _g(dfr_detail, f'bay{b}_{src}_hz', '')
+               for b in (1, 2) for src in ('dfr', 'ied')},
+        } if dfr_detail else {},
     }
 
     # ── Corrective detail dict ─────────────────────────────────────
