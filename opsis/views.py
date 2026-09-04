@@ -977,7 +977,7 @@ def api_inersia(request):
         per_menit[menit] = per_menit.get(menit, 0.0) + mws.get(pk, 0.0)
 
     rows = [{'minute': m,
-             'mws': round(e, 1),
+             'mws': round(e, 2),
              'dp': None if faktor is None else round(e * faktor, 2)}
             for m, e in sorted(per_menit.items())]
 

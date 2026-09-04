@@ -2153,3 +2153,24 @@ class InersiaTest(TestCase):
         PengaturanInersia(nama='Coba Kedua').save()
         self.assertEqual(PengaturanInersia.objects.count(), 1)
         self.assertEqual(PengaturanInersia.objects.get().nama, 'Coba Kedua')
+
+    def test_kedua_kartu_memakai_lebar_yang_sama(self):
+        """
+        KIT Terpilih dan Inersia Sistem harus memakai kelas grid yang SAMA,
+        bukan lebar yang ditulis inline sendiri-sendiri. Kalau berbeda, kolom
+        kirinya beda lebar dan kedua chart-nya tidak lurus bersebelahan —
+        persis yang terjadi sebelum keduanya disatukan.
+        """
+        self._nyalakan()
+        pantauan = PantauanKit.ambil()
+        pantauan.aktif = True
+        pantauan.save()
+        pantauan.anggota.set([self.a])
+
+        self._user_login()
+        isi = self.client.get('/opsis/').content.decode()
+
+        self.assertEqual(isi.count('class="kartu-pasangan"'), 2)
+        # Lebarnya hanya boleh hidup di blok <style>, tidak di atribut style
+        # masing-masing baris.
+        self.assertNotIn('grid-template-columns:minmax', isi)

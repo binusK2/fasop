@@ -862,6 +862,14 @@ Yang perlu diketahui saat mengubahnya:
   terlihat setelah halaman dimuat ulang.
 - **Chart pakai dua sumbu-Y.** E dalam ribuan MWs, ΔP dalam ratusan MW; satu
   sumbu bersama membuat garis ΔP menempel di dasar grafik dan tak terbaca.
+- **Lebar barisnya dari kelas `.kartu-pasangan`**, dipakai bersama kartu KIT
+  Terpilih. Jangan kembali menulis `grid-template-columns` inline per baris:
+  begitu angkanya berbeda sedikit saja, kolom kiri kedua kartu beda lebar dan
+  chart-nya tidak lurus bersebelahan (dijaga tes).
+- **Angka ditulis `toFixed(2)` tanpa pemisah ribuan**, sama seperti semua kartu
+  MW lain di dashboard. Jangan dipoles `toLocaleString('id-ID')`: di layar itu
+  ada kartu yang memakai titik sebagai DESIMAL (`1593.51`), jadi E yang tampil
+  `11.890` membuat satu karakter punya dua arti di satu layar.
 - Endpoint chart `/opsis/api/inersia/` menjumlahkan di Python, bukan `SUM` di
   SQL — bobot tiap baris (MVA × H) konstanta per pembangkit, bukan kolom di
   `SnapLive`. Yang ditarik hanya `(waktu, pembangkit_id)`. Rentangnya
