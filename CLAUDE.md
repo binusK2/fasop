@@ -823,6 +823,53 @@ Konsekuensi yang perlu diketahui:
 
 ---
 
+## OPSIS — Inersia Sistem (`opsis.PengaturanInersia`)
+
+Sepasang kartu di dashboard: kartu kecil berisi **dua angka** — energi kinetik
+tersimpan E (MWs) dan ΔP (MW) — dan chart 24 jam dua garis di sebelahnya.
+
+```
+E  = Σ (MVA × H) pembangkit yang dihitung          [MWs]
+ΔP = 2 × E × ROCOF_batas ÷ f0                      [MW]
+
+contoh: E 11.890 MWs, ROCOF 1 Hz/s, f0 50 Hz  →  ΔP 475,6 MW
+```
+
+**MVA & H diisi per mesin** di Admin → Opsis → Pembangkit (`mva`, `inersia_h`);
+parameter ROCOF/f0 dan sakelar tampilnya di Admin → Opsis → **Pengaturan Inersia
+Sistem** (baris tunggal pk=1). Tidak ada rumus yang di-hardcode di view maupun
+template — menambah pembangkit ke perhitungan cukup mengisi dua kolom.
+
+Yang perlu diketahui saat mengubahnya:
+
+- **ROCOF di sini PARAMETER RENCANA, bukan hasil ukur.** ΔP-nya berarti "berapa
+  MW boleh lepas pada batas ROCOF itu", bukan "besar gangguan yang barusan
+  terjadi". Kalau suatu saat yang dibutuhkan yang kedua, ROCOF harus datang dari
+  `SnapFreqRT` (1 sampel/detik) dan itu perhitungan yang berbeda — jangan
+  diam-diam mengganti arti field yang sama.
+- **Hanya mesin yang beroperasi menyumbang E** (`hanya_beroperasi`, bawaan
+  menyala; ambangnya `ambang_mw`). Itu yang benar secara fisika dan yang membuat
+  chart 24 jam bergerak. Mematikannya menghasilkan kapasitas inersia terpasang —
+  garis chart praktis datar.
+- **MVA atau H yang kosong berarti pembangkit itu DILEWATI, bukan dihitung nol.**
+  Kalau dianggap nol, data yang belum lengkap akan diam-diam menyusutkan inersia
+  sistem tanpa ada yang sadar. Kolom `E (MWs)` di daftar Pembangkit menunjukkan
+  mana yang belum terisi.
+- **Kartu kecil dijumlahkan di browser** dari `/opsis/api/live/` yang sama dengan
+  kartu pembangkit — energi kinetik tiap mesin adalah konstanta yang ditanam saat
+  render (`json_script`), yang berubah tiap poll hanya MW-nya. Pola dan alasannya
+  sama dengan kartu KIT Terpilih. Konsekuensinya perubahan MVA/H dari admin baru
+  terlihat setelah halaman dimuat ulang.
+- **Chart pakai dua sumbu-Y.** E dalam ribuan MWs, ΔP dalam ratusan MW; satu
+  sumbu bersama membuat garis ΔP menempel di dasar grafik dan tak terbaca.
+- Endpoint chart `/opsis/api/inersia/` menjumlahkan di Python, bukan `SUM` di
+  SQL — bobot tiap baris (MVA × H) konstanta per pembangkit, bukan kolom di
+  `SnapLive`. Yang ditarik hanya `(waktu, pembangkit_id)`. Rentangnya
+  `waktu__gte`/`waktu__lt`, bukan `waktu__date` (alasan indeks yang sama seperti
+  ekspor beban pembangkit).
+
+---
+
 ## OPSIS — Peta Sumber Data (`/opsis/sumber-data/`)
 
 OPSIS menarik angka dari **17 sumber**: 9 tabel MSSQL, 6 tabel snapshot

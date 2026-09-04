@@ -20,6 +20,7 @@ urlpatterns = [
     path('api/beban-kit-terpilih/', views.api_beban_kit_terpilih,
                                                  name='opsis_api_beban_kit_terpilih'),
     path('api/total-padam/',     views.api_total_padam, name='opsis_api_total_padam'),
+    path('api/inersia/',         views.api_inersia,  name='opsis_api_inersia'),
     path('api/ping/',            views.api_ping,     name='opsis_api_ping'),
     path('api/diagnose/',       views.api_diagnose, name='opsis_api_diagnose'),
     path('sumber-data/',        views.sumber_data,  name='opsis_sumber_data'),

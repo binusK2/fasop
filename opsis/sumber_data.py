@@ -118,7 +118,7 @@ SUMBER = [
 
     # ── Lapis 3: PostgreSQL (snapshot hasil cron) ───────────────────────────
     {
-        'fitur': 'Chart beban hari ini, Chart KIT Terpilih, Rangkuman, Ekspor beban pembangkit',
+        'fitur': 'Chart beban hari ini, Chart KIT Terpilih, Chart Inersia Sistem, Rangkuman, Ekspor beban pembangkit',
         'lapis': POSTGRES, 'sumber': 'opsis.SnapLive',
         'model': 'SnapLive', 'field_waktu': 'waktu',
         'hulu': 'dbo.KIT_REALTIME', 'diisi': 'cron collect_live (tiap menit)',
