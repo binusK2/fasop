@@ -1120,6 +1120,41 @@ function _minuteLabel(m) {
     return `${h}:${mm}`;
 }
 
+// Label sumbu-X: cukup angka jamnya saja (0-23, format 24 jam). Tooltip tetap
+// memakai _minuteLabel() — di sana menitnya justru yang dicari.
+function _jamLabel(menit) {
+    return Math.round(menit / 60).toString();
+}
+
+// Sumbu-X bersama TIGA chart 24 jam di dashboard: Beban Kit, KIT Terpilih, dan
+// Inersia Sistem. Ini satu-satunya definisinya — blok ini sebelumnya disalin di
+// tiap chart, jadi satu perubahan tampilan (grid, rotasi, format label) harus
+// diingat di tiga tempat dan cukup satu yang terlewat untuk membuat chart yang
+// bersebelahan tidak lagi bisa dibaca berdampingan.
+//
+// Mengembalikan objek BARU tiap dipanggil: Chart.js menyimpan dan menambahi
+// objek opsi yang diberikan kepadanya, jadi satu konstanta yang dipakai bertiga
+// akan saling menimpa.
+function sumbuJam24() {
+    return {
+        type: 'linear',
+        min: 0, max: 24 * 60 - 1,
+        // Gridline tetap tiap 30 menit (permintaan tampilan), tapi yang diberi
+        // teks hanya jam bulat — 48 label berdesakan tidak terbaca sama sekali
+        // pada chart selebar setengah layar.
+        afterBuildTicks: axis => {
+            axis.ticks = [];
+            for (let m = 0; m <= 24 * 60 - 30; m += 30) axis.ticks.push({ value: m });
+        },
+        grid: { color: '#1e2d45' },
+        ticks: {
+            maxRotation: 0,
+            autoSkip: false,
+            callback: v => (v % 60 === 0 ? _jamLabel(v) : ''),
+        },
+    };
+}
+
 const peakPlugin = {
     id: 'peakLines',
     afterDraw(chart) {
@@ -1253,22 +1288,7 @@ function initBebanChart(actual, forecastRows) {
                 }
             },
             scales: {
-                x: {
-                    type: 'linear',
-                    min: 0, max: 24 * 60 - 1,
-                    // Paksa gridline muncul tiap 30 menit (permintaan tampilan),
-                    // tapi teks label cuma di jam bulat supaya tidak berdesakan.
-                    afterBuildTicks: axis => {
-                        axis.ticks = [];
-                        for (let m = 0; m <= 24 * 60 - 30; m += 30) axis.ticks.push({ value: m });
-                    },
-                    grid: { color: '#1e2d45' },
-                    ticks: {
-                        maxRotation: 0,
-                        autoSkip: false,
-                        callback: v => (v % 60 === 0 ? _minuteLabel(v) : ''),
-                    }
-                },
+                x: sumbuJam24(),
                 y: {
                     grid: { color: '#1e2d45' },
                     grace: '10%',
@@ -1474,18 +1494,7 @@ function initPantauanChart(rows, warna) {
                 }
             },
             scales: {
-                x: {
-                    type: 'linear', min: 0, max: 24 * 60 - 1,
-                    afterBuildTicks: axis => {
-                        axis.ticks = [];
-                        for (let m = 0; m <= 24 * 60 - 30; m += 30) axis.ticks.push({ value: m });
-                    },
-                    grid: { color: '#1e2d45' },
-                    ticks: {
-                        maxRotation: 0, autoSkip: false,
-                        callback: v => (v % 60 === 0 ? _minuteLabel(v) : ''),
-                    }
-                },
+                x: sumbuJam24(),
                 y: {
                     grid: { color: '#1e2d45' }, grace: '10%',
                     title: { display: true, text: 'MW', color: '#64748b' },
@@ -1569,18 +1578,7 @@ function initInersiaChart(rows, warna, warnaDelta) {
                 }
             },
             scales: {
-                x: {
-                    type: 'linear', min: 0, max: 24 * 60 - 1,
-                    afterBuildTicks: axis => {
-                        axis.ticks = [];
-                        for (let m = 0; m <= 24 * 60 - 30; m += 30) axis.ticks.push({ value: m });
-                    },
-                    grid: { color: '#1e2d45' },
-                    ticks: {
-                        maxRotation: 0, autoSkip: false,
-                        callback: v => (v % 60 === 0 ? _minuteLabel(v) : ''),
-                    }
-                },
+                x: sumbuJam24(),
                 y: {
                     position: 'left', grid: { color: '#1e2d45' }, grace: '10%',
                     title: { display: true, text: 'MWs', color: '#64748b' },
