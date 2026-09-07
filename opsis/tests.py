@@ -2615,3 +2615,190 @@ class ApiEksternalBebanKttTest(TestCase):
         obj = self.KunciApi.objects.get(nama='Lewat halaman admin')
         self.assertGreaterEqual(len(obj.kunci), 32)
         self.assertEqual(obj.dibuat_oleh, admin_user)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Ekspor Excel Inersia Sistem (opsis/views.py::export_inersia)
+# ═══════════════════════════════════════════════════════════════════════════
+class EksporInersiaTest(TestCase):
+    """
+    Unduhan Excel perhitungan inersia: bentuk berkasnya, dan janji bahwa
+    angkanya sama persis dengan chart di dashboard.
+    """
+
+    def setUp(self):
+        self.hari_ini = timezone.localdate()
+        self.url = reverse('opsis_export_inersia')
+        # 100 MVA x 5 s = 500 MWs ; 200 MVA x 4 s = 800 MWs
+        self.a = Pembangkit.objects.create(kode='EIA', nama='PLTU A', kode_kit='EIA',
+                                           urutan=1, mva=100, inersia_h=5)
+        self.b = Pembangkit.objects.create(kode='EIB', nama='PLTU B', kode_kit='EIB',
+                                           urutan=2, mva=200, inersia_h=4)
+        # MVA terisi, H kosong -> harus DILEWATI, bukan dihitung nol
+        self.c = Pembangkit.objects.create(kode='EIC', nama='PLTD C', kode_kit='EIC',
+                                           urutan=3, mva=50)
+        user = User.objects.create_user('ekspor-inersia', 'e@contoh.id', 'rahasia-tes-123')
+        profil = user.profile
+        profil.force_password_change = False
+        profil.save()
+        self.client.force_login(user)
+
+        cfg = PengaturanInersia.ambil()
+        cfg.aktif = True
+        cfg.save()
+
+    def _snap(self, pembangkit, menit, mw, tanggal=None):
+        SnapLive.objects.create(pembangkit=pembangkit, mw=mw,
+                                waktu=_waktu_lokal(tanggal or self.hari_ini, menit))
+
+    def _workbook(self, **params):
+        import io as _io
+        import openpyxl
+        r = self.client.get(self.url, params)
+        self.assertEqual(r.status_code, 200)
+        self.assertIn('spreadsheetml', r['Content-Type'])
+        return r, openpyxl.load_workbook(_io.BytesIO(r.content))
+
+    def _sel(self, ws):
+        """Sheet -> {label kolom A: nilai kolom B} untuk sheet gaya label-nilai."""
+        hasil = {}
+        for baris in ws.iter_rows(values_only=True):
+            if baris and baris[0]:
+                hasil[str(baris[0])] = baris[1] if len(baris) > 1 else None
+        return hasil
+
+    # ── Bentuk berkas ─────────────────────────────────────────────────
+    def test_login_wajib(self):
+        self.client.logout()
+        r = self.client.get(self.url)
+        self.assertIn(r.status_code, (302, 301))
+        self.assertIn('/login', r['Location'])
+
+    def test_tiga_sheet_dan_nama_berkas(self):
+        self._snap(self.a, 600, 50.0)
+        r, wb = self._workbook()
+        self.assertEqual(wb.sheetnames,
+                         ['Ringkasan', 'Inersia per Menit', 'Kontribusi Pembangkit'])
+        self.assertIn(f'InersiaSistem_{self.hari_ini}.xlsx', r['Content-Disposition'])
+
+    def test_nama_berkas_rentang(self):
+        self._snap(self.a, 600, 50.0)
+        besok = self.hari_ini + datetime.timedelta(days=1)
+        r, _ = self._workbook(mulai=str(self.hari_ini), selesai=str(besok))
+        self.assertIn(f'InersiaSistem_{self.hari_ini}_sd_{besok}.xlsx',
+                      r['Content-Disposition'])
+
+    # ── Isi ───────────────────────────────────────────────────────────
+    def test_deret_per_menit_dan_delta_p(self):
+        self._snap(self.a, 600, 50.0)      # 500 MWs
+        self._snap(self.b, 600, 80.0)      # 800 MWs  -> total 1300
+        self._snap(self.a, 601, 50.0)      # 500 MWs
+        _, wb = self._workbook()
+        rows = [r for r in wb['Inersia per Menit'].iter_rows(min_row=2, values_only=True)
+                if r[0]]
+        self.assertEqual(len(rows), 2)
+        # ROCOF 1 Hz/s, f0 50 Hz -> dP = 2 x E / 50
+        self.assertEqual((rows[0][3], rows[0][4], rows[0][5]), (1300, 52, 2))
+        self.assertEqual((rows[1][3], rows[1][4], rows[1][5]), (500, 20, 1))
+
+    def test_angka_sama_dengan_chart_dashboard(self):
+        """
+        Rumusnya hidup di opsis/inersia.py dan dipakai berdua. Kalau salinannya
+        muncul lagi di salah satu, berkas yang dilampirkan ke laporan bisa
+        berbeda dengan layar tanpa ada yang tahu mana yang benar.
+        """
+        for menit, mw in [(100, 30.0), (101, 0.0), (102, 45.0)]:
+            self._snap(self.a, menit, mw)
+            self._snap(self.b, menit, mw)
+
+        chart = self.client.get(reverse('opsis_api_inersia')).json()['rows']
+        _, wb = self._workbook()
+        excel = [r for r in wb['Inersia per Menit'].iter_rows(min_row=2, values_only=True)
+                 if r[0]]
+
+        self.assertEqual(len(chart), len(excel))
+        for c, e in zip(chart, excel):
+            self.assertEqual(c['mws'], e[3])
+            self.assertEqual(c['dp'], e[4])
+
+    def test_parameter_ikut_di_sheet_ringkasan(self):
+        cfg = PengaturanInersia.ambil()
+        cfg.rocof_batas, cfg.frekuensi_nominal = 0.5, 60.0
+        cfg.save()
+        self._snap(self.a, 600, 50.0)
+        _, wb = self._workbook()
+        ringkas = self._sel(wb['Ringkasan'])
+        self.assertEqual(ringkas['Batas ROCOF (Hz/s)'], 0.5)
+        self.assertEqual(ringkas['Frekuensi nominal f0 (Hz)'], 60.0)
+        self.assertEqual(ringkas['Cakupan unit'], 'Hanya yang beroperasi')
+        self.assertEqual(ringkas['Pembangkit ber-MVA & H'], 2)
+
+    def test_ringkasan_memuat_min_rata_maks(self):
+        self._snap(self.a, 600, 50.0)                    # E 500
+        self._snap(self.a, 601, 50.0)
+        self._snap(self.b, 601, 80.0)                    # E 1300
+        _, wb = self._workbook()
+        ringkas = self._sel(wb['Ringkasan'])
+        self.assertEqual(ringkas['E minimum (MWs)'], 500)
+        self.assertEqual(ringkas['E maksimum (MWs)'], 1300)
+        self.assertEqual(ringkas['E rata-rata (MWs)'], 900)
+        self.assertEqual(ringkas['Jumlah titik (menit)'], 2)
+
+    def test_kontribusi_hanya_pembangkit_ber_mva_dan_h(self):
+        self._snap(self.a, 600, 50.0)
+        _, wb = self._workbook()
+        rows = [r for r in wb['Kontribusi Pembangkit'].iter_rows(min_row=2, values_only=True)
+                if r[0] and isinstance(r[0], int)]
+        nama = [r[1] for r in rows]
+        self.assertEqual(nama, ['PLTU A', 'PLTU B'])
+        self.assertNotIn('PLTD C', nama)         # H kosong -> dilewati, bukan nol
+        # PLTU A ikut 1 dari 1 menit, PLTU B tidak pernah ikut
+        self.assertEqual((rows[0][4], rows[0][5], rows[0][7]), (500, 1, 100.0))
+        self.assertEqual((rows[1][5], rows[1][7]), (0, 0.0))
+
+    def test_ambang_beroperasi_dihormati(self):
+        cfg = PengaturanInersia.ambil()
+        cfg.ambang_mw = 10.0
+        cfg.save()
+        self._snap(self.a, 600, 50.0)      # di atas ambang -> ikut
+        self._snap(self.b, 600, 2.0)       # di bawah ambang -> tidak ikut
+        _, wb = self._workbook()
+        rows = [r for r in wb['Inersia per Menit'].iter_rows(min_row=2, values_only=True)
+                if r[0]]
+        self.assertEqual(rows[0][3], 500)
+        self.assertEqual(rows[0][5], 1)
+
+    def test_rentang_kosong_tetap_menghasilkan_berkas(self):
+        """Tidak ada data bukan error — berkasnya tetap turun dengan catatan."""
+        _, wb = self._workbook()
+        self.assertEqual(self._sel(wb['Ringkasan'])['Jumlah titik (menit)'], 0)
+        isi = [r for r in wb['Inersia per Menit'].iter_rows(min_row=2, values_only=True)]
+        self.assertTrue(any('Tidak ada data' in str(c) for r in isi for c in r if c))
+
+    # ── Penolakan ─────────────────────────────────────────────────────
+    def test_rentang_melebihi_batas_ditolak(self):
+        mulai = self.hari_ini - datetime.timedelta(days=30)
+        r = self.client.get(self.url, {'mulai': str(mulai), 'selesai': str(self.hari_ini)})
+        self.assertEqual(r.status_code, 302)
+        pesan = [m.message for m in r.wsgi_request._messages]
+        self.assertTrue(any('maksimal' in p for p in pesan), pesan)
+
+    def test_tanpa_mva_dan_h_ditolak_dengan_pesan_yang_bisa_ditindaklanjuti(self):
+        Pembangkit.objects.all().update(mva=None, inersia_h=None)
+        r = self.client.get(self.url)
+        self.assertEqual(r.status_code, 302)
+        pesan = ' '.join(m.message for m in r.wsgi_request._messages)
+        self.assertIn('Config Inersia', pesan)
+
+    # ── Tombolnya ada di dashboard ────────────────────────────────────
+    def test_tombol_unduh_tampil_bersama_kartu_inersia(self):
+        isi = self.client.get('/opsis/').content.decode()
+        self.assertIn('id="btn-dl-inersia"', isi)
+        self.assertIn('/opsis/export/inersia/', isi)
+
+    def test_tombol_ikut_hilang_saat_kartu_dimatikan(self):
+        cfg = PengaturanInersia.ambil()
+        cfg.aktif = False
+        cfg.save()
+        isi = self.client.get('/opsis/').content.decode()
+        self.assertNotIn('id="btn-dl-inersia"', isi)

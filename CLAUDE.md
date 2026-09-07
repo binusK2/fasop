@@ -894,6 +894,41 @@ Yang perlu diketahui saat mengubahnya:
   `waktu__gte`/`waktu__lt`, bukan `waktu__date` (alasan indeks yang sama seperti
   ekspor beban pembangkit).
 
+### Ekspor Excel (`/opsis/export/inersia/`)
+
+Tombol **Excel** + sepasang kotak tanggal di kepala chart Inersia, muncul dan
+hilang bersama kartunya. Tiga sheet:
+
+| Sheet | Isi |
+|---|---|
+| **Ringkasan** | parameter yang dipakai (ROCOF, f0, cakupan unit, ambang) + min/rata/maks E dan ΔP |
+| **Inersia per Menit** | deret E dan ΔP per menit sepanjang rentang, plus jumlah unit yang ikut |
+| **Kontribusi Pembangkit** | MVA, H, E tiap mesin, dan berapa menit/jam ia ikut dihitung |
+
+- **Rumusnya hidup di `opsis/inersia.py`, tidak disalin.** Chart dashboard dan
+  ekspor memanggil `hitung_deret()` yang sama — dijaga tes yang membandingkan
+  angka Excel dengan angka `/opsis/api/inersia/` baris per baris. ΔP adalah
+  angka yang dipakai menimbang berapa MW boleh lepas; berkas yang dilampirkan
+  ke laporan tidak boleh bisa berbeda dengan layar.
+- **Sheet Ringkasan sengaja jadi yang pertama.** E sepenuhnya bergantung pada
+  parameter yang bisa diubah kapan saja dari halaman Config Inersia, jadi angka
+  tanpa parameternya tidak bisa dipertanggungjawabkan berbulan-bulan kemudian.
+- **Pengelompokan per MENIT, bukan per timestamp persis.** `collect_live`
+  menulis tiap pembangkit dengan detik yang bisa berbeda tipis; dikelompokkan
+  per timestamp, satu menit pecah jadi beberapa titik yang masing-masing hanya
+  berisi sebagian armada dan E-nya terlihat naik-turun liar padahal tidak
+  terjadi apa-apa.
+- Memakai `_rentang_ekspor()` dan `EXPORT_KIT_MAKS_HARI` (7 hari) yang sama
+  dengan ekspor beban pembangkit, plus `openpyxl.Workbook(write_only=True)` —
+  alasannya sama persis, lihat "Ekspor Beban per Pembangkit".
+- **Tidak ada pembangkit ber-MVA & H = ditolak dengan pesan yang menyebut
+  halaman Config Inersia**, bukan berkas kosong. Berkas berisi nol baris tidak
+  memberi tahu siapa pun apa yang harus dilakukan.
+- Rentang tanpa data tetap menghasilkan berkas (dengan catatan "Tidak ada
+  data"), bukan error — yang bertanya biasanya justru ingin tahu apakah
+  datanya memang kosong.
+
+
 ---
 
 ## OPSIS — Peta Sumber Data (`/opsis/sumber-data/`)
