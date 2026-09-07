@@ -439,13 +439,25 @@ class LaporanPemeliharaanPaginasiTests(TestCase):
         jenis = DeviceType.objects.create(name='RTU')
         device = Device.objects.create(nama='RTU-01', jenis=jenis,
                                        merk='SEL', lokasi='GI TELLO')
-        tgl = timezone.make_aware(timezone.datetime(2026, 3, 10, 8, 0))
+        # Jam sengaja dibuat BERBEDA tiap baris: kalau ordering queryset ikut
+        # masuk GROUP BY, tiap datetime jadi kelompok sendiri dan ringkasannya
+        # salah. Dengan timestamp kembar, bug itu tidak akan ketahuan.
         self.jumlah = 60
         for i in range(self.jumlah):
             Maintenance.objects.create(
-                device=device, maintenance_type='Preventive', date=tgl,
+                device=device, maintenance_type='Preventive',
+                date=timezone.make_aware(
+                    timezone.datetime(2026, 3, 1 + i % 28, 8, i % 60)),
                 description=f'uji {i}',
                 status='Done' if i % 2 == 0 else 'Open')
+
+        # Bulan lain, untuk menguji ringkasan per bulan di mode YTD
+        self.jumlah_februari = 7
+        for i in range(self.jumlah_februari):
+            Maintenance.objects.create(
+                device=device, maintenance_type='Preventive',
+                date=timezone.make_aware(timezone.datetime(2026, 2, 1 + i, 9, i)),
+                description=f'feb {i}', status='Done')
 
     def _laporan(self, **params):
         params.setdefault('year', 2026)
@@ -473,7 +485,9 @@ class LaporanPemeliharaanPaginasiTests(TestCase):
         self.assertEqual(resp.context['summary']['total'], self.jumlah)
         self.assertEqual(resp.context['summary']['done'], self.jumlah // 2)
         self.assertEqual(resp.context['summary']['open'], self.jumlah // 2)
+        self.assertEqual(len(resp.context['by_type']), 1)   # satu jenis, satu baris
         self.assertEqual(resp.context['by_type'][0]['total'], self.jumlah)
+        self.assertEqual(resp.context['by_type'][0]['done'], self.jumlah // 2)
 
     def test_tautan_halaman_mempertahankan_periode(self):
         """Querystring tanpa 'page' — kalau hilang, halaman 2 pindah periode."""
@@ -485,4 +499,25 @@ class LaporanPemeliharaanPaginasiTests(TestCase):
     def test_mode_ytd_juga_dipotong(self):
         resp = self._laporan(mode='ytd')
         self.assertEqual(len(resp.context['maintenances']), LAPORAN_PER_HALAMAN)
-        self.assertEqual(resp.context['paginator'].count, self.jumlah)
+        self.assertEqual(resp.context['paginator'].count,
+                         self.jumlah + self.jumlah_februari)
+
+    def test_ringkasan_per_bulan_menghitung_seluruh_bulan(self):
+        """Grafik tren YTD — angka per bulan, bukan per timestamp.
+
+        Ordering queryset yang ikut masuk GROUP BY pernah membuat setiap
+        datetime jadi kelompok sendiri, sehingga semua bulan terbaca 1.
+        """
+        resp = self._laporan(mode='ytd')
+        per_bulan = {r['month_name']: r for r in resp.context['monthly_summary']}
+
+        self.assertEqual(per_bulan['Februari']['total'], self.jumlah_februari)
+        self.assertEqual(per_bulan['Februari']['done'], self.jumlah_februari)
+        self.assertEqual(per_bulan['Maret']['total'], self.jumlah)
+        self.assertEqual(per_bulan['Maret']['done'], self.jumlah // 2)
+        self.assertEqual(per_bulan['Maret']['open'], self.jumlah // 2)
+        self.assertEqual(per_bulan['Januari']['total'], 0)   # bulan tanpa data
+
+        # Jumlah seluruh bulan harus sama dengan angka kartu ringkasan
+        self.assertEqual(sum(r['total'] for r in resp.context['monthly_summary']),
+                         resp.context['summary']['total'])

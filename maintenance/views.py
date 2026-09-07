@@ -963,10 +963,13 @@ def maintenance_report(request):
             .order_by('date')
         )
         period_label = f"Januari — {month_names[current_month-1]} {selected_year}"
-        # Ringkasan per bulan untuk YTD — satu query GROUP BY, bukan 3 query per bulan
+        # Ringkasan per bulan untuk YTD — satu query GROUP BY, bukan 3 query per bulan.
+        # .order_by() WAJIB: tanpa itu ordering queryset ('date') ikut masuk
+        # GROUP BY, jadi tiap datetime jadi kelompok sendiri dan semua bulan
+        # terbaca 1 — grafik tren jadi garis datar yang salah.
         per_bulan = {
             row['date__month']: row
-            for row in maintenances.values('date__month').annotate(
+            for row in maintenances.order_by().values('date__month').annotate(
                 total=Count('id'), done=agg_done, open=agg_open
             )
         }
@@ -996,9 +999,10 @@ def maintenance_report(request):
         preventive=Count('id', filter=Q(maintenance_type='Preventive')),
     )
 
-    # Satu query GROUP BY, bukan 2 query tambahan per jenis perangkat
+    # Satu query GROUP BY, bukan 2 query tambahan per jenis perangkat.
+    # order_by() dulu supaya ordering warisan tidak ikut jadi kunci GROUP BY.
     by_type = list(
-        maintenances.values('device__jenis__name')
+        maintenances.order_by().values('device__jenis__name')
         .annotate(total=Count('id'), done=agg_done, open=agg_open)
         .order_by('device__jenis__name')
     )
