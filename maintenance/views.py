@@ -10,6 +10,7 @@ from gangguan.models import Gangguan
 from inspection.models import InspectionCatuDaya
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q, Count
+from django.core.paginator import Paginator
 from django.db.models.functions import Trim
 from django.http import HttpResponse
 from io import BytesIO
@@ -23,6 +24,9 @@ from openpyxl.utils import get_column_letter
 from datetime import date
 from auditlog.utils import log_action as _audit
 from django.core.files.base import ContentFile
+
+# Jumlah baris tabel detail per halaman di Laporan Pemeliharaan.
+LAPORAN_PER_HALAMAN = 50
 
 
 def _sync_device_photo_from_maintenance(maintenance):
@@ -945,6 +949,10 @@ def maintenance_report(request):
         'Juli','Agustus','September','Oktober','November','Desember'
     ]
 
+    # Agregat dipakai berkali-kali; hitung sekali lewat satu query saja.
+    agg_done = Count('id', filter=Q(status='Done'))
+    agg_open = Count('id', filter=Q(status='Open'))
+
     if mode == 'ytd':
         # Bulan berjalan: Januari s/d bulan sekarang di tahun selected_year
         current_month = today.month if selected_year == today.year else 12
@@ -955,16 +963,22 @@ def maintenance_report(request):
             .order_by('date')
         )
         period_label = f"Januari — {month_names[current_month-1]} {selected_year}"
-        # Ringkasan per bulan untuk YTD
-        monthly_summary = []
-        for m in range(1, current_month + 1):
-            m_qs = maintenances.filter(date__month=m)
-            monthly_summary.append({
+        # Ringkasan per bulan untuk YTD — satu query GROUP BY, bukan 3 query per bulan
+        per_bulan = {
+            row['date__month']: row
+            for row in maintenances.values('date__month').annotate(
+                total=Count('id'), done=agg_done, open=agg_open
+            )
+        }
+        monthly_summary = [
+            {
                 'month_name': month_names[m-1],
-                'total': m_qs.count(),
-                'done':  m_qs.filter(status='Done').count(),
-                'open':  m_qs.filter(status='Open').count(),
-            })
+                'total': per_bulan.get(m, {}).get('total', 0),
+                'done':  per_bulan.get(m, {}).get('done', 0),
+                'open':  per_bulan.get(m, {}).get('open', 0),
+            }
+            for m in range(1, current_month + 1)
+        ]
     else:
         maintenances = (
             Maintenance.objects
@@ -975,22 +989,19 @@ def maintenance_report(request):
         period_label   = f"{month_names[selected_month-1]} {selected_year}"
         monthly_summary = []
 
-    total      = maintenances.count()
-    done       = maintenances.filter(status='Done').count()
-    open_count = maintenances.filter(status='Open').count()
-    preventive = maintenances.filter(maintenance_type='Preventive').count()
+    ringkasan = maintenances.aggregate(
+        total=Count('id'),
+        done=agg_done,
+        open=agg_open,
+        preventive=Count('id', filter=Q(maintenance_type='Preventive')),
+    )
 
-    by_type_qs = (
+    # Satu query GROUP BY, bukan 2 query tambahan per jenis perangkat
+    by_type = list(
         maintenances.values('device__jenis__name')
-        .annotate(total=Count('id'))
+        .annotate(total=Count('id'), done=agg_done, open=agg_open)
         .order_by('device__jenis__name')
     )
-    by_type = []
-    for row in by_type_qs:
-        jenis_name = row['device__jenis__name']
-        done_c = maintenances.filter(device__jenis__name=jenis_name, status='Done').count()
-        open_c = maintenances.filter(device__jenis__name=jenis_name, status='Open').count()
-        by_type.append({**row, 'done': done_c, 'open': open_c})
 
     month_choices = [{'value': i+1, 'label': n} for i, n in enumerate(month_names)]
     first_year = (
@@ -999,9 +1010,22 @@ def maintenance_report(request):
     )
     year_choices = list(range(first_year, today.year + 1))
 
+    # Tabel detail dipotong per halaman — sebelumnya seluruh baris satu periode
+    # (bisa ribuan, dan mode YTD menarik satu tahun penuh) dirender sekaligus.
+    paginator = Paginator(maintenances, LAPORAN_PER_HALAMAN)
+    page_obj  = paginator.get_page(request.GET.get('page'))
+
+    # Querystring filter tanpa 'page', supaya tautan halaman tidak kehilangan periode
+    params = request.GET.copy()
+    params.pop('page', None)
+    querystring = params.urlencode()
+
     return render(request, 'maintenance/maintenance_report.html', {
-        'maintenances':    maintenances,
-        'summary':         {'total': total, 'done': done, 'open': open_count, 'preventive': preventive},
+        'maintenances':    page_obj.object_list,
+        'page_obj':        page_obj,
+        'paginator':       paginator,
+        'querystring':     querystring,
+        'summary':         ringkasan,
         'by_type':         by_type,
         'selected_month':  selected_month,
         'selected_year':   selected_year,
