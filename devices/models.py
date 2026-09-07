@@ -1206,7 +1206,7 @@ class KunciApi(models.Model):
         help_text='Siapa pemakai kunci ini, mis. "UP2D Sulselrabar — dashboard beban".'
     )
     kunci = models.CharField(
-        max_length=64, unique=True, db_index=True, verbose_name='Kunci',
+        max_length=64, unique=True, db_index=True, blank=True, verbose_name='Kunci',
         help_text='Dikirim konsumen di header X-API-Key. Dibuat otomatis bila dikosongkan.'
     )
     aktif = models.BooleanField(

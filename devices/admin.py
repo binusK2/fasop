@@ -315,9 +315,20 @@ class KunciApiAdmin(admin.ModelAdmin):
         return obj.kunci_tersamar
 
     def save_model(self, request, obj, form, change):
+        # Kolom Kunci boleh dikosongkan (model.save() mengisinya sendiri). Catat
+        # dulu apakah tadi kosong: setelah super().save_model() sudah terisi.
+        dibuatkan = not obj.kunci
         if not change and obj.dibuat_oleh_id is None:
             obj.dibuat_oleh = request.user
         super().save_model(request, obj, form, change)
+        if dibuatkan:
+            # Ditampilkan sekali di sini supaya kuncinya bisa langsung disalin —
+            # daftar admin hanya menampilkan versi tersamar.
+            self.message_user(
+                request,
+                f'Kunci untuk "{obj.nama}" dibuat: {obj.kunci} — salin dan kirimkan '
+                f'ke konsumennya lewat jalur yang aman.'
+            )
 
     @admin.action(description='Buat ulang kunci (kunci lama langsung tidak berlaku)')
     def buat_ulang_kunci(self, request, queryset):
