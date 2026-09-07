@@ -281,3 +281,56 @@ class DeviceLinkAdmin(admin.ModelAdmin):
     @admin.display(description='Lokasi B')
     def lokasi_b(self, obj):
         return obj.device_b.lokasi or '—'
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Kunci API eksternal
+# ═══════════════════════════════════════════════════════════════════════════
+from .models import KunciApi
+
+
+@admin.register(KunciApi)
+class KunciApiAdmin(admin.ModelAdmin):
+    list_display  = ['nama', 'kunci_tersamar', 'aktif', 'terakhir_dipakai',
+                     'terakhir_ip', 'created_at']
+    list_filter   = ['aktif']
+    search_fields = ['nama', 'keterangan']
+    readonly_fields = ['created_at', 'terakhir_dipakai', 'terakhir_ip', 'dibuat_oleh']
+    actions = ['buat_ulang_kunci', 'nonaktifkan']
+    fieldsets = [
+        (None, {
+            'fields': ['nama', 'kunci', 'aktif', 'keterangan'],
+            'description': (
+                'Kunci ini hanya membuka endpoint BACA <code>/api/v1/opsis/…</code>. '
+                'Ia BUKAN <code>API_KEY</code> di .env — kunci itu ikut membuka endpoint '
+                'tulis dan tidak boleh dibagikan ke pihak luar. '
+                'Kosongkan kolom Kunci saat menambah untuk membuat kunci acak.'
+            ),
+        }),
+        ('Jejak', {'fields': ['dibuat_oleh', 'created_at', 'terakhir_dipakai', 'terakhir_ip']}),
+    ]
+
+    @admin.display(description='Kunci')
+    def kunci_tersamar(self, obj):
+        return obj.kunci_tersamar
+
+    def save_model(self, request, obj, form, change):
+        if not change and obj.dibuat_oleh_id is None:
+            obj.dibuat_oleh = request.user
+        super().save_model(request, obj, form, change)
+
+    @admin.action(description='Buat ulang kunci (kunci lama langsung tidak berlaku)')
+    def buat_ulang_kunci(self, request, queryset):
+        for obj in queryset:
+            obj.kunci = KunciApi.kunci_baru()
+            obj.save(update_fields=['kunci'])
+        self.message_user(
+            request,
+            f'{queryset.count()} kunci dibuat ulang. Kunci lama sudah tidak berlaku — '
+            f'kirimkan kunci baru ke konsumennya, kalau tidak integrasinya akan berhenti.'
+        )
+
+    @admin.action(description='Nonaktifkan (cabut akses tanpa menghapus)')
+    def nonaktifkan(self, request, queryset):
+        n = queryset.update(aktif=False)
+        self.message_user(request, f'{n} kunci dinonaktifkan.')

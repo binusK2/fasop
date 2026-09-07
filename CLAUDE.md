@@ -69,7 +69,7 @@ Each of the 15 `INSTALLED_APPS` Django apps follows a standard layout (`models.p
 | `auditlog/` | Custom (not django-auditlog) superuser audit log; entries are created by explicit `log_action()` calls in views, not signals |
 | `streaming/` | Field maintenance live streaming (WebRTC WHIP/WHEP via MediaMTX, `deploy/mediamtx.yml`); Teknisi broadcasts, Teknisi/AM view, only AM can join as Pengawas for 2-way talkback; teknisi's video is recorded (server-side ffmpeg transcode, see below) and pengawas's talkback audio is recorded as a **separate** clip (`LiveSession.talkback_recording_path`) rather than mixed into one file; recordings kept 7 days (`purge_old_recordings` cron). Sesi juga bisa bersumber dari **kamera CCTV Ezviz** alih-alih kamera teknisi, dan semua sesi live bisa ditonton sekaligus di **Multi View** (`/streaming/multi-view/`) — lihat "Live Streaming — Sumber Ezviz & Multi View" |
 | `up2bmakassar/` | Kinerja SCADATEL (`/kinerja-scadatel/`) — availability harian titik Telemetering/Telesignal, log RC, dan SOE log, dibaca **read-only** dari OFDB (`dbup2bmakasar` di MSSQL, `ofdb.py`); lihat "Kinerja SCADATEL — OFDB" di bawah |
-| `api/` | REST API for n8n / Google Sheets integrations (no models — not in `INSTALLED_APPS`, but `urls.py` is still wired into `fasop/urls.py` at `/api/v1/`) |
+| `api/` | REST API — integrasi internal n8n/Google Sheets (kunci global `API_KEY`, bisa menulis) **dan** endpoint baca untuk konsumen luar (kunci per-konsumen `devices.KunciApi`, lihat "API Eksternal") (no models — not in `INSTALLED_APPS`, but `urls.py` is still wired into `fasop/urls.py` at `/api/v1/`) |
 | `fasop/` | Root settings, URL routing, Hashids helper, URL converters |
 
 `spectrum7_av/` is a custom (in-house, not vendored) SCADA availability calculation library — RTU/RCD/SOE metrics from OFDB historian exports. It is not a Django app and isn't in `INSTALLED_APPS`; only `scada_av/calculator.py` imports it.
@@ -1350,6 +1350,63 @@ The OpenWA gateway itself (Docker, same server) lives outside this repo:
 `https://github.com/rmyndharis/OpenWA`. Its compose customisations belong in
 `docker-compose.override.yml` in the OpenWA directory — never edit the tracked
 `docker-compose.yml`, or `git checkout` during an upgrade will refuse to switch.
+
+---
+
+## API Eksternal — Kunci Baca per Konsumen (`devices.KunciApi`)
+
+FASOP punya **dua** jenis kunci API, dan menyamakannya adalah kesalahan yang
+mahal:
+
+| | `settings.API_KEY` (`.env`) | `devices.KunciApi` (baris DB) |
+|---|---|---|
+| Decorator | `api.auth.require_api_key` | `api.auth.require_kunci_baca` |
+| Untuk | integrasi internal (n8n) | konsumen luar (UP2D dsb.) |
+| Bisa menulis | **ya** — upsert `Device`, HOP, prakiraan beban | tidak, baca saja |
+| Jumlah | satu untuk semua | satu baris per konsumen |
+| Mencabut | ubah `.env` + redeploy, semua integrasi ikut mati | hilangkan centang `aktif` di admin |
+
+Karena itu `require_kunci_baca` **sengaja menolak `settings.API_KEY`** (dijaga
+tes). Kalau kunci global ikut diterima di endpoint baca, cepat atau lambat kunci
+itulah yang dibagikan ke pihak luar "karena bisa" — dan bersamanya ikut
+terbagikan akses tulis ke inventaris aset.
+
+Kuncinya diterbitkan dari **Admin → Devices → Kunci API** (kosongkan kolom Kunci
+untuk membuat yang acak). Daftar admin hanya menampilkan kunci tersamar
+(`abcd…wxyz`) plus kapan & dari IP mana terakhir dipakai — itu yang menjawab
+"kenapa data saya berhenti masuk" tanpa membuka log server. Panduan untuk
+konsumennya (termasuk contoh Google Apps Script): `docs/API_EKSTERNAL.md`.
+
+Model-nya hidup di app `devices`, bukan `api`, karena `api` sengaja tidak punya
+model (tidak terdaftar di `INSTALLED_APPS`).
+
+### Endpoint yang dibuka
+
+| Endpoint | Sumber angka |
+|---|---|
+| `GET /api/v1/opsis/beban-ktt/` | `opsis.ktt.baca_beban_ktt()` |
+
+Yang perlu diketahui saat menambah endpoint baca berikutnya:
+
+- **Angkanya wajib lewat modul bersama, bukan disalin.** Peta nama konsumen KTT
+  dan pemisahan baris `IND_TOTAL` dulu tinggal di `opsis/views.py`; sekarang
+  rumahnya `opsis/ktt.py` dan dipakai halaman FASOP maupun API luar. Kalau
+  disalin, layar ruang kontrol dan spreadsheet pihak luar bisa menyebut konsumen
+  yang sama dengan nama berbeda, dan tidak ada yang tahu mana yang benar
+  (dijaga tes).
+- **Cache-nya dipakai bersama** (`opsis/cache.py`, kunci `beban_ktt`, TTL 2
+  detik). Penarik dari luar karena itu tidak menambah satu pun query ke MSSQL
+  selama halamannya juga sedang terbuka. `opsis/cache.py` adalah `_hz_cached`
+  lama yang dipindah keluar dari views supaya modul non-view bisa memakainya.
+- **Historian mati membalas `503`, BUKAN `total_mw: 0`.** Bagi konsumen luar
+  angka nol tidak bisa dibedakan dari "semua konsumen KTT padam", dan sekali
+  tercatat di spreadsheet mereka, angka palsu itu tidak akan pernah diperbaiki.
+  Aturan yang sama dengan MVA/H kosong di kartu Inersia: tidak tahu ≠ nol.
+- **`catat_pemakaian()` direm `JEDA_CATAT_DETIK`** (60 detik). Tanpa itu satu
+  penarik yang memoll tiap 5 detik menulis ~17 ribu `UPDATE` sehari hanya untuk
+  informasi yang dibaca manusia sekali-sekali.
+- Pembatasan laju sebaiknya di Cloudflare (WAF rate limiting per path), bukan di
+  Django — di sana ia berlaku sebelum request menyentuh gunicorn sama sekali.
 
 ---
 

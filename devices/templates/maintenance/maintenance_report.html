@@ -171,8 +171,13 @@
 
 <!-- TABEL DETAIL -->
 <div class="table-card">
-    <div class="table-header">
-        <h6>Detail Maintenance — {{ period_label }}</h6>
+    <div class="table-header d-flex justify-content-between align-items-center">
+        <h6 class="mb-0">Detail Maintenance — {{ period_label }}</h6>
+        {% if page_obj %}
+        <span style="font-size:12px;color:#64748b;">
+            {{ page_obj.start_index }}–{{ page_obj.end_index }} dari {{ paginator.count }} data
+        </span>
+        {% endif %}
     </div>
     <div class="table-responsive">
         <table class="table">
@@ -186,7 +191,7 @@
             <tbody>
                 {% for m in maintenances %}
                 <tr>
-                    <td style="font-size:12px;color:#94a3b8;">{{ forloop.counter }}</td>
+                    <td style="font-size:12px;color:#94a3b8;">{{ forloop.counter0|add:page_obj.start_index }}</td>
                     <td style="font-size:12.5px;">{{ m.date|date:"d M Y" }}</td>
                     {% if mode == 'ytd' %}
                     <td style="font-size:12px;color:#64748b;">{{ m.date|date:"F" }}</td>
@@ -222,6 +227,48 @@
             </tbody>
         </table>
     </div>
+
+    {% if page_obj.paginator.num_pages > 1 %}
+    <div class="d-flex justify-content-between align-items-center px-3 py-2 flex-wrap gap-2"
+         style="border-top:1px solid #e2e8f0;">
+        <span style="font-size:12.5px;color:#64748b;">
+            Halaman {{ page_obj.number }} dari {{ page_obj.paginator.num_pages }}
+        </span>
+        <nav>
+            <ul class="pagination pagination-sm mb-0">
+                {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?{{ querystring }}{% if querystring %}&{% endif %}page={{ page_obj.previous_page_number }}">
+                        <i class="bi bi-chevron-left"></i>
+                    </a>
+                </li>
+                {% else %}
+                <li class="page-item disabled"><span class="page-link"><i class="bi bi-chevron-left"></i></span></li>
+                {% endif %}
+                {% for p in page_obj.paginator.page_range %}
+                    {% if p == page_obj.number %}
+                    <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+                    {% elif p == 1 or p == page_obj.paginator.num_pages or p >= page_obj.number|add:"-2" and p <= page_obj.number|add:"2" %}
+                    <li class="page-item">
+                        <a class="page-link" href="?{{ querystring }}{% if querystring %}&{% endif %}page={{ p }}">{{ p }}</a>
+                    </li>
+                    {% elif p == page_obj.number|add:"-3" or p == page_obj.number|add:"3" %}
+                    <li class="page-item disabled"><span class="page-link">…</span></li>
+                    {% endif %}
+                {% endfor %}
+                {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?{{ querystring }}{% if querystring %}&{% endif %}page={{ page_obj.next_page_number }}">
+                        <i class="bi bi-chevron-right"></i>
+                    </a>
+                </li>
+                {% else %}
+                <li class="page-item disabled"><span class="page-link"><i class="bi bi-chevron-right"></i></span></li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
 </div>
 
 {% endblock %}

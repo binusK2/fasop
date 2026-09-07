@@ -21,4 +21,7 @@ urlpatterns = [
 
     # Prakiraan beban OPSIS — kurva 30 menit dari spreadsheet (n8n -> FASOP)
     path('prakiraan-beban/', views.prakiraan_beban_endpoint, name='prakiraan_beban'),
+
+    # ── Endpoint BACA untuk konsumen luar — dikunci devices.KunciApi ──
+    path('opsis/beban-ktt/', views.opsis_beban_ktt_endpoint, name='opsis_beban_ktt'),
 ]

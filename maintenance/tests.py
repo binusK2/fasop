@@ -12,6 +12,7 @@ from django.utils import timezone
 
 from devices.models import Device, DeviceType, UserProfile
 
+from .views import LAPORAN_PER_HALAMAN
 from .models import (Maintenance, MaintenanceDFR, MaintenanceFrequencyRelay,
                      MaintenanceMasterStation, MaintenanceMasterTrip)
 
@@ -417,3 +418,71 @@ class PdfTemplateCoverageTests(TestCase):
             if tpl != 'maintenance/pdf/generic.html' and jenis not in _CTX_BUILDERS
         )
         self.assertEqual(tanpa_builder, [])
+
+
+class LaporanPemeliharaanPaginasiTests(TestCase):
+    """Tabel detail Laporan Pemeliharaan harus dipotong per halaman.
+
+    Sebelumnya seluruh baris satu periode dirender sekaligus — mode "bulan
+    berjalan" menarik satu tahun penuh — sehingga halamannya lama sekali
+    terbuka begitu data pemeliharaan menumpuk.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_superuser(username='admin_laporan', password='rahasia')
+        profil, _ = UserProfile.objects.get_or_create(user=self.user)
+        profil.role = 'asisten_manager'
+        profil.force_password_change = False
+        profil.save()
+        self.client.force_login(self.user)
+
+        jenis = DeviceType.objects.create(name='RTU')
+        device = Device.objects.create(nama='RTU-01', jenis=jenis,
+                                       merk='SEL', lokasi='GI TELLO')
+        tgl = timezone.make_aware(timezone.datetime(2026, 3, 10, 8, 0))
+        self.jumlah = 60
+        for i in range(self.jumlah):
+            Maintenance.objects.create(
+                device=device, maintenance_type='Preventive', date=tgl,
+                description=f'uji {i}',
+                status='Done' if i % 2 == 0 else 'Open')
+
+    def _laporan(self, **params):
+        params.setdefault('year', 2026)
+        params.setdefault('month', 3)
+        return self.client.get(reverse('maintenance_report'), params)
+
+    def test_halaman_pertama_dipotong_50_baris(self):
+        resp = self._laporan()
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(resp.context['maintenances']), LAPORAN_PER_HALAMAN)
+        self.assertEqual(resp.context['paginator'].count, self.jumlah)
+        self.assertContains(resp, 'page=2')          # navigasi halaman ikut dirender
+        self.assertContains(resp, f'dari {self.jumlah} data')
+
+    def test_halaman_kedua_berisi_sisanya(self):
+        resp = self._laporan(page=2)
+        self.assertEqual(len(resp.context['maintenances']),
+                         self.jumlah - LAPORAN_PER_HALAMAN)
+        self.assertEqual(resp.context['page_obj'].start_index(),
+                         LAPORAN_PER_HALAMAN + 1)
+
+    def test_ringkasan_tetap_menghitung_seluruh_periode(self):
+        """Angka ringkasan bukan hanya baris yang tampil di halaman ini."""
+        resp = self._laporan()
+        self.assertEqual(resp.context['summary']['total'], self.jumlah)
+        self.assertEqual(resp.context['summary']['done'], self.jumlah // 2)
+        self.assertEqual(resp.context['summary']['open'], self.jumlah // 2)
+        self.assertEqual(resp.context['by_type'][0]['total'], self.jumlah)
+
+    def test_tautan_halaman_mempertahankan_periode(self):
+        """Querystring tanpa 'page' — kalau hilang, halaman 2 pindah periode."""
+        resp = self._laporan(page=2)
+        self.assertNotIn('page=', resp.context['querystring'])
+        self.assertIn('month=3', resp.context['querystring'])
+        self.assertIn('year=2026', resp.context['querystring'])
+
+    def test_mode_ytd_juga_dipotong(self):
+        resp = self._laporan(mode='ytd')
+        self.assertEqual(len(resp.context['maintenances']), LAPORAN_PER_HALAMAN)
+        self.assertEqual(resp.context['paginator'].count, self.jumlah)
