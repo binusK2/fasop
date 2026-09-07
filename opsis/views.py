@@ -21,6 +21,7 @@ from auditlog.utils import log_action
 from . import mssql
 from . import prediksi
 from . import ktt
+from . import inersia as inersia_calc
 from devices.permissions import can_view_opsis, can_write_opsis, can_edit_ews
 from . import hop as hop_io
 from .hop_map import SULAWESI_PATH, MAP_W, MAP_H, DEFAULT_MAP_POS, posisi_pembangkit
@@ -927,56 +928,34 @@ def api_inersia(request):
     keluar. Bila `hanya_beroperasi` dimatikan, seluruh pembangkit terisi
     dihitung dan garisnya menjadi datar.
 
-    Penjumlahannya dilakukan di Python, bukan SUM di SQL: bobot tiap baris
-    (MVA x H) adalah konstanta per pembangkit, bukan kolom di SnapLive. Yang
-    ditarik hanya (waktu, pembangkit_id) untuk baris di atas ambang — sekitar
-    30 ribu tuple untuk sehari penuh, jauh lebih ringan daripada memuat objek.
-
-    Batas rentang memakai datetime, bukan lookup __date — alasan yang sama
-    dengan ekspor beban pembangkit: cast pada kolom waktu membuat indeks
-    (pembangkit, -waktu) tidak terpakai.
+    Perhitungannya sendiri ada di opsis/inersia.py, dipakai bersama ekspor
+    Excel — rumus E dan dP sengaja tidak ditulis dua kali. Endpoint ini hanya
+    memampatkan waktunya jadi menit-ke-berapa dalam sehari untuk sumbu chart.
     """
-    inersia = PengaturanInersia.ambil()
-    pembangkit = inersia.pembangkit_terhitung()
-    if not (inersia.aktif and pembangkit):
-        return JsonResponse({'aktif': False, 'nama': inersia.nama, 'rows': [],
-                             'warna': inersia.warna, 'warna_delta': inersia.warna_delta})
-
-    mws = {p.pk: p.energi_kinetik_mws for p in pembangkit}
-    faktor = (2.0 * inersia.rocof_batas / inersia.frekuensi_nominal
-              if inersia.frekuensi_nominal else None)
+    cfg = PengaturanInersia.ambil()
+    pembangkit = cfg.pembangkit_terhitung()
+    if not (cfg.aktif and pembangkit):
+        return JsonResponse({'aktif': False, 'nama': cfg.nama, 'rows': [],
+                             'warna': cfg.warna, 'warna_delta': cfg.warna_delta})
 
     tz    = timezone.get_current_timezone()
     awal  = timezone.make_aware(
         datetime.datetime.combine(timezone.localdate(), datetime.time.min), tz)
     akhir = awal + datetime.timedelta(days=1)
 
-    qs = (SnapLive.objects
-          .filter(pembangkit__in=pembangkit, waktu__gte=awal, waktu__lt=akhir)
-          .order_by('waktu'))
-    if inersia.hanya_beroperasi:
-        qs = qs.filter(mw__gt=inersia.ambang_mw)
-    else:
-        qs = qs.filter(mw__isnull=False)
-
-    per_menit = {}
-    for waktu, pk in qs.values_list('waktu', 'pembangkit_id'):
-        lokal = timezone.localtime(waktu)
-        menit = lokal.hour * 60 + lokal.minute
-        per_menit[menit] = per_menit.get(menit, 0.0) + mws.get(pk, 0.0)
-
-    rows = [{'minute': m,
-             'mws': round(e, 2),
-             'dp': None if faktor is None else round(e * faktor, 2)}
-            for m, e in sorted(per_menit.items())]
+    baris, _, _ = inersia_calc.hitung_deret(cfg, awal, akhir, pembangkit)
+    rows = [{'minute': b['waktu'].hour * 60 + b['waktu'].minute,
+             'mws':    b['mws'],
+             'dp':     b['dp']}
+            for b in baris]
 
     return JsonResponse({
         'aktif':        True,
-        'nama':         inersia.nama,
-        'warna':        inersia.warna,
-        'warna_delta':  inersia.warna_delta,
-        'rocof':        inersia.rocof_batas,
-        'f0':           inersia.frekuensi_nominal,
+        'nama':         cfg.nama,
+        'warna':        cfg.warna,
+        'warna_delta':  cfg.warna_delta,
+        'rocof':        cfg.rocof_batas,
+        'f0':           cfg.frekuensi_nominal,
         'jumlah_kit':   len(pembangkit),
         'rows':         rows,
         'terakhir':     rows[-1] if rows else None,
@@ -2716,6 +2695,188 @@ def export_beban_pembangkit(request):
         filename = f'BebanPembangkit_{mulai}.xlsx'
     else:
         filename = f'BebanPembangkit_{mulai}_sd_{selesai}.xlsx'
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    wb.save(response)
+    return response
+
+
+@login_required
+def export_inersia(request):
+    """
+    Unduh perhitungan Inersia Sistem ke Excel — tiga sheet.
+
+    | Sheet | Isi |
+    |---|---|
+    | Ringkasan | parameter yang dipakai (ROCOF, f0, cakupan unit) + min/rata/maks E dan dP |
+    | Inersia per Menit | deret E dan dP per menit sepanjang rentang |
+    | Kontribusi Pembangkit | MVA, H, E tiap mesin dan berapa lama ia ikut dihitung |
+
+    Sheet Ringkasan sengaja jadi yang pertama: E sepenuhnya bergantung pada
+    parameter yang bisa diubah kapan saja dari halaman Config Inersia, jadi
+    angka tanpa parameternya tidak bisa dipertanggungjawabkan di kemudian hari.
+
+    Perhitungannya dipinjam dari opsis/inersia.py — modul yang sama dengan
+    chart di dashboard, supaya berkas ini tidak mungkin berbeda dengan layar.
+
+    ?tanggal=YYYY-MM-DD        satu hari (default: hari ini)
+    ?mulai=&selesai=           rentang, maksimal EXPORT_KIT_MAKS_HARI hari
+    """
+    import openpyxl
+    from openpyxl.cell import WriteOnlyCell
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from openpyxl.utils import get_column_letter
+    from django.http import HttpResponse
+
+    mulai, selesai, galat = _rentang_ekspor(request)
+    if galat:
+        messages.error(request, galat)
+        return redirect('opsis_dashboard')
+
+    cfg = PengaturanInersia.ambil()
+    pembangkit = cfg.pembangkit_terhitung()
+    if not pembangkit:
+        messages.error(
+            request,
+            'Belum ada pembangkit yang MVA dan konstanta inersia H-nya terisi, '
+            'jadi tidak ada yang bisa diekspor. Isi keduanya di halaman Config Inersia.'
+        )
+        return redirect('opsis_dashboard')
+
+    tz_local = timezone.get_current_timezone()
+    awal  = timezone.make_aware(
+        datetime.datetime.combine(mulai, datetime.time.min), tz_local)
+    akhir = timezone.make_aware(
+        datetime.datetime.combine(selesai + datetime.timedelta(days=1), datetime.time.min),
+        tz_local)
+
+    baris, kontribusi, faktor = inersia_calc.hitung_deret(cfg, awal, akhir, pembangkit)
+
+    # write_only dengan alasan yang sama seperti ekspor beban pembangkit: mode
+    # biasa merakit objek Cell untuk tiap sel, dan 7 hari x 1440 menit sudah
+    # puluhan ribu baris. Konsekuensinya sel tidak bisa disentuh lagi setelah
+    # append, jadi seluruh gaya dipasang saat barisnya dibuat.
+    wb = openpyxl.Workbook(write_only=True)
+
+    hdr_fill = PatternFill('solid', fgColor='0F172A')
+    hdr_font = Font(bold=True, color='22D3EE', size=10)
+    center   = Alignment(horizontal='center', vertical='center')
+    tebal    = Font(bold=True, size=10)
+
+    def _buat_sheet(judul, headers, lebar):
+        ws = wb.create_sheet(judul)
+        for i, w in enumerate(lebar, 1):
+            ws.column_dimensions[get_column_letter(i)].width = w
+        sel_baris = []
+        for teks in headers:
+            sel = WriteOnlyCell(ws, value=teks)
+            sel.font, sel.fill, sel.alignment = hdr_font, hdr_fill, center
+            sel_baris.append(sel)
+        ws.append(sel_baris)
+        return ws
+
+    def _label(ws, k, v):
+        sel = WriteOnlyCell(ws, value=k)
+        sel.font = tebal
+        ws.append([sel, v])
+
+    e_min, e_rata, e_maks    = inersia_calc.ringkas(baris, 'mws')
+    dp_min, dp_rata, dp_maks = inersia_calc.ringkas(baris, 'dp')
+
+    def _bulat(x):
+        return None if x is None else round(x, 2)
+
+    # ── Sheet 1: Ringkasan — parameter dulu, baru hasilnya ──
+    wsr = wb.create_sheet('Ringkasan')
+    wsr.column_dimensions['A'].width = 34
+    wsr.column_dimensions['B'].width = 46
+    for k, v in [
+        ('Judul kartu',           cfg.nama),
+        ('Rentang',               f'{mulai} s/d {selesai}'),
+        ('Zona waktu',            str(tz_local)),
+        (None, None),
+        ('PARAMETER YANG DIPAKAI', ''),
+        ('Batas ROCOF (Hz/s)',    cfg.rocof_batas),
+        ('Frekuensi nominal f0 (Hz)', cfg.frekuensi_nominal),
+        ('Faktor 2 x ROCOF / f0', _bulat(faktor) if faktor is not None
+                                  else 'tidak terdefinisi (f0 nol)'),
+        ('Cakupan unit',          'Hanya yang beroperasi' if cfg.hanya_beroperasi
+                                  else 'Seluruh unit terisi (kapasitas terpasang)'),
+        ('Ambang MW beroperasi',  cfg.ambang_mw if cfg.hanya_beroperasi else '-'),
+        ('Pembangkit ber-MVA & H', len(pembangkit)),
+        (None, None),
+        ('HASIL', ''),
+        ('Jumlah titik (menit)',  len(baris)),
+        ('E minimum (MWs)',       _bulat(e_min)),
+        ('E rata-rata (MWs)',     _bulat(e_rata)),
+        ('E maksimum (MWs)',      _bulat(e_maks)),
+        ('dP minimum (MW)',       _bulat(dp_min)),
+        ('dP rata-rata (MW)',     _bulat(dp_rata)),
+        ('dP maksimum (MW)',      _bulat(dp_maks)),
+        (None, None),
+        ('Rumus',                 'E = SUM(MVA x H) unit yang ikut; '
+                                  'dP = 2 x E x ROCOF / f0'),
+        ('Arti dP',               'Batas MW yang boleh lepas pada ROCOF di atas - '
+                                  'parameter RENCANA, bukan hasil ukur gangguan.'),
+        ('Sumber data',           'PostgreSQL opsis.SnapLive (kolektor collect_live, '
+                                  '1 baris per pembangkit per menit)'),
+        ('Diunduh',               timezone.localtime().strftime('%Y-%m-%d %H:%M:%S')),
+        ('Oleh',                  request.user.get_full_name() or request.user.username),
+    ]:
+        if k is None:
+            wsr.append([])
+        else:
+            _label(wsr, k, v)
+
+    if not baris:
+        wsr.append([])
+        _label(wsr, 'Catatan', 'Tidak ada data SnapLive pada rentang ini.')
+
+    # ── Sheet 2: deret per menit ──
+    wsd = _buat_sheet('Inersia per Menit',
+                      ['No', 'Tanggal', 'Waktu', 'E (MWs)', 'dP (MW)', 'Unit Ikut'],
+                      [6, 13, 10, 16, 14, 12])
+    for i, b in enumerate(baris, 1):
+        w = b['waktu']
+        wsd.append([i, w.strftime('%Y-%m-%d'), w.strftime('%H:%M'),
+                    b['mws'], b['dp'], b['unit']])
+    if baris:
+        wsd.append([])
+        wsd.append(['', '', 'Minimum',   _bulat(e_min),  _bulat(dp_min)])
+        wsd.append(['', '', 'Rata-rata', _bulat(e_rata), _bulat(dp_rata)])
+        wsd.append(['', '', 'Maksimum',  _bulat(e_maks), _bulat(dp_maks)])
+    else:
+        wsd.append(['', 'Tidak ada data pada rentang ini'])
+
+    # ── Sheet 3: kontribusi tiap mesin ──
+    # Menjawab "inersia sistem ini disumbang siapa" — pertanyaan pertama yang
+    # muncul begitu angkanya dipakai menimbang pelepasan beban.
+    wsk = _buat_sheet('Kontribusi Pembangkit',
+                      ['No', 'Pembangkit', 'MVA', 'H (detik)', 'E Unit (MWs)',
+                       'Menit Ikut', 'Jam Ikut', '% Waktu'],
+                      [6, 30, 12, 12, 16, 12, 11, 10])
+    total_menit = len(baris)
+    for i, p in enumerate(pembangkit, 1):
+        menit = kontribusi.get(p.pk, 0)
+        wsk.append([
+            i, p.nama, p.mva, p.inersia_h, _bulat(p.energi_kinetik_mws),
+            menit, round(menit / 60.0, 2),
+            round(menit / total_menit * 100, 1) if total_menit else 0,
+        ])
+    wsk.append([])
+    _label(wsk, 'Total E terpasang (MWs)',
+           _bulat(sum(p.energi_kinetik_mws or 0 for p in pembangkit)))
+    _label(wsk, 'Catatan',
+           'E Unit adalah MVA x H, konstanta per mesin. "Menit Ikut" menghitung '
+           'berapa menit mesin itu memenuhi syarat pada rentang ini; unit yang '
+           'MVA atau H-nya kosong tidak pernah ikut dan tidak muncul di sini.')
+
+    if mulai == selesai:
+        filename = f'InersiaSistem_{mulai}.xlsx'
+    else:
+        filename = f'InersiaSistem_{mulai}_sd_{selesai}.xlsx'
     response = HttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )

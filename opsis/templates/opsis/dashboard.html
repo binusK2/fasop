@@ -495,7 +495,25 @@
             <div class="chart-title">
                 <i class="bi bi-graph-up me-1" style="color:{{ inersia.warna }};"></i>{{ inersia.nama }} — Hari Ini
             </div>
-            <span id="inersia-updated" style="font-size:11px; color:var(--muted);">memuat...</span>
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
+                <span id="inersia-updated" style="font-size:11px; color:var(--muted);">memuat...</span>
+                {% comment %}
+                Unduhan Excel perhitungan inersia. Rentangnya dibatasi 7 hari di
+                server (EXPORT_KIT_MAKS_HARI); nilai bawaan diisi JS ke hari ini.
+                {% endcomment %}
+                <input type="date" id="dl-inersia-mulai" title="Tanggal mulai"
+                       style="font-size:11px; color:{{ inersia.warna }}; background:transparent; color-scheme:dark;
+                              border:1px solid {{ inersia.warna }}4d; padding:1px 6px; border-radius:5px;">
+                <input type="date" id="dl-inersia-selesai" title="Tanggal selesai (maks. 7 hari)"
+                       style="font-size:11px; color:{{ inersia.warna }}; background:transparent; color-scheme:dark;
+                              border:1px solid {{ inersia.warna }}4d; padding:1px 6px; border-radius:5px;">
+                <a id="btn-dl-inersia" href="{% url 'opsis_export_inersia' %}" target="_blank"
+                   title="Unduh Excel: ringkasan parameter, deret E &amp; dP per menit, dan kontribusi tiap pembangkit"
+                   style="font-size:11px; color:{{ inersia.warna }}; text-decoration:none; border:1px solid {{ inersia.warna }}4d;
+                          padding:2px 8px; border-radius:5px; white-space:nowrap;">
+                    <i class="bi bi-download me-1"></i>Excel
+                </a>
+            </div>
         </div>
         <div style="position:relative; height:160px; overflow:visible;">
             <canvas id="chart-inersia"></canvas>
@@ -1984,6 +2002,24 @@ setInterval(loadKttChart, 2000); // refresh tiap 2 detik
         kitSelesai.addEventListener('change', segarkanKit);
         segarkanKit();
     }
+    // ── Unduh perhitungan Inersia Sistem ──
+    const inMulai   = document.getElementById('dl-inersia-mulai');
+    const inSelesai = document.getElementById('dl-inersia-selesai');
+    const btnIn     = document.getElementById('btn-dl-inersia');
+    if (inMulai && inSelesai && btnIn) {
+        const dasar = btnIn.getAttribute('href');
+        inMulai.value   = inMulai.value   || today;
+        inSelesai.value = inSelesai.value || today;
+        const segarkanInersia = () => {
+            const a = inMulai.value || today;
+            const b = inSelesai.value || a;
+            btnIn.href = `${dasar}?mulai=${a}&selesai=${b}`;
+        };
+        inMulai.addEventListener('change', segarkanInersia);
+        inSelesai.addEventListener('change', segarkanInersia);
+        segarkanInersia();
+    }
+
     if (tglFreq && dlFreq) {
         tglFreq.value = today;
         tglFreq.max   = today;
