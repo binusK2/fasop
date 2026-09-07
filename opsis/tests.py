@@ -18,6 +18,7 @@ from .models import (KartuPadam, KelompokPeta, KolomEWS, ModePemeliharaan,
                      PengaturanInersia, PrakiraanBeban, SnapFreq, SnapFreqRT,
                      SnapLive, TitikEWS)
 from . import freq_history, hop_map, mssql, prakiraan, prediksi, sumber_data, views
+from . import cache as opsis_cache
 from auditlog.models import AuditLog
 
 API_KEY = 'kunci-tes-prakiraan'
@@ -1927,8 +1928,8 @@ class KartuPadamDashboardTest(TestCase):
     def setUp(self):
         self.client.force_login(self.user)
         KartuPadam._cache = {'obj': None, 'ts': 0.0}
-        views._hz_cache.pop('total_padam', None)
-        self.addCleanup(views._hz_cache.pop, 'total_padam', None)
+        opsis_cache._cache.pop('total_padam', None)
+        self.addCleanup(opsis_cache._cache.pop, 'total_padam', None)
 
     def _nyalakan(self, **kwargs):
         obj = KartuPadam.ambil()
@@ -2430,3 +2431,154 @@ class ConfigInersiaTest(TestCase):
 
         self.client.post(self.url, isi)          # payload identik
         self.assertEqual(AuditLog.objects.filter(model_name='PengaturanInersia').count(), 1)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  API eksternal — Beban KTT (api/views.py::opsis_beban_ktt_endpoint)
+# ═══════════════════════════════════════════════════════════════════════════
+class ApiEksternalBebanKttTest(TestCase):
+    """
+    Endpoint baca untuk konsumen luar: penguncian, bentuk balasan, dan janji
+    bahwa nama konsumen KTT-nya sama dengan yang tampil di halaman FASOP.
+    """
+
+    BARIS_MSSQL = [
+        {'id': 1, 'analog': 'IND_ANTAM',  'value': 61.25},
+        {'id': 2, 'analog': 'IND_HUADI2', 'value': 30.5},
+        {'id': 3, 'analog': 'IND_BARU',   'value': 12.0},   # belum ada di peta nama
+        {'id': 4, 'analog': 'IND_TOTAL',  'value': 103.75},
+    ]
+
+    def setUp(self):
+        from . import ktt
+
+        # Cache per-worker berumur 2 detik dan hidup lintas test dalam satu
+        # proses — tanpa dibersihkan, test kedua membaca angka test pertama.
+        opsis_cache._cache.clear()
+        self.addCleanup(opsis_cache._cache.clear)
+
+        self.ktt = ktt
+        asli_rows = mssql.get_beban_ktt
+        asli_reach = mssql.is_reachable
+        self.addCleanup(lambda: setattr(mssql, 'get_beban_ktt', asli_rows))
+        self.addCleanup(lambda: setattr(mssql, 'is_reachable', asli_reach))
+        mssql.get_beban_ktt = lambda: [dict(r) for r in self.BARIS_MSSQL]
+        mssql.is_reachable = lambda: True
+
+        from devices.models import KunciApi
+        self.KunciApi = KunciApi
+        self.kunci = KunciApi.objects.create(nama='UP2D — uji')
+        self.url = reverse('api:opsis_beban_ktt')
+
+    # ── Penguncian ────────────────────────────────────────────────────
+    def test_tanpa_header_ditolak(self):
+        self.assertEqual(self.client.get(self.url).status_code, 401)
+
+    def test_kunci_salah_ditolak(self):
+        r = self.client.get(self.url, headers={'x-api-key': 'bukan-kunci'})
+        self.assertEqual(r.status_code, 403)
+
+    def test_kunci_nonaktif_ditolak(self):
+        self.kunci.aktif = False
+        self.kunci.save(update_fields=['aktif'])
+        r = self.client.get(self.url, headers={'x-api-key': self.kunci.kunci})
+        self.assertEqual(r.status_code, 403)
+
+    @override_settings(API_KEY='kunci-global-yang-boleh-menulis')
+    def test_kunci_global_env_ditolak(self):
+        """
+        API_KEY di .env ikut membuka endpoint TULIS (upsert device, HOP,
+        prakiraan beban). Kalau ia juga diterima di sini, cepat atau lambat
+        kunci itulah yang dibagikan ke pihak luar — jadi ia harus ditolak.
+        """
+        r = self.client.get(self.url,
+                            headers={'x-api-key': 'kunci-global-yang-boleh-menulis'})
+        self.assertEqual(r.status_code, 403)
+
+    def test_metode_selain_get_ditolak(self):
+        r = self.client.post(self.url, headers={'x-api-key': self.kunci.kunci})
+        self.assertEqual(r.status_code, 405)
+
+    # ── Isi balasan ───────────────────────────────────────────────────
+    def test_balasan_berisi_konsumen_dan_total(self):
+        r = self.client.get(self.url, headers={'x-api-key': self.kunci.kunci})
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertEqual(data['status'], 'ok')
+        self.assertEqual(data['satuan'], 'MW')
+        self.assertEqual(data['total_mw'], 103.75)
+        self.assertEqual(data['jumlah'], 3)              # IND_TOTAL tidak ikut
+        kode = [k['kode'] for k in data['konsumen']]
+        self.assertNotIn('IND_TOTAL', kode)
+        peta = {k['kode']: k for k in data['konsumen']}
+        self.assertEqual(peta['IND_ANTAM']['nama'], 'ANTAM')
+        self.assertEqual(peta['IND_ANTAM']['mw'], 61.25)
+
+    def test_kode_belum_terdaftar_tetap_ikut_dengan_kodenya(self):
+        """Konsumen baru di IND_LOAD harus muncul apa adanya, bukan hilang."""
+        r = self.client.get(self.url, headers={'x-api-key': self.kunci.kunci})
+        peta = {k['kode']: k for k in r.json()['konsumen']}
+        self.assertIn('IND_BARU', peta)
+        self.assertEqual(peta['IND_BARU']['nama'], 'IND_BARU')
+
+    def test_historian_mati_balas_503_bukan_total_nol(self):
+        """
+        0 MW tidak bisa dibedakan dari 'semua konsumen KTT padam' oleh konsumen
+        luar, dan sekali tercatat di spreadsheet mereka tidak akan diperbaiki.
+        """
+        mssql.get_beban_ktt = lambda: []
+        mssql.is_reachable = lambda: False
+        r = self.client.get(self.url, headers={'x-api-key': self.kunci.kunci})
+        self.assertEqual(r.status_code, 503)
+        data = r.json()
+        self.assertEqual(data['status'], 'error')
+        self.assertTrue(data['terputus'])
+        self.assertNotIn('total_mw', data)
+
+    # ── Satu sumber nama dengan halaman FASOP ─────────────────────────
+    def test_nama_konsumen_sama_dengan_halaman_beban_ktt(self):
+        user = User.objects.create_user('pemakai-ktt', password='rahasia-uji-123')
+        profile = getattr(user, 'profile', None)
+        if profile:
+            profile.force_password_change = False
+            profile.save(update_fields=['force_password_change'])
+        self.client.force_login(user)
+        halaman = self.client.get(reverse('opsis_api_beban_ktt')).json()
+        self.client.logout()
+
+        luar = self.client.get(self.url,
+                               headers={'x-api-key': self.kunci.kunci}).json()
+
+        nama_halaman = {r['analog']: r['nama'] for r in halaman['rows']}
+        nama_luar    = {k['kode']: k['nama'] for k in luar['konsumen']}
+        self.assertEqual(nama_halaman, nama_luar)
+        self.assertEqual(halaman['total_mw'], luar['total_mw'])
+
+    def test_peta_nama_tidak_disalin_ke_views(self):
+        """
+        KTT_NAME_MAP/_split_ktt pernah tinggal di opsis/views.py. Sekarang
+        rumahnya opsis/ktt.py dan dipakai bersama API eksternal — kalau
+        salinannya muncul lagi di views, layar FASOP dan angka pihak luar bisa
+        menyebut konsumen yang sama dengan nama berbeda.
+        """
+        self.assertFalse(hasattr(views, 'KTT_NAME_MAP'))
+        self.assertFalse(hasattr(views, '_split_ktt'))
+
+    # ── Jejak pemakaian ───────────────────────────────────────────────
+    def test_pemakaian_dicatat_lalu_direm(self):
+        self.client.get(self.url, headers={'x-api-key': self.kunci.kunci})
+        self.kunci.refresh_from_db()
+        pertama = self.kunci.terakhir_dipakai
+        self.assertIsNotNone(pertama)
+
+        self.client.get(self.url, headers={'x-api-key': self.kunci.kunci})
+        self.kunci.refresh_from_db()
+        # Panggilan kedua dalam jeda yang sama tidak boleh menulis lagi —
+        # penarik yang memoll tiap 5 detik akan menulis 17 ribu baris sehari.
+        self.assertEqual(self.kunci.terakhir_dipakai, pertama)
+
+    def test_kunci_dibuat_otomatis_dan_tersamar(self):
+        k = self.KunciApi.objects.create(nama='Konsumen lain')
+        self.assertTrue(len(k.kunci) >= 32)
+        self.assertNotEqual(k.kunci, self.kunci.kunci)
+        self.assertNotIn(k.kunci, k.kunci_tersamar)

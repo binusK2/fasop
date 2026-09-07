@@ -20,6 +20,7 @@ from auditlog.models import AuditLog
 from auditlog.utils import log_action
 from . import mssql
 from . import prediksi
+from . import ktt
 from devices.permissions import can_view_opsis, can_write_opsis, can_edit_ews
 from . import hop as hop_io
 from .hop_map import SULAWESI_PATH, MAP_W, MAP_H, DEFAULT_MAP_POS, posisi_pembangkit
@@ -27,39 +28,15 @@ from .models import HOP_BANDS
 
 
 # ── Cache singkat untuk endpoint Hz (di-poll browser tiap 1-5 detik) ──────────
-# Tanpa cache, tiap poll dari tiap klien menembak MSSQL sendiri; satu query lambat
-# (koneksi pyodbc baru + query-timeout 30s di _get_area_freq) mengunci satu thread
-# gunicorn. Beberapa tab up2d/dashboard = 10 slot thread habis → gunicorn macet →
-# nginx "upstream timed out" / worker dibunuh. Cache per-worker dengan pola
-# stale-while-revalidate: hanya SATU thread per worker menyegarkan tiap TTL; poller
-# lain langsung dapat nilai terakhir dan tak ikut menembak MSSQL.
-import time as _time
-import threading as _threading
-
-_HZ_TTL = 2.0                       # detik — kesegaran cukup untuk kartu Hz live
-_hz_cache = {}                      # key -> (value, monotonic_ts)
-_hz_locks = {}                      # key -> Lock
-_hz_locks_guard = _threading.Lock()
+# Implementasinya pindah ke opsis/cache.py supaya modul non-view (opsis/ktt.py,
+# yang juga dipakai API eksternal) bisa memakainya tanpa mengimpor views.
+# Alasan dan pola stale-while-revalidate-nya dijelaskan di modul itu.
+from .cache import nilai_cached
 
 
 def _hz_cached(key, producer):
-    """Nilai ter-cache; disegarkan lewat `producer` maksimal 1x per TTL per worker.
-    Saat penyegaran sedang berjalan di thread lain, sajikan nilai lama (bila ada)
-    daripada ikut menembak MSSQL — mencegah thread menumpuk saat DB lambat."""
-    now = _time.monotonic()
-    ent = _hz_cache.get(key)
-    if ent and (now - ent[1]) < _HZ_TTL:
-        return ent[0]
-    with _hz_locks_guard:
-        lock = _hz_locks.setdefault(key, _threading.Lock())
-    if not lock.acquire(blocking=False):
-        return ent[0] if ent else None     # ada yg menyegarkan → pakai nilai lama
-    try:
-        val = producer()
-        _hz_cache[key] = (val, _time.monotonic())
-        return val
-    finally:
-        lock.release()
+    """Alias historis ke cache.nilai_cached() dengan TTL bawaan."""
+    return nilai_cached(key, producer)
 
 
 def _pembangkit_aktif():
@@ -1332,61 +1309,32 @@ def beban_trafo(request):
     })
 
 
-KTT_NAME_MAP = {
-    'IND_ANTAM':  'ANTAM',
-    'IND_CERIA':  'CERIA',
-    'IND_TNASA':  'TONASA SEMEN',
-    'IND_BSOWA':  'BOSOWA SEMEN',
-    'IND_SMLTR4': 'HUADI 4',
-    'IND_INDOF':  'INDOFOOD',
-    'IND_HUADI':  'HUADI 1',
-    'IND_HUADI2': 'HUADI 2',
-    'IND_HUADI3': 'HUADI 3',
-    'IND_SMLTR5': 'HUADI 5',
-}
-
-
-def _split_ktt(rows):
-    """Pisahkan IND_TOTAL dari baris konsumen. Return (consumers, total_mw)."""
-    consumers = []
-    total_mw  = None
-    for r in rows:
-        if r['analog'].upper() == 'IND_TOTAL':
-            total_mw = r['value']
-        else:
-            r['nama'] = KTT_NAME_MAP.get(r['analog'].upper(), r['analog'])
-            consumers.append(r)
-    # Fallback: hitung manual jika IND_TOTAL tidak ada di data
-    if total_mw is None:
-        total_mw = sum(r['value'] for r in consumers if r['value'] is not None)
-    return consumers, round(total_mw, 2) if total_mw is not None else 0
+# Peta nama konsumen KTT dan pemisahan baris IND_TOTAL hidup di opsis/ktt.py —
+# dipakai bersama halaman ini dan API eksternal, supaya nama konsumen tidak
+# pernah berbeda antara layar FASOP dan angka yang ditarik pihak luar.
 
 
 @login_required
 def beban_ktt(request):
     """Halaman monitoring beban KTT (konsumen tegangan tinggi) dari IND_LOAD."""
-    all_rows = mssql.get_beban_ktt()
-    rows, total_mw = _split_ktt(all_rows)
+    data = ktt.baca_beban_ktt()
     return render(request, 'opsis/beban_ktt.html', {
         'pembangkit_list': _pembangkit_aktif(),
-        'rows':            rows,
-        'total_mw':        total_mw,
-        'jumlah':          len(rows),
-        'terputus':        not mssql.is_reachable(),
+        'rows':            data['rows'],
+        'total_mw':        data['total_mw'],
+        'jumlah':          data['jumlah'],
+        'terputus':        data['terputus'],
     })
 
 
 @login_required
 def api_beban_ktt(request):
-    """API JSON untuk refresh otomatis halaman beban KTT."""
-    all_rows = mssql.get_beban_ktt()
-    rows, total_mw = _split_ktt(all_rows)
-    return JsonResponse({
-        'rows':     rows,
-        'total_mw': total_mw,
-        'jumlah':   len(rows),
-        'terputus': not mssql.is_reachable(),
-    })
+    """API JSON untuk refresh otomatis halaman beban KTT.
+
+    Ikut cache singkat ktt.baca_beban_ktt() dengan alasan yang sama seperti
+    endpoint Hz dan EWS — dan cache itu dipakai bersama API eksternal, jadi
+    penarik dari luar tidak menambah query ke MSSQL selama halaman ini dibuka."""
+    return JsonResponse(ktt.baca_beban_ktt())
 
 
 @login_required

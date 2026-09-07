@@ -1175,3 +1175,89 @@ class DeviceLink(models.Model):
     @property
     def display_label(self):
         return self.label or f'{self.device_a.nama} → {self.device_b.nama}'
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Kunci API eksternal — akses baca untuk aplikasi pihak lain (UP2D dsb.)
+# ═══════════════════════════════════════════════════════════════════════════
+class KunciApi(models.Model):
+    """
+    Kunci API per-konsumen untuk endpoint BACA `/api/v1/` (lihat api/auth.py
+    `require_kunci_baca`).
+
+    Sengaja terpisah dari `settings.API_KEY`. Kunci global itu satu untuk semua
+    dan ikut membuka endpoint TULIS (`/api/v1/devices/` upsert inventaris,
+    `/api/v1/hop/`, `/api/v1/prakiraan-beban/`), jadi membagikannya ke pihak
+    luar sama dengan memberi akses tulis ke data aset. Baris di sini hanya bisa
+    membaca, bisa dicabut satu per satu tanpa redeploy, dan pemakaiannya
+    terlihat di admin — tiga hal yang tidak bisa dilakukan kunci di `.env`.
+
+    Dimodelkan di app `devices` karena app `api` sengaja tidak punya model
+    (tidak terdaftar di INSTALLED_APPS); `devices` sudah menampung infrastruktur
+    lintas-app sejenis seperti UserProfile dan UserLoginLog.
+    """
+    # Selang minimum penulisan `terakhir_dipakai`. Tanpa ini setiap panggilan API
+    # jadi satu UPDATE — penarik yang memoll tiap 5 detik menulis 17 ribu baris
+    # sehari hanya untuk informasi yang dibaca manusia sekali-sekali.
+    JEDA_CATAT_DETIK = 60
+
+    nama = models.CharField(
+        max_length=100, verbose_name='Nama Konsumen',
+        help_text='Siapa pemakai kunci ini, mis. "UP2D Sulselrabar — dashboard beban".'
+    )
+    kunci = models.CharField(
+        max_length=64, unique=True, db_index=True, verbose_name='Kunci',
+        help_text='Dikirim konsumen di header X-API-Key. Dibuat otomatis bila dikosongkan.'
+    )
+    aktif = models.BooleanField(
+        default=True, verbose_name='Aktif',
+        help_text='Hilangkan centang untuk mencabut akses seketika, tanpa menghapus riwayatnya.'
+    )
+    keterangan = models.TextField(
+        blank=True, default='', verbose_name='Keterangan',
+        help_text='Kontak PIC, nomor surat permintaan data, dsb.'
+    )
+    dibuat_oleh = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='kunci_api_dibuat', verbose_name='Dibuat Oleh'
+    )
+    created_at       = models.DateTimeField(auto_now_add=True, verbose_name='Dibuat')
+    terakhir_dipakai = models.DateTimeField(null=True, blank=True, verbose_name='Terakhir Dipakai')
+    terakhir_ip      = models.GenericIPAddressField(null=True, blank=True, verbose_name='IP Terakhir')
+
+    class Meta:
+        verbose_name        = 'Kunci API'
+        verbose_name_plural = 'Kunci API'
+        ordering            = ['nama']
+
+    def __str__(self):
+        return f'{self.nama}{"" if self.aktif else " (nonaktif)"}'
+
+    @staticmethod
+    def kunci_baru():
+        """String acak 43 karakter, aman untuk URL. Dipakai admin & migrasi."""
+        import secrets
+        return secrets.token_urlsafe(32)
+
+    def save(self, *args, **kwargs):
+        if not self.kunci:
+            self.kunci = self.kunci_baru()
+        super().save(*args, **kwargs)
+
+    @property
+    def kunci_tersamar(self):
+        """4 karakter pertama + 4 terakhir — cukup untuk mencocokkan kunci mana
+        yang dipakai konsumen tanpa memampangkan kuncinya di daftar admin."""
+        if len(self.kunci) <= 12:
+            return '•' * len(self.kunci)
+        return f'{self.kunci[:4]}…{self.kunci[-4:]}'
+
+    def catat_pemakaian(self, ip=None):
+        """Perbarui jejak pemakaian, dibatasi JEDA_CATAT_DETIK sekali."""
+        sekarang = timezone.now()
+        if (self.terakhir_dipakai
+                and (sekarang - self.terakhir_dipakai).total_seconds() < self.JEDA_CATAT_DETIK):
+            return
+        self.terakhir_dipakai = sekarang
+        self.terakhir_ip = ip or self.terakhir_ip
+        self.save(update_fields=['terakhir_dipakai', 'terakhir_ip'])

@@ -8,7 +8,7 @@ from django.db import IntegrityError
 
 from devices.models import Device, DeviceType
 from devices.device_audit import log_create, log_edit
-from .auth import require_api_key
+from .auth import require_api_key, require_kunci_baca
 
 
 def _parse_json_body(request):
@@ -644,4 +644,53 @@ def prakiraan_beban_endpoint(request):
         'titik_dihapus': n_hapus,
         'dilewati': n_skip,
         'errors': errors[:50],
+    })
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  OPSIS — Beban KTT untuk konsumen luar (UP2D dsb.)
+#
+#  Endpoint BACA, dikunci `devices.KunciApi` (bukan settings.API_KEY — lihat
+#  api/auth.py). Angkanya diambil lewat opsis.ktt.baca_beban_ktt(), sumber yang
+#  sama persis dengan halaman /opsis/beban-ktt/ dan cache singkat yang sama,
+#  jadi penarik dari luar tidak menambah query ke MSSQL selama halamannya juga
+#  terbuka — dan tidak mungkin menyebut nama konsumen berbeda dari layar FASOP.
+# ═══════════════════════════════════════════════════════════════════════════
+@csrf_exempt
+@require_kunci_baca
+@require_http_methods(["GET"])
+def opsis_beban_ktt_endpoint(request):
+    from django.utils import timezone
+    from opsis import ktt
+
+    data = ktt.baca_beban_ktt()
+    rows = data['rows']
+
+    # Historian tak terjangkau → get_beban_ktt() mengembalikan daftar kosong dan
+    # total jatuh ke 0. JANGAN kirim angka 0 itu: bagi konsumen luar 0 MW tidak
+    # bisa dibedakan dari "semua konsumen KTT sedang padam", dan sekali tercatat
+    # di spreadsheet mereka, angka palsu itu tidak akan pernah diperbaiki.
+    if not rows:
+        return JsonResponse({
+            'status':   'error',
+            'message':  'Data beban KTT sedang tidak tersedia (historian SCADA tidak terjangkau).',
+            'terputus': True,
+        }, status=503)
+
+    return JsonResponse({
+        'status':   'ok',
+        'waktu':    timezone.localtime().isoformat(),
+        'sumber':   'OPSIS — IND_LOAD (historian SCADA)',
+        'satuan':   'MW',
+        'terputus': data['terputus'],
+        'total_mw': data['total_mw'],
+        'jumlah':   data['jumlah'],
+        'konsumen': [
+            {
+                'kode': r['analog'],
+                'nama': r.get('nama') or r['analog'],
+                'mw':   r['value'],
+            }
+            for r in rows
+        ],
     })
