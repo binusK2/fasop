@@ -2582,3 +2582,36 @@ class ApiEksternalBebanKttTest(TestCase):
         self.assertTrue(len(k.kunci) >= 32)
         self.assertNotEqual(k.kunci, self.kunci.kunci)
         self.assertNotIn(k.kunci, k.kunci_tersamar)
+
+    def test_form_admin_menerima_kolom_kunci_kosong(self):
+        """
+        help_text-nya menjanjikan kunci dibuat otomatis bila dikosongkan; tanpa
+        blank=True form admin menolaknya dan janji itu bohong di layar.
+        """
+        from django.contrib import admin as django_admin
+        from devices.admin import KunciApiAdmin
+
+        Form = KunciApiAdmin(self.KunciApi, django_admin.site).get_form(None)
+        form = Form(data={'nama': 'Tanpa kunci', 'aktif': 'on', 'keterangan': ''})
+        self.assertTrue(form.is_valid(), form.errors.as_text())
+        obj = form.save()
+        self.assertTrue(obj.kunci)
+        self.assertGreaterEqual(len(obj.kunci), 32)
+
+    def test_halaman_tambah_admin_terima_kunci_kosong(self):
+        """Jalur yang sebenarnya dipakai orang: form Tambah di site admin."""
+        admin_user = User.objects.create_superuser('admin-kunci', 'a@b.c', 'rahasia-uji-123')
+        profile = getattr(admin_user, 'profile', None)
+        if profile:
+            profile.force_password_change = False
+            profile.save(update_fields=['force_password_change'])
+        self.client.force_login(admin_user)
+
+        r = self.client.post(
+            '/secure-panel/devices/kunciapi/add/',
+            {'nama': 'Lewat halaman admin', 'aktif': 'on', 'kunci': '', 'keterangan': ''},
+        )
+        self.assertEqual(r.status_code, 302, getattr(r, 'content', b'')[:400])
+        obj = self.KunciApi.objects.get(nama='Lewat halaman admin')
+        self.assertGreaterEqual(len(obj.kunci), 32)
+        self.assertEqual(obj.dibuat_oleh, admin_user)
