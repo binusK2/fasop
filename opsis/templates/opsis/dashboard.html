@@ -1120,6 +1120,76 @@ function _minuteLabel(m) {
     return `${h}:${mm}`;
 }
 
+// Label sumbu-X: cukup angka jamnya saja (0-23, format 24 jam). Tooltip tetap
+// memakai _minuteLabel() — di sana menitnya justru yang dicari.
+function _jamLabel(menit) {
+    return Math.round(menit / 60).toString();
+}
+
+// Langkah jam terkecil yang labelnya masih renggang pada lebar sekian piksel.
+// Di bawah JARAK_MIN label mulai berdempetan dan sumbu berubah jadi deretan
+// angka yang tidak terbaca. Lebar yang tidak diketahui (skala belum diukur)
+// dijawab 1: yang menentukan kerapatan lalu sepenuhnya `langkahJam` milik
+// pemanggil, bukan tebakan dari angka yang belum ada.
+//
+// Ambangnya sengaja konstanta LOKAL, bukan const di tingkat blok skrip: fungsi
+// ini dipanggil dari callback Chart.js, dan deklarasi `const` di luar baru
+// terisi kalau skrip sempat berjalan sampai barisnya. Fungsi yang berdiri
+// sendiri bisa diperiksa kapan saja, termasuk saat pustaka chart-nya gagal
+// dimuat.
+function _langkahMuat(lebarPx) {
+    const JARAK_MIN = 30;   // px antar label
+    if (!lebarPx) return 1;
+    for (const langkah of [1, 2, 3, 4, 6]) {
+        if ((lebarPx / 24) * langkah >= JARAK_MIN) return langkah;
+    }
+    return 6;
+}
+
+// Sumbu-X bersama TIGA chart 24 jam di dashboard: Beban Kit, KIT Terpilih, dan
+// Inersia Sistem. Ini satu-satunya definisinya — blok ini sebelumnya disalin di
+// tiap chart, jadi satu perubahan tampilan (grid, rotasi, format label) harus
+// diingat di tiga tempat dan cukup satu yang terlewat untuk membuat chart yang
+// bersebelahan tidak lagi bisa dibaca berdampingan.
+//
+// `langkahJam` = paling rapat label boleh muncul tiap berapa jam. Dipakai chart
+// yang lebarnya hanya sekitar setengah layar (KIT Terpilih & Inersia duduk di
+// sebelah kartu angkanya): pada lebar itu 24 label memenuhi seluruh sumbu.
+// Kerapatan hanya boleh DITURUNKAN dari angka ini — layar sempit menipiskannya
+// lebih jauh lewat _langkahMuat(), tapi tidak ada yang bisa membuatnya lebih
+// rapat dari yang diminta pemanggil.
+//
+// Mengembalikan objek BARU tiap dipanggil: Chart.js menyimpan dan menambahi
+// objek opsi yang diberikan kepadanya, jadi satu konstanta yang dipakai bertiga
+// akan saling menimpa.
+function sumbuJam24(opsi) {
+    const langkahDasar = (opsi && opsi.langkahJam) || 1;
+    return {
+        type: 'linear',
+        min: 0, max: 24 * 60 - 1,
+        // Gridline tetap tiap 30 menit (permintaan tampilan), yang diatur di
+        // bawah hanya teksnya.
+        afterBuildTicks: axis => {
+            axis.ticks = [];
+            for (let m = 0; m <= 24 * 60 - 30; m += 30) axis.ticks.push({ value: m });
+        },
+        grid: { color: '#1e2d45' },
+        ticks: {
+            maxRotation: 0,
+            autoSkip: false,
+            // Fungsi biasa, BUKAN arrow: Chart.js memanggil callback ini dengan
+            // `this` = skala yang sedang digambar, dan lebar skala itulah
+            // satu-satunya cara tahu berapa label yang sebenarnya muat. Arrow
+            // function akan mengambil `this` dari luar dan lebarnya hilang.
+            callback: function (v) {
+                if (v % 60 !== 0) return '';        // gridline 30 menit, tanpa teks
+                const langkah = Math.max(langkahDasar, _langkahMuat(this && this.width));
+                return (v / 60) % langkah === 0 ? _jamLabel(v) : '';
+            },
+        },
+    };
+}
+
 const peakPlugin = {
     id: 'peakLines',
     afterDraw(chart) {
@@ -1253,22 +1323,7 @@ function initBebanChart(actual, forecastRows) {
                 }
             },
             scales: {
-                x: {
-                    type: 'linear',
-                    min: 0, max: 24 * 60 - 1,
-                    // Paksa gridline muncul tiap 30 menit (permintaan tampilan),
-                    // tapi teks label cuma di jam bulat supaya tidak berdesakan.
-                    afterBuildTicks: axis => {
-                        axis.ticks = [];
-                        for (let m = 0; m <= 24 * 60 - 30; m += 30) axis.ticks.push({ value: m });
-                    },
-                    grid: { color: '#1e2d45' },
-                    ticks: {
-                        maxRotation: 0,
-                        autoSkip: false,
-                        callback: v => (v % 60 === 0 ? _minuteLabel(v) : ''),
-                    }
-                },
+                x: sumbuJam24(),
                 y: {
                     grid: { color: '#1e2d45' },
                     grace: '10%',
@@ -1474,18 +1529,7 @@ function initPantauanChart(rows, warna) {
                 }
             },
             scales: {
-                x: {
-                    type: 'linear', min: 0, max: 24 * 60 - 1,
-                    afterBuildTicks: axis => {
-                        axis.ticks = [];
-                        for (let m = 0; m <= 24 * 60 - 30; m += 30) axis.ticks.push({ value: m });
-                    },
-                    grid: { color: '#1e2d45' },
-                    ticks: {
-                        maxRotation: 0, autoSkip: false,
-                        callback: v => (v % 60 === 0 ? _minuteLabel(v) : ''),
-                    }
-                },
+                x: sumbuJam24({ langkahJam: 2 }),
                 y: {
                     grid: { color: '#1e2d45' }, grace: '10%',
                     title: { display: true, text: 'MW', color: '#64748b' },
@@ -1569,18 +1613,7 @@ function initInersiaChart(rows, warna, warnaDelta) {
                 }
             },
             scales: {
-                x: {
-                    type: 'linear', min: 0, max: 24 * 60 - 1,
-                    afterBuildTicks: axis => {
-                        axis.ticks = [];
-                        for (let m = 0; m <= 24 * 60 - 30; m += 30) axis.ticks.push({ value: m });
-                    },
-                    grid: { color: '#1e2d45' },
-                    ticks: {
-                        maxRotation: 0, autoSkip: false,
-                        callback: v => (v % 60 === 0 ? _minuteLabel(v) : ''),
-                    }
-                },
+                x: sumbuJam24({ langkahJam: 2 }),
                 y: {
                     position: 'left', grid: { color: '#1e2d45' }, grace: '10%',
                     title: { display: true, text: 'MWs', color: '#64748b' },
