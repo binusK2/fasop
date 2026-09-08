@@ -1351,9 +1351,12 @@ class AsesmenOptik(models.Model):
     tipe_tower     = models.CharField(max_length=50, blank=True, verbose_name='Tipe Tower')
     jarak_span     = models.PositiveIntegerField(null=True, blank=True,
                                                  verbose_name='Jarak Span (m)')
-    lintang        = models.DecimalField(max_digits=10, decimal_places=6, null=True,
+    # 8 desimal, bukan 6: koordinat yang disalin dari peta/GPS/berkas sumber
+    # lazim punya 7-9 angka di belakang koma, dan pembulatan diam-diam bukan
+    # pilihan yang baik untuk titik yang dipakai mencari tower di lapangan.
+    lintang        = models.DecimalField(max_digits=12, decimal_places=8, null=True,
                                          blank=True, verbose_name='Lintang')
-    bujur          = models.DecimalField(max_digits=10, decimal_places=6, null=True,
+    bujur          = models.DecimalField(max_digits=12, decimal_places=8, null=True,
                                          blank=True, verbose_name='Bujur')
 
     # ── Hasil asesmen: kabel ─────────────────────────────────────

@@ -195,6 +195,19 @@ class AsesmenOptikForm(forms.ModelForm):
             'asset', 'area_rintangan', 'keterangan',
             'foto', 'foto_2', 'tanggal', 'petugas',
         ]
+        # LANGUAGE_CODE aplikasi ini 'en-us', jadi pesan bawaan Django keluar
+        # dalam bahasa Inggris. Menggantinya app-wide menyentuh seluruh FASOP
+        # (admin, auth, semua form lain), jadi pesannya di-Indonesia-kan di
+        # sini saja — form ini diisi tim lapangan dan vendor.
+        error_messages = {
+            'fiber_optic':    {'required': 'Pilih ruas FO-nya dulu.'},
+            'no_tower':       {'required': 'Nomor tower wajib diisi.'},
+            'tanggal':        {'required': 'Tanggal asesmen wajib diisi.',
+                               'invalid':  'Tanggal tidak terbaca — pakai pemilih tanggalnya.'},
+            'jarak_span':     {'invalid':  'Jarak span harus berupa angka (meter).'},
+            'lintang':        {'invalid':  'Lintang harus berupa angka, mis. -5.147889.'},
+            'bujur':          {'invalid':  'Bujur harus berupa angka, mis. 119.470535.'},
+        }
         widgets = {
             'fiber_optic':      forms.Select(attrs={'class': 'form-select select-cari',
                                                     'data-placeholder': 'Cari ruas FO...'}),
@@ -206,12 +219,17 @@ class AsesmenOptikForm(forms.ModelForm):
                                                        'placeholder': 'mis. AA, BB, Tension'}),
             'jarak_span':       forms.NumberInput(attrs={'class': 'form-control',
                                                          'placeholder': 'meter', 'min': 0}),
-            'lintang':          forms.NumberInput(attrs={'class': 'form-control',
-                                                         'step': '0.000001',
-                                                         'placeholder': '-5.147889'}),
-            'bujur':            forms.NumberInput(attrs={'class': 'form-control',
-                                                         'step': '0.000001',
-                                                         'placeholder': '119.470535'}),
+            # TextInput, BUKAN NumberInput: <input type="number"> menolak koma
+            # desimal dan sepasang koordinat yang ditempel sekaligus — browser
+            # malah mengosongkan isiannya tanpa pesan apa pun, sehingga
+            # orangnya tidak pernah tahu apa yang salah. Normalisasinya
+            # dikerjakan di __init__ lalu divalidasi server.
+            'lintang':          forms.TextInput(attrs={'class': 'form-control',
+                                                       'inputmode': 'decimal',
+                                                       'placeholder': '-5.147889'}),
+            'bujur':            forms.TextInput(attrs={'class': 'form-control',
+                                                       'inputmode': 'decimal',
+                                                       'placeholder': '119.470535'}),
             'fasa_fo':          forms.Select(attrs={'class': 'form-select'}),
             'tipe_kabel':       forms.Select(attrs={'class': 'form-select'}),
             'kondisi_fo':       forms.Select(attrs={'class': 'form-select'}),
@@ -238,8 +256,74 @@ class AsesmenOptikForm(forms.ModelForm):
                                                        'placeholder': 'Nama pelaksana / vendor'}),
         }
 
+    # Presisi kolom lintang/bujur di model. 8 desimal ~ 1 mm di permukaan bumi.
+    DESIMAL_KOORDINAT = 8
+
+    @classmethod
+    def _bulatkan_koordinat(cls, teks):
+        """Potong kelebihan desimal, bukan menolaknya.
+
+        Koordinat salinan dari peta/GPS sering punya 9-10 angka di belakang
+        koma. Menolaknya berarti menyuruh orang mengetik ulang angka panjang
+        demi selisih di bawah satu milimeter. Yang tidak terbaca sebagai angka
+        dibiarkan apa adanya supaya pesan error normalnya tetap muncul.
+        """
+        from decimal import Decimal, InvalidOperation
+
+        if not teks:
+            return teks
+        try:
+            angka = Decimal(teks)
+        except InvalidOperation:
+            return teks
+        if -angka.as_tuple().exponent <= cls.DESIMAL_KOORDINAT:
+            return teks
+        return str(angka.quantize(Decimal(1).scaleb(-cls.DESIMAL_KOORDINAT)))
+
+    @staticmethod
+    def _pisah_koordinat(teks):
+        """('-5.14, 119.47') → ('-5.14', '119.47'); selain itu (teks, None).
+
+        Koordinat lazim disalin sebagai sepasang angka sekaligus — begitu pula
+        bentuknya di berkas sumber. Aturannya: dianggap SEPASANG hanya bila ada
+        titik desimal di dalamnya. Tanpa syarat itu, '-5,147889' (koma desimal,
+        cara mengetik yang wajar di sini) akan salah dibaca sebagai dua angka.
+        """
+        if ',' not in teks or '.' not in teks:
+            return teks, None
+        bagian = [b.strip() for b in teks.split(',')]
+        if len(bagian) == 2 and all(bagian):
+            return bagian[0], bagian[1]
+        return teks, None
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+        # Rapikan koordinat SEBELUM validasi: di sini nilainya masih string
+        # mentah. Sesudah validasi sudah terlambat — isian yang gagal to_python
+        # tidak pernah sampai ke cleaned_data.
+        if self.is_bound:
+            data = self.data.copy()
+            lintang = (data.get(self.add_prefix('lintang')) or '').strip()
+            bujur   = (data.get(self.add_prefix('bujur')) or '').strip()
+
+            # Tempelan sepasang koordinat selalu dipecah; bagian bujurnya
+            # dipakai HANYA bila isian bujur masih kosong. Menimpa angka yang
+            # sudah diketik orang lebih buruk daripada mengabaikan setengah
+            # tempelan — dan membiarkannya utuh membuat simpannya gagal dengan
+            # pesan 'Enter a number' yang tidak menjelaskan apa-apa.
+            kiri, kanan = self._pisah_koordinat(lintang)
+            if kanan:
+                lintang = kiri
+                if not bujur:
+                    bujur = kanan
+
+            data[self.add_prefix('lintang')] = self._bulatkan_koordinat(
+                lintang.replace(',', '.'))
+            data[self.add_prefix('bujur')] = self._bulatkan_koordinat(
+                bujur.replace(',', '.'))
+            self.data = data
+
         # Label ruas cukup namanya; __str__ FiberOptic mengulang lokasi A/B
         # sehingga di dropdown jadi terlalu panjang untuk dibaca sekilas.
         self.fields['fiber_optic'].queryset = FiberOptic.objects.order_by('nama')

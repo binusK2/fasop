@@ -12,11 +12,21 @@
             Pendataan kondisi fiber optic &amp; aksesoris per tower transmisi.
         </div>
     </div>
-    {% if bisa_isi %}
-    <a href="{% url 'asesmen_optik_add' %}" class="btn btn-primary btn-sm">
-        <i class="bi bi-plus-lg me-1"></i>Tambah Asesmen
-    </a>
-    {% endif %}
+    <div class="d-flex gap-2">
+        {% comment %}
+        Export mengikuti penyaring yang sedang aktif — querystring halaman ini
+        diteruskan apa adanya, jadi yang terunduh sama dengan yang terlihat.
+        {% endcomment %}
+        <a href="{% url 'asesmen_optik_export' %}{% if querystring %}?{{ querystring }}{% endif %}"
+           class="btn btn-outline-success btn-sm">
+            <i class="bi bi-file-earmark-excel me-1"></i>Export Excel
+        </a>
+        {% if bisa_isi %}
+        <a href="{% url 'asesmen_optik_add' %}" class="btn btn-primary btn-sm">
+            <i class="bi bi-plus-lg me-1"></i>Tambah Asesmen
+        </a>
+        {% endif %}
+    </div>
 </div>
 
 {# ── Filter ── #}

@@ -21,8 +21,26 @@
     </a>
 </div>
 
-{% if form.non_field_errors %}
-<div class="alert alert-danger">{{ form.non_field_errors }}</div>
+{% comment %}
+Ringkasan di atas — pada form sepanjang ini, isian yang bermasalah bisa
+berada di luar layar saat form kembali, jadi errornya perlu terlihat lebih
+dulu sebelum orang menggulir mencarinya.
+{% endcomment %}
+{% if form.errors %}
+<div class="alert alert-danger" style="border-radius:10px;">
+    <div style="font-weight:700;margin-bottom:6px;">
+        <i class="bi bi-exclamation-triangle-fill me-1"></i>
+        Asesmen belum tersimpan — periksa isian berikut:
+    </div>
+    <ul class="mb-0" style="font-size:13px;padding-left:20px;">
+        {% for e in form.non_field_errors %}<li>{{ e }}</li>{% endfor %}
+        {% for field in form %}
+            {% for e in field.errors %}
+            <li><strong>{{ field.label }}</strong>: {{ e }}</li>
+            {% endfor %}
+        {% endfor %}
+    </ul>
+</div>
 {% endif %}
 
 {% comment %}
@@ -45,47 +63,34 @@ Field-nya tetap teks bebas — daftar ini hanya mempercepat, bukan membatasi.
     <div class="ao-body">
         <div class="row g-3">
             <div class="col-md-6">
-                <label class="ao-label">{{ form.fiber_optic.label }} <span class="ao-req">*</span></label>
-                {{ form.fiber_optic }}
-                <div class="form-text">GI awal/akhir &amp; tipe kabel mengikuti ruas ini — tidak perlu diketik ulang.</div>
-                {% for e in form.fiber_optic.errors %}<div class="ao-err">{{ e }}</div>{% endfor %}
-            </div>
+                {% include 'devices/_ao_field.html' with field=form.fiber_optic bantuan='GI awal/akhir dan tipe kabel mengikuti ruas ini — tidak perlu diketik ulang.' %}
+</div>
             <div class="col-md-3">
-                <label class="ao-label">{{ form.no_tower.label }} <span class="ao-req">*</span></label>
-                {{ form.no_tower }}
-                {% for e in form.no_tower.errors %}<div class="ao-err">{{ e }}</div>{% endfor %}
-            </div>
+                {% include 'devices/_ao_field.html' with field=form.no_tower %}
+</div>
             <div class="col-md-3">
-                <label class="ao-label">{{ form.tanggal.label }} <span class="ao-req">*</span></label>
-                {{ form.tanggal }}
-                {% for e in form.tanggal.errors %}<div class="ao-err">{{ e }}</div>{% endfor %}
-            </div>
+                {% include 'devices/_ao_field.html' with field=form.tanggal %}
+</div>
 
             <div class="col-md-3">
-                <label class="ao-label">{{ form.upt.label }}</label>
-                {{ form.upt }}
-            </div>
+                {% include 'devices/_ao_field.html' with field=form.upt %}
+</div>
             <div class="col-md-3">
-                <label class="ao-label">{{ form.level_tegangan.label }}</label>
-                {{ form.level_tegangan }}
-            </div>
+                {% include 'devices/_ao_field.html' with field=form.level_tegangan %}
+</div>
             <div class="col-md-3">
-                <label class="ao-label">{{ form.tipe_tower.label }}</label>
-                {{ form.tipe_tower }}
-            </div>
+                {% include 'devices/_ao_field.html' with field=form.tipe_tower %}
+</div>
             <div class="col-md-3">
-                <label class="ao-label">{{ form.jarak_span.label }}</label>
-                {{ form.jarak_span }}
-            </div>
+                {% include 'devices/_ao_field.html' with field=form.jarak_span %}
+</div>
 
             <div class="col-md-3">
-                <label class="ao-label">{{ form.lintang.label }}</label>
-                {{ form.lintang }}
-            </div>
+                {% include 'devices/_ao_field.html' with field=form.lintang bantuan='Boleh ditempel sekaligus, mis. -5.147888577, 119.4705353' %}
+</div>
             <div class="col-md-3">
-                <label class="ao-label">{{ form.bujur.label }}</label>
-                {{ form.bujur }}
-            </div>
+                {% include 'devices/_ao_field.html' with field=form.bujur %}
+</div>
         </div>
     </div>
 </div>
@@ -96,18 +101,14 @@ Field-nya tetap teks bebas — daftar ini hanya mempercepat, bukan membatasi.
     <div class="ao-body">
         <div class="row g-3">
             <div class="col-md-4">
-                <label class="ao-label">{{ form.fasa_fo.label }}</label>
-                {{ form.fasa_fo }}
-            </div>
+                {% include 'devices/_ao_field.html' with field=form.fasa_fo %}
+</div>
             <div class="col-md-4">
-                <label class="ao-label">{{ form.tipe_kabel.label }}</label>
-                {{ form.tipe_kabel }}
-                <div class="form-text">Kosongkan untuk mengikuti tipe kabel ruasnya.</div>
-            </div>
+                {% include 'devices/_ao_field.html' with field=form.tipe_kabel bantuan='Kosongkan untuk mengikuti tipe kabel ruasnya.' %}
+</div>
             <div class="col-md-4">
-                <label class="ao-label">{{ form.kondisi_fo.label }}</label>
-                {{ form.kondisi_fo }}
-            </div>
+                {% include 'devices/_ao_field.html' with field=form.kondisi_fo %}
+</div>
         </div>
     </div>
 </div>
@@ -118,21 +119,17 @@ Field-nya tetap teks bebas — daftar ini hanya mempercepat, bukan membatasi.
     <div class="ao-body">
         <div class="row g-3">
             <div class="col-md-3">
-                <label class="ao-label">{{ form.tipe_asesoris.label }}</label>
-                {{ form.tipe_asesoris }}
-            </div>
+                {% include 'devices/_ao_field.html' with field=form.tipe_asesoris %}
+</div>
             <div class="col-md-3">
-                <label class="ao-label">{{ form.kondisi_asesoris.label }}</label>
-                {{ form.kondisi_asesoris }}
-            </div>
+                {% include 'devices/_ao_field.html' with field=form.kondisi_asesoris %}
+</div>
             <div class="col-md-3">
-                <label class="ao-label">{{ form.ukuran_fitmen.label }}</label>
-                {{ form.ukuran_fitmen }}
-            </div>
+                {% include 'devices/_ao_field.html' with field=form.ukuran_fitmen %}
+</div>
             <div class="col-md-3">
-                <label class="ao-label">{{ form.joint_box.label }}</label>
-                {{ form.joint_box }}
-            </div>
+                {% include 'devices/_ao_field.html' with field=form.joint_box %}
+</div>
         </div>
     </div>
 </div>
@@ -143,21 +140,17 @@ Field-nya tetap teks bebas — daftar ini hanya mempercepat, bukan membatasi.
     <div class="ao-body">
         <div class="row g-3">
             <div class="col-md-3">
-                <label class="ao-label">{{ form.asset.label }}</label>
-                {{ form.asset }}
-            </div>
+                {% include 'devices/_ao_field.html' with field=form.asset %}
+</div>
             <div class="col-md-5">
-                <label class="ao-label">{{ form.area_rintangan.label }}</label>
-                {{ form.area_rintangan }}
-            </div>
+                {% include 'devices/_ao_field.html' with field=form.area_rintangan %}
+</div>
             <div class="col-md-4">
-                <label class="ao-label">{{ form.petugas.label }}</label>
-                {{ form.petugas }}
-            </div>
+                {% include 'devices/_ao_field.html' with field=form.petugas %}
+</div>
             <div class="col-12">
-                <label class="ao-label">{{ form.keterangan.label }}</label>
-                {{ form.keterangan }}
-            </div>
+                {% include 'devices/_ao_field.html' with field=form.keterangan %}
+</div>
         </div>
     </div>
 </div>
@@ -168,17 +161,15 @@ Field-nya tetap teks bebas — daftar ini hanya mempercepat, bukan membatasi.
     <div class="ao-body">
         <div class="row g-3">
             <div class="col-md-6">
-                <label class="ao-label">{{ form.foto.label }}</label>
-                {{ form.foto }}
-                {% if is_edit and asesmen.foto %}
+                {% include 'devices/_ao_field.html' with field=form.foto %}
+{% if is_edit and asesmen.foto %}
                 <div class="mt-2"><img src="{{ asesmen.foto.url }}" alt="Foto asesmen"
                      style="max-height:140px;border-radius:8px;border:1px solid #e2e8f0;"></div>
                 {% endif %}
             </div>
             <div class="col-md-6">
-                <label class="ao-label">{{ form.foto_2.label }}</label>
-                {{ form.foto_2 }}
-                {% if is_edit and asesmen.foto_2 %}
+                {% include 'devices/_ao_field.html' with field=form.foto_2 %}
+{% if is_edit and asesmen.foto_2 %}
                 <div class="mt-2"><img src="{{ asesmen.foto_2.url }}" alt="Foto tambahan"
                      style="max-height:140px;border-radius:8px;border:1px solid #e2e8f0;"></div>
                 {% endif %}

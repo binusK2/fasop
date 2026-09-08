@@ -32,6 +32,7 @@ urlpatterns = [
     # Asesmen Optik — pendataan FO & aksesoris per tower
     path('fiber-optic/asesmen/', views.asesmen_optik_list, name='asesmen_optik_list'),
     path('fiber-optic/asesmen/tambah/', views.asesmen_optik_create, name='asesmen_optik_add'),
+    path('fiber-optic/asesmen/export/', views.asesmen_optik_export, name='asesmen_optik_export'),
     path('fiber-optic/asesmen/<hid:pk>/edit/', views.asesmen_optik_edit, name='asesmen_optik_edit'),
     path('fiber-optic/asesmen/<hid:pk>/hapus/', views.asesmen_optik_delete, name='asesmen_optik_delete'),
     path('fiber-optic/<hid:pk>/', views.fiber_optic_detail, name='fiber_optic_detail'),
