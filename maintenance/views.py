@@ -4238,14 +4238,21 @@ def _save_ba_record(jenis, nomor_ba, tanggal_str, pelaksana, nip, jabatan, catat
 def _ba_sort_key(rec):
     """Urutkan BA berdasarkan tahun & nomor urut pada nomor_ba (format
     '<nomor>.BA/FASOP/UP2BS-MKS/<tahun>'), bukan tanggal dibuat — sehingga BA
-    yang di-input belakangan tapi bernomor/tahun lebih kecil tetap urut benar."""
+    yang di-input belakangan tapi bernomor/tahun lebih kecil tetap urut benar.
+
+    BA yang BELUM bernomor selalu di paling atas (elemen pertama tuple).
+    Sebelumnya nomornya jatuh ke -1 dan, karena daftarnya diurutkan menurun,
+    justru terlempar ke dasar daftar — BA yang terbit otomatis dari form
+    corrective jadi terkubur di bawah ratusan BA lama dan terbaca seperti
+    "tidak masuk daftar". Padahal justru inilah yang paling perlu ditindak.
+    """
     import re as _re_sort
-    nomor_ba = rec.nomor_ba or ''
+    nomor_ba = (rec.nomor_ba or '').strip()
     m_tahun = _re_sort.search(r'(\d{4})\s*$', nomor_ba)
     tahun = int(m_tahun.group(1)) if m_tahun else (rec.tanggal.year if rec.tanggal else 0)
     m_nomor = _re_sort.match(r'^\s*(\d+)', nomor_ba)
     nomor = int(m_nomor.group(1)) if m_nomor else -1
-    return (tahun, nomor, rec.created_at)
+    return (0 if nomor_ba else 1, tahun, nomor, rec.created_at)
 
 
 @login_required
@@ -4276,6 +4283,9 @@ def ba_list(request):
     ).count() if is_technician else 0
     # BA yang menunggu TTD AM
     pending_ttd_am = records_qs.filter(ttd_status='signed_engineer').count() if is_am else 0
+    # BA yang terbit otomatis dari form corrective belum punya nomor — nomornya
+    # mengikuti agenda kantor, jadi harus ada yang melengkapinya.
+    belum_bernomor = records_qs.filter(nomor_ba='', ttd_status='draft').count()
     records = sorted(records_qs, key=_ba_sort_key, reverse=True)
     return render(request, 'maintenance/ba_list.html', {
         'records':          records,
@@ -4284,6 +4294,7 @@ def ba_list(request):
         'is_technician':    is_technician,
         'pending_ttd_saya': pending_ttd_saya,
         'pending_ttd_am':   pending_ttd_am,
+        'belum_bernomor':   belum_bernomor,
     })
 
 

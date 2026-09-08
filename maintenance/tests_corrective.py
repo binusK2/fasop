@@ -366,3 +366,79 @@ class TerbitBADariCorrectiveTests(TestCase):
 
         self.assertEqual(BeritaAcaraRecord.objects.get().rows_data, sebelum)
 
+class BADaftarBelumBernomorTests(TestCase):
+    """BA tanpa nomor harus terlihat di daftar BA, bukan terkubur.
+
+    Urutan daftar BA memakai nomor urut pada nomor_ba dan disortir MENURUN.
+    BA tanpa nomor jatuh ke -1, jadi dulu ia mendarat di dasar daftar — di
+    bawah seluruh BA lama — dan terbaca seperti tidak masuk daftar sama
+    sekali. Padahal justru inilah yang paling perlu ditindak.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_superuser(username='am_daftar', password='rahasia')
+        profil, _ = UserProfile.objects.get_or_create(user=self.user)
+        profil.role = 'asisten_manager'
+        profil.force_password_change = False
+        profil.save()
+        self.client.force_login(self.user)
+
+        jenis = DeviceType.objects.create(name='RTU')
+        self.device = Device.objects.create(nama='RTU-01', jenis=jenis,
+                                            merk='SEL', lokasi='GI TELLO')
+
+        # BA lama yang sudah bernomor, seperti di produksi
+        for i in range(1, 6):
+            BeritaAcaraRecord.objects.create(
+                jenis='gangguan',
+                nomor_ba='%03d.BA/FASOP/UP2BS-MKS/2026' % i,
+                tanggal=timezone.datetime(2026, 1, i).date(),
+                pelaksana='Budi', ttd_status='draft')
+
+    def _terbitkan(self):
+        self.client.post(reverse('corrective_add'), {
+            'device_id': self.device.pk,
+            'tanggal': '2026-03-10T08:00',
+            'pelaksana_names_input': '["Budi"]',
+            'jenis_kerusakan': 'hardware',
+            'deskripsi_masalah': 'PSU mati',
+            'tindakan': 'Ganti PSU',
+            'status_perbaikan': 'selesai',
+            'terbitkan_ba': '1',
+        })
+        return BeritaAcaraRecord.objects.get(sumber_maintenance__isnull=False)
+
+    def test_ba_terbit_masuk_daftar(self):
+        ba = self._terbitkan()
+        resp = self.client.get(reverse('ba_list'))
+        self.assertIn(ba, list(resp.context['records']))
+
+    def test_ba_belum_bernomor_di_paling_atas(self):
+        """Bukan sekadar ada — harus terlihat tanpa menggulir daftar panjang."""
+        ba = self._terbitkan()
+        resp = self.client.get(reverse('ba_list'))
+        self.assertEqual(resp.context['records'][0], ba)
+
+    def test_statusnya_draft(self):
+        ba = self._terbitkan()
+        self.assertEqual(ba.ttd_status, 'draft')
+        self.assertEqual(ba.nomor_ba, '')
+
+    def test_ditandai_belum_bernomor_di_layar(self):
+        self._terbitkan()
+        resp = self.client.get(reverse('ba_list'))
+        self.assertContains(resp, 'Belum bernomor')
+        self.assertContains(resp, '1 Berita Acara belum bernomor')
+
+    def test_tanpa_ba_tanpa_nomor_bannernya_tidak_muncul(self):
+        resp = self.client.get(reverse('ba_list'))
+        self.assertEqual(resp.context['belum_bernomor'], 0)
+        self.assertNotContains(resp, 'belum bernomor')
+
+    def test_ba_bernomor_tetap_urut_seperti_semula(self):
+        """Perubahan urutan hanya menyangkut yang belum bernomor."""
+        self._terbitkan()
+        resp = self.client.get(reverse('ba_list'))
+        bernomor = [r.nomor_ba for r in resp.context['records'] if r.nomor_ba]
+        self.assertEqual(bernomor, sorted(bernomor, reverse=True))
+
