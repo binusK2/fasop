@@ -1563,6 +1563,14 @@ class BeritaAcaraRecord(models.Model):
         verbose_name='File BA (Upload)',
         help_text='Dokumen BA yang sudah jadi (hasil upload langsung, tanpa generate PDF)',
     )
+    sumber_maintenance = models.ForeignKey(
+        'maintenance.Maintenance', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='berita_acara',
+        verbose_name='Terbit dari Pemeliharaan',
+        help_text='Terisi bila BA ini terbit otomatis dari form pemeliharaan '
+                  'corrective. Dipakai supaya satu perbaikan tidak menerbitkan '
+                  'BA berkali-kali saat formnya disimpan ulang.',
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, blank=True,

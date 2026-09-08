@@ -14,7 +14,8 @@ from devices.models import Device, DeviceType, UserProfile
 from devices.models_komponen import DeviceComponent
 from gangguan.models import Gangguan
 
-from .models import Maintenance, MaintenanceCorrective
+from .models import (BeritaAcaraRecord, Maintenance,
+                     MaintenanceCorrective)
 
 
 class FormCorrectiveTerbukaTests(TestCase):
@@ -179,3 +180,148 @@ class SimpanCorrectiveTests(TestCase):
         corr.refresh_from_db()
         self.assertEqual(corr.status_perbaikan, 'pending')
         self.assertEqual(corr.maintenance.status, 'Open')
+
+class TerbitBADariCorrectiveTests(TestCase):
+    """Simpan corrective -> popup -> BA terbit otomatis TANPA nomor.
+
+    Nomor BA mengikuti agenda kantor, bukan sistem; itu sebabnya BA-nya terbit
+    sebagai draft dan orangnya harus diingatkan untuk melengkapinya.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_superuser(username='am_ba', password='rahasia')
+        profil, _ = UserProfile.objects.get_or_create(user=self.user)
+        profil.role = 'asisten_manager'
+        profil.force_password_change = False
+        profil.save()
+        self.client.force_login(self.user)
+
+        jenis = DeviceType.objects.create(name='RTU')
+        self.device = Device.objects.create(nama='RTU-01', jenis=jenis,
+                                            merk='SEL', lokasi='GI TELLO')
+        self.komponen = DeviceComponent.objects.create(
+            device=self.device, nama='Power Supply A')
+        self.gangguan = Gangguan.objects.create(
+            peralatan=self.device, site='GI TELLO',
+            tanggal_gangguan=timezone.make_aware(timezone.datetime(2026, 3, 9, 7, 0)))
+
+    def _isian(self, **ubah):
+        data = {
+            'device_id': self.device.pk,
+            'tanggal': '2026-03-10T08:00',
+            'pelaksana_names_input': '["Budi", "Andi"]',
+            'jenis_kerusakan': 'hardware',
+            'deskripsi_masalah': 'Power supply mati total',
+            'tindakan': 'Ganti power supply 48V',
+            'komponen_diganti': 'on',
+            'nama_komponen': 'PSU 48V',
+            'komponen_terkait': self.komponen.pk,
+            'kondisi_sebelum': 'Mati',
+            'kondisi_sesudah': 'Normal',
+            'durasi_jam': '2',
+            'durasi_menit': '30',
+            'status_perbaikan': 'selesai',
+        }
+        data.update(ubah)
+        return data
+
+    def test_tanpa_jawab_ya_tidak_ada_ba(self):
+        """Simpan saja = tidak menerbitkan apa pun."""
+        self.client.post(reverse('corrective_add'), self._isian(terbitkan_ba='0'))
+        self.assertFalse(BeritaAcaraRecord.objects.exists())
+
+    def test_jawab_ya_menerbitkan_ba_tanpa_nomor(self):
+        self.client.post(reverse('corrective_add'), self._isian(terbitkan_ba='1'))
+
+        ba = BeritaAcaraRecord.objects.get()
+        self.assertEqual(ba.nomor_ba, '')            # diisi manual
+        self.assertEqual(ba.ttd_status, 'draft')
+        self.assertEqual(ba.jenis, 'gangguan')
+        self.assertEqual(ba.created_by, self.user)
+        self.assertEqual(ba.sumber_maintenance, Maintenance.objects.get())
+
+    def test_bentuk_ba_tetap_format_bawaan_gangguan(self):
+        """Kolomnya kolom BA 'gangguan' yang sudah ada, bukan bentuk baru."""
+        from maintenance.views import _BA_DEFAULT_COLUMNS
+
+        self.client.post(reverse('corrective_add'), self._isian(terbitkan_ba='1'))
+        ba = BeritaAcaraRecord.objects.get()
+        self.assertEqual(ba.columns_data, _BA_DEFAULT_COLUMNS['gangguan'])
+
+    def test_isian_corrective_dipetakan_ke_kolomnya(self):
+        self.client.post(reverse('corrective_add'), self._isian(terbitkan_ba='1'))
+        ba = BeritaAcaraRecord.objects.get()
+
+        sel = dict(zip(ba.columns_data, ba.rows_data[0]['cells']))
+        self.assertEqual(sel['Lokasi'], 'GI TELLO')
+        self.assertEqual(sel['Peralatan'], 'RTU-01')
+        self.assertEqual(sel['Komponen'], str(self.komponen))
+        self.assertEqual(sel['Indikasi Gangguan'], 'Power supply mati total')
+        self.assertIn('Ganti power supply 48V', sel['Keterangan'])
+        self.assertIn('Normal', sel['Keterangan'])
+        self.assertIn('2 jam 30 menit', sel['Keterangan'])
+        self.assertEqual(sel['Tanggal Perbaikan'], '10/03/2026 08:00')
+        self.assertEqual(ba.pelaksana, 'Budi, Andi')
+
+    def test_tanggal_gangguan_terisi_bila_tiketnya_ditaut(self):
+        self.client.post(reverse('corrective_add'),
+                         self._isian(terbitkan_ba='1', gangguan_id=self.gangguan.pk))
+        ba = BeritaAcaraRecord.objects.get()
+        sel = dict(zip(ba.columns_data, ba.rows_data[0]['cells']))
+        self.assertEqual(sel['Tanggal Gangguan'], '09/03/2026 07:00')
+        self.assertEqual(ba.catatan, self.gangguan.nomor_gangguan)
+
+    def test_notifikasi_perlu_dilengkapi_dibuat(self):
+        from notifikasi.models import Notifikasi
+
+        self.client.post(reverse('corrective_add'), self._isian(terbitkan_ba='1'))
+        ba = BeritaAcaraRecord.objects.get()
+
+        notif = Notifikasi.objects.get(tipe='ba_perlu_dilengkapi')
+        self.assertEqual(notif.user, self.user)
+        self.assertEqual(notif.url, reverse('ba_edit', args=[ba.pk]))
+        self.assertEqual(notif.level, 'warning')
+
+    def test_pesan_di_layar_menyebut_perlu_diselesaikan(self):
+        resp = self.client.post(reverse('corrective_add'),
+                                self._isian(terbitkan_ba='1'), follow=True)
+        isi = resp.content.decode()
+        self.assertIn('PERLU DISELESAIKAN', isi)
+        # tautan ke editor BA harus benar-benar jadi tautan, bukan teks mentah
+        ba = BeritaAcaraRecord.objects.get()
+        self.assertIn('href="%s"' % reverse('ba_edit', args=[ba.pk]), isi)
+
+    def test_simpan_ulang_tidak_menerbitkan_ba_kedua(self):
+        """Form corrective bisa disimpan berkali-kali; BA-nya tetap satu."""
+        self.client.post(reverse('corrective_add'), self._isian(terbitkan_ba='1'))
+        m = Maintenance.objects.get()
+
+        self.client.post(reverse('corrective_edit', args=[m.pk]),
+                         self._isian(terbitkan_ba='1', tindakan='Diperbaiki lagi'))
+        self.assertEqual(BeritaAcaraRecord.objects.count(), 1)
+
+    def test_form_edit_menunjukkan_ba_yang_sudah_terbit(self):
+        """Kalau BA-nya sudah ada, popup tidak muncul lagi - diganti tautan."""
+        self.client.post(reverse('corrective_add'), self._isian(terbitkan_ba='1'))
+        m = Maintenance.objects.get()
+        ba = BeritaAcaraRecord.objects.get()
+
+        resp = self.client.get(reverse('corrective_edit', args=[m.pk]))
+        self.assertEqual(resp.context['ba_terkait'], ba)
+        self.assertContains(resp, 'belum bernomor')
+        self.assertNotContains(resp, 'modalTerbitBA')
+
+    def test_ba_membeku_saat_corrective_diedit_kemudian(self):
+        """BA bertanda tangan tidak boleh ikut berubah isinya.
+
+        rows_data adalah salinan, bukan bacaan langsung ke corrective.
+        """
+        self.client.post(reverse('corrective_add'), self._isian(terbitkan_ba='1'))
+        m = Maintenance.objects.get()
+        sebelum = BeritaAcaraRecord.objects.get().rows_data
+
+        self.client.post(reverse('corrective_edit', args=[m.pk]),
+                         self._isian(tindakan='TINDAKAN DIUBAH'))
+
+        self.assertEqual(BeritaAcaraRecord.objects.get().rows_data, sebelum)
+

@@ -330,10 +330,30 @@
     <button type="submit" name="next" value="pdf" class="btn btn-outline-secondary btn-print-hide" title="Simpan lalu buka PDF">
         <i class="bi bi-printer me-1"></i>Simpan &amp; Cetak PDF
     </button>
-<button type="submit" class="btn btn-primary btn-print-hide w-100 mb-2">
+{% comment %}
+            Terbitkan BA ditanyakan lewat popup saat simpan, bukan lewat
+            checkbox yang gampang terlewat: BA adalah dokumen bertanda tangan,
+            jadi harus ada orang yang benar-benar memutuskan menerbitkannya.
+
+            Kalau perbaikan ini SUDAH punya BA, tidak ada yang perlu ditanya —
+            tombolnya menyimpan langsung.
+            {% endcomment %}
+            <input type="hidden" name="terbitkan_ba" id="terbitkanBa" value="0">
+            {% if ba_terkait %}
+            <button type="submit" class="btn btn-primary btn-print-hide w-100 mb-2">
                 <i class="bi bi-{% if is_edit %}floppy{% else %}check-lg{% endif %} me-1"></i>
                 {% if is_edit %}Simpan Perubahan{% else %}Simpan Corrective{% endif %}
             </button>
+            <a href="{% url 'ba_edit' ba_terkait.pk %}" class="btn btn-outline-warning w-100 mb-2 btn-print-hide">
+                <i class="bi bi-file-earmark-text me-1"></i>
+                Buka BA{% if not ba_terkait.nomor_ba %} (belum bernomor){% endif %}
+            </a>
+            {% else %}
+            <button type="button" id="btnSimpanCorrective" class="btn btn-primary btn-print-hide w-100 mb-2">
+                <i class="bi bi-{% if is_edit %}floppy{% else %}check-lg{% endif %} me-1"></i>
+                {% if is_edit %}Simpan Perubahan{% else %}Simpan Corrective{% endif %}
+            </button>
+            {% endif %}
             {% if is_edit %}
             <a href="{% url 'maintenance_view' corr.maintenance.id %}"
                class="btn btn-outline-secondary w-100">Batal</a>
@@ -353,6 +373,70 @@
 </div>
 </div>
 </form>
+{% if not ba_terkait %}
+{# ── Popup: terbitkan Berita Acara? ── #}
+<div class="modal fade" id="modalTerbitBA" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:440px;">
+        <div class="modal-content" style="border-radius:14px;border:none;">
+            <div class="modal-body p-4">
+                <div style="width:52px;height:52px;background:#fffbeb;border-radius:50%;
+                            display:flex;align-items:center;justify-content:center;margin:0 auto 14px;">
+                    <i class="bi bi-file-earmark-text" style="font-size:22px;color:#f59e0b;"></i>
+                </div>
+                <h6 style="font-size:16px;font-weight:700;text-align:center;margin-bottom:8px;">
+                    Terbitkan Berita Acara Perbaikan?
+                </h6>
+                <p style="font-size:13px;color:#64748b;text-align:center;margin-bottom:4px;">
+                    BA akan terbit otomatis dari isian form ini sebagai draft.
+                </p>
+                <p style="font-size:12.5px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;
+                          border-radius:8px;padding:8px 12px;text-align:center;">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Nomor BA <strong>tidak diisi otomatis</strong> — Anda melengkapinya sendiri setelah ini.
+                </p>
+                <div class="d-flex gap-2 mt-3">
+                    <button type="button" class="btn btn-outline-secondary flex-fill" data-ba="0">
+                        Simpan saja
+                    </button>
+                    <button type="button" class="btn btn-warning flex-fill fw-semibold" data-ba="1">
+                        <i class="bi bi-check-lg me-1"></i>Ya, terbitkan BA
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    var tombol = document.getElementById('btnSimpanCorrective');
+    if (!tombol) return;
+    var form   = tombol.closest('form');
+    var flag   = document.getElementById('terbitkanBa');
+    var modalEl = document.getElementById('modalTerbitBA');
+
+    tombol.addEventListener('click', function () {
+        // Tombolnya type="button" supaya bisa memunculkan popup, jadi validasi
+        // bawaan browser harus dipanggil sendiri — tanpa ini isian wajib yang
+        // kosong baru ketahuan setelah popup dijawab.
+        if (!form.reportValidity()) return;
+        // getOrCreateInstance, BUKAN `new` tiap klik: instance kedua di elemen
+        // yang sama meninggalkan backdrop bertumpuk — layarnya menggelap tapi
+        // kotak dialognya tidak kelihatan.
+        bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    });
+
+    modalEl.querySelectorAll('button[data-ba]').forEach(function (b) {
+        b.addEventListener('click', function () {
+            flag.value = this.getAttribute('data-ba');
+            bootstrap.Modal.getOrCreateInstance(modalEl).hide();
+            form.requestSubmit ? form.requestSubmit() : form.submit();
+        });
+    });
+})();
+</script>
+{% endif %}
+
 {% endblock %}
 
 {% block extra_js %}
@@ -498,4 +582,7 @@ document.getElementById('id_komponen_terkait').addEventListener('change', functi
     render();
 })();
 </script>
+
+
+
 {% endblock %}

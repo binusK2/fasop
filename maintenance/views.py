@@ -24,6 +24,9 @@ from openpyxl.utils import get_column_letter
 from datetime import date
 from auditlog.utils import log_action as _audit
 from django.core.files.base import ContentFile
+import logging
+
+logger = logging.getLogger(__name__)
 from django.utils.encoding import iri_to_uri
 from django.utils.http import url_has_allowed_host_and_scheme
 from urllib.parse import urlparse
@@ -3032,6 +3035,10 @@ def corrective_add(request, device_id=None, gangguan_id=None):
                 except Exception:
                     pass
 
+            # Terbitkan BA bila operator menjawab Ya di popup saat simpan
+            if request.POST.get('terbitkan_ba') == '1':
+                _ba_terbit_lalu_ingatkan(request, maint, corr)
+
             # Redirect sesuai konteks
             if gangguan_obj and update_gangguan:
                 return redirect('gangguan_detail', pk=gangguan_obj.pk)
@@ -3058,6 +3065,7 @@ def corrective_add(request, device_id=None, gangguan_id=None):
         'today_date':     _date.today().strftime('%Y-%m-%dT%H:%M'),
         'from_gangguan':  gangguan_id is not None,
         'from_device':    device_id is not None,
+        'ba_terkait':     None,   # perbaikannya belum ada, jadi BA-nya pasti belum
     })
 
 
@@ -3627,6 +3635,9 @@ def corrective_edit(request, pk):
             if foto_sesudah: corr.foto_sesudah = foto_sesudah
             corr.save()
 
+            if request.POST.get('terbitkan_ba') == '1':
+                _ba_terbit_lalu_ingatkan(request, maint, corr)
+
             return redirect('maintenance_view', pk=maint.pk)
 
     # Pre-fill context
@@ -3655,6 +3666,8 @@ def corrective_edit(request, pk):
         'from_device':          True,
         'today_date':           tanggal_str,
         'pelaksana_init_json':  pelaksana_json,
+        'ba_terkait':           BeritaAcaraRecord.objects.filter(
+                                    sumber_maintenance=maint).first(),
     })
 
 
@@ -3743,6 +3756,148 @@ _BA_JUDUL = {
     'gangguan':     'BERITA ACARA GANGGUAN',
     'penormalan':   'BERITA ACARA PENORMALAN',
 }
+
+
+def _ba_terbit_lalu_ingatkan(request, maint, corr):
+    """Terbitkan BA lalu beri tahu di layar bahwa BA itu belum selesai.
+
+    Pesannya membawa tautan langsung ke editor BA — BA tanpa nomor yang cuma
+    diberitahukan sekali lewat toast adalah BA yang akan terlupakan.
+    """
+    from django.contrib import messages
+    from django.utils.safestring import mark_safe
+
+    try:
+        ba, dibuat = _ba_terbit_dari_corrective(request, maint, corr)
+    except Exception:
+        logger.exception('Gagal menerbitkan BA dari corrective %s', maint.pk)
+        messages.error(
+            request,
+            'Perbaikan tersimpan, tapi Berita Acara gagal diterbitkan. '
+            'Buat BA-nya manual lewat menu Berita Acara.')
+        return None
+
+    tautan = reverse('ba_edit', args=[ba.pk])
+    if dibuat:
+        messages.warning(
+            request,
+            mark_safe(
+            f'Berita Acara terbit tanpa nomor dan PERLU DISELESAIKAN — '
+            f'isi nomor BA lalu ajukan tanda tangan. '
+            f'<a href="{tautan}" class="alert-link">Lengkapi BA sekarang</a>'))
+    else:
+        messages.info(
+            request,
+            mark_safe(f'Perbaikan ini sudah punya Berita Acara. '
+                      f'<a href="{tautan}" class="alert-link">Buka BA-nya</a>'))
+    return ba
+
+
+def _ba_terbit_dari_corrective(request, maint, corr):
+    """Terbitkan Berita Acara dari satu perbaikan corrective. Return (ba, dibuat).
+
+    BENTUK BA-NYA TIDAK DIUBAH mengikuti form corrective — yang dipakai persis
+    kolom bawaan BA jenis 'gangguan' (_BA_DEFAULT_COLUMNS), jadi hasilnya sama
+    dengan BA yang diketik manual dan template PDF-nya tidak perlu disentuh.
+    Isian corrective hanya dipetakan ke kolom-kolom itu.
+
+    Nomornya sengaja DIKOSONGKAN: penomoran BA mengikuti agenda kantor, bukan
+    sistem. Itu sebabnya BA ini terbit sebagai draft dan pembuatnya diberi
+    notifikasi untuk melengkapinya.
+    """
+    from notifikasi.views import notif_ke_user
+
+    # Baca ulang dari DB dulu: view korektif menyimpan `date` langsung dari
+    # string POST, jadi di memori nilainya masih string dan bukan datetime.
+    # Sekalian memastikan BA memotret apa yang BENAR-BENAR tersimpan.
+    maint.refresh_from_db()
+
+    # Satu perbaikan cukup satu BA — form corrective bisa disimpan berkali-kali
+    ada = BeritaAcaraRecord.objects.filter(sumber_maintenance=maint).first()
+    if ada:
+        return ada, False
+
+    device   = maint.device
+    gangguan = corr.gangguan
+
+    komponen = ''
+    if corr.komponen_terkait_id:
+        komponen = str(corr.komponen_terkait)
+    elif corr.nama_komponen:
+        komponen = corr.nama_komponen
+
+    # Keterangan: tindakan, ditambah rincian yang tidak punya kolom sendiri
+    ket = [corr.tindakan or '']
+    if corr.kondisi_sebelum or corr.kondisi_sesudah:
+        ket.append(f'Kondisi: {corr.kondisi_sebelum or "—"} → {corr.kondisi_sesudah or "—"}')
+    if corr.durasi_jam or corr.durasi_menit:
+        ket.append(f'Durasi: {corr.durasi_jam or 0} jam {corr.durasi_menit or 0} menit')
+    if corr.komponen_diganti:
+        ket.append('Ada komponen diganti')
+
+    kolom = list(_BA_DEFAULT_COLUMNS['gangguan'])
+    baris = [{
+        'no': 1,
+        'cells': [
+            device.lokasi or '',
+            dj_timezone.localtime(gangguan.tanggal_gangguan).strftime('%d/%m/%Y %H:%M')
+                if gangguan and gangguan.tanggal_gangguan else '',
+            dj_timezone.localtime(maint.date).strftime('%d/%m/%Y %H:%M') if maint.date else '',
+            device.nama or '',
+            komponen,
+            corr.deskripsi_masalah or '',
+            ' | '.join(p for p in ket if p),
+        ],
+    }]
+
+    pelaksana = ', '.join(maint.pelaksana_names or []) or (
+        request.user.get_full_name() or request.user.username)
+
+    ba = BeritaAcaraRecord.objects.create(
+        jenis='gangguan',
+        nomor_ba='',                       # diisi manual, lihat docstring
+        tanggal=dj_timezone.localtime(maint.date).date() if maint.date else date.today(),
+        pelaksana=pelaksana[:200],
+        catatan=(gangguan.nomor_gangguan if gangguan else ''),
+        columns_data=kolom,
+        rows_data=baris,
+        sumber_maintenance=maint,
+        created_by=request.user,
+        ttd_status='draft',
+    )
+
+    # Foto disalin jadi eviden, BUKAN ditunjuk: mengganti foto pemeliharaan
+    # tidak boleh mengubah lampiran dokumen yang sudah diteken.
+    urut = 0
+    for foto, judul in ((corr.foto_sebelum, 'Sebelum perbaikan'),
+                        (corr.foto_sesudah, 'Sesudah perbaikan')):
+        if not foto:
+            continue
+        try:
+            foto.open('rb')
+            isi = foto.read()
+        except Exception:
+            continue
+        finally:
+            try:
+                foto.close()
+            except Exception:
+                pass
+        ev = BeritaAcaraEviden(ba=ba, catatan=judul, urutan=urut)
+        ev.gambar.save(os.path.basename(foto.name), ContentFile(isi), save=True)
+        urut += 1
+
+    notif_ke_user(
+        user=request.user,
+        tipe='ba_perlu_dilengkapi',
+        judul='Berita Acara perlu dilengkapi',
+        pesan=(f'BA perbaikan {device.nama} ({device.lokasi}) sudah terbit '
+               f'tanpa nomor. Isi nomor BA lalu ajukan tanda tangan.'),
+        level='warning',
+        url=reverse('ba_edit', args=[ba.pk]),
+        device=device,
+    )
+    return ba, True
 
 
 def _ba_default_columns_json():

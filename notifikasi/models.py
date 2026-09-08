@@ -14,6 +14,7 @@ class Notifikasi(models.Model):
         ('gangguan_selesai',    'Gangguan Selesai — Perlu Review'),
         ('gangguan_baru',       'Gangguan Baru Dibuat'),
         ('corrective_selesai',  'Corrective Selesai'),
+        ('ba_perlu_dilengkapi', 'BA — Perlu Dilengkapi (nomor kosong)'),
         ('ba_ttd_engineer',     'BA — Permintaan TTD Engineer'),
         ('ba_ttd_am',           'BA — Menunggu TTD AM'),
         ('live_dimulai',        'Live Streaming Dimulai'),
