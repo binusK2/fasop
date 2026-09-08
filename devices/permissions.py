@@ -29,6 +29,19 @@ def can_edit(user):
     return p.can_edit if p else False
 
 
+def can_isi_asesmen(user):
+    """Boleh mengisi Asesmen Optik — vendor, teknisi, AM, superuser."""
+    if user.is_superuser:
+        return True
+    p = get_profile(user)
+    return p.bisa_isi_asesmen if p else False
+
+
+def is_vendor(user):
+    p = get_profile(user)
+    return bool(p and p.is_vendor)
+
+
 def can_manage_lokasi(user):
     """Superuser dan AM."""
     if user.is_superuser:
@@ -92,6 +105,15 @@ def require_can_edit(view_func):
     def wrapper(request, *args, **kwargs):
         if not can_edit(request.user):
             return _forbidden(request, 'Akun Viewer tidak bisa melakukan perubahan data.')
+        return view_func(request, *args, **kwargs)
+    return wrapper
+
+
+def require_can_isi_asesmen(view_func):
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        if not can_isi_asesmen(request.user):
+            return _forbidden(request, 'Akun Anda tidak berhak mengisi Asesmen Optik.')
         return view_func(request, *args, **kwargs)
     return wrapper
 

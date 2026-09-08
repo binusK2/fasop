@@ -286,6 +286,48 @@ class DispatcherAccessMiddleware:
         return self.get_response(request)
 
 
+class VendorAccessMiddleware:
+    """Membatasi role Vendor hanya ke Asesmen Optik.
+
+    Vendor adalah pihak LUAR yang diberi akun untuk mengisi asesmen di
+    lapangan. Tanpa pembatasan ini, akun itu bisa menelusuri seluruh
+    inventaris perangkat, riwayat pemeliharaan, dan OPSIS — jauh melewati
+    keperluannya.
+
+    Pola & alasannya sama dengan OperatorAccessMiddleware dan
+    DispatcherAccessMiddleware: dibatasi di satu tempat berdasar PREFIX URL,
+    supaya halaman baru di luar prefix itu otomatis ikut tertutup tanpa perlu
+    diingat satu per satu.
+    """
+
+    ALLOWED_PREFIXES = (
+        '/fiber-optic/asesmen/',
+        '/static/',
+        '/media/',
+        '/logout/',
+        '/login/',
+        '/ganti-password/',
+        '/notifikasi/',
+        '/maintenance/profile/',
+    )
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if request.user.is_authenticated and not request.user.is_superuser:
+            try:
+                role = request.user.profile.role
+            except Exception:
+                role = ''
+
+            if role == 'vendor':
+                if not any(request.path.startswith(p) for p in self.ALLOWED_PREFIXES):
+                    return redirect('asesmen_optik_list')
+
+        return self.get_response(request)
+
+
 class SingleSessionMiddleware:
     """
     Middleware single active session per user.

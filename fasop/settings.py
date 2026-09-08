@@ -74,6 +74,7 @@ MIDDLEWARE = [
     'devices.middleware.Up2dAccessMiddleware',
     'devices.middleware.OperatorAccessMiddleware',
     'devices.middleware.DispatcherAccessMiddleware',
+    'devices.middleware.VendorAccessMiddleware',
     'devices.middleware.SingleSessionMiddleware',
 ]
 
@@ -364,8 +365,8 @@ EZVIZ_EZOPEN_HOST = config('EZVIZ_EZOPEN_HOST', default='')
 
 # ── Arsip laporan inspeksi harian (cron export_inspeksi_harian jam 12.00) ──
 # Folder tujuan file Excel harian. Di server Linux ini harus berupa path yang
-# sudah di-mount, mis. share //192.168.77.5/fasop di-mount ke /mnt/fasop lalu
-# INSPEKSI_EXPORT_DIR="/mnt/fasop/inspeksi harian".
+# sudah di-mount, mis. share //192.168.77.5/fasop di-mount ke /mnt/nas/fasop lalu
+# INSPEKSI_EXPORT_DIR="/mnt/nas/fasop/inspeksi harian".
 # Lihat deploy/EXPORT_INSPEKSI_HARIAN.md.
 INSPEKSI_EXPORT_DIR = config('INSPEKSI_EXPORT_DIR', default='')
 

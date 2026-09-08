@@ -7,8 +7,12 @@ from django.core.files.base import ContentFile
 import os as _os
 from devices.permissions import (
     require_can_delete, require_can_edit, require_can_manage_lokasi,
-    can_delete, can_edit, can_manage_lokasi, is_viewer_only
+    require_can_isi_asesmen,
+    can_delete, can_edit, can_manage_lokasi, can_isi_asesmen,
+    is_viewer_only, is_vendor
 )
+from django.urls import reverse
+from urllib.parse import quote
 from .models import (
     Device, DeviceType, Icon, SiteLocation, DeviceLog, DeviceEvent, Branch,
     DeviceEviden, FotoLapangan,
@@ -23,6 +27,7 @@ from django.http import HttpResponse, JsonResponse
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
+from openpyxl.cell import WriteOnlyCell
 from datetime import date as date_type
 from dateutil.relativedelta import relativedelta
 import json
@@ -3462,3 +3467,277 @@ def foto_lapangan_move_folder(request):
         messages.success(request, f'{n} foto dipindahkan ke {tujuan}.')
     nxt = request.POST.get('next')
     return redirect(nxt if nxt and nxt.startswith('/') else 'foto_lapangan_galeri')
+
+
+# ─────────────────────────────────────────────────────────────────────
+# ASESMEN OPTIK — pendataan FO & aksesoris per tower
+# ─────────────────────────────────────────────────────────────────────
+ASESMEN_PER_HALAMAN = 50
+
+
+def _asesmen_tersaring(request):
+    """(queryset, keterangan) hasil penyaring di querystring.
+
+    Dipakai halaman daftar DAN export — kalau keduanya menyusun filternya
+    sendiri, isi berkas unduhan bisa berbeda dari yang sedang dilihat orang
+    di layar tanpa ada yang sadar.
+    """
+    from .models import AsesmenOptik, FiberOptic
+
+    ruas    = request.GET.get('ruas') or ''
+    kondisi = request.GET.get('kondisi') or ''
+    cari    = (request.GET.get('q') or '').strip()
+
+    asesmen = AsesmenOptik.objects.select_related('fiber_optic', 'created_by')
+    catatan = []
+
+    if ruas:
+        pk = _hid_decode(ruas) or 0
+        asesmen = asesmen.filter(fiber_optic_id=pk)
+        fo = FiberOptic.objects.filter(pk=pk).first()
+        catatan.append(f'Ruas: {fo.nama}' if fo else 'Ruas: (tidak dikenal)')
+    if kondisi == 'anomali':
+        # Sama dengan AsesmenOptik.ada_anomali, tapi di sisi SQL supaya
+        # penyaringannya tidak menarik seluruh baris ke Python dulu.
+        asesmen = asesmen.filter(
+            Q(kondisi_fo__in=['anomali', 'rusak'])
+            | Q(kondisi_asesoris__in=['anomali', 'tanpa_fitmen'])
+        )
+        catatan.append('Kondisi: perlu tindak lanjut')
+    elif kondisi == 'baik':
+        asesmen = asesmen.filter(kondisi_fo='baik', kondisi_asesoris='baik')
+        catatan.append('Kondisi: baik semua')
+    if cari:
+        asesmen = asesmen.filter(
+            Q(no_tower__icontains=cari)
+            | Q(fiber_optic__nama__icontains=cari)
+            | Q(petugas__icontains=cari)
+            | Q(keterangan__icontains=cari)
+        )
+        catatan.append(f'Pencarian: "{cari}"')
+
+    return asesmen, ' · '.join(catatan)
+
+
+@login_required
+def asesmen_optik_list(request):
+    """Daftar asesmen, disaring per ruas FO / kondisi."""
+    from .models import FiberOptic
+
+    ruas    = request.GET.get('ruas') or ''
+    kondisi = request.GET.get('kondisi') or ''
+    cari    = (request.GET.get('q') or '').strip()
+
+    asesmen, _ket = _asesmen_tersaring(request)
+
+    paginator = Paginator(asesmen, ASESMEN_PER_HALAMAN)
+    page_obj  = paginator.get_page(request.GET.get('page'))
+
+    params = request.GET.copy()
+    params.pop('page', None)
+
+    return render(request, 'devices/asesmen_optik_list.html', {
+        'asesmen':      page_obj.object_list,
+        'page_obj':     page_obj,
+        'paginator':    paginator,
+        'querystring':  params.urlencode(),
+        'ruas_list':    FiberOptic.objects.order_by('nama'),
+        'selected_ruas': ruas,
+        'selected_kondisi': kondisi,
+        'cari':         cari,
+        'bisa_isi':     can_isi_asesmen(request.user),
+    })
+
+
+@login_required
+@require_can_isi_asesmen
+def asesmen_optik_create(request):
+    from .forms import AsesmenOptikForm
+    from django.contrib import messages
+
+    if request.method == 'POST':
+        form = AsesmenOptikForm(request.POST, request.FILES)
+        if form.is_valid():
+            asesmen = form.save(commit=False)
+            asesmen.created_by = request.user
+            asesmen.save()
+            messages.success(
+                request,
+                f'Asesmen {asesmen.fiber_optic.nama} tower {asesmen.no_tower} tersimpan.')
+            # "Simpan & Tower Berikutnya" — ruas/tanggal/petugas dipertahankan,
+            # nomor towernya saja yang kosong. Vendor mengisi puluhan tower
+            # berurutan di satu ruas; mengetik ulang tiga isian itu tiap kali
+            # adalah bagian terbesar pekerjaannya.
+            if request.POST.get('lanjut') == '1':
+                dasar = (f"?ruas={_hid(asesmen.fiber_optic_id)}"
+                         f"&tanggal={asesmen.tanggal:%Y-%m-%d}")
+                if asesmen.petugas:
+                    dasar += f"&petugas={quote(asesmen.petugas)}"
+                return redirect(reverse('asesmen_optik_add') + dasar)
+            return redirect('asesmen_optik_list')
+    else:
+        awal = {}
+        if request.GET.get('ruas'):
+            awal['fiber_optic'] = _hid_decode(request.GET['ruas'])
+        if request.GET.get('tanggal'):
+            awal['tanggal'] = request.GET['tanggal']
+        if request.GET.get('petugas'):
+            awal['petugas'] = request.GET['petugas']
+        form = AsesmenOptikForm(initial=awal)
+
+    return render(request, 'devices/asesmen_optik_form.html', {
+        'form':    form,
+        'is_edit': False,
+    })
+
+
+@login_required
+@require_can_isi_asesmen
+def asesmen_optik_edit(request, pk):
+    from .forms import AsesmenOptikForm
+    from .models import AsesmenOptik
+    from django.contrib import messages
+
+    asesmen = get_object_or_404(AsesmenOptik, pk=pk)
+
+    # Vendor hanya boleh menyunting hasil isiannya sendiri — hasil tim lain
+    # bukan miliknya untuk diubah. Teknisi/AM/superuser bebas.
+    if is_vendor(request.user) and asesmen.created_by_id != request.user.id:
+        messages.error(request, 'Anda hanya bisa menyunting asesmen yang Anda input sendiri.')
+        return redirect('asesmen_optik_list')
+
+    if request.method == 'POST':
+        form = AsesmenOptikForm(request.POST, request.FILES, instance=asesmen)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Asesmen diperbarui.')
+            return redirect('asesmen_optik_list')
+    else:
+        form = AsesmenOptikForm(instance=asesmen)
+
+    return render(request, 'devices/asesmen_optik_form.html', {
+        'form':    form,
+        'asesmen': asesmen,
+        'is_edit': True,
+    })
+
+
+@login_required
+@require_can_delete
+def asesmen_optik_delete(request, pk):
+    from .models import AsesmenOptik
+    if request.method == 'POST':
+        get_object_or_404(AsesmenOptik, pk=pk).delete()
+    return redirect('asesmen_optik_list')
+
+
+@login_required
+def asesmen_optik_export(request):
+    """Unduh hasil asesmen sebagai Excel, mengikuti penyaring yang sedang aktif.
+
+    Susunan kolomnya sengaja menyamai berkas kerja "Data FO-Tower Transmisi"
+    supaya hasil unduhan bisa langsung ditempel/dibandingkan dengan berkas yang
+    sudah dipakai tim, bukan bentuk baru yang harus dicocokkan manual dulu.
+    """
+    from datetime import date as _date
+
+    asesmen, keterangan_filter = _asesmen_tersaring(request)
+    asesmen = asesmen.order_by('fiber_optic__nama', 'no_tower', '-tanggal')
+
+    wb = openpyxl.Workbook(write_only=True)
+    ws = wb.create_sheet('Asesmen Optik')
+
+    hdr_fill  = PatternFill('solid', fgColor='0F172A')
+    hdr_font  = Font(bold=True, color='FFFFFF', size=10)
+    hdr_align = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    thin      = Border(left=Side(style='thin'), right=Side(style='thin'),
+                       top=Side(style='thin'), bottom=Side(style='thin'))
+    l_align   = Alignment(vertical='center', wrap_text=True)
+    c_align   = Alignment(horizontal='center', vertical='center')
+    fill_anomali = PatternFill('solid', fgColor='FEE2E2')
+
+    KOLOM = [
+        ('UPT', 16), ('Ruas FO', 34), ('GI Awal', 14), ('GI Akhir', 14),
+        ('Level Tegangan', 13), ('No Tower', 10), ('Jarak Span/ Tower', 12),
+        ('Tipe Tower', 12), ('Koordinat', 24), ('Fasa FO', 12),
+        ('ADSS/ OPGW', 11), ('Kondisi FO', 12), ('Tipe Asesoris', 13),
+        ('Kondisi Asesoris', 14), ('Joint Box', 11), ('Lintang', 13),
+        ('Bujur', 13), ('Asset', 10), ('Ukuran Fitmen', 13),
+        ('Area Jalur Rintangan SUTT', 20), ('Keterangan', 40),
+        ('Tanggal Asesmen', 14), ('Petugas / Vendor', 22), ('Diinput oleh', 18),
+    ]
+    for i, (_nama, lebar) in enumerate(KOLOM, 1):
+        ws.column_dimensions[get_column_letter(i)].width = lebar
+
+    baris_judul = []
+    for nama, _lebar in KOLOM:
+        sel = WriteOnlyCell(ws, value=nama)
+        sel.font, sel.fill, sel.alignment, sel.border = hdr_font, hdr_fill, hdr_align, thin
+        baris_judul.append(sel)
+    ws.append(baris_judul)
+    ws.freeze_panes = 'A2'
+
+    TENGAH = {0, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 21}
+
+    for a in asesmen.select_related('fiber_optic', 'created_by'):
+        nilai = [
+            a.upt,
+            a.fiber_optic.nama,
+            a.fiber_optic.lokasi_a,
+            a.fiber_optic.lokasi_b,
+            a.level_tegangan,
+            a.no_tower,
+            a.jarak_span,
+            a.tipe_tower,
+            a.koordinat,
+            a.get_fasa_fo_display() if a.fasa_fo else '',
+            a.tipe_kabel_efektif,
+            a.get_kondisi_fo_display() if a.kondisi_fo else '',
+            a.get_tipe_asesoris_display() if a.tipe_asesoris else '',
+            a.get_kondisi_asesoris_display() if a.kondisi_asesoris else '',
+            a.get_joint_box_display() if a.joint_box else '',
+            a.lintang,
+            a.bujur,
+            a.asset,
+            a.ukuran_fitmen,
+            a.area_rintangan,
+            a.keterangan,
+            a.tanggal,
+            a.petugas,
+            (a.created_by.get_full_name() or a.created_by.username) if a.created_by else '',
+        ]
+        anomali = a.ada_anomali
+        baris = []
+        for i, v in enumerate(nilai):
+            sel = WriteOnlyCell(ws, value=v)
+            sel.border = thin
+            sel.alignment = c_align if i in TENGAH else l_align
+            # Baris yang perlu ditindaklanjuti ditandai di berkasnya juga —
+            # kalau tidak, penerima unduhan kehilangan penanda yang ada di layar.
+            if anomali:
+                sel.fill = fill_anomali
+            baris.append(sel)
+        ws.append(baris)
+
+    # Lembar keterangan: apa yang sedang disaring saat diunduh. Tanpa ini,
+    # berkas hasil unduhan sebagian tak bisa dibedakan dari yang lengkap.
+    ket = wb.create_sheet('Keterangan')
+    ket.column_dimensions['A'].width = 22
+    ket.column_dimensions['B'].width = 60
+    for pasangan in (
+        ('Sumber', 'FASOP — Asesmen Optik'),
+        ('Diunduh', _date.today().strftime('%d %B %Y')),
+        ('Oleh', request.user.get_full_name() or request.user.username),
+        ('Penyaring', keterangan_filter or 'Semua data'),
+        ('Jumlah baris', asesmen.count()),
+        ('Catatan', 'Baris berlatar merah = perlu tindak lanjut '
+                    '(kondisi FO anomali/rusak, atau aksesoris anomali/tanpa fitmen).'),
+    ):
+        ket.append(list(pasangan))
+
+    nama_berkas = f"asesmen_optik_{_date.today():%Y%m%d}.xlsx"
+    resp = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    resp['Content-Disposition'] = f'attachment; filename="{nama_berkas}"'
+    wb.save(resp)
+    return resp

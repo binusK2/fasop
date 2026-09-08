@@ -27,3 +27,17 @@ def abs_val(value):
     except (TypeError, ValueError):
         return value
 
+@register.filter
+def hashid(value):
+    """PK → hashid untuk dipakai di URL/querystring template.
+
+    PK integer tidak pernah dipampangkan di URL FASOP (lihat
+    fasop/hashids_helper.py); filter ini yang menjaga aturan itu tetap berlaku
+    di parameter filter, bukan cuma di path URL.
+    """
+    from fasop.hashids_helper import encode
+    try:
+        return encode(int(value))
+    except (TypeError, ValueError):
+        return ''
+

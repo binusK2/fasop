@@ -1,0 +1,22 @@
+{% comment %}
+Satu isian form Asesmen Optik: label, widget, pesan error, dan teks bantuan.
+
+Dibuat partial karena error harus tampil di SETIAP isian. Sebelumnya tiap
+isian ditulis manual di templatenya dan hanya tiga yang punya blok error —
+akibatnya isian lain ditolak diam-diam: formnya kembali tanpa tersimpan dan
+tanpa satu pun keterangan kenapa.
+
+Parameter: field (wajib), bantuan (opsional, menimpa help_text field).
+{% endcomment %}
+<label class="ao-label">
+    {{ field.label }}{% if field.field.required %} <span class="ao-req">*</span>{% endif %}
+</label>
+{{ field }}
+{% for e in field.errors %}
+<div class="ao-err"><i class="bi bi-exclamation-circle me-1"></i>{{ e }}</div>
+{% endfor %}
+{% if bantuan %}
+<div class="form-text">{{ bantuan }}</div>
+{% elif field.help_text %}
+<div class="form-text">{{ field.help_text }}</div>
+{% endif %}
