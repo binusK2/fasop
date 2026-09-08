@@ -28,8 +28,10 @@ from django.utils.encoding import iri_to_uri
 from django.utils.http import url_has_allowed_host_and_scheme
 from urllib.parse import urlparse
 
-# Jumlah baris tabel detail per halaman di Laporan Pemeliharaan.
-LAPORAN_PER_HALAMAN = 50
+# Jumlah baris per halaman untuk daftar panjang (Semua Pemeliharaan, tabel
+# detail Laporan Pemeliharaan). Satu aturan, supaya kedua halaman tidak
+# diam-diam berbeda.
+BARIS_PER_HALAMAN = 50
 
 
 # ── Tombol "Kembali" di form pemeliharaan ─────────────────────────────
@@ -255,8 +257,20 @@ def maintenance_list(request):
         .distinct().order_by('lokasi_clean')
     )
 
+    # Daftar ini memuat SELURUH form HAR; tanpa dipotong, halamannya makin
+    # lama makin berat seiring data pemeliharaan menumpuk.
+    paginator = Paginator(maintenances, BARIS_PER_HALAMAN)
+    page_obj  = paginator.get_page(request.GET.get('page'))
+
+    # Querystring filter tanpa 'page', supaya tautan halaman tidak kehilangan filter
+    params = request.GET.copy()
+    params.pop('page', None)
+
     return render(request, 'maintenance/maintenance_list.html', {
-        'maintenances':    maintenances,
+        'maintenances':    page_obj.object_list,
+        'page_obj':        page_obj,
+        'paginator':       paginator,
+        'querystring':     params.urlencode(),
         'lokasi_list':     lokasi_list,
         'selected_lokasi': lokasi,
         'selected_status': status,
@@ -385,7 +399,9 @@ def maintenance_update_status(request, pk):
                maintenance.pk,
                f'{maintenance.device.nama} — {maintenance.date}',
                f'Status: {old_status} → {maintenance.status}')
-    return redirect('maintenance_list')
+    # Kembali ke halaman & filter asal — kalau selalu ke halaman 1, menandai
+    # selesai satu baris dari halaman 3 melempar penggunanya ke awal daftar.
+    return redirect(_asal_kembali(request) or reverse('maintenance_list'))
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -1096,7 +1112,7 @@ def maintenance_report(request):
 
     # Tabel detail dipotong per halaman — sebelumnya seluruh baris satu periode
     # (bisa ribuan, dan mode YTD menarik satu tahun penuh) dirender sekaligus.
-    paginator = Paginator(maintenances, LAPORAN_PER_HALAMAN)
+    paginator = Paginator(maintenances, BARIS_PER_HALAMAN)
     page_obj  = paginator.get_page(request.GET.get('page'))
 
     # Querystring filter tanpa 'page', supaya tautan halaman tidak kehilangan periode

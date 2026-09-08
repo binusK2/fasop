@@ -12,7 +12,7 @@ from django.utils import timezone
 
 from devices.models import Device, DeviceType, UserProfile
 
-from .views import LAPORAN_PER_HALAMAN
+from .views import BARIS_PER_HALAMAN
 from .models import (Maintenance, MaintenanceDFR, MaintenanceFrequencyRelay,
                      MaintenanceMasterStation, MaintenanceMasterTrip)
 
@@ -467,17 +467,17 @@ class LaporanPemeliharaanPaginasiTests(TestCase):
     def test_halaman_pertama_dipotong_50_baris(self):
         resp = self._laporan()
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(len(resp.context['maintenances']), LAPORAN_PER_HALAMAN)
+        self.assertEqual(len(resp.context['maintenances']), BARIS_PER_HALAMAN)
         self.assertEqual(resp.context['paginator'].count, self.jumlah)
         self.assertContains(resp, 'page=2')          # navigasi halaman ikut dirender
-        self.assertContains(resp, f'dari {self.jumlah} data')
+        self.assertContains(resp, f'{self.jumlah} data')
 
     def test_halaman_kedua_berisi_sisanya(self):
         resp = self._laporan(page=2)
         self.assertEqual(len(resp.context['maintenances']),
-                         self.jumlah - LAPORAN_PER_HALAMAN)
+                         self.jumlah - BARIS_PER_HALAMAN)
         self.assertEqual(resp.context['page_obj'].start_index(),
-                         LAPORAN_PER_HALAMAN + 1)
+                         BARIS_PER_HALAMAN + 1)
 
     def test_ringkasan_tetap_menghitung_seluruh_periode(self):
         """Angka ringkasan bukan hanya baris yang tampil di halaman ini."""
@@ -498,7 +498,7 @@ class LaporanPemeliharaanPaginasiTests(TestCase):
 
     def test_mode_ytd_juga_dipotong(self):
         resp = self._laporan(mode='ytd')
-        self.assertEqual(len(resp.context['maintenances']), LAPORAN_PER_HALAMAN)
+        self.assertEqual(len(resp.context['maintenances']), BARIS_PER_HALAMAN)
         self.assertEqual(resp.context['paginator'].count,
                          self.jumlah + self.jumlah_februari)
 
@@ -568,4 +568,115 @@ class TombolKembaliSemuaFormTests(TestCase):
                 resp = self.client.get(url, {'dari': '/jadwal/'})
                 self.assertContains(resp, 'Kembali ke Jadwal')
                 self.assertContains(resp, 'name="dari" value="/jadwal/"')
+
+
+class DaftarPemeliharaanPaginasiTests(TestCase):
+    """Halaman "Semua Pemeliharaan" harus dipotong per halaman.
+
+    Halaman ini memuat seluruh form HAR yang pernah dicatat; tanpa dipotong,
+    ia makin lama makin berat seiring data menumpuk.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_superuser(username='admin_daftar', password='rahasia')
+        profil, _ = UserProfile.objects.get_or_create(user=self.user)
+        profil.role = 'asisten_manager'
+        profil.force_password_change = False
+        profil.save()
+        self.client.force_login(self.user)
+
+        jenis = DeviceType.objects.create(name='RTU')
+        self.device = Device.objects.create(nama='RTU-01', jenis=jenis,
+                                            merk='SEL', lokasi='GI TELLO')
+        self.lain = Device.objects.create(nama='RTU-02', jenis=jenis,
+                                          merk='SEL', lokasi='GI LAIN')
+        self.jumlah = 60
+        for i in range(self.jumlah):
+            Maintenance.objects.create(
+                device=self.device if i % 2 else self.lain,
+                maintenance_type='Preventive',
+                date=timezone.make_aware(timezone.datetime(2026, 3, 1 + i % 28, 8, i % 60)),
+                description=f'uji {i}', status='Open')
+        self.url = reverse('maintenance_list')
+
+    def test_halaman_pertama_dipotong_50_baris(self):
+        resp = self.client.get(self.url)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(resp.context['maintenances']), BARIS_PER_HALAMAN)
+        self.assertEqual(resp.context['paginator'].count, self.jumlah)
+
+    def test_halaman_kedua_berisi_sisanya(self):
+        resp = self.client.get(self.url, {'page': 2})
+        self.assertEqual(len(resp.context['maintenances']),
+                         self.jumlah - BARIS_PER_HALAMAN)
+
+    def test_jumlah_record_menghitung_seluruh_hasil(self):
+        """Angka "N Record Ditemukan" bukan panjang halaman ini."""
+        resp = self.client.get(self.url)
+        self.assertContains(resp, f'{self.jumlah} Record Ditemukan')
+
+    def test_filter_ikut_terbawa_ke_halaman_berikutnya(self):
+        resp = self.client.get(self.url, {'lokasi': 'GI TELLO', 'page': 2})
+        self.assertNotIn('page=', resp.context['querystring'])
+        self.assertIn('lokasi=GI+TELLO', resp.context['querystring'])
+
+    def test_paginasi_menghormati_filter(self):
+        resp = self.client.get(self.url, {'lokasi': 'GI TELLO'})
+        self.assertEqual(resp.context['paginator'].count, self.jumlah // 2)
+
+
+class AksiDaftarPemeliharaanTests(TestCase):
+    """Kolom AKSI: Open → Tandai Selesai, Done → Preview PDF.
+
+    Selama masih Open, PDF-nya belum final — yang dibutuhkan adalah
+    menutupnya.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_superuser(username='admin_aksi', password='rahasia')
+        profil, _ = UserProfile.objects.get_or_create(user=self.user)
+        profil.role = 'asisten_manager'
+        profil.force_password_change = False
+        profil.save()
+        self.client.force_login(self.user)
+
+        jenis = DeviceType.objects.create(name='RTU')
+        self.device = Device.objects.create(nama='RTU-01', jenis=jenis,
+                                            merk='SEL', lokasi='GI TELLO')
+        self.url = reverse('maintenance_list')
+
+    def _maintenance(self, status):
+        return Maintenance.objects.create(
+            device=self.device, maintenance_type='Preventive',
+            date=timezone.make_aware(timezone.datetime(2026, 3, 10, 8, 0)),
+            status=status, description='uji')
+
+    def test_open_menampilkan_tandai_selesai_bukan_pdf(self):
+        m = self._maintenance('Open')
+        resp = self.client.get(self.url)
+        self.assertContains(resp, reverse('maintenance_update_status', args=[m.pk]))
+        self.assertNotContains(
+            resp, reverse('export_maintenance_pdf', args=[m.pk]) + '?preview=1')
+
+    def test_done_menampilkan_pdf_bukan_tandai_selesai(self):
+        m = self._maintenance('Done')
+        resp = self.client.get(self.url)
+        self.assertContains(
+            resp, reverse('export_maintenance_pdf', args=[m.pk]) + '?preview=1')
+        self.assertNotContains(resp, reverse('maintenance_update_status', args=[m.pk]))
+
+    def test_tandai_selesai_mengubah_status(self):
+        m = self._maintenance('Open')
+        resp = self.client.post(reverse('maintenance_update_status', args=[m.pk]),
+                                {'status': 'Done', 'dari': self.url + '?page=1'})
+        self.assertRedirects(resp, self.url + '?page=1')   # tetap di halaman asal
+        m.refresh_from_db()
+        self.assertEqual(m.status, 'Done')
+
+    def test_tanpa_asal_tetap_ke_daftar(self):
+        """Tombol lama di halaman detail tidak mengirim 'dari'."""
+        m = self._maintenance('Open')
+        resp = self.client.post(reverse('maintenance_update_status', args=[m.pk]),
+                                {'status': 'Done'})
+        self.assertRedirects(resp, self.url)
 

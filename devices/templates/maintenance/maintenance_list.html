@@ -96,9 +96,13 @@
 <!-- TABLE -->
 <div class="table-card">
     <div class="table-header" style="display:flex;align-items:center;justify-content:space-between;">
+        {% comment %}
+        paginator.count, BUKAN maintenances|length — yang kedua cuma menghitung
+        baris di halaman ini, jadi angkanya akan selalu 50 dan menyesatkan.
+        {% endcomment %}
         <h6 class="mb-0">
             <i class="bi bi-list-ul me-1" style="color:#3b82f6;"></i>
-            {{ maintenances|length }} Record Ditemukan
+            {{ paginator.count }} Record Ditemukan
         </h6>
     </div>
     <div class="table-responsive">
@@ -118,7 +122,7 @@
             <tbody>
             {% for m in maintenances %}
             <tr style="border-top:1px solid #f1f5f9;transition:background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
-                <td style="text-align:center;font-size:12px;color:#cbd5e1;font-weight:600;padding:14px 8px;">{{ forloop.counter }}</td>
+                <td style="text-align:center;font-size:12px;color:#cbd5e1;font-weight:600;padding:14px 8px;">{{ forloop.counter0|add:page_obj.start_index }}</td>
 
                 <td style="text-align:center;padding:14px 12px;white-space:nowrap;">
                     <div style="font-size:13px;font-weight:600;color:#1e293b;">{{ m.date|date:"d M Y" }}</div>
@@ -188,10 +192,32 @@
 
                 <td style="text-align:center;padding:14px 12px;">
                     <div class="d-flex gap-1 justify-content-center">
+                        {% comment %}
+                        Selama masih Open, yang dibutuhkan adalah menutupnya —
+                        PDF-nya belum final. Preview PDF baru muncul setelah
+                        Done. Aksi 'Tandai Selesai' sama persis dengan tombol
+                        di halaman detail pemeliharaan (status → Done).
+
+                        Yang tidak boleh menyunting tetap dapat Preview PDF,
+                        supaya kolomnya tidak kosong sama sekali buat mereka.
+                        {% endcomment %}
+                        {% if m.status == 'Open' and user_can_edit %}
+                        <form method="post" action="{% url 'maintenance_update_status' m.id %}" class="m-0">
+                            {% csrf_token %}
+                            <input type="hidden" name="status" value="Done">
+                            <input type="hidden" name="dari" value="{{ request.get_full_path }}">
+                            <button type="submit" class="btn btn-sm btn-outline-success"
+                                    title="Tandai Selesai" style="border-radius:8px;padding:4px 10px;"
+                                    onclick="return confirm('Tandai pemeliharaan {{ m.device }} sebagai selesai?')">
+                                <i class="bi bi-check2-circle"></i>
+                            </button>
+                        </form>
+                        {% else %}
                         <a href="{% url 'export_maintenance_pdf' m.id %}?preview=1" target="_blank"
                             class="btn btn-sm btn-outline-danger" title="Preview PDF" style="border-radius:8px;padding:4px 10px;">
                             <i class="bi bi-file-earmark-pdf"></i>
                         </a>
+                        {% endif %}
                         <a href="{% url 'maintenance_view' m.id %}" class="btn btn-sm btn-outline-primary" title="Detail Maintenance" style="border-radius:8px;padding:4px 10px;">
                             <i class="bi bi-eye"></i>
                         </a>
@@ -215,6 +241,8 @@
             </tbody>
         </table>
     </div>
+
+    {% include 'maintenance/_paginasi.html' %}
 </div>
 
 <!-- MODAL KONFIRMASI DELETE -->
