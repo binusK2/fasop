@@ -79,7 +79,7 @@
                         {% for group in devices_by_lokasi %}
                         <optgroup label="{{ group.grouper }}">
                             {% for d in group.list %}
-                            <option value="{{ d.pk }}">{{ d.nama }} ({{ d.jenis }})</option>
+                            <option value="{{ d.pk }}" data-blank-url="{% url 'blank_maintenance_pdf' d.id %}">{{ d.nama }} ({{ d.jenis }})</option>
                             {% endfor %}
                         </optgroup>
                         {% endfor %}
@@ -307,10 +307,26 @@
     {# ── Simpan ── #}
     <div class="cf-card">
         <div class="cf-body">
-                <a href="{% url 'blank_maintenance_pdf' device.id %}" target="_blank"
+                {% comment %}
+                Form ini memakai `device_init`, BUKAN `device` — kedua view
+                korektif tidak pernah mengirim `device`. Memakai `device.id`
+                di sini berarti {% url %} dipanggil dengan string kosong dan
+                seluruh halaman balas HTTP 500.
+
+                Dibuka dari menu umum, perangkatnya belum dipilih; tombolnya
+                menunggu pilihan dropdown (lihat data-blank-url di bawah).
+                {% endcomment %}
+                {% if device_init %}
+                <a href="{% url 'blank_maintenance_pdf' device_init.id %}" target="_blank" id="btnCetakFormulir"
         class="btn btn-outline-secondary btn-print-hide" title="Cetak formulir kosong tanpa simpan data">
         <i class="bi bi-file-earmark-pdf me-1"></i>Cetak Formulir
     </a>
+                {% else %}
+                <a href="#" target="_blank" id="btnCetakFormulir" aria-disabled="true"
+        class="btn btn-outline-secondary btn-print-hide disabled" title="Pilih perangkat dulu">
+        <i class="bi bi-file-earmark-pdf me-1"></i>Cetak Formulir
+    </a>
+                {% endif %}
     <button type="submit" name="next" value="pdf" class="btn btn-outline-secondary btn-print-hide" title="Simpan lalu buka PDF">
         <i class="bi bi-printer me-1"></i>Simpan &amp; Cetak PDF
     </button>
@@ -413,6 +429,20 @@ document.getElementById('id_komponen_terkait').addEventListener('change', functi
         deviceId = deviceSelect.value;
         deviceSelect.addEventListener('change', function() {
             loadKomponenForCorrective(this.value);
+
+            // Cetak Formulir mengikuti perangkat yang dipilih. URL-nya diambil
+            // dari opsinya, bukan dirakit di sini: id di URL itu hashid, tidak
+            // bisa dibentuk dari value opsi yang berupa pk biasa.
+            var tombol = document.getElementById('btnCetakFormulir');
+            var opsi   = this.options[this.selectedIndex];
+            var url    = opsi ? opsi.getAttribute('data-blank-url') : null;
+            if (tombol) {
+                tombol.href = url || '#';
+                tombol.classList.toggle('disabled', !url);
+                tombol.setAttribute('aria-disabled', url ? 'false' : 'true');
+                tombol.title = url ? 'Cetak formulir kosong tanpa simpan data'
+                                   : 'Pilih perangkat dulu';
+            }
         });
     }
     {% endif %}

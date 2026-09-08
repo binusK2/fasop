@@ -3588,6 +3588,10 @@ def corrective_edit(request, pk):
         status_perbaikan  = request.POST.get('status_perbaikan', 'selesai')
         foto_sebelum      = request.FILES.get('foto_sebelum')
         foto_sesudah      = request.FILES.get('foto_sesudah')
+        # Dropdown "Komponen Terkait" ada di form ini dan pilihannya bahkan
+        # dipulihkan lewat JS, tapi dulu tidak pernah dibaca saat simpan —
+        # perubahannya hilang tanpa pesan apa pun.
+        komponen_terkait_pk = request.POST.get('komponen_terkait', '') or None
 
         if tanggal and deskripsi_masalah and tindakan:
             # Parse pelaksana (JSON array atau comma-separated)
@@ -3613,6 +3617,12 @@ def corrective_edit(request, pk):
             corr.durasi_jam        = int(durasi_jam)   if durasi_jam   else None
             corr.durasi_menit      = int(durasi_menit) if durasi_menit else None
             corr.status_perbaikan  = status_perbaikan
+            if komponen_terkait_pk:
+                from devices.models_komponen import DeviceComponent
+                corr.komponen_terkait = DeviceComponent.objects.filter(
+                    pk=komponen_terkait_pk).first()
+            else:
+                corr.komponen_terkait = None
             if foto_sebelum: corr.foto_sebelum = foto_sebelum
             if foto_sesudah: corr.foto_sesudah = foto_sesudah
             corr.save()
