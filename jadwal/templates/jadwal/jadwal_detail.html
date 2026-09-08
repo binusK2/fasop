@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
-{% block title %}{{ jadwal }} — Jadwal Kunjungan{% endblock %}
-{% block page_title %}Jadwal Kunjungan{% endblock %}
+{% block title %}{{ jadwal }} — Jadwal Pemeliharaan{% endblock %}
+{% block page_title %}Jadwal Pemeliharaan{% endblock %}
 
 {% block content %}
 
@@ -34,7 +34,7 @@
         <div class="row align-items-center">
             <div class="col">
                 <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#64748b;margin-bottom:6px;">
-                    <i class="bi bi-geo-alt me-1"></i>Jadwal Kunjungan
+                    <i class="bi bi-geo-alt me-1"></i>Jadwal Pemeliharaan
                 </div>
                 <h4 style="font-weight:800;color:#0f172a;margin:0 0 4px;">{{ jadwal.lokasi }}</h4>
                 <div style="font-size:13px;color:#64748b;">
@@ -120,6 +120,7 @@
                     <th style="font-size:11px;color:#64748b;padding:10px 16px;text-align:center;">HEALTH INDEX</th>
                     <th style="font-size:11px;color:#64748b;padding:10px 16px;text-align:center;">STATUS PERIODE</th>
                     <th style="font-size:11px;color:#64748b;padding:10px 16px;text-align:center;">MAINTENANCE</th>
+                    <th style="font-size:11px;color:#64748b;padding:10px 16px;text-align:center;">AKSI</th>
                 </tr>
             </thead>
             <tbody>
@@ -176,10 +177,66 @@
                             <i class="bi bi-eye me-1"></i>{{ item.maintenance_periode.date|date:"d M Y" }}
                         </a>
                         {% else %}
-                        <a href="{% url 'maintenance_add_device' d.pk %}"
-                           style="font-size:11.5px;color:#10b981;font-weight:600;text-decoration:none;">
+                        <span style="font-size:11.5px;color:#cbd5e1;">—</span>
+                        {% endif %}
+                    </td>
+
+                    {% comment %}
+                    Tiga tombol selalu tampil supaya lebar kolomnya tetap; yang
+                    tidak berlaku dinonaktifkan berikut alasannya, bukan
+                    disembunyikan — kalau hilang-timbul, barisnya bergeser dan
+                    tombol yang mau ditekan pindah tempat.
+
+                    ?dari= membuat tombol Kembali di form pemeliharaan pulang ke
+                    daftar peralatan ini, bukan ke detail perangkat.
+                    {% endcomment %}
+                    <td style="padding:12px 16px;text-align:center;white-space:nowrap;">
+                        {% if item.maintenance_periode %}
+                        <span class="btn btn-sm btn-outline-secondary disabled"
+                              style="font-size:11px;padding:2px 9px;pointer-events:none;opacity:.45;"
+                              title="Sudah ada pemeliharaan periode ini — pakai Edit">
+                            <i class="bi bi-plus-circle me-1"></i>Catat
+                        </span>
+                        {% else %}
+                        <a href="{% url 'maintenance_add_device' d.pk %}?dari={{ request.path|urlencode }}"
+                           class="btn btn-sm btn-outline-success"
+                           style="font-size:11px;padding:2px 9px;">
                             <i class="bi bi-plus-circle me-1"></i>Catat
                         </a>
+                        {% endif %}
+
+                        {% if item.maintenance_periode %}
+                        <a href="{% url 'maintenance_edit' item.maintenance_periode.pk %}?dari={{ request.path|urlencode }}"
+                           class="btn btn-sm btn-outline-primary"
+                           style="font-size:11px;padding:2px 9px;">
+                            <i class="bi bi-pencil me-1"></i>Edit
+                        </a>
+                        {% else %}
+                        <span class="btn btn-sm btn-outline-secondary disabled"
+                              style="font-size:11px;padding:2px 9px;pointer-events:none;opacity:.45;"
+                              title="Belum ada pemeliharaan periode ini — catat dulu">
+                            <i class="bi bi-pencil me-1"></i>Edit
+                        </span>
+                        {% endif %}
+
+                        {% if user_can_edit %}
+                            {% if item.maintenance_periode.status == 'Done' %}
+                            <span class="btn btn-sm btn-outline-secondary disabled"
+                                  style="font-size:11px;padding:2px 9px;pointer-events:none;opacity:.45;"
+                                  title="Sudah ditandai selesai">
+                                <i class="bi bi-check2-circle me-1"></i>Selesai
+                            </span>
+                            {% else %}
+                            <form method="post" class="d-inline m-0"
+                                  action="{% url 'jadwal_device_done' jadwal.pk d.pk %}">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-outline-warning"
+                                        style="font-size:11px;padding:2px 9px;"
+                                        onclick="return confirm('Tandai {{ d.nama }} selesai dipelihara periode ini?')">
+                                    <i class="bi bi-check2-circle me-1"></i>Tandai Selesai
+                                </button>
+                            </form>
+                            {% endif %}
                         {% endif %}
                     </td>
 
@@ -187,7 +244,7 @@
                 {% endwith %}
                 {% empty %}
                 <tr>
-                    <td colspan="5" class="text-center text-muted py-4">
+                    <td colspan="6" class="text-center text-muted py-4">
                         Tidak ada peralatan di lokasi ini.
                     </td>
                 </tr>

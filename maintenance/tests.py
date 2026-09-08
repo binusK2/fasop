@@ -521,3 +521,51 @@ class LaporanPemeliharaanPaginasiTests(TestCase):
         # Jumlah seluruh bulan harus sama dengan angka kartu ringkasan
         self.assertEqual(sum(r['total'] for r in resp.context['monthly_summary']),
                          resp.context['summary']['total'])
+
+
+class TombolKembaliSemuaFormTests(TestCase):
+    """Tombol Kembali harus benar di SETIAP template form per jenis perangkat.
+
+    Ada 20 template form, dan dulu masing-masing menuliskan sendiri tujuan
+    tombolnya. Sekarang semuanya meng-include partial yang sama; tes ini yang
+    memastikan tidak ada satu pun template yang tertinggal — termasuk jenis
+    yang jatuh ke maintenance_form.html generik.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_superuser(username='admin_kembali', password='rahasia')
+        profil, _ = UserProfile.objects.get_or_create(user=self.user)
+        profil.role = 'asisten_manager'
+        profil.force_password_change = False
+        profil.save()
+        self.client.force_login(self.user)
+
+    def _device(self, nama_jenis):
+        jenis, _ = DeviceType.objects.get_or_create(name=nama_jenis)
+        return Device.objects.create(nama=f'{nama_jenis}-01', jenis=jenis,
+                                     merk='SEL', lokasi='GI TELLO')
+
+    def test_setiap_template_form_memakai_tombol_bersama(self):
+        from maintenance.views import DEVICE_FORM_MAP
+
+        jenis_diuji = ['JENIS TIDAK DIKENAL']          # → maintenance_form.html generik
+        terlihat = set()
+        for nama_jenis, (_form, template) in DEVICE_FORM_MAP.items():
+            if template not in terlihat:               # satu jenis per template
+                terlihat.add(template)
+                jenis_diuji.append(nama_jenis)
+
+        for nama_jenis in jenis_diuji:
+            with self.subTest(jenis=nama_jenis):
+                device = self._device(nama_jenis)
+                url = reverse('maintenance_add_device', args=[device.pk])
+
+                resp = self.client.get(url)
+                self.assertEqual(resp.status_code, 200)
+                self.assertContains(resp, 'Kembali ke Perangkat')
+
+                # Dibuka dari halaman lain → tombolnya ikut ke sana
+                resp = self.client.get(url, {'dari': '/jadwal/'})
+                self.assertContains(resp, 'Kembali ke Jadwal')
+                self.assertContains(resp, 'name="dari" value="/jadwal/"')
+

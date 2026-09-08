@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.urls import reverse
+from django.urls import reverse, resolve, Resolver404
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.clickjacking import xframe_options_exempt, xframe_options_sameorigin
 from devices.permissions import require_can_edit, require_can_delete, is_viewer_only
@@ -24,9 +24,68 @@ from openpyxl.utils import get_column_letter
 from datetime import date
 from auditlog.utils import log_action as _audit
 from django.core.files.base import ContentFile
+from django.utils.encoding import iri_to_uri
+from django.utils.http import url_has_allowed_host_and_scheme
+from urllib.parse import urlparse
 
 # Jumlah baris tabel detail per halaman di Laporan Pemeliharaan.
 LAPORAN_PER_HALAMAN = 50
+
+
+# ── Tombol "Kembali" di form pemeliharaan ─────────────────────────────
+# Form dibuka dari beberapa tempat (detail perangkat, Jadwal Pemeliharaan), dan
+# tujuan tombol Kembali ikut asalnya. Asal dikirim sebagai ?dari=<path>.
+#
+# Sengaja BUKAN 'next': field POST 'next' di form ini sudah dipakai sebagai
+# penanda "simpan lalu buka PDF" (`request.POST.get('next') == 'pdf'`).
+LABEL_ASAL_KEMBALI = {
+    'jadwal_detail':    'Kembali ke Jadwal',
+    'jadwal_list':      'Kembali ke Jadwal',
+    'device_view':      'Kembali ke Perangkat',
+    'maintenance_list': 'Kembali ke Daftar',
+}
+
+
+def _asal_kembali(request):
+    """Path asal yang boleh dipakai tombol Kembali, atau None.
+
+    Nilainya datang dari URL, jadi WAJIB divalidasi: tanpa
+    url_has_allowed_host_and_scheme, ?dari=https://situs-lain/ akan mengubah
+    tombol Kembali jadi open redirect.
+    """
+    asal = request.POST.get('dari') or request.GET.get('dari') or ''
+    if not asal:
+        return None
+    if not url_has_allowed_host_and_scheme(
+            asal, allowed_hosts={request.get_host()},
+            require_https=request.is_secure()):
+        return None
+    return iri_to_uri(asal)
+
+
+def _konteks_kembali(request, device=None, maintenance=None):
+    """Konteks tombol Kembali — dipakai SEMUA template form per jenis.
+
+    Label diambil dari nama route asal, bukan dari querystring, supaya teks
+    tombol tidak bisa disetir dari URL.
+    """
+    asal = _asal_kembali(request)
+    if asal:
+        label = 'Kembali'
+        try:
+            label = LABEL_ASAL_KEMBALI.get(resolve(urlparse(asal).path).url_name, 'Kembali')
+        except Resolver404:
+            pass
+        return {'dari': asal, 'kembali_url': asal, 'kembali_label': label}
+
+    if maintenance is not None:
+        return {'dari': '', 'kembali_url': reverse('maintenance_view', args=[maintenance.pk]),
+                'kembali_label': 'Kembali ke Detail'}
+    if device is not None:
+        return {'dari': '', 'kembali_url': reverse('device_view', args=[device.pk]),
+                'kembali_label': 'Kembali ke Perangkat'}
+    return {'dari': '', 'kembali_url': reverse('maintenance_list'),
+            'kembali_label': 'Kembali ke Daftar'}
 
 
 def _sync_device_photo_from_maintenance(maintenance):
@@ -267,7 +326,8 @@ def maintenance_create(request, device_id):
                    f'{maintenance.maintenance_type} | Status: {maintenance.status}')
             if request.POST.get('next') == 'pdf':
                 return redirect(f"{reverse('export_maintenance_pdf', args=[maintenance.pk])}?preview=1")
-            return redirect('maintenance_list')
+            # Kembali ke halaman asal (mis. daftar peralatan Jadwal Pemeliharaan)
+            return redirect(_asal_kembali(request) or reverse('maintenance_list'))
     else:
         mform = MaintenanceForm()
         dform = detail_form_class() if detail_form_class else None
@@ -286,6 +346,7 @@ def maintenance_create(request, device_id):
         'detail_form':      dform,
         'device':           device,
         'slot_fields':      slot_fields,
+        **_konteks_kembali(request, device=device),
         **sas_ctx,
         **ms_ctx,
     })
@@ -893,7 +954,7 @@ def maintenance_edit(request, pk):
                    f'{maintenance.maintenance_type}')
             if request.POST.get('next') == 'pdf':
                 return redirect(f"{reverse('export_maintenance_pdf', args=[maintenance.pk])}?preview=1")
-            return redirect('maintenance_view', pk=pk)
+            return redirect(_asal_kembali(request) or reverse('maintenance_view', args=[pk]))
     else:
         mform = MaintenanceForm(instance=maintenance)
         dform = detail_form_class(instance=detail_instance) if detail_form_class else None
@@ -915,6 +976,7 @@ def maintenance_edit(request, pk):
         'maintenance':      maintenance,
         'slot_fields':      slot_fields_edit,
         'pelaksana_names_json': json.dumps(maintenance.pelaksana_names or []),
+        **_konteks_kembali(request, device=device, maintenance=maintenance),
         **sas_ctx,
         **ms_ctx,
     })
