@@ -190,7 +190,8 @@ class Up2dAccessMiddleware:
     """
     Middleware untuk role UP2D — hanya bisa akses:
     - /opsis/up2d/
-    - /opsis/beban-trafo/, /opsis/beban-ktt/ (halaman detail dari card up2d)
+    - /opsis/beban-trafo/, /opsis/beban-trafo-chart/, /opsis/beban-ktt/
+      (halaman yang ada di menu sidebar UP2D)
     - API OPSIS yang dibutuhkan dashboard UP2D
     - /login/, /logout/, /ganti-password/
     - static, media
@@ -200,15 +201,23 @@ class Up2dAccessMiddleware:
     ALLOWED_EXACT = (
         '/opsis/up2d/',
         '/opsis/beban-trafo/',
+        '/opsis/beban-trafo-chart/',
         '/opsis/beban-ktt/',
     )
+    # CATATAN: prefix diuji dengan startswith, dan '/opsis/api/beban-trafo/'
+    # TIDAK cocok dengan '/opsis/api/beban-trafo-chart/' (karakter setelah
+    # 'beban-trafo' berbeda: '-' vs '/'). Jadi tiap endpoint chart harus
+    # didaftarkan sendiri — halamannya ada di menu UP2D tapi datanya kosong
+    # kalau baris ini terlewat.
     ALLOWED_PREFIXES = (
         '/opsis/api/hz/',
         '/opsis/api/hz-sultra/',
         '/opsis/api/hz-baubau/',
         '/opsis/api/freq/',
         '/opsis/api/beban-trafo/',
+        '/opsis/api/beban-trafo-chart/',
         '/opsis/api/beban-ktt/',
+        '/opsis/api/beban-ktt-chart/',
         '/static/',
         '/media/',
         '/logout/',

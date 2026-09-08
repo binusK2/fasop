@@ -529,6 +529,44 @@ class SnapTrafo(models.Model):
         return f"{self.trafo} @ {self.waktu:%Y-%m-%d %H:%M}"
 
 
+class SnapKtt(models.Model):
+    """
+    Snapshot beban konsumen tegangan tinggi (KTT) dari MSSQL `IND_LOAD`,
+    disimpan ke PostgreSQL tiap menit lewat management command 'collect_ktt'.
+
+    Ada karena alasan yang sama persis dengan SnapTrafo: `IND_LOAD` hanya
+    menyimpan nilai REALTIME yang ditimpa di tempat — tidak ada satu pun kolom
+    waktu dan tidak ada histori. Tanpa tabel ini, chart 24 jam Beban KTT tidak
+    punya sumbu waktu untuk digambar.
+
+    Berbeda dari SnapTrafo, di sini TIDAK ada model registry: konsumen KTT
+    dikenali langsung dari kode `ANALOG` (IND_ANTAM, IND_CERIA, ...). Konsumen
+    baru di historian karena itu langsung ikut terekam tanpa perlu didaftarkan
+    lebih dulu — sama seperti tabel di halaman Beban KTT yang menampilkan kode
+    tak dikenal apa adanya (lihat opsis/ktt.py).
+
+    Baris IND_TOTAL ikut disimpan apa adanya. Total sistem lebih baik diambil
+    dari angka historian sendiri daripada dijumlahkan ulang dari konsumen —
+    kalau ada titik yang tidak terbaca semenit, jumlah rakitan sendiri akan
+    turun tanpa sebab sementara IND_TOTAL tetap benar.
+    """
+    analog       = models.CharField(max_length=50, db_index=True,
+                                    verbose_name='Kode ANALOG')
+    waktu        = models.DateTimeField()        # floor ke menit (timezone-aware)
+    mw           = models.FloatField(null=True, verbose_name='Beban (MW)')
+    dicatat_pada = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('analog', 'waktu')
+        indexes = [models.Index(fields=['analog', '-waktu'])]
+        ordering = ['-waktu']
+        verbose_name = 'Snapshot Beban KTT'
+        verbose_name_plural = 'Snapshot Beban KTT'
+
+    def __str__(self):
+        return f"{self.analog} @ {self.waktu:%Y-%m-%d %H:%M}"
+
+
 class PrakiraanBeban(models.Model):
     """
     Prakiraan beban sistem (total MW) yang berasal dari SPREADSHEET dispatcher,
