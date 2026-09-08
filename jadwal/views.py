@@ -294,25 +294,41 @@ def jadwal_create(request):
     return redirect('jadwal_list')
 
 
+def _devices_jadwal(jadwal):
+    """Peralatan yang masuk lingkup satu jadwal kunjungan.
+
+    Satu-satunya definisinya — dipakai halaman detail, aksi per peralatan, dan
+    aksi massal. Kalau tiap tempat menyusun filternya sendiri, tombol "Tandai
+    Selesai" bisa membuat pemeliharaan untuk peralatan yang tidak pernah
+    tampil di daftarnya.
+    """
+    return Device.objects.filter(
+        lokasi__iexact=jadwal.lokasi, is_deleted=False, host__isnull=True,
+    ).exclude(jenis__name__in=JADWAL_EXCLUDED_JENIS)
+
+
+def _maintenance_periode(jadwal, device):
+    """Pemeliharaan Preventive peralatan ini di periode jadwal, kalau ada."""
+    return Maintenance.objects.filter(
+        device=device,
+        maintenance_type='Preventive',
+        date__year=jadwal.tahun_rencana,
+        date__month=jadwal.bulan_rencana,
+    ).order_by('-date').first()
+
+
 @login_required
 def jadwal_detail(request, pk):
     """Detail satu jadwal kunjungan — progress per device."""
     jadwal = get_object_or_404(JadwalKunjungan, pk=pk)
     jadwal.sync_status()
 
-    devices = Device.objects.filter(
-        lokasi__iexact=jadwal.lokasi, is_deleted=False, host__isnull=True,
-    ).exclude(jenis__name__in=JADWAL_EXCLUDED_JENIS).select_related('jenis').order_by('jenis__name', 'nama')
+    devices = _devices_jadwal(jadwal).select_related('jenis').order_by('jenis__name', 'nama')
 
     # Cek tiap device: sudah ada maintenance Preventive di periode ini?
     device_data = []
     for d in devices:
-        maintenance_periode = Maintenance.objects.filter(
-            device=d,
-            maintenance_type='Preventive',
-            date__year=jadwal.tahun_rencana,
-            date__month=jadwal.bulan_rencana,
-        ).order_by('-date').first()
+        maintenance_periode = _maintenance_periode(jadwal, d)
 
         # HI device
         try:
@@ -359,9 +375,7 @@ def jadwal_selesai_semua(request, pk):
     from datetime import datetime
     if request.method == 'POST':
         jadwal = get_object_or_404(JadwalKunjungan, pk=pk)
-        devices = Device.objects.filter(
-            lokasi__iexact=jadwal.lokasi, is_deleted=False, host__isnull=True,
-        ).exclude(jenis__name__in=JADWAL_EXCLUDED_JENIS)
+        devices = _devices_jadwal(jadwal)
 
         tgl = timezone.make_aware(datetime(jadwal.tahun_rencana, jadwal.bulan_rencana, 1))
 
@@ -378,8 +392,53 @@ def jadwal_selesai_semua(request, pk):
                     maintenance_type='Preventive',
                     date=tgl,
                     status='Done',
-                    description='Ditandai selesai via Jadwal Kunjungan (bulk)',
+                    description='Ditandai selesai via Jadwal Pemeliharaan (bulk)',
                 )
+    return redirect('jadwal_detail', pk=pk)
+
+
+@login_required
+@require_can_edit
+def jadwal_device_done(request, pk, device_id):
+    """Tandai SATU peralatan selesai dipelihara di periode jadwal ini.
+
+    Padanan per-peralatan dari `jadwal_selesai_semua`, untuk peralatan yang
+    memang tidak perlu form pemeliharaan penuh. Dua keadaan:
+
+    - belum ada pemeliharaan di periode ini  → buat baris Preventive/Done
+    - sudah ada tapi masih Open              → statusnya dijadikan Done
+
+    Peralatannya WAJIB berasal dari daftar jadwal ini (`_devices_jadwal`):
+    tanpa itu, device_id apa pun bisa dikirim ke endpoint ini dan membuat
+    pemeliharaan untuk peralatan di lokasi lain.
+    """
+    from django.contrib import messages
+    from datetime import datetime
+
+    if request.method != 'POST':
+        return redirect('jadwal_detail', pk=pk)
+
+    jadwal = get_object_or_404(JadwalKunjungan, pk=pk)
+    device = get_object_or_404(_devices_jadwal(jadwal), pk=device_id)
+
+    m = _maintenance_periode(jadwal, device)
+    if m is None:
+        Maintenance.objects.create(
+            device=device,
+            maintenance_type='Preventive',
+            date=timezone.make_aware(
+                datetime(jadwal.tahun_rencana, jadwal.bulan_rencana, 1)),
+            status='Done',
+            description='Ditandai selesai via Jadwal Pemeliharaan',
+        )
+        messages.success(request, f'{device.nama} ditandai selesai.')
+    elif m.status != 'Done':
+        m.status = 'Done'
+        m.save(update_fields=['status'])
+        messages.success(request, f'Pemeliharaan {device.nama} ditandai selesai.')
+    else:
+        messages.info(request, f'{device.nama} memang sudah selesai.')
+
     return redirect('jadwal_detail', pk=pk)
 
 

@@ -1,0 +1,6 @@
+{% comment %}
+Bawa halaman asal ikut POST, supaya setelah Simpan penggunanya kembali ke
+tempat ia datang. Wajib DI DALAM <form>: sebagian template memasang
+action="..." eksplisit yang membuang querystring ?dari= milik URL sekarang.
+{% endcomment %}
+{% if dari %}<input type="hidden" name="dari" value="{{ dari }}">{% endif %}

@@ -1,0 +1,12 @@
+{% comment %}
+Tombol Kembali form pemeliharaan.
+
+URL & labelnya ditentukan view (_konteks_kembali di maintenance/views.py),
+bukan di masing-masing template — form pemeliharaan punya 20 template per
+jenis perangkat, dan sebelumnya tiap template menuliskan sendiri tujuannya.
+Akibatnya alur "Catat dari Jadwal Pemeliharaan" harus ditambal 20 kali kalau
+tujuannya diatur di template.
+{% endcomment %}
+<a href="{{ kembali_url }}" class="btn btn-sm btn-outline-secondary">
+    <i class="bi bi-arrow-left me-1"></i>{{ kembali_label }}
+</a>

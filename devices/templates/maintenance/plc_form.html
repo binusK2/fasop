@@ -5,15 +5,7 @@
 {% block content %}
 
 <div class="d-flex align-items-center gap-2 mb-3">
-    {% if is_edit %}
-    <a href="{% url 'maintenance_view' maintenance.id %}" class="btn btn-sm btn-outline-secondary">
-        <i class="bi bi-arrow-left me-1"></i>Kembali ke Detail
-    </a>
-    {% else %}
-    <a href="{% url 'device_view' device.id %}" class="btn btn-sm btn-outline-secondary">
-        <i class="bi bi-arrow-left me-1"></i>Kembali ke Perangkat
-    </a>
-    {% endif %}
+    {% include 'maintenance/_tombol_kembali.html' %}
 </div>
 
 {% include 'maintenance/_device_banner.html' with banner_icon='bi-cpu' banner_icon_color='#93c5fd' banner_icon_bg='rgba(59,130,246,0.2)' %}
@@ -21,6 +13,7 @@
 <form method="post" enctype="multipart/form-data"
     {% if is_edit %}action="{% url 'maintenance_edit' maintenance.id %}"{% endif %}>
 {% csrf_token %}
+{% include 'maintenance/_asal_kembali.html' %}
 
 <!-- ══ 1. INFORMASI MAINTENANCE ══════════════════════════════ -->
 <div class="card mb-3">

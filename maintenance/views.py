@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.urls import reverse
+from django.urls import reverse, resolve, Resolver404
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.clickjacking import xframe_options_exempt, xframe_options_sameorigin
 from devices.permissions import require_can_edit, require_can_delete, is_viewer_only
@@ -24,9 +24,73 @@ from openpyxl.utils import get_column_letter
 from datetime import date
 from auditlog.utils import log_action as _audit
 from django.core.files.base import ContentFile
+import logging
 
-# Jumlah baris tabel detail per halaman di Laporan Pemeliharaan.
-LAPORAN_PER_HALAMAN = 50
+logger = logging.getLogger(__name__)
+from django.utils.encoding import iri_to_uri
+from django.utils.http import url_has_allowed_host_and_scheme
+from urllib.parse import urlparse
+
+# Jumlah baris per halaman untuk daftar panjang (Semua Pemeliharaan, tabel
+# detail Laporan Pemeliharaan). Satu aturan, supaya kedua halaman tidak
+# diam-diam berbeda.
+BARIS_PER_HALAMAN = 50
+
+
+# ── Tombol "Kembali" di form pemeliharaan ─────────────────────────────
+# Form dibuka dari beberapa tempat (detail perangkat, Jadwal Pemeliharaan), dan
+# tujuan tombol Kembali ikut asalnya. Asal dikirim sebagai ?dari=<path>.
+#
+# Sengaja BUKAN 'next': field POST 'next' di form ini sudah dipakai sebagai
+# penanda "simpan lalu buka PDF" (`request.POST.get('next') == 'pdf'`).
+LABEL_ASAL_KEMBALI = {
+    'jadwal_detail':    'Kembali ke Jadwal',
+    'jadwal_list':      'Kembali ke Jadwal',
+    'device_view':      'Kembali ke Perangkat',
+    'maintenance_list': 'Kembali ke Daftar',
+}
+
+
+def _asal_kembali(request):
+    """Path asal yang boleh dipakai tombol Kembali, atau None.
+
+    Nilainya datang dari URL, jadi WAJIB divalidasi: tanpa
+    url_has_allowed_host_and_scheme, ?dari=https://situs-lain/ akan mengubah
+    tombol Kembali jadi open redirect.
+    """
+    asal = request.POST.get('dari') or request.GET.get('dari') or ''
+    if not asal:
+        return None
+    if not url_has_allowed_host_and_scheme(
+            asal, allowed_hosts={request.get_host()},
+            require_https=request.is_secure()):
+        return None
+    return iri_to_uri(asal)
+
+
+def _konteks_kembali(request, device=None, maintenance=None):
+    """Konteks tombol Kembali — dipakai SEMUA template form per jenis.
+
+    Label diambil dari nama route asal, bukan dari querystring, supaya teks
+    tombol tidak bisa disetir dari URL.
+    """
+    asal = _asal_kembali(request)
+    if asal:
+        label = 'Kembali'
+        try:
+            label = LABEL_ASAL_KEMBALI.get(resolve(urlparse(asal).path).url_name, 'Kembali')
+        except Resolver404:
+            pass
+        return {'dari': asal, 'kembali_url': asal, 'kembali_label': label}
+
+    if maintenance is not None:
+        return {'dari': '', 'kembali_url': reverse('maintenance_view', args=[maintenance.pk]),
+                'kembali_label': 'Kembali ke Detail'}
+    if device is not None:
+        return {'dari': '', 'kembali_url': reverse('device_view', args=[device.pk]),
+                'kembali_label': 'Kembali ke Perangkat'}
+    return {'dari': '', 'kembali_url': reverse('maintenance_list'),
+            'kembali_label': 'Kembali ke Daftar'}
 
 
 def _sync_device_photo_from_maintenance(maintenance):
@@ -196,8 +260,20 @@ def maintenance_list(request):
         .distinct().order_by('lokasi_clean')
     )
 
+    # Daftar ini memuat SELURUH form HAR; tanpa dipotong, halamannya makin
+    # lama makin berat seiring data pemeliharaan menumpuk.
+    paginator = Paginator(maintenances, BARIS_PER_HALAMAN)
+    page_obj  = paginator.get_page(request.GET.get('page'))
+
+    # Querystring filter tanpa 'page', supaya tautan halaman tidak kehilangan filter
+    params = request.GET.copy()
+    params.pop('page', None)
+
     return render(request, 'maintenance/maintenance_list.html', {
-        'maintenances':    maintenances,
+        'maintenances':    page_obj.object_list,
+        'page_obj':        page_obj,
+        'paginator':       paginator,
+        'querystring':     params.urlencode(),
         'lokasi_list':     lokasi_list,
         'selected_lokasi': lokasi,
         'selected_status': status,
@@ -267,7 +343,8 @@ def maintenance_create(request, device_id):
                    f'{maintenance.maintenance_type} | Status: {maintenance.status}')
             if request.POST.get('next') == 'pdf':
                 return redirect(f"{reverse('export_maintenance_pdf', args=[maintenance.pk])}?preview=1")
-            return redirect('maintenance_list')
+            # Kembali ke halaman asal (mis. daftar peralatan Jadwal Pemeliharaan)
+            return redirect(_asal_kembali(request) or reverse('maintenance_list'))
     else:
         mform = MaintenanceForm()
         dform = detail_form_class() if detail_form_class else None
@@ -286,6 +363,7 @@ def maintenance_create(request, device_id):
         'detail_form':      dform,
         'device':           device,
         'slot_fields':      slot_fields,
+        **_konteks_kembali(request, device=device),
         **sas_ctx,
         **ms_ctx,
     })
@@ -324,7 +402,9 @@ def maintenance_update_status(request, pk):
                maintenance.pk,
                f'{maintenance.device.nama} — {maintenance.date}',
                f'Status: {old_status} → {maintenance.status}')
-    return redirect('maintenance_list')
+    # Kembali ke halaman & filter asal — kalau selalu ke halaman 1, menandai
+    # selesai satu baris dari halaman 3 melempar penggunanya ke awal daftar.
+    return redirect(_asal_kembali(request) or reverse('maintenance_list'))
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -855,10 +935,28 @@ def _detail_instance(maintenance, detail_form_class):
 # ─────────────────────────────────────────────────────────────────────
 @login_required
 def maintenance_edit(request, pk):
+    from django.contrib import messages
+
     maintenance = get_object_or_404(Maintenance, pk=pk)
     # Corrective punya form & flow sendiri — jangan campur dengan preventive
     if maintenance.maintenance_type == 'Corrective':
         return redirect('corrective_edit', pk=pk)
+
+    # Pemeliharaan yang sudah selesai/ditandatangani terkunci. Aturan ini dulu
+    # hanya ada di template detail (tombol Edit disembunyikan), jadi tautan lain
+    # ke halaman ini — mis. dari daftar peralatan Jadwal Pemeliharaan — diam-diam
+    # melewatinya. Ditegakkan di view supaya berlaku untuk SEMUA jalan masuk,
+    # termasuk POST-nya, bukan cuma tombol yang kebetulan disembunyikan.
+    if maintenance.signed_by:
+        messages.error(request, 'Pemeliharaan yang sudah ditandatangani tidak bisa diubah.')
+        return redirect('maintenance_view', pk=pk)
+    if maintenance.status == 'Done':
+        messages.error(
+            request,
+            'Pemeliharaan yang sudah selesai tidak bisa diubah. '
+            'Tekan "Buka Kembali" dulu bila memang perlu diperbaiki.')
+        return redirect('maintenance_view', pk=pk)
+
     device      = maintenance.device
     detail_form_class, template = _get_detail_form_config(device)
 
@@ -893,7 +991,7 @@ def maintenance_edit(request, pk):
                    f'{maintenance.maintenance_type}')
             if request.POST.get('next') == 'pdf':
                 return redirect(f"{reverse('export_maintenance_pdf', args=[maintenance.pk])}?preview=1")
-            return redirect('maintenance_view', pk=pk)
+            return redirect(_asal_kembali(request) or reverse('maintenance_view', args=[pk]))
     else:
         mform = MaintenanceForm(instance=maintenance)
         dform = detail_form_class(instance=detail_instance) if detail_form_class else None
@@ -915,6 +1013,7 @@ def maintenance_edit(request, pk):
         'maintenance':      maintenance,
         'slot_fields':      slot_fields_edit,
         'pelaksana_names_json': json.dumps(maintenance.pelaksana_names or []),
+        **_konteks_kembali(request, device=device, maintenance=maintenance),
         **sas_ctx,
         **ms_ctx,
     })
@@ -1016,7 +1115,7 @@ def maintenance_report(request):
 
     # Tabel detail dipotong per halaman — sebelumnya seluruh baris satu periode
     # (bisa ribuan, dan mode YTD menarik satu tahun penuh) dirender sekaligus.
-    paginator = Paginator(maintenances, LAPORAN_PER_HALAMAN)
+    paginator = Paginator(maintenances, BARIS_PER_HALAMAN)
     page_obj  = paginator.get_page(request.GET.get('page'))
 
     # Querystring filter tanpa 'page', supaya tautan halaman tidak kehilangan periode
@@ -2936,6 +3035,10 @@ def corrective_add(request, device_id=None, gangguan_id=None):
                 except Exception:
                     pass
 
+            # Terbitkan BA bila operator menjawab Ya di popup saat simpan
+            if request.POST.get('terbitkan_ba') == '1':
+                _ba_terbit_lalu_ingatkan(request, maint, corr)
+
             # Redirect sesuai konteks
             if gangguan_obj and update_gangguan:
                 return redirect('gangguan_detail', pk=gangguan_obj.pk)
@@ -2962,6 +3065,7 @@ def corrective_add(request, device_id=None, gangguan_id=None):
         'today_date':     _date.today().strftime('%Y-%m-%dT%H:%M'),
         'from_gangguan':  gangguan_id is not None,
         'from_device':    device_id is not None,
+        'ba_terkait':     None,   # perbaikannya belum ada, jadi BA-nya pasti belum
     })
 
 
@@ -3492,6 +3596,10 @@ def corrective_edit(request, pk):
         status_perbaikan  = request.POST.get('status_perbaikan', 'selesai')
         foto_sebelum      = request.FILES.get('foto_sebelum')
         foto_sesudah      = request.FILES.get('foto_sesudah')
+        # Dropdown "Komponen Terkait" ada di form ini dan pilihannya bahkan
+        # dipulihkan lewat JS, tapi dulu tidak pernah dibaca saat simpan —
+        # perubahannya hilang tanpa pesan apa pun.
+        komponen_terkait_pk = request.POST.get('komponen_terkait', '') or None
 
         if tanggal and deskripsi_masalah and tindakan:
             # Parse pelaksana (JSON array atau comma-separated)
@@ -3517,9 +3625,18 @@ def corrective_edit(request, pk):
             corr.durasi_jam        = int(durasi_jam)   if durasi_jam   else None
             corr.durasi_menit      = int(durasi_menit) if durasi_menit else None
             corr.status_perbaikan  = status_perbaikan
+            if komponen_terkait_pk:
+                from devices.models_komponen import DeviceComponent
+                corr.komponen_terkait = DeviceComponent.objects.filter(
+                    pk=komponen_terkait_pk).first()
+            else:
+                corr.komponen_terkait = None
             if foto_sebelum: corr.foto_sebelum = foto_sebelum
             if foto_sesudah: corr.foto_sesudah = foto_sesudah
             corr.save()
+
+            if request.POST.get('terbitkan_ba') == '1':
+                _ba_terbit_lalu_ingatkan(request, maint, corr)
 
             return redirect('maintenance_view', pk=maint.pk)
 
@@ -3549,6 +3666,8 @@ def corrective_edit(request, pk):
         'from_device':          True,
         'today_date':           tanggal_str,
         'pelaksana_init_json':  pelaksana_json,
+        'ba_terkait':           BeritaAcaraRecord.objects.filter(
+                                    sumber_maintenance=maint).first(),
     })
 
 
@@ -3637,6 +3756,148 @@ _BA_JUDUL = {
     'gangguan':     'BERITA ACARA GANGGUAN',
     'penormalan':   'BERITA ACARA PENORMALAN',
 }
+
+
+def _ba_terbit_lalu_ingatkan(request, maint, corr):
+    """Terbitkan BA lalu beri tahu di layar bahwa BA itu belum selesai.
+
+    Pesannya membawa tautan langsung ke editor BA — BA tanpa nomor yang cuma
+    diberitahukan sekali lewat toast adalah BA yang akan terlupakan.
+    """
+    from django.contrib import messages
+    from django.utils.safestring import mark_safe
+
+    try:
+        ba, dibuat = _ba_terbit_dari_corrective(request, maint, corr)
+    except Exception:
+        logger.exception('Gagal menerbitkan BA dari corrective %s', maint.pk)
+        messages.error(
+            request,
+            'Perbaikan tersimpan, tapi Berita Acara gagal diterbitkan. '
+            'Buat BA-nya manual lewat menu Berita Acara.')
+        return None
+
+    tautan = reverse('ba_edit', args=[ba.pk])
+    if dibuat:
+        messages.warning(
+            request,
+            mark_safe(
+            f'Berita Acara terbit tanpa nomor dan PERLU DISELESAIKAN — '
+            f'isi nomor BA lalu ajukan tanda tangan. '
+            f'<a href="{tautan}" class="alert-link">Lengkapi BA sekarang</a>'))
+    else:
+        messages.info(
+            request,
+            mark_safe(f'Perbaikan ini sudah punya Berita Acara. '
+                      f'<a href="{tautan}" class="alert-link">Buka BA-nya</a>'))
+    return ba
+
+
+def _ba_terbit_dari_corrective(request, maint, corr):
+    """Terbitkan Berita Acara dari satu perbaikan corrective. Return (ba, dibuat).
+
+    BENTUK BA-NYA TIDAK DIUBAH mengikuti form corrective — yang dipakai persis
+    kolom bawaan BA jenis 'gangguan' (_BA_DEFAULT_COLUMNS), jadi hasilnya sama
+    dengan BA yang diketik manual dan template PDF-nya tidak perlu disentuh.
+    Isian corrective hanya dipetakan ke kolom-kolom itu.
+
+    Nomornya sengaja DIKOSONGKAN: penomoran BA mengikuti agenda kantor, bukan
+    sistem. Itu sebabnya BA ini terbit sebagai draft dan pembuatnya diberi
+    notifikasi untuk melengkapinya.
+    """
+    from notifikasi.views import notif_ke_user
+
+    # Baca ulang dari DB dulu: view korektif menyimpan `date` langsung dari
+    # string POST, jadi di memori nilainya masih string dan bukan datetime.
+    # Sekalian memastikan BA memotret apa yang BENAR-BENAR tersimpan.
+    maint.refresh_from_db()
+
+    # Satu perbaikan cukup satu BA — form corrective bisa disimpan berkali-kali
+    ada = BeritaAcaraRecord.objects.filter(sumber_maintenance=maint).first()
+    if ada:
+        return ada, False
+
+    device   = maint.device
+    gangguan = corr.gangguan
+
+    komponen = ''
+    if corr.komponen_terkait_id:
+        komponen = str(corr.komponen_terkait)
+    elif corr.nama_komponen:
+        komponen = corr.nama_komponen
+
+    # Keterangan: tindakan, ditambah rincian yang tidak punya kolom sendiri
+    ket = [corr.tindakan or '']
+    if corr.kondisi_sebelum or corr.kondisi_sesudah:
+        ket.append(f'Kondisi: {corr.kondisi_sebelum or "—"} → {corr.kondisi_sesudah or "—"}')
+    if corr.durasi_jam or corr.durasi_menit:
+        ket.append(f'Durasi: {corr.durasi_jam or 0} jam {corr.durasi_menit or 0} menit')
+    if corr.komponen_diganti:
+        ket.append('Ada komponen diganti')
+
+    kolom = list(_BA_DEFAULT_COLUMNS['gangguan'])
+    baris = [{
+        'no': 1,
+        'cells': [
+            device.lokasi or '',
+            dj_timezone.localtime(gangguan.tanggal_gangguan).strftime('%d/%m/%Y %H:%M')
+                if gangguan and gangguan.tanggal_gangguan else '',
+            dj_timezone.localtime(maint.date).strftime('%d/%m/%Y %H:%M') if maint.date else '',
+            device.nama or '',
+            komponen,
+            corr.deskripsi_masalah or '',
+            ' | '.join(p for p in ket if p),
+        ],
+    }]
+
+    pelaksana = ', '.join(maint.pelaksana_names or []) or (
+        request.user.get_full_name() or request.user.username)
+
+    ba = BeritaAcaraRecord.objects.create(
+        jenis='gangguan',
+        nomor_ba='',                       # diisi manual, lihat docstring
+        tanggal=dj_timezone.localtime(maint.date).date() if maint.date else date.today(),
+        pelaksana=pelaksana[:200],
+        catatan=(gangguan.nomor_gangguan if gangguan else ''),
+        columns_data=kolom,
+        rows_data=baris,
+        sumber_maintenance=maint,
+        created_by=request.user,
+        ttd_status='draft',
+    )
+
+    # Foto disalin jadi eviden, BUKAN ditunjuk: mengganti foto pemeliharaan
+    # tidak boleh mengubah lampiran dokumen yang sudah diteken.
+    urut = 0
+    for foto, judul in ((corr.foto_sebelum, 'Sebelum perbaikan'),
+                        (corr.foto_sesudah, 'Sesudah perbaikan')):
+        if not foto:
+            continue
+        try:
+            foto.open('rb')
+            isi = foto.read()
+        except Exception:
+            continue
+        finally:
+            try:
+                foto.close()
+            except Exception:
+                pass
+        ev = BeritaAcaraEviden(ba=ba, catatan=judul, urutan=urut)
+        ev.gambar.save(os.path.basename(foto.name), ContentFile(isi), save=True)
+        urut += 1
+
+    notif_ke_user(
+        user=request.user,
+        tipe='ba_perlu_dilengkapi',
+        judul='Berita Acara perlu dilengkapi',
+        pesan=(f'BA perbaikan {device.nama} ({device.lokasi}) sudah terbit '
+               f'tanpa nomor. Isi nomor BA lalu ajukan tanda tangan.'),
+        level='warning',
+        url=reverse('ba_edit', args=[ba.pk]),
+        device=device,
+    )
+    return ba, True
 
 
 def _ba_default_columns_json():

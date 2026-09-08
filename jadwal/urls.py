@@ -7,5 +7,7 @@ urlpatterns = [
     path('<hid:pk>/',     views.jadwal_detail, name='jadwal_detail'),
     path('<hid:pk>/done/', views.jadwal_done,  name='jadwal_done'),
     path('<hid:pk>/selesai-semua/', views.jadwal_selesai_semua, name='jadwal_selesai_semua'),
+    path('<hid:pk>/peralatan/<hid:device_id>/selesai/', views.jadwal_device_done,
+         name='jadwal_device_done'),
     path('<hid:pk>/hapus/', views.jadwal_delete, name='jadwal_delete'),
 ]
