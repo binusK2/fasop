@@ -205,18 +205,36 @@
                         </a>
                         {% endif %}
 
-                        {% if item.maintenance_periode %}
-                        <a href="{% url 'maintenance_edit' item.maintenance_periode.pk %}?dari={{ request.path|urlencode }}"
-                           class="btn btn-sm btn-outline-primary"
-                           style="font-size:11px;padding:2px 9px;">
-                            <i class="bi bi-pencil me-1"></i>Edit
-                        </a>
-                        {% else %}
+                        {% comment %}
+                        Aturan yang sama dengan halaman detail pemeliharaan:
+                        yang sudah Selesai atau sudah ditandatangani terkunci.
+                        Menampilkan Edit di sini hanya akan memantulkan
+                        penggunanya kembali — view-nya menolak.
+                        {% endcomment %}
+                        {% if not item.maintenance_periode %}
                         <span class="btn btn-sm btn-outline-secondary disabled"
                               style="font-size:11px;padding:2px 9px;pointer-events:none;opacity:.45;"
                               title="Belum ada pemeliharaan periode ini — catat dulu">
                             <i class="bi bi-pencil me-1"></i>Edit
                         </span>
+                        {% elif item.maintenance_periode.signed_by %}
+                        <span class="btn btn-sm btn-outline-secondary disabled"
+                              style="font-size:11px;padding:2px 9px;pointer-events:none;opacity:.45;"
+                              title="Sudah ditandatangani — terkunci">
+                            <i class="bi bi-lock me-1"></i>Edit
+                        </span>
+                        {% elif item.maintenance_periode.status == 'Done' %}
+                        <span class="btn btn-sm btn-outline-secondary disabled"
+                              style="font-size:11px;padding:2px 9px;pointer-events:none;opacity:.45;"
+                              title="Sudah selesai — buka kembali dari halaman pemeliharaannya bila perlu diperbaiki">
+                            <i class="bi bi-lock me-1"></i>Edit
+                        </span>
+                        {% else %}
+                        <a href="{% url 'maintenance_edit' item.maintenance_periode.pk %}?dari={{ request.path|urlencode }}"
+                           class="btn btn-sm btn-outline-primary"
+                           style="font-size:11px;padding:2px 9px;">
+                            <i class="bi bi-pencil me-1"></i>Edit
+                        </a>
                         {% endif %}
 
                         {% if user_can_edit %}

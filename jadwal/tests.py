@@ -61,9 +61,26 @@ class JadwalAksiPeralatanTests(TestCase):
             resp, reverse('maintenance_add_device', args=[self.device.pk]) + '?dari=')
 
     def test_tombol_edit_menunjuk_pemeliharaan_periode_ini(self):
-        m = self._maintenance()
+        m = self._maintenance(status='Open')
         resp = self.client.get(self.url_detail)
         self.assertContains(resp, reverse('maintenance_edit', args=[m.pk]))
+
+    def test_edit_terkunci_setelah_selesai(self):
+        """Done = terkunci, aturan yang sama dengan halaman detail pemeliharaan.
+
+        Kalau tautannya tetap dipasang, penggunanya cuma dipantulkan balik
+        oleh view-nya.
+        """
+        m = self._maintenance(status='Done')
+        resp = self.client.get(self.url_detail)
+        self.assertNotContains(resp, reverse('maintenance_edit', args=[m.pk]))
+
+    def test_edit_terkunci_setelah_ditandatangani(self):
+        m = self._maintenance(status='Open')
+        m.signed_by = self.user
+        m.save(update_fields=['signed_by'])
+        resp = self.client.get(self.url_detail)
+        self.assertNotContains(resp, reverse('maintenance_edit', args=[m.pk]))
 
     def test_tandai_selesai_membuat_pemeliharaan_bila_belum_ada(self):
         resp = self.client.post(
@@ -175,3 +192,58 @@ class TombolKembaliFormPemeliharaanTests(TestCase):
         }
         resp = self.client.post(self.url_form, data)
         self.assertRedirects(resp, reverse('maintenance_list'))
+
+class EditTerkunciSetelahSelesaiTests(TestCase):
+    """View edit menolak pemeliharaan yang sudah selesai / ditandatangani.
+
+    Aturannya dulu hanya berupa tombol yang disembunyikan di template detail,
+    jadi setiap tautan baru ke halaman edit — seperti tombol Edit di Jadwal
+    Pemeliharaan — otomatis melewatinya, termasuk POST-nya.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_superuser(username='am_kunci', password='rahasia')
+        profil, _ = UserProfile.objects.get_or_create(user=self.user)
+        profil.role = 'asisten_manager'
+        profil.force_password_change = False
+        profil.save()
+        self.client.force_login(self.user)
+
+        jenis = DeviceType.objects.create(name='RTU')
+        self.device = Device.objects.create(nama='RTU-01', jenis=jenis,
+                                            merk='SEL', lokasi='GI TELLO')
+        self.m = Maintenance.objects.create(
+            device=self.device, maintenance_type='Preventive',
+            date=timezone.make_aware(timezone.datetime(2026, 9, 5, 8, 0)),
+            status='Open', description='asli')
+        self.url_edit = reverse('maintenance_edit', args=[self.m.pk])
+        self.url_view = reverse('maintenance_view', args=[self.m.pk])
+
+    def test_masih_bisa_diedit_selama_open(self):
+        self.assertEqual(self.client.get(self.url_edit).status_code, 200)
+
+    def test_ditolak_setelah_selesai(self):
+        self.m.status = 'Done'
+        self.m.save(update_fields=['status'])
+        self.assertRedirects(self.client.get(self.url_edit), self.url_view)
+
+    def test_post_ikut_ditolak_setelah_selesai(self):
+        """Penjagaan hanya di GET tidak ada gunanya — POST yang mengubah data."""
+        self.m.status = 'Done'
+        self.m.save(update_fields=['status'])
+        resp = self.client.post(self.url_edit, {
+            'maintenance_type': 'Preventive',
+            'date': '2026-09-05T08:00',
+            'description': 'DIUBAH DIAM-DIAM',
+            'status': 'Done',
+            'pelaksana_names': '[]',
+        })
+        self.assertRedirects(resp, self.url_view)
+        self.m.refresh_from_db()
+        self.assertEqual(self.m.description, 'asli')
+
+    def test_ditolak_setelah_ditandatangani(self):
+        self.m.signed_by = self.user
+        self.m.save(update_fields=['signed_by'])
+        self.assertRedirects(self.client.get(self.url_edit), self.url_view)
+

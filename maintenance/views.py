@@ -916,10 +916,28 @@ def _detail_instance(maintenance, detail_form_class):
 # ─────────────────────────────────────────────────────────────────────
 @login_required
 def maintenance_edit(request, pk):
+    from django.contrib import messages
+
     maintenance = get_object_or_404(Maintenance, pk=pk)
     # Corrective punya form & flow sendiri — jangan campur dengan preventive
     if maintenance.maintenance_type == 'Corrective':
         return redirect('corrective_edit', pk=pk)
+
+    # Pemeliharaan yang sudah selesai/ditandatangani terkunci. Aturan ini dulu
+    # hanya ada di template detail (tombol Edit disembunyikan), jadi tautan lain
+    # ke halaman ini — mis. dari daftar peralatan Jadwal Pemeliharaan — diam-diam
+    # melewatinya. Ditegakkan di view supaya berlaku untuk SEMUA jalan masuk,
+    # termasuk POST-nya, bukan cuma tombol yang kebetulan disembunyikan.
+    if maintenance.signed_by:
+        messages.error(request, 'Pemeliharaan yang sudah ditandatangani tidak bisa diubah.')
+        return redirect('maintenance_view', pk=pk)
+    if maintenance.status == 'Done':
+        messages.error(
+            request,
+            'Pemeliharaan yang sudah selesai tidak bisa diubah. '
+            'Tekan "Buka Kembali" dulu bila memang perlu diperbaiki.')
+        return redirect('maintenance_view', pk=pk)
+
     device      = maintenance.device
     detail_form_class, template = _get_detail_form_config(device)
 
