@@ -51,19 +51,60 @@ class FormCorrectiveTerbukaTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, self.gangguan.nomor_gangguan)
 
-    def test_tombol_cetak_formulir_menunggu_perangkat_dipilih(self):
-        """Tanpa perangkat, tidak ada formulir kosong yang bisa dicetak."""
-        resp = self.client.get(reverse('corrective_add'))
-        self.assertContains(resp, 'Pilih perangkat dulu')
-        # ...tapi tiap opsi membawa alamatnya sendiri untuk dipakai JS
-        self.assertContains(
-            resp, reverse('blank_maintenance_pdf', args=[self.device.pk]))
+    def test_hanya_simpan_dan_batal_di_tombol_aksinya(self):
+        """Cetak Formulir & Simpan + Cetak PDF sudah ditiadakan dari form ini."""
+        for url in (reverse('corrective_add'),
+                    reverse('corrective_add_device', args=[self.device.pk])):
+            with self.subTest(url=url):
+                resp = self.client.get(url)
+                self.assertNotContains(resp, 'Cetak Formulir')
+                self.assertNotContains(resp, 'Cetak PDF')
+                self.assertNotContains(
+                    resp, reverse('blank_maintenance_pdf', args=[self.device.pk]))
+                self.assertContains(resp, 'Simpan Corrective')
+                self.assertContains(resp, 'Batal')
 
-    def test_tombol_cetak_formulir_langsung_aktif_bila_perangkat_diketahui(self):
-        resp = self.client.get(reverse('corrective_add_device', args=[self.device.pk]))
-        self.assertContains(
-            resp, reverse('blank_maintenance_pdf', args=[self.device.pk]))
-        self.assertNotContains(resp, 'Pilih perangkat dulu')
+    def test_perangkat_bisa_dicari(self):
+        """Daftarnya memuat semua perangkat — menggulirnya tidak praktis."""
+        resp = self.client.get(reverse('corrective_add'))
+        self.assertContains(resp, 'select-cari')
+        # lokasi ikut tercari walau letaknya di judul optgroup, bukan teks opsi
+        self.assertContains(resp, 'data-cari="%s' % self.device.lokasi)
+
+    def test_pelaksana_memakai_widget_yang_sama_dengan_preventive(self):
+        """Satu widget dipakai berdua — bukan dua salinan yang lama-lama beda.
+
+        Yang membedakan dulu: corrective tidak punya autocomplete sama sekali,
+        jadi nama pelaksananya diketik bebas dan tidak pernah cocok dengan nama
+        yang dipakai form preventive.
+        """
+        korektif   = self.client.get(reverse('corrective_add'))
+        preventive = self.client.get(
+            reverse('maintenance_add_device', args=[self.device.pk]))
+
+        for resp in (korektif, preventive):
+            self.assertContains(resp, 'pelaksana-suggest')      # dropdown saran
+            self.assertContains(resp, reverse('pelaksana_search'))
+            self.assertContains(resp, 'pelaksana-add-btn')
+
+    def test_saran_pelaksana_hanya_teknisi_dan_nama_lengkapnya(self):
+        from django.contrib.auth.models import User as _User
+
+        teknisi = _User.objects.create_user(username='budi', password='x',
+                                            first_name='Budi', last_name='Santoso')
+        prof, _ = UserProfile.objects.get_or_create(user=teknisi)
+        prof.role = 'technician'
+        prof.save()
+
+        bukan = _User.objects.create_user(username='vera', password='x',
+                                          first_name='Vera', last_name='Viewer')
+        prof2, _ = UserProfile.objects.get_or_create(user=bukan)
+        prof2.role = 'viewer'
+        prof2.save()
+
+        hasil = self.client.get(reverse('pelaksana_search'), {'q': 'a'}).json()['results']
+        self.assertIn('Budi Santoso', hasil)      # nama lengkap, bukan username
+        self.assertNotIn('Vera Viewer', hasil)    # bukan teknisi
 
 
 class SimpanCorrectiveTests(TestCase):

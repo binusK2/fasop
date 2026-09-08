@@ -1105,6 +1105,19 @@ document.addEventListener('DOMContentLoaded', function () {
             placeholder: el.dataset.placeholder || 'Cari lokasi...',
         });
     });
+
+    // Dropdown panjang yang perlu dicari. Beda dari .select-lokasi: urutan
+    // aslinya dipertahankan (server sudah mengurutkan, dan optgroup-nya
+    // bermakna), dan pencarian ikut menjangkau data-data pada tiap <option>
+    // — mis. lokasi perangkat, supaya bisa dicari "TELLO" walau lokasinya
+    // ada di judul grup, bukan di teks opsinya.
+    document.querySelectorAll('.select-cari').forEach(function (el) {
+        new TomSelect(el, {
+            create: false,
+            searchField: ['text', 'cari'],
+            placeholder: el.dataset.placeholder || 'Ketik untuk mencari...',
+        });
+    });
 });
 </script>
 <script>
