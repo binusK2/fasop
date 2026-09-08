@@ -175,6 +175,7 @@ seluruh FASOP.
 | `collect_live` | opsis | Cron, every minute — MW/MVAR from MSSQL → `SnapLive` |
 | `collect_freq` | opsis | Cron, every minute — Hz from MSSQL → `SnapFreq` |
 | `collect_trafo` | opsis | Cron, every minute — P/Q per distribution transformer from MSSQL `ALL_TRANS_DATA` → `SnapTrafo`; powers the 24h per-transformer chart (`/opsis/beban-trafo-chart/`), since `ALL_TRANS_DATA` itself has no history; supports `--dry-run` |
+| `collect_ktt` | opsis | Cron, every minute — beban konsumen tegangan tinggi dari MSSQL `IND_LOAD` → `SnapKtt`; menopang chart 24 jam Beban KTT (`IND_LOAD` sendiri tak punya histori); supports `--dry-run` |
 | `collect_rtu` | device_mon | Cron, every minute — RTU UP/DOWN from MSSQL `RTU_ALL_STATE` → `RTU`/`RTULog`; supports `--dry-run` |
 | `generate_rename_plan` | devices | One-off — builds a device-rename plan for review before applying |
 | `apply_rename_plan` | devices | One-off — applies a previously generated rename plan |
@@ -928,6 +929,82 @@ hilang bersama kartunya. Tiga sheet:
   data"), bukan error — yang bertanya biasanya justru ingin tahu apakah
   datanya memang kosong.
 
+
+---
+
+## OPSIS — Dashboard & Menu Role UP2D
+
+Role UP2D punya dashboard sendiri (`/opsis/up2d/`) dan **menu sidebar sendiri
+yang datar** — empat item, tanpa submenu:
+
+```
+Dashboard · Beban Trafo Distribusi · Chart Trafo Distribusi · Beban KTT
+```
+
+Daftar itu harus selalu sama dengan `devices.middleware.Up2dAccessMiddleware`.
+Dua jebakan yang sudah pernah menggigit:
+
+- **Prefix middleware diuji `startswith`, dan `/opsis/api/beban-trafo/` TIDAK
+  mencakup `/opsis/api/beban-trafo-chart/`** (karakter setelah `beban-trafo`
+  berbeda: `-` vs `/`). Tiap endpoint chart harus didaftarkan sendiri, kalau
+  tidak halamannya terbuka tapi datanya kosong tanpa pesan error apa pun.
+- **Menu yang tidak diizinkan middleware bukan sekadar tidak berguna — ia
+  memantul.** Submenu Beban Trafo dulu memuat IBT dan Chart IBT untuk UP2D;
+  semuanya berakhir sebagai redirect 302 balik ke `/opsis/up2d/`. Tesnya
+  membuka SETIAP item menu UP2D dan menuntut 200, supaya menu dan middleware
+  tidak bisa lagi berbeda pendapat.
+
+**Logsheet & Respons Pembangkit di sidebar sekarang dijaga
+`bisa_lihat_opsis`** — properti yang sama dengan view-nya, bukan tuple role
+yang disalin ulang. Sebelum ini keduanya tampil untuk semua orang termasuk
+Teknisi dan Viewer, yang begitu diklik hanya mendapat halaman menolak. Ini
+persis kegagalan yang diperingatkan di bagian "Akses OPSIS".
+
+### Chart 24 jam Beban KTT
+
+`opsis.SnapKtt` + cron `collect_ktt` + `/opsis/api/beban-ktt-chart/`, digambar
+oleh partial `opsis/templates/opsis/_chart_ktt_24jam.html`.
+
+**Ada karena `IND_LOAD` tidak menyimpan histori sama sekali** — tabelnya nilai
+realtime yang ditimpa di tempat, tanpa satu pun kolom waktu. Alasan dan polanya
+identik dengan `SnapTrafo`/`collect_trafo`; PostgreSQL adalah satu-satunya
+sumber histori KTT dan tidak ada jalur cadangan ke MSSQL.
+
+- **Partial-nya satu berkas, di-include DUA dashboard** (`dashboard.html` dan
+  `up2d.html`) yang sama-sama sudah menampilkan bar chart KTT. Keduanya
+  menggambar data yang sama dari endpoint yang sama; dua salinan pasti berbeda
+  cepat atau lambat.
+- **Warna per konsumen dari `ktt.warna_ktt()`**, bukan dari Chart.js — satu
+  konsumen berwarna sama di bar chart, chart 24 jam, dan chip pemilih seri.
+  Fallback untuk kode tak dikenal memakai **CRC32, bukan `hash()`**: `hash()`
+  untuk str diacak per proses (PYTHONHASHSEED), jadi warnanya akan berganti
+  tiap worker gunicorn dan tiap restart. `PALET_KTT` sengaja dijauhkan dari
+  warna di `KTT_WARNA` — palet pertama memakai `#fcd34d` yang di layar tidak
+  bisa dibedakan dari `#facc15` milik HUADI 2.
+- **Seri yang DIMATIKAN yang disimpan di localStorage**, bukan yang dinyalakan.
+  Konsumen baru di `IND_LOAD` dengan sendirinya tampil, bukan diam-diam
+  tersembunyi karena tidak ada di daftar simpanan.
+- **Menit tanpa rekaman jadi `null` + `spanGaps:false`**, bukan nol dan bukan
+  garis lurus. Nol berarti "konsumen padam"; garis lurus mengarang data yang
+  tidak pernah diukur.
+- **`collect_ktt` tidak menulis apa pun saat historian tak terjangkau.** Menulis
+  nol akan membuat chart menampilkan jurang ke nol yang terbaca sebagai "semua
+  konsumen KTT padam", padahal yang padam koneksinya.
+- **Chart kosong menampilkan pesan yang menyebut cron `collect_ktt`.** "Hari ini
+  memang sepi" dan "cron-nya belum dipasang" sama-sama tampak sebagai chart
+  kosong; hanya pesannya yang membedakan.
+- Dipoll **60 detik**, bukan 2 detik seperti bar chart KTT di atasnya: `SnapKtt`
+  hanya bertambah satu titik per menit, jadi memoll lebih sering hanya menambah
+  query tanpa menambah informasi. Alasan yang sama dengan chart KIT Terpilih.
+- Diperbarui **di tempat**, bukan digambar ulang tiap poll — menggambar ulang
+  membuang pilihan seri pengguna dan mengedipkan chart di layar ruang operasi
+  yang menyala berjam-jam.
+
+Cron-nya (tiap menit, sama seperti `collect_live`/`collect_trafo`):
+
+```
+* * * * * cd /path/to/fasop && python manage.py collect_ktt >> /var/log/fasop/collect_ktt.log 2>&1
+```
 
 ---
 

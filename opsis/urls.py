@@ -47,6 +47,7 @@ urlpatterns = [
     path('api/beban-trafo-ibt-chart/',  views.api_beban_trafo_ibt_chart,  name='opsis_api_beban_trafo_ibt_chart'),
     path('beban-ktt/',            views.beban_ktt,           name='opsis_beban_ktt'),
     path('api/beban-ktt/',        views.api_beban_ktt,       name='opsis_api_beban_ktt'),
+    path('api/beban-ktt-chart/',  views.api_beban_ktt_chart, name='opsis_api_beban_ktt_chart'),
     path('prediksi-beban/',       views.prediksi_beban,      name='opsis_prediksi_beban'),
     path('api/prediksi-beban/',   views.api_prediksi_beban,  name='opsis_api_prediksi_beban'),
     path('hop/',                  views.hop_dashboard,       name='opsis_hop'),

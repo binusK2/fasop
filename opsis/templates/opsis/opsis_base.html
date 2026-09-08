@@ -339,6 +339,33 @@ body { font-family:'DM Sans', sans-serif; background:var(--body-bg); color:var(-
             <span class="sb-label">Peta Sumber Data</span>
         </a>
         {% endif %}
+        {% comment %}
+        Role UP2D punya menu sendiri: DATAR, tanpa submenu, dan hanya berisi
+        empat halaman yang memang diizinkan Up2dAccessMiddleware. Submenu
+        "Beban Trafo" di bawah memuat IBT dan Chart IBT — dua halaman yang
+        untuk UP2D selalu berakhir sebagai redirect balik ke dashboardnya,
+        jadi menampilkannya hanya melahirkan menu yang tidak bisa dibuka.
+        {% endcomment %}
+        {% if request.user.profile.role == 'up2d' %}
+        {% with un=request.resolver_match.url_name %}
+        <a href="/opsis/up2d/" class="sb-link {% if un == 'opsis_up2d' %}active{% endif %}">
+            <i class="bi bi-grid-3x3-gap-fill sb-icon"></i>
+            <span class="sb-label">Dashboard</span>
+        </a>
+        <a href="/opsis/beban-trafo/" class="sb-link {% if un == 'opsis_beban_trafo' %}active{% endif %}">
+            <i class="bi bi-lightning-charge-fill sb-icon"></i>
+            <span class="sb-label">Beban Trafo Distribusi</span>
+        </a>
+        <a href="/opsis/beban-trafo-chart/" class="sb-link {% if un == 'opsis_beban_trafo_chart' %}active{% endif %}">
+            <i class="bi bi-graph-up sb-icon"></i>
+            <span class="sb-label">Chart Trafo Distribusi</span>
+        </a>
+        <a href="/opsis/beban-ktt/" class="sb-link {% if un == 'opsis_beban_ktt' %}active{% endif %}">
+            <i class="bi bi-building-fill-up sb-icon"></i>
+            <span class="sb-label">Beban KTT</span>
+        </a>
+        {% endwith %}
+        {% else %}
         <a href="/opsis/up2d/" class="sb-link {% if request.resolver_match.url_name == 'opsis_up2d' %}active{% endif %}">
             <i class="bi bi-diagram-3-fill sb-icon"></i>
             <span class="sb-label">Dashboard UP2D</span>
@@ -373,6 +400,13 @@ body { font-family:'DM Sans', sans-serif; background:var(--body-bg); color:var(-
             <i class="bi bi-building-fill-up sb-icon"></i>
             <span class="sb-label">Beban KTT</span>
         </a>
+        {% comment %}
+        Logsheet & Respons Pembangkit dijaga bisa_lihat_opsis di view-nya
+        (Opsis, Opsis View, AM, superuser). Menunya memakai properti yang SAMA,
+        bukan tuple role yang disalin ulang — kalau tidak, menu tampil tapi
+        halamannya menolak, persis yang dialami role UP2D sebelum ini.
+        {% endcomment %}
+        {% if request.user.profile.bisa_lihat_opsis %}
         <a href="/opsis/logsheet/" class="sb-link {% if 'logsheet' in request.resolver_match.url_name %}active{% endif %}">
             <i class="bi bi-journal-text sb-icon"></i>
             <span class="sb-label">Logsheet Pembebanan</span>
@@ -381,6 +415,8 @@ body { font-family:'DM Sans', sans-serif; background:var(--body-bg); color:var(-
             <i class="bi bi-activity sb-icon"></i>
             <span class="sb-label">Respons Pembangkit</span>
         </a>
+        {% endif %}
+        {% endif %}
         {% if request.user.profile.role != 'up2d' %}
         <a href="/opsis/hop/dashboard/" class="sb-link {% if request.resolver_match.url_name == 'opsis_hop_board' %}active{% endif %}">
             <i class="bi bi-speedometer2 sb-icon"></i>

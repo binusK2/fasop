@@ -203,6 +203,12 @@
         <canvas id="chart-ktt"></canvas>
     </div>
 </div>
+
+{% comment %}
+Chart 24 jam Beban KTT — satu berkas, dipakai bersama dashboard OPSIS dan
+dashboard UP2D yang sama-sama menampilkan bar chart KTT di atasnya.
+{% endcomment %}
+{% include "opsis/_chart_ktt_24jam.html" %}
 {% endblock %}
 
 {% block extra_js %}

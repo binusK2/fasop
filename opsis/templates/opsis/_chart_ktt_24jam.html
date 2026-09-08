@@ -1,0 +1,219 @@
+{% comment %}
+Chart 24 jam Beban KTT — satu garis per konsumen, warnanya tetap per konsumen.
+
+Partial ini di-include oleh DUA dashboard yang sama-sama sudah punya bar chart
+KTT: opsis/dashboard.html dan opsis/up2d.html. Sengaja satu berkas, bukan
+disalin: keduanya menggambar data yang sama dari endpoint yang sama, dan dua
+salinan pasti berbeda cepat atau lambat.
+
+Prasyarat di template pemanggil: Chart.js sudah dimuat di {% block extra_head %}.
+{% endcomment %}
+<style>
+.kttc-card { background: var(--card-bg); border: 1px solid var(--card-bd);
+             border-radius: 14px; padding: 16px 20px; margin-bottom: 16px; }
+.kttc-head { display: flex; align-items: center; justify-content: space-between;
+             gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.kttc-title { font-size: 12px; font-weight: 700; color: var(--text); }
+.kttc-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.kttc-btn { font-size: 10px; color: var(--muted); background: none; cursor: pointer;
+            border: 1px solid var(--card-bd); padding: 2px 8px; border-radius: 5px;
+            font-family: inherit; white-space: nowrap; }
+.kttc-btn:hover { color: var(--text); }
+/* Pemilih seri: chip per konsumen. Chip mati diredupkan, bukan disembunyikan —
+   kalau hilang, tidak ada cara menyalakannya lagi. */
+.kttc-legend { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.kttc-chip { display: inline-flex; align-items: center; gap: 5px; cursor: pointer;
+             font-size: 10px; font-weight: 600; color: var(--text);
+             border: 1px solid var(--card-bd); background: transparent;
+             padding: 3px 9px; border-radius: 20px; font-family: inherit;
+             transition: opacity .15s; white-space: nowrap; }
+.kttc-chip .kttc-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.kttc-chip.off { opacity: .32; }
+.kttc-kosong { font-size: 11px; color: var(--muted); line-height: 1.6;
+               padding: 26px 4px; text-align: center; }
+</style>
+
+<div class="kttc-card">
+    <div class="kttc-head">
+        <div class="kttc-title">
+            <i class="bi bi-graph-up me-1" style="color:#10b981;"></i>Beban KTT — 24 Jam
+        </div>
+        <div class="kttc-tools">
+            <span id="kttc-updated" style="font-size:11px; color:var(--muted);">memuat...</span>
+            <button type="button" class="kttc-btn" id="kttc-all">Semua</button>
+            <button type="button" class="kttc-btn" id="kttc-none">Kosongkan</button>
+        </div>
+    </div>
+    <div class="kttc-legend" id="kttc-legend"></div>
+    <div id="kttc-wrap" style="position:relative; height:240px;">
+        <canvas id="kttc-canvas"></canvas>
+    </div>
+    <div class="kttc-kosong" id="kttc-kosong" style="display:none;"></div>
+</div>
+
+<script>
+(function () {
+    // Seri yang DIMATIKAN yang disimpan, bukan yang dinyalakan: konsumen baru
+    // di IND_LOAD dengan sendirinya tampil, bukan diam-diam tersembunyi.
+    const KUNCI_SIMPAN = 'opsis_ktt_seri_mati';
+    const POLL_MS = 60000;   // SnapKtt hanya bertambah 1 titik per menit —
+                             // memoll lebih sering cuma menambah query.
+
+    let chart = null;
+    let mati = new Set();
+    try {
+        mati = new Set(JSON.parse(localStorage.getItem(KUNCI_SIMPAN) || '[]'));
+    } catch (e) { /* private mode / storage diblokir */ }
+
+    function simpan() {
+        try { localStorage.setItem(KUNCI_SIMPAN, JSON.stringify([...mati])); }
+        catch (e) {}
+    }
+
+    function terapkan() {
+        if (!chart) return;
+        chart.data.datasets.forEach(ds => { ds.hidden = mati.has(ds._kode); });
+        chart.update('none');
+        document.querySelectorAll('#kttc-legend .kttc-chip').forEach(el => {
+            el.classList.toggle('off', mati.has(el.dataset.kode));
+        });
+    }
+
+    function gambarLegend(seri) {
+        const wrap = document.getElementById('kttc-legend');
+        wrap.innerHTML = '';
+        seri.forEach(s => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'kttc-chip' + (mati.has(s.kode) ? ' off' : '');
+            b.dataset.kode = s.kode;
+            b.title = s.kode;
+            b.innerHTML = `<span class="kttc-dot" style="background:${s.warna};"></span>${s.nama}`;
+            b.addEventListener('click', () => {
+                if (mati.has(s.kode)) mati.delete(s.kode); else mati.add(s.kode);
+                simpan(); terapkan();
+            });
+            wrap.appendChild(b);
+        });
+    }
+
+    function buat(d, seri) {
+        const ctx = document.getElementById('kttc-canvas').getContext('2d');
+        chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: d.jam,
+                datasets: seri.map(s => ({
+                    _kode: s.kode,
+                    label: s.nama,
+                    data: s.data,
+                    borderColor: s.warna,
+                    backgroundColor: s.warna,
+                    borderWidth: s.kode === 'IND_TOTAL' ? 2 : 1.5,
+                    borderDash: s.kode === 'IND_TOTAL' ? [5, 4] : [],
+                    pointRadius: 0,
+                    pointHoverRadius: 3,
+                    tension: .25,
+                    spanGaps: false,          // menit yang tidak terekam = putus,
+                                              // bukan garis lurus yang mengarang data
+                    hidden: mati.has(s.kode),
+                })),
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false, animation: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { display: false },     // digantikan chip di atas
+                    datalabels: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(15,23,42,.92)',
+                        titleColor: '#94a3b8', bodyColor: '#f1f5f9',
+                        borderColor: '#334155', borderWidth: 1, padding: 8,
+                        callbacks: {
+                            label: c => c.parsed.y === null ? null
+                                : `${c.dataset.label}: ${c.parsed.y.toFixed(2)} MW`,
+                        },
+                    },
+                },
+                scales: {
+                    x: { grid: { color: 'rgba(148,163,184,.08)' },
+                         ticks: { maxTicksLimit: 12, font: { size: 10 } } },
+                    y: { grid: { color: 'rgba(148,163,184,.08)' },
+                         ticks: { font: { size: 10 },
+                                  callback: v => v + ' MW' } },
+                },
+            },
+        });
+    }
+
+    async function muat() {
+        try {
+            const r = await fetch('{% url "opsis_api_beban_ktt_chart" %}');
+            if (!r.ok) return;
+            const d = await r.json();
+
+            const kosong = document.getElementById('kttc-kosong');
+            const wrap   = document.getElementById('kttc-wrap');
+            const legend = document.getElementById('kttc-legend');
+            if (!d.ada_data) {
+                kosong.textContent = d.pesan || 'Belum ada data.';
+                kosong.style.display = '';
+                wrap.style.display = 'none';
+                legend.style.display = 'none';
+                document.getElementById('kttc-updated').textContent = 'tidak ada data';
+                return;
+            }
+            kosong.style.display = 'none';
+            wrap.style.display = '';
+            legend.style.display = '';
+
+            const seri = d.total ? [...d.series, d.total] : d.series;
+
+            if (!chart) {
+                gambarLegend(seri);
+                buat(d, seri);
+            } else {
+                // Perbarui di tempat, jangan gambar ulang: menggambar ulang tiap
+                // poll membuang pilihan seri dan mengedipkan chart di layar yang
+                // menyala berjam-jam.
+                chart.data.labels = d.jam;
+                const lama = new Set(chart.data.datasets.map(ds => ds._kode));
+                const baru = new Set(seri.map(s => s.kode));
+                if (lama.size !== baru.size || [...baru].some(k => !lama.has(k))) {
+                    chart.data.datasets = seri.map(s => ({
+                        _kode: s.kode, label: s.nama, data: s.data,
+                        borderColor: s.warna, backgroundColor: s.warna,
+                        borderWidth: s.kode === 'IND_TOTAL' ? 2 : 1.5,
+                        borderDash: s.kode === 'IND_TOTAL' ? [5, 4] : [],
+                        pointRadius: 0, pointHoverRadius: 3, tension: .25,
+                        spanGaps: false, hidden: mati.has(s.kode),
+                    }));
+                    gambarLegend(seri);
+                } else {
+                    const peta = Object.fromEntries(seri.map(s => [s.kode, s]));
+                    chart.data.datasets.forEach(ds => { ds.data = peta[ds._kode].data; });
+                }
+                chart.update('none');
+            }
+
+            document.getElementById('kttc-updated').textContent =
+                new Date().toLocaleTimeString('id-ID');
+        } catch (e) { /* biarkan nilai lama tampil */ }
+    }
+
+    document.getElementById('kttc-all').addEventListener('click', () => {
+        mati.clear(); simpan(); terapkan();
+    });
+    document.getElementById('kttc-none').addEventListener('click', () => {
+        if (chart) chart.data.datasets.forEach(ds => mati.add(ds._kode));
+        simpan(); terapkan();
+    });
+
+    // Tunggu DOMContentLoaded: Chart.register(ChartDataLabels) di blok extra_js
+    // baru jalan setelah blok content ini.
+    window.addEventListener('DOMContentLoaded', () => {
+        muat();
+        setInterval(muat, POLL_MS);
+    });
+})();
+</script>

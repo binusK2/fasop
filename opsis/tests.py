@@ -14,10 +14,10 @@ from django.urls import reverse
 from django.utils import timezone
 
 from .models import (KartuPadam, KelompokPeta, KolomEWS, ModePemeliharaan,
-                     PantauanKit, Pembangkit, PengaturanDashboard,
+                     PantauanKit, Pembangkit, PengaturanDashboard, SnapKtt,
                      PengaturanInersia, PrakiraanBeban, SnapFreq, SnapFreqRT,
                      SnapLive, TitikEWS)
-from . import freq_history, hop_map, mssql, prakiraan, prediksi, sumber_data, views
+from . import freq_history, hop_map, ktt, mssql, prakiraan, prediksi, sumber_data, views
 from . import cache as opsis_cache
 from auditlog.models import AuditLog
 
@@ -2802,3 +2802,283 @@ class EksporInersiaTest(TestCase):
         cfg.save()
         isi = self.client.get('/opsis/').content.decode()
         self.assertNotIn('id="btn-dl-inersia"', isi)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Sidebar & akses role UP2D
+# ═══════════════════════════════════════════════════════════════════════════
+class SidebarUp2dTest(TestCase):
+    """
+    Role UP2D punya menu sendiri yang DATAR dan hanya berisi halaman yang
+    memang boleh dibukanya. Sebelum ini menunya memuat submenu Beban Trafo
+    (termasuk IBT), Logsheet, dan Respons Pembangkit — semuanya berakhir
+    sebagai redirect balik ke dashboard UP2D begitu diklik.
+    """
+
+    MENU_UP2D = [
+        ('/opsis/up2d/',              'Dashboard'),
+        ('/opsis/beban-trafo/',       'Beban Trafo Distribusi'),
+        ('/opsis/beban-trafo-chart/', 'Chart Trafo Distribusi'),
+        ('/opsis/beban-ktt/',         'Beban KTT'),
+    ]
+
+    def _user(self, role, superuser=False):
+        nama = f'sb-{role}{"-su" if superuser else ""}'
+        buat = User.objects.create_superuser if superuser else User.objects.create_user
+        u = buat(nama, f'{nama}@contoh.id', 'rahasia-tes-123')
+        profil = u.profile
+        profil.role = role
+        profil.force_password_change = False
+        profil.save()
+        self.client.force_login(u)
+        return u
+
+    def _sidebar(self, url='/opsis/up2d/'):
+        r = self.client.get(url)
+        self.assertEqual(r.status_code, 200, f'{url} -> {r.status_code}')
+        return r.content.decode()
+
+    # ── Menu UP2D ─────────────────────────────────────────────────────
+    def test_menu_up2d_berisi_empat_halaman_itu_saja(self):
+        self._user('up2d')
+        isi = self._sidebar()
+        for href, label in self.MENU_UP2D:
+            self.assertIn(f'href="{href}"', isi, f'menu {label} hilang')
+            self.assertIn(label, isi)
+
+    def test_menu_up2d_tanpa_dropdown_beban_trafo(self):
+        """Dipecah jadi item datar, bukan submenu yang harus dibuka dulu."""
+        self._user('up2d')
+        isi = self._sidebar()
+        self.assertNotIn('id="btn-trafo-toggle"', isi)
+        self.assertNotIn('id="trafo-sub"', isi)
+
+    def test_menu_up2d_tanpa_ibt(self):
+        """IBT tidak diizinkan middleware — menampilkannya cuma menu buntu."""
+        self._user('up2d')
+        isi = self._sidebar()
+        self.assertNotIn('/opsis/beban-trafo-ibt/', isi)
+        self.assertNotIn('/opsis/beban-trafo-ibt-chart/', isi)
+
+    def test_menu_up2d_tanpa_logsheet_dan_respon(self):
+        self._user('up2d')
+        isi = self._sidebar()
+        self.assertNotIn('/opsis/logsheet/', isi)
+        self.assertNotIn('/opsis/respon/', isi)
+
+    def test_menu_up2d_tanpa_halaman_opsis_lain(self):
+        self._user('up2d')
+        isi = self._sidebar()
+        for jalur in ('/opsis/rangkuman/', '/opsis/peta/', '/opsis/ews/',
+                      '/opsis/sumber-data/', '/opsis/hop/'):
+            self.assertNotIn(f'href="{jalur}"', isi, f'{jalur} bocor ke menu UP2D')
+
+    # ── Halaman yang diklik dari menu itu harus benar-benar terbuka ────
+    def test_semua_menu_up2d_bisa_dibuka(self):
+        """
+        Penjaga terpenting di kelas ini: menu dan Up2dAccessMiddleware harus
+        sepakat. '/opsis/api/beban-trafo/' TIDAK mencakup
+        '/opsis/api/beban-trafo-chart/' karena diuji dengan startswith, jadi
+        menu bisa tampil sementara halamannya memantul.
+        """
+        self._user('up2d')
+        for href, label in self.MENU_UP2D:
+            r = self.client.get(href)
+            self.assertEqual(r.status_code, 200, f'{label} ({href}) -> {r.status_code}')
+
+    def test_api_chart_trafo_terbuka_untuk_up2d(self):
+        self._user('up2d')
+        r = self.client.get('/opsis/api/beban-trafo-chart/')
+        self.assertEqual(r.status_code, 200)
+        self.assertIn('application/json', r['Content-Type'])
+
+    def test_halaman_terlarang_tetap_memantul(self):
+        self._user('up2d')
+        for jalur in ('/opsis/', '/opsis/beban-trafo-ibt/', '/opsis/respon/'):
+            r = self.client.get(jalur)
+            self.assertEqual(r.status_code, 302, jalur)
+            self.assertEqual(r['Location'], '/opsis/up2d/')
+
+    # ── Role lain tidak ikut berubah ──────────────────────────────────
+    def test_role_opsis_tetap_punya_dropdown_dan_logsheet(self):
+        self._user('opsis')
+        isi = self._sidebar('/opsis/up2d/')
+        self.assertIn('id="btn-trafo-toggle"', isi)
+        self.assertIn('/opsis/beban-trafo-ibt/', isi)
+        self.assertIn('/opsis/logsheet/', isi)
+        self.assertIn('/opsis/respon/', isi)
+
+    def test_logsheet_dan_respon_disembunyikan_dari_role_yang_tidak_boleh(self):
+        """
+        Keduanya dijaga bisa_lihat_opsis di view. Teknisi tidak termasuk, jadi
+        menunya juga tidak boleh muncul — kalau muncul, yang didapat cuma
+        halaman menolak.
+        """
+        self._user('technician')
+        isi = self._sidebar('/opsis/')
+        self.assertNotIn('/opsis/logsheet/', isi)
+        self.assertNotIn('/opsis/respon/', isi)
+        self.assertIn('id="btn-trafo-toggle"', isi)      # sisanya utuh
+
+    def test_superuser_melihat_semuanya(self):
+        self._user('technician', superuser=True)
+        isi = self._sidebar('/opsis/')
+        self.assertIn('/opsis/logsheet/', isi)
+        self.assertIn('/opsis/respon/', isi)
+        self.assertIn('id="btn-trafo-toggle"', isi)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Chart 24 jam Beban KTT (SnapKtt + collect_ktt + api_beban_ktt_chart)
+# ═══════════════════════════════════════════════════════════════════════════
+class ChartKttTest(TestCase):
+    """
+    IND_LOAD tidak menyimpan histori sama sekali, jadi chart 24 jam-nya
+    seluruhnya bergantung pada rekaman PostgreSQL yang diisi cron collect_ktt —
+    pola yang sama dengan SnapTrafo/collect_trafo.
+    """
+
+    BARIS_MSSQL = [
+        {'id': 1, 'analog': 'IND_ANTAM',  'value': 60.0},
+        {'id': 2, 'analog': 'IND_CERIA',  'value': 40.0},
+        {'id': 3, 'analog': 'IND_TOTAL',  'value': 100.0},
+    ]
+
+    def setUp(self):
+        from . import cache as opsis_cache
+        opsis_cache._cache.clear()
+        self.addCleanup(opsis_cache._cache.clear)
+
+        asli_rows, asli_reach = mssql.get_beban_ktt, mssql.is_reachable
+        self.addCleanup(lambda: setattr(mssql, 'get_beban_ktt', asli_rows))
+        self.addCleanup(lambda: setattr(mssql, 'is_reachable', asli_reach))
+        mssql.get_beban_ktt = lambda: [dict(r) for r in self.BARIS_MSSQL]
+        mssql.is_reachable = lambda: True
+
+        self.hari_ini = timezone.localdate()
+        self.url = reverse('opsis_api_beban_ktt_chart')
+        user = User.objects.create_user('ktt-chart', 'k@contoh.id', 'rahasia-tes-123')
+        profil = user.profile
+        profil.force_password_change = False
+        profil.save()
+        self.client.force_login(user)
+
+    def _snap(self, analog, menit, mw):
+        SnapKtt.objects.create(analog=analog, mw=mw,
+                               waktu=_waktu_lokal(self.hari_ini, menit))
+
+    # ── Warna ─────────────────────────────────────────────────────────
+    def test_warna_konsisten_dan_stabil(self):
+        """
+        Warna dipakai bar chart, chart 24 jam, dan chip pemilih seri — sebuah
+        konsumen harus selalu berwarna sama, termasuk di worker gunicorn lain.
+        Karena itu fallback-nya CRC32, bukan hash() yang diacak per proses.
+        """
+        self.assertEqual(ktt.warna_ktt('IND_ANTAM'), ktt.KTT_WARNA['IND_ANTAM'])
+        self.assertEqual(ktt.warna_ktt('ind_antam'), ktt.KTT_WARNA['IND_ANTAM'])
+        baru = ktt.warna_ktt('IND_KONSUMEN_BARU')
+        self.assertIn(baru, ktt.PALET_KTT)
+        self.assertEqual(baru, ktt.warna_ktt('IND_KONSUMEN_BARU'))
+
+    # ── Command collect_ktt ───────────────────────────────────────────
+    def test_collect_menyimpan_konsumen_dan_total(self):
+        from django.core.management import call_command
+        call_command('collect_ktt', verbosity=0)
+        kode = set(SnapKtt.objects.values_list('analog', flat=True))
+        self.assertEqual(kode, {'IND_ANTAM', 'IND_CERIA', 'IND_TOTAL'})
+        self.assertEqual(SnapKtt.objects.get(analog='IND_TOTAL').mw, 100.0)
+
+    def test_collect_dry_run_tidak_menyimpan(self):
+        from django.core.management import call_command
+        call_command('collect_ktt', '--dry-run', verbosity=0)
+        self.assertEqual(SnapKtt.objects.count(), 0)
+
+    def test_collect_tidak_menulis_nol_saat_historian_mati(self):
+        """
+        Menulis nol saat MSSQL tak terjangkau membuat chart menampilkan jurang
+        ke nol yang terbaca sebagai 'semua konsumen padam'.
+        """
+        from django.core.management import call_command
+        mssql.get_beban_ktt = lambda: []
+        mssql.is_reachable = lambda: False
+        call_command('collect_ktt', verbosity=0)
+        self.assertEqual(SnapKtt.objects.count(), 0)
+
+    def test_collect_dua_kali_semenit_tidak_menggandakan(self):
+        from django.core.management import call_command
+        call_command('collect_ktt', verbosity=0)
+        call_command('collect_ktt', verbosity=0)
+        self.assertEqual(SnapKtt.objects.filter(analog='IND_ANTAM').count(), 1)
+
+    # ── Endpoint chart ────────────────────────────────────────────────
+    def test_seri_per_konsumen_dengan_nama_dan_warna(self):
+        self._snap('IND_ANTAM', 600, 60.0)
+        self._snap('IND_CERIA', 600, 40.0)
+        self._snap('IND_TOTAL', 600, 100.0)
+        d = self.client.get(self.url).json()
+
+        self.assertTrue(d['ada_data'])
+        self.assertEqual(d['jam'], ['10:00'])
+        kode = [s['kode'] for s in d['series']]
+        self.assertEqual(kode, ['IND_ANTAM', 'IND_CERIA'])   # total dipisah
+        peta = {s['kode']: s for s in d['series']}
+        self.assertEqual(peta['IND_ANTAM']['nama'], 'ANTAM')
+        self.assertEqual(peta['IND_ANTAM']['warna'], ktt.KTT_WARNA['IND_ANTAM'])
+        self.assertEqual(peta['IND_ANTAM']['data'], [60.0])
+        self.assertEqual(d['total']['data'], [100.0])
+
+    def test_menit_tanpa_rekaman_jadi_none_bukan_nol(self):
+        """None digambar sebagai garis putus; nol berarti 'konsumen padam'."""
+        self._snap('IND_ANTAM', 600, 60.0)
+        self._snap('IND_CERIA', 601, 40.0)
+        d = self.client.get(self.url).json()
+        peta = {s['kode']: s for s in d['series']}
+        self.assertEqual(peta['IND_ANTAM']['data'], [60.0, None])
+        self.assertEqual(peta['IND_CERIA']['data'], [None, 40.0])
+
+    def test_hanya_hari_ini(self):
+        self._snap('IND_ANTAM', 600, 60.0)
+        SnapKtt.objects.create(
+            analog='IND_ANTAM', mw=99.0,
+            waktu=_waktu_lokal(self.hari_ini - datetime.timedelta(days=1), 600))
+        d = self.client.get(self.url).json()
+        self.assertEqual(d['series'][0]['data'], [60.0])
+
+    def test_tanpa_data_memberi_pesan_yang_menyebut_cron(self):
+        """
+        Chart kosong bisa berarti 'hari ini sepi' ATAU 'cron belum dipasang'.
+        Pesannya yang membedakan keduanya.
+        """
+        d = self.client.get(self.url).json()
+        self.assertFalse(d['ada_data'])
+        self.assertIn('collect_ktt', d['pesan'])
+
+    def test_konsumen_belum_terdaftar_tetap_ikut(self):
+        self._snap('IND_BARU', 600, 5.0)
+        d = self.client.get(self.url).json()
+        s = d['series'][0]
+        self.assertEqual(s['kode'], 'IND_BARU')
+        self.assertEqual(s['nama'], 'IND_BARU')
+
+    # ── Tampil di kedua dashboard ─────────────────────────────────────
+    def test_chart_ada_di_dashboard_opsis_dan_up2d(self):
+        for jalur in ('/opsis/', '/opsis/up2d/'):
+            isi = self.client.get(jalur).content.decode()
+            self.assertIn('id="kttc-canvas"', isi, jalur)
+            self.assertIn('id="kttc-legend"', isi, jalur)
+            self.assertIn('/opsis/api/beban-ktt-chart/', isi, jalur)
+
+    def test_endpoint_chart_terbuka_untuk_role_up2d(self):
+        u = User.objects.create_user('ktt-up2d', 'u@contoh.id', 'rahasia-tes-123')
+        profil = u.profile
+        profil.role = 'up2d'
+        profil.force_password_change = False
+        profil.save()
+        self.client.force_login(u)
+        r = self.client.get(self.url)
+        self.assertEqual(r.status_code, 200)
+        self.assertIn('application/json', r['Content-Type'])
+
+    def test_terdaftar_di_peta_sumber_data(self):
+        sumber = [b['sumber'] for b in sumber_data.periksa_semua(dengan_mssql=False)]
+        self.assertIn('opsis.SnapKtt', sumber)

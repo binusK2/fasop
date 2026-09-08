@@ -10,6 +10,7 @@ from django.contrib import messages
 from django.shortcuts import redirect
 from django.urls import reverse
 from .models import (Pembangkit, SnapLive, SnapFreq, SnapFreqRT, Trafo, SnapTrafo,
+                     SnapKtt,
                      HopPembangkit, HopSnapshot, HOP_KATEGORI_CHOICES, JENIS_CHOICES,
                      JENIS_WARNA, KelompokPeta, PantauanKit, PengaturanInersia,
                      PengaturanDashboard,
@@ -1314,6 +1315,85 @@ def api_beban_ktt(request):
     endpoint Hz dan EWS — dan cache itu dipakai bersama API eksternal, jadi
     penarik dari luar tidak menambah query ke MSSQL selama halaman ini dibuka."""
     return JsonResponse(ktt.baca_beban_ktt())
+
+
+def _beban_ktt_chart_data():
+    """
+    Payload chart 24 jam Beban KTT — satu garis per konsumen, plus garis total.
+
+    Sumber: PostgreSQL (SnapKtt), diisi tiap menit oleh management command
+    'collect_ktt'. TIDAK ada cadangan ke MSSQL: IND_LOAD cuma snapshot
+    realtime tanpa kolom waktu, jadi PostgreSQL satu-satunya sumber historis —
+    alasan yang sama persis dengan chart trafo distribusi.
+
+    Warna tiap konsumen diambil dari opsis.ktt.warna_ktt() supaya sebuah
+    konsumen berwarna sama di bar chart, chart 24 jam, dan pemilih serinya.
+    """
+    tz_local = timezone.get_current_timezone()
+    hari_ini = timezone.localdate()
+    awal  = timezone.make_aware(
+        datetime.datetime.combine(hari_ini, datetime.time.min), tz_local)
+    akhir = awal + datetime.timedelta(days=1)
+
+    # Rentang pakai waktu__gte/__lt, bukan lookup __date — cast pada kolom
+    # waktu membuat indeks (analog, -waktu) tidak terpakai.
+    rows = (SnapKtt.objects
+            .filter(waktu__gte=awal, waktu__lt=akhir)
+            .order_by('waktu')
+            .values_list('analog', 'waktu', 'mw'))
+
+    per_kode = {}          # kode -> {menit: mw}
+    menit_set = set()
+    for analog, waktu, mw in rows.iterator(chunk_size=5000):
+        lokal = timezone.localtime(waktu)
+        menit = lokal.hour * 60 + lokal.minute
+        menit_set.add(menit)
+        per_kode.setdefault(analog, {})[menit] = mw
+
+    labels = sorted(menit_set)
+    jam = [f'{m // 60:02d}:{m % 60:02d}' for m in labels]
+
+    total_kode = 'IND_TOTAL'
+    series = []
+    for kode in sorted(k for k in per_kode if k.upper() != total_kode):
+        titik = per_kode[kode]
+        series.append({
+            'kode':  kode,
+            'nama':  ktt.KTT_NAME_MAP.get(kode.upper(), kode),
+            'warna': ktt.warna_ktt(kode),
+            'data':  [titik.get(m) for m in labels],
+        })
+
+    total = None
+    if total_kode in per_kode:
+        titik = per_kode[total_kode]
+        total = {
+            'kode':  total_kode,
+            'nama':  'TOTAL SISTEM',
+            'warna': ktt.warna_ktt(total_kode),
+            'data':  [titik.get(m) for m in labels],
+        }
+
+    return {
+        'labels':   labels,
+        'jam':      jam,
+        'series':   series,
+        'total':    total,
+        'ada_data': bool(labels),
+        # Pesan ini yang membedakan "hari ini memang sepi" dari "cron-nya belum
+        # dipasang" — dua hal yang sama-sama tampak sebagai chart kosong.
+        'pesan':    None if labels else (
+            'Belum ada rekaman hari ini. Chart ini dibangun dari PostgreSQL '
+            '(SnapKtt) yang diisi cron "collect_ktt" tiap menit — IND_LOAD '
+            'sendiri tidak menyimpan histori.'
+        ),
+    }
+
+
+@login_required
+def api_beban_ktt_chart(request):
+    """API JSON chart 24 jam Beban KTT (di-poll dashboard tiap 60 detik)."""
+    return JsonResponse(_beban_ktt_chart_data())
 
 
 @login_required

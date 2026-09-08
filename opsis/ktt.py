@@ -33,6 +33,46 @@ KTT_NAME_MAP = {
     'IND_SMLTR5': 'HUADI 5',
 }
 
+# ── Warna per konsumen ───────────────────────────────────────────────────────
+# Satu konsumen harus selalu berwarna sama di mana pun ia digambar — bar chart
+# dashboard, chart 24 jam, dan legenda pemilih seri. Warna eksplisit untuk
+# konsumen yang sudah dikenal; sisanya jatuh ke palet lewat CRC32 kodenya.
+#
+# CRC32, BUKAN hash(): hash() untuk str diacak per proses (PYTHONHASHSEED), jadi
+# konsumen yang sama akan berganti warna tiap worker gunicorn dan tiap restart.
+KTT_WARNA = {
+    'IND_ANTAM':  '#34d399',
+    'IND_CERIA':  '#60a5fa',
+    'IND_TNASA':  '#f59e0b',
+    'IND_BSOWA':  '#f472b6',
+    'IND_SMLTR4': '#a78bfa',
+    'IND_INDOF':  '#22d3ee',
+    'IND_HUADI':  '#fb923c',
+    'IND_HUADI2': '#facc15',
+    'IND_HUADI3': '#4ade80',
+    'IND_SMLTR5': '#c084fc',
+    'IND_TOTAL':  '#e2e8f0',
+}
+
+# Palet cadangan untuk konsumen yang belum punya warna tetap. Sengaja dipilih
+# yang JAUH dari warna di KTT_WARNA: palet pertama berisi #fcd34d, dan di layar
+# ia tidak bisa dibedakan dari #facc15 milik HUADI 2 — dua garis kuning yang
+# tampak sama persis di chart yang justru gunanya membedakan konsumen.
+PALET_KTT = (
+    '#94a3b8', '#a3e635', '#818cf8', '#f87171', '#0ea5e9',
+    '#d946ef', '#65a30d', '#f43f5e', '#0d9488', '#b45309',
+)
+
+
+def warna_ktt(kode):
+    """Warna tetap untuk sebuah kode konsumen KTT."""
+    kode = (kode or '').upper()
+    if kode in KTT_WARNA:
+        return KTT_WARNA[kode]
+    import zlib
+    return PALET_KTT[zlib.crc32(kode.encode('utf-8')) % len(PALET_KTT)]
+
+
 # Kunci cache dipakai bersama halaman dan API eksternal: penarik dari luar tidak
 # menambah satu pun query ke MSSQL selama halamannya juga sedang dibuka.
 CACHE_KEY = 'beban_ktt'

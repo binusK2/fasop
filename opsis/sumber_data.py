@@ -159,6 +159,14 @@ SUMBER = [
         'hulu': 'dbo.ALL_TRANS_DATA', 'diisi': 'cron collect_trafo (tiap menit)',
         'catatan': 'Tidak punya retensi.',
     },
+    {
+        'fitur': 'Chart beban KTT 24 jam',
+        'lapis': POSTGRES, 'sumber': 'opsis.SnapKtt',
+        'model': 'SnapKtt', 'field_waktu': 'waktu',
+        'hulu': 'dbo.IND_LOAD', 'diisi': 'cron collect_ktt (tiap menit)',
+        'catatan': 'IND_LOAD tak punya kolom waktu — ini satu-satunya sumber '
+                   'histori KTT. Tidak punya retensi.',
+    },
 
     # ── Lapis 4: sumber luar (spreadsheet / integrasi) ───────────────────────
     {
