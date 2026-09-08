@@ -1,6 +1,6 @@
 from django import forms
 from django.db.models import Q
-from .models import Device, Icon
+from .models import AsesmenOptik, Device, FiberOptic, Icon
 
 class DeviceForm(forms.ModelForm):
     ip_address = forms.CharField(
@@ -176,3 +176,72 @@ class IconForm(forms.ModelForm):
             ),
             'keterangan': forms.Textarea(attrs={'class': 'form-control', 'rows': 4, 'placeholder': 'Deskripsi layanan, rute, atau catatan lainnya...'}),
         }
+
+
+class AsesmenOptikForm(forms.ModelForm):
+    """Form asesmen FO & aksesoris per tower.
+
+    Ruas FO dipilih dari data Fiber Optic yang sudah ada — GI awal/akhir dan
+    tipe kabelnya ikut dari sana, jadi tidak diketik ulang tiap tower.
+    """
+
+    class Meta:
+        model = AsesmenOptik
+        fields = [
+            'fiber_optic', 'no_tower', 'upt', 'level_tegangan', 'tipe_tower',
+            'jarak_span', 'lintang', 'bujur',
+            'fasa_fo', 'tipe_kabel', 'kondisi_fo',
+            'tipe_asesoris', 'kondisi_asesoris', 'ukuran_fitmen', 'joint_box',
+            'asset', 'area_rintangan', 'keterangan',
+            'foto', 'foto_2', 'tanggal', 'petugas',
+        ]
+        widgets = {
+            'fiber_optic':      forms.Select(attrs={'class': 'form-select select-cari',
+                                                    'data-placeholder': 'Cari ruas FO...'}),
+            'no_tower':         forms.TextInput(attrs={'class': 'form-control',
+                                                       'placeholder': 'mis. 12'}),
+            'upt':              forms.Select(attrs={'class': 'form-select'}),
+            'level_tegangan':   forms.Select(attrs={'class': 'form-select'}),
+            'tipe_tower':       forms.TextInput(attrs={'class': 'form-control',
+                                                       'placeholder': 'mis. AA, BB, Tension'}),
+            'jarak_span':       forms.NumberInput(attrs={'class': 'form-control',
+                                                         'placeholder': 'meter', 'min': 0}),
+            'lintang':          forms.NumberInput(attrs={'class': 'form-control',
+                                                         'step': '0.000001',
+                                                         'placeholder': '-5.147889'}),
+            'bujur':            forms.NumberInput(attrs={'class': 'form-control',
+                                                         'step': '0.000001',
+                                                         'placeholder': '119.470535'}),
+            'fasa_fo':          forms.Select(attrs={'class': 'form-select'}),
+            'tipe_kabel':       forms.Select(attrs={'class': 'form-select'}),
+            'kondisi_fo':       forms.Select(attrs={'class': 'form-select'}),
+            'tipe_asesoris':    forms.Select(attrs={'class': 'form-select'}),
+            'kondisi_asesoris': forms.Select(attrs={'class': 'form-select'}),
+            'ukuran_fitmen':    forms.TextInput(attrs={'class': 'form-control',
+                                                       'placeholder': 'mis. 12 mm'}),
+            'joint_box':        forms.Select(attrs={'class': 'form-select'}),
+            'asset':            forms.TextInput(attrs={'class': 'form-control',
+                                                       'placeholder': 'mis. UP2B'}),
+            'area_rintangan':   forms.TextInput(attrs={'class': 'form-control',
+                                                       'list': 'daftar-rintangan',
+                                                       'placeholder': 'mis. Rumah, Sawah, Sungai'}),
+            'keterangan':       forms.Textarea(attrs={'class': 'form-control', 'rows': 3,
+                                                      'placeholder': 'mis. Fitmen berkarat, '
+                                                                     'terdapat spare kabel...'}),
+            'foto':             forms.ClearableFileInput(attrs={'class': 'form-control',
+                                                                'accept': 'image/*'}),
+            'foto_2':           forms.ClearableFileInput(attrs={'class': 'form-control',
+                                                                'accept': 'image/*'}),
+            'tanggal':          forms.DateInput(attrs={'class': 'form-control', 'type': 'date'},
+                                                format='%Y-%m-%d'),
+            'petugas':          forms.TextInput(attrs={'class': 'form-control',
+                                                       'placeholder': 'Nama pelaksana / vendor'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Label ruas cukup namanya; __str__ FiberOptic mengulang lokasi A/B
+        # sehingga di dropdown jadi terlalu panjang untuk dibaca sekilas.
+        self.fields['fiber_optic'].queryset = FiberOptic.objects.order_by('nama')
+        self.fields['fiber_optic'].label_from_instance = lambda fo: fo.nama
+        self.fields['fiber_optic'].empty_label = '— Pilih Ruas FO —'

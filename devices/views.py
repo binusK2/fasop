@@ -7,8 +7,12 @@ from django.core.files.base import ContentFile
 import os as _os
 from devices.permissions import (
     require_can_delete, require_can_edit, require_can_manage_lokasi,
-    can_delete, can_edit, can_manage_lokasi, is_viewer_only
+    require_can_isi_asesmen,
+    can_delete, can_edit, can_manage_lokasi, can_isi_asesmen,
+    is_viewer_only, is_vendor
 )
+from django.urls import reverse
+from urllib.parse import quote
 from .models import (
     Device, DeviceType, Icon, SiteLocation, DeviceLog, DeviceEvent, Branch,
     DeviceEviden, FotoLapangan,
@@ -3462,3 +3466,140 @@ def foto_lapangan_move_folder(request):
         messages.success(request, f'{n} foto dipindahkan ke {tujuan}.')
     nxt = request.POST.get('next')
     return redirect(nxt if nxt and nxt.startswith('/') else 'foto_lapangan_galeri')
+
+
+# ─────────────────────────────────────────────────────────────────────
+# ASESMEN OPTIK — pendataan FO & aksesoris per tower
+# ─────────────────────────────────────────────────────────────────────
+ASESMEN_PER_HALAMAN = 50
+
+
+@login_required
+def asesmen_optik_list(request):
+    """Daftar asesmen, disaring per ruas FO / kondisi."""
+    from .models import AsesmenOptik, FiberOptic
+
+    ruas     = request.GET.get('ruas') or ''
+    kondisi  = request.GET.get('kondisi') or ''
+    cari     = (request.GET.get('q') or '').strip()
+
+    asesmen = AsesmenOptik.objects.select_related('fiber_optic', 'created_by')
+
+    if ruas:
+        asesmen = asesmen.filter(fiber_optic_id=_hid_decode(ruas) or 0)
+    if kondisi == 'anomali':
+        # Sama dengan AsesmenOptik.ada_anomali, tapi di sisi SQL supaya
+        # penyaringannya tidak menarik seluruh baris ke Python dulu.
+        asesmen = asesmen.filter(
+            Q(kondisi_fo__in=['anomali', 'rusak'])
+            | Q(kondisi_asesoris__in=['anomali', 'tanpa_fitmen'])
+        )
+    elif kondisi == 'baik':
+        asesmen = asesmen.filter(kondisi_fo='baik', kondisi_asesoris='baik')
+    if cari:
+        asesmen = asesmen.filter(
+            Q(no_tower__icontains=cari)
+            | Q(fiber_optic__nama__icontains=cari)
+            | Q(petugas__icontains=cari)
+            | Q(keterangan__icontains=cari)
+        )
+
+    paginator = Paginator(asesmen, ASESMEN_PER_HALAMAN)
+    page_obj  = paginator.get_page(request.GET.get('page'))
+
+    params = request.GET.copy()
+    params.pop('page', None)
+
+    return render(request, 'devices/asesmen_optik_list.html', {
+        'asesmen':      page_obj.object_list,
+        'page_obj':     page_obj,
+        'paginator':    paginator,
+        'querystring':  params.urlencode(),
+        'ruas_list':    FiberOptic.objects.order_by('nama'),
+        'selected_ruas': ruas,
+        'selected_kondisi': kondisi,
+        'cari':         cari,
+        'bisa_isi':     can_isi_asesmen(request.user),
+    })
+
+
+@login_required
+@require_can_isi_asesmen
+def asesmen_optik_create(request):
+    from .forms import AsesmenOptikForm
+    from django.contrib import messages
+
+    if request.method == 'POST':
+        form = AsesmenOptikForm(request.POST, request.FILES)
+        if form.is_valid():
+            asesmen = form.save(commit=False)
+            asesmen.created_by = request.user
+            asesmen.save()
+            messages.success(
+                request,
+                f'Asesmen {asesmen.fiber_optic.nama} tower {asesmen.no_tower} tersimpan.')
+            # "Simpan & Tower Berikutnya" — ruas/tanggal/petugas dipertahankan,
+            # nomor towernya saja yang kosong. Vendor mengisi puluhan tower
+            # berurutan di satu ruas; mengetik ulang tiga isian itu tiap kali
+            # adalah bagian terbesar pekerjaannya.
+            if request.POST.get('lanjut') == '1':
+                dasar = (f"?ruas={_hid(asesmen.fiber_optic_id)}"
+                         f"&tanggal={asesmen.tanggal:%Y-%m-%d}")
+                if asesmen.petugas:
+                    dasar += f"&petugas={quote(asesmen.petugas)}"
+                return redirect(reverse('asesmen_optik_add') + dasar)
+            return redirect('asesmen_optik_list')
+    else:
+        awal = {}
+        if request.GET.get('ruas'):
+            awal['fiber_optic'] = _hid_decode(request.GET['ruas'])
+        if request.GET.get('tanggal'):
+            awal['tanggal'] = request.GET['tanggal']
+        if request.GET.get('petugas'):
+            awal['petugas'] = request.GET['petugas']
+        form = AsesmenOptikForm(initial=awal)
+
+    return render(request, 'devices/asesmen_optik_form.html', {
+        'form':    form,
+        'is_edit': False,
+    })
+
+
+@login_required
+@require_can_isi_asesmen
+def asesmen_optik_edit(request, pk):
+    from .forms import AsesmenOptikForm
+    from .models import AsesmenOptik
+    from django.contrib import messages
+
+    asesmen = get_object_or_404(AsesmenOptik, pk=pk)
+
+    # Vendor hanya boleh menyunting hasil isiannya sendiri — hasil tim lain
+    # bukan miliknya untuk diubah. Teknisi/AM/superuser bebas.
+    if is_vendor(request.user) and asesmen.created_by_id != request.user.id:
+        messages.error(request, 'Anda hanya bisa menyunting asesmen yang Anda input sendiri.')
+        return redirect('asesmen_optik_list')
+
+    if request.method == 'POST':
+        form = AsesmenOptikForm(request.POST, request.FILES, instance=asesmen)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Asesmen diperbarui.')
+            return redirect('asesmen_optik_list')
+    else:
+        form = AsesmenOptikForm(instance=asesmen)
+
+    return render(request, 'devices/asesmen_optik_form.html', {
+        'form':    form,
+        'asesmen': asesmen,
+        'is_edit': True,
+    })
+
+
+@login_required
+@require_can_delete
+def asesmen_optik_delete(request, pk):
+    from .models import AsesmenOptik
+    if request.method == 'POST':
+        get_object_or_404(AsesmenOptik, pk=pk).delete()
+    return redirect('asesmen_optik_list')

@@ -251,6 +251,7 @@ class UserProfile(models.Model):
         ('opsis',            'Opsis — Monitoring Pembangkit (Input Data, Sesi Tunggal)'),
         ('opsis_view',       'Opsis View — Monitoring (Lihat Saja, Multi-Sesi)'),
         ('up2d',             'UP2D — Dashboard Beban Sistem'),
+        ('vendor',           'Vendor — Asesmen Optik (Hanya Asesmen)'),
     )
     user         = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     role         = models.CharField(max_length=30, choices=ROLE_CHOICES, default='technician', verbose_name='Peran')
@@ -326,6 +327,21 @@ class UserProfile(models.Model):
     OPSIS_ROLE_LIHAT   = ('opsis', 'opsis_view', 'asisten_manager')
     OPSIS_ROLE_TULIS   = ('opsis', 'asisten_manager')
     OPSIS_ROLE_EWS     = ('technician', 'asisten_manager')
+
+    # ── Asesmen Optik ─────────────────────────────────────────────
+    # Pengisinya vendor di lapangan dan tim teknisi. Didefinisikan sekali di
+    # sini — alasan yang sama dengan tuple OPSIS di atas: begitu disalin ke
+    # view dan template, satu tempat pasti tertinggal saat diubah.
+    ASESMEN_ROLE_ISI = ('vendor', 'technician', 'asisten_manager')
+
+    @property
+    def bisa_isi_asesmen(self):
+        """Boleh membuat & menyunting Asesmen Optik."""
+        return self.user.is_superuser or self.role in self.ASESMEN_ROLE_ISI
+
+    @property
+    def is_vendor(self):
+        return self.role == 'vendor'
 
     @property
     def bisa_lihat_opsis(self):
@@ -1261,3 +1277,157 @@ class KunciApi(models.Model):
         self.terakhir_dipakai = sekarang
         self.terakhir_ip = ip or self.terakhir_ip
         self.save(update_fields=['terakhir_dipakai', 'terakhir_ip'])
+
+
+class AsesmenOptik(models.Model):
+    """Asesmen kondisi FO & aksesoris di satu tower transmisi.
+
+    Beda dengan FiberOptic yang mencatat SEGMEN (core, redaman, kegunaan),
+    asesmen ini mencatat per TOWER: fungsi kabelnya, aksesoris yang memegangnya,
+    dan kondisi keduanya di lapangan.
+
+    Karena itu ia menempel pada ruas FO yang sudah terdaftar (`fiber_optic`) —
+    GI awal/akhir dan tipe kabel diambil dari sana, tidak diketik ulang.
+    Konsekuensinya ruas yang belum punya baris Fiber Optic harus didaftarkan
+    dulu di menu Fiber Optic sebelum towernya bisa diasesmen.
+
+    Satu baris = satu tower pada satu kali kunjungan. Kunjungan berikutnya
+    membuat baris baru, jadi riwayat kondisi tiap tower tetap ada — pola yang
+    sama dengan Maintenance, bukan menimpa data lama.
+    """
+
+    FASA_CHOICES = (
+        ('atas',   'Atas (R)'),
+        ('tengah', 'Tengah (S)'),
+        ('bawah',  'Bawah (T)'),
+    )
+    TIPE_KABEL_CHOICES = (
+        ('ADSS', 'ADSS'),
+        ('OPGW', 'OPGW'),
+    )
+    KONDISI_FO_CHOICES = (
+        ('baik',    'Baik'),
+        ('anomali', 'Anomali'),
+        ('rusak',   'Rusak'),
+    )
+    TIPE_ASESORIS_CHOICES = (
+        ('tension',    'Tension'),
+        ('suspension', 'Suspension'),
+    )
+    KONDISI_ASESORIS_CHOICES = (
+        ('baik',         'Baik'),
+        ('anomali',      'Anomali'),
+        ('tanpa_fitmen', 'Tanpa Fitmen'),
+    )
+    JOINT_BOX_CHOICES = (
+        ('ada',       'Ada'),
+        ('tidak_ada', 'Tidak Ada'),
+    )
+    LEVEL_TEGANGAN_CHOICES = (
+        ('70 kV',  '70 kV'),
+        ('150 kV', '150 kV'),
+        ('275 kV', '275 kV'),
+    )
+    UPT_CHOICES = (
+        ('UPT MAKASSAR', 'UPT MAKASSAR'),
+        ('UPT PALU',     'UPT PALU'),
+        ('UPT MANADO',   'UPT MANADO'),
+    )
+
+    # ── Induk: ruas FO yang sudah terdaftar ──────────────────────
+    fiber_optic = models.ForeignKey(
+        'FiberOptic', on_delete=models.CASCADE, related_name='asesmen',
+        verbose_name='Ruas Fiber Optic',
+        help_text='GI awal/akhir & tipe kabel mengikuti data ruas ini.',
+    )
+
+    # ── Identitas tower ──────────────────────────────────────────
+    no_tower       = models.CharField(max_length=20, verbose_name='No. Tower',
+                                      help_text='Contoh: 12 atau #012')
+    upt            = models.CharField(max_length=30, choices=UPT_CHOICES, blank=True,
+                                      verbose_name='UPT')
+    level_tegangan = models.CharField(max_length=10, choices=LEVEL_TEGANGAN_CHOICES,
+                                      blank=True, verbose_name='Level Tegangan')
+    tipe_tower     = models.CharField(max_length=50, blank=True, verbose_name='Tipe Tower')
+    jarak_span     = models.PositiveIntegerField(null=True, blank=True,
+                                                 verbose_name='Jarak Span (m)')
+    lintang        = models.DecimalField(max_digits=10, decimal_places=6, null=True,
+                                         blank=True, verbose_name='Lintang')
+    bujur          = models.DecimalField(max_digits=10, decimal_places=6, null=True,
+                                         blank=True, verbose_name='Bujur')
+
+    # ── Hasil asesmen: kabel ─────────────────────────────────────
+    fasa_fo    = models.CharField(max_length=10, choices=FASA_CHOICES, blank=True,
+                                  verbose_name='Fasa FO')
+    tipe_kabel = models.CharField(max_length=10, choices=TIPE_KABEL_CHOICES, blank=True,
+                                  verbose_name='ADSS / OPGW',
+                                  help_text='Kosongkan untuk mengikuti tipe kabel ruasnya.')
+    kondisi_fo = models.CharField(max_length=10, choices=KONDISI_FO_CHOICES, blank=True,
+                                  verbose_name='Kondisi FO')
+
+    # ── Hasil asesmen: aksesoris ─────────────────────────────────
+    tipe_asesoris    = models.CharField(max_length=15, choices=TIPE_ASESORIS_CHOICES,
+                                        blank=True, verbose_name='Tipe Aksesoris')
+    kondisi_asesoris = models.CharField(max_length=15, choices=KONDISI_ASESORIS_CHOICES,
+                                        blank=True, verbose_name='Kondisi Aksesoris')
+    ukuran_fitmen    = models.CharField(max_length=50, blank=True, verbose_name='Ukuran Fitmen')
+    joint_box        = models.CharField(max_length=10, choices=JOINT_BOX_CHOICES, blank=True,
+                                        verbose_name='Joint Box')
+
+    # ── Lingkungan & kepemilikan ─────────────────────────────────
+    asset           = models.CharField(max_length=50, blank=True, verbose_name='Asset',
+                                       help_text='Pemilik aset, mis. UP2B')
+    area_rintangan  = models.CharField(max_length=100, blank=True,
+                                       verbose_name='Area Jalur Rintangan SUTT',
+                                       help_text='Mis. Rumah, Sawah, Sungai, Hutan Rawa')
+    keterangan      = models.TextField(blank=True, verbose_name='Keterangan')
+
+    # ── Bukti & jejak ────────────────────────────────────────────
+    foto        = models.ImageField(upload_to='asesmen_optik/', blank=True, null=True,
+                                    verbose_name='Foto Tower / Aksesoris')
+    foto_2      = models.ImageField(upload_to='asesmen_optik/', blank=True, null=True,
+                                    verbose_name='Foto Tambahan')
+    tanggal     = models.DateField(verbose_name='Tanggal Asesmen')
+    petugas     = models.CharField(max_length=150, blank=True, verbose_name='Petugas / Vendor',
+                                   help_text='Nama pelaksana di lapangan.')
+    created_by  = models.ForeignKey(
+        'auth.User', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='asesmen_optik_dibuat', verbose_name='Diinput oleh',
+    )
+    created_at  = models.DateTimeField(auto_now_add=True)
+    updated_at  = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name        = 'Asesmen Optik'
+        verbose_name_plural = 'Asesmen Optik'
+        ordering            = ['-tanggal', 'fiber_optic', 'no_tower']
+        indexes = [
+            models.Index(fields=['fiber_optic', 'no_tower'], name='asesmen_ruas_tower_idx'),
+            models.Index(fields=['-tanggal'], name='asesmen_tanggal_idx'),
+        ]
+
+    def __str__(self):
+        return f'{self.fiber_optic.nama} — Tower {self.no_tower}'
+
+    def save(self, *args, **kwargs):
+        # '#012' dan '12' menunjuk tower yang sama; disimpan tanpa '#' supaya
+        # pencarian & pengurutannya tidak bergantung cara orang mengetik.
+        self.no_tower = (self.no_tower or '').strip().lstrip('#').strip()
+        super().save(*args, **kwargs)
+
+    @property
+    def tipe_kabel_efektif(self):
+        """Tipe kabel asesmen ini; kosong → ikut tipe kabel ruasnya."""
+        return self.tipe_kabel or (self.fiber_optic.tipe_kabel or '')
+
+    @property
+    def ada_anomali(self):
+        """Perlu ditindaklanjuti — dipakai penanda di daftar."""
+        return (self.kondisi_fo in ('anomali', 'rusak')
+                or self.kondisi_asesoris in ('anomali', 'tanpa_fitmen'))
+
+    @property
+    def koordinat(self):
+        if self.lintang is None or self.bujur is None:
+            return ''
+        return f'{self.lintang}, {self.bujur}'

@@ -1,5 +1,6 @@
 from django.contrib import admin
-from .models import Device, DeviceType, SiteLocation, ULTG, KomponenRusak, Branch, FotoLapangan
+from .models import (AsesmenOptik, Device, DeviceType, SiteLocation, ULTG,
+                     KomponenRusak, Branch, FotoLapangan)
 from .models_komponen import (
     GrupTipeKomponen, TipeKomponen,
     DeviceComponent,
@@ -345,3 +346,15 @@ class KunciApiAdmin(admin.ModelAdmin):
     def nonaktifkan(self, request, queryset):
         n = queryset.update(aktif=False)
         self.message_user(request, f'{n} kunci dinonaktifkan.')
+
+@admin.register(AsesmenOptik)
+class AsesmenOptikAdmin(admin.ModelAdmin):
+    list_display  = ('fiber_optic', 'no_tower', 'tanggal', 'kondisi_fo',
+                     'kondisi_asesoris', 'joint_box', 'petugas')
+    list_filter   = ('kondisi_fo', 'kondisi_asesoris', 'joint_box', 'upt',
+                     'level_tegangan', 'tanggal', 'fiber_optic')
+    search_fields = ('no_tower', 'fiber_optic__nama', 'petugas', 'keterangan')
+    date_hierarchy = 'tanggal'
+    autocomplete_fields = ()
+    readonly_fields = ('created_at', 'updated_at')
+

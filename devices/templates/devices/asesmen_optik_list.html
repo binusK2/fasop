@@ -1,0 +1,175 @@
+{% extends 'base.html' %}
+{% load device_filters %}
+{% block title %}Asesmen Optik — FASOP{% endblock %}
+{% block page_title %}Asesmen Optik{% endblock %}
+
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+    <div>
+        <h2 class="mb-0" style="font-size:20px;font-weight:700;">Asesmen Optik</h2>
+        <div style="font-size:12.5px;color:#64748b;margin-top:2px;">
+            Pendataan kondisi fiber optic &amp; aksesoris per tower transmisi.
+        </div>
+    </div>
+    {% if bisa_isi %}
+    <a href="{% url 'asesmen_optik_add' %}" class="btn btn-primary btn-sm">
+        <i class="bi bi-plus-lg me-1"></i>Tambah Asesmen
+    </a>
+    {% endif %}
+</div>
+
+{# ── Filter ── #}
+<div class="card mb-3">
+    <div class="card-body py-3">
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label" style="font-size:12px;font-weight:600;color:#475569;">Ruas FO</label>
+                <select name="ruas" class="form-select form-select-sm select-cari"
+                        data-placeholder="Semua ruas...">
+                    <option value="">Semua Ruas</option>
+                    {% for fo in ruas_list %}
+                    <option value="{{ fo.pk|hashid }}" {% if selected_ruas == fo.pk|hashid %}selected{% endif %}>
+                        {{ fo.nama }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label" style="font-size:12px;font-weight:600;color:#475569;">Kondisi</label>
+                <select name="kondisi" class="form-select form-select-sm">
+                    <option value="">Semua Kondisi</option>
+                    <option value="anomali" {% if selected_kondisi == 'anomali' %}selected{% endif %}>Perlu Tindak Lanjut</option>
+                    <option value="baik" {% if selected_kondisi == 'baik' %}selected{% endif %}>Baik Semua</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label" style="font-size:12px;font-weight:600;color:#475569;">Cari</label>
+                <input type="text" name="q" value="{{ cari }}" class="form-control form-control-sm"
+                       placeholder="No tower, petugas, keterangan...">
+            </div>
+            <div class="col-md-2">
+                <button class="btn btn-primary btn-sm w-100"><i class="bi bi-funnel me-1"></i>Filter</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="table-card">
+    <div class="table-header">
+        <h6 class="mb-0">
+            <i class="bi bi-clipboard-check me-1" style="color:#3b82f6;"></i>
+            {{ paginator.count }} Hasil Asesmen
+        </h6>
+    </div>
+    <div class="table-responsive">
+        <table class="table mb-0">
+            <thead>
+                <tr style="background:#f8fafc;">
+                    <th style="font-size:11px;color:#94a3b8;padding:10px 12px;text-align:center;">#</th>
+                    <th style="font-size:11px;color:#64748b;padding:10px 12px;">RUAS / TOWER</th>
+                    <th style="font-size:11px;color:#64748b;padding:10px 12px;text-align:center;">TANGGAL</th>
+                    <th style="font-size:11px;color:#64748b;padding:10px 12px;text-align:center;">FASA / KABEL</th>
+                    <th style="font-size:11px;color:#64748b;padding:10px 12px;text-align:center;">KONDISI FO</th>
+                    <th style="font-size:11px;color:#64748b;padding:10px 12px;text-align:center;">AKSESORIS</th>
+                    <th style="font-size:11px;color:#64748b;padding:10px 12px;">PETUGAS</th>
+                    <th style="font-size:11px;color:#64748b;padding:10px 12px;text-align:center;">AKSI</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for a in asesmen %}
+            <tr style="border-top:1px solid #f1f5f9;{% if a.ada_anomali %}background:#fffbf5;{% endif %}">
+                <td style="text-align:center;font-size:12px;color:#cbd5e1;padding:12px;">
+                    {{ forloop.counter0|add:page_obj.start_index }}
+                </td>
+
+                <td style="padding:12px;">
+                    <div style="font-size:13px;font-weight:600;color:#1e293b;">
+                        Tower {{ a.no_tower }}
+                    </div>
+                    <div style="font-size:11.5px;color:#64748b;">{{ a.fiber_optic.nama }}</div>
+                    {% if a.upt or a.level_tegangan %}
+                    <div style="font-size:10.5px;color:#94a3b8;margin-top:2px;">
+                        {{ a.upt }}{% if a.upt and a.level_tegangan %} · {% endif %}{{ a.level_tegangan }}
+                    </div>
+                    {% endif %}
+                </td>
+
+                <td style="text-align:center;padding:12px;font-size:12.5px;white-space:nowrap;">
+                    {{ a.tanggal|date:"d M Y" }}
+                </td>
+
+                <td style="text-align:center;padding:12px;font-size:12px;">
+                    {{ a.get_fasa_fo_display|default:"—" }}
+                    <div style="font-size:10.5px;color:#94a3b8;">{{ a.tipe_kabel_efektif|default:"—" }}</div>
+                </td>
+
+                <td style="text-align:center;padding:12px;">
+                    {% if a.kondisi_fo == 'baik' %}
+                    <span class="badge-status" style="background:#dcfce7;color:#065f46;font-size:11px;padding:3px 10px;border-radius:20px;font-weight:600;">Baik</span>
+                    {% elif a.kondisi_fo %}
+                    <span class="badge-status" style="background:#fee2e2;color:#991b1b;font-size:11px;padding:3px 10px;border-radius:20px;font-weight:600;">{{ a.get_kondisi_fo_display }}</span>
+                    {% else %}<span style="color:#cbd5e1;">—</span>{% endif %}
+                </td>
+
+                <td style="text-align:center;padding:12px;">
+                    {% if a.kondisi_asesoris == 'baik' %}
+                    <span style="background:#dcfce7;color:#065f46;font-size:11px;padding:3px 10px;border-radius:20px;font-weight:600;">Baik</span>
+                    {% elif a.kondisi_asesoris %}
+                    <span style="background:#fef3c7;color:#92400e;font-size:11px;padding:3px 10px;border-radius:20px;font-weight:600;">{{ a.get_kondisi_asesoris_display }}</span>
+                    {% else %}<span style="color:#cbd5e1;">—</span>{% endif %}
+                    <div style="font-size:10.5px;color:#94a3b8;margin-top:2px;">
+                        {{ a.get_tipe_asesoris_display|default:"" }}
+                    </div>
+                </td>
+
+                <td style="padding:12px;font-size:12.5px;color:#475569;">
+                    {{ a.petugas|default:"—" }}
+                    {% if a.keterangan %}
+                    <div style="font-size:11px;color:#94a3b8;" title="{{ a.keterangan }}">
+                        {{ a.keterangan|truncatechars:38 }}
+                    </div>
+                    {% endif %}
+                </td>
+
+                <td style="text-align:center;padding:12px;white-space:nowrap;">
+                    {% if bisa_isi %}
+                    <a href="{% url 'asesmen_optik_edit' a.pk %}" class="btn btn-sm btn-outline-primary"
+                       style="font-size:11px;padding:2px 9px;" title="Edit">
+                        <i class="bi bi-pencil"></i>
+                    </a>
+                    {% endif %}
+                    {% if user_can_delete %}
+                    <form method="post" action="{% url 'asesmen_optik_delete' a.pk %}" class="d-inline m-0">
+                        {% csrf_token %}
+                        <button class="btn btn-sm btn-outline-danger" style="font-size:11px;padding:2px 9px;"
+                                onclick="return confirm('Hapus asesmen tower {{ a.no_tower }}?')" title="Hapus">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="8" class="text-center text-muted py-5">
+                    <i class="bi bi-clipboard-x fs-2 d-block mb-2"></i>
+                    Belum ada hasil asesmen.
+                    {% if bisa_isi %}
+                    <div class="mt-2">
+                        <a href="{% url 'asesmen_optik_add' %}" class="btn btn-sm btn-primary">
+                            <i class="bi bi-plus-lg me-1"></i>Tambah Asesmen
+                        </a>
+                    </div>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% include 'maintenance/_paginasi.html' %}
+</div>
+
+{% endblock %}
