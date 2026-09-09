@@ -3555,3 +3555,65 @@ class GetLiveDataBanyakSumberTest(TestCase):
         self.per_tabel['dbo.KIT_BARU'] = self._baris_kolom('LAMA', 77.0)
         hasil = mssql.get_live_data(self._muat(p), spek=baru.spesifikasi())
         self.assertEqual(hasil['data']['LAMA']['mw'], 77.0)
+
+
+class SebabSumberKosongTest(TestCase):
+    """
+    Aksi "Uji baca" harus menyebut SEBABNYA, bukan cuma "0 dari N". Tiga sebab
+    yang paling sering, masing-masing perbaikannya berbeda: nama tabel salah,
+    nama kolom salah, dan nilai kuncinya yang tidak cocok.
+    """
+
+    def setUp(self):
+        from opsis.admin import SumberKitAdmin
+        from django.contrib.admin.sites import site
+        self.admin = SumberKitAdmin(SumberKit, site)
+        self.probe = {'tabel': 'dbo.TRAFO_GEN', 'kolom': [], 'rows': [], 'error': None}
+        asli = mssql.probe_tabel
+        mssql.probe_tabel = lambda tabel, limit=20: {**self.probe, 'tabel': tabel}
+        self.addCleanup(lambda: setattr(mssql, 'probe_tabel', asli))
+        SumberKit._cache = {'obj': None, 'ts': 0.0}
+
+    def _sumber(self, **kwargs):
+        isi = dict(nama='Tabel Baru', tabel='dbo.TRAFO_GEN', kolom_kunci='KIT',
+                   kolom_waktu='DATE', jumlah_unit=2,
+                   pola_kolom_p='TRFG{n}_P', pola_kolom_q='TRFG{n}_Q')
+        isi.update(kwargs)
+        return SumberKit(**isi)
+
+    def _pesan(self, obj, pembangkit=None):
+        return [teks for teks, _ in self.admin._sebab_kosong(obj, pembangkit or [])]
+
+    def test_tabel_tidak_terbaca_disebut_apa_adanya(self):
+        self.probe = {**self.probe, 'error': "Invalid object name 'dbo.TRAFO_GEN'"}
+        pesan = ' '.join(self._pesan(self._sumber()))
+        self.assertIn('Invalid object name', pesan)
+
+    def test_kolom_waktu_yang_tidak_ada_disebut_namanya(self):
+        """Tabel tanpa kolom DATE — sebab yang paling tidak kelihatan, karena
+        Kolom Waktu terisi 'DATE' dari bawaan tanpa ada yang mengetiknya."""
+        self.probe = {**self.probe,
+                      'kolom': ['ID', 'KIT', 'TRFG1_P', 'TRFG1_Q', 'TRFG2_P', 'TRFG2_Q']}
+        pesan = ' '.join(self._pesan(self._sumber()))
+        self.assertIn('TIDAK ADA', pesan)
+        self.assertIn('Kolom Waktu=DATE', pesan)
+
+    def test_pola_kolom_salah_ketik_disebut_per_unit(self):
+        self.probe = {**self.probe,
+                      'kolom': ['ID', 'KIT', 'TRFG1_P', 'TRFG1_Q', 'TRFG2_P', 'TRFG2_Q']}
+        pesan = ' '.join(self._pesan(
+            self._sumber(kolom_waktu='', pola_kolom_p='TRG{n}P', pola_kolom_q='TRG{n}Q')))
+        self.assertIn('UNIT1 P=TRG1P', pesan)
+        self.assertIn('TRFG1_P', pesan)          # daftar kolom yang benar ikut ditampilkan
+
+    def test_kolom_cocok_tapi_kode_kit_tidak_menampilkan_nilai_asli(self):
+        self.probe = {
+            'tabel': 'dbo.TRAFO_GEN', 'error': None,
+            'kolom': ['ID', 'KIT', 'TRFG1_P', 'TRFG1_Q', 'TRFG2_P', 'TRFG2_Q'],
+            'rows': [{'KIT': 'BKARU5'}, {'KIT': 'BLUSU5'}],
+        }
+        p = Pembangkit.objects.create(nama='Bakaru', kode='BAKARU')
+        pesan = ' '.join(self._pesan(self._sumber(kolom_waktu=''), [p]))
+        self.assertIn('BKARU5', pesan)           # yang ADA di tabel
+        self.assertIn('BAKARU', pesan)           # yang DICARI FASOP
+        self.assertIn('Kode KIT', pesan)         # tempat memperbaikinya

@@ -416,10 +416,11 @@ class SumberKitAdmin(admin.ModelAdmin):
             self.message_user(
                 request,
                 f'Sumber "{obj.nama}" ({obj.tabel_efektif()}): tidak ada satu pun dari '
-                f'{len(pembangkit)} pembangkit yang dapat angka. Cek nama tabel/kolom, dan '
-                f'— untuk mode Kolom — apakah Kode KIT pembangkit cocok dengan isi Kolom '
-                f'Kunci. Pembangkit lain yang memakai sumber berbeda tidak terpengaruh.',
+                f'{len(pembangkit)} pembangkit yang dapat angka. Pembangkit yang memakai '
+                f'sumber lain tidak terpengaruh.',
                 level=messages.ERROR)
+            for pesan, tingkat in self._sebab_kosong(obj, pembangkit):
+                self.message_user(request, pesan, level=tingkat)
             return
         total = sum(data[p.kode]['mw'] for p in terisi)
         self.message_user(
@@ -433,6 +434,62 @@ class SumberKitAdmin(admin.ModelAdmin):
             self.message_user(
                 request,
                 f'Belum dapat angka: {nama}{lanjut}.', level=messages.WARNING)
+
+    def _sebab_kosong(self, obj, pembangkit):
+        """
+        [(pesan, tingkat)] yang menjelaskan KENAPA sebuah sumber tidak
+        menghasilkan angka. "0 dari N" saja menyuruh orang menebak antara nama
+        tabel, nama kolom, dan nilai kunci yang tidak cocok — tiga hal dengan
+        perbaikan yang sama sekali berbeda. Yang membedakannya cuma isi tabelnya
+        sendiri, jadi dibaca sekali di sini alih-alih ditinggalkan di log server.
+        """
+        probe = mssql.probe_tabel(obj.tabel_efektif(), limit=20)
+        if probe.get('error'):
+            return [(f"Tabel {probe['tabel']} tidak bisa dibaca: {probe['error']}",
+                     messages.ERROR)]
+
+        ada = {k.upper(): k for k in probe['kolom']}
+        diminta = [('Kolom Kunci', obj.kolom_kunci)]
+        if (obj.kolom_waktu or '').strip():
+            diminta.append(('Kolom Waktu', obj.kolom_waktu))
+        if obj.mode == 'baris':
+            diminta.append(('Kolom Nilai', obj.kolom_nilai))
+        else:
+            for nama, kol_p, kol_q in obj.kolom_unit():
+                diminta.append((f'{nama} P', kol_p))
+                if kol_q:
+                    diminta.append((f'{nama} Q', kol_q))
+
+        hilang = [f'{label}={kolom}' for label, kolom in diminta
+                  if (kolom or '').strip() and kolom.strip().upper() not in ada]
+        if hilang:
+            return [
+                (f"Kolom yang diisi tapi TIDAK ADA di {probe['tabel']}: "
+                 f"{', '.join(hilang)}.", messages.ERROR),
+                (f"Kolom yang benar-benar ada: {', '.join(probe['kolom'])}",
+                 messages.INFO),
+            ]
+
+        # Semua kolom ada -> yang tidak cocok nilai kuncinya.
+        kunci_asli = ada.get((obj.kolom_kunci or '').strip().upper())
+        nilai_tabel = []
+        if kunci_asli:
+            for r in probe['rows']:
+                v = r.get(kunci_asli)
+                if v is not None and str(v).strip() and str(v).strip() not in nilai_tabel:
+                    nilai_tabel.append(str(v).strip())
+        contoh = ', '.join(nilai_tabel[:10]) or '(tabel kosong)'
+        if obj.mode == 'baris':
+            return [('Semua kolom ada. Berarti Tag Unit KIT tiap pembangkit belum cocok '
+                     f'dengan isi Kolom Kunci. Contoh nilai di tabel: {contoh}',
+                     messages.WARNING)]
+        dipakai = ', '.join(sorted({p.kit_source() for p in pembangkit})[:10])
+        return [
+            (f'Semua kolom ada, jadi yang tidak cocok nilai kuncinya. Kolom '
+             f'{obj.kolom_kunci} di tabel berisi: {contoh}', messages.WARNING),
+            (f'Sedangkan Kode KIT pembangkit yang dicari: {dipakai}. Samakan lewat '
+             f'kolom "Kode KIT (MSSQL)" di daftar Pembangkit.', messages.INFO),
+        ]
 
     @admin.action(description='Lihat kolom tabel sumber')
     def lihat_kolom_tabel(self, request, queryset):
