@@ -1082,6 +1082,15 @@ Yang perlu diketahui saat mengubahnya:
   inilah yang dulu membuat sinkronisasi OFDB praktis tidak selesai.
   `_pembangkit_aktif()` dan `collect_live` sudah `prefetch_related('tag_unit')`
   — jangan panggil `get_live_data()` dengan queryset tanpa prefetch itu.
+- **MVAR dijumlahkan BERTANDA, MW di-`abs()`.** Keduanya beda sebab: P minus
+  memang kesalahan polaritas wiring CT/PT, sedangkan Q minus berarti unit
+  MENYERAP daya reaktif (under-excited / kondensor sinkron) — keadaan operasi
+  yang sah. Pernah ada filter `> 0` pada penjumlahan MVAR (dan `CASE WHEN Q > 0`
+  di `get_trend_data()`): akibatnya kartu MVAR pembangkit kosong "—" saat semua
+  unitnya menyerap, dan menampilkan angka yang terlalu besar saat sebagian
+  menyerap — padahal tabel unit di halaman detail menampilkan nilai aslinya dan
+  sengaja mewarnainya merah. Satu layar menyebut dua hal berbeda tentang data
+  yang sama; jangan kembalikan filternya (dijaga tes).
 - **Unit yang P-nya tidak terbaca dibuang di mode `baris`.** Unit yang hanya
   punya Q akan tampil sebagai unit hidup tanpa daya — lebih menyesatkan daripada
   tidak ditampilkan.
