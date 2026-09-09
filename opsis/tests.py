@@ -16,7 +16,7 @@ from django.utils import timezone
 from .models import (KartuPadam, KelompokPeta, KolomEWS, ModePemeliharaan,
                      PantauanKit, Pembangkit, PengaturanDashboard, SnapKtt,
                      PengaturanInersia, PrakiraanBeban, SnapFreq, SnapFreqRT,
-                     SnapLive, TitikEWS)
+                     SnapLive, TitikEWS, SumberKit, TagUnitKit, SPEK_KIT_BAWAAN)
 from . import freq_history, hop_map, ktt, mssql, prakiraan, prediksi, sumber_data, views
 from . import cache as opsis_cache
 from auditlog.models import AuditLog
@@ -3082,3 +3082,280 @@ class ChartKttTest(TestCase):
     def test_terdaftar_di_peta_sumber_data(self):
         sumber = [b['sumber'] for b in sumber_data.periksa_semua(dengan_mssql=False)]
         self.assertIn('opsis.SnapKtt', sumber)
+
+
+class SumberKitModelTest(TestCase):
+    """Baris pengaturan sumber KIT dan spesifikasi yang diturunkannya."""
+
+    def setUp(self):
+        SumberKit._cache = {'obj': None, 'ts': 0.0}
+
+    def test_bawaan_sama_persis_dengan_kit_realtime(self):
+        """Pemasangan yang belum menyentuh pengaturan ini harus menghasilkan
+        pemetaan yang identik dengan perilaku lama."""
+        self.assertEqual(SumberKit.ambil().spesifikasi(), SPEK_KIT_BAWAAN)
+
+    def test_baris_pengaturan_selalu_tunggal(self):
+        SumberKit.ambil()
+        SumberKit(tabel='dbo.LAIN').save()
+        self.assertEqual(SumberKit.objects.count(), 1)
+        self.assertEqual(SumberKit.objects.get().tabel, 'dbo.LAIN')
+
+    @override_settings(MSSQL_RT_TABLE='dbo.DARI_ENV')
+    def test_tabel_kosong_jatuh_ke_setting_env(self):
+        obj = SumberKit.ambil()
+        self.assertEqual(obj.tabel_efektif(), 'dbo.DARI_ENV')
+        obj.tabel = 'dbo.DARI_ADMIN'
+        self.assertEqual(obj.tabel_efektif(), 'dbo.DARI_ADMIN')
+
+    def test_pola_kolom_diterapkan_per_unit(self):
+        obj = SumberKit.ambil()
+        obj.jumlah_unit = 3
+        obj.pola_kolom_p = 'P{n}'
+        obj.pola_kolom_q = 'Q{n}'
+        self.assertEqual(obj.kolom_unit(),
+                         [('UNIT1', 'P1', 'Q1'), ('UNIT2', 'P2', 'Q2'), ('UNIT3', 'P3', 'Q3')])
+
+    def test_pola_q_kosong_berarti_tanpa_mvar(self):
+        obj = SumberKit.ambil()
+        obj.jumlah_unit = 2
+        obj.pola_kolom_q = ''
+        self.assertEqual([q for _, _, q in obj.kolom_unit()], ['', ''])
+
+    def test_kurung_nyasar_di_pola_tidak_melempar_exception(self):
+        """Pola diisi manusia; str.format() akan melempar di tengah pembacaan
+        data live, replace() tidak."""
+        obj = SumberKit.ambil()
+        obj.jumlah_unit = 1
+        obj.pola_kolom_p = 'UNIT{n}_{P'
+        self.assertEqual(obj.kolom_unit(), [('UNIT1', 'UNIT1_{P', 'UNIT1_Q')])
+
+    def test_nama_unit_tidak_ikut_berubah_saat_pola_diganti(self):
+        """SnapUnit, Pembangkit.unit_list, dan kartu unit memakai nama ini."""
+        obj = SumberKit.ambil()
+        obj.pola_kolom_p = 'MW_UNIT{n}'
+        self.assertEqual([n for n, _, _ in obj.kolom_unit()][:3], ['UNIT1', 'UNIT2', 'UNIT3'])
+
+    def test_setelan_menyegarkan_cache_saat_disimpan(self):
+        obj = SumberKit.ambil()
+        self.assertEqual(SumberKit.setelan().mode, 'kolom')
+        obj.mode = 'baris'
+        obj.save()
+        self.assertEqual(SumberKit.setelan().mode, 'baris')
+
+    def test_tag_unit_list_membuang_tag_p_kosong(self):
+        p = Pembangkit.objects.create(nama='Uji', kode='UJI1')
+        TagUnitKit.objects.create(pembangkit=p, nama='UNIT1', tag_p='A_P', tag_q='A_Q', urutan=1)
+        TagUnitKit.objects.create(pembangkit=p, nama='UNIT2', tag_p='  ', tag_q='B_Q', urutan=2)
+        self.assertEqual(p.tag_unit_list(), [('UNIT1', 'A_P', 'A_Q')])
+
+
+class GetLiveDataSumberTest(TestCase):
+    """
+    Query yang benar-benar dikirim get_live_data() untuk tiap bentuk tabel
+    sumber. Koneksi MSSQL diganti palsu supaya tes tidak butuh historian.
+    """
+
+    def setUp(self):
+        self.dijalankan = []          # (sql, params) tiap execute()
+        self.baris = []               # baris balikan fetchall() berikutnya
+        uji = self
+
+        class KursorPalsu:
+            def __init__(self):
+                self._hasil = []
+
+            def execute(self, sql, params=None):
+                sql_rapi = ' '.join(sql.split())
+                uji.dijalankan.append((sql_rapi, list(params or [])))
+                # Query frekuensi (SYS_FREQ_RT) dijawab kosong; yang diuji di
+                # sini hanya jalur pembacaan KIT.
+                if sql_rapi.startswith('SELECT TOP 1'):
+                    self._hasil = []
+                else:
+                    self._hasil = uji.baris
+
+            def fetchall(self):
+                return self._hasil
+
+            def fetchone(self):
+                return self._hasil[0] if self._hasil else None
+
+        class KoneksiPalsu:
+            def cursor(self):
+                return KursorPalsu()
+
+            def close(self):
+                pass
+
+        self._asli = mssql._get_connection
+        mssql._get_connection = lambda: KoneksiPalsu()
+        self.addCleanup(lambda: setattr(mssql, '_get_connection', self._asli))
+        SumberKit._cache = {'obj': None, 'ts': 0.0}
+
+    def _pembangkit(self, kode='KIT1', **kwargs):
+        return Pembangkit.objects.create(nama=kode, kode=kode, **kwargs)
+
+    def _sql_kit(self):
+        """SQL pembacaan KIT (bukan query frekuensi)."""
+        return next(s for s, _ in self.dijalankan if not s.startswith('SELECT TOP 1'))
+
+    @override_settings(MSSQL_HOST='127.0.0.1,1433')
+    def test_bawaan_membaca_kit_realtime_seperti_sebelumnya(self):
+        p = self._pembangkit()
+        self.baris = [('KIT1', None) + (10.0, 1.0) + (20.0, 2.0) + (None, None) * 6]
+        hasil = mssql.get_live_data([p])
+        sql = self._sql_kit()
+        self.assertIn('FROM dbo.KIT_REALTIME WITH (NOLOCK)', sql)
+        self.assertIn('SELECT KIT, DATE, UNIT1_P, UNIT1_Q,', sql)
+        self.assertIn('UNIT8_P, UNIT8_Q', sql)
+        self.assertEqual(hasil['data']['KIT1']['mw'], 30.0)
+        self.assertEqual(hasil['data']['KIT1']['mvar'], 3.0)
+        self.assertEqual([u['nama'] for u in hasil['data']['KIT1']['units']], ['UNIT1', 'UNIT2'])
+
+    @override_settings(MSSQL_HOST='127.0.0.1,1433')
+    def test_tabel_dan_kolom_lain_dari_admin(self):
+        obj = SumberKit.ambil()
+        obj.tabel = 'dbo.KIT_BARU'
+        obj.kolom_kunci = 'PLANT'
+        obj.kolom_waktu = 'TS'
+        obj.jumlah_unit = 2
+        obj.pola_kolom_p = 'MW{n}'
+        obj.pola_kolom_q = 'MVAR{n}'
+        obj.save()
+        p = self._pembangkit()
+        self.baris = [('KIT1', None, 5.0, 0.5, 7.0, 0.7)]
+        hasil = mssql.get_live_data([p])
+        self.assertEqual(
+            self._sql_kit(),
+            'SELECT PLANT, TS, MW1, MVAR1, MW2, MVAR2 FROM dbo.KIT_BARU WITH (NOLOCK)')
+        self.assertEqual(hasil['data']['KIT1']['mw'], 12.0)
+
+    @override_settings(MSSQL_HOST='127.0.0.1,1433')
+    def test_tanpa_kolom_waktu_tetap_membaca_angka(self):
+        obj = SumberKit.ambil()
+        obj.kolom_waktu = ''
+        obj.jumlah_unit = 1
+        obj.save()
+        p = self._pembangkit()
+        self.baris = [('KIT1', 9.0, 1.0)]
+        hasil = mssql.get_live_data([p])
+        self.assertNotIn(' DATE', self._sql_kit())
+        self.assertEqual(hasil['data']['KIT1']['mw'], 9.0)
+        self.assertIsNone(hasil['data']['KIT1']['timestamp'])
+
+    @override_settings(MSSQL_HOST='127.0.0.1,1433')
+    def test_pola_q_kosong_mvar_none_mw_tetap_jalan(self):
+        obj = SumberKit.ambil()
+        obj.jumlah_unit = 2
+        obj.pola_kolom_q = ''
+        obj.save()
+        p = self._pembangkit()
+        self.baris = [('KIT1', None, 4.0, 6.0)]
+        hasil = mssql.get_live_data([p])
+        self.assertEqual(hasil['data']['KIT1']['mw'], 10.0)
+        self.assertIsNone(hasil['data']['KIT1']['mvar'])
+
+    @override_settings(MSSQL_HOST='127.0.0.1,1433')
+    def test_mode_baris_satu_query_untuk_semua_tag(self):
+        obj = SumberKit.ambil()
+        obj.mode = 'baris'
+        obj.tabel = 'dbo.ANALOG_RT'
+        obj.kolom_kunci = 'ANALOG'
+        obj.kolom_nilai = 'VALUE'
+        obj.save()
+        p = self._pembangkit()
+        TagUnitKit.objects.create(pembangkit=p, nama='UNIT1', tag_p='A_P', tag_q='A_Q')
+        TagUnitKit.objects.create(pembangkit=p, nama='UNIT2', tag_p='B_P')
+        self.baris = [('A_P', 11.0), ('A_Q', 1.5), ('B_P', 9.0)]
+        hasil = mssql.get_live_data([p])
+        sql, params = next((s, prm) for s, prm in self.dijalankan
+                           if not s.startswith('SELECT TOP 1'))
+        self.assertIn('FROM dbo.ANALOG_RT WITH (NOLOCK)', sql)
+        self.assertIn('IN (?, ?, ?)', sql)
+        self.assertEqual(sorted(params), ['A_P', 'A_Q', 'B_P'])
+        self.assertEqual(hasil['data']['KIT1']['mw'], 20.0)
+        self.assertEqual(hasil['data']['KIT1']['mvar'], 1.5)
+
+    @override_settings(MSSQL_HOST='127.0.0.1,1433')
+    def test_mode_baris_nilai_kunci_lewat_bind_parameter(self):
+        obj = SumberKit.ambil()
+        obj.mode = 'baris'
+        obj.save()
+        p = self._pembangkit()
+        TagUnitKit.objects.create(pembangkit=p, nama='UNIT1', tag_p="x' OR '1'='1")
+        self.baris = []
+        mssql.get_live_data([p])
+        sql, params = next((s, prm) for s, prm in self.dijalankan
+                           if not s.startswith('SELECT TOP 1'))
+        self.assertNotIn("OR '1'='1", sql)
+        self.assertEqual(params, ["x' OR '1'='1"])
+
+    @override_settings(MSSQL_HOST='127.0.0.1,1433')
+    def test_mode_baris_unit_tanpa_p_tidak_ikut(self):
+        """Unit yang hanya Q-nya terbaca akan tampil hidup tanpa daya — lebih
+        menyesatkan daripada tidak ditampilkan."""
+        obj = SumberKit.ambil()
+        obj.mode = 'baris'
+        obj.save()
+        p = self._pembangkit()
+        TagUnitKit.objects.create(pembangkit=p, nama='UNIT1', tag_p='A_P', tag_q='A_Q')
+        self.baris = [('A_Q', 2.0)]
+        hasil = mssql.get_live_data([p])
+        self.assertEqual(hasil['data']['KIT1']['units'], [])
+        self.assertIsNone(hasil['data']['KIT1']['mw'])
+
+    @override_settings(MSSQL_HOST='127.0.0.1,1433')
+    def test_mode_baris_tanpa_tag_terdaftar_tidak_menembak_sql(self):
+        obj = SumberKit.ambil()
+        obj.mode = 'baris'
+        obj.save()
+        p = self._pembangkit()
+        hasil = mssql.get_live_data([p])
+        self.assertIsNone(hasil['data']['KIT1']['mw'])
+        self.assertEqual([s for s, _ in self.dijalankan if not s.startswith('SELECT TOP 1')], [])
+
+    @override_settings(MSSQL_HOST='127.0.0.1,1433')
+    def test_identifier_berbahaya_tidak_pernah_masuk_query(self):
+        for ubah in ({'tabel': 'dbo.X; DROP TABLE Y'},
+                     {'kolom_kunci': 'KIT OR 1=1'},
+                     {'pola_kolom_p': 'UNIT{n}_P; DELETE FROM Z'}):
+            with self.subTest(**ubah):
+                self.dijalankan = []
+                SumberKit._cache = {'obj': None, 'ts': 0.0}
+                obj = SumberKit.ambil()
+                for k, v in ubah.items():
+                    setattr(obj, k, v)
+                obj.save()
+                p = Pembangkit.objects.filter(kode='KIT1').first() or self._pembangkit()
+                hasil = mssql.get_live_data([p])
+                self.assertIsNone(hasil['data']['KIT1']['mw'])
+                semua = ' '.join(s for s, _ in self.dijalankan)
+                for jahat in ('DROP TABLE', 'DELETE FROM', 'OR 1=1'):
+                    self.assertNotIn(jahat, semua)
+
+    @override_settings(MSSQL_HOST='127.0.0.1,1433')
+    def test_unit_list_tetap_menyaring_unit(self):
+        """Aturan lama: satu baris sumber bisa dibagi dua pembangkit."""
+        a = self._pembangkit(kode='KIT1', unit_list='UNIT1')
+        b = self._pembangkit(kode='KIT2', kode_kit='KIT1', unit_list='UNIT2')
+        self.baris = [('KIT1', None) + (10.0, 1.0) + (20.0, 2.0) + (None, None) * 6]
+        hasil = mssql.get_live_data([a, b])
+        self.assertEqual(hasil['data']['KIT1']['mw'], 10.0)
+        self.assertEqual(hasil['data']['KIT2']['mw'], 20.0)
+
+    @override_settings(MSSQL_HOST='')
+    def test_tanpa_mssql_host_tidak_menembak_sql(self):
+        p = self._pembangkit()
+        hasil = mssql.get_live_data([p])
+        self.assertIsNone(hasil['data']['KIT1']['mw'])
+        self.assertEqual(self.dijalankan, [])
+
+    @override_settings(MSSQL_HOST='127.0.0.1,1433')
+    def test_koneksi_gagal_tidak_melempar_exception(self):
+        def gagal():
+            raise ConnectionError('historian mati')
+        mssql._get_connection = gagal
+        p = self._pembangkit()
+        hasil = mssql.get_live_data([p])
+        self.assertIsNone(hasil['data']['KIT1']['mw'])

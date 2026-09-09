@@ -137,6 +137,20 @@ class Pembangkit(models.Model):
             return None
         return {u.strip().upper() for u in self.unit_list.split(',') if u.strip()}
 
+    def tag_unit_list(self):
+        """
+        [(nama, tag_P, tag_Q)] unit pembangkit ini untuk SumberKit mode 'baris'.
+        Kosong berarti pembangkit ini belum dipetakan ke tag mana pun — kartunya
+        tampil kosong, bukan error.
+
+        Memakai `.all()` supaya prefetch_related('tag_unit') di pemanggil benar
+        benar terpakai: dashboard memanggil ini untuk SETIAP pembangkit tiap
+        poll, dan satu query per pembangkit di jalur itu adalah persis pola yang
+        dulu membuat sinkronisasi OFDB tidak pernah selesai.
+        """
+        return [(t.nama.strip().upper(), t.tag_p.strip(), t.tag_q.strip())
+                for t in self.tag_unit.all() if t.tag_p.strip()]
+
     def dmp_sources(self):
         """Daftar nilai kunci KIT_DMP; beberapa nilai dipisahkan dengan koma."""
         raw = self.dmp_key or self.kit_source()
@@ -970,6 +984,230 @@ class ModePemeliharaan(models.Model):
             return cache['obj']
         cls._cache = {'obj': obj, 'ts': now}
         return obj
+
+
+# ── Sumber Data KIT (live MW/MVAR dashboard) ─────────────────────────────────
+#
+# Dashboard OPSIS membaca MW/MVAR tiap unit dari SATU tabel realtime MSSQL.
+# Selama ini tabel itu dipatok `dbo.KIT_REALTIME` beserta BENTUKNYA (kolom KIT,
+# DATE, UNIT1_P/UNIT1_Q .. UNIT8_P/UNIT8_Q) — nama tabelnya bisa diganti lewat
+# .env, tapi begitu tabel penggantinya punya nama kolom lain, atau bentuknya
+# satu titik per baris seperti ALL_TRANS_DATA, satu-satunya jalan adalah
+# mengubah kode.
+#
+# SumberKit memindahkan seluruh pemetaan itu ke site admin, mengikuti pola yang
+# sudah dipakai opsis.Trafo.sumber_* dan opsis.TitikEWS.sumber_*: nama
+# tabel/kolom divalidasi regex di opsis.mssql sebelum masuk SQL, nilai kunci
+# tetap lewat bind parameter.
+
+SUMBER_KIT_MODE_CHOICES = [
+    ('kolom', 'Kolom — satu baris per KIT, kolomnya UNIT1_P/UNIT1_Q ... (bentuk KIT_REALTIME)'),
+    ('baris', 'Baris — satu titik per baris (kolom kunci + kolom nilai, bentuk ALL_TRANS_DATA)'),
+]
+
+# Nama unit yang dipakai di seluruh aplikasi ('UNIT1'..'UNITn'). Sengaja TIDAK
+# ikut berubah saat pola kolom diganti: Pembangkit.unit_list, SnapUnit, dan
+# tampilan kartu semuanya memakai nama ini, jadi mengubah sumber data tidak
+# boleh diam-diam mengganti nama unit yang sudah tersimpan.
+def nama_unit(nomor):
+    return f'UNIT{nomor}'
+
+
+class SumberKit(models.Model):
+    """
+    Pemetaan dashboard OPSIS ke tabel MSSQL sumber MW/MVAR — baris tunggal
+    (pk=1) yang diubah dari site admin, tanpa migrasi maupun redeploy.
+
+    Dua bentuk tabel yang didukung, sama seperti opsis.Trafo.sumber_mode:
+
+    * mode 'kolom' (bawaan) — satu baris per KIT dengan kolom per unit:
+      KIT | DATE | UNIT1_P | UNIT1_Q | ... Ini bentuk dbo.KIT_REALTIME, dan
+      nilai bawaan seluruh field di bawah menghasilkan query yang PERSIS sama
+      dengan sebelum pengaturan ini ada.
+    * mode 'baris' — satu titik ukur per baris (kolom kunci + kolom nilai),
+      bentuk historian seperti dbo.ALL_TRANS_DATA. Tag tiap unit didaftarkan
+      per pembangkit lewat TagUnitKit.
+
+    Yang TIDAK ikut pindah ke sini: frekuensi sistem (SYS_FREQ_RT, lewat
+    MSSQL_FREQ_RT_*), trend per pembangkit (HIS_MEAS_KIT), dan Daya Mampu
+    (KIT_DMP, kolomnya sudah per-pembangkit di Pembangkit.dmp_*). Ketiganya
+    tabel yang berbeda dengan siklus hidup sendiri — menyatukannya ke satu
+    baris pengaturan hanya membuat sakelar yang artinya kabur.
+    """
+
+    # Dibaca tiap poll /opsis/api/live/ (browser memoll 1 detik), jadi barisnya
+    # di-cache pendek per proses seperti ModePemeliharaan.status(). Jangan
+    # diganti jadi query per request.
+    TTL_CACHE = 5.0
+    _cache = {'obj': None, 'ts': 0.0}
+
+    mode = models.CharField(
+        max_length=10, choices=SUMBER_KIT_MODE_CHOICES, default='kolom',
+        verbose_name='Bentuk Tabel Sumber')
+    tabel = models.CharField(
+        max_length=100, blank=True, default='', verbose_name='Tabel Sumber (MSSQL)',
+        help_text='Kosongkan untuk memakai MSSQL_RT_TABLE dari .env (bawaan: '
+                  'dbo.KIT_REALTIME). Contoh: dbo.KIT_REALTIME_BARU')
+    kolom_kunci = models.CharField(
+        max_length=50, blank=True, default='KIT', verbose_name='Kolom Kunci',
+        help_text='Mode Kolom: kolom berisi kode KIT, dicocokkan dengan Kode KIT '
+                  'pembangkit. Mode Baris: kolom penanda titik, mis. ANALOG.')
+    kolom_waktu = models.CharField(
+        max_length=50, blank=True, default='DATE', verbose_name='Kolom Waktu',
+        help_text='Kolom stempel waktu baris. Kosongkan bila tabelnya tidak punya '
+                  '— kartu tetap jalan, hanya jam "update" yang tidak terisi.')
+
+    # ── Mode Kolom ──────────────────────────────────────────────────────────
+    jumlah_unit = models.PositiveSmallIntegerField(
+        default=8, verbose_name='Jumlah Unit per Baris',
+        help_text='Berapa pasang kolom unit yang dibaca (UNIT1..UNITn). KIT_REALTIME: 8.')
+    pola_kolom_p = models.CharField(
+        max_length=50, blank=True, default='UNIT{n}_P', verbose_name='Pola Kolom P (MW)',
+        help_text='{n} diganti nomor unit. Contoh: UNIT{n}_P menghasilkan UNIT1_P, UNIT2_P, ...')
+    pola_kolom_q = models.CharField(
+        max_length=50, blank=True, default='UNIT{n}_Q', verbose_name='Pola Kolom Q (MVAR)',
+        help_text='Kosongkan bila tabel sumber tidak menyimpan MVAR — kartu MVAR '
+                  'akan kosong, MW tetap jalan.')
+
+    # ── Mode Baris ──────────────────────────────────────────────────────────
+    kolom_nilai = models.CharField(
+        max_length=50, blank=True, default='VALUE', verbose_name='Kolom Nilai',
+        help_text='Hanya mode Baris — kolom berisi angkanya. Umumnya VALUE.')
+
+    diubah_oleh = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL,
+                                    related_name='+', verbose_name='Diubah Oleh')
+    diubah_pada = models.DateTimeField(auto_now=True, verbose_name='Diubah Pada')
+
+    class Meta:
+        verbose_name = 'Sumber Data KIT (Live)'
+        verbose_name_plural = 'Sumber Data KIT (Live)'
+
+    def __str__(self):
+        return f'{self.tabel_efektif()} — mode {self.get_mode_display().split(" — ")[0]}'
+
+    def save(self, *args, **kwargs):
+        self.pk = 1                       # selalu satu baris, apa pun jalur simpannya
+        super().save(*args, **kwargs)
+        type(self)._cache = {'obj': self, 'ts': time.monotonic()}
+
+    @classmethod
+    def ambil(cls):
+        """Baris pengaturan, dibuat dengan nilai bawaan bila belum ada."""
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+    @classmethod
+    def setelan(cls):
+        """
+        Seperti ambil(), tapi memakai cache pendek dan tidak pernah melempar
+        exception: None bila tabelnya belum ada (mis. sebelum migrate). Pemanggil
+        memperlakukan None sebagai "pakai bawaan KIT_REALTIME", supaya dashboard
+        tidak ikut mati hanya karena baris pengaturan belum sempat dibuat.
+        """
+        now = time.monotonic()
+        cache = cls._cache
+        if cache['obj'] is not None and (now - cache['ts']) < cls.TTL_CACHE:
+            return cache['obj']
+        try:
+            obj = cls.ambil()
+        except Exception:
+            return cache['obj']
+        cls._cache = {'obj': obj, 'ts': now}
+        return obj
+
+    def tabel_efektif(self):
+        """Tabel yang benar-benar dibaca — isian admin, else MSSQL_RT_TABLE."""
+        from django.conf import settings
+        return (self.tabel or '').strip() or getattr(
+            settings, 'MSSQL_RT_TABLE', 'dbo.KIT_REALTIME')
+
+    def kolom_unit(self):
+        """
+        [(nama_unit, kolom_P, kolom_Q)] untuk mode Kolom. Kolom Q kosong bila
+        pola Q dikosongkan (tabel sumber tanpa MVAR).
+
+        Pola diisi dengan replace('{n}', ...), BUKAN str.format(): polanya
+        datang dari admin, dan satu kurung kurawal nyasar akan membuat format()
+        melempar exception di tengah pembacaan data live.
+        """
+        hasil = []
+        pola_p = (self.pola_kolom_p or '').strip()
+        pola_q = (self.pola_kolom_q or '').strip()
+        for n in range(1, int(self.jumlah_unit or 0) + 1):
+            kol_p = pola_p.replace('{n}', str(n))
+            if not kol_p:
+                continue
+            hasil.append((nama_unit(n), kol_p, pola_q.replace('{n}', str(n)) if pola_q else ''))
+        return hasil
+
+    def spesifikasi(self):
+        """Spesifikasi sumber untuk opsis.mssql.get_live_data()."""
+        return {
+            'mode':        self.mode,
+            'tabel':       self.tabel_efektif(),
+            'kolom_kunci': (self.kolom_kunci or '').strip(),
+            'kolom_waktu': (self.kolom_waktu or '').strip(),
+            'kolom_nilai': (self.kolom_nilai or '').strip(),
+            'unit':        self.kolom_unit(),
+        }
+
+    @classmethod
+    def spesifikasi_aktif(cls):
+        """
+        Spesifikasi yang berlaku sekarang — dipakai get_live_data() saat
+        pemanggil tidak menyerahkan spesifikasi sendiri. Barisnya belum ada
+        (sebelum migrate) berarti bawaan KIT_REALTIME.
+        """
+        setelan = cls.setelan()
+        if setelan is None:
+            return SPEK_KIT_BAWAAN
+        return setelan.spesifikasi()
+
+
+# Bentuk KIT_REALTIME apa adanya — dipakai saat baris pengaturan belum ada dan
+# sebagai acuan tes bahwa pengaturan bawaan tidak mengubah query lama.
+SPEK_KIT_BAWAAN = {
+    'mode':        'kolom',
+    'tabel':       'dbo.KIT_REALTIME',
+    'kolom_kunci': 'KIT',
+    'kolom_waktu': 'DATE',
+    'kolom_nilai': 'VALUE',
+    'unit':        [(nama_unit(n), f'UNIT{n}_P', f'UNIT{n}_Q') for n in range(1, 9)],
+}
+
+
+class TagUnitKit(models.Model):
+    """
+    Tag MSSQL satu unit pembangkit — hanya dipakai saat SumberKit.mode = 'baris'
+    (satu titik ukur per baris). Didaftarkan sebagai baris di dalam form
+    Pembangkit di site admin.
+
+    Kenapa tabel sendiri dan bukan pola nama seperti kolom mode Kolom: nama tag
+    historian jarang beraturan (POSO2A_U1, SUPPA_GT1_MW, ...), persis alasan
+    Pembangkit.dmp_key harus bisa diisi eksplisit alih-alih diturunkan dari
+    kodenya.
+
+    `nama` tetap memakai 'UNIT1'..'UNITn' supaya Pembangkit.unit_list, SnapUnit,
+    dan kartu unit di dashboard tidak perlu tahu sumbernya berubah.
+    """
+    pembangkit = models.ForeignKey('Pembangkit', on_delete=models.CASCADE,
+                                   related_name='tag_unit', verbose_name='Pembangkit')
+    nama  = models.CharField(max_length=20, default='UNIT1', verbose_name='Nama Unit',
+                             help_text='UNIT1, UNIT2, ... — nama yang tampil di kartu unit.')
+    tag_p = models.CharField(max_length=100, verbose_name='Tag P (MW)',
+                             help_text='Nilai pada Kolom Kunci untuk daya aktif unit ini.')
+    tag_q = models.CharField(max_length=100, blank=True, default='', verbose_name='Tag Q (MVAR)',
+                             help_text='Kosongkan bila MVAR unit ini tidak tersedia.')
+    urutan = models.PositiveIntegerField(default=0, verbose_name='Urutan')
+
+    class Meta:
+        unique_together = ('pembangkit', 'nama')
+        ordering = ['pembangkit', 'urutan', 'nama']
+        verbose_name = 'Tag Unit KIT (mode Baris)'
+        verbose_name_plural = 'Tag Unit KIT (mode Baris)'
+
+    def __str__(self):
+        return f'{self.pembangkit.kode} — {self.nama}'
 
 
 # ── Kartu Total Padam ────────────────────────────────────────────────────────

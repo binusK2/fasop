@@ -31,7 +31,8 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         dry_run = options.get('dry_run', False)
-        pembangkit_list = list(Pembangkit.objects.filter(aktif=True))
+        pembangkit_list = list(Pembangkit.objects.filter(aktif=True)
+                               .prefetch_related('tag_unit'))
 
         if not pembangkit_list:
             self.stdout.write('Tidak ada pembangkit aktif.')

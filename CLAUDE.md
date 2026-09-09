@@ -1008,6 +1008,75 @@ Cron-nya (tiap menit, sama seperti `collect_live`/`collect_trafo`):
 
 ---
 
+## OPSIS — Sumber Data KIT (`opsis.SumberKit`)
+
+Tabel MSSQL tempat dashboard membaca **MW/MVAR tiap unit** diatur dari site
+admin (**Opsis → Sumber Data KIT (Live)**, baris tunggal pk=1), bukan lagi
+dipatok `dbo.KIT_REALTIME` di kode. Sebelumnya hanya NAMA tabelnya yang bisa
+diganti (lewat `MSSQL_RT_TABLE` di `.env`); begitu tabel penggantinya punya nama
+kolom lain — apalagi bentuk yang lain — satu-satunya jalan adalah mengubah
+`get_live_data()`.
+
+Dua bentuk tabel yang didukung, sama seperti `opsis.Trafo.sumber_mode`:
+
+| `mode` | Bentuk tabel | Yang diisi |
+|---|---|---|
+| `kolom` (bawaan) | satu baris per KIT, kolom per unit (`KIT`, `DATE`, `UNIT1_P`, `UNIT1_Q`, …) | Kolom Kunci, Kolom Waktu, jumlah unit, pola kolom P & Q |
+| `baris` | satu titik ukur per baris (`ANALOG`, `VALUE`) seperti `ALL_TRANS_DATA` | Kolom Kunci, Kolom Nilai, plus **Tag Unit KIT** per pembangkit |
+
+`{n}` pada pola kolom diganti nomor unit: `UNIT{n}_P` → `UNIT1_P`, `UNIT2_P`, …
+Nilai bawaan seluruh field menghasilkan query yang **persis sama** dengan
+sebelum pengaturan ini ada — dijaga tes (`SumberKitModelTest`,
+`GetLiveDataSumberTest`), jadi pemasangan yang tidak menyentuhnya tidak berubah
+perilakunya.
+
+Yang perlu diketahui saat mengubahnya:
+
+- **Nama tabel/kolom datang dari input admin, jadi tidak bisa jadi bind
+  parameter.** Semuanya divalidasi `_TABLE_RE`/`_COLUMN_RE` dulu dan yang tidak
+  lolos ditolak **sebelum** menyentuh SQL; **nilai** kunci (tag) tetap lewat
+  `?`. Aturan yang sama dengan `get_nilai_ews()` dan `get_total_padam()` — wajib
+  diikuti kalau menambah field sumber baru.
+- **Nama unit tetap `UNIT1`..`UNITn` apa pun pola kolomnya.**
+  `Pembangkit.unit_list`, `SnapUnit`, dan kartu unit di dashboard memakai nama
+  itu; kalau ikut berubah mengikuti nama kolom, whitelist unit yang sudah diisi
+  akan diam-diam berhenti cocok dan pembangkit yang berbagi satu baris KIT
+  kehilangan angkanya.
+- **Mode `baris` dikunci per KODE PEMBANGKIT, mode `kolom` per KODE KIT.** Di
+  mode baris tiap unit punya tag sendiri sehingga tidak ada baris KIT yang
+  dipakai bersama — `Pembangkit.kode_kit` tidak berperan di sana, yang
+  menentukan adalah Tag Unit KIT-nya.
+- **Semua tag mode `baris` dibaca dengan satu query `IN (...)` per 200 tag**
+  (batas 2100 parameter SQL Server), bukan satu query per unit. Pola per-titik
+  inilah yang dulu membuat sinkronisasi OFDB praktis tidak selesai.
+  `_pembangkit_aktif()` dan `collect_live` sudah `prefetch_related('tag_unit')`
+  — jangan panggil `get_live_data()` dengan queryset tanpa prefetch itu.
+- **Unit yang P-nya tidak terbaca dibuang di mode `baris`.** Unit yang hanya
+  punya Q akan tampil sebagai unit hidup tanpa daya — lebih menyesatkan daripada
+  tidak ditampilkan.
+- **Stempel waktu hanya ada di mode `kolom`.** Tabel bentuk baris umumnya tidak
+  punya kolom waktu, jadi `timestamp` mode baris selalu None. Dashboard sendiri
+  memakai jam browser untuk label "update", jadi ini tidak terlihat di layar.
+- `SumberKit.setelan()` men-cache barisnya `TTL_CACHE` detik per proses dan
+  `save()` menyegarkan cache di worker yang menyimpan — pola yang sama dengan
+  `ModePemeliharaan`. Ini dibaca tiap poll `/opsis/api/live/`; jangan diganti
+  jadi query per request.
+- **Kegagalan tidak pernah mematikan dashboard.** Tabel salah ketik, kolom tidak
+  ada, atau baris pengaturan belum dibuat semuanya menghasilkan kartu kosong +
+  `logger.error`, bukan exception. Untuk mendiagnosanya jangan buka log: aksi
+  **"Uji baca sumber KIT sekarang"** di halaman itu melaporkan berapa dari
+  pembangkit aktif yang benar-benar dapat angka (itu yang membedakan "tabelnya
+  salah" dari "tabelnya benar tapi Kode KIT-nya tidak cocok"), dan **"Lihat
+  kolom tabel sumber"** menampilkan daftar kolomnya.
+
+**Yang TIDAK diatur di sini**, karena tabel lain dengan siklus hidup sendiri:
+frekuensi sistem (`SYS_FREQ_RT`, lewat `MSSQL_FREQ_RT_*` di `.env`), trend per
+pembangkit (`HIS_MEAS_KIT`, `get_trend_data()`), dan Daya Mampu (`KIT_DMP`,
+kolomnya sudah per-pembangkit di `Pembangkit.dmp_*`). Menyatukan semuanya ke
+satu baris pengaturan hanya melahirkan sakelar yang artinya kabur.
+
+---
+
 ## OPSIS — Peta Sumber Data (`/opsis/sumber-data/`)
 
 OPSIS menarik angka dari **17 sumber**: 9 tabel MSSQL, 6 tabel snapshot
