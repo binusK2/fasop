@@ -1082,6 +1082,15 @@ Yang perlu diketahui saat mengubahnya:
   inilah yang dulu membuat sinkronisasi OFDB praktis tidak selesai.
   `_pembangkit_aktif()` dan `collect_live` sudah `prefetch_related('tag_unit')`
   — jangan panggil `get_live_data()` dengan queryset tanpa prefetch itu.
+- **MVAR dijumlahkan BERTANDA, MW di-`abs()`.** Keduanya beda sebab: P minus
+  memang kesalahan polaritas wiring CT/PT, sedangkan Q minus berarti unit
+  MENYERAP daya reaktif (under-excited / kondensor sinkron) — keadaan operasi
+  yang sah. Pernah ada filter `> 0` pada penjumlahan MVAR (dan `CASE WHEN Q > 0`
+  di `get_trend_data()`): akibatnya kartu MVAR pembangkit kosong "—" saat semua
+  unitnya menyerap, dan menampilkan angka yang terlalu besar saat sebagian
+  menyerap — padahal tabel unit di halaman detail menampilkan nilai aslinya dan
+  sengaja mewarnainya merah. Satu layar menyebut dua hal berbeda tentang data
+  yang sama; jangan kembalikan filternya (dijaga tes).
 - **Unit yang P-nya tidak terbaca dibuang di mode `baris`.** Unit yang hanya
   punya Q akan tampil sebagai unit hidup tanpa daya — lebih menyesatkan daripada
   tidak ditampilkan.
@@ -1646,3 +1655,32 @@ If OPSIS worker isolation is set up (`deploy/OPSIS_WORKER_ISOLATION.md` — a
 second gunicorn pool dedicated to `/opsis/*` so an MSSQL outage can't
 exhaust workers for the rest of FASOP), also `sudo systemctl restart
 fasop-opsis` on code deploys, same as the main `gunicorn`/`fasop` service.
+
+**Merestart hanya SATU dari dua pool itu menghasilkan gejala yang menyesatkan:
+halaman/menu baru muncul-hilang bergantian tiap refresh, dan 404 saat diklik.**
+Bukan cache browser — tiap request mendarat di worker mana saja, dan worker yang
+masih memegang kode lama tidak mengenal model/rute barunya sama sekali: ia tidak
+menampilkan entrinya di admin DAN menjawab 404 untuk URL-nya, sementara worker
+yang sudah diperbarui melayani keduanya dengan normal. Sudah pernah terjadi saat
+`SumberKit` dirilis (hanya `fasop-opsis` yang direstart).
+
+Karena itu:
+
+- pakai `restart`, **bukan `reload`** — reload sering menyisakan worker lama yang
+  masih memegang modul Python versi sebelumnya;
+- pastikan tidak ada proses yang waktu mulainya mendahului `git pull`:
+  `ps -eo pid,lstart,args | grep gunicorn | grep -v grep`;
+- pastikan kedua service menunjuk direktori checkout yang SAMA:
+  `systemctl cat gunicorn fasop-opsis | grep -iE "workingdirectory|execstart"`.
+  Kalau berbeda, satu pool selamanya menjalankan kode lama walau `git pull` di
+  folder satunya berhasil.
+
+Membedakan "kodenya belum sampai" dari "prosesnya belum direstart" cukup satu
+perintah, dan tidak bergantung pada browser:
+
+```bash
+python manage.py shell -c "from django.contrib import admin; from opsis.models import SumberKit; print(SumberKit in admin.site._registry)"
+```
+
+`True` tapi halamannya tetap tidak ada = kode sudah benar di disk, prosesnya yang
+belum diperbarui.

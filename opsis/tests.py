@@ -3617,3 +3617,122 @@ class SebabSumberKosongTest(TestCase):
         self.assertIn('BKARU5', pesan)           # yang ADA di tabel
         self.assertIn('BAKARU', pesan)           # yang DICARI FASOP
         self.assertIn('Kode KIT', pesan)         # tempat memperbaikinya
+
+
+class MvarBertandaTest(TestCase):
+    """
+    MVAR pembangkit dijumlahkan bertanda. Q negatif = unit MENYERAP daya
+    reaktif (under-excited / kondensor sinkron), keadaan operasi yang sah —
+    beda dengan P minus yang memang kesalahan polaritas CT/PT dan di-abs().
+
+    Dulu kartu MVAR kosong ("—") untuk pembangkit yang semua unitnya menyerap,
+    padahal tabel unit di halaman detail menampilkan angkanya dan sengaja
+    mewarnainya merah: satu layar menyebut dua hal berbeda tentang data yang
+    sama.
+    """
+
+    def setUp(self):
+        self.baris = []
+        uji = self
+
+        class Kursor:
+            def execute(self, sql, params=None):
+                self._hasil = [] if 'SELECT TOP 1' in sql else uji.baris
+
+            def fetchall(self):
+                return self._hasil
+
+            def fetchone(self):
+                return self._hasil[0] if self._hasil else None
+
+        class Koneksi:
+            def cursor(self):
+                return Kursor()
+
+            def close(self):
+                pass
+
+        asli = mssql._get_connection
+        mssql._get_connection = lambda: Koneksi()
+        self.addCleanup(lambda: setattr(mssql, '_get_connection', asli))
+        SumberKit._cache = {'obj': None, 'ts': 0.0}
+
+    def _baca(self, *pasangan_pq):
+        """pasangan_pq: (P, Q) tiap unit — bentuk baris KIT_REALTIME."""
+        p = Pembangkit.objects.create(nama='Uji', kode='UJI')
+        isi = []
+        for nilai in pasangan_pq:
+            isi.extend(nilai)
+        isi.extend([None, None] * (8 - len(pasangan_pq)))
+        self.baris = [tuple(['UJI', None] + isi)]
+        hasil = mssql.get_live_data([p])
+        return hasil['data']['UJI']
+
+    @override_settings(MSSQL_HOST='127.0.0.1,1433')
+    def test_semua_unit_menyerap_reaktif_tetap_tampil(self):
+        """Kasus yang membuat kartu kosong: tidak ada satu pun Q positif."""
+        d = self._baca((-61.11, -2.69), (-27.54, -1.50))
+        self.assertEqual(d['mvar'], -4.19)
+        self.assertEqual(d['mw'], 88.65)          # P tetap di-abs()
+
+    @override_settings(MSSQL_HOST='127.0.0.1,1433')
+    def test_campuran_dijumlahkan_bertanda_bukan_hanya_yang_positif(self):
+        d = self._baca((-61.11, -2.69), (-27.54, 1.01))
+        self.assertEqual(d['mvar'], -1.68)        # bukan 1.01
+
+    @override_settings(MSSQL_HOST='127.0.0.1,1433')
+    def test_unit_tanpa_q_tidak_dihitung_dan_tidak_menggagalkan(self):
+        d = self._baca((-10.0, None), (-20.0, 3.5))
+        self.assertEqual(d['mvar'], 3.5)
+
+    @override_settings(MSSQL_HOST='127.0.0.1,1433')
+    def test_semua_q_kosong_tetap_none(self):
+        """Tidak ada angka yang dibaca sama sekali ≠ nol."""
+        d = self._baca((-10.0, None), (-20.0, None))
+        self.assertIsNone(d['mvar'])
+
+    @override_settings(MSSQL_HOST='127.0.0.1,1433')
+    def test_unit_yang_tampil_sama_dengan_yang_dijumlahkan(self):
+        """Tabel unit dan kartu totalnya harus bercerita hal yang sama."""
+        d = self._baca((-61.11, -2.69), (-27.54, 1.01))
+        dari_unit = sum(u['mvar'] for u in d['units'] if u['mvar'] is not None)
+        self.assertAlmostEqual(d['mvar'], round(dari_unit, 3))
+
+
+class TrendMvarBertandaTest(TestCase):
+    """Chart trend per pembangkit (HIS_MEAS_KIT) memakai aturan yang sama."""
+
+    def setUp(self):
+        self.dijalankan = []
+        uji = self
+
+        class Kursor:
+            def execute(self, sql, params=None):
+                uji.dijalankan.append(sql)      # apa adanya, baris masih utuh
+
+            def fetchall(self):
+                return []
+
+        class Koneksi:
+            def cursor(self):
+                return Kursor()
+
+            def close(self):
+                pass
+
+        asli = mssql._get_connection
+        mssql._get_connection = lambda: Koneksi()
+        self.addCleanup(lambda: setattr(mssql, '_get_connection', asli))
+
+    @override_settings(MSSQL_HOST='127.0.0.1,1433')
+    def test_q_negatif_tidak_dinolkan_di_sql(self):
+        p = Pembangkit.objects.create(nama='Uji', kode='UJI')
+        mssql.get_trend_data(p, jam=1)
+        # Komentar '--' dibuang dulu: yang diuji perintah SQL-nya, bukan
+        # penjelasan di atasnya (yang justru menyebut bentuk lamanya).
+        sql = ' '.join(
+            ' '.join(baris.split('--')[0] for baris in q.split('\n'))
+            for q in self.dijalankan)
+        self.assertIn('SUM(Q) AS total_mvar', sql)
+        self.assertNotIn('CASE WHEN Q > 0', sql)
+        self.assertIn('SUM(ABS(P))', sql)      # P tetap di-abs()
