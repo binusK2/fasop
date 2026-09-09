@@ -1011,11 +1011,29 @@ Cron-nya (tiap menit, sama seperti `collect_live`/`collect_trafo`):
 ## OPSIS — Sumber Data KIT (`opsis.SumberKit`)
 
 Tabel MSSQL tempat dashboard membaca **MW/MVAR tiap unit** diatur dari site
-admin (**Opsis → Sumber Data KIT (Live)**, baris tunggal pk=1), bukan lagi
-dipatok `dbo.KIT_REALTIME` di kode. Sebelumnya hanya NAMA tabelnya yang bisa
-diganti (lewat `MSSQL_RT_TABLE` di `.env`); begitu tabel penggantinya punya nama
-kolom lain — apalagi bentuk yang lain — satu-satunya jalan adalah mengubah
-`get_live_data()`.
+admin (**Opsis → Sumber Data KIT (Live)**), bukan lagi dipatok `dbo.KIT_REALTIME`
+di kode. Sebelumnya hanya NAMA tabelnya yang bisa diganti (lewat
+`MSSQL_RT_TABLE` di `.env`); begitu tabel penggantinya punya nama kolom lain —
+apalagi bentuk yang lain — satu-satunya jalan adalah mengubah `get_live_data()`.
+
+**Sumbernya boleh lebih dari satu, dan tiap pembangkit menunjuk sumbernya
+sendiri** (`Pembangkit.sumber`; kosong = ikut sumber utama). Itu yang membuat
+pindah tabel tidak harus sekali jadi:
+
+1. Daftarkan tabel baru sebagai sumber kedua di **Sumber Data KIT (Live)**.
+2. Uji dengan aksi **"Uji baca sumber KIT sekarang"** — selama belum ada
+   pembangkit yang dipindah, ia menyebutkan itu, bukan berpura-pura sukses.
+3. Pindahkan pembangkit **beberapa sekaligus** lewat kolom *Sumber Data KIT* di
+   daftar Pembangkit (`list_editable`, satu tombol Simpan untuk semua baris),
+   berikut *Kode KIT* barunya kalau kodenya ikut berubah.
+4. Yang belum dipindah tetap membaca tabel lama — tidak ada kartu yang kosong
+   selama perpindahan, dan salah pindah cukup dikembalikan dari layar yang sama.
+
+Versi pertama pengaturan ini baris tunggal, dan itulah cacatnya: mengganti
+tabelnya membuat SELURUH kartu kosong sampai pemetaan pembangkit terakhir
+selesai. Satu baris `utama` selalu ada; melepas centangnya dari satu-satunya
+sumber utama dibatalkan `save()`, karena pembangkit tanpa sumber akan kehilangan
+angkanya.
 
 Dua bentuk tabel yang didukung, sama seperti `opsis.Trafo.sumber_mode`:
 
@@ -1042,6 +1060,19 @@ Yang perlu diketahui saat mengubahnya:
   itu; kalau ikut berubah mengikuti nama kolom, whitelist unit yang sudah diisi
   akan diam-diam berhenti cocok dan pembangkit yang berbagi satu baris KIT
   kehilangan angkanya.
+- **Satu pembacaan per TABEL SUMBER, bukan per pembangkit.**
+  `_kelompok_sumber()` mengelompokkan pembangkit menurut `sumber_id` lebih dulu,
+  jadi 25 pembangkit di 2 sumber tetap 2 query per poll. `_pembangkit_aktif()`
+  dan `collect_live` memakai `select_related('sumber')`; tanpa itu tiap
+  pembangkit yang dipindah memicu query sendiri di jalur yang dipoll tiap detik.
+- **Satu sumber rusak hanya memadamkan pembangkit yang memakainya.**
+  Validasi identifier dan seluruh pembacaan terjadi PER SUMBER
+  (`_baca_satu_sumber()`), jadi tabel yang salah ketik tidak menjatuhkan
+  pembangkit yang masih membaca tabel lama — justru itu inti perpindahan
+  bertahap (dijaga tes).
+- **Sumber utama tidak bisa dihapus, sumber yang masih ditunjuk pembangkit juga
+  tidak** (`on_delete=PROTECT`). Keduanya akan mengosongkan kartu tanpa ada yang
+  memutuskan begitu.
 - **Mode `baris` dikunci per KODE PEMBANGKIT, mode `kolom` per KODE KIT.** Di
   mode baris tiap unit punya tag sendiri sehingga tidak ada baris KIT yang
   dipakai bersama — `Pembangkit.kode_kit` tidak berperan di sana, yang
@@ -1057,15 +1088,16 @@ Yang perlu diketahui saat mengubahnya:
 - **Stempel waktu hanya ada di mode `kolom`.** Tabel bentuk baris umumnya tidak
   punya kolom waktu, jadi `timestamp` mode baris selalu None. Dashboard sendiri
   memakai jam browser untuk label "update", jadi ini tidak terlihat di layar.
-- `SumberKit.setelan()` men-cache barisnya `TTL_CACHE` detik per proses dan
-  `save()` menyegarkan cache di worker yang menyimpan — pola yang sama dengan
+- `SumberKit.setelan()` men-cache **sumber utama** `TTL_CACHE` detik per proses,
+  dan `save()`/`delete()` mengosongkan cache itu — pola yang sama dengan
   `ModePemeliharaan`. Ini dibaca tiap poll `/opsis/api/live/`; jangan diganti
-  jadi query per request.
+  jadi query per request. Sumber non-utama datang lewat `select_related`, bukan
+  cache ini.
 - **Kegagalan tidak pernah mematikan dashboard.** Tabel salah ketik, kolom tidak
   ada, atau baris pengaturan belum dibuat semuanya menghasilkan kartu kosong +
   `logger.error`, bukan exception. Untuk mendiagnosanya jangan buka log: aksi
-  **"Uji baca sumber KIT sekarang"** di halaman itu melaporkan berapa dari
-  pembangkit aktif yang benar-benar dapat angka (itu yang membedakan "tabelnya
+  **"Uji baca sumber KIT sekarang"** melaporkan berapa dari pembangkit **yang
+  memakai sumber itu** benar-benar dapat angka (itu yang membedakan "tabelnya
   salah" dari "tabelnya benar tapi Kode KIT-nya tidak cocok"), dan **"Lihat
   kolom tabel sumber"** menampilkan daftar kolomnya.
 

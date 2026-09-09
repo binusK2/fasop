@@ -1,4 +1,5 @@
 from django.contrib import admin, messages
+from django.db import models
 from . import mssql
 from .models import (Pembangkit, SnapLive, SnapUnit, SnapFreq, SnapFreqRT, SnapFreqArea,
                      Trafo, SnapTrafo, HopPembangkit, HopSnapshot,
@@ -322,19 +323,22 @@ class SumberKitAdmin(admin.ModelAdmin):
     log server: satu memperlihatkan kolom tabel yang diisi, satu lagi benar
     benar membaca pembangkit aktif dengan pengaturan yang tersimpan.
     """
-    list_display    = ('tabel_tampil', 'mode', 'kolom_kunci', 'jumlah_unit',
-                       'diubah_oleh', 'diubah_pada')
+    list_display    = ('nama', 'tabel_tampil', 'mode', 'kolom_kunci',
+                       'jumlah_pembangkit', 'utama', 'diubah_pada')
+    list_filter     = ('mode', 'utama')
     readonly_fields = ('diubah_oleh', 'diubah_pada')
     actions         = ('uji_baca_sumber', 'lihat_kolom_tabel')
     fieldsets = (
         (None, {
             'description': 'Tabel MSSQL tempat dashboard membaca MW/MVAR tiap unit. '
-                           'Nilai bawaan di bawah = dbo.KIT_REALTIME apa adanya, jadi '
-                           'selama belum diubah tidak ada yang berbeda dari sebelumnya. '
-                           'Frekuensi sistem (SYS_FREQ_RT), trend per pembangkit '
-                           '(HIS_MEAS_KIT), dan Daya Mampu (KIT_DMP) TIDAK diatur di '
-                           'sini — ketiganya tabel lain.',
-            'fields': ('mode', 'tabel', 'kolom_kunci', 'kolom_waktu'),
+                           'Boleh ada lebih dari satu: daftarkan tabel baru di sini, '
+                           'lalu pindahkan pembangkit satu per satu lewat kolom '
+                           '<b>Sumber Data KIT</b> di daftar Pembangkit. Yang belum '
+                           'dipindah tetap membaca sumber utama, jadi tidak ada kartu '
+                           'yang kosong selama perpindahan. Frekuensi sistem '
+                           '(SYS_FREQ_RT), trend per pembangkit (HIS_MEAS_KIT), dan '
+                           'Daya Mampu (KIT_DMP) TIDAK diatur di sini — tabel lain.',
+            'fields': ('nama', 'utama', 'mode', 'tabel', 'kolom_kunci', 'kolom_waktu'),
         }),
         ('Mode Kolom — satu baris per KIT', {
             'description': 'Dipakai bila satu baris tabel memuat semua unit sebuah KIT, '
@@ -357,15 +361,25 @@ class SumberKitAdmin(admin.ModelAdmin):
     def tabel_tampil(self, obj):
         return obj.tabel_efektif()
 
-    def has_add_permission(self, request):
-        # Baris tunggal: dibuat otomatis oleh changelist_view di bawah.
-        return False
+    @admin.display(description='Dipakai')
+    def jumlah_pembangkit(self, obj):
+        """Berapa pembangkit yang menunjuk sumber ini secara eksplisit."""
+        jumlah = obj.pembangkit.count()
+        if obj.utama:
+            ikut = Pembangkit.objects.filter(sumber__isnull=True).count()
+            return f'{jumlah} + {ikut} (ikut utama)'
+        return jumlah
 
     def has_delete_permission(self, request, obj=None):
-        return False
+        # Sumber utama tidak boleh dihapus: pembangkit yang belum dipindah
+        # membacanya, dan menghapusnya akan mengosongkan kartu mereka. Sumber
+        # yang masih ditunjuk pembangkit dijaga PROTECT di level model.
+        if obj is not None and obj.utama:
+            return False
+        return super().has_delete_permission(request, obj)
 
     def changelist_view(self, request, extra_context=None):
-        SumberKit.ambil()             # pastikan barisnya ada sebelum daftar dirender
+        SumberKit.ambil()             # pastikan sumber utama ada sebelum daftar dirender
         return super().changelist_view(request, extra_context)
 
     def save_model(self, request, obj, form, change):
@@ -380,9 +394,18 @@ class SumberKitAdmin(admin.ModelAdmin):
         salah" dari "tabelnya benar tapi kode KIT-nya tidak cocok".
         """
         obj = queryset.first() or SumberKit.ambil()
-        pembangkit = list(Pembangkit.objects.filter(aktif=True).prefetch_related('tag_unit'))
+        # Pembangkit yang MEMAKAI sumber ini: yang menunjuknya langsung, plus —
+        # kalau ini sumber utama — yang belum menunjuk sumber apa pun.
+        pakai = Pembangkit.objects.filter(aktif=True)
+        pakai = (pakai.filter(models.Q(sumber=obj) | models.Q(sumber__isnull=True))
+                 if obj.utama else pakai.filter(sumber=obj))
+        pembangkit = list(pakai.select_related('sumber').prefetch_related('tag_unit'))
         if not pembangkit:
-            self.message_user(request, 'Belum ada pembangkit aktif.', level=messages.WARNING)
+            self.message_user(
+                request,
+                f'Belum ada pembangkit aktif yang memakai sumber "{obj.nama}". '
+                f'Pindahkan dulu lewat kolom Sumber Data KIT di daftar Pembangkit.',
+                level=messages.WARNING)
             return
         hasil = mssql.get_live_data(pembangkit, spek=obj.spesifikasi())
         data = hasil['data']
@@ -392,16 +415,17 @@ class SumberKitAdmin(admin.ModelAdmin):
         if not terisi:
             self.message_user(
                 request,
-                f'Tabel {obj.tabel_efektif()}: tidak ada satu pun pembangkit yang dapat '
-                f'angka (dari {len(pembangkit)} aktif). Cek nama tabel/kolom, dan — untuk mode '
-                f'Kolom — apakah Kode KIT pembangkit cocok dengan isi Kolom Kunci.',
+                f'Sumber "{obj.nama}" ({obj.tabel_efektif()}): tidak ada satu pun dari '
+                f'{len(pembangkit)} pembangkit yang dapat angka. Cek nama tabel/kolom, dan '
+                f'— untuk mode Kolom — apakah Kode KIT pembangkit cocok dengan isi Kolom '
+                f'Kunci. Pembangkit lain yang memakai sumber berbeda tidak terpengaruh.',
                 level=messages.ERROR)
             return
         total = sum(data[p.kode]['mw'] for p in terisi)
         self.message_user(
             request,
-            f'Tabel {obj.tabel_efektif()}: {len(terisi)} dari {len(pembangkit)} pembangkit '
-            f'terbaca, total {total:.2f} MW.',
+            f'Sumber "{obj.nama}" ({obj.tabel_efektif()}): {len(terisi)} dari '
+            f'{len(pembangkit)} pembangkit terbaca, total {total:.2f} MW.',
             level=messages.SUCCESS)
         if kosong:
             nama = ', '.join(p.kode for p in kosong[:10])
@@ -441,10 +465,17 @@ class TagUnitKitInline(admin.TabularInline):
 
 @admin.register(Pembangkit)
 class PembangkitAdmin(admin.ModelAdmin):
-    list_display  = ('urutan', 'nama', 'kode', 'jenis', 'supply', 'warna', 'aktif',
-                     'tampil_di_peta', 'data_tidak_sesuai', 'pakai_dmp', 'mws')
-    list_editable = ('urutan', 'jenis', 'supply', 'aktif', 'tampil_di_peta')
-    list_filter   = ('jenis', 'supply', 'aktif', 'tampil_di_peta', 'data_tidak_sesuai')
+    # 'sumber' dan 'kode_kit' sengaja ikut list_editable: memindahkan pembangkit
+    # ke tabel sumber baru dilakukan di layar ini, sekali Simpan untuk banyak
+    # baris sekaligus. Membukanya satu per satu untuk 20+ pembangkit adalah
+    # persis pekerjaan lama yang membuat perpindahan sumber terasa mahal.
+    list_display  = ('urutan', 'nama', 'kode', 'sumber', 'kode_kit', 'jenis', 'supply',
+                     'aktif', 'tampil_di_peta', 'data_tidak_sesuai', 'pakai_dmp', 'mws')
+    list_editable = ('urutan', 'sumber', 'kode_kit', 'jenis', 'supply', 'aktif',
+                     'tampil_di_peta')
+    list_filter   = ('sumber', 'jenis', 'supply', 'aktif', 'tampil_di_peta',
+                     'data_tidak_sesuai')
+    list_select_related = ('sumber',)
     search_fields = ('nama', 'kode')
     list_display_links = ('nama',)
     readonly_fields = ('ditandai_oleh', 'ditandai_pada')
@@ -475,16 +506,19 @@ class PembangkitAdmin(admin.ModelAdmin):
                            'Inersia Sistem.',
             'fields': ('mva', 'inersia_h'),
         }),
-        ('Sumber Data KIT — baris & unit', {
-            'description': 'Tabelnya sendiri diatur di <b>Opsis &rarr; Sumber Data KIT (Live)</b> '
-                            '(bawaan dbo.KIT_REALTIME); di sini hanya baris mana yang dibaca '
-                            'untuk pembangkit ini. Kosongkan Kode KIT dan Unit yang Dipakai untuk '
+        ('Sumber Data KIT — tabel, baris & unit', {
+            'description': 'Tabel-tabelnya didaftarkan di <b>Opsis &rarr; Sumber Data KIT '
+                            '(Live)</b>; di sini dipilih pembangkit ini membaca yang mana. '
+                            'Kosongkan Sumber Data KIT untuk mengikuti sumber utama — itu '
+                            'yang membuat perpindahan tabel bisa bertahap, pembangkit yang '
+                            'belum dipindah tidak kehilangan angkanya. '
+                            'Kosongkan Kode KIT dan Unit yang Dipakai untuk '
                             'perilaku default (baca semua unit dari baris dengan Kolom Kunci = '
                             'Kode). Isi keduanya jika satu baris berisi unit milik lebih dari '
                             'satu pembangkit — mis. Pembangkit A pakai UNIT1-6, Pembangkit B pakai '
                             'UNIT7 dari baris KIT yang sama. Pada mode Baris, yang menentukan '
                             'nilainya adalah Tag Unit KIT di bawah, bukan Kode KIT.',
-            'fields': ('kode_kit', 'unit_list'),
+            'fields': ('sumber', 'kode_kit', 'unit_list'),
         }),
         ('Daya Mampu — dbo.KIT_DMP', {
             'description': 'Isi nama kolom yang menyimpan DMN dan DMP pada dbo.KIT_DMP. '

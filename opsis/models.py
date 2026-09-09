@@ -51,6 +51,16 @@ class Pembangkit(models.Model):
     # Sumber baris KIT_REALTIME + filter unit — untuk kasus satu baris KIT_REALTIME
     # berisi unit milik lebih dari satu pembangkit (mis. UNIT7_P pada baris KIT
     # 'SUPPA5' sebenarnya milik pembangkit lain).
+    # Sumber data mana yang dibaca untuk pembangkit ini. Kosong = ikut sumber
+    # utama (opsis.SumberKit.ambil()). Field inilah yang membuat perpindahan
+    # tabel bisa bertahap: sumber baru didaftarkan lebih dulu, lalu pembangkit
+    # dipindah satu per satu setelah pemetaannya terbukti benar, sementara yang
+    # belum dipindah tetap membaca tabel lama tanpa kehilangan angka.
+    sumber        = models.ForeignKey('SumberKit', null=True, blank=True,
+                                      on_delete=models.PROTECT, related_name='pembangkit',
+                                      verbose_name='Sumber Data KIT',
+                                      help_text='Kosongkan untuk mengikuti Sumber Utama. Isi hanya '
+                                                'bila pembangkit ini dibaca dari tabel lain.')
     kode_kit      = models.CharField(max_length=20, blank=True, verbose_name='Kode KIT (MSSQL)',
                                       help_text='Kode KIT_REALTIME yang dibaca. Kosongkan jika sama dengan Kode.')
     unit_list     = models.CharField(max_length=100, blank=True, verbose_name='Unit yang Dipakai',
@@ -136,6 +146,17 @@ class Pembangkit(models.Model):
         if not self.unit_list.strip():
             return None
         return {u.strip().upper() for u in self.unit_list.split(',') if u.strip()}
+
+    def sumber_efektif(self):
+        """
+        Baris SumberKit yang dipakai pembangkit ini — miliknya sendiri bila
+        diisi, kalau tidak sumber utama. None hanya bila tabel pengaturannya
+        belum ada (sebelum migrate), dan pemanggil memperlakukan itu sebagai
+        bawaan KIT_REALTIME.
+        """
+        if self.sumber_id:
+            return self.sumber
+        return SumberKit.setelan()
 
     def tag_unit_list(self):
         """
@@ -1015,8 +1036,21 @@ def nama_unit(nomor):
 
 class SumberKit(models.Model):
     """
-    Pemetaan dashboard OPSIS ke tabel MSSQL sumber MW/MVAR — baris tunggal
-    (pk=1) yang diubah dari site admin, tanpa migrasi maupun redeploy.
+    Pemetaan dashboard OPSIS ke tabel MSSQL sumber MW/MVAR, diatur dari site
+    admin tanpa migrasi maupun redeploy.
+
+    BISA LEBIH DARI SATU, dan tiap Pembangkit menunjuk sumbernya sendiri
+    (Pembangkit.sumber; kosong = ikut sumber utama). Itu yang membuat pindah
+    tabel tidak lagi harus sekali jadi: daftarkan tabel baru sebagai sumber
+    kedua, pindahkan pembangkit satu per satu setelah pemetaannya terbukti
+    benar, dan yang belum dipindah tetap membaca tabel lama. Sebelumnya
+    pengaturan ini baris tunggal, sehingga begitu tabelnya diganti SEMUA kartu
+    kosong sampai pemetaan pembangkit terakhir selesai — persis kegagalan yang
+    dihindari di sini.
+
+    Satu baris selalu ditandai `utama`: itu yang dipakai pembangkit yang belum
+    menunjuk sumber apa pun, jadi pemasangan lama tidak perlu menyentuh satu
+    pembangkit pun.
 
     Dua bentuk tabel yang didukung, sama seperti opsis.Trafo.sumber_mode:
 
@@ -1035,11 +1069,22 @@ class SumberKit(models.Model):
     baris pengaturan hanya membuat sakelar yang artinya kabur.
     """
 
-    # Dibaca tiap poll /opsis/api/live/ (browser memoll 1 detik), jadi barisnya
-    # di-cache pendek per proses seperti ModePemeliharaan.status(). Jangan
-    # diganti jadi query per request.
+    # Sumber utama dibaca tiap poll /opsis/api/live/ (browser memoll 1 detik),
+    # jadi barisnya di-cache pendek per proses seperti ModePemeliharaan.status().
+    # Jangan diganti jadi query per request.
     TTL_CACHE = 5.0
     _cache = {'obj': None, 'ts': 0.0}
+
+    nama = models.CharField(
+        max_length=80, unique=True, default='Bawaan (KIT_REALTIME)',
+        verbose_name='Nama Sumber',
+        help_text='Nama untuk dikenali saat memilih sumber di tiap pembangkit, '
+                  'mis. "KIT_REALTIME lama" / "Historian baru".')
+    utama = models.BooleanField(
+        default=False, verbose_name='Sumber Utama',
+        help_text='Dipakai semua pembangkit yang tidak menunjuk sumber lain. Selalu '
+                  'ada tepat satu — mencentang di sini otomatis melepasnya dari sumber '
+                  'yang sebelumnya utama.')
 
     mode = models.CharField(
         max_length=10, choices=SUMBER_KIT_MODE_CHOICES, default='kolom',
@@ -1079,21 +1124,46 @@ class SumberKit(models.Model):
     diubah_pada = models.DateTimeField(auto_now=True, verbose_name='Diubah Pada')
 
     class Meta:
+        ordering = ['-utama', 'nama']
         verbose_name = 'Sumber Data KIT (Live)'
         verbose_name_plural = 'Sumber Data KIT (Live)'
 
     def __str__(self):
-        return f'{self.tabel_efektif()} — mode {self.get_mode_display().split(" — ")[0]}'
+        tanda = ' — utama' if self.utama else ''
+        return f'{self.nama} ({self.tabel_efektif()}){tanda}'
 
     def save(self, *args, **kwargs):
-        self.pk = 1                       # selalu satu baris, apa pun jalur simpannya
         super().save(*args, **kwargs)
-        type(self)._cache = {'obj': self, 'ts': time.monotonic()}
+        # Tepat satu sumber utama. Dilakukan di sini, bukan di form admin, supaya
+        # aturannya juga berlaku lewat shell dan migrasi data.
+        if self.utama:
+            type(self).objects.exclude(pk=self.pk).filter(utama=True).update(utama=False)
+        elif not type(self).objects.filter(utama=True).exists():
+            # Melepas centang dari satu-satunya sumber utama akan membuat
+            # pembangkit tanpa sumber kehilangan angkanya; kembalikan.
+            type(self).objects.filter(pk=self.pk).update(utama=True)
+            self.utama = True
+        type(self)._cache = {'obj': None, 'ts': 0.0}
+
+    def delete(self, *args, **kwargs):
+        hasil = super().delete(*args, **kwargs)
+        type(self)._cache = {'obj': None, 'ts': 0.0}
+        return hasil
 
     @classmethod
     def ambil(cls):
-        """Baris pengaturan, dibuat dengan nilai bawaan bila belum ada."""
-        obj, _ = cls.objects.get_or_create(pk=1)
+        """
+        Sumber utama — dipakai pembangkit yang tidak menunjuk sumber sendiri.
+        Dibuat dengan nilai bawaan (dbo.KIT_REALTIME) bila belum ada satu pun.
+        """
+        obj = cls.objects.filter(utama=True).first()
+        if obj is not None:
+            return obj
+        obj = cls.objects.order_by('pk').first()
+        if obj is None:
+            return cls.objects.create(utama=True)
+        cls.objects.filter(pk=obj.pk).update(utama=True)
+        obj.utama = True
         return obj
 
     @classmethod
@@ -1143,6 +1213,7 @@ class SumberKit(models.Model):
     def spesifikasi(self):
         """Spesifikasi sumber untuk opsis.mssql.get_live_data()."""
         return {
+            'nama':        self.nama,
             'mode':        self.mode,
             'tabel':       self.tabel_efektif(),
             'kolom_kunci': (self.kolom_kunci or '').strip(),
@@ -1167,6 +1238,7 @@ class SumberKit(models.Model):
 # Bentuk KIT_REALTIME apa adanya — dipakai saat baris pengaturan belum ada dan
 # sebagai acuan tes bahwa pengaturan bawaan tidak mengubah query lama.
 SPEK_KIT_BAWAAN = {
+    'nama':        'Bawaan (KIT_REALTIME)',
     'mode':        'kolom',
     'tabel':       'dbo.KIT_REALTIME',
     'kolom_kunci': 'KIT',

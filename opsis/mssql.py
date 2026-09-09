@@ -397,51 +397,146 @@ def _baca_kit_baris(cursor, spek, pembangkit_list):
     return terbaca
 
 
+def _kelompok_sumber(pembangkit_list):
+    """
+    [(spek, [pembangkit])] — pembangkit dikelompokkan per sumber datanya.
+
+    Kuncinya `sumber_id`, bukan objeknya, supaya pembangkit yang menunjuk sumber
+    sama tetap satu kelompok. Ini yang menjaga jumlah query tetap "satu per
+    tabel sumber", bukan satu per pembangkit, berapa pun pembangkit yang
+    dipindah ke sumber baru.
+    """
+    grup = {}
+    for p in pembangkit_list:
+        grup.setdefault(getattr(p, 'sumber_id', None), []).append(p)
+
+    hasil = []
+    for sid, daftar in grup.items():
+        if sid is None:
+            hasil.append((_spek_kit(), daftar))
+            continue
+        try:
+            hasil.append((daftar[0].sumber.spesifikasi(), daftar))
+        except Exception as e:
+            # Sumber pembangkit ini tidak terbaca — jatuh ke sumber utama, jangan
+            # mengosongkan kartunya diam-diam.
+            logger.error('get_live_data: sumber pembangkit tidak terbaca (%s)', e)
+            hasil.append((_spek_kit(), daftar))
+    return hasil
+
+
+def _baca_satu_sumber(cursor, spek, daftar):
+    """
+    Baca satu tabel sumber untuk pembangkit yang memakainya.
+    Return {kode_pembangkit: {...}} — pembangkit yang tidak dapat angka tetap
+    masuk dengan nilai None, bukan hilang dari payload.
+    """
+    kosong = _kosong_live(daftar)
+    nama_sumber = spek.get('nama') or spek.get('tabel')
+
+    if not _TABLE_RE.match((spek.get('tabel') or '').strip()):
+        logger.error('get_live_data: nama tabel invalid %r (sumber %s)',
+                     spek.get('tabel'), nama_sumber)
+        return kosong
+    if not _kolom_sah(spek.get('kolom_kunci'), f'kolom kunci sumber {nama_sumber}'):
+        return kosong
+    if spek.get('kolom_waktu') and not _kolom_sah(spek['kolom_waktu'],
+                                                  f'kolom waktu sumber {nama_sumber}'):
+        spek = {**spek, 'kolom_waktu': ''}   # jam update hilang, angkanya tetap jalan
+
+    mode_baris = spek.get('mode') == 'baris'
+    try:
+        if mode_baris:
+            # Mode baris dikunci per KODE PEMBANGKIT: tiap unit punya tag
+            # sendiri, jadi tidak ada baris KIT yang dipakai bersama.
+            raw_rows = _baca_kit_baris(cursor, spek, daftar)
+        else:
+            raw_rows = _baca_kit_kolom(cursor, spek)
+    except Exception as e:
+        # Satu sumber bermasalah tidak boleh mengosongkan sumber yang lain —
+        # justru itu inti dari perpindahan bertahap.
+        logger.error('get_live_data(%s) error: %s', nama_sumber, e, exc_info=True)
+        return kosong
+
+    data = {}
+    for p in daftar:
+        if not p.aktif:
+            continue
+        row = raw_rows.get(p.kode if mode_baris else p.kit_source())
+        if row is None:
+            data[p.kode] = {
+                'mw': None, 'mvar': None, 'frekuensi': None,
+                'units': [], 'timestamp': None,
+            }
+            continue
+
+        # Filter unit sesuai unit_list bila baris sumbernya dipakai bersama oleh
+        # lebih dari satu Pembangkit.
+        whitelist = p.unit_whitelist()
+        units = []
+        mw_total = mvar_total = 0.0
+        has_mw = has_mvar = False
+        for nama, vals in row['units_raw'].items():
+            if whitelist is not None and nama not in whitelist:
+                continue
+            units.append({'nama': nama, 'mw': vals['mw'], 'mvar': vals['mvar']})
+            if vals['mw'] is not None and vals['mw'] > 0:
+                mw_total += vals['mw']
+                has_mw = True
+            if vals['mvar'] is not None and vals['mvar'] > 0:
+                mvar_total += vals['mvar']
+                has_mvar = True
+        units.sort(key=lambda u: u['nama'])
+
+        data[p.kode] = {
+            'mw':        round(mw_total, 3)   if has_mw   else None,
+            'mvar':      round(mvar_total, 3) if has_mvar else None,
+            'frekuensi': None,
+            'units':     units,
+            'timestamp': row['timestamp'],
+        }
+    return data
+
+
 def get_live_data(pembangkit_list, spek=None):
     """
     Return {'data': {kode: {...}}, 'frekuensi_sistem': float|None}.
 
     Live MW/MVAR per unit dibaca dari tabel yang didaftarkan di site admin
-    (opsis.SumberKit, lihat _spek_kit()); bawaannya dbo.KIT_REALTIME dengan
-    kolom UNIT1_P/UNIT1_Q .. UNIT8_P/UNIT8_Q, persis seperti sebelum sumbernya
-    bisa diatur. `spek` hanya diisi pemanggil yang ingin menguji sebuah
-    pengaturan tanpa menyimpannya (mis. aksi "Uji baca" di admin).
+    (opsis.SumberKit). Tiap pembangkit memakai sumbernya sendiri
+    (Pembangkit.sumber) atau sumber utama bila belum dipindah, dan pembacaannya
+    dikelompokkan: SATU query per tabel sumber, bukan per pembangkit. Bawaannya
+    dbo.KIT_REALTIME dengan kolom UNIT1_P/UNIT1_Q .. UNIT8_P/UNIT8_Q, persis
+    seperti sebelum sumbernya bisa diatur.
 
-    Frekuensi sistem tetap dari SYS_FREQ_RT (setting MSSQL_FREQ_RT_*), dan
-    trend tetap dari HIS_MEAS_KIT lewat get_trend_data() — tabel berbeda dengan
-    siklus hidup sendiri.
+    `spek` memaksa SELURUH pembangkit dibaca dengan satu spesifikasi — dipakai
+    aksi "Uji baca" di admin untuk menguji sebuah sumber apa adanya.
 
-    Nama tabel/kolom berasal dari input admin sehingga tidak bisa dikirim
-    sebagai bind parameter — semuanya divalidasi _TABLE_RE/_COLUMN_RE dulu dan
-    yang tidak lolos dilewati tanpa pernah menyentuh SQL. Nilai kunci (tag)
-    tetap lewat parameter '?'.
+    Frekuensi sistem tetap dari SYS_FREQ_RT (setting MSSQL_FREQ_RT_*), dan trend
+    tetap dari HIS_MEAS_KIT lewat get_trend_data() — tabel berbeda dengan siklus
+    hidup sendiri.
+
+    Nama tabel/kolom berasal dari input admin sehingga tidak bisa dikirim sebagai
+    bind parameter — semuanya divalidasi _TABLE_RE/_COLUMN_RE dulu dan yang tidak
+    lolos dilewati tanpa pernah menyentuh SQL. Nilai kunci (tag) tetap lewat
+    parameter '?'.
     """
     if not getattr(settings, 'MSSQL_HOST', ''):
         return {'data': _kosong_live(pembangkit_list), 'frekuensi_sistem': None}
 
-    spek = spek or _spek_kit()
-    if not _TABLE_RE.match((spek.get('tabel') or '').strip()):
-        logger.error('get_live_data: nama tabel invalid %r', spek.get('tabel'))
-        return {'data': _kosong_live(pembangkit_list), 'frekuensi_sistem': None}
-    if not _kolom_sah(spek.get('kolom_kunci'), 'kolom kunci'):
-        return {'data': _kosong_live(pembangkit_list), 'frekuensi_sistem': None}
-    if spek.get('kolom_waktu') and not _kolom_sah(spek['kolom_waktu'], 'kolom waktu'):
-        spek = {**spek, 'kolom_waktu': ''}      # jam update hilang, angkanya tetap jalan
+    kelompok = ([(spek, list(pembangkit_list))] if spek is not None
+                else _kelompok_sumber(pembangkit_list))
 
     try:
         conn   = _get_connection()
         cursor = conn.cursor()
 
-        # ── Query 1: nilai live per unit dari tabel sumber ───────────────
-        mode_baris = spek.get('mode') == 'baris'
-        if mode_baris:
-            # Mode baris dikunci per KODE PEMBANGKIT: tiap unit punya tag
-            # sendiri, jadi tidak ada baris KIT yang dipakai bersama.
-            raw_rows = _baca_kit_baris(cursor, spek, pembangkit_list)
-        else:
-            raw_rows = _baca_kit_kolom(cursor, spek)
+        # ── Query 1..n: nilai live per unit, satu pembacaan per tabel sumber ──
+        data = {}
+        for spek_grup, daftar in kelompok:
+            data.update(_baca_satu_sumber(cursor, spek_grup, daftar))
 
-        # ── Query 2: frekuensi sistem dari SYS_FREQ_RT (realtime) ───────
+        # ── Query terakhir: frekuensi sistem dari SYS_FREQ_RT (realtime) ─────
         frekuensi_sistem = None
         try:
             cursor.execute(_freq_rt_sql())
@@ -452,45 +547,6 @@ def get_live_data(pembangkit_list, spek=None):
             logger.warning('Frekuensi sistem gagal diambil: %s', e)
 
         conn.close()
-
-        # Cocokkan dengan kode pembangkit Django, lalu filter unit sesuai
-        # unit_list bila baris sumbernya dipakai bersama oleh >1 Pembangkit.
-        data = {}
-        for p in pembangkit_list:
-            if not p.aktif:
-                continue
-            row = raw_rows.get(p.kode if mode_baris else p.kit_source())
-            if row is None:
-                data[p.kode] = {
-                    'mw': None, 'mvar': None, 'frekuensi': None,
-                    'units': [], 'timestamp': None,
-                }
-                continue
-
-            whitelist = p.unit_whitelist()
-            units = []
-            mw_total = mvar_total = 0.0
-            has_mw = has_mvar = False
-            for nama, vals in row['units_raw'].items():
-                if whitelist is not None and nama not in whitelist:
-                    continue
-                units.append({'nama': nama, 'mw': vals['mw'], 'mvar': vals['mvar']})
-                if vals['mw'] is not None and vals['mw'] > 0:
-                    mw_total += vals['mw']
-                    has_mw = True
-                if vals['mvar'] is not None and vals['mvar'] > 0:
-                    mvar_total += vals['mvar']
-                    has_mvar = True
-            units.sort(key=lambda u: u['nama'])
-
-            data[p.kode] = {
-                'mw':        round(mw_total, 3)   if has_mw   else None,
-                'mvar':      round(mvar_total, 3) if has_mvar else None,
-                'frekuensi': None,
-                'units':     units,
-                'timestamp': row['timestamp'],
-            }
-
         return {'data': data, 'frekuensi_sistem': frekuensi_sistem}
 
     except Exception as e:
