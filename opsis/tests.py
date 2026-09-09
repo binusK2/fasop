@@ -9,6 +9,7 @@ import json
 import re
 
 from django.contrib.auth.models import User
+from django.db.models import ProtectedError
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -3095,11 +3096,16 @@ class SumberKitModelTest(TestCase):
         pemetaan yang identik dengan perilaku lama."""
         self.assertEqual(SumberKit.ambil().spesifikasi(), SPEK_KIT_BAWAAN)
 
-    def test_baris_pengaturan_selalu_tunggal(self):
-        SumberKit.ambil()
-        SumberKit(tabel='dbo.LAIN').save()
-        self.assertEqual(SumberKit.objects.count(), 1)
-        self.assertEqual(SumberKit.objects.get().tabel, 'dbo.LAIN')
+    def test_sumber_kedua_tidak_menggantikan_yang_pertama(self):
+        """Dulu pengaturan ini baris tunggal, sehingga mendaftarkan tabel baru
+        berarti membuang yang lama — dan semua pembangkit ikut pindah sekaligus.
+        Sekarang keduanya hidup berdampingan."""
+        lama = SumberKit.ambil()
+        SumberKit.objects.create(nama='Historian Baru', tabel='dbo.LAIN')
+        self.assertEqual(SumberKit.objects.count(), 2)
+        lama.refresh_from_db()
+        self.assertTrue(lama.utama)                       # yang lama tetap utama
+        self.assertEqual(SumberKit.objects.filter(utama=True).count(), 1)
 
     @override_settings(MSSQL_RT_TABLE='dbo.DARI_ENV')
     def test_tabel_kosong_jatuh_ke_setting_env(self):
@@ -3359,3 +3365,193 @@ class GetLiveDataSumberTest(TestCase):
         p = self._pembangkit()
         hasil = mssql.get_live_data([p])
         self.assertIsNone(hasil['data']['KIT1']['mw'])
+
+
+class SumberKitBanyakTest(TestCase):
+    """Beberapa sumber sekaligus + penunjuk per pembangkit."""
+
+    def setUp(self):
+        SumberKit._cache = {'obj': None, 'ts': 0.0}
+
+    def test_sumber_pertama_otomatis_jadi_utama(self):
+        utama = SumberKit.ambil()
+        self.assertTrue(utama.utama)
+        self.assertEqual(SumberKit.objects.filter(utama=True).count(), 1)
+
+    def test_mencentang_utama_melepas_yang_lama(self):
+        lama = SumberKit.ambil()
+        baru = SumberKit.objects.create(nama='Historian Baru', tabel='dbo.KIT_BARU', utama=True)
+        lama.refresh_from_db()
+        self.assertFalse(lama.utama)
+        self.assertTrue(baru.utama)
+        self.assertEqual(SumberKit.objects.filter(utama=True).count(), 1)
+
+    def test_selalu_ada_satu_utama_walau_centangnya_dilepas(self):
+        """Tanpa sumber utama, pembangkit yang belum dipindah kehilangan angkanya."""
+        utama = SumberKit.ambil()
+        utama.utama = False
+        utama.save()
+        utama.refresh_from_db()
+        self.assertTrue(utama.utama)
+
+    def test_pembangkit_tanpa_sumber_ikut_utama(self):
+        utama = SumberKit.ambil()
+        p = Pembangkit.objects.create(nama='A', kode='A')
+        self.assertEqual(p.sumber_efektif().pk, utama.pk)
+
+    def test_pembangkit_bisa_menunjuk_sumber_sendiri(self):
+        SumberKit.ambil()
+        baru = SumberKit.objects.create(nama='Historian Baru', tabel='dbo.KIT_BARU')
+        p = Pembangkit.objects.create(nama='A', kode='A', sumber=baru)
+        self.assertEqual(p.sumber_efektif().pk, baru.pk)
+        self.assertEqual(p.sumber_efektif().tabel_efektif(), 'dbo.KIT_BARU')
+
+    def test_sumber_yang_masih_dipakai_tidak_bisa_dihapus(self):
+        """PROTECT: menghapusnya akan mengosongkan kartu pembangkit itu."""
+        SumberKit.ambil()
+        baru = SumberKit.objects.create(nama='Historian Baru', tabel='dbo.KIT_BARU')
+        Pembangkit.objects.create(nama='A', kode='A', sumber=baru)
+        with self.assertRaises(ProtectedError):
+            baru.delete()
+
+
+class GetLiveDataBanyakSumberTest(TestCase):
+    """
+    Perpindahan bertahap: sebagian pembangkit sudah di tabel baru, sisanya
+    masih di tabel lama, dalam satu poll yang sama.
+    """
+
+    def setUp(self):
+        self.dijalankan = []
+        self.per_tabel = {}           # nama tabel -> baris yang dikembalikan
+        uji = self
+
+        class KursorPalsu:
+            def __init__(self):
+                self._hasil = []
+
+            def execute(self, sql, params=None):
+                sql_rapi = ' '.join(sql.split())
+                uji.dijalankan.append((sql_rapi, list(params or [])))
+                if sql_rapi.startswith('SELECT TOP 1'):
+                    self._hasil = []
+                    return
+                tabel = sql_rapi.split(' FROM ')[1].split(' ')[0]
+                self._hasil = uji.per_tabel.get(tabel, [])
+
+            def fetchall(self):
+                return self._hasil
+
+            def fetchone(self):
+                return self._hasil[0] if self._hasil else None
+
+        class KoneksiPalsu:
+            def cursor(self):
+                return KursorPalsu()
+
+            def close(self):
+                pass
+
+        self._asli = mssql._get_connection
+        mssql._get_connection = lambda: KoneksiPalsu()
+        self.addCleanup(lambda: setattr(mssql, '_get_connection', self._asli))
+        SumberKit._cache = {'obj': None, 'ts': 0.0}
+
+    def _muat(self, *pembangkit):
+        """Ambil ulang lewat queryset yang dipakai dashboard (select_related)."""
+        kode = [p.kode for p in pembangkit]
+        return list(Pembangkit.objects.filter(kode__in=kode)
+                    .select_related('sumber').prefetch_related('tag_unit'))
+
+    def _baris_kolom(self, kit, mw1, mw2=None):
+        isi = [kit, None, mw1, 1.0]
+        isi += [mw2, 2.0] if mw2 is not None else [None, None]
+        return [tuple(isi + [None, None] * 6)]
+
+    @override_settings(MSSQL_HOST='127.0.0.1,1433')
+    def test_dua_sumber_dibaca_masing_masing_sekali(self):
+        utama = SumberKit.ambil()          # dbo.KIT_REALTIME
+        baru = SumberKit.objects.create(nama='Historian Baru', tabel='dbo.KIT_BARU')
+        lama_p = Pembangkit.objects.create(nama='Lama', kode='LAMA')
+        baru_p = Pembangkit.objects.create(nama='Baru', kode='BARU', sumber=baru)
+        self.per_tabel['dbo.KIT_REALTIME'] = self._baris_kolom('LAMA', 10.0)
+        self.per_tabel['dbo.KIT_BARU'] = self._baris_kolom('BARU', 25.0)
+
+        hasil = mssql.get_live_data(self._muat(lama_p, baru_p))
+        self.assertEqual(hasil['data']['LAMA']['mw'], 10.0)
+        self.assertEqual(hasil['data']['BARU']['mw'], 25.0)
+        # satu query per TABEL, bukan per pembangkit
+        kit_sql = [s for s, _ in self.dijalankan if not s.startswith('SELECT TOP 1')]
+        self.assertEqual(len(kit_sql), 2)
+        self.assertEqual(utama.tabel_efektif(), 'dbo.KIT_REALTIME')
+
+    @override_settings(MSSQL_HOST='127.0.0.1,1433')
+    def test_banyak_pembangkit_satu_sumber_tetap_satu_query(self):
+        baru = SumberKit.objects.create(nama='Historian Baru', tabel='dbo.KIT_BARU')
+        a = Pembangkit.objects.create(nama='A', kode='A', sumber=baru)
+        b = Pembangkit.objects.create(nama='B', kode='B', sumber=baru)
+        c = Pembangkit.objects.create(nama='C', kode='C', sumber=baru)
+        self.per_tabel['dbo.KIT_BARU'] = (self._baris_kolom('A', 1.0)
+                                          + self._baris_kolom('B', 2.0)
+                                          + self._baris_kolom('C', 3.0))
+        hasil = mssql.get_live_data(self._muat(a, b, c))
+        self.assertEqual([hasil['data'][k]['mw'] for k in ('A', 'B', 'C')], [1.0, 2.0, 3.0])
+        kit_sql = [s for s, _ in self.dijalankan if not s.startswith('SELECT TOP 1')]
+        self.assertEqual(len(kit_sql), 1)
+
+    @override_settings(MSSQL_HOST='127.0.0.1,1433')
+    def test_sumber_baru_rusak_tidak_mengosongkan_sumber_lama(self):
+        """Inti perpindahan bertahap: satu tabel salah ketik hanya memadamkan
+        pembangkit yang sudah dipindah ke sana."""
+        SumberKit.ambil()
+        rusak = SumberKit.objects.create(nama='Salah Ketik', tabel='dbo.X; DROP TABLE Y')
+        lama_p = Pembangkit.objects.create(nama='Lama', kode='LAMA')
+        baru_p = Pembangkit.objects.create(nama='Baru', kode='BARU', sumber=rusak)
+        self.per_tabel['dbo.KIT_REALTIME'] = self._baris_kolom('LAMA', 10.0)
+
+        hasil = mssql.get_live_data(self._muat(lama_p, baru_p))
+        self.assertEqual(hasil['data']['LAMA']['mw'], 10.0)     # tetap hidup
+        self.assertIsNone(hasil['data']['BARU']['mw'])          # yang dipindah saja
+        semua = ' '.join(s for s, _ in self.dijalankan)
+        self.assertNotIn('DROP TABLE', semua)
+
+    @override_settings(MSSQL_HOST='127.0.0.1,1433')
+    def test_pembangkit_pindah_sumber_langsung_ikut_tabel_baru(self):
+        SumberKit.ambil()
+        baru = SumberKit.objects.create(nama='Historian Baru', tabel='dbo.KIT_BARU')
+        p = Pembangkit.objects.create(nama='Pindah', kode='PINDAH')
+        self.per_tabel['dbo.KIT_REALTIME'] = self._baris_kolom('PINDAH', 5.0)
+        self.per_tabel['dbo.KIT_BARU'] = self._baris_kolom('PINDAH', 50.0)
+
+        self.assertEqual(mssql.get_live_data(self._muat(p))['data']['PINDAH']['mw'], 5.0)
+        p.sumber = baru
+        p.save()
+        self.assertEqual(mssql.get_live_data(self._muat(p))['data']['PINDAH']['mw'], 50.0)
+
+    @override_settings(MSSQL_HOST='127.0.0.1,1433')
+    def test_dua_sumber_boleh_beda_bentuk_tabel(self):
+        """Yang lama mode kolom, yang baru mode baris — dalam satu poll."""
+        SumberKit.ambil()
+        baru = SumberKit.objects.create(nama='Tag per Baris', mode='baris',
+                                        tabel='dbo.ANALOG_RT', kolom_kunci='ANALOG',
+                                        kolom_nilai='VALUE')
+        lama_p = Pembangkit.objects.create(nama='Lama', kode='LAMA')
+        baru_p = Pembangkit.objects.create(nama='Baru', kode='BARU', sumber=baru)
+        TagUnitKit.objects.create(pembangkit=baru_p, nama='UNIT1', tag_p='B_P', tag_q='B_Q')
+        self.per_tabel['dbo.KIT_REALTIME'] = self._baris_kolom('LAMA', 10.0)
+        self.per_tabel['dbo.ANALOG_RT'] = [('B_P', 33.0), ('B_Q', 3.0)]
+
+        hasil = mssql.get_live_data(self._muat(lama_p, baru_p))
+        self.assertEqual(hasil['data']['LAMA']['mw'], 10.0)
+        self.assertEqual(hasil['data']['BARU']['mw'], 33.0)
+        self.assertEqual(hasil['data']['BARU']['mvar'], 3.0)
+
+    @override_settings(MSSQL_HOST='127.0.0.1,1433')
+    def test_spek_paksa_memakai_satu_sumber_untuk_semua(self):
+        """Aksi 'Uji baca' di admin menguji sebuah sumber apa adanya."""
+        SumberKit.ambil()
+        baru = SumberKit.objects.create(nama='Historian Baru', tabel='dbo.KIT_BARU')
+        p = Pembangkit.objects.create(nama='Lama', kode='LAMA')   # belum dipindah
+        self.per_tabel['dbo.KIT_BARU'] = self._baris_kolom('LAMA', 77.0)
+        hasil = mssql.get_live_data(self._muat(p), spek=baru.spesifikasi())
+        self.assertEqual(hasil['data']['LAMA']['mw'], 77.0)
