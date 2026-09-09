@@ -4,7 +4,8 @@ from .models import (Pembangkit, SnapLive, SnapUnit, SnapFreq, SnapFreqRT, SnapF
                      Trafo, SnapTrafo, HopPembangkit, HopSnapshot,
                      PrakiraanBeban, ModePemeliharaan, KelompokPeta, PantauanKit,
                      PengaturanInersia, PengaturanDashboard,
-                     KolomEWS, TitikEWS, KartuPadam)
+                     KolomEWS, TitikEWS, KartuPadam,
+                     SumberKit, TagUnitKit)
 
 
 @admin.register(KelompokPeta)
@@ -311,6 +312,133 @@ class KartuPadamAdmin(admin.ModelAdmin):
             level=messages.INFO)
 
 
+@admin.register(SumberKit)
+class SumberKitAdmin(admin.ModelAdmin):
+    """
+    Pemetaan dashboard OPSIS ke tabel MSSQL sumber MW/MVAR — baris tunggal,
+    jadi tombol Tambah/Hapus dimatikan dan daftar langsung membuka baris itu.
+
+    Dua aksinya menjawab "kenapa kartu pembangkit saya kosong" tanpa membuka
+    log server: satu memperlihatkan kolom tabel yang diisi, satu lagi benar
+    benar membaca pembangkit aktif dengan pengaturan yang tersimpan.
+    """
+    list_display    = ('tabel_tampil', 'mode', 'kolom_kunci', 'jumlah_unit',
+                       'diubah_oleh', 'diubah_pada')
+    readonly_fields = ('diubah_oleh', 'diubah_pada')
+    actions         = ('uji_baca_sumber', 'lihat_kolom_tabel')
+    fieldsets = (
+        (None, {
+            'description': 'Tabel MSSQL tempat dashboard membaca MW/MVAR tiap unit. '
+                           'Nilai bawaan di bawah = dbo.KIT_REALTIME apa adanya, jadi '
+                           'selama belum diubah tidak ada yang berbeda dari sebelumnya. '
+                           'Frekuensi sistem (SYS_FREQ_RT), trend per pembangkit '
+                           '(HIS_MEAS_KIT), dan Daya Mampu (KIT_DMP) TIDAK diatur di '
+                           'sini — ketiganya tabel lain.',
+            'fields': ('mode', 'tabel', 'kolom_kunci', 'kolom_waktu'),
+        }),
+        ('Mode Kolom — satu baris per KIT', {
+            'description': 'Dipakai bila satu baris tabel memuat semua unit sebuah KIT, '
+                           'seperti dbo.KIT_REALTIME. <code>{n}</code> pada pola diganti '
+                           'nomor unit: <code>UNIT{n}_P</code> menjadi UNIT1_P, UNIT2_P, '
+                           'dan seterusnya.',
+            'fields': ('jumlah_unit', 'pola_kolom_p', 'pola_kolom_q'),
+        }),
+        ('Mode Baris — satu titik per baris', {
+            'description': 'Dipakai bila tabelnya berbentuk satu titik ukur per baris '
+                           '(seperti dbo.ALL_TRANS_DATA). Tag tiap unit didaftarkan di '
+                           'form Pembangkit masing-masing, bagian "Tag Unit KIT". '
+                           'Kolom Waktu tidak dipakai pada mode ini.',
+            'fields': ('kolom_nilai',),
+        }),
+        ('Riwayat', {'fields': ('diubah_oleh', 'diubah_pada')}),
+    )
+
+    @admin.display(description='Tabel Sumber')
+    def tabel_tampil(self, obj):
+        return obj.tabel_efektif()
+
+    def has_add_permission(self, request):
+        # Baris tunggal: dibuat otomatis oleh changelist_view di bawah.
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def changelist_view(self, request, extra_context=None):
+        SumberKit.ambil()             # pastikan barisnya ada sebelum daftar dirender
+        return super().changelist_view(request, extra_context)
+
+    def save_model(self, request, obj, form, change):
+        obj.diubah_oleh = request.user
+        super().save_model(request, obj, form, change)
+
+    @admin.action(description='Uji baca sumber KIT sekarang')
+    def uji_baca_sumber(self, request, queryset):
+        """
+        Baca pembangkit aktif dengan pengaturan yang TERSIMPAN, lalu laporkan
+        berapa yang benar-benar dapat angka. Ini yang membedakan "tabelnya
+        salah" dari "tabelnya benar tapi kode KIT-nya tidak cocok".
+        """
+        obj = queryset.first() or SumberKit.ambil()
+        pembangkit = list(Pembangkit.objects.filter(aktif=True).prefetch_related('tag_unit'))
+        if not pembangkit:
+            self.message_user(request, 'Belum ada pembangkit aktif.', level=messages.WARNING)
+            return
+        hasil = mssql.get_live_data(pembangkit, spek=obj.spesifikasi())
+        data = hasil['data']
+        terisi = [p for p in pembangkit if (data.get(p.kode) or {}).get('mw') is not None]
+        kosong = [p for p in pembangkit if (data.get(p.kode) or {}).get('mw') is None]
+
+        if not terisi:
+            self.message_user(
+                request,
+                f'Tabel {obj.tabel_efektif()}: tidak ada satu pun pembangkit yang dapat '
+                f'angka (dari {len(pembangkit)} aktif). Cek nama tabel/kolom, dan — untuk mode '
+                f'Kolom — apakah Kode KIT pembangkit cocok dengan isi Kolom Kunci.',
+                level=messages.ERROR)
+            return
+        total = sum(data[p.kode]['mw'] for p in terisi)
+        self.message_user(
+            request,
+            f'Tabel {obj.tabel_efektif()}: {len(terisi)} dari {len(pembangkit)} pembangkit '
+            f'terbaca, total {total:.2f} MW.',
+            level=messages.SUCCESS)
+        if kosong:
+            nama = ', '.join(p.kode for p in kosong[:10])
+            lanjut = ' ...' if len(kosong) > 10 else ''
+            self.message_user(
+                request,
+                f'Belum dapat angka: {nama}{lanjut}.', level=messages.WARNING)
+
+    @admin.action(description='Lihat kolom tabel sumber')
+    def lihat_kolom_tabel(self, request, queryset):
+        """Daftar kolom tabel sumber, untuk mengisi pola kolom / kolom kunci."""
+        obj = queryset.first() or SumberKit.ambil()
+        hasil = mssql.probe_tabel(obj.tabel_efektif())
+        if hasil.get('error'):
+            self.message_user(request, f"{hasil['tabel']}: {hasil['error']}",
+                              level=messages.ERROR)
+            return
+        self.message_user(
+            request,
+            f"Tabel {hasil['tabel']} — kolom: {', '.join(hasil['kolom']) or '(kosong)'}",
+            level=messages.INFO)
+
+
+class TagUnitKitInline(admin.TabularInline):
+    """
+    Tag per unit untuk SumberKit mode 'baris'. Sengaja inline di form
+    Pembangkit: tag hanya berarti dalam konteks pembangkitnya, dan mengisinya
+    lewat daftar terpisah berarti memilih pembangkit berulang kali.
+    """
+    model = TagUnitKit
+    extra = 0
+    fields = ('urutan', 'nama', 'tag_p', 'tag_q')
+    ordering = ('urutan', 'nama')
+    verbose_name = 'Tag Unit KIT'
+    verbose_name_plural = 'Tag Unit KIT (hanya dipakai bila Sumber Data KIT memakai mode Baris)'
+
+
 @admin.register(Pembangkit)
 class PembangkitAdmin(admin.ModelAdmin):
     list_display  = ('urutan', 'nama', 'kode', 'jenis', 'supply', 'warna', 'aktif',
@@ -320,6 +448,7 @@ class PembangkitAdmin(admin.ModelAdmin):
     search_fields = ('nama', 'kode')
     list_display_links = ('nama',)
     readonly_fields = ('ditandai_oleh', 'ditandai_pada')
+    inlines = (TagUnitKitInline,)
     fieldsets = (
         (None, {'fields': ('nama', 'kode', 'jenis', 'supply', 'warna', 'urutan', 'aktif')}),
         ('Posisi di Peta Pembangkit', {
@@ -346,12 +475,15 @@ class PembangkitAdmin(admin.ModelAdmin):
                            'Inersia Sistem.',
             'fields': ('mva', 'inersia_h'),
         }),
-        ('Sumber Data KIT_REALTIME', {
-            'description': 'Kosongkan Kode KIT dan Unit yang Dipakai untuk perilaku default '
-                            '(baca semua unit dari baris KIT_REALTIME dengan KIT = Kode). Isi '
-                            'keduanya jika satu baris KIT_REALTIME berisi unit milik lebih dari '
+        ('Sumber Data KIT — baris & unit', {
+            'description': 'Tabelnya sendiri diatur di <b>Opsis &rarr; Sumber Data KIT (Live)</b> '
+                            '(bawaan dbo.KIT_REALTIME); di sini hanya baris mana yang dibaca '
+                            'untuk pembangkit ini. Kosongkan Kode KIT dan Unit yang Dipakai untuk '
+                            'perilaku default (baca semua unit dari baris dengan Kolom Kunci = '
+                            'Kode). Isi keduanya jika satu baris berisi unit milik lebih dari '
                             'satu pembangkit — mis. Pembangkit A pakai UNIT1-6, Pembangkit B pakai '
-                            'UNIT7 dari baris KIT yang sama.',
+                            'UNIT7 dari baris KIT yang sama. Pada mode Baris, yang menentukan '
+                            'nilainya adalah Tag Unit KIT di bawah, bukan Kode KIT.',
             'fields': ('kode_kit', 'unit_list'),
         }),
         ('Daya Mampu — dbo.KIT_DMP', {

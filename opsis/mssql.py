@@ -260,64 +260,186 @@ def _kosong_live(pembangkit_list):
         for p in pembangkit_list
     }
 
-def get_live_data(pembangkit_list):
+def _spek_kit():
+    """
+    Spesifikasi tabel sumber KIT yang berlaku — dari opsis.SumberKit (site
+    admin). Import ditunda ke dalam fungsi supaya modul ini tetap bisa diimpor
+    sebelum app registry Django siap, seperti helper lain di berkas ini.
+    Kegagalan apa pun (tabel pengaturan belum ada, DB belum siap) jatuh ke
+    bentuk KIT_REALTIME bawaan — dashboard tidak boleh mati karena baris
+    pengaturan.
+    """
+    try:
+        from .models import SumberKit
+        return SumberKit.spesifikasi_aktif()
+    except Exception as e:
+        logger.warning('SumberKit tidak terbaca, memakai bawaan KIT_REALTIME: %s', e)
+        from .models import SPEK_KIT_BAWAAN
+        return SPEK_KIT_BAWAAN
+
+
+def _kolom_sah(nama, konteks):
+    """True bila `nama` aman dipakai sebagai identifier kolom di SQL."""
+    if _COLUMN_RE.match(nama or ''):
+        return True
+    logger.error('get_live_data: kolom invalid %r (%s)', nama, konteks)
+    return False
+
+
+def _baca_kit_kolom(cursor, spek):
+    """
+    Mode 'kolom': satu baris per KIT, tiap unit sepasang kolom P/Q
+    (bentuk dbo.KIT_REALTIME).
+
+    Return {KODE_KIT: {'timestamp', 'units_raw'}}.
+    """
+    tabel  = spek['tabel']
+    kunci  = spek['kolom_kunci']
+    waktu  = spek['kolom_waktu']
+    unit   = [(nama, p, q) for nama, p, q in spek['unit']
+              if _kolom_sah(p, f'kolom P {nama}') and (not q or _kolom_sah(q, f'kolom Q {nama}'))]
+    if not unit:
+        logger.error('get_live_data: tidak ada kolom unit yang valid di %s', tabel)
+        return {}
+
+    pilih = [kunci] + ([waktu] if waktu else [])
+    for _, p, q in unit:
+        pilih.append(p)
+        if q:
+            pilih.append(q)
+    cursor.execute(f"SELECT {', '.join(pilih)} FROM {tabel} WITH (NOLOCK)")
+
+    hasil = {}
+    for row in cursor.fetchall():
+        kit = row[0].strip().upper() if row[0] else ''
+        ts  = None
+        i   = 1
+        if waktu:
+            ts = row[1].isoformat() if row[1] else None
+            i  = 2
+
+        units_raw = {}
+        for nama, _p, q in unit:
+            nilai_p = row[i]; i += 1
+            nilai_q = None
+            if q:
+                nilai_q = row[i]; i += 1
+            # abs() P — sebagian unit terbaca minus akibat polaritas wiring
+            # CT/PT terbalik, bukan berarti unit itu benar-benar menyerap daya.
+            # Tanpa abs() ini, unit tsb ke-exclude dari total (filter '> 0' di
+            # get_live_data) dan bikin total beban pembangkit lebih rendah dari
+            # realisasi sebenarnya.
+            if nilai_p is not None:      # skip unit yang NULL (tidak aktif)
+                units_raw[nama] = {
+                    'mw':   abs(float(nilai_p)),
+                    'mvar': float(nilai_q) if nilai_q is not None else None,
+                }
+        hasil[kit] = {'timestamp': ts, 'units_raw': units_raw}
+    return hasil
+
+
+def _baca_kit_baris(cursor, spek, pembangkit_list):
+    """
+    Mode 'baris': satu titik ukur per baris (kolom kunci + kolom nilai), tag
+    tiap unit didaftarkan per pembangkit lewat opsis.TagUnitKit.
+
+    Semua tag dibaca dengan SATU query `IN (...)` per potongan 200 tag —
+    aturan yang sama dengan get_nilai_ews(). Jangan diubah jadi satu query per
+    unit: dengan puluhan pembangkit itu berarti ratusan round-trip ke historian
+    setiap poll.
+
+    Return {kode_pembangkit: {'timestamp', 'units_raw'}} — dikunci kode
+    pembangkit, bukan kode KIT, karena di mode ini tidak ada baris KIT bersama.
+    """
+    tabel = spek['tabel']
+    kunci = spek['kolom_kunci']
+    nilai = spek['kolom_nilai']
+    if not _kolom_sah(kunci, 'kolom kunci') or not _kolom_sah(nilai, 'kolom nilai'):
+        return {}
+
+    # tag -> [(kode_pembangkit, nama_unit, 'mw'|'mvar')]
+    tujuan = {}
+    for p in pembangkit_list:
+        if not p.aktif:
+            continue
+        for nama, tag_p, tag_q in p.tag_unit_list():
+            if tag_p:
+                tujuan.setdefault(tag_p, []).append((p.kode, nama, 'mw'))
+            if tag_q:
+                tujuan.setdefault(tag_q, []).append((p.kode, nama, 'mvar'))
+    if not tujuan:
+        logger.warning('get_live_data mode baris: belum ada Tag Unit KIT yang terdaftar')
+        return {}
+
+    terbaca = {}
+    tags = list(tujuan)
+    for i in range(0, len(tags), _EWS_CHUNK):
+        bagian = tags[i:i + _EWS_CHUNK]
+        tanda = ', '.join('?' * len(bagian))
+        cursor.execute(
+            f'SELECT RTRIM({kunci}), {nilai} FROM {tabel} WITH (NOLOCK) '
+            f'WHERE RTRIM({kunci}) IN ({tanda})',
+            bagian,
+        )
+        for tag, angka in cursor.fetchall():
+            if angka is None:
+                continue
+            for kode, nama, metrik in tujuan.get((tag or '').strip(), []):
+                unit = terbaca.setdefault(kode, {'timestamp': None, 'units_raw': {}}) \
+                              ['units_raw'].setdefault(nama, {'mw': None, 'mvar': None})
+                # abs() hanya untuk P, alasan sama seperti mode kolom.
+                unit[metrik] = abs(float(angka)) if metrik == 'mw' else float(angka)
+
+    # Unit yang P-nya tidak terbaca dibuang: sisanya (hanya Q) akan tampil
+    # sebagai unit hidup tanpa daya, yang lebih menyesatkan daripada tidak ada.
+    for isi in terbaca.values():
+        isi['units_raw'] = {n: v for n, v in isi['units_raw'].items() if v.get('mw') is not None}
+    return terbaca
+
+
+def get_live_data(pembangkit_list, spek=None):
     """
     Return {'data': {kode: {...}}, 'frekuensi_sistem': float|None}.
 
-    Live MW/unit → KIT_REALTIME (satu baris per KIT, kolom UNIT1_P..UNIT8_P, TOTAL).
-    Frekuensi sistem → SYS_FREQ_HIS (TOP 1 ORDER BY ID DESC).
-    Trend tetap pakai HIS_MEAS_KIT via get_trend_data().
+    Live MW/MVAR per unit dibaca dari tabel yang didaftarkan di site admin
+    (opsis.SumberKit, lihat _spek_kit()); bawaannya dbo.KIT_REALTIME dengan
+    kolom UNIT1_P/UNIT1_Q .. UNIT8_P/UNIT8_Q, persis seperti sebelum sumbernya
+    bisa diatur. `spek` hanya diisi pemanggil yang ingin menguji sebuah
+    pengaturan tanpa menyimpannya (mis. aksi "Uji baca" di admin).
+
+    Frekuensi sistem tetap dari SYS_FREQ_RT (setting MSSQL_FREQ_RT_*), dan
+    trend tetap dari HIS_MEAS_KIT lewat get_trend_data() — tabel berbeda dengan
+    siklus hidup sendiri.
+
+    Nama tabel/kolom berasal dari input admin sehingga tidak bisa dikirim
+    sebagai bind parameter — semuanya divalidasi _TABLE_RE/_COLUMN_RE dulu dan
+    yang tidak lolos dilewati tanpa pernah menyentuh SQL. Nilai kunci (tag)
+    tetap lewat parameter '?'.
     """
     if not getattr(settings, 'MSSQL_HOST', ''):
         return {'data': _kosong_live(pembangkit_list), 'frekuensi_sistem': None}
 
+    spek = spek or _spek_kit()
+    if not _TABLE_RE.match((spek.get('tabel') or '').strip()):
+        logger.error('get_live_data: nama tabel invalid %r', spek.get('tabel'))
+        return {'data': _kosong_live(pembangkit_list), 'frekuensi_sistem': None}
+    if not _kolom_sah(spek.get('kolom_kunci'), 'kolom kunci'):
+        return {'data': _kosong_live(pembangkit_list), 'frekuensi_sistem': None}
+    if spek.get('kolom_waktu') and not _kolom_sah(spek['kolom_waktu'], 'kolom waktu'):
+        spek = {**spek, 'kolom_waktu': ''}      # jam update hilang, angkanya tetap jalan
+
     try:
         conn   = _get_connection()
         cursor = conn.cursor()
-        rt     = _rt_tbl()
-        freq   = _freq_tbl()
 
-        # ── Query 1: live MW per KIT dari KIT_REALTIME ──────────────────
-        cursor.execute(
-            f"""
-            SELECT KIT, DATE,
-                   UNIT1_P, UNIT1_Q, UNIT2_P, UNIT2_Q,
-                   UNIT3_P, UNIT3_Q, UNIT4_P, UNIT4_Q,
-                   UNIT5_P, UNIT5_Q, UNIT6_P, UNIT6_Q,
-                   UNIT7_P, UNIT7_Q, UNIT8_P, UNIT8_Q
-            FROM {rt} WITH (NOLOCK)
-            """
-        )
-        rt_rows = cursor.fetchall()
-
-        # Proses per KIT: kumpulkan unit mentah (belum di-filter/sum) per baris KIT.
-        # Filtering per unit dan penjumlahan dilakukan belakangan per Pembangkit,
-        # karena satu baris KIT_REALTIME bisa dipecah antar beberapa Pembangkit
-        # (lihat Pembangkit.kode_kit / unit_list).
-        raw_rows = {}
-        unit_cols = [  # (P_idx, Q_idx, nama)
-            (2,  3,  'UNIT1'), (4,  5,  'UNIT2'),
-            (6,  7,  'UNIT3'), (8,  9,  'UNIT4'),
-            (10, 11, 'UNIT5'), (12, 13, 'UNIT6'),
-            (14, 15, 'UNIT7'), (16, 17, 'UNIT8'),
-        ]
-        for row in rt_rows:
-            kit = row[0].strip().upper() if row[0] else ''
-            ts  = row[1].isoformat() if row[1] else None
-
-            units_raw = {}
-            for p_idx, q_idx, nama in unit_cols:
-                # abs() P — sebagian unit terbaca minus akibat polaritas
-                # wiring CT/PT terbalik, bukan berarti unit itu benar-benar
-                # menyerap daya. Tanpa abs() ini, unit tsb ke-exclude dari
-                # total (filter '> 0' di bawah) dan bikin total beban
-                # pembangkit lebih rendah dari realisasi sebenarnya.
-                p_ = abs(float(row[p_idx])) if row[p_idx] is not None else None
-                q_ = float(row[q_idx]) if row[q_idx] is not None else None
-                if p_ is not None:  # skip unit yang NULL (tidak aktif)
-                    units_raw[nama] = {'mw': p_, 'mvar': q_}
-
-            raw_rows[kit] = {'timestamp': ts, 'units_raw': units_raw}
+        # ── Query 1: nilai live per unit dari tabel sumber ───────────────
+        mode_baris = spek.get('mode') == 'baris'
+        if mode_baris:
+            # Mode baris dikunci per KODE PEMBANGKIT: tiap unit punya tag
+            # sendiri, jadi tidak ada baris KIT yang dipakai bersama.
+            raw_rows = _baca_kit_baris(cursor, spek, pembangkit_list)
+        else:
+            raw_rows = _baca_kit_kolom(cursor, spek)
 
         # ── Query 2: frekuensi sistem dari SYS_FREQ_RT (realtime) ───────
         frekuensi_sistem = None
@@ -331,13 +453,13 @@ def get_live_data(pembangkit_list):
 
         conn.close()
 
-        # Cocokkan dengan kode pembangkit Django (case-insensitive), lalu filter unit
-        # sesuai unit_list bila baris KIT dipakai bersama oleh >1 Pembangkit.
+        # Cocokkan dengan kode pembangkit Django, lalu filter unit sesuai
+        # unit_list bila baris sumbernya dipakai bersama oleh >1 Pembangkit.
         data = {}
         for p in pembangkit_list:
             if not p.aktif:
                 continue
-            row = raw_rows.get(p.kit_source())
+            row = raw_rows.get(p.kode if mode_baris else p.kit_source())
             if row is None:
                 data[p.kode] = {
                     'mw': None, 'mvar': None, 'frekuensi': None,

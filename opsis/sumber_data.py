@@ -49,8 +49,9 @@ SUMBER = [
         'lapis': MSSQL, 'sumber': 'dbo.KIT_REALTIME',
         'kolom_waktu': 'DATE', 'waktu_andal': False,
         'diisi': 'SCADA (langsung)',
-        'catatan': 'Kolom DATE tidak dipelihara — jangan dipakai menilai kesegaran. '
-                   'Kesegarannya tercermin di SnapLive.',
+        'catatan': 'Tabel & kolomnya bisa dipindah dari Opsis > Sumber Data KIT (Live) '
+                   'di admin — nama di sini bawaannya. Kolom DATE tidak dipelihara, '
+                   'jangan dipakai menilai kesegaran; kesegarannya tercermin di SnapLive.',
     },
     {
         'fitur': 'Dashboard — kartu Hz, kolektor frekuensi',

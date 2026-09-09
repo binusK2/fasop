@@ -42,7 +42,10 @@ def _hz_cached(key, producer):
 
 
 def _pembangkit_aktif():
-    return list(Pembangkit.objects.filter(aktif=True))
+    # prefetch tag_unit: dipakai get_live_data() saat SumberKit memakai mode
+    # 'baris'. Tanpa ini setiap pembangkit memicu query sendiri di jalur yang
+    # dipoll browser tiap detik.
+    return list(Pembangkit.objects.filter(aktif=True).prefetch_related('tag_unit'))
 
 
 def _trafo_aktif_saja(rows):
