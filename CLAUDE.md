@@ -1646,3 +1646,32 @@ If OPSIS worker isolation is set up (`deploy/OPSIS_WORKER_ISOLATION.md` — a
 second gunicorn pool dedicated to `/opsis/*` so an MSSQL outage can't
 exhaust workers for the rest of FASOP), also `sudo systemctl restart
 fasop-opsis` on code deploys, same as the main `gunicorn`/`fasop` service.
+
+**Merestart hanya SATU dari dua pool itu menghasilkan gejala yang menyesatkan:
+halaman/menu baru muncul-hilang bergantian tiap refresh, dan 404 saat diklik.**
+Bukan cache browser — tiap request mendarat di worker mana saja, dan worker yang
+masih memegang kode lama tidak mengenal model/rute barunya sama sekali: ia tidak
+menampilkan entrinya di admin DAN menjawab 404 untuk URL-nya, sementara worker
+yang sudah diperbarui melayani keduanya dengan normal. Sudah pernah terjadi saat
+`SumberKit` dirilis (hanya `fasop-opsis` yang direstart).
+
+Karena itu:
+
+- pakai `restart`, **bukan `reload`** — reload sering menyisakan worker lama yang
+  masih memegang modul Python versi sebelumnya;
+- pastikan tidak ada proses yang waktu mulainya mendahului `git pull`:
+  `ps -eo pid,lstart,args | grep gunicorn | grep -v grep`;
+- pastikan kedua service menunjuk direktori checkout yang SAMA:
+  `systemctl cat gunicorn fasop-opsis | grep -iE "workingdirectory|execstart"`.
+  Kalau berbeda, satu pool selamanya menjalankan kode lama walau `git pull` di
+  folder satunya berhasil.
+
+Membedakan "kodenya belum sampai" dari "prosesnya belum direstart" cukup satu
+perintah, dan tidak bergantung pada browser:
+
+```bash
+python manage.py shell -c "from django.contrib import admin; from opsis.models import SumberKit; print(SumberKit in admin.site._registry)"
+```
+
+`True` tapi halamannya tetap tidak ada = kode sudah benar di disk, prosesnya yang
+belum diperbarui.
