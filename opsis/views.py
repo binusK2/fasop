@@ -2903,8 +2903,14 @@ def export_inersia(request):
         (None, None),
         ('Rumus',                 'E = SUM(MVA x H) unit yang ikut; '
                                   'dP = 2 x E x ROCOF / f0'),
-        ('Arti dP',               'Batas MW yang boleh lepas pada ROCOF di atas - '
-                                  'parameter RENCANA, bukan hasil ukur gangguan.'),
+        # Teks yang sama dengan yang tercetak di kartu dashboard (disunting di
+        # Admin > Opsis > Pengaturan Inersia Sistem). Disalin ke sini dulu, dan
+        # akibatnya berkas yang dilampirkan ke laporan bisa menjelaskan dP
+        # dengan kalimat yang berbeda dari layarnya.
+        ('Arti dP',               (f'{cfg.label_delta}. ' if cfg.label_delta else '')
+                                  + (cfg.keterangan_delta or
+                                     'Batas MW yang boleh lepas pada ROCOF di atas.')
+                                  + ' Parameter RENCANA, bukan hasil ukur gangguan.'),
         ('Sumber data',           'PostgreSQL opsis.SnapLive (kolektor collect_live, '
                                   '1 baris per pembangkit per menit)'),
         ('Diunduh',               timezone.localtime().strftime('%Y-%m-%d %H:%M:%S')),

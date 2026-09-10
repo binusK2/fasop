@@ -2131,6 +2131,53 @@ class InersiaTest(TestCase):
         self.assertIn('id="inersia-mws"', isi)
         self.assertIn('id="inersia-dp"', isi)
 
+    # ── Label & keterangan dP ─────────────────────────────────────────
+    #
+    # Angka dP di kartu tidak menjelaskan dirinya sendiri: tanpa teks ini ia
+    # cuma "475,60 MW" di bawah simbol yang tidak dikenal semua orang yang
+    # lewat di depan layar ruang operasi.
+
+    def test_label_dan_keterangan_dp_bawaan_tampil(self):
+        cfg = self._nyalakan()
+        self._user_login()
+        isi = self.client.get('/opsis/').content.decode()
+        self.assertIn(cfg.label_delta, isi)
+        self.assertIn(cfg.keterangan_delta, isi)
+
+    def test_teks_dp_bisa_disunting_dari_admin(self):
+        self._nyalakan(label_delta='Batas Lepas Unit',
+                       keterangan_delta='MW terbesar yang boleh lepas mendadak.')
+        self._user_login()
+        isi = self.client.get('/opsis/').content.decode()
+        self.assertIn('Batas Lepas Unit', isi)
+        self.assertIn('MW terbesar yang boleh lepas mendadak.', isi)
+        self.assertNotIn('Batas Aman Lepas Pembangkit', isi)
+
+    def test_teks_dp_dikosongkan_tidak_meninggalkan_baris_kosong(self):
+        """Yang dikosongkan tidak digambar — bukan tampil sebagai baris hampa."""
+        self._nyalakan(label_delta='', keterangan_delta='')
+        self._user_login()
+        isi = self.client.get('/opsis/').content.decode()
+        self.assertIn('id="inersia-dp"', isi)       # angkanya tetap ada
+        self.assertNotIn('Batas Aman Lepas Pembangkit', isi)
+        # Titik pemisah hanya dipakai untuk merangkai label ke simbolnya.
+        self.assertNotIn('&Delta;P &middot;', isi)
+
+    def test_label_dp_juga_menerangkan_garis_chart(self):
+        """Legenda chart menjawab pertanyaan yang sama: garis putus ini apa."""
+        self._nyalakan(label_delta='Batas Lepas Unit')
+        self._user_login()
+        isi = self.client.get('/opsis/').content.decode()
+        # Diikat ke warna dP-nya: ada legenda garis putus LAIN di halaman ini
+        # (seri prediksi beban), jadi mencari 'dashed' saja akan menemukan yang
+        # salah dan tesnya lulus/gagal karena alasan yang keliru.
+        cfg = PengaturanInersia.ambil()
+        legenda = re.search(
+            r'dashed ' + re.escape(cfg.warna_delta) + r';[^<]*></span>\s*(.*?)\s*</div>',
+            isi, re.S)
+        self.assertIsNotNone(legenda, 'legenda dP tidak dirender')
+        self.assertIn('Batas Lepas Unit', legenda.group(1))
+
     def test_kartu_tersembunyi_bila_belum_ada_mva_dan_h(self):
         Pembangkit.objects.all().update(mva=None, inersia_h=None)
         cfg = self._nyalakan()
@@ -2733,6 +2780,35 @@ class EksporInersiaTest(TestCase):
         self.assertEqual(ringkas['Frekuensi nominal f0 (Hz)'], 60.0)
         self.assertEqual(ringkas['Cakupan unit'], 'Hanya yang beroperasi')
         self.assertEqual(ringkas['Pembangkit ber-MVA & H'], 2)
+
+    def test_arti_dp_di_ringkasan_mengikuti_teks_kartu(self):
+        """
+        Layar dan berkas tidak boleh menjelaskan dP dengan kalimat berbeda:
+        yang dilampirkan ke laporan justru yang dibaca berbulan-bulan kemudian,
+        saat tidak ada lagi yang ingat kartunya berbunyi apa.
+        """
+        cfg = PengaturanInersia.ambil()
+        cfg.label_delta = 'Batas Lepas Unit'
+        cfg.keterangan_delta = 'MW terbesar yang boleh lepas mendadak.'
+        cfg.save()
+        self._snap(self.a, 600, 50.0)
+        _, wb = self._workbook()
+        arti = self._sel(wb['Ringkasan'])['Arti dP']
+        self.assertIn('Batas Lepas Unit', arti)
+        self.assertIn('MW terbesar yang boleh lepas mendadak.', arti)
+        # Peringatan yang tidak boleh hilang berapa pun teksnya diubah.
+        self.assertIn('RENCANA', arti)
+
+    def test_arti_dp_tetap_ada_walau_teksnya_dikosongkan(self):
+        cfg = PengaturanInersia.ambil()
+        cfg.label_delta = ''
+        cfg.keterangan_delta = ''
+        cfg.save()
+        self._snap(self.a, 600, 50.0)
+        _, wb = self._workbook()
+        arti = self._sel(wb['Ringkasan'])['Arti dP']
+        self.assertIn('RENCANA', arti)
+        self.assertTrue(arti.strip())
 
     def test_ringkasan_memuat_min_rata_maks(self):
         self._snap(self.a, 600, 50.0)                    # E 500

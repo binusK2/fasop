@@ -92,6 +92,14 @@ class PengaturanInersiaAdmin(admin.ModelAdmin):
                            'dashboard dimuat ulang.',
             'fields': ('aktif', 'nama', 'warna', 'warna_delta'),
         }),
+        ('Keterangan dP', {
+            'description': 'Angka dP di kartu tidak menjelaskan dirinya sendiri. Dua teks '
+                           'ini yang menjawab "ini angka apa" bagi siapa pun yang lewat '
+                           'di depan layar ruang operasi. Keterangan yang sama ikut '
+                           'tercetak di sheet Ringkasan ekspor Excel, jadi layar dan '
+                           'berkas tidak bisa menyebut hal berbeda.',
+            'fields': ('label_delta', 'keterangan_delta'),
+        }),
         ('Parameter Perhitungan', {
             'description': 'E = jumlah (MVA x H) pembangkit yang dihitung. '
                            'dP = 2 x E x ROCOF / f0. '
