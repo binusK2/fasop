@@ -839,9 +839,9 @@ contoh: E 11.890 MWs, ROCOF 1 Hz/s, f0 50 Hz  →  ΔP 475,6 MW
 **Diisi dari halaman `/opsis/inersia/config/`** (menu **Config Inersia**), bukan
 site admin: MVA & H tiap mesin dalam satu tabel, plus ROCOF/f0, sakelar tampil,
 dan cakupan unit. Site admin tetap bisa dipakai (Opsis → Pembangkit dan Opsis →
-Pengaturan Inersia Sistem) dan itu satu-satunya tempat mengubah judul & warna
-kartu — kosmetik yang sengaja tidak diikutkan supaya halaman config tetap sempit
-pada hal yang memengaruhi angkanya. Tidak ada rumus yang di-hardcode di view
+Pengaturan Inersia Sistem) dan itu satu-satunya tempat mengubah judul, warna,
+dan teks penjelas ΔP — kosmetik yang sengaja tidak diikutkan supaya halaman
+config tetap sempit pada hal yang memengaruhi angkanya. Tidak ada rumus yang di-hardcode di view
 maupun template — menambah pembangkit ke perhitungan cukup mengisi dua kolom.
 
 Akses halaman itu — dan menunya di sidebar — memakai `can_write_opsis()` /
@@ -873,6 +873,15 @@ Yang perlu diketahui saat mengubahnya:
   render (`json_script`), yang berubah tiap poll hanya MW-nya. Pola dan alasannya
   sama dengan kartu KIT Terpilih. Konsekuensinya perubahan MVA/H dari admin baru
   terlihat setelah halaman dimuat ulang.
+- **Angka ΔP tidak menjelaskan dirinya sendiri**, jadi `label_delta` ("Batas
+  Aman Lepas Pembangkit") dan `keterangan_delta` mendampinginya di kartu, di
+  legenda chart, dan sebagai baris **Arti dP** di sheet Ringkasan ekspor Excel —
+  satu sumber teks, supaya layar dan berkas tidak bisa menjelaskan ΔP dengan
+  kalimat berbeda. Keduanya bisa dikosongkan (tidak digambar sama sekali, bukan
+  baris kosong), tapi peringatan "parameter RENCANA, bukan hasil ukur" di Excel
+  tetap tercetak apa pun teksnya — itu yang menjaga angkanya tidak dibaca sebagai
+  besar gangguan yang barusan terjadi. Teksnya sengaja bisa disunting: kalimatnya
+  perlu mengikuti cara UP2B menyebutnya, bukan cara penulis kodenya.
 - **Chart pakai dua sumbu-Y.** E dalam ribuan MWs, ΔP dalam ratusan MW; satu
   sumbu bersama membuat garis ΔP menempel di dasar grafik dan tak terbaca.
 - **Lebar barisnya dari kelas `.kartu-pasangan`**, dipakai bersama kartu KIT

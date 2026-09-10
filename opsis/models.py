@@ -797,6 +797,26 @@ class PengaturanInersia(models.Model):
                   'Bukan nol supaya derau pengukuran kecil tidak terbaca sebagai '
                   'mesin yang berputar.')
 
+    # Angka dP tidak menjelaskan dirinya sendiri: di layar ia cuma "475,60 MW"
+    # di bawah simbol yang tidak dikenal semua orang yang lewat di depan layar
+    # ruang operasi. Dua teks di bawah ini yang menjawab "ini angka apa", dan
+    # sengaja bisa disunting — kalimatnya perlu mengikuti cara UP2B menyebutnya,
+    # bukan cara penulis kodenya.
+    label_delta = models.CharField(
+        max_length=80, blank=True, default='Batas Aman Lepas Pembangkit',
+        verbose_name='Label dP',
+        help_text='Nama pendek yang tampil di sebelah simbol \u0394P di kartu. '
+                  'Kosongkan bila cukup simbolnya saja.')
+    keterangan_delta = models.CharField(
+        max_length=200, blank=True,
+        default='Daya maksimum yang boleh lepas mendadak sebelum ROCOF melewati '
+                'batas rencana di atas.',
+        verbose_name='Keterangan dP',
+        help_text='Satu kalimat di bawah angka dP yang menjelaskan artinya. Teks ini '
+                  'juga dipakai sebagai baris "Arti dP" di sheet Ringkasan ekspor '
+                  'Excel, supaya layar dan berkas tidak bisa menyebut hal berbeda. '
+                  'Kosongkan untuk menyembunyikannya.')
+
     warna       = models.CharField(
         max_length=7, default='#22d3ee', verbose_name='Warna Energi Kinetik',
         help_text='Warna angka E dan garis chart-nya, mis. #22d3ee.')
