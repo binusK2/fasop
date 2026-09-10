@@ -1518,6 +1518,68 @@ EWS) menjawab "kenapa kartu saya kosong" tanpa membuka log server.
 
 ---
 
+## Pengumuman Pemeliharaan — Pop-up Saat Login (`devices.PengumumanPemeliharaan`)
+
+Baris tunggal (pk=1) di **Admin → Devices → Pengumuman Pemeliharaan**: sakelar
+on/off, judul, pesan, tingkat (warna), dan jadwal opsional. Selama menyala,
+pop-up-nya muncul **sekali per sesi login** di seluruh FASOP — dipakai mis.
+mengabarkan rencana restart server sebelum servernya benar-benar dimatikan.
+
+**Bukan pengganti `opsis.ModePemeliharaan`, dan keduanya tidak boleh
+disatukan.** ModePemeliharaan MENUTUP `/opsis/*` yang sedang tidak bisa dipakai
+(HTTP 503); pengumuman ini MEMBERI TAHU tentang sesuatu yang belum terjadi
+sementara aplikasinya masih jalan normal. Menggabungkannya berarti tidak ada
+lagi cara mengumumkan pemeliharaan tanpa sekaligus menutup layanan.
+
+Jalurnya: `PengumumanPemeliharaan.untuk(request)` →
+`devices.context_processors.pengumuman_pemeliharaan` →
+`devices/templates/devices/_pengumuman_modal.html` → `POST /pengumuman/tutup/`
+menandai sesi.
+
+Yang perlu diketahui saat mengubahnya:
+
+- **Partial-nya di-include EMPAT template dasar** (`devices/base.html`,
+  `opsis/opsis_base.html`, `device_mon/base.html`,
+  `up2bmakassar/base.html`) — halaman pertama seseorang setelah login belum
+  tentu dashboard utama. Karena itu berkasnya berdiri sendiri: gaya dan
+  perilakunya tidak bergantung pada Bootstrap JS atau helper yang kebetulan
+  hanya ada di satu base. Base yang lupa di-include tidak memunculkan error apa
+  pun, pengumumannya cuma tidak pernah sampai — dijaga tes.
+- **`PREFIX_UMUM` di `devices/middleware.py` menyatukan path yang harus terbuka
+  untuk SEMUA role**, dan `/pengumuman/` ada di dalamnya. Kelima middleware
+  pembatas role (Operator, Opsis, UP2D, Dispatcher, Vendor) memantulkan path di
+  luar daftarnya; kalau POST penutup ikut dipantulkan, pop-up tidak akan pernah
+  bisa ditutup dan muncul lagi di tiap halaman — dan karena `fetch()` mengikuti
+  redirect, JS-nya menyangka penutupan itu berhasil. Tambahkan path lintas-role
+  baru ke `PREFIX_UMUM`, jangan ke lima daftar terpisah.
+- **Menyimpan barisnya membuat pengumuman muncul lagi ke semua orang**,
+  termasuk yang sudah menutup versi sebelumnya di sesi yang sama. `versi` =
+  `diubah_pada` dalam **mikrodetik** (bukan detik: dua penyimpanan di detik yang
+  sama akan menghasilkan versi kembar, dan perubahan kedua tidak pernah
+  terlihat). Jadwal yang digeser tapi tidak terbaca ulang sama buruknya dengan
+  tidak diumumkan.
+- **Versi penutup diambil dari server, bukan dari body permintaan.** Kalau klien
+  yang menentukan, satu POST dengan versi karangan bisa membungkam pengumuman
+  yang belum dilihat siapa pun.
+- **Pop-up ditutup di layar lebih dulu, tanpa menunggu balasan server.** Kalau
+  penandaannya gagal ia hanya muncul lagi di halaman berikutnya, sedangkan
+  tombol yang tidak bereaksi akan ditekan berkali-kali.
+- **`berhenti_otomatis` + `selesai` mematikannya sendiri** setelah jadwal lewat.
+  Pengumuman basi ("server restart 3 hari lalu") mengajari orang mengabaikan
+  pop-up berikutnya. Kosongkan `selesai` bila harus tampil sampai dimatikan
+  manual.
+- `status()` men-cache barisnya `TTL_CACHE` (10) detik per proses dan `save()`
+  menyegarkan cache di worker yang menyimpan — pola yang sama dengan
+  `ModePemeliharaan`. Ini dibaca tiap render halaman; jangan diganti jadi query
+  per request.
+- **Kegagalan tidak pernah menjatuhkan halaman.** Tabel belum ada (sebelum
+  `migrate`) atau DB bermasalah menghasilkan "tidak ada pengumuman", bukan
+  exception di halaman yang sedang dibuka orang.
+- Halaman login dan halaman wajib-ganti-password berdiri sendiri (tidak
+  meng-extend base mana pun), jadi pop-up tidak pernah menutupi formulirnya.
+
+---
+
 ## Early Warning WhatsApp (OpenWA)
 
 One self-hosted OpenWA gateway serves **three** alert sources. All of them go

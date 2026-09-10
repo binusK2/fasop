@@ -3741,3 +3741,22 @@ def asesmen_optik_export(request):
     resp['Content-Disposition'] = f'attachment; filename="{nama_berkas}"'
     wb.save(resp)
     return resp
+
+
+# ── Pengumuman Pemeliharaan ──────────────────────────────────────────────────
+
+@login_required
+def pengumuman_tutup(request):
+    """
+    Tandai pengumuman pemeliharaan sudah dibaca pengguna ini, di sesi ini.
+
+    Versinya diambil dari server, bukan dari body permintaan: kalau klien yang
+    menentukan, satu POST dengan versi karangan bisa membungkam pengumuman yang
+    belum pernah dilihat siapa pun.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'ok': False}, status=405)
+    from devices.models import PengumumanPemeliharaan
+    obj = PengumumanPemeliharaan.status()
+    request.session[PengumumanPemeliharaan.SESSION_KEY] = obj.versi if obj else 0
+    return JsonResponse({'ok': True})

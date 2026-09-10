@@ -4,6 +4,22 @@ from django.urls import reverse
 from django.contrib.auth import logout
 
 
+# Path yang harus tetap terbuka untuk SEMUA role, sesempit apa pun batasannya.
+# Selain login/logout/static, di sini ada endpoint penutup pop-up pengumuman:
+# pop-up itu muncul di halaman mana pun termasuk halaman yang boleh dibuka role
+# terbatas, jadi kalau POST penutupnya ikut dipantulkan ke dashboard
+# masing-masing, pengumumannya tidak akan pernah bisa ditutup — dan karena
+# fetch() mengikuti redirect, JS-nya menyangka penutupan itu berhasil.
+PREFIX_UMUM = (
+    '/static/',
+    '/media/',
+    '/logout/',
+    '/login/',
+    '/ganti-password/',
+    '/pengumuman/',
+)
+
+
 class OpsisMaintenanceMiddleware:
     """
     Mode pemeliharaan OPSIS — selama opsis.ModePemeliharaan.aktif dicentang di
@@ -107,13 +123,8 @@ class OperatorAccessMiddleware:
     # Prefix URL yang boleh diakses operator
     ALLOWED_PREFIXES = (
         '/inspection/',
-        '/static/',
-        '/media/',
-        '/logout/',
-        '/login/',
-        '/ganti-password/',
         '/notifikasi/',
-    )
+    ) + PREFIX_UMUM
 
     # Prefix yang TIDAK boleh diakses operator meski masuk ALLOWED_PREFIXES
     BLOCKED_PREFIXES = (
@@ -160,12 +171,7 @@ class OpsisAccessMiddleware:
 
     ALLOWED_PREFIXES = (
         '/opsis/',
-        '/static/',
-        '/media/',
-        '/logout/',
-        '/login/',
-        '/ganti-password/',
-    )
+    ) + PREFIX_UMUM
 
     def __init__(self, get_response):
         self.get_response = get_response
@@ -218,12 +224,7 @@ class Up2dAccessMiddleware:
         '/opsis/api/beban-trafo-chart/',
         '/opsis/api/beban-ktt/',
         '/opsis/api/beban-ktt-chart/',
-        '/static/',
-        '/media/',
-        '/logout/',
-        '/login/',
-        '/ganti-password/',
-    )
+    ) + PREFIX_UMUM
 
     def __init__(self, get_response):
         self.get_response = get_response
@@ -258,14 +259,9 @@ class DispatcherAccessMiddleware:
 
     ALLOWED_PREFIXES = (
         '/inspection/pengujian-',
-        '/static/',
-        '/media/',
-        '/logout/',
-        '/login/',
-        '/ganti-password/',
         '/notifikasi/',
         '/maintenance/profile/',
-    )
+    ) + PREFIX_UMUM
 
     def __init__(self, get_response):
         self.get_response = get_response
@@ -302,14 +298,9 @@ class VendorAccessMiddleware:
 
     ALLOWED_PREFIXES = (
         '/fiber-optic/asesmen/',
-        '/static/',
-        '/media/',
-        '/logout/',
-        '/login/',
-        '/ganti-password/',
         '/notifikasi/',
         '/maintenance/profile/',
-    )
+    ) + PREFIX_UMUM
 
     def __init__(self, get_response):
         self.get_response = get_response
