@@ -37,6 +37,7 @@
     transition: .2s;
 }
 .group-card.problem::before { background: #ef4444; }
+.group-card.warning::before { background: #f59e0b; }
 .group-card.ok::before      { background: #10b981; }
 .group-card:hover { transform: translateY(-1px); border-color: #1d4ed8; }
 
@@ -53,6 +54,7 @@
 .group-stat { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700; }
 .group-stat.ok      { color: #10b981; }
 .group-stat.problem { color: #ef4444; }
+.group-stat.warning { color: #f59e0b; }
 .group-stat.unknown { color: #94a3b8; }
 .group-stat-lbl { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
 .group-avail-bar {
@@ -85,6 +87,10 @@
     <div class="stat-card down">
         <div class="stat-lbl"><i class="bi bi-exclamation-circle-fill me-1" style="color:#ef4444;"></i>PROBLEM</div>
         <div class="stat-val down" id="stat-problem">—</div>
+    </div>
+    <div class="stat-card warning">
+        <div class="stat-lbl"><i class="bi bi-exclamation-triangle-fill me-1" style="color:#f59e0b;"></i>Warning</div>
+        <div class="stat-val warning" id="stat-warning">—</div>
     </div>
     <div class="stat-card avail">
         <div class="stat-lbl"><i class="bi bi-shield-check me-1" style="color:#60a5fa;"></i>Avail Hari Ini</div>
@@ -161,7 +167,7 @@ function renderGroups(groups) {
         return;
     }
     grid.innerHTML = groups.map(g => {
-        const cls    = g.problem > 0 ? 'problem' : 'ok';
+        const cls    = g.problem > 0 ? 'problem' : g.warning > 0 ? 'warning' : 'ok';
         const avail  = g.avail_hari !== null ? g.avail_hari.toFixed(1) : '—';
         const aColor = availColor(g.avail_hari);
         const url    = `/device-mon/zabbix/${instansiKode}/group/${encodeURIComponent(g.nama)}/`;
@@ -180,6 +186,10 @@ function renderGroups(groups) {
                     <div class="group-stat problem">${g.problem}</div>
                     <div class="group-stat-lbl">Problem</div>
                 </div>
+                ${g.warning ? `<div>
+                    <div class="group-stat warning">${g.warning}</div>
+                    <div class="group-stat-lbl">Warning</div>
+                </div>` : ''}
                 ${g.unknown ? `<div>
                     <div class="group-stat unknown">${g.unknown}</div>
                     <div class="group-stat-lbl">Unknown</div>
@@ -216,6 +226,7 @@ async function pollDashboard() {
         document.getElementById('stat-total').textContent    = d.total_host    ?? '—';
         document.getElementById('stat-ok').textContent       = d.total_ok      ?? '—';
         document.getElementById('stat-problem').textContent  = d.total_problem ?? '—';
+        document.getElementById('stat-warning').textContent  = d.total_warning ?? '—';
         document.getElementById('stat-avail').innerHTML      =
             (d.avail_hari !== null ? d.avail_hari.toFixed(2) : '—') + '<span class="stat-unit">%</span>';
         document.getElementById('stat-avail-bulan').innerHTML =

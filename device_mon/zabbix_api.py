@@ -359,3 +359,24 @@ def severity_index(sev):
     if s.isdigit():
         return int(s) if s in SEVERITY_LABELS else 0
     return _SEVERITY_INDEX.get(s.lower(), 0)
+
+
+# Ambang severity untuk pewarnaan status di dashboard/detail (BUKAN untuk
+# availability — itu SEVERITY_DIHITUNG di device_mon/views.py, sengaja beda
+# tujuan). Severity >= ini (High, Disaster) dianggap kritis -> merah, setara
+# "down". Di bawahnya (Not classified/Information/Warning/Average) -> kuning:
+# problem aktif tapi belum sekritis itu.
+WARNA_KRITIS_INDEX = severity_index('High')
+
+
+def state_class(state, severity=''):
+    """Kelas warna tampilan ('ok'/'warning'/'problem'/'unknown', dipetakan ke
+    CSS hijau/kuning/merah/abu di template device_mon) untuk satu kombinasi
+    state ('OK'/'PROBLEM'/'UNKNOWN') + severity Zabbix. Dipusatkan di sini
+    supaya JS dashboard/detail tidak menyalin ulang ambang kritisnya.
+    """
+    if state == 'OK':
+        return 'ok'
+    if state == 'PROBLEM':
+        return 'problem' if severity_index(severity) >= WARNA_KRITIS_INDEX else 'warning'
+    return 'unknown'

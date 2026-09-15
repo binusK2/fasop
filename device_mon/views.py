@@ -12,6 +12,7 @@ from fasop.hashids_helper import encode
 from .models import (RTU, RTULog, ZabbixInstance, ZabbixHost, ZabbixEventLog,
                      ZabbixWebhookLog, ZabbixGroup)
 from .notifications import notif_zabbix_transisi
+from .zabbix_api import state_class
 
 logger = logging.getLogger(__name__)
 
@@ -527,7 +528,7 @@ def zbx_api_summary(request, kode):
     hosts = list(ZabbixHost.objects.filter(aktif=True, instance=instansi))
     if not hosts:
         return JsonResponse({
-            'total_ok': 0, 'total_problem': 0, 'total_unknown': 0, 'total_host': 0,
+            'total_ok': 0, 'total_problem': 0, 'total_warning': 0, 'total_unknown': 0, 'total_host': 0,
             'avail_hari': None, 'avail_bulan': None, 'groups': [], 'gangguan_terkini': [],
         })
 
@@ -543,7 +544,7 @@ def zbx_api_summary(request, kode):
 
     total_menit_today = max(1, int((now - today_start).total_seconds() / 60))
 
-    total_ok = total_problem = total_unknown = 0
+    total_ok = total_problem = total_warning = total_unknown = 0
     avail_hari_list = []
     avail_by_host = {}
 
@@ -552,49 +553,53 @@ def zbx_api_summary(request, kode):
         avail_hari_list.append(avail_hari)
         avail_by_host[h.pk] = avail_hari
 
-        if h.state == 'OK':
+        cls = state_class(h.state, h.severity)
+        if cls == 'ok':
             total_ok += 1
-        elif h.state == 'PROBLEM':
+        elif cls == 'problem':
             total_problem += 1
+        elif cls == 'warning':
+            total_warning += 1
         else:
             total_unknown += 1
+
+    def _tambah_ke_bucket(g, h):
+        """PROBLEM dipecah kritis (High/Disaster, merah) vs lainnya (kuning) —
+        lihat device_mon.zabbix_api.state_class, jangan salin ambangnya di sini."""
+        g['total'] += 1
+        g['avail_list'].append(avail_by_host[h.pk])
+        cls = state_class(h.state, h.severity)
+        if cls == 'ok':
+            g['ok'] += 1
+        elif cls == 'problem':
+            g['problem'] += 1
+        elif cls == 'warning':
+            g['warning'] += 1
+        else:
+            g['unknown'] += 1
 
     # Pengelompokan dari ZabbixGroup (manual, dikelola di admin) — BUKAN dari
     # ZabbixHost.groups yang selalu ditimpa sync_zabbix. Host yang belum masuk
     # grup mana pun dikumpulkan di '(Tanpa Grup)' supaya tidak hilang diam-diam.
     host_by_id = {h.pk: h for h in hosts}
-    group_stats = {}   # nama grup -> {total, ok, problem, unknown, avail_list}
+    group_stats = {}   # nama grup -> {total, ok, problem, warning, unknown, avail_list}
     sudah_bergrup = set()
 
     for grp in ZabbixGroup.objects.filter(aktif=True, instance=instansi).prefetch_related('hosts'):
         g = group_stats.setdefault(
-            grp.nama, {'total': 0, 'ok': 0, 'problem': 0, 'unknown': 0, 'avail_list': []})
+            grp.nama, {'total': 0, 'ok': 0, 'problem': 0, 'warning': 0, 'unknown': 0, 'avail_list': []})
         for h in grp.hosts.all():
             if h.pk not in host_by_id:
                 continue   # host nonaktif — tidak dihitung
             sudah_bergrup.add(h.pk)
-            g['total'] += 1
-            g['avail_list'].append(avail_by_host[h.pk])
-            if h.state == 'OK':
-                g['ok'] += 1
-            elif h.state == 'PROBLEM':
-                g['problem'] += 1
-            else:
-                g['unknown'] += 1
+            _tambah_ke_bucket(g, h)
 
     for h in hosts:
         if h.pk in sudah_bergrup:
             continue
         g = group_stats.setdefault(
-            '(Tanpa Grup)', {'total': 0, 'ok': 0, 'problem': 0, 'unknown': 0, 'avail_list': []})
-        g['total'] += 1
-        g['avail_list'].append(avail_by_host[h.pk])
-        if h.state == 'OK':
-            g['ok'] += 1
-        elif h.state == 'PROBLEM':
-            g['problem'] += 1
-        else:
-            g['unknown'] += 1
+            '(Tanpa Grup)', {'total': 0, 'ok': 0, 'problem': 0, 'warning': 0, 'unknown': 0, 'avail_list': []})
+        _tambah_ke_bucket(g, h)
 
     avg_avail_hari = round(sum(avail_hari_list) / len(avail_hari_list), 2) if avail_hari_list else None
 
@@ -612,6 +617,7 @@ def zbx_api_summary(request, kode):
             'total': g['total'],
             'ok': g['ok'],
             'problem': g['problem'],
+            'warning': g['warning'],
             'unknown': g['unknown'],
             'avail_hari': round(sum(g['avail_list']) / len(g['avail_list']), 2) if g['avail_list'] else None,
         }
@@ -632,6 +638,7 @@ def zbx_api_summary(request, kode):
     return JsonResponse({
         'total_ok': total_ok,
         'total_problem': total_problem,
+        'total_warning': total_warning,
         'total_unknown': total_unknown,
         'total_host': len(hosts),
         'avail_hari': avg_avail_hari,
@@ -677,7 +684,7 @@ def zbx_api_status(request, kode):
 
     if not hosts:
         return JsonResponse({
-            'total_ok': 0, 'total_problem': 0, 'total_unknown': 0, 'total_host': 0,
+            'total_ok': 0, 'total_problem': 0, 'total_warning': 0, 'total_unknown': 0, 'total_host': 0,
             'avail_hari': None, 'avail_bulan': None, 'hosts': [], 'gangguan_terkini': [],
         })
 
@@ -706,14 +713,17 @@ def zbx_api_status(request, kode):
     total_menit_month = max(1, int((now - month_start).total_seconds() / 60))
 
     host_data = []
-    total_ok = total_problem = total_unknown = 0
+    total_ok = total_problem = total_warning = total_unknown = 0
     avail_hari_list = []
 
     for h in hosts:
-        if h.state == 'OK':
+        cls = state_class(h.state, h.severity)
+        if cls == 'ok':
             total_ok += 1
-        elif h.state == 'PROBLEM':
+        elif cls == 'problem':
             total_problem += 1
+        elif cls == 'warning':
+            total_warning += 1
         else:
             total_unknown += 1
 
@@ -728,6 +738,7 @@ def zbx_api_status(request, kode):
             'device': h.device.nama if h.device_id else None,
             'state': h.state,
             'severity': h.severity,
+            'state_class': state_class(h.state, h.severity),
             'problem_name': h.problem_name,
             'state_sejak': h.state_sejak.isoformat() if h.state_sejak else None,
             'durasi_menit': h.durasi_menit,
@@ -753,6 +764,7 @@ def zbx_api_status(request, kode):
     return JsonResponse({
         'total_ok': total_ok,
         'total_problem': total_problem,
+        'total_warning': total_warning,
         'total_unknown': total_unknown,
         'total_host': len(host_data),
         'avail_hari': avg_avail_hari,
@@ -809,6 +821,7 @@ def zbx_api_host_logs(request, pk):
         log_data.append({
             'state': l.state,
             'severity': l.severity,
+            'state_class': state_class(l.state, l.severity),
             'problem_name': l.problem_name,
             'source': l.source,
             'mulai': mulai_local.strftime('%d/%m %H:%M'),
@@ -821,6 +834,7 @@ def zbx_api_host_logs(request, pk):
         'lokasi': host.lokasi.nama if host.lokasi_id else None,
         'state': host.state,
         'severity': host.severity,
+        'state_class': state_class(host.state, host.severity),
         'problem_name': host.problem_name,
         'state_sejak': host.state_sejak.astimezone(tz_local).strftime('%d/%m/%Y %H:%M') if host.state_sejak else None,
         'durasi_menit': host.durasi_menit,
@@ -834,8 +848,12 @@ def zbx_api_host_logs(request, pk):
 @login_required
 def zbx_gangguan_list(request, kode):
     instansi = get_object_or_404(ZabbixInstance, kode=kode)
-    logs = (ZabbixEventLog.objects.filter(state='PROBLEM', host__instance=instansi)
-            .select_related('host', 'host__lokasi').order_by('-mulai')[:200])
+    logs = list(ZabbixEventLog.objects.filter(state='PROBLEM', host__instance=instansi)
+                .select_related('host', 'host__lokasi').order_by('-mulai')[:200])
+    # Severity ikut diwarnai di template (kuning/merah) — ambangnya dari
+    # state_class(), jangan disalin ulang di template.
+    for log in logs:
+        log.severity_class = state_class('PROBLEM', log.severity)
     return render(request, 'device_mon/zbx_gangguan.html', {'instansi': instansi, 'logs': logs})
 
 

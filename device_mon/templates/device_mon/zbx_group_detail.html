@@ -39,6 +39,7 @@
 }
 .host-tile.ok::before      { background: #10b981; }
 .host-tile.problem::before { background: #ef4444; }
+.host-tile.warning::before { background: #f59e0b; }
 .host-tile.unknown::before { background: #475569; }
 .host-tile:hover { border-color: #1d4ed8; transform: translateY(-1px); }
 
@@ -56,6 +57,7 @@
 }
 .host-tile-state.ok      { background: rgba(16,185,129,.15); color: #10b981; }
 .host-tile-state.problem { background: rgba(239,68,68,.15);  color: #ef4444; }
+.host-tile-state.warning { background: rgba(245,158,11,.15); color: #f59e0b; }
 .host-tile-state.unknown { background: rgba(71,85,105,.2); color: #94a3b8; }
 .host-tile-problem {
     font-size: 10px; color: var(--muted);
@@ -101,6 +103,10 @@
     <div class="stat-card down">
         <div class="stat-lbl"><i class="bi bi-exclamation-circle-fill me-1" style="color:#ef4444;"></i>PROBLEM</div>
         <div class="stat-val down" id="stat-problem">—</div>
+    </div>
+    <div class="stat-card warning">
+        <div class="stat-lbl"><i class="bi bi-exclamation-triangle-fill me-1" style="color:#f59e0b;"></i>Warning</div>
+        <div class="stat-val warning" id="stat-warning">—</div>
     </div>
     <div class="stat-card avail">
         <div class="stat-lbl"><i class="bi bi-shield-check me-1" style="color:#60a5fa;"></i>Avail Hari Ini</div>
@@ -190,7 +196,7 @@ function renderGrid(hosts) {
         return;
     }
     grid.innerHTML = hosts.map(h => {
-        const cls    = h.state === 'OK' ? 'ok' : h.state === 'PROBLEM' ? 'problem' : 'unknown';
+        const cls    = h.state_class;
         const avail  = h.avail_hari !== null ? h.avail_hari.toFixed(1) : '—';
         const aColor = availColor(h.avail_hari);
         return `
@@ -265,6 +271,7 @@ async function pollDashboard() {
 
         document.getElementById('stat-ok').textContent      = d.total_ok      ?? '—';
         document.getElementById('stat-problem').textContent = d.total_problem ?? '—';
+        document.getElementById('stat-warning').textContent = d.total_warning ?? '—';
         document.getElementById('stat-avail').innerHTML     =
             (d.avail_hari !== null ? d.avail_hari.toFixed(2) : '—') + '<span class="stat-unit">%</span>';
         document.getElementById('stat-avail-bulan').innerHTML =

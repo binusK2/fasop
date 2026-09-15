@@ -23,6 +23,7 @@
 }
 .hero-state-circle.ok      { background: rgba(16,185,129,.15); color: #10b981; box-shadow: 0 0 20px rgba(16,185,129,.2); }
 .hero-state-circle.problem { background: rgba(239,68,68,.15);  color: #ef4444; box-shadow: 0 0 20px rgba(239,68,68,.2); }
+.hero-state-circle.warning { background: rgba(245,158,11,.15); color: #f59e0b; box-shadow: 0 0 20px rgba(245,158,11,.2); }
 .hero-state-circle.unknown { background: rgba(100,116,139,.15); color: #94a3b8; }
 
 .hero-info { flex: 1; }
@@ -35,6 +36,7 @@
 }
 .hero-state-badge.ok      { background: rgba(16,185,129,.15); color: #10b981; border: 1px solid rgba(16,185,129,.3); }
 .hero-state-badge.problem { background: rgba(239,68,68,.15);  color: #ef4444; border: 1px solid rgba(239,68,68,.3); }
+.hero-state-badge.warning { background: rgba(245,158,11,.15); color: #f59e0b; border: 1px solid rgba(245,158,11,.3); }
 .hero-state-badge.unknown { background: rgba(100,116,139,.15); color: #94a3b8; border: 1px solid rgba(100,116,139,.3); }
 
 .avail-grid {
@@ -177,7 +179,7 @@ function colorAvail(v) {
 }
 
 function updateHero(d) {
-    const cls = d.state === 'OK' ? 'ok' : d.state === 'PROBLEM' ? 'problem' : 'unknown';
+    const cls = d.state_class;
     const icon = d.state === 'OK' ? 'bi-check-circle-fill' : d.state === 'PROBLEM' ? 'bi-exclamation-circle-fill' : 'bi-diagram-3-fill';
 
     const circle = document.getElementById('hero-circle');
@@ -256,7 +258,7 @@ function renderTable(logs) {
     tbody.innerHTML = [...logs].reverse().map((l, i) => `
         <tr>
             <td style="color:var(--muted);">${i+1}</td>
-            <td><span class="tag-${l.state === 'OK' ? 'up' : 'down'}">${l.state}</span></td>
+            <td><span class="tag-${l.state === 'OK' ? 'up' : l.state_class}">${l.state}</span></td>
             <td style="font-size:11px;">${l.problem_name || '—'}</td>
             <td style="font-size:11px;color:var(--muted);">${l.source}</td>
             <td>${l.mulai}</td>
