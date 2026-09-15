@@ -1,6 +1,6 @@
 from django.contrib import admin, messages
-from .models import (RTU, RTULog, RTUAlertLog, ZabbixHost, ZabbixEventLog,
-                     ZabbixWebhookLog, ZabbixGroup, ZabbixAlertLog)
+from .models import (RTU, RTULog, RTUAlertLog, ZabbixInstance, ZabbixHost,
+                     ZabbixEventLog, ZabbixWebhookLog, ZabbixGroup, ZabbixAlertLog)
 
 
 class RTULogInline(admin.TabularInline):
@@ -42,6 +42,58 @@ class RTUAlertLogAdmin(admin.ModelAdmin):
     ordering      = ('-created_at',)
 
 
+@admin.register(ZabbixInstance)
+class ZabbixInstanceAdmin(admin.ModelAdmin):
+    list_display = ('nama', 'kode', 'url_efektif', 'urutan', 'aktif')
+    list_editable = ('urutan', 'aktif')
+    list_display_links = ('nama',)
+    list_filter = ('aktif',)
+    search_fields = ('nama', 'kode')
+    actions = ('uji_koneksi',)
+
+    fieldsets = (
+        (None, {'fields': ('kode', 'nama', 'urutan', 'aktif')}),
+        ('Koneksi Zabbix API', {
+            'fields': ('api_url', 'api_token', 'api_user', 'api_password',
+                       'api_timeout', 'host_groups'),
+            'description': (
+                'Kosongkan seluruh field di sini untuk memakai ZABBIX_API_* dari <code>.env</code> '
+                '(perilaku bawaan instansi pertama, "Zabbix Telkom"). Instansi baru umumnya perlu '
+                'mengisi sendiri karena server Zabbix-nya berbeda.'
+            ),
+        }),
+        ('Webhook (push realtime)', {
+            'fields': ('webhook_token',),
+            'description': (
+                'Kosong = jatuh ke <code>ZABBIX_WEBHOOK_TOKEN</code> di <code>.env</code>. URL webhook '
+                'instansi ini: <code>/device-mon/zabbix/&lt;kode&gt;/webhook/</code>.'
+            ),
+        }),
+        ('Blast WhatsApp', {'fields': ('wa_chat_ids',)}),
+    )
+
+    def url_efektif(self, obj):
+        return obj.api_url_efektif() or '—'
+    url_efektif.short_description = 'URL API Efektif'
+
+    @admin.action(description='Uji koneksi Zabbix API sekarang')
+    def uji_koneksi(self, request, queryset):
+        from device_mon.zabbix_api import ZabbixAPIError
+
+        for instansi in queryset:
+            try:
+                hosts = instansi.client().get_hosts(group_names=instansi.host_groups_list())
+                self.message_user(
+                    request, f'{instansi.nama}: OK, {len(hosts)} host terbaca dari '
+                             f'{instansi.api_url_efektif() or "(URL kosong)"}.',
+                    messages.SUCCESS,
+                )
+            except ZabbixAPIError as e:
+                self.message_user(request, f'{instansi.nama}: GAGAL — {e}', messages.ERROR)
+            except Exception as e:
+                self.message_user(request, f'{instansi.nama}: GAGAL tak terduga — {e}', messages.ERROR)
+
+
 class ZabbixEventLogInline(admin.TabularInline):
     model = ZabbixEventLog
     extra = 0
@@ -64,11 +116,11 @@ class ZabbixAlertLogInline(admin.TabularInline):
 
 @admin.register(ZabbixHost)
 class ZabbixHostAdmin(admin.ModelAdmin):
-    list_display = ('nama', 'zabbix_hostid', 'device', 'lokasi', 'state', 'severity',
+    list_display = ('nama', 'instance', 'zabbix_hostid', 'device', 'lokasi', 'state', 'severity',
                     'state_sejak', 'urutan', 'aktif', 'wa_alert', 'wa_min_severity')
     list_editable = ('urutan', 'aktif', 'wa_alert', 'wa_min_severity')
     list_display_links = ('nama',)
-    list_filter = ('state', 'aktif', 'lokasi', 'wa_alert', 'wa_min_severity')
+    list_filter = ('instance', 'state', 'aktif', 'lokasi', 'wa_alert', 'wa_min_severity')
     search_fields = ('nama', 'zabbix_host', 'zabbix_hostid', 'lokasi__nama')
     # autocomplete: dropdown search-as-you-type, bukan pilihan bebas - 'lokasi'
     # butuh SiteLocationAdmin.search_fields (sudah ada, lihat devices/admin.py).
@@ -83,7 +135,7 @@ class ZabbixHostAdmin(admin.ModelAdmin):
 
     fieldsets = (
         (None, {
-            'fields': ('zabbix_hostid', 'zabbix_host', 'nama', 'device', 'lokasi',
+            'fields': ('instance', 'zabbix_hostid', 'zabbix_host', 'nama', 'device', 'lokasi',
                        'groups', 'urutan', 'aktif'),
         }),
         ('Blast WhatsApp', {
@@ -150,7 +202,7 @@ class ZabbixHostAdmin(admin.ModelAdmin):
 @admin.register(ZabbixAlertLog)
 class ZabbixAlertLogAdmin(admin.ModelAdmin):
     list_display = ('host', 'jenis', 'terkirim', 'keterangan', 'created_at')
-    list_filter = ('jenis', 'terkirim', 'host')
+    list_filter = ('host__instance', 'jenis', 'terkirim', 'host')
     date_hierarchy = 'created_at'
     search_fields = ('host__nama', 'keterangan', 'pesan')
     readonly_fields = ('host', 'jenis', 'pesan', 'terkirim', 'keterangan', 'created_at')
@@ -160,7 +212,7 @@ class ZabbixAlertLogAdmin(admin.ModelAdmin):
 @admin.register(ZabbixEventLog)
 class ZabbixEventLogAdmin(admin.ModelAdmin):
     list_display = ('host', 'state', 'severity', 'source', 'mulai', 'selesai', 'durasi_menit')
-    list_filter = ('state', 'source', 'severity')
+    list_filter = ('host__instance', 'state', 'source', 'severity')
     date_hierarchy = 'mulai'
     search_fields = ('host__nama', 'problem_name', 'zabbix_eventid')
     readonly_fields = ('host', 'state', 'severity', 'problem_name', 'zabbix_eventid',
@@ -170,20 +222,20 @@ class ZabbixEventLogAdmin(admin.ModelAdmin):
 
 @admin.register(ZabbixWebhookLog)
 class ZabbixWebhookLogAdmin(admin.ModelAdmin):
-    list_display = ('received_at', 'ok', 'host', 'keterangan')
-    list_filter = ('ok',)
+    list_display = ('received_at', 'ok', 'instance', 'host', 'keterangan')
+    list_filter = ('ok', 'instance')
     date_hierarchy = 'received_at'
     search_fields = ('keterangan', 'payload', 'host__nama')
-    readonly_fields = ('received_at', 'ok', 'host', 'keterangan', 'payload')
+    readonly_fields = ('received_at', 'ok', 'instance', 'host', 'keterangan', 'payload')
     ordering = ('-received_at',)
 
 
 @admin.register(ZabbixGroup)
 class ZabbixGroupAdmin(admin.ModelAdmin):
-    list_display = ('nama', 'jumlah_host', 'urutan', 'aktif')
+    list_display = ('nama', 'instance', 'jumlah_host', 'urutan', 'aktif')
     list_editable = ('urutan', 'aktif')
     list_display_links = ('nama',)
-    list_filter = ('aktif',)
+    list_filter = ('instance', 'aktif')
     search_fields = ('nama', 'keterangan')
     # Widget dua-kolom "available / chosen" dengan kotak pencarian — pola yang
     # sama dengan ULTGAdmin.lokasi di devices/admin.py.
@@ -198,7 +250,9 @@ class ZabbixGroupAdmin(admin.ModelAdmin):
         Sembunyikan host yang sudah masuk grup LAIN dari daftar "Available",
         supaya satu host tidak tanpa sengaja terhitung di dua grup sekaligus.
         Host milik grup yang sedang dibuka tetap muncul (di kolom "Chosen"),
-        jadi bisa dilepas kembali kalau perlu.
+        jadi bisa dilepas kembali kalau perlu. Untuk grup yang sudah ada,
+        daftar host juga dipersempit ke instansi Zabbix milik grup itu sendiri
+        — grup "Zabbix Prosis" tidak perlu menampilkan host Telkom.
 
         Pola yang sama dengan ULTGAdmin.formfield_for_manytomany di
         devices/admin.py.
@@ -209,7 +263,12 @@ class ZabbixGroupAdmin(admin.ModelAdmin):
             if obj_id:
                 milik_grup_lain = milik_grup_lain.exclude(pk=obj_id)
             sudah_dipakai = milik_grup_lain.values_list('hosts__pk', flat=True)
-            kwargs['queryset'] = ZabbixHost.objects.exclude(
+            qs = ZabbixHost.objects.exclude(
                 pk__in=[pk for pk in sudah_dipakai if pk is not None]
-            ).order_by('urutan', 'nama')
+            )
+            if obj_id:
+                grp = ZabbixGroup.objects.filter(pk=obj_id).first()
+                if grp:
+                    qs = qs.filter(instance=grp.instance)
+            kwargs['queryset'] = qs.order_by('urutan', 'nama')
         return super().formfield_for_manytomany(db_field, request, **kwargs)

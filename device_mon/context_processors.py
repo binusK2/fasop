@@ -1,7 +1,9 @@
 def zbx_groups(request):
     """
-    Daftar nama Grup Host Zabbix (ZabbixGroup — grouping MANUAL yang dikelola
-    lewat Django Admin) untuk sidebar Device Monitor — satu link per grup.
+    Daftar Instansi Zabbix aktif + Grup Host Zabbix manual (ZabbixGroup,
+    dikelola lewat Django Admin) milik masing-masing, untuk sidebar Device
+    Monitor — satu bagian sidebar per instansi, satu link per grup di
+    dalamnya.
 
     Sengaja dari ZabbixGroup, bukan dari ZabbixHost.groups: field `groups` di
     ZabbixHost selalu ditimpa ulang oleh sync_zabbix mengikuti Host Group di
@@ -15,18 +17,25 @@ def zbx_groups(request):
     if not request.path.startswith('/device-mon/'):
         return {}
 
-    from .models import ZabbixGroup, ZabbixHost
+    from .models import ZabbixInstance, ZabbixGroup, ZabbixHost
 
-    names = list(
-        ZabbixGroup.objects.filter(aktif=True).values_list('nama', flat=True)
-    )
+    out = []
+    for instansi in ZabbixInstance.objects.filter(aktif=True):
+        names = list(
+            ZabbixGroup.objects.filter(aktif=True, instance=instansi).values_list('nama', flat=True)
+        )
 
-    # Tambahkan '(Tanpa Grup)' hanya kalau memang ada host aktif yang belum
-    # masuk grup mana pun — supaya host baru hasil sync tidak hilang dari UI
-    # sebelum sempat dikelompokkan.
-    bergrup = set(ZabbixGroup.objects.filter(aktif=True).values_list('hosts__pk', flat=True))
-    ada_yatim = ZabbixHost.objects.filter(aktif=True).exclude(pk__in=bergrup).exists()
-    if ada_yatim:
-        names.append('(Tanpa Grup)')
+        # Tambahkan '(Tanpa Grup)' hanya kalau memang ada host aktif instansi
+        # ini yang belum masuk grup mana pun — supaya host baru hasil sync
+        # tidak hilang dari UI sebelum sempat dikelompokkan.
+        bergrup = set(
+            ZabbixGroup.objects.filter(aktif=True, instance=instansi).values_list('hosts__pk', flat=True)
+        )
+        ada_yatim = (ZabbixHost.objects.filter(aktif=True, instance=instansi)
+                     .exclude(pk__in=bergrup).exists())
+        if ada_yatim:
+            names.append('(Tanpa Grup)')
 
-    return {'zbx_groups': names}
+        out.append({'instansi': instansi, 'groups': names})
+
+    return {'zbx_instansi_list': out}

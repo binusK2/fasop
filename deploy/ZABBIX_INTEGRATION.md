@@ -1,19 +1,29 @@
 # Integrasi Zabbix (`device_mon`)
 
 Menampilkan status host/peralatan yang dipantau Zabbix di dashboard FASOP
-(**Device Monitor → Zabbix**, `/device-mon/zabbix/`), lewat dua jalur yang
-saling melengkapi. Sengaja satu app dengan RTU (`/device-mon/`) — keduanya
-"status peralatan realtime", jadi tetap ketemu di satu tempat (Device
-Monitor) alih-alih tersebar ke app terpisah per sumber data.
+(**Device Monitor → Zabbix**, `/device-mon/zabbix/<kode>/`), lewat dua jalur
+yang saling melengkapi. Sengaja satu app dengan RTU (`/device-mon/`) —
+keduanya "status peralatan realtime", jadi tetap ketemu di satu tempat
+(Device Monitor) alih-alih tersebar ke app terpisah per sumber data.
 
 | Jalur | Arah | Peran |
 |---|---|---|
 | **Pull — Zabbix API** | FASOP → Zabbix (cron `sync_zabbix`) | Sumber kebenaran periodik. Membuat host baru otomatis, memulihkan status kalau webhook sempat gagal terkirim. |
-| **Push — Webhook** | Zabbix → FASOP (`/device-mon/zabbix/webhook/`) | Update realtime (detik) saat trigger PROBLEM/pulih, tanpa menunggu jadwal cron. |
+| **Push — Webhook** | Zabbix → FASOP (`/device-mon/zabbix/<kode>/webhook/`) | Update realtime (detik) saat trigger PROBLEM/pulih, tanpa menunggu jadwal cron. |
 
 Keduanya menulis ke tabel yang sama (`ZabbixHost`, `ZabbixEventLog`), jadi
 boleh dipakai salah satu saja untuk mulai (disarankan: setup pull dulu,
 webhook menyusul untuk latensi lebih rendah).
+
+**Bisa lebih dari satu server Zabbix** — mis. "Zabbix Telkom" (peralatan
+telekomunikasi) dan "Zabbix Prosis" (peralatan proteksi & SCADA), masing-
+masing baris di **Admin → Device Mon → Instansi Zabbix**
+(`device_mon.ZabbixInstance`). Panduan di bawah ini menjelaskan setup untuk
+SATU instansi — untuk instansi kedua dst., ulangi §1–§2 tapi isikan hasilnya
+ke field instansi itu di Admin (bukan `.env`), lihat §8. Konfigurasi
+`.env` di bawah tetap ada sebagai **fallback**: kosongkan field yang sama di
+Admin untuk instansi "Zabbix Telkom" dan ia otomatis memakai `.env` ini,
+persis seperti sebelum `ZabbixInstance` ada.
 
 ---
 
@@ -58,15 +68,18 @@ python manage.py sync_zabbix --dry-run
 
 ## 2. Siapkan Webhook (push realtime)
 
-### 2.1. Token bersama
-Isi string acak yang kuat di `.env` FASOP — akan dipakai lagi di skrip
-webhook Zabbix pada langkah berikutnya:
+### 2.1. Token
+Isi string acak yang kuat di `.env` FASOP (dipakai instansi "Zabbix Telkom"
+selama kolom "Token Webhook"-nya di Admin dikosongkan) — akan dipakai lagi di
+skrip webhook Zabbix pada langkah berikutnya:
 ```env
 ZABBIX_WEBHOOK_TOKEN=<string-acak-yang-kuat>
 ```
-Endpoint `/device-mon/zabbix/webhook/` **tanpa login** (dipanggil server
-Zabbix, bukan browser) — keamanannya murni dari token ini, jadi wajib
-diisi sebelum dipakai di produksi.
+Endpoint `/device-mon/zabbix/<kode>/webhook/` **tanpa login** (dipanggil
+server Zabbix, bukan browser) — keamanannya murni dari token ini, jadi wajib
+diisi sebelum dipakai di produksi. Untuk instansi Telkom, path lama
+`/device-mon/zabbix/webhook/` (tanpa `<kode>`) juga tetap berfungsi sebagai
+alias — pakai salah satu, keduanya memeriksa token yang sama.
 
 ### 2.2. Buat Media Type "Webhook" di Zabbix
 **Alerts → Media types → Create media type**
@@ -77,7 +90,7 @@ diisi sebelum dipakai di produksi.
 
   | Name | Value |
   |---|---|
-  | `url` | `https://fasop.domain-anda/device-mon/zabbix/webhook/` |
+  | `url` | `https://fasop.domain-anda/device-mon/zabbix/telkom/webhook/` (atau `.../zabbix/webhook/` — alias lama, sama-sama instansi Telkom) |
   | `token` | `<isi sama dengan ZABBIX_WEBHOOK_TOKEN>` |
   | `event_status` | `{EVENT.STATUS}` |
   | `eventid` | `{EVENT.ID}` |
@@ -153,7 +166,7 @@ diisi sebelum dipakai di produksi.
 ## 3. Kontrak payload webhook (referensi)
 
 ```
-POST /device-mon/zabbix/webhook/
+POST /device-mon/zabbix/<kode>/webhook/   # mis. /device-mon/zabbix/telkom/webhook/
 Header:  X-Zabbix-Webhook-Token: <ZABBIX_WEBHOOK_TOKEN>
          (atau ?token=... di query string kalau Zabbix versi lama tidak
          bisa set header custom lewat HttpRequest)
@@ -196,8 +209,10 @@ ZABBIX_HOST_GROUPS=
 ZABBIX_WEBHOOK_TOKEN=
 ```
 
-Cron `sync_zabbix` (lihat §1). Dashboard: sidebar **Device Monitor →
-Zabbix**, atau langsung `/device-mon/zabbix/`.
+Cron `sync_zabbix` (lihat §1) — satu cron melewati SEMUA instansi Zabbix
+aktif, tidak perlu satu cron per instansi. Dashboard: sidebar **Device
+Monitor → Zabbix Telkom**, atau langsung `/device-mon/zabbix/telkom/`
+(path lama `/device-mon/zabbix/` tetap redirect ke situ).
 
 ### Perhitungan availability — hanya severity High
 
@@ -212,25 +227,30 @@ Diatur lewat konstanta `SEVERITY_DIHITUNG` di `device_mon/views.py`
 
 ### Tampilan per Host Group
 
-`ZABBIX_HOST_GROUPS` boleh diisi lebih dari satu, dipisah koma, mis.
-`ZABBIX_HOST_GROUPS=VoIP Mks,CRS,ROIP,Router,VoIP Baubau,VoIP ICON+,VoIP Luwuk`
-— nama harus PERSIS sama dengan nama Host Group di Zabbix (**Data
-collection → Host groups**), termasuk kapitalisasi.
+`ZABBIX_HOST_GROUPS` (atau kolom "Filter Host Group" di Admin, per instansi
+— lihat §8) boleh diisi lebih dari satu, dipisah koma, mis.
+`VoIP Mks,CRS,ROIP,Router,VoIP Baubau,VoIP ICON+,VoIP Luwuk` — nama harus
+PERSIS sama dengan nama Host Group di Zabbix (**Data collection → Host
+groups**), termasuk kapitalisasi. Ini hanya membatasi host mana yang ditarik
+`sync_zabbix` — grup TAMPILAN sidebar/dashboard sepenuhnya hal lain, lihat
+poin ketiga di bawah.
 
-- `/device-mon/zabbix/` (Ringkasan) menampilkan total status + satu kartu
-  ringkas per Host Group (jumlah OK/PROBLEM/availability), bukan daftar
-  semua host — supaya tetap mudah dibaca walau host-nya banyak.
+- `/device-mon/zabbix/<kode>/` (Ringkasan) menampilkan total status + satu
+  kartu ringkas per Grup Host Zabbix (jumlah OK/PROBLEM/availability), bukan
+  daftar semua host — supaya tetap mudah dibaca walau host-nya banyak.
 - Klik kartu grup (atau link-nya di sidebar) → halaman detail grup
-  (`/device-mon/zabbix/group/<nama grup>/`) berisi grid semua host di
+  (`/device-mon/zabbix/<kode>/group/<nama grup>/`) berisi grid semua host di
   grup itu + chart availability + problem terkini, khusus grup tsb.
-- Sidebar Device Monitor menampilkan daftar grup secara **otomatis**
-  dari data host yang sudah tersinkron (bukan langsung dari
-  `ZABBIX_HOST_GROUPS`) — jadi grup baru baru muncul di sidebar setelah
-  `sync_zabbix` berhasil menariknya minimal sekali (atau webhook pertama
-  masuk, lalu dilengkapi grup-nya oleh `sync_zabbix` berikutnya —
-  webhook sendiri tidak membawa info Host Group).
-- Satu host boleh tercatat di lebih dari satu Host Group (mis. host yang
-  masuk `CRS` sekaligus `ROIP`) — otomatis muncul di kedua halaman grup.
+- Grup yang tampil di sidebar/dashboard adalah **Grup Host Zabbix**
+  (`device_mon.ZabbixGroup`) yang dikelola manual di **Admin → Device Mon →
+  Grup Host Zabbix** — beda dari Host Group Zabbix di atas (`ZabbixHost.groups`,
+  selalu ditimpa ulang tiap `sync_zabbix`). Host baru dari sync HARUS
+  dimasukkan manual ke satu ZabbixGroup di sini supaya muncul di sidebar;
+  sebelum itu ia tetap ada, dikelompokkan sebagai "(Tanpa Grup)". Satu grup
+  milik satu instansi (`ZabbixGroup.instance`) — grup "Router" di Zabbix
+  Telkom dan "Router" di Zabbix Prosis adalah dua baris terpisah.
+- Satu host boleh masuk lebih dari satu ZabbixGroup — otomatis muncul di
+  kedua halaman grup.
 
 Opsional — hubungkan host Zabbix ke aset FASOP yang sudah ada: buka
 **Secure Panel → Device Monitor → Host Zabbix**, pilih host, isi field
@@ -285,7 +305,7 @@ lalu di panel **Blast WhatsApp**:
 |---|---|
 | **Blast WhatsApp** | Master switch host ini. Mati = tidak pernah kirim. |
 | **Severity Minimum** | PROBLEM dikirim hanya bila severity-nya ≥ nilai ini. Default *Average*. Naikkan ke *High* kalau grup terlalu berisik. |
-| **Grup WA Khusus** | Kosongkan untuk memakai `WA_CHAT_IDS_ZABBIX`. Isi hanya kalau host ini perlu grup berbeda (mis. VoIP ke grup telekomunikasi, bukan grup SCADA). |
+| **Grup WA Khusus** | Kosongkan untuk memakai tujuan WA instansi Zabbix host ini (Admin → Instansi Zabbix → "Tujuan WA Default"), lalu `WA_CHAT_IDS_ZABBIX`. Isi hanya kalau host ini perlu grup berbeda (mis. VoIP ke grup telekomunikasi, bukan grup SCADA). |
 
 Untuk banyak host sekaligus: centang di daftar, lalu action **"Aktifkan blast
 WhatsApp"**. Kolom **Blast WhatsApp** dan **Severity Minimum** juga bisa diedit
@@ -381,3 +401,43 @@ biasanya di token/permission (poin 3/6), bukan jaringan lagi.
   (kosong sama sekali = Action di Zabbix belum ke-trigger atau URL salah;
   ada baris tapi `ok=False` = baca kolom Keterangan, biasanya token salah
   atau payload tidak sesuai kontrak §3).
+
+---
+
+## 8. Menambah instansi kedua (mis. "Zabbix Prosis")
+
+Server Zabbix kedua (peralatan proteksi & SCADA, terpisah dari Zabbix
+Telkom) diregistrasikan sebagai baris baru, **bukan** env var baru:
+
+1. Ulangi §1 untuk server Zabbix Prosis: buat user read-only, ambil API
+   token (atau user/password), catat URL `api_jsonrpc.php`-nya.
+2. **Admin → Device Mon → Instansi Zabbix → Tambah Instansi Zabbix**:
+   - **Kode**: `prosis` (dipakai di URL — huruf kecil/angka/strip saja,
+     dan tidak boleh `webhook`/`gangguan`/`group`/`host`/`api`, kata-kata
+     itu sudah dipakai path lain).
+   - **Nama**: `Zabbix Prosis`.
+   - Isi **URL API**, **API Token** (atau **Username**/**Password**), dan
+     **Filter Host Group** kalau perlu — field ini TIDAK jatuh ke
+     `ZABBIX_API_*` di `.env` seperti instansi Telkom, karena `.env` cuma
+     satu set nilai dan sudah dipakai instansi pertama.
+   - Isi **Token Webhook** sendiri (string acak baru, jangan pakai ulang
+     token Telkom) dan, kalau perlu, **Tujuan WA Default**.
+3. Aksi **"Uji koneksi Zabbix API sekarang"** di daftar Instansi Zabbix —
+   pastikan dapat "OK, N host terbaca" sebelum lanjut. Kalau gagal, lihat §6
+   (urutan diagnosisnya sama, hanya kredensialnya dari baris Admin ini,
+   bukan `.env`).
+4. Cron `sync_zabbix` yang sudah ada **otomatis ikut menyinkronkan instansi
+   ini** begitu barisnya `Aktif` — tidak perlu cron baru maupun perubahan
+   crontab. Kalau instansi Telkom sedang bermasalah (URL salah, token
+   kedaluwarsa), Prosis tetap tersinkron — keduanya independen per baris.
+5. Webhook Zabbix Prosis: ulangi §2.2–§2.4, tapi `url` Media Type-nya
+   `https://fasop.domain-anda/device-mon/zabbix/prosis/webhook/` dan
+   `token` = Token Webhook yang diisi di langkah 2.
+6. Dashboard baru muncul otomatis: sidebar Device Monitor menambahkan
+   bagian **"Zabbix Prosis"** (Ringkasan, grup, Histori Problem) begitu
+   barisnya dibuat — tidak perlu deploy ulang kode. Buka langsung
+   `/device-mon/zabbix/prosis/`.
+7. Kelompokkan host Prosis ke **Grup Host Zabbix** (Admin → Device Mon →
+   Grup Host Zabbix, pilih **Instansi Zabbix** = Prosis) seperti Telkom —
+   sebelum dikelompokkan, host tetap tampil di dashboard Prosis di bawah
+   "(Tanpa Grup)".

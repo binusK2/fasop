@@ -60,7 +60,7 @@ Each of the 15 `INSTALLED_APPS` Django apps follows a standard layout (`models.p
 | `health_index/` | Equipment health scoring (0–100), computed (not stored) from 9 weighted factors |
 | `inspection/` | Inservice inspection for Operator role, plus the daily-results page (`/inspection/harian/`) and its Excel archive — column schema per equipment type lives in `inspection/laporan.py` |
 | `gudang/` | Warehouse / spare parts inventory; stock level is computed from `MutasiSparepart`, not a stored field |
-| `device_mon/` | Realtime equipment status monitoring — RTU UP/DOWN via MSSQL (`collect_rtu` cron) at `/device-mon/`, plus Zabbix host status at `/device-mon/zabbix/`: pull periodically via Zabbix API (`zabbix_api.py`, cron `sync_zabbix`) + push realtime via webhook (`/device-mon/zabbix/webhook/`, token `ZABBIX_WEBHOOK_TOKEN`); `ZabbixHost` optionally linked to `devices.Device`; WhatsApp blast is **opt-in per host** from Admin (`wa_alert` + `wa_min_severity` threshold) — see "Early Warning WhatsApp" below; full setup in `deploy/ZABBIX_INTEGRATION.md`. Both sources live in one app deliberately — "realtime equipment status" belongs together regardless of data source |
+| `device_mon/` | Realtime equipment status monitoring — RTU UP/DOWN via MSSQL (`collect_rtu` cron) at `/device-mon/`, plus Zabbix host status at `/device-mon/zabbix/<kode>/` — **can be more than one Zabbix server** (`ZabbixInstance`, e.g. "Zabbix Telkom" + "Zabbix Prosis"), see "Device Monitor — Instansi Zabbix" below: pull periodically via Zabbix API (`zabbix_api.py`, cron `sync_zabbix`) + push realtime via webhook (`/device-mon/zabbix/<kode>/webhook/`, per-instance token); `ZabbixHost` optionally linked to `devices.Device`; WhatsApp blast is **opt-in per host** from Admin (`wa_alert` + `wa_min_severity` threshold) — see "Early Warning WhatsApp" below; full setup in `deploy/ZABBIX_INTEGRATION.md`. Both sources live in one app deliberately — "realtime equipment status" belongs together regardless of data source |
 | `scada_av/` | SCADA/RTU availability and RCD success rate; wraps the `spectrum7_av/` calculation library |
 | `notifikasi/` | In-app notification center (per-user + broadcast); other apps push notifications via `notif_ke_user()` / `notif_ke_am()` helpers |
 | `jadwal/` | Monthly preventive-maintenance visit scheduling per location, with HI/age/device-count priority ranking |
@@ -1506,6 +1506,86 @@ Belum tahu nama kolom sebuah tabel historian? `python manage.py probe_tabel_ews
 dbo.KIT_REALTIME` menampilkan daftar kolom + baris contoh. Dari admin, aksi
 **"Lihat kolom tabel sumber"** dan **"Uji baca nilai dari MSSQL"** (Opsis → Titik
 EWS) menjawab "kenapa kartu saya kosong" tanpa membuka log server.
+
+---
+
+## Device Monitor — Instansi Zabbix (`device_mon.ZabbixInstance`)
+
+`device_mon` bisa memantau **lebih dari satu server Zabbix sekaligus** — mis.
+**Zabbix Telkom** (peralatan telekomunikasi, sudah ada sejak awal) dan
+**Zabbix Prosis** (peralatan proteksi & SCADA), masing-masing baris di
+**Admin → Device Mon → Instansi Zabbix**. Pola yang sama dengan
+`opsis.SumberKit` — baris admin, bukan kode, yang membedakan instansi, jadi
+menambah instansi ketiga nanti tidak perlu migrasi maupun redeploy.
+
+Baris pertama ("Zabbix Telkom", `kode='telkom'`) dibuat oleh migrasi data
+dengan **seluruh field kredensial dikosongkan** — kosong berarti jatuh ke
+`ZABBIX_API_*`/`ZABBIX_WEBHOOK_TOKEN` di `.env` (lihat `*_efektif()` di
+`ZabbixInstance`), jadi pemasangan yang sudah ada sebelum model ini dibuat
+tidak berubah perilakunya sama sekali. Instansi baru mengisi field-nya
+sendiri di Admin — bukan menambah env var per instansi, karena `kode` dipilih
+bebas oleh admin, bukan dipatok di kode.
+
+`kode` dipakai di URL: `/device-mon/zabbix/<kode>/`,
+`/device-mon/zabbix/<kode>/webhook/`, dst. Yang perlu diketahui saat
+menambah instansi atau mengubah rute ini:
+
+- **`ZabbixHost.zabbix_hostid` unik PER INSTANSI**
+  (`unique_together = ('instance', 'zabbix_hostid')`), bukan global — dua
+  server Zabbix berbeda boleh kebetulan memakai hostid yang sama untuk host
+  yang berbeda. `sync_zabbix` dan webhook receiver selalu
+  `get_or_create(instance=..., zabbix_hostid=...)`, tidak pernah
+  `zabbix_hostid` saja.
+- **Token webhook per instansi, bukan satu token bersama.** URL lama
+  `/device-mon/zabbix/webhook/` (tanpa `<kode>`) tetap dilayani sebagai alias
+  **langsung** ke instansi `telkom` (bukan redirect 302 — Zabbix mengirim
+  POST, dan redirect POST tidak bisa diandalkan lewat skrip webhook Media
+  Type), supaya Action yang sudah dikonfigurasi di Zabbix Telkom tidak perlu
+  diubah. Instansi baru (Prosis, dst.) memakai path baru
+  `/device-mon/zabbix/<kode>/webhook/` sejak awal.
+- **Path halaman lama (dashboard/group/gangguan tanpa `<kode>`) di-redirect
+  302 ke instansi `telkom`** — pola yang sama dengan
+  `/streaming/dinding/` → `/streaming/multi-view/`. Sengaja bukan 301 supaya
+  browser yang pernah membukanya tetap bertanya ke server kalau path itu
+  suatu saat dipakai untuk hal lain.
+- **`kode` tidak boleh salah satu dari `webhook`/`gangguan`/`group`/`host`/
+  `api`** (`ZabbixInstance.KODE_TERPAKAI`, ditolak di `clean()`) — kata-kata
+  itu sudah dipakai sebagai segmen path literal di `device_mon/urls.py`.
+  Rute lama (`zabbix/webhook/`, `zabbix/gangguan/`, `zabbix/group/<..>/`)
+  **harus** didaftarkan sebelum `zabbix/<slug:kode>/...` di `urls.py` —
+  kalau urutannya dibalik, pola `<slug:kode>` yang dicek lebih dulu akan
+  "mencuri" path literal itu (mis. `POST /zabbix/webhook/` nyasar ke
+  `zbx_dashboard(kode='webhook')`).
+- **Host detail (`/device-mon/zabbix/host/<hid>/`) sengaja TIDAK punya
+  `<kode>` di URL** — hashid pk sudah unik lintas instansi, dan instansi
+  pemiliknya (untuk breadcrumb) diambil dari `host.instance` sendiri.
+- **`ZabbixGroup` (grup manual, dikelola di Admin) juga milik satu
+  instansi** (`unique_together = ('instance', 'nama')`) — grup "Router" di
+  Zabbix Telkom dan "Router" di Zabbix Prosis adalah dua baris terpisah,
+  boleh berbagi nama. Sidebar Device Monitor menampilkan satu bagian per
+  instansi aktif, masing-masing dengan grupnya sendiri
+  (`device_mon.context_processors.zbx_groups`, kunci konteks
+  `zbx_instansi_list`).
+- **`sync_zabbix` melewati semua instansi aktif dalam satu jalan cron**,
+  satu koneksi API per instansi (`ZabbixInstance.client()`). Satu instansi
+  gagal (URL salah, token kedaluwarsa) **tidak menghentikan instansi lain**
+  — pola yang sama dengan "satu sumber rusak hanya memadamkan pembangkit
+  yang memakainya" di `opsis.SumberKit`. `--instansi <kode>` membatasi ke
+  satu instansi saja (mis. untuk debug).
+- **Tujuan blast WhatsApp punya tingkatan tambahan**: kolom "Grup WA Khusus"
+  host → `ZabbixInstance.wa_chat_ids` ("Tujuan WA Default" instansi itu) →
+  `WA_CHAT_IDS_ZABBIX` → `WA_CHAT_IDS` di `.env`. Instansi baru (Prosis)
+  biasanya diisi tujuan WA-nya sendiri di Admin, bukan env var baru.
+- **`ZabbixHost.objects.create(...)` tanpa `instance=` tidak error** — field
+  itu punya `default=` yang memanggil `ZabbixInstance.ambil_default()`
+  (auto-membuat/memakai baris `kode='telkom'`), supaya kode lama (shell,
+  skrip, tes) yang belum tahu soal multi-instansi tetap jalan. Ini
+  kenyamanan pembuatan objek, **bukan** aturan runtime — dashboard tetap
+  memfilter host berdasarkan `instance` yang sungguhan.
+
+Dari Admin, aksi **"Uji koneksi Zabbix API sekarang"** (Instansi Zabbix)
+menjawab "kenapa host instansi ini tidak muncul" tanpa membuka log server —
+sama seperti aksi "Uji baca sumber KIT sekarang" di OPSIS.
 
 ---
 

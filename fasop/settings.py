@@ -400,25 +400,35 @@ WA_TIMEOUT       = config('WA_TIMEOUT',    default=10, cast=int)  # detik
 
 WA_CHAT_IDS_INSPECTION = config('WA_CHAT_IDS_INSPECTION', default='')
 
-# Tujuan blast WhatsApp untuk host Zabbix (device_mon). Kosong = pakai
-# WA_CHAT_IDS di atas. Blast tetap per host: hanya host yang dicentang
-# "Blast WhatsApp" di Admin yang dikirim, dan sebuah host bisa menimpa
-# tujuan ini lewat kolom "Grup WA Khusus".
+# Tujuan blast WhatsApp bawaan untuk host Zabbix (device_mon). Kosong = pakai
+# WA_CHAT_IDS di atas. Rantai fallback lengkapnya: kolom "Grup WA Khusus" host
+# -> "Tujuan WA Default" instansi Zabbix-nya (Admin -> Device Mon -> Instansi
+# Zabbix) -> WA_CHAT_IDS_ZABBIX ini -> WA_CHAT_IDS. Blast tetap per host: hanya
+# host yang dicentang "Blast WhatsApp" di Admin yang dikirim.
 WA_CHAT_IDS_ZABBIX = config('WA_CHAT_IDS_ZABBIX', default='')
 
 # -------------------------------------------------------------------
 # Zabbix Integration (device_mon) — status peralatan dari Zabbix dipantau
 # di FASOP lewat dua jalur yang saling melengkapi, satu app dengan RTU
-# (Device Monitor — /device-mon/, /device-mon/zabbix/):
+# (Device Monitor — /device-mon/, /device-mon/zabbix/<kode>/):
 #   1. Pull  — management command `sync_zabbix` (cron, lihat crontab di
 #      docstring-nya) menarik status host/problem lewat Zabbix API
-#      (JSON-RPC, endpoint ZABBIX_API_URL) tiap beberapa menit. Sumber
-#      kebenaran periodik; juga yang membuat ZabbixHost baru otomatis.
-#   2. Push  — endpoint /device-mon/zabbix/webhook/ menerima notifikasi
-#      realtime dari Zabbix Action (media type "Webhook") saat trigger
-#      PROBLEM/OK.
+#      (JSON-RPC) tiap beberapa menit. Sumber kebenaran periodik; juga
+#      yang membuat ZabbixHost baru otomatis.
+#   2. Push  — endpoint /device-mon/zabbix/<kode>/webhook/ menerima
+#      notifikasi realtime dari Zabbix Action (media type "Webhook")
+#      saat trigger PROBLEM/OK.
 # Setup lengkap (skrip webhook Zabbix, pembuatan API token, Action &
 # Media Type): lihat deploy/ZABBIX_INTEGRATION.md.
+#
+# BISA LEBIH DARI SATU server Zabbix (device_mon.ZabbixInstance, mis.
+# "Zabbix Telkom" + "Zabbix Prosis") — diatur dari Admin -> Device Mon ->
+# Instansi Zabbix, BUKAN di sini. Variabel ZABBIX_* di bawah ini sekarang
+# hanya FALLBACK yang dipakai instansi mana pun yang field-nya dikosongkan
+# di Admin (instansi pertama, "Zabbix Telkom", dibuat dengan seluruh field
+# kosong oleh migrasi data — jadi pemasangan sebelum ZabbixInstance ada
+# tidak berubah perilakunya sama sekali). Instansi kedua dst. umumnya perlu
+# mengisi sendiri di Admin karena server Zabbix-nya berbeda.
 #
 # Autentikasi ke Zabbix API — pilih salah satu:
 #   ZABBIX_API_TOKEN            (direkomendasikan, Zabbix >= 5.4, dari
@@ -433,9 +443,10 @@ ZABBIX_API_TIMEOUT  = config('ZABBIX_API_TIMEOUT', default=10, cast=int)
 # Batasi sync ke host group tertentu (opsional, pisahkan koma). Kosong = semua host.
 ZABBIX_HOST_GROUPS  = config('ZABBIX_HOST_GROUPS', default='')
 
-# Token bersama untuk endpoint /device-mon/zabbix/webhook/ — HARUS sama dengan yang
-# ditulis di skrip webhook Media Type Zabbix (header X-Zabbix-Webhook-Token
-# atau parameter URL ?token=). String acak yang kuat, endpoint ini publik
-# (tanpa login) karena dipanggil oleh Zabbix server, bukan browser user.
+# Token bawaan untuk endpoint webhook — HARUS sama dengan yang ditulis di
+# skrip webhook Media Type Zabbix (header X-Zabbix-Webhook-Token atau
+# parameter URL ?token=). String acak yang kuat, endpoint ini publik (tanpa
+# login) karena dipanggil oleh Zabbix server, bukan browser user. Instansi
+# lain boleh menimpanya sendiri lewat kolom "Token Webhook" di Admin.
 ZABBIX_WEBHOOK_TOKEN = config('ZABBIX_WEBHOOK_TOKEN', default='')
 

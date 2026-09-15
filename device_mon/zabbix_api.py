@@ -263,12 +263,17 @@ def severity_label(sev):
     return SEVERITY_LABELS.get(str(sev), str(sev) if sev not in (None, '') else '')
 
 
-def get_resolve_clock(problem_eventid):
-    """Wrapper modul-level ZabbixClient.get_resolve_clock — lihat docstring-nya."""
-    return ZabbixClient().get_resolve_clock(problem_eventid)
+def get_resolve_clock(problem_eventid, client=None):
+    """Wrapper modul-level ZabbixClient.get_resolve_clock — lihat docstring-nya.
+
+    `client` opsional — dipakai sync_zabbix untuk menargetkan instansi Zabbix
+    yang benar (dua server Zabbix berbeda punya kredensial berbeda). Kosong =
+    ZabbixClient() bawaan dari .env (perilaku lama, satu instansi implisit).
+    """
+    return (client or ZabbixClient()).get_resolve_clock(problem_eventid)
 
 
-def get_current_status(group_names=None):
+def get_current_status(group_names=None, client=None):
     """
     Helper tingkat tinggi dipakai sync_zabbix: gabungkan host.get + problem.get
     menjadi satu dict {hostid: {host, name, groups, state, severity, problem_name, eventid, clock}}.
@@ -277,8 +282,12 @@ def get_current_status(group_names=None):
     state = 'PROBLEM' kalau ada minimal satu problem aktif, selain itu 'OK'.
     Kalau ada beberapa problem aktif pada satu host, dipilih yang severity-nya
     tertinggi (SEVERITY_LABELS terurut naik -> ambil angka terbesar).
+
+    `client` opsional — ZabbixClient yang sudah dikonfigurasi untuk satu
+    instansi (device_mon.models.ZabbixInstance.client()). Kosong = ZabbixClient()
+    bawaan dari .env.
     """
-    client = ZabbixClient()
+    client = client or ZabbixClient()
     hosts = client.get_hosts(group_names=group_names)
     if not hosts:
         return {}
