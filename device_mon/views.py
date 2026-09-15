@@ -9,8 +9,8 @@ from django.db.models import Q
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from fasop.hashids_helper import encode
-from .models import (RTU, RTULog, ZabbixHost, ZabbixEventLog, ZabbixWebhookLog,
-                     ZabbixGroup)
+from .models import (RTU, RTULog, ZabbixInstance, ZabbixHost, ZabbixEventLog,
+                     ZabbixWebhookLog, ZabbixGroup)
 from .notifications import notif_zabbix_transisi
 
 logger = logging.getLogger(__name__)
@@ -506,19 +506,25 @@ def availability_report(request):
 #  Tampilan terpisah dari RTU di atas (sumber data beda: MSSQL vs Zabbix),
 #  tapi tetap satu app Device Monitor supaya semua status peralatan
 #  realtime ketemu di satu tempat.
+#
+#  BISA LEBIH DARI SATU instansi (device_mon.ZabbixInstance, mis. "Zabbix
+#  Telkom" / "Zabbix Prosis") — <kode> di URL memilih instansinya, jadi
+#  view di bawah ini dipakai bersama oleh semua instansi tanpa duplikasi.
 # ═══════════════════════════════════════════════════════════════════════════
 @login_required
-def zbx_dashboard(request):
-    """Ringkasan Zabbix: total status + breakdown per grup. Detail per host ada di zbx_group_detail."""
-    return render(request, 'device_mon/zbx_dashboard.html')
+def zbx_dashboard(request, kode):
+    """Ringkasan satu instansi Zabbix: total status + breakdown per grup. Detail per host ada di zbx_group_detail."""
+    instansi = get_object_or_404(ZabbixInstance, kode=kode)
+    return render(request, 'device_mon/zbx_dashboard.html', {'instansi': instansi})
 
 
 @login_required
-def zbx_api_summary(request):
-    """JSON: ringkasan status Zabbix — total + breakdown per Host Group + problem terkini. Dipoll dashboard."""
+def zbx_api_summary(request, kode):
+    """JSON: ringkasan status Zabbix satu instansi — total + breakdown per Host Group + problem terkini. Dipoll dashboard."""
+    instansi = get_object_or_404(ZabbixInstance, kode=kode)
     now, today_start, month_start = _boundaries()
 
-    hosts = list(ZabbixHost.objects.filter(aktif=True))
+    hosts = list(ZabbixHost.objects.filter(aktif=True, instance=instansi))
     if not hosts:
         return JsonResponse({
             'total_ok': 0, 'total_problem': 0, 'total_unknown': 0, 'total_host': 0,
@@ -560,7 +566,7 @@ def zbx_api_summary(request):
     group_stats = {}   # nama grup -> {total, ok, problem, unknown, avail_list}
     sudah_bergrup = set()
 
-    for grp in ZabbixGroup.objects.filter(aktif=True).prefetch_related('hosts'):
+    for grp in ZabbixGroup.objects.filter(aktif=True, instance=instansi).prefetch_related('hosts'):
         g = group_stats.setdefault(
             grp.nama, {'total': 0, 'ok': 0, 'problem': 0, 'unknown': 0, 'avail_list': []})
         for h in grp.hosts.all():
@@ -612,7 +618,7 @@ def zbx_api_summary(request):
         for gname, g in sorted(group_stats.items())
     ]
 
-    gangguan = (ZabbixEventLog.objects.filter(state='PROBLEM')
+    gangguan = (ZabbixEventLog.objects.filter(state='PROBLEM', host_id__in=host_ids)
                 .select_related('host').order_by('-mulai')[:10])
     gangguan_data = [{
         'host': g.host.nama,
@@ -636,31 +642,35 @@ def zbx_api_summary(request):
 
 
 @login_required
-def zbx_group_detail(request, group):
+def zbx_group_detail(request, kode, group):
     """Tampilan detail satu Host Group Zabbix — grid host + chart availability, difilter ke grup ini."""
-    return render(request, 'device_mon/zbx_group_detail.html', {'group': group})
+    instansi = get_object_or_404(ZabbixInstance, kode=kode)
+    return render(request, 'device_mon/zbx_group_detail.html', {'instansi': instansi, 'group': group})
 
 
 @login_required
-def zbx_api_status(request):
+def zbx_api_status(request, kode):
     """
-    JSON: status host Zabbix + availability hari ini/bulan ini. Dipoll
-    zbx_group_detail. ?group=<nama> memfilter ke satu Host Group saja
-    (dipakai zbx_group_detail) — tanpa ?group, kembalikan semua host aktif.
+    JSON: status host Zabbix satu instansi + availability hari ini/bulan ini.
+    Dipoll zbx_group_detail. ?group=<nama> memfilter ke satu Host Group saja
+    (dipakai zbx_group_detail) — tanpa ?group, kembalikan semua host aktif
+    instansi ini.
     """
+    instansi = get_object_or_404(ZabbixInstance, kode=kode)
     now, today_start, month_start = _boundaries()
 
-    hosts = list(ZabbixHost.objects.filter(aktif=True).select_related('device', 'lokasi'))
+    hosts = list(ZabbixHost.objects.filter(aktif=True, instance=instansi)
+                 .select_related('device', 'lokasi'))
     group_filter = request.GET.get('group', '').strip()
     if group_filter:
         # Keanggotaan dari ZabbixGroup (manual), bukan ZabbixHost.groups.
         if group_filter == '(Tanpa Grup)':
-            bergrup = set(ZabbixGroup.objects.filter(aktif=True)
+            bergrup = set(ZabbixGroup.objects.filter(aktif=True, instance=instansi)
                           .values_list('hosts__pk', flat=True))
             hosts = [h for h in hosts if h.pk not in bergrup]
         else:
             anggota = set(
-                ZabbixGroup.objects.filter(aktif=True, nama=group_filter)
+                ZabbixGroup.objects.filter(aktif=True, instance=instansi, nama=group_filter)
                 .values_list('hosts__pk', flat=True)
             )
             hosts = [h for h in hosts if h.pk in anggota]
@@ -754,7 +764,13 @@ def zbx_api_status(request):
 
 @login_required
 def zbx_host_detail(request, pk):
-    host = get_object_or_404(ZabbixHost.objects.select_related('device', 'lokasi'), pk=pk)
+    """
+    Detail satu host — TIDAK butuh <kode> di URL: pk (hashid) sudah unik
+    lintas instansi, dan instansi pemiliknya (untuk breadcrumb "Kembali ke
+    Dashboard") diambil dari host.instance sendiri.
+    """
+    host = get_object_or_404(
+        ZabbixHost.objects.select_related('device', 'lokasi', 'instance'), pk=pk)
     return render(request, 'device_mon/zbx_host_detail.html', {'host': host})
 
 
@@ -816,17 +832,17 @@ def zbx_api_host_logs(request, pk):
 
 
 @login_required
-def zbx_gangguan_list(request):
-    logs = (ZabbixEventLog.objects.filter(state='PROBLEM')
+def zbx_gangguan_list(request, kode):
+    instansi = get_object_or_404(ZabbixInstance, kode=kode)
+    logs = (ZabbixEventLog.objects.filter(state='PROBLEM', host__instance=instansi)
             .select_related('host', 'host__lokasi').order_by('-mulai')[:200])
-    return render(request, 'device_mon/zbx_gangguan.html', {'logs': logs})
+    return render(request, 'device_mon/zbx_gangguan.html', {'instansi': instansi, 'logs': logs})
 
 
-def _check_zbx_webhook_token(request):
-    from django.conf import settings
-    expected = getattr(settings, 'ZABBIX_WEBHOOK_TOKEN', '')
+def _check_zbx_webhook_token(request, instansi):
+    expected = instansi.webhook_token_efektif()
     if not expected:
-        return False, 'ZABBIX_WEBHOOK_TOKEN belum dikonfigurasi di server.'
+        return False, f'Token webhook untuk instansi "{instansi.nama}" belum dikonfigurasi di server.'
     got = request.headers.get('X-Zabbix-Webhook-Token') or request.GET.get('token', '')
     import hmac
     if not got or not hmac.compare_digest(str(got), str(expected)):
@@ -836,13 +852,20 @@ def _check_zbx_webhook_token(request):
 
 @csrf_exempt
 @require_http_methods(["POST"])
-def zbx_webhook_receiver(request):
+def zbx_webhook_receiver(request, kode='telkom'):
     """
     Terima push realtime dari Zabbix Action (media type Webhook) saat trigger
     naik (PROBLEM) atau pulih (OK/RESOLVED). Lihat deploy/ZABBIX_INTEGRATION.md
     untuk skrip webhook Zabbix-nya dan daftar macro yang harus diisikan.
 
-    Auth: header X-Zabbix-Webhook-Token: <ZABBIX_WEBHOOK_TOKEN>
+    `kode` menentukan Instansi Zabbix tujuan (mis. 'telkom' / 'prosis') — di URL
+    baru `/device-mon/zabbix/<kode>/webhook/`. Path lama `/device-mon/zabbix/
+    webhook/` (tanpa kode) tetap dilayani sebagai alias LANGSUNG ke instansi
+    'telkom' (bukan redirect 302 — Zabbix mengirim POST, dan redirect POST
+    tidak bisa diandalkan lewat skrip webhook Media Type), supaya Action yang
+    sudah dikonfigurasi di Zabbix Telkom tidak perlu diubah.
+
+    Auth: header X-Zabbix-Webhook-Token: <token webhook instansi ini>
           (atau ?token=... kalau Zabbix versi lama tidak bisa set header custom)
 
     Body JSON:
@@ -857,29 +880,39 @@ def zbx_webhook_receiver(request):
         "event_time": "2026-08-18T10:00:00+08:00"   # opsional, ISO8601
       }
     """
-    ok_token, msg = _check_zbx_webhook_token(request)
     raw_body = request.body.decode('utf-8', errors='replace')[:4000]
 
-    if not ok_token:
+    try:
+        instansi = ZabbixInstance.objects.get(kode=kode)
+    except ZabbixInstance.DoesNotExist:
+        msg = f'Instansi Zabbix "{kode}" tidak ditemukan.'
         ZabbixWebhookLog.objects.create(ok=False, keterangan=msg, payload=raw_body)
+        return JsonResponse({'status': 'error', 'message': msg}, status=404)
+
+    ok_token, msg = _check_zbx_webhook_token(request, instansi)
+    if not ok_token:
+        ZabbixWebhookLog.objects.create(ok=False, instance=instansi, keterangan=msg, payload=raw_body)
         return HttpResponseForbidden(msg)
 
     try:
         data = json.loads(request.body)
     except (json.JSONDecodeError, ValueError):
-        ZabbixWebhookLog.objects.create(ok=False, keterangan='Body bukan JSON valid.', payload=raw_body)
+        ZabbixWebhookLog.objects.create(ok=False, instance=instansi,
+                                        keterangan='Body bukan JSON valid.', payload=raw_body)
         return JsonResponse({'status': 'error', 'message': 'Body bukan JSON valid.'}, status=400)
 
     hostid = str(data.get('hostid', '')).strip()
     if not hostid:
-        ZabbixWebhookLog.objects.create(ok=False, keterangan='Field hostid kosong.', payload=raw_body)
+        ZabbixWebhookLog.objects.create(ok=False, instance=instansi,
+                                        keterangan='Field hostid kosong.', payload=raw_body)
         return JsonResponse({'status': 'error', 'message': "Field 'hostid' wajib diisi."}, status=400)
 
     raw_status = str(data.get('event_status', '')).strip().upper()
     state = 'OK' if raw_status in ('OK', 'RESOLVED') else 'PROBLEM' if raw_status == 'PROBLEM' else None
     if state is None:
         ZabbixWebhookLog.objects.create(
-            ok=False, keterangan=f'event_status tidak dikenali: {raw_status!r}', payload=raw_body,
+            ok=False, instance=instansi,
+            keterangan=f'event_status tidak dikenali: {raw_status!r}', payload=raw_body,
         )
         return JsonResponse({'status': 'error', 'message': 'event_status harus PROBLEM/OK/RESOLVED.'}, status=400)
 
@@ -898,7 +931,7 @@ def zbx_webhook_receiver(request):
             event_time = now
 
     host, created = ZabbixHost.objects.get_or_create(
-        zabbix_hostid=hostid,
+        instance=instansi, zabbix_hostid=hostid,
         defaults={'zabbix_host': data.get('host', '') or host_name, 'nama': host_name},
     )
 
@@ -907,7 +940,8 @@ def zbx_webhook_receiver(request):
         host=host, zabbix_eventid=eventid, state=state,
     ).exists():
         ZabbixWebhookLog.objects.create(
-            ok=True, host=host, keterangan='Duplikat eventid, diabaikan.', payload=raw_body,
+            ok=True, instance=instansi, host=host,
+            keterangan='Duplikat eventid, diabaikan.', payload=raw_body,
         )
         return JsonResponse({'status': 'ok', 'message': 'Duplikat, diabaikan.'})
 
@@ -944,5 +978,6 @@ def zbx_webhook_receiver(request):
         host.last_synced_at = now
         host.save(update_fields=['last_synced_at'])
 
-    ZabbixWebhookLog.objects.create(ok=True, host=host, keterangan=f'{prev_state} -> {state}', payload=raw_body)
+    ZabbixWebhookLog.objects.create(ok=True, instance=instansi, host=host,
+                                    keterangan=f'{prev_state} -> {state}', payload=raw_body)
     return JsonResponse({'status': 'ok', 'host': host.nama, 'state': host.state})

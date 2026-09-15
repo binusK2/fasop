@@ -126,7 +126,175 @@ class RTUAlertLog(models.Model):
 #  Sengaja satu app dengan RTU di atas: keduanya "status peralatan realtime",
 #  jadi tetap ketemu di satu tempat (Device Monitor) alih-alih tersebar ke
 #  app terpisah per sumber data.
+#
+#  BISA LEBIH DARI SATU instansi Zabbix (ZabbixInstance) — mis. "Zabbix
+#  Telkom" dan "Zabbix Prosis", masing-masing server Zabbix sendiri dengan
+#  kredensial API, filter Host Group, token webhook, dan tujuan WA sendiri.
+#  Pola yang sama dengan opsis.SumberKit: baris admin, bukan kode, yang
+#  membedakan instansi — menambah instansi ketiga nanti tidak perlu migrasi
+#  ataupun redeploy.
 # ═══════════════════════════════════════════════════════════════════════════
+class ZabbixInstance(models.Model):
+    """
+    Satu baris = satu server Zabbix yang dipantau dari FASOP.
+
+    Baris pertama ("Zabbix Telkom") dibuat oleh migrasi data dengan SELURUH
+    field kredensial dikosongkan — kosong berarti jatuh ke ZABBIX_API_* /
+    ZABBIX_WEBHOOK_TOKEN di `.env` (lihat `*_efektif()` di bawah), jadi
+    pemasangan yang sudah ada sebelum model ini dibuat tidak berubah
+    perilakunya sama sekali. Instansi baru (mis. Prosis) mengisi field-field
+    ini sendiri karena tidak ada instansi kedua di `.env` untuk difallback-kan
+    ke — menambah env var per instansi akan mengembalikan "menambah instansi
+    baru butuh redeploy", justru yang ingin dihindari.
+
+    `kode` dipakai di URL (`/device-mon/zabbix/<kode>/...`) — slug pendek,
+    bukan hashid, sama seperti nama Grup Host Zabbix di URL grup.
+    """
+    # Kode ini bertabrakan dengan segmen path lain di bawah /device-mon/zabbix/
+    # (lihat device_mon/urls.py — alias path lama & literal 'host'/'group')
+    # kalau dipakai sebagai kode instansi; ditolak di clean() supaya tidak ada
+    # instansi yang URL dashboard-nya diam-diam direbut redirect/alias lama.
+    KODE_TERPAKAI = {'webhook', 'gangguan', 'group', 'host', 'api'}
+
+    kode = models.SlugField(
+        max_length=30, unique=True, verbose_name='Kode',
+        help_text='Dipakai di URL, mis. "telkom" -> /device-mon/zabbix/telkom/. '
+                  'Huruf kecil, angka, atau strip.',
+    )
+    nama = models.CharField(
+        max_length=80, verbose_name='Nama Tampilan',
+        help_text='Ditampilkan di menu & judul halaman, mis. "Zabbix Telkom".',
+    )
+    urutan = models.PositiveIntegerField(default=0, verbose_name='Urutan Tampil')
+    aktif = models.BooleanField(
+        default=True, verbose_name='Aktif',
+        help_text='Nonaktifkan untuk menyembunyikan dari sidebar dan melewati instansi '
+                  'ini di sync_zabbix, tanpa menghapus datanya.',
+    )
+
+    # ── Koneksi Zabbix API (kosong = jatuh ke ZABBIX_API_* di .env) ────────
+    api_url = models.CharField(max_length=255, blank=True, default='', verbose_name='URL API',
+                               help_text='mis. http://zabbix.local/api_jsonrpc.php')
+    api_token = models.CharField(max_length=255, blank=True, default='', verbose_name='API Token')
+    api_user = models.CharField(max_length=100, blank=True, default='', verbose_name='Username')
+    api_password = models.CharField(max_length=255, blank=True, default='', verbose_name='Password')
+    api_timeout = models.PositiveIntegerField(null=True, blank=True, verbose_name='Timeout (detik)')
+    host_groups = models.CharField(
+        max_length=255, blank=True, default='', verbose_name='Filter Host Group',
+        help_text='Opsional, pisahkan koma bila lebih dari satu. Kosong = semua host aktif '
+                  'di server ini.',
+    )
+
+    # ── Webhook (push realtime) ─────────────────────────────────────────
+    webhook_token = models.CharField(
+        max_length=255, blank=True, default='', verbose_name='Token Webhook',
+        help_text='Kosong = jatuh ke ZABBIX_WEBHOOK_TOKEN di .env. Isi sendiri kalau '
+                  'instansi ini perlu token berbeda dari instansi lain.',
+    )
+
+    # ── Blast WhatsApp ──────────────────────────────────────────────────
+    wa_chat_ids = models.CharField(
+        max_length=255, blank=True, default='', verbose_name='Tujuan WA Default',
+        help_text='chatId tujuan default untuk seluruh host instansi ini (pisahkan koma). '
+                  'Kosong = jatuh ke WA_CHAT_IDS_ZABBIX lalu WA_CHAT_IDS di .env. Host bisa '
+                  'menimpa lagi lewat kolom "Grup WA Khusus" miliknya sendiri.',
+    )
+
+    class Meta:
+        ordering = ['urutan', 'nama']
+        verbose_name = 'Instansi Zabbix'
+        verbose_name_plural = 'Instansi Zabbix'
+
+    def __str__(self):
+        return self.nama
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        super().clean()
+        if self.kode in self.KODE_TERPAKAI:
+            raise ValidationError({
+                'kode': f'"{self.kode}" dipakai untuk path lain di /device-mon/zabbix/ — pilih kode lain.',
+            })
+
+    def api_url_efektif(self):
+        from django.conf import settings
+        return (self.api_url or '').strip() or (getattr(settings, 'ZABBIX_API_URL', '') or '')
+
+    def api_token_efektif(self):
+        from django.conf import settings
+        return (self.api_token or '').strip() or (getattr(settings, 'ZABBIX_API_TOKEN', '') or '')
+
+    def api_user_efektif(self):
+        from django.conf import settings
+        return (self.api_user or '').strip() or (getattr(settings, 'ZABBIX_API_USER', '') or '')
+
+    def api_password_efektif(self):
+        from django.conf import settings
+        return self.api_password or (getattr(settings, 'ZABBIX_API_PASSWORD', '') or '')
+
+    def api_timeout_efektif(self):
+        from django.conf import settings
+        return self.api_timeout or getattr(settings, 'ZABBIX_API_TIMEOUT', 10)
+
+    def host_groups_list(self):
+        """Nama Host Group untuk filter get_hosts() — None berarti semua host."""
+        raw = (self.host_groups or '').strip()
+        if not raw:
+            from django.conf import settings
+            raw = getattr(settings, 'ZABBIX_HOST_GROUPS', '') or ''
+        names = [g.strip() for g in raw.split(',') if g.strip()]
+        return names or None
+
+    def webhook_token_efektif(self):
+        from django.conf import settings
+        return (self.webhook_token or '').strip() or (getattr(settings, 'ZABBIX_WEBHOOK_TOKEN', '') or '')
+
+    def wa_chat_ids_efektif(self):
+        """chatId tujuan default instansi ini — kolom sendiri, else WA_CHAT_IDS_ZABBIX,
+        else WA_CHAT_IDS. Urutan fallback sama dengan zbx_targets_default() di
+        notifications.py (di sana untuk host tanpa instance yang eksplisit)."""
+        raw = (self.wa_chat_ids or '').strip()
+        if not raw:
+            from django.conf import settings
+            raw = (getattr(settings, 'WA_CHAT_IDS_ZABBIX', '') or '').strip()
+            raw = raw or (getattr(settings, 'WA_CHAT_IDS', '') or '')
+        return [c.strip() for c in raw.split(',') if c.strip()]
+
+    def client(self):
+        """ZabbixClient terkonfigurasi untuk instansi ini (lihat device_mon.zabbix_api)."""
+        from device_mon.zabbix_api import ZabbixClient
+        return ZabbixClient(
+            url=self.api_url_efektif(),
+            token=self.api_token_efektif(),
+            user=self.api_user_efektif(),
+            password=self.api_password_efektif(),
+            timeout=self.api_timeout_efektif(),
+        )
+
+    @classmethod
+    def ambil_default(cls):
+        """
+        Instansi bawaan untuk ZabbixHost/ZabbixGroup yang dibuat tanpa
+        menyebutkan instansi (shell, tes lama) — dipakai sebagai `default`
+        field FK `instance`, BUKAN aturan runtime yang dipakai dashboard
+        (setiap host tetap harus menunjuk instansi sungguhan miliknya).
+        Dibuat sebagai 'Zabbix Telkom' (kredensial kosong -> ikut .env) kalau
+        belum ada satu pun baris, supaya pemasangan sebelum model ini ada
+        tetap berperilaku sama.
+        """
+        obj = cls.objects.filter(kode='telkom').first()
+        if obj is not None:
+            return obj
+        obj = cls.objects.order_by('pk').first()
+        if obj is not None:
+            return obj
+        return cls.objects.create(kode='telkom', nama='Zabbix Telkom')
+
+
+def _default_zabbix_instance_id():
+    return ZabbixInstance.ambil_default().pk
+
+
 class ZabbixHost(models.Model):
     """
     Master data host Zabbix yang dipantau dari FASOP.
@@ -140,9 +308,15 @@ class ZabbixHost(models.Model):
         ('UNKNOWN', 'Unknown'),
     ]
 
+    instance = models.ForeignKey(
+        ZabbixInstance, on_delete=models.PROTECT, related_name='hosts',
+        default=_default_zabbix_instance_id, verbose_name='Instansi Zabbix',
+        help_text='Server Zabbix asal host ini (mis. Telkom / Prosis).',
+    )
     zabbix_hostid = models.CharField(
-        max_length=50, unique=True, verbose_name='Host ID Zabbix',
-        help_text='Kolom "hostid" dari Zabbix API (angka, unik per host).',
+        max_length=50, verbose_name='Host ID Zabbix',
+        help_text='Kolom "hostid" dari Zabbix API — unik PER INSTANSI (dua server Zabbix '
+                  'berbeda boleh memakai hostid yang sama untuk host yang berbeda).',
     )
     zabbix_host = models.CharField(
         max_length=150, blank=True, verbose_name='Technical Name',
@@ -209,6 +383,9 @@ class ZabbixHost(models.Model):
         # Zabbix), jadi ['urutan', 'nama'] saja tidak dijamin deterministik dan
         # memicu UnorderedObjectListWarning Django admin saat list_editable dipakai.
         ordering = ['urutan', 'nama', 'pk']
+        # hostid unik PER INSTANSI, bukan global — dua server Zabbix berbeda
+        # boleh saja kebetulan memakai hostid yang sama untuk host lain.
+        unique_together = [('instance', 'zabbix_hostid')]
         verbose_name = 'Host Zabbix'
         verbose_name_plural = 'Host Zabbix'
 
@@ -286,6 +463,12 @@ class ZabbixWebhookLog(models.Model):
     """
     received_at = models.DateTimeField(auto_now_add=True, db_index=True)
     ok = models.BooleanField(default=False)
+    instance = models.ForeignKey(
+        ZabbixInstance, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='webhook_logs', verbose_name='Instansi Zabbix',
+        help_text='Instansi yang dituju URL webhook-nya — bisa kosong bila kode instansi '
+                  'di URL tidak dikenali (lihat Keterangan).',
+    )
     host = models.ForeignKey(
         ZabbixHost, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='webhook_logs',
@@ -313,15 +496,23 @@ class ZabbixGroup(models.Model):
     selalu ditimpa ulang tiap sync: grup di sini murni milik FASOP, jadi
     pengelompokan tampilan dashboard bisa disusun bebas tanpa harus ikut
     struktur Host Group di Zabbix (dan tidak hilang saat sync berikutnya).
+
+    Milik satu instansi (`instance`) — grup "Router" di Zabbix Telkom dan
+    "Router" di Zabbix Prosis adalah dua baris terpisah, boleh berbagi nama.
     """
+    instance = models.ForeignKey(
+        ZabbixInstance, on_delete=models.PROTECT, related_name='groups',
+        default=_default_zabbix_instance_id, verbose_name='Instansi Zabbix',
+    )
     nama = models.CharField(
-        max_length=100, unique=True, verbose_name='Nama Grup',
+        max_length=100, verbose_name='Nama Grup',
         help_text='Contoh: VoIP Mks, CRS, ROIP, Router, VoIP Baubau, VoIP ICON+, VoIP Luwuk',
     )
     hosts = models.ManyToManyField(
         ZabbixHost, blank=True, related_name='manual_groups',
         verbose_name='Host yang tergabung',
-        help_text='Pilih host Zabbix yang masuk grup ini. Satu host boleh masuk beberapa grup.',
+        help_text='Pilih host Zabbix yang masuk grup ini. Satu host boleh masuk beberapa grup. '
+                  'Pilih host dari instansi Zabbix yang sama dengan grup ini.',
     )
     urutan = models.PositiveIntegerField(default=0, verbose_name='Urutan Tampil')
     aktif = models.BooleanField(
@@ -332,6 +523,7 @@ class ZabbixGroup(models.Model):
 
     class Meta:
         ordering = ['urutan', 'nama']
+        unique_together = [('instance', 'nama')]
         verbose_name = 'Grup Host Zabbix'
         verbose_name_plural = 'Grup Host Zabbix'
 

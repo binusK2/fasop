@@ -214,13 +214,13 @@ def _notif_zbx_in_app(host, state, dur_tutup_menit=None):
     from fasop.hashids_helper import encode
 
     if state == 'PROBLEM':
-        judul = f'Zabbix: {host.nama} PROBLEM'
+        judul = f'{host.instance.nama}: {host.nama} PROBLEM'
         pesan = host.problem_name or 'Trigger problem terdeteksi.'
         if host.severity:
             pesan = f'[{host.severity}] {pesan}'
         level = 'danger'
     else:
-        judul = f'Zabbix: {host.nama} pulih (OK)'
+        judul = f'{host.instance.nama}: {host.nama} pulih (OK)'
         if dur_tutup_menit is not None:
             pesan = f'Kembali OK setelah {_durasi_str(dur_tutup_menit)} problem.'
         else:
@@ -248,8 +248,10 @@ def zbx_targets_default():
 
 
 def zbx_targets(host):
-    """chatId tujuan untuk satu host - kolom `wa_chat_ids` menimpa default."""
-    return _split(host.wa_chat_ids) or zbx_targets_default()
+    """chatId tujuan untuk satu host: kolom `wa_chat_ids` -> tujuan instansi
+    Zabbix-nya (ZabbixInstance.wa_chat_ids_efektif(), yang sendiri sudah
+    jatuh ke WA_CHAT_IDS_ZABBIX -> WA_CHAT_IDS — lihat zbx_targets_default())."""
+    return _split(host.wa_chat_ids) or host.instance.wa_chat_ids_efektif()
 
 
 def pesan_zbx_problem(host):
@@ -263,7 +265,7 @@ def pesan_zbx_problem(host):
         f'Severity  : {host.severity or "-"}\n'
         f'Problem   : {host.problem_name or "-"}\n'
         f'Sejak     : {jam}\n'
-        '\n_FASOP \u2014 Monitoring Zabbix_'
+        f'\n_FASOP \u2014 Monitoring {host.instance.nama}_'
     )
 
 
@@ -274,7 +276,7 @@ def pesan_zbx_ok(host, durasi_menit=None):
         f'Lokasi        : {_lokasi_str(host)}\n'
         f'Durasi problem: {_durasi_str(durasi_menit)}\n'
         f'Kembali OK    : {_now_wib()}\n'
-        '\n_FASOP \u2014 Monitoring Zabbix_'
+        f'\n_FASOP \u2014 Monitoring {host.instance.nama}_'
     )
 
 
