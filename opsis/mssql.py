@@ -483,7 +483,14 @@ def _baca_satu_sumber(cursor, spek, daftar):
             if vals['mw'] is not None and vals['mw'] > 0:
                 mw_total += vals['mw']
                 has_mw = True
-            if vals['mvar'] is not None and vals['mvar'] > 0:
+            # MVAR dijumlahkan BERTANDA, termasuk yang negatif. Q negatif berarti
+            # unit MENYERAP daya reaktif (under-excited / kondensor sinkron) —
+            # keadaan operasi yang sah, bukan kesalahan pembacaan seperti P minus
+            # akibat polaritas CT/PT. Filter '> 0' di sini dulu membuat kartu MVAR
+            # pembangkit kosong ("—") padahal tabel unit di halaman detail jelas
+            # menampilkan angkanya (dan sengaja mewarnainya merah), jadi satu
+            # layar menyebut dua hal berbeda tentang data yang sama.
+            if vals['mvar'] is not None:
                 mvar_total += vals['mvar']
                 has_mvar = True
         units.sort(key=lambda u: u['nama'])
@@ -594,10 +601,14 @@ def get_trend_data(pembangkit, jam=1):
             )
             -- ABS(P): sama seperti KIT_REALTIME (lihat get_live_data), sebagian unit
             -- terbaca minus akibat polaritas wiring CT/PT terbalik — bukan berarti
-            -- unit itu menyerap daya. Q dibiarkan (arah reaktif masih relevan).
+            -- unit itu menyerap daya. Q dijumlahkan BERTANDA: Q negatif berarti
+            -- unit menyerap daya reaktif, keadaan operasi yang sah. Menolkannya
+            -- (dulu CASE WHEN Q > 0) membuat garis MVAR chart rata di nol untuk
+            -- pembangkit yang sedang under-excited, padahal komentar ini sendiri
+            -- sudah menyatakan arah reaktif itu relevan.
             SELECT menit,
                    SUM(ABS(P)) AS total_mw,
-                   SUM(CASE WHEN Q > 0 THEN Q ELSE 0 END) AS total_mvar
+                   SUM(Q) AS total_mvar
             FROM per_unit
             WHERE rn = 1
             GROUP BY menit

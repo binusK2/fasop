@@ -153,3 +153,20 @@ def user_permissions(request):
         'user_is_dispatcher':     is_dispatcher(request.user),
         'user_is_opsis':          _is_opsis,
     }
+
+
+def pengumuman_pemeliharaan(request):
+    """
+    Pop-up pengumuman (mis. rencana restart server) untuk request ini.
+
+    Selalu mengembalikan kuncinya supaya template dasar bisa memasang
+    partial-nya tanpa {% if %} berlapis; None berarti tidak ada yang perlu
+    digambar sama sekali.
+    """
+    try:
+        from devices.models import PengumumanPemeliharaan
+        return {'pengumuman': PengumumanPemeliharaan.untuk(request)}
+    except Exception:
+        # Tabelnya belum ada (sebelum migrate) atau DB sedang bermasalah —
+        # pengumuman tidak pernah boleh menjatuhkan halaman yang dibukanya.
+        return {'pengumuman': None}

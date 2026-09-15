@@ -478,12 +478,22 @@
             </div>
         </div>
         <div style="border-top:1px solid var(--card-bd); padding-top:10px;">
-            <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); margin-bottom:4px;">
-                &Delta;P
+            {% comment %}
+            Label & keterangan dP disunting di Admin > Opsis > Pengaturan Inersia
+            Sistem. Keduanya opsional: yang dikosongkan tidak digambar sama
+            sekali, bukan tampil sebagai baris kosong.
+            {% endcomment %}
+            <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); margin-bottom:4px; line-height:1.4;">
+                &Delta;P{% if inersia.label_delta %} &middot; {{ inersia.label_delta }}{% endif %}
             </div>
             <div style="font-family:'JetBrains Mono',monospace; font-size:22px; font-weight:700; color:{{ inersia.warna_delta }};" id="inersia-dp">
                 —<span style="font-size:12px; font-weight:400; color:var(--muted); margin-left:4px;">MW</span>
             </div>
+            {% if inersia.keterangan_delta %}
+            <div style="font-size:10px; color:var(--muted); line-height:1.5; margin-top:5px;">
+                {{ inersia.keterangan_delta }}
+            </div>
+            {% endif %}
         </div>
         <div style="font-size:10px; color:var(--muted); line-height:1.5;" id="inersia-ket">
             ROCOF {{ inersia.rocof_batas }} Hz/s &middot; f<sub>0</sub> {{ inersia.frekuensi_nominal }} Hz
@@ -525,7 +535,7 @@
             </div>
             <div style="display:flex; align-items:center; gap:6px; font-size:10px; color:var(--muted);">
                 <span style="display:inline-block;width:14px;height:0;border-top:1.5px dashed {{ inersia.warna_delta }};vertical-align:middle;"></span>
-                &Delta;P (MW)
+                &Delta;P (MW){% if inersia.label_delta %} &mdash; {{ inersia.label_delta }}{% endif %}
             </div>
         </div>
         <div style="font-size:10px; color:var(--muted); margin-top:8px; line-height:1.5;">

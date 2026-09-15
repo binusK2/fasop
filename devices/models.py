@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
+import time
 import os
 import re
 
@@ -1434,3 +1435,162 @@ class AsesmenOptik(models.Model):
         if self.lintang is None or self.bujur is None:
             return ''
         return f'{self.lintang}, {self.bujur}'
+
+
+# ── Pengumuman Pemeliharaan (pop-up saat login) ──────────────────────────────
+#
+# Rencana restart / pemeliharaan server perlu sampai ke pengguna SEBELUM
+# servernya benar-benar mati, jadi tempatnya bukan di halaman pemeliharaan
+# (opsis.ModePemeliharaan) yang baru muncul setelah layanan ditutup, melainkan
+# pop-up yang menyapa setiap orang begitu ia login.
+#
+# Seluruhnya data, bukan kode: baris tunggal (pk=1) yang dinyalakan, dimatikan,
+# dan ditulis ulang dari site admin tanpa migrasi maupun redeploy — pola yang
+# sama dengan opsis.KartuPadam dan opsis.ModePemeliharaan.
+
+PENGUMUMAN_TINGKAT_CHOICES = [
+    ('info',      'Informasi (biru)'),
+    ('perhatian', 'Perhatian (kuning)'),
+    ('penting',   'Penting (merah)'),
+]
+
+
+class PengumumanPemeliharaan(models.Model):
+    """
+    Pop-up pengumuman yang muncul sekali per sesi login di seluruh FASOP.
+
+    Bedanya dengan opsis.ModePemeliharaan — dan ini yang menentukan keduanya
+    tidak boleh disatukan: ModePemeliharaan MENUTUP /opsis/* yang sedang tidak
+    bisa dipakai, sedangkan pengumuman ini MEMBERI TAHU tentang sesuatu yang
+    belum terjadi (mis. "server direstart Sabtu 22.00") sementara aplikasinya
+    masih jalan normal.
+    """
+
+    # Dibaca tiap kali sebuah halaman dirender, jadi hasilnya di-cache sebentar
+    # per proses. Konsekuensinya perubahan dari admin berlaku paling lambat
+    # TTL_CACHE detik di worker lain (worker yang menyimpan langsung tahu).
+    TTL_CACHE = 10.0
+    _cache = {'obj': None, 'ts': 0.0}
+
+    # Kunci di request.session yang menyimpan versi pengumuman yang sudah
+    # ditutup pengguna ini.
+    SESSION_KEY = 'pengumuman_dibaca'
+
+    aktif = models.BooleanField(
+        default=False, verbose_name='Tampilkan Pengumuman',
+        help_text='Bila dicentang, pop-up ini muncul sekali untuk setiap pengguna '
+                  'yang login. Hilangkan centangnya untuk menghentikannya.')
+    judul = models.CharField(
+        max_length=120, default='Rencana Pemeliharaan Server',
+        verbose_name='Judul')
+    pesan = models.TextField(
+        default='Server FASOP akan direstart untuk pemeliharaan terjadwal. '
+                'Simpan pekerjaan Anda terlebih dahulu — aplikasi tidak dapat '
+                'diakses selama proses berlangsung.',
+        verbose_name='Pesan',
+        help_text='Isi pengumuman. Ditampilkan apa adanya (baris baru '
+                  'dipertahankan), tanpa HTML.')
+    tingkat = models.CharField(
+        max_length=12, choices=PENGUMUMAN_TINGKAT_CHOICES, default='perhatian',
+        verbose_name='Tingkat', help_text='Menentukan warna pop-up.')
+    mulai = models.DateTimeField(
+        null=True, blank=True, verbose_name='Mulai Pemeliharaan',
+        help_text='Opsional. Ditampilkan di pop-up sebagai jadwal.')
+    selesai = models.DateTimeField(
+        null=True, blank=True, verbose_name='Perkiraan Selesai',
+        help_text='Opsional. Ditampilkan di pop-up sebagai jadwal.')
+    berhenti_otomatis = models.BooleanField(
+        default=True, verbose_name='Berhenti Sendiri Setelah Selesai',
+        help_text='Bila dicentang dan Perkiraan Selesai sudah lewat, pop-up berhenti '
+                  'muncul tanpa perlu dimatikan manual. Kosongkan Perkiraan Selesai '
+                  'bila pengumuman harus tampil sampai dimatikan.')
+    diubah_oleh = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL,
+                                    related_name='+', verbose_name='Diubah Oleh')
+    diubah_pada = models.DateTimeField(auto_now=True, verbose_name='Diubah Pada')
+
+    class Meta:
+        verbose_name = 'Pengumuman Pemeliharaan'
+        verbose_name_plural = 'Pengumuman Pemeliharaan'
+
+    def __str__(self):
+        return f"{self.judul} ({'aktif' if self.aktif else 'nonaktif'})"
+
+    def save(self, *args, **kwargs):
+        self.pk = 1                      # baris tunggal
+        super().save(*args, **kwargs)
+        # Worker yang menyimpan langsung memakai nilai baru; worker lain paling
+        # lambat TTL_CACHE detik lagi.
+        type(self)._cache = {'obj': self, 'ts': time.monotonic()}
+
+    @property
+    def versi(self):
+        """
+        Penanda "isi pengumuman ini", dipakai untuk memutuskan apakah seorang
+        pengguna sudah menutupnya. Ikut berubah setiap kali barisnya disimpan,
+        jadi jadwal restart yang DIGESER akan muncul lagi ke semua orang —
+        termasuk yang sudah menutup versi sebelumnya di sesi yang sama. Itu
+        justru intinya: pengumuman yang berubah tapi tidak terlihat lagi sama
+        buruknya dengan tidak diumumkan.
+        """
+        if not self.diubah_pada:
+            return 0
+        # Mikrodetik, bukan detik: dua penyimpanan dalam detik yang sama akan
+        # menghasilkan versi yang sama, dan perubahan kedua tidak akan pernah
+        # muncul lagi ke orang yang sudah menutup yang pertama.
+        return int(self.diubah_pada.timestamp() * 1_000_000)
+
+    def sedang_tampil(self):
+        """Pengumuman ini layak ditampilkan sekarang?"""
+        if not self.aktif:
+            return False
+        if self.berhenti_otomatis and self.selesai and self.selesai < timezone.now():
+            return False
+        return True
+
+    @classmethod
+    def ambil(cls):
+        """Baris pengaturan, dibuat dengan nilai bawaan bila belum ada."""
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+    @classmethod
+    def status(cls):
+        """
+        Seperti ambil(), tapi memakai cache pendek karena dipanggil tiap render
+        halaman. Mengembalikan None bila tabelnya belum ada (mis. sebelum
+        migrate dijalankan) supaya kegagalan di sini tidak menjatuhkan seluruh
+        aplikasi — pemanggil memperlakukan None sebagai "tidak ada pengumuman".
+        """
+        now = time.monotonic()
+        cache = cls._cache
+        if cache['obj'] is not None and (now - cache['ts']) < cls.TTL_CACHE:
+            return cache['obj']
+        try:
+            obj = cls.ambil()
+        except Exception:
+            return cache['obj']
+        cls._cache = {'obj': obj, 'ts': now}
+        return obj
+
+    @classmethod
+    def untuk(cls, request):
+        """
+        Pengumuman yang harus dipopupkan ke request ini, atau None.
+
+        None untuk pengunjung yang belum login (pop-up di halaman login hanya
+        menghalangi orang masuk) dan untuk pengguna yang sudah menutup versi
+        pengumuman yang sama di sesi ini.
+        """
+        user = getattr(request, 'user', None)
+        if user is None or not user.is_authenticated:
+            return None
+        obj = cls.status()
+        if obj is None or not obj.sedang_tampil():
+            return None
+        try:
+            dibaca = request.session.get(cls.SESSION_KEY)
+        except Exception:
+            dibaca = None
+        if dibaca == obj.versi:
+            return None
+        return obj

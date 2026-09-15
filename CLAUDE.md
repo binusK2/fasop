@@ -839,9 +839,9 @@ contoh: E 11.890 MWs, ROCOF 1 Hz/s, f0 50 Hz  →  ΔP 475,6 MW
 **Diisi dari halaman `/opsis/inersia/config/`** (menu **Config Inersia**), bukan
 site admin: MVA & H tiap mesin dalam satu tabel, plus ROCOF/f0, sakelar tampil,
 dan cakupan unit. Site admin tetap bisa dipakai (Opsis → Pembangkit dan Opsis →
-Pengaturan Inersia Sistem) dan itu satu-satunya tempat mengubah judul & warna
-kartu — kosmetik yang sengaja tidak diikutkan supaya halaman config tetap sempit
-pada hal yang memengaruhi angkanya. Tidak ada rumus yang di-hardcode di view
+Pengaturan Inersia Sistem) dan itu satu-satunya tempat mengubah judul, warna,
+dan teks penjelas ΔP — kosmetik yang sengaja tidak diikutkan supaya halaman
+config tetap sempit pada hal yang memengaruhi angkanya. Tidak ada rumus yang di-hardcode di view
 maupun template — menambah pembangkit ke perhitungan cukup mengisi dua kolom.
 
 Akses halaman itu — dan menunya di sidebar — memakai `can_write_opsis()` /
@@ -873,6 +873,15 @@ Yang perlu diketahui saat mengubahnya:
   render (`json_script`), yang berubah tiap poll hanya MW-nya. Pola dan alasannya
   sama dengan kartu KIT Terpilih. Konsekuensinya perubahan MVA/H dari admin baru
   terlihat setelah halaman dimuat ulang.
+- **Angka ΔP tidak menjelaskan dirinya sendiri**, jadi `label_delta` ("Batas
+  Aman Lepas Pembangkit") dan `keterangan_delta` mendampinginya di kartu, di
+  legenda chart, dan sebagai baris **Arti dP** di sheet Ringkasan ekspor Excel —
+  satu sumber teks, supaya layar dan berkas tidak bisa menjelaskan ΔP dengan
+  kalimat berbeda. Keduanya bisa dikosongkan (tidak digambar sama sekali, bukan
+  baris kosong), tapi peringatan "parameter RENCANA, bukan hasil ukur" di Excel
+  tetap tercetak apa pun teksnya — itu yang menjaga angkanya tidak dibaca sebagai
+  besar gangguan yang barusan terjadi. Teksnya sengaja bisa disunting: kalimatnya
+  perlu mengikuti cara UP2B menyebutnya, bukan cara penulis kodenya.
 - **Chart pakai dua sumbu-Y.** E dalam ribuan MWs, ΔP dalam ratusan MW; satu
   sumbu bersama membuat garis ΔP menempel di dasar grafik dan tak terbaca.
 - **Lebar barisnya dari kelas `.kartu-pasangan`**, dipakai bersama kartu KIT
@@ -1082,6 +1091,15 @@ Yang perlu diketahui saat mengubahnya:
   inilah yang dulu membuat sinkronisasi OFDB praktis tidak selesai.
   `_pembangkit_aktif()` dan `collect_live` sudah `prefetch_related('tag_unit')`
   — jangan panggil `get_live_data()` dengan queryset tanpa prefetch itu.
+- **MVAR dijumlahkan BERTANDA, MW di-`abs()`.** Keduanya beda sebab: P minus
+  memang kesalahan polaritas wiring CT/PT, sedangkan Q minus berarti unit
+  MENYERAP daya reaktif (under-excited / kondensor sinkron) — keadaan operasi
+  yang sah. Pernah ada filter `> 0` pada penjumlahan MVAR (dan `CASE WHEN Q > 0`
+  di `get_trend_data()`): akibatnya kartu MVAR pembangkit kosong "—" saat semua
+  unitnya menyerap, dan menampilkan angka yang terlalu besar saat sebagian
+  menyerap — padahal tabel unit di halaman detail menampilkan nilai aslinya dan
+  sengaja mewarnainya merah. Satu layar menyebut dua hal berbeda tentang data
+  yang sama; jangan kembalikan filternya (dijaga tes).
 - **Unit yang P-nya tidak terbaca dibuang di mode `baris`.** Unit yang hanya
   punya Q akan tampil sebagai unit hidup tanpa daya — lebih menyesatkan daripada
   tidak ditampilkan.
@@ -1586,6 +1604,65 @@ menambah instansi atau mengubah rute ini:
 Dari Admin, aksi **"Uji koneksi Zabbix API sekarang"** (Instansi Zabbix)
 menjawab "kenapa host instansi ini tidak muncul" tanpa membuka log server —
 sama seperti aksi "Uji baca sumber KIT sekarang" di OPSIS.
+## Pengumuman Pemeliharaan — Pop-up Saat Login (`devices.PengumumanPemeliharaan`)
+
+Baris tunggal (pk=1) di **Admin → Devices → Pengumuman Pemeliharaan**: sakelar
+on/off, judul, pesan, tingkat (warna), dan jadwal opsional. Selama menyala,
+pop-up-nya muncul **sekali per sesi login** di seluruh FASOP — dipakai mis.
+mengabarkan rencana restart server sebelum servernya benar-benar dimatikan.
+
+**Bukan pengganti `opsis.ModePemeliharaan`, dan keduanya tidak boleh
+disatukan.** ModePemeliharaan MENUTUP `/opsis/*` yang sedang tidak bisa dipakai
+(HTTP 503); pengumuman ini MEMBERI TAHU tentang sesuatu yang belum terjadi
+sementara aplikasinya masih jalan normal. Menggabungkannya berarti tidak ada
+lagi cara mengumumkan pemeliharaan tanpa sekaligus menutup layanan.
+
+Jalurnya: `PengumumanPemeliharaan.untuk(request)` →
+`devices.context_processors.pengumuman_pemeliharaan` →
+`devices/templates/devices/_pengumuman_modal.html` → `POST /pengumuman/tutup/`
+menandai sesi.
+
+Yang perlu diketahui saat mengubahnya:
+
+- **Partial-nya di-include EMPAT template dasar** (`devices/base.html`,
+  `opsis/opsis_base.html`, `device_mon/base.html`,
+  `up2bmakassar/base.html`) — halaman pertama seseorang setelah login belum
+  tentu dashboard utama. Karena itu berkasnya berdiri sendiri: gaya dan
+  perilakunya tidak bergantung pada Bootstrap JS atau helper yang kebetulan
+  hanya ada di satu base. Base yang lupa di-include tidak memunculkan error apa
+  pun, pengumumannya cuma tidak pernah sampai — dijaga tes.
+- **`PREFIX_UMUM` di `devices/middleware.py` menyatukan path yang harus terbuka
+  untuk SEMUA role**, dan `/pengumuman/` ada di dalamnya. Kelima middleware
+  pembatas role (Operator, Opsis, UP2D, Dispatcher, Vendor) memantulkan path di
+  luar daftarnya; kalau POST penutup ikut dipantulkan, pop-up tidak akan pernah
+  bisa ditutup dan muncul lagi di tiap halaman — dan karena `fetch()` mengikuti
+  redirect, JS-nya menyangka penutupan itu berhasil. Tambahkan path lintas-role
+  baru ke `PREFIX_UMUM`, jangan ke lima daftar terpisah.
+- **Menyimpan barisnya membuat pengumuman muncul lagi ke semua orang**,
+  termasuk yang sudah menutup versi sebelumnya di sesi yang sama. `versi` =
+  `diubah_pada` dalam **mikrodetik** (bukan detik: dua penyimpanan di detik yang
+  sama akan menghasilkan versi kembar, dan perubahan kedua tidak pernah
+  terlihat). Jadwal yang digeser tapi tidak terbaca ulang sama buruknya dengan
+  tidak diumumkan.
+- **Versi penutup diambil dari server, bukan dari body permintaan.** Kalau klien
+  yang menentukan, satu POST dengan versi karangan bisa membungkam pengumuman
+  yang belum dilihat siapa pun.
+- **Pop-up ditutup di layar lebih dulu, tanpa menunggu balasan server.** Kalau
+  penandaannya gagal ia hanya muncul lagi di halaman berikutnya, sedangkan
+  tombol yang tidak bereaksi akan ditekan berkali-kali.
+- **`berhenti_otomatis` + `selesai` mematikannya sendiri** setelah jadwal lewat.
+  Pengumuman basi ("server restart 3 hari lalu") mengajari orang mengabaikan
+  pop-up berikutnya. Kosongkan `selesai` bila harus tampil sampai dimatikan
+  manual.
+- `status()` men-cache barisnya `TTL_CACHE` (10) detik per proses dan `save()`
+  menyegarkan cache di worker yang menyimpan — pola yang sama dengan
+  `ModePemeliharaan`. Ini dibaca tiap render halaman; jangan diganti jadi query
+  per request.
+- **Kegagalan tidak pernah menjatuhkan halaman.** Tabel belum ada (sebelum
+  `migrate`) atau DB bermasalah menghasilkan "tidak ada pengumuman", bukan
+  exception di halaman yang sedang dibuka orang.
+- Halaman login dan halaman wajib-ganti-password berdiri sendiri (tidak
+  meng-extend base mana pun), jadi pop-up tidak pernah menutupi formulirnya.
 
 ---
 
@@ -1726,3 +1803,32 @@ If OPSIS worker isolation is set up (`deploy/OPSIS_WORKER_ISOLATION.md` — a
 second gunicorn pool dedicated to `/opsis/*` so an MSSQL outage can't
 exhaust workers for the rest of FASOP), also `sudo systemctl restart
 fasop-opsis` on code deploys, same as the main `gunicorn`/`fasop` service.
+
+**Merestart hanya SATU dari dua pool itu menghasilkan gejala yang menyesatkan:
+halaman/menu baru muncul-hilang bergantian tiap refresh, dan 404 saat diklik.**
+Bukan cache browser — tiap request mendarat di worker mana saja, dan worker yang
+masih memegang kode lama tidak mengenal model/rute barunya sama sekali: ia tidak
+menampilkan entrinya di admin DAN menjawab 404 untuk URL-nya, sementara worker
+yang sudah diperbarui melayani keduanya dengan normal. Sudah pernah terjadi saat
+`SumberKit` dirilis (hanya `fasop-opsis` yang direstart).
+
+Karena itu:
+
+- pakai `restart`, **bukan `reload`** — reload sering menyisakan worker lama yang
+  masih memegang modul Python versi sebelumnya;
+- pastikan tidak ada proses yang waktu mulainya mendahului `git pull`:
+  `ps -eo pid,lstart,args | grep gunicorn | grep -v grep`;
+- pastikan kedua service menunjuk direktori checkout yang SAMA:
+  `systemctl cat gunicorn fasop-opsis | grep -iE "workingdirectory|execstart"`.
+  Kalau berbeda, satu pool selamanya menjalankan kode lama walau `git pull` di
+  folder satunya berhasil.
+
+Membedakan "kodenya belum sampai" dari "prosesnya belum direstart" cukup satu
+perintah, dan tidak bergantung pada browser:
+
+```bash
+python manage.py shell -c "from django.contrib import admin; from opsis.models import SumberKit; print(SumberKit in admin.site._registry)"
+```
+
+`True` tapi halamannya tetap tidak ada = kode sudah benar di disk, prosesnya yang
+belum diperbarui.

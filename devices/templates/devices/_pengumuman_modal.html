@@ -1,0 +1,106 @@
+{% comment %}
+Pop-up pengumuman pemeliharaan (mis. rencana restart server).
+
+Di-include oleh SEMUA template dasar FASOP — devices/base.html,
+opsis/opsis_base.html, device_mon/base.html, up2bmakassar/base.html — supaya
+pengumuman sampai ke pengguna apa pun halaman pertamanya setelah login. Karena
+itu berkas ini berdiri sendiri: gaya dan perilakunya tidak boleh bergantung
+pada Bootstrap JS atau helper yang kebetulan hanya ada di satu base.
+
+Tidak menggambar apa pun bila `pengumuman` None (context processor
+devices.context_processors.pengumuman_pemeliharaan).
+{% endcomment %}
+{% if pengumuman %}
+<style>
+  .pgm-lapis {
+    position: fixed; inset: 0; z-index: 2000;
+    background: rgba(15, 23, 42, .55);
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px;
+  }
+  .pgm-kotak {
+    background: #fff; border-radius: 14px; max-width: 480px; width: 100%;
+    box-shadow: 0 18px 50px rgba(15, 23, 42, .3);
+    overflow: hidden; font-family: 'DM Sans', system-ui, sans-serif;
+  }
+  .pgm-kepala {
+    display: flex; align-items: center; gap: 10px;
+    padding: 16px 20px; color: #fff; font-weight: 600; font-size: 1.02rem;
+  }
+  .pgm-kepala i { font-size: 1.35rem; }
+  .pgm-info      .pgm-kepala { background: #2563eb; }
+  .pgm-perhatian .pgm-kepala { background: #d97706; }
+  .pgm-penting   .pgm-kepala { background: #dc2626; }
+  .pgm-isi { padding: 18px 20px; color: #0f172a; }
+  .pgm-pesan { margin: 0; line-height: 1.6; font-size: .94rem; white-space: pre-line; }
+  .pgm-jadwal {
+    margin-top: 14px; border-top: 1px solid #e2e8f0; padding-top: 12px;
+    font-size: .87rem; color: #334155;
+  }
+  .pgm-jadwal div { display: flex; justify-content: space-between; gap: 12px; padding: 2px 0; }
+  .pgm-jadwal span:first-child { color: #64748b; }
+  .pgm-jadwal span:last-child { font-weight: 600; }
+  .pgm-kaki { padding: 0 20px 18px; display: flex; justify-content: flex-end; }
+  .pgm-tombol {
+    border: 0; border-radius: 9px; padding: 9px 20px;
+    font-weight: 600; font-size: .9rem; color: #fff; cursor: pointer;
+    background: #0f172a;
+  }
+  .pgm-tombol:hover { background: #1e293b; }
+</style>
+
+<div class="pgm-lapis pgm-{{ pengumuman.tingkat }}" id="pgm-lapis"
+     data-url="{% url 'pengumuman_tutup' %}" data-csrf="{{ csrf_token }}"
+     role="dialog" aria-modal="true" aria-labelledby="pgm-judul">
+  <div class="pgm-kotak">
+    <div class="pgm-kepala">
+      <i class="bi {% if pengumuman.tingkat == 'penting' %}bi-exclamation-octagon-fill{% elif pengumuman.tingkat == 'perhatian' %}bi-cone-striped{% else %}bi-info-circle-fill{% endif %}"></i>
+      <span id="pgm-judul">{{ pengumuman.judul }}</span>
+    </div>
+    <div class="pgm-isi">
+      <p class="pgm-pesan">{{ pengumuman.pesan }}</p>
+      {% if pengumuman.mulai or pengumuman.selesai %}
+      <div class="pgm-jadwal">
+        {% if pengumuman.mulai %}
+        <div><span>Mulai</span><span>{{ pengumuman.mulai|date:"d M Y, H:i" }}</span></div>
+        {% endif %}
+        {% if pengumuman.selesai %}
+        <div><span>Perkiraan selesai</span><span>{{ pengumuman.selesai|date:"d M Y, H:i" }}</span></div>
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+    <div class="pgm-kaki">
+      <button type="button" class="pgm-tombol" id="pgm-tutup">Mengerti</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var lapis = document.getElementById('pgm-lapis');
+  if (!lapis) return;
+  var sudah = false;
+
+  function tutup() {
+    if (sudah) return;
+    sudah = true;
+    // Pop-up ditutup di layar lebih dulu, tanpa menunggu server: kalau
+    // penandaannya gagal ia hanya muncul lagi di halaman berikutnya, sedangkan
+    // tombol yang tidak bereaksi akan ditekan berkali-kali.
+    lapis.remove();
+    try {
+      fetch(lapis.dataset.url, {
+        method: 'POST',
+        headers: {'X-CSRFToken': lapis.dataset.csrf, 'X-Requested-With': 'XMLHttpRequest'},
+        credentials: 'same-origin',
+      });
+    } catch (e) { /* diabaikan — lihat alasan di atas */ }
+  }
+
+  document.getElementById('pgm-tutup').addEventListener('click', tutup);
+  lapis.addEventListener('click', function (e) { if (e.target === lapis) tutup(); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') tutup(); });
+})();
+</script>
+{% endif %}

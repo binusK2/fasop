@@ -2131,6 +2131,53 @@ class InersiaTest(TestCase):
         self.assertIn('id="inersia-mws"', isi)
         self.assertIn('id="inersia-dp"', isi)
 
+    # ── Label & keterangan dP ─────────────────────────────────────────
+    #
+    # Angka dP di kartu tidak menjelaskan dirinya sendiri: tanpa teks ini ia
+    # cuma "475,60 MW" di bawah simbol yang tidak dikenal semua orang yang
+    # lewat di depan layar ruang operasi.
+
+    def test_label_dan_keterangan_dp_bawaan_tampil(self):
+        cfg = self._nyalakan()
+        self._user_login()
+        isi = self.client.get('/opsis/').content.decode()
+        self.assertIn(cfg.label_delta, isi)
+        self.assertIn(cfg.keterangan_delta, isi)
+
+    def test_teks_dp_bisa_disunting_dari_admin(self):
+        self._nyalakan(label_delta='Batas Lepas Unit',
+                       keterangan_delta='MW terbesar yang boleh lepas mendadak.')
+        self._user_login()
+        isi = self.client.get('/opsis/').content.decode()
+        self.assertIn('Batas Lepas Unit', isi)
+        self.assertIn('MW terbesar yang boleh lepas mendadak.', isi)
+        self.assertNotIn('Batas Aman Lepas Pembangkit', isi)
+
+    def test_teks_dp_dikosongkan_tidak_meninggalkan_baris_kosong(self):
+        """Yang dikosongkan tidak digambar — bukan tampil sebagai baris hampa."""
+        self._nyalakan(label_delta='', keterangan_delta='')
+        self._user_login()
+        isi = self.client.get('/opsis/').content.decode()
+        self.assertIn('id="inersia-dp"', isi)       # angkanya tetap ada
+        self.assertNotIn('Batas Aman Lepas Pembangkit', isi)
+        # Titik pemisah hanya dipakai untuk merangkai label ke simbolnya.
+        self.assertNotIn('&Delta;P &middot;', isi)
+
+    def test_label_dp_juga_menerangkan_garis_chart(self):
+        """Legenda chart menjawab pertanyaan yang sama: garis putus ini apa."""
+        self._nyalakan(label_delta='Batas Lepas Unit')
+        self._user_login()
+        isi = self.client.get('/opsis/').content.decode()
+        # Diikat ke warna dP-nya: ada legenda garis putus LAIN di halaman ini
+        # (seri prediksi beban), jadi mencari 'dashed' saja akan menemukan yang
+        # salah dan tesnya lulus/gagal karena alasan yang keliru.
+        cfg = PengaturanInersia.ambil()
+        legenda = re.search(
+            r'dashed ' + re.escape(cfg.warna_delta) + r';[^<]*></span>\s*(.*?)\s*</div>',
+            isi, re.S)
+        self.assertIsNotNone(legenda, 'legenda dP tidak dirender')
+        self.assertIn('Batas Lepas Unit', legenda.group(1))
+
     def test_kartu_tersembunyi_bila_belum_ada_mva_dan_h(self):
         Pembangkit.objects.all().update(mva=None, inersia_h=None)
         cfg = self._nyalakan()
@@ -2733,6 +2780,35 @@ class EksporInersiaTest(TestCase):
         self.assertEqual(ringkas['Frekuensi nominal f0 (Hz)'], 60.0)
         self.assertEqual(ringkas['Cakupan unit'], 'Hanya yang beroperasi')
         self.assertEqual(ringkas['Pembangkit ber-MVA & H'], 2)
+
+    def test_arti_dp_di_ringkasan_mengikuti_teks_kartu(self):
+        """
+        Layar dan berkas tidak boleh menjelaskan dP dengan kalimat berbeda:
+        yang dilampirkan ke laporan justru yang dibaca berbulan-bulan kemudian,
+        saat tidak ada lagi yang ingat kartunya berbunyi apa.
+        """
+        cfg = PengaturanInersia.ambil()
+        cfg.label_delta = 'Batas Lepas Unit'
+        cfg.keterangan_delta = 'MW terbesar yang boleh lepas mendadak.'
+        cfg.save()
+        self._snap(self.a, 600, 50.0)
+        _, wb = self._workbook()
+        arti = self._sel(wb['Ringkasan'])['Arti dP']
+        self.assertIn('Batas Lepas Unit', arti)
+        self.assertIn('MW terbesar yang boleh lepas mendadak.', arti)
+        # Peringatan yang tidak boleh hilang berapa pun teksnya diubah.
+        self.assertIn('RENCANA', arti)
+
+    def test_arti_dp_tetap_ada_walau_teksnya_dikosongkan(self):
+        cfg = PengaturanInersia.ambil()
+        cfg.label_delta = ''
+        cfg.keterangan_delta = ''
+        cfg.save()
+        self._snap(self.a, 600, 50.0)
+        _, wb = self._workbook()
+        arti = self._sel(wb['Ringkasan'])['Arti dP']
+        self.assertIn('RENCANA', arti)
+        self.assertTrue(arti.strip())
 
     def test_ringkasan_memuat_min_rata_maks(self):
         self._snap(self.a, 600, 50.0)                    # E 500
@@ -3617,3 +3693,122 @@ class SebabSumberKosongTest(TestCase):
         self.assertIn('BKARU5', pesan)           # yang ADA di tabel
         self.assertIn('BAKARU', pesan)           # yang DICARI FASOP
         self.assertIn('Kode KIT', pesan)         # tempat memperbaikinya
+
+
+class MvarBertandaTest(TestCase):
+    """
+    MVAR pembangkit dijumlahkan bertanda. Q negatif = unit MENYERAP daya
+    reaktif (under-excited / kondensor sinkron), keadaan operasi yang sah —
+    beda dengan P minus yang memang kesalahan polaritas CT/PT dan di-abs().
+
+    Dulu kartu MVAR kosong ("—") untuk pembangkit yang semua unitnya menyerap,
+    padahal tabel unit di halaman detail menampilkan angkanya dan sengaja
+    mewarnainya merah: satu layar menyebut dua hal berbeda tentang data yang
+    sama.
+    """
+
+    def setUp(self):
+        self.baris = []
+        uji = self
+
+        class Kursor:
+            def execute(self, sql, params=None):
+                self._hasil = [] if 'SELECT TOP 1' in sql else uji.baris
+
+            def fetchall(self):
+                return self._hasil
+
+            def fetchone(self):
+                return self._hasil[0] if self._hasil else None
+
+        class Koneksi:
+            def cursor(self):
+                return Kursor()
+
+            def close(self):
+                pass
+
+        asli = mssql._get_connection
+        mssql._get_connection = lambda: Koneksi()
+        self.addCleanup(lambda: setattr(mssql, '_get_connection', asli))
+        SumberKit._cache = {'obj': None, 'ts': 0.0}
+
+    def _baca(self, *pasangan_pq):
+        """pasangan_pq: (P, Q) tiap unit — bentuk baris KIT_REALTIME."""
+        p = Pembangkit.objects.create(nama='Uji', kode='UJI')
+        isi = []
+        for nilai in pasangan_pq:
+            isi.extend(nilai)
+        isi.extend([None, None] * (8 - len(pasangan_pq)))
+        self.baris = [tuple(['UJI', None] + isi)]
+        hasil = mssql.get_live_data([p])
+        return hasil['data']['UJI']
+
+    @override_settings(MSSQL_HOST='127.0.0.1,1433')
+    def test_semua_unit_menyerap_reaktif_tetap_tampil(self):
+        """Kasus yang membuat kartu kosong: tidak ada satu pun Q positif."""
+        d = self._baca((-61.11, -2.69), (-27.54, -1.50))
+        self.assertEqual(d['mvar'], -4.19)
+        self.assertEqual(d['mw'], 88.65)          # P tetap di-abs()
+
+    @override_settings(MSSQL_HOST='127.0.0.1,1433')
+    def test_campuran_dijumlahkan_bertanda_bukan_hanya_yang_positif(self):
+        d = self._baca((-61.11, -2.69), (-27.54, 1.01))
+        self.assertEqual(d['mvar'], -1.68)        # bukan 1.01
+
+    @override_settings(MSSQL_HOST='127.0.0.1,1433')
+    def test_unit_tanpa_q_tidak_dihitung_dan_tidak_menggagalkan(self):
+        d = self._baca((-10.0, None), (-20.0, 3.5))
+        self.assertEqual(d['mvar'], 3.5)
+
+    @override_settings(MSSQL_HOST='127.0.0.1,1433')
+    def test_semua_q_kosong_tetap_none(self):
+        """Tidak ada angka yang dibaca sama sekali ≠ nol."""
+        d = self._baca((-10.0, None), (-20.0, None))
+        self.assertIsNone(d['mvar'])
+
+    @override_settings(MSSQL_HOST='127.0.0.1,1433')
+    def test_unit_yang_tampil_sama_dengan_yang_dijumlahkan(self):
+        """Tabel unit dan kartu totalnya harus bercerita hal yang sama."""
+        d = self._baca((-61.11, -2.69), (-27.54, 1.01))
+        dari_unit = sum(u['mvar'] for u in d['units'] if u['mvar'] is not None)
+        self.assertAlmostEqual(d['mvar'], round(dari_unit, 3))
+
+
+class TrendMvarBertandaTest(TestCase):
+    """Chart trend per pembangkit (HIS_MEAS_KIT) memakai aturan yang sama."""
+
+    def setUp(self):
+        self.dijalankan = []
+        uji = self
+
+        class Kursor:
+            def execute(self, sql, params=None):
+                uji.dijalankan.append(sql)      # apa adanya, baris masih utuh
+
+            def fetchall(self):
+                return []
+
+        class Koneksi:
+            def cursor(self):
+                return Kursor()
+
+            def close(self):
+                pass
+
+        asli = mssql._get_connection
+        mssql._get_connection = lambda: Koneksi()
+        self.addCleanup(lambda: setattr(mssql, '_get_connection', asli))
+
+    @override_settings(MSSQL_HOST='127.0.0.1,1433')
+    def test_q_negatif_tidak_dinolkan_di_sql(self):
+        p = Pembangkit.objects.create(nama='Uji', kode='UJI')
+        mssql.get_trend_data(p, jam=1)
+        # Komentar '--' dibuang dulu: yang diuji perintah SQL-nya, bukan
+        # penjelasan di atasnya (yang justru menyebut bentuk lamanya).
+        sql = ' '.join(
+            ' '.join(baris.split('--')[0] for baris in q.split('\n'))
+            for q in self.dijalankan)
+        self.assertIn('SUM(Q) AS total_mvar', sql)
+        self.assertNotIn('CASE WHEN Q > 0', sql)
+        self.assertIn('SUM(ABS(P))', sql)      # P tetap di-abs()

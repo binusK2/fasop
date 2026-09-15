@@ -358,3 +358,55 @@ class AsesmenOptikAdmin(admin.ModelAdmin):
     autocomplete_fields = ()
     readonly_fields = ('created_at', 'updated_at')
 
+
+
+# ── Pengumuman Pemeliharaan ──────────────────────────────────────────────────
+
+from .models import PengumumanPemeliharaan  # noqa: E402
+
+
+@admin.register(PengumumanPemeliharaan)
+class PengumumanPemeliharaanAdmin(admin.ModelAdmin):
+    """
+    Pop-up pengumuman (mis. rencana restart server) yang muncul sekali per sesi
+    login. Baris tunggal, jadi tombol Tambah/Hapus dimatikan dan daftar langsung
+    membuka baris itu — sama seperti Mode Pemeliharaan OPSIS.
+    """
+    list_display    = ('status_ringkas', 'judul', 'tingkat', 'mulai', 'selesai',
+                       'diubah_oleh', 'diubah_pada')
+    readonly_fields = ('diubah_oleh', 'diubah_pada')
+    fieldsets = (
+        (None, {
+            'description': 'Pop-up ini muncul sekali untuk setiap pengguna yang login, '
+                           'di seluruh halaman FASOP. Menyimpan perubahan apa pun di sini '
+                           'membuat pop-up muncul lagi ke semua orang — termasuk yang sudah '
+                           'menutupnya — supaya jadwal yang digeser tidak luput terbaca.',
+            'fields': ('aktif',),
+        }),
+        ('Isi Pengumuman', {'fields': ('judul', 'pesan', 'tingkat')}),
+        ('Jadwal', {
+            'description': 'Opsional, hanya ditampilkan di pop-up. Ini BUKAN penjadwal — '
+                           'tidak ada yang dimatikan otomatis pada jam tersebut.',
+            'fields': ('mulai', 'selesai', 'berhenti_otomatis'),
+        }),
+        ('Riwayat', {'fields': ('diubah_oleh', 'diubah_pada')}),
+    )
+
+    @admin.display(description='Tampil', boolean=True)
+    def status_ringkas(self, obj):
+        return obj.sedang_tampil()
+
+    def has_add_permission(self, request):
+        # Baris tunggal: dibuat otomatis oleh changelist_view di bawah.
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def changelist_view(self, request, extra_context=None):
+        PengumumanPemeliharaan.ambil()   # pastikan barisnya ada sebelum daftar dirender
+        return super().changelist_view(request, extra_context)
+
+    def save_model(self, request, obj, form, change):
+        obj.diubah_oleh = request.user
+        super().save_model(request, obj, form, change)
