@@ -27,7 +27,11 @@
             <tr>
                 <td style="color:var(--muted);">{{ forloop.counter }}</td>
                 <td><strong>{{ log.host.nama }}</strong>{% if log.host.lokasi %}<br><span style="font-size:10px;color:var(--muted);">{{ log.host.lokasi }}</span>{% endif %}</td>
-                <td>{{ log.severity|default:"—" }}</td>
+                <td>
+                    {% if log.severity %}
+                        <span class="tag-{{ log.severity_class }}">{{ log.severity }}</span>
+                    {% else %}—{% endif %}
+                </td>
                 <td style="font-size:12px;">{{ log.problem_name|default:"—" }}</td>
                 <td style="font-size:11px;color:var(--muted);">{{ log.get_source_display }}</td>
                 <td>{{ log.mulai|date:"d/m/Y H:i" }}</td>

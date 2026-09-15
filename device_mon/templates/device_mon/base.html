@@ -127,12 +127,14 @@ body {
 }
 .stat-card.up   { border-color: rgba(16,185,129,.3); }
 .stat-card.down { border-color: rgba(239,68,68,.3); }
+.stat-card.warning { border-color: rgba(245,158,11,.3); }
 .stat-card.avail { border-color: rgba(59,130,246,.3); }
 .stat-lbl { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); margin-bottom:6px; }
 .stat-val { font-family:'JetBrains Mono',monospace; font-size:30px; font-weight:700; line-height:1.1; }
-.stat-val.up    { color:#10b981; }
-.stat-val.down  { color:#ef4444; }
-.stat-val.avail { color:#60a5fa; }
+.stat-val.up      { color:#10b981; }
+.stat-val.down    { color:#ef4444; }
+.stat-val.warning { color:#f59e0b; }
+.stat-val.avail   { color:#60a5fa; }
 .stat-unit { font-size:13px; font-weight:400; color:var(--muted); margin-left:3px; }
 
 /* ── RTU Grid ── */
@@ -225,8 +227,10 @@ body {
 .gangguan-table td { padding:8px 12px; border-bottom:1px solid rgba(17,34,64,.6); }
 .gangguan-table tr:last-child td { border-bottom:none; }
 .gangguan-table tr:hover td { background:rgba(29,78,216,.05); }
-.tag-down { display:inline-block; background:rgba(239,68,68,.12); color:#f87171; font-size:10px; font-weight:700; padding:2px 7px; border-radius:4px; }
-.tag-up   { display:inline-block; background:rgba(16,185,129,.12); color:#10b981; font-size:10px; font-weight:700; padding:2px 7px; border-radius:4px; }
+.tag-down, .tag-problem { display:inline-block; background:rgba(239,68,68,.12); color:#f87171; font-size:10px; font-weight:700; padding:2px 7px; border-radius:4px; }
+.tag-up    { display:inline-block; background:rgba(16,185,129,.12); color:#10b981; font-size:10px; font-weight:700; padding:2px 7px; border-radius:4px; }
+.tag-warning { display:inline-block; background:rgba(245,158,11,.12); color:#f59e0b; font-size:10px; font-weight:700; padding:2px 7px; border-radius:4px; }
+.tag-unknown { display:inline-block; background:rgba(100,116,139,.12); color:#94a3b8; font-size:10px; font-weight:700; padding:2px 7px; border-radius:4px; }
 
 /* ── Footer ── */
 .app-footer {
