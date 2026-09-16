@@ -308,8 +308,23 @@ class UserProfile(models.Model):
     # ── Permission shortcuts ──────────────────────────────────────
     @property
     def can_delete(self):
-        """Hanya superuser yang bisa hapus."""
+        """Hanya superuser yang bisa hapus PERMANEN (fiber optic, foto, eviden, dst)."""
         return self.user.is_superuser
+
+    # ── Soft delete ───────────────────────────────────────────────
+    SOFT_DELETE_ROLE = ('technician',)
+
+    @property
+    def bisa_soft_delete(self):
+        """
+        Superuser dan Teknisi boleh soft-delete Peralatan & Pemeliharaan
+        (is_deleted=True, baris tetap ada di database dan bisa dipulihkan
+        dari site admin) -- BUKAN hapus permanen. Aksi hapus permanen lain
+        (foto lapangan, fiber optic, icon, eviden, asesmen optik) tetap
+        hanya superuser lewat can_delete/require_can_delete, karena tidak
+        punya jalan pulih.
+        """
+        return self.user.is_superuser or self.role in self.SOFT_DELETE_ROLE
 
     @property
     def can_edit(self):

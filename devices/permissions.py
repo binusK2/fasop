@@ -17,8 +17,22 @@ def get_profile(user):
 
 
 def can_delete(user):
-    """Hanya superuser."""
+    """Hanya superuser -- hapus PERMANEN (fiber optic, foto, eviden, dst)."""
     return user.is_superuser
+
+
+def can_soft_delete(user):
+    """
+    Superuser & Teknisi -- soft-delete saja (Peralatan, Pemeliharaan): baris
+    ditandai is_deleted=True, tetap ada di database dan bisa dipulihkan dari
+    site admin. Untuk hapus permanen (tidak bisa dipulihkan) tetap pakai
+    can_delete (superuser only). Aturan rolenya hidup di
+    UserProfile.bisa_soft_delete -- jangan menuliskan ulang di sini.
+    """
+    if user.is_superuser:
+        return True
+    p = get_profile(user)
+    return p.bisa_soft_delete if p else False
 
 
 def can_edit(user):
@@ -123,6 +137,15 @@ def require_can_delete(view_func):
     def wrapper(request, *args, **kwargs):
         if not can_delete(request.user):
             return _forbidden(request, 'Hanya Administrator yang bisa menghapus data.')
+        return view_func(request, *args, **kwargs)
+    return wrapper
+
+
+def require_can_soft_delete(view_func):
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        if not can_soft_delete(request.user):
+            return _forbidden(request, 'Anda tidak memiliki akses untuk menghapus data ini.')
         return view_func(request, *args, **kwargs)
     return wrapper
 

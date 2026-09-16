@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse, resolve, Resolver404
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.clickjacking import xframe_options_exempt, xframe_options_sameorigin
-from devices.permissions import require_can_edit, require_can_delete, is_viewer_only
+from devices.permissions import require_can_edit, require_can_delete, require_can_soft_delete, is_viewer_only
 from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceRepeater, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset, MaintenanceRTU, MaintenanceSAS, MaintenanceRTUGeneric, MaintenanceBCU, MaintenanceRoIP, MaintenanceUPS, MaintenanceFrequencyRelay, MaintenanceMasterTrip, MaintenanceDFR, MaintenanceMasterStation, BeritaAcaraRecord, BeritaAcaraEviden
 from .forms import MaintenanceForm, MaintenancePLCForm, MaintenanceRouterForm, MaintenanceRadioForm, MaintenanceRepeaterForm, MaintenanceVoIPForm, MaintenanceMuxForm, MaintenanceRectifierForm, MaintenanceTeleproteksiForm, MaintenanceGensetForm, MaintenanceRTUForm, MaintenanceSASForm, MaintenanceRTUGenericForm, MaintenanceBCUForm, MaintenanceRoIPForm, MaintenanceUPSForm, MaintenanceFrequencyRelayForm, MaintenanceMasterTripForm, MaintenanceDFRForm, MaintenanceMasterStationForm
 from devices.models import Device, DeviceType
@@ -1022,14 +1022,16 @@ def maintenance_edit(request, pk):
 # DELETE
 # ─────────────────────────────────────────────────────────────────────
 @login_required
-@require_can_delete
+@require_can_soft_delete
 def maintenance_delete(request, pk):
     maintenance = get_object_or_404(Maintenance, pk=pk)
     _audit(request, 'delete', 'maintenance', 'Maintenance',
            maintenance.pk,
            f'{maintenance.device.nama} — {maintenance.date}',
            f'{maintenance.maintenance_type}')
-    maintenance.delete()
+    maintenance.is_deleted = True
+    maintenance.deleted_by = request.user
+    maintenance.save()
     return redirect('maintenance_list')
 
 

@@ -13,7 +13,7 @@
                     <i class="bi bi-trash" style="font-size:22px;color:#ef4444;"></i>
                 </div>
                 <h6 style="font-size:16px;font-weight:700;margin-bottom:6px;">Hapus Maintenance?</h6>
-                <p style="font-size:13px;color:#64748b;">Data maintenance ini akan dihapus permanen dan tidak bisa dikembalikan.</p>
+                <p style="font-size:13px;color:#64748b;">Data maintenance ini akan disembunyikan dari daftar. Data tetap tersimpan dan bisa dipulihkan lewat Administrator bila terhapus tidak sengaja.</p>
                 <div class="d-flex gap-2 justify-content-center mt-3">
                     <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
                     <a href="{% url 'maintenance_delete' maintenance.id %}" class="btn btn-danger px-4">
@@ -152,9 +152,11 @@
                 </span>
                 {% endif %}
                 <div style="width:1px;height:24px;background:rgba(255,255,255,0.12);flex-shrink:0;"></div>
+                {% if user_can_soft_delete %}
                 <button class="btn btn-sm" onclick="confirmDelete()" style="background:rgba(239,68,68,0.15);color:#fca5a5;border:1px solid rgba(239,68,68,0.3);font-size:12px;">
                     <i class="bi bi-trash me-1"></i>Hapus
                 </button>
+                {% endif %}
                 {% if maintenance.status == 'Open' %}
                 <form method="post" action="{% url 'maintenance_update_status' maintenance.id %}" class="m-0">
                     {% csrf_token %}

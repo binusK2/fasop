@@ -37,6 +37,31 @@ def maintenance_photo_upload(instance, filename):
 # ─────────────────────────────────────────────────────────────
 # MODEL UTAMA MAINTENANCE
 # ─────────────────────────────────────────────────────────────
+class MaintenanceManager(models.Manager):
+    """
+    Default manager MENYARING is_deleted=True secara otomatis -- beda dari
+    devices.Device yang memfilternya eksplisit di tiap query pemanggil.
+    Maintenance dipakai di puluhan tempat lintas app (health_index, jadwal,
+    gudang, devices) untuk skor HI, prioritas jadwal, dan laporan; kalau
+    filternya eksplisit per-query seperti Device, satu tempat yang lupa
+    berarti data yang sudah di-soft-delete Teknisi diam-diam ikut terhitung
+    lagi. Manager ini menutup kemungkinan itu di satu tempat -- termasuk
+    otomatis untuk get_object_or_404(Maintenance, pk=...) di halaman
+    edit/detail/PDF, bukan cuma daftar & laporan.
+
+    CATATAN: filter manager TIDAK berlaku untuk lookup lintas relasi (mis.
+    Device.objects.filter(maintenance__status=...)) -- itu jadi JOIN SQL
+    langsung yang melewati get_queryset() manager ini. Tempat yang memakai
+    pola itu (devices/views.py, jadwal/models.py) menambahkan
+    maintenance__is_deleted=False sendiri.
+
+    Untuk melihat/memulihkan data yang sudah di-soft-delete (site admin),
+    pakai Maintenance.semua_objects, bukan Maintenance.objects.
+    """
+    def get_queryset(self):
+        return super().get_queryset().filter(is_deleted=False)
+
+
 class Maintenance(models.Model):
 
     MAINTENANCE_TYPE = (
@@ -61,6 +86,14 @@ class Maintenance(models.Model):
     status          = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Open')
     photo           = models.ImageField(upload_to=maintenance_photo_upload, blank=True, null=True)
     created_at      = models.DateTimeField(auto_now_add=True)
+    deleted_by      = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='deleted_maintenances', verbose_name='Dihapus oleh',
+    )
+    is_deleted      = models.BooleanField(default=False, verbose_name='Dihapus (soft-delete)')
+
+    objects = MaintenanceManager()
+    semua_objects = models.Manager()  # unfiltered -- lihat & pulihkan dari site admin
 
     class Meta:
         ordering = ['-date']
@@ -68,6 +101,7 @@ class Maintenance(models.Model):
             models.Index(fields=['device', 'status', '-date'], name='maint_dev_status_date_idx'),
             models.Index(fields=['status', '-date'], name='maint_status_date_idx'),
             models.Index(fields=['maintenance_type', '-date'], name='maint_type_date_idx'),
+            models.Index(fields=['is_deleted'], name='maint_is_deleted_idx'),
         ]
 
     def __str__(self):

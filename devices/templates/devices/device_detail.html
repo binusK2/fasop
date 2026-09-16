@@ -27,14 +27,14 @@
     {% else %}
     <span class="ms-auto"></span>
     {% endif %}
-    {% if user_can_delete %}
+    {% if user_can_soft_delete %}
     <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalDeleteDevice">
         <i class="bi bi-trash3 me-1"></i>Hapus
     </button>
     {% endif %}
 </div>
 
-{% if user_can_delete %}
+{% if user_can_soft_delete %}
 <div class="modal fade" id="modalDeleteDevice" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">

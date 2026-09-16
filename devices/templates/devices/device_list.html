@@ -229,7 +229,7 @@
                                 <i class="bi bi-pencil"></i>
                             </a>
                             {% endif %}
-                            {% if user_can_delete %}
+                            {% if user_can_soft_delete %}
                             <button class="btn btn-sm btn-outline-danger" title="Hapus"
                                     onclick="confirmDelete('{% url 'device_delete' d.id %}', '{{ d.nama }}')">
                                 <i class="bi bi-trash"></i>
@@ -301,7 +301,7 @@
                     <i class="bi bi-trash" style="font-size:22px;color:#ef4444;"></i>
                 </div>
                 <h6 style="font-size:16px;font-weight:700;margin-bottom:6px;">Hapus Perangkat?</h6>
-                <p style="font-size:13px;color:#64748b;" id="deleteModalDesc">Perangkat ini akan dihapus permanen.</p>
+                <p style="font-size:13px;color:#64748b;" id="deleteModalDesc">Perangkat ini akan disembunyikan dari daftar. Data tetap tersimpan dan bisa dipulihkan lewat Administrator bila terhapus tidak sengaja.</p>
                 <div class="d-flex gap-2 justify-content-center mt-3">
                     <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
                     <a id="deleteLink" href="#" class="btn btn-danger px-4">Hapus</a>
@@ -358,7 +358,7 @@ function closeThumbLightbox() {
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeThumbLightbox(); });
 
 function confirmDelete(url, name) {
-    document.getElementById('deleteModalDesc').textContent = 'Perangkat "' + name + '" akan dihapus permanen.';
+    document.getElementById('deleteModalDesc').textContent = 'Perangkat "' + name + '" akan disembunyikan dari daftar.';
     document.getElementById('deleteLink').href = url;
     new bootstrap.Modal(document.getElementById('deleteModal')).show();
 }

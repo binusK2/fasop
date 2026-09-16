@@ -221,7 +221,7 @@
                         <a href="{% url 'maintenance_view' m.id %}" class="btn btn-sm btn-outline-primary" title="Detail Maintenance" style="border-radius:8px;padding:4px 10px;">
                             <i class="bi bi-eye"></i>
                         </a>
-                        {% if user_can_delete %}
+                        {% if user_can_soft_delete %}
                         <button class="btn btn-sm btn-outline-danger" title="Hapus" style="border-radius:8px;padding:4px 10px;"
                                 onclick="confirmDelete('{% url 'maintenance_delete' m.id %}', '{{ m.device }} — {{ m.date|date:'d M Y' }}')">
                             <i class="bi bi-trash"></i>
