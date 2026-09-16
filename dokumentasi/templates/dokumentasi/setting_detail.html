@@ -448,9 +448,9 @@ async function doVerify() {
   try {
     const res  = await fetch(VERIFY_URL, { method:'POST', headers:{'X-CSRFToken':CSRF} });
     const data = await res.json();
-    if (!data.ok) { alert(data.error || 'Gagal'); btn.disabled=false; btn.innerHTML='<i class="bi bi-patch-check me-2"></i>Tandai Up to Date'; return; }
+    if (!data.ok) { fasopAlert(data.error || 'Gagal'); btn.disabled=false; btn.innerHTML='<i class="bi bi-patch-check me-2"></i>Tandai Up to Date'; return; }
     location.reload();
-  } catch(e) { alert('Gagal menghubungi server'); btn.disabled=false; btn.innerHTML='<i class="bi bi-patch-check me-2"></i>Tandai Up to Date'; }
+  } catch(e) { fasopAlert('Gagal menghubungi server'); btn.disabled=false; btn.innerHTML='<i class="bi bi-patch-check me-2"></i>Tandai Up to Date'; }
 }
 
 async function doRevisi() {

@@ -168,7 +168,7 @@
                 <form method="post" action="{% url 'maintenance_update_status' maintenance.id %}" class="m-0">
                     {% csrf_token %}
                     <input type="hidden" name="status" value="Open">
-                    <button class="btn btn-sm" onclick="return confirm('Buka kembali maintenance ini untuk diedit?')" style="background:rgba(255,255,255,0.08);color:#cbd5e1;border:1px solid rgba(255,255,255,0.12);font-size:12px;">
+                    <button class="btn btn-sm" onclick="return confirmSubmit(this.form, 'Buka kembali maintenance ini untuk diedit?', {danger:false})" style="background:rgba(255,255,255,0.08);color:#cbd5e1;border:1px solid rgba(255,255,255,0.12);font-size:12px;">
                         <i class="bi bi-arrow-counterclockwise me-1"></i>Buka Kembali
                     </button>
                 </form>

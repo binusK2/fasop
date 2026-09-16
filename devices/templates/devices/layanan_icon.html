@@ -322,7 +322,7 @@
                             <form method="post" action="{% url 'icon_delete' d.id %}" style="display:inline;">
                                 {% csrf_token %}
                                 <button type="submit" class="btn btn-sm btn-outline-danger" style="padding:3px 8px;font-size:12px;"
-                                    onclick="return confirm('Hapus layanan {{ d.name }}?')">
+                                    onclick="return confirmSubmit(this.form, 'Hapus layanan {{ d.name }}?')">
                                     <i class="bi bi-trash"></i>
                                 </button>
                             </form>

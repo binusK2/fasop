@@ -438,9 +438,10 @@ if (IS_PENGAWAS) {
 const btnEndLive = document.getElementById('btn-end-live');
 if (btnEndLive) {
     btnEndLive.addEventListener('click', () => {
-        if (!confirm('Akhiri sesi CCTV ini?')) return;
-        hentikanPemutarEzviz(player);
-        document.getElementById('end-form').submit();
+        fasopConfirm('Akhiri sesi CCTV ini?', () => {
+            hentikanPemutarEzviz(player);
+            document.getElementById('end-form').submit();
+        });
     });
 }
 

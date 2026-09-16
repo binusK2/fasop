@@ -79,7 +79,7 @@
                     </button>
                 </form>
                 <form method="post" action="{% url 'kesiapan_selesai' report.pk %}" class="m-0"
-                      onsubmit="return confirm('Tandai laporan ini Selesai? Laporan tidak bisa diedit lagi setelah ini.')">
+                      onsubmit="return confirmSubmit(this, 'Tandai laporan ini Selesai? Laporan tidak bisa diedit lagi setelah ini.', {danger:false})">
                     {% csrf_token %}
                     <button type="submit" class="btn btn-sm" style="background:#10b981;color:#fff;font-size:12px;font-weight:700;">
                         <i class="bi bi-check2-circle me-1"></i>Tandai Selesai
@@ -88,7 +88,7 @@
                 {% endif %}
                 {% if can_delete %}
                 <form method="post" action="{% url 'kesiapan_hapus' report.pk %}" class="m-0"
-                      onsubmit="return confirm('Hapus laporan kesiapan ini? Tindakan tidak bisa dibatalkan.')">
+                      onsubmit="return confirmSubmit(this, 'Hapus laporan kesiapan ini? Tindakan tidak bisa dibatalkan.')">
                     {% csrf_token %}
                     <button type="submit" class="btn btn-sm" style="background:#dc2626;color:#fff;font-size:12px;">
                         <i class="bi bi-trash me-1"></i>Hapus Laporan
@@ -302,7 +302,7 @@ function fallbackCopy(text) {
                         </td>
                         <td style="padding:10px 12px;">
                             <form method="post" action="{% url 'kesiapan_item_hapus' report.pk item.pk %}"
-                                  onsubmit="return confirm('Hapus {{ item.nama|escapejs }} dari laporan?')" class="m-0">
+                                  onsubmit="return confirmSubmit(this, 'Hapus {{ item.nama|escapejs }} dari laporan?')" class="m-0">
                                 {% csrf_token %}
                                 <button type="submit" class="btn btn-sm btn-outline-danger" style="font-size:11px;padding:2px 8px;" title="Hapus item">
                                     <i class="bi bi-trash"></i>
@@ -426,7 +426,7 @@ function fallbackCopy(text) {
     document.getElementById('form-tambah-item').addEventListener('submit', function (e) {
         if (!hiddenId.value) {
             e.preventDefault();
-            alert('Pilih perangkat dari hasil pencarian terlebih dahulu.');
+            fasopAlert('Pilih perangkat dari hasil pencarian terlebih dahulu.');
         }
     });
 })();

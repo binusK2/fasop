@@ -705,18 +705,19 @@ function saveEditLink() {
 
 // ── Delete link ───────────────────────────────────────────────────
 function deleteLink(id) {
-  if (!confirm('Hapus koneksi ini?')) return;
-  fetch(`/api/device-links/${id}/delete/`, {
-    method:'POST',
-    headers:{ 'X-CSRFToken': CSRF },
-  }).then(r=>r.json()).then(res => {
-    if (!res.ok) return;
-    allLinks = allLinks.filter(l=>l.id!==id);
-    renderLinks(currentJenis);
-    renderLinkList();
-    const badge = document.getElementById('koneksi-badge');
-    badge.textContent = allLinks.length; badge.style.display = allLinks.length ? 'inline':'none';
-    if (!allLinks.length) document.getElementById('link-legend').style.display='none';
+  fasopConfirm('Hapus koneksi ini?', () => {
+    fetch(`/api/device-links/${id}/delete/`, {
+      method:'POST',
+      headers:{ 'X-CSRFToken': CSRF },
+    }).then(r=>r.json()).then(res => {
+      if (!res.ok) return;
+      allLinks = allLinks.filter(l=>l.id!==id);
+      renderLinks(currentJenis);
+      renderLinkList();
+      const badge = document.getElementById('koneksi-badge');
+      badge.textContent = allLinks.length; badge.style.display = allLinks.length ? 'inline':'none';
+      if (!allLinks.length) document.getElementById('link-legend').style.display='none';
+    });
   });
 }
 </script>

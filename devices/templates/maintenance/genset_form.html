@@ -354,7 +354,7 @@ function updateDurasi(){
 }
 document.getElementById('genset-form')?.addEventListener('submit',function(e){
     if(!document.querySelector('[name=waktu_start]')?.value||!document.querySelector('[name=waktu_stop]')?.value){
-        e.preventDefault();alert('Waktu Start dan Waktu Stop wajib diisi!');
+        e.preventDefault();fasopAlert('Waktu Start dan Waktu Stop wajib diisi!');
     }
 });
 document.addEventListener('DOMContentLoaded',()=>{

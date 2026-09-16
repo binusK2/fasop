@@ -292,7 +292,7 @@
                                     <form method="post" action="{% url 'fiber_optic_delete' fo.id %}">
                                         {% csrf_token %}
                                         <button type="submit" class="dropdown-item text-danger"
-                                                onclick="return confirm('Hapus segmen {{ fo.nama }}? Semua data gangguan terkait tidak akan terhapus.')">
+                                                onclick="return confirmSubmit(this.form, 'Hapus segmen {{ fo.nama }}? Semua data gangguan terkait tidak akan terhapus.')">
                                             <i class="bi bi-trash me-2"></i>Hapus
                                         </button>
                                     </form>

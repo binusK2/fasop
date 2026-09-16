@@ -246,7 +246,7 @@
                 {% endif %}
                 {% if ce.status != 'closed' and user_can_edit %}
                 <form method="post" action="{% url 'ce_delete_log' ce.pk log.pk %}"
-                      onsubmit="return confirm('Hapus entri ini?');" style="display:inline;margin:0;">
+                      onsubmit="return confirmSubmit(this, 'Hapus entri ini?');" style="display:inline;margin:0;">
                   {% csrf_token %}
                   <button type="submit"
                           style="background:none;border:none;color:#fca5a5;font-size:12px;cursor:pointer;padding:0;line-height:1;"

@@ -1060,17 +1060,18 @@ let pilihPin = () => {}, pilihGrup = () => {}, mulaiSeret = () => {};
 
     document.getElementById('btnHapusGrup').addEventListener('click', () => {
         if (!grupTerpilih) return;
-        if (!confirm(`Hapus ikon kelompok "${grupTerpilih.nama}"? Pembangkit anggotanya akan kembali berdiri sendiri.`)) return;
         const it = grupTerpilih;
-        if (it.id) GRUP_HAPUS.add(it.id);
-        (it.anggota || []).forEach(a => { if (PIN[a.kode]) PIN[a.kode].classList.remove('sembunyi'); });
-        const g = PIN_GRUP[it._key];
-        if (g) g.remove();
-        delete PIN_GRUP[it._key];
-        GRUP.splice(GRUP.indexOf(it), 1);
-        grupDiubah = true;
-        batalPilih();
-        tulisStatus();
+        fasopConfirm(`Hapus ikon kelompok "${it.nama}"? Pembangkit anggotanya akan kembali berdiri sendiri.`, () => {
+            if (it.id) GRUP_HAPUS.add(it.id);
+            (it.anggota || []).forEach(a => { if (PIN[a.kode]) PIN[a.kode].classList.remove('sembunyi'); });
+            const g = PIN_GRUP[it._key];
+            if (g) g.remove();
+            delete PIN_GRUP[it._key];
+            GRUP.splice(GRUP.indexOf(it), 1);
+            grupDiubah = true;
+            batalPilih();
+            tulisStatus();
+        });
     });
 
     // ── Status & simpan ──────────────────────────────────────────────
@@ -1153,9 +1154,10 @@ let pilihPin = () => {}, pilihGrup = () => {}, mulaiSeret = () => {};
     }
     btnAtur.addEventListener('click', masukEdit);
     btnBatal.addEventListener('click', () => {
-        if (adaPerubahan() && !confirm('Perubahan posisi belum disimpan. Buang perubahan?')) return;
-        if (adaPerubahan()) { location.reload(); return; }
-        keluarEdit();
+        if (!adaPerubahan()) { keluarEdit(); return; }
+        fasopConfirm('Perubahan posisi belum disimpan. Buang perubahan?', () => {
+            location.reload();
+        });
     });
     addEventListener('beforeunload', e => {
         if (modeEdit && adaPerubahan() && !btnSimpan.disabled) { e.preventDefault(); e.returnValue = ''; }

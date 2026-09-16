@@ -870,7 +870,7 @@ if (fotoInput) {
 
         // Validasi ukuran (maks 10MB)
         if (file.size > 10 * 1024 * 1024) {
-            alert('Ukuran foto melebihi 10MB. Silakan pilih foto lain.');
+            fasopAlert('Ukuran foto melebihi 10MB. Silakan pilih foto lain.');
             clearFoto();
             return;
         }
@@ -913,7 +913,7 @@ document.getElementById('insp-form').addEventListener('submit', function(e) {
     // Foto dokumentasi wajib (input di-hide, jadi divalidasi manual di sini)
     if (fotoInput && (!fotoInput.files || fotoInput.files.length === 0)) {
         e.preventDefault();
-        alert('Foto dokumentasi wajib diisi. Tekan "Ambil Foto" untuk memakai kamera, atau "Pilih dari Galeri".');
+        fasopAlert('Foto dokumentasi wajib diisi. Tekan "Ambil Foto" untuk memakai kamera, atau "Pilih dari Galeri".');
         return;
     }
 
@@ -922,28 +922,28 @@ document.getElementById('insp-form').addEventListener('submit', function(e) {
     const rect = document.getElementById('kondisi_rectifier')?.value;
     if (!rect) {
         e.preventDefault();
-        alert('Kondisi Rectifier wajib dipilih (Normal/Alarm).');
+        fasopAlert('Kondisi Rectifier wajib dipilih (Normal/Alarm).');
         return;
     }
     {% elif jenis_key == 'defense_scheme' %}
     const relay = document.getElementById('kondisi_relay')?.value;
     if (!relay) {
         e.preventDefault();
-        alert('Kondisi Relay wajib dipilih (Normal/Alarm).');
+        fasopAlert('Kondisi Relay wajib dipilih (Normal/Alarm).');
         return;
     }
     {% elif jenis_key in 'master_trip ufls' %}
     const relayVal = document.getElementById('kondisi_relay')?.value;
     if (!relayVal) {
         e.preventDefault();
-        alert('Kondisi Relay wajib dipilih (Normal/Alarm).');
+        fasopAlert('Kondisi Relay wajib dipilih (Normal/Alarm).');
         return;
     }
     {% elif jenis_key == 'telecom' %}
     const hasilKom = document.getElementById('hasil_komunikasi')?.value;
     if (!hasilKom) {
         e.preventDefault();
-        alert('Status Komunikasi wajib dipilih (Normal/Tidak Normal).');
+        fasopAlert('Status Komunikasi wajib dipilih (Normal/Tidak Normal).');
         return;
     }
     {% endif %}

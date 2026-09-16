@@ -229,11 +229,11 @@ function editLabel(g) {
   const ap   = g.absolutePosition();
   const txt  = g.findOne('.lbl');
   const cur  = txt ? txt.text() : '';
-  const val  = prompt('Label:', cur);
-  if (val === null) return;
-  if (txt) { txt.text(val); txt.offsetX(txt.width()/2); }
-  layer.batchDraw();
-  snapshot();
+  fasopPrompt('Label:', (val) => {
+    if (txt) { txt.text(val); txt.offsetX(txt.width()/2); }
+    layer.batchDraw();
+    snapshot();
+  }, {default: cur});
 }
 
 // ── Wire drawing ─────────────────────────────────────────────────
@@ -394,11 +394,12 @@ function restoreSnapshot(s) {
 
 // ── Clear ─────────────────────────────────────────────────────────
 document.getElementById('btn-clear').addEventListener('click', () => {
-  if (!confirm('Hapus semua komponen?')) return;
-  Object.values(nodes).forEach(g=>g.destroy()); Object.keys(nodes).forEach(k=>delete nodes[k]);
-  Object.values(wires).forEach(w=>w.line.destroy()); Object.keys(wires).forEach(k=>delete wires[k]);
-  layer.batchDraw(); wireLayer.batchDraw();
-  snapshot();
+  fasopConfirm('Hapus semua komponen?', () => {
+    Object.values(nodes).forEach(g=>g.destroy()); Object.keys(nodes).forEach(k=>delete nodes[k]);
+    Object.values(wires).forEach(w=>w.line.destroy()); Object.keys(wires).forEach(k=>delete wires[k]);
+    layer.batchDraw(); wireLayer.batchDraw();
+    snapshot();
+  });
 });
 
 // ── Save ──────────────────────────────────────────────────────────
