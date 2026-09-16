@@ -102,7 +102,7 @@
                         sesinya sendiri.
                         {% endcomment %}
                         <form method="post" action="{% url 'streaming:end' pk=session.pk %}" class="d-inline"
-                              onsubmit="return confirm('Akhiri sesi live ini?');">
+                              onsubmit="return confirmSubmit(this, 'Akhiri sesi live ini?');">
                             {% csrf_token %}
                             <button type="submit" class="btn btn-outline-danger btn-sm" title="Akhiri sesi">
                                 <i class="bi bi-x-circle"></i>

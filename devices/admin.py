@@ -11,9 +11,15 @@ from .models_komponen import (
 
 @admin.register(Device)
 class DeviceAdmin(admin.ModelAdmin):
-    list_display = ['nama', 'jenis', 'merk', 'lokasi', 'status_operasi']
+    list_display = ['nama', 'jenis', 'merk', 'lokasi', 'status_operasi', 'is_deleted', 'deleted_by']
     search_fields = ['nama', 'merk', 'serial_number', 'lokasi']
-    list_filter = ['jenis', 'status_operasi']
+    list_filter = ['jenis', 'status_operasi', 'is_deleted']
+    actions = ['pulihkan_data']
+
+    @admin.action(description='Pulihkan data yang terhapus (batalkan soft-delete)')
+    def pulihkan_data(self, request, queryset):
+        n = queryset.filter(is_deleted=True).update(is_deleted=False, deleted_by=None)
+        self.message_user(request, f'{n} perangkat dipulihkan.')
 
 admin.site.register(DeviceType)
 

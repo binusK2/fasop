@@ -130,7 +130,7 @@
                 </a>
                 {% if user_can_delete %}
                 <form method="post" action="{% url 'komponen_delete' device.id k.id %}"
-                      style="display:inline;" onsubmit="return confirm('Hapus komponen {{ k.nama }}?');">
+                      style="display:inline;" onsubmit="return confirmSubmit(this, 'Hapus komponen {{ k.nama }}?');">
                     {% csrf_token %}
                     <button type="submit"
                             style="background:none;border:none;color:#fca5a5;cursor:pointer;padding:4px;font-size:13px;"

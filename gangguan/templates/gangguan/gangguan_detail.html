@@ -378,7 +378,7 @@
                                 {% endif %}
                                 {% if gangguan.status != 'closed' and user_can_delete %}
                                 <form method="post" action="{% url 'gangguan_delete_log' gangguan.pk log.pk %}"
-                                      onsubmit="return confirm('Hapus entri ini?');" style="display:inline;margin:0;">
+                                      onsubmit="return confirmSubmit(this, 'Hapus entri ini?');" style="display:inline;margin:0;">
                                     {% csrf_token %}
                                     <button type="submit"
                                             style="background:none;border:none;color:#fca5a5;font-size:12px;
@@ -565,7 +565,7 @@
                 {% if gangguan.status != 'closed' %}
                 <form method="post"
                       action="{% url 'gangguan_hapus_perubahan' gangguan.pk ev.pk %}"
-                      onsubmit="return confirm('Hapus perubahan ini?');"
+                      onsubmit="return confirmSubmit(this, 'Hapus perubahan ini?');"
                       style="flex-shrink:0;">
                     {% csrf_token %}
                     <button type="submit"

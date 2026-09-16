@@ -334,7 +334,7 @@ function updateCount() {
 
 function validateForm() {
     if (!document.querySelectorAll('#selected-body tr.data-row').length) {
-        alert('Tambahkan minimal satu data gangguan.');
+        fasopAlert('Tambahkan minimal satu data gangguan.');
         return false;
     }
     return true;

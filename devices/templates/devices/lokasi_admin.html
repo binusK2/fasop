@@ -78,7 +78,7 @@
                             </button>
                             {% if item.device_count == 0 %}
                             <form method="post" style="display:inline;"
-                                  onsubmit="return confirm('Hapus lokasi {{ s.nama }}?');">
+                                  onsubmit="return confirmSubmit(this, 'Hapus lokasi {{ s.nama }}?');">
                                 {% csrf_token %}
                                 <input type="hidden" name="action" value="delete">
                                 <input type="hidden" name="pk" value="{{ s.pk }}">

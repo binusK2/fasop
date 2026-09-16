@@ -27,14 +27,14 @@
     {% else %}
     <span class="ms-auto"></span>
     {% endif %}
-    {% if user_can_delete %}
+    {% if user_can_soft_delete %}
     <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalDeleteDevice">
         <i class="bi bi-trash3 me-1"></i>Hapus
     </button>
     {% endif %}
 </div>
 
-{% if user_can_delete %}
+{% if user_can_soft_delete %}
 <div class="modal fade" id="modalDeleteDevice" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
@@ -704,7 +704,7 @@
                 {% if user_can_delete %}
                 <form method="post" action="{% url 'device_eviden_delete' device.pk ev.pk %}"
                       style="position:absolute;top:5px;right:5px;"
-                      onsubmit="return confirm('Hapus foto ini?')">
+                      onsubmit="return confirmSubmit(this, 'Hapus foto ini?')">
                     {% csrf_token %}
                     <button type="submit"
                             style="background:rgba(239,68,68,0.85);border:none;border-radius:6px;
@@ -1134,7 +1134,7 @@ function addEvidenRow() {
             {# Tombol hapus #}
             {% if user_can_delete %}
             <form method="post" action="{% url 'device_event_delete' device.id ev.pk %}"
-                  style="flex-shrink:0;" onsubmit="return confirm('Hapus kejadian ini?');">
+                  style="flex-shrink:0;" onsubmit="return confirmSubmit(this, 'Hapus kejadian ini?');">
                 {% csrf_token %}
                 <button type="submit"
                         style="background:none;border:none;color:#fca5a5;cursor:pointer;padding:2px;"
@@ -1881,7 +1881,7 @@ function toggleEventFields() {
 function validateEventForm(form) {
     const tipe = document.getElementById('evTipe').value;
     if (!tipe) {
-        alert('Pilih tipe kejadian terlebih dahulu.');
+        fasopAlert('Pilih tipe kejadian terlebih dahulu.');
         return false;
     }
 
@@ -1902,7 +1902,7 @@ function validateEventForm(form) {
         if (alasan && !alasan.value) {
             alasan.focus();
             alasan.style.borderColor = '#ef4444';
-            alert('Pilih alasan penggantian komponen.');
+            fasopAlert('Pilih alasan penggantian komponen.');
             return false;
         }
     }
@@ -1911,7 +1911,7 @@ function validateEventForm(form) {
         if (alasan && !alasan.value) {
             alasan.focus();
             alasan.style.borderColor = '#ef4444';
-            alert('Pilih alasan pembongkaran.');
+            fasopAlert('Pilih alasan pembongkaran.');
             return false;
         }
     }
@@ -1920,7 +1920,7 @@ function validateEventForm(form) {
         if (alasan && !alasan.value) {
             alasan.focus();
             alasan.style.borderColor = '#ef4444';
-            alert('Pilih alasan penggantian perangkat.');
+            fasopAlert('Pilih alasan penggantian perangkat.');
             return false;
         }
     }

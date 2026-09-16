@@ -98,11 +98,14 @@ class JadwalKunjungan(models.Model):
         if total == 0:
             return {'total': 0, 'selesai': 0, 'pct': 0, 'status_auto': 'planned'}
 
-        # Device yang sudah ada maintenance Preventive di periode ini
+        # Device yang sudah ada maintenance Preventive di periode ini.
+        # maintenance__is_deleted=False WAJIB eksplisit -- filter default
+        # manager Maintenance tidak berlaku untuk JOIN lintas relasi begini.
         selesai = devices.filter(
             maintenance__maintenance_type='Preventive',
             maintenance__date__year=self.tahun_rencana,
             maintenance__date__month=self.bulan_rencana,
+            maintenance__is_deleted=False,
         ).distinct().count()
 
         pct = round(selesai / total * 100)

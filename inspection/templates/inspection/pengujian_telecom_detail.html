@@ -29,7 +29,7 @@
             <div class="ms-auto">
                 {% if user.is_superuser or pengujian.dibuat_oleh == user %}
                 <form method="post" action="{% url 'pengujian_telecom_delete' pengujian.pk %}"
-                      onsubmit="return confirm('Hapus data pengujian ini?')">
+                      onsubmit="return confirmSubmit(this, 'Hapus data pengujian ini?')">
                     {% csrf_token %}
                     <button type="submit" class="btn btn-sm btn-outline-danger">
                         <i class="bi bi-trash me-1"></i>Hapus

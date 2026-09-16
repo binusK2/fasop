@@ -17,11 +17,23 @@ class MaintenanceRouterInline(admin.StackedInline):
 
 @admin.register(Maintenance)
 class MaintenanceAdmin(admin.ModelAdmin):
-    list_display  = ['device', 'maintenance_type', 'date', 'status', 'get_technicians', 'signed_by']
-    list_filter   = ['status', 'maintenance_type', 'device__jenis']
+    list_display  = ['device', 'maintenance_type', 'date', 'status', 'get_technicians', 'signed_by',
+                      'is_deleted', 'deleted_by']
+    list_filter   = ['status', 'maintenance_type', 'device__jenis', 'is_deleted']
     search_fields = ['device__nama', 'description']
     inlines       = [MaintenancePLCInline, MaintenanceRouterInline]
     filter_horizontal = ['technicians']
+    actions       = ['pulihkan_data']
+
+    def get_queryset(self, request):
+        # Maintenance.objects (default manager) menyaring is_deleted=True --
+        # admin butuh melihat SEMUA data (termasuk yang di-soft-delete Teknisi)
+        # supaya bisa dipulihkan, jadi pakai semua_objects (unfiltered) di sini.
+        qs = self.model.semua_objects.get_queryset()
+        ordering = self.get_ordering(request)
+        if ordering:
+            qs = qs.order_by(*ordering)
+        return qs
 
     @admin.display(description='Pelaksana')
     def get_technicians(self, obj):
@@ -29,6 +41,11 @@ class MaintenanceAdmin(admin.ModelAdmin):
             t.get_full_name() or t.username
             for t in obj.technicians.all()
         ) or '—'
+
+    @admin.action(description='Pulihkan data yang terhapus (batalkan soft-delete)')
+    def pulihkan_data(self, request, queryset):
+        n = queryset.filter(is_deleted=True).update(is_deleted=False, deleted_by=None)
+        self.message_user(request, f'{n} data maintenance dipulihkan.')
 
 
 @admin.register(MaintenancePLC)

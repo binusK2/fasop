@@ -6,7 +6,7 @@ from django.contrib import messages
 from django.core.files.base import ContentFile
 import os as _os
 from devices.permissions import (
-    require_can_delete, require_can_edit, require_can_manage_lokasi,
+    require_can_delete, require_can_soft_delete, require_can_edit, require_can_manage_lokasi,
     require_can_isi_asesmen,
     can_delete, can_edit, can_manage_lokasi, can_isi_asesmen,
     is_viewer_only, is_vendor
@@ -310,7 +310,7 @@ def device_update(request, pk):
 
 
 @login_required
-@require_can_delete
+@require_can_soft_delete
 def device_delete(request, pk):
     device = get_object_or_404(Device, pk=pk)
     from devices.device_audit import log_delete
@@ -390,7 +390,9 @@ def dashboard(request):
         _type_agg.setdefault(jname, {'total': 0, 'maintained': 0})
         _type_agg[jname]['total'] = row['total']
     # Batch: devices with at least one Done maintenance per jenis
-    for row in (_asset_qs.filter(maintenance__status='Done')
+    # maintenance__is_deleted=False WAJIB eksplisit di sini -- filter default
+    # manager Maintenance tidak berlaku untuk JOIN lintas relasi seperti ini.
+    for row in (_asset_qs.filter(maintenance__status='Done', maintenance__is_deleted=False)
                 .values('jenis__name').annotate(maintained=Count('id', distinct=True))):
         jname = (row['jenis__name'] or 'Lainnya').strip()
         if jname in _type_agg:

@@ -223,7 +223,7 @@ document.querySelector('#device-pool tbody').addEventListener('click', e => {
     if (!btn) return;
     const tr = btn.closest('tr');
     const id = tr.dataset.id;
-    if (addedIds.has(id)) { alert('Perangkat ini sudah ditambahkan.'); return; }
+    if (addedIds.has(id)) { fasopAlert('Perangkat ini sudah ditambahkan.'); return; }
     addDevice(id, tr.dataset.nama, tr.dataset.jenis);
 });
 
@@ -311,7 +311,7 @@ function escHtml(s) {
 document.getElementById('ba-form').addEventListener('submit', e => {
     if (document.querySelectorAll('#selected-body tr.data-row').length === 0) {
         e.preventDefault();
-        alert('Pilih minimal satu perangkat sebelum ekspor PDF.');
+        fasopAlert('Pilih minimal satu perangkat sebelum ekspor PDF.');
     }
 });
 

@@ -359,13 +359,14 @@ document.querySelectorAll('#target-group input[name=target]').forEach(r => r.add
 // ── Bulk delete ──
 function submitBulkDelete(){
   if(!selected.size) return;
-  if(!confirm('Hapus ' + selected.size + ' foto dari galeri? Tindakan ini tidak bisa dibatalkan.')) return;
-  const holder = document.getElementById('bulk-delete-holder');
-  holder.innerHTML = '';
-  selected.forEach(id => {
-    const i = document.createElement('input'); i.type='hidden'; i.name='photo_ids'; i.value=id; holder.appendChild(i);
+  fasopConfirm('Hapus ' + selected.size + ' foto dari galeri? Tindakan ini tidak bisa dibatalkan.', () => {
+    const holder = document.getElementById('bulk-delete-holder');
+    holder.innerHTML = '';
+    selected.forEach(id => {
+      const i = document.createElement('input'); i.type='hidden'; i.name='photo_ids'; i.value=id; holder.appendChild(i);
+    });
+    document.getElementById('bulk-delete-form').submit();
   });
-  document.getElementById('bulk-delete-form').submit();
 }
 
 // ── Pindah folder ──

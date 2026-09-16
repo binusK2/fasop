@@ -184,44 +184,46 @@ async function readAll() {
     }
 }
 
-async function deleteOne(id) {
-    if (!confirm('Hapus notifikasi ini?')) return;
-    const el = document.getElementById(`notif-${id}`);
-    if (!el) return;
-    const res = await fetch(el.dataset.deleteUrl, {
-        method: 'POST',
-        headers: { 'X-CSRFToken': getCsrf() }
+function deleteOne(id) {
+    fasopConfirm('Hapus notifikasi ini?', async () => {
+        const el = document.getElementById(`notif-${id}`);
+        if (!el) return;
+        const res = await fetch(el.dataset.deleteUrl, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCsrf() }
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.ok) {
+            el.style.transition = 'opacity 0.3s, max-height 0.3s';
+            el.style.opacity = '0';
+            el.style.overflow = 'hidden';
+            setTimeout(() => {
+                el.remove();
+                updateBadge(data.unread_count);
+                const btnDel = document.getElementById('btn-delete-read');
+                if (btnDel && data.unread_count === 0) {
+                    btnDel.disabled = false;
+                    btnDel.setAttribute('title', 'Hapus semua yang sudah dibaca');
+                }
+            }, 300);
+        }
     });
-    if (!res.ok) return;
-    const data = await res.json();
-    if (data.ok) {
-        el.style.transition = 'opacity 0.3s, max-height 0.3s';
-        el.style.opacity = '0';
-        el.style.overflow = 'hidden';
-        setTimeout(() => {
-            el.remove();
-            updateBadge(data.unread_count);
-            const btnDel = document.getElementById('btn-delete-read');
-            if (btnDel && data.unread_count === 0) {
-                btnDel.disabled = false;
-                btnDel.setAttribute('title', 'Hapus semua yang sudah dibaca');
-            }
-        }, 300);
-    }
 }
 
-async function deleteRead() {
+function deleteRead() {
     const btnDel = document.getElementById('btn-delete-read');
     if (btnDel && btnDel.disabled) return;
-    if (!confirm('Hapus semua notifikasi yang sudah dibaca?')) return;
-    const res = await fetch(`{% url 'notifikasi_delete_read' %}`, {
-        method: 'POST',
-        headers: { 'X-CSRFToken': getCsrf() }
+    fasopConfirm('Hapus semua notifikasi yang sudah dibaca?', async () => {
+        const res = await fetch(`{% url 'notifikasi_delete_read' %}`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCsrf() }
+        });
+        const data = await res.json();
+        if (data.ok) {
+            location.reload();
+        }
     });
-    const data = await res.json();
-    if (data.ok) {
-        location.reload();
-    }
 }
 
 function updateBadge(count) {

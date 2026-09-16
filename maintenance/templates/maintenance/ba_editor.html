@@ -267,14 +267,15 @@ function onColName(el){ columns[+el.dataset.col] = el.value; markStale(); }
 function onCell(el){ rows[+el.dataset.r][+el.dataset.c] = el.value; markStale(); }
 
 function addColumn(){
-  const name = prompt('Nama kolom baru:', 'Kolom '+(columns.length+1));
-  if(name === null) return;
-  columns.push(name.trim() || ('Kolom '+(columns.length+1)));
-  rows.forEach(r => r.push(''));
-  renderGrid();
+  const usulan = 'Kolom '+(columns.length+1);
+  fasopPrompt('Nama kolom baru:', (name) => {
+    columns.push(name.trim() || usulan);
+    rows.forEach(r => r.push(''));
+    renderGrid();
+  }, {default: usulan});
 }
 function removeColumn(j){
-  if(columns.length <= 1){ alert('Minimal satu kolom.'); return; }
+  if(columns.length <= 1){ fasopAlert('Minimal satu kolom.'); return; }
   columns.splice(j,1);
   rows.forEach(r => r.splice(j,1));
   renderGrid();
@@ -290,10 +291,16 @@ function loadDefaultColumns(force){
   const def = DEFAULT_COLUMNS[j];
   if(!def) return;
   if(!force && !isGridEmpty()) return;
-  if(force && !isGridEmpty() && !confirm('Ganti kolom tabel dengan kolom default kategori ini? Isi baris saat ini akan dikosongkan.')) return;
-  columns = def.slice();
-  rows = [columns.map(()=> '')];
-  renderGrid();
+  const terapkan = () => {
+    columns = def.slice();
+    rows = [columns.map(()=> '')];
+    renderGrid();
+  };
+  if(force && !isGridEmpty()){
+    fasopConfirm('Ganti kolom tabel dengan kolom default kategori ini? Isi baris saat ini akan dikosongkan.', terapkan);
+  } else {
+    terapkan();
+  }
 }
 function onJenisChange(){
   const j = document.getElementById('jenis_select').value;

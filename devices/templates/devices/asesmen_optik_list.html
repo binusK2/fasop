@@ -153,7 +153,7 @@
                     <form method="post" action="{% url 'asesmen_optik_delete' a.pk %}" class="d-inline m-0">
                         {% csrf_token %}
                         <button class="btn btn-sm btn-outline-danger" style="font-size:11px;padding:2px 9px;"
-                                onclick="return confirm('Hapus asesmen tower {{ a.no_tower }}?')" title="Hapus">
+                                onclick="return confirmSubmit(this.form, 'Hapus asesmen tower {{ a.no_tower }}?')" title="Hapus">
                             <i class="bi bi-trash"></i>
                         </button>
                     </form>

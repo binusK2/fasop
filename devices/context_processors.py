@@ -129,17 +129,27 @@ def user_permissions(request):
     """
     Inject permission flags ke semua template.
     Pakai: {{ user_can_edit }}, {{ user_can_delete }}, {{ user_is_viewer }}
+
+    user_can_delete = hapus PERMANEN (fiber optic, foto, eviden, dst) --
+    superuser saja. user_can_soft_delete = khusus tombol Hapus Peralatan &
+    Hapus Pemeliharaan (soft-delete, bisa dipulihkan dari site admin) --
+    superuser & Teknisi. Jangan disamakan: dua template yang menampilkan
+    tombol berbeda ini harus tetap membaca variabel yang berbeda pula.
     """
     if not request.user.is_authenticated:
         return {
             'user_can_edit':          False,
             'user_can_delete':        False,
+            'user_can_soft_delete':   False,
             'user_can_manage_lokasi': False,
             'user_is_viewer':         False,
             'user_is_opsis':          False,
         }
 
-    from devices.permissions import can_edit, can_delete, can_manage_lokasi, is_viewer_only, is_operator, is_dispatcher
+    from devices.permissions import (
+        can_edit, can_delete, can_soft_delete, can_manage_lokasi,
+        is_viewer_only, is_operator, is_dispatcher,
+    )
     try:
         _is_opsis = request.user.profile.role == 'opsis'
     except Exception:
@@ -147,6 +157,7 @@ def user_permissions(request):
     return {
         'user_can_edit':          can_edit(request.user),
         'user_can_delete':        can_delete(request.user),
+        'user_can_soft_delete':   can_soft_delete(request.user),
         'user_can_manage_lokasi': can_manage_lokasi(request.user),
         'user_is_viewer':         is_viewer_only(request.user),
         'user_is_operator':       is_operator(request.user),

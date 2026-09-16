@@ -195,7 +195,7 @@
                         </button>
                         {# Tombol Buang #}
                         <form method="post" action="{% url 'gudang:bongkar_update_status' item.pk %}"
-                              style="display:inline;" onsubmit="return confirm('Tandai item ini sebagai Dibuang/Dihapus?');">
+                              style="display:inline;" onsubmit="return confirmSubmit(this, 'Tandai item ini sebagai Dibuang/Dihapus?');">
                             {% csrf_token %}
                             <input type="hidden" name="status" value="dibuang">
                             <button type="submit" class="btn btn-sm" style="font-size:11px;padding:3px 8px;

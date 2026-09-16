@@ -29,7 +29,7 @@
       {% endif %}
       {% if session.status == 'error' or session.status == 'done' %}
       <form method="post" action="{% url 'scada_av_retry' session.pk %}" class="d-inline"
-            onsubmit="return confirm('Jalankan ulang kalkulasi? Hasil sebelumnya akan dihapus.')">
+            onsubmit="return confirmSubmit(this, 'Jalankan ulang kalkulasi? Hasil sebelumnya akan dihapus.')">
         {% csrf_token %}
         <button type="submit" class="btn btn-warning btn-sm">
           <i class="bi bi-arrow-clockwise me-1"></i>Hitung Ulang
@@ -47,7 +47,7 @@
         <div class="fw-bold mb-2">Kalkulasi Gagal</div>
         <pre class="mb-2" style="font-size:11px;white-space:pre-wrap;background:rgba(0,0,0,.05);padding:10px;border-radius:6px;max-height:260px;overflow-y:auto;">{{ session.error_message }}</pre>
         <form method="post" action="{% url 'scada_av_retry' session.pk %}"
-              onsubmit="return confirm('Jalankan ulang kalkulasi?')">
+              onsubmit="return confirmSubmit(this, 'Jalankan ulang kalkulasi?')">
           {% csrf_token %}
           <button type="submit" class="btn btn-warning btn-sm">
             <i class="bi bi-arrow-clockwise me-1"></i>Coba Lagi

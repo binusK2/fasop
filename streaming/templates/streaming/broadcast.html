@@ -421,9 +421,10 @@ async function pollStatus() {
 }
 
 function akhiriSesi() {
-    if (!confirm('Akhiri sesi live ini? Sesi akan hilang dari daftar "Sedang Live".')) return;
-    stopPublish();
-    endForm.submit();
+    fasopConfirm('Akhiri sesi live ini? Sesi akan hilang dari daftar "Sedang Live".', () => {
+        stopPublish();
+        endForm.submit();
+    });
 }
 
 btnStart.addEventListener('click', startPublish);
