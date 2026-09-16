@@ -115,7 +115,7 @@ class Command(BaseCommand):
                             hasil_datum, hasil_status = datum_2, status_2
                         else:
                             hasil_datum, _msec, hasil_status = ofdb.resolve_rc_result(
-                                cursor, path1, path2, path3, path4, path5, datum_1
+                                cursor, path1, path2, path3, path4, datum_1
                             )
 
                         if dry_run:
