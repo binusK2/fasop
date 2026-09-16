@@ -651,6 +651,17 @@ def query_soe(cursor, dt_start, dt_end, filters=None, limit=SOE_MAX_ROWS):
 # scd_his_rc.py -- yang sudah lama mati (apps.tasks di-comment). FASOP membaca
 # scd_his_rc read-only lalu menyelesaikan sendiri yang masih kosong, TANPA
 # menulis balik ke OFDB -- hasilnya disimpan di model RemoteControl (Postgres).
+#
+# Perintah dan hasilnya adalah DUA TITIK SCADA yang berbeda, bukan dua kolom
+# di baris yang sama: perintah tercatat di titik kontrol (baris scd_his_rc
+# itu sendiri), sedangkan konfirmasi breaker benar-benar berpindah (atau
+# gagal) muncul sebagai pesan scd_his_message di TITIK STATUS bay yang sama
+# -- path1..path4 sama persis dengan perintahnya, tapi path5 SELALU literal
+# 'Status', bukan path5 milik perintah. resolve_rc_result() karena itu tidak
+# menerima path5 dari pemanggil -- menyamakannya dengan path5 perintah
+# pernah jadi bug: hasil dicari di titik yang salah (titik kontrol, yang
+# jarang/tidak pernah memuat pesan konfirmasi), sehingga RC nyaris selalu
+# jatuh ke default GAGAL.
 
 def get_rc_events(cursor, dt_start, dt_end):
     """
@@ -723,24 +734,39 @@ def ringkasan_rc(cursor, dt_start, dt_end):
     }
 
 
-def resolve_rc_result(cursor, path1, path2, path3, path4, path5, datum_1):
+def resolve_rc_result(cursor, path1, path2, path3, path4, datum_1):
     """
-    Cari hasil RC (BERHASIL/GAGAL) dari scd_his_message dalam +2 menit sejak datum_1.
-    Portasi dari up2bmakassar apps/tasks/jobs/scd_his_rc.py: tag mengandung
-    NE/RC/R*/MU dianggap respons; mengandung 'NE' = GAGAL, selain itu BERHASIL.
-    Tidak ada respons dalam window = GAGAL (default, sama seperti aslinya).
+    Cari hasil eksekusi RC dari titik STATUS bay yang sama (path1..path4 sama
+    dengan perintahnya, path5 selalu literal 'Status') dalam +2 menit sejak
+    datum_1 -- BUKAN dari titik perintah itu sendiri (lihat catatan di atas
+    modul RC ini). Portasi 1:1 dari up2bmakassar deprecated/task/scd_his_rc.py:
+    dipindai berurutan menurut waktu, default GAGAL; tag mengandung 'NE' atau
+    'N*' -> GAGAL (sementara, tetap lanjut memindai kalau balasan sukses
+    menyusul); tag mengandung 'RC' atau 'R*' -> BERHASIL (final, berhenti).
+    Tidak ada pesan sama sekali dalam window = GAGAL (default, sama seperti
+    aslinya).
     """
     sql = """
-        SELECT TOP 1 tag, time_stamp, msec FROM scd_his_message
-        WHERE path1=? AND path2=? AND path3=? AND path4=? AND path5=?
+        SELECT tag, time_stamp, msec FROM scd_his_message
+        WHERE path1=? AND path2=? AND path3=? AND path4=? AND path5='Status'
               AND time_stamp >= ? AND time_stamp <= DATEADD(MINUTE, 2, ?)
-              AND (tag LIKE '%NE%' OR tag LIKE '%RC%' OR tag LIKE '%R*%' OR tag LIKE '%MU%')
         ORDER BY time_stamp
     """
-    cursor.execute(sql, [path1, path2, path3, path4, path5, datum_1, datum_1])
-    row = cursor.fetchone()
-    if row:
-        tag, time_stamp, msec = row
-        status = 'GAGAL' if 'NE' in tag else 'BERHASIL'
-        return time_stamp, msec or 0, status
-    return datum_1, 999, 'GAGAL'
+    cursor.execute(sql, [path1, path2, path3, path4, datum_1, datum_1])
+
+    hasil_datum, hasil_msec, status = datum_1, 999, 'GAGAL'
+    for tag, time_stamp, msec in cursor.fetchall():
+        hasil_datum, hasil_msec = time_stamp, msec or 0
+        if not tag:
+            continue
+        if 'NE' in tag:
+            status = 'GAGAL'
+        if 'RC' in tag:
+            status = 'BERHASIL'
+            break
+        if 'R*' in tag:
+            status = 'BERHASIL'
+            break
+        if 'N*' in tag:
+            status = 'GAGAL'
+    return hasil_datum, hasil_msec, status

@@ -748,6 +748,21 @@ Cron harian dipasang lewat `bash deploy/setup_kinerja_cron.sh [berdata|kinerja]`
 
 Kalau halaman kosong atau angkanya mencurigakan, jalankan `python manage.py cek_kinerja_ofdb` dulu — itu menunjukkan apakah masalahnya koneksi, nama induk point type, filter `SitePath1`, kecepatan query OFDB, atau memang cron sync-nya belum jalan. Index OFDB yang disarankan (dieksekusi DBA OFDB, bukan oleh FASOP): `deploy/ofdb_indexes.sql`.
 
+**Kinerja RC — perintah dan hasil adalah DUA TITIK SCADA berbeda, bukan dua
+kolom di baris yang sama.** Perintah RC tercatat di `scd_his_rc` (titik
+kontrol). Konfirmasi breaker benar-benar berpindah (atau gagal) muncul
+terpisah sebagai pesan `scd_his_message` di **titik STATUS bay yang sama**
+— `path1..path4` identik dengan perintahnya, tapi `path5` selalu literal
+`'Status'`, BUKAN `path5` milik perintah itu sendiri. `ofdb.resolve_rc_result()`
+karena itu sengaja tidak menerima `path5` dari pemanggil — pernah jadi bug
+nyata: menyamakan `path5` hasil dengan `path5` perintah membuat FASOP mencari
+konfirmasi di titik kontrol (yang nyaris tidak pernah memuat pesan hasil),
+sehingga hampir semua RC jatuh ke default GAGAL. Portasi logikanya (urutan
+tag NE/N\*=GAGAL sementara, RC/R\*=BERHASIL final) harus 1:1 dengan job asli
+up2bmakassar (`deprecated/task/scd_his_rc.py` di repo lama) — jangan menambah
+pola tag baru tanpa konfirmasi dari log SCADA sungguhan, sudah pernah ada
+tag `'MU'` yang menyelinap masuk padahal tidak pernah ada di job aslinya.
+
 ---
 
 ## OPSIS — Prediksi Beban (spreadsheet, bukan ML)
