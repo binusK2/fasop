@@ -38,6 +38,17 @@ SEMUA = [
                        '/api/v1/opsis/beban-pembangkit/riwayat/'],
     },
     {
+        'kode':       'beban_trafo',
+        'nama':       'Beban trafo (distribusi & IBT)',
+        'penjelasan': 'Daya trafo terkini per GI/bay, dan riwayat P per menit '
+                      'dari snapshot PostgreSQL. Jenisnya dipilih lewat '
+                      '?jenis=distribusi (bawaan) atau ?jenis=ibt.',
+        'sumber':     'MSSQL ALL_TRANS_DATA (terkini, lewat opsis/trafo.py) '
+                      '+ opsis.SnapTrafo (riwayat)',
+        'endpoint':   ['/api/v1/opsis/beban-trafo/',
+                       '/api/v1/opsis/beban-trafo/riwayat/'],
+    },
+    {
         'kode':       'frekuensi',
         'nama':       'Frekuensi sistem (Hz)',
         'penjelasan': 'Riwayat frekuensi sistem per detik, digabung dari '

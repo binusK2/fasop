@@ -18,7 +18,7 @@ from devices.models import DatasetApi, KunciApi
 from logsheet.models import LogsheetNilai, LogsheetTitik
 from opsis import cache as opsis_cache
 from opsis import mssql
-from opsis.models import Pembangkit, SnapFreqRT, SnapLive
+from opsis.models import Pembangkit, SnapFreqRT, SnapLive, SnapTrafo, Trafo
 
 
 def _kunci(nama, *kode, aktif=True):
@@ -568,3 +568,210 @@ class HalamanAdminIzinTest(TestCase):
         k = _kunci('UP2D', 'logsheet')
         r = self.client.get(f'/secure-panel/devices/kunciapi/{k.pk}/change/')
         self.assertEqual(r.status_code, 200)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Beban trafo — terkini
+# ═══════════════════════════════════════════════════════════════════════════
+class BebanTrafoTerkiniTest(TestCase):
+
+    def setUp(self):
+        opsis_cache._cache.clear()
+        self.addCleanup(opsis_cache._cache.clear)
+
+        self.url   = reverse('api:opsis_beban_trafo')
+        self.kunci = _kunci('UP2D', 'beban_trafo')
+
+        Trafo.objects.create(site='GI SUNGGUMINASA', bay='TRF52-1')
+        Trafo.objects.create(site='GI SUNGGUMINASA', bay='TRF52-2')
+        Trafo.objects.create(site='GITET SIDRAP',    bay='TRF65-1')
+
+        asli_d     = mssql.get_beban_trafo
+        asli_i     = mssql.get_beban_trafo_ibt
+        asli_reach = mssql.is_reachable
+        self.addCleanup(lambda: setattr(mssql, 'get_beban_trafo', asli_d))
+        self.addCleanup(lambda: setattr(mssql, 'get_beban_trafo_ibt', asli_i))
+        self.addCleanup(lambda: setattr(mssql, 'is_reachable', asli_reach))
+
+        mssql.is_reachable = lambda: True
+        mssql.get_beban_trafo = lambda: [
+            {'site': 'GI SUNGGUMINASA', 'bay': 'TRF52-1', 'p': 20.0, 'q': 3.0, 'v': 20.1, 'i': 600.0},
+            {'site': 'GI SUNGGUMINASA', 'bay': 'TRF52-2', 'p': -5.0, 'q': 1.0, 'v': 20.0, 'i': 150.0},
+        ]
+        mssql.get_beban_trafo_ibt = lambda: [
+            {'site': 'GITET SIDRAP', 'bay': 'TRF65-1', 'p': 80.0, 'q': 9.0, 'v': 150.0, 'i': 320.0},
+        ]
+
+    def test_bentuk_balasan_dikelompokkan_per_gi(self):
+        r = self.client.get(self.url, headers=_hdr(self.kunci))
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertEqual(data['jenis'], 'distribusi')
+        self.assertEqual(data['jumlah'], 2)
+        self.assertEqual([g['site'] for g in data['gi']], ['GI SUNGGUMINASA'])
+        self.assertEqual(len(data['gi'][0]['trafo']), 2)
+
+    def test_nilai_per_trafo_apa_adanya_total_pakai_magnitudo(self):
+        """
+        Tanda minus pada P bermakna (arah aliran daya), jadi nilai per trafo
+        tidak boleh di-abs(). Totalnya sebaliknya harus magnitudo — kalau
+        dijumlahkan bertanda, 20 dan -5 jadi 15 dan GI terlihat lebih sepi
+        daripada kenyataannya. Angka yang sama dengan kartu total di layar.
+        """
+        data = self.client.get(self.url, headers=_hdr(self.kunci)).json()
+        p = {t['bay']: t['p'] for t in data['gi'][0]['trafo']}
+        self.assertEqual(p['TRF52-2'], -5.0)
+        self.assertEqual(data['total_mw'], 25.0)
+
+    def test_jenis_ibt(self):
+        data = self.client.get(self.url, {'jenis': 'ibt'}, headers=_hdr(self.kunci)).json()
+        self.assertEqual(data['jenis'], 'ibt')
+        self.assertEqual([g['site'] for g in data['gi']], ['GITET SIDRAP'])
+
+    def test_jenis_tak_dikenal_ditolak_bukan_diam_diam_jadi_distribusi(self):
+        """
+        Kalau jatuh ke bawaan, konsumen yang salah ketik menerima angka
+        distribusi dan menyalinnya sebagai angka IBT tanpa pernah tahu.
+        """
+        r = self.client.get(self.url, {'jenis': 'IBT2'}, headers=_hdr(self.kunci))
+        self.assertEqual(r.status_code, 400)
+        self.assertIn('tidak dikenal', r.json()['message'])
+
+    def test_trafo_nonaktif_tidak_ikut(self):
+        Trafo.objects.filter(bay='TRF52-2').update(aktif=False)
+        opsis_cache._cache.clear()
+        data = self.client.get(self.url, headers=_hdr(self.kunci)).json()
+        self.assertEqual(data['jumlah'], 1)
+        self.assertEqual(data['total_mw'], 20.0)
+
+    def test_historian_mati_balas_503_bukan_mw_nol(self):
+        mssql.is_reachable = lambda: False
+        opsis_cache._cache.clear()
+        r = self.client.get(self.url, headers=_hdr(self.kunci))
+        self.assertEqual(r.status_code, 503)
+        self.assertNotIn('total_mw', r.json())
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Beban trafo — riwayat
+# ═══════════════════════════════════════════════════════════════════════════
+class BebanTrafoRiwayatTest(TestCase):
+
+    def setUp(self):
+        self.url   = reverse('api:opsis_beban_trafo_riwayat')
+        self.kunci = _kunci('UP2D', 'beban_trafo')
+
+        # Registry Trafo TIDAK pernah kosong di database tes: migrasi
+        # 0015_trafo_override_wotu membuat barisnya sendiri (IBT GITET Wotu).
+        # Endpoint riwayat membaca registry itu langsung — beda dari endpoint
+        # terkini yang hanya memuat baris yang juga ada di MSSQL — jadi tanpa
+        # dikosongkan dulu, assertion di sini ikut menghitung baris migrasi.
+        Trafo.objects.all().delete()
+
+        self.a   = Trafo.objects.create(site='GI SUNGGUMINASA', bay='TRF52-1')
+        self.b   = Trafo.objects.create(site='GI PANAKKUKANG', bay='TRF52-9')
+        self.ibt = Trafo.objects.create(site='GITET SIDRAP', bay='TRF65-1')
+
+        self.akhir = timezone.localtime().replace(second=0, microsecond=0)
+        SnapTrafo.objects.bulk_create([
+            SnapTrafo(trafo=t, waktu=self.akhir - datetime.timedelta(minutes=i),
+                      p=10.0 + i)
+            for t in (self.a, self.b, self.ibt) for i in range(1, 4)
+        ])
+
+    def test_deret_per_trafo_hanya_jenis_yang_diminta(self):
+        data = self.client.get(self.url, headers=_hdr(self.kunci)).json()
+        self.assertEqual(data['jenis'], 'distribusi')
+        self.assertEqual({d['bay'] for d in data['trafo']}, {'TRF52-1', 'TRF52-9'})
+        self.assertEqual(data['jumlah'], 6)          # IBT tidak ikut
+
+    def test_jenis_ibt_memilih_bay_yang_lain(self):
+        data = self.client.get(self.url, {'jenis': 'ibt'}, headers=_hdr(self.kunci)).json()
+        self.assertEqual([d['bay'] for d in data['trafo']], ['TRF65-1'])
+        self.assertEqual(data['jumlah'], 3)
+
+    def test_saring_per_site(self):
+        data = self.client.get(self.url, {'site': 'gi panakkukang'},
+                               headers=_hdr(self.kunci)).json()
+        self.assertEqual([d['bay'] for d in data['trafo']], ['TRF52-9'])
+
+    def test_site_tak_dikenal_404_bukan_daftar_kosong(self):
+        r = self.client.get(self.url, {'site': 'GI TIDAK ADA'}, headers=_hdr(self.kunci))
+        self.assertEqual(r.status_code, 404)
+
+    def test_batas_rentang_eksklusif_di_ujung_atas(self):
+        """waktu__gte/waktu__lt, bukan lookup __date yang mematikan indeks."""
+        dari   = (self.akhir - datetime.timedelta(minutes=3)).isoformat()
+        sampai = (self.akhir - datetime.timedelta(minutes=1)).isoformat()
+        data = self.client.get(self.url,
+                               {'dari': dari, 'sampai': sampai, 'site': 'GI SUNGGUMINASA'},
+                               headers=_hdr(self.kunci)).json()
+        self.assertEqual(data['jumlah'], 2)          # menit -3 dan -2, bukan -1
+
+    def test_rentang_lebih_dari_batas_ditolak(self):
+        from opsis import trafo as trafo_io
+        dari = self.akhir - datetime.timedelta(days=trafo_io.MAKS_HARI_RIWAYAT + 1)
+        r = self.client.get(self.url, {'dari': dari.isoformat()}, headers=_hdr(self.kunci))
+        self.assertEqual(r.status_code, 400)
+
+    def test_tetap_menjawab_saat_historian_mati(self):
+        """Sumbernya PostgreSQL — justru ini gunanya dibanding endpoint terkini."""
+        asli = mssql.is_reachable
+        self.addCleanup(lambda: setattr(mssql, 'is_reachable', asli))
+        mssql.is_reachable = lambda: False
+        r = self.client.get(self.url, headers=_hdr(self.kunci))
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()['jumlah'], 6)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Angka API harus sama dengan angka layar OPSIS
+# ═══════════════════════════════════════════════════════════════════════════
+class TrafoSatuSumberTest(TestCase):
+    """
+    Halaman OPSIS dan API eksternal wajib memakai opsis/trafo.py yang sama.
+    Kalau perhitungannya disalin, layar ruang kontrol dan spreadsheet pihak
+    luar bisa menyebut angka berbeda untuk trafo yang sama — dan tidak ada
+    yang tahu mana yang benar.
+    """
+
+    def setUp(self):
+        opsis_cache._cache.clear()
+        self.addCleanup(opsis_cache._cache.clear)
+
+        Trafo.objects.create(site='GI SUNGGUMINASA', bay='TRF52-1')
+        Trafo.objects.create(site='GI SUNGGUMINASA', bay='TRF52-2')
+
+        asli_d     = mssql.get_beban_trafo
+        asli_reach = mssql.is_reachable
+        self.addCleanup(lambda: setattr(mssql, 'get_beban_trafo', asli_d))
+        self.addCleanup(lambda: setattr(mssql, 'is_reachable', asli_reach))
+        mssql.is_reachable = lambda: True
+        mssql.get_beban_trafo = lambda: [
+            {'site': 'GI SUNGGUMINASA', 'bay': 'TRF52-1', 'p': 20.0, 'q': 3.0, 'v': 20.1, 'i': 600.0},
+            {'site': 'GI SUNGGUMINASA', 'bay': 'TRF52-2', 'p': -5.0, 'q': 1.0, 'v': 20.0, 'i': 150.0},
+        ]
+
+    def test_total_api_sama_dengan_total_halaman_opsis(self):
+        from django.contrib.auth.models import User
+
+        kunci = _kunci('UP2D', 'beban_trafo')
+        luar = self.client.get(reverse('api:opsis_beban_trafo'),
+                               headers=_hdr(kunci)).json()
+
+        # force_login, bukan login() — AxesBackend menolak authenticate()
+        # tanpa request. ForcePasswordChangeMiddleware juga harus dilucuti,
+        # kalau tidak user baru dialihkan ke /ganti-password/ dan yang terbaca
+        # halaman HTML, bukan JSON. Pola yang sama dengan tes di opsis/tests.py.
+        user = User.objects.create_superuser('admin-trafo', 'a@b.c', 'rahasia-tes-123')
+        profil = getattr(user, 'profile', None)
+        if profil is not None:
+            profil.force_password_change = False
+            profil.save(update_fields=['force_password_change'])
+        self.client.force_login(user)
+        opsis_cache._cache.clear()
+        dalam = self.client.get(reverse('opsis_api_beban_trafo')).json()
+
+        self.assertEqual(luar['total_mw'], dalam['total_mw'])
+        self.assertEqual(luar['gi'][0]['total_mw'],
+                         dalam['site_totals']['GI SUNGGUMINASA'])

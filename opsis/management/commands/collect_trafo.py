@@ -19,7 +19,9 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 from opsis.models import Trafo, SnapTrafo
 from opsis import mssql
-from opsis.views import _trafo_aktif_saja
+# Filter trafo aktif diimpor dari opsis/trafo.py, BUKAN dari opsis.views:
+# cron tidak perlu menarik seluruh modul views beserta dependensinya.
+from opsis.trafo import aktif_saja as _trafo_aktif_saja
 
 logger = logging.getLogger(__name__)
 

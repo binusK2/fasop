@@ -1849,6 +1849,8 @@ Yang perlu diketahui saat mengubahnya:
 | `GET /api/v1/opsis/beban-ktt/` | `beban_ktt` | `opsis.ktt.baca_beban_ktt()` |
 | `GET /api/v1/opsis/beban-pembangkit/` | `beban_pembangkit` | `opsis.beban_kit.baca_live()` (MSSQL) |
 | `GET /api/v1/opsis/beban-pembangkit/riwayat/` | `beban_pembangkit` | `opsis.beban_kit.riwayat()` (`SnapLive`) |
+| `GET /api/v1/opsis/beban-trafo/` | `beban_trafo` | `opsis.trafo.baca_live()` (MSSQL) |
+| `GET /api/v1/opsis/beban-trafo/riwayat/` | `beban_trafo` | `opsis.trafo.riwayat()` (`SnapTrafo`) |
 | `GET /api/v1/opsis/frekuensi/` | `frekuensi` | `opsis.freq_history.ambil_range_detail()` |
 | `GET /api/v1/logsheet/pembebanan/` | `logsheet` | `logsheet.LogsheetNilai` |
 
@@ -1864,6 +1866,12 @@ Yang perlu diketahui saat menambah endpoint baca berikutnya:
   `select_related('sumber')` + `prefetch_related('tag_unit')` yang menjaganya
   tetap satu query) sekarang tinggal di sana, dan `opsis/views.py` hanya
   menunjuknya lewat alias supaya ~20 call site-nya tidak perlu diubah.
+  `opsis/trafo.py` lahir dari alasan yang sama, dan menutup dua cacat sekaligus:
+  cron `collect_trafo` dulu mengimpor `_trafo_aktif_saja` **dari `opsis.views`**
+  (satu command menarik seluruh modul views hanya untuk sebuah fungsi filter),
+  dan payload chart distribusi vs IBT hidup sebagai dua fungsi yang isinya sama
+  persis kecuali awalan BAY-nya. Sekarang keduanya satu fungsi ber-parameter
+  `jenis`.
 - **Frekuensi WAJIB lewat `opsis/freq_history.py`**, jangan
   `mssql.get_freq_range()` langsung — kalau tidak, API luar akan kehilangan
   penggabungan tiga sumber yang justru menutupi mode kegagalan paling mahal
@@ -1871,7 +1879,7 @@ Yang perlu diketahui saat menambah endpoint baca berikutnya:
   ikut dikirim supaya konsumen tahu bagian mana yang ditambal, bukan cuma
   menerima garis yang terlihat mulus.
 - **Cache-nya dipakai bersama** (`opsis/cache.py`, kunci `beban_ktt` /
-  `beban_kit_live`, TTL 2 detik). Penarik dari luar karena itu tidak menambah
+  `beban_kit_live` / `beban_trafo_distribusi` / `beban_trafo_ibt`, TTL 2 detik). Penarik dari luar karena itu tidak menambah
   satu pun query ke MSSQL selama halamannya juga sedang terbuka.
   `opsis/cache.py` adalah `_hz_cached` lama yang dipindah keluar dari views
   supaya modul non-view bisa memakainya.
@@ -1882,13 +1890,23 @@ Yang perlu diketahui saat menambah endpoint baca berikutnya:
   RENTANG** (frekuensi, riwayat beban): di sana kosong dibalas `200` dengan
   deret kosong, karena "tidak ada data pada jam itu" adalah jawaban yang sah —
   berbeda dari endpoint terkini yang kekosongannya selalu berarti rusak.
+- **Beban trafo: nilai per trafo bertanda, totalnya magnitudo.** `p` minus
+  bermakna — arah aliran daya lewat IBT dua arah — jadi nilai per trafo dikirim
+  apa adanya. `total_mw`/`site_totals` sebaliknya menjumlahkan `abs(p)`,
+  menyamai kartu total di layar: dijumlahkan bertanda, dua trafo berlawanan arah
+  saling meniadakan dan GI yang sibuk terlihat nyaris kosong (dijaga tes).
+  `SnapTrafo` hanya menyimpan P, jadi Q/V/I cuma ada di endpoint terkini.
+- **`?jenis=` yang tidak dikenal DITOLAK, bukan jatuh ke bawaan.** Distribusi
+  dan IBT dibedakan hanya oleh awalan BAY dan dilayani endpoint yang sama;
+  konsumen yang salah ketik `?jenis=IBT2` akan menerima angka distribusi dan
+  menyalinnya sebagai angka IBT tanpa pernah tahu.
 - **Riwayat memakai `waktu__gte`/`waktu__lt`, bukan lookup `__date`.** `__date`
   membungkus kolom dalam cast sehingga indeks `(pembangkit, -waktu)` tidak
   terpakai — alasan yang sama dengan ekspor beban pembangkit (18,9 → 5,6 detik).
   Konsekuensinya batas atas eksklusif; ada tesnya supaya tidak diam-diam berubah
   jadi inklusif saat filternya disentuh.
 - **Tiap endpoint rentang punya batas lebar** (`MAKS_JAM_FREKUENSI` 6 jam,
-  `beban_kit.MAKS_HARI_RIWAYAT` 3 hari). Satu permintaan tidak boleh menahan satu
+  `beban_kit.MAKS_HARI_RIWAYAT` dan `trafo.MAKS_HARI_RIWAYAT` 3 hari). Satu permintaan tidak boleh menahan satu
   worker gunicorn sampai timeout — alasan yang sama dengan
   `EXPORT_KIT_MAKS_HARI`.
 - **Endpoint luar tidak mengirim rincian internal.** Logsheet luar sengaja tidak
