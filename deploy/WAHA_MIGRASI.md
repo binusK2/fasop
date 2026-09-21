@@ -242,6 +242,45 @@ Host Zabbix.
 
 ---
 
+### Kalau `docker-compose` v1 crash saat recreate
+
+Gejalanya traceback Python yang berakhir dengan:
+
+```
+KeyError: 'ContainerConfig'
+  /usr/lib/python3/dist-packages/compose/service.py
+```
+
+Ini bukan salah konfigurasi WAHA. `docker-compose` **v1** (berbasis
+Python, EOL sejak Juli 2023) membaca field `ContainerConfig` yang sudah
+dihapus Docker Engine 25+. Yang kena hanya jalur *recreate* — karena itu
+`docker-compose config`, `exec`, dan `logs` tetap jalan normal, sehingga
+mudah disangka masalahnya di tempat lain.
+
+Dengan compose v1, **jangan pakai `up -d --force-recreate`**. Hapus
+container-nya lebih dulu supaya compose membuat yang baru dari nol, bukan
+memigrasikan yang lama:
+
+```bash
+docker-compose stop
+docker-compose rm -f
+docker-compose up -d
+```
+
+Isi `./.sessions` ada di host (bind mount), jadi sesi WhatsApp tidak ikut
+terhapus.
+
+Perbaikan sebenarnya adalah pindah ke Compose v2 (`docker compose`, pakai
+spasi), yang di server FASOP-2 belum terpasang. Sempat gagal dipasang
+karena repo Docker-nya salah ketik — `download.download.docker.com`,
+nama host-nya dobel:
+
+```bash
+grep -rn "download.docker.com" /etc/apt/sources.list /etc/apt/sources.list.d/
+sudo sed -i 's|download\.download\.docker\.com|download.docker.com|g' /etc/apt/sources.list.d/docker.list
+sudo apt update && sudo apt install -y docker-compose-plugin
+```
+
 ### Kalau dapat `401 Unauthorized`
 
 401 berarti **server WAHA hidup dan terjangkau** — kalau tidak, hasilnya
