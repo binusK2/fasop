@@ -19,7 +19,7 @@ from .models import (Pembangkit, SnapLive, SnapFreq, SnapFreqRT, Trafo, SnapTraf
                      KartuPadam)
 from auditlog.models import AuditLog
 from auditlog.utils import log_action
-from . import mssql
+from . import beban_kit, mssql
 from . import prediksi
 from . import ktt
 from . import inersia as inersia_calc
@@ -41,13 +41,11 @@ def _hz_cached(key, producer):
     return nilai_cached(key, producer)
 
 
-def _pembangkit_aktif():
-    # select_related('sumber'): tiap pembangkit boleh menunjuk tabel sumbernya
-    # sendiri. prefetch tag_unit: dipakai get_live_data() saat sumbernya memakai
-    # mode 'baris'. Tanpa keduanya setiap pembangkit memicu query sendiri di
-    # jalur yang dipoll browser tiap detik.
-    return list(Pembangkit.objects.filter(aktif=True)
-                .select_related('sumber').prefetch_related('tag_unit'))
+# Pindah ke opsis/beban_kit.py supaya API eksternal memakai daftar dan aturan
+# queryset yang sama persis dengan layar OPSIS, tanpa mengimpor modul views.
+# Nama lamanya dipertahankan: dipakai ~20 view di berkas ini dan oleh
+# logsheet/views.py.
+_pembangkit_aktif = beban_kit.pembangkit_aktif
 
 
 def _trafo_aktif_saja(rows):

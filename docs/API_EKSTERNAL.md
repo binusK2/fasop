@@ -24,14 +24,32 @@ kunci per konsumen. Perlakukan seperti password:
   kunci lama langsung berhenti berlaku, konsumen lain tidak terganggu.
 - Kunci ini **hanya bisa membaca**. Ia tidak bisa mengubah apa pun di FASOP.
 
+### Izin per jenis data
+
+Satu kunci **tidak otomatis membuka semua data**. Tiap kunci diberi izin per
+jenis data (Beban KTT, Beban pembangkit, Frekuensi sistem, Logsheet
+pembebanan), dan admin FASOP juga bisa menutup satu jenis data sekaligus untuk
+semua konsumen. Jadi data yang belum Anda minta akan dibalas `403`, dan
+penambahan data baru di FASOP tidak diam-diam ikut terkirim ke Anda.
+
+Kalau butuh jenis data tambahan, mintakan izinnya — kuncinya tidak perlu
+diganti.
+
 Balasan penolakan:
 
-| Kode | Arti |
-|---|---|
-| `401` | Header `X-API-Key` tidak dikirim |
-| `403` | Kunci tidak dikenal atau sudah dicabut |
-| `405` | Metode selain `GET` |
-| `503` | Data sedang tidak tersedia (historian SCADA tidak terjangkau) |
+| Kode | Arti | Tindakan |
+|---|---|---|
+| `401` | Header `X-API-Key` tidak dikirim | periksa cara mengirim header |
+| `403` | Kunci tidak dikenal atau sudah dicabut | minta kunci baru ke admin FASOP |
+| `403` | Kunci ini tidak diizinkan membaca data tsb. | minta izinnya ditambahkan |
+| `403` | Data sedang ditutup untuk akses luar | tanyakan ke tim FASOP |
+| `404` | Penyaring tidak cocok dengan apa pun (mis. kode pembangkit salah) | perbaiki parameternya |
+| `400` | Parameter salah format atau rentang terlalu lebar | lihat pesannya |
+| `405` | Metode selain `GET` | |
+| `503` | Data sedang tidak tersedia (historian SCADA tidak terjangkau) | lewati putaran ini |
+
+Ketiga `403` di atas membawa pesan yang berbeda di field `message` — bacalah
+pesannya, itu yang membedakan "kunci saya salah" dari "izin saya kurang".
 
 ---
 
@@ -85,7 +103,157 @@ supaya angka nol palsu tidak masuk ke laporan Anda. Kalau aplikasi Anda mengisi
 
 ---
 
-## 3. Seberapa sering boleh ditarik
+## 3. `GET /api/v1/opsis/beban-pembangkit/`
+
+MW/MVAR terkini tiap pembangkit aktif, beserta rincian per unit.
+
+Parameter: `?unit=0` menghilangkan rincian unit (balasan jauh lebih kecil bila
+yang dibutuhkan hanya total per pembangkit).
+
+```json
+{
+  "status": "ok",
+  "waktu": "2026-09-21T14:32:10+08:00",
+  "satuan": { "mw": "MW", "mvar": "MVAR", "frekuensi": "Hz" },
+  "frekuensi_sistem": 50.01,
+  "total_mw": 1284.6,
+  "jumlah": 23,
+  "pembangkit": [
+    {
+      "kode": "BAKARU", "nama": "PLTA Bakaru", "jenis": "PLTA",
+      "mw": 61.2, "mvar": 12.5,
+      "diragukan": false, "keterangan": "",
+      "unit": [ { "nama": "UNIT1", "mw": 30.6, "mvar": 6.25 } ]
+    }
+  ]
+}
+```
+
+| Field | Arti |
+|---|---|
+| `kode` | **pakai ini sebagai kunci**, bukan `nama` |
+| `mw` / `mvar` | total semua unit; `null` bila titiknya tidak terbaca |
+| `diragukan` | operator OPSIS menandai angka pembangkit ini tidak sesuai kenyataan |
+| `keterangan` | alasan penandaan itu |
+
+⚠️ **`diragukan: true` berarti jangan dipakai untuk laporan tanpa dicek.**
+Ruang kontrol FASOP sendiri sedang meragukan angka itu. Ia tetap dikirim
+supaya Anda bisa memutuskan, bukan supaya diabaikan.
+
+Historian mati → `503`, bukan daftar berisi nol.
+
+---
+
+## 4. `GET /api/v1/opsis/beban-pembangkit/riwayat/`
+
+Riwayat MW/MVAR **per menit** dari snapshot PostgreSQL FASOP.
+
+| Parameter | Bawaan | Catatan |
+|---|---|---|
+| `dari`, `sampai` | 60 menit terakhir | waktu ISO, mis. `2026-09-21T08:00` |
+| `kode` | semua pembangkit aktif | dipisah koma, mis. `BAKARU,BARRU` |
+
+Rentang maksimum **3 hari** sekali permintaan.
+
+```json
+{
+  "status": "ok",
+  "dari": "2026-09-21T13:32:10+08:00",
+  "sampai": "2026-09-21T14:32:10+08:00",
+  "sumber": "opsis.SnapLive (snapshot PostgreSQL, 1 titik per menit)",
+  "jumlah": 1380,
+  "pembangkit": [
+    {
+      "kode": "BAKARU", "nama": "PLTA Bakaru", "jenis": "PLTA", "jumlah": 60,
+      "deret": [ { "waktu": "2026-09-21T13:33:00+08:00", "mw": 61.2, "mvar": 12.5, "hz": 50.01 } ]
+    }
+  ]
+}
+```
+
+Endpoint ini **tetap menjawab saat historian SCADA mati** — sumbernya
+PostgreSQL. Imbalannya, nilai paling baru bisa tertinggal sampai satu menit;
+yang butuh angka detik ini memakai endpoint terkini di atas.
+
+---
+
+## 5. `GET /api/v1/opsis/frekuensi/`
+
+Riwayat frekuensi sistem **per detik**.
+
+| Parameter | Bawaan | Catatan |
+|---|---|---|
+| `dari`, `sampai` | 60 menit terakhir | waktu ISO |
+
+Rentang maksimum **6 jam** sekali permintaan (1 baris/detik → 6 jam ≈ 21.600
+titik).
+
+```json
+{
+  "status": "ok",
+  "satuan": "Hz",
+  "sumber": "gabungan",
+  "sumber_teks": "Historian SCADA (SYS_FREQ_HIS): 3100 detik + Rekaman FASOP (SnapFreqRT, dari SYS_FREQ_RT): 500 detik",
+  "sumber_rincian": { "historian": 3100, "snapfreq": 0, "postgres": 500 },
+  "jumlah": 3600,
+  "deret": [ { "waktu": "2026-09-21T13:33:00+08:00", "hz": 50.01 } ]
+}
+```
+
+`sumber_rincian` menyebut berapa detik diambil dari masing-masing sumber.
+FASOP menggabungkan tiga sumber supaya deretnya tetap terisi saat job penulis
+historian SCADA berhenti — pernah terjadi selama ±42 jam. Kalau Anda memakai
+deret ini untuk analisis, angka itu memberi tahu bagian mana yang ditambal.
+
+Rentang yang memang sepi dibalas `200` dengan `deret: []`, **bukan** `503` —
+"tidak ada data pada jam itu" adalah jawaban yang sah.
+
+---
+
+## 6. `GET /api/v1/logsheet/pembebanan/`
+
+Nilai logsheet pembebanan per **slot 30 menit** untuk satu tanggal: pembangkit,
+penghantar, busbar, dan trafo/IBT.
+
+| Parameter | Bawaan | Pilihan |
+|---|---|---|
+| `tanggal` | hari ini | `YYYY-MM-DD` |
+| `kategori` | semua | `kit`, `transmisi`, `busbar`, `trafo` |
+| `besaran` | semua | `mw`, `mvar`, `amp`, `volt` |
+| `slot` | semua slot terisi | `0`..`47`, atau `latest` |
+
+Slot `0` = 00:30, `47` = 24:00.
+
+```json
+{
+  "status": "ok",
+  "tanggal": "2026-09-21",
+  "slot": null,
+  "jumlah_titik": 214,
+  "jumlah_nilai": 8902,
+  "titik": [
+    {
+      "key": "BAKARU-1:mw", "nama": "BAKARU U1",
+      "kategori": "kit", "besaran": "mw", "satuan": "MW",
+      "jumlah": 44,
+      "nilai": [ { "slot": 0, "waktu": "00:30", "nilai": 30.5 } ]
+    }
+  ]
+}
+```
+
+| Field | Arti |
+|---|---|
+| `key` | **identitas titik — pakai ini sebagai kunci**, nama bisa berubah |
+| `jumlah` | banyaknya slot yang sudah terisi pada titik itu |
+
+Titik yang belum ada nilainya tetap muncul dengan `nilai: []` — laporan ini
+gunanya menunjukkan **cakupan**, bukan hanya yang terisi. Retensi datanya
+bergulir sekitar satu bulan, jadi ambil arsipnya sebelum itu bila diperlukan.
+
+---
+
+## 7. Seberapa sering boleh ditarik
 
 Angkanya diperbarui di sisi FASOP setiap beberapa detik. **Tarik paling cepat
 sekali per menit** — lebih sering dari itu tidak menambah informasi, hanya
@@ -95,7 +263,7 @@ Kalau butuh yang lebih cepat dari itu, bicarakan dulu dengan tim FASOP.
 
 ---
 
-## 4. Contoh — Google Apps Script
+## 8. Contoh — Google Apps Script
 
 ```javascript
 const FASOP_URL = 'https://<domain-fasop>/api/v1/opsis/beban-ktt/';
@@ -142,7 +310,7 @@ sebaiknya dihentikan setelah beralih ke kunci API:
 
 ---
 
-## 5. Kalau ada masalah
+## 9. Kalau ada masalah
 
 Sebutkan ke tim FASOP: **nama konsumen di kunci Anda**, jam kejadian, dan kode
 HTTP yang diterima. Pemakaian tiap kunci (kapan terakhir dipakai, dari IP mana)

@@ -293,33 +293,158 @@ class DeviceLinkAdmin(admin.ModelAdmin):
 # ═══════════════════════════════════════════════════════════════════════════
 #  Kunci API eksternal
 # ═══════════════════════════════════════════════════════════════════════════
-from .models import KunciApi
+from django.utils.html import format_html, format_html_join  # noqa: E402
+from django.utils.safestring import mark_safe  # noqa: E402
+
+from .models import DatasetApi, KunciApi
+
+
+@admin.register(DatasetApi)
+class DatasetApiAdmin(admin.ModelAdmin):
+    """
+    "Data apa yang boleh keluar dari FASOP" — satu baris per jenis data.
+
+    Barisnya tidak bisa ditambah/dihapus dari sini: yang menyajikan angkanya
+    adalah sebuah view, jadi kode yang diketik manual hanya melahirkan izin
+    yang tidak menjaga apa pun. Daftarnya disamakan dengan api/registry.py tiap
+    kali halaman ini dibuka, sehingga data yang baru ditambahkan di kode
+    langsung terlihat — dalam keadaan TERTUTUP, menunggu diputuskan.
+    """
+    list_display    = ['nama_data', 'kode', 'aktif', 'jumlah_kunci', 'diubah_pada']
+    list_filter     = ['aktif']
+    search_fields   = ['kode', 'keterangan']
+    list_editable   = ['aktif']
+    readonly_fields = ['kode', 'rincian', 'daftar_kunci', 'diubah_pada']
+    actions         = ['buka', 'tutup']
+    fieldsets = [
+        (None, {
+            'fields': ['kode', 'rincian', 'aktif', 'keterangan'],
+            'description': (
+                'Sakelar ini berlaku untuk <b>semua</b> konsumen sekaligus. '
+                'Siapa yang boleh membaca ditentukan terpisah di '
+                '<b>Kunci API</b> → kolom "Data yang Boleh Dibaca" — sebuah data '
+                'baru benar-benar keluar bila dibuka di sini <b>dan</b> '
+                'dicentang pada kunci yang bersangkutan.'
+            ),
+        }),
+        ('Dipakai kunci', {'fields': ['daftar_kunci', 'diubah_pada']}),
+    ]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def changelist_view(self, request, extra_context=None):
+        # Sinkronisasi di sini, bukan di get_queryset(): get_queryset() dipanggil
+        # juga oleh widget M2M di halaman Kunci API dan oleh aksi massal, jadi
+        # menaruhnya di sana berarti menulis ke DB pada jalur yang tidak
+        # mengharapkannya.
+        baru = DatasetApi.sinkron()
+        if baru:
+            self.message_user(
+                request,
+                f'{baru} jenis data baru terdaftar dari kode dan ditambahkan di sini '
+                f'dalam keadaan TERTUTUP. Buka hanya yang memang disetujui keluar.'
+            )
+        return super().changelist_view(request, extra_context)
+
+    @admin.display(description='Data', ordering='kode')
+    def nama_data(self, obj):
+        return obj.nama
+
+    @admin.display(description='Dipakai kunci')
+    def jumlah_kunci(self, obj):
+        return obj.kunci.count()
+
+    @admin.display(description='Rincian')
+    def rincian(self, obj):
+        if not obj.terdaftar:
+            return format_html(
+                '<b style="color:#b91c1c">Kode ini sudah tidak ada di api/registry.py.</b><br>'
+                'Tidak ada endpoint yang memakainya — izin yang tertinggal di sini '
+                'tidak membuka apa pun, dan barisnya boleh diabaikan.'
+            )
+        daftar = format_html_join('', '<li><code>{}</code></li>',
+                                  ((e,) for e in obj.endpoint))
+        return format_html(
+            '{}<br><br><b>Sumber angka:</b> {}<br><b>Endpoint:</b><ul>{}</ul>',
+            obj.penjelasan, obj.sumber, daftar
+        )
+
+    @admin.display(description='Kunci yang diberi izin')
+    def daftar_kunci(self, obj):
+        nama = list(obj.kunci.values_list('nama', flat=True))
+        return ', '.join(nama) if nama else '— belum ada —'
+
+    @admin.action(description='Buka (boleh dikeluarkan)')
+    def buka(self, request, queryset):
+        n = queryset.update(aktif=True)
+        self.message_user(
+            request,
+            f'{n} jenis data dibuka. Konsumen tetap harus dicentang satu per satu '
+            f'di Kunci API — membuka di sini saja belum mengirimkan apa pun.'
+        )
+
+    @admin.action(description='Tutup (hentikan untuk semua konsumen)')
+    def tutup(self, request, queryset):
+        n = queryset.update(aktif=False)
+        self.message_user(request, f'{n} jenis data ditutup untuk semua konsumen, seketika.')
 
 
 @admin.register(KunciApi)
 class KunciApiAdmin(admin.ModelAdmin):
-    list_display  = ['nama', 'kunci_tersamar', 'aktif', 'terakhir_dipakai',
+    list_display  = ['nama', 'kunci_tersamar', 'aktif', 'izin_data', 'terakhir_dipakai',
                      'terakhir_ip', 'created_at']
-    list_filter   = ['aktif']
+    list_filter   = ['aktif', 'dataset']
     search_fields = ['nama', 'keterangan']
+    filter_horizontal = ['dataset']
     readonly_fields = ['created_at', 'terakhir_dipakai', 'terakhir_ip', 'dibuat_oleh']
-    actions = ['buat_ulang_kunci', 'nonaktifkan']
+    actions = ['buat_ulang_kunci', 'nonaktifkan', 'cabut_semua_izin']
     fieldsets = [
         (None, {
             'fields': ['nama', 'kunci', 'aktif', 'keterangan'],
             'description': (
-                'Kunci ini hanya membuka endpoint BACA <code>/api/v1/opsis/…</code>. '
-                'Ia BUKAN <code>API_KEY</code> di .env — kunci itu ikut membuka endpoint '
-                'tulis dan tidak boleh dibagikan ke pihak luar. '
+                'Kunci ini hanya membuka endpoint BACA <code>/api/v1/</code> yang '
+                'dicentang di bawah. Ia BUKAN <code>API_KEY</code> di .env — kunci itu '
+                'ikut membuka endpoint tulis dan tidak boleh dibagikan ke pihak luar. '
                 'Kosongkan kolom Kunci saat menambah untuk membuat kunci acak.'
+            ),
+        }),
+        ('Data yang boleh dibaca', {
+            'fields': ['dataset'],
+            'description': (
+                'Centang hanya yang memang diminta konsumen ini. Data yang tidak '
+                'dicentang dibalas <code>403</code> dengan pesan yang menyebut '
+                'izinnya kurang. Data juga harus dalam keadaan dibuka di '
+                '<b>Data API Eksternal</b>; menutupnya di sana menghentikan semua '
+                'konsumen sekaligus tanpa mengubah centang di sini.'
             ),
         }),
         ('Jejak', {'fields': ['dibuat_oleh', 'created_at', 'terakhir_dipakai', 'terakhir_ip']}),
     ]
 
+    def get_queryset(self, request):
+        return super().get_queryset(request).prefetch_related('dataset')
+
     @admin.display(description='Kunci')
     def kunci_tersamar(self, obj):
         return obj.kunci_tersamar
+
+    @admin.display(description='Data yang boleh dibaca')
+    def izin_data(self, obj):
+        daftar = obj.dataset.all()
+        if not daftar:
+            # Kunci tanpa izin bukan kesalahan — begitulah kunci baru lahir —
+            # tapi ia juga tidak bisa membaca apa pun, dan itu harus terbaca
+            # dari daftar supaya tidak dikira integrasinya yang rusak.
+            return format_html('<span style="color:{}">{}</span>',
+                               '#b45309', '— belum diberi izin —')
+        return format_html_join(
+            mark_safe('<br>'), '{}{}',
+            ((d.nama, '' if d.aktif else ' (ditutup)') for d in daftar)
+        )
 
     def save_model(self, request, obj, form, change):
         # Kolom Kunci boleh dikosongkan (model.save() mengisinya sendiri). Catat
@@ -352,6 +477,18 @@ class KunciApiAdmin(admin.ModelAdmin):
     def nonaktifkan(self, request, queryset):
         n = queryset.update(aktif=False)
         self.message_user(request, f'{n} kunci dinonaktifkan.')
+
+    @admin.action(description='Cabut semua izin data (kunci tetap aktif)')
+    def cabut_semua_izin(self, request, queryset):
+        for obj in queryset:
+            obj.dataset.clear()
+        self.message_user(
+            request,
+            f'Izin data pada {queryset.count()} kunci dikosongkan. Kuncinya masih '
+            f'berlaku tapi sekarang tidak bisa membaca apa pun — pakai ini bila '
+            f'aksesnya perlu disusun ulang dari awal.'
+        )
+
 
 @admin.register(AsesmenOptik)
 class AsesmenOptikAdmin(admin.ModelAdmin):

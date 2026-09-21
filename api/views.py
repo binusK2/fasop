@@ -648,18 +648,118 @@ def prakiraan_beban_endpoint(request):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  OPSIS — Beban KTT untuk konsumen luar (UP2D dsb.)
+#  Endpoint BACA untuk konsumen luar — dikunci devices.KunciApi + DatasetApi
 #
-#  Endpoint BACA, dikunci `devices.KunciApi` (bukan settings.API_KEY — lihat
-#  api/auth.py). Angkanya diambil lewat opsis.ktt.baca_beban_ktt(), sumber yang
-#  sama persis dengan halaman /opsis/beban-ktt/ dan cache singkat yang sama,
-#  jadi penarik dari luar tidak menambah query ke MSSQL selama halamannya juga
-#  terbuka — dan tidak mungkin menyebut nama konsumen berbeda dari layar FASOP.
+#  Aturan yang berlaku untuk SEMUA endpoint di blok ini:
+#
+#  1. Angkanya wajib lewat modul bersama (opsis/ktt.py, opsis/beban_kit.py,
+#     opsis/freq_history.py), tidak pernah disalin ke sini. Kalau disalin,
+#     layar ruang kontrol dan spreadsheet pihak luar bisa menyebut angka
+#     berbeda untuk hal yang sama.
+#  2. "Tidak tahu" tidak pernah dikirim sebagai nol. Historian mati dibalas
+#     503; nol yang terlanjur tercatat di spreadsheet konsumen tidak akan
+#     pernah diperbaiki.
+#  3. Rentang waktu selalu dibatasi. Satu permintaan tidak boleh menahan satu
+#     worker gunicorn sampai timeout.
 # ═══════════════════════════════════════════════════════════════════════════
+MAKS_JAM_FREKUENSI = 6          # 1 baris/detik → 6 jam ≈ 21.600 titik
+
+SATUAN_BESARAN = {'mw': 'MW', 'mvar': 'MVAR', 'amp': 'A', 'volt': 'kV'}
+
+
+def _galat(pesan, status=400, **extra):
+    return JsonResponse(dict({'status': 'error', 'message': pesan}, **extra), status=status)
+
+
+def _jam_slot(i):
+    """Label jam sebuah slot logsheet: 0 -> '00:30', 47 -> '24:00'."""
+    if i is None:
+        return None
+    menit = (i + 1) * 30
+    return '24:00' if menit == 1440 else f'{menit // 60:02d}:{menit % 60:02d}'
+
+
+def _tanggal(request, nama='tanggal'):
+    """Tanggal dari query string. Kosong = hari ini. Salah format = None."""
+    import datetime
+    from django.utils import timezone
+    mentah = (request.GET.get(nama) or '').strip()
+    if not mentah:
+        return timezone.localdate()
+    try:
+        return datetime.date.fromisoformat(mentah)
+    except ValueError:
+        return None
+
+
+def _waktu(request, nama):
+    """
+    Datetime aware dari query string ISO ('2026-09-21T08:00' atau dengan offset).
+
+    Return (nilai, galat). Nilai None tanpa galat berarti parameternya memang
+    tidak dikirim — pemanggil yang menentukan bawaannya.
+    """
+    import datetime
+    from django.utils import timezone
+    mentah = (request.GET.get(nama) or '').strip()
+    if not mentah:
+        return None, None
+    try:
+        t = datetime.datetime.fromisoformat(mentah)
+    except ValueError:
+        return None, f'Parameter "{nama}" harus waktu ISO, mis. 2026-09-21T08:00.'
+    if timezone.is_naive(t):
+        t = timezone.make_aware(t)
+    return t, None
+
+
+def _rentang(request, bawaan_menit, maks_menit):
+    """
+    Rentang (t0, t1) aware dari ?dari=&sampai=, dengan batas atas lebarnya.
+
+    Return (t0, t1, galat). `sampai` kosong = sekarang; `dari` kosong =
+    `sampai` dikurangi `bawaan_menit`.
+    """
+    import datetime
+    from django.utils import timezone
+
+    t1, galat = _waktu(request, 'sampai')
+    if galat:
+        return None, None, galat
+    t0, galat = _waktu(request, 'dari')
+    if galat:
+        return None, None, galat
+
+    if t1 is None:
+        t1 = timezone.localtime()
+    if t0 is None:
+        t0 = t1 - datetime.timedelta(minutes=bawaan_menit)
+    if t0 >= t1:
+        return None, None, 'Parameter "dari" harus lebih awal dari "sampai".'
+
+    lebar_jam = (t1 - t0).total_seconds() / 3600
+    if lebar_jam * 60 > maks_menit:
+        return None, None, (
+            f'Rentang terlalu lebar ({lebar_jam:.1f} jam). '
+            f'Maksimum {maks_menit / 60:.0f} jam sekali permintaan — '
+            f'ambil bertahap bila butuh lebih panjang.'
+        )
+    return t0, t1, None
+
+
+# ── Beban KTT ───────────────────────────────────────────────────────────────
 @csrf_exempt
-@require_kunci_baca
+@require_kunci_baca('beban_ktt')
 @require_http_methods(["GET"])
 def opsis_beban_ktt_endpoint(request):
+    """
+    Beban konsumen tegangan tinggi terkini.
+
+    Angkanya lewat opsis.ktt.baca_beban_ktt() — sumber dan cache yang sama
+    persis dengan halaman /opsis/beban-ktt/, jadi penarik dari luar tidak
+    menambah query ke MSSQL selama halamannya juga terbuka, dan tidak mungkin
+    menyebut nama konsumen berbeda dari layar FASOP.
+    """
     from django.utils import timezone
     from opsis import ktt
 
@@ -679,6 +779,7 @@ def opsis_beban_ktt_endpoint(request):
 
     return JsonResponse({
         'status':   'ok',
+        'dataset':  'beban_ktt',
         'waktu':    timezone.localtime().isoformat(),
         'sumber':   'OPSIS — IND_LOAD (historian SCADA)',
         'satuan':   'MW',
@@ -693,4 +794,268 @@ def opsis_beban_ktt_endpoint(request):
             }
             for r in rows
         ],
+    })
+
+
+# ── Beban pembangkit — terkini ──────────────────────────────────────────────
+@csrf_exempt
+@require_kunci_baca('beban_pembangkit')
+@require_http_methods(["GET"])
+def opsis_beban_pembangkit_endpoint(request):
+    """
+    MW/MVAR terkini tiap pembangkit aktif, beserta rincian per unit.
+
+    ?unit=0  — hilangkan rincian unit (balasan jauh lebih kecil bila yang
+               dibutuhkan hanya total per pembangkit).
+    """
+    from django.utils import timezone
+    from opsis import beban_kit
+
+    data = beban_kit.baca_live()
+    rows = data['rows']
+
+    # Aturan yang sama dengan beban KTT: historian mati dibalas 503, bukan
+    # daftar berisi null yang di sisi konsumen gampang jatuh jadi nol.
+    if data['terputus'] or not rows:
+        return _galat(
+            'Data beban pembangkit sedang tidak tersedia '
+            '(historian SCADA tidak terjangkau).',
+            status=503, dataset='beban_pembangkit', terputus=True,
+        )
+
+    sertakan_unit = request.GET.get('unit') != '0'
+
+    pembangkit = []
+    for r in rows:
+        item = {
+            'kode':       r['kode'],
+            'nama':       r['nama'],
+            'jenis':      r['jenis'],
+            'mw':         r['mw'],
+            'mvar':       r['mvar'],
+            'diragukan':  r['diragukan'],
+            'keterangan': r['keterangan'],
+        }
+        if sertakan_unit:
+            item['unit'] = [
+                {'nama': u.get('nama'), 'mw': u.get('mw'), 'mvar': u.get('mvar')}
+                for u in r['units']
+            ]
+        pembangkit.append(item)
+
+    return JsonResponse({
+        'status':           'ok',
+        'dataset':          'beban_pembangkit',
+        'waktu':            timezone.localtime().isoformat(),
+        'sumber':           'OPSIS — sumber KIT realtime (historian SCADA)',
+        'satuan':           {'mw': 'MW', 'mvar': 'MVAR', 'frekuensi': 'Hz'},
+        'terputus':         False,
+        'frekuensi_sistem': data['frekuensi_sistem'],
+        'total_mw':         data['total_mw'],
+        'jumlah':           data['jumlah'],
+        'pembangkit':       pembangkit,
+    })
+
+
+# ── Beban pembangkit — riwayat ──────────────────────────────────────────────
+@csrf_exempt
+@require_kunci_baca('beban_pembangkit')
+@require_http_methods(["GET"])
+def opsis_beban_pembangkit_riwayat_endpoint(request):
+    """
+    Riwayat MW/MVAR per menit dari snapshot PostgreSQL (opsis.SnapLive).
+
+    ?dari=&sampai=  waktu ISO (bawaan: 60 menit terakhir)
+    ?kode=          daftar kode pembangkit dipisah koma (bawaan: semua aktif)
+
+    Sumbernya PostgreSQL, bukan MSSQL — jadi endpoint ini tetap menjawab saat
+    historian tak terjangkau, dan menariknya tidak membebani historian yang
+    dipakai bersama ruang kontrol. Konsekuensinya nilai paling baru bisa
+    tertinggal sampai satu menit (cron collect_live berjalan tiap menit); yang
+    butuh angka detik ini memakai endpoint terkini di atas.
+    """
+    from opsis import beban_kit
+
+    t0, t1, galat = _rentang(request, bawaan_menit=60,
+                             maks_menit=beban_kit.MAKS_HARI_RIWAYAT * 24 * 60)
+    if galat:
+        return _galat(galat, dataset='beban_pembangkit')
+
+    kode = [k.strip().upper() for k in (request.GET.get('kode') or '').split(',') if k.strip()]
+    data = beban_kit.riwayat(t0, t1, kode or None)
+
+    if kode and not data:
+        return _galat(
+            f'Tidak ada pembangkit aktif dengan kode {", ".join(kode)}.',
+            status=404, dataset='beban_pembangkit',
+        )
+
+    return JsonResponse({
+        'status':     'ok',
+        'dataset':    'beban_pembangkit',
+        'dari':       t0.isoformat(),
+        'sampai':     t1.isoformat(),
+        'sumber':     'opsis.SnapLive (snapshot PostgreSQL, 1 titik per menit)',
+        'satuan':     {'mw': 'MW', 'mvar': 'MVAR', 'hz': 'Hz'},
+        'jumlah':     sum(d['jumlah'] for d in data),
+        'pembangkit': data,
+    })
+
+
+# ── Frekuensi sistem ────────────────────────────────────────────────────────
+@csrf_exempt
+@require_kunci_baca('frekuensi')
+@require_http_methods(["GET"])
+def opsis_frekuensi_endpoint(request):
+    """
+    Riwayat frekuensi sistem per detik.
+
+    ?dari=&sampai=  waktu ISO (bawaan: 60 menit terakhir, maksimum 6 jam)
+
+    Lewat opsis.freq_history — BUKAN mssql.get_freq_range() langsung. Modul itu
+    menggabungkan tiga sumber (historian SYS_FREQ_HIS, cerminnya SnapFreq, dan
+    rekaman FASOP sendiri SnapFreqRT) menurut prioritas, sehingga deretnya tetap
+    terisi saat job penulis historian berhenti — kejadian yang pernah memadamkan
+    seluruh analisis Respons Pembangkit selama ±42 jam tanpa ketahuan.
+
+    `sumber_rincian` menyebut berapa detik diambil dari masing-masing sumber.
+    Angka itu sengaja ikut dikirim: konsumen yang memakai deret ini untuk
+    analisis berhak tahu bagian mana yang ditambal, bukan cuma menerima garis
+    yang terlihat mulus.
+    """
+    from django.utils import timezone
+    from opsis import freq_history
+
+    t0, t1, galat = _rentang(request, bawaan_menit=60,
+                             maks_menit=MAKS_JAM_FREKUENSI * 60)
+    if galat:
+        return _galat(galat, dataset='frekuensi')
+
+    # freq_history bekerja dengan datetime naive waktu lokal (MSSQL mengembalikan
+    # naive, PostgreSQL aware — modul itu yang menyamakannya).
+    deret, info = freq_history.ambil_range_detail(
+        timezone.localtime(t0).replace(tzinfo=None),
+        timezone.localtime(t1).replace(tzinfo=None),
+    )
+
+    return JsonResponse({
+        'status':         'ok',
+        'dataset':        'frekuensi',
+        'dari':           t0.isoformat(),
+        'sampai':         t1.isoformat(),
+        'satuan':         'Hz',
+        'sumber':         info.get('sumber'),
+        'sumber_teks':    freq_history.keterangan(info),
+        'sumber_rincian': {k: info.get(k, 0) for k in ('historian', 'snapfreq', 'postgres')},
+        'jumlah':         len(deret),
+        # Rentang yang memang sepi dibalas 200 dengan deret kosong, bukan 503:
+        # pertanyaan "apakah datanya memang tidak ada" adalah jawaban yang sah,
+        # berbeda dari endpoint terkini yang kekosongannya selalu berarti rusak.
+        'deret': [
+            {'waktu': timezone.make_aware(t).isoformat(), 'hz': hz}
+            for t, hz in deret
+        ],
+    })
+
+
+# ── Logsheet pembebanan ─────────────────────────────────────────────────────
+@csrf_exempt
+@require_kunci_baca('logsheet')
+@require_http_methods(["GET"])
+def logsheet_pembebanan_endpoint(request):
+    """
+    Nilai logsheet pembebanan per slot 30 menit untuk satu tanggal.
+
+    ?tanggal=YYYY-MM-DD  (bawaan: hari ini)
+    ?kategori=kit|transmisi|busbar|trafo
+    ?besaran=mw|mvar|amp|volt
+    ?slot=N|latest       (N = 0..47; 'latest' = slot terisi terakhir)
+
+    Berbeda dari /api/v1/logsheet/ (feed internal n8n), endpoint ini TIDAK
+    mengirim sheet/baris/kolom template Excel maupun pemetaan MSSQL-nya. Dua
+    alasan: posisi sel adalah urusan berkas ekspor FASOP dan bisa berubah kapan
+    saja tanpa mengubah arti datanya, sedangkan nama tabel/kolom historian
+    adalah rincian infrastruktur SCADA yang tidak ada gunanya di luar. Konsumen
+    memakai `key` sebagai identitas titik.
+
+    Juga berbeda: titik yang belum punya posisi ekspor tetap ikut di sini. Feed
+    internal menyaringnya karena tidak ada sel untuk diisi; di sini nilainya
+    tetap data yang sah.
+    """
+    from django.db.models import Max
+    from logsheet.models import LogsheetNilai, LogsheetTitik
+
+    tanggal = _tanggal(request)
+    if tanggal is None:
+        return _galat('Parameter "tanggal" harus YYYY-MM-DD.', dataset='logsheet')
+
+    qs_titik = LogsheetTitik.objects.filter(aktif=True)
+
+    kategori = (request.GET.get('kategori') or '').strip().lower()
+    if kategori:
+        sah = {k for k, _ in LogsheetTitik._meta.get_field('kategori').choices}
+        if kategori not in sah:
+            return _galat(f'Kategori "{kategori}" tidak dikenal. Pilihan: '
+                          f'{", ".join(sorted(sah))}.', dataset='logsheet')
+        qs_titik = qs_titik.filter(kategori=kategori)
+
+    besaran = (request.GET.get('besaran') or '').strip().lower()
+    if besaran:
+        if besaran not in SATUAN_BESARAN:
+            return _galat(f'Besaran "{besaran}" tidak dikenal. Pilihan: '
+                          f'{", ".join(sorted(SATUAN_BESARAN))}.', dataset='logsheet')
+        qs_titik = qs_titik.filter(besaran=besaran)
+
+    titik = {t.id: t for t in qs_titik}
+    if not titik:
+        return _galat('Tidak ada titik logsheet yang cocok dengan penyaringnya.',
+                      status=404, dataset='logsheet')
+
+    qs = LogsheetNilai.objects.filter(titik_id__in=titik.keys(), tanggal=tanggal,
+                                      nilai__isnull=False)
+
+    slot_param = (request.GET.get('slot') or '').strip().lower()
+    slot = None
+    if slot_param == 'latest':
+        slot = qs.aggregate(m=Max('slot'))['m']
+        qs = qs.filter(slot=slot) if slot is not None else qs.none()
+    elif slot_param:
+        try:
+            slot = int(slot_param)
+        except ValueError:
+            return _galat('Parameter "slot" harus angka 0..47 atau "latest".',
+                          dataset='logsheet')
+        if not 0 <= slot <= 47:
+            return _galat('Parameter "slot" harus 0..47 (0 = 00:30, 47 = 24:00).',
+                          dataset='logsheet')
+        qs = qs.filter(slot=slot)
+
+    per = {}
+    for tid, s, v in qs.values_list('titik_id', 'slot', 'nilai'):
+        per.setdefault(tid, []).append({'slot': s, 'waktu': _jam_slot(s),
+                                        'nilai': round(v, 2)})
+
+    data = []
+    for tid, t in sorted(titik.items(), key=lambda kv: (kv[1].kategori, kv[1].key)):
+        nilai = sorted(per.get(tid, []), key=lambda n: n['slot'])
+        data.append({
+            'key':      t.key,
+            'nama':     t.nama or t.key,
+            'kategori': t.kategori,
+            'besaran':  t.besaran,
+            'satuan':   SATUAN_BESARAN.get(t.besaran, ''),
+            'jumlah':   len(nilai),
+            'nilai':    nilai,
+        })
+
+    return JsonResponse({
+        'status':       'ok',
+        'dataset':      'logsheet',
+        'tanggal':      tanggal.isoformat(),
+        'slot':         slot,
+        'waktu_slot':   _jam_slot(slot) if slot is not None else None,
+        'sumber':       'logsheet.LogsheetNilai (slot 30 menit, diisi cron collect_logsheet)',
+        'jumlah_titik': len(data),
+        'jumlah_nilai': sum(d['jumlah'] for d in data),
+        'titik':        data,
     })

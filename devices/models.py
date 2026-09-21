@@ -1210,6 +1210,98 @@ class DeviceLink(models.Model):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+#  API eksternal — data apa yang boleh keluar, dan untuk siapa
+# ═══════════════════════════════════════════════════════════════════════════
+class DatasetApi(models.Model):
+    """
+    Sakelar per JENIS DATA untuk API baca eksternal: "data ini boleh keluar
+    dari FASOP atau tidak", terpisah dari "siapa yang boleh membacanya"
+    (`KunciApi.dataset`).
+
+    Dua sakelar, bukan satu, karena dua pertanyaan itu dijawab orang berbeda
+    pada waktu berbeda. Menutup sebuah data — misalnya karena angkanya sedang
+    diragukan — harus bisa dilakukan sekali untuk SEMUA konsumen, tanpa
+    mengingat-ingat kunci siapa saja yang sudah terlanjur diberi izin dan tanpa
+    menghapus izin yang nanti harus disusun ulang satu per satu.
+
+    Kode & namanya datang dari `api/registry.py` (lihat penjelasan di sana);
+    yang disimpan di sini hanya keputusannya. Baris dibuat oleh `sinkron()`,
+    dan selalu lahir TERTUTUP: data baru yang muncul setelah deploy tidak boleh
+    diam-diam ikut terkirim ke konsumen yang sudah ada — alasan yang sama
+    dengan `ZabbixHost.wa_alert` yang bawaannya mati.
+    """
+    kode = models.CharField(
+        max_length=40, unique=True, db_index=True, verbose_name='Kode Data',
+        help_text='Dipasangkan ke view di api/registry.py. Tidak diketik manual.'
+    )
+    aktif = models.BooleanField(
+        default=False, verbose_name='Boleh Dikeluarkan',
+        help_text='Hilangkan centang untuk menutup data ini bagi SEMUA konsumen '
+                  'sekaligus, tanpa mengubah izin per kunci.'
+    )
+    keterangan = models.TextField(
+        blank=True, default='', verbose_name='Catatan',
+        help_text='Mis. dasar persetujuan membuka data ini, atau alasan ditutup.'
+    )
+    diubah_pada = models.DateTimeField(auto_now=True, verbose_name='Diubah')
+
+    class Meta:
+        ordering            = ['kode']
+        verbose_name        = 'Data API Eksternal'
+        verbose_name_plural = 'Data API Eksternal'
+
+    def __str__(self):
+        return f'{self.nama}{"" if self.aktif else " (ditutup)"}'
+
+    # ── Keterangan dari registry ────────────────────────────────────────────
+    @property
+    def _entri(self):
+        # Import ditunda: api/ sengaja bukan app Django (tidak di INSTALLED_APPS),
+        # dan modul ini ikut dimuat saat migrasi dijalankan.
+        from api.registry import cari
+        return cari(self.kode)
+
+    @property
+    def terdaftar(self):
+        """False bila kodenya sudah tidak ada lagi di registry — izin basi."""
+        return self._entri is not None
+
+    @property
+    def nama(self):
+        e = self._entri
+        return e['nama'] if e else f'{self.kode} (tidak dikenal)'
+
+    @property
+    def penjelasan(self):
+        e = self._entri
+        return e['penjelasan'] if e else ''
+
+    @property
+    def sumber(self):
+        e = self._entri
+        return e['sumber'] if e else ''
+
+    @property
+    def endpoint(self):
+        e = self._entri
+        return e['endpoint'] if e else []
+
+    @classmethod
+    def sinkron(cls):
+        """
+        Pastikan tiap data di registry punya barisnya. Return jumlah yang baru
+        dibuat. Idempotent, dan tidak pernah menyentuh baris yang sudah ada —
+        keputusan admin tidak boleh terhapus oleh deploy.
+        """
+        from api.registry import SEMUA_KODE
+        ada  = set(cls.objects.values_list('kode', flat=True))
+        baru = [cls(kode=k) for k in SEMUA_KODE if k not in ada]
+        if baru:
+            cls.objects.bulk_create(baru, ignore_conflicts=True)
+        return len(baru)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 #  Kunci API eksternal — akses baca untuk aplikasi pihak lain (UP2D dsb.)
 # ═══════════════════════════════════════════════════════════════════════════
 class KunciApi(models.Model):
@@ -1244,6 +1336,11 @@ class KunciApi(models.Model):
     aktif = models.BooleanField(
         default=True, verbose_name='Aktif',
         help_text='Hilangkan centang untuk mencabut akses seketika, tanpa menghapus riwayatnya.'
+    )
+    dataset = models.ManyToManyField(
+        DatasetApi, blank=True, related_name='kunci', verbose_name='Data yang Boleh Dibaca',
+        help_text='Centang hanya data yang memang diminta konsumen ini. Kosong = kunci '
+                  'berlaku tapi tidak bisa membaca apa pun.'
     )
     keterangan = models.TextField(
         blank=True, default='', verbose_name='Keterangan',
@@ -1283,6 +1380,22 @@ class KunciApi(models.Model):
         if len(self.kunci) <= 12:
             return '•' * len(self.kunci)
         return f'{self.kunci[:4]}…{self.kunci[-4:]}'
+
+    def boleh(self, kode):
+        """
+        Kunci ini boleh membaca data `kode`?
+
+        Dua syarat sekaligus, dan keduanya memang harus dicek di sini: datanya
+        sedang dibuka (`DatasetApi.aktif`) DAN kunci ini diberi izin atasnya.
+        Dekorator di api/auth.py memisahkan pemeriksaannya hanya untuk memberi
+        pesan yang membedakan kedua sebab itu; pemanggil lain cukup memakai ini.
+        """
+        return self.dataset.filter(kode=kode, aktif=True).exists()
+
+    @property
+    def daftar_dataset(self):
+        """Nama data yang boleh dibaca kunci ini, untuk ditampilkan di admin."""
+        return [d.nama for d in self.dataset.all()]
 
     def catat_pemakaian(self, ip=None):
         """Perbarui jejak pemakaian, dibatasi JEDA_CATAT_DETIK sekali."""

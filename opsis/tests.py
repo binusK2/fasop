@@ -2513,9 +2513,20 @@ class ApiEksternalBebanKttTest(TestCase):
         mssql.get_beban_ktt = lambda: [dict(r) for r in self.BARIS_MSSQL]
         mssql.is_reachable = lambda: True
 
-        from devices.models import KunciApi
+        from devices.models import DatasetApi, KunciApi
         self.KunciApi = KunciApi
         self.kunci = KunciApi.objects.create(nama='UP2D — uji')
+
+        # Kunci lahir tanpa izin apa pun; yang diuji di sini adalah endpoint
+        # beban KTT, jadi izinnya diberikan eksplisit. Sakelar globalnya
+        # dipastikan terbuka supaya tes tidak bergantung pada nilai bawaan
+        # migrasi data yang bisa berubah.
+        DatasetApi.sinkron()
+        self.dataset = DatasetApi.objects.get(kode='beban_ktt')
+        DatasetApi.objects.filter(pk=self.dataset.pk).update(aktif=True)
+        self.dataset.refresh_from_db()
+        self.kunci.dataset.add(self.dataset)
+
         self.url = reverse('api:opsis_beban_ktt')
 
     # ── Penguncian ────────────────────────────────────────────────────
@@ -2637,9 +2648,16 @@ class ApiEksternalBebanKttTest(TestCase):
         blank=True form admin menolaknya dan janji itu bohong di layar.
         """
         from django.contrib import admin as django_admin
+        from django.test import RequestFactory
         from devices.admin import KunciApiAdmin
 
-        Form = KunciApiAdmin(self.KunciApi, django_admin.site).get_form(None)
+        # get_form() butuh request sungguhan sejak kunci punya field relasi
+        # (Data yang Boleh Dibaca): widget relasi admin menanyakan izin
+        # request.user untuk memutuskan menampilkan tombol tambah/ubah.
+        req = RequestFactory().get('/')
+        req.user = User.objects.create_superuser('admin-form', 'f@b.c', 'rahasia-uji-123')
+
+        Form = KunciApiAdmin(self.KunciApi, django_admin.site).get_form(req)
         form = Form(data={'nama': 'Tanpa kunci', 'aktif': 'on', 'keterangan': ''})
         self.assertTrue(form.is_valid(), form.errors.as_text())
         obj = form.save()
