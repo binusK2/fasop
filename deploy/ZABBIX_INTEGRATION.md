@@ -268,7 +268,7 @@ menyediakan info lokasi/GPS, jadi field ini selalu diisi manual.
 
 ## 5. Blast WhatsApp per host (opsional)
 
-Transisi host Zabbix bisa ikut dikirim ke grup WhatsApp lewat gateway OpenWA
+Transisi host Zabbix bisa ikut dikirim ke grup WhatsApp lewat gateway WAHA
 yang sama dengan Early Warning RTU. **Opt-in per host** — host baru yang
 muncul otomatis dari `sync_zabbix` tidak mengirim apa pun sampai dicentang
 manual, supaya menambah host di Zabbix tidak diam-diam membanjiri grup
@@ -276,23 +276,25 @@ operasional.
 
 ### Prasyarat
 
-Gateway OpenWA harus sudah jalan dan sesi WhatsApp-nya tersambung. Isi di
-`.env` FASOP:
+Gateway WAHA harus sudah jalan dan sesi WhatsApp-nya tersambung —
+pemasangannya di `deploy/WAHA_MIGRASI.md`. Isi di `.env` FASOP:
 
 ```env
 WA_ALERT_ENABLED=True
-WA_API_BASE=http://localhost:2785
-WA_API_KEY=<X-API-Key OpenWA>
-WA_SESSION_ID=<id sesi WhatsApp>
+WA_API_BASE=http://localhost:3000
+WA_API_KEY=<WAHA_API_KEY di container WAHA>
+WA_SESSION_ID=                              # kosong = sesi "default" bawaan WAHA
 WA_CHAT_IDS_ZABBIX=1203630xxxxxxxxx@g.us    # kosong = pakai WA_CHAT_IDS (grup RTU)
 ```
 
-`chatId` grup didapat dari `GET {WA_API_BASE}/api/sessions/{WA_SESSION_ID}/groups`
-(atau command `python manage.py wa_groups`). Grup selalu berakhiran `@g.us`.
+`chatId` grup didapat dari `python manage.py wa_groups` (atau dashboard WAHA di
+`http://<host>:3000/dashboard`). Grup selalu berakhiran `@g.us`.
 
-Verifikasi tujuan default sebelum mengaktifkan host mana pun:
+Verifikasi sebelum mengaktifkan host mana pun — cek status sesinya dulu, baru
+kirim pesan uji:
 
 ```bash
+python manage.py test_wa --hanya-status
 python manage.py test_wa --target zabbix
 ```
 
@@ -341,7 +343,8 @@ sana, termasuk yang sengaja dilewati, dengan alasannya di kolom Keterangan:
 | `Dilewati: severity ... di bawah ambang ...` | Bekerja sesuai setting — turunkan **Severity Minimum** kalau memang mau dikirim. |
 | `Tujuan WA kosong ...` | `WA_CHAT_IDS_ZABBIX` dan `WA_CHAT_IDS` dua-duanya kosong. |
 | `WA_ALERT_ENABLED=False` | Master switch di `.env` masih mati. |
-| `HTTP 4xx/5xx ...` | Gateway OpenWA menjawab error — sesi WhatsApp kemungkinan putus, cek dashboard OpenWA. |
+| `HTTP 401/403 ...` | `WA_API_KEY` tidak cocok dengan `WAHA_API_KEY` di container WAHA. |
+| `HTTP 4xx/5xx ...` | Gateway WAHA menjawab error — sesi WhatsApp kemungkinan putus. Jalankan `python manage.py test_wa --hanya-status`, itu menyebut persis sesinya kenapa. |
 
 ## 6. Debug koneksi Zabbix API gagal
 

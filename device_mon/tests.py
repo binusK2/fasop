@@ -1,9 +1,10 @@
 """
 Tes gating blast WhatsApp (device_mon.notifications).
 
-Fokusnya keputusan "kirim / tidak kirim" — gateway OpenWA-nya sendiri
+Fokusnya keputusan "kirim / tidak kirim" — gateway WAHA-nya sendiri
 di-mock, karena yang gampang salah di sini adalah ambang severity, aturan
-pesan pulih, dan resolusi tujuan; bukan HTTP-nya.
+pesan pulih, dan resolusi tujuan. Bentuk HTTP-nya sendiri dijaga terpisah
+oleh GatewayWahaTest di bawah.
 """
 from unittest.mock import patch
 
@@ -375,3 +376,105 @@ class SyncZabbixMultiInstanceTest(TestCase):
         mock_status.assert_called_once()
         self.assertTrue(ZabbixHost.objects.filter(instance=self.prosis).exists())
         self.assertFalse(ZabbixHost.objects.filter(instance=self.telkom).exists())
+
+
+# ===========================================================================
+#  Bentuk HTTP ke gateway WAHA.
+#
+#  Sengaja TIDAK memakai mock kirim_wa seperti tes di atas: yang dijaga di
+#  sini justru lapisan yang tes-tes itu lewati. Saat gateway ditukar dari
+#  OpenWA ke WAHA, tidak ada satu tes pun yang gagal walaupun path, header,
+#  dan body-nya berubah semua — persis bagian yang kalau salah membuat blast
+#  diam tanpa gejala sampai ada gangguan sungguhan.
+# ===========================================================================
+@override_settings(WA_ALERT_ENABLED=True,
+                   WA_API_BASE='http://wa.example:3000',
+                   WA_API_KEY='rahasia',
+                   WA_SESSION_ID='',
+                   WA_TIMEOUT=7)
+class GatewayWahaTest(TestCase):
+
+    def test_url_endpoint_tunggal_tanpa_sesi_di_path(self):
+        """WAHA: satu endpoint /api/sendText, sesi pindah ke body."""
+        from device_mon.notifications import _build_url
+
+        self.assertEqual(_build_url(), 'http://wa.example:3000/api/sendText')
+
+    def test_url_toleran_trailing_slash(self):
+        from device_mon.notifications import _build_url
+
+        with override_settings(WA_API_BASE='http://wa.example:3000/'):
+            self.assertEqual(_build_url(), 'http://wa.example:3000/api/sendText')
+
+    def test_header_api_key(self):
+        from device_mon.notifications import _build_headers
+
+        self.assertEqual(_build_headers()['X-Api-Key'], 'rahasia')
+
+    def test_header_tanpa_api_key_saat_kosong(self):
+        """Gateway yang tidak dikunci: jangan kirim header kosong."""
+        from device_mon.notifications import _build_headers
+
+        with override_settings(WA_API_KEY=''):
+            self.assertNotIn('X-Api-Key', _build_headers())
+
+    def test_payload_memuat_sesi(self):
+        from device_mon.notifications import _build_payload
+
+        self.assertEqual(
+            _build_payload('123@g.us', 'halo'),
+            {'session': 'default', 'chatId': '123@g.us', 'text': 'halo'},
+        )
+
+    def test_sesi_kosong_jadi_default(self):
+        """WA_SESSION_ID kosong = sesi bawaan WAHA, bukan konfigurasi cacat."""
+        from device_mon.notifications import sesi_wa
+
+        self.assertEqual(sesi_wa(), 'default')
+
+    def test_sesi_dari_env_dipakai(self):
+        from device_mon.notifications import sesi_wa, _build_payload
+
+        with override_settings(WA_SESSION_ID='fasop'):
+            self.assertEqual(sesi_wa(), 'fasop')
+            self.assertEqual(_build_payload('1@g.us', 'x')['session'], 'fasop')
+
+    def test_kirim_wa_tidak_butuh_wa_session_id(self):
+        """Regresi migrasi OpenWA -> WAHA.
+
+        Guard lama menolak kirim saat WA_SESSION_ID kosong (di OpenWA id sesi
+        memang wajib, ia ada di path URL). Di WAHA itu konfigurasi yang sah,
+        jadi guard yang sama akan membisukan blast pada pemasangan yang
+        sebenarnya sudah benar.
+        """
+        from device_mon.notifications import kirim_wa
+
+        with patch('requests.post') as mock_post:
+            mock_post.return_value.status_code = 200
+            terkirim, total, ket = kirim_wa('halo', chat_ids=['123@g.us'])
+
+        self.assertEqual((terkirim, total, ket), (1, 1, 'OK'))
+        args, kwargs = mock_post.call_args
+        self.assertEqual(args[0], 'http://wa.example:3000/api/sendText')
+        self.assertEqual(kwargs['json'],
+                         {'session': 'default', 'chatId': '123@g.us', 'text': 'halo'})
+        self.assertEqual(kwargs['headers']['X-Api-Key'], 'rahasia')
+        self.assertEqual(kwargs['timeout'], 7)
+
+    def test_kirim_wa_butuh_api_base(self):
+        from device_mon.notifications import kirim_wa
+
+        with override_settings(WA_API_BASE=''):
+            self.assertEqual(kirim_wa('halo', chat_ids=['1@g.us'])[0], 0)
+
+    def test_kirim_wa_http_error_tidak_raise(self):
+        """Gateway menjawab error: dicatat, bukan melempar ke collect_rtu."""
+        from device_mon.notifications import kirim_wa
+
+        with patch('requests.post') as mock_post:
+            mock_post.return_value.status_code = 422
+            mock_post.return_value.text = 'session not found'
+            terkirim, total, ket = kirim_wa('halo', chat_ids=['1@g.us'])
+
+        self.assertEqual((terkirim, total), (0, 1))
+        self.assertIn('422', ket)

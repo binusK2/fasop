@@ -141,7 +141,7 @@ class ZabbixHostAdmin(admin.ModelAdmin):
         ('Blast WhatsApp', {
             'fields': ('wa_alert', 'wa_min_severity', 'wa_chat_ids'),
             'description': (
-                'Pilih host mana yang transisinya dikirim ke grup WhatsApp lewat OpenWA. '
+                'Pilih host mana yang transisinya dikirim ke grup WhatsApp lewat WAHA. '
                 'Butuh <code>WA_ALERT_ENABLED=True</code> di <code>.env</code>. '
                 'Tujuan default diambil dari <code>WA_CHAT_IDS_ZABBIX</code>; isi '
                 '"Grup WA Khusus" hanya kalau host ini perlu grup yang berbeda. '
