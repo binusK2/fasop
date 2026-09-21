@@ -93,7 +93,7 @@ class RTUAlertLog(models.Model):
     """
     Audit trail Early Warning WhatsApp.
     Satu baris per percobaan kirim notif (DOWN / pemulihan UP) ke grup WA
-    via OpenWA. Berguna untuk melacak "kenapa notif tidak masuk".
+    via WAHA. Berguna untuk melacak "kenapa notif tidak masuk".
     Dibuat oleh collect_rtu saat transisi state terdeteksi.
     """
     JENIS_CHOICES = [
@@ -353,7 +353,7 @@ class ZabbixHost(models.Model):
     wa_alert = models.BooleanField(
         default=False, verbose_name='Blast WhatsApp',
         help_text='Centang agar transisi PROBLEM/pulih host ini dikirim ke grup WhatsApp '
-                  'lewat OpenWA. Butuh WA_ALERT_ENABLED=True di .env.',
+                  'lewat WAHA. Butuh WA_ALERT_ENABLED=True di .env.',
     )
     wa_min_severity = models.CharField(
         max_length=1, choices=SEVERITY_CHOICES, default='3',

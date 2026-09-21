@@ -1,20 +1,27 @@
 """
 Early Warning WhatsApp untuk device_mon (status RTU).
 
-Mengirim notifikasi ke grup WhatsApp via OpenWA (gateway self-hosted)
-saat RTU DOWN dan saat pulih (UP). Dipanggil oleh management command
-collect_rtu pada titik transisi state.
+Mengirim notifikasi ke grup WhatsApp via WAHA (gateway self-hosted,
+https://github.com/devlikeapro/waha) saat RTU DOWN dan saat pulih (UP).
+Dipanggil oleh management command collect_rtu pada titik transisi state.
 
 Prinsip: fungsi di modul ini TIDAK PERNAH melempar exception ke pemanggil —
 kegagalan kirim dicatat (log + RTUAlertLog) tapi collect_rtu harus tetap
 jalan. Konfigurasi via .env (lihat fasop/settings.py blok "Early Warning
 WhatsApp").
 
-┌─ SPESIFIK API OpenWA ──────────────────────────────────────────────┐
-│ POST {WA_API_BASE}/api/sessions/{WA_SESSION_ID}/messages/send-text  │
-│   header  X-API-Key: <WA_API_KEY>                                   │
-│   body    {"chatId": "<id>", "text": "<pesan>"}                     │
+┌─ SPESIFIK API WAHA ────────────────────────────────────────────────┐
+│ POST {WA_API_BASE}/api/sendText                                     │
+│   header  X-Api-Key: <WA_API_KEY>                                   │
+│   body    {"session": "<sesi>", "chatId": "<id>", "text": "<pesan>"}│
 │ Untuk grup, chatId berakhiran "@g.us".                              │
+│                                                                     │
+│ Beda pokok dengan OpenWA (gateway sebelumnya): nama sesi pindah     │
+│ dari PATH URL ke BODY, endpoint-nya satu untuk semua sesi, dan      │
+│ port bawaannya 3000 (OpenWA 2785). Karena itu WA_SESSION_ID yang    │
+│ dikosongkan kini berarti "default" — nama sesi konvensional WAHA —  │
+│ bukan lagi konfigurasi yang belum selesai.                          │
+│                                                                     │
 │ Bila ganti gateway lain, cukup sesuaikan _build_url / _build_headers│
 │ / _build_payload di bawah.                                          │
 └────────────────────────────────────────────────────────────────────┘
@@ -26,26 +33,39 @@ from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
+#: Nama sesi bawaan WAHA bila WA_SESSION_ID dikosongkan.
+SESI_DEFAULT = 'default'
 
-# ── Bagian spesifik API OpenWA ───────────────────────────────────────
+
+# ── Bagian spesifik API WAHA ─────────────────────────────────────────
+def sesi_wa():
+    """Nama sesi WhatsApp yang dipakai — WA_SESSION_ID, atau "default".
+
+    WAHA menamai sesi pertamanya `default` dan seluruh dokumentasinya
+    memakai nama itu, jadi pemasangan satu-sesi tidak perlu mengisi
+    WA_SESSION_ID sama sekali.
+    """
+    return (getattr(settings, 'WA_SESSION_ID', '') or '').strip() or SESI_DEFAULT
+
+
 def _build_url():
-    """URL endpoint send-text untuk sesi yang dikonfigurasi."""
+    """URL endpoint sendText WAHA (satu endpoint untuk semua sesi)."""
     base = (getattr(settings, 'WA_API_BASE', '') or '').rstrip('/')
-    session = getattr(settings, 'WA_SESSION_ID', '') or ''
-    return f'{base}/api/sessions/{session}/messages/send-text'
+    return f'{base}/api/sendText'
 
 
 def _build_headers():
-    """Header HTTP untuk request OpenWA (autentikasi X-API-Key)."""
+    """Header HTTP untuk request WAHA (autentikasi X-Api-Key)."""
     headers = {'Content-Type': 'application/json'}
     if settings.WA_API_KEY:
-        headers['X-API-Key'] = settings.WA_API_KEY
+        headers['X-Api-Key'] = settings.WA_API_KEY
     return headers
 
 
 def _build_payload(chat_id, pesan):
-    """Body JSON send-text untuk satu tujuan (chatId grup / personal)."""
+    """Body JSON sendText untuk satu tujuan (chatId grup / personal)."""
     return {
+        'session': sesi_wa(),
         'chatId': chat_id,
         'text': pesan,
     }
@@ -67,11 +87,14 @@ def kirim_wa(pesan, chat_ids=None):
     if not getattr(settings, 'WA_ALERT_ENABLED', False):
         return 0, 0, 'WA_ALERT_ENABLED=False'
 
+    # WA_SESSION_ID sengaja TIDAK ikut diwajibkan: di WAHA nama sesi punya
+    # nilai bawaan yang sah ("default", lihat sesi_wa()), jadi menolak kirim
+    # karena field itu kosong akan memblokir pemasangan satu-sesi yang
+    # sebenarnya sudah benar.
     base = getattr(settings, 'WA_API_BASE', '') or ''
-    session = getattr(settings, 'WA_SESSION_ID', '') or ''
     targets = chat_ids if chat_ids is not None else _targets()
-    if not base or not session or not targets:
-        return 0, 0, 'WA_API_BASE / WA_SESSION_ID / WA_CHAT_IDS belum diisi'
+    if not base or not targets:
+        return 0, 0, 'WA_API_BASE / WA_CHAT_IDS belum diisi'
 
     try:
         import requests

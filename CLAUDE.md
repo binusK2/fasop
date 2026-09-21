@@ -262,11 +262,11 @@ MSSQL_DRIVER=ODBC Driver 17 for SQL Server
 
 API_KEY=              # For /api/v1/ integrations
 
-# Early Warning WhatsApp (OpenWA gateway) — see "Early Warning WhatsApp" below
+# Early Warning WhatsApp (WAHA gateway) — see "Early Warning WhatsApp" below
 WA_ALERT_ENABLED=False        # master switch; False = no WhatsApp notifications at all
-WA_API_BASE=http://localhost:2785
-WA_API_KEY=                   # X-API-Key of the OpenWA gateway
-WA_SESSION_ID=                # WhatsApp session id in OpenWA
+WA_API_BASE=http://localhost:3000
+WA_API_KEY=                   # X-Api-Key — must equal WAHA_API_KEY in the WAHA container
+WA_SESSION_ID=                # WhatsApp session name in WAHA; empty = "default"
 WA_CHAT_IDS=                  # RTU Early Warning targets (groups end in @g.us, comma-separated)
 WA_CHAT_IDS_INSPECTION=       # inspection alarm targets; empty = not sent
 WA_CHAT_IDS_ZABBIX=           # Zabbix host blast targets; empty = falls back to WA_CHAT_IDS
@@ -1682,12 +1682,26 @@ Yang perlu diketahui saat mengubahnya:
 
 ---
 
-## Early Warning WhatsApp (OpenWA)
+## Early Warning WhatsApp (WAHA)
 
-One self-hosted OpenWA gateway serves **three** alert sources. All of them go
-through `device_mon.notifications.kirim_wa()` — the only place that speaks HTTP
-to OpenWA. If the gateway is ever replaced, adjust `_build_url` /
-`_build_headers` / `_build_payload` there; don't add a second client per app.
+One self-hosted **WAHA** gateway (`devlikeapro/waha`) serves **three** alert
+sources. All of them go through `device_mon.notifications.kirim_wa()` — the only
+place that speaks HTTP to WAHA. If the gateway is ever replaced, adjust
+`_build_url` / `_build_headers` / `_build_payload` (plus `sesi_wa()`) there;
+don't add a second client per app. That single choke point is why swapping
+OpenWA → WAHA touched one module and no app code.
+
+API shape: `POST {WA_API_BASE}/api/sendText`, header `X-Api-Key`, body
+`{session, chatId, text}`. Full migration walkthrough (Docker compose, server
+move, chatId re-collection): `deploy/WAHA_MIGRASI.md`.
+
+**An empty `WA_SESSION_ID` is a valid configuration, not an unfinished one.**
+WAHA names its first session `default` and puts the session in the request
+*body*; OpenWA required it in the URL *path*, so the old guard refused to send
+when it was blank. Keeping that guard after the swap would silently mute every
+blast on a correctly configured single-session install — the failure leaves no
+trace until a real incident goes unreported. `sesi_wa()` owns this fallback and
+`GatewayWahaTest` guards it.
 
 | Source | Trigger | Who gets sent | Destination |
 |---|---|---|---|
@@ -1723,6 +1737,7 @@ Rules that are easy to miss when adding a new alert:
 Test the configuration without waiting for a real incident:
 
 ```bash
+python manage.py test_wa --hanya-status       # session check only, sends nothing
 python manage.py test_wa --target rtu         # WA_CHAT_IDS
 python manage.py test_wa --target inspection  # WA_CHAT_IDS_INSPECTION
 python manage.py test_wa --target zabbix      # WA_CHAT_IDS_ZABBIX
@@ -1732,10 +1747,23 @@ Hosts using their own `wa_chat_ids` are not covered by that command — test the
 with the **"Kirim pesan uji WA ke tujuan host terpilih"** action in
 Admin > Host Zabbix.
 
-The OpenWA gateway itself (Docker, same server) lives outside this repo:
-`https://github.com/rmyndharis/OpenWA`. Its compose customisations belong in
-`docker-compose.override.yml` in the OpenWA directory — never edit the tracked
-`docker-compose.yml`, or `git checkout` during an upgrade will refuse to switch.
+`python manage.py test_wa --hanya-status` checks the WAHA session without
+sending anything, and distinguishes the failures that all look like one HTTP
+error otherwise: gateway unreachable, wrong API key, session missing, session
+not scanned (`SCAN_QR_CODE`), `STOPPED`/`FAILED`, or `WORKING`. Reach for it
+before reading server logs.
+
+The WAHA gateway itself (Docker) lives outside this repo:
+`https://github.com/devlikeapro/waha`. Two things bite in practice: the
+`./.sessions:/app/.sessions` volume is **mandatory** (without it the WhatsApp
+session is lost on every container restart and the QR must be rescanned), and
+an unset `WAHA_API_KEY` makes WAHA generate a **random** key at startup and
+print it to the log — so the key silently changes on each restart and FASOP's
+blasts stop with nothing having been edited.
+
+The `HTTP 4xx/5xx` rows in `ZabbixAlertLog` mean WAHA answered but refused. The
+alert-log tables are still the first place to look for "why didn't the
+notification arrive?" — the gateway swap changed none of that.
 
 ---
 

@@ -382,20 +382,27 @@ ML_MODEL_ROOT = config('ML_MODEL_ROOT', default=str(BASE_DIR / 'ml_models'))
 #                       cron train_beban_forecast tetap jalan
 OPSIS_FORECAST_SOURCE = config('OPSIS_FORECAST_SOURCE', default='sheet')
 
-# ── Early Warning WhatsApp (device_mon RTU) — OpenWA self-hosted ──
-# Notifikasi ke grup WhatsApp via OpenWA (gateway self-hosted) saat RTU
-# DOWN / pulih (UP). Dikirim oleh command collect_rtu pada titik transisi.
+# ── Early Warning WhatsApp (device_mon RTU) — WAHA self-hosted ──
+# Notifikasi ke grup WhatsApp via WAHA (gateway self-hosted,
+# https://github.com/devlikeapro/waha) saat RTU DOWN / pulih (UP). Dikirim
+# oleh command collect_rtu pada titik transisi.
 # Nonaktif secara default: tidak ada notif sampai WA_ALERT_ENABLED=True
-# DAN WA_API_BASE + WA_SESSION_ID + WA_CHAT_IDS terisi.
-# API: POST {WA_API_BASE}/api/sessions/{WA_SESSION_ID}/messages/send-text
-#      header X-API-Key, body {chatId, text}.
+# DAN WA_API_BASE + WA_CHAT_IDS terisi.
+# API: POST {WA_API_BASE}/api/sendText
+#      header X-Api-Key, body {session, chatId, text}.
 # WA_CHAT_IDS = chatId tujuan (grup berakhiran @g.us), didapat dari
-#      GET {WA_API_BASE}/api/sessions/{WA_SESSION_ID}/groups atau
-#      dashboard OpenWA. Pisahkan beberapa tujuan dengan koma.
+#      `python manage.py wa_groups` atau dashboard WAHA. Pisahkan beberapa
+#      tujuan dengan koma.
+# Migrasi dari OpenWA: lihat deploy/WAHA_MIGRASI.md — nama variabelnya sama
+# persis, yang berubah cuma NILAI WA_API_BASE (port 2785 -> 3000) dan
+# WA_API_KEY.
 WA_ALERT_ENABLED = config('WA_ALERT_ENABLED', default=False, cast=bool)
-WA_API_BASE      = config('WA_API_BASE',   default='http://localhost:2785')  # origin OpenWA
-WA_API_KEY       = config('WA_API_KEY',    default='')   # X-API-Key OpenWA
-WA_SESSION_ID    = config('WA_SESSION_ID', default='')   # id sesi WhatsApp di OpenWA
+WA_API_BASE      = config('WA_API_BASE',   default='http://localhost:3000')  # origin WAHA
+WA_API_KEY       = config('WA_API_KEY',    default='')   # X-Api-Key = WHATSAPP_API_KEY WAHA
+# Nama sesi WhatsApp di WAHA. Kosong = 'default', nama sesi bawaan WAHA —
+# beda dengan OpenWA yang id sesinya wajib diisi. Isi hanya kalau satu
+# container WAHA melayani lebih dari satu nomor.
+WA_SESSION_ID    = config('WA_SESSION_ID', default='')
 WA_CHAT_IDS      = config('WA_CHAT_IDS',   default='')   # chatId tujuan, pisahkan koma
 WA_TIMEOUT       = config('WA_TIMEOUT',    default=10, cast=int)  # detik
 
