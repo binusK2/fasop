@@ -53,21 +53,113 @@ services:
     image: devlikeapro/waha
     restart: always
     ports:
-      # Jangan dibuka ke internet. Kalau FASOP satu server dengan WAHA,
-      # ikat ke loopback saja: "127.0.0.1:3000:3000"
-      - "127.0.0.1:3000:3000"
+      # Pilih SALAH SATU sesuai topologi — lihat "Satu server atau dua?"
+      # di bawah. Jangan pernah dibuka ke internet.
+      #   FASOP satu server dengan WAHA : "127.0.0.1:3000:3000"
+      #   FASOP beda server             : "3000:3000" + firewall
+      - "3000:3000"
     volumes:
       # WAJIB — tanpa volume ini sesi WhatsApp hilang tiap container
       # di-restart dan QR harus discan ulang setiap kali.
       - ./.sessions:/app/.sessions
     environment:
-      WAHA_API_KEY: "${WAHA_API_KEY}"
-      WAHA_DASHBOARD_USERNAME: "${WAHA_DASHBOARD_USERNAME}"
-      WAHA_DASHBOARD_PASSWORD: "${WAHA_DASHBOARD_PASSWORD}"
-      WHATSAPP_SWAGGER_USERNAME: "${WAHA_DASHBOARD_USERNAME}"
-      WHATSAPP_SWAGGER_PASSWORD: "${WAHA_DASHBOARD_PASSWORD}"
+      # Nilai LITERAL, tanpa ${...} — lihat peringatan di bawah.
+      WAHA_API_KEY: "ganti-dengan-hasil-uuidgen"
+      WAHA_DASHBOARD_USERNAME: "admin"
+      WAHA_DASHBOARD_PASSWORD: "ganti-dengan-sandi-kuat"
+      WHATSAPP_SWAGGER_USERNAME: "admin"
+      WHATSAPP_SWAGGER_PASSWORD: "ganti-dengan-sandi-kuat"
       TZ: "Asia/Makassar"
 ```
+
+> **`${...}` di docker-compose BUKAN penanda "isi di sini".** Itu
+> interpolasi variabel: `${admin}` berarti "nilai variabel bernama
+> `admin`", bukan teks `admin`.
+>
+> Yang bikin repot, dua kesalahan yang bentuknya sama bisa berakibat
+> beda — terverifikasi dengan `docker compose config`:
+>
+> | Ditulis | Yang terjadi |
+> |---|---|
+> | `"${admin}"` | jadi **string kosong** (nama variabelnya sah tapi tidak ada). Hanya warning — container tetap jalan, dashboard tanpa sandi. |
+> | `"${fasop@mks}"` | **gagal total**: `invalid interpolation format`, karena `@` tidak sah di nama variabel. Container tidak start. |
+>
+> Jadi jangan menyimpulkan "compose-nya jalan, berarti sudah benar":
+> yang diam justru yang berbahaya. Tulis nilainya langsung seperti
+> contoh di atas.
+>
+> Kalau tidak mau menaruh secret di berkas compose, barulah pakai
+> interpolasi — tapi nilainya harus ada di berkas `.env` di sebelah
+> `docker-compose.yml` (berkas milik WAHA sendiri, **bukan** `.env`
+> FASOP):
+>
+> ```yaml
+>       WAHA_DASHBOARD_PASSWORD: "${WAHA_DASHBOARD_PASSWORD}"
+> ```
+> ```env
+> WAHA_DASHBOARD_PASSWORD=sandi-kuat
+> ```
+>
+> Cek hasil akhirnya sebelum menyalakan — perintah ini mencetak nilai
+> yang benar-benar dipakai setelah interpolasi:
+>
+> ```bash
+> docker compose config | grep -A8 environment
+> ```
+
+### Satu server atau dua?
+
+Pilihan `ports` di atas bukan selera — salah pilih menghasilkan dua gejala
+yang berbeda dan sama-sama membingungkan.
+
+| Topologi | `ports` | `WA_API_BASE` di `.env` FASOP |
+|---|---|---|
+| WAHA & FASOP satu server | `"127.0.0.1:3000:3000"` | `http://localhost:3000` |
+| WAHA & FASOP beda server | `"3000:3000"` + firewall | `http://<ip-server-waha>:3000` |
+
+**Loopback pada topologi dua server akan memblokir FASOP.** `127.0.0.1`
+berarti "hanya bisa dihubungi dari dalam server itu sendiri", jadi FASOP
+dari server lain mendapat `Connection refused` — padahal container-nya
+jelas jalan dan dashboard-nya terbuka normal dari server WAHA.
+
+Kalau beda server, ganti loopback-nya dengan firewall supaya port 3000
+tetap tidak terbuka untuk siapa pun selain FASOP:
+
+```bash
+sudo ufw allow from <ip-server-fasop> to any port 3000 proto tcp
+sudo ufw deny 3000
+```
+
+Untuk membuka dashboard dari PC tanpa membuka port ke jaringan, pakai SSH
+tunnel — `localhost:3000` di browser Anda jadi menunjuk ke server:
+
+```bash
+ssh -L 3000:localhost:3000 user@server-waha
+```
+
+**`localhost` di dashboard itu relatif terhadap browser, bukan server.**
+Kalau dashboard dibuka dari PC dan Server URL-nya diisi
+`http://localhost:3000`, yang dituju adalah PC Anda sendiri. Nilai itu
+tersimpan di browser (localStorage), jadi mengubah compose tidak
+memperbaikinya — harus disunting di halaman konfigurasi dashboard.
+Ingat juga WAHA melayani **http**, bukan `https`.
+
+### Kenapa username & password dashboard perlu diisi
+
+Dashboard (`http://<host>:3000/dashboard`) adalah tempat men-scan QR dan
+mengelola sesi, jadi ia bukan halaman hiasan.
+
+- Tanpa `WAHA_DASHBOARD_USERNAME`, bawaannya `admin` (atau `waha`).
+- Tanpa `WAHA_DASHBOARD_PASSWORD`, WAHA **membangkitkan sandi acak tiap
+  start** dan mencetaknya ke log container — artinya sandinya berganti
+  tiap restart dan harus dicari ulang di log.
+- `WAHA_DASHBOARD_ENABLED=false` mematikannya sama sekali. Jangan dipakai
+  di sini: tanpa dashboard tidak ada cara praktis men-scan QR ulang saat
+  sesi putus.
+
+`WHATSAPP_SWAGGER_USERNAME` / `_PASSWORD` menjaga halaman Swagger
+(`/`). Boleh disamakan dengan sandi dashboard; FASOP sendiri tidak
+memakainya.
 
 Bangkitkan API key-nya:
 
@@ -147,6 +239,51 @@ tampak sebagai "HTTP error":
 Host Zabbix yang memakai Grup WA Khusus tidak tercakup `test_wa` — tes
 lewat action **"Kirim pesan uji WA ke tujuan host terpilih"** di Admin →
 Host Zabbix.
+
+---
+
+### Kalau dapat `401 Unauthorized`
+
+401 berarti **server WAHA hidup dan terjangkau** — kalau tidak, hasilnya
+`Connection refused`. Yang salah murni kuncinya. Tiga penyebab, berurut
+dari yang paling sering:
+
+**1. Kunci di container ternyata kosong.** Ini akibat `${WAHA_API_KEY}`
+tanpa berkas `.env` di sebelah compose. Saat `WAHA_API_KEY` kosong, WAHA
+membangkitkan kunci **acak** sendiri tiap start dan hanya mencetaknya ke
+log — jadi kunci apa pun yang dikirim dijawab 401. Periksa apa yang
+benar-benar diterima container, bukan apa yang tertulis di compose:
+
+```bash
+docker compose exec waha printenv | grep -i -E "waha|whatsapp"
+docker compose logs waha 2>&1 | grep -i -E "api.?key|secret|generated"
+```
+
+**2. Yang dikirim hash-nya, bukan kunci aslinya.** `WAHA_API_KEY`
+menerima dua bentuk, dan header `X-Api-Key` **selalu** berisi kunci polos:
+
+| Di compose | Isi header `X-Api-Key` |
+|---|---|
+| `WAHA_API_KEY: "abc123..."` | `abc123...` |
+| `WAHA_API_KEY: "sha512:98b6d1..."` | `abc123...` — kunci asli, **bukan** hash-nya |
+
+**3. Container belum di-recreate.** Perubahan environment tidak terbaca
+oleh `docker compose restart`. Harus:
+
+```bash
+docker compose up -d
+```
+
+Uji dari server WAHA dulu, baru dari server FASOP — kalau yang pertama
+`200` tapi yang kedua `Connection refused`, masalahnya bukan kunci lagi
+melainkan `ports`/firewall (lihat "Satu server atau dua?"):
+
+```bash
+curl -s -o /dev/null -w "%{http_code}
+" http://localhost:3000/api/sessions -H "X-Api-Key: <kunci>"
+curl -s -o /dev/null -w "%{http_code}
+" http://<ip-server-waha>:3000/api/sessions -H "X-Api-Key: <kunci>"
+```
 
 ---
 
