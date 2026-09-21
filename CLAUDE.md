@@ -1758,7 +1758,8 @@ itulah yang dibagikan ke pihak luar "karena bisa" — dan bersamanya ikut
 terbagikan akses tulis ke inventaris aset.
 
 Kuncinya diterbitkan dari **Admin → Devices → Kunci API** (kosongkan kolom Kunci
-untuk membuat yang acak). Daftar admin hanya menampilkan kunci tersamar
+untuk membuat yang acak), lalu **dicentangkan data apa saja yang boleh
+dibacanya** — kunci baru tidak bisa membaca apa pun sampai itu dilakukan. Daftar admin hanya menampilkan kunci tersamar
 (`abcd…wxyz`) plus kapan & dari IP mana terakhir dipakai — itu yang menjawab
 "kenapa data saya berhenti masuk" tanpa membuka log server. Panduan untuk
 konsumennya (termasuk contoh Google Apps Script): `docs/API_EKSTERNAL.md`.
@@ -1766,11 +1767,62 @@ konsumennya (termasuk contoh Google Apps Script): `docs/API_EKSTERNAL.md`.
 Model-nya hidup di app `devices`, bukan `api`, karena `api` sengaja tidak punya
 model (tidak terdaftar di `INSTALLED_APPS`).
 
+### Dua sakelar: data apa yang keluar, dan untuk siapa
+
+Izin akses eksternal punya **dua dimensi yang sengaja terpisah**, keduanya di
+site admin:
+
+| Pertanyaan | Tempatnya | Efek |
+|---|---|---|
+| Data ini boleh keluar dari FASOP? | `devices.DatasetApi.aktif` (**Admin → Devices → Data API Eksternal**) | menutupnya menghentikan **semua** konsumen sekaligus |
+| Siapa yang boleh membacanya? | `devices.KunciApi.dataset` (M2M, di halaman Kunci API) | per konsumen |
+
+Sebuah permintaan lolos hanya bila **keduanya** terpenuhi. Menyatukannya jadi
+satu sakelar akan menghilangkan satu-satunya cara menutup data yang angkanya
+sedang diragukan tanpa lebih dulu mengingat-ingat kunci siapa saja yang sudah
+diberi izin — dan tanpa harus menyusun ulang izin itu satu per satu setelahnya.
+
+Daftar jenis datanya **deklaratif di `api/registry.py`**, bukan diketik admin,
+karena yang benar-benar menyajikan angkanya adalah sebuah view: kode yang
+diketik bebas akan melahirkan izin yang kelihatan tercentang di layar padahal
+tidak menjaga apa pun. Kodenya dipasangkan ke view lewat dekorator
+(`@require_kunci_baca('frekuensi')`), dan `DatasetApi.sinkron()` — dipanggil
+dari `changelist_view` halaman adminnya — yang membuat barisnya.
+
+Yang perlu diketahui saat mengubahnya:
+
+- **Data baru lahir TERTUTUP, dan kunci baru lahir tanpa izin apa pun.**
+  Menambahkan satu entri di registry tidak boleh diam-diam mengirimkan data
+  baru ke konsumen yang sudah ada — alasan yang sama dengan `ZabbixHost.wa_alert`
+  yang bawaannya mati. Satu-satunya pengecualian adalah migrasi
+  `0070_datasetapi_kunciapi_dataset`, yang membuka keempat data dan
+  memberikannya ke kunci yang sudah ada karena `beban_ktt` memang sudah dipakai
+  konsumen luar sebelum penjaga ini ada (pola yang sama dengan baris
+  `ZabbixInstance` 'telkom' yang lahir dengan kredensial kosong).
+- **Ketiga penolakan dibedakan pesannya**: kunci tidak dikenal, data ditutup,
+  dan izin kurang. Ketiganya `403` tapi menuntut tindakan berbeda, dan yang
+  menerimanya tidak bisa melihat admin FASOP — menyamakannya berarti setiap
+  keluhan harus dijawab dengan membuka log server (dijaga tes).
+- **Penolakan tidak mencatat `terakhir_dipakai`.** Kalau ikut tercatat, di admin
+  ia terbaca seolah integrasinya berjalan normal.
+- **`@require_kunci_baca` tanpa kode data melempar `TypeError` saat modul
+  dimuat**, bukan diam-diam melayani semua orang — bentuk lama dekorator ini
+  memang tanpa argumen, jadi kesalahan itu realistis.
+- Kode dataset yang salah ketik di dekorator menghasilkan endpoint yang
+  **selalu** `403` (kode tak dikenal diperlakukan sebagai ditutup) — gejala yang
+  terbaca seperti izin admin yang kurang, bukan seperti bug. Karena itu ada tes
+  yang membuka tiap endpoint di registry dengan kunci ber-izin penuh dan
+  menuntut bukan-403.
+
 ### Endpoint yang dibuka
 
-| Endpoint | Sumber angka |
-|---|---|
-| `GET /api/v1/opsis/beban-ktt/` | `opsis.ktt.baca_beban_ktt()` |
+| Endpoint | Kode data | Sumber angka |
+|---|---|---|
+| `GET /api/v1/opsis/beban-ktt/` | `beban_ktt` | `opsis.ktt.baca_beban_ktt()` |
+| `GET /api/v1/opsis/beban-pembangkit/` | `beban_pembangkit` | `opsis.beban_kit.baca_live()` (MSSQL) |
+| `GET /api/v1/opsis/beban-pembangkit/riwayat/` | `beban_pembangkit` | `opsis.beban_kit.riwayat()` (`SnapLive`) |
+| `GET /api/v1/opsis/frekuensi/` | `frekuensi` | `opsis.freq_history.ambil_range_detail()` |
+| `GET /api/v1/logsheet/pembebanan/` | `logsheet` | `logsheet.LogsheetNilai` |
 
 Yang perlu diketahui saat menambah endpoint baca berikutnya:
 
@@ -1779,20 +1831,55 @@ Yang perlu diketahui saat menambah endpoint baca berikutnya:
   rumahnya `opsis/ktt.py` dan dipakai halaman FASOP maupun API luar. Kalau
   disalin, layar ruang kontrol dan spreadsheet pihak luar bisa menyebut konsumen
   yang sama dengan nama berbeda, dan tidak ada yang tahu mana yang benar
-  (dijaga tes).
-- **Cache-nya dipakai bersama** (`opsis/cache.py`, kunci `beban_ktt`, TTL 2
-  detik). Penarik dari luar karena itu tidak menambah satu pun query ke MSSQL
-  selama halamannya juga sedang terbuka. `opsis/cache.py` adalah `_hz_cached`
-  lama yang dipindah keluar dari views supaya modul non-view bisa memakainya.
-- **Historian mati membalas `503`, BUKAN `total_mw: 0`.** Bagi konsumen luar
-  angka nol tidak bisa dibedakan dari "semua konsumen KTT padam", dan sekali
-  tercatat di spreadsheet mereka, angka palsu itu tidak akan pernah diperbaiki.
-  Aturan yang sama dengan MVA/H kosong di kartu Inersia: tidak tahu ≠ nol.
+  (dijaga tes). Alasan yang sama melahirkan `opsis/beban_kit.py`: daftar
+  pembangkit aktif (dulu `opsis.views._pembangkit_aktif`, lengkap dengan
+  `select_related('sumber')` + `prefetch_related('tag_unit')` yang menjaganya
+  tetap satu query) sekarang tinggal di sana, dan `opsis/views.py` hanya
+  menunjuknya lewat alias supaya ~20 call site-nya tidak perlu diubah.
+- **Frekuensi WAJIB lewat `opsis/freq_history.py`**, jangan
+  `mssql.get_freq_range()` langsung — kalau tidak, API luar akan kehilangan
+  penggabungan tiga sumber yang justru menutupi mode kegagalan paling mahal
+  (job penulis `SYS_FREQ_HIS` berhenti ±42 jam tanpa ketahuan). `sumber_rincian`
+  ikut dikirim supaya konsumen tahu bagian mana yang ditambal, bukan cuma
+  menerima garis yang terlihat mulus.
+- **Cache-nya dipakai bersama** (`opsis/cache.py`, kunci `beban_ktt` /
+  `beban_kit_live`, TTL 2 detik). Penarik dari luar karena itu tidak menambah
+  satu pun query ke MSSQL selama halamannya juga sedang terbuka.
+  `opsis/cache.py` adalah `_hz_cached` lama yang dipindah keluar dari views
+  supaya modul non-view bisa memakainya.
+- **Historian mati membalas `503`, BUKAN nol.** Bagi konsumen luar angka nol
+  tidak bisa dibedakan dari "semuanya padam", dan sekali tercatat di spreadsheet
+  mereka, angka palsu itu tidak akan pernah diperbaiki. Aturan yang sama dengan
+  MVA/H kosong di kartu Inersia: tidak tahu ≠ nol. **Pengecualiannya endpoint
+  RENTANG** (frekuensi, riwayat beban): di sana kosong dibalas `200` dengan
+  deret kosong, karena "tidak ada data pada jam itu" adalah jawaban yang sah —
+  berbeda dari endpoint terkini yang kekosongannya selalu berarti rusak.
+- **Riwayat memakai `waktu__gte`/`waktu__lt`, bukan lookup `__date`.** `__date`
+  membungkus kolom dalam cast sehingga indeks `(pembangkit, -waktu)` tidak
+  terpakai — alasan yang sama dengan ekspor beban pembangkit (18,9 → 5,6 detik).
+  Konsekuensinya batas atas eksklusif; ada tesnya supaya tidak diam-diam berubah
+  jadi inklusif saat filternya disentuh.
+- **Tiap endpoint rentang punya batas lebar** (`MAKS_JAM_FREKUENSI` 6 jam,
+  `beban_kit.MAKS_HARI_RIWAYAT` 3 hari). Satu permintaan tidak boleh menahan satu
+  worker gunicorn sampai timeout — alasan yang sama dengan
+  `EXPORT_KIT_MAKS_HARI`.
+- **Endpoint luar tidak mengirim rincian internal.** Logsheet luar sengaja tidak
+  memuat sheet/baris/kolom template Excel maupun pemetaan MSSQL-nya (bandingkan
+  `/api/v1/logsheet/`, feed n8n, yang justru berisi persis itu): posisi sel bisa
+  berubah kapan saja tanpa mengubah arti datanya, dan nama tabel historian
+  adalah rincian infrastruktur SCADA. Sekali terkirim, keduanya jadi kontrak tak
+  sengaja (dijaga tes). Sebaliknya penanda `data_tidak_sesuai` dari operator
+  OPSIS justru IKUT keluar sebagai `diragukan` — kalau ruang kontrol sendiri
+  meragukan angkanya, yang menyalinnya ke laporan berhak tahu.
 - **`catat_pemakaian()` direm `JEDA_CATAT_DETIK`** (60 detik). Tanpa itu satu
   penarik yang memoll tiap 5 detik menulis ~17 ribu `UPDATE` sehari hanya untuk
   informasi yang dibaca manusia sekali-sekali.
 - Pembatasan laju sebaiknya di Cloudflare (WAF rate limiting per path), bukan di
   Django — di sana ia berlaku sebelum request menyentuh gunicorn sama sekali.
+- Tesnya di **`api/tests.py`** — ditemukan test runner lewat discovery direktori,
+  walau `api` bukan app Django. Tes beban KTT yang lebih lama tetap di
+  `opsis/tests.py` (`ApiEksternalBebanKttTest`) karena yang dijaganya adalah
+  janji bahwa nama konsumennya sama dengan halaman OPSIS.
 
 ---
 

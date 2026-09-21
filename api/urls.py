@@ -22,6 +22,18 @@ urlpatterns = [
     # Prakiraan beban OPSIS — kurva 30 menit dari spreadsheet (n8n -> FASOP)
     path('prakiraan-beban/', views.prakiraan_beban_endpoint, name='prakiraan_beban'),
 
-    # ── Endpoint BACA untuk konsumen luar — dikunci devices.KunciApi ──
-    path('opsis/beban-ktt/', views.opsis_beban_ktt_endpoint, name='opsis_beban_ktt'),
+    # ── Endpoint BACA untuk konsumen luar ────────────────────────────────
+    # Dikunci devices.KunciApi (siapa) + devices.DatasetApi (data apa), lihat
+    # api/registry.py. Rute riwayat didaftarkan SEBELUM rute terkininya bukan
+    # karena harus, melainkan supaya keduanya terbaca berpasangan.
+    path('opsis/beban-ktt/', views.opsis_beban_ktt_endpoint,
+         name='opsis_beban_ktt'),
+    path('opsis/beban-pembangkit/', views.opsis_beban_pembangkit_endpoint,
+         name='opsis_beban_pembangkit'),
+    path('opsis/beban-pembangkit/riwayat/', views.opsis_beban_pembangkit_riwayat_endpoint,
+         name='opsis_beban_pembangkit_riwayat'),
+    path('opsis/frekuensi/', views.opsis_frekuensi_endpoint,
+         name='opsis_frekuensi'),
+    path('logsheet/pembebanan/', views.logsheet_pembebanan_endpoint,
+         name='logsheet_pembebanan'),
 ]

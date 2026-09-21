@@ -46,43 +46,86 @@ def _client_ip(request):
     return request.META.get('REMOTE_ADDR')
 
 
-def require_kunci_baca(view_func):
+def require_kunci_baca(dataset):
     """
-    Decorator untuk endpoint BACA yang dibuka ke pihak luar.
+    Dekorator endpoint BACA untuk pihak luar, dikunci per JENIS DATA.
 
-    Berbeda dari `require_api_key`, yang diterima di sini BUKAN
-    `settings.API_KEY` melainkan baris `devices.KunciApi` yang aktif. Kunci
-    global sengaja ditolak: ia juga membuka endpoint tulis (upsert inventaris
-    device, HOP, prakiraan beban), jadi kalau ia ikut diterima di sini, cepat
-    atau lambat kunci itulah yang dibagikan ke pihak luar "karena bisa".
+        @require_kunci_baca('frekuensi')
+        def frekuensi_endpoint(request): ...
+
+    Yang diterima BUKAN `settings.API_KEY` melainkan baris `devices.KunciApi`
+    yang aktif. Kunci global sengaja ditolak: ia juga membuka endpoint tulis
+    (upsert inventaris device, HOP, prakiraan beban), jadi kalau ia ikut
+    diterima di sini, cepat atau lambat kunci itulah yang dibagikan ke pihak
+    luar "karena bisa".
+
+    Tiga penolakan yang dibedakan pesannya, karena ketiganya butuh tindakan yang
+    berbeda dan pengirimnya tidak bisa melihat admin FASOP:
+
+      * kunci tidak dikenal / dicabut          -> admin menerbitkan ulang kunci
+      * data sedang ditutup untuk semua orang  -> tunggu / tanyakan ke FASOP
+      * kunci ini tidak diberi izin atas data  -> admin mencentangkan izinnya
+
+    Menyamakan ketiganya jadi satu "403 ditolak" berarti setiap keluhan harus
+    dijawab dengan membuka log server.
 
     Kunci yang cocok disimpan di `request.kunci_api` supaya view bisa
     mencatatnya bila perlu.
     """
-    @functools.wraps(view_func)
-    def wrapper(request, *args, **kwargs):
-        from devices.models import KunciApi
+    if callable(dataset):       # ketahuan kalau ditulis @require_kunci_baca tanpa kode
+        raise TypeError(
+            'require_kunci_baca() butuh kode data, mis. '
+            "@require_kunci_baca('beban_ktt') — lihat api/registry.py."
+        )
 
-        kunci = request.headers.get('X-Api-Key') or request.headers.get('X-API-Key')
-        if not kunci:
-            return JsonResponse(
-                {'status': 'error', 'message': 'Header X-API-Key tidak ditemukan.'},
-                status=401
-            )
+    def dekorator(view_func):
+        @functools.wraps(view_func)
+        def wrapper(request, *args, **kwargs):
+            from devices.models import DatasetApi, KunciApi
 
-        obj = KunciApi.objects.filter(kunci=kunci, aktif=True).first()
-        if obj is None:
-            return JsonResponse(
-                {'status': 'error', 'message': 'Kunci API tidak valid atau sudah dicabut.'},
-                status=403
-            )
+            kunci = request.headers.get('X-Api-Key') or request.headers.get('X-API-Key')
+            if not kunci:
+                return JsonResponse(
+                    {'status': 'error', 'message': 'Header X-API-Key tidak ditemukan.'},
+                    status=401
+                )
 
-        request.kunci_api = obj
-        try:
-            obj.catat_pemakaian(_client_ip(request))
-        except Exception:
-            pass    # jejak pemakaian tidak boleh menggagalkan permintaan data
+            obj = KunciApi.objects.filter(kunci=kunci, aktif=True).first()
+            if obj is None:
+                return JsonResponse(
+                    {'status': 'error', 'message': 'Kunci API tidak valid atau sudah dicabut.'},
+                    status=403
+                )
 
-        return view_func(request, *args, **kwargs)
+            # Sakelar global: "data ini boleh keluar dari FASOP atau tidak".
+            # Baris yang belum ada diperlakukan sama dengan ditutup — data baru
+            # tidak pernah terbuka sebelum ada yang memutuskan di admin.
+            ds = DatasetApi.objects.filter(kode=dataset).first()
+            if ds is None or not ds.aktif:
+                return JsonResponse({
+                    'status':  'error',
+                    'dataset': dataset,
+                    'message': 'Data ini sedang tidak dibuka untuk akses luar. '
+                               'Hubungi tim FASOP bila memang diperlukan.',
+                }, status=403)
 
-    return wrapper
+            if not obj.dataset.filter(pk=ds.pk).exists():
+                return JsonResponse({
+                    'status':  'error',
+                    'dataset': dataset,
+                    'message': f'Kunci ini tidak diizinkan membaca "{ds.nama}". '
+                               f'Mintakan izinnya ke admin FASOP.',
+                }, status=403)
+
+            request.kunci_api   = obj
+            request.dataset_api = ds
+            try:
+                obj.catat_pemakaian(_client_ip(request))
+            except Exception:
+                pass    # jejak pemakaian tidak boleh menggagalkan permintaan data
+
+            return view_func(request, *args, **kwargs)
+
+        return wrapper
+
+    return dekorator
