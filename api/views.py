@@ -902,6 +902,120 @@ def opsis_beban_pembangkit_riwayat_endpoint(request):
     })
 
 
+# ── Beban trafo — terkini ───────────────────────────────────────────────────
+@csrf_exempt
+@require_kunci_baca('beban_trafo')
+@require_http_methods(["GET"])
+def opsis_beban_trafo_endpoint(request):
+    """
+    Daya terkini tiap trafo, dikelompokkan per GI.
+
+    ?jenis=distribusi (bawaan) | ibt
+
+    Angkanya lewat opsis.trafo.baca_live() — sumber, penyaring trafo aktif, dan
+    cache yang sama persis dengan halaman /opsis/beban-trafo/, jadi penarik dari
+    luar tidak menambah query ke MSSQL selama halamannya juga terbuka, dan tidak
+    mungkin menyebut GI/bay berbeda dari layar FASOP.
+
+    Nilai per trafo dikirim APA ADANYA (p bisa negatif — arah aliran daya lewat
+    IBT dua arah). `total_mw` dan `site_totals` sebaliknya memakai magnitudo,
+    menyamai kartu total di layar: menjumlahkan bertanda akan membuat dua trafo
+    berlawanan arah saling meniadakan dan GI yang sibuk terlihat nyaris kosong.
+    """
+    from django.utils import timezone
+    from opsis import trafo as trafo_io
+
+    jenis, galat = trafo_io.normalkan_jenis(request.GET.get('jenis'))
+    if galat:
+        return _galat(galat, dataset='beban_trafo')
+
+    data = trafo_io.baca_live(jenis)
+
+    # Aturan yang sama dengan beban KTT dan beban pembangkit: historian mati
+    # dibalas 503, bukan daftar kosong yang di sisi konsumen gampang jatuh jadi
+    # nol — dan nol tidak bisa dibedakan dari "semua trafo padam".
+    if data['terputus'] or not data['rows']:
+        return _galat(
+            'Data beban trafo sedang tidak tersedia '
+            '(historian SCADA tidak terjangkau).',
+            status=503, dataset='beban_trafo', terputus=True,
+        )
+
+    return JsonResponse({
+        'status':   'ok',
+        'dataset':  'beban_trafo',
+        'jenis':    jenis,
+        'waktu':    timezone.localtime().isoformat(),
+        'sumber':   'OPSIS — ALL_TRANS_DATA (historian SCADA)',
+        'satuan':   {'p': 'MW', 'q': 'MVAR', 'v': 'kV', 'i': 'A'},
+        'terputus': False,
+        'total_mw': data['total_mw'],
+        'jumlah':   data['jumlah'],
+        'gi': [
+            {
+                'site':     site,
+                'total_mw': data['site_totals'].get(site),
+                'trafo': [
+                    {'bay': r['bay'], 'p': r['p'], 'q': r['q'],
+                     'v': r['v'], 'i': r['i']}
+                    for r in daftar
+                ],
+            }
+            for site, daftar in data['grouped'].items()
+        ],
+    })
+
+
+# ── Beban trafo — riwayat ───────────────────────────────────────────────────
+@csrf_exempt
+@require_kunci_baca('beban_trafo')
+@require_http_methods(["GET"])
+def opsis_beban_trafo_riwayat_endpoint(request):
+    """
+    Riwayat daya aktif (P) per menit dari snapshot PostgreSQL (opsis.SnapTrafo).
+
+    ?jenis=distribusi (bawaan) | ibt
+    ?dari=&sampai=  waktu ISO (bawaan: 60 menit terakhir)
+    ?site=          daftar nama GI dipisah koma (bawaan: semua)
+
+    Hanya P yang tersedia — SnapTrafo memang hanya menyimpan itu; Q/V/I cuma ada
+    pada endpoint terkini. Sumbernya PostgreSQL, jadi endpoint ini tetap menjawab
+    saat historian tak terjangkau, dan menariknya tidak membebani historian yang
+    dipakai bersama ruang kontrol.
+    """
+    from opsis import trafo as trafo_io
+
+    jenis, galat = trafo_io.normalkan_jenis(request.GET.get('jenis'))
+    if galat:
+        return _galat(galat, dataset='beban_trafo')
+
+    t0, t1, galat = _rentang(request, bawaan_menit=60,
+                             maks_menit=trafo_io.MAKS_HARI_RIWAYAT * 24 * 60)
+    if galat:
+        return _galat(galat, dataset='beban_trafo')
+
+    site = [s.strip() for s in (request.GET.get('site') or '').split(',') if s.strip()]
+    data = trafo_io.riwayat(t0, t1, jenis, site or None)
+
+    if site and not data:
+        return _galat(
+            f'Tidak ada trafo {jenis} aktif di GI {", ".join(site)}.',
+            status=404, dataset='beban_trafo',
+        )
+
+    return JsonResponse({
+        'status':  'ok',
+        'dataset': 'beban_trafo',
+        'jenis':   jenis,
+        'dari':    t0.isoformat(),
+        'sampai':  t1.isoformat(),
+        'sumber':  'opsis.SnapTrafo (snapshot PostgreSQL, 1 titik per menit)',
+        'satuan':  {'p': 'MW'},
+        'jumlah':  sum(d['jumlah'] for d in data),
+        'trafo':   data,
+    })
+
+
 # ── Frekuensi sistem ────────────────────────────────────────────────────────
 @csrf_exempt
 @require_kunci_baca('frekuensi')

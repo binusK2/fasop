@@ -27,8 +27,8 @@ kunci per konsumen. Perlakukan seperti password:
 ### Izin per jenis data
 
 Satu kunci **tidak otomatis membuka semua data**. Tiap kunci diberi izin per
-jenis data (Beban KTT, Beban pembangkit, Frekuensi sistem, Logsheet
-pembebanan), dan admin FASOP juga bisa menutup satu jenis data sekaligus untuk
+jenis data (Beban KTT, Beban pembangkit, Beban trafo, Frekuensi sistem,
+Logsheet pembebanan), dan admin FASOP juga bisa menutup satu jenis data sekaligus untuk
 semua konsumen. Jadi data yang belum Anda minta akan dibalas `403`, dan
 penambahan data baru di FASOP tidak diam-diam ikut terkirim ke Anda.
 
@@ -177,7 +177,93 @@ yang butuh angka detik ini memakai endpoint terkini di atas.
 
 ---
 
-## 5. `GET /api/v1/opsis/frekuensi/`
+## 5. `GET /api/v1/opsis/beban-trafo/`
+
+Daya terkini tiap trafo, dikelompokkan per GI.
+
+| Parameter | Bawaan | Catatan |
+|---|---|---|
+| `jenis` | `distribusi` | `distribusi` (BAY TRF52/TRF42) atau `ibt` (BAY TRF65/TRF54) |
+
+```json
+{
+  "status": "ok",
+  "jenis": "distribusi",
+  "waktu": "2026-09-21T14:32:10+08:00",
+  "sumber": "OPSIS — ALL_TRANS_DATA (historian SCADA)",
+  "satuan": { "p": "MW", "q": "MVAR", "v": "kV", "i": "A" },
+  "total_mw": 25.0,
+  "jumlah": 2,
+  "gi": [
+    {
+      "site": "GI SUNGGUMINASA",
+      "total_mw": 25.0,
+      "trafo": [
+        { "bay": "TRF52-1", "p": 20.0, "q": 3.0, "v": 20.1, "i": 600.0 },
+        { "bay": "TRF52-2", "p": -5.0, "q": 1.0, "v": 20.0, "i": 150.0 }
+      ]
+    }
+  ]
+}
+```
+
+**`p` bisa negatif, dan tandanya bermakna** — arah aliran daya lewat trafo (dua
+arah, terutama pada IBT). Jangan membuang tandanya saat menyalin per-trafo.
+
+**`total_mw` dan `total_mw` per GI memakai magnitudo** (`abs`), menyamai kartu
+total di layar OPSIS. Pada contoh di atas 20 dan −5 menjadi **25**, bukan 15:
+dijumlahkan bertanda, dua trafo berlawanan arah saling meniadakan dan GI yang
+sibuk akan terlihat nyaris tanpa beban.
+
+`jenis` yang tidak dikenal dibalas `400`, **tidak** diam-diam jatuh ke
+`distribusi` — supaya salah ketik tidak membuat Anda mencatat angka distribusi
+sebagai angka IBT.
+
+Trafo yang dinonaktifkan di FASOP tidak ikut. Kalau ada GI/bay yang Anda
+harapkan tapi tidak muncul, itu yang pertama perlu dicek ke pengelola FASOP.
+
+---
+
+## 6. `GET /api/v1/opsis/beban-trafo/riwayat/`
+
+Riwayat daya aktif (**P saja**) per menit dari snapshot PostgreSQL FASOP.
+
+| Parameter | Bawaan | Catatan |
+|---|---|---|
+| `jenis` | `distribusi` | sama seperti di atas |
+| `dari`, `sampai` | 60 menit terakhir | waktu ISO, mis. `2026-09-21T08:00` |
+| `site` | semua GI | dipisah koma, mis. `GI SUNGGUMINASA,GI PANAKKUKANG` |
+
+Rentang maksimum **3 hari** sekali permintaan.
+
+```json
+{
+  "status": "ok",
+  "jenis": "distribusi",
+  "dari": "2026-09-21T13:32:10+08:00",
+  "sampai": "2026-09-21T14:32:10+08:00",
+  "sumber": "opsis.SnapTrafo (snapshot PostgreSQL, 1 titik per menit)",
+  "satuan": { "p": "MW" },
+  "jumlah": 120,
+  "trafo": [
+    {
+      "site": "GI SUNGGUMINASA", "bay": "TRF52-1", "jumlah": 60,
+      "deret": [ { "waktu": "2026-09-21T13:33:00+08:00", "p": 20.0 } ]
+    }
+  ]
+}
+```
+
+**Hanya P yang tersedia di riwayat.** Q, V, dan I tidak disimpan ke snapshot,
+jadi keduanya cuma ada di endpoint terkini (bagian 5).
+
+Seperti riwayat beban pembangkit, endpoint ini **tetap menjawab saat historian
+SCADA mati** — sumbernya PostgreSQL. Imbalannya nilai paling baru bisa
+tertinggal sampai satu menit.
+
+---
+
+## 7. `GET /api/v1/opsis/frekuensi/`
 
 Riwayat frekuensi sistem **per detik**.
 
@@ -210,7 +296,7 @@ Rentang yang memang sepi dibalas `200` dengan `deret: []`, **bukan** `503` —
 
 ---
 
-## 6. `GET /api/v1/logsheet/pembebanan/`
+## 8. `GET /api/v1/logsheet/pembebanan/`
 
 Nilai logsheet pembebanan per **slot 30 menit** untuk satu tanggal: pembangkit,
 penghantar, busbar, dan trafo/IBT.
@@ -253,7 +339,7 @@ bergulir sekitar satu bulan, jadi ambil arsipnya sebelum itu bila diperlukan.
 
 ---
 
-## 7. Seberapa sering boleh ditarik
+## 9. Seberapa sering boleh ditarik
 
 Angkanya diperbarui di sisi FASOP setiap beberapa detik. **Tarik paling cepat
 sekali per menit** — lebih sering dari itu tidak menambah informasi, hanya
@@ -263,7 +349,7 @@ Kalau butuh yang lebih cepat dari itu, bicarakan dulu dengan tim FASOP.
 
 ---
 
-## 8. Contoh — Google Apps Script
+## 10. Contoh — Google Apps Script
 
 ```javascript
 const FASOP_URL = 'https://<domain-fasop>/api/v1/opsis/beban-ktt/';
@@ -310,7 +396,7 @@ sebaiknya dihentikan setelah beralih ke kunci API:
 
 ---
 
-## 9. Kalau ada masalah
+## 11. Kalau ada masalah
 
 Sebutkan ke tim FASOP: **nama konsumen di kunci Anda**, jam kejadian, dan kode
 HTTP yang diterima. Pemakaian tiap kunci (kapan terakhir dipakai, dari IP mana)

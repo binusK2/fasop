@@ -20,6 +20,7 @@ from .models import (Pembangkit, SnapLive, SnapFreq, SnapFreqRT, Trafo, SnapTraf
 from auditlog.models import AuditLog
 from auditlog.utils import log_action
 from . import beban_kit, mssql
+from . import trafo as trafo_io
 from . import prediksi
 from . import ktt
 from . import inersia as inersia_calc
@@ -48,27 +49,10 @@ def _hz_cached(key, producer):
 _pembangkit_aktif = beban_kit.pembangkit_aktif
 
 
-def _trafo_aktif_saja(rows):
-    """
-    Filter hasil mssql.get_beban_trafo()/get_beban_trafo_ibt() agar hanya
-    trafo yang aktif di admin (opsis.Trafo) yang ikut ditampilkan/dihitung.
-    Trafo baru yang belum terdaftar otomatis didaftarkan sebagai aktif=True
-    supaya tidak hilang dari tampilan sebelum sempat dikonfigurasi.
-
-    MSSQL tidak reachable → mssql.get_beban_trafo()/get_beban_trafo_ibt()
-    sudah return [] (lihat mssql.py), jadi tidak ada risiko baris palsu
-    ikut auto-registrasi di sini.
-    """
-    existing = {(t.site, t.bay): t.aktif for t in Trafo.objects.all()}
-    result = []
-    for r in rows:
-        key = (r['site'], r['bay'])
-        if key not in existing:
-            Trafo.objects.get_or_create(site=r['site'], bay=r['bay'])
-            existing[key] = True
-        if existing[key]:
-            result.append(r)
-    return result
+# Filter trafo aktif hidup di opsis/trafo.py, dipakai bersama halaman OPSIS,
+# cron collect_trafo, dan API eksternal. Nama lamanya dipertahankan sebagai
+# alias: dipakai beberapa view di berkas ini dan disebut di docstring model.
+_trafo_aktif_saja = trafo_io.aktif_saja
 
 
 @login_required
@@ -1267,28 +1251,13 @@ def rangkuman(request):
 @login_required
 def beban_trafo(request):
     """Halaman monitoring beban trafo distribusi dari ALL_TRANS_DATA (BAY TRF52%/TRF42%)."""
-    rows = _trafo_aktif_saja(mssql.get_beban_trafo())
-
-    # Kelompokkan per GI (site)
-    grouped = {}
-    for r in rows:
-        site = r['site'] or 'Unknown'
-        grouped.setdefault(site, []).append(r)
-
-    # Hitung total P per site — abs() agar nilai negatif tidak kurangi total
-    site_totals = {
-        site: round(sum(abs(r['p']) for r in trafo_list if r['p'] is not None), 2)
-        for site, trafo_list in grouped.items()
-    }
-
-    total_mw = round(sum(site_totals.values()), 2)
-
+    data = trafo_io.baca_live('distribusi')
     return render(request, 'opsis/beban_trafo.html', {
         'pembangkit_list': _pembangkit_aktif(),
-        'grouped':         grouped,
-        'site_totals':     site_totals,
-        'total_mw':        total_mw,
-        'terputus':        not mssql.is_reachable(),
+        'grouped':         data['grouped'],
+        'site_totals':     data['site_totals'],
+        'total_mw':        data['total_mw'],
+        'terputus':        data['terputus'],
     })
 
 
@@ -1402,78 +1371,24 @@ def api_beban_ktt_chart(request):
 @login_required
 def api_beban_trafo(request):
     """API JSON untuk refresh otomatis halaman beban trafo."""
-    rows = _trafo_aktif_saja(mssql.get_beban_trafo())
-    grouped = {}
-    for r in rows:
-        site = r['site'] or 'Unknown'
-        grouped.setdefault(site, []).append(r)
-    site_totals = {
-        site: round(sum(abs(r['p']) for r in lst if r['p'] is not None), 2)
-        for site, lst in grouped.items()
-    }
+    data = trafo_io.baca_live('distribusi')
     return JsonResponse({
-        'rows':        rows,
-        'site_totals': site_totals,
-        'total_mw':    round(sum(site_totals.values()), 2),
-        'terputus':    not mssql.is_reachable(),
+        'rows':        data['rows'],
+        'site_totals': data['site_totals'],
+        'total_mw':    data['total_mw'],
+        'terputus':    data['terputus'],
     })
 
 
 def _beban_trafo_chart_data():
     """
-    Bangun payload chart 24 jam daya aktif (P) trafo distribusi — satu chart
-    per GI (site) berisi satu garis per trafo di GI tersebut, semua trafo di
-    site yang sama berbagi sumbu waktu (label) yang sama.
+    Payload chart 24 jam P per trafo, per GI.
 
-    Sumber: PostgreSQL (SnapTrafo), diisi tiap menit oleh management command
-    'collect_trafo'. Tidak ada fallback ke MSSQL histori — ALL_TRANS_DATA
-    cuma snapshot realtime, bukan tabel historian seperti HIS_MEAS_KIT, jadi
-    PostgreSQL satu-satunya sumber data historis di sini.
-
-    Trafo dibatasi ke BAY TRF52%/TRF42% (distribusi) saja — registry Trafo
-    dipakai bersama dengan halaman Beban Trafo IBT (BAY TRF65%/TRF54%), jadi
-    tanpa filter ini trafo IBT ikut nongol di sini walau tidak pernah
-    kebagian data dari collect_trafo.
+    Isinya dirakit `opsis.trafo.chart_harian()`. Dulu fungsi ini dan
+    pasangannya (distribusi vs IBT) berisi kode yang sama persis kecuali
+    filter BAY-nya, dan harus dijaga tetap sama secara manual.
     """
-    from django.db.models import Q
-
-    tz_local = timezone.get_current_timezone()
-    today    = timezone.now().astimezone(tz_local).date()
-
-    trafo_list = list(
-        Trafo.objects.filter(aktif=True)
-        .filter(Q(bay__istartswith='TRF52') | Q(bay__istartswith='TRF42'))
-    )
-    snaps = (SnapTrafo.objects
-             .filter(trafo__in=trafo_list, waktu__date=today)
-             .order_by('waktu')
-             .values('trafo_id', 'waktu', 'p'))
-
-    per_trafo = {}
-    count = 0
-    for s in snaps:
-        per_trafo.setdefault(s['trafo_id'], {})[s['waktu']] = s['p']
-        count += 1
-
-    by_site = {}
-    for t in trafo_list:
-        by_site.setdefault(t.site or 'Unknown', []).append(t)
-
-    sites = []
-    for site, trafos in sorted(by_site.items()):
-        waktu_set = sorted({w for t in trafos for w in per_trafo.get(t.id, {})})
-        labels = [w.astimezone(tz_local).strftime('%H:%M') for w in waktu_set]
-        series = []
-        for t in trafos:
-            vals = per_trafo.get(t.id, {})
-            series.append({
-                'id':  t.id,
-                'bay': t.bay,
-                'p': [round(vals[w], 2) if vals.get(w) is not None else None for w in waktu_set],
-            })
-        sites.append({'site': site, 'labels': labels, 'trafos': series})
-
-    return {'sites': sites, 'count': count}
+    return trafo_io.chart_harian('distribusi')
 
 
 @login_required
@@ -1496,100 +1411,37 @@ def api_beban_trafo_chart(request):
 @login_required
 def beban_trafo_ibt(request):
     """Halaman monitoring beban trafo IBT dari ALL_TRANS_DATA (BAY TRF65%/TRF54%)."""
-    rows = _trafo_aktif_saja(mssql.get_beban_trafo_ibt())
-
-    grouped = {}
-    for r in rows:
-        site = r['site'] or 'Unknown'
-        grouped.setdefault(site, []).append(r)
-
-    site_totals = {
-        site: round(sum(abs(r['p']) for r in trafo_list if r['p'] is not None), 2)
-        for site, trafo_list in grouped.items()
-    }
-    total_mw = round(sum(site_totals.values()), 2)
-
+    data = trafo_io.baca_live('ibt')
     return render(request, 'opsis/beban_trafo_ibt.html', {
         'pembangkit_list': _pembangkit_aktif(),
-        'grouped':         grouped,
-        'site_totals':     site_totals,
-        'total_mw':        total_mw,
-        'terputus':        not mssql.is_reachable(),
+        'grouped':         data['grouped'],
+        'site_totals':     data['site_totals'],
+        'total_mw':        data['total_mw'],
+        'terputus':        data['terputus'],
     })
 
 
 @login_required
 def api_beban_trafo_ibt(request):
     """API JSON untuk refresh otomatis halaman/chart beban trafo IBT."""
-    rows = _trafo_aktif_saja(mssql.get_beban_trafo_ibt())
-    grouped = {}
-    for r in rows:
-        site = r['site'] or 'Unknown'
-        grouped.setdefault(site, []).append(r)
-    site_totals = {
-        site: round(sum(abs(r['p']) for r in lst if r['p'] is not None), 2)
-        for site, lst in grouped.items()
-    }
+    data = trafo_io.baca_live('ibt')
     return JsonResponse({
-        'rows':        rows,
-        'site_totals': site_totals,
-        'total_mw':    round(sum(site_totals.values()), 2),
-        'terputus':    not mssql.is_reachable(),
+        'rows':        data['rows'],
+        'site_totals': data['site_totals'],
+        'total_mw':    data['total_mw'],
+        'terputus':    data['terputus'],
     })
 
 
 def _beban_trafo_ibt_chart_data():
     """
-    Bangun payload chart 24 jam daya aktif (P) trafo IBT — satu chart per GI
-    (site) berisi satu garis per trafo di GI tersebut. Sama persis dengan
-    _beban_trafo_chart_data() (trafo distribusi), cuma filter BAY-nya beda
-    (TRF65%/TRF54%) dan SUMBER DATANYA SAMA (SnapTrafo, diisi 'collect_trafo').
+    Payload chart 24 jam P per trafo, per GI.
 
-    Nilai P disimpan & ditampilkan APA ADANYA (bisa negatif — arah aliran
-    daya lewat IBT dua arah, jadi tanda minus bermakna, TIDAK di-abs()-kan)
-    — beda dengan site_totals di beban_trafo_ibt()/api_beban_trafo_ibt()
-    (tabel realtime) yang sengaja pakai abs() krn itu total MAGNITUDE beban,
-    bukan tren per-trafo.
+    Isinya dirakit `opsis.trafo.chart_harian()`. Dulu fungsi ini dan
+    pasangannya (distribusi vs IBT) berisi kode yang sama persis kecuali
+    filter BAY-nya, dan harus dijaga tetap sama secara manual.
     """
-    from django.db.models import Q
-
-    tz_local = timezone.get_current_timezone()
-    today    = timezone.now().astimezone(tz_local).date()
-
-    trafo_list = list(
-        Trafo.objects.filter(aktif=True)
-        .filter(Q(bay__istartswith='TRF65') | Q(bay__istartswith='TRF54'))
-    )
-    snaps = (SnapTrafo.objects
-             .filter(trafo__in=trafo_list, waktu__date=today)
-             .order_by('waktu')
-             .values('trafo_id', 'waktu', 'p'))
-
-    per_trafo = {}
-    count = 0
-    for s in snaps:
-        per_trafo.setdefault(s['trafo_id'], {})[s['waktu']] = s['p']
-        count += 1
-
-    by_site = {}
-    for t in trafo_list:
-        by_site.setdefault(t.site or 'Unknown', []).append(t)
-
-    sites = []
-    for site, trafos in sorted(by_site.items()):
-        waktu_set = sorted({w for t in trafos for w in per_trafo.get(t.id, {})})
-        labels = [w.astimezone(tz_local).strftime('%H:%M') for w in waktu_set]
-        series = []
-        for t in trafos:
-            vals = per_trafo.get(t.id, {})
-            series.append({
-                'id':  t.id,
-                'bay': t.bay,
-                'p': [round(vals[w], 2) if vals.get(w) is not None else None for w in waktu_set],
-            })
-        sites.append({'site': site, 'labels': labels, 'trafos': series})
-
-    return {'sites': sites, 'count': count}
+    return trafo_io.chart_harian('ibt')
 
 
 @login_required
