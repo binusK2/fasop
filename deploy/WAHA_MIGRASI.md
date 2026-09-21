@@ -61,13 +61,66 @@ services:
       # di-restart dan QR harus discan ulang setiap kali.
       - ./.sessions:/app/.sessions
     environment:
-      WAHA_API_KEY: "${WAHA_API_KEY}"
-      WAHA_DASHBOARD_USERNAME: "${WAHA_DASHBOARD_USERNAME}"
-      WAHA_DASHBOARD_PASSWORD: "${WAHA_DASHBOARD_PASSWORD}"
-      WHATSAPP_SWAGGER_USERNAME: "${WAHA_DASHBOARD_USERNAME}"
-      WHATSAPP_SWAGGER_PASSWORD: "${WAHA_DASHBOARD_PASSWORD}"
+      # Nilai LITERAL, tanpa ${...} — lihat peringatan di bawah.
+      WAHA_API_KEY: "ganti-dengan-hasil-uuidgen"
+      WAHA_DASHBOARD_USERNAME: "admin"
+      WAHA_DASHBOARD_PASSWORD: "ganti-dengan-sandi-kuat"
+      WHATSAPP_SWAGGER_USERNAME: "admin"
+      WHATSAPP_SWAGGER_PASSWORD: "ganti-dengan-sandi-kuat"
       TZ: "Asia/Makassar"
 ```
+
+> **`${...}` di docker-compose BUKAN penanda "isi di sini".** Itu
+> interpolasi variabel: `${admin}` berarti "nilai variabel bernama
+> `admin`", bukan teks `admin`.
+>
+> Yang bikin repot, dua kesalahan yang bentuknya sama bisa berakibat
+> beda — terverifikasi dengan `docker compose config`:
+>
+> | Ditulis | Yang terjadi |
+> |---|---|
+> | `"${admin}"` | jadi **string kosong** (nama variabelnya sah tapi tidak ada). Hanya warning — container tetap jalan, dashboard tanpa sandi. |
+> | `"${fasop@mks}"` | **gagal total**: `invalid interpolation format`, karena `@` tidak sah di nama variabel. Container tidak start. |
+>
+> Jadi jangan menyimpulkan "compose-nya jalan, berarti sudah benar":
+> yang diam justru yang berbahaya. Tulis nilainya langsung seperti
+> contoh di atas.
+>
+> Kalau tidak mau menaruh secret di berkas compose, barulah pakai
+> interpolasi — tapi nilainya harus ada di berkas `.env` di sebelah
+> `docker-compose.yml` (berkas milik WAHA sendiri, **bukan** `.env`
+> FASOP):
+>
+> ```yaml
+>       WAHA_DASHBOARD_PASSWORD: "${WAHA_DASHBOARD_PASSWORD}"
+> ```
+> ```env
+> WAHA_DASHBOARD_PASSWORD=sandi-kuat
+> ```
+>
+> Cek hasil akhirnya sebelum menyalakan — perintah ini mencetak nilai
+> yang benar-benar dipakai setelah interpolasi:
+>
+> ```bash
+> docker compose config | grep -A8 environment
+> ```
+
+### Kenapa username & password dashboard perlu diisi
+
+Dashboard (`http://<host>:3000/dashboard`) adalah tempat men-scan QR dan
+mengelola sesi, jadi ia bukan halaman hiasan.
+
+- Tanpa `WAHA_DASHBOARD_USERNAME`, bawaannya `admin` (atau `waha`).
+- Tanpa `WAHA_DASHBOARD_PASSWORD`, WAHA **membangkitkan sandi acak tiap
+  start** dan mencetaknya ke log container — artinya sandinya berganti
+  tiap restart dan harus dicari ulang di log.
+- `WAHA_DASHBOARD_ENABLED=false` mematikannya sama sekali. Jangan dipakai
+  di sini: tanpa dashboard tidak ada cara praktis men-scan QR ulang saat
+  sesi putus.
+
+`WHATSAPP_SWAGGER_USERNAME` / `_PASSWORD` menjaga halaman Swagger
+(`/`). Boleh disamakan dengan sandi dashboard; FASOP sendiri tidak
+memakainya.
 
 Bangkitkan API key-nya:
 
