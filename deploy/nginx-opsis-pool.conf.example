@@ -13,6 +13,18 @@
 # location / yang sudah ada) — hanya proxy_pass yang beda target (port
 # 8002, pool OPSIS, bukan 8000 pool utama).
 
+# X-Forwarded-Proto: JANGAN $scheme. FASOP di belakang Cloudflare Tunnel, dan
+# cloudflared menyambung ke nginx lewat HTTP biasa, jadi $scheme selalu
+# "http" dan menimpa "https" kiriman Cloudflare. Django lalu mengira semua
+# request HTTP: HSTS tidak pernah terkirim dan SECURE_SSL_REDIRECT berputar
+# tanpa henti. Map ini (di LUAR server { }, karena file sites-available
+# di-include di konteks http) meneruskan nilai dari tunnel bila ada:
+#
+#   map $http_x_forwarded_proto $fasop_proto {
+#       default $scheme;
+#       https   https;
+#   }
+#
 # Tambahkan location block ini DI DALAM server { ... } yang sudah ada,
 # di atas location `/` yang sudah ada — nginx sendiri sebenarnya memilih
 # prefix TERPANJANG yang cocok (bukan berdasar urutan deklarasi), tapi
@@ -22,7 +34,7 @@ location /opsis/ {
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-Proto $fasop_proto;
 
     proxy_connect_timeout 10s;
     proxy_send_timeout    60s;
