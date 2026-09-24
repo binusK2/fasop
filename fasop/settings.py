@@ -65,9 +65,12 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    # XFrameOptions sengaja DI LUAR axes: AxesMiddleware mengganti response
+    # dengan halaman lockout setelah middleware di dalamnya selesai, jadi kalau
+    # urutannya dibalik halaman lockout keluar tanpa X-Frame-Options.
+    'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'axes.middleware.AxesMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'devices.middleware.ForcePasswordChangeMiddleware',
     'devices.middleware.OpsisMaintenanceMiddleware',
     'devices.middleware.OpsisAccessMiddleware',
@@ -215,6 +218,7 @@ AXES_RESET_ON_SUCCESS    = True             # reset counter jika berhasil login
 AXES_LOCKOUT_TEMPLATE    = 'registration/lockout.html'
 AXES_VERBOSE             = False
 AXES_WHITELIST_CALLABLE  = 'devices.axes_utils.whitelist_operator'  # akun role Operator (shared) tidak pernah dikunci
+AXES_USERNAME_CALLABLE   = 'devices.axes_utils.username_terpotong'  # username >255 karakter membuat login HTTP 500 di PostgreSQL
 
 # -------------------------------------------------------------------
 # API Key untuk integrasi eksternal (n8n, Google Sheets, dsb.)
