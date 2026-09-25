@@ -40,4 +40,13 @@ urlpatterns = [
          name='opsis_frekuensi'),
     path('logsheet/pembebanan/', views.logsheet_pembebanan_endpoint,
          name='logsheet_pembebanan'),
+
+    # Data FASOP (bukan OPSIS) — dipakai antara lain oleh bot WhatsApp,
+    # lihat deploy/WA_BOT_OLLAMA.md.
+    path('fasop/status-monitor/', views.fasop_status_monitor_endpoint,
+         name='fasop_status_monitor'),
+    path('fasop/pemeliharaan/', views.fasop_pemeliharaan_endpoint,
+         name='fasop_pemeliharaan'),
+    path('fasop/peralatan/', views.fasop_peralatan_endpoint,
+         name='fasop_peralatan'),
 ]
