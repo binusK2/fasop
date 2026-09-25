@@ -339,7 +339,124 @@ bergulir sekitar satu bulan, jadi ambil arsipnya sebelum itu bila diperlukan.
 
 ---
 
-## 9. Seberapa sering boleh ditarik
+## 9. `GET /api/v1/fasop/status-monitor/`
+
+Status terkini RTU dan host Zabbix — isi yang sama dengan halaman Device
+Monitor. Tanpa parameter.
+
+```json
+{
+  "status": "ok",
+  "waktu": "2026-09-25T14:30:05+08:00",
+  "rtu": {
+    "jumlah": 120, "up": 117, "down": 2, "unknown": 1,
+    "daftar_down": [
+      { "nama": "RTU-TELLO", "lokasi": "GI TELLO",
+        "sejak": "2026-09-25T11:02:00+08:00", "durasi_menit": 208 }
+    ],
+    "daftar_down_terpotong": false
+  },
+  "zabbix": [
+    {
+      "kode": "telkom", "nama": "Zabbix Telkom",
+      "jumlah_host": 64, "ok": 61, "warning": 2, "problem": 1, "unknown": 0,
+      "sinkron_terakhir": "2026-09-25T14:28:00+08:00",
+      "host_bermasalah": [
+        { "nama": "VoIP Makassar", "lokasi": "GI TELLO", "severity": "High",
+          "problem": "Interface down", "sejak": "...", "durasi_menit": 12 }
+      ],
+      "host_bermasalah_terpotong": false
+    }
+  ]
+}
+```
+
+- `daftar_down` diurutkan dari yang **paling lama** DOWN; `host_bermasalah`
+  dari severity tertinggi. Masing-masing dirinci paling banyak 50, sisanya
+  ditandai `*_terpotong: true` — angka jumlahnya tetap lengkap.
+- `problem` = severity **High ke atas**, `warning` = di bawahnya — ambang yang
+  sama dengan warna merah/kuning di layar Device Monitor.
+- **Perhatikan `sinkron_terakhir`.** Status host hanya sesegar sinkronisasi
+  Zabbix terakhir; "0 problem" dari data yang sudah basi sejam tidak sama
+  artinya dengan "0 problem" barusan.
+
+---
+
+## 10. `GET /api/v1/fasop/pemeliharaan/`
+
+| Parameter | Bawaan | Pilihan |
+|---|---|---|
+| `bulan` | bulan berjalan | `YYYY-MM` |
+
+```json
+{
+  "status": "ok",
+  "bulan": "2026-09",
+  "open": {
+    "jumlah": 7,
+    "daftar": [
+      { "peralatan": "RTU-01", "jenis": "RTU", "lokasi": "GI TELLO",
+        "tipe": "Preventive", "tanggal": "2026-09-05T08:00:00+08:00", "sudah_ttd": false }
+    ],
+    "terpotong": false
+  },
+  "rekap_bulan": {
+    "preventive": { "open": 3, "done": 41 },
+    "corrective": { "open": 1, "done": 6 }
+  },
+  "jadwal": [
+    { "lokasi": "GI TELLO", "minggu": 2, "status": "Sedang Berjalan",
+      "jumlah_peralatan": 12, "sudah_dipelihara": 8, "progres_persen": 67 }
+  ]
+}
+```
+
+- `open` adalah keadaan **saat ini** dan tidak ikut parameter `bulan`;
+  `rekap_bulan` dan `jadwal` mengikuti `bulan`.
+- `progres_persen` dihitung dengan cara yang sama dengan halaman Jadwal:
+  peralatan di lokasi itu yang sudah punya pemeliharaan Preventive di bulan
+  tersebut.
+
+---
+
+## 11. `GET /api/v1/fasop/peralatan/`
+
+Pencarian peralatan. Wajib mengisi `q` atau `lokasi`.
+
+| Parameter | Arti |
+|---|---|
+| `q` | kata kunci dipisah spasi, dicari di nama, lokasi, merk, tipe, dan jenis |
+| `lokasi` | hanya peralatan yang lokasinya mengandung teks ini |
+| `hi` | `0` = lewati perhitungan Health Index (lebih cepat) |
+
+```json
+{
+  "status": "ok",
+  "q": "tello rtu",
+  "kata": ["tello", "rtu"],
+  "cocok": "semua_kata",
+  "jumlah": 3,
+  "per_jenis": { "RTU": 3 },
+  "per_status": { "Operasi": 3 },
+  "terpotong": false,
+  "peralatan": [
+    { "nama": "RTU-01", "jenis": "RTU", "merk": "SEL", "tipe": "3530",
+      "lokasi": "GI TELLO", "status_operasi": "Operasi",
+      "tahun_operasi": 2015, "umur_tahun": 11,
+      "health_index": 78, "kategori_hi": "Baik" }
+  ]
+}
+```
+
+- Tiap kata harus cocok (`cocok: "semua_kata"`). Kalau hasilnya kosong,
+  pencarian diulang dengan kata mana saja yang cocok (`"sebagian_kata"`).
+- Paling banyak 20 peralatan dirinci; `jumlah`, `per_jenis`, dan
+  `per_status` tetap menghitung seluruh hasil.
+- **Tidak berisi** IP address, serial number, maupun spesifikasi teknis.
+
+---
+
+## 12. Seberapa sering boleh ditarik
 
 Angkanya diperbarui di sisi FASOP setiap beberapa detik. **Tarik paling cepat
 sekali per menit** — lebih sering dari itu tidak menambah informasi, hanya
@@ -349,7 +466,7 @@ Kalau butuh yang lebih cepat dari itu, bicarakan dulu dengan tim FASOP.
 
 ---
 
-## 10. Contoh — Google Apps Script
+## 13. Contoh — Google Apps Script
 
 ```javascript
 const FASOP_URL = 'https://<domain-fasop>/api/v1/opsis/beban-ktt/';
@@ -396,7 +513,7 @@ sebaiknya dihentikan setelah beralih ke kunci API:
 
 ---
 
-## 11. Kalau ada masalah
+## 14. Kalau ada masalah
 
 Sebutkan ke tim FASOP: **nama konsumen di kunci Anda**, jam kejadian, dan kode
 HTTP yang diterima. Pemakaian tiap kunci (kapan terakhir dipakai, dari IP mana)

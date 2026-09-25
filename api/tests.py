@@ -503,7 +503,8 @@ class UrlTerdaftarTest(TestCase):
     def test_semua_endpoint_punya_nama_url(self):
         for nama in ('opsis_beban_ktt', 'opsis_beban_pembangkit',
                      'opsis_beban_pembangkit_riwayat', 'opsis_frekuensi',
-                     'logsheet_pembebanan'):
+                     'logsheet_pembebanan', 'fasop_status_monitor',
+                     'fasop_pemeliharaan', 'fasop_peralatan'):
             with self.subTest(nama=nama):
                 try:
                     reverse(f'api:{nama}')
@@ -775,3 +776,158 @@ class TrafoSatuSumberTest(TestCase):
         self.assertEqual(luar['total_mw'], dalam['total_mw'])
         self.assertEqual(luar['gi'][0]['total_mw'],
                          dalam['site_totals']['GI SUNGGUMINASA'])
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Data FASOP — status monitor, pemeliharaan, peralatan
+# ═══════════════════════════════════════════════════════════════════════════
+class StatusMonitorTest(TestCase):
+
+    def setUp(self):
+        from device_mon.models import RTU, ZabbixHost
+
+        self.kunci = _kunci('Bot WA', 'status_monitor')
+        now = timezone.now()
+        RTU.objects.create(nama='RTU-A', lokasi='GI A', state='UP')
+        RTU.objects.create(nama='RTU-B', lokasi='GI B', state='DOWN',
+                           state_sejak=now - datetime.timedelta(minutes=10))
+        RTU.objects.create(nama='RTU-C', lokasi='GI C', state='DOWN',
+                           state_sejak=now - datetime.timedelta(hours=3))
+        # Nonaktif tidak ikut dihitung — sama dengan dashboard Device Monitor.
+        RTU.objects.create(nama='RTU-MATI', state='DOWN', aktif=False)
+
+        ZabbixHost.objects.create(zabbix_hostid='1', nama='Router OK', state='OK')
+        ZabbixHost.objects.create(zabbix_hostid='2', nama='VoIP Mks', state='PROBLEM',
+                                  severity='High', problem_name='Interface down',
+                                  state_sejak=now)
+        ZabbixHost.objects.create(zabbix_hostid='3', nama='Switch', state='PROBLEM',
+                                  severity='Warning', problem_name='CPU tinggi',
+                                  state_sejak=now)
+
+    def _get(self):
+        r = self.client.get(reverse('api:fasop_status_monitor'), headers=_hdr(self.kunci))
+        self.assertEqual(r.status_code, 200)
+        return r.json()
+
+    def test_rtu_dihitung_dan_down_terlama_di_atas(self):
+        rtu = self._get()['rtu']
+        self.assertEqual((rtu['jumlah'], rtu['up'], rtu['down']), (3, 1, 2))
+        self.assertEqual([r['nama'] for r in rtu['daftar_down']], ['RTU-C', 'RTU-B'])
+        self.assertGreaterEqual(rtu['daftar_down'][0]['durasi_menit'], 180)
+
+    def test_zabbix_memakai_penggolongan_yang_sama_dengan_dashboard(self):
+        """High = problem, Warning = warning — ambang dari state_class(), bukan salinan."""
+        z = self._get()['zabbix'][0]
+        self.assertEqual((z['jumlah_host'], z['ok'], z['problem'], z['warning']), (3, 1, 1, 1))
+        # Severity tertinggi dulu.
+        self.assertEqual([h['nama'] for h in z['host_bermasalah']], ['VoIP Mks', 'Switch'])
+
+
+class PemeliharaanEndpointTest(TestCase):
+
+    def setUp(self):
+        from devices.models import Device, DeviceType
+        from jadwal.models import JadwalKunjungan
+        from maintenance.models import Maintenance
+
+        self.kunci = _kunci('Bot WA', 'pemeliharaan')
+        jenis = DeviceType.objects.create(name='RTU')
+        self.dev = Device.objects.create(nama='RTU-01', jenis=jenis, merk='SEL',
+                                         lokasi='GI TELLO')
+        Device.objects.create(nama='RTU-02', jenis=jenis, merk='SEL', lokasi='GI TELLO')
+
+        def _m(status, tipe='Preventive', hari=5, **kw):
+            return Maintenance.objects.create(
+                device=self.dev, maintenance_type=tipe, status=status,
+                date=timezone.make_aware(datetime.datetime(2026, 9, hari, 8, 0)), **kw)
+
+        _m('Open')
+        _m('Done', hari=6)
+        _m('Open', tipe='Corrective', hari=7)
+        # Soft-delete tidak boleh ikut terhitung di mana pun.
+        _m('Open', hari=8, is_deleted=True)
+        # Bulan lain — ikut daftar Open (keadaan SAAT INI) tapi tidak ikut rekap.
+        Maintenance.objects.create(
+            device=self.dev, maintenance_type='Preventive', status='Open',
+            date=timezone.make_aware(datetime.datetime(2026, 8, 20, 8, 0)))
+
+        JadwalKunjungan.objects.create(lokasi='GI TELLO', bulan_rencana=9, tahun_rencana=2026)
+
+    def _get(self, **params):
+        return self.client.get(reverse('api:fasop_pemeliharaan'), params,
+                               headers=_hdr(self.kunci))
+
+    def test_rekap_bulan_dan_soft_delete_dibuang(self):
+        d = self._get(bulan='2026-09').json()
+        self.assertEqual(d['rekap_bulan'], {
+            'preventive': {'open': 1, 'done': 1},
+            'corrective': {'open': 1, 'done': 0},
+        })
+        # 3 Open yang hidup: dua di September + satu di Agustus.
+        self.assertEqual(d['open']['jumlah'], 3)
+
+    def test_progres_jadwal_dari_get_progress(self):
+        j = self._get(bulan='2026-09').json()['jadwal'][0]
+        self.assertEqual(j['lokasi'], 'GI TELLO')
+        self.assertEqual((j['jumlah_peralatan'], j['sudah_dipelihara']), (2, 1))
+        self.assertEqual(j['progres_persen'], 50)
+
+    def test_bulan_salah_ditolak(self):
+        self.assertEqual(self._get(bulan='09-2026').status_code, 400)
+        self.assertEqual(self._get(bulan='2026-13').status_code, 400)
+
+
+class PeralatanEndpointTest(TestCase):
+
+    def setUp(self):
+        from devices.models import Device, DeviceType
+
+        self.kunci = _kunci('Bot WA', 'peralatan')
+        rtu = DeviceType.objects.create(name='RTU')
+        plc = DeviceType.objects.create(name='PLC')
+        Device.objects.create(nama='RTU-01', jenis=rtu, merk='SEL', lokasi='GI TELLO',
+                              ip_address='10.1.2.3', serial_number='SN-RAHASIA',
+                              tahun_operasi=2015)
+        Device.objects.create(nama='PLC-01', jenis=plc, merk='ABB', lokasi='GI TELLO')
+        Device.objects.create(nama='RTU-09', jenis=rtu, merk='SEL', lokasi='GI BONE')
+        Device.objects.create(nama='RTU-HAPUS', jenis=rtu, merk='SEL', lokasi='GI TELLO',
+                              is_deleted=True)
+
+    def _get(self, **params):
+        return self.client.get(reverse('api:fasop_peralatan'), params,
+                               headers=_hdr(self.kunci))
+
+    def test_tanpa_kata_kunci_ditolak(self):
+        self.assertEqual(self._get().status_code, 400)
+
+    def test_semua_kata_harus_cocok(self):
+        d = self._get(q='tello rtu').json()
+        self.assertEqual(d['cocok'], 'semua_kata')
+        self.assertEqual([p['nama'] for p in d['peralatan']], ['RTU-01'])
+
+    def test_jatuh_ke_sebagian_kata_bila_kosong(self):
+        """Kata sisa dari kalimat ("tolong") tidak boleh membuat jawabannya kosong."""
+        d = self._get(q='tolong bone').json()
+        self.assertEqual(d['cocok'], 'sebagian_kata')
+        self.assertEqual([p['nama'] for p in d['peralatan']], ['RTU-09'])
+
+    def test_peralatan_terhapus_tidak_ikut(self):
+        d = self._get(lokasi='tello').json()
+        self.assertEqual(d['jumlah'], 2)
+        self.assertEqual(d['per_jenis'], {'RTU': 1, 'PLC': 1})
+
+    def test_rincian_infrastruktur_tidak_bocor(self):
+        """IP & serial number tidak boleh keluar — tujuannya chat WhatsApp."""
+        r = self._get(q='RTU-01')
+        teks = r.content.decode()
+        self.assertNotIn('10.1.2.3', teks)
+        self.assertNotIn('SN-RAHASIA', teks)
+        p = r.json()['peralatan'][0]
+        self.assertNotIn('ip_address', p)
+        self.assertEqual(p['umur_tahun'], timezone.localdate().year - 2015)
+
+    def test_health_index_ikut_dan_bisa_dilewati(self):
+        p = self._get(q='RTU-01').json()['peralatan'][0]
+        self.assertIsNotNone(p['health_index'])
+        p = self._get(q='RTU-01', hi='0').json()['peralatan'][0]
+        self.assertNotIn('health_index', p)

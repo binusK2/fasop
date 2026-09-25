@@ -64,6 +64,33 @@ SEMUA = [
         'sumber':     'logsheet.LogsheetNilai (diisi cron collect_logsheet)',
         'endpoint':   ['/api/v1/logsheet/pembebanan/'],
     },
+    {
+        'kode':       'status_monitor',
+        'nama':       'Status RTU & host Zabbix',
+        'penjelasan': 'Jumlah RTU UP/DOWN beserta daftar yang sedang DOWN, dan '
+                      'ringkasan tiap instansi Zabbix beserta host yang sedang '
+                      'PROBLEM — angka yang sama dengan halaman Device Monitor.',
+        'sumber':     'device_mon.RTU (cron collect_rtu) + device_mon.ZabbixHost '
+                      '(cron sync_zabbix / webhook)',
+        'endpoint':   ['/api/v1/fasop/status-monitor/'],
+    },
+    {
+        'kode':       'pemeliharaan',
+        'nama':       'Pemeliharaan & jadwal kunjungan',
+        'penjelasan': 'Pemeliharaan yang masih Open, rekap pemeliharaan sebulan, '
+                      'dan jadwal kunjungan bulan itu beserta progresnya.',
+        'sumber':     'maintenance.Maintenance + jadwal.JadwalKunjungan',
+        'endpoint':   ['/api/v1/fasop/pemeliharaan/'],
+    },
+    {
+        'kode':       'peralatan',
+        'nama':       'Pencarian peralatan',
+        'penjelasan': 'Cari peralatan menurut nama/lokasi/merk/tipe: jenis, '
+                      'status operasi, umur, dan Health Index. Tanpa IP, serial '
+                      'number, maupun spesifikasi teknis.',
+        'sumber':     'devices.Device + health_index.calculator (dihitung, tidak disimpan)',
+        'endpoint':   ['/api/v1/fasop/peralatan/'],
+    },
 ]
 
 SEMUA_KODE = [d['kode'] for d in SEMUA]

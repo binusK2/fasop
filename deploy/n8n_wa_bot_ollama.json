@@ -1,0 +1,438 @@
+{
+    "name":  "Bot WhatsApp (WAHA -> Ollama + data FASOP)",
+    "nodes":  [
+                  {
+                      "parameters":  {
+                                         "httpMethod":  "POST",
+                                         "path":  "waha-bot",
+                                         "authentication":  "headerAuth",
+                                         "responseMode":  "onReceived",
+                                         "options":  {
+
+                                                     }
+                                     },
+                      "id":  "c1000000-0000-0000-0000-000000000001",
+                      "name":  "Webhook WAHA",
+                      "type":  "n8n-nodes-base.webhook",
+                      "typeVersion":  2,
+                      "position":  [
+                                       0,
+                                       300
+                                   ],
+                      "webhookId":  "7f1c2a9e-4b1d-4c3e-9a55-0a1b2c3d4e5f",
+                      "credentials":  {
+                                          "httpHeaderAuth":  {
+                                                                 "id":  "",
+                                                                 "name":  "WAHA webhook token"
+                                                             }
+                                      }
+                  },
+                  {
+                      "parameters":  {
+                                         "jsCode":  "// ================= PENGATURAN =================\n// Semua yang perlu disesuaikan ada di blok ini saja.\nconst SESI = 'default';                  // nama sesi WAHA yang dipakai bot\nconst WAHA_URL = 'http://waha:3000';      // URL WAHA dilihat DARI n8n\nconst OLLAMA_URL = 'http://host.docker.internal:11434'; // URL Ollama dilihat DARI n8n\nconst MODEL = 'qwen2.5:7b';              // lihat `ollama list`\nconst FASOP_URL = 'https://fasop.example.id'; // URL FASOP dilihat DARI n8n, tanpa / di akhir\n\nconst IZINKAN_GRUP = false;   // false = bot diam di SEMUA grup (termasuk grup Early Warning)\nconst PREFIX_GRUP = '!bot';   // bila IZINKAN_GRUP=true, hanya pesan berawalan ini yang dijawab\nconst DAFTAR_IZIN = [];       // kosong = siapa pun boleh chat. Isi dengan `from` PERSIS seperti\n                              // di tab Input node ini — WhatsApp kini mengirim id '...@lid',\n                              // BUKAN nomor telepon, jadi nomor HP biasa tidak akan cocok.\nconst MAKS_RIWAYAT = 10;      // jumlah pesan (user + bot) yang diingat per chat\nconst RIWAYAT_KEDALUWARSA_MENIT = 60;\n\nconst SYSTEM_PROMPT = `Kamu adalah asisten WhatsApp internal Fasilitas Operasi PLN UP2B Sulawesi.\nJawab dalam Bahasa Indonesia, singkat, jelas, dan sopan. Format untuk WhatsApp:\npakai *tebal* dan daftar seperlunya, tanpa tabel markdown dan tanpa heading #.\n\nAturan data (WAJIB):\n- Angka, status peralatan, dan nama lokasi HANYA boleh diambil dari pesan sistem\n  berjudul \"DATA FASOP/OPSIS\". DATA itu diambil otomatis dari sistem FASOP, bukan\n  diberikan oleh penanya — jangan menyebutnya \"data yang Anda berikan\".\n- Salin angkanya persis. Jangan menjumlah, merata-rata, atau menghitung sendiri —\n  pakai angka total yang sudah tersedia di DATA.\n- Selalu sebutkan jam data yang tertera di DATA.\n- Kalau sebuah angka bertanda [DIRAGUKAN ...], sebutkan tanda itu bersama angkanya.\n- Kalau bagian DATA yang ditanyakan bertuliskan \"TIDAK TERSEDIA\", jawab HANYA bahwa\n  datanya sedang tidak tersedia beserta alasannya. JANGAN menyimpulkan apa pun\n  darinya — jangan bilang \"tidak ada yang down\", \"normal\", \"aman\", atau angka nol.\n- Kalau pertanyaan butuh data yang tidak ada di DATA (atau tidak ada DATA sama sekali),\n  katakan terus terang kamu tidak punya data itu dan sarankan membuka FASOP.\n  Data yang bisa kamu berikan: beban pembangkit & frekuensi, beban KTT, beban trafo/IBT,\n  status RTU & Zabbix, pemeliharaan & jadwal kunjungan, dan info peralatan.\n- Angka di jawabanmu sebelumnya bisa sudah basi; selalu pakai DATA terbaru.\n- Jangan memberi instruksi manuver/switching peralatan; itu wewenang dispatcher.`;\n// ===============================================\n\nconst body = $json.body || {};\nif (body.event !== 'message') return [];\nif (body.session && body.session !== SESI) return [];\n\nconst p = body.payload || {};\nif (p.fromMe) return [];                       // pesan dari nomor bot sendiri (termasuk blast)\n\nconst chatId = p.from || '';\nif (!chatId || chatId === 'status@broadcast' ||\n    chatId.endsWith('@broadcast') || chatId.endsWith('@newsletter')) return [];\n\nlet teks = (p.body || '').trim();\nif (!teks) return [];                          // media tanpa caption, stiker, dsb.\n\nconst grup = chatId.endsWith('@g.us');\nif (grup) {\n  if (!IZINKAN_GRUP) return [];\n  if (!teks.toLowerCase().startsWith(PREFIX_GRUP)) return [];\n  teks = teks.slice(PREFIX_GRUP.length).trim();\n  if (!teks) return [];\n}\n\nconst pengirim = grup ? (p.participant || '') : chatId;\n// Terima id lengkap ('...@lid') maupun bagian sebelum '@' saja.\nif (DAFTAR_IZIN.length && !DAFTAR_IZIN.includes(pengirim) &&\n    !DAFTAR_IZIN.includes(pengirim.split('@')[0])) return [];\n\n// --- Buang pesan ganda (WAHA mengulang webhook yang dianggapnya gagal) ---\nconst st = $getWorkflowStaticData('global');\nconst sekarang = Date.now();\nst.terlihat = st.terlihat || {};\nfor (const [k, t] of Object.entries(st.terlihat)) {\n  if (sekarang - t > 10 * 60 * 1000) delete st.terlihat[k];\n}\nif (p.id) {\n  if (st.terlihat[p.id]) return [];\n  st.terlihat[p.id] = sekarang;\n}\n\n// --- Riwayat percakapan per chat ---\nst.riwayat = st.riwayat || {};\nconst reset = ['/reset', '/baru', 'reset'].includes(teks.toLowerCase());\nif (reset) delete st.riwayat[chatId];\n\nlet riwayat = st.riwayat[chatId];\nif (!riwayat || sekarang - riwayat.t > RIWAYAT_KEDALUWARSA_MENIT * 60 * 1000) {\n  riwayat = { t: sekarang, pesan: [] };\n}\n\nconst messages = [\n  { role: 'system', content: SYSTEM_PROMPT },\n  ...riwayat.pesan,\n  { role: 'user', content: teks },\n];\n\n// --- Topik: data mana yang perlu diambil dari FASOP ---\n// Sengaja pencocokan kata, bukan tool-calling LLM: model 7B kadang lupa\n// memanggil tool dan lalu mengarang angka. Kata kunci bisa salah pilih data,\n// tapi tidak pernah mengarang — dan gampang ditambah di sini.\nconst t = ' ' + teks.toLowerCase().replace(/[^\\p{L}\\p{N}\\s-]/gu, ' ').replace(/\\s+/g, ' ') + ' ';\nconst kataPesan = t.trim().split(' ');\n// Kata pendek harus cocok UTUH ('kit' tidak boleh cocok dengan 'kita',\n// 'alat' dengan 'alamat'); kata >= 5 huruf boleh berimbuhan ('pembangkitnya').\nconst ada = (...kata) => kata.some(k =>\n  k.includes(' ') ? t.includes(' ' + k + ' ')\n  : k.length >= 5 ? kataPesan.some(w => w.startsWith(k))\n  : kataPesan.includes(k));\n\nconst topik = {\n  pembangkit:   ada('pembangkit', 'kit', 'pltu', 'plta', 'pltd', 'pltg', 'pltmg', 'pltmh',\n                    'pltb', 'plts', 'bpp', 'unit', 'beban', 'mw', 'frekuensi', 'hz', 'sistem',\n                    'opsis', 'daya', 'mvar'),\n  ktt:          ada('ktt', 'konsumen', 'smelter', 'industri', 'tegangan tinggi'),\n  trafo:        ada('trafo', 'ibt', 'transformator', 'gardu induk', 'distribusi'),\n  monitor:      ada('rtu', 'zabbix', 'down', 'offline', 'online', 'putus', 'problem', 'telkom',\n                    'voip', 'router', 'switch', 'host', 'koneksi', 'link', 'prosis', 'gangguan'),\n  pemeliharaan: ada('pemeliharaan', 'maintenance', 'har', 'jadwal', 'kunjungan', 'ttd',\n                    'preventive', 'preventif', 'corrective', 'korektif'),\n  // 'hi' sengaja tidak ada: itu juga sapaan (\"hi bot\").\n  peralatan:    ada('peralatan', 'perangkat', 'alat', 'device', 'merk', 'merek', 'tipe', 'type',\n                    'health', 'aset', 'umur', 'cari'),\n};\n// Pertanyaan KTT/trafo dijawab dari datanya sendiri, tidak perlu seluruh\n// daftar pembangkit — kecuali memang disebut.\nif ((topik.ktt || topik.trafo) && !ada('pembangkit', 'kit', 'frekuensi', 'hz', 'sistem')) {\n  topik.pembangkit = false;\n}\n\n// Kata kunci pencarian peralatan = kalimat dikurangi kata umum.\nconst KATA_UMUM = new Set(('apa siapa berapa bagaimana gimana kapan mana dimana apakah ' +\n  'info informasi data tolong mohon cek lihat tampilkan kasih minta cari daftar ' +\n  'peralatan perangkat alat device merk merek tipe type status kondisi health index hi ' +\n  'umur tahun aset yang di ke dari dan atau untuk dengan pada ada saja semua ini itu ' +\n  'dong ya yah nih sih kah lah punya berapa jumlah lokasi gi gardu induk site').split(' '));\nconst cari = kataPesan.filter(k => k.length >= 2 && !KATA_UMUM.has(k)).slice(0, 6).join(' ');\nif (topik.peralatan && !cari) topik.peralatan = false;\n\nconst ping = `${FASOP_URL}/api/v1/ping/`;\nconst jenisTrafo = ada('ibt') ? 'ibt' : 'distribusi';\nconst url = {\n  pembangkit:   topik.pembangkit ? `${FASOP_URL}/api/v1/opsis/beban-pembangkit/?unit=0` : ping,\n  ktt:          topik.ktt ? `${FASOP_URL}/api/v1/opsis/beban-ktt/` : ping,\n  trafo:        topik.trafo ? `${FASOP_URL}/api/v1/opsis/beban-trafo/?jenis=${jenisTrafo}` : ping,\n  monitor:      topik.monitor ? `${FASOP_URL}/api/v1/fasop/status-monitor/` : ping,\n  pemeliharaan: topik.pemeliharaan ? `${FASOP_URL}/api/v1/fasop/pemeliharaan/` : ping,\n  peralatan:    topik.peralatan\n                  ? `${FASOP_URL}/api/v1/fasop/peralatan/?q=${encodeURIComponent(cari)}` : ping,\n};\n\nreturn [{\n  json: {\n    session: SESI, wahaUrl: WAHA_URL, ollamaUrl: OLLAMA_URL, model: MODEL,\n    maksRiwayat: MAKS_RIWAYAT,\n    chatId, messageId: p.id || null, teks, reset, messages,\n    topik, cari, url,\n  },\n}];\n"
+                                     },
+                      "id":  "c1000000-0000-0000-0000-000000000002",
+                      "name":  "Saring & siapkan prompt",
+                      "type":  "n8n-nodes-base.code",
+                      "typeVersion":  2,
+                      "position":  [
+                                       220,
+                                       300
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "method":  "POST",
+                                         "url":  "={{ $json.wahaUrl }}/api/startTyping",
+                                         "authentication":  "genericCredentialType",
+                                         "genericAuthType":  "httpHeaderAuth",
+                                         "sendBody":  true,
+                                         "specifyBody":  "json",
+                                         "jsonBody":  "={{ JSON.stringify({ session: $json.session, chatId: $json.chatId }) }}",
+                                         "options":  {
+                                                         "timeout":  10000
+                                                     }
+                                     },
+                      "id":  "c1000000-0000-0000-0000-000000000004",
+                      "name":  "Tampilkan mengetik",
+                      "type":  "n8n-nodes-base.httpRequest",
+                      "typeVersion":  4.2,
+                      "position":  [
+                                       440,
+                                       300
+                                   ],
+                      "onError":  "continueRegularOutput",
+                      "credentials":  {
+                                          "httpHeaderAuth":  {
+                                                                 "id":  "",
+                                                                 "name":  "WAHA API Key"
+                                                             }
+                                      }
+                  },
+                  {
+                      "parameters":  {
+                                         "url":  "={{ $('Saring & siapkan prompt').first().json.url.pembangkit }}",
+                                         "authentication":  "genericCredentialType",
+                                         "genericAuthType":  "httpHeaderAuth",
+                                         "options":  {
+                                                         "timeout":  20000
+                                                     }
+                                     },
+                      "id":  "c1000000-0000-0000-0000-000000000008",
+                      "name":  "Ambil beban pembangkit",
+                      "type":  "n8n-nodes-base.httpRequest",
+                      "typeVersion":  4.2,
+                      "position":  [
+                                       660,
+                                       300
+                                   ],
+                      "onError":  "continueRegularOutput",
+                      "credentials":  {
+                                          "httpHeaderAuth":  {
+                                                                 "id":  "",
+                                                                 "name":  "FASOP API bot"
+                                                             }
+                                      }
+                  },
+                  {
+                      "parameters":  {
+                                         "url":  "={{ $('Saring & siapkan prompt').first().json.url.ktt }}",
+                                         "authentication":  "genericCredentialType",
+                                         "genericAuthType":  "httpHeaderAuth",
+                                         "options":  {
+                                                         "timeout":  20000
+                                                     }
+                                     },
+                      "id":  "c1000000-0000-0000-0000-000000000009",
+                      "name":  "Ambil beban KTT",
+                      "type":  "n8n-nodes-base.httpRequest",
+                      "typeVersion":  4.2,
+                      "position":  [
+                                       880,
+                                       300
+                                   ],
+                      "onError":  "continueRegularOutput",
+                      "credentials":  {
+                                          "httpHeaderAuth":  {
+                                                                 "id":  "",
+                                                                 "name":  "FASOP API bot"
+                                                             }
+                                      }
+                  },
+                  {
+                      "parameters":  {
+                                         "url":  "={{ $('Saring & siapkan prompt').first().json.url.trafo }}",
+                                         "authentication":  "genericCredentialType",
+                                         "genericAuthType":  "httpHeaderAuth",
+                                         "options":  {
+                                                         "timeout":  20000
+                                                     }
+                                     },
+                      "id":  "c1000000-0000-0000-0000-000000000010",
+                      "name":  "Ambil beban trafo",
+                      "type":  "n8n-nodes-base.httpRequest",
+                      "typeVersion":  4.2,
+                      "position":  [
+                                       1100,
+                                       300
+                                   ],
+                      "onError":  "continueRegularOutput",
+                      "credentials":  {
+                                          "httpHeaderAuth":  {
+                                                                 "id":  "",
+                                                                 "name":  "FASOP API bot"
+                                                             }
+                                      }
+                  },
+                  {
+                      "parameters":  {
+                                         "url":  "={{ $('Saring & siapkan prompt').first().json.url.monitor }}",
+                                         "authentication":  "genericCredentialType",
+                                         "genericAuthType":  "httpHeaderAuth",
+                                         "options":  {
+                                                         "timeout":  20000
+                                                     }
+                                     },
+                      "id":  "c1000000-0000-0000-0000-000000000011",
+                      "name":  "Ambil status monitor",
+                      "type":  "n8n-nodes-base.httpRequest",
+                      "typeVersion":  4.2,
+                      "position":  [
+                                       1320,
+                                       300
+                                   ],
+                      "onError":  "continueRegularOutput",
+                      "credentials":  {
+                                          "httpHeaderAuth":  {
+                                                                 "id":  "",
+                                                                 "name":  "FASOP API bot"
+                                                             }
+                                      }
+                  },
+                  {
+                      "parameters":  {
+                                         "url":  "={{ $('Saring & siapkan prompt').first().json.url.pemeliharaan }}",
+                                         "authentication":  "genericCredentialType",
+                                         "genericAuthType":  "httpHeaderAuth",
+                                         "options":  {
+                                                         "timeout":  30000
+                                                     }
+                                     },
+                      "id":  "c1000000-0000-0000-0000-000000000012",
+                      "name":  "Ambil pemeliharaan",
+                      "type":  "n8n-nodes-base.httpRequest",
+                      "typeVersion":  4.2,
+                      "position":  [
+                                       1540,
+                                       300
+                                   ],
+                      "onError":  "continueRegularOutput",
+                      "credentials":  {
+                                          "httpHeaderAuth":  {
+                                                                 "id":  "",
+                                                                 "name":  "FASOP API bot"
+                                                             }
+                                      }
+                  },
+                  {
+                      "parameters":  {
+                                         "url":  "={{ $('Saring & siapkan prompt').first().json.url.peralatan }}",
+                                         "authentication":  "genericCredentialType",
+                                         "genericAuthType":  "httpHeaderAuth",
+                                         "options":  {
+                                                         "timeout":  30000
+                                                     }
+                                     },
+                      "id":  "c1000000-0000-0000-0000-000000000013",
+                      "name":  "Ambil peralatan",
+                      "type":  "n8n-nodes-base.httpRequest",
+                      "typeVersion":  4.2,
+                      "position":  [
+                                       1760,
+                                       300
+                                   ],
+                      "onError":  "continueRegularOutput",
+                      "credentials":  {
+                                          "httpHeaderAuth":  {
+                                                                 "id":  "",
+                                                                 "name":  "FASOP API bot"
+                                                             }
+                                      }
+                  },
+                  {
+                      "parameters":  {
+                                         "jsCode":  "// Ubah balasan API FASOP jadi teks ringkas yang dibaca Ollama.\n//\n// Kenapa teks, bukan JSON mentah: model 7B membaca daftar \"- nama: 12.3 MW\"\n// jauh lebih andal daripada JSON bersarang, dan teks ini jauh lebih pendek —\n// konteks yang sempit membuat model mulai \"lupa\" isi awal data.\nconst awal = $('Saring & siapkan prompt').first().json;\n\nconst ambil = (nama) => {\n  try { return $(nama).first().json || null; } catch (e) { return null; }\n};\n\n// 2 desimal, sama dengan kartu MW di dashboard OPSIS — kalau bot membulatkan\n// berbeda, angka di WhatsApp dan di layar ruang kontrol tidak akan pernah cocok.\nconst angka = (v, d = 2) => (v === null || v === undefined || v === '') ? '-' : Number(v).toFixed(d);\nconst jam = (iso) => iso ? String(iso).replace('T', ' ').slice(0, 16) : '-';\nconst durasi = (m) => {\n  if (m === null || m === undefined) return '-';\n  if (m < 60) return `${m} menit`;\n  const j = Math.floor(m / 60);\n  if (j < 24) return `${j} jam ${m % 60} menit`;\n  return `${Math.floor(j / 24)} hari ${j % 24} jam`;\n};\n\n// Balasan 503/4xx dari FASOP sampai ke sini sebagai { error: ... } karena node\n// HTTP-nya disetel lanjut walau gagal. Pesannya diteruskan apa adanya supaya\n// model menyebut ALASAN tidak tersedia, bukan menebak angka.\nconst tidakTersedia = (judul, r) => {\n  let alasan = 'tidak ada jawaban dari FASOP';\n  if (r && r.error) {\n    const pesan = typeof r.error === 'string' ? r.error : (r.error.message || '');\n    // n8n menanam body JSON balasan di dalam teks error, kadang ber-escape (\\\"message\\\").\n    const m = pesan.match(/\\\\?\"message\\\\?\"\\s*:\\s*\\\\?\"([^\"\\\\]+)/);\n    alasan = m ? m[1] : (pesan || alasan);\n  } else if (r && r.message) {\n    alasan = r.message;\n  }\n  return `${judul}: TIDAK TERSEDIA (${alasan})`;\n};\nconst ok = (r) => r && r.status === 'ok' && r.dataset;\n\nconst bagian = [];\n\nif (awal.topik.pembangkit) {\n  const r = ambil('Ambil beban pembangkit');\n  if (!ok(r)) bagian.push(tidakTersedia('BEBAN PEMBANGKIT', r));\n  else {\n    const baris = [...r.pembangkit].sort((a, b) => (b.mw || 0) - (a.mw || 0)).map(p =>\n      `- ${p.nama} (${p.jenis || '-'}): ${angka(p.mw)} MW, ${angka(p.mvar)} MVAR` +\n      (p.diragukan ? ` [DIRAGUKAN operator OPSIS${p.keterangan ? ': ' + p.keterangan : ''}]` : ''));\n    bagian.push([\n      `BEBAN PEMBANGKIT (data jam ${jam(r.waktu)})`,\n      `Total beban pembangkit sistem: ${angka(r.total_mw)} MW (${r.jumlah} pembangkit)`,\n      `Frekuensi sistem: ${angka(r.frekuensi_sistem, 2)} Hz`,\n      ...baris,\n    ].join('\\n'));\n  }\n}\n\nif (awal.topik.ktt) {\n  const r = ambil('Ambil beban KTT');\n  if (!ok(r)) bagian.push(tidakTersedia('BEBAN KTT', r));\n  else {\n    bagian.push([\n      `BEBAN KTT / KONSUMEN TEGANGAN TINGGI (data jam ${jam(r.waktu)})`,\n      `Total beban KTT: ${angka(r.total_mw)} MW (${r.jumlah} konsumen)`,\n      ...r.konsumen.map(k => `- ${k.nama}: ${angka(k.mw)} MW`),\n    ].join('\\n'));\n  }\n}\n\nif (awal.topik.trafo) {\n  const r = ambil('Ambil beban trafo');\n  if (!ok(r)) bagian.push(tidakTersedia('BEBAN TRAFO', r));\n  else {\n    const gi = [...r.gi].sort((a, b) => (b.total_mw || 0) - (a.total_mw || 0)).slice(0, 40);\n    bagian.push([\n      `BEBAN TRAFO ${r.jenis.toUpperCase()} (data jam ${jam(r.waktu)})`,\n      `Total: ${angka(r.total_mw)} MW (${r.jumlah} trafo). Per GI:`,\n      ...gi.map(g => `- ${g.site}: ${angka(g.total_mw)} MW (${g.trafo.length} trafo)`),\n    ].join('\\n'));\n  }\n}\n\nif (awal.topik.monitor) {\n  const r = ambil('Ambil status monitor');\n  if (!ok(r)) bagian.push(tidakTersedia('STATUS RTU & ZABBIX', r));\n  else {\n    const baris = [\n      `STATUS RTU & ZABBIX (data jam ${jam(r.waktu)})`,\n      `RTU: ${r.rtu.jumlah} total, ${r.rtu.up} UP, ${r.rtu.down} DOWN, ${r.rtu.unknown} UNKNOWN`,\n      ...r.rtu.daftar_down.slice(0, 20).map(d =>\n        `- RTU DOWN: ${d.nama}${d.lokasi ? ' (' + d.lokasi + ')' : ''}, sejak ${jam(d.sejak)} (${durasi(d.durasi_menit)})`),\n    ];\n    if (r.rtu.down > 20) baris.push(`  (hanya 20 dari ${r.rtu.down} RTU DOWN yang dirinci)`);\n    for (const z of r.zabbix) {\n      baris.push(`${z.nama}: ${z.jumlah_host} host, ${z.ok} OK, ${z.problem} problem kritis, ` +\n                 `${z.warning} warning, ${z.unknown} unknown (sinkron terakhir ${jam(z.sinkron_terakhir)})`);\n      for (const h of z.host_bermasalah.slice(0, 15)) {\n        baris.push(`- ${h.nama}${h.lokasi ? ' (' + h.lokasi + ')' : ''}: ${h.severity} — ` +\n                   `${h.problem || '-'}, sejak ${jam(h.sejak)} (${durasi(h.durasi_menit)})`);\n      }\n    }\n    bagian.push(baris.join('\\n'));\n  }\n}\n\nif (awal.topik.pemeliharaan) {\n  const r = ambil('Ambil pemeliharaan');\n  if (!ok(r)) bagian.push(tidakTersedia('PEMELIHARAAN', r));\n  else {\n    const rk = r.rekap_bulan;\n    const baris = [\n      `PEMELIHARAAN (data jam ${jam(r.waktu)}, bulan ${r.bulan})`,\n      `Pemeliharaan berstatus Open saat ini: ${r.open.jumlah}`,\n      ...r.open.daftar.slice(0, 15).map(m =>\n        `- ${m.peralatan} (${m.jenis || '-'}) di ${m.lokasi}: ${m.tipe}, tanggal ${jam(m.tanggal).slice(0, 10)}, ` +\n        `TTD ${m.sudah_ttd ? 'sudah' : 'belum'}`),\n      ...(r.open.jumlah > 15 ? [`  (hanya 15 dari ${r.open.jumlah} yang dirinci)`] : []),\n      `Rekap bulan ${r.bulan}: Preventive ${rk.preventive.done} selesai / ${rk.preventive.open} open; ` +\n      `Corrective ${rk.corrective.done} selesai / ${rk.corrective.open} open`,\n      `Jadwal kunjungan bulan ${r.bulan}: ${r.jadwal.length} lokasi`,\n      ...r.jadwal.map(j =>\n        `- ${j.lokasi}${j.minggu ? ' (minggu ' + j.minggu + ')' : ''}: ${j.status}, ` +\n        `${j.sudah_dipelihara}/${j.jumlah_peralatan} peralatan (${j.progres_persen}%)`),\n    ];\n    bagian.push(baris.join('\\n'));\n  }\n}\n\nif (awal.topik.peralatan) {\n  const r = ambil('Ambil peralatan');\n  if (!ok(r)) bagian.push(tidakTersedia(`PENCARIAN PERALATAN \"${awal.cari}\"`, r));\n  else {\n    const ringkasJenis = Object.entries(r.per_jenis).map(([k, v]) => `${k} ${v}`).join(', ');\n    const ringkasStatus = Object.entries(r.per_status).map(([k, v]) => `${k} ${v}`).join(', ');\n    const baris = [\n      `PENCARIAN PERALATAN \"${r.q}\" (data jam ${jam(r.waktu)})` +\n        (r.cocok === 'sebagian_kata' ? ' — tidak ada yang cocok dengan semua kata, ini hasil yang cocok sebagian' : ''),\n      `Ditemukan ${r.jumlah} peralatan` + (r.jumlah ? ` (${ringkasJenis}; ${ringkasStatus})` : ''),\n      ...r.peralatan.map(d =>\n        `- ${d.nama} | ${d.jenis || '-'} | ${d.merk || '-'} ${d.tipe || ''} | ${d.lokasi} | ` +\n        `${d.status_operasi}` +\n        (d.tahun_operasi ? ` | operasi ${d.tahun_operasi} (${d.umur_tahun} th)` : '') +\n        (d.health_index !== undefined && d.health_index !== null\n          ? ` | Health Index ${d.health_index} (${d.kategori_hi})` : '')),\n    ];\n    if (r.terpotong) baris.push(`  (hanya ${r.peralatan.length} dari ${r.jumlah} yang dirinci)`);\n    bagian.push(baris.join('\\n'));\n  }\n}\n\nlet messages = awal.messages;\nif (bagian.length) {\n  const data = 'DATA FASOP/OPSIS — satu-satunya sumber angka untuk pertanyaan terakhir. ' +\n               'Jam data dalam WITA.\\n\\n' + bagian.join('\\n\\n');\n  // Disisipkan tepat sebelum pertanyaan, bukan digabung ke system prompt di\n  // awal: model kecil lebih memperhatikan yang dekat dengan pertanyaan. Blok\n  // ini juga TIDAK disimpan ke riwayat — data basi tidak boleh terbawa ke\n  // pertanyaan berikutnya.\n  messages = [...awal.messages.slice(0, -1), { role: 'system', content: data },\n              awal.messages[awal.messages.length - 1]];\n}\n\nreturn [{ json: { messages, jumlahBagian: bagian.length } }];\n"
+                                     },
+                      "id":  "c1000000-0000-0000-0000-000000000014",
+                      "name":  "Ringkas data",
+                      "type":  "n8n-nodes-base.code",
+                      "typeVersion":  2,
+                      "position":  [
+                                       1980,
+                                       300
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "method":  "POST",
+                                         "url":  "={{ $('Saring & siapkan prompt').first().json.ollamaUrl }}/api/chat",
+                                         "sendBody":  true,
+                                         "specifyBody":  "json",
+                                         "jsonBody":  "={{ JSON.stringify({ model: $('Saring & siapkan prompt').first().json.model, messages: $('Ringkas data').first().json.messages, stream: false, keep_alive: '30m', options: { temperature: 0.3, num_ctx: 8192 } }) }}",
+                                         "options":  {
+                                                         "timeout":  180000
+                                                     }
+                                     },
+                      "id":  "c1000000-0000-0000-0000-000000000005",
+                      "name":  "Tanya Ollama",
+                      "type":  "n8n-nodes-base.httpRequest",
+                      "typeVersion":  4.2,
+                      "position":  [
+                                       2200,
+                                       300
+                                   ],
+                      "onError":  "continueRegularOutput"
+                  },
+                  {
+                      "parameters":  {
+                                         "jsCode":  "const awal = $('Saring & siapkan prompt').first().json;\nconst st = $getWorkflowStaticData('global');\nst.riwayat = st.riwayat || {};\n\nlet teks;\nif (awal.reset) {\n  teks = 'Riwayat percakapan sudah dihapus. Silakan mulai pertanyaan baru.';\n} else {\n  const r = $input.first().json || {};\n  let isi = (r.message && r.message.content) || '';\n  // Model \"thinking\" (qwen3, deepseek-r1) menaruh penalarannya di <think>...</think>\n  isi = isi.replace(/<think>[\\s\\S]*?<\\/think>/g, '').trim();\n\n  if (r.error || !isi) {\n    teks = 'Maaf, bot sedang tidak bisa menjawab. Coba lagi beberapa saat lagi.';\n  } else {\n    teks = isi;\n    // Riwayat hanya disimpan kalau jawabannya berhasil, supaya pertanyaan yang\n    // gagal tidak ikut terkirim ulang sebagai konteks di pesan berikutnya.\n    // Blok DATA dari node Ringkas sengaja tidak ikut disimpan.\n    const lama = st.riwayat[awal.chatId];\n    const pesan = (lama && awal.messages.length > 2) ? lama.pesan : [];\n    pesan.push({ role: 'user', content: awal.teks }, { role: 'assistant', content: isi });\n    st.riwayat[awal.chatId] = { t: Date.now(), pesan: pesan.slice(-awal.maksRiwayat) };\n  }\n}\n\nif (teks.length > 4000) teks = teks.slice(0, 4000) + '…';\n\nconst body = { session: awal.session, chatId: awal.chatId, text: teks };\nif (awal.messageId) body.reply_to = awal.messageId;\nreturn [{ json: { wahaUrl: awal.wahaUrl, body } }];\n"
+                                     },
+                      "id":  "c1000000-0000-0000-0000-000000000006",
+                      "name":  "Susun balasan",
+                      "type":  "n8n-nodes-base.code",
+                      "typeVersion":  2,
+                      "position":  [
+                                       2420,
+                                       300
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "method":  "POST",
+                                         "url":  "={{ $json.wahaUrl }}/api/sendText",
+                                         "authentication":  "genericCredentialType",
+                                         "genericAuthType":  "httpHeaderAuth",
+                                         "sendBody":  true,
+                                         "specifyBody":  "json",
+                                         "jsonBody":  "={{ JSON.stringify($json.body) }}",
+                                         "options":  {
+                                                         "timeout":  15000
+                                                     }
+                                     },
+                      "id":  "c1000000-0000-0000-0000-000000000007",
+                      "name":  "Kirim balasan WA",
+                      "type":  "n8n-nodes-base.httpRequest",
+                      "typeVersion":  4.2,
+                      "position":  [
+                                       2640,
+                                       300
+                                   ],
+                      "credentials":  {
+                                          "httpHeaderAuth":  {
+                                                                 "id":  "",
+                                                                 "name":  "WAHA API Key"
+                                                             }
+                                      }
+                  }
+              ],
+    "connections":  {
+                        "Webhook WAHA":  {
+                                             "main":  [
+                                                          [
+                                                              {
+                                                                  "node":  "Saring & siapkan prompt",
+                                                                  "type":  "main",
+                                                                  "index":  0
+                                                              }
+                                                          ]
+                                                      ]
+                                         },
+                        "Saring & siapkan prompt":  {
+                                                             "main":  [
+                                                                          [
+                                                                              {
+                                                                                  "node":  "Tampilkan mengetik",
+                                                                                  "type":  "main",
+                                                                                  "index":  0
+                                                                              }
+                                                                          ]
+                                                                      ]
+                                                         },
+                        "Tampilkan mengetik":  {
+                                                   "main":  [
+                                                                [
+                                                                    {
+                                                                        "node":  "Ambil beban pembangkit",
+                                                                        "type":  "main",
+                                                                        "index":  0
+                                                                    }
+                                                                ]
+                                                            ]
+                                               },
+                        "Ambil beban pembangkit":  {
+                                                       "main":  [
+                                                                    [
+                                                                        {
+                                                                            "node":  "Ambil beban KTT",
+                                                                            "type":  "main",
+                                                                            "index":  0
+                                                                        }
+                                                                    ]
+                                                                ]
+                                                   },
+                        "Ambil beban KTT":  {
+                                                "main":  [
+                                                             [
+                                                                 {
+                                                                     "node":  "Ambil beban trafo",
+                                                                     "type":  "main",
+                                                                     "index":  0
+                                                                 }
+                                                             ]
+                                                         ]
+                                            },
+                        "Ambil beban trafo":  {
+                                                  "main":  [
+                                                               [
+                                                                   {
+                                                                       "node":  "Ambil status monitor",
+                                                                       "type":  "main",
+                                                                       "index":  0
+                                                                   }
+                                                               ]
+                                                           ]
+                                              },
+                        "Ambil status monitor":  {
+                                                     "main":  [
+                                                                  [
+                                                                      {
+                                                                          "node":  "Ambil pemeliharaan",
+                                                                          "type":  "main",
+                                                                          "index":  0
+                                                                      }
+                                                                  ]
+                                                              ]
+                                                 },
+                        "Ambil pemeliharaan":  {
+                                                   "main":  [
+                                                                [
+                                                                    {
+                                                                        "node":  "Ambil peralatan",
+                                                                        "type":  "main",
+                                                                        "index":  0
+                                                                    }
+                                                                ]
+                                                            ]
+                                               },
+                        "Ambil peralatan":  {
+                                                "main":  [
+                                                             [
+                                                                 {
+                                                                     "node":  "Ringkas data",
+                                                                     "type":  "main",
+                                                                     "index":  0
+                                                                 }
+                                                             ]
+                                                         ]
+                                            },
+                        "Ringkas data":  {
+                                             "main":  [
+                                                          [
+                                                              {
+                                                                  "node":  "Tanya Ollama",
+                                                                  "type":  "main",
+                                                                  "index":  0
+                                                              }
+                                                          ]
+                                                      ]
+                                         },
+                        "Tanya Ollama":  {
+                                             "main":  [
+                                                          [
+                                                              {
+                                                                  "node":  "Susun balasan",
+                                                                  "type":  "main",
+                                                                  "index":  0
+                                                              }
+                                                          ]
+                                                      ]
+                                         },
+                        "Susun balasan":  {
+                                              "main":  [
+                                                           [
+                                                               {
+                                                                   "node":  "Kirim balasan WA",
+                                                                   "type":  "main",
+                                                                   "index":  0
+                                                               }
+                                                           ]
+                                                       ]
+                                          }
+                    },
+    "settings":  {
+                     "executionOrder":  "v1"
+                 },
+    "pinData":  {
+
+                }
+}

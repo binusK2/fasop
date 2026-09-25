@@ -1853,6 +1853,17 @@ Yang perlu diketahui saat mengubahnya:
 | `GET /api/v1/opsis/beban-trafo/riwayat/` | `beban_trafo` | `opsis.trafo.riwayat()` (`SnapTrafo`) |
 | `GET /api/v1/opsis/frekuensi/` | `frekuensi` | `opsis.freq_history.ambil_range_detail()` |
 | `GET /api/v1/logsheet/pembebanan/` | `logsheet` | `logsheet.LogsheetNilai` |
+| `GET /api/v1/fasop/status-monitor/` | `status_monitor` | `device_mon.RTU` + `ZabbixHost` (`state_class()` yang sama dengan dashboard) |
+| `GET /api/v1/fasop/pemeliharaan/` | `pemeliharaan` | `Maintenance.objects` + `JadwalKunjungan.get_progress()` |
+| `GET /api/v1/fasop/peralatan/` | `peralatan` | `devices.Device` + `calculate_hi(save_snapshot=False)` |
+
+Tiga endpoint `fasop/*` lahir untuk **bot WhatsApp** (`deploy/WA_BOT_OLLAMA.md`):
+n8n menariknya, meringkasnya jadi teks, lalu LLM lokal menjawab hanya dari teks
+itu. Karena itu balasannya sudah berisi angka jadi (jumlah, durasi, progres) —
+model 7B tidak bisa diandalkan untuk berhitung, dan angka karangannya terbaca
+sama meyakinkannya dengan angka asli. `peralatan` sengaja **tidak** mengirim
+IP, serial number, maupun spesifikasi: tujuannya chat WhatsApp, dan yang sudah
+terkirim ke sana tidak bisa ditarik kembali (dijaga tes).
 
 Yang perlu diketahui saat menambah endpoint baca berikutnya:
 
