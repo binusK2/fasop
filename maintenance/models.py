@@ -1,5 +1,4 @@
 from django.core.exceptions import ValidationError
-from django.core.validators import FileExtensionValidator
 from django.db import models
 from devices.models import Device
 from django.contrib.auth.models import User
@@ -20,9 +19,81 @@ def validate_ba_file_size(file_obj):
         raise ValidationError('Ukuran file BA maksimal 20 MB.')
 
 
+# File BA hasil upload hanya PDF atau Word. Atribut accept di
+# ba_upload.html hanya penyaring pemilih file di browser (mudah dilewati);
+# penegakannya di sini.
+BA_UPLOAD_EKSTENSI = ['pdf', 'doc', 'docx']
+
+# Tanda tangan biner di awal berkas. Ekstensi saja tidak cukup: .exe yang
+# di-rename jadi .pdf lolos FileExtensionValidator.
+_TANDA_PDF = b'%PDF-'
+_TANDA_OLE2 = b'\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1'   # .doc (Word 97-2003)
+_TANDA_ZIP = b'PK\x03\x04'                         # .docx (Office Open XML)
+
+
+def _file_lama(file_obj):
+    """True untuk berkas yang SUDAH tersimpan (FieldFile ter-commit).
+
+    Validator field juga dijalankan saat BA lama disunting dari Admin. BA
+    upload sebelum aturan ini boleh berupa JPG/PNG/XLSX; tanpa pengecualian
+    ini barisnya tidak bisa disimpan lagi sama sekali. Yang dijaga adalah
+    unggahan BARU."""
+    return getattr(file_obj, '_committed', False) is True
+
+
+def validate_ba_file_ekstensi(file_obj):
+    if _file_lama(file_obj):
+        return
+    ext = os.path.splitext(file_obj.name or '')[1].lower().lstrip('.')
+    if ext not in BA_UPLOAD_EKSTENSI:
+        raise ValidationError(
+            f'Format file ".{ext or "?"}" tidak diizinkan. '
+            'File BA hanya boleh PDF atau Word (.pdf, .doc, .docx).'
+        )
+
+
+def validate_ba_file_isi(file_obj):
+    """Isi berkas harus benar-benar PDF/Word sesuai ekstensinya."""
+    import zipfile
+
+    if _file_lama(file_obj):
+        return
+    ext = os.path.splitext(file_obj.name or '')[1].lower().lstrip('.')
+    pesan = 'Isi file tidak sesuai ekstensinya. File BA harus dokumen PDF atau Word asli.'
+
+    try:
+        file_obj.seek(0)
+        kepala = file_obj.read(8)
+        file_obj.seek(0)
+    except Exception:
+        raise ValidationError(pesan)
+
+    if ext == 'pdf':
+        ok = kepala.startswith(_TANDA_PDF)
+    elif ext == 'doc':
+        ok = kepala.startswith(_TANDA_OLE2)
+    elif ext == 'docx':
+        ok = False
+        if kepala.startswith(_TANDA_ZIP):
+            try:
+                with zipfile.ZipFile(file_obj) as zf:
+                    ok = 'word/document.xml' in zf.namelist()
+            except zipfile.BadZipFile:
+                ok = False
+            finally:
+                file_obj.seek(0)
+    else:
+        ok = False  # ekstensinya sendiri sudah ditolak validate_ba_file_ekstensi
+    if not ok:
+        raise ValidationError(pesan)
+
+
+# Urutan penting: ekstensi dulu, baru isi — pesan "format tidak diizinkan"
+# lebih jelas daripada "isi tidak sesuai" untuk .exe biasa.
 ba_file_validators = [
-    FileExtensionValidator(allowed_extensions=['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'xlsx']),
+    validate_ba_file_ekstensi,
     validate_ba_file_size,
+    validate_ba_file_isi,
 ]
 
 
