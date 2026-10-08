@@ -4088,9 +4088,27 @@ def _ba_apply_editor(request, record):
     new_files    = request.FILES.getlist('eviden')
     new_captions = request.POST.getlist('eviden_catatan[]')
     start = record.evidens.count()
+    # objects.create() tidak menjalankan validasi ImageField, jadi file apa
+    # pun (termasuk .exe) dulu tersimpan dengan ekstensi aslinya. forms.ImageField
+    # memeriksa ekstensi DAN membuka isinya dengan Pillow.
+    from django import forms as _forms
+    from django.contrib import messages as _messages
+    from django.core.exceptions import ValidationError as _VE
+    pemeriksa = _forms.ImageField()
+    urutan = start
     for i, f in enumerate(new_files):
+        try:
+            pemeriksa.clean(f)
+        except _VE:
+            _messages.warning(
+                request,
+                f'Eviden "{f.name}" dilewati: bukan file gambar yang valid (JPG/PNG).',
+            )
+            continue
+        f.seek(0)
         cap = new_captions[i] if i < len(new_captions) else ''
-        BeritaAcaraEviden.objects.create(ba=record, gambar=f, catatan=cap, urutan=start + i)
+        BeritaAcaraEviden.objects.create(ba=record, gambar=f, catatan=cap, urutan=urutan)
+        urutan += 1
     return nomor_ba
 
 
@@ -4661,7 +4679,14 @@ def ba_preview(request, pk):
 
     if record.file_upload:
         from django.http import FileResponse
-        return FileResponse(record.file_upload.open('rb'))
+        # Hanya PDF yang boleh tampil inline. Berkas lain — termasuk yang
+        # terlanjur terunggah sebelum ekstensi ditegakkan (.html, .svg, .exe)
+        # — dipaksa jadi unduhan supaya tidak pernah dirender browser dari
+        # origin FASOP.
+        nama = os.path.basename(record.file_upload.name)
+        if nama.lower().endswith('.pdf'):
+            return FileResponse(record.file_upload.open('rb'), content_type='application/pdf')
+        return FileResponse(record.file_upload.open('rb'), as_attachment=True, filename=nama)
 
     import base64 as _b64
     eviden_list = []
@@ -4963,6 +4988,18 @@ def ba_upload(request):
             errors.append('Nama pengupload wajib diisi.')
         if not file_upload:
             errors.append('File BA wajib diupload.')
+        else:
+            # objects.create() di bawah TIDAK menjalankan validator field —
+            # validator Django hanya jalan lewat form/full_clean(). Tanpa
+            # pemanggilan eksplisit ini, file apa pun (termasuk .exe) tersimpan.
+            from django.core.exceptions import ValidationError as _VE
+            from .models import ba_file_validators
+            for _validator in ba_file_validators:
+                try:
+                    _validator(file_upload)
+                except _VE as exc:
+                    errors.extend(exc.messages)
+                    break
 
         tahun, _hari, _bulan_tahun, _fname = _ba_extra_ctx(tanggal, nomor_input)
         nomor_ba = f'{nomor_input}.BA/FASOP/UP2BS-MKS/{tahun}' if nomor_input else ''
