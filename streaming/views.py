@@ -22,6 +22,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from fasop.hashids_helper import decode, encode
+from fasop.security_headers import izinkan_ezviz
 from notifikasi.views import notif_ke_am, notif_ke_teknisi
 
 from . import ezviz
@@ -156,7 +157,7 @@ def session_detail(request, pk):
         # cross-origin isolation tidak bisa mendekodenya — gejalanya "memuat"
         # selamanya, bukan error (lihat catatan di KameraEzviz.ezopen_url_sd).
         context['ezopen_url_sd'] = session.kamera.ezopen_url_sd if session.kamera_id else ''
-        return render(request, 'streaming/ezviz.html', context)
+        return izinkan_ezviz(render(request, 'streaming/ezviz.html', context))
 
     if is_broadcaster:
         return render(request, 'streaming/broadcast.html', context)
@@ -327,12 +328,12 @@ def session_grid(request):
     berjam-jam — kalau isinya ditentukan saat render, layar itu akan
     membeku pada keadaan beberapa jam lalu tanpa ada yang sadar.
     """
-    return render(request, 'streaming/grid.html', {
+    return izinkan_ezviz(render(request, 'streaming/grid.html', {
         'whep_url': settings.MEDIAMTX_WHEP_URL,
         'ice_servers_json': settings.WEBRTC_ICE_SERVERS,
         'ezviz_domain': ezviz.domain_aktif(),
         'maks_tile': GRID_MAKS_TILE,
-    })
+    }))
 
 
 def _data_sesi(session):
