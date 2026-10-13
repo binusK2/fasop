@@ -265,6 +265,7 @@ MSSQL_DRIVER=ODBC Driver 17 for SQL Server
 API_KEY=              # For /api/v1/ integrations
 
 CSP_MODE=enforce      # enforce (default) | report-only | off — see "Header Keamanan" below
+HELPDESK_WA=6285156357878   # WhatsApp admin di landing page "/" — TERLIHAT PUBLIK; kosong = tombolnya hilang
 
 # Early Warning WhatsApp (WAHA gateway) — see "Early Warning WhatsApp" below
 WA_ALERT_ENABLED=False        # master switch; False = no WhatsApp notifications at all
@@ -436,6 +437,64 @@ Tunnel `$scheme` selalu `http`: HSTS tidak pernah keluar, dan
 dimatikan di `.env`). Cara paling aman tanpa menyentuh origin: aktifkan
 **Always Use HTTPS** dan **HSTS** di Cloudflare (SSL/TLS → Edge Certificates),
 lalu periksa `curl -sI https://<domain>/login/ | grep -i strict-transport`.
+
+---
+
+## Landing Page (`/` untuk pengunjung yang belum login)
+
+`devices.views.beranda` melayani `/`: pengunjung anonim mendapat
+`devices/templates/devices/landing.html`, yang sudah login langsung ke
+`dashboard()` seperti sebelum landing page ada. Nama URL-nya **tetap
+`dashboard`**, jadi `reverse('dashboard')`, `LOGIN_REDIRECT_URL = '/'`, dan
+bookmark siapa pun tidak berubah. Middleware pembatas peran hanya menyentuh user
+yang sudah login, jadi Operator tetap mendapat dashboard operator (`/` ada di
+`ALLOWED_EXACT`-nya) dan Opsis/UP2D/Dispatcher/Vendor tetap dialihkan seperti
+biasa. Aset statisnya di `static/landing/` (`landing.css`, `landing.js`) plus
+logo kecil `static/img/*_sm.webp`. Dijaga `devices/tests_landing.py`.
+
+Yang perlu diketahui saat mengubahnya:
+
+- **Tidak ada data operasional apa pun di halaman ini** — tidak ada MW,
+  frekuensi, nama GI, jumlah peralatan, peta, atau screenshot dashboard.
+  Halaman ini terbuka untuk seluruh internet. Ilustrasi jaringan di hero
+  sengaja **abstrak** (koordinat karangan di `landing.js`), bukan peta GI.
+- **Dirender tanpa request** (`render_to_string` tanpa `RequestContext`), jadi
+  context processor — beberapa query per halaman — tidak ikut jalan untuk tiap
+  pengunjung anonim dan bot. Satu-satunya query yang mungkin terjadi adalah
+  pengumuman yang sudah di-cache. `test_tanpa_query_selain_pengumuman`
+  menjaganya, dan sekaligus menjaga bahwa tidak ada data dari database yang
+  ikut tergambar. Konsekuensinya variabel context processor (`user`,
+  `csrf_token`, dsb.) **tidak tersedia** di template ini — kalau suatu saat
+  perlu form, pakai halaman `/login/`, jangan menambahkannya di sini.
+- **Halaman pertama FASOP yang lolos CSP tanpa `'unsafe-inline'`:** tanpa
+  `<script>` inline, handler `on*=`, maupun atribut `style=""` (dijaga tes).
+  Pertahankan itu — ia contoh untuk proyek melepas `'unsafe-inline'`.
+  `landing.js` dimuat di `<head>` TANPA `defer` karena baris pertamanya
+  memasang `<html class="js">`; animasi muncul-saat-digulir hanya
+  menyembunyikan konten bila kelas itu ada. Kalau berkasnya gagal dimuat
+  (collectstatic terlewat), isi halaman tetap terlihat — pelajaran yang sama
+  dengan `popup.js`.
+- **Pengumuman tampil sebagai banner, bukan pop-up**, memakai
+  `PengumumanPemeliharaan.status()` + `sedang_tampil()` langsung.
+  `untuk()` sengaja tidak dipakai karena ia menolak pengunjung anonim (pop-up
+  modal di halaman login hanya menghalangi orang masuk); banner di landing
+  tidak menghalangi apa pun, jadi rencana restart server sudah terbaca sebelum
+  orang login. Menutup banner hanya berlaku di layar itu, tidak dicatat di
+  sesi. Teks dari admin di-escape seperti biasa (dijaga tes).
+- **Dirender dalam bahasa Indonesia** (`translation.override('id')`) karena
+  `LANGUAGE_CODE` seluruh FASOP `en-us`; tanpa itu jadwal pengumuman tertulis
+  "17 Oct 2026" di tengah halaman berbahasa Indonesia.
+- **Nomor WhatsApp admin (`HELPDESK_WA`) terlihat publik** di tombol "Hubungi
+  Admin". Kosongkan di `.env` untuk menyembunyikan tombolnya; halaman lalu
+  menyarankan menghubungi admin di unit masing-masing. Nomor di tombol bantuan
+  khusus Operator di `base.html` masih ditulis langsung di template itu.
+- **`noindex, nofollow`** — sistem internal tidak perlu ditemukan lewat mesin
+  pencari, dan itu mengurangi perhatian dari luar.
+- **Aplikasi HP (PWA) Inspeksi tidak lewat `/`** (`start_url` =
+  `/inspection/?source=pwa`), dan halaman ini sengaja tidak memasang manifest,
+  supaya browser tidak menawarkan pemasangan aplikasi Inspeksi kepada
+  pengunjung umum.
+- Deploy yang mengubah `static/landing/` atau logonya wajib `collectstatic`.
 
 ---
 
@@ -1796,6 +1855,8 @@ Yang perlu diketahui saat mengubahnya:
   exception di halaman yang sedang dibuka orang.
 - Halaman login dan halaman wajib-ganti-password berdiri sendiri (tidak
   meng-extend base mana pun), jadi pop-up tidak pernah menutupi formulirnya.
+- **Pengunjung yang belum login melihatnya sebagai banner di landing page**
+  (`/`), bukan pop-up — lihat "Landing Page".
 
 ---
 
