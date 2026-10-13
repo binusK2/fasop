@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block title %}Wiring — {{ device.nama }}{% endblock %}
 {% block page_title %}Wiring Diagram{% endblock %}
 
@@ -98,7 +99,7 @@ const SAVE_URL      = "{% url 'device_wiring' device.pk %}";
 const CSRF_TOKEN    = "{{ csrf_token }}";
 </script>
 
-<script src="https://unpkg.com/konva@9/konva.min.js"></script>
+<script src="{% static 'vendor/konva@9.3.22/konva.min.js' %}"></script>
 <script>
 // ── Config ──────────────────────────────────────────────────────
 const W = document.getElementById('canvas-wrap').offsetWidth || 900;

@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block title %}Detail Maintenance — FASOP{% endblock %}
 {% block page_title %}Detail Maintenance{% endblock %}
 
@@ -1844,7 +1845,7 @@ function previewPDF(url) {
 .plc-badge.nok { color: #991b1b; background: #fee2e2; }
 </style>
 {% block extra_js %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="{% static 'vendor/chart.js@4.5.1/dist/chart.umd.min.js' %}"></script>
 <script>
 function confirmDelete() {
     new bootstrap.Modal(document.getElementById('deleteModal')).show();

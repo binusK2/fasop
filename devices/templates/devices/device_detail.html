@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block title %}{{ device.nama }} — FASOP{% endblock %}
 {% block page_title %}Detail Perangkat{% endblock %}
 
@@ -1846,7 +1847,7 @@ function addEvidenRow() {
 
 {% block extra_js %}
 <!-- QR Code Generator (qrcodejs - browser compatible) -->
-<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<script src="{% static 'vendor/qrcodejs@1.0.0/qrcode.min.js' %}"></script>
 <script>
 // ── Toggle field form event ───────────────────────────────────────────────
 function toggleEventFields() {

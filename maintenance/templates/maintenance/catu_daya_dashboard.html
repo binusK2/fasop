@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block title %}Dashboard Catu Daya & UPS — FASOP UP2B{% endblock %}
 {% block page_title %}Dashboard Catu Daya & UPS{% endblock %}
 
@@ -736,7 +737,7 @@
 </div><!-- /tab-panel-genset -->
 
 <!-- Chart.js -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="{% static 'vendor/chart.js@4.5.1/dist/chart.umd.min.js' %}"></script>
 
 <script>
 const DEVICES      = JSON.parse('{{ devices_data_json|escapejs }}');

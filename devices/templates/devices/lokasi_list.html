@@ -1,9 +1,10 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block title %}Daftar Site — FASOP{% endblock %}
 {% block page_title %}Daftar Site{% endblock %}
 
 {% block content %}
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="{% static 'vendor/leaflet@1.9.4/dist/leaflet.css' %}" />
 <style>
   #site-map { height:500px;z-index:1; }
 
@@ -315,7 +316,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="{% static 'vendor/leaflet@1.9.4/dist/leaflet.js' %}"></script>
 <script>
 const SITE_DATA = [
   {% for l in lokasi_data %}{% if l.has_coords %}
