@@ -266,6 +266,8 @@ API_KEY=              # For /api/v1/ integrations
 
 CSP_MODE=enforce      # enforce (default) | report-only | off — see "Header Keamanan" below
 HELPDESK_WA=6285156357878   # WhatsApp admin di landing page "/" — TERLIHAT PUBLIK; kosong = tombolnya hilang
+GOOGLE_SITE_VERIFICATION=   # nama berkas verifikasi Google Search Console, mis. google1a2b3c4d5e6f7a8b.html
+                             # (boleh beberapa, dipisah koma) — lihat "Landing Page"
 
 # Early Warning WhatsApp (WAHA gateway) — see "Early Warning WhatsApp" below
 WA_ALERT_ENABLED=False        # master switch; False = no WhatsApp notifications at all
@@ -301,7 +303,8 @@ MEDIAMTX_AUTH_SECRET=         # shared secret, must match key= in mediamtx.yml's
                                # "mtx-internal" ffmpeg RTSP credential in runOnReady
 WEBRTC_ICE_SERVERS=            # JSON RTCIceServer list (urls/username/credential) used by the browser
 FASOP_PUBLIC_ORIGIN=          # Django's own public origin, e.g. https://fasop.domain — copied into
-                               # mediamtx.yml's webrtcAllowOrigins by deploy/setup_streaming.sh
+                               # mediamtx.yml's webrtcAllowOrigins by deploy/setup_streaming.sh, and
+                               # used by the landing page's <link rel="canonical">
 TURN_URL=                     # e.g. turn:203.0.113.10:3478 — copied into mediamtx.yml's webrtcICEServers2
 TURN_USERNAME=                # coturn long-term-credential username (must match /etc/turnserver.conf)
 TURN_PASSWORD=                # coturn long-term-credential password (must match /etc/turnserver.conf)
@@ -488,8 +491,22 @@ Yang perlu diketahui saat mengubahnya:
   Admin". Kosongkan di `.env` untuk menyembunyikan tombolnya; halaman lalu
   menyarankan menghubungi admin di unit masing-masing. Nomor di tombol bantuan
   khusus Operator di `base.html` masih ditulis langsung di template itu.
-- **`noindex, nofollow`** — sistem internal tidak perlu ditemukan lewat mesin
-  pencari, dan itu mengurangi perhatian dari luar.
+- **Landing page BOLEH diindeks Google; halaman login TIDAK** (`noindex` di
+  `registration/login.html`). Versi pertama landing memakai `noindex`, tapi itu
+  justru menghapus FASOP dari hasil pencarian, padahal yang diinginkan adalah
+  hasil pencarian yang menampilkan landing ini (https), bukan form login lama.
+  Halaman di balik login memang tidak bisa diindeks (dipantulkan ke login).
+  `<link rel="canonical">` diisi dari `FASOP_PUBLIC_ORIGIN` supaya Google
+  mencatat versi https; kosong = tanpa canonical. Karena halaman ini bisa
+  muncul di Google, aturan "tanpa data operasional" di atas makin mutlak.
+- **Verifikasi Google Search Console** (metode berkas HTML) dilayani
+  `fasop/situs_views.py` di `/<nama>.html`, **hanya** untuk nama yang terdaftar
+  di `GOOGLE_SITE_VERIFICATION`. Menjawab sembarang `googleXXXX.html` berarti
+  siapa saja bisa mendaftar sebagai pemilik domain FASOP di Search Console
+  mereka sendiri (dijaga `fasop/tests_situs.py`). Jangan hapus nilainya setelah
+  terverifikasi — Google memeriksa ulang berkala, dan kepemilikannya dicabut
+  begitu berkasnya hilang. Alternatif tanpa deploy: properti Domain dengan
+  TXT record di DNS Cloudflare.
 - **Aplikasi HP (PWA) Inspeksi tidak lewat `/`** (`start_url` =
   `/inspection/?source=pwa`), dan halaman ini sengaja tidak memasang manifest,
   supaya browser tidak menawarkan pemasangan aplikasi Inspeksi kepada
