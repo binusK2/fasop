@@ -16,12 +16,12 @@ Including another URLconf
 """
 from django.conf import settings
 from django.contrib import admin
-from django.urls import path, include, register_converter
+from django.urls import path, re_path, include, register_converter
 from django.contrib.auth import views as auth_views
 from django.conf.urls.static import static
 from django.views.defaults import page_not_found
 from devices.views import fo_public
-from fasop import pwa_views
+from fasop import pwa_views, situs_views
 from fasop.converters import HashIdConverter
 
 register_converter(HashIdConverter, 'hid')
@@ -30,6 +30,9 @@ handler404 = 'django.views.defaults.page_not_found'
 
 urlpatterns = [
     path('secure-panel/', admin.site.urls),
+    # Verifikasi Google Search Console — hanya nama di GOOGLE_SITE_VERIFICATION.
+    re_path(r'^(?P<nama>google[0-9a-zA-Z]+\.html)$', situs_views.google_verifikasi,
+            name='google_verifikasi'),
     path('', include('devices.urls')),
     path('maintenance/', include('maintenance.urls')),
     path('gangguan/', include('gangguan.urls')),

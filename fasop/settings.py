@@ -243,6 +243,21 @@ API_KEY = config('API_KEY', default='')
 # (landing lalu menyarankan menghubungi admin di unit masing-masing).
 HELPDESK_WA = config('HELPDESK_WA', default='6285156357878')
 
+# Origin publik FASOP, mis. https://fasopup2bmks.id — dipakai landing page untuk
+# <link rel="canonical"> supaya Google mencatat versi https. Variabel yang sama
+# dibaca deploy/setup_streaming.sh untuk webrtcAllowOrigins MediaMTX.
+# Kosong = tanpa canonical.
+FASOP_PUBLIC_ORIGIN = config('FASOP_PUBLIC_ORIGIN', default='').strip().rstrip('/')
+
+# Nama berkas verifikasi Google Search Console (metode "File HTML"), mis.
+# google1a2b3c4d5e6f7a8b.html — boleh lebih dari satu, dipisah koma. HANYA nama
+# di sini yang dijawab di https://<domain>/<nama>; lihat fasop/situs_views.py.
+# Biarkan terisi selamanya: Google memeriksanya ulang secara berkala, dan
+# begitu berkasnya hilang, status pemilik di Search Console ikut dicabut.
+GOOGLE_SITE_VERIFICATION = [
+    n.strip() for n in config('GOOGLE_SITE_VERIFICATION', default='').split(',') if n.strip()
+]
+
 # Folder tujuan arsip .xlsx logsheet harian (management command archive_logsheet).
 # Bisa folder NAS ter-mount, mis. /mnt/nas/logsheet. Subfolder bulan otomatis.
 LOGSHEET_ARCHIVE_DIR = config('LOGSHEET_ARCHIVE_DIR', default='/mnt/nas/logsheet')

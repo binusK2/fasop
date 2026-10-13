@@ -46,9 +46,24 @@ class LandingAnonimTest(TestCase):
         self.assertTemplateUsed(resp, TEMPLATE)
         self.assertContains(resp, f'href="{reverse("login")}"')
 
-    def test_tidak_diindeks_mesin_pencari(self):
-        """Sistem internal: tidak perlu ditemukan lewat Google."""
-        self.assertContains(self.client.get('/'), 'name="robots" content="noindex, nofollow"')
+    def test_boleh_diindeks_mesin_pencari(self):
+        """
+        Hasil pencarian Google untuk FASOP harus landing page ini. noindex di
+        sini membuat Google MENGHAPUS FASOP dari hasil pencarian sama sekali.
+        """
+        self.assertNotContains(self.client.get('/'), 'noindex')
+
+    def test_halaman_login_tidak_diindeks(self):
+        """Supaya hasil pencarian lama ("Login — FASOP UP2B") tergantikan landing."""
+        self.assertContains(self.client.get(reverse('login')), '<meta name="robots" content="noindex">')
+
+    @override_settings(FASOP_PUBLIC_ORIGIN='https://fasopup2bmks.id')
+    def test_canonical_https(self):
+        self.assertContains(self.client.get('/'), '<link rel="canonical" href="https://fasopup2bmks.id/">')
+
+    @override_settings(FASOP_PUBLIC_ORIGIN='')
+    def test_tanpa_origin_tanpa_canonical(self):
+        self.assertNotContains(self.client.get('/'), 'rel="canonical"')
 
     def test_tanpa_query_selain_pengumuman(self):
         """

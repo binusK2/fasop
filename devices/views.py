@@ -383,6 +383,7 @@ def landing(request):
             'pengumuman': pengumuman,
             'url_login': reverse('login'),
             'url_wa': url_wa,
+            'canonical': f'{settings.FASOP_PUBLIC_ORIGIN}/' if settings.FASOP_PUBLIC_ORIGIN else '',
             'tahun': now().year,
         })
     return HttpResponse(html)
