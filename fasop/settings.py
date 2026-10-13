@@ -11,7 +11,10 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 from pathlib import Path
+from urllib.parse import urlsplit
 from decouple import config
+from django.core.exceptions import ImproperlyConfigured
+from django.utils.csp import CSP
 import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -61,6 +64,11 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    # Sama seperti XFrameOptions di bawah: dipasang di luar axes & middleware
+    # role supaya halaman lockout dan halaman 503 pemeliharaan ikut membawa
+    # header-nya. Kebijakannya di blok "Header keamanan" di bawah.
+    'fasop.security_headers.HtmlContentSecurityPolicyMiddleware',
+    'fasop.security_headers.PermissionsPolicyMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -198,6 +206,8 @@ CSRF_COOKIE_SECURE            = not DEBUG
 
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY      = 'same-origin'
+# Content-Security-Policy & Permissions-Policy: blok "Header keamanan" di bawah
+# (di sana karena connect-src butuh MEDIAMTX_* yang didefinisikan belakangan).
 if not DEBUG:
     SECURE_PROXY_SSL_HEADER        = ('HTTP_X_FORWARDED_PROTO', 'https')
     SECURE_SSL_REDIRECT            = config('SECURE_SSL_REDIRECT', default=True, cast=bool)
@@ -367,6 +377,107 @@ EZVIZ_TIMEOUT    = config('EZVIZ_TIMEOUT',    default=10, cast=int)
 #
 # Isi hanya kalau `manage.py cek_ezviz` menemukan host lain yang diterima.
 EZVIZ_EZOPEN_HOST = config('EZVIZ_EZOPEN_HOST', default='')
+
+# -------------------------------------------------------------------
+# Header keamanan — Content-Security-Policy & Permissions-Policy
+# (dipasang fasop/security_headers.py; lihat "Header Keamanan" di CLAUDE.md).
+#
+# CSP_MODE di .env:
+#   enforce      (bawaan) pelanggaran diblokir browser
+#   report-only  pelanggaran hanya dilaporkan di console browser — pakai ini
+#                kalau sebuah halaman rusak karena CSP, sambil sumbernya
+#                ditambahkan di bawah
+#   off          tanpa header CSP sama sekali
+#
+# 'unsafe-inline' di script-src/style-src belum bisa dilepas: template FASOP
+# memuat ratusan <script> inline, handler onclick=, dan atribut style=.
+# Kebijakan ini tetap menutup yang paling berharga: skrip dari domain selain
+# daftar di bawah, <object>/<embed>, <base> yang dibajak, dan form yang
+# dikirim ke luar.
+#
+# frame-ancestors sengaja TIDAK diisi — perlindungan clickjacking tetap
+# dipegang X-Frame-Options (DENY, SAMEORIGIN di view pratinjau BA). Begitu
+# frame-ancestors ada, browser mengabaikan X-Frame-Options sama sekali.
+# -------------------------------------------------------------------
+def _origin(url):
+    bagian = urlsplit(url or '')
+    if bagian.scheme in ('http', 'https') and bagian.netloc:
+        return f'{bagian.scheme}://{bagian.netloc}'
+    return None
+
+
+_CSP_CDN = ['https://cdn.jsdelivr.net', 'https://unpkg.com']
+# FASOP di belakang Cloudflare, yang bisa menyisipkan skripnya sendiri ke
+# halaman: Rocket Loader (ajax.cloudflare.com) dan Web Analytics
+# (static.cloudflareinsights.com, beacon ke cloudflareinsights.com). Skrip
+# /cdn-cgi/* lainnya same-origin, sudah tercakup 'self'.
+_CSP_CLOUDFLARE_SCRIPT = ['https://ajax.cloudflare.com', 'https://static.cloudflareinsights.com']
+# WHIP/WHEP live streaming — fetch() dari browser langsung ke MediaMTX.
+_CSP_MEDIAMTX = sorted({o for o in map(_origin, (MEDIAMTX_WHIP_URL, MEDIAMTX_WHEP_URL)) if o})
+
+_CSP_KEBIJAKAN = {
+    'default-src': [CSP.SELF],
+    'script-src':  [CSP.SELF, CSP.UNSAFE_INLINE, *_CSP_CDN, *_CSP_CLOUDFLARE_SCRIPT],
+    'style-src':   [CSP.SELF, CSP.UNSAFE_INLINE, *_CSP_CDN, 'https://fonts.googleapis.com'],
+    # bootstrap-icons mengambil font-nya dari jsdelivr; Google Fonts dari gstatic.
+    'font-src':    [CSP.SELF, 'data:', 'https://cdn.jsdelivr.net', 'https://fonts.gstatic.com'],
+    # https: karena tile peta (basemaps.cartocdn.com) dan ikon marker Leaflet;
+    # data:/blob: untuk tanda tangan digital, QR code, dan pratinjau upload foto.
+    'img-src':     [CSP.SELF, 'data:', 'blob:', 'https:'],
+    'media-src':   [CSP.SELF, 'data:', 'blob:'],
+    'connect-src': [CSP.SELF, *_CSP_MEDIAMTX, 'https://cloudflareinsights.com'],
+    'frame-src':   [CSP.SELF, 'blob:'],
+    'worker-src':  [CSP.SELF],
+    'object-src':  [CSP.NONE],
+    'base-uri':    [CSP.SELF],
+    'form-action': [CSP.SELF],
+}
+
+# Tambahan khusus halaman pemutar EZUIKit (sesi Ezviz & Multi View), dipasang
+# lewat fasop.security_headers.izinkan_ezviz(). Tidak dibuka untuk seluruh
+# FASOP karena hanya dua halaman itu yang membutuhkannya.
+_CSP_EZVIZ_HOST = ['https://*.ys7.com', 'https://*.ezvizlife.com', 'https://*.ezviz.com']
+CSP_TAMBAHAN_EZVIZ = {
+    # Decoder (Decoder.js, libSystemTransformWASM.js) dimuat dari
+    # openstatic.ys7.com: lewat <script> di halaman DAN importScripts() di
+    # worker blob: — worker blob: mewarisi CSP halamannya. Decoder-nya wasm.
+    'script-src':  [*_CSP_EZVIZ_HOST, CSP.WASM_UNSAFE_EVAL],
+    'worker-src':  ['blob:'],
+    # Server stream (wss://) ditunjuk cloud Ezviz saat pemutaran dimulai dan
+    # berbeda per region/kamera — tidak bisa didaftar di muka.
+    'connect-src': ['https:', 'wss:', 'data:', 'blob:'],
+    'style-src':   _CSP_EZVIZ_HOST,
+    'font-src':    _CSP_EZVIZ_HOST,
+}
+
+CSP_MODE = config('CSP_MODE', default='enforce').strip().lower().replace('_', '-')
+if CSP_MODE not in ('enforce', 'report-only', 'off'):
+    raise ImproperlyConfigured(
+        f"CSP_MODE={CSP_MODE!r} tidak dikenal — pakai enforce, report-only, atau off."
+    )
+SECURE_CSP             = _CSP_KEBIJAKAN if CSP_MODE == 'enforce' else {}
+SECURE_CSP_REPORT_ONLY = _CSP_KEBIJAKAN if CSP_MODE == 'report-only' else {}
+
+# Fitur browser yang boleh dipakai halaman FASOP. () = dimatikan untuk semua
+# origin; (self) = hanya FASOP sendiri (termasuk iframe same-origin).
+# Menambah fitur yang dipakai halaman baru (mis. geolocation) WAJIB lewat
+# sini — kalau tidak, API-nya ditolak browser tanpa pesan di layar.
+PERMISSIONS_POLICY = {
+    'camera':          ['self'],   # Live Streaming — kamera teknisi (WHIP)
+    'microphone':      ['self'],   # Live Streaming — audio teknisi & talkback pengawas
+    'fullscreen':      ['self'],   # layar penuh EWS & pemutar Ezviz
+    'geolocation':     [],
+    'payment':         [],
+    'usb':             [],
+    'serial':          [],
+    'hid':             [],
+    'midi':            [],
+    'accelerometer':   [],
+    'gyroscope':       [],
+    'magnetometer':    [],
+    'display-capture': [],
+    'browsing-topics': [],
+}
 
 # ── Arsip laporan inspeksi harian (cron export_inspeksi_harian jam 12.00) ──
 # Folder tujuan file Excel harian. Di server Linux ini harus berupa path yang

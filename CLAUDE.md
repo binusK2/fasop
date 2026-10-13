@@ -104,7 +104,8 @@ MSSQL connection is established per-request in `opsis/mssql.py` with a TCP reach
 ### Middleware Stack (order matters)
 
 ```
-SecurityMiddleware → SessionMiddleware → CommonMiddleware → CsrfViewMiddleware
+SecurityMiddleware → HtmlContentSecurityPolicyMiddleware → PermissionsPolicyMiddleware
+→ SessionMiddleware → CommonMiddleware → CsrfViewMiddleware
 → AuthenticationMiddleware → AxesMiddleware → MessageMiddleware
 → XFrameOptionsMiddleware
 → ForcePasswordChangeMiddleware   # force new password on first login
@@ -115,7 +116,7 @@ SecurityMiddleware → SessionMiddleware → CommonMiddleware → CsrfViewMiddle
 → SingleSessionMiddleware         # one active session per user (except Operator)
 ```
 
-All custom middleware lives in `devices/middleware.py`.
+All custom role/access middleware lives in `devices/middleware.py`; the two response-header middleware (CSP, Permissions-Policy) live in `fasop/security_headers.py` — see "Header Keamanan" below.
 
 ### Role-Based Access
 
@@ -263,6 +264,8 @@ MSSQL_DRIVER=ODBC Driver 17 for SQL Server
 
 API_KEY=              # For /api/v1/ integrations
 
+CSP_MODE=enforce      # enforce (default) | report-only | off — see "Header Keamanan" below
+
 # Early Warning WhatsApp (WAHA gateway) — see "Early Warning WhatsApp" below
 WA_ALERT_ENABLED=False        # master switch; False = no WhatsApp notifications at all
 WA_API_BASE=http://localhost:3000
@@ -320,6 +323,91 @@ EZVIZ_EZOPEN_HOST=            # host DI DALAM alamat ezopen:// (bukan host API).
 ```
 
 Changing `SECRET_KEY` in production invalidates all Hashids-encoded URLs and active sessions.
+
+---
+
+## Header Keamanan — CSP & Permissions-Policy (`fasop/security_headers.py`)
+
+Muncul dari pemindaian securityheaders.com (9 Okt 2026, nilai D): dua header
+yang belum ada saat itu adalah `Content-Security-Policy` dan
+`Permissions-Policy`. Kebijakannya di `fasop/settings.py` (blok "Header
+keamanan"); `fasop/security_headers.py` hanya memasangnya ke respons. Dijaga
+`fasop/tests_security_headers.py`.
+
+**CSP memakai fitur bawaan Django 6** (`SECURE_CSP` / `SECURE_CSP_REPORT_ONLY`),
+dibungkus middleware sendiri karena dua alasan:
+
+- **Hanya respons HTML yang diberi CSP.** Yang paling penting
+  `/service-worker.js`: service worker tunduk pada CSP RESPONS SKRIPNYA
+  SENDIRI, bukan CSP halaman. Service worker FASOP mengambil ulang aset CDN
+  (Bootstrap, Chart.js, font) lewat `fetch()`; kalau skripnya ikut membawa
+  `connect-src` halaman, semua fetch itu ditolak dan **setiap halaman kehilangan
+  CSS/JS-nya sekaligus**. Middleware bawaan Django memasang header ke semua
+  respons — jangan diganti kembali ke sana (dijaga tes).
+- **Halaman pemutar EZUIKit mendapat kebijakan yang diperluas**
+  (`CSP_TAMBAHAN_EZVIZ`), dipasang di view dengan `izinkan_ezviz(response)` —
+  saat ini `session_detail` cabang Ezviz dan `session_grid` (Multi View).
+  EZUIKit memuat decoder wasm dari `openstatic.ys7.com` ke dalam worker `blob:`
+  (worker blob mewarisi CSP halamannya, jadi `importScripts` di dalamnya ikut
+  `script-src`) dan membuka websocket ke server stream yang ditunjuk cloud
+  Ezviz saat pemutaran — host-nya berbeda per region/kamera, karena itu
+  `connect-src https: wss:`. Izin itu sengaja **tidak** dibuka untuk seluruh
+  FASOP. Halaman baru yang memakai `ezviz-player.js` wajib memanggil
+  `izinkan_ezviz()`, kalau tidak pemutarnya diam di "memuat".
+
+Yang perlu diketahui saat mengubahnya:
+
+- **`'unsafe-inline'` di `script-src`/`style-src` belum bisa dilepas** —
+  template FASOP memuat ratusan `<script>` inline, handler `onclick=`, dan
+  ribuan atribut `style=`. Kebijakannya tetap menutup yang bernilai: skrip dari
+  domain di luar daftar, `<object>`/`<embed>`, `<base>` yang dibajak, dan form
+  yang dikirim ke luar. Melepas `'unsafe-inline'` berarti memindahkan semua
+  skrip inline ke berkas/nonce lebih dulu.
+- **CDN baru di template WAJIB ditambahkan ke `_CSP_KEBIJAKAN`.** Kalau lupa,
+  tidak ada error di server — CSS/JS-nya cuma tidak termuat dan alasannya hanya
+  terlihat di console browser. `CspTemplateTest` memindai `<script src>` dan
+  `<link rel=stylesheet>` di semua template dan gagal kalau host-nya tidak
+  diizinkan. Skrip yang dimuat dinamis dari JS tidak terpindai — periksa
+  console.
+- **Host Cloudflare ikut diizinkan** (`ajax.cloudflare.com` untuk Rocket
+  Loader, `static.cloudflareinsights.com` + `cloudflareinsights.com` untuk Web
+  Analytics) — skrip itu disisipkan Cloudflare di edge, tidak ada di template,
+  jadi tidak akan pernah tertangkap `CspTemplateTest`. Fitur Cloudflare lain
+  yang menyisipkan skrip dari host baru harus ditambahkan manual.
+- **`frame-ancestors` sengaja tidak diisi.** Begitu ada, browser mengabaikan
+  `X-Frame-Options` sama sekali; perlindungan clickjacking tetap dipegang
+  X-Frame-Options (DENY, dan SAMEORIGIN di view pratinjau BA).
+- **`connect-src` memuat origin `MEDIAMTX_WHIP_URL`/`MEDIAMTX_WHEP_URL`**,
+  dihitung saat settings dimuat — WHIP/WHEP adalah `fetch()` langsung dari
+  browser ke MediaMTX. Mengganti URL MediaMTX di `.env` cukup restart.
+- **Tidak ada `upgrade-insecure-requests`**: FASOP juga dibuka lewat HTTP di
+  IP internal, dan di sana direktif itu mengubah aset same-origin jadi https
+  yang tidak dilayani.
+- **Halaman rusak karena CSP?** Set `CSP_MODE=report-only` di `.env` lalu
+  restart (kedua pool gunicorn): pelanggaran hanya dilaporkan di console
+  browser ("Refused to load … violates the following Content Security Policy
+  directive"), sementara host-nya ditambahkan. `off` mematikan CSP sama
+  sekali; nilai lain menggagalkan start-up (`ImproperlyConfigured`), supaya
+  salah ketik tidak diam-diam mematikan CSP.
+
+**Permissions-Policy** (`PERMISSIONS_POLICY`): `camera`/`microphone` hanya
+`(self)` karena Live Streaming memakainya (kamera teknisi, talkback pengawas);
+`fullscreen` `(self)` untuk EWS & pemutar Ezviz; sisanya dimatikan `()`.
+Halaman baru yang butuh fitur lain (mis. geolocation) harus mengubahnya di
+sana — API yang ditolak kebijakan ini gagal tanpa pesan di layar.
+
+**Yang tidak bisa diperbaiki dari kode: HSTS dan redirect HTTP→HTTPS.**
+Pemindaian 9 Okt berakhir di `http://…/login/`, artinya permintaan HTTP tidak
+dialihkan ke HTTPS. Django hanya mengirim `Strict-Transport-Security` (dan
+hanya mengalihkan ke HTTPS) pada permintaan yang ia anggap aman, yaitu yang
+membawa `X-Forwarded-Proto: https`. Contoh nginx di `deploy/` — yang disebut
+sama gayanya dengan server block produksi — memakai
+`proxy_set_header X-Forwarded-Proto $scheme`, dan di belakang Cloudflare
+Tunnel `$scheme` selalu `http`: HSTS tidak pernah keluar, dan
+`SECURE_SSL_REDIRECT=True` akan berputar tanpa henti (kemungkinan karena itu
+dimatikan di `.env`). Cara paling aman tanpa menyentuh origin: aktifkan
+**Always Use HTTPS** dan **HSTS** di Cloudflare (SSL/TLS → Edge Certificates),
+lalu periksa `curl -sI https://<domain>/login/ | grep -i strict-transport`.
 
 ---
 
