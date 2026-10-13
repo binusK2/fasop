@@ -236,6 +236,13 @@ AXES_USERNAME_CALLABLE   = 'devices.axes_utils.username_terpotong'  # username >
 # -------------------------------------------------------------------
 API_KEY = config('API_KEY', default='')
 
+# Nomor WhatsApp admin FASOP untuk tombol "Hubungi Admin" di landing page
+# (halaman "/" untuk pengunjung yang belum login). Format internasional tanpa
+# "+", mis. 6281234567890. Halaman itu terbuka untuk seluruh internet, jadi
+# nomornya ikut terlihat publik; KOSONGKAN untuk menyembunyikan tombolnya
+# (landing lalu menyarankan menghubungi admin di unit masing-masing).
+HELPDESK_WA = config('HELPDESK_WA', default='6285156357878')
+
 # Folder tujuan arsip .xlsx logsheet harian (management command archive_logsheet).
 # Bisa folder NAS ter-mount, mis. /mnt/nas/logsheet. Subfolder bulan otomatis.
 LOGSHEET_ARCHIVE_DIR = config('LOGSHEET_ARCHIVE_DIR', default='/mnt/nas/logsheet')

@@ -3,7 +3,8 @@ from . import views
 from . import views_komponen
 
 urlpatterns = [
-    path('', views.dashboard, name='dashboard'),
+    # Anonim → landing page, sudah login → dashboard (views.beranda).
+    path('', views.beranda, name='dashboard'),
     path('devices/', views.device_list, name='device_list'),
     path('devices/<hid:pk>/', views.device_detail, name='device_detail'),
     path('add/', views.device_create, name='device_add'),

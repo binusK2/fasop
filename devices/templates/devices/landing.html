@@ -1,0 +1,292 @@
+{% load static %}<!DOCTYPE html>
+{% comment %}
+Landing page FASOP — hanya untuk pengunjung yang BELUM login; yang sudah login
+langsung ke dashboard (devices.views.beranda). Lihat "Landing Page" di CLAUDE.md.
+
+Tiga aturan yang menjaga halaman ini:
+- Tanpa data operasional apa pun (MW, frekuensi, nama GI, jumlah peralatan,
+  peta, screenshot). Halaman ini terbuka untuk seluruh internet.
+- Tanpa <script> inline, handler on*=, maupun atribut style="": skrip dan gaya
+  ada di static/landing/. Ini halaman pertama yang siap untuk CSP tanpa
+  'unsafe-inline'.
+- Dirender tanpa context processor (render_to_string tanpa request), jadi
+  pengunjung anonim dan bot tidak memicu query apa pun selain pengumuman yang
+  sudah di-cache.
+{% endcomment %}
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#060d1a">
+<meta name="description" content="FASOP — aplikasi Fasilitas Operasi PT PLN (Persero) UP2B Sistem Makassar.">
+<title>FASOP — Fasilitas Operasi UP2B Sistem Makassar</title>
+<link rel="icon" type="image/png" sizes="32x32" href="{% static 'favicon/favicon-32x32.png' %}">
+<link rel="icon" type="image/png" sizes="16x16" href="{% static 'favicon/favicon-16x16.png' %}">
+<link rel="apple-touch-icon" sizes="180x180" href="{% static 'favicon/apple-touch-icon.png' %}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'landing/landing.css' %}">
+<script src="{% static 'landing/landing.js' %}"></script>
+</head>
+<body>
+
+<!-- Ikon garis (gaya Feather, MIT). -->
+<svg class="sprite" aria-hidden="true" focusable="false">
+  <symbol id="i-zap" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></symbol>
+  <symbol id="i-login" viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></symbol>
+  <symbol id="i-box" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></symbol>
+  <symbol id="i-tool" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></symbol>
+  <symbol id="i-activity" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></symbol>
+  <symbol id="i-server" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></symbol>
+  <symbol id="i-clip" viewBox="0 0 24 24"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><polyline points="9 14 11 16 15 12"/></symbol>
+  <symbol id="i-video" viewBox="0 0 24 24"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.78 7.78 5.5 5.5 0 0 1 7.78-7.78zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></symbol>
+  <symbol id="i-layout" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></symbol>
+  <symbol id="i-pen" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></symbol>
+  <symbol id="i-monitor" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-radio" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></symbol>
+  <symbol id="i-bar" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></symbol>
+</svg>
+
+<div class="bg-grid" aria-hidden="true"></div>
+
+<header class="nav" id="nav">
+  <div class="wrap">
+    <a class="brand" href="#top" aria-label="FASOP — beranda">
+      <span class="logo-plate">
+        <img class="pln" src="{% static 'img/pln_logo_sm.webp' %}" alt="PLN" width="199" height="300">
+        <span class="sep"></span>
+        <img class="dan" src="{% static 'img/danantara_logo_sm.webp' %}" alt="Danantara Indonesia" width="420" height="111">
+      </span>
+      <span class="wordmark"><b>FASOP <span>UP2B</span></b><small>UIP3B Sulawesi · UP2B Sistem Makassar</small></span>
+    </a>
+    <nav class="nav-links" aria-label="Navigasi">
+      <a class="link" href="#modul">Modul</a>
+      <a class="link" href="#cara-masuk">Cara Masuk</a>
+      <a class="link" href="#bantuan">Bantuan</a>
+      <a class="btn btn-primary btn-sm" href="{{ url_login }}"><svg class="i"><use href="#i-login"/></svg>Masuk</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero">
+    <div class="glow blue" aria-hidden="true"></div>
+    <div class="glow yellow" aria-hidden="true"></div>
+    <div class="wrap hero-grid">
+      <div>
+        <span class="chip reveal"><span class="dot"></span>Siaga 24 jam · UP2B Sistem Makassar</span>
+        <h1 class="reveal d1"><span class="bolt" aria-hidden="true"><svg><use href="#i-zap"/></svg></span>FASOP</h1>
+        <h2 class="reveal d2">Fasilitas Operasi <em>UP2B Sistem Makassar</em></h2>
+        <p class="lead reveal d2">Satu pintu untuk aset, pemeliharaan, gangguan, dan pemantauan fasilitas operasi — dari layar ruang kontrol sampai HP di lapangan.</p>
+        <div class="cta reveal d3">
+          <a class="btn btn-primary" href="{{ url_login }}"><svg class="i"><use href="#i-login"/></svg>Masuk ke FASOP<svg class="i arrow"><use href="#i-arrow"/></svg></a>
+        </div>
+        <div class="clock reveal d4">
+          <span class="ic"><svg class="i"><use href="#i-clock"/></svg></span>
+          <span><span class="greet" id="greet">Selamat datang</span><br><span class="when" id="when">UP2B Sistem Makassar</span></span>
+        </div>
+      </div>
+
+      <div class="visual reveal d2" aria-hidden="true">
+        <svg class="net" viewBox="0 0 600 520">
+          <defs>
+            <radialGradient id="hubGlow" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="#facc15" stop-opacity=".55"/>
+              <stop offset="100%" stop-color="#facc15" stop-opacity="0"/>
+            </radialGradient>
+          </defs>
+          <g id="edges"></g>
+          <g id="flows"></g>
+          <g id="pulses"></g>
+          <circle cx="300" cy="262" r="92" fill="url(#hubGlow)"/>
+          <circle class="hub-ring" cx="300" cy="262" r="64"/>
+          <circle class="hub-ring r2" cx="300" cy="262" r="82"/>
+          <g id="nodes"></g>
+          <g transform="translate(300 262)">
+            <circle r="34" fill="#0d1b2e" stroke="#facc15" stroke-width="2.5"/>
+            <polygon points="3,-20 -13,4 -1,4 -3,20 13,-4 1,-4" fill="#facc15"/>
+          </g>
+        </svg>
+        <div class="float-tag t1"><span class="ti c-yellow"><svg class="i"><use href="#i-activity"/></svg></span><span>OPSIS Realtime<small>Pemantauan sistem</small></span></div>
+        <div class="float-tag t4"><span class="ti c-pink"><svg class="i"><use href="#i-video"/></svg></span><span>Live Streaming<small>Pekerjaan pemeliharaan</small></span></div>
+        <div class="float-tag t2"><span class="ti c-cyan"><svg class="i"><use href="#i-radio"/></svg></span><span>Device Monitoring<small>RTU &amp; perangkat jaringan</small></span></div>
+        <div class="float-tag t3"><span class="ti c-blue"><svg class="i"><use href="#i-box"/></svg></span><span>Aset Monitoring<small>Peralatan &amp; health index</small></span></div>
+        <div class="float-tag t5"><span class="ti c-green"><svg class="i"><use href="#i-bar"/></svg></span><span>Kinerja FASOP<small>Availability SCADATEL</small></span></div>
+      </div>
+    </div>
+
+    <div class="wrap hero-after">
+      {% if pengumuman %}
+      <div class="notice t-{{ pengumuman.tingkat }} reveal" id="notice" role="status">
+        <svg class="i ni"><use href="#i-bell"/></svg>
+        <div>
+          <b>{{ pengumuman.judul }}</b>
+          <p>{{ pengumuman.pesan|linebreaksbr }}</p>
+          {% if pengumuman.mulai or pengumuman.selesai %}
+          <div class="jadwal">
+            {% if pengumuman.mulai %}<span>Mulai <b>{{ pengumuman.mulai|date:"d M Y, H:i" }}</b></span>{% endif %}
+            {% if pengumuman.selesai %}<span>Perkiraan selesai <b>{{ pengumuman.selesai|date:"d M Y, H:i" }}</b></span>{% endif %}
+          </div>
+          {% endif %}
+        </div>
+        <button class="x" id="notice-x" type="button" aria-label="Tutup pengumuman"><svg class="i"><use href="#i-x"/></svg></button>
+      </div>
+      {% endif %}
+
+      <div class="perks">
+        <div class="perk reveal"><span class="pi c-yellow"><svg class="i"><use href="#i-activity"/></svg></span><span><b>Realtime</b><span>Langsung dari sistem SCADA</span></span></div>
+        <div class="perk reveal d1"><span class="pi c-blue"><svg class="i"><use href="#i-phone"/></svg></span><span><b>Siap di lapangan</b><span>Nyaman di HP maupun tablet</span></span></div>
+        <div class="perk reveal d2"><span class="pi c-purple"><svg class="i"><use href="#i-pen"/></svg></span><span><b>Tanpa kertas</b><span>Tanda tangan &amp; PDF otomatis</span></span></div>
+        <div class="perk reveal d3"><span class="pi c-green"><svg class="i"><use href="#i-shield"/></svg></span><span><b>Aman &amp; tercatat</b><span>Akses sesuai peran, jejak audit</span></span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="modul">
+    <div class="wrap">
+      <span class="eyebrow reveal">Modul FASOP</span>
+      <h3 class="reveal d1">Semua kebutuhan fasilitas operasi,<br><span class="grad">dalam satu aplikasi.</span></h3>
+      <p class="sub reveal d2">Dari inventaris peralatan sampai siaran langsung pekerjaan lapangan — semuanya saling terhubung, jadi data cukup diisi sekali.</p>
+
+      <div class="modules">
+        <article class="mod c-blue reveal"><span class="mi"><svg class="i"><use href="#i-box"/></svg></span>
+          <h4>Aset &amp; Peralatan</h4><p>Inventaris peralatan telekomunikasi &amp; SCADA lengkap dengan riwayat, foto, dan QR code.</p></article>
+        <article class="mod c-green reveal d1"><span class="mi"><svg class="i"><use href="#i-tool"/></svg></span>
+          <h4>Pemeliharaan &amp; BA</h4><p>Pemeliharaan preventif &amp; korektif, berita acara, tanda tangan digital, ekspor PDF.</p></article>
+        <article class="mod c-orange reveal d2"><span class="mi"><svg class="i"><use href="#i-alert"/></svg></span>
+          <h4>Gangguan</h4><p>Tiket gangguan dari laporan hingga normal kembali, dengan status yang bisa dipantau.</p></article>
+        <article class="mod c-yellow reveal d3"><span class="mi"><svg class="i"><use href="#i-activity"/></svg></span>
+          <h4>OPSIS</h4><p>Pemantauan sistem tenaga listrik secara realtime untuk ruang operasi.</p></article>
+        <article class="mod c-cyan reveal"><span class="mi"><svg class="i"><use href="#i-radio"/></svg></span>
+          <h4>Device Monitor</h4><p>Status RTU dan perangkat jaringan, dengan peringatan dini lewat WhatsApp.</p></article>
+        <article class="mod c-purple reveal d1"><span class="mi"><svg class="i"><use href="#i-clip"/></svg></span>
+          <h4>Inspeksi Inservice</h4><p>Inspeksi harian peralatan oleh operator, langsung dari HP, laporan Excel otomatis.</p></article>
+        <article class="mod c-pink reveal d2"><span class="mi"><svg class="i"><use href="#i-video"/></svg></span>
+          <h4>Live Streaming</h4><p>Siaran langsung pekerjaan lapangan dengan pengawasan &amp; percakapan dua arah.</p></article>
+        <article class="mod c-sky more reveal d3"><span class="mi"><svg class="i"><use href="#i-grid"/></svg></span>
+          <h4>Dan lainnya</h4>
+          <ul><li>Gudang suku cadang</li><li>Jadwal kunjungan</li><li>Health Index</li><li>Dokumentasi rele</li><li>Common Enemy</li><li>Kinerja SCADATEL</li></ul></article>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="cara-masuk">
+    <div class="wrap steps-wrap">
+      <div>
+        <span class="eyebrow reveal">Cara masuk</span>
+        <h3 class="reveal d1">Tiga langkah,<br><span class="grad">langsung bekerja.</span></h3>
+        <p class="sub reveal d2">Tidak ada pendaftaran mandiri — akun dibuatkan oleh admin FASOP di unit Anda, dan menunya menyesuaikan peran Anda.</p>
+        <div class="roles reveal d3">
+          <span class="role"><svg class="i"><use href="#i-tool"/></svg>Teknisi</span>
+          <span class="role"><svg class="i"><use href="#i-users"/></svg>Asisten Manager</span>
+          <span class="role"><svg class="i"><use href="#i-clip"/></svg>Operator</span>
+          <span class="role"><svg class="i"><use href="#i-radio"/></svg>Dispatcher</span>
+          <span class="role"><svg class="i"><use href="#i-activity"/></svg>Opsis</span>
+          <span class="role"><svg class="i"><use href="#i-eye"/></svg>Viewer</span>
+        </div>
+      </div>
+      <div class="steps">
+        <div class="step reveal"><span class="n">1</span><span><b>Klik tombol Masuk</b><span>Di pojok kanan atas atau di bagian atas halaman ini.</span></span></div>
+        <div class="step reveal d1"><span class="n">2</span><span><b>Gunakan akun dari admin</b><span>Masukkan username &amp; password. Saat pertama kali masuk, Anda diminta membuat password baru.</span></span></div>
+        <div class="step reveal d2"><span class="n">3</span><span><b>Menu menyesuaikan peran Anda</b><span>Teknisi, Asisten Manager, Operator, Dispatcher, dan Opsis masing-masing langsung diarahkan ke halaman kerjanya.</span></span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="wrap devices">
+      <div class="stage reveal" aria-hidden="true">
+        <div class="win">
+          <div class="bar"><i></i><i></i><i></i></div>
+          <div class="body">
+            <div class="side"><span class="sk hi"></span><span class="sk"></span><span class="sk"></span><span class="sk w70"></span><span class="sk"></span><span class="sk w60"></span></div>
+            <div class="main">
+              <div class="tiles">
+                <div class="tile"><span class="sk w55"></span><span class="sk tall w80"></span></div>
+                <div class="tile"><span class="sk w45"></span><span class="sk tall w70"></span></div>
+                <div class="tile"><span class="sk w60"></span><span class="sk tall w75"></span></div>
+                <div class="tile"><span class="sk w50"></span><span class="sk tall w65"></span></div>
+              </div>
+              <div class="chart">
+                <svg viewBox="0 0 400 160" preserveAspectRatio="none">
+                  <defs><linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3b82f6" stop-opacity=".35"/><stop offset="1" stop-color="#3b82f6" stop-opacity="0"/></linearGradient></defs>
+                  <path class="area" d="M0,120 C40,110 60,70 100,78 C140,86 160,40 200,46 C240,52 260,96 300,84 C340,72 360,30 400,36 L400,160 L0,160 Z"/>
+                  <path class="line" d="M0,120 C40,110 60,70 100,78 C140,86 160,40 200,46 C240,52 260,96 300,84 C340,72 360,30 400,36"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="phone">
+          <div class="scr">
+            <div class="notch"></div>
+            <span class="sk hi w45"></span>
+            <div class="card y"><span class="sk w60"></span><span class="sk tall w85"></span></div>
+            <div class="card"><div class="okrow"><i></i><span class="sk w70"></span></div><div class="okrow"><i></i><span class="sk w55"></span></div><div class="okrow"><i></i><span class="sk w65"></span></div></div>
+            <div class="card"><span class="sk w50"></span><span class="sk"></span><span class="sk w75"></span></div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <span class="eyebrow reveal">Di mana saja</span>
+        <h3 class="reveal d1">Dari ruang kontrol<br><span class="grad">sampai ke gardu.</span></h3>
+        <p class="sub reveal d2">Tampilan yang sama nyamannya di layar besar ruang operasi, laptop kantor, maupun HP teknisi di lapangan.</p>
+        <ul class="ticks reveal d2">
+          <li><svg class="i"><use href="#i-check"/></svg>Dashboard yang segar sendiri, tanpa perlu dimuat ulang</li>
+          <li><svg class="i"><use href="#i-check"/></svg>Form inspeksi &amp; pemeliharaan dirancang untuk layar sentuh</li>
+          <li><svg class="i"><use href="#i-check"/></svg>Peringatan dini gangguan peralatan langsung ke WhatsApp</li>
+        </ul>
+        <div class="cta reveal d3">
+          <a class="btn btn-primary" href="{{ url_login }}"><svg class="i"><use href="#i-login"/></svg>Masuk sekarang<svg class="i arrow"><use href="#i-arrow"/></svg></a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="wrap" id="bantuan">
+    <div class="help reveal">
+      <div class="lift">
+        <h3>Lupa password atau akun terkunci?</h3>
+        <p>Akun terkunci otomatis setelah beberapa kali salah password. {% if url_wa %}Admin FASOP siap membantu membukanya.{% else %}Hubungi admin FASOP di unit Anda untuk membukanya.{% endif %}</p>
+      </div>
+      <div class="actions">
+        {% if url_wa %}<a class="btn btn-wa" href="{{ url_wa }}" target="_blank" rel="noopener"><svg class="i"><use href="#i-chat"/></svg>Hubungi Admin</a>{% endif %}
+        <a class="btn btn-light" href="{{ url_login }}"><svg class="i"><use href="#i-key"/></svg>Coba masuk lagi</a>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="org">
+      <span class="logo-plate">
+        <img class="pln" src="{% static 'img/pln_logo_sm.webp' %}" alt="PLN" width="199" height="300" loading="lazy">
+        <span class="sep"></span>
+        <img class="dan" src="{% static 'img/danantara_logo_sm.webp' %}" alt="Danantara Indonesia" width="420" height="111" loading="lazy">
+      </span>
+      <div><b>PT PLN (Persero) UIP3B Sulawesi</b><span>UP2B Sistem Makassar</span></div>
+    </div>
+    <div class="secure"><svg class="i"><use href="#i-shield"/></svg><span>Sistem ini hanya untuk pegawai dan mitra resmi PLN. Seluruh aktivitas di dalamnya tercatat.</span></div>
+    <div class="copy">© {{ tahun }} FASOP — Fasilitas Operasi UP2B Sistem Makassar</div>
+  </div>
+</footer>
+
+</body>
+</html>

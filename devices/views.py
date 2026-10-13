@@ -329,6 +329,65 @@ def device_delete(request, pk):
     return redirect(url)
 
 
+# ─────────────────────────────────────────────────────────────────────
+# BERANDA "/" — landing page untuk pengunjung, dashboard untuk yang login
+# ─────────────────────────────────────────────────────────────────────
+def beranda(request):
+    """
+    "/" untuk pengunjung yang belum login adalah landing page; yang sudah login
+    langsung ke dashboard, persis seperti sebelum landing page ada. Nama URL-nya
+    tetap 'dashboard', jadi reverse('dashboard') dan LOGIN_REDIRECT_URL tidak
+    berubah. Middleware pembatas peran hanya menyentuh user yang sudah login,
+    jadi pengalihan Operator/Opsis/Dispatcher setelah login juga tidak berubah.
+    """
+    if request.user.is_authenticated:
+        return dashboard(request)
+    return landing(request)
+
+
+def landing(request):
+    """
+    Landing page FASOP (lihat "Landing Page" di CLAUDE.md).
+
+    Dirender TANPA request — render_to_string tanpa RequestContext — supaya
+    context processor (beberapa query per halaman) tidak ikut jalan untuk tiap
+    pengunjung anonim dan bot yang mengetuk "/". Satu-satunya query yang mungkin
+    terjadi adalah pengumuman, dan itu sudah di-cache per proses.
+
+    Pengumuman di sini sengaja tidak memakai PengumumanPemeliharaan.untuk():
+    untuk() menolak pengunjung anonim karena pop-up modal hanya menghalangi
+    orang masuk. Di landing ia tampil sebagai banner yang tidak menghalangi apa
+    pun, supaya rencana restart server sudah terbaca sebelum orang login.
+    """
+    from django.conf import settings
+    from django.template.loader import render_to_string
+    from django.utils import translation
+    from .models import PengumumanPemeliharaan
+
+    try:
+        obj = PengumumanPemeliharaan.status()
+        pengumuman = obj if obj is not None and obj.sedang_tampil() else None
+    except Exception:
+        pengumuman = None
+
+    wa = ''.join(ch for ch in settings.HELPDESK_WA if ch.isdigit())
+    url_wa = ''
+    if wa:
+        url_wa = f'https://wa.me/{wa}?text=' + quote(
+            'Halo Admin FASOP, saya butuh bantuan untuk masuk ke FASOP.')
+
+    # LANGUAGE_CODE seluruh FASOP 'en-us'; tanpa ini jadwal pengumuman tertulis
+    # "17 Oct 2026" di tengah halaman yang seluruhnya berbahasa Indonesia.
+    with translation.override('id'):
+        html = render_to_string('devices/landing.html', {
+            'pengumuman': pengumuman,
+            'url_login': reverse('login'),
+            'url_wa': url_wa,
+            'tahun': now().year,
+        })
+    return HttpResponse(html)
+
+
 @login_required
 def dashboard(request):
     # ── Fork ke dashboard operator ───────────────────────────────
