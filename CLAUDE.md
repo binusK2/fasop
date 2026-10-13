@@ -363,12 +363,40 @@ Yang perlu diketahui saat mengubahnya:
   domain di luar daftar, `<object>`/`<embed>`, `<base>` yang dibajak, dan form
   yang dikirim ke luar. Melepas `'unsafe-inline'` berarti memindahkan semua
   skrip inline ke berkas/nonce lebih dulu.
-- **CDN baru di template WAJIB ditambahkan ke `_CSP_KEBIJAKAN`.** Kalau lupa,
-  tidak ada error di server — CSS/JS-nya cuma tidak termuat dan alasannya hanya
-  terlihat di console browser. `CspTemplateTest` memindai `<script src>` dan
-  `<link rel=stylesheet>` di semua template dan gagal kalau host-nya tidak
-  diizinkan. Skrip yang dimuat dinamis dari JS tidak terpindai — periksa
-  console.
+- **Library front-end disimpan sendiri di `static/vendor/`, bukan dari CDN.**
+  jsdelivr/unpkg menyajikan paket npm APA SAJA, jadi mengizinkan host-nya di
+  CSP berarti penyerang bisa memuat library lama bercelah dari host yang sama
+  untuk melewati CSP ("script gadget") — itulah yang ditandai scanner. Isinya:
+  Bootstrap 5.3.2, bootstrap-icons 1.11.3, tom-select 2.3.1, Chart.js 4.5.1,
+  chartjs-plugin-datalabels 2.2.0, Leaflet 1.9.4, Konva 9.3.22, qrcodejs
+  1.0.0 — masing-masing dengan LICENSE-nya.
+  - **Path-nya meniru path CDN, lengkap dengan versi persis**
+    (`vendor/chart.js@4.5.1/dist/chart.umd.min.js`). Menambah/memperbarui
+    library: `npm pack <paket>@<versi>`, salin file yang dipakai + LICENSE ke
+    folder ber-versi baru, ganti rujukan `{% static %}`-nya. Jangan menimpa
+    isi folder versi lama — nama folder itulah yang membuat cache browser
+    tidak menyajikan file basi.
+  - **`.gitignore` mengabaikan semua folder `dist/`**; pengecualian
+    `!static/vendor/**/dist/` di sana wajib dipertahankan. Tanpanya file
+    Bootstrap/Chart.js/Leaflet tidak pernah ter-commit, padahal di laptop yang
+    menyalinnya semuanya terlihat jalan. Di checkout baru, gejalanya tertangkap
+    `test_berkas_vendor_yang_dirujuk_ada`.
+  - **Deploy yang mengubah `static/vendor/` WAJIB `collectstatic`.** Tanpa itu
+    SELURUH tampilan kehilangan CSS/JS-nya sekaligus — bukan satu halaman.
+    Pelajaran yang sama dengan `popup.js` di atas: begitu berkas statis tidak
+    terserve, satu-satunya jejaknya ada di console browser.
+  - Dulu 22 halaman memuat `chart.js` dari CDN **tanpa nomor versi** (selalu
+    versi terbaru) dan 5 halaman lain memakai 4.4.x; semuanya kini 4.5.1.
+  - `CspTemplateTest` gagal kalau template memuat `<script src>`/stylesheet dari
+    host yang tidak diizinkan CSP, dan `test_tidak_ada_cdn_npm_publik` gagal
+    kalau "perbaikannya" berupa menambahkan CDN itu lagi ke CSP.
+    `test_berkas_vendor_yang_dirujuk_ada` menangkap salah ketik path vendor.
+    Skrip yang dimuat dinamis dari JS tidak terpindai — periksa console.
+- **`img-src` hanya `'self' data: blob:` + tile peta Leaflet
+  (`*.basemaps.cartocdn.com`).** Semua foto FASOP adalah `ImageField` di
+  `/media/`. Halaman Ezviz mendapat `img-src https:` lewat `CSP_TAMBAHAN_EZVIZ`
+  karena gambar tema EZUIKit ikut konfigurasi dari cloud. Sumber peta/gambar
+  luar baru harus ditambahkan di sana.
 - **Host Cloudflare ikut diizinkan** (`ajax.cloudflare.com` untuk Rocket
   Loader, `static.cloudflareinsights.com` + `cloudflareinsights.com` untuk Web
   Analytics) — skrip itu disisipkan Cloudflare di edge, tidak ada di template,
@@ -2041,7 +2069,7 @@ New plants are added via Django Admin (`/secure-panel/` → Opsis → Pembangkit
 git pull origin main
 pip install -r requirements.txt
 python manage.py migrate
-python manage.py collectstatic --noinput   # only if static/ changed
+python manage.py collectstatic --noinput   # only if static/ changed — WAJIB kalau static/vendor/ berubah
 sudo systemctl restart gunicorn
 sudo systemctl reload nginx
 ```

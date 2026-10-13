@@ -56,6 +56,10 @@ dist/
 build/
 *.egg-info/
 /bin/
+# Library front-end yang di-vendor (lihat "Header Keamanan" di CLAUDE.md) memang
+# punya folder dist/ — tanpa pengecualian ini CSS/JS-nya tidak ikut ter-commit
+# dan seluruh tampilan FASOP kehilangan Bootstrap di server.
+!static/vendor/**/dist/
 
 #claude code
 .mcp.json

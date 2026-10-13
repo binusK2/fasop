@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block title %}Riwayat Inspeksi — {{ device.nama }}{% endblock %}
 {% block page_title %}Riwayat Inspeksi{% endblock %}
 
@@ -121,7 +122,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{% static 'vendor/chart.js@4.5.1/dist/chart.umd.min.js' %}"></script>
 <script>
 const labels    = {{ trend_labels|safe }};
 const kondisi   = {{ trend_kondisi|safe }};

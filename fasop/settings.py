@@ -406,7 +406,11 @@ def _origin(url):
     return None
 
 
-_CSP_CDN = ['https://cdn.jsdelivr.net', 'https://unpkg.com']
+# Tidak ada CDN library di sini: Bootstrap, Chart.js, Leaflet, dll. disimpan
+# sendiri di static/vendor/. CDN publik (jsdelivr, unpkg) menyajikan paket npm
+# APA SAJA, jadi mengizinkannya berarti mengizinkan penyerang memuat library
+# lama bercelah dari host yang sama untuk melewati CSP ("script gadget").
+#
 # FASOP di belakang Cloudflare, yang bisa menyisipkan skripnya sendiri ke
 # halaman: Rocket Loader (ajax.cloudflare.com) dan Web Analytics
 # (static.cloudflareinsights.com, beacon ke cloudflareinsights.com). Skrip
@@ -417,13 +421,13 @@ _CSP_MEDIAMTX = sorted({o for o in map(_origin, (MEDIAMTX_WHIP_URL, MEDIAMTX_WHE
 
 _CSP_KEBIJAKAN = {
     'default-src': [CSP.SELF],
-    'script-src':  [CSP.SELF, CSP.UNSAFE_INLINE, *_CSP_CDN, *_CSP_CLOUDFLARE_SCRIPT],
-    'style-src':   [CSP.SELF, CSP.UNSAFE_INLINE, *_CSP_CDN, 'https://fonts.googleapis.com'],
-    # bootstrap-icons mengambil font-nya dari jsdelivr; Google Fonts dari gstatic.
-    'font-src':    [CSP.SELF, 'data:', 'https://cdn.jsdelivr.net', 'https://fonts.gstatic.com'],
-    # https: karena tile peta (basemaps.cartocdn.com) dan ikon marker Leaflet;
-    # data:/blob: untuk tanda tangan digital, QR code, dan pratinjau upload foto.
-    'img-src':     [CSP.SELF, 'data:', 'blob:', 'https:'],
+    'script-src':  [CSP.SELF, CSP.UNSAFE_INLINE, *_CSP_CLOUDFLARE_SCRIPT],
+    'style-src':   [CSP.SELF, CSP.UNSAFE_INLINE, 'https://fonts.googleapis.com'],
+    'font-src':    [CSP.SELF, 'data:', 'https://fonts.gstatic.com'],
+    # Semua foto (ImageField) ada di /media/ — 'self'. data:/blob: untuk tanda
+    # tangan digital, QR code, dan pratinjau upload foto; cartocdn untuk tile
+    # peta Leaflet (lokasi & peta jaringan).
+    'img-src':     [CSP.SELF, 'data:', 'blob:', 'https://*.basemaps.cartocdn.com'],
     'media-src':   [CSP.SELF, 'data:', 'blob:'],
     'connect-src': [CSP.SELF, *_CSP_MEDIAMTX, 'https://cloudflareinsights.com'],
     'frame-src':   [CSP.SELF, 'blob:'],
@@ -448,6 +452,8 @@ CSP_TAMBAHAN_EZVIZ = {
     'connect-src': ['https:', 'wss:', 'data:', 'blob:'],
     'style-src':   _CSP_EZVIZ_HOST,
     'font-src':    _CSP_EZVIZ_HOST,
+    # Ikon & gambar tema EZUIKit — host-nya ikut konfigurasi tema dari cloud.
+    'img-src':     ['https:'],
 }
 
 CSP_MODE = config('CSP_MODE', default='enforce').strip().lower().replace('_', '-')

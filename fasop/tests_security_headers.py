@@ -11,6 +11,7 @@ from pathlib import Path
 
 from django.apps import apps
 from django.conf import settings
+from django.contrib.staticfiles import finders
 from django.contrib.auth.models import User
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
@@ -19,6 +20,9 @@ from devices.models import UserProfile
 from fasop.security_headers import gabung_csp, susun_permissions_policy
 from fasop.settings import _CSP_KEBIJAKAN as _KEBIJAKAN
 from streaming.models import KameraEzviz, LiveSession
+
+
+POLA_CDN_PUBLIK = ('cdn.jsdelivr.net', 'unpkg.com', 'cdnjs.cloudflare.com')
 
 
 def _direktif(header):
@@ -38,9 +42,20 @@ class CspHalamanTest(TestCase):
         self.assertEqual(csp['object-src'], ["'none'"])
         self.assertEqual(csp['base-uri'], ["'self'"])
         self.assertEqual(csp['form-action'], ["'self'"])
-        # Bootstrap/Chart.js dari CDN harus tetap termuat.
-        self.assertIn('https://cdn.jsdelivr.net', csp['script-src'])
         self.assertIn('https://fonts.gstatic.com', csp['font-src'])
+        # Gambar hanya dari FASOP sendiri + tile peta, bukan https: mana saja.
+        self.assertNotIn('https:', csp['img-src'])
+        self.assertIn('https://*.basemaps.cartocdn.com', csp['img-src'])
+
+    def test_tidak_ada_cdn_npm_publik(self):
+        """
+        jsdelivr/unpkg/cdnjs menyajikan paket npm APA SAJA. Mengizinkan host-nya
+        berarti penyerang bisa memuat library lama bercelah dari host yang sama
+        untuk melewati CSP. Library disimpan sendiri di static/vendor/.
+        """
+        header = self.client.get(reverse('login')).headers['Content-Security-Policy']
+        for host in POLA_CDN_PUBLIK:
+            self.assertNotIn(host, header)
 
     def test_frame_ancestors_tidak_mengambil_alih_x_frame_options(self):
         """
@@ -124,8 +139,9 @@ class CspEzvizTest(TestCase):
         self.assertIn('https://*.ys7.com', csp['script-src'])
         self.assertIn('wss:', csp['connect-src'])
         self.assertEqual(csp['worker-src'], ["'self'", 'blob:'])
+        self.assertIn('https:', csp['img-src'])
         # Perluasan, bukan pengganti.
-        self.assertIn('https://cdn.jsdelivr.net', csp['script-src'])
+        self.assertIn('https://static.cloudflareinsights.com', csp['script-src'])
         self.assertEqual(csp['object-src'], ["'none'"])
 
     def test_halaman_sesi_ezviz(self):
@@ -138,6 +154,7 @@ class CspEzvizTest(TestCase):
         csp = self._csp(reverse('streaming:detail', kwargs={'pk': self.sesi_perangkat.pk}))
         self.assertNotIn('wss:', csp['connect-src'])
         self.assertNotIn("'wasm-unsafe-eval'", csp['script-src'])
+        self.assertNotIn('https:', csp['img-src'])
 
     def test_halaman_lain_tetap_kebijakan_dasar(self):
         csp = self._csp(reverse('streaming:list'))
@@ -160,6 +177,7 @@ class CspTemplateTest(SimpleTestCase):
     POLA_SCRIPT = re.compile(r'<script\b[^>]*\bsrc=["\'](https?://[^/"\']+)', re.I)
     POLA_LINK = re.compile(r'<link\b[^>]*>', re.I)
     POLA_HREF = re.compile(r'\bhref=["\'](https?://[^/"\']+)', re.I)
+    POLA_VENDOR = re.compile(r'\{%\s*static\s+["\'](vendor/[^"\']+)["\']')
 
     def _template(self):
         for app in apps.get_app_configs():
@@ -178,7 +196,20 @@ class CspTemplateTest(SimpleTestCase):
                 href = self.POLA_HREF.search(tag)
                 if href and 'stylesheet' in tag.lower() and href.group(1) not in style_src:
                     salah.append(f'{berkas}: <link stylesheet> {href.group(1)} (style-src)')
-        self.assertEqual(salah, [], 'Tambahkan host-nya ke _CSP_KEBIJAKAN di settings.py')
+        self.assertEqual(
+            salah, [],
+            'Simpan library-nya di static/vendor/ (lihat "Header Keamanan" di '
+            'CLAUDE.md), jangan menambahkan CDN publik ke _CSP_KEBIJAKAN',
+        )
+
+    def test_berkas_vendor_yang_dirujuk_ada(self):
+        """Salah ketik path vendor = CSS/JS hilang tanpa error di server."""
+        hilang = []
+        for berkas, isi in self._template():
+            for path in self.POLA_VENDOR.findall(isi):
+                if not finders.find(path):
+                    hilang.append(f'{berkas}: {path}')
+        self.assertEqual(hilang, [])
 
 
 class GabungCspTest(TestCase):

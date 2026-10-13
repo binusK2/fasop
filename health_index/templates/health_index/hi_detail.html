@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block title %}Health Index — {{ device.nama }} — FASOP{% endblock %}
 {% block page_title %}Health Index Peralatan{% endblock %}
 
@@ -212,7 +213,7 @@
 
 {% block extra_js %}
 {% if has_tren %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{% static 'vendor/chart.js@4.5.1/dist/chart.umd.min.js' %}"></script>
 <script>
 const labels = [{% for l in tren_labels %}"{{ l }}"{% if not forloop.last %},{% endif %}{% endfor %}];
 const scores = [{% for s in tren_scores %}{{ s }}{% if not forloop.last %},{% endif %}{% endfor %}];

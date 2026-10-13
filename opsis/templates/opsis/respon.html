@@ -1,4 +1,5 @@
 {% extends "opsis/opsis_base.html" %}
+{% load static %}
 {% block title %}Respons Pembangkit{% endblock %}
 
 {% block extra_head %}
@@ -302,7 +303,7 @@ table.rp { width:100%; border-collapse:collapse; font-size:12.5px; }
 {% endblock %}
 
 {% block extra_js %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{% static 'vendor/chart.js@4.5.1/dist/chart.umd.min.js' %}"></script>
 <script>
 // ── Monitor 1 jam: frekuensi & total MW (auto-refresh 30 dtk) ──
 // Dua panel terpisah dengan sumbu waktu sama — bukan satu chart dua-sumbu,

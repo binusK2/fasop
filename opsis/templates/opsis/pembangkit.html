@@ -1,9 +1,10 @@
 {% extends "opsis/opsis_base.html" %}
+{% load static %}
 
 {% block title %}{{ p.nama }}{% endblock %}
 
 {% block extra_head %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{% static 'vendor/chart.js@4.5.1/dist/chart.umd.min.js' %}"></script>
 <style>
 .live-metrics {
     display: grid;

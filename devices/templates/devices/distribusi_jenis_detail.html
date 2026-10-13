@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block title %}Distribusi {{ jenis.name }} — FASOP UP2B{% endblock %}
 {% block page_title %}Distribusi {{ jenis.name }}{% endblock %}
 
@@ -207,7 +208,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{% static 'vendor/chart.js@4.5.1/dist/chart.umd.min.js' %}"></script>
 <script>
 Chart.defaults.font.family = "'DM Sans', sans-serif";
 
