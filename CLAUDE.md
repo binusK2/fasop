@@ -105,6 +105,7 @@ MSSQL connection is established per-request in `opsis/mssql.py` with a TCP reach
 
 ```
 SecurityMiddleware → HtmlContentSecurityPolicyMiddleware → PermissionsPolicyMiddleware
+→ HeaderTambahanMiddleware        # X-Robots-Tag noindex, CORP, X-Permitted-Cross-Domain-Policies
 → SessionMiddleware → CommonMiddleware → CsrfViewMiddleware
 → AuthenticationMiddleware → AxesMiddleware → MessageMiddleware
 → XFrameOptionsMiddleware
@@ -116,7 +117,7 @@ SecurityMiddleware → HtmlContentSecurityPolicyMiddleware → PermissionsPolicy
 → SingleSessionMiddleware         # one active session per user (except Operator)
 ```
 
-All custom role/access middleware lives in `devices/middleware.py`; the two response-header middleware (CSP, Permissions-Policy) live in `fasop/security_headers.py` — see "Header Keamanan" below.
+All custom role/access middleware lives in `devices/middleware.py`; the three response-header middleware (CSP, Permissions-Policy, `HEADER_TAMBAHAN`) live in `fasop/security_headers.py` — see "Header Keamanan" below.
 
 ### Role-Based Access
 
@@ -160,6 +161,8 @@ seluruh FASOP.
 `Maintenance` objects follow a status machine: **Draft → Diminta TTD → TTD Teknisi → Selesai (AM Approved)**. Digital signatures (PNG, stored in `UserProfile`) are embedded into PDF exports via ReportLab/WeasyPrint (`maintenance/pdf_weasy.py`).
 
 `BeritaAcaraRecord` (BA) is a related but separate workflow under the same app: covers `pemasangan`/`pembongkaran`/`penggantian`/`gangguan`/`penormalan`/`lainnya` field reports, with its own TTD pair (`ttd_pa_*`, `ttd_technician_*`) and optional photo evidence (`BeritaAcaraEviden`). A BA can either be generated as a PDF from structured `rows_data` (JSONField), or attached directly as a finished document via `file_upload` (skip PDF generation entirely — see `maintenance/views.py::ba_upload`). `nomor_ba` is manually entered and checked for uniqueness, not auto-numbered like the IDs below. Uploaded BA files are **PDF/Word only** (`maintenance.models.ba_file_validators`: extension + magic-byte content check) — and because `ba_upload` saves via `objects.create()`, which never runs field validators, the view calls them explicitly; a `.exe` once got through exactly that way. Same for BA evidence photos (`_ba_apply_editor` checks them with `forms.ImageField`). `ba_preview` serves only PDFs inline; anything else is forced to download.
+
+**Ghostscript is switched off for Pillow in every process** (`devices.apps.matikan_ghostscript()`, called from `DevicesConfig.ready()`). Pillow picks its parser from a file's *content*, not its name, and renders EPS by running the `gs` PostScript interpreter — so an EPS renamed `foto.jpg` passes `forms.ImageField` and, if Ghostscript is installed on the server, gets executed by thumbnailing (`devices/photo_utils.py`) or by WeasyPrint when the BA evidence is embedded into a PDF (GHSA-r543-q48m-4c9j). WeasyPrint ≥ 70 sets the same flag, but only once `weasyprint` is imported — which FASOP does lazily inside the PDF views, so thumbnails would still reach `gs` before that. Don't move the call into a view or remove it because "WeasyPrint already does it". Guarded by `devices/tests_ghostscript.py`, which fakes `gs` as installed so the test still means something on machines without it.
 
 ### Cross-Cutting Patterns
 
@@ -330,7 +333,7 @@ Changing `SECRET_KEY` in production invalidates all Hashids-encoded URLs and act
 
 ---
 
-## Header Keamanan — CSP & Permissions-Policy (`fasop/security_headers.py`)
+## Header Keamanan — CSP, Permissions-Policy & header tambahan (`fasop/security_headers.py`)
 
 Muncul dari pemindaian securityheaders.com (9 Okt 2026, nilai D): dua header
 yang belum ada saat itu adalah `Content-Security-Policy` dan
@@ -401,11 +404,20 @@ Yang perlu diketahui saat mengubahnya:
   `/media/`. Halaman Ezviz mendapat `img-src https:` lewat `CSP_TAMBAHAN_EZVIZ`
   karena gambar tema EZUIKit ikut konfigurasi dari cloud. Sumber peta/gambar
   luar baru harus ditambahkan di sana.
-- **Host Cloudflare ikut diizinkan** (`ajax.cloudflare.com` untuk Rocket
-  Loader, `static.cloudflareinsights.com` + `cloudflareinsights.com` untuk Web
-  Analytics) — skrip itu disisipkan Cloudflare di edge, tidak ada di template,
-  jadi tidak akan pernah tertangkap `CspTemplateTest`. Fitur Cloudflare lain
-  yang menyisipkan skrip dari host baru harus ditambahkan manual.
+- **Host Cloudflare Web Analytics ikut diizinkan**
+  (`static.cloudflareinsights.com` + `cloudflareinsights.com`) — skripnya
+  disisipkan Cloudflare di edge, tidak ada di template, jadi tidak akan pernah
+  tertangkap `CspTemplateTest`. Web Analytics memang dipakai (Core Web Vitals
+  per halaman); menghapus host-nya membuat datanya berhenti masuk tanpa error
+  di mana pun. Fitur Cloudflare lain yang menyisipkan skrip dari host baru
+  harus ditambahkan manual.
+- **Rocket Loader dimatikan di Cloudflare (Okt 2026) dan `ajax.cloudflare.com`
+  dikeluarkan dari CSP.** Rocket Loader mengubah urutan eksekusi skrip — itu
+  yang dulu membuat pemutar Ezviz gagal (lihat "Live Streaming — Sumber Ezviz").
+  Kalau suatu saat dinyalakan lagi tanpa mengembalikan host-nya, SELURUH skrip
+  halaman berhenti jalan. Atribut `data-cfasync="false"` di template streaming
+  sengaja dibiarkan sebagai jaring pengaman. Dijaga
+  `test_rocket_loader_tidak_diizinkan_web_analytics_tetap`.
 - **`frame-ancestors` sengaja tidak diisi.** Begitu ada, browser mengabaikan
   `X-Frame-Options` sama sekali; perlindungan clickjacking tetap dipegang
   X-Frame-Options (DENY, dan SAMEORIGIN di view pratinjau BA).
@@ -428,18 +440,51 @@ Yang perlu diketahui saat mengubahnya:
 Halaman baru yang butuh fitur lain (mis. geolocation) harus mengubahnya di
 sana — API yang ditolak kebijakan ini gagal tanpa pesan di layar.
 
-**Yang tidak bisa diperbaiki dari kode: HSTS dan redirect HTTP→HTTPS.**
-Pemindaian 9 Okt berakhir di `http://…/login/`, artinya permintaan HTTP tidak
-dialihkan ke HTTPS. Django hanya mengirim `Strict-Transport-Security` (dan
-hanya mengalihkan ke HTTPS) pada permintaan yang ia anggap aman, yaitu yang
-membawa `X-Forwarded-Proto: https`. Contoh nginx di `deploy/` — yang disebut
-sama gayanya dengan server block produksi — memakai
-`proxy_set_header X-Forwarded-Proto $scheme`, dan di belakang Cloudflare
-Tunnel `$scheme` selalu `http`: HSTS tidak pernah keluar, dan
-`SECURE_SSL_REDIRECT=True` akan berputar tanpa henti (kemungkinan karena itu
-dimatikan di `.env`). Cara paling aman tanpa menyentuh origin: aktifkan
-**Always Use HTTPS** dan **HSTS** di Cloudflare (SSL/TLS → Edge Certificates),
-lalu periksa `curl -sI https://<domain>/login/ | grep -i strict-transport`.
+**Header tambahan** (`HEADER_TAMBAHAN`, dipasang `HeaderTambahanMiddleware` ke
+SEMUA respons — HTML, JSON, PDF, foto — tanpa menimpa header yang sudah diisi
+view):
+
+- **`X-Robots-Tag: noindex, nofollow` adalah bawaan, dan hanya landing page yang
+  dikecualikan** (`boleh_diindeks(response)` di view-nya). FASOP punya halaman
+  publik bertoken tanpa login — status gangguan, peralatan lewat QR
+  (`device_public`), kesiapan inspeksi, fiber optic — yang tautannya bisa
+  tersebar dan berisi data peralatan. Menandai satu per satu berarti halaman
+  publik berikutnya lupa ditandai; dengan bawaan noindex, halaman baru
+  otomatis aman. Respons yang BOLEH muncul di Google wajib memanggil
+  `boleh_diindeks()` secara eksplisit.
+- **`Cross-Origin-Resource-Policy: same-site`**: situs lain tidak bisa
+  menyematkan foto/PDF/JSON FASOP. `same-site`, bukan `same-origin`, supaya
+  `media.<domain>` (MediaMTX) tetap boleh. Konsumen API server-side (n8n, Apps
+  Script) tidak terpengaruh — CORP hanya ditegakkan browser.
+- **`X-Permitted-Cross-Domain-Policies: none`** — kebijakan lintas-domain
+  Flash/Acrobat, tidak dipakai.
+- **`Cross-Origin-Embedder-Policy` sengaja TIDAK dipasang.** `require-corp`
+  memblokir Google Fonts, tile peta Leaflet, dan CDN decoder Ezviz. (COEP juga
+  syarat SharedArrayBuffer untuk decoder multi-utas EZUIKit — kalau suatu saat
+  dicoba, itu eksperimen khusus halaman Ezviz dengan `credentialless`, bukan
+  header global.)
+
+**HSTS dikirim Django sendiri, bukan Cloudflare.** `SECURE_HSTS_SECONDS`
+(1 tahun) + `INCLUDE_SUBDOMAINS` + `PRELOAD` di blok `if not DEBUG` settings.py;
+Django hanya memasangnya pada permintaan yang ia anggap aman (`X-Forwarded-Proto:
+https`), dan produksi memang meneruskan header itu dengan benar (terverifikasi
+14 Okt 2026: `strict-transport-security: max-age=31536000; includeSubDomains;
+preload`). Catatan lama di sini — bahwa HSTS tidak pernah keluar di belakang
+Cloudflare Tunnel karena `$scheme` selalu `http` — keliru untuk produksi; ia
+didasarkan pada contoh nginx di `deploy/`, bukan server block yang sebenarnya.
+Konsekuensinya:
+
+- **HSTS di dashboard Cloudflare tidak perlu dinyalakan** — satu sumber header
+  lebih mudah diatur daripada dua yang bisa saling menimpa.
+- **`includeSubDomains` berarti SEMUA subdomain wajib bisa dibuka lewat HTTPS**
+  di browser yang pernah membuka FASOP, selama setahun. Subdomain baru yang
+  hanya jalan di HTTP (mis. diarahkan ke IP internal) akan gagal dibuka.
+- **`preload` di header saja tidak berbuat apa-apa.** Efeknya baru ada kalau
+  domain didaftarkan di hstspreload.org, dan itu praktis tidak bisa dibatalkan
+  — jangan daftarkan sebelum semua subdomain pasti HTTPS.
+- Redirect HTTP→HTTPS ditangani **Always Use HTTPS** di Cloudflare. Akses lewat
+  HTTP di IP internal tidak pernah lewat Cloudflare dan tidak membawa HSTS
+  (browser memang mengabaikan HSTS di HTTP dan di alamat IP).
 
 ---
 
@@ -496,6 +541,11 @@ Yang perlu diketahui saat mengubahnya:
   justru menghapus FASOP dari hasil pencarian, padahal yang diinginkan adalah
   hasil pencarian yang menampilkan landing ini (https), bukan form login lama.
   Halaman di balik login memang tidak bisa diindeks (dipantulkan ke login).
+  **Landing adalah satu-satunya respons FASOP tanpa `X-Robots-Tag: noindex`**
+  — view-nya memanggil `boleh_diindeks()`; semua respons lain mendapat noindex
+  dari `HEADER_TAMBAHAN` (lihat "Header Keamanan"). Pengecualiannya melekat
+  pada respons landing, bukan pada alamat `/`: dashboard yang dilayani `/`
+  untuk user yang sudah login tetap noindex (dijaga tes).
   `<link rel="canonical">` diisi dari `FASOP_PUBLIC_ORIGIN` supaya Google
   mencatat versi https; kosong = tanpa canonical. Karena halaman ini bisa
   muncul di Google, aturan "tanpa data operasional" di atas makin mutlak.

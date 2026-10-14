@@ -386,7 +386,9 @@ def landing(request):
             'canonical': f'{settings.FASOP_PUBLIC_ORIGIN}/' if settings.FASOP_PUBLIC_ORIGIN else '',
             'tahun': now().year,
         })
-    return HttpResponse(html)
+    # Satu-satunya respons FASOP tanpa X-Robots-Tag: noindex (HEADER_TAMBAHAN).
+    from fasop.security_headers import boleh_diindeks
+    return boleh_diindeks(HttpResponse(html))
 
 
 @login_required

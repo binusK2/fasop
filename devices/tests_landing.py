@@ -51,7 +51,10 @@ class LandingAnonimTest(TestCase):
         Hasil pencarian Google untuk FASOP harus landing page ini. noindex di
         sini membuat Google MENGHAPUS FASOP dari hasil pencarian sama sekali.
         """
-        self.assertNotContains(self.client.get('/'), 'noindex')
+        resp = self.client.get('/')
+        self.assertNotContains(resp, 'noindex')
+        # HeaderTambahanMiddleware memasang noindex ke semua respons lain.
+        self.assertNotIn('X-Robots-Tag', resp.headers)
 
     def test_halaman_login_tidak_diindeks(self):
         """Supaya hasil pencarian lama ("Login — FASOP UP2B") tergantikan landing."""
@@ -177,6 +180,8 @@ class LandingSudahLoginTest(TestCase):
         resp = self.client.get('/')
         self.assertEqual(resp.status_code, 200)
         self.assertTemplateNotUsed(resp, TEMPLATE)
+        # Pengecualian noindex hanya untuk landing, bukan untuk alamat "/".
+        self.assertEqual(resp.headers['X-Robots-Tag'], 'noindex, nofollow')
 
     def test_operator_tetap_ke_dashboard_operator(self):
         """Operator boleh membuka "/" (ALLOWED_EXACT) dan dashboard() mem-fork-nya."""

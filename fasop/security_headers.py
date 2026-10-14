@@ -1,10 +1,11 @@
 """
 Header keamanan yang tidak dipasang SecurityMiddleware bawaan Django:
-Content-Security-Policy dan Permissions-Policy.
+Content-Security-Policy, Permissions-Policy, dan HEADER_TAMBAHAN
+(X-Robots-Tag, Cross-Origin-Resource-Policy, X-Permitted-Cross-Domain-Policies).
 
 Isi kebijakannya hidup di settings.py (SECURE_CSP, CSP_TAMBAHAN_EZVIZ,
-PERMISSIONS_POLICY) — modul ini hanya memasangnya ke respons. Lihat
-"Header Keamanan" di CLAUDE.md untuk alasan tiap pilihan.
+PERMISSIONS_POLICY, HEADER_TAMBAHAN) — modul ini hanya memasangnya ke respons.
+Lihat "Header Keamanan" di CLAUDE.md untuk alasan tiap pilihan.
 """
 from django.conf import settings
 from django.middleware.csp import ContentSecurityPolicyMiddleware
@@ -97,4 +98,35 @@ class PermissionsPolicyMiddleware:
         nilai = susun_permissions_policy(settings.PERMISSIONS_POLICY)
         if nilai and 'Permissions-Policy' not in response:
             response['Permissions-Policy'] = nilai
+        return response
+
+
+def boleh_diindeks(response):
+    """
+    Tandai respons yang BOLEH muncul di hasil pencarian — saat ini hanya landing
+    page. Semua respons lain mendapat `X-Robots-Tag: noindex` dari
+    HeaderTambahanMiddleware, termasuk halaman publik bertoken (status gangguan,
+    peralatan lewat QR, dst.) dan halaman publik yang belum dibuat.
+    """
+    response._boleh_diindeks = True
+    return response
+
+
+class HeaderTambahanMiddleware:
+    """
+    Pasang settings.HEADER_TAMBAHAN ke setiap respons, tanpa menimpa header
+    yang sudah diisi view. X-Robots-Tag dilewati untuk respons yang ditandai
+    boleh_diindeks().
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+        for nama, nilai in settings.HEADER_TAMBAHAN.items():
+            if nama == 'X-Robots-Tag' and getattr(response, '_boleh_diindeks', False):
+                continue
+            if nama not in response:
+                response[nama] = nilai
         return response
