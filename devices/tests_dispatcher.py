@@ -55,6 +55,29 @@ class DispatcherAksesTest(TestCase):
         self.assertLess(pos_uji, pos_opsis)
         self.assertLess(pos_opsis, pos_dm)
 
+    def test_semua_tautan_di_sidebar_fasop_lolos_middleware(self):
+        """
+        Penjaga untuk sidebar FASOP sendiri. "Hasil Inspeksi Harian" dulu
+        tampil di sini padahal /inspection/harian/ tidak diizinkan middleware.
+        """
+        u = self._user()
+        isi = self._isi(reverse('pengujian_telecom_dashboard'))
+        sidebar = isi[isi.index('<div id="sidebar">'):isi.index('<!-- MAIN CONTENT -->')]
+        tautan = set(re.findall(r'href="(/[^"]*)"', sidebar))
+        self.assertTrue(tautan, 'tidak ada tautan terbaca di sidebar')
+        for t in sorted(tautan):
+            self.assertTrue(self._lolos_middleware(u, t), f'{t} dipantulkan middleware')
+
+    def test_hasil_inspeksi_harian_disembunyikan(self):
+        self._user()
+        isi = self._isi(reverse('pengujian_telecom_dashboard'))
+        self.assertNotIn(f'href="{reverse("inspection_harian")}"', isi)
+
+    def test_hasil_inspeksi_harian_tetap_tampil_untuk_operator(self):
+        self._user('operator')
+        isi = self._isi(reverse('inspection_lokasi'))
+        self.assertIn(f'href="{reverse("inspection_harian")}"', isi)
+
     def test_menu_monitoring_lain_tidak_bocor_ke_dispatcher(self):
         """Kinerja Scadatel & Live Streaming tidak diizinkan middleware."""
         self._user()
