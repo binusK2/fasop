@@ -13,7 +13,7 @@ gunicorn==25.1.0
 # ── File & Image Processing ───────────────────────────────────────
 pillow==12.3.0                # Upload foto, tanda tangan digital
 reportlab==4.4.10             # Ekspor PDF laporan pemeliharaan
-weasyprint==68.1              # Ekspor PDF Berita Acara & laporan (butuh GTK/Pango:
+weasyprint==70.0              # Ekspor PDF Berita Acara & laporan (butuh GTK/Pango:
                               #   Linux → paket sistem; Windows → GTK3 Runtime di PATH)
 
 # ── Excel Export ──────────────────────────────────────────────────
