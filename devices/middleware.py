@@ -252,13 +252,23 @@ class DispatcherAccessMiddleware:
     """
     Middleware untuk role Dispatcher — hanya bisa akses:
     - /inspection/pengujian-* (Pengujian Telekomunikasi)
+    - /opsis/ (monitoring pembangkit) dan /device-mon/ (status RTU & Zabbix)
     - /profile/, /logout/, /login/, /ganti-password/
     - /static/, /media/, /notifikasi/
     Semua URL lain → redirect ke pengujian_telecom_dashboard.
+
+    OPSIS & Device Monitoring dibuka per PREFIX, jadi API yang dipoll halamannya
+    (/opsis/api/*, /device-mon/api/*) ikut terbuka tanpa didaftarkan satu per
+    satu — jebakan yang pernah menggigit role UP2D. Yang dibatasi di dalam
+    OPSIS (Logsheet, Respons Pembangkit, Input HOP, Config Inersia, sunting
+    EWS) tetap dijaga properti UserProfile di view-nya; Dispatcher tidak
+    termasuk di sana, jadi aksesnya lihat-saja.
     """
 
     ALLOWED_PREFIXES = (
         '/inspection/pengujian-',
+        '/opsis/',
+        '/device-mon/',
         '/notifikasi/',
         '/maintenance/profile/',
     ) + PREFIX_UMUM

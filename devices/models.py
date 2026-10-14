@@ -246,7 +246,7 @@ class UserProfile(models.Model):
     ROLE_CHOICES = (
         ('viewer',           'Viewer (Hanya Lihat)'),
         ('operator',         'Operator'),
-        ('dispatcher',       'Dispatcher — Pengujian Telekomunikasi'),
+        ('dispatcher',       'Dispatcher — Pengujian Telekomunikasi & Monitoring'),
         ('technician',       'Teknisi / Engineer'),
         ('asisten_manager',  'Asisten Manager Operasi'),
         ('opsis',            'Opsis — Monitoring Pembangkit (Input Data, Sesi Tunggal)'),
