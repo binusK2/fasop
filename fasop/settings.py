@@ -69,6 +69,7 @@ MIDDLEWARE = [
     # header-nya. Kebijakannya di blok "Header keamanan" di bawah.
     'fasop.security_headers.HtmlContentSecurityPolicyMiddleware',
     'fasop.security_headers.PermissionsPolicyMiddleware',
+    'fasop.security_headers.HeaderTambahanMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -433,11 +434,15 @@ def _origin(url):
 # APA SAJA, jadi mengizinkannya berarti mengizinkan penyerang memuat library
 # lama bercelah dari host yang sama untuk melewati CSP ("script gadget").
 #
-# FASOP di belakang Cloudflare, yang bisa menyisipkan skripnya sendiri ke
-# halaman: Rocket Loader (ajax.cloudflare.com) dan Web Analytics
+# FASOP di belakang Cloudflare, yang menyisipkan skrip Web Analytics ke halaman
 # (static.cloudflareinsights.com, beacon ke cloudflareinsights.com). Skrip
 # /cdn-cgi/* lainnya same-origin, sudah tercakup 'self'.
-_CSP_CLOUDFLARE_SCRIPT = ['https://ajax.cloudflare.com', 'https://static.cloudflareinsights.com']
+#
+# Rocket Loader (ajax.cloudflare.com) sengaja TIDAK diizinkan: fitur itu
+# dimatikan di Cloudflare (Okt 2026) karena mengubah urutan eksekusi skrip dan
+# pernah membuat pemutar Ezviz gagal. Kalau dinyalakan lagi tanpa
+# mengembalikan host-nya ke sini, seluruh skrip halaman berhenti jalan.
+_CSP_CLOUDFLARE_SCRIPT = ['https://static.cloudflareinsights.com']
 # WHIP/WHEP live streaming — fetch() dari browser langsung ke MediaMTX.
 _CSP_MEDIAMTX = sorted({o for o in map(_origin, (MEDIAMTX_WHIP_URL, MEDIAMTX_WHEP_URL)) if o})
 
@@ -506,6 +511,24 @@ PERMISSIONS_POLICY = {
     'display-capture': [],
     'browsing-topics': [],
 }
+
+# Header yang dipasang ke SEMUA respons (fasop.security_headers.
+# HeaderTambahanMiddleware); header yang sudah diisi view tidak ditimpa.
+HEADER_TAMBAHAN = {
+    # Bawaan: jangan diindeks. Halaman publik bertoken (status gangguan,
+    # peralatan lewat QR, kesiapan inspeksi, fiber optic) tidak boleh muncul
+    # di Google walau tautannya tersebar. Satu-satunya pengecualian landing
+    # page, lewat boleh_diindeks() di view-nya.
+    'X-Robots-Tag':                      'noindex, nofollow',
+    # Situs lain tidak boleh menyematkan resource FASOP (foto, PDF, JSON) ke
+    # halamannya. same-site, bukan same-origin: media.<domain> (MediaMTX)
+    # tetap boleh.
+    'Cross-Origin-Resource-Policy':      'same-site',
+    # Kebijakan lintas-domain Flash/Acrobat — tidak dipakai, ditutup.
+    'X-Permitted-Cross-Domain-Policies': 'none',
+}
+# Cross-Origin-Embedder-Policy sengaja TIDAK dipasang: require-corp memblokir
+# Google Fonts, tile peta Leaflet, dan CDN decoder Ezviz.
 
 # ── Arsip laporan inspeksi harian (cron export_inspeksi_harian jam 12.00) ──
 # Folder tujuan file Excel harian. Di server Linux ini harus berupa path yang

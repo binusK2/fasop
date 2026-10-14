@@ -96,6 +96,17 @@ class CspHalamanTest(TestCase):
         self.assertNotIn('Content-Security-Policy', resp.headers)
         self.assertNotIn('Content-Security-Policy-Report-Only', resp.headers)
 
+    def test_rocket_loader_tidak_diizinkan_web_analytics_tetap(self):
+        """
+        Rocket Loader dimatikan di Cloudflare; host-nya tidak boleh kembali
+        diam-diam. Web Analytics masih dipakai — kalau ikut terhapus, datanya
+        berhenti masuk tanpa error di mana pun.
+        """
+        csp = _direktif(self.client.get(reverse('login')).headers['Content-Security-Policy'])
+        self.assertNotIn('https://ajax.cloudflare.com', csp['script-src'])
+        self.assertIn('https://static.cloudflareinsights.com', csp['script-src'])
+        self.assertIn('https://cloudflareinsights.com', csp['connect-src'])
+
     def test_connect_src_memuat_mediamtx(self):
         """WHIP/WHEP adalah fetch() langsung dari browser ke MediaMTX."""
         csp = _direktif(self.client.get(reverse('login')).headers['Content-Security-Policy'])
@@ -231,6 +242,62 @@ class GabungCspTest(TestCase):
         )
         self.assertIs(hasil['upgrade-insecure-requests'], True)
         self.assertEqual(hasil['connect-src'], ["'self'", 'wss:'])
+
+
+class HeaderTambahanTest(TestCase):
+    """X-Robots-Tag, Cross-Origin-Resource-Policy, X-Permitted-Cross-Domain-Policies."""
+
+    def _cek(self, resp):
+        self.assertEqual(resp.headers['X-Robots-Tag'], 'noindex, nofollow')
+        self.assertEqual(resp.headers['Cross-Origin-Resource-Policy'], 'same-site')
+        self.assertEqual(resp.headers['X-Permitted-Cross-Domain-Policies'], 'none')
+
+    def test_halaman_html(self):
+        self._cek(self.client.get(reverse('login')))
+
+    def test_respons_non_html_ikut(self):
+        """CORP justru paling berguna di foto/PDF/JSON, bukan di HTML."""
+        resp = self.client.get(reverse('service_worker'))
+        self.assertEqual(resp.status_code, 200)
+        self._cek(resp)
+
+    def test_halaman_publik_bertoken_tidak_diindeks(self):
+        """Halaman peralatan lewat QR terbuka tanpa login — tautannya bisa tersebar."""
+        from devices.models import Device, DeviceType
+        device = Device.objects.create(
+            nama='RTU-01', jenis=DeviceType.objects.create(name='RTU'),
+            merk='SEL', lokasi='GI TELLO')
+        resp = self.client.get(reverse('device_public', args=[device.public_token]))
+        self.assertEqual(resp.status_code, 200)
+        self._cek(resp)
+
+    def test_header_dari_view_tidak_ditimpa(self):
+        from django.http import HttpResponse
+        from django.test import RequestFactory
+        from fasop.security_headers import HeaderTambahanMiddleware
+
+        def view(request):
+            resp = HttpResponse('x')
+            resp['Cross-Origin-Resource-Policy'] = 'cross-origin'
+            return resp
+
+        resp = HeaderTambahanMiddleware(view)(RequestFactory().get('/'))
+        self.assertEqual(resp.headers['Cross-Origin-Resource-Policy'], 'cross-origin')
+        self.assertEqual(resp.headers['X-Robots-Tag'], 'noindex, nofollow')
+
+    def test_boleh_diindeks_hanya_melepas_x_robots_tag(self):
+        from django.http import HttpResponse
+        from django.test import RequestFactory
+        from fasop.security_headers import HeaderTambahanMiddleware, boleh_diindeks
+
+        resp = HeaderTambahanMiddleware(lambda r: boleh_diindeks(HttpResponse('x')))(
+            RequestFactory().get('/'))
+        self.assertNotIn('X-Robots-Tag', resp.headers)
+        self.assertEqual(resp.headers['Cross-Origin-Resource-Policy'], 'same-site')
+
+    def test_tanpa_coep(self):
+        """require-corp memblokir Google Fonts, tile peta, dan decoder Ezviz."""
+        self.assertNotIn('Cross-Origin-Embedder-Policy', self.client.get(reverse('login')).headers)
 
 
 class PermissionsPolicyTest(TestCase):
