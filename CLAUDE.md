@@ -112,7 +112,7 @@ SecurityMiddleware → HtmlContentSecurityPolicyMiddleware → PermissionsPolicy
 → OpsisMaintenanceMiddleware      # /opsis/* → halaman pemeliharaan bila sakelarnya aktif
 → OpsisAccessMiddleware           # restricts opsis role to /opsis/ only
 → OperatorAccessMiddleware        # restricts operator role to /inspection/ only
-→ DispatcherAccessMiddleware      # restricts dispatcher role to telecom testing
+→ DispatcherAccessMiddleware      # restricts dispatcher role to telecom testing + /opsis/ + /device-mon/
 → SingleSessionMiddleware         # one active session per user (except Operator)
 ```
 
@@ -131,7 +131,7 @@ Roles are stored in `UserProfile` (ForeignKey to User). Middleware enforces rout
 | Operator | `/inspection/` only; shared session allowed |
 | Opsis | `/opsis/` only |
 | Opsis View | `/opsis/` only, lihat-saja (multi-sesi) |
-| Dispatcher | Telecom testing only |
+| Dispatcher | Telecom testing, plus OPSIS & Device Monitoring (view-only) |
 
 **Akses OPSIS didefinisikan sekali di `UserProfile`, bukan di tiap view.** Sebagian
 besar halaman `/opsis/*` hanya butuh login, tapi tiga tingkat di bawah ini

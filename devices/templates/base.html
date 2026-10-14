@@ -905,6 +905,27 @@
         {% endif %}
     </div>
 
+    {% comment %}
+    Dispatcher: OPSIS & Device Monitoring tepat di bawah Pengujian
+    Telekomunikasi, sebagai item DATAR — bukan submenu "Monitoring" di bawah,
+    yang juga memuat Kinerja Scadatel & Live Streaming. Kedua halaman itu
+    tidak diizinkan DispatcherAccessMiddleware, jadi menampilkannya hanya
+    melahirkan menu yang memantul balik ke Pengujian Telekomunikasi.
+    {% endcomment %}
+    {% if user_is_dispatcher %}
+    <div class="sidebar-section">
+        <div class="sidebar-section-label">Real Time</div>
+        <a href="{% url 'opsis_dashboard' %}" class="sidebar-link">
+            <span class="si-icon"><i class="bi bi-bar-chart-line"></i></span>
+            OPSIS
+        </a>
+        <a href="{% url 'dm_dashboard' %}" class="sidebar-link">
+            <span class="si-icon"><i class="bi bi-hdd-network"></i></span>
+            Device Monitoring
+        </a>
+    </div>
+    {% endif %}
+
     {% if not user_is_operator and not user_is_dispatcher %}
     <div class="sidebar-section">
         <div class="sidebar-section-label">Real Time</div>
