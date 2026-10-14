@@ -1,17 +1,17 @@
 # ── Core ──────────────────────────────────────────────────────────
-Django==6.0.2
+Django==6.0.9
 asgiref==3.11.1
 python-decouple==3.8          # Konfigurasi via .env
 
 # ── Database & ORM ────────────────────────────────────────────────
-sqlparse==0.5.5
+sqlparse==0.6.0
 pyodbc                        # Koneksi MSSQL untuk fitur Opsis (butuh ODBC Driver 17 di server)
 
 # ── Server ────────────────────────────────────────────────────────
 gunicorn==25.1.0
 
 # ── File & Image Processing ───────────────────────────────────────
-pillow==12.1.0                # Upload foto, tanda tangan digital
+pillow==12.3.0                # Upload foto, tanda tangan digital
 reportlab==4.4.10             # Ekspor PDF laporan pemeliharaan
 weasyprint==68.1              # Ekspor PDF Berita Acara & laporan (butuh GTK/Pango:
                               #   Linux → paket sistem; Windows → GTK3 Runtime di PATH)
