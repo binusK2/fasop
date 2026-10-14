@@ -1066,6 +1066,7 @@ sebelahnya supaya tidak ada dua angka berbeda di satu layar:
 |---|---|---|
 | Kartu kecil (live MW) | dijumlahkan **di browser** dari `/opsis/api/live/` | Tidak punya endpoint sendiri — persis pola ikon Kelompok Peta |
 | Chart 24 jam | `/opsis/api/beban-kit-terpilih/` → `SnapLive` | Sumber yang sama dengan chart "Beban Kit — Hari Ini" |
+| Halaman rincian (klik kartu kecil) | `/opsis/kit-terpilih/` — live dari `/opsis/api/live/`, 24 jam dari `/opsis/api/beban-kit-terpilih/rincian/` | Lihat "Halaman rincian" di bawah |
 
 Konsekuensi yang perlu diketahui:
 
@@ -1080,6 +1081,44 @@ Konsekuensi yang perlu diketahui:
 - Rentang chart memakai `waktu__gte`/`waktu__lt`, **bukan** `waktu__date` —
   alasan yang sama dengan ekspor beban pembangkit: lookup `__date` membungkus
   kolom dalam cast sehingga indeks `(pembangkit, -waktu)` tidak terpakai.
+
+### Halaman rincian (`/opsis/kit-terpilih/`)
+
+Dibuka dengan **mengklik kartu total** di dashboard (kartunya sebuah `<a>`,
+`id="kartu-pantauan"`); tidak ada menu sidebar untuknya. Isinya:
+
+| Bagian | Chart (kiri) | Tabel (kanan) |
+|---|---|---|
+| Total per pembangkit | 24 jam **bertumpuk** per anggota — tepi atas = total | MW / MVAR / % tiap anggota + baris Total |
+| Satu baris per anggota | 24 jam, **satu garis per unit** (`SnapUnit`) | MW / MVAR tiap unit + total pembangkit |
+
+- **Angka live dari `/opsis/api/live/`, dijumlahkan dengan aturan yang sama
+  dengan kartu di dashboard** — angka yang baru diklik harus sama persis dengan
+  angka yang muncul di halaman ini. Jangan bikin endpoint live kedua.
+- **Deret 24 jam dari `/opsis/api/beban-kit-terpilih/rincian/`**
+  (`beban_kit.rincian_harian()`): total tiap anggota dari `SnapLive` (bukan
+  jumlah `SnapUnit`, supaya sama dengan chart dashboard — dijaga tes), unit dari
+  `SnapUnit`. Titiknya pasangan `[menit, mw]`, bukan dict.
+- **`?sejak=<menit>` mengembalikan ekor saja**, dan browser MENGGANTI ekornya
+  (bukan menambahkan) mulai beberapa menit ke belakang: `collect_live` menulis
+  pembangkit satu per satu, jadi poll di tengah satu putaran cron melihat menit
+  terakhir yang belum lengkap. Menarik ulang sehari penuh tiap menit berarti
+  ratusan KB yang 99%-nya sudah dipegang browser. `tanggal` di balasan membuat
+  halaman yang terbuka lewat tengah malam mulai dari kosong lagi.
+- **Warna dari palet kategorikal tervalidasi, BERURUTAN, tidak diputar ulang.**
+  Lebih dari 8 anggota: 7 pertama dapat warna, sisanya jadi pita "Lainnya"
+  abu-abu di chart komposisi. Warna unit mengikuti **nomor** unitnya (UNIT1 =
+  slot 1), bukan urutan kemunculan — unit yang masuk siang hari tidak boleh
+  mewarnai ulang unit lain.
+- **Menit tanpa rekaman digambar putus** (celah > 3 menit → titik `null`),
+  bukan garis lurus yang mengarang angka.
+- Sumbu-X 24 jam memakai `opsis/templates/opsis/_sumbu_jam24_js.html` — partial
+  JS yang di-include **inline** di dalam `<script>` dashboard dan halaman ini,
+  bukan berkas statis (pelajaran `popup.js`). Itu satu-satunya definisi
+  `sumbuJam24()`; jangan disalin ke template baru.
+- Sidebar `opsis_base.html` sudah memakai atribut `data-pembangkit`; elemen
+  halaman ini memakai `data-kt-pembangkit` — kalau namanya sama,
+  `querySelector` mengambil item sidebar lebih dulu dan seluruh chart unit mati.
 
 ---
 

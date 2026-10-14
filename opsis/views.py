@@ -905,6 +905,77 @@ def api_beban_kit_terpilih(request):
 
 
 @login_required
+def kit_terpilih(request):
+    """
+    Halaman rincian kartu "KIT Terpilih" — dibuka dengan mengklik kartu
+    totalnya di dashboard. Isinya: total live, chart 24 jam bertumpuk per
+    pembangkit + tabel per pembangkit di sebelahnya, lalu satu baris per
+    pembangkit berisi chart 24 jam tiap unitnya + tabel unit di sebelahnya.
+
+    Angka live-nya dijumlahkan di browser dari /opsis/api/live/ — sumber yang
+    sama dengan kartu total di dashboard, jadi angka di halaman ini tidak bisa
+    berbeda dengan angka yang baru saja diklik. Deret 24 jam-nya dari
+    api_beban_kit_terpilih_rincian (SnapLive + SnapUnit).
+
+    Daftar anggota ditanam saat render, sama seperti dashboard: mengubah
+    keanggotaan dari admin baru terlihat setelah halaman dimuat ulang.
+    """
+    pantauan = PantauanKit.ambil()
+    anggota  = pantauan.anggota_aktif()
+    return render(request, 'opsis/kit_terpilih.html', {
+        'pembangkit_list': _pembangkit_aktif(),
+        'pantauan':        pantauan,
+        'tampil':          pantauan.aktif and bool(anggota),
+        'anggota':         anggota,
+        'anggota_info':    [{'kode': p.kode, 'nama': p.nama, 'jenis': p.jenis}
+                            for p in anggota],
+    })
+
+
+@login_required
+def api_beban_kit_terpilih_rincian(request):
+    """
+    Deret 24 jam (hari ini) halaman rincian KIT Terpilih: total tiap anggota
+    dari SnapLive dan tiap unitnya dari SnapUnit (beban_kit.rincian_harian).
+
+    `?sejak=<menit>` hanya mengembalikan titik mulai menit itu. Halaman memoll
+    tiap 60 detik; menarik ulang sehari penuh untuk beberapa pembangkit x
+    beberapa unit tiap menit berarti ratusan KB yang 99%-nya sudah dipegang
+    browser. Browser meminta beberapa menit ke belakang dari titik terakhirnya
+    dan MENGGANTI ekornya, bukan sekadar menambahkan — collect_live menulis
+    pembangkit satu per satu, jadi poll yang jatuh di tengah satu putaran cron
+    bisa melihat menit terakhir yang belum lengkap.
+
+    `tanggal` ikut dikirim supaya halaman yang terbuka melewati tengah malam
+    tahu harus mulai dari kosong lagi.
+    """
+    pantauan = PantauanKit.ambil()
+    anggota  = pantauan.anggota_aktif()
+    if not (pantauan.aktif and anggota):
+        return JsonResponse({'aktif': False, 'nama': pantauan.nama, 'pembangkit': []})
+
+    try:
+        sejak = int(request.GET.get('sejak', 0))
+    except (TypeError, ValueError):
+        sejak = 0
+    sejak = min(max(sejak, 0), 24 * 60)
+
+    tz      = timezone.get_current_timezone()
+    tanggal = timezone.localdate()
+    awal    = timezone.make_aware(datetime.datetime.combine(tanggal, datetime.time.min), tz)
+    akhir   = awal + datetime.timedelta(days=1)
+
+    return JsonResponse({
+        'aktif':      True,
+        'nama':       pantauan.nama,
+        'tanggal':    tanggal.isoformat(),
+        'sejak':      sejak,
+        'pembangkit': beban_kit.rincian_harian(
+            anggota, awal + datetime.timedelta(minutes=sejak), akhir),
+    })
+
+
+@login_required
 def api_inersia(request):
     """
     Seri 24 jam (hari ini, resolusi per menit) untuk chart "Inersia Sistem":
