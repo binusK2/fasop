@@ -8,93 +8,107 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     gap: 10px;
-    margin-bottom: 18px;
+    margin-bottom: 20px;
 }
 .stat-card { padding: 12px 16px; }
 .stat-lbl  { font-size: 10px; }
 .stat-val  { font-size: 24px; }
 
-.judul-bagian {
-    font-size: 12px; font-weight: 700; color: var(--muted);
-    text-transform: uppercase; letter-spacing: .4px; margin-bottom: 10px;
+/* ── Satu bagian per sumber (RTU, lalu tiap instansi Zabbix) ── */
+.sumber-sec { margin-bottom: 22px; }
+.sec-head {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 6px 14px;
+    padding-bottom: 8px; margin-bottom: 12px;
+    border-bottom: 1px solid var(--card-bd);
 }
+.sec-nama {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 13px; font-weight: 800; color: #fff;
+    text-transform: uppercase; letter-spacing: .5px;
+}
+.sec-jumlah {
+    font-size: 10px; font-weight: 700; color: var(--muted); text-transform: none; letter-spacing: 0;
+    background: rgba(255,255,255,.05); padding: 2px 8px; border-radius: 10px; white-space: nowrap;
+}
+.sec-info { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 14px; font-size: 11px; color: var(--muted); }
+.sec-info b { font-family: 'JetBrains Mono', monospace; font-weight: 700; }
+.sec-info a { color: #60a5fa; text-decoration: none; white-space: nowrap; }
+.sec-info a:hover { color: #93c5fd; }
+.sec-kosong { font-size: 12px; color: var(--muted); padding: 6px 2px 2px; }
 
-/* ── Kartu per sumber ── */
-.sumber-grid {
+/* ── Kartu donut per grup ── */
+.donut-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
     gap: 12px;
-    margin-bottom: 20px;
 }
-.sumber-card {
+.donut-card {
     display: block;
     background: var(--card-bg);
     border: 1px solid var(--card-bd);
     border-radius: 12px;
-    padding: 16px 18px;
+    padding: 14px 16px 12px;
     text-decoration: none; color: inherit;
     position: relative; overflow: hidden;
-    transition: .2s;
+    transition: border-color .2s, transform .2s;
 }
-.sumber-card::before {
+.donut-card::before {
     content: '';
     position: absolute; top: 0; left: 0; right: 0; height: 3px;
-    background: var(--card-bd);
+    background: #334155;
 }
-.sumber-card.ok::before      { background: #10b981; }
-.sumber-card.warning::before { background: #f59e0b; }
-.sumber-card.problem::before { background: #ef4444; }
-.sumber-card:hover { transform: translateY(-1px); border-color: #1d4ed8; color: inherit; }
+.donut-card.ok::before      { background: var(--up); }
+.donut-card.warning::before { background: var(--warn); }
+.donut-card.problem::before { background: var(--down); }
+.donut-card.problem { border-color: rgba(239,68,68,.35); }
+.donut-card:hover { transform: translateY(-1px); border-color: #1d4ed8; color: inherit; }
 
-.sumber-head {
-    display: flex; align-items: center; justify-content: space-between; gap: 8px;
-    margin-bottom: 12px;
+.dc-nama {
+    font-size: 13px; font-weight: 700; color: var(--text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    margin-bottom: 10px;
 }
-.sumber-nama { font-size: 14px; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 8px; }
-.sumber-total {
-    font-size: 10px; font-weight: 700; color: var(--muted);
-    background: rgba(255,255,255,.05); padding: 2px 8px; border-radius: 10px; white-space: nowrap;
-}
-.sumber-angka { display: flex; gap: 18px; margin-bottom: 12px; flex-wrap: wrap; }
-.sumber-angka .nilai { font-family: 'JetBrains Mono', monospace; font-size: 22px; font-weight: 700; line-height: 1.1; }
-.sumber-angka .lbl   { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
-.nilai.ok      { color: #10b981; }
-.nilai.problem { color: #ef4444; }
-.nilai.warning { color: #f59e0b; }
-.nilai.unknown { color: #94a3b8; }
+.dc-body { display: flex; align-items: center; gap: 14px; }
 
-/* Batang proporsi: hijau / kuning / merah / abu-abu */
-.proporsi {
-    display: flex; height: 6px; border-radius: 3px; overflow: hidden;
-    background: rgba(255,255,255,.06); margin-bottom: 10px;
+.donut { position: relative; width: 92px; height: 92px; flex: 0 0 92px; }
+.donut svg { width: 100%; height: 100%; display: block; }
+.donut .seg { cursor: default; }
+.donut-tengah {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    pointer-events: none;
 }
-.proporsi span { display: block; height: 100%; }
-.proporsi .ok      { background: #10b981; }
-.proporsi .warning { background: #f59e0b; }
-.proporsi .problem { background: #ef4444; }
-.proporsi .unknown { background: #475569; }
+.donut-tengah .angka { font-family: 'JetBrains Mono', monospace; font-size: 20px; font-weight: 700; color: #fff; line-height: 1; }
+.donut-tengah .satuan { font-size: 9px; color: var(--muted); margin-top: 2px; text-transform: uppercase; letter-spacing: .4px; }
 
-.sumber-avail {
-    display: flex; justify-content: space-between; gap: 10px;
-    font-size: 11px; color: var(--muted);
+.dc-legend { list-style: none; margin: 0; padding: 0; flex: 1; min-width: 0; }
+.dc-legend li {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 11px; color: var(--text); padding: 2px 0;
 }
-.sumber-avail b { font-family: 'JetBrains Mono', monospace; font-weight: 700; }
-.sumber-buka { margin-top: 10px; font-size: 10px; color: #60a5fa; }
+.dc-legend li i { font-size: 11px; width: 13px; flex: 0 0 13px; }
+.dc-legend .lbl { flex: 1; min-width: 0; color: #9fbbe0; }
+.dc-legend .jml { font-family: 'JetBrains Mono', monospace; font-weight: 700; color: var(--text); }
+.dc-legend li.nol .lbl, .dc-legend li.nol .jml { color: var(--muted); }
 
-/* ── Tabel gangguan aktif ── */
-.gangguan-table td a { color: var(--text); text-decoration: none; font-weight: 700; }
-.gangguan-table td a:hover { color: #93c5fd; }
-.tag-sumber {
-    display: inline-block; font-size: 10px; font-weight: 700;
-    padding: 2px 7px; border-radius: 4px; white-space: nowrap;
-    background: rgba(59,130,246,.12); color: #93c5fd;
+.dc-foot {
+    display: flex; justify-content: space-between; gap: 8px;
+    margin-top: 10px; padding-top: 8px;
+    border-top: 1px solid rgba(255,255,255,.05);
+    font-size: 10px; color: var(--muted);
 }
-.tag-sumber.rtu { background: rgba(34,211,238,.12); color: #67e8f9; }
-.sub { font-size: 10px; color: var(--muted); }
-.jumlah-aktif {
-    font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 10px; margin-left: 6px;
-    background: rgba(239,68,68,.15); color: #f87171;
+.dc-foot b { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 11px; }
+
+/* Tooltip segmen donut */
+#dm-tip {
+    position: fixed; z-index: 1000; pointer-events: none;
+    background: #0b1a30; border: 1px solid #1e3a5f; border-radius: 8px;
+    padding: 6px 10px; font-size: 11px; color: var(--text);
+    box-shadow: 0 6px 20px rgba(0,0,0,.45);
+    white-space: nowrap;
 }
+#dm-tip b { font-family: 'JetBrains Mono', monospace; }
 
 @keyframes spin { to { transform: rotate(360deg); } }
 </style>
@@ -106,7 +120,7 @@
         <div style="font-size:15px; font-weight:800; color:#fff;">
             <span class="live-dot"></span>Rekap Status Peralatan
         </div>
-        <div style="font-size:11px; color:var(--muted); margin-top:2px;">RTU SCADA dan seluruh instansi Zabbix dalam satu layar</div>
+        <div style="font-size:11px; color:var(--muted); margin-top:2px;">RTU SCADA dan seluruh instansi Zabbix, per grup host</div>
     </div>
     <div style="font-size:11px; color:var(--muted);" id="last-updated">—</div>
 </div>
@@ -134,57 +148,20 @@
     </div>
 </div>
 
-<div class="judul-bagian"><i class="bi bi-grid-3x3-gap-fill me-1"></i>Per Sumber</div>
-<div class="sumber-grid" id="sumber-grid">
-    <div style="grid-column:1/-1; text-align:center; padding:30px; color:var(--muted);">
+<div id="daftar-sumber">
+    <div style="text-align:center; padding:30px; color:var(--muted);">
         <i class="bi bi-arrow-repeat" style="font-size:20px; display:block; margin-bottom:6px; animation:spin 1s linear infinite;"></i>
         Memuat...
     </div>
 </div>
-
-<div class="chart-card">
-    <div class="chart-head">
-        <div class="chart-title">
-            <i class="bi bi-exclamation-octagon-fill me-1" style="color:#f87171;"></i>Gangguan Aktif Sekarang<span class="jumlah-aktif" id="jumlah-aktif" hidden></span>
-        </div>
-        <span class="sub">Kritis lebih dulu, lalu yang paling lama</span>
-    </div>
-    <div class="table-scroll">
-    <table class="gangguan-table">
-        <thead>
-            <tr>
-                <th>Sumber</th>
-                <th>Perangkat</th>
-                <th>Status</th>
-                <th>Sejak</th>
-                <th>Durasi</th>
-            </tr>
-        </thead>
-        <tbody id="tbl-aktif">
-            <tr><td colspan="5" style="text-align:center; color:var(--muted); padding:16px;">Memuat...</td></tr>
-        </tbody>
-    </table>
-    </div>
-</div>
+<div id="dm-tip" hidden></div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-// Nama host & teks problem datang dari server Zabbix — selalu di-escape.
+// Nama grup/instansi datang dari admin & server Zabbix — selalu di-escape.
 function esc(s) {
     return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-}
-function fmtDur(m) {
-    if (m === null || m === undefined) return '—';
-    if (m < 60) return m + 'm';
-    const j = Math.floor(m / 60), r = m % 60;
-    if (j < 24) return r ? `${j}j${r}m` : `${j}j`;
-    const h = Math.floor(j / 24), sj = j % 24;
-    return sj ? `${h}h${sj}j` : `${h}h`;
-}
-function fmtDt(s) {
-    if (!s) return '—';
-    return new Date(s).toLocaleString('id-ID', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'});
 }
 function fmtPct(v) { return v === null || v === undefined ? '—' : v.toFixed(2) + '%'; }
 function availColor(v) {
@@ -197,67 +174,130 @@ const IKON = {
     zabbix: '<i class="bi bi-diagram-3-fill" style="color:#f97316;"></i>',
 };
 
-function kartuSumber(s) {
-    const kelas = !s.total ? '' : s.gangguan ? 'problem' : s.warning ? 'warning' : 'ok';
-    const pct = n => s.total ? (n / s.total * 100) : 0;
-    const angka = [
-        `<div><div class="nilai ok">${s.normal}</div><div class="lbl">${esc(s.label_normal)}</div></div>`,
-        `<div><div class="nilai problem">${s.gangguan}</div><div class="lbl">${esc(s.label_gangguan)}</div></div>`,
-    ];
-    if (s.jenis === 'zabbix') angka.push(`<div><div class="nilai warning">${s.warning}</div><div class="lbl">Warning</div></div>`);
-    if (s.unknown) angka.push(`<div><div class="nilai unknown">${s.unknown}</div><div class="lbl">Tidak diketahui</div></div>`);
+// Warna status sama dengan seluruh Device Monitor (--up / --warn / --down).
+// Urutan di sini = urutan segmen donut searah jarum jam dari atas = urutan legenda.
+const STATUS = [
+    {kunci: 'normal',   warna: '#10b981', ikon: 'bi-check-circle-fill'},
+    {kunci: 'warning',  warna: '#f59e0b', ikon: 'bi-exclamation-triangle-fill'},
+    {kunci: 'gangguan', warna: '#ef4444', ikon: 'bi-x-circle-fill'},
+    {kunci: 'unknown',  warna: '#64748b', ikon: 'bi-question-circle-fill'},
+];
+
+function labelStatus(kunci, s) {
+    return {normal: s.label_normal, gangguan: s.label_gangguan,
+            warning: 'Warning', unknown: 'Tidak diketahui'}[kunci];
+}
+
+// Donut SVG — satu lingkaran per segmen (stroke-dasharray), mulai dari jam 12.
+// Celah 2px warna kartu memisahkan segmen yang bersebelahan.
+const R = 38, LEBAR = 12, KELILING = 2 * Math.PI * R, CELAH = 2.2;
+
+function donutSvg(item, sumber, satuan) {
+    const isi = STATUS.filter(st => item[st.kunci] > 0);
+    const ringkas = STATUS.filter(st => st.kunci !== 'warning' || sumber.jenis === 'zabbix')
+        .map(st => `${labelStatus(st.kunci, sumber)} ${item[st.kunci]}`).join(', ');
+    let seg = '';
+    if (item.total > 0) {
+        let mulai = 0;
+        const celah = isi.length > 1 ? CELAH : 0;
+        for (const st of isi) {
+            const panjang = item[st.kunci] / item.total * KELILING;
+            const tampak = Math.max(panjang - celah, 0.6);
+            const pct = (item[st.kunci] / item.total * 100).toFixed(1).replace('.', ',');
+            seg += `<circle class="seg" cx="50" cy="50" r="${R}" fill="none"
+                stroke="${st.warna}" stroke-width="${LEBAR}"
+                stroke-dasharray="${tampak} ${KELILING - tampak}"
+                stroke-dashoffset="${-mulai}"
+                transform="rotate(-90 50 50)"
+                data-lbl="${esc(labelStatus(st.kunci, sumber))}" data-n="${item[st.kunci]}"
+                data-tot="${item.total}" data-sat="${esc(satuan)}" data-pct="${pct}"></circle>`;
+            mulai += panjang;
+        }
+    }
     return `
-    <a class="sumber-card ${kelas}" href="${esc(s.url)}">
-        <div class="sumber-head">
-            <div class="sumber-nama">${IKON[s.jenis] || ''}<span>${esc(s.nama)}</span></div>
-            <span class="sumber-total">${s.total} perangkat</span>
+    <div class="donut">
+        <svg viewBox="0 0 100 100" role="img" aria-label="${esc(ringkas)} dari ${item.total} ${esc(satuan)}">
+            <circle cx="50" cy="50" r="${R}" fill="none" stroke="rgba(255,255,255,.06)" stroke-width="${LEBAR}"></circle>
+            ${seg}
+        </svg>
+        <div class="donut-tengah"><span class="angka">${item.total}</span><span class="satuan">${esc(satuan)}</span></div>
+    </div>`;
+}
+
+function legenda(item, sumber) {
+    return '<ul class="dc-legend">' + STATUS
+        .filter(st => (st.kunci !== 'warning' || sumber.jenis === 'zabbix')
+                   && (st.kunci !== 'unknown' || item.unknown > 0))
+        .map(st => `
+            <li class="${item[st.kunci] ? '' : 'nol'}">
+                <i class="bi ${st.ikon}" style="color:${st.warna};"></i>
+                <span class="lbl">${esc(labelStatus(st.kunci, sumber))}</span>
+                <span class="jml">${item[st.kunci]}</span>
+            </li>`).join('') + '</ul>';
+}
+
+function kelasTerburuk(item) {
+    if (!item.total) return '';
+    return item.gangguan ? 'problem' : item.warning ? 'warning' : item.normal ? 'ok' : '';
+}
+
+function kartu(item, sumber, url, satuan) {
+    return `
+    <a class="donut-card ${kelasTerburuk(item)}" href="${esc(url)}">
+        <div class="dc-nama" title="${esc(item.nama)}">${esc(item.nama)}</div>
+        <div class="dc-body">
+            ${donutSvg(item, sumber, satuan)}
+            ${legenda(item, sumber)}
         </div>
-        <div class="sumber-angka">${angka.join('')}</div>
-        <div class="proporsi" title="${s.normal} normal · ${s.warning} warning · ${s.gangguan} gangguan · ${s.unknown} tidak diketahui">
-            <span class="ok" style="width:${pct(s.normal)}%"></span>
-            <span class="warning" style="width:${pct(s.warning)}%"></span>
-            <span class="problem" style="width:${pct(s.gangguan)}%"></span>
-            <span class="unknown" style="width:${pct(s.unknown)}%"></span>
+        <div class="dc-foot">
+            <span>Avail hari ini</span>
+            <b style="color:${availColor(item.avail_hari)};">${fmtPct(item.avail_hari)}</b>
         </div>
-        <div class="sumber-avail">
-            <span>Avail hari ini <b style="color:${availColor(s.avail_hari)};">${fmtPct(s.avail_hari)}</b></span>
-            <span>Bulan ini <b style="color:${availColor(s.avail_bulan)};">${fmtPct(s.avail_bulan)}</b></span>
-        </div>
-        <div class="sumber-buka">Buka ringkasan <i class="bi bi-arrow-right"></i></div>
     </a>`;
 }
 
-function renderSumber(daftar) {
-    const grid = document.getElementById('sumber-grid');
-    if (!daftar || !daftar.length) {
-        grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:30px;color:var(--muted);">Belum ada sumber data.</div>';
-        return;
+function bagian(s) {
+    let isi;
+    if (s.jenis === 'rtu') {
+        isi = s.total
+            ? kartu({...s, nama: 'Semua RTU'}, s, s.url, 'RTU')
+            : '<div class="sec-kosong">Belum ada RTU aktif.</div>';
+    } else {
+        isi = s.grup.length
+            ? s.grup.map(g => kartu(g, s, `${s.url}group/${encodeURIComponent(g.nama)}/`, 'host')).join('')
+            : '<div class="sec-kosong">Belum ada host aktif di instansi ini.</div>';
     }
-    grid.innerHTML = daftar.map(kartuSumber).join('');
+    const grid = (s.jenis === 'rtu' ? s.total : s.grup.length) ? `<div class="donut-grid">${isi}</div>` : isi;
+    return `
+    <section class="sumber-sec">
+        <div class="sec-head">
+            <div class="sec-nama">${IKON[s.jenis] || ''}<span>${esc(s.nama)}</span>
+                <span class="sec-jumlah">${s.total} ${s.jenis === 'rtu' ? 'RTU' : 'host'}</span></div>
+            <div class="sec-info">
+                <span>Avail hari ini <b style="color:${availColor(s.avail_hari)};">${fmtPct(s.avail_hari)}</b></span>
+                <span>Bulan ini <b style="color:${availColor(s.avail_bulan)};">${fmtPct(s.avail_bulan)}</b></span>
+                <a href="${esc(s.url)}">Buka ringkasan <i class="bi bi-arrow-right"></i></a>
+            </div>
+        </div>
+        ${grid}
+    </section>`;
 }
 
-function renderAktif(daftar) {
-    const tbody = document.getElementById('tbl-aktif');
-    const badge = document.getElementById('jumlah-aktif');
-    badge.hidden = !daftar.length;
-    badge.textContent = daftar.length;
-    if (!daftar.length) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:16px;">Tidak ada gangguan aktif — semua perangkat normal.</td></tr>';
-        return;
-    }
-    tbody.innerHTML = daftar.map(a => `
-        <tr>
-            <td><span class="tag-sumber ${a.sumber_kode === 'rtu' ? 'rtu' : ''}">${esc(a.sumber)}</span></td>
-            <td>
-                <a href="${esc(a.url)}">${esc(a.nama)}</a>
-                ${a.lokasi ? `<div class="sub">${esc(a.lokasi)}</div>` : ''}
-                ${a.keterangan ? `<div class="sub">${esc(a.keterangan)}</div>` : ''}
-            </td>
-            <td><span class="${a.kelas === 'problem' ? 'tag-problem' : 'tag-warning'}">${esc(a.status)}</span></td>
-            <td style="font-size:11px;">${fmtDt(a.sejak)}</td>
-            <td style="font-family:'JetBrains Mono',monospace;">${fmtDur(a.durasi_menit)}</td>
-        </tr>`).join('');
-}
+// Tooltip segmen — satu elemen untuk semua donut (delegasi event), karena
+// kartunya digambar ulang tiap poll.
+const tip = document.getElementById('dm-tip');
+const wadah = document.getElementById('daftar-sumber');
+wadah.addEventListener('mousemove', e => {
+    const seg = e.target.closest && e.target.closest('.seg');
+    if (!seg) { tip.hidden = true; return; }
+    const t = seg.dataset;
+    tip.innerHTML = `${esc(t.lbl)}: <b>${esc(t.n)}</b> dari ${esc(t.tot)} ${esc(t.sat)} (${esc(t.pct)}%)`;
+    tip.hidden = false;
+    const x = Math.min(e.clientX + 14, window.innerWidth - tip.offsetWidth - 8);
+    tip.style.left = x + 'px';
+    tip.style.top  = (e.clientY + 14) + 'px';
+});
+wadah.addEventListener('mouseleave', () => { tip.hidden = true; });
 
 async function pollRekap() {
     const info = document.getElementById('last-updated');
@@ -270,8 +310,10 @@ async function pollRekap() {
         document.getElementById('stat-gangguan').textContent = d.total.gangguan;
         document.getElementById('stat-warning').textContent  = d.total.warning;
         document.getElementById('stat-unknown').textContent  = d.total.unknown;
-        renderSumber(d.sumber);
-        renderAktif(d.aktif);
+        tip.hidden = true;
+        wadah.innerHTML = d.sumber.length
+            ? d.sumber.map(bagian).join('')
+            : '<div class="sec-kosong">Belum ada sumber data.</div>';
         info.textContent = 'Update: ' + new Date().toLocaleTimeString('id-ID');
     } catch (e) {
         info.textContent = 'Gagal memuat — mencoba lagi';

@@ -11,7 +11,7 @@ from unittest.mock import patch
 from django.test import TestCase, override_settings
 
 from devices.models import SiteLocation
-from device_mon.models import RTU, ZabbixAlertLog, ZabbixHost, ZabbixInstance
+from device_mon.models import RTU, ZabbixAlertLog, ZabbixGroup, ZabbixHost, ZabbixInstance
 from device_mon.notifications import (alert_rtu, alert_zabbix, zbx_targets,
                                       zbx_targets_default)
 
@@ -518,10 +518,10 @@ class RekapDeviceMonTest(TestCase):
         self.prosis = _instansi('prosis', 'Zabbix Prosis', urutan=2)
         lama = _instansi('lama', 'Zabbix Lama', aktif=False)
 
-        ZabbixHost.objects.create(instance=self.telkom, zabbix_hostid='1', nama='Telkom OK', state='OK')
-        ZabbixHost.objects.create(instance=self.telkom, zabbix_hostid='2', nama='Telkom High',
-                                  state='PROBLEM', severity='High', problem_name='Link down',
-                                  state_sejak=kini - timedelta(minutes=5))
+        ok = ZabbixHost.objects.create(instance=self.telkom, zabbix_hostid='1', nama='Telkom OK', state='OK')
+        high = ZabbixHost.objects.create(instance=self.telkom, zabbix_hostid='2', nama='Telkom High',
+                                         state='PROBLEM', severity='High', problem_name='Link down',
+                                         state_sejak=kini - timedelta(minutes=5))
         ZabbixHost.objects.create(instance=self.telkom, zabbix_hostid='3', nama='Telkom Warning',
                                   state='PROBLEM', severity='Warning',
                                   state_sejak=kini - timedelta(minutes=600))
@@ -532,6 +532,11 @@ class RekapDeviceMonTest(TestCase):
                                   state='PROBLEM', severity='High', aktif=False)
         ZabbixHost.objects.create(instance=lama, zabbix_hostid='1', nama='Host Instansi Mati',
                                   state='PROBLEM', severity='High')
+
+        # Grup telkom: 'Router' berisi OK + High; 'Telkom Warning' tidak bergrup
+        # sehingga masuk '(Tanpa Grup)'. Grup nonaktif tidak boleh muncul.
+        ZabbixGroup.objects.create(instance=self.telkom, nama='Router').hosts.add(ok, high)
+        ZabbixGroup.objects.create(instance=self.telkom, nama='Grup Mati', aktif=False).hosts.add(ok)
 
         user = User.objects.create_superuser('adm-rekap', 'r@b.id', 'rahasia-tes-123')
         user.profile.force_password_change = False
@@ -592,23 +597,57 @@ class RekapDeviceMonTest(TestCase):
             self.assertEqual((s['avail_hari'], s['avail_bulan']),
                              (z['avail_hari'], z['avail_bulan']), kode)
 
-    def test_gangguan_aktif_lintas_sumber_kritis_dulu_lalu_terlama(self):
-        aktif = self._rekap()['aktif']
-        self.assertEqual([a['nama'] for a in aktif],
-                         ['Prosis Disaster', 'RTU-DOWN', 'Telkom High', 'Telkom Warning'])
-        self.assertEqual([a['kelas'] for a in aktif], ['problem', 'problem', 'problem', 'warning'])
-        rtu = aktif[1]
-        self.assertEqual((rtu['sumber'], rtu['status'], rtu['lokasi']), ('RTU (SCADA)', 'DOWN', 'GI Tello'))
-        telkom = aktif[2]
-        self.assertEqual((telkom['status'], telkom['keterangan']), ('High', 'Link down'))
-        self.assertTrue(telkom['url'].startswith('/device-mon/zabbix/host/'))
+    def test_kartu_per_grup_host(self):
+        sumber = {s['kode']: s for s in self._rekap()['sumber']}
+        grup = {g['nama']: g for g in sumber['telkom']['grup']}
+        self.assertEqual(sorted(grup), ['(Tanpa Grup)', 'Router'])
+        r = grup['Router']
+        self.assertEqual((r['total'], r['normal'], r['gangguan'], r['warning'], r['unknown']),
+                         (2, 1, 1, 0, 0))
+        t = grup['(Tanpa Grup)']
+        self.assertEqual((t['total'], t['warning']), (1, 1))
+        # Host nonaktif tidak ikut dihitung di grup mana pun.
+        self.assertEqual([(g['nama'], g['total']) for g in sumber['prosis']['grup']],
+                         [('(Tanpa Grup)', 1)])
+        # RTU tidak punya grup — satu kartu dari angka sumbernya sendiri.
+        self.assertEqual(sumber['rtu']['grup'], [])
+
+    def test_urutan_grup_ikut_sidebar(self):
+        """Urutan Tampil grup dipakai, '(Tanpa Grup)' paling akhir — sama dengan sidebar."""
+        ZabbixGroup.objects.create(instance=self.telkom, nama='Akhir', urutan=9)
+        ZabbixGroup.objects.create(instance=self.telkom, nama='Zulu Pertama', urutan=0)
+        ZabbixGroup.objects.filter(instance=self.telkom, nama='Router').update(urutan=5)
+        harapan = ['Zulu Pertama', 'Router', 'Akhir', '(Tanpa Grup)']
+        sumber = {s['kode']: s for s in self._rekap()['sumber']}
+        self.assertEqual([g['nama'] for g in sumber['telkom']['grup']], harapan)
+        z = self.client.get('/device-mon/zabbix/telkom/api/summary/').json()
+        self.assertEqual([g['nama'] for g in z['groups']], harapan)
+        sidebar = self.client.get('/device-mon/').context['zbx_instansi_list']
+        telkom = next(x for x in sidebar if x['instansi'].kode == 'telkom')
+        self.assertEqual(telkom['groups'], harapan)
+
+    def test_kartu_grup_sama_dengan_ringkasan_instansi(self):
+        """Angka kartu grup di rekap = angka grup di halaman Ringkasan instansi."""
+        sumber = {s['kode']: s for s in self._rekap()['sumber']}
+        for kode in ('telkom', 'prosis'):
+            z = self.client.get(f'/device-mon/zabbix/{kode}/api/summary/').json()
+            dari_ringkasan = [(g['nama'], g['total'], g['ok'], g['problem'], g['warning'],
+                               g['unknown'], g['avail_hari']) for g in z['groups']]
+            dari_rekap = [(g['nama'], g['total'], g['normal'], g['gangguan'], g['warning'],
+                           g['unknown'], g['avail_hari']) for g in sumber[kode]['grup']]
+            self.assertEqual(dari_rekap, dari_ringkasan, kode)
+
+    def test_tabel_gangguan_aktif_tidak_ada_lagi(self):
+        """Rekap hanya kartu donut per grup; daftar gangguan ada di halaman sumbernya."""
+        self.assertNotIn('aktif', self._rekap())
+        self.assertNotIn('Gangguan Aktif', self.client.get('/device-mon/').content.decode())
 
     def test_tanpa_data_sama_sekali_tetap_200(self):
         RTU.objects.all().delete()
         ZabbixHost.objects.all().delete()
         d = self._rekap()
         self.assertEqual(d['total']['total'], 0)
-        self.assertEqual(d['aktif'], [])
+        self.assertEqual([s['grup'] for s in d['sumber']], [[], [], []])
         self.assertEqual(d['sumber'][0]['avail_hari'], None)
 
     def test_wajib_login(self):
