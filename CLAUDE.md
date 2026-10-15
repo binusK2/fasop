@@ -1085,40 +1085,44 @@ Konsekuensi yang perlu diketahui:
 ### Halaman rincian (`/opsis/kit-terpilih/`)
 
 Dibuka dengan **mengklik kartu total** di dashboard (kartunya sebuah `<a>`,
-`id="kartu-pantauan"`); tidak ada menu sidebar untuknya. Isinya:
+`id="kartu-pantauan"`); tidak ada menu sidebar untuknya. Isinya total MW/MVAR,
+puncak hari ini, lalu **chart 24 jam satu garis per pembangkit + garis Total
+putus-putus** dengan tabel MW/MVAR/% per pembangkit di sebelahnya. Pola
+chart-nya sama dengan chart Beban KTT: chip per pembangkit untuk
+menampilkan/menyembunyikan garisnya, tombol Semua/Kosongkan, dan yang disimpan
+di localStorage adalah seri yang DIMATIKAN.
 
-| Bagian | Chart (kiri) | Tabel (kanan) |
-|---|---|---|
-| Total per pembangkit | 24 jam **bertumpuk** per anggota — tepi atas = total | MW / MVAR / % tiap anggota + baris Total |
-| Satu baris per anggota | 24 jam, **satu garis per unit** (`SnapUnit`) | MW / MVAR tiap unit + total pembangkit |
-
-- **Angka live dari `/opsis/api/live/`, dijumlahkan dengan aturan yang sama
-  dengan kartu di dashboard** — angka yang baru diklik harus sama persis dengan
-  angka yang muncul di halaman ini. Jangan bikin endpoint live kedua.
-- **Deret 24 jam dari `/opsis/api/beban-kit-terpilih/rincian/`**
-  (`beban_kit.rincian_harian()`): total tiap anggota dari `SnapLive` (bukan
-  jumlah `SnapUnit`, supaya sama dengan chart dashboard — dijaga tes), unit dari
-  `SnapUnit`. Titiknya pasangan `[menit, mw]`, bukan dict.
+- **Tidak bertumpuk, dan tidak ada garis "Lainnya".** Versi pertama memakai
+  area bertumpuk dan melipat anggota ke-8 dst. jadi satu pita abu-abu —
+  akibatnya tinggi garis bukan MW pembangkit itu sendiri dan tabel di
+  sebelahnya menyebut pembangkit yang tidak punya garis. Setiap baris tabel
+  harus punya garisnya sendiri dengan warna titik yang sama (dijaga tes).
+  Lebih dari 16 anggota memakai ulang warna dengan garis putus-putus.
+- **Ujung kanan tiap garis adalah angka live** yang sama dengan tabel
+  (`/opsis/api/live/`, dijumlahkan dengan aturan yang sama dengan kartu di
+  dashboard), ditaruh pada menit PECAHAN di kanan rekaman terakhir — tidak
+  pernah menimpa angka yang sudah tercatat. Menitnya memakai jam server
+  (`menit_sekarang` di balasan API), bukan jam komputer penonton. Tanpa titik
+  ini garis berhenti di rekaman menit terakhir dan selalu terlihat "beda" dengan
+  tabel yang diperbarui tiap 5 detik.
+- **Rekaman 24 jam dari `/opsis/api/beban-kit-terpilih/rincian/`**
+  (`beban_kit.deret_harian()`, `SnapLive`); garis Total = jumlah semua deret
+  per menit, sama dengan chart KIT Terpilih di dashboard (dijaga tes). Titiknya
+  pasangan `[menit, mw]`, bukan dict.
 - **`?sejak=<menit>` mengembalikan ekor saja**, dan browser MENGGANTI ekornya
   (bukan menambahkan) mulai beberapa menit ke belakang: `collect_live` menulis
   pembangkit satu per satu, jadi poll di tengah satu putaran cron melihat menit
-  terakhir yang belum lengkap. Menarik ulang sehari penuh tiap menit berarti
-  ratusan KB yang 99%-nya sudah dipegang browser. `tanggal` di balasan membuat
-  halaman yang terbuka lewat tengah malam mulai dari kosong lagi.
-- **Warna dari palet kategorikal tervalidasi, BERURUTAN, tidak diputar ulang.**
-  Lebih dari 8 anggota: 7 pertama dapat warna, sisanya jadi pita "Lainnya"
-  abu-abu di chart komposisi. Warna unit mengikuti **nomor** unitnya (UNIT1 =
-  slot 1), bukan urutan kemunculan — unit yang masuk siang hari tidak boleh
-  mewarnai ulang unit lain.
+  terakhir yang belum lengkap. `tanggal` di balasan membuat halaman yang terbuka
+  lewat tengah malam mulai dari kosong lagi.
 - **Menit tanpa rekaman digambar putus** (celah > 3 menit → titik `null`),
   bukan garis lurus yang mengarang angka.
 - Sumbu-X 24 jam memakai `opsis/templates/opsis/_sumbu_jam24_js.html` — partial
   JS yang di-include **inline** di dalam `<script>` dashboard dan halaman ini,
   bukan berkas statis (pelajaran `popup.js`). Itu satu-satunya definisi
   `sumbuJam24()`; jangan disalin ke template baru.
-- Sidebar `opsis_base.html` sudah memakai atribut `data-pembangkit`; elemen
-  halaman ini memakai `data-kt-pembangkit` — kalau namanya sama,
-  `querySelector` mengambil item sidebar lebih dulu dan seluruh chart unit mati.
+- Sidebar `opsis_base.html` sudah memakai atribut `data-pembangkit`; jangan
+  memakai nama atribut itu untuk elemen halaman — `querySelector` akan
+  mengambil item sidebar lebih dulu.
 
 ---
 

@@ -17,8 +17,7 @@ from django.utils import timezone
 from .models import (KartuPadam, KelompokPeta, KolomEWS, ModePemeliharaan,
                      PantauanKit, Pembangkit, PengaturanDashboard, SnapKtt,
                      PengaturanInersia, PrakiraanBeban, SnapFreq, SnapFreqRT,
-                     SnapLive, SnapUnit, TitikEWS, SumberKit, TagUnitKit,
-                     SPEK_KIT_BAWAAN)
+                     SnapLive, TitikEWS, SumberKit, TagUnitKit, SPEK_KIT_BAWAAN)
 from . import freq_history, hop_map, ktt, mssql, prakiraan, prediksi, sumber_data, views
 from . import cache as opsis_cache
 from auditlog.models import AuditLog
@@ -1720,12 +1719,6 @@ class PantauanKitTest(TestCase):
 
     # ── Halaman rincian (/opsis/kit-terpilih/) ─────────────────────────
 
-    def _unit(self, pembangkit, menit, **mw_per_unit):
-        snap = SnapLive.objects.get(pembangkit=pembangkit,
-                                    waktu=_waktu_lokal(self.hari_ini, menit))
-        for nama, mw in mw_per_unit.items():
-            SnapUnit.objects.create(snap=snap, nama=nama, mw=mw, mvar=1.0)
-
     def test_kartu_total_di_dashboard_menuju_halaman_rincian(self):
         """Mengklik kartu total itulah satu-satunya jalan masuk ke halaman ini."""
         self._nyalakan(self.a)
@@ -1738,18 +1731,20 @@ class PantauanKitTest(TestCase):
         bagian = isi[tautan.start():isi.index('</a>', tautan.start())]
         self.assertIn('id="pantauan-mw"', bagian)
 
-    def test_halaman_rincian_satu_baris_per_anggota(self):
+    def test_halaman_rincian_satu_baris_tabel_per_anggota(self):
         self._nyalakan(self.a, self.b)
         self._user_login()
         resp = self.client.get(reverse('opsis_kit_terpilih'))
         self.assertEqual(resp.status_code, 200)
         isi = resp.content.decode()
-        self.assertIn('id="chart-komposisi"', isi)
+        self.assertIn('id="chart-kit"', isi)
+        self.assertIn('id="kt-legend"', isi)              # chip pemilih pembangkit
         for kode in ('PKA', 'PKB'):
-            self.assertIn(f'id="kit-{kode}"', isi)
             self.assertIn(f'data-ringkas="{kode}"', isi)
-        self.assertNotIn('id="kit-PKC"', isi)             # bukan anggota
-        # Daftar anggota ditanam untuk JS, urut seperti dashboard.
+        self.assertNotIn('data-ringkas="PKC"', isi)       # bukan anggota
+        # Daftar anggota ditanam untuk JS, urut seperti dashboard. Chart dan
+        # chip dibangun dari daftar yang sama dengan baris tabel, jadi setiap
+        # baris tabel punya garisnya sendiri.
         data = json.loads(re.search(
             r'<script id="kt-anggota" type="application/json">(.*?)</script>',
             isi, re.S).group(1))
@@ -1759,21 +1754,31 @@ class PantauanKitTest(TestCase):
         self.assertNotIn('{#', isi)
         self.assertNotIn('{% comment %}', isi)
 
+    def test_chart_rincian_tidak_melipat_pembangkit_jadi_lainnya(self):
+        """
+        Versi pertama menggabungkan anggota ke-8 dst. jadi satu garis abu-abu
+        "Lainnya", padahal tabel di sebelahnya tetap menampilkan mereka satu
+        per satu — chart dan tabel tidak lagi bisa dicocokkan.
+        """
+        self._nyalakan(self.a)
+        self._user_login()
+        isi = self.client.get(reverse('opsis_kit_terpilih')).content.decode()
+        self.assertNotIn("'Lainnya'", isi)
+        self.assertNotIn('stacked: true', isi)            # tinggi garis = MW-nya sendiri
+
     def test_halaman_rincian_tanpa_konfigurasi_beri_petunjuk(self):
         self._user_login()
         resp = self.client.get(reverse('opsis_kit_terpilih'))
         self.assertEqual(resp.status_code, 200)
         isi = resp.content.decode()
         self.assertIn('Pantauan KIT Terpilih', isi)
-        self.assertNotIn('id="chart-komposisi"', isi)
+        self.assertNotIn('id="chart-kit"', isi)
 
-    def test_api_rincian_total_dan_unit_per_anggota(self):
+    def test_api_rincian_deret_per_anggota(self):
         self._nyalakan(self.a, self.b)
         self._snap(self.a, 600, 100.0)
-        self._unit(self.a, 600, UNIT2=40.0, UNIT10=10.0, UNIT1=50.0)
         self._snap(self.b, 600, 25.5)
         self._snap(self.a, 601, 101.0)
-        self._unit(self.a, 601, UNIT1=51.0, UNIT2=40.0, UNIT10=10.0)
         self._snap(self.luar, 600, 999.0)                  # bukan anggota
 
         self._user_login()
@@ -1781,14 +1786,12 @@ class PantauanKitTest(TestCase):
 
         self.assertTrue(body['aktif'])
         self.assertEqual(body['tanggal'], self.hari_ini.isoformat())
-        self.assertEqual([p['kode'] for p in body['pembangkit']], ['PKA', 'PKB'])
-        a, b = body['pembangkit']
-        self.assertEqual(a['mw'], [[600, 100.0], [601, 101.0]])
-        # Urut menurut NOMOR unit: UNIT10 di belakang UNIT2.
-        self.assertEqual([u['nama'] for u in a['units']], ['UNIT1', 'UNIT2', 'UNIT10'])
-        self.assertEqual(a['units'][0]['mw'], [[600, 50.0], [601, 51.0]])
-        self.assertEqual(b['mw'], [[600, 25.5]])
-        self.assertEqual(b['units'], [])
+        sekarang = timezone.localtime()
+        self.assertAlmostEqual(body['menit_sekarang'], sekarang.hour * 60 + sekarang.minute, delta=1)
+        self.assertEqual(body['pembangkit'], [
+            {'kode': 'PKA', 'nama': 'PLTU A', 'jenis': 'PLTD', 'mw': [[600, 100.0], [601, 101.0]]},
+            {'kode': 'PKB', 'nama': 'PLTU B', 'jenis': 'PLTD', 'mw': [[600, 25.5]]},
+        ])
 
     def test_api_rincian_sama_dengan_chart_dashboard(self):
         """Jumlah total per menit = chart KIT Terpilih di dashboard."""
@@ -1809,13 +1812,11 @@ class PantauanKitTest(TestCase):
         self._nyalakan(self.a)
         for menit in (600, 601, 602):
             self._snap(self.a, menit, float(menit))
-            self._unit(self.a, menit, UNIT1=float(menit))
         self._user_login()
         url = reverse('opsis_api_beban_kit_terpilih_rincian')
         body = self.client.get(url, {'sejak': 601}).json()
         self.assertEqual(body['sejak'], 601)
         self.assertEqual(body['pembangkit'][0]['mw'], [[601, 601.0], [602, 602.0]])
-        self.assertEqual(body['pembangkit'][0]['units'][0]['mw'], [[601, 601.0], [602, 602.0]])
         # Nilai ngawur jatuh ke awal hari, bukan error.
         self.assertEqual(self.client.get(url, {'sejak': 'x'}).json()['sejak'], 0)
 
