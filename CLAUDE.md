@@ -1086,6 +1086,27 @@ up2bmakassar (`deprecated/task/scd_his_rc.py` di repo lama) — jangan menambah
 pola tag baru tanpa konfirmasi dari log SCADA sungguhan, sudah pernah ada
 tag `'MU'` yang menyelinap masuk padahal tidak pernah ada di job aslinya.
 
+**Satu perintah RC = beberapa baris `scd_his_rc`, bukan satu.** Trigger
+`tr1_scd_his_message` menulis DUA baris untuk tiap pesan perintah (tag `OR`),
+id berurutan, path/`datum_1`/arah/operator identik: satu kosong, satu
+**placeholder** `cek_remote=1, status_2='GAGAL', datum_2=datum_1` — ditulis saat
+perintah dikirim, jadi tidak pernah memeriksa balasan apa pun. Versi lama
+`sync_rc` menyimpan keduanya sebagai RC terpisah dan memercayai placeholder-nya,
+sehingga tiap perintah terhitung satu hasil sungguhan + satu GAGAL palsu:
+performance tiap bay tidak pernah bisa lewat 50% (terukur 15 Sep–15 Okt 2026:
+614 "RC" 41,37% → 307 perintah 82,41%). Pola ini ada sejak Nov 2023, saat job
+resolver up2bmakassar mati. `ofdb.gabung_rc_kembar()` menyatukan baris berkunci
+`ofdb.kunci_perintah_rc()` (path1..path5 + `datum_1` + arah + operator), memakai
+id terkecil sebagai `RemoteControl.ofdb_id_his_rc`, dan menghapus kembaran yang
+terlanjur tersimpan; migrasi `0005_satukan_rc_kembar` membersihkan data lama.
+Dua variasi yang ikut tertangani: pesan `OR` yang terduplikasi di
+`scd_his_message` (4 baris, tetap satu perintah), dan perintah bertag `O*` yang
+hanya melahirkan placeholder-nya — hasilnya tetap dicari di SOE log (BLUSU5
+15 Sep 2026: placeholder GAGAL, balasan sebenarnya `R*` = BERHASIL). RC lama
+yang terlanjur memakai placeholder sebagai hasil baru diperbaiki dengan
+`sync_rc --ulang`. `cek_kinerja_ofdb` karena itu membandingkan jumlah
+**perintah** OFDB dengan isi FASOP, bukan jumlah baris.
+
 ---
 
 ## OPSIS — Prediksi Beban (spreadsheet, bukan ML)
