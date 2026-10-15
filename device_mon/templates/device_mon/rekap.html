@@ -1,0 +1,285 @@
+{% extends "device_mon/base.html" %}
+
+{% block title %}Rekap Device Monitor{% endblock %}
+
+{% block extra_head %}
+<style>
+.stat-bar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+    margin-bottom: 18px;
+}
+.stat-card { padding: 12px 16px; }
+.stat-lbl  { font-size: 10px; }
+.stat-val  { font-size: 24px; }
+
+.judul-bagian {
+    font-size: 12px; font-weight: 700; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .4px; margin-bottom: 10px;
+}
+
+/* ── Kartu per sumber ── */
+.sumber-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+}
+.sumber-card {
+    display: block;
+    background: var(--card-bg);
+    border: 1px solid var(--card-bd);
+    border-radius: 12px;
+    padding: 16px 18px;
+    text-decoration: none; color: inherit;
+    position: relative; overflow: hidden;
+    transition: .2s;
+}
+.sumber-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: var(--card-bd);
+}
+.sumber-card.ok::before      { background: #10b981; }
+.sumber-card.warning::before { background: #f59e0b; }
+.sumber-card.problem::before { background: #ef4444; }
+.sumber-card:hover { transform: translateY(-1px); border-color: #1d4ed8; color: inherit; }
+
+.sumber-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    margin-bottom: 12px;
+}
+.sumber-nama { font-size: 14px; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 8px; }
+.sumber-total {
+    font-size: 10px; font-weight: 700; color: var(--muted);
+    background: rgba(255,255,255,.05); padding: 2px 8px; border-radius: 10px; white-space: nowrap;
+}
+.sumber-angka { display: flex; gap: 18px; margin-bottom: 12px; flex-wrap: wrap; }
+.sumber-angka .nilai { font-family: 'JetBrains Mono', monospace; font-size: 22px; font-weight: 700; line-height: 1.1; }
+.sumber-angka .lbl   { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
+.nilai.ok      { color: #10b981; }
+.nilai.problem { color: #ef4444; }
+.nilai.warning { color: #f59e0b; }
+.nilai.unknown { color: #94a3b8; }
+
+/* Batang proporsi: hijau / kuning / merah / abu-abu */
+.proporsi {
+    display: flex; height: 6px; border-radius: 3px; overflow: hidden;
+    background: rgba(255,255,255,.06); margin-bottom: 10px;
+}
+.proporsi span { display: block; height: 100%; }
+.proporsi .ok      { background: #10b981; }
+.proporsi .warning { background: #f59e0b; }
+.proporsi .problem { background: #ef4444; }
+.proporsi .unknown { background: #475569; }
+
+.sumber-avail {
+    display: flex; justify-content: space-between; gap: 10px;
+    font-size: 11px; color: var(--muted);
+}
+.sumber-avail b { font-family: 'JetBrains Mono', monospace; font-weight: 700; }
+.sumber-buka { margin-top: 10px; font-size: 10px; color: #60a5fa; }
+
+/* ── Tabel gangguan aktif ── */
+.gangguan-table td a { color: var(--text); text-decoration: none; font-weight: 700; }
+.gangguan-table td a:hover { color: #93c5fd; }
+.tag-sumber {
+    display: inline-block; font-size: 10px; font-weight: 700;
+    padding: 2px 7px; border-radius: 4px; white-space: nowrap;
+    background: rgba(59,130,246,.12); color: #93c5fd;
+}
+.tag-sumber.rtu { background: rgba(34,211,238,.12); color: #67e8f9; }
+.sub { font-size: 10px; color: var(--muted); }
+.jumlah-aktif {
+    font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 10px; margin-left: 6px;
+    background: rgba(239,68,68,.15); color: #f87171;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px; margin-bottom:12px;">
+    <div>
+        <div style="font-size:15px; font-weight:800; color:#fff;">
+            <span class="live-dot"></span>Rekap Status Peralatan
+        </div>
+        <div style="font-size:11px; color:var(--muted); margin-top:2px;">RTU SCADA dan seluruh instansi Zabbix dalam satu layar</div>
+    </div>
+    <div style="font-size:11px; color:var(--muted);" id="last-updated">—</div>
+</div>
+
+<div class="stat-bar">
+    <div class="stat-card">
+        <div class="stat-lbl"><i class="bi bi-hdd-stack me-1" style="color:#60a5fa;"></i>Total Perangkat</div>
+        <div class="stat-val" id="stat-total">—</div>
+    </div>
+    <div class="stat-card up">
+        <div class="stat-lbl"><i class="bi bi-check-circle-fill me-1" style="color:#10b981;"></i>Normal</div>
+        <div class="stat-val up" id="stat-normal">—</div>
+    </div>
+    <div class="stat-card down">
+        <div class="stat-lbl"><i class="bi bi-x-circle-fill me-1" style="color:#ef4444;"></i>Gangguan</div>
+        <div class="stat-val down" id="stat-gangguan">—</div>
+    </div>
+    <div class="stat-card warning">
+        <div class="stat-lbl"><i class="bi bi-exclamation-triangle-fill me-1" style="color:#f59e0b;"></i>Warning</div>
+        <div class="stat-val warning" id="stat-warning">—</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-lbl"><i class="bi bi-question-circle me-1" style="color:#94a3b8;"></i>Tidak Diketahui</div>
+        <div class="stat-val" style="color:#94a3b8;" id="stat-unknown">—</div>
+    </div>
+</div>
+
+<div class="judul-bagian"><i class="bi bi-grid-3x3-gap-fill me-1"></i>Per Sumber</div>
+<div class="sumber-grid" id="sumber-grid">
+    <div style="grid-column:1/-1; text-align:center; padding:30px; color:var(--muted);">
+        <i class="bi bi-arrow-repeat" style="font-size:20px; display:block; margin-bottom:6px; animation:spin 1s linear infinite;"></i>
+        Memuat...
+    </div>
+</div>
+
+<div class="chart-card">
+    <div class="chart-head">
+        <div class="chart-title">
+            <i class="bi bi-exclamation-octagon-fill me-1" style="color:#f87171;"></i>Gangguan Aktif Sekarang<span class="jumlah-aktif" id="jumlah-aktif" hidden></span>
+        </div>
+        <span class="sub">Kritis lebih dulu, lalu yang paling lama</span>
+    </div>
+    <div class="table-scroll">
+    <table class="gangguan-table">
+        <thead>
+            <tr>
+                <th>Sumber</th>
+                <th>Perangkat</th>
+                <th>Status</th>
+                <th>Sejak</th>
+                <th>Durasi</th>
+            </tr>
+        </thead>
+        <tbody id="tbl-aktif">
+            <tr><td colspan="5" style="text-align:center; color:var(--muted); padding:16px;">Memuat...</td></tr>
+        </tbody>
+    </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Nama host & teks problem datang dari server Zabbix — selalu di-escape.
+function esc(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function fmtDur(m) {
+    if (m === null || m === undefined) return '—';
+    if (m < 60) return m + 'm';
+    const j = Math.floor(m / 60), r = m % 60;
+    if (j < 24) return r ? `${j}j${r}m` : `${j}j`;
+    const h = Math.floor(j / 24), sj = j % 24;
+    return sj ? `${h}h${sj}j` : `${h}h`;
+}
+function fmtDt(s) {
+    if (!s) return '—';
+    return new Date(s).toLocaleString('id-ID', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'});
+}
+function fmtPct(v) { return v === null || v === undefined ? '—' : v.toFixed(2) + '%'; }
+function availColor(v) {
+    if (v === null || v === undefined) return '#475569';
+    return v >= 99 ? '#10b981' : v >= 95 ? '#f59e0b' : '#ef4444';
+}
+
+const IKON = {
+    rtu:    '<i class="bi bi-cpu-fill" style="color:#22d3ee;"></i>',
+    zabbix: '<i class="bi bi-diagram-3-fill" style="color:#f97316;"></i>',
+};
+
+function kartuSumber(s) {
+    const kelas = !s.total ? '' : s.gangguan ? 'problem' : s.warning ? 'warning' : 'ok';
+    const pct = n => s.total ? (n / s.total * 100) : 0;
+    const angka = [
+        `<div><div class="nilai ok">${s.normal}</div><div class="lbl">${esc(s.label_normal)}</div></div>`,
+        `<div><div class="nilai problem">${s.gangguan}</div><div class="lbl">${esc(s.label_gangguan)}</div></div>`,
+    ];
+    if (s.jenis === 'zabbix') angka.push(`<div><div class="nilai warning">${s.warning}</div><div class="lbl">Warning</div></div>`);
+    if (s.unknown) angka.push(`<div><div class="nilai unknown">${s.unknown}</div><div class="lbl">Tidak diketahui</div></div>`);
+    return `
+    <a class="sumber-card ${kelas}" href="${esc(s.url)}">
+        <div class="sumber-head">
+            <div class="sumber-nama">${IKON[s.jenis] || ''}<span>${esc(s.nama)}</span></div>
+            <span class="sumber-total">${s.total} perangkat</span>
+        </div>
+        <div class="sumber-angka">${angka.join('')}</div>
+        <div class="proporsi" title="${s.normal} normal · ${s.warning} warning · ${s.gangguan} gangguan · ${s.unknown} tidak diketahui">
+            <span class="ok" style="width:${pct(s.normal)}%"></span>
+            <span class="warning" style="width:${pct(s.warning)}%"></span>
+            <span class="problem" style="width:${pct(s.gangguan)}%"></span>
+            <span class="unknown" style="width:${pct(s.unknown)}%"></span>
+        </div>
+        <div class="sumber-avail">
+            <span>Avail hari ini <b style="color:${availColor(s.avail_hari)};">${fmtPct(s.avail_hari)}</b></span>
+            <span>Bulan ini <b style="color:${availColor(s.avail_bulan)};">${fmtPct(s.avail_bulan)}</b></span>
+        </div>
+        <div class="sumber-buka">Buka ringkasan <i class="bi bi-arrow-right"></i></div>
+    </a>`;
+}
+
+function renderSumber(daftar) {
+    const grid = document.getElementById('sumber-grid');
+    if (!daftar || !daftar.length) {
+        grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:30px;color:var(--muted);">Belum ada sumber data.</div>';
+        return;
+    }
+    grid.innerHTML = daftar.map(kartuSumber).join('');
+}
+
+function renderAktif(daftar) {
+    const tbody = document.getElementById('tbl-aktif');
+    const badge = document.getElementById('jumlah-aktif');
+    badge.hidden = !daftar.length;
+    badge.textContent = daftar.length;
+    if (!daftar.length) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:16px;">Tidak ada gangguan aktif — semua perangkat normal.</td></tr>';
+        return;
+    }
+    tbody.innerHTML = daftar.map(a => `
+        <tr>
+            <td><span class="tag-sumber ${a.sumber_kode === 'rtu' ? 'rtu' : ''}">${esc(a.sumber)}</span></td>
+            <td>
+                <a href="${esc(a.url)}">${esc(a.nama)}</a>
+                ${a.lokasi ? `<div class="sub">${esc(a.lokasi)}</div>` : ''}
+                ${a.keterangan ? `<div class="sub">${esc(a.keterangan)}</div>` : ''}
+            </td>
+            <td><span class="${a.kelas === 'problem' ? 'tag-problem' : 'tag-warning'}">${esc(a.status)}</span></td>
+            <td style="font-size:11px;">${fmtDt(a.sejak)}</td>
+            <td style="font-family:'JetBrains Mono',monospace;">${fmtDur(a.durasi_menit)}</td>
+        </tr>`).join('');
+}
+
+async function pollRekap() {
+    const info = document.getElementById('last-updated');
+    try {
+        const r = await fetch('{% url "dm_api_rekap" %}');
+        if (!r.ok) { info.textContent = 'Gagal memuat (HTTP ' + r.status + ')'; return; }
+        const d = await r.json();
+        document.getElementById('stat-total').textContent    = d.total.total;
+        document.getElementById('stat-normal').textContent   = d.total.normal;
+        document.getElementById('stat-gangguan').textContent = d.total.gangguan;
+        document.getElementById('stat-warning').textContent  = d.total.warning;
+        document.getElementById('stat-unknown').textContent  = d.total.unknown;
+        renderSumber(d.sumber);
+        renderAktif(d.aktif);
+        info.textContent = 'Update: ' + new Date().toLocaleTimeString('id-ID');
+    } catch (e) {
+        info.textContent = 'Gagal memuat — mencoba lagi';
+        console.error('poll rekap', e);
+    }
+}
+
+pollRekap();
+setInterval(pollRekap, 15000);
+</script>
+{% endblock %}

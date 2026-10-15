@@ -272,7 +272,7 @@ body {
     <div class="topbar-brand">
         <i class="bi bi-router-fill" style="color:#3b82f6;"></i>
         <span>Device Monitor</span>
-        <span class="badge-dm">RTU</span>
+        <span class="badge-dm">REALTIME</span>
     </div>
     <div class="topbar-sep"></div>
     <div class="topbar-clock" id="live-clock">--:--:--</div>
@@ -301,11 +301,18 @@ body {
                 <i class="bi bi-layout-sidebar-reverse" id="collapse-icon"></i>
             </button>
         </div>
-        <div class="sb-section-label">RTU (SCADA)</div>
-        <a href="/device-mon/" class="sb-link {% if request.resolver_match.url_name == 'dm_dashboard' %}active{% endif %}">
-            <i class="bi bi-grid-3x3-gap-fill sb-icon"></i>
-            <span class="sb-label">Dashboard</span>
+        {% with nama_url=request.resolver_match.url_name %}
+        <div class="sb-section-label">Device Monitor</div>
+        <a href="{% url 'dm_dashboard' %}" class="sb-link {% if nama_url == 'dm_dashboard' %}active{% endif %}">
+            <i class="bi bi-grid-1x2-fill sb-icon" style="color:#60a5fa;"></i>
+            <span class="sb-label">Rekap Semua</span>
         </a>
+        <div class="sb-section-label" style="margin-top:8px;">RTU (SCADA)</div>
+        <a href="{% url 'dm_rtu_dashboard' %}" class="sb-link {% if nama_url == 'dm_rtu_dashboard' or nama_url == 'dm_rtu_detail' %}active{% endif %}">
+            <i class="bi bi-cpu-fill sb-icon" style="color:#22d3ee;"></i>
+            <span class="sb-label">Ringkasan</span>
+        </a>
+        {% endwith %}
         <a href="/device-mon/gangguan/" class="sb-link {% if request.resolver_match.url_name == 'dm_gangguan' %}active{% endif %}">
             <i class="bi bi-exclamation-triangle-fill sb-icon" style="color:#f87171;"></i>
             <span class="sb-label">Histori Gangguan</span>

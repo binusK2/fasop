@@ -3,7 +3,12 @@ from django.views.generic import RedirectView
 from . import views
 
 urlpatterns = [
+    # '' = rekap SEMUA sumber (RTU + tiap Instansi Zabbix). Nama URL-nya tetap
+    # 'dm_dashboard' karena itulah yang dirujuk sidebar FASOP & tes Dispatcher
+    # sebagai pintu masuk Device Monitor. Dashboard RTU pindah ke 'rtu/'.
     path('',                    views.dashboard,           name='dm_dashboard'),
+    path('api/rekap/',          views.api_rekap,           name='dm_api_rekap'),
+    path('rtu/',                views.rtu_dashboard,       name='dm_rtu_dashboard'),
     path('api/status/',         views.api_status,          name='dm_api_status'),
     path('rtu/<int:pk>/',       views.rtu_detail,          name='dm_rtu_detail'),
     path('rtu/<int:pk>/logs/',  views.api_rtu_logs,        name='dm_api_rtu_logs'),
