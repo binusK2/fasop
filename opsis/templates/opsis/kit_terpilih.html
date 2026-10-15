@@ -285,7 +285,7 @@ function simpanPilihan() {
 
 const SERI = ANGGOTA.map((p, i) => ({
     kode: p.kode, nama: p.nama, warna: warnaPembangkit(i), putus: putusPembangkit(i),
-})).concat([{ kode: KODE_TOTAL, nama: 'Total', warna: WARNA_TOTAL, putus: [5, 4], total: true }]);
+})).concat([{ kode: KODE_TOTAL, nama: 'Total', warna: WARNA_TOTAL, putus: [], total: true }]);
 
 function gambarChip() {
     const wrap = document.getElementById('kt-legend');
@@ -388,7 +388,7 @@ const chart = new Chart(document.getElementById('chart-kit').getContext('2d'), {
             label: s.nama,
             data: [],
             borderColor: s.warna, backgroundColor: s.warna,
-            borderWidth: s.total ? 2 : 1.5,
+            borderWidth: 1.5,
             borderDash: s.putus,
             pointRadius: 0, pointHoverRadius: 3, tension: 0.25,
             fill: false, spanGaps: false,

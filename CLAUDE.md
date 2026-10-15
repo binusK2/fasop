@@ -1086,8 +1086,9 @@ Konsekuensi yang perlu diketahui:
 
 Dibuka dengan **mengklik kartu total** di dashboard (kartunya sebuah `<a>`,
 `id="kartu-pantauan"`); tidak ada menu sidebar untuknya. Isinya total MW/MVAR,
-puncak hari ini, lalu **chart 24 jam satu garis per pembangkit + garis Total
-putus-putus** dengan tabel MW/MVAR/% per pembangkit di sebelahnya. Pola
+puncak hari ini, lalu **chart 24 jam satu garis per pembangkit + garis Total**
+(garis biasa seperti yang lain, warna putih — sengaja tidak putus-putus, atas
+permintaan pengguna) dengan tabel MW/MVAR/% per pembangkit di sebelahnya. Pola
 chart-nya sama dengan chart Beban KTT: chip per pembangkit untuk
 menampilkan/menyembunyikan garisnya, tombol Semua/Kosongkan, dan yang disimpan
 di localStorage adalah seri yang DIMATIKAN.
