@@ -17,7 +17,8 @@ from django.utils import timezone
 from .models import (KartuPadam, KelompokPeta, KolomEWS, ModePemeliharaan,
                      PantauanKit, Pembangkit, PengaturanDashboard, SnapKtt,
                      PengaturanInersia, PrakiraanBeban, SnapFreq, SnapFreqRT,
-                     SnapLive, TitikEWS, SumberKit, TagUnitKit, SPEK_KIT_BAWAAN)
+                     SnapLive, SnapUnit, TitikEWS, SumberKit, TagUnitKit,
+                     SPEK_KIT_BAWAAN)
 from . import freq_history, hop_map, ktt, mssql, prakiraan, prediksi, sumber_data, views
 from . import cache as opsis_cache
 from auditlog.models import AuditLog
@@ -1716,6 +1717,122 @@ class PantauanKitTest(TestCase):
         self.assertFalse(pantauan.tampil())
         self._user_login()
         self.assertNotIn('id="chart-pantauan"', self.client.get('/opsis/').content.decode())
+
+    # ── Halaman rincian (/opsis/kit-terpilih/) ─────────────────────────
+
+    def _unit(self, pembangkit, menit, **mw_per_unit):
+        snap = SnapLive.objects.get(pembangkit=pembangkit,
+                                    waktu=_waktu_lokal(self.hari_ini, menit))
+        for nama, mw in mw_per_unit.items():
+            SnapUnit.objects.create(snap=snap, nama=nama, mw=mw, mvar=1.0)
+
+    def test_kartu_total_di_dashboard_menuju_halaman_rincian(self):
+        """Mengklik kartu total itulah satu-satunya jalan masuk ke halaman ini."""
+        self._nyalakan(self.a)
+        self._user_login()
+        isi = self.client.get('/opsis/').content.decode()
+        tautan = re.search(r'<a [^>]*id="kartu-pantauan"[^>]*>', isi)
+        self.assertIsNotNone(tautan, 'kartu total KIT Terpilih harus berupa tautan')
+        self.assertIn(f'href="{reverse("opsis_kit_terpilih")}"', tautan.group(0))
+        # Angka live-nya tetap di dalam kartu yang diklik.
+        bagian = isi[tautan.start():isi.index('</a>', tautan.start())]
+        self.assertIn('id="pantauan-mw"', bagian)
+
+    def test_halaman_rincian_satu_baris_per_anggota(self):
+        self._nyalakan(self.a, self.b)
+        self._user_login()
+        resp = self.client.get(reverse('opsis_kit_terpilih'))
+        self.assertEqual(resp.status_code, 200)
+        isi = resp.content.decode()
+        self.assertIn('id="chart-komposisi"', isi)
+        for kode in ('PKA', 'PKB'):
+            self.assertIn(f'id="kit-{kode}"', isi)
+            self.assertIn(f'data-ringkas="{kode}"', isi)
+        self.assertNotIn('id="kit-PKC"', isi)             # bukan anggota
+        # Daftar anggota ditanam untuk JS, urut seperti dashboard.
+        data = json.loads(re.search(
+            r'<script id="kt-anggota" type="application/json">(.*?)</script>',
+            isi, re.S).group(1))
+        self.assertEqual([p['kode'] for p in data], ['PKA', 'PKB'])
+        # Sumbu 24 jam dipakai bersama dashboard, bukan disalin.
+        self.assertIn('function sumbuJam24', isi)
+        self.assertNotIn('{#', isi)
+        self.assertNotIn('{% comment %}', isi)
+
+    def test_halaman_rincian_tanpa_konfigurasi_beri_petunjuk(self):
+        self._user_login()
+        resp = self.client.get(reverse('opsis_kit_terpilih'))
+        self.assertEqual(resp.status_code, 200)
+        isi = resp.content.decode()
+        self.assertIn('Pantauan KIT Terpilih', isi)
+        self.assertNotIn('id="chart-komposisi"', isi)
+
+    def test_api_rincian_total_dan_unit_per_anggota(self):
+        self._nyalakan(self.a, self.b)
+        self._snap(self.a, 600, 100.0)
+        self._unit(self.a, 600, UNIT2=40.0, UNIT10=10.0, UNIT1=50.0)
+        self._snap(self.b, 600, 25.5)
+        self._snap(self.a, 601, 101.0)
+        self._unit(self.a, 601, UNIT1=51.0, UNIT2=40.0, UNIT10=10.0)
+        self._snap(self.luar, 600, 999.0)                  # bukan anggota
+
+        self._user_login()
+        body = self.client.get(reverse('opsis_api_beban_kit_terpilih_rincian')).json()
+
+        self.assertTrue(body['aktif'])
+        self.assertEqual(body['tanggal'], self.hari_ini.isoformat())
+        self.assertEqual([p['kode'] for p in body['pembangkit']], ['PKA', 'PKB'])
+        a, b = body['pembangkit']
+        self.assertEqual(a['mw'], [[600, 100.0], [601, 101.0]])
+        # Urut menurut NOMOR unit: UNIT10 di belakang UNIT2.
+        self.assertEqual([u['nama'] for u in a['units']], ['UNIT1', 'UNIT2', 'UNIT10'])
+        self.assertEqual(a['units'][0]['mw'], [[600, 50.0], [601, 51.0]])
+        self.assertEqual(b['mw'], [[600, 25.5]])
+        self.assertEqual(b['units'], [])
+
+    def test_api_rincian_sama_dengan_chart_dashboard(self):
+        """Jumlah total per menit = chart KIT Terpilih di dashboard."""
+        self._nyalakan(self.a, self.b)
+        for menit, mw_a, mw_b in ((600, 100.0, 25.5), (601, 98.25, 26.0)):
+            self._snap(self.a, menit, mw_a)
+            self._snap(self.b, menit, mw_b)
+        self._user_login()
+        rincian = self.client.get(reverse('opsis_api_beban_kit_terpilih_rincian')).json()
+        jumlah = {}
+        for p in rincian['pembangkit']:
+            for menit, mw in p['mw']:
+                jumlah[menit] = round(jumlah.get(menit, 0) + mw, 2)
+        dashboard = self.client.get(self.url).json()['rows']
+        self.assertEqual([{'minute': m, 'mw': v} for m, v in sorted(jumlah.items())], dashboard)
+
+    def test_api_rincian_sejak_hanya_ekor(self):
+        self._nyalakan(self.a)
+        for menit in (600, 601, 602):
+            self._snap(self.a, menit, float(menit))
+            self._unit(self.a, menit, UNIT1=float(menit))
+        self._user_login()
+        url = reverse('opsis_api_beban_kit_terpilih_rincian')
+        body = self.client.get(url, {'sejak': 601}).json()
+        self.assertEqual(body['sejak'], 601)
+        self.assertEqual(body['pembangkit'][0]['mw'], [[601, 601.0], [602, 602.0]])
+        self.assertEqual(body['pembangkit'][0]['units'][0]['mw'], [[601, 601.0], [602, 602.0]])
+        # Nilai ngawur jatuh ke awal hari, bukan error.
+        self.assertEqual(self.client.get(url, {'sejak': 'x'}).json()['sejak'], 0)
+
+    def test_api_rincian_abaikan_hari_lain_dan_mati_bila_dimatikan(self):
+        self._nyalakan(self.a)
+        kemarin = self.hari_ini - datetime.timedelta(days=1)
+        SnapLive.objects.create(pembangkit=self.a, mw=500.0, waktu=_waktu_lokal(kemarin, 600))
+        self._user_login()
+        url = reverse('opsis_api_beban_kit_terpilih_rincian')
+        self.assertEqual(self.client.get(url).json()['pembangkit'][0]['mw'], [])
+
+        pantauan = PantauanKit.ambil()
+        pantauan.aktif = False
+        pantauan.save()
+        body = self.client.get(url).json()
+        self.assertFalse(body['aktif'])
+        self.assertEqual(body['pembangkit'], [])
 
 
 class KartuPadamModelTest(TestCase):

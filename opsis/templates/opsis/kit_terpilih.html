@@ -1,0 +1,632 @@
+{% extends "opsis/opsis_base.html" %}
+{% load static %}
+
+{% block title %}{{ pantauan.nama }} — Rincian{% endblock %}
+
+{% block extra_head %}
+<script src="{% static 'vendor/chart.js@4.5.1/dist/chart.umd.min.js' %}"></script>
+<style>
+.kt-head {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 10px; margin-bottom: 18px;
+}
+.kt-crumb { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-width: 0; }
+.kt-crumb a { color: var(--muted); text-decoration: none; font-size: 13px; }
+.kt-crumb a:hover { color: var(--text); }
+.kt-judul { font-size: 20px; font-weight: 800; color: #fff; }
+.kt-update { font-size: 11px; color: var(--muted); }
+
+/* Tiga angka utama di atas: total MW, total MVAR, puncak hari ini. */
+.kt-stat-row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+}
+.kt-stat-sub { font-size: 11px; color: var(--muted); margin-top: 6px; }
+
+/* Satu baris = chart (lebar) + tabel di sebelahnya. Dipakai untuk ringkasan
+   per pembangkit DAN untuk tiap pembangkit (per unit), supaya semua tabel
+   berdiri di kolom yang sama lebarnya dan semua chart lurus satu sama lain. */
+.kt-baris {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 380px);
+    gap: 16px;
+    margin-bottom: 16px;
+    scroll-margin-top: 16px;
+}
+@media (max-width: 1000px) {
+    .kt-baris { grid-template-columns: 1fr; }
+}
+@media (max-width: 700px) {
+    .kt-stat-row { grid-template-columns: 1fr; }
+}
+
+.kt-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-bd);
+    border-radius: 14px;
+    padding: 16px 18px;
+    min-width: 0;
+}
+.kt-card-head {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 6px 10px; margin-bottom: 12px;
+}
+.kt-card-title { font-size: 13px; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 6px; }
+.kt-card-sub { font-size: 11px; color: var(--muted); }
+.kt-card-head a { font-size: 11px; color: var(--muted); text-decoration: none; }
+.kt-card-head a:hover { color: var(--text); }
+.kt-jenis {
+    font-size: 10px; font-weight: 700; color: var(--muted);
+    background: rgba(255,255,255,.06); border-radius: 999px; padding: 1px 8px;
+}
+
+.kt-chart { position: relative; height: 280px; }
+.kt-chart.kecil { height: 220px; }
+.kt-chart-kosong {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    text-align: center; padding: 0 16px; font-size: 12px; color: var(--muted); pointer-events: none;
+}
+
+.kt-section {
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px;
+    color: var(--muted); margin: 6px 0 10px;
+}
+
+.kt-tabel { width: 100%; border-collapse: collapse; font-size: 12px; }
+.kt-tabel th {
+    color: var(--muted); font-weight: 600; font-size: 11px; text-align: left;
+    padding: 6px 8px; border-bottom: 1px solid var(--card-bd); white-space: nowrap;
+}
+.kt-tabel td { padding: 7px 8px; border-bottom: 1px solid var(--card-bd); color: var(--text); }
+.kt-tabel .num {
+    text-align: right; white-space: nowrap;
+    font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums;
+}
+.kt-tabel tfoot td { font-weight: 700; border-bottom: none; border-top: 1px solid #2d3e55; }
+.kt-tabel td.redup { color: var(--muted); }
+.kt-tabel td.serap { color: #f87171; }
+.kt-tabel a { color: var(--text); text-decoration: none; }
+.kt-tabel a:hover { text-decoration: underline; }
+.kt-dot {
+    display: inline-block; width: 9px; height: 9px; border-radius: 50%;
+    margin-right: 7px; vertical-align: middle; flex-shrink: 0;
+}
+.kt-flag { color: #f59e0b; margin-left: 4px; }
+
+.kt-terputus {
+    background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.25);
+    border-radius: 8px; padding: 8px 14px; font-size: 11px; color: #f87171;
+    margin-bottom: 16px; display: none; align-items: center; gap: 8px;
+}
+.kt-terputus.show { display: flex; }
+.kt-kosong {
+    background: rgba(245,158,11,.08); border: 1px solid rgba(245,158,11,.25);
+    border-radius: 10px; padding: 14px 18px; font-size: 13px; color: #fbbf24;
+    display: flex; align-items: center; gap: 10px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="kt-head">
+    <div class="kt-crumb">
+        <a href="{% url 'opsis_dashboard' %}"><i class="bi bi-arrow-left-circle me-1"></i>Dashboard</a>
+        <span style="color:var(--sb-border);">/</span>
+        <span class="kt-judul">{{ pantauan.nama }}</span>
+        {% if tampil %}<span style="font-size:12px; color:var(--muted);"><span class="live-dot"></span>Live</span>{% endif %}
+    </div>
+    {% if tampil %}<span class="kt-update" id="kt-update">memuat...</span>{% endif %}
+</div>
+
+{% if not tampil %}
+<div class="kt-kosong">
+    <i class="bi bi-exclamation-triangle-fill"></i>
+    <div>
+        Kartu <strong>{{ pantauan.nama }}</strong> sedang tidak ditampilkan atau belum punya anggota.
+        Atur di <em>Admin → Opsis → Pantauan KIT Terpilih</em>.
+    </div>
+</div>
+{% else %}
+
+<div class="kt-terputus" id="kt-terputus">
+    <i class="bi bi-exclamation-triangle-fill"></i>
+    Koneksi ke historian terputus — angka live kosong. Chart di bawah tetap dari PostgreSQL.
+</div>
+
+<div class="kt-stat-row">
+    <div class="metric-card" style="border-color:{{ pantauan.warna }}55;">
+        <div class="metric-label"><i class="bi bi-bullseye me-1" style="color:{{ pantauan.warna }};"></i>Total Beban</div>
+        <div class="metric-value" style="color:{{ pantauan.warna }};" id="kt-total-mw">—<span class="metric-unit">MW</span></div>
+        <div class="kt-stat-sub">{{ anggota|length }} pembangkit · angka yang sama dengan kartu di dashboard</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-label"><i class="bi bi-lightning-fill me-1" style="color:#a78bfa;"></i>Total Daya Reaktif</div>
+        <div class="metric-value" id="kt-total-mvar">—<span class="metric-unit">MVAR</span></div>
+        <div class="kt-stat-sub">MVAR dijumlahkan bertanda — minus berarti menyerap</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-label"><i class="bi bi-graph-up-arrow me-1" style="color:#fbbf24;"></i>Puncak Hari Ini</div>
+        <div class="metric-value" id="kt-puncak">—<span class="metric-unit">MW</span></div>
+        <div class="kt-stat-sub" id="kt-puncak-jam">dari rekaman per menit (SnapLive)</div>
+    </div>
+</div>
+
+<div class="kt-section">Total per pembangkit</div>
+<div class="kt-baris">
+    <div class="kt-card">
+        <div class="kt-card-head">
+            <div class="kt-card-title"><i class="bi bi-layers" style="color:{{ pantauan.warna }};"></i>Komposisi Beban — Hari Ini</div>
+            <span class="kt-card-sub">Bertumpuk per pembangkit · tepi atas = total</span>
+        </div>
+        <div class="kt-chart">
+            <canvas id="chart-komposisi" aria-label="Chart beban bertumpuk per pembangkit hari ini" role="img"></canvas>
+            <div class="kt-chart-kosong" id="komposisi-kosong">Memuat data...</div>
+        </div>
+    </div>
+    <div class="kt-card">
+        <div class="kt-card-head">
+            <div class="kt-card-title"><i class="bi bi-table" style="color:var(--muted);"></i>Beban per Pembangkit</div>
+            <span class="kt-card-sub">live</span>
+        </div>
+        <div style="overflow-x:auto;">
+            <table class="kt-tabel">
+                <thead>
+                    <tr><th>Pembangkit</th><th class="num">MW</th><th class="num">MVAR</th><th class="num">%</th></tr>
+                </thead>
+                <tbody>
+                {% for p in anggota %}
+                    <tr data-ringkas="{{ p.kode }}">
+                        <td><span class="kt-dot" data-dot-pembangkit="{{ p.kode }}"></span><a href="#kit-{{ p.kode }}" title="Lompat ke rincian unit {{ p.nama }}">{{ p.nama }}</a><i class="bi bi-exclamation-triangle-fill kt-flag" data-flag hidden></i></td>
+                        <td class="num" data-mw>—</td>
+                        <td class="num" data-mvar>—</td>
+                        <td class="num redup" data-persen>—</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr><td>Total</td><td class="num" id="kt-tabel-mw">—</td><td class="num" id="kt-tabel-mvar">—</td><td class="num redup">100%</td></tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="kt-section">Rincian per unit</div>
+{% for p in anggota %}
+<div class="kt-baris" id="kit-{{ p.kode }}" data-kt-pembangkit="{{ p.kode }}">
+    <div class="kt-card">
+        <div class="kt-card-head">
+            <div class="kt-card-title">
+                <span class="kt-dot" data-dot-pembangkit="{{ p.kode }}" style="margin-right:0;"></span>{{ p.nama }}
+                <span class="kt-jenis">{{ p.jenis }}</span>
+            </div>
+            <a href="{% url 'opsis_pembangkit' p.pk %}">Detail pembangkit <i class="bi bi-box-arrow-up-right"></i></a>
+        </div>
+        <div class="kt-chart kecil">
+            <canvas data-chart-unit aria-label="Chart beban per unit {{ p.nama }} hari ini" role="img"></canvas>
+            <div class="kt-chart-kosong" data-chart-kosong>Memuat data...</div>
+        </div>
+    </div>
+    <div class="kt-card">
+        <div class="kt-card-head">
+            <div class="kt-card-title"><i class="bi bi-grid-3x2-gap" style="color:var(--muted);"></i>Unit {{ p.nama }}</div>
+            <span class="kt-card-sub" data-puncak>Puncak hari ini: —</span>
+        </div>
+        <div style="overflow-x:auto;">
+            <table class="kt-tabel">
+                <thead>
+                    <tr><th>Unit</th><th class="num">MW</th><th class="num">MVAR</th></tr>
+                </thead>
+                <tbody data-unit-tbody>
+                    <tr><td colspan="3" class="redup" style="text-align:center;">Memuat data...</td></tr>
+                </tbody>
+                <tfoot>
+                    <tr><td>Total {{ p.nama }}</td><td class="num" data-total-mw>—</td><td class="num" data-total-mvar>—</td></tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+{% if tampil %}
+{{ anggota_info|json_script:"kt-anggota" }}
+<script>
+const ANGGOTA = JSON.parse(document.getElementById('kt-anggota').textContent);
+
+Chart.defaults.color = '#64748b';
+Chart.defaults.font.family = 'DM Sans';
+
+{% include "opsis/_sumbu_jam24_js.html" %}
+
+// ── Warna ─────────────────────────────────────────────────────────────
+// Palet kategorikal tervalidasi untuk latar kartu OPSIS (#131f35): urutannya
+// sendiri yang menjaga pasangan bersebelahan tetap terbedakan bagi pembaca
+// buta warna, jadi warna DIBERIKAN BERURUTAN, tidak pernah diputar ulang.
+const PALET = ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181', '#008300', '#9085e9', '#e66767'];
+const WARNA_LAIN = '#64748b';
+// Lebih dari 8 pembangkit: 7 pertama mendapat warna sendiri, sisanya digabung
+// jadi satu pita "Lainnya" abu-abu di chart komposisi. Warna kesembilan yang
+// dikarang akan tampak sama dengan salah satu dari delapan yang ada.
+const LIPAT = ANGGOTA.length > PALET.length;
+const N_SENDIRI = LIPAT ? PALET.length - 1 : ANGGOTA.length;
+
+function warnaPembangkit(i) { return i < N_SENDIRI ? PALET[i] : WARNA_LAIN; }
+
+// Warna unit mengikuti NOMOR unitnya (UNIT1 = slot 1, ...), bukan urutan
+// kemunculan — unit yang baru masuk siang hari tidak boleh mewarnai ulang
+// unit yang sudah ada.
+function nomorUnit(nama) {
+    const m = String(nama).match(/\d+/);
+    return m ? parseInt(m[0], 10) : null;
+}
+function warnaUnit(nama, i) {
+    const n = nomorUnit(nama);
+    const slot = n !== null && n >= 1 ? n - 1 : i;
+    return slot < PALET.length ? PALET[slot] : WARNA_LAIN;
+}
+function urutUnit(a, b) {
+    return (nomorUnit(a) ?? 0) - (nomorUnit(b) ?? 0) || String(a).localeCompare(String(b));
+}
+
+ANGGOTA.forEach((p, i) => {
+    document.querySelectorAll(`[data-dot-pembangkit="${CSS.escape(p.kode)}"]`)
+        .forEach(el => { el.style.background = warnaPembangkit(i); });
+});
+
+// ── Format ────────────────────────────────────────────────────────────
+// Dua desimal tanpa pemisah ribuan, sama dengan semua kartu MW di dashboard.
+function fmt(v, dec = 2) {
+    return (v === null || v === undefined || isNaN(v)) ? '—' : Number(v).toFixed(dec);
+}
+function angkaDenganSatuan(el, v, satuan) {
+    if (!el) return;
+    el.textContent = fmt(v);
+    const s = document.createElement('span');
+    s.className = 'metric-unit';
+    s.textContent = satuan;
+    el.appendChild(s);
+}
+function isiSel(td, v) {
+    td.textContent = fmt(v);
+    td.classList.toggle('redup', v === null || v === undefined);
+}
+function isiSelMvar(td, v) {
+    isiSel(td, v);
+    // Q minus = unit menyerap daya reaktif — keadaan operasi yang sah, diberi
+    // warna dan keterangan seperti tabel unit di halaman detail pembangkit.
+    const serap = v !== null && v !== undefined && v < 0;
+    td.classList.toggle('serap', serap);
+    td.title = serap ? 'Menyerap daya reaktif' : '';
+}
+
+const tooltipOpts = {
+    enabled: true,
+    backgroundColor: 'rgba(15,23,42,.92)',
+    titleColor: '#94a3b8', bodyColor: '#f1f5f9', footerColor: '#f1f5f9',
+    borderColor: '#334155', borderWidth: 1, padding: 8,
+    displayColors: true, boxWidth: 8, boxHeight: 8, usePointStyle: true,
+};
+
+// ── Deret 24 jam: simpanan di browser ─────────────────────────────────
+// Bentuk dari server: [[menit, mw], ...]. Disimpan mentah lalu diubah jadi
+// titik chart tiap kali digambar, supaya ekornya bisa diganti tanpa harus
+// membongkar penanda celah yang sudah disisipkan.
+let store = { tanggal: null, total: {}, unit: {} };
+
+// Menit tanpa rekaman (cron collect_live tidak jalan) digambar PUTUS, bukan
+// garis lurus yang mengarang angka yang tidak pernah diukur.
+const CELAH_MENIT = 3;
+function keTitik(pasangan) {
+    const out = [];
+    let prev = null;
+    for (const [m, v] of pasangan) {
+        if (prev !== null && m - prev > CELAH_MENIT) out.push({ x: prev + 1, y: null });
+        out.push({ x: m, y: v });
+        prev = m;
+    }
+    return out;
+}
+function gantiEkor(lama, baru, sejak) {
+    return (lama || []).filter(p => p[0] < sejak).concat(baru);
+}
+function menitTerakhir() {
+    let akhir = null;
+    for (const deret of Object.values(store.total)) {
+        if (deret.length) akhir = Math.max(akhir ?? 0, deret[deret.length - 1][0]);
+    }
+    return akhir;
+}
+
+// ── Chart komposisi (bertumpuk per pembangkit) ───────────────────────
+const seriKomposisi = ANGGOTA.slice(0, N_SENDIRI).map((p, i) => ({ label: p.nama, kode: [p.kode], warna: warnaPembangkit(i) }));
+if (LIPAT) {
+    seriKomposisi.push({ label: 'Lainnya', kode: ANGGOTA.slice(N_SENDIRI).map(p => p.kode), warna: WARNA_LAIN });
+}
+
+const chartKomposisi = new Chart(document.getElementById('chart-komposisi').getContext('2d'), {
+    type: 'line',
+    data: {
+        datasets: seriKomposisi.map((s, i) => ({
+            label: s.label, data: [],
+            borderColor: s.warna, backgroundColor: s.warna + '59',
+            borderWidth: 1.5, pointRadius: 0, pointHoverRadius: 3, tension: 0,
+            fill: i === 0 ? 'origin' : '-1', spanGaps: false,
+        })),
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false, animation: false, parsing: false,
+        interaction: { intersect: false, mode: 'nearest', axis: 'x' },
+        plugins: {
+            legend: { display: false },     // tabel di sebelahnya = legendanya (titik warna + nama)
+            tooltip: {
+                ...tooltipOpts,
+                itemSort: (a, b) => b.datasetIndex - a.datasetIndex,   // urut sama dengan tumpukan
+                callbacks: {
+                    title: items => items.length ? _minuteLabel(items[0].parsed.x) : '',
+                    label: c => c.parsed.y == null ? null : ` ${c.dataset.label}: ${fmt(c.parsed.y)} MW`,
+                    footer: items => {
+                        const ada = items.filter(c => c.parsed.y != null);
+                        return ada.length ? 'Total: ' + fmt(ada.reduce((s, c) => s + c.parsed.y, 0)) + ' MW' : '';
+                    },
+                },
+            },
+        },
+        scales: {
+            x: sumbuJam24({ langkahJam: 1 }),
+            y: {
+                stacked: true, beginAtZero: true, grace: '5%',
+                grid: { color: '#1e2d45' },
+                title: { display: true, text: 'MW', color: '#64748b' },
+                ticks: { callback: v => v.toFixed(0) },
+            },
+        },
+    },
+});
+
+function deretGabungan(kodeList) {
+    if (kodeList.length === 1) return store.total[kodeList[0]] || [];
+    const jumlah = new Map();
+    for (const kode of kodeList) {
+        for (const [m, v] of (store.total[kode] || [])) jumlah.set(m, (jumlah.get(m) || 0) + v);
+    }
+    return [...jumlah.entries()].sort((a, b) => a[0] - b[0]);
+}
+
+function gambarKomposisi() {
+    let adaData = false;
+    seriKomposisi.forEach((s, i) => {
+        const deret = deretGabungan(s.kode);
+        if (deret.length) adaData = true;
+        chartKomposisi.data.datasets[i].data = keTitik(deret);
+    });
+    chartKomposisi.update('none');
+    document.getElementById('komposisi-kosong').textContent = adaData ? ''
+        : 'Belum ada rekaman hari ini — chart terisi setelah cron collect_live berjalan.';
+
+    // Puncak total hari ini dari deret yang sama dengan chart-nya.
+    const total = deretGabungan(ANGGOTA.map(p => p.kode));
+    let puncak = null;
+    for (const t of total) if (!puncak || t[1] > puncak[1]) puncak = t;
+    angkaDenganSatuan(document.getElementById('kt-puncak'), puncak ? puncak[1] : null, 'MW');
+    document.getElementById('kt-puncak-jam').textContent = puncak
+        ? 'pukul ' + _minuteLabel(puncak[0]) + ' · dari rekaman per menit'
+        : 'belum ada rekaman hari ini';
+}
+
+// ── Chart per pembangkit (satu garis per unit) ───────────────────────
+const barisPembangkit = {};   // kode -> {el, chart, tbody, ...}
+ANGGOTA.forEach((p, i) => {
+    const el = document.querySelector(`[data-kt-pembangkit="${CSS.escape(p.kode)}"]`);
+    if (!el) return;
+    const chart = new Chart(el.querySelector('[data-chart-unit]').getContext('2d'), {
+        type: 'line',
+        data: { datasets: [] },
+        options: {
+            responsive: true, maintainAspectRatio: false, animation: false, parsing: false,
+            interaction: { intersect: false, mode: 'nearest', axis: 'x' },
+            plugins: {
+                legend: { display: false },  // tabel unit di sebelahnya = legendanya
+                tooltip: {
+                    ...tooltipOpts,
+                    itemSort: (a, b) => urutUnit(a.dataset.label, b.dataset.label),
+                    callbacks: {
+                        title: items => items.length ? _minuteLabel(items[0].parsed.x) : '',
+                        label: c => c.parsed.y == null ? null : ` ${c.dataset.label}: ${fmt(c.parsed.y)} MW`,
+                    },
+                },
+            },
+            scales: {
+                x: sumbuJam24({ langkahJam: 1 }),
+                y: {
+                    beginAtZero: true, grace: '5%',
+                    grid: { color: '#1e2d45' },
+                    title: { display: true, text: 'MW', color: '#64748b' },
+                    ticks: { callback: v => v.toFixed(0) },
+                },
+            },
+        },
+    });
+    barisPembangkit[p.kode] = {
+        indeks:     i,
+        chart,
+        kosongEl:   el.querySelector('[data-chart-kosong]'),
+        tbody:      el.querySelector('[data-unit-tbody]'),
+        totalMw:    el.querySelector('[data-total-mw]'),
+        totalMvar:  el.querySelector('[data-total-mvar]'),
+        puncakEl:   el.querySelector('[data-puncak]'),
+    };
+});
+
+function gambarPembangkit(kode) {
+    const b = barisPembangkit[kode];
+    if (!b) return;
+    const units = store.unit[kode] || {};
+    const nama = Object.keys(units).filter(n => units[n].length).sort(urutUnit);
+    let seri;
+    if (nama.length) {
+        seri = nama.map((n, j) => ({ label: n, warna: warnaUnit(n, j), data: units[n] }));
+    } else if ((store.total[kode] || []).length) {
+        // Rekaman lama tanpa rincian unit — tetap tampilkan totalnya.
+        seri = [{ label: 'Total', warna: warnaPembangkit(b.indeks), data: store.total[kode] }];
+    } else {
+        seri = [];
+    }
+
+    // Ubah dataset di tempat, jangan diganti array baru: Chart.js melacak
+    // dataset menurut posisinya di array ini.
+    const ds = b.chart.data.datasets;
+    seri.forEach((s, j) => {
+        const data = keTitik(s.data);
+        if (ds[j]) {
+            Object.assign(ds[j], { label: s.label, data, borderColor: s.warna, backgroundColor: s.warna });
+        } else {
+            ds.push({ label: s.label, data, borderColor: s.warna, backgroundColor: s.warna,
+                      borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, tension: 0.3,
+                      fill: false, spanGaps: false });
+        }
+    });
+    ds.length = seri.length;
+    b.chart.update('none');
+    b.kosongEl.textContent = seri.length ? '' : 'Belum ada rekaman hari ini.';
+
+    let puncak = null;
+    for (const t of (store.total[kode] || [])) if (!puncak || t[1] > puncak[1]) puncak = t;
+    b.puncakEl.textContent = puncak
+        ? `Puncak hari ini: ${fmt(puncak[1])} MW · ${_minuteLabel(puncak[0])}`
+        : 'Puncak hari ini: —';
+}
+
+async function muatDeret() {
+    const akhir = menitTerakhir();
+    // Beberapa menit ke belakang dan GANTI ekornya: poll bisa jatuh di tengah
+    // satu putaran collect_live, saat baru sebagian pembangkit yang tertulis.
+    const sejak = akhir === null ? 0 : Math.max(0, akhir - 5);
+    try {
+        const r = await fetch(`{% url 'opsis_api_beban_kit_terpilih_rincian' %}?sejak=${sejak}`);
+        if (!r.ok) return;
+        const d = await r.json();
+        if (!d.aktif) return;
+        if (store.tanggal && d.tanggal !== store.tanggal) {
+            // Lewat tengah malam: mulai dari kosong untuk hari yang baru.
+            store = { tanggal: null, total: {}, unit: {} };
+            return muatDeret();
+        }
+        store.tanggal = d.tanggal;
+        for (const p of d.pembangkit) {
+            store.total[p.kode] = gantiEkor(store.total[p.kode], p.mw, d.sejak);
+            const units = store.unit[p.kode] = store.unit[p.kode] || {};
+            for (const u of p.units) units[u.nama] = gantiEkor(units[u.nama], u.mw, d.sejak);
+        }
+        gambarKomposisi();
+        ANGGOTA.forEach(p => gambarPembangkit(p.kode));
+    } catch (e) {
+        console.warn('Muat deret KIT Terpilih gagal:', e);
+    }
+}
+
+// ── Angka live ────────────────────────────────────────────────────────
+// Dari /opsis/api/live/ yang sama dengan kartu total di dashboard, dijumlahkan
+// dengan aturan yang sama — supaya angka yang baru saja diklik sama persis
+// dengan angka yang muncul di sini.
+function isiTabelUnit(b, d) {
+    const units = (d && d.units) || [];
+    b.tbody.replaceChildren();
+    if (!units.length) {
+        const tr = b.tbody.insertRow();
+        const td = tr.insertCell();
+        td.colSpan = 3;
+        td.className = 'redup';
+        td.style.textAlign = 'center';
+        td.textContent = 'Tidak ada data unit';
+        return;
+    }
+    [...units].sort((a, c) => urutUnit(a.nama, c.nama)).forEach((u, j) => {
+        const tr = b.tbody.insertRow();
+        const tdNama = tr.insertCell();
+        const dot = document.createElement('span');
+        dot.className = 'kt-dot';
+        dot.style.background = warnaUnit(u.nama, j);
+        tdNama.append(dot, document.createTextNode(u.nama));
+        const tdMw = tr.insertCell();
+        tdMw.className = 'num';
+        isiSel(tdMw, u.mw === null ? null : parseFloat(u.mw));
+        const tdMvar = tr.insertCell();
+        tdMvar.className = 'num';
+        isiSelMvar(tdMvar, u.mvar === null ? null : parseFloat(u.mvar));
+    });
+}
+
+async function muatLive() {
+    try {
+        const r = await fetch("{% url 'opsis_api_live' %}");
+        if (!r.ok) return;
+        const json = await r.json();
+        const data = json.data || {};
+        const flags = json.flags || {};
+
+        let totMw = 0, adaMw = false, totMvar = 0, adaMvar = false;
+        for (const p of ANGGOTA) {
+            const d = data[p.kode];
+            if (d && d.mw !== null && d.mw !== undefined) { totMw += parseFloat(d.mw); adaMw = true; }
+            if (d && d.mvar !== null && d.mvar !== undefined) { totMvar += parseFloat(d.mvar); adaMvar = true; }
+        }
+        totMw = adaMw ? totMw : null;
+        totMvar = adaMvar ? totMvar : null;
+
+        angkaDenganSatuan(document.getElementById('kt-total-mw'), totMw, 'MW');
+        angkaDenganSatuan(document.getElementById('kt-total-mvar'), totMvar, 'MVAR');
+        isiSel(document.getElementById('kt-tabel-mw'), totMw);
+        isiSelMvar(document.getElementById('kt-tabel-mvar'), totMvar);
+
+        for (const p of ANGGOTA) {
+            const d = data[p.kode] || {};
+            const mw = d.mw === null || d.mw === undefined ? null : parseFloat(d.mw);
+            const mvar = d.mvar === null || d.mvar === undefined ? null : parseFloat(d.mvar);
+
+            const tr = document.querySelector(`[data-ringkas="${CSS.escape(p.kode)}"]`);
+            if (tr) {
+                isiSel(tr.querySelector('[data-mw]'), mw);
+                isiSelMvar(tr.querySelector('[data-mvar]'), mvar);
+                tr.querySelector('[data-persen]').textContent =
+                    (mw !== null && totMw) ? fmt(mw / totMw * 100, 1) + '%' : '—';
+                // Penanda "data tidak sesuai" dari operator OPSIS ikut tampil:
+                // kalau ruang kontrol meragukan angkanya, yang membaca rincian
+                // ini berhak tahu.
+                const flag = tr.querySelector('[data-flag]');
+                const f = flags[p.kode];
+                flag.hidden = !f;
+                flag.title = f ? ('Data ditandai tidak sesuai' + (f.keterangan ? ': ' + f.keterangan : '')) : '';
+            }
+
+            const b = barisPembangkit[p.kode];
+            if (b) {
+                isiTabelUnit(b, d);
+                isiSel(b.totalMw, mw);
+                isiSelMvar(b.totalMvar, mvar);
+            }
+        }
+
+        document.getElementById('kt-terputus').classList.toggle('show', !!json.terputus);
+        document.getElementById('kt-update').textContent = 'Update: ' + new Date().toLocaleTimeString('id-ID');
+        if (typeof setLastUpdate === 'function') setLastUpdate();
+    } catch (e) {
+        console.warn('Muat live KIT Terpilih gagal:', e);
+    }
+}
+
+muatLive();
+muatDeret();
+// Live tiap 5 detik seperti Peta Pembangkit; deret 24 jam tiap 60 detik karena
+// SnapLive hanya bertambah satu titik per menit — alasan yang sama dengan
+// chart KIT Terpilih di dashboard.
+setInterval(muatLive, 5000);
+setInterval(muatDeret, 60000);
+</script>
+{% endif %}
+{% endblock %}
