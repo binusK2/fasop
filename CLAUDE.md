@@ -377,6 +377,22 @@ Yang perlu diketahui saat mengubahnya:
   Bootstrap 5.3.2, bootstrap-icons 1.11.3, tom-select 2.3.1, Chart.js 4.5.1,
   chartjs-plugin-datalabels 2.2.0, Leaflet 1.9.4, Konva 9.3.22, qrcodejs
   1.0.0 — masing-masing dengan LICENSE-nya.
+  - **Font juga disajikan sendiri** (sejak Okt 2026), bukan dari Google Fonts:
+    `static/fonts/fasop-fonts.css` + berkas woff2 dari paket Fontsource di
+    `static/vendor/@fontsource*/` (DM Sans & JetBrains Mono variable, Barlow
+    300–900, Barlow Condensed 700–900; subset latin + latin-ext; lisensi OFL
+    di sampingnya). Karena itu `style-src`/`font-src` kini hanya `'self'`, dan
+    pengunjung — termasuk landing page yang terbuka untuk publik — tidak lagi
+    dikirim ke Google. Nama keluarganya **sengaja sama dengan nama Google**
+    (`'DM Sans'`, bukan `'DM Sans Variable'` bawaan CSS Fontsource), jadi
+    `font-family` di template tidak perlu diubah. Satu berkas CSS untuk keempat
+    keluarga tidak membuat halaman mengunduh semuanya: browser hanya mengambil
+    `@font-face` yang dipakai teks halaman itu, per rentang unicode. Halaman
+    baru cukup `<link href="{% static 'fonts/fasop-fonts.css' %}" rel="stylesheet">`;
+    bobot/keluarga baru ditambahkan di CSS itu. Dijaga
+    `test_tidak_ada_google_fonts` (termasuk `<link rel="preconnect">`) dan
+    `test_berkas_font_yang_dirujuk_ada` — font yang salah path jatuh diam-diam
+    ke font sistem tanpa error di mana pun.
   - **Path-nya meniru path CDN, lengkap dengan versi persis**
     (`vendor/chart.js@4.5.1/dist/chart.umd.min.js`). Menambah/memperbarui
     library: `npm pack <paket>@<versi>`, salin file yang dipakai + LICENSE ke
@@ -459,7 +475,7 @@ view):
 - **`X-Permitted-Cross-Domain-Policies: none`** — kebijakan lintas-domain
   Flash/Acrobat, tidak dipakai.
 - **`Cross-Origin-Embedder-Policy` sengaja TIDAK dipasang.** `require-corp`
-  memblokir Google Fonts, tile peta Leaflet, dan CDN decoder Ezviz. (COEP juga
+  memblokir tile peta Leaflet dan CDN decoder Ezviz. (COEP juga
   syarat SharedArrayBuffer untuk decoder multi-utas EZUIKit — kalau suatu saat
   dicoba, itu eksperimen khusus halaman Ezviz dengan `credentialless`, bukan
   header global.)

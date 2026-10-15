@@ -429,8 +429,9 @@ def _origin(url):
     return None
 
 
-# Tidak ada CDN library di sini: Bootstrap, Chart.js, Leaflet, dll. disimpan
-# sendiri di static/vendor/. CDN publik (jsdelivr, unpkg) menyajikan paket npm
+# Tidak ada CDN library di sini: Bootstrap, Chart.js, Leaflet, dll. — dan sejak
+# Okt 2026 juga font (static/fonts/fasop-fonts.css) — disimpan sendiri di
+# static/vendor/. CDN publik (jsdelivr, unpkg) menyajikan paket npm
 # APA SAJA, jadi mengizinkannya berarti mengizinkan penyerang memuat library
 # lama bercelah dari host yang sama untuk melewati CSP ("script gadget").
 #
@@ -449,8 +450,8 @@ _CSP_MEDIAMTX = sorted({o for o in map(_origin, (MEDIAMTX_WHIP_URL, MEDIAMTX_WHE
 _CSP_KEBIJAKAN = {
     'default-src': [CSP.SELF],
     'script-src':  [CSP.SELF, CSP.UNSAFE_INLINE, *_CSP_CLOUDFLARE_SCRIPT],
-    'style-src':   [CSP.SELF, CSP.UNSAFE_INLINE, 'https://fonts.googleapis.com'],
-    'font-src':    [CSP.SELF, 'data:', 'https://fonts.gstatic.com'],
+    'style-src':   [CSP.SELF, CSP.UNSAFE_INLINE],
+    'font-src':    [CSP.SELF, 'data:'],
     # Semua foto (ImageField) ada di /media/ — 'self'. data:/blob: untuk tanda
     # tangan digital, QR code, dan pratinjau upload foto; cartocdn untuk tile
     # peta Leaflet (lokasi & peta jaringan).
@@ -528,7 +529,7 @@ HEADER_TAMBAHAN = {
     'X-Permitted-Cross-Domain-Policies': 'none',
 }
 # Cross-Origin-Embedder-Policy sengaja TIDAK dipasang: require-corp memblokir
-# Google Fonts, tile peta Leaflet, dan CDN decoder Ezviz.
+# tile peta Leaflet dan CDN decoder Ezviz.
 
 # ── Arsip laporan inspeksi harian (cron export_inspeksi_harian jam 12.00) ──
 # Folder tujuan file Excel harian. Di server Linux ini harus berupa path yang

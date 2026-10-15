@@ -87,14 +87,15 @@ class LandingAnonimTest(TestCase):
         self.assertEqual(re.findall(r'\sstyle\s*=', html), [], 'atribut style=')
         self.assertNotIn('javascript:', html)
 
-    def test_sumber_luar_hanya_google_fonts(self):
+    def test_tanpa_sumber_luar(self):
+        """Font pun disajikan sendiri — pengunjung anonim tidak dikirim ke Google."""
         html = self.client.get('/').content.decode()
         luar = set()
         for tag in re.findall(r'<(?:script|link|img)\b[^>]*>', html):
             m = re.search(r'\b(?:src|href)="(https?://[^/"]+)', tag)
-            if m:
+            if m and 'rel="canonical"' not in tag:
                 luar.add(m.group(1))
-        self.assertLessEqual(luar, {'https://fonts.googleapis.com', 'https://fonts.gstatic.com'})
+        self.assertEqual(luar, set())
 
     def test_berkas_statis_yang_dirujuk_ada(self):
         """Path static yang salah ketik = halaman depan tanpa gaya, tanpa error di server."""
