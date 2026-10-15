@@ -60,7 +60,7 @@ Each of the 15 `INSTALLED_APPS` Django apps follows a standard layout (`models.p
 | `health_index/` | Equipment health scoring (0–100), computed (not stored) from 9 weighted factors |
 | `inspection/` | Inservice inspection for Operator role, plus the daily-results page (`/inspection/harian/`) and its Excel archive — column schema per equipment type lives in `inspection/laporan.py` |
 | `gudang/` | Warehouse / spare parts inventory; stock level is computed from `MutasiSparepart`, not a stored field |
-| `device_mon/` | Realtime equipment status monitoring — RTU UP/DOWN via MSSQL (`collect_rtu` cron) at `/device-mon/`, plus Zabbix host status at `/device-mon/zabbix/<kode>/` — **can be more than one Zabbix server** (`ZabbixInstance`, e.g. "Zabbix Telkom" + "Zabbix Prosis"), see "Device Monitor — Instansi Zabbix" below: pull periodically via Zabbix API (`zabbix_api.py`, cron `sync_zabbix`) + push realtime via webhook (`/device-mon/zabbix/<kode>/webhook/`, per-instance token); `ZabbixHost` optionally linked to `devices.Device`; WhatsApp blast is **opt-in per host** from Admin (`wa_alert` + `wa_min_severity` threshold) — see "Early Warning WhatsApp" below; full setup in `deploy/ZABBIX_INTEGRATION.md`. Both sources live in one app deliberately — "realtime equipment status" belongs together regardless of data source |
+| `device_mon/` | Realtime equipment status monitoring — `/device-mon/` is a **rekap of every source on one screen** (see "Device Monitor — Rekap Semua Sumber" below); RTU UP/DOWN via MSSQL (`collect_rtu` cron) at `/device-mon/rtu/`, plus Zabbix host status at `/device-mon/zabbix/<kode>/` — **can be more than one Zabbix server** (`ZabbixInstance`, e.g. "Zabbix Telkom" + "Zabbix Prosis"), see "Device Monitor — Instansi Zabbix" below: pull periodically via Zabbix API (`zabbix_api.py`, cron `sync_zabbix`) + push realtime via webhook (`/device-mon/zabbix/<kode>/webhook/`, per-instance token); `ZabbixHost` optionally linked to `devices.Device`; WhatsApp blast is **opt-in per host** from Admin (`wa_alert` + `wa_min_severity` threshold) — see "Early Warning WhatsApp" below; full setup in `deploy/ZABBIX_INTEGRATION.md`. Both sources live in one app deliberately — "realtime equipment status" belongs together regardless of data source |
 | `scada_av/` | SCADA/RTU availability and RCD success rate; wraps the `spectrum7_av/` calculation library |
 | `notifikasi/` | In-app notification center (per-user + broadcast); other apps push notifications via `notif_ke_user()` / `notif_ke_am()` helpers |
 | `jadwal/` | Monthly preventive-maintenance visit scheduling per location, with HI/age/device-count priority ranking |
@@ -1923,6 +1923,51 @@ menambah instansi atau mengubah rute ini:
 Dari Admin, aksi **"Uji koneksi Zabbix API sekarang"** (Instansi Zabbix)
 menjawab "kenapa host instansi ini tidak muncul" tanpa membuka log server —
 sama seperti aksi "Uji baca sumber KIT sekarang" di OPSIS.
+
+---
+
+## Device Monitor — Rekap Semua Sumber (`/device-mon/`)
+
+Membuka Device Monitor langsung mendarat di **rekap**: satu kartu per sumber
+status — RTU (SCADA), lalu tiap `ZabbixInstance` aktif menurut `urutan` —
+plus satu tabel **Gangguan Aktif Sekarang** yang menggabungkan perangkat
+bermasalah dari semua sumber (kritis dulu, lalu yang paling lama). Isinya dari
+`/device-mon/api/rekap/` (`views.api_rekap`), dipoll tiap 15 detik.
+
+Dashboard RTU yang dulu menempati `/device-mon/` pindah ke **`/device-mon/rtu/`**
+(`dm_rtu_dashboard`, template `rtu_dashboard.html`) dan punya bagian sidebar
+sendiri ("RTU (SCADA)" → Ringkasan / Histori Gangguan / Availability), sejajar
+dengan bagian tiap instansi Zabbix. **Nama URL `dm_dashboard` sengaja tetap
+dipakai untuk `/device-mon/`** — sidebar FASOP utama dan tes Dispatcher
+merujuknya, dan yang mereka maksud memang "pintu masuk Device Monitor", bukan
+khusus RTU.
+
+Yang perlu diketahui saat mengubahnya:
+
+- **Angka rekap dan angka dashboard sumbernya dihitung fungsi yang SAMA**:
+  `_statistik_rtu()` (dipakai `api_status` + `api_rekap`) dan
+  `_statistik_zabbix()` (dipakai `zbx_api_summary` + `api_rekap`). Rekap
+  adalah halaman yang diklik untuk masuk ke dashboard sumber; kalau keduanya
+  menyebut angka berbeda, tidak ada yang tahu mana yang benar. Dijaga
+  `RekapDeviceMonTest.test_angka_sama_dengan_dashboard_sumbernya` — jangan
+  menghitung ulang total/availability di `api_rekap`.
+- **Kunci JSON per sumber netral** (`normal`/`gangguan`/`warning`/`unknown`)
+  karena istilahnya beda (RTU: UP/DOWN, Zabbix: OK/Problem); label aslinya
+  ikut dikirim (`label_normal`/`label_gangguan`) dan itulah yang ditampilkan.
+- **Klasifikasi host Zabbix tetap lewat `state_class()`** — host PROBLEM ber-
+  severity di bawah ambang masuk "Warning", bukan "Gangguan", persis seperti
+  di dashboard instansinya. RTU tidak punya warning (selalu 0).
+- Instansi Zabbix yang `aktif=False` tidak ikut di rekap sama sekali, sama
+  seperti di sidebar.
+- **Tes `device_mon` membuat instansi lewat `_instansi()` (`update_or_create`),
+  bukan `ZabbixInstance.objects.create()`.** Migrasi 0009 memasang kolom FK
+  `instance` dengan `default=` yang memanggil `ambil_default()`, jadi baris
+  `kode='telkom'` sudah lahir di database tes saat migrasi jalan — `create()`
+  dengan kode itu gagal `IntegrityError`. Itulah penyebab 14 tes device_mon
+  yang dulu merah. Tes yang butuh tabel kosong menghapus barisnya dulu.
+
+---
+
 ## Pengumuman Pemeliharaan — Pop-up Saat Login (`devices.PengumumanPemeliharaan`)
 
 Baris tunggal (pk=1) di **Admin → Devices → Pengumuman Pemeliharaan**: sakelar

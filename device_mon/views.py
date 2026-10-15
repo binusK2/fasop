@@ -2,6 +2,7 @@ import datetime
 import json
 import logging
 from django.shortcuts import render, get_object_or_404
+from django.urls import reverse
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, HttpResponseForbidden
 from django.utils import timezone
@@ -66,27 +67,34 @@ def _calc_avail(logs_down, since, now, total_menit):
 
 @login_required
 def dashboard(request):
-    return render(request, 'device_mon/dashboard.html')
+    """
+    /device-mon/ — rekap SEMUA sumber status: RTU + setiap Instansi Zabbix
+    aktif. Isinya dari api_rekap; dashboard per sumber tetap di halamannya
+    sendiri (RTU: rtu_dashboard, Zabbix: zbx_dashboard).
+    """
+    return render(request, 'device_mon/rekap.html')
 
 
 @login_required
-def api_status(request):
-    """
-    JSON: status semua RTU + statistik availability.
-    Dipanggil oleh dashboard setiap 60 detik.
+def rtu_dashboard(request):
+    return render(request, 'device_mon/rtu_dashboard.html')
 
-    Optimasi: ambil semua log DOWN dalam satu query per periode,
-    kemudian group by rtu_id di Python — tidak ada N+1.
-    """
-    now, today_start, month_start = _boundaries()
 
+def _statistik_rtu(now, today_start, month_start):
+    """
+    Status + availability semua RTU aktif — dipakai api_status (dashboard RTU)
+    DAN api_rekap, supaya kedua halaman tidak bisa menyebut angka berbeda.
+
+    Mengembalikan (rtus, rtu_data, ringkasan). Optimasi: semua log DOWN
+    diambil dalam satu query per periode lalu dikelompokkan per rtu_id di
+    Python — tidak ada N+1.
+    """
     rtus = list(RTU.objects.filter(aktif=True))
     if not rtus:
-        return JsonResponse({
-            'total_up': 0, 'total_down': 0, 'total_rtu': 0,
+        return rtus, [], {
+            'total_up': 0, 'total_down': 0, 'total_unknown': 0, 'total_rtu': 0,
             'avail_hari': None, 'avail_bulan': None,
-            'rtus': [], 'gangguan_terkini': [],
-        })
+        }
 
     rtu_ids = [r.pk for r in rtus]
 
@@ -164,6 +172,31 @@ def api_status(request):
     avg_avail_hari  = round(sum(avail_hari_list) / len(avail_hari_list), 2) if avail_hari_list else None
     avg_avail_bulan = _calc_avail(down_month, month_start, now, total_menit_month * len(rtus)) if rtus else None
 
+    return rtus, rtu_data, {
+        'total_up':      total_up,
+        'total_down':    total_down,
+        'total_unknown': len(rtus) - total_up - total_down,
+        'total_rtu':     len(rtu_data),
+        'avail_hari':    avg_avail_hari,
+        'avail_bulan':   avg_avail_bulan,
+    }
+
+
+@login_required
+def api_status(request):
+    """
+    JSON: status semua RTU + statistik availability.
+    Dipanggil oleh dashboard RTU setiap 10 detik.
+    """
+    now, today_start, month_start = _boundaries()
+    rtus, rtu_data, ringkasan = _statistik_rtu(now, today_start, month_start)
+    if not rtus:
+        return JsonResponse({
+            'total_up': 0, 'total_down': 0, 'total_rtu': 0,
+            'avail_hari': None, 'avail_bulan': None,
+            'rtus': [], 'gangguan_terkini': [],
+        })
+
     # ── 10 log gangguan terkini ────────────────────────────────────────
     gangguan = RTULog.objects.filter(state='DOWN').select_related('rtu').order_by('-mulai')[:10]
     gangguan_data = [
@@ -178,11 +211,11 @@ def api_status(request):
     ]
 
     return JsonResponse({
-        'total_up':         total_up,
-        'total_down':       total_down,
-        'total_rtu':        len(rtu_data),
-        'avail_hari':       avg_avail_hari,
-        'avail_bulan':      avg_avail_bulan,
+        'total_up':         ringkasan['total_up'],
+        'total_down':       ringkasan['total_down'],
+        'total_rtu':        ringkasan['total_rtu'],
+        'avail_hari':       ringkasan['avail_hari'],
+        'avail_bulan':      ringkasan['avail_bulan'],
         'rtus':             rtu_data,
         'gangguan_terkini': gangguan_data,
     })
@@ -519,18 +552,21 @@ def zbx_dashboard(request, kode):
     return render(request, 'device_mon/zbx_dashboard.html', {'instansi': instansi})
 
 
-@login_required
-def zbx_api_summary(request, kode):
-    """JSON: ringkasan status Zabbix satu instansi — total + breakdown per Host Group + problem terkini. Dipoll dashboard."""
-    instansi = get_object_or_404(ZabbixInstance, kode=kode)
-    now, today_start, month_start = _boundaries()
+def _statistik_zabbix(instansi, now, today_start, month_start):
+    """
+    Status + availability semua host aktif SATU instansi — dipakai
+    zbx_api_summary (Ringkasan instansi) DAN api_rekap, supaya kedua halaman
+    tidak bisa menyebut angka berbeda.
 
-    hosts = list(ZabbixHost.objects.filter(aktif=True, instance=instansi))
+    Mengembalikan (hosts, avail_by_host, ringkasan). OK / Problem / Warning
+    mengikuti state_class() — jangan salin ambang severity-nya ke sini.
+    """
+    hosts = list(ZabbixHost.objects.filter(aktif=True, instance=instansi).select_related('lokasi'))
     if not hosts:
-        return JsonResponse({
+        return hosts, {}, {
             'total_ok': 0, 'total_problem': 0, 'total_warning': 0, 'total_unknown': 0, 'total_host': 0,
-            'avail_hari': None, 'avail_bulan': None, 'groups': [], 'gangguan_terkini': [],
-        })
+            'avail_hari': None, 'avail_bulan': None,
+        }
 
     host_ids = [h.pk for h in hosts]
     down_today = list(
@@ -562,6 +598,38 @@ def zbx_api_summary(request, kode):
             total_warning += 1
         else:
             total_unknown += 1
+
+    avg_avail_hari = round(sum(avail_hari_list) / len(avail_hari_list), 2) if avail_hari_list else None
+
+    down_month = list(
+        _filter_avail(ZabbixEventLog.objects.filter(
+            host_id__in=host_ids, state='PROBLEM', mulai__lt=now,
+        )).filter(Q(selesai__gt=month_start) | Q(selesai__isnull=True))
+    )
+    total_menit_month = max(1, int((now - month_start).total_seconds() / 60))
+    avg_avail_bulan = _calc_avail(down_month, month_start, now, total_menit_month * len(hosts))
+
+    return hosts, avail_by_host, {
+        'total_ok':      total_ok,
+        'total_problem': total_problem,
+        'total_warning': total_warning,
+        'total_unknown': total_unknown,
+        'total_host':    len(hosts),
+        'avail_hari':    avg_avail_hari,
+        'avail_bulan':   avg_avail_bulan,
+    }
+
+
+@login_required
+def zbx_api_summary(request, kode):
+    """JSON: ringkasan status Zabbix satu instansi — total + breakdown per Host Group + problem terkini. Dipoll dashboard."""
+    instansi = get_object_or_404(ZabbixInstance, kode=kode)
+    now, today_start, month_start = _boundaries()
+
+    hosts, avail_by_host, ringkasan = _statistik_zabbix(instansi, now, today_start, month_start)
+    if not hosts:
+        return JsonResponse({**ringkasan, 'groups': [], 'gangguan_terkini': []})
+    host_ids = [h.pk for h in hosts]
 
     def _tambah_ke_bucket(g, h):
         """PROBLEM dipecah kritis (High/Disaster, merah) vs lainnya (kuning) —
@@ -601,16 +669,6 @@ def zbx_api_summary(request, kode):
             '(Tanpa Grup)', {'total': 0, 'ok': 0, 'problem': 0, 'warning': 0, 'unknown': 0, 'avail_list': []})
         _tambah_ke_bucket(g, h)
 
-    avg_avail_hari = round(sum(avail_hari_list) / len(avail_hari_list), 2) if avail_hari_list else None
-
-    down_month = list(
-        _filter_avail(ZabbixEventLog.objects.filter(
-            host_id__in=host_ids, state='PROBLEM', mulai__lt=now,
-        )).filter(Q(selesai__gt=month_start) | Q(selesai__isnull=True))
-    )
-    total_menit_month = max(1, int((now - month_start).total_seconds() / 60))
-    avg_avail_bulan = _calc_avail(down_month, month_start, now, total_menit_month * len(hosts))
-
     groups_data = [
         {
             'nama': gname,
@@ -636,15 +694,87 @@ def zbx_api_summary(request, kode):
     } for g in gangguan]
 
     return JsonResponse({
-        'total_ok': total_ok,
-        'total_problem': total_problem,
-        'total_warning': total_warning,
-        'total_unknown': total_unknown,
-        'total_host': len(hosts),
-        'avail_hari': avg_avail_hari,
-        'avail_bulan': avg_avail_bulan,
+        **ringkasan,
         'groups': groups_data,
         'gangguan_terkini': gangguan_data,
+    })
+
+
+# Urutan baris "Gangguan Aktif" di rekap: yang kritis dulu, lalu yang paling lama.
+_URUT_KELAS = {'problem': 0, 'warning': 1}
+
+
+@login_required
+def api_rekap(request):
+    """
+    JSON untuk /device-mon/ (rekap): satu baris per SUMBER — RTU, lalu setiap
+    Instansi Zabbix aktif — plus daftar perangkat yang SEDANG gangguan dari
+    semua sumber sekaligus. Dipoll halaman rekap.
+
+    Angka per sumber datang dari _statistik_rtu() / _statistik_zabbix(), yang
+    juga dipakai dashboard sumbernya masing-masing: rekap tidak boleh bisa
+    menyebut angka berbeda dari halaman yang diklik dari situ.
+
+    Istilahnya beda per sumber (RTU: UP/DOWN, Zabbix: OK/Problem), jadi
+    kunci JSON-nya netral — normal / gangguan / warning / unknown — dan label
+    aslinya ikut dikirim untuk ditampilkan.
+    """
+    now, today_start, month_start = _boundaries()
+    sumber, aktif = [], []
+
+    rtus, _, r = _statistik_rtu(now, today_start, month_start)
+    sumber.append({
+        'kode': 'rtu', 'jenis': 'rtu', 'nama': 'RTU (SCADA)',
+        'url': reverse('dm_rtu_dashboard'),
+        'label_normal': 'UP', 'label_gangguan': 'DOWN',
+        'total': r['total_rtu'], 'normal': r['total_up'], 'gangguan': r['total_down'],
+        'warning': 0, 'unknown': r['total_unknown'],
+        'avail_hari': r['avail_hari'], 'avail_bulan': r['avail_bulan'],
+    })
+    for rtu in rtus:
+        if rtu.state == 'DOWN':
+            aktif.append({
+                'sumber': 'RTU (SCADA)', 'sumber_kode': 'rtu',
+                'nama': rtu.nama, 'lokasi': rtu.lokasi or None,
+                'status': 'DOWN', 'kelas': 'problem', 'keterangan': '',
+                'sejak': rtu.state_sejak.isoformat() if rtu.state_sejak else None,
+                'durasi_menit': rtu.durasi_menit,
+                'url': reverse('dm_rtu_detail', args=[rtu.pk]),
+            })
+
+    for instansi in ZabbixInstance.objects.filter(aktif=True):
+        hosts, _, z = _statistik_zabbix(instansi, now, today_start, month_start)
+        sumber.append({
+            'kode': instansi.kode, 'jenis': 'zabbix', 'nama': instansi.nama,
+            'url': reverse('dm_zbx_dashboard', kwargs={'kode': instansi.kode}),
+            'label_normal': 'OK', 'label_gangguan': 'Problem',
+            'total': z['total_host'], 'normal': z['total_ok'], 'gangguan': z['total_problem'],
+            'warning': z['total_warning'], 'unknown': z['total_unknown'],
+            'avail_hari': z['avail_hari'], 'avail_bulan': z['avail_bulan'],
+        })
+        for h in hosts:
+            kelas = state_class(h.state, h.severity)
+            if kelas not in _URUT_KELAS:
+                continue
+            aktif.append({
+                'sumber': instansi.nama, 'sumber_kode': instansi.kode,
+                'nama': h.nama, 'lokasi': h.lokasi.nama if h.lokasi_id else None,
+                'status': h.severity or h.state, 'kelas': kelas,
+                'keterangan': h.problem_name or '',
+                'sejak': h.state_sejak.isoformat() if h.state_sejak else None,
+                'durasi_menit': h.durasi_menit,
+                'url': reverse('dm_zbx_host_detail', args=[h.pk]),
+            })
+
+    # Kritis dulu, lalu yang paling lama berlangsung (durasi tak diketahui di akhir).
+    aktif.sort(key=lambda a: (_URUT_KELAS[a['kelas']],
+                              -(a['durasi_menit'] if a['durasi_menit'] is not None else -1)))
+
+    kunci = ('total', 'normal', 'gangguan', 'warning', 'unknown')
+    return JsonResponse({
+        'total': {k: sum(s[k] for s in sumber) for k in kunci},
+        'sumber': sumber,
+        'aktif': aktif,
     })
 
 

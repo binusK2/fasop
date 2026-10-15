@@ -26,6 +26,21 @@ def _host(**kwargs):
     return ZabbixHost.objects.create(**data)
 
 
+def _instansi(kode, nama, **kolom):
+    """
+    Instansi Zabbix untuk tes — update_or_create, BUKAN create.
+
+    Migrasi 0009 menambah FK `instance` ke ZabbixHost/ZabbixGroup dengan nilai
+    bawaan ZabbixInstance.ambil_default(); saat kolom itu dibuat, Django
+    memanggil fungsi tersebut dan baris 'telkom' ikut lahir di database tes.
+    create(kode='telkom') lalu bentrok dengan unique constraint `kode` —
+    penyebab 14 tes device_mon merah sejak multi-instansi dirilis.
+    """
+    obj, _ = ZabbixInstance.objects.update_or_create(
+        kode=kode, defaults={'nama': nama, **kolom})
+    return obj
+
+
 @override_settings(WA_CHAT_IDS_ZABBIX='123@g.us', WA_CHAT_IDS='rtu@g.us')
 class AlertZabbixTest(TestCase):
 
@@ -155,6 +170,9 @@ class ZabbixInstanceModelTest(TestCase):
     """ZabbixInstance.ambil_default() dan fallback *_efektif() ke .env."""
 
     def test_ambil_default_membuat_telkom_bila_belum_ada(self):
+        # Baris 'telkom' bawaan migrasi dibuang dulu: yang diuji justru
+        # pemasangan yang belum punya satu instansi pun.
+        ZabbixInstance.objects.all().delete()
         self.assertEqual(ZabbixInstance.objects.count(), 0)
         obj = ZabbixInstance.ambil_default()
         self.assertEqual(obj.kode, 'telkom')
@@ -174,7 +192,7 @@ class ZabbixInstanceModelTest(TestCase):
     @override_settings(ZABBIX_API_URL='http://zabbix-env.local/api_jsonrpc.php',
                        ZABBIX_API_TOKEN='token-env', ZABBIX_WEBHOOK_TOKEN='webhook-env')
     def test_field_kosong_jatuh_ke_env(self):
-        obj = ZabbixInstance.objects.create(kode='telkom', nama='Zabbix Telkom')
+        obj = _instansi('telkom', 'Zabbix Telkom')
         self.assertEqual(obj.api_url_efektif(), 'http://zabbix-env.local/api_jsonrpc.php')
         self.assertEqual(obj.api_token_efektif(), 'token-env')
         self.assertEqual(obj.webhook_token_efektif(), 'webhook-env')
@@ -182,8 +200,8 @@ class ZabbixInstanceModelTest(TestCase):
     @override_settings(ZABBIX_API_URL='http://zabbix-env.local/api_jsonrpc.php',
                        ZABBIX_WEBHOOK_TOKEN='webhook-env')
     def test_field_terisi_menimpa_env(self):
-        obj = ZabbixInstance.objects.create(
-            kode='prosis', nama='Zabbix Prosis',
+        obj = _instansi(
+            'prosis', 'Zabbix Prosis',
             api_url='http://zabbix-prosis.local/api_jsonrpc.php',
             webhook_token='webhook-prosis',
         )
@@ -198,17 +216,15 @@ class ZabbixInstanceModelTest(TestCase):
 
     @override_settings(WA_CHAT_IDS_ZABBIX='zbx@g.us', WA_CHAT_IDS='rtu@g.us')
     def test_wa_chat_ids_efektif_fallback_chain(self):
-        kosong = ZabbixInstance.objects.create(kode='telkom', nama='Zabbix Telkom')
+        kosong = _instansi('telkom', 'Zabbix Telkom')
         self.assertEqual(kosong.wa_chat_ids_efektif(), ['zbx@g.us'])
 
-        sendiri = ZabbixInstance.objects.create(
-            kode='prosis', nama='Zabbix Prosis', wa_chat_ids='prosis@g.us')
+        sendiri = _instansi('prosis', 'Zabbix Prosis', wa_chat_ids='prosis@g.us')
         self.assertEqual(sendiri.wa_chat_ids_efektif(), ['prosis@g.us'])
 
     @override_settings(WA_CHAT_IDS_ZABBIX='', WA_CHAT_IDS='rtu@g.us')
     def test_zbx_targets_host_jatuh_ke_instance_dulu_baru_global(self):
-        prosis = ZabbixInstance.objects.create(
-            kode='prosis', nama='Zabbix Prosis', wa_chat_ids='prosis@g.us')
+        prosis = _instansi('prosis', 'Zabbix Prosis', wa_chat_ids='prosis@g.us')
         host = _host(instance=prosis, wa_chat_ids='')
         self.assertEqual(zbx_targets(host), ['prosis@g.us'])
 
@@ -218,8 +234,8 @@ class ZabbixHostUniquePerInstanceTest(TestCase):
     boleh kebetulan memakai hostid yang sama untuk host yang berbeda."""
 
     def test_hostid_sama_di_instansi_berbeda_tidak_bentrok(self):
-        telkom = ZabbixInstance.objects.create(kode='telkom', nama='Zabbix Telkom')
-        prosis = ZabbixInstance.objects.create(kode='prosis', nama='Zabbix Prosis')
+        telkom = _instansi('telkom', 'Zabbix Telkom')
+        prosis = _instansi('prosis', 'Zabbix Prosis')
         ZabbixHost.objects.create(instance=telkom, zabbix_hostid='10084', nama='Host Telkom')
         # Tidak boleh IntegrityError meski hostid-nya sama persis.
         h2 = ZabbixHost.objects.create(instance=prosis, zabbix_hostid='10084', nama='Host Prosis')
@@ -227,7 +243,7 @@ class ZabbixHostUniquePerInstanceTest(TestCase):
 
     def test_hostid_sama_di_instansi_sama_bentrok(self):
         from django.db import IntegrityError, transaction
-        telkom = ZabbixInstance.objects.create(kode='telkom', nama='Zabbix Telkom')
+        telkom = _instansi('telkom', 'Zabbix Telkom')
         ZabbixHost.objects.create(instance=telkom, zabbix_hostid='10084', nama='A')
         with self.assertRaises(IntegrityError):
             with transaction.atomic():
@@ -238,10 +254,8 @@ class ZabbixWebhookInstanceTest(TestCase):
     """Endpoint webhook per-instansi — token dan host tidak boleh bocor antar instansi."""
 
     def setUp(self):
-        self.telkom = ZabbixInstance.objects.create(
-            kode='telkom', nama='Zabbix Telkom', webhook_token='token-telkom')
-        self.prosis = ZabbixInstance.objects.create(
-            kode='prosis', nama='Zabbix Prosis', webhook_token='token-prosis')
+        self.telkom = _instansi('telkom', 'Zabbix Telkom', webhook_token='token-telkom')
+        self.prosis = _instansi('prosis', 'Zabbix Prosis', webhook_token='token-prosis')
 
     def _post(self, url, token, **payload):
         import json
@@ -300,8 +314,8 @@ class ZabbixDashboardScopingTest(TestCase):
 
     def setUp(self):
         from django.contrib.auth.models import User
-        self.telkom = ZabbixInstance.objects.create(kode='telkom', nama='Zabbix Telkom')
-        self.prosis = ZabbixInstance.objects.create(kode='prosis', nama='Zabbix Prosis')
+        self.telkom = _instansi('telkom', 'Zabbix Telkom')
+        self.prosis = _instansi('prosis', 'Zabbix Prosis')
         ZabbixHost.objects.create(instance=self.telkom, zabbix_hostid='1', nama='Telkom A')
         ZabbixHost.objects.create(instance=self.telkom, zabbix_hostid='2', nama='Telkom B')
         ZabbixHost.objects.create(instance=self.prosis, zabbix_hostid='1', nama='Prosis A')
@@ -332,10 +346,8 @@ class SyncZabbixMultiInstanceTest(TestCase):
     """Satu instansi gagal tidak boleh menghentikan sinkronisasi instansi lain."""
 
     def setUp(self):
-        self.telkom = ZabbixInstance.objects.create(
-            kode='telkom', nama='Zabbix Telkom', api_url='http://telkom.local/api_jsonrpc.php')
-        self.prosis = ZabbixInstance.objects.create(
-            kode='prosis', nama='Zabbix Prosis', api_url='http://prosis.local/api_jsonrpc.php')
+        self.telkom = _instansi('telkom', 'Zabbix Telkom', api_url='http://telkom.local/api_jsonrpc.php')
+        self.prosis = _instansi('prosis', 'Zabbix Prosis', api_url='http://prosis.local/api_jsonrpc.php')
 
     def test_instansi_gagal_tidak_menghentikan_instansi_lain(self):
         from device_mon.zabbix_api import ZabbixAPIError
@@ -478,3 +490,128 @@ class GatewayWahaTest(TestCase):
 
         self.assertEqual((terkirim, total), (0, 1))
         self.assertIn('422', ket)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Rekap semua sumber (/device-mon/) — RTU + setiap Instansi Zabbix aktif.
+# ═══════════════════════════════════════════════════════════════════════════
+class RekapDeviceMonTest(TestCase):
+    """
+    /device-mon/ adalah rekap; dashboard RTU pindah ke /device-mon/rtu/.
+    Angka rekap wajib sama dengan dashboard tiap sumber — dua layar yang
+    menyebut jumlah gangguan berbeda untuk data yang sama tidak bisa dipercaya
+    salah satunya.
+    """
+
+    def setUp(self):
+        from datetime import timedelta
+        from django.contrib.auth.models import User
+        from django.utils import timezone
+
+        kini = timezone.now()
+        RTU.objects.create(nama='RTU-UP', state='UP', state_sejak=kini - timedelta(hours=3))
+        RTU.objects.create(nama='RTU-DOWN', state='DOWN', lokasi='GI Tello',
+                           state_sejak=kini - timedelta(minutes=30))
+        RTU.objects.create(nama='RTU-NONAKTIF', state='DOWN', aktif=False)
+
+        self.telkom = _instansi('telkom', 'Zabbix Telkom', urutan=1)
+        self.prosis = _instansi('prosis', 'Zabbix Prosis', urutan=2)
+        lama = _instansi('lama', 'Zabbix Lama', aktif=False)
+
+        ZabbixHost.objects.create(instance=self.telkom, zabbix_hostid='1', nama='Telkom OK', state='OK')
+        ZabbixHost.objects.create(instance=self.telkom, zabbix_hostid='2', nama='Telkom High',
+                                  state='PROBLEM', severity='High', problem_name='Link down',
+                                  state_sejak=kini - timedelta(minutes=5))
+        ZabbixHost.objects.create(instance=self.telkom, zabbix_hostid='3', nama='Telkom Warning',
+                                  state='PROBLEM', severity='Warning',
+                                  state_sejak=kini - timedelta(minutes=600))
+        ZabbixHost.objects.create(instance=self.prosis, zabbix_hostid='1', nama='Prosis Disaster',
+                                  state='PROBLEM', severity='Disaster',
+                                  state_sejak=kini - timedelta(minutes=60))
+        ZabbixHost.objects.create(instance=self.prosis, zabbix_hostid='2', nama='Prosis Nonaktif',
+                                  state='PROBLEM', severity='High', aktif=False)
+        ZabbixHost.objects.create(instance=lama, zabbix_hostid='1', nama='Host Instansi Mati',
+                                  state='PROBLEM', severity='High')
+
+        user = User.objects.create_superuser('adm-rekap', 'r@b.id', 'rahasia-tes-123')
+        user.profile.force_password_change = False
+        user.profile.save(update_fields=['force_password_change'])
+        self.client.force_login(user)
+
+    def _rekap(self):
+        resp = self.client.get('/device-mon/api/rekap/')
+        self.assertEqual(resp.status_code, 200)
+        return resp.json()
+
+    def test_pintu_masuk_device_mon_adalah_rekap(self):
+        resp = self.client.get('/device-mon/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertTemplateUsed(resp, 'device_mon/rekap.html')
+
+    def test_dashboard_rtu_pindah_ke_halaman_sendiri(self):
+        resp = self.client.get('/device-mon/rtu/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertTemplateUsed(resp, 'device_mon/rtu_dashboard.html')
+
+    def test_sidebar_punya_rekap_dan_bagian_rtu_sendiri(self):
+        isi = self.client.get('/device-mon/').content.decode()
+        self.assertIn('href="/device-mon/"', isi)
+        self.assertIn('href="/device-mon/rtu/"', isi)
+        self.assertIn('Rekap Semua', isi)
+        # Bagian per instansi Zabbix tetap ada, termasuk yang baru ditambah.
+        self.assertIn('href="/device-mon/zabbix/prosis/"', isi)
+        self.assertNotIn('href="/device-mon/zabbix/lama/"', isi)
+
+    def test_satu_baris_per_sumber_aktif_berurutan(self):
+        sumber = self._rekap()['sumber']
+        self.assertEqual([s['kode'] for s in sumber], ['rtu', 'telkom', 'prosis'])
+        rtu, telkom, prosis = sumber
+        self.assertEqual((rtu['total'], rtu['normal'], rtu['gangguan']), (2, 1, 1))
+        self.assertEqual((telkom['total'], telkom['normal'], telkom['gangguan'], telkom['warning']),
+                         (3, 1, 1, 1))
+        self.assertEqual((prosis['total'], prosis['gangguan']), (1, 1))
+        self.assertEqual(rtu['url'], '/device-mon/rtu/')
+        self.assertEqual(prosis['url'], '/device-mon/zabbix/prosis/')
+
+    def test_total_menjumlahkan_semua_sumber(self):
+        total = self._rekap()['total']
+        self.assertEqual(total, {'total': 6, 'normal': 2, 'gangguan': 3, 'warning': 1, 'unknown': 0})
+
+    def test_angka_sama_dengan_dashboard_sumbernya(self):
+        sumber = {s['kode']: s for s in self._rekap()['sumber']}
+        rtu = self.client.get('/device-mon/api/status/').json()
+        self.assertEqual(sumber['rtu']['normal'], rtu['total_up'])
+        self.assertEqual(sumber['rtu']['gangguan'], rtu['total_down'])
+        self.assertEqual(sumber['rtu']['avail_hari'], rtu['avail_hari'])
+        for kode in ('telkom', 'prosis'):
+            z = self.client.get(f'/device-mon/zabbix/{kode}/api/summary/').json()
+            s = sumber[kode]
+            self.assertEqual((s['total'], s['normal'], s['gangguan'], s['warning'], s['unknown']),
+                             (z['total_host'], z['total_ok'], z['total_problem'],
+                              z['total_warning'], z['total_unknown']), kode)
+            self.assertEqual((s['avail_hari'], s['avail_bulan']),
+                             (z['avail_hari'], z['avail_bulan']), kode)
+
+    def test_gangguan_aktif_lintas_sumber_kritis_dulu_lalu_terlama(self):
+        aktif = self._rekap()['aktif']
+        self.assertEqual([a['nama'] for a in aktif],
+                         ['Prosis Disaster', 'RTU-DOWN', 'Telkom High', 'Telkom Warning'])
+        self.assertEqual([a['kelas'] for a in aktif], ['problem', 'problem', 'problem', 'warning'])
+        rtu = aktif[1]
+        self.assertEqual((rtu['sumber'], rtu['status'], rtu['lokasi']), ('RTU (SCADA)', 'DOWN', 'GI Tello'))
+        telkom = aktif[2]
+        self.assertEqual((telkom['status'], telkom['keterangan']), ('High', 'Link down'))
+        self.assertTrue(telkom['url'].startswith('/device-mon/zabbix/host/'))
+
+    def test_tanpa_data_sama_sekali_tetap_200(self):
+        RTU.objects.all().delete()
+        ZabbixHost.objects.all().delete()
+        d = self._rekap()
+        self.assertEqual(d['total']['total'], 0)
+        self.assertEqual(d['aktif'], [])
+        self.assertEqual(d['sumber'][0]['avail_hari'], None)
+
+    def test_wajib_login(self):
+        self.client.logout()
+        for url in ('/device-mon/', '/device-mon/api/rekap/', '/device-mon/rtu/'):
+            self.assertEqual(self.client.get(url).status_code, 302, url)

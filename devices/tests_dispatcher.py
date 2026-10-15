@@ -95,7 +95,8 @@ class DispatcherAksesTest(TestCase):
     def test_api_yang_dipoll_halamannya_ikut_terbuka(self):
         u = self._user()
         for path in ('/opsis/api/live/', '/opsis/api/hz/', '/opsis/api/ews/',
-                     '/device-mon/api/status/', '/device-mon/zabbix/telkom/api/summary/'):
+                     '/device-mon/api/rekap/', '/device-mon/api/status/',
+                     '/device-mon/zabbix/telkom/api/summary/'):
             self.assertTrue(self._lolos_middleware(u, path), f'{path} dipantulkan')
 
     def test_semua_tautan_di_opsis_dan_device_mon_lolos_middleware(self):
