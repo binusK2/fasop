@@ -127,30 +127,23 @@ def riwayat(t0, t1, kode=None):
     ]
 
 
-def _urut_unit(nama):
-    """Kunci urut UNIT2 sebelum UNIT10 — urutan string biasa menukarnya."""
-    angka = ''.join(ch for ch in nama if ch.isdigit())
-    return (int(angka) if angka else 0, nama)
 
-
-def rincian_harian(anggota, t0, t1):
+def deret_harian(anggota, t0, t1):
     """
-    Deret MW per menit tiap pembangkit `anggota` BESERTA tiap unitnya pada
-    rentang [t0, t1) — isi halaman rincian KIT Terpilih (/opsis/kit-terpilih/).
+    Deret MW per menit tiap pembangkit `anggota` pada rentang [t0, t1) — isi
+    chart halaman rincian KIT Terpilih (/opsis/kit-terpilih/).
 
     Return list, urutannya mengikuti `anggota`:
-        [{'kode', 'nama', 'jenis',
-          'mw':    [[menit, mw], ...],                         # SnapLive
-          'units': [{'nama': 'UNIT1', 'mw': [[menit, mw]]}]}]  # SnapUnit
+        [{'kode', 'nama', 'jenis', 'mw': [[menit, mw], ...]}]
 
     `menit` = menit sejak 00:00 waktu lokal, konvensi semua chart 24 jam OPSIS.
-    Pasangan [menit, mw] (bukan dict) karena satu hari penuh untuk beberapa
-    pembangkit x beberapa unit sudah puluhan ribu titik; kunci yang diulang di
-    tiap titik melipatgandakan ukuran balasan tanpa menambah informasi.
+    Pasangan [menit, mw] (bukan dict) karena satu hari penuh untuk belasan
+    pembangkit sudah belasan ribu titik; kunci yang diulang di tiap titik
+    melipatgandakan ukuran balasan tanpa menambah informasi.
 
-    Total per pembangkit dari SnapLive — angka yang sama dengan chart KIT
-    Terpilih di dashboard — bukan hasil menjumlahkan SnapUnit di sini, supaya
-    dua chart tentang pembangkit yang sama tidak bisa bercerita berbeda.
+    Sumbernya SnapLive — angka yang sama dengan chart KIT Terpilih di
+    dashboard, jadi garis Total di halaman rincian (jumlah semua deret ini per
+    menit) tidak bisa bercerita berbeda dengan chart yang baru saja diklik.
 
     Menit yang MW-nya kosong tidak dikirim (sama dengan api_beban_kit_terpilih);
     celahnya digambar putus oleh browser, bukan dikarang jadi nol.
@@ -158,39 +151,21 @@ def rincian_harian(anggota, t0, t1):
     Rentang memakai `waktu__gte`/`waktu__lt`, bukan lookup `__date` — alasan
     indeks yang sama dengan `riwayat()` di atas.
     """
-    from .models import SnapLive, SnapUnit
+    from .models import SnapLive
 
     anggota = list(anggota)
     if not anggota:
         return []
-    per_pk = {p.pk: {'kode': p.kode, 'nama': p.nama, 'jenis': p.jenis,
-                     'mw': [], 'units': {}}
-              for p in anggota}
+    per_pk = {p.pk: [] for p in anggota}
 
-    def _menit(waktu):
-        lokal = timezone.localtime(waktu)
-        return lokal.hour * 60 + lokal.minute
-
-    total = (SnapLive.objects
+    baris = (SnapLive.objects
              .filter(pembangkit_id__in=per_pk.keys(), waktu__gte=t0, waktu__lt=t1,
                      mw__isnull=False)
              .order_by('waktu')
              .values_list('pembangkit_id', 'waktu', 'mw'))
-    for pid, waktu, mw in total:
-        per_pk[pid]['mw'].append([_menit(waktu), round(mw, 2)])
+    for pid, waktu, mw in baris:
+        lokal = timezone.localtime(waktu)
+        per_pk[pid].append([lokal.hour * 60 + lokal.minute, round(mw, 2)])
 
-    unit = (SnapUnit.objects
-            .filter(snap__pembangkit_id__in=per_pk.keys(),
-                    snap__waktu__gte=t0, snap__waktu__lt=t1, mw__isnull=False)
-            .order_by('snap__waktu')
-            .values_list('snap__pembangkit_id', 'snap__waktu', 'nama', 'mw'))
-    for pid, waktu, nama, mw in unit:
-        per_pk[pid]['units'].setdefault(nama, []).append([_menit(waktu), round(mw, 2)])
-
-    hasil = []
-    for p in anggota:
-        isi = per_pk[p.pk]
-        isi['units'] = [{'nama': nama, 'mw': isi['units'][nama]}
-                        for nama in sorted(isi['units'], key=_urut_unit)]
-        hasil.append(isi)
-    return hasil
+    return [{'kode': p.kode, 'nama': p.nama, 'jenis': p.jenis, 'mw': per_pk[p.pk]}
+            for p in anggota]
