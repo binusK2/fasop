@@ -1,3 +1,5 @@
+from fasop.client_ip import ip_klien
+
 from .models import AuditLog
 
 
@@ -7,10 +9,7 @@ def log_action(request, action, app_label, model_name, object_id=None, object_re
     Aman dipanggil dari mana saja — error tidak akan mengganggu request utama.
     """
     try:
-        ip = (
-            request.META.get('HTTP_X_FORWARDED_FOR', '').split(',')[0].strip()
-            or request.META.get('REMOTE_ADDR')
-        ) or None
+        ip = ip_klien(request)
 
         AuditLog.objects.create(
             user        = request.user if request.user.is_authenticated else None,
