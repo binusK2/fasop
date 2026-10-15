@@ -146,13 +146,15 @@ class Command(BaseCommand):
                     datetime.combine(tanggal, datetime.max.time()),
                 )
                 tersimpan = RemoteControl.objects.filter(tanggal=tanggal).count()
+                # Yang dibandingkan dengan FASOP adalah jumlah PERINTAH, bukan
+                # baris scd_his_rc -- trigger OFDB menulis dua baris per perintah.
                 self.stdout.write(
-                    f'[OK]    RC {tanggal}: di OFDB={rc["total"]} '
-                    f'(diselesaikan OFDB={rc["sudah_resolve"]}, '
-                    f'BERHASIL={rc["berhasil"]}, GAGAL={rc["gagal"]}), '
+                    f'[OK]    RC {tanggal}: di OFDB={rc["perintah"]} perintah '
+                    f'({rc["total"]} baris scd_his_rc, {rc["placeholder"]} di antaranya '
+                    f'placeholder GAGAL dari trigger, diselesaikan OFDB={rc["sudah_resolve"]}), '
                     f'tersimpan di FASOP={tersimpan}'
                 )
-                if rc['total'] and not tersimpan:
+                if rc['perintah'] and not tersimpan:
                     self.stdout.write('        -> jalankan: python manage.py sync_rc --days 3')
             except Exception as e:
                 self.stderr.write(f'[GAGAL] Ringkasan RC: {e}')

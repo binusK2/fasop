@@ -662,6 +662,22 @@ def query_soe(cursor, dt_start, dt_end, filters=None, limit=SOE_MAX_ROWS):
 # pernah jadi bug: hasil dicari di titik yang salah (titik kontrol, yang
 # jarang/tidak pernah memuat pesan konfirmasi), sehingga RC nyaris selalu
 # jatuh ke default GAGAL.
+#
+# SATU perintah RC tercatat sebagai LEBIH DARI SATU baris scd_his_rc. Trigger
+# tr1_scd_his_message membuat dua baris untuk setiap pesan perintah (tag 'OR')
+# -- id berurutan, path1..path5/datum_1/status_1/operator identik:
+#   1. baris kosong (cek_remote NULL), yang dulu diselesaikan job up2bmakassar;
+#   2. baris "GAGAL" PLACEHOLDER: cek_remote=1, status_2='GAGAL', datum_2 =
+#      datum_1. Ditulis saat perintah baru dikirim, jadi tidak pernah memeriksa
+#      hasil apa pun -- balasan breaker baru datang 1-2 detik kemudian.
+# Terukur di OFDB 15 Sep - 15 Okt 2026: 301 dari 307 perintah berpasangan
+# seperti itu, sehingga tiap perintah terhitung dua RC (satu hasil sungguhan +
+# satu GAGAL palsu) dan performance tiap bay tidak pernah bisa lewat 50%.
+# Variasinya: pesan perintah yang ikut terduplikasi di scd_his_message (stempel
+# waktu & msec sama persis) melahirkan 4 baris, dan perintah bertag 'O*' hanya
+# melahirkan baris placeholder-nya saja -- padahal balasannya bisa 'R*'
+# (BERHASIL). gabung_rc_kembar() menyatukan semuanya jadi satu perintah dan
+# tidak pernah memakai placeholder sebagai hasil.
 
 def get_rc_events(cursor, dt_start, dt_end):
     """
@@ -708,29 +724,105 @@ def get_rc_events(cursor, dt_start, dt_end):
     return hasil
 
 
+def kunci_perintah_rc(path1, path2, path3, path4, path5, datum_1, status_1, operator):
+    """
+    Identitas satu PERINTAH RC: bay (path1..path5), detik perintahnya, arah
+    (Open/Close), dan operatornya. Dua baris scd_his_rc berkunci sama adalah
+    perintah yang sama -- satu bay tidak bisa diperintah dua kali ke arah yang
+    sama oleh operator yang sama di detik yang sama.
+
+    Nilai teks di-strip di sini juga supaya baris lama yang tersimpan sebelum
+    _teks() ada (masih ber-spasi padding) tetap terkunci sama.
+    """
+    def t(v):
+        return (v or '').strip()
+    return (t(path1), t(path2), t(path3), t(path4), t(path5), datum_1, t(status_1), t(operator))
+
+
+def _placeholder_trigger(datum_1, datum_2, status_2):
+    """Baris GAGAL yang ditulis trigger saat perintah dikirim -- bukan hasil."""
+    return status_2 == 'GAGAL' and datum_2 == datum_1
+
+
+def gabung_rc_kembar(events):
+    """
+    Satukan baris get_rc_events() yang mencatat perintah yang sama (lihat
+    kunci_perintah_rc dan catatan di atas modul RC ini) jadi SATU RC.
+
+    Return list (baris_wakil, id_kembar, hasil_ofdb), urut seperti events:
+      baris_wakil -- baris ber-id_his_rc TERKECIL. Id itu yang jadi kunci
+                     RemoteControl: baris kembaran selalu ditulis sesudahnya
+                     (id lebih besar), jadi wakilnya tidak berubah walau
+                     kembarannya baru muncul di sync berikutnya.
+      id_kembar   -- id_his_rc lain di kelompok itu. Tidak boleh tersimpan
+                     sebagai RC sendiri.
+      hasil_ofdb  -- (datum_2, status_2) kalau OFDB/job lama SUNGGUH sudah
+                     menyelesaikannya, atau None kalau hasilnya harus dicari
+                     dari scd_his_message (resolve_rc_result). Placeholder
+                     GAGAL dari trigger tidak pernah dihitung sebagai hasil;
+                     kalau ada yang BERHASIL di kelompok itu, BERHASIL yang
+                     dipakai -- placeholder selalu GAGAL, jadi BERHASIL pasti
+                     berasal dari pemeriksaan sungguhan.
+    """
+    kelompok = {}
+    for row in events:
+        (_id, path1, path2, path3, path4, path5, _b1, _b2, _b3, _elem,
+         datum_1, status_1, _datum_2, _status_2, operator, _cek_remote) = row
+        kunci = kunci_perintah_rc(path1, path2, path3, path4, path5, datum_1, status_1, operator)
+        kelompok.setdefault(kunci, []).append(row)
+
+    hasil = []
+    for rows in kelompok.values():
+        rows = sorted(rows, key=lambda r: r[0])
+        selesai = []  # (id_his_rc, datum_2, status_2) yang sungguh diperiksa
+        for row in rows:
+            (id_his_rc, *_paths, datum_1, _status_1, datum_2, status_2,
+             _operator, cek_remote) = row
+            if cek_remote and datum_2 and status_2 \
+                    and not _placeholder_trigger(datum_1, datum_2, status_2):
+                selesai.append((id_his_rc, datum_2, status_2))
+        selesai.sort(key=lambda s: (s[2] != 'BERHASIL', s[0]))
+        hasil_ofdb = selesai[0][1:] if selesai else None
+        hasil.append((rows[0], [r[0] for r in rows[1:]], hasil_ofdb))
+    return hasil
+
+
 def ringkasan_rc(cursor, dt_start, dt_end):
     """
-    Diagnosa RC: berapa perintah RC di OFDB pada rentang itu, berapa yang sudah
-    diselesaikan sendiri oleh OFDB (cek_remote=1), dan sebaran status_2-nya.
+    Diagnosa RC: berapa baris scd_his_rc di OFDB pada rentang itu, berapa
+    PERINTAH yang sebenarnya diwakilinya (lihat gabung_rc_kembar), berapa yang
+    cuma placeholder GAGAL dari trigger, dan berapa yang sungguh diselesaikan
+    OFDB/job lama.
 
-    Kalau `total` nol padahal operator merasa ada perintah RC hari itu, berarti
-    trigger tr1_scd_his_message di OFDB tidak mengisi scd_his_rc -- masalahnya di
-    19.1, bukan di FASOP.
+    Kalau `perintah` nol padahal operator merasa ada perintah RC hari itu,
+    berarti trigger tr1_scd_his_message di OFDB tidak mengisi scd_his_rc --
+    masalahnya di 19.1, bukan di FASOP.
     """
     cursor.execute("""
         SELECT COUNT(*) AS total,
-               SUM(CASE WHEN cek_remote = 1 THEN 1 ELSE 0 END) AS sudah_resolve,
-               SUM(CASE WHEN status_2 = 'BERHASIL' THEN 1 ELSE 0 END) AS berhasil,
-               SUM(CASE WHEN status_2 = 'GAGAL' THEN 1 ELSE 0 END) AS gagal
+               SUM(CASE WHEN cek_remote = 1 AND status_2 = 'GAGAL' AND datum_2 = datum_1
+                        THEN 1 ELSE 0 END) AS placeholder,
+               SUM(CASE WHEN cek_remote = 1 AND status_2 IS NOT NULL
+                         AND NOT (status_2 = 'GAGAL' AND datum_2 = datum_1)
+                        THEN 1 ELSE 0 END) AS sudah_resolve
         FROM scd_his_rc
         WHERE datum_1 >= ? AND datum_1 <= ?
     """, [dt_start, dt_end])
     row = cursor.fetchone()
+    cursor.execute("""
+        SELECT COUNT(*) FROM (
+            SELECT DISTINCT RTRIM(path1) p1, RTRIM(path2) p2, RTRIM(path3) p3,
+                   RTRIM(path4) p4, RTRIM(path5) p5, datum_1,
+                   RTRIM(status_1) s1, RTRIM(msgoperator) op
+            FROM scd_his_rc
+            WHERE datum_1 >= ? AND datum_1 <= ?
+        ) x
+    """, [dt_start, dt_end])
     return {
         'total': row[0] or 0,
-        'sudah_resolve': row[1] or 0,
-        'berhasil': row[2] or 0,
-        'gagal': row[3] or 0,
+        'perintah': cursor.fetchone()[0] or 0,
+        'placeholder': row[1] or 0,
+        'sudah_resolve': row[2] or 0,
     }
 
 

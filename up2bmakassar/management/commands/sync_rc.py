@@ -12,6 +12,12 @@ jadi default-nya HARI INI mundur `--days` hari. Menjalankannya kapan saja akan
 langsung mengambil RC yang baru terjadi, dan menjalankan ulang aman karena
 upsert-nya berkunci ofdb_id_his_rc.
 
+Satu perintah RC = beberapa baris scd_his_rc (lihat ofdb.gabung_rc_kembar):
+yang disimpan hanya baris wakilnya, dan baris kembaran yang terlanjur tersimpan
+sebagai RC sendiri oleh versi sebelumnya dihapus tiap kali tanggalnya diproses.
+Perintah yang dulu terlanjur memakai placeholder GAGAL dari trigger sebagai
+hasil baru diselesaikan ulang dengan --ulang.
+
 Crontab: dipasang bersama sync kinerja lewat `bash deploy/setup_kinerja_cron.sh`
 (harian 01:30, --days 3). Kalau perlu lebih segar, boleh dijadwalkan lebih sering
 -- satu kali jalan hanya 2 query per hari yang diproses.
@@ -80,6 +86,7 @@ class Command(BaseCommand):
                 dt_end = datetime.combine(tanggal, time.max)
 
                 events = ofdb.get_rc_events(cursor, dt_start, dt_end)
+                perintah = ofdb.gabung_rc_kembar(events)
 
                 # RC yang sudah pernah diselesaikan FASOP tidak perlu di-resolve
                 # ulang -- itu satu query OFDB per RC, dan tanpa ini menjalankan
@@ -95,9 +102,9 @@ class Command(BaseCommand):
                 dilewati = 0
                 error = 0
 
-                for row in events:
+                for row, _kembar, hasil_ofdb in perintah:
                     (id_his_rc, path1, path2, path3, path4, path5, b1, b2, b3, elem,
-                     datum_1, status_1, datum_2, status_2, operator, cek_remote) = row
+                     datum_1, status_1, _datum_2, _status_2, operator, _cek_remote) = row
 
                     # Hasil baru dianggap final setelah lewat jendela respon 2 menit
                     # (+ margin). RC yang baru saja terjadi tetap di-resolve ulang,
@@ -110,9 +117,9 @@ class Command(BaseCommand):
                             continue
 
                     try:
-                        if cek_remote and datum_2 and status_2:
-                            # Sudah diselesaikan sendiri oleh OFDB (mis. kasus auto-gagal trigger)
-                            hasil_datum, hasil_status = datum_2, status_2
+                        if hasil_ofdb:
+                            # Sungguh diselesaikan OFDB / job lama -- bukan placeholder trigger.
+                            hasil_datum, hasil_status = hasil_ofdb
                         else:
                             hasil_datum, _msec, hasil_status = ofdb.resolve_rc_result(
                                 cursor, path1, path2, path3, path4, datum_1
@@ -139,9 +146,20 @@ class Command(BaseCommand):
                         logger.error(f'sync_rc error [id_his_rc={id_his_rc}] {tanggal}: {e}')
                         error += 1
 
+                # Kembaran yang terlanjur tersimpan sebagai RC sendiri -- tiap
+                # perintah dulu terhitung dua kali (hasil sungguhan + GAGAL
+                # palsu). Tidak ikut dilewati bersama wakilnya: wakil yang
+                # sudah final pun bisa masih punya kembaran tersimpan.
+                id_kembar = [i for _row, kembar, _hasil in perintah for i in kembar]
+                dihapus = 0
+                if id_kembar:
+                    sisa = RemoteControl.objects.filter(ofdb_id_his_rc__in=id_kembar)
+                    dihapus = sisa.count() if dry_run else sisa.delete()[0]
+
                 self.stdout.write(
-                    f'[{tanggal}] rc={len(events)} diproses={diproses} '
-                    f'dilewati={dilewati} error={error}'
+                    f'[{tanggal}] rc={len(perintah)} (baris OFDB={len(events)}) '
+                    f'diproses={diproses} dilewati={dilewati} error={error} '
+                    f'kembar_dihapus={dihapus}'
                     f'{" (dry-run)" if dry_run else ""}'
                 )
         finally:
