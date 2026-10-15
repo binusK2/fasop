@@ -230,6 +230,16 @@ AXES_LOCKOUT_TEMPLATE    = 'registration/lockout.html'
 AXES_VERBOSE             = False
 AXES_WHITELIST_CALLABLE  = 'devices.axes_utils.whitelist_operator'  # akun role Operator (shared) tidak pernah dikunci
 AXES_USERNAME_CALLABLE   = 'devices.axes_utils.username_terpotong'  # username >255 karakter membuat login HTTP 500 di PostgreSQL
+# Tanpa ini axes membaca REMOTE_ADDR, yang di belakang nginx selalu 127.0.0.1:
+# "username + IP" jadi kunci per-username, dan siapa pun bisa mengunci akun
+# orang lain. Lihat fasop/client_ip.py.
+AXES_CLIENT_IP_CALLABLE  = 'fasop.client_ip.ip_klien'
+
+# Proxy di depan Django yang header X-Forwarded-For-nya dipercaya (alamat/CIDR,
+# dipisah koma). Bawaan: nginx di server yang sama. Tambahkan alamat
+# cloudflared/nginx kalau dijalankan di host atau container lain — cek hasilnya
+# di /cek-ip/ (superuser).
+PROXY_TEPERCAYA = [x.strip() for x in config('PROXY_TEPERCAYA', default='127.0.0.1,::1').split(',') if x.strip()]
 
 # -------------------------------------------------------------------
 # API Key untuk integrasi eksternal (n8n, Google Sheets, dsb.)

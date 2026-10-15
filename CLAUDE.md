@@ -268,6 +268,7 @@ MSSQL_DRIVER=ODBC Driver 17 for SQL Server
 API_KEY=              # For /api/v1/ integrations
 
 CSP_MODE=enforce      # enforce (default) | report-only | off — see "Header Keamanan" below
+PROXY_TEPERCAYA=127.0.0.1,::1   # proxy yang X-Forwarded-For-nya dipercaya (alamat/CIDR) — see "IP Klien" below
 HELPDESK_WA=6285156357878   # WhatsApp admin di landing page "/" — TERLIHAT PUBLIK; kosong = tombolnya hilang
 GOOGLE_SITE_VERIFICATION=   # nama berkas verifikasi Google Search Console, mis. google1a2b3c4d5e6f7a8b.html
                              # (boleh beberapa, dipisah koma) — lihat "Landing Page"
@@ -501,6 +502,68 @@ Konsekuensinya:
 - Redirect HTTP→HTTPS ditangani **Always Use HTTPS** di Cloudflare. Akses lewat
   HTTP di IP internal tidak pernah lewat Cloudflare dan tidak membawa HSTS
   (browser memang mengabaikan HSTS di HTTP dan di alamat IP).
+
+---
+
+## IP Klien di Belakang Proxy (`fasop/client_ip.py`)
+
+`ip_klien(request)` adalah **satu-satunya** tempat FASOP menentukan IP
+pengguna. Ia dipakai log login (`devices.signals` → `UserLoginLog`), audit log
+(`auditlog.utils.log_action`), IP terakhir kunci API (`api.auth`), dan
+penguncian login django-axes (`AXES_CLIENT_IP_CALLABLE`). Jangan membaca
+`X-Forwarded-For` atau `REMOTE_ADDR` sendiri di kode baru. Dijaga
+`fasop/tests_client_ip.py`.
+
+Kedua jalur masuk produksi lewat nginx di server yang sama, jadi
+`REMOTE_ADDR` di Django **selalu 127.0.0.1**:
+
+```
+internet        → Cloudflare → cloudflared → nginx → gunicorn
+kantor (http IP) →                           nginx → gunicorn
+```
+
+Dua cara lama yang keliru, dan keduanya pernah dipakai bersamaan sampai
+Okt 2026:
+
+- **django-axes membaca `REMOTE_ADDR`** (ipware tidak terpasang). Semua
+  percobaan login tercatat dari 127.0.0.1, jadi kunci "username + IP" praktis
+  jadi kunci per-username. Siapa pun dari internet bisa mengunci akun
+  superuser dengan 5x salah password, dan kuncinya tidak lepas sendiri karena
+  `AXES_COOLOFF_TIME` tidak diatur. Di admin, IP percobaan login semuanya
+  terlihat 127.0.0.1.
+- **Log login & audit log membaca elemen PERTAMA `X-Forwarded-For`.** Elemen
+  itu ditulis pengirim sendiri — Cloudflare dan nginx MENAMBAHKAN alamat di
+  belakangnya, tidak menimpa — jadi IP di log itu bisa dikarang siapa saja.
+  Itulah sebabnya log login superuser terlihat "benar" sementara axes tidak:
+  keduanya membaca sumber yang berbeda.
+
+Aturannya sekarang: header hanya dipercaya kalau permintaan datang dari
+`PROXY_TEPERCAYA` (bawaan `127.0.0.1,::1`; `REMOTE_ADDR` kosong = unix socket
+= lokal). `X-Forwarded-For` dibaca dari **kanan**, melompati proxy tepercaya,
+dan alamat pertama yang bukan proxy itulah pengguna. Bagian kiri yang
+dikarang pengirim tidak pernah tercapai.
+
+Yang perlu diketahui saat mengubahnya:
+
+- **Bergantung pada nginx `proxy_set_header X-Forwarded-For
+  $proxy_add_x_forwarded_for;`** (menambahkan). Kalau nginx menimpa header itu
+  dengan `$remote_addr`, jalur Cloudflare akan tercatat 127.0.0.1 lagi.
+- **`CF-Connecting-IP` sengaja tidak dipakai.** Di jalur kantor permintaan
+  tidak lewat Cloudflare, jadi header itu bisa diisi siapa saja di jaringan
+  internal.
+- **Proxy di host/container lain wajib didaftarkan.** Kalau cloudflared jalan
+  di Docker, nginx melihatnya sebagai 172.17.x.x dan semua pengguna internet
+  tercatat dengan alamat itu. Tambahkan ke `PROXY_TEPERCAYA`
+  (`127.0.0.1,::1,172.17.0.0/16`) lalu restart.
+- **`/cek-ip/` (superuser saja, 404 untuk yang lain)** menampilkan header yang
+  benar-benar sampai ke Django beserta `ip_klien` hasilnya. Buka dari internet
+  DAN dari jaringan kantor setelah mengubah nginx/cloudflared; `ip_klien` harus
+  sama dengan IP Anda sendiri.
+- **Deploy pertama perbaikan ini melepas semua kunci axes lama.** Baris
+  `AccessAttempt` lama tercatat dengan IP 127.0.0.1 dan tidak lagi cocok
+  dengan IP sebenarnya. Bersihkan dengan `python manage.py axes_reset` supaya
+  daftar di admin tidak menyesatkan. IP lama di `UserLoginLog`/`AuditLog`
+  tetap seperti tercatat (elemen pertama XFF) — tidak bisa diperbaiki mundur.
 
 ---
 

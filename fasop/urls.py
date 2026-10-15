@@ -21,7 +21,7 @@ from django.contrib.auth import views as auth_views
 from django.conf.urls.static import static
 from django.views.defaults import page_not_found
 from devices.views import fo_public
-from fasop import pwa_views, situs_views
+from fasop import client_ip, pwa_views, situs_views
 from fasop.converters import HashIdConverter
 
 register_converter(HashIdConverter, 'hid')
@@ -33,6 +33,8 @@ urlpatterns = [
     # Verifikasi Google Search Console — hanya nama di GOOGLE_SITE_VERIFICATION.
     re_path(r'^(?P<nama>google[0-9a-zA-Z]+\.html)$', situs_views.google_verifikasi,
             name='google_verifikasi'),
+    # Diagnosa IP klien di belakang proxy — superuser saja (lihat fasop/client_ip.py).
+    path('cek-ip/', client_ip.cek_ip, name='cek_ip'),
     path('', include('devices.urls')),
     path('maintenance/', include('maintenance.urls')),
     path('gangguan/', include('gangguan.urls')),

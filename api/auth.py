@@ -4,6 +4,8 @@ import hmac
 from django.conf import settings
 from django.http import JsonResponse
 
+from fasop.client_ip import ip_klien
+
 
 def require_api_key(view_func):
     """
@@ -37,13 +39,6 @@ def require_api_key(view_func):
         return view_func(request, *args, **kwargs)
 
     return wrapper
-
-
-def _client_ip(request):
-    xff = request.META.get('HTTP_X_FORWARDED_FOR')
-    if xff:
-        return xff.split(',')[0].strip()
-    return request.META.get('REMOTE_ADDR')
 
 
 def require_kunci_baca(dataset):
@@ -120,7 +115,7 @@ def require_kunci_baca(dataset):
             request.kunci_api   = obj
             request.dataset_api = ds
             try:
-                obj.catat_pemakaian(_client_ip(request))
+                obj.catat_pemakaian(ip_klien(request))
             except Exception:
                 pass    # jejak pemakaian tidak boleh menggagalkan permintaan data
 
