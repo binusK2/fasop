@@ -1928,11 +1928,18 @@ sama seperti aksi "Uji baca sumber KIT sekarang" di OPSIS.
 
 ## Device Monitor — Rekap Semua Sumber (`/device-mon/`)
 
-Membuka Device Monitor langsung mendarat di **rekap**: satu kartu per sumber
-status — RTU (SCADA), lalu tiap `ZabbixInstance` aktif menurut `urutan` —
-plus satu tabel **Gangguan Aktif Sekarang** yang menggabungkan perangkat
-bermasalah dari semua sumber (kritis dulu, lalu yang paling lama). Isinya dari
+Membuka Device Monitor langsung mendarat di **rekap**, gaya layar NOC: baris
+total gabungan di atas, lalu satu bagian per sumber — RTU (SCADA), kemudian
+tiap `ZabbixInstance` aktif menurut `urutan` — berisi **kartu donut per grup
+host** (OK / Warning / Problem / Tidak diketahui, jumlah host di tengah,
+availability hari ini). RTU tidak punya grup, jadi tampil sebagai satu kartu
+"Semua RTU". Klik kartu → halaman grup itu (`dm_zbx_group_detail`). Isinya dari
 `/device-mon/api/rekap/` (`views.api_rekap`), dipoll tiap 15 detik.
+
+Rekap sengaja **tidak** memuat daftar gangguan per perangkat — versi pertamanya
+punya tabel "Gangguan Aktif", dan dihapus atas permintaan pengguna: daftar itu
+sudah ada di dashboard tiap sumber. Donutnya SVG buatan sendiri (bukan Chart.js)
+karena digambar ulang tiap poll untuk belasan kartu sekaligus.
 
 Dashboard RTU yang dulu menempati `/device-mon/` pindah ke **`/device-mon/rtu/`**
 (`dm_rtu_dashboard`, template `rtu_dashboard.html`) dan punya bagian sidebar
@@ -1945,12 +1952,23 @@ khusus RTU.
 Yang perlu diketahui saat mengubahnya:
 
 - **Angka rekap dan angka dashboard sumbernya dihitung fungsi yang SAMA**:
-  `_statistik_rtu()` (dipakai `api_status` + `api_rekap`) dan
-  `_statistik_zabbix()` (dipakai `zbx_api_summary` + `api_rekap`). Rekap
+  `_statistik_rtu()` (dipakai `api_status` + `api_rekap`),
+  `_statistik_zabbix()` (dipakai `zbx_api_summary` + `api_rekap`), dan
+  `_statistik_grup()` untuk rincian per grup (dipakai keduanya juga). Rekap
   adalah halaman yang diklik untuk masuk ke dashboard sumber; kalau keduanya
   menyebut angka berbeda, tidak ada yang tahu mana yang benar. Dijaga
-  `RekapDeviceMonTest.test_angka_sama_dengan_dashboard_sumbernya` — jangan
-  menghitung ulang total/availability di `api_rekap`.
+  `test_angka_sama_dengan_dashboard_sumbernya` dan
+  `test_kartu_grup_sama_dengan_ringkasan_instansi` — jangan menghitung ulang
+  total/availability/grup di `api_rekap`.
+- **Urutan grup = urutan sidebar**: `ZabbixGroup.Meta.ordering` (`urutan`,
+  `nama` — kolom "Urutan Tampil" di admin), lalu `(Tanpa Grup)` paling akhir.
+  Rekap, halaman Ringkasan instansi, dan sidebar memakai urutan yang sama
+  (dijaga `test_urutan_grup_ikut_sidebar`). Sebelumnya Ringkasan mengurutkan
+  abjad sehingga `(Tanpa Grup)` selalu di depan dan "Urutan Tampil" diabaikan.
+- **Membangun URL grup dengan `encodeURIComponent` di browser**, sama seperti
+  halaman Ringkasan — bukan `reverse()` di server: konverter `str` menolak `/`,
+  jadi satu nama grup bergaris miring akan menjatuhkan seluruh `api_rekap`
+  dengan `NoReverseMatch`.
 - **Kunci JSON per sumber netral** (`normal`/`gangguan`/`warning`/`unknown`)
   karena istilahnya beda (RTU: UP/DOWN, Zabbix: OK/Problem); label aslinya
   ikut dikirim (`label_normal`/`label_gangguan`) dan itulah yang ditampilkan.
