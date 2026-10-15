@@ -42,7 +42,9 @@ class CspHalamanTest(TestCase):
         self.assertEqual(csp['object-src'], ["'none'"])
         self.assertEqual(csp['base-uri'], ["'self'"])
         self.assertEqual(csp['form-action'], ["'self'"])
-        self.assertIn('https://fonts.gstatic.com', csp['font-src'])
+        # Font disajikan sendiri (static/fonts/fasop-fonts.css), bukan dari Google.
+        self.assertEqual(csp['font-src'], ["'self'", 'data:'])
+        self.assertEqual(csp['style-src'], ["'self'", "'unsafe-inline'"])
         # Gambar hanya dari FASOP sendiri + tile peta, bukan https: mana saja.
         self.assertNotIn('https:', csp['img-src'])
         self.assertIn('https://*.basemaps.cartocdn.com', csp['img-src'])
@@ -222,6 +224,29 @@ class CspTemplateTest(SimpleTestCase):
                     hilang.append(f'{berkas}: {path}')
         self.assertEqual(hilang, [])
 
+    def test_tidak_ada_google_fonts(self):
+        """
+        Termasuk <link rel="preconnect">, yang tidak tertangkap tes stylesheet
+        di atas: koneksinya ditolak CSP tanpa pesan apa pun di layar.
+        """
+        pakai = [str(berkas) for berkas, isi in self._template()
+                 if re.search(r'fonts\.(googleapis|gstatic)\.com', isi)]
+        self.assertEqual(pakai, [], 'pakai static/fonts/fasop-fonts.css')
+
+    def test_berkas_font_yang_dirujuk_ada(self):
+        """
+        url() di CSS font tidak diperiksa siapa pun: font yang salah path
+        jatuh diam-diam ke font sistem, tanpa error di server maupun console.
+        """
+        css_path = finders.find('fonts/fasop-fonts.css')
+        self.assertTrue(css_path)
+        css = Path(css_path).read_text(encoding='utf-8')
+        urls = re.findall(r"url\('\.\./([^']+)'\)", css)
+        self.assertEqual(len(urls), 24)
+        self.assertEqual([u for u in urls if not finders.find(u)], [])
+        for keluarga in ('DM Sans', 'JetBrains Mono', 'Barlow', 'Barlow Condensed'):
+            self.assertIn(f"font-family: '{keluarga}';", css)
+
 
 class GabungCspTest(TestCase):
     def test_direktif_baru_mewarisi_default_src(self):
@@ -296,7 +321,7 @@ class HeaderTambahanTest(TestCase):
         self.assertEqual(resp.headers['Cross-Origin-Resource-Policy'], 'same-site')
 
     def test_tanpa_coep(self):
-        """require-corp memblokir Google Fonts, tile peta, dan decoder Ezviz."""
+        """require-corp memblokir tile peta Leaflet dan decoder Ezviz."""
         self.assertNotIn('Cross-Origin-Embedder-Policy', self.client.get(reverse('login')).headers)
 
 
