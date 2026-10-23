@@ -11,7 +11,7 @@ pyodbc                        # Koneksi MSSQL untuk fitur Opsis (butuh ODBC Driv
 gunicorn==25.1.0
 
 # ── File & Image Processing ───────────────────────────────────────
-pillow==12.3.0                # Upload foto, tanda tangan digital
+pillow==13.0.0                # Upload foto, tanda tangan digital — >=13.0.0: 35 CVE (2 critical, a.l. overflow decoder JPEG) di 12.3.0
 reportlab==4.4.10             # Ekspor PDF laporan pemeliharaan
 weasyprint==70.0              # Ekspor PDF Berita Acara & laporan (butuh GTK/Pango:
                               #   Linux → paket sistem; Windows → GTK3 Runtime di PATH)
