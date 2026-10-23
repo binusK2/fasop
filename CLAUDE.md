@@ -2404,7 +2404,7 @@ New plants are added via Django Admin (`/secure-panel/` → Opsis → Pembangkit
 
 ```bash
 git pull origin main
-pip install -r requirements.txt
+venv/bin/pip install -r requirements.txt   # pip MILIK VENV gunicorn — lihat catatan di bawah
 python manage.py migrate
 python manage.py collectstatic --noinput   # only if static/ changed — WAJIB kalau static/vendor/ berubah
 sudo systemctl restart gunicorn
@@ -2412,6 +2412,29 @@ sudo systemctl reload nginx
 ```
 
 Rollback: `git revert <commit>` then redeploy. Never edit files directly on the server.
+
+**`requirements.txt` is fully pinned (`==`), and every pin is meant to reach the
+server.** Found in Oct 2026: production was still on Django 6.0.2 eight months
+after the pin moved — `pip install -r` had not been run with the venv's own pip
+(`systemctl cat gunicorn | grep ExecStart` shows which venv). Check after every
+deploy that touches requirements: `venv/bin/python -m django --version`.
+
+- **`pip install -r` never upgrades a package that already satisfies its line,
+  and never touches indirect dependencies that are already installed.** That is
+  why there are no `>=` lines any more (the server kept whatever version it first
+  got) and why the network stack under `requests` — `urllib3`, `idna`,
+  `certifi` — is pinned explicitly. Bump `certifi` (the CA bundle) periodically.
+- **Five packages FASOP imports were never listed**, and the server only had them
+  by accident: `psycopg2-binary` (the PostgreSQL driver — Django loads it
+  dynamically, so an import scan misses it), and `python-dotenv`, `PyYAML`,
+  `lxml`, `typing_extensions` (all imported by `spectrum7_av` at module load). A
+  clean install failed on the first DB query. Verify a requirements change in a
+  **fresh venv without system site-packages** on Python 3.12 before trusting it.
+- **`pandas` is deliberately held at 2.x.** `spectrum7_av` was written for
+  pandas 2 and has no tests; pandas 3 changes copy/chained-assignment behaviour
+  without raising.
+- Django stays on the 6.0 series (security support until Apr 2027); moving to 6.1
+  is a feature upgrade, not a patch — do it as its own PR.
 
 If OPSIS worker isolation is set up (`deploy/OPSIS_WORKER_ISOLATION.md` — a
 second gunicorn pool dedicated to `/opsis/*` so an MSSQL outage can't
