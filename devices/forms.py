@@ -34,8 +34,17 @@ class DeviceForm(forms.ModelForm):
 
     class Meta:
         model = Device
-        fields = '__all__'
-        exclude = ['is_deleted', 'deleted_by']
+        # Daftar eksplisit, BUKAN '__all__': kolom yang jadi field form tapi
+        # tidak dirender device_form.html dianggap "dikosongkan" setiap kali
+        # peralatan diedit. Itulah yang dulu menghapus created_by ("Ditambahkan
+        # oleh" jadi —), mengganti public_token (stiker QR mati), dan menghapus
+        # wiring_json. spesifikasi diisi view dari spesifikasi_json.
+        # Dijaga devices/tests_device_form.py.
+        fields = [
+            'nama', 'jenis', 'merk', 'type', 'serial_number', 'firmware_version',
+            'ip_address', 'lokasi', 'status_operasi', 'asset_id', 'status_aset',
+            'tahun_operasi', 'host', 'keterangan', 'foto', 'foto2',
+        ]
         widgets = {
             'status_aset': forms.Select(attrs={'class': 'form-select'}),
         }
