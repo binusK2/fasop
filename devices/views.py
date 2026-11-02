@@ -36,6 +36,30 @@ from .constants import DEVICE_GROUP_CONFIG
 from auditlog.utils import log_action as _audit
 
 
+def _pilihan_lokasi():
+    """Pilihan dropdown filter Lokasi di daftar peralatan.
+
+    Gabungan master Lokasi Site (SiteLocation) DAN lokasi yang tercatat di
+    Device. Dulu hanya dari Device, sehingga lokasi yang baru didaftarkan di
+    Manajemen Lokasi tidak pernah muncul sampai ada peralatan di sana. Lokasi
+    lama di Device yang tidak terdaftar di master tetap ikut supaya peralatannya
+    masih bisa difilter.
+
+    Digabung per nama huruf besar tanpa spasi tepi, ejaan SiteLocation menang.
+    """
+    pilihan = {}
+    sumber = list(SiteLocation.objects.values_list('nama', flat=True)) + list(
+        Device.objects.filter(is_deleted=False)
+        .values_list('lokasi', flat=True).distinct()
+    )
+    for nama in sumber:
+        nama = (nama or '').strip()
+        if not nama or nama.lower() == 'none':
+            continue
+        pilihan.setdefault(nama.upper(), nama)
+    return sorted(pilihan.values(), key=str.upper)
+
+
 @login_required
 def device_list(request):
     SESSION_KEY = f'devlist_filter_{request.user.pk}'
@@ -97,7 +121,10 @@ def device_list(request):
         )
 
     if lokasi:
-        devices = devices.filter(lokasi=lokasi)
+        # Tidak peka huruf besar/spasi tepi — sama dengan cara pilihan lokasinya
+        # digabung di _pilihan_lokasi().
+        devices = (devices.annotate(_lokasi=Trim('lokasi'))
+                          .filter(_lokasi__iexact=lokasi.strip()))
 
     if status_operasi:
         devices = devices.filter(status_operasi=status_operasi)
@@ -131,17 +158,7 @@ def device_list(request):
     page_num   = request.GET.get('page', 1)
     page_obj   = paginator.get_page(page_num)
 
-    lokasi_list = (
-        Device.objects
-        .filter(is_deleted=False)
-        .exclude(lokasi__isnull=True)
-        .exclude(lokasi__exact='')
-        .exclude(lokasi__iexact='none')
-        .annotate(lokasi_clean=Trim('lokasi'))
-        .values_list('lokasi_clean', flat=True)
-        .distinct()
-        .order_by('lokasi_clean')
-    )
+    lokasi_list = _pilihan_lokasi()
 
     # Merk list — jika jenis dipilih, filter merk sesuai jenis itu
     _merk_qs = Device.objects.filter(is_deleted=False, host__isnull=True).exclude(merk__isnull=True).exclude(merk__exact='')
@@ -1195,17 +1212,10 @@ def device_by_type(request, type_id):
         devices = Device.objects.filter(jenis_id=type_id, is_deleted=False, host__isnull=False)
     else:
         devices = Device.objects.filter(jenis_id=type_id, is_deleted=False, host__isnull=True)
-    lokasi_list = (
-        Device.objects.filter(is_deleted=False)
-        .exclude(lokasi__isnull=True).exclude(lokasi__exact='')
-        .annotate(lokasi_clean=Trim('lokasi'))
-        .values_list('lokasi_clean', flat=True)
-        .distinct().order_by('lokasi_clean')
-    )
     return render(request, 'devices/device_list.html', {
         'devices': devices,
         'filter_type': device_type,
-        'lokasi_list': lokasi_list,
+        'lokasi_list': _pilihan_lokasi(),
         'selected_jenis': type_id,
     })
 
