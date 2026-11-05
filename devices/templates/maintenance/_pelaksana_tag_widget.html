@@ -9,13 +9,40 @@ dengan nama yang dipakai form preventive.
 Parameter include:
   hidden_id     — id <input type="hidden"> penampung JSON nama (DIRENDER PEMANGGIL,
                   karena bentuknya berbeda: preventive memakai field Django,
-                  corrective memakai input biasa)
-  initial_json  — JSON array nama yang sudah tersimpan (boleh kosong)
+                  corrective memakai input biasa). Daftar awal dibaca dari
+                  nilai input ini, jadi nama yang sudah diketik tidak hilang
+                  saat form dikembalikan server karena kolom lain salah.
+  initial_json  — JSON array cadangan bila input tersembunyi itu kosong
+  error_text    — pesan error dari server untuk kolom ini (boleh kosong)
 
 Sumber namanya endpoint `pelaksana_search`, yang hanya mengembalikan user
 ber-role teknisi lengkap dengan nama panjangnya. Mengetik manual tetap boleh —
 pelaksana tidak selalu punya akun.
+
+PELAKSANA WAJIB DIISI. Kotak ini tidak punya <input> yang bisa diberi atribut
+`required` (nama dikirim lewat input tersembunyi, dan input tersembunyi tidak
+ikut validasi browser), jadi kotak ketiknya yang diberi setCustomValidity():
+form tidak bisa dikirim — termasuk lewat form.reportValidity() tombol Simpan
+corrective — selama belum ada nama. Pesannya tampil DI ATAS kotak. Validasi
+server (MaintenanceForm.clean_pelaksana_names & view corrective) tetap
+menjadi penjaga terakhir; teks pesannya sama: forms.PESAN_PELAKSANA_WAJIB.
+
+Nama yang sudah diketik tapi belum ditambahkan (+ / Enter) dihitung terisi
+dan ikut dikirim saat form disubmit — kalau tidak, operator yang langsung
+menekan Simpan malah ditolak "wajib diisi" padahal namanya ada di layar.
 {% endcomment %}
+
+{# Pesan error — di ATAS kolom, disembunyikan sampai dibutuhkan #}
+{% with pesan_wajib="Pelaksana wajib diisi — tambahkan minimal satu nama pelaksana." %}
+<div id="pelaksana-error" role="alert" data-pesan-wajib="{{ pesan_wajib }}"
+     style="display:{% if error_text %}flex{% else %}none{% endif %};align-items:flex-start;gap:6px;
+            margin-bottom:6px;padding:6px 10px;border-radius:8px;
+            background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;
+            font-size:12.5px;font-weight:500;">
+    <i class="bi bi-exclamation-circle-fill" style="margin-top:1px;"></i>
+    <span id="pelaksana-error-text">{{ error_text|default:pesan_wajib }}</span>
+</div>
+{% endwith %}
 
 {# Container tag #}
 <div id="pelaksana-tag-box"
@@ -52,21 +79,65 @@ pelaksana tidak selalu punya akun.
 
 <script>
 (function () {
-    var initial = [];
-    try { initial = JSON.parse('{{ initial_json|default:"[]"|escapejs }}') || []; } catch(e){}
-
-    var names       = initial.slice();
     var tagsEl      = document.getElementById('pelaksana-tags');
+    var tagBox      = document.getElementById('pelaksana-tag-box');
     var textInput   = document.getElementById('pelaksana-text-input');
     var addBtn      = document.getElementById('pelaksana-add-btn');
     var hiddenInput = document.getElementById('{{ hidden_id|default:"id_pelaksana_names" }}');
     var suggestEl   = document.getElementById('pelaksana-suggest');
+    var errorEl     = document.getElementById('pelaksana-error');
+    var errorText   = document.getElementById('pelaksana-error-text');
+    var pesanWajib  = errorEl.getAttribute('data-pesan-wajib');
     var searchUrl   = '{% url "pelaksana_search" %}';
     var searchTimer = null;
     var suggestions = [];
 
+    // Daftar awal: isi input tersembunyi (ikut nilai yang dikirim ulang server
+    // saat form ditolak), baru initial_json kalau input itu kosong.
+    var initial = [];
+    try {
+        initial = JSON.parse((hiddenInput && hiddenInput.value) ||
+                             '{{ initial_json|default:"[]"|escapejs }}');
+    } catch (e) {}
+    if (!Array.isArray(initial)) initial = [];
+    var names = initial.filter(function (n) {
+        return typeof n === 'string' && n.trim() !== '';
+    });
+
+    // ── Wajib diisi ───────────────────────────────────────────────────
+    function adaIsian() {
+        return names.length > 0 || textInput.value.trim() !== '';
+    }
+
+    function tandaiError(aktif) {
+        errorEl.style.display  = aktif ? 'flex' : 'none';
+        tagBox.style.borderColor = aktif ? '#ef4444' : '#e2e8f0';
+        tagBox.style.background  = aktif ? '#fef2f2' : '#f8fafc';
+    }
+
+    function perbaruiValiditas() {
+        var ok = adaIsian();
+        textInput.setCustomValidity(ok ? '' : pesanWajib);
+        if (ok) tandaiError(false);
+    }
+
+    // Dipicu browser setiap kali form dicoba dikirim (submit biasa maupun
+    // form.reportValidity()) sementara kolom ini masih kosong.
+    textInput.addEventListener('invalid', function () {
+        errorText.textContent = pesanWajib;
+        tandaiError(true);
+    });
+
+    // Nama yang diketik tapi belum ditambahkan ikut dikirim.
+    if (textInput.form) {
+        textInput.form.addEventListener('submit', function () {
+            if (textInput.value.trim() !== '') addName(textInput.value);
+        });
+    }
+
     function sync() {
         hiddenInput.value = JSON.stringify(names);
+        perbaruiValiditas();
     }
 
     function render() {
@@ -152,6 +223,7 @@ pelaksana tidak selalu punya akun.
             tryAdd();
             return;
         }
+        perbaruiValiditas();
         var q = textInput.value.trim();
         clearTimeout(searchTimer);
         if (q.length < 2) { hideSuggest(); return; }
@@ -203,5 +275,7 @@ pelaksana tidak selalu punya akun.
     });
 
     render();
+    // Ditolak server: pesannya sudah tampil dari template, warnai kotaknya juga.
+    if (errorEl.style.display !== 'none') tandaiError(true);
 })();
 </script>

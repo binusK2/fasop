@@ -1,9 +1,11 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse, resolve, Resolver404
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_POST
 from django.views.decorators.clickjacking import xframe_options_exempt, xframe_options_sameorigin
 from devices.permissions import require_can_edit, require_can_delete, require_can_soft_delete, is_viewer_only
 from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceRepeater, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset, MaintenanceRTU, MaintenanceSAS, MaintenanceRTUGeneric, MaintenanceBCU, MaintenanceRoIP, MaintenanceUPS, MaintenanceFrequencyRelay, MaintenanceMasterTrip, MaintenanceDFR, MaintenanceMasterStation, BeritaAcaraRecord, BeritaAcaraEviden
+from .forms import PESAN_PELAKSANA_WAJIB, bersihkan_pelaksana
 from .forms import MaintenanceForm, MaintenancePLCForm, MaintenanceRouterForm, MaintenanceRadioForm, MaintenanceRepeaterForm, MaintenanceVoIPForm, MaintenanceMuxForm, MaintenanceRectifierForm, MaintenanceTeleproteksiForm, MaintenanceGensetForm, MaintenanceRTUForm, MaintenanceSASForm, MaintenanceRTUGenericForm, MaintenanceBCUForm, MaintenanceRoIPForm, MaintenanceUPSForm, MaintenanceFrequencyRelayForm, MaintenanceMasterTripForm, MaintenanceDFRForm, MaintenanceMasterStationForm
 from devices.models import Device, DeviceType
 from gangguan.models import Gangguan
@@ -321,12 +323,9 @@ def maintenance_create(request, device_id):
             maintenance.device = device
             maintenance.maintenance_type = 'Preventive'  # FIX: disabled widget tidak dikirim browser
             maintenance.status = 'Open'  # selalu Open saat baru dibuat
-            # Simpan nama pelaksana manual (JSON array dari tag-input)
-            names_raw = request.POST.get('pelaksana_names', '[]')
-            try:
-                maintenance.pelaksana_names = json.loads(names_raw)
-            except (json.JSONDecodeError, ValueError):
-                maintenance.pelaksana_names = []
+            # Nama pelaksana (JSON dari tag-input) sudah divalidasi wajib &
+            # dirapikan di MaintenanceForm.clean_pelaksana_names.
+            maintenance.pelaksana_names = mform.cleaned_data['pelaksana_names']
             maintenance.save()
 
             if mform.cleaned_data.get('update_device_photo'):
@@ -973,11 +972,7 @@ def maintenance_edit(request, pk):
         if mform.is_valid() and (dform is None or dform.is_valid()):
             m = mform.save(commit=False)
             m.maintenance_type = 'Preventive'  # FIX: pastikan tidak hilang
-            names_raw = request.POST.get('pelaksana_names', '[]')
-            try:
-                m.pelaksana_names = json.loads(names_raw)
-            except (json.JSONDecodeError, ValueError):
-                m.pelaksana_names = []
+            m.pelaksana_names = mform.cleaned_data['pelaksana_names']  # wajib, lihat form
             m.save()
             if mform.cleaned_data.get('update_device_photo'):
                 _sync_device_photo_from_maintenance(m)
@@ -2592,6 +2587,76 @@ def maintenance_sign(request, pk):
 
 
 @login_required
+@require_POST
+def maintenance_bulk_sign(request):
+    """Asisten Manager menandatangani sekaligus pemeliharaan yang dicentang di
+    halaman Approval.
+
+    Aturannya sama dengan `maintenance_sign` (hanya role AM), ditambah syarat
+    yang ditentukan ulang DI SERVER saat disimpan: status Done dan belum TTD.
+    Daftar di layar bisa basi — AM lain mungkin sudah menandatanganinya, atau
+    pemeliharaannya dibuka kembali — jadi id dari browser hanya dipakai untuk
+    memilih, bukan sebagai bukti bahwa barisnya masih boleh ditandatangani.
+    Yang tidak lagi memenuhi syarat dilewati dan jumlahnya dilaporkan.
+
+    Catatan AM tidak diisi di sini; bisa ditambahkan per laporan dari halaman
+    detail setelah TTD.
+    """
+    from django.contrib import messages
+    from django.db import transaction
+    from fasop.hashids_helper import decode
+
+    kembali = reverse('maintenance_approval') + '?tab=pending'
+
+    try:
+        is_am = request.user.profile.is_asisten_manager
+    except Exception:
+        is_am = False
+    if not is_am:
+        messages.error(request, 'Hanya Asisten Manager yang dapat menandatangani laporan.')
+        return redirect(kembali)
+
+    pks = {pk for pk in (decode(h) for h in request.POST.getlist('ids')) if pk}
+    if not pks:
+        messages.error(request, 'Pilih minimal satu pemeliharaan yang akan ditandatangani.')
+        return redirect(kembali)
+
+    sekarang = dj_timezone.now()
+    nama_am  = request.user.get_full_name() or request.user.username
+    with transaction.atomic():
+        # Dikunci dulu supaya dua AM yang menekan bersamaan tidak saling
+        # menimpa TTD — yang kedua melihat barisnya sudah ditandatangani.
+        targets = list(
+            Maintenance.objects.select_for_update(of=('self',))
+            .filter(pk__in=pks, status='Done', signed_by__isnull=True)
+            .select_related('device')
+        )
+        for m in targets:
+            m.signed_by = request.user
+            m.signed_at = sekarang
+            m.save(update_fields=['signed_by', 'signed_at'])
+
+    # Di luar transaksi: log_action menelan error-nya sendiri, tapi di
+    # PostgreSQL query yang gagal di dalam atomic() tetap membatalkan seluruh
+    # transaksi — TTD-nya ikut hilang hanya karena pencatatan audit gagal.
+    for m in targets:
+        _audit(request, 'sign', 'maintenance', 'Maintenance',
+               m.pk,
+               f'{m.device.nama} — {m.date}',
+               f'TTD AM (massal): {nama_am}')
+
+    if targets:
+        messages.success(request, f'{len(targets)} laporan pemeliharaan berhasil ditandatangani.')
+    dilewati = len(pks) - len(targets)
+    if dilewati:
+        messages.warning(
+            request,
+            f'{dilewati} laporan dilewati karena sudah ditandatangani atau '
+            f'statusnya bukan Done lagi.')
+    return redirect(kembali)
+
+
+@login_required
 def maintenance_catatan_am_edit(request, pk):
     """Asisten Manager mengedit / menambah catatan setelah TTD."""
     maintenance = get_object_or_404(Maintenance, pk=pk)
@@ -2776,7 +2841,17 @@ def maintenance_approval(request):
             request.session.pop('approval_jenis_id', None)
             selected_jenis_id = ''
 
+    # Gambar TTD diambil dari profil penandatangan saat PDF dibuat; tanpa itu
+    # PDF hanya memuat nama. Ditampilkan sebagai peringatan, tidak memblokir —
+    # sama seperti TTD satu per satu.
+    try:
+        punya_gambar_ttd = bool(request.user.profile.signature)
+    except Exception:
+        punya_gambar_ttd = False
+
     return render(request, 'maintenance/approval.html', {
+        'bisa_ttd_massal':    is_am,
+        'punya_gambar_ttd':   punya_gambar_ttd,
         'pending_list':       pending_qs,
         'approved_list':      approved_qs,
         'tab':                tab,
@@ -2915,17 +2990,16 @@ def corrective_add(request, device_id=None, gangguan_id=None):
     if gangguan_init and not device_init and gangguan_init.peralatan:
         device_init = gangguan_init.peralatan
 
+    pelaksana_error = ''
     if request.method == 'POST':
         # ── Ambil data form ──
         device_pk         = request.POST.get('device_id')
         tanggal           = request.POST.get('tanggal', '')
-        # Pelaksana dari tag-input JS (JSON array)
-        import json as _json
-        _raw_pel = request.POST.get('pelaksana_names_input', '[]')
-        try:
-            pelaksana_list = _json.loads(_raw_pel)
-        except Exception:
-            pelaksana_list = [n.strip() for n in request.POST.get('pelaksana_names', '').split(',') if n.strip()]
+        # Pelaksana dari tag-input JS (JSON array) — wajib diisi
+        pelaksana_list    = bersihkan_pelaksana(
+            request.POST.get('pelaksana_names_input') or request.POST.get('pelaksana_names', ''))
+        if not pelaksana_list:
+            pelaksana_error = PESAN_PELAKSANA_WAJIB
         jenis_kerusakan   = request.POST.get('jenis_kerusakan', '')
         deskripsi_masalah = request.POST.get('deskripsi_masalah', '').strip()
         tindakan          = request.POST.get('tindakan', '').strip()
@@ -2953,7 +3027,7 @@ def corrective_add(request, device_id=None, gangguan_id=None):
         if komponen_terkait_pk:
             komponen_terkait_obj = DeviceComponent.objects.filter(pk=komponen_terkait_pk).first()
 
-        if device and tanggal and deskripsi_masalah and tindakan:
+        if device and tanggal and deskripsi_masalah and tindakan and pelaksana_list:
             from datetime import datetime
             # Buat Maintenance record
             m_status = 'Done' if status_perbaikan == 'selesai' else 'Open'
@@ -3068,6 +3142,7 @@ def corrective_add(request, device_id=None, gangguan_id=None):
         'from_gangguan':  gangguan_id is not None,
         'from_device':    device_id is not None,
         'ba_terkait':     None,   # perbaikannya belum ada, jadi BA-nya pasti belum
+        'pelaksana_error': pelaksana_error,
     })
 
 
@@ -3583,9 +3658,14 @@ def corrective_edit(request, pk):
     corr  = get_object_or_404(MaintenanceCorrective, maintenance=maint)
     device = maint.device
 
+    pelaksana_error = ''
     if request.method == 'POST':
         tanggal           = request.POST.get('tanggal', '').strip()
-        pelaksana_raw     = request.POST.get('pelaksana_names_input') or request.POST.get('pelaksana_names', '')
+        # Pelaksana — JSON array dari tag-input, atau nama dipisah koma; wajib
+        pelaksana_list    = bersihkan_pelaksana(
+            request.POST.get('pelaksana_names_input') or request.POST.get('pelaksana_names', ''))
+        if not pelaksana_list:
+            pelaksana_error = PESAN_PELAKSANA_WAJIB
         jenis_kerusakan   = request.POST.get('jenis_kerusakan', '')
         deskripsi_masalah = request.POST.get('deskripsi_masalah', '').strip()
         tindakan          = request.POST.get('tindakan', '').strip()
@@ -3603,14 +3683,7 @@ def corrective_edit(request, pk):
         # perubahannya hilang tanpa pesan apa pun.
         komponen_terkait_pk = request.POST.get('komponen_terkait', '') or None
 
-        if tanggal and deskripsi_masalah and tindakan:
-            # Parse pelaksana (JSON array atau comma-separated)
-            try:
-                pelaksana_list = json.loads(pelaksana_raw) if pelaksana_raw.startswith('[') else \
-                                 [n.strip() for n in pelaksana_raw.split(',') if n.strip()]
-            except (json.JSONDecodeError, ValueError):
-                pelaksana_list = [n.strip() for n in pelaksana_raw.split(',') if n.strip()]
-
+        if tanggal and deskripsi_masalah and tindakan and pelaksana_list:
             maint.date             = tanggal
             maint.description      = deskripsi_masalah
             maint.status           = 'Done' if status_perbaikan == 'selesai' else 'Open'
@@ -3648,7 +3721,11 @@ def corrective_edit(request, pk):
     except Exception:
         tanggal_str = str(maint.date) if maint.date else ''
 
-    pelaksana_json = json.dumps(maint.pelaksana_names or [])
+    # Ditolak karena pelaksana kosong → tampilkan isian yang dikirim (kosong),
+    # bukan nama lama dari database: kolom berisi nama dengan pesan "wajib
+    # diisi" di atasnya hanya membingungkan.
+    pelaksana_json = json.dumps(
+        pelaksana_list if pelaksana_error else (maint.pelaksana_names or []))
 
     gangguan_aktif = Gangguan.objects.filter(
         status__in=['open', 'in_progress']
@@ -3668,6 +3745,7 @@ def corrective_edit(request, pk):
         'from_device':          True,
         'today_date':           tanggal_str,
         'pelaksana_init_json':  pelaksana_json,
+        'pelaksana_error':      pelaksana_error,
         'ba_terkait':           BeritaAcaraRecord.objects.filter(
                                     sumber_maintenance=maint).first(),
     })
