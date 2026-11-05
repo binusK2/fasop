@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load device_filters %}
 {% block title %}Approval Pemeliharaan — FASOP{% endblock %}
 {% block page_title %}Approval Pemeliharaan{% endblock %}
 
@@ -103,17 +104,48 @@
 
 {% if tab == 'pending' %}
 <!-- PENDING TABLE -->
+{% comment %}
+TTD massal (hanya role AM): baris yang dicentang dikirim ke
+maintenance_bulk_sign, yang memeriksa ulang status Done & belum-TTD di server.
+Form-nya membungkus tabel supaya checkbox per baris ikut terkirim.
+{% endcomment %}
+{% if bisa_ttd_massal and pending_list %}
+<form method="post" action="{% url 'maintenance_bulk_sign' %}" id="form-ttd-massal"
+      onsubmit="return konfirmasiTtdMassal(this);">
+{% csrf_token %}
+{% endif %}
 <div class="table-card">
-    <div class="table-header" style="display:flex;align-items:center;justify-content:space-between;">
+    <div class="table-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
         <h6 class="mb-0">
             <i class="bi bi-pen me-1" style="color:#f59e0b;"></i>
             {{ pending_list|length }} Menunggu Tanda Tangan
         </h6>
+        {% if bisa_ttd_massal and pending_list %}
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            {% if not punya_gambar_ttd %}
+            <span style="font-size:11.5px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;
+                         padding:3px 10px;border-radius:20px;">
+                <i class="bi bi-exclamation-triangle me-1"></i>Gambar tanda tangan Anda belum diunggah —
+                PDF hanya memuat nama. <a href="{% url 'profile_view' %}" style="color:#92400e;font-weight:600;">Unggah di Profil</a>
+            </span>
+            {% endif %}
+            <button type="submit" id="btn-ttd-massal" class="btn btn-sm btn-success" disabled
+                    style="border-radius:8px;padding:5px 14px;font-size:12.5px;font-weight:600;">
+                <i class="bi bi-pen-fill me-1"></i>TTD Terpilih (<span id="jml-ttd-massal">0</span>)
+            </button>
+        </div>
+        {% endif %}
     </div>
     <div class="table-responsive">
         <table class="table mb-0" style="border-collapse:separate;border-spacing:0;">
             <thead>
                 <tr style="background:#f8fafc;">
+                    {% if bisa_ttd_massal and pending_list %}
+                    <th style="text-align:center;width:40px;padding:10px 8px;">
+                        <input type="checkbox" class="form-check-input" id="cek-semua-ttd"
+                               title="Pilih semua" aria-label="Pilih semua">
+                    </th>
+                    {% endif %}
                     <th style="text-align:center;width:46px;font-size:11px;color:#94a3b8;padding:10px 8px;">#</th>
                     <th style="font-size:11px;color:#64748b;padding:10px 12px;">TANGGAL</th>
                     <th style="font-size:11px;color:#64748b;padding:10px 12px;">PERANGKAT</th>
@@ -127,6 +159,12 @@
             <tbody>
             {% for m in pending_list %}
             <tr style="border-top:1px solid #f1f5f9;transition:background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
+                {% if bisa_ttd_massal %}
+                <td style="text-align:center;padding:14px 8px;">
+                    <input type="checkbox" class="form-check-input cek-ttd" name="ids"
+                           value="{{ m.pk|hashid }}" aria-label="Pilih {{ m.device.nama }}">
+                </td>
+                {% endif %}
                 <td style="text-align:center;font-size:12px;color:#cbd5e1;font-weight:600;padding:14px 8px;">{{ forloop.counter }}</td>
 
                 <td style="padding:14px 12px;white-space:nowrap;">
@@ -194,6 +232,45 @@
         </table>
     </div>
 </div>
+{% if bisa_ttd_massal and pending_list %}
+</form>
+<script>
+(function () {
+    var semua  = document.getElementById('cek-semua-ttd');
+    var tombol = document.getElementById('btn-ttd-massal');
+    var jumlah = document.getElementById('jml-ttd-massal');
+    var cek    = Array.prototype.slice.call(document.querySelectorAll('.cek-ttd'));
+
+    function terpilih() { return cek.filter(function (c) { return c.checked; }).length; }
+
+    function perbarui() {
+        var n = terpilih();
+        jumlah.textContent = n;
+        tombol.disabled = n === 0;
+        semua.checked = n > 0 && n === cek.length;
+        semua.indeterminate = n > 0 && n < cek.length;
+    }
+
+    semua.addEventListener('change', function () {
+        cek.forEach(function (c) { c.checked = semua.checked; });
+        perbarui();
+    });
+    cek.forEach(function (c) { c.addEventListener('change', perbarui); });
+
+    // Browser bisa memulihkan centang saat halaman dibuka lewat tombol Back.
+    perbarui();
+
+    window.konfirmasiTtdMassal = function (form) {
+        var n = terpilih();
+        if (!n) return false;
+        return confirmSubmit(form,
+            'Tandatangani ' + n + ' laporan pemeliharaan sekaligus sebagai Asisten Manager? ' +
+            'Laporan yang sudah ditandatangani tidak bisa diubah lagi.',
+            {title: 'TTD Massal', danger: false, okLabel: 'Ya, tandatangani'});
+    };
+})();
+</script>
+{% endif %}
 
 {% else %}
 <!-- APPROVED TABLE -->

@@ -24,6 +24,7 @@ urlpatterns = [
     path('profile/', views.profile_view, name='profile_view'),
     # Approval & Coverage
     path('approval/', views.maintenance_approval, name='maintenance_approval'),
+    path('approval/ttd-massal/', views.maintenance_bulk_sign, name='maintenance_bulk_sign'),
     path('coverage/', views.maintenance_coverage, name='maintenance_coverage'),
 
     # Dashboard Catu Daya

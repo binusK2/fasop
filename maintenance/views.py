@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse, resolve, Resolver404
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_POST
 from django.views.decorators.clickjacking import xframe_options_exempt, xframe_options_sameorigin
 from devices.permissions import require_can_edit, require_can_delete, require_can_soft_delete, is_viewer_only
 from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceRepeater, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset, MaintenanceRTU, MaintenanceSAS, MaintenanceRTUGeneric, MaintenanceBCU, MaintenanceRoIP, MaintenanceUPS, MaintenanceFrequencyRelay, MaintenanceMasterTrip, MaintenanceDFR, MaintenanceMasterStation, BeritaAcaraRecord, BeritaAcaraEviden
@@ -2586,6 +2587,76 @@ def maintenance_sign(request, pk):
 
 
 @login_required
+@require_POST
+def maintenance_bulk_sign(request):
+    """Asisten Manager menandatangani sekaligus pemeliharaan yang dicentang di
+    halaman Approval.
+
+    Aturannya sama dengan `maintenance_sign` (hanya role AM), ditambah syarat
+    yang ditentukan ulang DI SERVER saat disimpan: status Done dan belum TTD.
+    Daftar di layar bisa basi — AM lain mungkin sudah menandatanganinya, atau
+    pemeliharaannya dibuka kembali — jadi id dari browser hanya dipakai untuk
+    memilih, bukan sebagai bukti bahwa barisnya masih boleh ditandatangani.
+    Yang tidak lagi memenuhi syarat dilewati dan jumlahnya dilaporkan.
+
+    Catatan AM tidak diisi di sini; bisa ditambahkan per laporan dari halaman
+    detail setelah TTD.
+    """
+    from django.contrib import messages
+    from django.db import transaction
+    from fasop.hashids_helper import decode
+
+    kembali = reverse('maintenance_approval') + '?tab=pending'
+
+    try:
+        is_am = request.user.profile.is_asisten_manager
+    except Exception:
+        is_am = False
+    if not is_am:
+        messages.error(request, 'Hanya Asisten Manager yang dapat menandatangani laporan.')
+        return redirect(kembali)
+
+    pks = {pk for pk in (decode(h) for h in request.POST.getlist('ids')) if pk}
+    if not pks:
+        messages.error(request, 'Pilih minimal satu pemeliharaan yang akan ditandatangani.')
+        return redirect(kembali)
+
+    sekarang = dj_timezone.now()
+    nama_am  = request.user.get_full_name() or request.user.username
+    with transaction.atomic():
+        # Dikunci dulu supaya dua AM yang menekan bersamaan tidak saling
+        # menimpa TTD — yang kedua melihat barisnya sudah ditandatangani.
+        targets = list(
+            Maintenance.objects.select_for_update(of=('self',))
+            .filter(pk__in=pks, status='Done', signed_by__isnull=True)
+            .select_related('device')
+        )
+        for m in targets:
+            m.signed_by = request.user
+            m.signed_at = sekarang
+            m.save(update_fields=['signed_by', 'signed_at'])
+
+    # Di luar transaksi: log_action menelan error-nya sendiri, tapi di
+    # PostgreSQL query yang gagal di dalam atomic() tetap membatalkan seluruh
+    # transaksi — TTD-nya ikut hilang hanya karena pencatatan audit gagal.
+    for m in targets:
+        _audit(request, 'sign', 'maintenance', 'Maintenance',
+               m.pk,
+               f'{m.device.nama} — {m.date}',
+               f'TTD AM (massal): {nama_am}')
+
+    if targets:
+        messages.success(request, f'{len(targets)} laporan pemeliharaan berhasil ditandatangani.')
+    dilewati = len(pks) - len(targets)
+    if dilewati:
+        messages.warning(
+            request,
+            f'{dilewati} laporan dilewati karena sudah ditandatangani atau '
+            f'statusnya bukan Done lagi.')
+    return redirect(kembali)
+
+
+@login_required
 def maintenance_catatan_am_edit(request, pk):
     """Asisten Manager mengedit / menambah catatan setelah TTD."""
     maintenance = get_object_or_404(Maintenance, pk=pk)
@@ -2770,7 +2841,17 @@ def maintenance_approval(request):
             request.session.pop('approval_jenis_id', None)
             selected_jenis_id = ''
 
+    # Gambar TTD diambil dari profil penandatangan saat PDF dibuat; tanpa itu
+    # PDF hanya memuat nama. Ditampilkan sebagai peringatan, tidak memblokir —
+    # sama seperti TTD satu per satu.
+    try:
+        punya_gambar_ttd = bool(request.user.profile.signature)
+    except Exception:
+        punya_gambar_ttd = False
+
     return render(request, 'maintenance/approval.html', {
+        'bisa_ttd_massal':    is_am,
+        'punya_gambar_ttd':   punya_gambar_ttd,
         'pending_list':       pending_qs,
         'approved_list':      approved_qs,
         'tab':                tab,
