@@ -1169,7 +1169,6 @@ function copyLaporanWA() {
 📍 *Lokasi:* {{ gangguan.site|escapejs }}
 ⚙️ *Peralatan:* {% if gangguan.peralatan %}{{ gangguan.peralatan.nama|escapejs }}{% else %}—{% endif %}
 🏷️ *Kategori:* {{ gangguan.get_kategori_display|escapejs }}
-🚨 *Keparahan:* {{ gangguan.get_tingkat_keparahan_display }}
 📊 *Status:* {{ gangguan.get_status_display }}
 ⏱️ *Durasi:* {{ gangguan.durasi }}
 
