@@ -104,11 +104,11 @@
                            value="{{ today_date }}" required>
                 </div>
                 <div class="col-12">
-                    <label class="cf-label">Pelaksana / PIC</label>
+                    <label class="cf-label">Pelaksana / PIC <span class="req">*</span></label>
                     {# Hidden JSON yang dikirim ke server #}
                     <input type="hidden" id="id_pelaksana_corrective" name="pelaksana_names_input"
                            value="{{ pelaksana_init_json|default:'[]' }}">
-                    {% include 'maintenance/_pelaksana_tag_widget.html' with hidden_id='id_pelaksana_corrective' initial_json=pelaksana_init_json %}
+                    {% include 'maintenance/_pelaksana_tag_widget.html' with hidden_id='id_pelaksana_corrective' initial_json=pelaksana_init_json error_text=pelaksana_error %}
                 </div>
             </div>
         </div>

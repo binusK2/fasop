@@ -8,8 +8,8 @@
 {{ maintenance_form.pelaksana_names }}
 
 <div class="{% if is_edit %}col-md-4{% else %}col-md-7{% endif %}">
-    <label class="form-label fw-semibold">Pelaksana</label>
-    {% include 'maintenance/_pelaksana_tag_widget.html' with hidden_id='id_pelaksana_names' initial_json=pelaksana_names_json %}
+    <label class="form-label fw-semibold">Pelaksana <span class="text-danger">*</span></label>
+    {% include 'maintenance/_pelaksana_tag_widget.html' with hidden_id='id_pelaksana_names' initial_json=pelaksana_names_json error_text=maintenance_form.pelaksana_names.errors.0 %}
 </div>
 
 {% if is_edit %}

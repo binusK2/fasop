@@ -1,3 +1,5 @@
+import json
+
 from django import forms
 from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceRepeater, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset, MaintenanceRTU, MaintenanceSAS, MaintenanceRTUGeneric, MaintenanceBCU, MaintenanceRoIP, MaintenanceUPS, MaintenanceMasterTrip, MaintenanceDFR, MaintenanceMasterStation
 
@@ -7,6 +9,43 @@ OK_NOK_WIDGET = forms.RadioSelect(attrs={'class': 'd-flex gap-3'})
 NUM_WIDGET    = lambda: forms.NumberInput(attrs={'class': 'form-control', 'step': 'any'})
 INT_WIDGET    = lambda: forms.NumberInput(attrs={'class': 'form-control'})
 TEXT_WIDGET   = lambda rows=3: forms.Textarea(attrs={'class': 'form-control', 'rows': rows})
+
+
+# ─────────────────────────────────────────────────────────────────────
+# PELAKSANA — wajib diisi di form preventive & corrective
+# ─────────────────────────────────────────────────────────────────────
+# Teks yang sama dipakai validasi server dan pesan di atas kolom (JS di
+# _pelaksana_tag_widget.html), supaya operator tidak membaca dua kalimat
+# berbeda untuk kesalahan yang sama.
+PESAN_PELAKSANA_WAJIB = 'Pelaksana wajib diisi — tambahkan minimal satu nama pelaksana.'
+
+
+def bersihkan_pelaksana(nilai):
+    """Daftar nama pelaksana yang layak simpan.
+
+    Menerima list (hasil JSON tag-input) atau string — JSON array, atau nama
+    dipisah koma (bentuk lama form corrective). Nama dirapikan spasinya; yang
+    kosong dan yang kembar dibuang, jadi `["  "]` tetap dihitung belum diisi.
+    """
+    if isinstance(nilai, str):
+        teks = nilai.strip()
+        if teks.startswith('['):
+            try:
+                nilai = json.loads(teks)
+            except ValueError:
+                nilai = []
+        else:
+            nilai = teks.split(',')
+    if not isinstance(nilai, (list, tuple)):
+        return []
+    hasil = []
+    for nama in nilai:
+        if not isinstance(nama, str):
+            continue
+        nama = nama.strip()
+        if nama and nama not in hasil:
+            hasil.append(nama)
+    return hasil
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -63,6 +102,22 @@ class MaintenanceForm(forms.ModelForm):
                 if not field.widget.attrs.get('class'):
                     field.widget.attrs['class'] = 'form-control'
                     field.widget.attrs['class'] = 'form-control'
+        # Pesan bawaan JSONField ("Enter a valid JSON.") berbahasa Inggris dan
+        # tidak memberi tahu operator harus berbuat apa.
+        self.fields['pelaksana_names'].error_messages['invalid'] = (
+            'Daftar pelaksana tidak terbaca — muat ulang halaman lalu isi lagi.')
+
+    def clean_pelaksana_names(self):
+        """Pelaksana wajib — minimal satu nama yang tidak kosong.
+
+        Model-nya tetap `blank=True` (data lama banyak yang kosong dan tidak
+        boleh tiba-tiba gagal disimpan dari Admin); kewajibannya hanya di form
+        isian pemeliharaan ini.
+        """
+        nama = bersihkan_pelaksana(self.cleaned_data.get('pelaksana_names'))
+        if not nama:
+            raise forms.ValidationError(PESAN_PELAKSANA_WAJIB, code='required')
+        return nama
 
 
 # ─────────────────────────────────────────────────────────────────────
