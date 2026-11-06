@@ -268,6 +268,36 @@ def _filter_daftar_sah(nilai):
     return hasil
 
 
+def _saring_rentang_tanggal(qs, date_from, date_to):
+    """Saring `Maintenance.date` (DateTimeField) dengan rentang tanggal dari
+    form — KEDUA ujungnya inklusif.
+
+    `date__lte='2026-03-10'` dibandingkan dengan 10 Maret pukul 00.00, jadi
+    pemeliharaan jam 08.00 di tanggal "Sampai" itu dulu tidak pernah ikut.
+    Batas atasnya karena itu `< awal hari berikutnya` (waktu lokal), dan
+    sengaja bukan `date__date__lte`: lookup `__date` membungkus kolom dalam
+    cast sehingga indeksnya tidak terpakai. Tanggal yang tidak terbaca
+    diabaikan, bukan dilempar sebagai error 500.
+    """
+    from datetime import datetime, time, timedelta
+
+    def _awal_hari(teks, geser_hari=0):
+        try:
+            d = date_cls.fromisoformat(teks)
+        except (TypeError, ValueError):
+            return None
+        return dj_timezone.make_aware(
+            datetime.combine(d + timedelta(days=geser_hari), time.min))
+
+    awal  = _awal_hari(date_from) if date_from else None
+    akhir = _awal_hari(date_to, 1) if date_to else None
+    if awal:
+        qs = qs.filter(date__gte=awal)
+    if akhir:
+        qs = qs.filter(date__lt=akhir)
+    return qs
+
+
 @login_required
 def maintenance_list(request):
     if 'reset_filter' in request.GET:
@@ -300,8 +330,7 @@ def maintenance_list(request):
     if status:    maintenances = maintenances.filter(status=status)
     if lokasi:    maintenances = maintenances.filter(device__lokasi__iexact=lokasi)
     if jenis_id:  maintenances = maintenances.filter(device__jenis_id=jenis_id)
-    if date_from: maintenances = maintenances.filter(date__gte=date_from)
-    if date_to:   maintenances = maintenances.filter(date__lte=date_to)
+    maintenances = _saring_rentang_tanggal(maintenances, date_from, date_to)
 
     lokasi_list = (
         Maintenance.objects.select_related('device')
@@ -1226,8 +1255,9 @@ def export_maintenance_excel(request):
         if status:    qs = qs.filter(status=status)
         if lokasi:    qs = qs.filter(device__lokasi__iexact=lokasi)
         if jenis_id:  qs = qs.filter(device__jenis_id=jenis_id)
-        if date_from: qs = qs.filter(date__gte=date_from)
-        if date_to:   qs = qs.filter(date__lte=date_to)
+        # Aturan rentang yang sama dengan daftar — Export tidak boleh memuat
+        # baris berbeda dari layar yang sedang dilihat.
+        qs = _saring_rentang_tanggal(qs, date_from, date_to)
         if year and month:
             qs = qs.filter(date__year=int(year), date__month=int(month))
             filename = f"pemeliharaan_{year}_{month_names[int(month)-1]}.xlsx"

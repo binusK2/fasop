@@ -119,3 +119,55 @@ class KunciFilterDaftarTests(TestCase):
         sesi[SESI_FILTER_DAFTAR] = 'bukan-dict'
         sesi.save()
         self.assertEqual(self.client.get(self.url).status_code, 200)
+
+
+class RentangTanggalInklusifTests(TestCase):
+    """"Sampai Tanggal" dulu dibandingkan dengan pukul 00.00, jadi pemeliharaan
+    di tanggal itu sendiri tidak pernah ikut tampil — di daftar maupun Export."""
+
+    def setUp(self):
+        self.user = User.objects.create_superuser(username='am_tgl', password='rahasia')
+        profil, _ = UserProfile.objects.get_or_create(user=self.user)
+        profil.role = 'asisten_manager'
+        profil.force_password_change = False
+        profil.save()
+        self.client.force_login(self.user)
+
+        jenis = DeviceType.objects.create(name='RTU')
+
+        def buat(nama, *waktu):
+            d = Device.objects.create(nama=nama, jenis=jenis, merk='SEL', lokasi='GI TELLO')
+            Maintenance.objects.create(
+                device=d, maintenance_type='Preventive', status='Open', description='uji',
+                date=timezone.make_aware(timezone.datetime(*waktu)))   # waktu lokal
+
+        buat('SEBELUM', 2026, 3, 9, 23, 30)
+        buat('PAGI', 2026, 3, 10, 0, 0)
+        buat('SIANG', 2026, 3, 10, 8, 0)
+        buat('MALAM', 2026, 3, 10, 23, 59)
+        buat('SESUDAH', 2026, 3, 11, 0, 0)
+        self.rentang = {'date_from': '2026-03-10', 'date_to': '2026-03-10'}
+
+    def test_daftar_memuat_seluruh_hari_terakhir(self):
+        resp = self.client.get(reverse('maintenance_list'), self.rentang)
+        nama = sorted(m.device.nama for m in resp.context['maintenances'])
+        self.assertEqual(nama, ['MALAM', 'PAGI', 'SIANG'])
+
+    def test_export_sama_dengan_daftar(self):
+        from io import BytesIO
+        import openpyxl
+
+        resp = self.client.get(reverse('export_maintenance_excel'), self.rentang)
+        self.assertEqual(resp.status_code, 200)
+        wb = openpyxl.load_workbook(BytesIO(resp.content))
+        isi = {str(c) for ws in wb.worksheets
+               for row in ws.iter_rows(values_only=True) for c in row if c}
+        for nama in ('PAGI', 'SIANG', 'MALAM'):
+            self.assertTrue(any(nama in s for s in isi), nama)
+        for nama in ('SEBELUM', 'SESUDAH'):
+            self.assertFalse(any(nama in s for s in isi), nama)
+
+    def test_tanggal_rusak_di_export_bukan_error(self):
+        resp = self.client.get(reverse('export_maintenance_excel'),
+                               {'date_from': 'kemarin', 'date_to': '2026-02-30'})
+        self.assertEqual(resp.status_code, 200)
