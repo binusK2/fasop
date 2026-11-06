@@ -1,0 +1,22 @@
+{% comment %}
+Tombol aksi di bawah SEMUA form pemeliharaan preventive (20 template per
+jenis perangkat): Batal + Simpan.
+
+Satu partial, bukan 20 salinan — tombol "Cetak Formulir" dan "Simpan & Cetak
+PDF" dulu ditulis di tiap template dan tidak terpakai; menghapusnya harus
+menyentuh 20 berkas. Tujuan Batal = kembali_url dari _konteks_kembali (view),
+sama dengan tombol Kembali di atas form, jadi form yang dibuka dari Jadwal
+Pemeliharaan juga kembali ke Jadwal.
+
+Simpan offline sengaja tidak ada: service worker FASOP tidak mengantre POST,
+jadi submit tanpa jaringan selalu gagal. Untuk lokasi tanpa sinyal, jalurnya
+Form Offline (isi di kertas/Word, unggah nanti).
+{% endcomment %}
+<div class="d-flex gap-2 justify-content-end pb-4">
+    <a href="{{ kembali_url }}" class="btn btn-outline-secondary btn-print-hide">
+        <i class="bi bi-x me-1"></i>Batal
+    </a>
+    <button type="submit" class="btn btn-primary px-4 btn-print-hide">
+        <i class="bi bi-floppy me-1"></i>{% if is_edit %}Simpan Perubahan{% else %}Simpan Maintenance{% endif %}
+    </button>
+</div>
