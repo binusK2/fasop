@@ -31,7 +31,7 @@ import logging
 logger = logging.getLogger(__name__)
 from django.utils.encoding import iri_to_uri
 from django.utils.http import url_has_allowed_host_and_scheme
-from urllib.parse import urlparse
+from urllib.parse import urlencode, urlparse
 
 # Jumlah baris per halaman untuk daftar panjang (Semua Pemeliharaan, tabel
 # detail Laporan Pemeliharaan). Satu aturan, supaya kedua halaman tidak
@@ -234,13 +234,94 @@ def _get_detail_form_config(device):
 # ─────────────────────────────────────────────────────────────────────
 # LIST
 # ─────────────────────────────────────────────────────────────────────
+# Filter "Semua Pemeliharaan" dikunci di session: setelah membuka detail,
+# mengedit, atau berpindah menu lalu kembali lewat sidebar, daftar tetap
+# tersaring seperti terakhir — tidak kembali ke semua data. Pola yang sama
+# dengan filter halaman Approval.
+FILTER_DAFTAR_PEMELIHARAAN = ('status', 'lokasi', 'jenis', 'date_from', 'date_to')
+SESI_FILTER_DAFTAR = 'maintenance_list_filter'
+
+
+def _filter_daftar_sah(nilai):
+    """Buang nilai filter yang tidak sah.
+
+    Wajib, karena nilainya DISIMPAN: satu `jenis=abc` atau tanggal rusak dari
+    tautan lama akan membuat query error di setiap kunjungan berikutnya —
+    halaman macet sampai session-nya habis, bukan sekali saja.
+    """
+    hasil = {}
+    for k in FILTER_DAFTAR_PEMELIHARAAN:
+        v = nilai.get(k)
+        v = v.strip() if isinstance(v, str) else ''
+        if not v:
+            continue
+        if k == 'status' and v not in ('Open', 'Done'):
+            continue
+        if k == 'jenis' and not v.isdigit():
+            continue
+        if k in ('date_from', 'date_to'):
+            try:
+                date_cls.fromisoformat(v)
+            except ValueError:
+                continue
+        hasil[k] = v
+    return hasil
+
+
+def _saring_rentang_tanggal(qs, date_from, date_to):
+    """Saring `Maintenance.date` (DateTimeField) dengan rentang tanggal dari
+    form — KEDUA ujungnya inklusif.
+
+    `date__lte='2026-03-10'` dibandingkan dengan 10 Maret pukul 00.00, jadi
+    pemeliharaan jam 08.00 di tanggal "Sampai" itu dulu tidak pernah ikut.
+    Batas atasnya karena itu `< awal hari berikutnya` (waktu lokal), dan
+    sengaja bukan `date__date__lte`: lookup `__date` membungkus kolom dalam
+    cast sehingga indeksnya tidak terpakai. Tanggal yang tidak terbaca
+    diabaikan, bukan dilempar sebagai error 500.
+    """
+    from datetime import datetime, time, timedelta
+
+    def _awal_hari(teks, geser_hari=0):
+        try:
+            d = date_cls.fromisoformat(teks)
+        except (TypeError, ValueError):
+            return None
+        return dj_timezone.make_aware(
+            datetime.combine(d + timedelta(days=geser_hari), time.min))
+
+    awal  = _awal_hari(date_from) if date_from else None
+    akhir = _awal_hari(date_to, 1) if date_to else None
+    if awal:
+        qs = qs.filter(date__gte=awal)
+    if akhir:
+        qs = qs.filter(date__lt=akhir)
+    return qs
+
+
 @login_required
 def maintenance_list(request):
-    status    = request.GET.get('status') or ''
-    lokasi    = request.GET.get('lokasi') or ''
-    jenis_id  = request.GET.get('jenis') or ''
-    date_from = request.GET.get('date_from') or ''
-    date_to   = request.GET.get('date_to') or ''
+    if 'reset_filter' in request.GET:
+        request.session.pop(SESI_FILTER_DAFTAR, None)
+        return redirect('maintenance_list')
+
+    if any(k in request.GET for k in FILTER_DAFTAR_PEMELIHARAAN):
+        # Filter dikirim (form Filter, atau tautan seperti "?status=Open" dari
+        # dashboard): seluruh isinya MENGGANTI kunci lama — bukan digabung —
+        # supaya tautan dashboard menampilkan persis yang dijanjikannya.
+        filt = _filter_daftar_sah(request.GET)
+        if filt:
+            request.session[SESI_FILTER_DAFTAR] = filt
+        else:
+            request.session.pop(SESI_FILTER_DAFTAR, None)
+    else:
+        simpanan = request.session.get(SESI_FILTER_DAFTAR)
+        filt = _filter_daftar_sah(simpanan) if isinstance(simpanan, dict) else {}
+
+    status    = filt.get('status', '')
+    lokasi    = filt.get('lokasi', '')
+    jenis_id  = filt.get('jenis', '')
+    date_from = filt.get('date_from', '')
+    date_to   = filt.get('date_to', '')
 
     maintenances = Maintenance.objects.select_related(
         'device', 'device__jenis'
@@ -249,8 +330,7 @@ def maintenance_list(request):
     if status:    maintenances = maintenances.filter(status=status)
     if lokasi:    maintenances = maintenances.filter(device__lokasi__iexact=lokasi)
     if jenis_id:  maintenances = maintenances.filter(device__jenis_id=jenis_id)
-    if date_from: maintenances = maintenances.filter(date__gte=date_from)
-    if date_to:   maintenances = maintenances.filter(date__lte=date_to)
+    maintenances = _saring_rentang_tanggal(maintenances, date_from, date_to)
 
     lokasi_list = (
         Maintenance.objects.select_related('device')
@@ -267,20 +347,26 @@ def maintenance_list(request):
     paginator = Paginator(maintenances, BARIS_PER_HALAMAN)
     page_obj  = paginator.get_page(request.GET.get('page'))
 
-    # Querystring filter tanpa 'page', supaya tautan halaman tidak kehilangan filter
-    params = request.GET.copy()
-    params.pop('page', None)
+    # Querystring dari filter yang BERLAKU (bisa dari session, bukan URL) —
+    # dipakai tautan halaman dan tombol Export Excel. Kalau diambil dari
+    # request.GET, Export dari daftar yang terkunci akan mengekspor semua data.
+    querystring = urlencode(filt)
+
+    jenis_list = DeviceType.objects.all()
+    selected_jenis_obj = jenis_list.filter(pk=jenis_id).first() if jenis_id else None
 
     return render(request, 'maintenance/maintenance_list.html', {
         'maintenances':    page_obj.object_list,
         'page_obj':        page_obj,
         'paginator':       paginator,
-        'querystring':     params.urlencode(),
+        'querystring':     querystring,
+        'filter_terkunci': bool(filt),
         'lokasi_list':     lokasi_list,
         'selected_lokasi': lokasi,
         'selected_status': status,
-        'jenis_list':      DeviceType.objects.all(),
+        'jenis_list':      jenis_list,
         'selected_jenis':  jenis_id,
+        'selected_jenis_obj': selected_jenis_obj,
         'date_from':       date_from,
         'date_to':         date_to,
     })
@@ -1033,6 +1119,75 @@ def maintenance_delete(request, pk):
 # ─────────────────────────────────────────────────────────────────────
 # LAPORAN BULANAN
 # ─────────────────────────────────────────────────────────────────────
+def _menit_corrective():
+    """Ekspresi durasi perbaikan dalam menit (jam & menit yang kosong = 0)."""
+    from django.db.models import F, Value
+    from django.db.models.functions import Coalesce
+    return (Coalesce(F('durasi_jam'), Value(0)) * 60
+            + Coalesce(F('durasi_menit'), Value(0)))
+
+
+def _format_menit(menit):
+    """125 → '2 jam 5 menit'; 0/None → '—'."""
+    if not menit:
+        return '—'
+    jam, sisa = divmod(int(menit), 60)
+    if jam and sisa:
+        return f'{jam} jam {sisa} menit'
+    return f'{jam} jam' if jam else f'{sisa} menit'
+
+
+def _ringkasan_corrective(maintenances):
+    """Angka pemeliharaan corrective untuk satu periode laporan.
+
+    `maintenances` = queryset periode yang sama dengan tabel detail, jadi
+    angka di bagian corrective tidak bisa berbeda dari baris yang terlihat.
+    Semua dihitung di database (2 query), bukan dengan melooping baris.
+
+    Durasi rata-rata hanya dari perbaikan yang durasinya DIISI — perbaikan
+    tanpa durasi dihitung nol akan menarik rata-ratanya turun palsu.
+    """
+    from django.db.models import Sum
+    from .models import MaintenanceCorrective
+
+    detail = MaintenanceCorrective.objects.filter(
+        maintenance__in=maintenances.filter(maintenance_type='Corrective').values('pk')
+    ).annotate(menit=_menit_corrective())
+
+    angka = detail.aggregate(
+        jumlah_detail=Count('id'),
+        selesai=Count('id', filter=Q(status_perbaikan='selesai')),
+        tindak_lanjut=Count('id', filter=Q(status_perbaikan='perlu_tindaklanjut')),
+        terkait_gangguan=Count('id', filter=Q(gangguan__isnull=False)),
+        komponen_diganti=Count('id', filter=Q(komponen_diganti=True)),
+        total_menit=Sum('menit'),
+        berdurasi=Count('id', filter=Q(menit__gt=0)),
+    )
+    total_menit = angka['total_menit'] or 0
+    angka['total_menit'] = total_menit
+    angka['rata_menit'] = round(total_menit / angka['berdurasi']) if angka['berdurasi'] else None
+    angka['total_durasi'] = _format_menit(total_menit)
+    angka['rata_durasi'] = _format_menit(angka['rata_menit'])
+
+    label = dict(MaintenanceCorrective.JENIS_KERUSAKAN)
+    per_kerusakan = [
+        {
+            'kode': row['jenis_kerusakan'],
+            'label': label.get(row['jenis_kerusakan']) or 'Belum diisi',
+            'jumlah': row['jumlah'],
+            'menit': row['menit_total'] or 0,
+            'durasi': _format_menit(row['menit_total']),
+        }
+        for row in detail.order_by().values('jenis_kerusakan')
+        .annotate(jumlah=Count('id'), menit_total=Sum('menit'))
+    ]
+    # Terbanyak dulu; "Belum diisi" selalu paling bawah — ia bukan jenis
+    # kerusakan, hanya penanda isian yang terlewat.
+    per_kerusakan.sort(key=lambda r: (not r['kode'], -r['jumlah'], r['label']))
+    angka['per_kerusakan'] = per_kerusakan
+    return angka
+
+
 @login_required
 def maintenance_report(request):
     today          = date.today()
@@ -1048,6 +1203,14 @@ def maintenance_report(request):
     # Agregat dipakai berkali-kali; hitung sekali lewat satu query saja.
     agg_done = Count('id', filter=Q(status='Done'))
     agg_open = Count('id', filter=Q(status='Open'))
+    agg_prev = Count('id', filter=Q(maintenance_type='Preventive'))
+    agg_corr = Count('id', filter=Q(maintenance_type='Corrective'))
+
+    # corrective_detail (+ tiket gangguannya) ikut diambil: tabel detail
+    # menampilkan jenis kerusakan & tindakan tiap baris corrective — tanpa
+    # select_related itu satu query per baris.
+    terkait = ('device', 'device__jenis', 'signed_by',
+               'corrective_detail', 'corrective_detail__gangguan')
 
     if mode == 'ytd':
         # Bulan berjalan: Januari s/d bulan sekarang di tahun selected_year
@@ -1055,7 +1218,7 @@ def maintenance_report(request):
         maintenances = (
             Maintenance.objects
             .filter(date__year=selected_year, date__month__lte=current_month)
-            .select_related('device', 'device__jenis', 'signed_by')
+            .select_related(*terkait)
             .order_by('date')
         )
         period_label = f"Januari — {month_names[current_month-1]} {selected_year}"
@@ -1066,15 +1229,18 @@ def maintenance_report(request):
         per_bulan = {
             row['date__month']: row
             for row in maintenances.order_by().values('date__month').annotate(
-                total=Count('id'), done=agg_done, open=agg_open
+                total=Count('id'), done=agg_done, open=agg_open,
+                preventive=agg_prev, corrective=agg_corr,
             )
         }
         monthly_summary = [
             {
                 'month_name': month_names[m-1],
-                'total': per_bulan.get(m, {}).get('total', 0),
-                'done':  per_bulan.get(m, {}).get('done', 0),
-                'open':  per_bulan.get(m, {}).get('open', 0),
+                'total':      per_bulan.get(m, {}).get('total', 0),
+                'done':       per_bulan.get(m, {}).get('done', 0),
+                'open':       per_bulan.get(m, {}).get('open', 0),
+                'preventive': per_bulan.get(m, {}).get('preventive', 0),
+                'corrective': per_bulan.get(m, {}).get('corrective', 0),
             }
             for m in range(1, current_month + 1)
         ]
@@ -1082,7 +1248,7 @@ def maintenance_report(request):
         maintenances = (
             Maintenance.objects
             .filter(date__year=selected_year, date__month=selected_month)
-            .select_related('device', 'device__jenis', 'signed_by')
+            .select_related(*terkait)
             .order_by('date')
         )
         period_label   = f"{month_names[selected_month-1]} {selected_year}"
@@ -1092,16 +1258,22 @@ def maintenance_report(request):
         total=Count('id'),
         done=agg_done,
         open=agg_open,
-        preventive=Count('id', filter=Q(maintenance_type='Preventive')),
+        preventive=agg_prev,
+        corrective=agg_corr,
     )
 
     # Satu query GROUP BY, bukan 2 query tambahan per jenis perangkat.
     # order_by() dulu supaya ordering warisan tidak ikut jadi kunci GROUP BY.
     by_type = list(
         maintenances.order_by().values('device__jenis__name')
-        .annotate(total=Count('id'), done=agg_done, open=agg_open)
+        .annotate(total=Count('id'), done=agg_done, open=agg_open,
+                  preventive=agg_prev, corrective=agg_corr)
         .order_by('device__jenis__name')
     )
+
+    # Rincian corrective hanya dihitung kalau memang ada — periode tanpa
+    # corrective tidak perlu dua query tambahan.
+    corrective = _ringkasan_corrective(maintenances) if ringkasan['corrective'] else None
 
     month_choices = [{'value': i+1, 'label': n} for i, n in enumerate(month_names)]
     first_year = (
@@ -1127,6 +1299,7 @@ def maintenance_report(request):
         'querystring':     querystring,
         'summary':         ringkasan,
         'by_type':         by_type,
+        'corrective':      corrective,
         'selected_month':  selected_month,
         'selected_year':   selected_year,
         'month_choices':   month_choices,
@@ -1169,8 +1342,9 @@ def export_maintenance_excel(request):
         if status:    qs = qs.filter(status=status)
         if lokasi:    qs = qs.filter(device__lokasi__iexact=lokasi)
         if jenis_id:  qs = qs.filter(device__jenis_id=jenis_id)
-        if date_from: qs = qs.filter(date__gte=date_from)
-        if date_to:   qs = qs.filter(date__lte=date_to)
+        # Aturan rentang yang sama dengan daftar — Export tidak boleh memuat
+        # baris berbeda dari layar yang sedang dilihat.
+        qs = _saring_rentang_tanggal(qs, date_from, date_to)
         if year and month:
             qs = qs.filter(date__year=int(year), date__month=int(month))
             filename = f"pemeliharaan_{year}_{month_names[int(month)-1]}.xlsx"
@@ -1285,6 +1459,57 @@ def export_maintenance_excel(request):
                     cell.fill = alt_fill
             ws.row_dimensions[wr].height = 18
 
+    def write_sheet_corrective(wb, rows_qs):
+        """Sheet rincian corrective — jenis kerusakan, tindakan, durasi, tiket.
+
+        Baris corrective tetap ada di sheet data utama; sheet ini menambah
+        isian khas corrective yang tidak punya kolom di sana. Tidak dibuat
+        kalau periode/filternya tidak memuat corrective sama sekali.
+        """
+        corr_qs = (rows_qs.filter(maintenance_type='Corrective')
+                   .select_related('corrective_detail', 'corrective_detail__gangguan'))
+        if not corr_qs.exists():
+            return
+        ws_c = wb.create_sheet("Corrective")
+        ws_c.sheet_properties.tabColor = "EA580C"
+        headers = ["No", "Tanggal", "Perangkat", "Lokasi", "Jenis Kerusakan",
+                   "Deskripsi Masalah", "Tindakan", "Komponen Diganti", "Durasi",
+                   "Status Perbaikan", "Tiket Gangguan", "Pelaksana", "Status"]
+        widths  = [5, 12, 25, 20, 20, 35, 35, 22, 14, 18, 20, 22, 10]
+        write_header(ws_c, f"CORRECTIVE — {title}", headers, widths, "9A3412")
+        for ri, m in enumerate(corr_qs, 1):
+            wr = ri + 4
+            try:
+                c = m.corrective_detail
+            except ObjectDoesNotExist:
+                c = None
+            techs = ", ".join(
+                t.get_full_name() or t.username for t in m.technicians.all()
+            ) or (", ".join(m.pelaksana_names) if m.pelaksana_names else "-")
+            if c:
+                komponen = (c.nama_komponen or "Ya") if c.komponen_diganti else "-"
+                menit = (c.durasi_jam or 0) * 60 + (c.durasi_menit or 0)
+                row_data = [
+                    ri, dj_timezone.localtime(m.date).strftime("%d/%m/%Y"), str(m.device),
+                    m.device.lokasi or "-", c.get_jenis_kerusakan_display() or "-",
+                    c.deskripsi_masalah or "-", c.tindakan or "-", komponen,
+                    _format_menit(menit), c.get_status_perbaikan_display(),
+                    c.gangguan.nomor_gangguan if c.gangguan else "-", techs, m.status,
+                ]
+            else:
+                row_data = [ri, dj_timezone.localtime(m.date).strftime("%d/%m/%Y"), str(m.device),
+                            m.device.lokasi or "-", "-", m.description or "-", "-", "-",
+                            "—", "-", "-", techs, m.status]
+            for ci, val in enumerate(row_data, 1):
+                cell = ws_c.cell(row=wr, column=ci, value=val)
+                cell.border    = thin
+                cell.alignment = c_align if ci in [1, 2, 9, 13] else l_align
+                if ci == 13:
+                    cell.fill = done_fill if val == "Done" else open_fill
+                    cell.font = Font(bold=True, color="065F46" if val == "Done" else "92400E")
+                elif ri % 2 == 0:
+                    cell.fill = alt_fill
+
     wb = openpyxl.Workbook()
     wb.remove(wb.active)
 
@@ -1384,6 +1609,7 @@ def export_maintenance_excel(request):
         maint_widths  = [5, 12, 12, 25, 20, 14, 20, 35, 10]
         write_header(ws_all, title, maint_headers, maint_widths)
         write_rows_maintenance(ws_all, qs)
+        write_sheet_corrective(wb, qs)
 
     else:
         ws = wb.create_sheet("Data Pemeliharaan")
@@ -1391,6 +1617,7 @@ def export_maintenance_excel(request):
         col_widths = [5, 12, 12, 25, 20, 14, 20, 35, 10]
         write_header(ws, title, headers, col_widths)
         write_rows_maintenance(ws, qs)
+        write_sheet_corrective(wb, qs)
 
     response = HttpResponse(
         content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"

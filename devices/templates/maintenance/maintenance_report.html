@@ -77,29 +77,35 @@
 </div>
 
 <!-- SUMMARY CARDS -->
-<div class="row g-3 mb-4">
-    <div class="col-6 col-md-3">
+<div class="row row-cols-2 row-cols-md-5 g-3 mb-4">
+    <div class="col">
         <div class="stat-card">
             <div class="stat-icon" style="background:#eff6ff;color:#3b82f6;"><i class="bi bi-wrench-adjustable"></i></div>
             <div><div class="stat-value">{{ summary.total }}</div><div class="stat-label">Total Maintenance</div></div>
         </div>
     </div>
-    <div class="col-6 col-md-3">
+    <div class="col">
         <div class="stat-card">
             <div class="stat-icon" style="background:#f0fdf4;color:#10b981;"><i class="bi bi-check2-circle"></i></div>
             <div><div class="stat-value">{{ summary.done }}</div><div class="stat-label">Selesai</div></div>
         </div>
     </div>
-    <div class="col-6 col-md-3">
+    <div class="col">
         <div class="stat-card">
             <div class="stat-icon" style="background:#fffbeb;color:#f59e0b;"><i class="bi bi-clock-history"></i></div>
             <div><div class="stat-value">{{ summary.open }}</div><div class="stat-label">Open</div></div>
         </div>
     </div>
-    <div class="col-6 col-md-3">
+    <div class="col">
         <div class="stat-card">
             <div class="stat-icon" style="background:#fdf4ff;color:#a855f7;"><i class="bi bi-shield-check"></i></div>
             <div><div class="stat-value">{{ summary.preventive }}</div><div class="stat-label">Preventive</div></div>
+        </div>
+    </div>
+    <div class="col">
+        <div class="stat-card">
+            <div class="stat-icon" style="background:#fff7ed;color:#ea580c;"><i class="bi bi-tools"></i></div>
+            <div><div class="stat-value">{{ summary.corrective }}</div><div class="stat-label">Corrective</div></div>
         </div>
     </div>
 </div>
@@ -107,7 +113,7 @@
 {% if mode == 'ytd' and monthly_summary %}
 <!-- RINGKASAN PER BULAN YTD -->
 <div class="row g-3 mb-4">
-    <div class="col-md-5">
+    <div class="col-md-4">
         <div class="card h-100">
             <div class="card-body">
                 <h6 style="font-size:14px;font-weight:600;" class="mb-3">Trend Maintenance {{ selected_year }}</h6>
@@ -115,32 +121,36 @@
             </div>
         </div>
     </div>
-    <div class="col-md-7">
+    <div class="col-md-8">
         <div class="table-card h-100">
             <div class="table-header"><h6>Ringkasan per Bulan — {{ selected_year }}</h6></div>
+            <div class="table-responsive">
             <table class="table">
                 <thead>
-                    <tr><th>Bulan</th><th>Total</th><th>Done</th><th>Open</th></tr>
+                    <tr><th>Bulan</th><th>Total</th><th>Preventive</th><th>Corrective</th><th>Done</th><th>Open</th></tr>
                 </thead>
                 <tbody>
                     {% for row in monthly_summary %}
                     <tr>
                         <td style="font-weight:600;font-size:13px;">{{ row.month_name }}</td>
                         <td class="mono">{{ row.total }}</td>
+                        <td class="mono">{{ row.preventive }}</td>
+                        <td class="mono" style="color:#ea580c;">{{ row.corrective }}</td>
                         <td><span style="color:#10b981;font-weight:600;">{{ row.done }}</span></td>
                         <td><span style="color:#f59e0b;font-weight:600;">{{ row.open }}</span></td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
+            </div>
         </div>
     </div>
 </div>
 {% endif %}
 
-<!-- BREAKDOWN PER JENIS -->
+<!-- BREAKDOWN PER JENIS — tabelnya 6 kolom, jadi diberi 8/12 lebar -->
 <div class="row g-3 mb-4">
-    <div class="col-md-5">
+    <div class="col-md-4">
         <div class="card h-100">
             <div class="card-body">
                 <h6 style="font-size:14px;font-weight:600;" class="mb-3">Maintenance per Jenis Perangkat</h6>
@@ -148,27 +158,107 @@
             </div>
         </div>
     </div>
-    <div class="col-md-7">
+    <div class="col-md-8">
         <div class="table-card h-100">
             <div class="table-header"><h6>Breakdown per Jenis</h6></div>
+            <div class="table-responsive">
             <table class="table">
-                <thead><tr><th>Jenis Perangkat</th><th>Total</th><th>Done</th><th>Open</th></tr></thead>
+                <thead><tr><th>Jenis Perangkat</th><th>Total</th><th>Preventive</th><th>Corrective</th><th>Done</th><th>Open</th></tr></thead>
                 <tbody>
                     {% for row in by_type %}
                     <tr>
                         <td style="font-size:13px;">{{ row.device__jenis__name|default:"(Tidak ada jenis)" }}</td>
                         <td class="mono">{{ row.total }}</td>
+                        <td class="mono">{{ row.preventive }}</td>
+                        <td class="mono" style="color:#ea580c;">{{ row.corrective }}</td>
                         <td><span style="color:#10b981;font-weight:600;">{{ row.done }}</span></td>
                         <td><span style="color:#f59e0b;font-weight:600;">{{ row.open }}</span></td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="4" class="text-center text-muted">Tidak ada data</td></tr>
+                    <tr><td colspan="6" class="text-center text-muted">Tidak ada data</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- PEMELIHARAAN CORRECTIVE -->
+{% comment %}
+Angka dari _ringkasan_corrective(), dihitung dari queryset periode yang sama
+dengan tabel detail di bawah. Tidak digambar sama sekali kalau periode ini
+tidak punya corrective (kartu "Corrective" di atas sudah menyebut 0).
+{% endcomment %}
+{% if corrective %}
+<div class="row g-3 mb-4" id="ringkasan-corrective">
+    <div class="col-md-5">
+        <div class="card h-100">
+            <div class="card-body">
+                <h6 style="font-size:14px;font-weight:600;" class="mb-3">
+                    <i class="bi bi-tools me-1" style="color:#ea580c;"></i>Pemeliharaan Corrective — {{ period_label }}
+                </h6>
+                <div class="row g-2" style="font-size:12.5px;">
+                    <div class="col-6">
+                        <div style="background:#f0fdf4;border-radius:8px;padding:8px 10px;">
+                            <div style="font-size:18px;font-weight:700;color:#166534;">{{ corrective.selesai }}</div>
+                            <div style="color:#64748b;">Perbaikan selesai</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div style="background:#fff7ed;border-radius:8px;padding:8px 10px;">
+                            <div style="font-size:18px;font-weight:700;color:#9a3412;">{{ corrective.tindak_lanjut }}</div>
+                            <div style="color:#64748b;">Perlu tindak lanjut</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div style="background:#f8fafc;border-radius:8px;padding:8px 10px;">
+                            <div style="font-size:18px;font-weight:700;color:#0f172a;">{{ corrective.terkait_gangguan }}</div>
+                            <div style="color:#64748b;">Terkait tiket gangguan</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div style="background:#f8fafc;border-radius:8px;padding:8px 10px;">
+                            <div style="font-size:18px;font-weight:700;color:#0f172a;">{{ corrective.komponen_diganti }}</div>
+                            <div style="color:#64748b;">Ada komponen diganti</div>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div style="background:#f8fafc;border-radius:8px;padding:8px 10px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px;">
+                            <span style="color:#64748b;">Total durasi perbaikan <strong style="color:#0f172a;">{{ corrective.total_durasi }}</strong></span>
+                            <span style="color:#64748b;">Rata-rata <strong style="color:#0f172a;">{{ corrective.rata_durasi }}</strong></span>
+                        </div>
+                        {% if corrective.berdurasi < corrective.jumlah_detail %}
+                        <div style="font-size:11px;color:#94a3b8;margin-top:4px;">
+                            Rata-rata dari {{ corrective.berdurasi }} dari {{ corrective.jumlah_detail }} perbaikan yang durasinya diisi.
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-7">
+        <div class="table-card h-100">
+            <div class="table-header"><h6>Corrective per Jenis Kerusakan</h6></div>
+            <table class="table">
+                <thead><tr><th>Jenis Kerusakan</th><th>Jumlah</th><th>Total Durasi</th></tr></thead>
+                <tbody>
+                    {% for row in corrective.per_kerusakan %}
+                    <tr>
+                        <td style="font-size:13px;">{{ row.label }}</td>
+                        <td class="mono">{{ row.jumlah }}</td>
+                        <td style="font-size:12.5px;color:#475569;">{{ row.durasi }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="3" class="text-center text-muted">Detail corrective belum tercatat</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
     </div>
 </div>
+{% endif %}
 
 <!-- TABEL DETAIL -->
 <div class="table-card">
@@ -186,7 +276,7 @@
                 <tr>
                     <th>#</th><th>Tanggal</th>
                     {% if mode == 'ytd' %}<th>Bulan</th>{% endif %}
-                    <th>Perangkat</th><th>Lokasi</th><th>Jenis</th><th>Pelaksana</th><th>Status</th>
+                    <th>Perangkat</th><th>Lokasi</th><th>Jenis</th><th>Keterangan</th><th>Pelaksana</th><th>Status</th>
                 </tr>
             </thead>
             <tbody>
@@ -209,6 +299,20 @@
                             {{ m.maintenance_type }}
                         </span>
                     </td>
+                    <td style="font-size:12px;color:#475569;max-width:280px;">
+                        {% with c=m.corrective_detail %}
+                        {% if m.maintenance_type == 'Corrective' and c %}
+                            {% if c.jenis_kerusakan %}<div style="font-weight:600;color:#9a3412;">{{ c.get_jenis_kerusakan_display }}</div>{% endif %}
+                            <div>{{ c.tindakan|truncatechars:80 }}</div>
+                            <div style="margin-top:2px;font-size:11px;color:#94a3b8;">
+                                {% if c.status_perbaikan == 'perlu_tindaklanjut' %}<span style="color:#b45309;font-weight:600;">Perlu tindak lanjut</span>{% endif %}
+                                {% if c.gangguan %}{% if c.status_perbaikan == 'perlu_tindaklanjut' %} · {% endif %}<a href="{% url 'gangguan_detail' c.gangguan.pk %}" class="text-decoration-none">{{ c.gangguan.nomor_gangguan }}</a>{% endif %}
+                            </div>
+                        {% else %}
+                            {{ m.description|default:"—"|truncatechars:80 }}
+                        {% endif %}
+                        {% endwith %}
+                    </td>
                     <td style="font-size:13px;">
                         {% if m.pelaksana_names %}{% for n in m.pelaksana_names %}{{ n }}{% if not forloop.last %}, {% endif %}{% endfor %}
                         {% else %}—{% endif %}
@@ -220,7 +324,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="{% if mode == 'ytd' %}8{% else %}7{% endif %}" class="text-center text-muted py-4">
+                    <td colspan="{% if mode == 'ytd' %}9{% else %}8{% endif %}" class="text-center text-muted py-4">
                         <i class="bi bi-inbox fs-4 d-block mb-2"></i>Tidak ada data maintenance
                     </td>
                 </tr>
