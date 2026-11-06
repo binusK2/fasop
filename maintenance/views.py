@@ -31,7 +31,7 @@ import logging
 logger = logging.getLogger(__name__)
 from django.utils.encoding import iri_to_uri
 from django.utils.http import url_has_allowed_host_and_scheme
-from urllib.parse import urlparse
+from urllib.parse import urlencode, urlparse
 
 # Jumlah baris per halaman untuk daftar panjang (Semua Pemeliharaan, tabel
 # detail Laporan Pemeliharaan). Satu aturan, supaya kedua halaman tidak
@@ -234,13 +234,64 @@ def _get_detail_form_config(device):
 # ─────────────────────────────────────────────────────────────────────
 # LIST
 # ─────────────────────────────────────────────────────────────────────
+# Filter "Semua Pemeliharaan" dikunci di session: setelah membuka detail,
+# mengedit, atau berpindah menu lalu kembali lewat sidebar, daftar tetap
+# tersaring seperti terakhir — tidak kembali ke semua data. Pola yang sama
+# dengan filter halaman Approval.
+FILTER_DAFTAR_PEMELIHARAAN = ('status', 'lokasi', 'jenis', 'date_from', 'date_to')
+SESI_FILTER_DAFTAR = 'maintenance_list_filter'
+
+
+def _filter_daftar_sah(nilai):
+    """Buang nilai filter yang tidak sah.
+
+    Wajib, karena nilainya DISIMPAN: satu `jenis=abc` atau tanggal rusak dari
+    tautan lama akan membuat query error di setiap kunjungan berikutnya —
+    halaman macet sampai session-nya habis, bukan sekali saja.
+    """
+    hasil = {}
+    for k in FILTER_DAFTAR_PEMELIHARAAN:
+        v = nilai.get(k)
+        v = v.strip() if isinstance(v, str) else ''
+        if not v:
+            continue
+        if k == 'status' and v not in ('Open', 'Done'):
+            continue
+        if k == 'jenis' and not v.isdigit():
+            continue
+        if k in ('date_from', 'date_to'):
+            try:
+                date_cls.fromisoformat(v)
+            except ValueError:
+                continue
+        hasil[k] = v
+    return hasil
+
+
 @login_required
 def maintenance_list(request):
-    status    = request.GET.get('status') or ''
-    lokasi    = request.GET.get('lokasi') or ''
-    jenis_id  = request.GET.get('jenis') or ''
-    date_from = request.GET.get('date_from') or ''
-    date_to   = request.GET.get('date_to') or ''
+    if 'reset_filter' in request.GET:
+        request.session.pop(SESI_FILTER_DAFTAR, None)
+        return redirect('maintenance_list')
+
+    if any(k in request.GET for k in FILTER_DAFTAR_PEMELIHARAAN):
+        # Filter dikirim (form Filter, atau tautan seperti "?status=Open" dari
+        # dashboard): seluruh isinya MENGGANTI kunci lama — bukan digabung —
+        # supaya tautan dashboard menampilkan persis yang dijanjikannya.
+        filt = _filter_daftar_sah(request.GET)
+        if filt:
+            request.session[SESI_FILTER_DAFTAR] = filt
+        else:
+            request.session.pop(SESI_FILTER_DAFTAR, None)
+    else:
+        simpanan = request.session.get(SESI_FILTER_DAFTAR)
+        filt = _filter_daftar_sah(simpanan) if isinstance(simpanan, dict) else {}
+
+    status    = filt.get('status', '')
+    lokasi    = filt.get('lokasi', '')
+    jenis_id  = filt.get('jenis', '')
+    date_from = filt.get('date_from', '')
+    date_to   = filt.get('date_to', '')
 
     maintenances = Maintenance.objects.select_related(
         'device', 'device__jenis'
@@ -267,20 +318,26 @@ def maintenance_list(request):
     paginator = Paginator(maintenances, BARIS_PER_HALAMAN)
     page_obj  = paginator.get_page(request.GET.get('page'))
 
-    # Querystring filter tanpa 'page', supaya tautan halaman tidak kehilangan filter
-    params = request.GET.copy()
-    params.pop('page', None)
+    # Querystring dari filter yang BERLAKU (bisa dari session, bukan URL) —
+    # dipakai tautan halaman dan tombol Export Excel. Kalau diambil dari
+    # request.GET, Export dari daftar yang terkunci akan mengekspor semua data.
+    querystring = urlencode(filt)
+
+    jenis_list = DeviceType.objects.all()
+    selected_jenis_obj = jenis_list.filter(pk=jenis_id).first() if jenis_id else None
 
     return render(request, 'maintenance/maintenance_list.html', {
         'maintenances':    page_obj.object_list,
         'page_obj':        page_obj,
         'paginator':       paginator,
-        'querystring':     params.urlencode(),
+        'querystring':     querystring,
+        'filter_terkunci': bool(filt),
         'lokasi_list':     lokasi_list,
         'selected_lokasi': lokasi,
         'selected_status': status,
-        'jenis_list':      DeviceType.objects.all(),
+        'jenis_list':      jenis_list,
         'selected_jenis':  jenis_id,
+        'selected_jenis_obj': selected_jenis_obj,
         'date_from':       date_from,
         'date_to':         date_to,
     })

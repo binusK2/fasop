@@ -7,7 +7,8 @@
 <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
     <h2 class="mb-0" style="font-size:20px;font-weight:700;">Daftar Pemeliharaan</h2>
     <div class="d-flex gap-2">
-        <a href="{% url 'export_maintenance_excel' %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}"
+        {# Filter yang berlaku bisa datang dari kunci session, bukan URL — jadi pakai querystring dari view #}
+        <a href="{% url 'export_maintenance_excel' %}{% if querystring %}?{{ querystring }}{% endif %}"
            class="btn btn-outline-success btn-sm">
             <i class="bi bi-file-earmark-excel me-1"></i>Export Excel
         </a>
@@ -20,9 +21,19 @@
     </div>
 </div>
 
-<!-- FILTER -->
-<div class="card mb-3">
+<!-- FILTER — dikunci di session (lihat maintenance_list); Reset melepas kuncinya -->
+<div class="card mb-3" {% if filter_terkunci %}style="border-color:#bfdbfe;"{% endif %}>
     <div class="card-body py-2 px-3">
+        {% if filter_terkunci %}
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+            <span style="font-size:10px;font-weight:700;color:#fff;background:#2563eb;padding:2px 8px;border-radius:20px;display:inline-flex;align-items:center;gap:4px;">
+                <i class="bi bi-lock-fill" style="font-size:9px;"></i> Filter Terkunci
+            </span>
+            <span style="font-size:11.5px;color:#64748b;">
+                Filter tetap berlaku saat Anda berpindah halaman — tekan <strong>Reset</strong> untuk melepasnya.
+            </span>
+        </div>
+        {% endif %}
         <form method="get" class="row g-2 align-items-end">
             <div class="col-md-2">
                 <label class="form-label">Status</label>
@@ -62,8 +73,9 @@
                 <button class="btn btn-primary btn-sm">
                     <i class="bi bi-funnel me-1"></i>Filter
                 </button>
-                {% if selected_status or selected_lokasi or selected_jenis or date_from or date_to %}
-                <a href="{% url 'maintenance_list' %}" class="btn btn-outline-secondary btn-sm">
+                {% if filter_terkunci %}
+                {# Tautan polos ke daftar justru MEMULIHKAN kunci — melepasnya harus eksplisit #}
+                <a href="{% url 'maintenance_list' %}?reset_filter=1" class="btn btn-outline-danger btn-sm">
                     <i class="bi bi-x-lg me-1"></i>Reset
                 </a>
                 {% endif %}
@@ -73,7 +85,7 @@
 </div>
 
 <!-- Active filter chips -->
-{% if selected_status or selected_lokasi or selected_jenis or date_from or date_to %}
+{% if filter_terkunci %}
 <div class="d-flex gap-2 flex-wrap mb-3">
     {% if selected_status %}
     <span style="font-size:12px;background:#eff6ff;color:#2563eb;padding:3px 10px;border-radius:20px;font-weight:500;">
@@ -83,6 +95,11 @@
     {% if selected_lokasi %}
     <span style="font-size:12px;background:#f0fdf4;color:#166534;padding:3px 10px;border-radius:20px;font-weight:500;">
         Lokasi: {{ selected_lokasi }}
+    </span>
+    {% endif %}
+    {% if selected_jenis_obj %}
+    <span style="font-size:12px;background:#f5f3ff;color:#6d28d9;padding:3px 10px;border-radius:20px;font-weight:500;">
+        Jenis: {{ selected_jenis_obj.name }}
     </span>
     {% endif %}
     {% if date_from or date_to %}
