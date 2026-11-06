@@ -502,6 +502,26 @@ function ambilBebanKtt() {
 Pasang trigger **Time-driven → Minutes timer → Every minute** (atau lebih
 jarang) di menu Triggers.
 
+### Contoh — curl & Python
+
+Uji cepat dari terminal:
+
+```bash
+curl -s -H "X-API-Key: $FASOP_API_KEY" \
+  "https://<domain-fasop>/api/v1/opsis/beban-pembangkit/?unit=0"
+```
+
+Skrip Python siap pakai (pustaka standar saja, tanpa `pip install`):
+[`contoh_klien_opsis.py`](contoh_klien_opsis.py) — menarik beban pembangkit,
+beban KTT, dan frekuensi, dan sudah menangani `503` sebagai "lewati putaran
+ini" serta mencetak `message` dari setiap penolakan `4xx`.
+
+```bash
+export FASOP_URL=https://<domain-fasop>
+export FASOP_API_KEY=<kunci-anda>
+python3 contoh_klien_opsis.py
+```
+
 ### Kalau sebelumnya menarik data dengan login akun FASOP
 
 Cara lama — `UrlFetchApp` yang login ke `/login/` lalu membawa cookie sesi —
