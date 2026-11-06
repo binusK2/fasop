@@ -52,40 +52,45 @@ def validate_ba_file_ekstensi(file_obj):
         )
 
 
-def validate_ba_file_isi(file_obj):
-    """Isi berkas harus benar-benar PDF/Word sesuai ekstensinya."""
+def _isi_sesuai_ekstensi(file_obj):
+    """True bila isi berkas benar-benar PDF/Word sesuai ekstensinya.
+
+    Dipakai bersama validator BA dan Form Offline — pesannya yang berbeda,
+    pemeriksaan tanda tangan binernya sama."""
     import zipfile
 
-    if _file_lama(file_obj):
-        return
     ext = os.path.splitext(file_obj.name or '')[1].lower().lstrip('.')
-    pesan = 'Isi file tidak sesuai ekstensinya. File BA harus dokumen PDF atau Word asli.'
-
     try:
         file_obj.seek(0)
         kepala = file_obj.read(8)
         file_obj.seek(0)
     except Exception:
-        raise ValidationError(pesan)
+        return False
 
     if ext == 'pdf':
-        ok = kepala.startswith(_TANDA_PDF)
-    elif ext == 'doc':
-        ok = kepala.startswith(_TANDA_OLE2)
-    elif ext == 'docx':
-        ok = False
-        if kepala.startswith(_TANDA_ZIP):
-            try:
-                with zipfile.ZipFile(file_obj) as zf:
-                    ok = 'word/document.xml' in zf.namelist()
-            except zipfile.BadZipFile:
-                ok = False
-            finally:
-                file_obj.seek(0)
-    else:
-        ok = False  # ekstensinya sendiri sudah ditolak validate_ba_file_ekstensi
-    if not ok:
-        raise ValidationError(pesan)
+        return kepala.startswith(_TANDA_PDF)
+    if ext == 'doc':
+        return kepala.startswith(_TANDA_OLE2)
+    if ext == 'docx':
+        if not kepala.startswith(_TANDA_ZIP):
+            return False
+        try:
+            with zipfile.ZipFile(file_obj) as zf:
+                return 'word/document.xml' in zf.namelist()
+        except zipfile.BadZipFile:
+            return False
+        finally:
+            file_obj.seek(0)
+    return False  # ekstensi lain sudah ditolak validator ekstensi
+
+
+def validate_ba_file_isi(file_obj):
+    """Isi berkas harus benar-benar PDF/Word sesuai ekstensinya."""
+    if _file_lama(file_obj):
+        return
+    if not _isi_sesuai_ekstensi(file_obj):
+        raise ValidationError(
+            'Isi file tidak sesuai ekstensinya. File BA harus dokumen PDF atau Word asli.')
 
 
 # Urutan penting: ekstensi dulu, baru isi — pesan "format tidak diizinkan"
@@ -94,6 +99,40 @@ ba_file_validators = [
     validate_ba_file_ekstensi,
     validate_ba_file_size,
     validate_ba_file_isi,
+]
+
+
+# ── Form Offline: aturan berkas yang sama dengan BA upload (PDF/Word asli,
+#    maks 20 MB), pesannya menyebut "form offline" ─────────────────────────
+def validate_form_offline_ekstensi(file_obj):
+    if _file_lama(file_obj):
+        return
+    ext = os.path.splitext(file_obj.name or '')[1].lower().lstrip('.')
+    if ext not in BA_UPLOAD_EKSTENSI:
+        raise ValidationError(
+            f'Format file ".{ext or "?"}" tidak diizinkan. '
+            'Form offline hanya boleh PDF atau Word (.pdf, .doc, .docx).')
+
+
+def validate_form_offline_size(file_obj):
+    if _file_lama(file_obj):
+        return
+    if file_obj.size > 20 * 1024 * 1024:
+        raise ValidationError('Ukuran form offline maksimal 20 MB.')
+
+
+def validate_form_offline_isi(file_obj):
+    if _file_lama(file_obj):
+        return
+    if not _isi_sesuai_ekstensi(file_obj):
+        raise ValidationError(
+            'Isi file tidak sesuai ekstensinya. Form offline harus dokumen PDF atau Word asli.')
+
+
+form_offline_validators = [
+    validate_form_offline_ekstensi,
+    validate_form_offline_size,
+    validate_form_offline_isi,
 ]
 
 
@@ -1790,3 +1829,75 @@ class BeritaAcaraEviden(models.Model):
 
     class Meta:
         ordering = ['urutan']
+
+
+# ─────────────────────────────────────────────────────────────
+# FORM OFFLINE — form pemeliharaan yang diisi di kertas/Word, diunggah
+# ─────────────────────────────────────────────────────────────
+def form_offline_upload(instance, filename):
+    ext   = os.path.splitext(filename)[1].lower()
+    nama  = slugify_simple(instance.device.nama if instance.device_id else 'PERANGKAT')
+    waktu = timezone.localtime(timezone.now())
+    return f'form_offline/{waktu:%Y-%m}/{nama}_{waktu:%Y%m%d_%H%M%S}{ext}'
+
+
+class FormOffline(models.Model):
+    """Form pemeliharaan offline (PDF/Word) yang diunggah teknisi untuk satu
+    perangkat, lalu divalidasi ("mengetahui") oleh Asisten Manager.
+
+    Selama MENUNGGU validasi, form ini sengaja tidak dihitung di mana pun —
+    bukan di Laporan Pemeliharaan, riwayat perangkat, jadwal, maupun health
+    index. Begitu divalidasi, satu baris `Maintenance` (Preventive, Done,
+    signed_by = AM yang memvalidasi) dibuat dan ditautkan lewat
+    `maintenance`. Semua perhitungan yang sudah ada otomatis memasukkannya
+    tanpa satu pun query lain yang perlu tahu soal form offline.
+
+    Validasi AM TIDAK membubuhkan tanda tangan ke dokumen yang diunggah —
+    hanya dicatat siapa dan kapan.
+    """
+    STATUS_MENUNGGU   = 'menunggu'
+    STATUS_DIVALIDASI = 'divalidasi'
+    STATUS_DITOLAK    = 'ditolak'
+    STATUS_CHOICES = (
+        (STATUS_MENUNGGU,   'Menunggu Validasi'),
+        (STATUS_DIVALIDASI, 'Divalidasi'),
+        (STATUS_DITOLAK,    'Ditolak'),
+    )
+
+    device          = models.ForeignKey(Device, on_delete=models.CASCADE,
+                                        related_name='form_offline', verbose_name='Perangkat')
+    tanggal         = models.DateTimeField(verbose_name='Tanggal Pemeliharaan')
+    pelaksana_names = models.JSONField(default=list, verbose_name='Pelaksana')
+    berkas          = models.FileField(upload_to=form_offline_upload,
+                                       validators=form_offline_validators,
+                                       verbose_name='Berkas Form (PDF/Word)')
+    nama_berkas     = models.CharField(max_length=255, blank=True,
+                                       verbose_name='Nama berkas asli')
+    status          = models.CharField(max_length=12, choices=STATUS_CHOICES,
+                                       default=STATUS_MENUNGGU, db_index=True)
+    divalidasi_oleh = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
+                                        related_name='form_offline_divalidasi',
+                                        verbose_name='Divalidasi / ditolak oleh')
+    divalidasi_pada = models.DateTimeField(null=True, blank=True,
+                                           verbose_name='Waktu validasi / penolakan')
+    alasan_tolak    = models.TextField(blank=True, default='', verbose_name='Alasan ditolak')
+    maintenance     = models.OneToOneField('Maintenance', on_delete=models.SET_NULL,
+                                           null=True, blank=True, related_name='form_offline',
+                                           verbose_name='Pemeliharaan hasil validasi')
+    created_by      = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
+                                        related_name='form_offline_diunggah',
+                                        verbose_name='Diunggah oleh')
+    created_at      = models.DateTimeField(auto_now_add=True, verbose_name='Diunggah pada')
+    updated_at      = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Form Offline'
+        verbose_name_plural = 'Form Offline'
+
+    def __str__(self):
+        return f'Form offline {self.device} — {timezone.localtime(self.tanggal):%d %b %Y}'
+
+    @property
+    def berkas_pdf(self):
+        return (self.berkas.name or '').lower().endswith('.pdf')

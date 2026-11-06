@@ -108,21 +108,33 @@ def user_display_name(request):
 
 
 def pending_approval_count(request):
-    """Inject jumlah maintenance Done belum TTD — untuk badge sidebar Approval."""
+    """Inject jumlah yang menunggu AM — badge sidebar Approval & Form Offline.
+
+    Form offline hanya dihitung untuk AM (yang memang bisa memvalidasinya);
+    superuser bukan-AM melihat badge Approval saja, sama seperti sebelumnya.
+    """
+    kosong = {'pending_approval_count': 0, 'form_offline_menunggu_count': 0}
     if not request.user.is_authenticated:
-        return {'pending_approval_count': 0}
+        return kosong
     try:
         is_am = request.user.profile.is_asisten_manager
     except Exception:
         is_am = False
     if not (request.user.is_superuser or is_am):
-        return {'pending_approval_count': 0}
+        return kosong
     try:
         from maintenance.models import Maintenance
         count = Maintenance.objects.filter(status='Done', signed_by__isnull=True).count()
     except Exception:
         count = 0
-    return {'pending_approval_count': count}
+    offline = 0
+    if is_am:
+        try:
+            from maintenance.models import FormOffline
+            offline = FormOffline.objects.filter(status=FormOffline.STATUS_MENUNGGU).count()
+        except Exception:
+            offline = 0
+    return {'pending_approval_count': count, 'form_offline_menunggu_count': offline}
 
 
 def user_permissions(request):

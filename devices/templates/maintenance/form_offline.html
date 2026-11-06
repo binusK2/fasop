@@ -1,0 +1,305 @@
+{% extends 'base.html' %}
+{% load device_filters %}
+{% block title %}Form Offline — FASOP{% endblock %}
+{% block page_title %}Form Offline{% endblock %}
+
+{% block content %}
+{% comment %}
+Form pemeliharaan yang diisi di luar FASOP (kertas / Word) diunggah di sini,
+lalu divalidasi "mengetahui" oleh Asisten Manager. Alur lengkapnya di
+docstring maintenance.models.FormOffline; view-nya offline_form_upload.
+
+Tabel di bawah memakai gaya yang sama dengan Semua Pemeliharaan & Approval.
+{% endcomment %}
+
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+    <div>
+        <h2 class="mb-0" style="font-size:20px;font-weight:700;">Form Offline</h2>
+        <div style="font-size:12.5px;color:#64748b;margin-top:2px;">
+            Unggah form pemeliharaan (PDF/Word) yang diisi di lapangan. Setelah divalidasi Asisten Manager,
+            form tercatat sebagai pemeliharaan Preventive dan masuk Laporan Pemeliharaan serta riwayat perangkat.
+        </div>
+    </div>
+</div>
+
+{% if bisa_upload %}
+<!-- UPLOAD -->
+<div class="card mb-3">
+    <div class="card-body px-4 py-3">
+        <div style="font-size:14px;font-weight:700;color:#0f172a;display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+            <span style="width:4px;height:16px;background:#3b82f6;border-radius:2px;display:inline-block;"></span>
+            Upload Form Offline
+        </div>
+        <form method="post" enctype="multipart/form-data" id="form-offline"
+              onsubmit="return konfirmasiUploadOffline(this);">
+            {% csrf_token %}
+            <div class="row g-3">
+                <div class="col-md-7">
+                    <label class="form-label fw-semibold">Perangkat yang Dipelihara <span class="text-danger">*</span></label>
+                    {% if errors.device %}<div class="fo-error"><i class="bi bi-exclamation-circle-fill"></i> {{ errors.device }}</div>{% endif %}
+                    {% comment %}
+                    Daftarnya memuat SEMUA perangkat — .select-cari (Tom Select dari
+                    base.html) membuatnya bisa diketik; data-cari membawa lokasi &
+                    merk ke pencarian karena lokasinya ada di judul optgroup.
+                    {% endcomment %}
+                    <select name="device" id="fo-device" class="form-select select-cari" required
+                            data-placeholder="Ketik nama perangkat, jenis, atau lokasi...">
+                        <option value="">— Pilih Perangkat —</option>
+                        {% regroup devices by lokasi as devices_by_lokasi %}
+                        {% for group in devices_by_lokasi %}
+                        <optgroup label="{{ group.grouper }}">
+                            {% for d in group.list %}
+                            <option value="{{ d.pk|hashid }}" data-cari="{{ d.lokasi }} {{ d.merk }}"
+                                    {% if device_terpilih and device_terpilih.pk == d.pk %}selected{% endif %}>{{ d.nama }} ({{ d.jenis }})</option>
+                            {% endfor %}
+                        </optgroup>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label fw-semibold">Tanggal Pemeliharaan <span class="text-danger">*</span></label>
+                    {% if errors.tanggal %}<div class="fo-error"><i class="bi bi-exclamation-circle-fill"></i> {{ errors.tanggal }}</div>{% endif %}
+                    <input type="datetime-local" name="tanggal" id="fo-tanggal" class="form-control"
+                           value="{{ tanggal_awal }}" required>
+                </div>
+                <div class="col-12">
+                    <label class="form-label fw-semibold">Pelaksana Pemeliharaan <span class="text-danger">*</span></label>
+                    <input type="hidden" id="id_pelaksana_offline" name="pelaksana_names" value="{{ pelaksana_json }}">
+                    {% include 'maintenance/_pelaksana_tag_widget.html' with hidden_id='id_pelaksana_offline' initial_json=pelaksana_json error_text=errors.pelaksana %}
+                </div>
+                <div class="col-md-7">
+                    <label class="form-label fw-semibold">Berkas Form <span class="text-danger">*</span></label>
+                    {% if errors.berkas %}<div class="fo-error"><i class="bi bi-exclamation-circle-fill"></i> {{ errors.berkas }}</div>{% endif %}
+                    <input type="file" name="berkas" id="fo-berkas" class="form-control" required
+                           accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+                    <div class="form-text">PDF atau Word (.pdf, .doc, .docx), maksimal 20 MB.</div>
+                </div>
+                <div class="col-md-5 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-cloud-arrow-up me-1"></i>Upload Form
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+<!-- Tab -->
+<ul class="nav nav-tabs mb-3">
+    <li class="nav-item">
+        <a class="nav-link {% if tab == 'menunggu' %}active{% endif %}" href="?tab=menunggu">
+            Menunggu Validasi
+            {% if jumlah.menunggu %}
+            <span class="fo-tab-badge {% if tab == 'menunggu' %}aktif{% endif %}">{{ jumlah.menunggu }}</span>
+            {% endif %}
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if tab == 'divalidasi' %}active{% endif %}" href="?tab=divalidasi">Divalidasi</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if tab == 'ditolak' %}active{% endif %}" href="?tab=ditolak">
+            Ditolak
+            {% if jumlah.ditolak and not lihat_semua %}
+            <span class="fo-tab-badge {% if tab == 'ditolak' %}aktif{% endif %}">{{ jumlah.ditolak }}</span>
+            {% endif %}
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if tab == 'semua' %}active{% endif %}" href="?tab=semua">Semua</a>
+    </li>
+</ul>
+
+<div class="table-card">
+    <div class="table-header" style="display:flex;align-items:center;justify-content:space-between;">
+        <h6 class="mb-0">
+            <i class="bi bi-file-earmark-arrow-up me-1" style="color:#3b82f6;"></i>
+            {{ page_obj.paginator.count }} Form {% if lihat_semua %}Offline{% else %}Unggahan Saya{% endif %}
+        </h6>
+    </div>
+    <div class="table-responsive">
+        <table class="table mb-0" style="border-collapse:separate;border-spacing:0;">
+            <thead>
+                <tr style="background:#f8fafc;">
+                    <th style="text-align:center;width:46px;font-size:11px;color:#94a3b8;padding:10px 8px;">#</th>
+                    <th style="text-align:center;font-size:11px;color:#64748b;padding:10px 12px;">TANGGAL</th>
+                    <th style="font-size:11px;color:#64748b;padding:10px 12px;">PERANGKAT</th>
+                    <th style="text-align:center;font-size:11px;color:#64748b;padding:10px 12px;">LOKASI</th>
+                    <th style="text-align:center;font-size:11px;color:#64748b;padding:10px 12px;">PELAKSANA</th>
+                    <th style="font-size:11px;color:#64748b;padding:10px 12px;">BERKAS</th>
+                    <th style="text-align:center;font-size:11px;color:#64748b;padding:10px 12px;">STATUS</th>
+                    <th style="text-align:center;font-size:11px;color:#64748b;padding:10px 12px;">AKSI</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for fo in daftar %}
+            <tr style="border-top:1px solid #f1f5f9;transition:background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
+                <td style="text-align:center;font-size:12px;color:#cbd5e1;font-weight:600;padding:14px 8px;">{{ forloop.counter0|add:page_obj.start_index }}</td>
+                <td style="text-align:center;padding:14px 12px;white-space:nowrap;">
+                    <div style="font-size:13px;font-weight:600;color:#1e293b;">{{ fo.tanggal|date:"d M Y" }}</div>
+                    <div style="font-size:11px;color:#94a3b8;margin-top:2px;"><i class="bi bi-clock" style="font-size:10px;"></i> {{ fo.tanggal|date:"H:i" }}</div>
+                </td>
+                <td style="padding:14px 12px;">
+                    <a href="{% url 'device_view' fo.device.pk %}" class="text-decoration-none">
+                        <div style="font-size:13px;font-weight:700;color:#0f172a;">{{ fo.device }}</div>
+                    </a>
+                    {% if fo.device.jenis %}
+                    <div style="font-size:11px;color:#94a3b8;margin-top:2px;"><i class="bi bi-cpu" style="font-size:10px;"></i> {{ fo.device.jenis }}</div>
+                    {% endif %}
+                </td>
+                <td style="text-align:center;padding:14px 12px;">
+                    <span style="font-size:12px;color:#475569;background:#f1f5f9;padding:3px 10px;border-radius:20px;white-space:nowrap;">
+                        <i class="bi bi-geo-alt" style="font-size:10px;"></i> {{ fo.device.lokasi }}
+                    </span>
+                </td>
+                <td style="text-align:center;padding:14px 12px;">
+                    <div style="display:flex;flex-wrap:wrap;gap:4px;justify-content:center;">
+                        {% for n in fo.pelaksana_names %}
+                        <span style="font-size:11px;background:#eff6ff;color:#1d4ed8;padding:2px 8px;border-radius:20px;white-space:nowrap;">{{ n }}</span>
+                        {% endfor %}
+                    </div>
+                </td>
+                <td style="padding:14px 12px;max-width:240px;">
+                    <a href="{% url 'offline_form_berkas' fo.pk %}" target="_blank" class="text-decoration-none"
+                       style="font-size:12.5px;font-weight:600;color:#1d4ed8;word-break:break-all;">
+                        <i class="bi {% if fo.berkas_pdf %}bi-file-earmark-pdf text-danger{% else %}bi-file-earmark-word text-primary{% endif %} me-1"></i>{{ fo.nama_berkas|default:"berkas" }}
+                    </a>
+                    <div style="font-size:11px;color:#94a3b8;margin-top:2px;">
+                        Diunggah {{ fo.created_by.get_full_name|default:fo.created_by.username|default:"—" }} · {{ fo.created_at|date:"d M Y H:i" }}
+                    </div>
+                </td>
+                <td style="text-align:center;padding:14px 12px;">
+                    {% if fo.status == 'menunggu' %}
+                    <span style="font-size:11.5px;font-weight:700;color:#92400e;background:#fef3c7;padding:4px 12px;border-radius:20px;border:1px solid #fde68a;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;">
+                        <i class="bi bi-hourglass-split" style="font-size:11px;"></i> Menunggu Validasi
+                    </span>
+                    {% elif fo.status == 'divalidasi' %}
+                    <span style="font-size:11.5px;font-weight:700;color:#065f46;background:#dcfce7;padding:4px 12px;border-radius:20px;border:1px solid #a7f3d0;display:inline-flex;align-items:center;gap:4px;">
+                        <i class="bi bi-patch-check-fill" style="font-size:11px;"></i> Divalidasi
+                    </span>
+                    <div style="font-size:10.5px;color:#64748b;margin-top:4px;">
+                        Mengetahui: {{ fo.divalidasi_oleh.get_full_name|default:fo.divalidasi_oleh.username|default:"—" }}<br>{{ fo.divalidasi_pada|date:"d M Y H:i" }}
+                    </div>
+                    {% else %}
+                    <span style="font-size:11.5px;font-weight:700;color:#991b1b;background:#fee2e2;padding:4px 12px;border-radius:20px;border:1px solid #fecaca;display:inline-flex;align-items:center;gap:4px;">
+                        <i class="bi bi-x-circle-fill" style="font-size:11px;"></i> Ditolak
+                    </span>
+                    <div style="font-size:10.5px;color:#991b1b;margin-top:4px;max-width:200px;white-space:normal;">{{ fo.alasan_tolak }}</div>
+                    {% endif %}
+                </td>
+                <td style="text-align:center;padding:14px 12px;">
+                    <div class="d-flex gap-1 justify-content-center">
+                        {% if fo.status == 'menunggu' and bisa_validasi %}
+                        <form method="post" action="{% url 'offline_form_validasi' fo.pk %}" class="m-0">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-success" style="border-radius:8px;padding:4px 10px;font-size:12px;white-space:nowrap;"
+                                    title="Validasi (mengetahui)"
+                                    onclick="return confirmSubmit(this.form, 'Validasi (mengetahui) form offline {{ fo.device|escapejs }} tanggal {{ fo.tanggal|date:"d M Y" }}?\n\nForm akan tercatat sebagai pemeliharaan Preventive yang selesai dan masuk Laporan Pemeliharaan serta riwayat perangkat.', {title:'Validasi Form Offline', danger:false, okLabel:'Ya, validasi'})">
+                                <i class="bi bi-patch-check me-1"></i>Validasi
+                            </button>
+                        </form>
+                        <form method="post" action="{% url 'offline_form_tolak' fo.pk %}" class="m-0 form-tolak">
+                            {% csrf_token %}
+                            <input type="hidden" name="alasan" value="">
+                            <button type="button" class="btn btn-sm btn-outline-danger btn-tolak" style="border-radius:8px;padding:4px 10px;"
+                                    title="Tolak" data-label="{{ fo.device }}">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
+                        </form>
+                        {% endif %}
+                        {% if fo.status == 'divalidasi' and fo.maintenance_id %}
+                        <a href="{% url 'maintenance_view' fo.maintenance_id %}" class="btn btn-sm btn-outline-primary"
+                           title="Lihat pemeliharaan" style="border-radius:8px;padding:4px 10px;">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        {% endif %}
+                        {% if fo.status != 'divalidasi' and fo.created_by_id == request.user.id or fo.status != 'divalidasi' and request.user.is_superuser %}
+                        <form method="post" action="{% url 'offline_form_hapus' fo.pk %}" class="m-0">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-outline-secondary" title="Batalkan unggahan"
+                                    style="border-radius:8px;padding:4px 10px;"
+                                    onclick="return confirmSubmit(this.form, 'Batalkan unggahan form offline {{ fo.device|escapejs }}? Berkasnya ikut dihapus.')">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="8" class="text-center text-muted py-5">
+                    <i class="bi bi-inbox fs-2 d-block mb-2"></i>
+                    {% if tab == 'menunggu' %}Tidak ada form offline yang menunggu validasi.
+                    {% elif tab == 'divalidasi' %}Belum ada form offline yang divalidasi.
+                    {% elif tab == 'ditolak' %}Tidak ada form offline yang ditolak.
+                    {% else %}Belum ada form offline yang diunggah.{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% include 'maintenance/_paginasi.html' %}
+</div>
+
+<style>
+.fo-error {
+    display:flex;align-items:flex-start;gap:6px;margin-bottom:6px;padding:6px 10px;border-radius:8px;
+    background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;font-size:12.5px;font-weight:500;
+}
+.fo-tab-badge {
+    display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;
+    border-radius:20px;font-size:11px;font-weight:700;margin-left:4px;background:#f1f5f9;color:#94a3b8;
+}
+.fo-tab-badge.aktif { background:#fef2f2;color:#dc2626; }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Ringkasan isian ditampilkan sebelum diunggah — supaya perangkat, tanggal,
+// pelaksana, dan berkasnya diperiksa dulu, bukan ketahuan salah setelah AM
+// memvalidasinya.
+function konfirmasiUploadOffline(form) {
+    var sel = document.getElementById('fo-device');
+    var opsi = sel && sel.options[sel.selectedIndex];
+    var tgl = document.getElementById('fo-tanggal').value;
+    var berkas = document.getElementById('fo-berkas').files[0];
+    var nama = [];
+    try { nama = JSON.parse(document.getElementById('id_pelaksana_offline').value || '[]'); } catch (e) {}
+    var ketik = (document.getElementById('pelaksana-text-input') || {}).value || '';
+    if (ketik.trim() && nama.indexOf(ketik.trim()) === -1) nama.push(ketik.trim());
+
+    var tglTampil = tgl;
+    if (tgl) {
+        var d = new Date(tgl);
+        if (!isNaN(d)) tglTampil = d.toLocaleString('id-ID', {day:'2-digit', month:'long', year:'numeric', hour:'2-digit', minute:'2-digit'});
+    }
+    var pesan =
+        'Perangkat: ' + (opsi ? opsi.text : '-') + '\n' +
+        'Tanggal: ' + (tglTampil || '-') + '\n' +
+        'Pelaksana: ' + (nama.length ? nama.join(', ') : '-') + '\n' +
+        'Berkas: ' + (berkas ? berkas.name : '-') + '\n\n' +
+        'Form akan menunggu validasi Asisten Manager sebelum masuk Laporan Pemeliharaan.';
+    return confirmSubmit(form, pesan, {title: 'Pastikan data sudah benar', danger: false, okLabel: 'Ya, upload'});
+}
+
+// Tolak = wajib beralasan; alasannya dikirim ke pengunggah lewat notifikasi.
+document.querySelectorAll('.btn-tolak').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+        var form = btn.closest('form');
+        fasopPrompt('Alasan menolak form offline ' + btn.getAttribute('data-label') + ':', function (alasan) {
+            alasan = (alasan || '').trim();
+            if (!alasan) {
+                fasopAlert('Alasan penolakan wajib diisi.');
+                return;
+            }
+            form.querySelector('input[name=alasan]').value = alasan;
+            HTMLFormElement.prototype.submit.call(form);
+        });
+    });
+});
+</script>
+{% endblock %}

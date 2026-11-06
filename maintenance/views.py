@@ -2078,6 +2078,18 @@ def export_maintenance_pdf(request, pk):
         from .pdf_export import build_pdf
 
     maintenance = get_object_or_404(Maintenance, pk=pk)
+
+    # Pemeliharaan hasil validasi form offline: dokumennya ADALAH berkas yang
+    # diunggah teknisi. Membuat PDF dari detail kosong hanya menghasilkan
+    # lembar tanpa isi — semua tombol PDF/Preview di daftar mana pun
+    # karenanya menyajikan berkas aslinya.
+    try:
+        form_offline = maintenance.form_offline
+    except ObjectDoesNotExist:
+        form_offline = None
+    if form_offline and form_offline.berkas:
+        return _sajikan_berkas_form_offline(form_offline)
+
     device      = maintenance.device
     device_kind = device.jenis.name.strip().upper() if device.jenis else 'GENERIC'
 
@@ -4013,11 +4025,334 @@ def offline_form_download(request):
     return HttpResponse("Fitur offline form download belum tersedia.", status=501)
 
 
+# ─────────────────────────────────────────────────────────────────────
+# FORM OFFLINE — upload form PDF/Word + validasi "mengetahui" oleh AM
+# ─────────────────────────────────────────────────────────────────────
+# Alur & alasannya ada di docstring maintenance.models.FormOffline. Ringkasnya:
+# selama menunggu validasi tidak ada yang menghitungnya; validasi AM membuat
+# satu Maintenance (Preventive, Done, signed_by = AM) sehingga Laporan
+# Pemeliharaan, riwayat perangkat, jadwal, dan health index ikut memuatnya.
+
+FORM_OFFLINE_TAB = ('menunggu', 'divalidasi', 'ditolak', 'semua')
+
+
+def _is_am(user):
+    try:
+        return bool(user.profile.is_asisten_manager)
+    except Exception:
+        return False
+
+
+def _kembali_form_offline(tab='menunggu'):
+    return redirect(f"{reverse('offline_form_upload')}?tab={tab}")
+
+
+def _parse_form_offline(request):
+    """Baca & periksa isian upload. Return (data, errors) — errors per kolom.
+
+    Validator berkas dipanggil EKSPLISIT: objects.create() tidak pernah
+    menjalankan validator field, dan begitulah .exe dulu lolos di BA upload.
+    """
+    from datetime import datetime
+    from django.core.exceptions import ValidationError
+    from fasop.hashids_helper import decode
+    from .models import form_offline_validators
+
+    data, errors = {}, {}
+
+    pk = decode(request.POST.get('device', '').strip()) if request.POST.get('device') else None
+    data['device'] = Device.objects.filter(pk=pk, is_deleted=False).first() if pk else None
+    if not data['device']:
+        errors['device'] = 'Pilih perangkat yang dipelihara.'
+
+    teks_tanggal = request.POST.get('tanggal', '').strip()
+    data['tanggal_teks'] = teks_tanggal
+    data['tanggal'] = None
+    if not teks_tanggal:
+        errors['tanggal'] = 'Tanggal pemeliharaan wajib diisi.'
+    else:
+        try:
+            data['tanggal'] = dj_timezone.make_aware(datetime.strptime(teks_tanggal, '%Y-%m-%dT%H:%M'))
+        except ValueError:
+            errors['tanggal'] = 'Format tanggal tidak terbaca.'
+        else:
+            if data['tanggal'] > dj_timezone.now() + dj_timezone.timedelta(minutes=5):
+                errors['tanggal'] = 'Tanggal pemeliharaan tidak boleh di masa depan.'
+
+    data['pelaksana'] = bersihkan_pelaksana(request.POST.get('pelaksana_names', ''))
+    if not data['pelaksana']:
+        errors['pelaksana'] = PESAN_PELAKSANA_WAJIB
+
+    data['berkas'] = request.FILES.get('berkas')
+    if not data['berkas']:
+        errors['berkas'] = 'Pilih berkas form (PDF atau Word) yang akan diunggah.'
+    else:
+        for validator in form_offline_validators:
+            try:
+                validator(data['berkas'])
+            except ValidationError as e:
+                errors['berkas'] = ' '.join(e.messages)
+                break
+    return data, errors
+
+
 @login_required
 def offline_form_upload(request):
-    """Placeholder — upload hasil form offline."""
-    from django.http import HttpResponse
-    return HttpResponse("Fitur offline form upload belum tersedia.", status=501)
+    """Halaman Form Offline: unggah form + daftar unggahan & validasinya."""
+    from django.contrib import messages
+    from devices.permissions import can_edit
+    from fasop.hashids_helper import decode
+    from .models import FormOffline
+
+    bisa_upload   = can_edit(request.user)
+    bisa_validasi = _is_am(request.user)
+    lihat_semua   = bisa_validasi or request.user.is_superuser
+
+    form_data, errors = {}, {}
+    if request.method == 'POST':
+        if not bisa_upload:
+            messages.error(request, 'Akun Anda tidak bisa mengunggah form offline.')
+            return _kembali_form_offline()
+        form_data, errors = _parse_form_offline(request)
+        if not errors:
+            fo = FormOffline.objects.create(
+                device=form_data['device'],
+                tanggal=form_data['tanggal'],
+                pelaksana_names=form_data['pelaksana'],
+                berkas=form_data['berkas'],
+                nama_berkas=os.path.basename(form_data['berkas'].name)[:255],
+                created_by=request.user,
+            )
+            tgl = dj_timezone.localtime(fo.tanggal).strftime('%d %b %Y %H:%M')
+            _audit(request, 'create', 'maintenance', 'FormOffline', fo.pk,
+                   f'{fo.device.nama} — {tgl}', f'Upload form offline: {fo.nama_berkas}')
+            try:
+                from notifikasi.views import notif_ke_am
+                notif_ke_am(
+                    tipe='form_offline_validasi',
+                    judul=f'Form offline menunggu validasi — {fo.device.nama}',
+                    pesan=(f'{request.user.get_full_name() or request.user.username} mengunggah form '
+                           f'pemeliharaan offline {fo.device.nama} ({fo.device.lokasi}) tanggal {tgl}. '
+                           f'Perlu validasi "mengetahui" sebelum masuk Laporan Pemeliharaan.'),
+                    level='info',
+                    url=f"{reverse('offline_form_upload')}?tab=menunggu",
+                    device=fo.device,
+                )
+            except Exception:
+                pass
+            messages.success(
+                request,
+                f'Form offline {fo.device.nama} ({tgl}, pelaksana: {", ".join(fo.pelaksana_names)}) '
+                f'berhasil diunggah dan menunggu validasi Asisten Manager.')
+            return _kembali_form_offline()
+
+    tab = request.GET.get('tab', 'menunggu')
+    if tab not in FORM_OFFLINE_TAB:
+        tab = 'menunggu'
+
+    semua = FormOffline.objects.select_related('device', 'created_by', 'divalidasi_oleh', 'maintenance')
+    if not lihat_semua:
+        semua = semua.filter(created_by=request.user)
+    jumlah = semua.aggregate(
+        menunggu=Count('id', filter=Q(status=FormOffline.STATUS_MENUNGGU)),
+        divalidasi=Count('id', filter=Q(status=FormOffline.STATUS_DIVALIDASI)),
+        ditolak=Count('id', filter=Q(status=FormOffline.STATUS_DITOLAK)),
+        semua=Count('id'),
+    )
+    daftar = semua if tab == 'semua' else semua.filter(status=tab)
+    if tab == 'menunggu':
+        daftar = daftar.order_by('created_at')     # yang paling lama menunggu dulu
+
+    paginator = Paginator(daftar, BARIS_PER_HALAMAN)
+    page_obj  = paginator.get_page(request.GET.get('page'))
+
+    device_awal = None
+    if request.method != 'POST' and request.GET.get('device'):
+        device_awal = Device.objects.filter(pk=decode(request.GET['device']) or 0,
+                                            is_deleted=False).first()
+
+    return render(request, 'maintenance/form_offline.html', {
+        'bisa_upload':   bisa_upload,
+        'bisa_validasi': bisa_validasi,
+        'lihat_semua':   lihat_semua,
+        'devices':       Device.objects.filter(is_deleted=False).select_related('jenis').order_by('lokasi', 'nama'),
+        'form_data':     form_data,
+        'errors':        errors,
+        'device_terpilih': form_data.get('device') or device_awal,
+        'pelaksana_json': json.dumps(form_data.get('pelaksana') or []),
+        'tanggal_awal':  form_data.get('tanggal_teks') or dj_timezone.localtime().strftime('%Y-%m-%dT%H:%M'),
+        'tab':           tab,
+        'jumlah':        jumlah,
+        'daftar':        page_obj.object_list,
+        'page_obj':      page_obj,
+        'querystring':   urlencode({'tab': tab}),
+    })
+
+
+@login_required
+@require_POST
+def offline_form_validasi(request, pk):
+    """AM memvalidasi ("mengetahui") form offline → jadi Maintenance terhitung."""
+    from django.contrib import messages
+    from django.db import transaction
+    from .models import FormOffline
+
+    if not _is_am(request.user):
+        messages.error(request, 'Hanya Asisten Manager yang dapat memvalidasi form offline.')
+        return _kembali_form_offline()
+
+    sekarang = dj_timezone.now()
+    with transaction.atomic():
+        # Dikunci: dua AM yang menekan bersamaan tidak boleh melahirkan dua
+        # Maintenance untuk satu form.
+        fo = (FormOffline.objects.select_for_update(of=('self',))
+              .select_related('device')
+              .filter(pk=pk, status=FormOffline.STATUS_MENUNGGU).first())
+        if not fo:
+            messages.warning(request, 'Form ini sudah divalidasi, ditolak, atau dibatalkan pengunggahnya.')
+            return _kembali_form_offline()
+        m = Maintenance.objects.create(
+            device=fo.device,
+            maintenance_type='Preventive',
+            date=fo.tanggal,
+            status='Done',
+            pelaksana_names=fo.pelaksana_names,
+            description=f'Form offline: {fo.nama_berkas}',
+            signed_by=request.user,
+            signed_at=sekarang,
+        )
+        fo.maintenance     = m
+        fo.status          = FormOffline.STATUS_DIVALIDASI
+        fo.divalidasi_oleh = request.user
+        fo.divalidasi_pada = sekarang
+        fo.save(update_fields=['maintenance', 'status', 'divalidasi_oleh',
+                               'divalidasi_pada', 'updated_at'])
+
+    tgl = dj_timezone.localtime(fo.tanggal).strftime('%d %b %Y')
+    _audit(request, 'sign', 'maintenance', 'FormOffline', fo.pk,
+           f'{fo.device.nama} — {tgl}',
+           f'Validasi (mengetahui) form offline → Maintenance #{m.pk}')
+    if fo.created_by_id:
+        try:
+            from notifikasi.views import notif_ke_user
+            notif_ke_user(
+                fo.created_by, tipe='form_offline_hasil',
+                judul=f'Form offline divalidasi — {fo.device.nama}',
+                pesan=f'Form offline {fo.device.nama} tanggal {tgl} sudah divalidasi AM dan masuk Laporan Pemeliharaan.',
+                level='success', url=reverse('maintenance_view', args=[m.pk]), device=fo.device,
+            )
+        except Exception:
+            pass
+    messages.success(request, f'Form offline {fo.device.nama} ({tgl}) divalidasi dan masuk Laporan Pemeliharaan.')
+    return _kembali_form_offline()
+
+
+@login_required
+@require_POST
+def offline_form_tolak(request, pk):
+    """AM menolak form offline (mis. berkas salah perangkat) dengan alasan."""
+    from django.contrib import messages
+    from .models import FormOffline
+
+    if not _is_am(request.user):
+        messages.error(request, 'Hanya Asisten Manager yang dapat menolak form offline.')
+        return _kembali_form_offline()
+
+    alasan = request.POST.get('alasan', '').strip()
+    if not alasan:
+        messages.error(request, 'Tuliskan alasan penolakan supaya pengunggah tahu apa yang harus diperbaiki.')
+        return _kembali_form_offline()
+
+    diubah = FormOffline.objects.filter(pk=pk, status=FormOffline.STATUS_MENUNGGU).update(
+        status=FormOffline.STATUS_DITOLAK, alasan_tolak=alasan,
+        divalidasi_oleh=request.user, divalidasi_pada=dj_timezone.now(),
+        updated_at=dj_timezone.now())
+    if not diubah:
+        messages.warning(request, 'Form ini sudah divalidasi, ditolak, atau dibatalkan pengunggahnya.')
+        return _kembali_form_offline()
+
+    fo = FormOffline.objects.select_related('device', 'created_by').get(pk=pk)
+    tgl = dj_timezone.localtime(fo.tanggal).strftime('%d %b %Y')
+    _audit(request, 'update', 'maintenance', 'FormOffline', fo.pk,
+           f'{fo.device.nama} — {tgl}', f'Form offline ditolak: {alasan[:200]}')
+    if fo.created_by_id:
+        try:
+            from notifikasi.views import notif_ke_user
+            notif_ke_user(
+                fo.created_by, tipe='form_offline_hasil',
+                judul=f'Form offline ditolak — {fo.device.nama}',
+                pesan=f'Form offline {fo.device.nama} tanggal {tgl} ditolak AM: {alasan}',
+                level='warning', url=f"{reverse('offline_form_upload')}?tab=ditolak", device=fo.device,
+            )
+        except Exception:
+            pass
+    messages.success(request, f'Form offline {fo.device.nama} ({tgl}) ditolak.')
+    return _kembali_form_offline()
+
+
+@login_required
+@require_POST
+def offline_form_hapus(request, pk):
+    """Pengunggah membatalkan unggahannya sendiri — hanya selama belum divalidasi.
+
+    Form yang sudah divalidasi tidak bisa dihapus dari sini: ia sudah menjadi
+    Maintenance yang terhitung di laporan, dan penghapusannya ikut aturan
+    soft-delete pemeliharaan.
+    """
+    from django.contrib import messages
+    from .models import FormOffline
+
+    fo = get_object_or_404(FormOffline.objects.select_related('device'), pk=pk)
+    if not (request.user.is_superuser or fo.created_by_id == request.user.id):
+        messages.error(request, 'Hanya pengunggahnya yang dapat membatalkan form offline ini.')
+        return _kembali_form_offline()
+    if fo.status == FormOffline.STATUS_DIVALIDASI:
+        messages.error(request, 'Form yang sudah divalidasi tidak bisa dibatalkan.')
+        return _kembali_form_offline('divalidasi')
+
+    tab = fo.status
+    label = f'{fo.device.nama} — {dj_timezone.localtime(fo.tanggal):%d %b %Y}'
+    berkas = fo.berkas
+    fo.delete()
+    try:
+        berkas.delete(save=False)
+    except Exception:
+        logger.warning('Gagal menghapus berkas form offline %s', berkas.name, exc_info=True)
+    _audit(request, 'delete', 'maintenance', 'FormOffline', pk, label, 'Form offline dibatalkan pengunggah')
+    messages.success(request, f'Unggahan form offline {label} dibatalkan.')
+    return _kembali_form_offline(tab)
+
+
+def _sajikan_berkas_form_offline(fo):
+    """PDF tampil inline; Word dipaksa jadi unduhan (tidak pernah dirender
+    browser dari origin FASOP) — aturan yang sama dengan ba_preview."""
+    from django.http import FileResponse
+    nama = fo.nama_berkas or os.path.basename(fo.berkas.name)
+    if fo.berkas_pdf:
+        return FileResponse(fo.berkas.open('rb'), filename=nama, content_type='application/pdf')
+    return FileResponse(fo.berkas.open('rb'), as_attachment=True, filename=nama)
+
+
+@login_required
+@xframe_options_sameorigin
+def offline_form_berkas(request, pk):
+    """Buka berkas form offline.
+
+    Yang sudah divalidasi adalah bagian dari catatan pemeliharaan, jadi boleh
+    dibuka siapa pun yang login (sama seperti PDF pemeliharaan). Yang belum
+    divalidasi / ditolak hanya untuk pengunggahnya, AM, dan superuser.
+    """
+    from django.http import Http404
+    from .models import FormOffline
+
+    fo = get_object_or_404(FormOffline, pk=pk)
+    if fo.status != FormOffline.STATUS_DIVALIDASI and not (
+            request.user.is_superuser or _is_am(request.user)
+            or fo.created_by_id == request.user.id):
+        raise Http404
+    if not fo.berkas:
+        raise Http404
+    return _sajikan_berkas_form_offline(fo)
 
 
 # ─────────────────────────────────────────────────────────────────────

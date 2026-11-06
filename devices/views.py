@@ -1102,7 +1102,10 @@ def _dashboard_operator(request):
 @login_required
 def device_detail(request, pk):
     device = get_object_or_404(Device, pk=pk)
-    maintenance_history = Maintenance.objects.filter(device=device).order_by('-date')
+    # form_offline: pemeliharaan hasil validasi form offline ditandai di tabel
+    # riwayat — select_related supaya tandanya tidak menambah query per baris.
+    maintenance_history = (Maintenance.objects.filter(device=device)
+                           .select_related('form_offline').order_by('-date'))
     maintenance_total = maintenance_history.count()
     maintenance_done = maintenance_history.filter(status='Done').count()
     maintenance_open = maintenance_history.filter(status='Open').count()

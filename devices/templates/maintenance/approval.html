@@ -105,6 +105,17 @@ tab Menunggu yang sengaja TIDAK dipaginasi (lihat maintenance_approval).
 </ul>
 
 {% if tab == 'pending' %}
+{% if form_offline_menunggu_count %}
+{# Form offline divalidasi di halamannya sendiri; di sini cukup diingatkan (angka dari context processor) #}
+<a href="{% url 'offline_form_upload' %}?tab=menunggu" class="text-decoration-none">
+    <div style="display:flex;align-items:center;gap:10px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;
+                padding:10px 14px;margin-bottom:12px;font-size:13px;color:#1e3a8a;">
+        <i class="bi bi-cloud-arrow-up" style="font-size:18px;color:#2563eb;"></i>
+        <span><strong>{{ form_offline_menunggu_count }} form offline</strong> menunggu validasi "mengetahui" — buka halaman Form Offline.</span>
+        <i class="bi bi-chevron-right ms-auto"></i>
+    </div>
+</a>
+{% endif %}
 {% comment %}
 TTD massal (hanya role AM): baris yang dicentang dikirim ke
 maintenance_bulk_sign, yang memeriksa ulang status Done & belum-TTD di server.
