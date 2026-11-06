@@ -38,6 +38,10 @@ urlpatterns = [
     # Offline Form (download template & upload)
     path('offline/download/', views.offline_form_download, name='offline_form_download'),
     path('offline/upload/',   views.offline_form_upload,   name='offline_form_upload'),
+    path('offline/<hid:pk>/validasi/', views.offline_form_validasi, name='offline_form_validasi'),
+    path('offline/<hid:pk>/tolak/',    views.offline_form_tolak,    name='offline_form_tolak'),
+    path('offline/<hid:pk>/hapus/',    views.offline_form_hapus,    name='offline_form_hapus'),
+    path('offline/<hid:pk>/berkas/',   views.offline_form_berkas,   name='offline_form_berkas'),
 
     # Ekspor Data — Berita Acara (editor gabungan)
     path('ekspor/buat/',         views.ba_create,       name='ba_create'),

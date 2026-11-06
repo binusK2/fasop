@@ -1,7 +1,7 @@
 from django.contrib import admin
 from .models import (
     Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceSAS, MaintenanceBCU, MaintenanceRoIP, MaintenanceUPS,
-    BeritaAcaraRecord, BeritaAcaraEviden,
+    BeritaAcaraRecord, BeritaAcaraEviden, FormOffline,
 )
 
 
@@ -93,3 +93,15 @@ class BeritaAcaraRecordAdmin(admin.ModelAdmin):
     inlines       = [BeritaAcaraEvidenInline]
     readonly_fields = ['created_at']
     autocomplete_fields = ['created_by', 'ttd_req_to', 'ttd_engineer', 'ttd_am']
+
+
+@admin.register(FormOffline)
+class FormOfflineAdmin(admin.ModelAdmin):
+    """Validasi tetap dari halaman Form Offline (membuat Maintenance-nya);
+    admin hanya untuk melihat & membereskan data."""
+    list_display  = ['device', 'tanggal', 'status', 'created_by', 'created_at',
+                     'divalidasi_oleh', 'divalidasi_pada', 'maintenance']
+    list_filter   = ['status']
+    search_fields = ['device__nama', 'device__lokasi', 'nama_berkas']
+    raw_id_fields = ['device', 'maintenance']
+    readonly_fields = ['created_at', 'updated_at']

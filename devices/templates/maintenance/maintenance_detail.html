@@ -107,7 +107,7 @@
                 </div>
                 {% endif %}
                 <div>
-                    <div style="font-size:10px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">TTD AM</div>
+                    <div style="font-size:10px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">{% if maintenance.form_offline %}Validasi AM (Mengetahui){% else %}TTD AM{% endif %}</div>
                     {% if maintenance.signed_by %}
                     <span style="font-size:11px;font-weight:700;color:#065f46;background:#dcfce7;padding:3px 10px;border-radius:20px;">
                         <i class="bi bi-patch-check-fill me-1"></i>{{ maintenance.signed_by.get_full_name|default:maintenance.signed_by.username }}
@@ -191,6 +191,27 @@
             <span style="font-size:13px;color:#cbd5e1;">{{ maintenance.description }}</span>
         </div>
         {% endif %}
+
+        {% with fo=maintenance.form_offline %}
+        {% if fo %}
+        {% comment %}
+        Pemeliharaan hasil validasi Form Offline: dokumennya adalah berkas yang
+        diunggah (tombol PDF/Preview di atas juga menyajikannya). Validasi AM
+        berupa "mengetahui" — tidak ada tanda tangan yang dibubuhkan ke berkas.
+        {% endcomment %}
+        <div class="px-4 py-2 d-flex align-items-center flex-wrap gap-3" style="border-bottom:1px solid rgba(255,255,255,0.07);">
+            <span style="font-size:10px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Form Offline</span>
+            <a href="{% url 'offline_form_berkas' fo.pk %}" target="_blank"
+               style="font-size:13px;color:#93c5fd;font-weight:600;text-decoration:none;">
+                <i class="bi {% if fo.berkas_pdf %}bi-file-earmark-pdf{% else %}bi-file-earmark-word{% endif %} me-1"></i>{{ fo.nama_berkas|default:"Buka berkas" }}
+            </a>
+            <span style="font-size:12px;color:#94a3b8;">
+                Diunggah {{ fo.created_by.get_full_name|default:fo.created_by.username|default:"—" }} · {{ fo.created_at|date:"d M Y H:i" }}
+                — Mengetahui {{ fo.divalidasi_oleh.get_full_name|default:fo.divalidasi_oleh.username|default:"—" }} · {{ fo.divalidasi_pada|date:"d M Y H:i" }}
+            </span>
+        </div>
+        {% endif %}
+        {% endwith %}
 
     </div>
 </div>

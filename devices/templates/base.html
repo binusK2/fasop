@@ -690,9 +690,16 @@
                 Laporan Pemeliharaan
             </a>
             <a href="{% url 'offline_form_upload' %}"
-               class="sidebar-link {% if url_name == 'offline_form_upload' or url_name == 'offline_form_download' %}active{% endif %}">
+               class="sidebar-link {% if url_name == 'offline_form_upload' or url_name == 'offline_form_download' %}active{% endif %}"
+               style="display:flex;align-items:center;">
                 <span class="si-icon"><i class="bi bi-cloud-arrow-up"></i></span>
                 Form Offline
+                {% if form_offline_menunggu_count %}
+                <span title="Form offline menunggu validasi"
+                      style="margin-left:auto;min-width:18px;height:18px;padding:0 5px;border-radius:20px;font-size:10px;font-weight:700;line-height:18px;text-align:center;background:#ef4444;color:#fff;display:inline-block;">
+                    {{ form_offline_menunggu_count }}
+                </span>
+                {% endif %}
             </a>
         </div>
         {% endwith %}

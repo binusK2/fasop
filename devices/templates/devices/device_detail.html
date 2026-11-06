@@ -826,6 +826,15 @@ function addEvidenRow() {
                             {% endif %}
                             {{ m.maintenance_type }}
                         </span>
+                        {% if m.form_offline %}
+                        <div style="margin-top:4px;">
+                            <a href="{% url 'offline_form_berkas' m.form_offline.pk %}" target="_blank"
+                               title="Buka berkas form offline"
+                               style="font-size:10.5px;font-weight:600;color:#1d4ed8;background:#eff6ff;padding:2px 8px;border-radius:20px;border:1px solid #bfdbfe;text-decoration:none;white-space:nowrap;">
+                                <i class="bi bi-cloud-arrow-up" style="font-size:9px;"></i> Form Offline
+                            </a>
+                        </div>
+                        {% endif %}
                     </td>
 
                     <td style="text-align:center;padding:14px 12px;">
@@ -863,7 +872,11 @@ function addEvidenRow() {
                             {% endif %}
                             {% if m.signed_by %}
                             <span style="font-size:10.5px;font-weight:600;color:#065f46;background:#f0fdf4;padding:2px 8px;border-radius:20px;border:1px solid #bbf7d0;display:inline-flex;align-items:center;gap:3px;">
+                                {% if m.form_offline %}
+                                <i class="bi bi-patch-check-fill" style="font-size:9px;"></i> Divalidasi AM
+                                {% else %}
                                 <i class="bi bi-patch-check-fill" style="font-size:9px;"></i> TTD
+                                {% endif %}
                             </span>
                             {% else %}
                             <span style="font-size:10.5px;color:#94a3b8;background:#f8fafc;padding:2px 8px;border-radius:20px;border:1px solid #e2e8f0;display:inline-flex;align-items:center;gap:3px;">

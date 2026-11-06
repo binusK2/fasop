@@ -19,6 +19,8 @@ class Notifikasi(models.Model):
         ('ba_ttd_am',           'BA — Menunggu TTD AM'),
         ('live_dimulai',        'Live Streaming Dimulai'),
         ('zabbix_state',        'Zabbix — Perubahan Status Host'),
+        ('form_offline_validasi', 'Form Offline — Menunggu Validasi AM'),
+        ('form_offline_hasil',  'Form Offline — Hasil Validasi'),
     )
 
     LEVEL_CHOICES = (

@@ -4,106 +4,118 @@
 {% block page_title %}Approval Pemeliharaan{% endblock %}
 
 {% block content %}
+{% comment %}
+Format halaman ini SENGAJA mengikuti Semua Pemeliharaan
+(maintenance_list.html): kartu filter, chip filter aktif, kolom & gaya tabel,
+tombol aksi berikon, dan paginasi. Kalau salah satunya diubah, ubah yang lain
+juga — keduanya dibuka bergantian oleh orang yang sama.
+
+Yang khas Approval: tab Menunggu / Sudah Disetujui, TTD massal (role AM), dan
+tab Menunggu yang sengaja TIDAK dipaginasi (lihat maintenance_approval).
+{% endcomment %}
 
 <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
     <h2 class="mb-0" style="font-size:20px;font-weight:700;">Approval Pemeliharaan</h2>
 </div>
 
-<!-- Filter Peralatan & Lokasi -->
 {% with filter_active=selected_jenis_id|default:selected_lokasi %}
-<div style="background:#f8fafc;border:1px solid {% if filter_active %}#bfdbfe{% else %}#e2e8f0{% endif %};border-radius:10px;padding:12px 16px;margin-bottom:16px;">
-    <form method="get" action="" id="filter-form">
-        <input type="hidden" name="tab" value="{{ tab }}">
-
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-            <!-- Label -->
-            <div style="display:flex;align-items:center;gap:6px;margin-right:4px;">
-                <i class="bi bi-funnel-fill" style="color:{% if filter_active %}#2563eb{% else %}#94a3b8{% endif %};font-size:14px;"></i>
-                <span style="font-size:12px;font-weight:600;color:#64748b;">Filter</span>
-                {% if filter_active %}
-                <span style="font-size:10px;font-weight:700;color:#fff;background:#2563eb;padding:2px 7px;border-radius:20px;display:inline-flex;align-items:center;gap:3px;">
-                    <i class="bi bi-lock-fill" style="font-size:9px;"></i> Terkunci
-                </span>
-                {% endif %}
-            </div>
-
-            <!-- Dropdown Jenis Peralatan -->
-            <div style="display:flex;flex-direction:column;gap:2px;">
-                <label style="font-size:10px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.4px;">Jenis Peralatan</label>
-                <select name="jenis_id" onchange="this.form.submit()"
-                    style="font-size:12px;padding:5px 10px;border:1px solid {% if selected_jenis_id %}#2563eb{% else %}#e2e8f0{% endif %};border-radius:7px;background:#fff;color:#1e293b;min-width:190px;cursor:pointer;outline:none;">
-                    <option value="">— Semua Jenis —</option>
+<!-- FILTER — dikunci di session; Reset melepas kuncinya -->
+<div class="card mb-3" {% if filter_active %}style="border-color:#bfdbfe;"{% endif %}>
+    <div class="card-body py-2 px-3">
+        {% if filter_active %}
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+            <span style="font-size:10px;font-weight:700;color:#fff;background:#2563eb;padding:2px 8px;border-radius:20px;display:inline-flex;align-items:center;gap:4px;">
+                <i class="bi bi-lock-fill" style="font-size:9px;"></i> Filter Terkunci
+            </span>
+            <span style="font-size:11.5px;color:#64748b;">
+                Filter tetap berlaku saat Anda berpindah halaman — tekan <strong>Reset</strong> untuk melepasnya.
+            </span>
+        </div>
+        {% endif %}
+        <form method="get" class="row g-2 align-items-end" id="filter-form">
+            <input type="hidden" name="tab" value="{{ tab }}">
+            <div class="col-md-3">
+                <label class="form-label">Jenis Perangkat</label>
+                <select name="jenis_id" class="form-select form-select-sm">
+                    <option value="">Semua Jenis</option>
                     {% for jenis in jenis_list %}
                     <option value="{{ jenis.pk }}" {% if selected_jenis_id == jenis.pk|stringformat:"s" %}selected{% endif %}>{{ jenis.name }}</option>
                     {% endfor %}
                 </select>
             </div>
-
-            <!-- Dropdown Lokasi -->
-            <div style="display:flex;flex-direction:column;gap:2px;">
-                <label style="font-size:10px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.4px;">Lokasi</label>
-                <select name="lokasi" onchange="this.form.submit()"
-                    style="font-size:12px;padding:5px 10px;border:1px solid {% if selected_lokasi %}#2563eb{% else %}#e2e8f0{% endif %};border-radius:7px;background:#fff;color:#1e293b;min-width:190px;cursor:pointer;outline:none;">
-                    <option value="">— Semua Lokasi —</option>
+            <div class="col-md-3">
+                <label class="form-label">Lokasi</label>
+                <select name="lokasi" class="form-select form-select-sm select-lokasi" data-placeholder="Semua Lokasi">
+                    <option value="">Semua Lokasi</option>
                     {% for lok in lokasi_list %}
                     <option value="{{ lok }}" {% if selected_lokasi == lok %}selected{% endif %}>{{ lok }}</option>
                     {% endfor %}
                 </select>
             </div>
-
-            <!-- Tombol Reset -->
-            {% if filter_active %}
-            <div style="display:flex;flex-direction:column;gap:2px;">
-                <label style="font-size:10px;color:transparent;">reset</label>
-                <a href="?tab={{ tab }}&reset_filter=1"
-                   style="font-size:12px;padding:5px 12px;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;border-radius:7px;text-decoration:none;display:inline-flex;align-items:center;gap:5px;font-weight:600;white-space:nowrap;">
-                    <i class="bi bi-x-circle-fill" style="font-size:11px;"></i> Reset Filter
+            <div class="col-auto d-flex gap-2">
+                <button class="btn btn-primary btn-sm">
+                    <i class="bi bi-funnel me-1"></i>Filter
+                </button>
+                {% if filter_active %}
+                {# Tautan polos ke halaman ini justru MEMULIHKAN kunci — melepasnya harus eksplisit #}
+                <a href="?tab={{ tab }}&reset_filter=1" class="btn btn-outline-danger btn-sm">
+                    <i class="bi bi-x-lg me-1"></i>Reset
                 </a>
+                {% endif %}
             </div>
-            {% endif %}
-        </div>
-
-        <!-- Badge aktif -->
-        {% if selected_jenis_obj or selected_lokasi %}
-        <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;">
-            {% if selected_jenis_obj %}
-            <span style="font-size:11px;color:#1d4ed8;background:#eff6ff;border:1px solid #bfdbfe;padding:3px 10px;border-radius:20px;display:inline-flex;align-items:center;gap:4px;">
-                <i class="bi bi-cpu" style="font-size:10px;"></i> {{ selected_jenis_obj.name }}
-            </span>
-            {% endif %}
-            {% if selected_lokasi %}
-            <span style="font-size:11px;color:#065f46;background:#ecfdf5;border:1px solid #a7f3d0;padding:3px 10px;border-radius:20px;display:inline-flex;align-items:center;gap:4px;">
-                <i class="bi bi-geo-alt-fill" style="font-size:10px;"></i> {{ selected_lokasi }}
-            </span>
-            {% endif %}
-        </div>
-        {% endif %}
-    </form>
+        </form>
+    </div>
 </div>
+
+<!-- Active filter chips -->
+{% if filter_active %}
+<div class="d-flex gap-2 flex-wrap mb-3">
+    {% if selected_lokasi %}
+    <span style="font-size:12px;background:#f0fdf4;color:#166534;padding:3px 10px;border-radius:20px;font-weight:500;">
+        Lokasi: {{ selected_lokasi }}
+    </span>
+    {% endif %}
+    {% if selected_jenis_obj %}
+    <span style="font-size:12px;background:#f5f3ff;color:#6d28d9;padding:3px 10px;border-radius:20px;font-weight:500;">
+        Jenis: {{ selected_jenis_obj.name }}
+    </span>
+    {% endif %}
+</div>
+{% endif %}
 {% endwith %}
 
-<!-- Tab Buttons -->
+<!-- Tab -->
 <ul class="nav nav-tabs mb-3">
     <li class="nav-item">
-        <a class="nav-link {% if tab == 'pending' %}active{% endif %}" href="?tab=pending{% if selected_jenis_id %}&jenis_id={{ selected_jenis_id }}{% endif %}">
+        <a class="nav-link {% if tab == 'pending' %}active{% endif %}" href="?tab=pending">
             Menunggu Approval
-            {% if pending_list %}
+            {% if jumlah_pending %}
             <span style="display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:20px;font-size:11px;font-weight:700;margin-left:4px;
                 {% if tab == 'pending' %}background:#fef2f2;color:#dc2626;{% else %}background:#f1f5f9;color:#94a3b8;{% endif %}">
-                {{ pending_list|length }}
+                {{ jumlah_pending }}
             </span>
             {% endif %}
         </a>
     </li>
     <li class="nav-item">
-        <a class="nav-link {% if tab == 'approved' %}active{% endif %}" href="?tab=approved{% if selected_jenis_id %}&jenis_id={{ selected_jenis_id }}{% endif %}">
+        <a class="nav-link {% if tab == 'approved' %}active{% endif %}" href="?tab=approved">
             Sudah Disetujui
         </a>
     </li>
 </ul>
 
 {% if tab == 'pending' %}
-<!-- PENDING TABLE -->
+{% if form_offline_menunggu_count %}
+{# Form offline divalidasi di halamannya sendiri; di sini cukup diingatkan (angka dari context processor) #}
+<a href="{% url 'offline_form_upload' %}?tab=menunggu" class="text-decoration-none">
+    <div style="display:flex;align-items:center;gap:10px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;
+                padding:10px 14px;margin-bottom:12px;font-size:13px;color:#1e3a8a;">
+        <i class="bi bi-cloud-arrow-up" style="font-size:18px;color:#2563eb;"></i>
+        <span><strong>{{ form_offline_menunggu_count }} form offline</strong> menunggu validasi "mengetahui" — buka halaman Form Offline.</span>
+        <i class="bi bi-chevron-right ms-auto"></i>
+    </div>
+</a>
+{% endif %}
 {% comment %}
 TTD massal (hanya role AM): baris yang dicentang dikirim ke
 maintenance_bulk_sign, yang memeriksa ulang status Done & belum-TTD di server.
@@ -118,7 +130,7 @@ Form-nya membungkus tabel supaya checkbox per baris ikut terkirim.
     <div class="table-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
         <h6 class="mb-0">
             <i class="bi bi-pen me-1" style="color:#f59e0b;"></i>
-            {{ pending_list|length }} Menunggu Tanda Tangan
+            {{ jumlah_pending }} Menunggu Tanda Tangan
         </h6>
         {% if bisa_ttd_massal and pending_list %}
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
@@ -147,11 +159,11 @@ Form-nya membungkus tabel supaya checkbox per baris ikut terkirim.
                     </th>
                     {% endif %}
                     <th style="text-align:center;width:46px;font-size:11px;color:#94a3b8;padding:10px 8px;">#</th>
-                    <th style="font-size:11px;color:#64748b;padding:10px 12px;">TANGGAL</th>
+                    <th style="text-align:center;font-size:11px;color:#64748b;padding:10px 12px;">TANGGAL</th>
                     <th style="font-size:11px;color:#64748b;padding:10px 12px;">PERANGKAT</th>
-                    <th style="font-size:11px;color:#64748b;padding:10px 12px;">LOKASI</th>
-                    <th style="font-size:11px;color:#64748b;padding:10px 12px;">JENIS</th>
-                    <th style="font-size:11px;color:#64748b;padding:10px 12px;">PELAKSANA</th>
+                    <th style="text-align:center;font-size:11px;color:#64748b;padding:10px 12px;">LOKASI</th>
+                    <th style="text-align:center;font-size:11px;color:#64748b;padding:10px 12px;">TIPE</th>
+                    <th style="text-align:center;font-size:11px;color:#64748b;padding:10px 12px;">PELAKSANA</th>
                     <th style="text-align:center;font-size:11px;color:#64748b;padding:10px 12px;">STATUS</th>
                     <th style="text-align:center;font-size:11px;color:#64748b;padding:10px 12px;">AKSI</th>
                 </tr>
@@ -166,45 +178,21 @@ Form-nya membungkus tabel supaya checkbox per baris ikut terkirim.
                 </td>
                 {% endif %}
                 <td style="text-align:center;font-size:12px;color:#cbd5e1;font-weight:600;padding:14px 8px;">{{ forloop.counter }}</td>
-
-                <td style="padding:14px 12px;white-space:nowrap;">
-                    <div style="font-size:13px;font-weight:600;color:#1e293b;">{{ m.date|date:"d M Y" }}</div>
-                </td>
-
-                <td style="padding:14px 12px;">
-                    <div style="font-size:13px;font-weight:700;color:#0f172a;">{{ m.device.nama }}</div>
-                    {% if m.device.jenis %}
-                    <div style="font-size:11px;color:#94a3b8;margin-top:2px;">
-                        <i class="bi bi-cpu" style="font-size:10px;"></i> {{ m.device.jenis }}
-                    </div>
-                    {% endif %}
-                </td>
-
-                <td style="padding:14px 12px;">
-                    <span style="font-size:12px;color:#475569;background:#f1f5f9;padding:3px 10px;border-radius:20px;white-space:nowrap;">
-                        <i class="bi bi-geo-alt" style="font-size:10px;"></i> {{ m.device.lokasi }}
-                    </span>
-                </td>
-
-                <td style="padding:14px 12px;">
-                    <span style="font-size:12px;color:#475569;">{{ m.device.jenis.name|default:"—" }}</span>
-                </td>
-
-                <td style="padding:14px 12px;">
+                {% include 'maintenance/_kolom_daftar_pemeliharaan.html' %}
+                <td style="text-align:center;padding:14px 12px;">
                     {% if m.pelaksana_names %}
-                    <div style="display:flex;flex-wrap:wrap;gap:4px;">
-                        {% for nama in m.pelaksana_names %}
-                        <span style="font-size:11px;background:#eff6ff;color:#1d4ed8;padding:2px 8px;border-radius:20px;white-space:nowrap;">{{ nama }}</span>
+                    <div style="display:flex;flex-wrap:wrap;gap:4px;justify-content:center;">
+                        {% for n in m.pelaksana_names %}
+                        <span style="font-size:11px;background:#eff6ff;color:#1d4ed8;padding:2px 8px;border-radius:20px;white-space:nowrap;">{{ n }}</span>
                         {% endfor %}
                     </div>
                     {% else %}
                     <span style="color:#cbd5e1;font-size:13px;">—</span>
                     {% endif %}
                 </td>
-
                 <td style="text-align:center;padding:14px 12px;">
                     <span style="font-size:11.5px;font-weight:700;color:#065f46;background:#dcfce7;padding:4px 12px;border-radius:20px;border:1px solid #a7f3d0;display:inline-flex;align-items:center;gap:4px;">
-                        <i class="bi bi-check-circle-fill" style="font-size:11px;"></i> {{ m.status }}
+                        <i class="bi bi-check-circle-fill" style="font-size:11px;"></i> Done
                     </span>
                     <div style="margin-top:4px;">
                         <span style="font-size:10px;font-weight:600;color:#92400e;background:#fef3c7;padding:2px 7px;border-radius:20px;">
@@ -212,12 +200,17 @@ Form-nya membungkus tabel supaya checkbox per baris ikut terkirim.
                         </span>
                     </div>
                 </td>
-
                 <td style="text-align:center;padding:14px 12px;">
-                    <a href="{% url 'maintenance_view' m.pk %}"
-                       class="btn btn-sm btn-warning" style="border-radius:8px;padding:4px 12px;font-size:12px;">
-                        <i class="bi bi-pen me-1"></i>Tanda Tangani
-                    </a>
+                    <div class="d-flex gap-1 justify-content-center">
+                        <a href="{% url 'export_maintenance_pdf' m.id %}?preview=1" target="_blank"
+                           class="btn btn-sm btn-outline-danger" title="Preview PDF" style="border-radius:8px;padding:4px 10px;">
+                            <i class="bi bi-file-earmark-pdf"></i>
+                        </a>
+                        <a href="{% url 'maintenance_view' m.id %}" class="btn btn-sm btn-warning"
+                           title="Buka untuk ditandatangani" style="border-radius:8px;padding:4px 10px;font-size:12px;white-space:nowrap;">
+                            <i class="bi bi-pen me-1"></i>Tanda Tangani
+                        </a>
+                    </div>
                 </td>
             </tr>
             {% empty %}
@@ -273,12 +266,12 @@ Form-nya membungkus tabel supaya checkbox per baris ikut terkirim.
 {% endif %}
 
 {% else %}
-<!-- APPROVED TABLE -->
+<!-- SUDAH DISETUJUI -->
 <div class="table-card">
     <div class="table-header" style="display:flex;align-items:center;justify-content:space-between;">
         <h6 class="mb-0">
             <i class="bi bi-patch-check me-1" style="color:#22c55e;"></i>
-            {{ approved_list|length }} Sudah Disetujui
+            {{ jumlah_approved }} Sudah Disetujui
         </h6>
     </div>
     <div class="table-responsive">
@@ -286,62 +279,41 @@ Form-nya membungkus tabel supaya checkbox per baris ikut terkirim.
             <thead>
                 <tr style="background:#f8fafc;">
                     <th style="text-align:center;width:46px;font-size:11px;color:#94a3b8;padding:10px 8px;">#</th>
-                    <th style="font-size:11px;color:#64748b;padding:10px 12px;">TANGGAL</th>
+                    <th style="text-align:center;font-size:11px;color:#64748b;padding:10px 12px;">TANGGAL</th>
                     <th style="font-size:11px;color:#64748b;padding:10px 12px;">PERANGKAT</th>
-                    <th style="font-size:11px;color:#64748b;padding:10px 12px;">LOKASI</th>
-                    <th style="font-size:11px;color:#64748b;padding:10px 12px;">JENIS</th>
-                    <th style="font-size:11px;color:#64748b;padding:10px 12px;">DISETUJUI OLEH</th>
-                    <th style="font-size:11px;color:#64748b;padding:10px 12px;">WAKTU TTD</th>
+                    <th style="text-align:center;font-size:11px;color:#64748b;padding:10px 12px;">LOKASI</th>
+                    <th style="text-align:center;font-size:11px;color:#64748b;padding:10px 12px;">TIPE</th>
+                    <th style="text-align:center;font-size:11px;color:#64748b;padding:10px 12px;">DISETUJUI OLEH</th>
+                    <th style="text-align:center;font-size:11px;color:#64748b;padding:10px 12px;">WAKTU TTD</th>
                     <th style="text-align:center;font-size:11px;color:#64748b;padding:10px 12px;">AKSI</th>
                 </tr>
             </thead>
             <tbody>
             {% for m in approved_list %}
             <tr style="border-top:1px solid #f1f5f9;transition:background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
-                <td style="text-align:center;font-size:12px;color:#cbd5e1;font-weight:600;padding:14px 8px;">{{ forloop.counter }}</td>
-
-                <td style="padding:14px 12px;white-space:nowrap;">
-                    <div style="font-size:13px;font-weight:600;color:#1e293b;">{{ m.date|date:"d M Y" }}</div>
-                </td>
-
-                <td style="padding:14px 12px;">
-                    <div style="font-size:13px;font-weight:700;color:#0f172a;">{{ m.device.nama }}</div>
-                    {% if m.device.jenis %}
-                    <div style="font-size:11px;color:#94a3b8;margin-top:2px;">
-                        <i class="bi bi-cpu" style="font-size:10px;"></i> {{ m.device.jenis }}
-                    </div>
-                    {% endif %}
-                </td>
-
-                <td style="padding:14px 12px;">
-                    <span style="font-size:12px;color:#475569;background:#f1f5f9;padding:3px 10px;border-radius:20px;white-space:nowrap;">
-                        <i class="bi bi-geo-alt" style="font-size:10px;"></i> {{ m.device.lokasi }}
-                    </span>
-                </td>
-
-                <td style="padding:14px 12px;">
-                    <span style="font-size:12px;color:#475569;">{{ m.device.jenis.name|default:"—" }}</span>
-                </td>
-
-                <td style="padding:14px 12px;">
+                <td style="text-align:center;font-size:12px;color:#cbd5e1;font-weight:600;padding:14px 8px;">{{ forloop.counter0|add:page_obj.start_index }}</td>
+                {% include 'maintenance/_kolom_daftar_pemeliharaan.html' %}
+                <td style="text-align:center;padding:14px 12px;">
                     <span style="font-size:12px;font-weight:600;color:#0f172a;">
                         {% if m.signed_by.get_full_name %}{{ m.signed_by.get_full_name }}{% else %}{{ m.signed_by.username }}{% endif %}
                     </span>
                 </td>
-
-                <td style="padding:14px 12px;white-space:nowrap;">
-                    <div style="font-size:12px;color:#475569;">
-                        {% if m.signed_at %}{{ m.signed_at|date:"d M Y" }}<br>
-                        <span style="font-size:11px;color:#94a3b8;">{{ m.signed_at|date:"H:i" }}</span>
-                        {% else %}—{% endif %}
-                    </div>
+                <td style="text-align:center;padding:14px 12px;white-space:nowrap;">
+                    {% if m.signed_at %}
+                    <div style="font-size:13px;font-weight:600;color:#1e293b;">{{ m.signed_at|date:"d M Y" }}</div>
+                    <div style="font-size:11px;color:#94a3b8;margin-top:2px;"><i class="bi bi-clock" style="font-size:10px;"></i> {{ m.signed_at|date:"H:i" }}</div>
+                    {% else %}<span style="color:#cbd5e1;font-size:13px;">—</span>{% endif %}
                 </td>
-
                 <td style="text-align:center;padding:14px 12px;">
-                    <a href="{% url 'maintenance_view' m.pk %}"
-                       class="btn btn-sm btn-outline-primary" style="border-radius:8px;padding:4px 10px;">
-                        <i class="bi bi-eye"></i>
-                    </a>
+                    <div class="d-flex gap-1 justify-content-center">
+                        <a href="{% url 'export_maintenance_pdf' m.id %}?preview=1" target="_blank"
+                           class="btn btn-sm btn-outline-danger" title="Preview PDF" style="border-radius:8px;padding:4px 10px;">
+                            <i class="bi bi-file-earmark-pdf"></i>
+                        </a>
+                        <a href="{% url 'maintenance_view' m.id %}" class="btn btn-sm btn-outline-primary" title="Detail Maintenance" style="border-radius:8px;padding:4px 10px;">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                    </div>
                 </td>
             </tr>
             {% empty %}
@@ -355,6 +327,8 @@ Form-nya membungkus tabel supaya checkbox per baris ikut terkirim.
             </tbody>
         </table>
     </div>
+
+    {% include 'maintenance/_paginasi.html' %}
 </div>
 {% endif %}
 
