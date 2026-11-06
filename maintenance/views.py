@@ -43,8 +43,8 @@ BARIS_PER_HALAMAN = 50
 # Form dibuka dari beberapa tempat (detail perangkat, Jadwal Pemeliharaan), dan
 # tujuan tombol Kembali ikut asalnya. Asal dikirim sebagai ?dari=<path>.
 #
-# Sengaja BUKAN 'next': field POST 'next' di form ini sudah dipakai sebagai
-# penanda "simpan lalu buka PDF" (`request.POST.get('next') == 'pdf'`).
+# Sengaja BUKAN 'next': field POST 'next' dulu dipakai tombol "Simpan & Cetak
+# PDF" (sudah dihapus); 'dari' juga tidak bentrok dengan ?next= milik login.
 LABEL_ASAL_KEMBALI = {
     'jadwal_detail':    'Kembali ke Jadwal',
     'jadwal_list':      'Kembali ke Jadwal',
@@ -426,8 +426,6 @@ def maintenance_create(request, device_id):
                    maintenance.pk,
                    f'{device.nama} — {maintenance.date}',
                    f'{maintenance.maintenance_type} | Status: {maintenance.status}')
-            if request.POST.get('next') == 'pdf':
-                return redirect(f"{reverse('export_maintenance_pdf', args=[maintenance.pk])}?preview=1")
             # Kembali ke halaman asal (mis. daftar peralatan Jadwal Pemeliharaan)
             return redirect(_asal_kembali(request) or reverse('maintenance_list'))
     else:
@@ -1070,8 +1068,6 @@ def maintenance_edit(request, pk):
                    maintenance.pk,
                    f'{device.nama} — {maintenance.date}',
                    f'{maintenance.maintenance_type}')
-            if request.POST.get('next') == 'pdf':
-                return redirect(f"{reverse('export_maintenance_pdf', args=[maintenance.pk])}?preview=1")
             return redirect(_asal_kembali(request) or reverse('maintenance_view', args=[pk]))
     else:
         mform = MaintenanceForm(instance=maintenance)

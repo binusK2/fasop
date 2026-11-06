@@ -345,15 +345,7 @@
 </div>
 
 <!-- ══ TOMBOL SIMPAN ══ -->
-<div class="d-flex gap-2 justify-content-end mb-4">
-    {% if is_edit %}
-    <a href="{% url 'maintenance_view' maintenance.id %}" class="btn btn-outline-secondary">Batal</a>
-    {% else %}
-    <a href="{% url 'device_view' device.id %}" class="btn btn-outline-secondary">Batal</a>
-    {% endif %}
-    <button type="submit" name="next" value="list"  class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Simpan</button>
-    <button type="submit" name="next" value="pdf"   class="btn btn-outline-success"><i class="bi bi-file-earmark-pdf me-1"></i>Simpan &amp; PDF</button>
-</div>
+{% include 'maintenance/_tombol_aksi_form.html' %}
 
 </form>
 {% endblock %}
