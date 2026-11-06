@@ -2995,7 +2995,10 @@ def maintenance_approval(request):
         dj_messages.error(request, 'Anda tidak memiliki akses ke halaman Approval.')
         return redirect('maintenance_list')
 
-    tab = request.GET.get('tab', 'pending')
+    # Hanya dua tab; nilai lain jatuh ke "pending" — template menggambar tab
+    # "Sudah Disetujui" untuk apa pun selain 'pending', jadi tab karangan akan
+    # tampil tanpa paginasi.
+    tab = 'approved' if request.GET.get('tab') == 'approved' else 'pending'
 
     # ── Filter terkunci per peralatan (jenis) & lokasi ─────────
     # Reset semua filter
@@ -3052,6 +3055,17 @@ def maintenance_approval(request):
         .order_by('-signed_at')
     )
 
+    # Jenis yang tersimpan diperiksa DULU: nilai bukan angka di session akan
+    # membuat filter jenis_id melempar ValueError di setiap kunjungan, bukan
+    # sekali saja (alasan yang sama dengan kunci filter Semua Pemeliharaan).
+    selected_jenis_obj = None
+    if selected_jenis_id:
+        if str(selected_jenis_id).isdigit():
+            selected_jenis_obj = DeviceType.objects.filter(pk=selected_jenis_id).first()
+        if not selected_jenis_obj:
+            request.session.pop('approval_jenis_id', None)
+            selected_jenis_id = ''
+
     if selected_jenis_id:
         pending_qs  = pending_qs.filter(device__jenis_id=selected_jenis_id)
         approved_qs = approved_qs.filter(device__jenis_id=selected_jenis_id)
@@ -3060,13 +3074,18 @@ def maintenance_approval(request):
         pending_qs  = pending_qs.filter(device__lokasi__iexact=selected_lokasi)
         approved_qs = approved_qs.filter(device__lokasi__iexact=selected_lokasi)
 
-    selected_jenis_obj = None
-    if selected_jenis_id:
-        try:
-            selected_jenis_obj = DeviceType.objects.get(pk=selected_jenis_id)
-        except DeviceType.DoesNotExist:
-            request.session.pop('approval_jenis_id', None)
-            selected_jenis_id = ''
+    # Format tabel mengikuti Semua Pemeliharaan, termasuk paginasinya — KECUALI
+    # tab "Menunggu Approval": di sana "pilih semua" TTD massal harus benar-
+    # benar mencakup semua laporan yang menunggu, bukan hanya 50 di halaman
+    # yang sedang dibuka. Daftar tunggu memang dikosongkan rutin oleh AM;
+    # yang terus bertambah adalah riwayat "Sudah Disetujui".
+    jumlah_pending  = pending_qs.count()
+    jumlah_approved = approved_qs.count()
+    page_obj = None
+    if tab == 'approved':
+        paginator = Paginator(approved_qs, BARIS_PER_HALAMAN)
+        page_obj  = paginator.get_page(request.GET.get('page'))
+        approved_qs = page_obj.object_list
 
     # Gambar TTD diambil dari profil penandatangan saat PDF dibuat; tanpa itu
     # PDF hanya memuat nama. Ditampilkan sebagai peringatan, tidak memblokir —
@@ -3081,6 +3100,12 @@ def maintenance_approval(request):
         'punya_gambar_ttd':   punya_gambar_ttd,
         'pending_list':       pending_qs,
         'approved_list':      approved_qs,
+        'jumlah_pending':     jumlah_pending,
+        'jumlah_approved':    jumlah_approved,
+        'page_obj':           page_obj,
+        # Filter jenis/lokasi tinggal di session, jadi tautan halaman cukup
+        # membawa tab-nya (_paginasi.html menambahkan &page=).
+        'querystring':        urlencode({'tab': tab}),
         'tab':                tab,
         'jenis_list':         jenis_list,
         'lokasi_list':        lokasi_list,
