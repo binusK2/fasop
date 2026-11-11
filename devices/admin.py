@@ -1,6 +1,6 @@
 from django.contrib import admin
 from .models import (AsesmenOptik, Device, DeviceType, SiteLocation, ULTG,
-                     KomponenRusak, Branch, FotoLapangan)
+                     KomponenRusak, Branch, FotoLapangan, DeviceEviden)
 from .models_komponen import (
     GrupTipeKomponen, TipeKomponen,
     DeviceComponent,
@@ -22,6 +22,29 @@ class DeviceAdmin(admin.ModelAdmin):
         self.message_user(request, f'{n} perangkat dipulihkan.')
 
 admin.site.register(DeviceType)
+
+
+@admin.register(DeviceEviden)
+class DeviceEvidenAdmin(admin.ModelAdmin):
+    """
+    Tombol hapus eviden di Device Detail hanya soft-delete (superuser &
+    Teknisi). Di sini foto yang terhapus tidak sengaja dipulihkan; menghapus
+    barisnya dari sini adalah hapus PERMANEN dan ikut membuang berkas fotonya
+    (devices.signals._hapus_berkas_eviden).
+    """
+    list_display = ['id', 'device', 'keterangan', 'uploaded_by', 'uploaded_at',
+                    'is_deleted', 'deleted_by', 'deleted_at']
+    list_filter = ['is_deleted', 'uploaded_at']
+    search_fields = ['device__nama', 'keterangan']
+    raw_id_fields = ['device']
+    readonly_fields = ['uploaded_by', 'uploaded_at', 'deleted_by', 'deleted_at']
+    actions = ['pulihkan_data']
+
+    @admin.action(description='Pulihkan data yang terhapus (batalkan soft-delete)')
+    def pulihkan_data(self, request, queryset):
+        n = queryset.filter(is_deleted=True).update(
+            is_deleted=False, deleted_by=None, deleted_at=None)
+        self.message_user(request, f'{n} foto eviden dipulihkan.')
 
 
 @admin.register(FotoLapangan)

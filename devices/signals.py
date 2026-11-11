@@ -1,4 +1,6 @@
 from django.contrib.auth.signals import user_logged_in, user_logged_out
+from django.db import transaction
+from django.db.models.signals import post_delete
 from django.dispatch import receiver
 
 from fasop.client_ip import ip_klien
@@ -56,3 +58,28 @@ def log_user_logout(sender, request, user, **kwargs):
         )
     except Exception:
         pass
+
+
+@receiver(post_delete, sender='devices.DeviceEviden')
+def _hapus_berkas_eviden(sender, instance, **kwargs):
+    """
+    Buang berkas foto saat baris DeviceEviden benar-benar dihapus (site admin,
+    atau ikut terhapus bersama perangkatnya). Tombol hapus di Device Detail
+    hanya soft-delete dan sengaja membiarkan berkasnya supaya bisa dipulihkan
+    -- jadi di sinilah satu-satunya tempat berkas eviden dibuang.
+
+    Ditunda ke on_commit: kalau transaksi penghapusan dibatalkan, barisnya
+    kembali dan berkasnya harus masih ada.
+    """
+    foto = instance.foto
+    if not foto:
+        return
+    storage, nama = foto.storage, foto.name
+
+    def _buang():
+        try:
+            storage.delete(nama)
+        except Exception:
+            pass
+
+    transaction.on_commit(_buang)

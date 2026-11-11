@@ -17,15 +17,15 @@ def get_profile(user):
 
 
 def can_delete(user):
-    """Hanya superuser -- hapus PERMANEN (fiber optic, foto, eviden, dst)."""
+    """Hanya superuser -- hapus PERMANEN (fiber optic, foto lapangan, icon, dst)."""
     return user.is_superuser
 
 
 def can_soft_delete(user):
     """
-    Superuser & Teknisi -- soft-delete saja (Peralatan, Pemeliharaan): baris
-    ditandai is_deleted=True, tetap ada di database dan bisa dipulihkan dari
-    site admin. Untuk hapus permanen (tidak bisa dipulihkan) tetap pakai
+    Superuser & Teknisi -- soft-delete saja (Peralatan, Pemeliharaan, Eviden
+    Tambahan perangkat): baris ditandai is_deleted=True, tetap ada di
+    database dan bisa dipulihkan dari site admin. Untuk hapus permanen (tidak bisa dipulihkan) tetap pakai
     can_delete (superuser only). Aturan rolenya hidup di
     UserProfile.bisa_soft_delete -- jangan menuliskan ulang di sini.
     """

@@ -308,7 +308,7 @@ class UserProfile(models.Model):
     # ── Permission shortcuts ──────────────────────────────────────
     @property
     def can_delete(self):
-        """Hanya superuser yang bisa hapus PERMANEN (fiber optic, foto, eviden, dst)."""
+        """Hanya superuser yang bisa hapus PERMANEN (fiber optic, foto lapangan, icon, dst)."""
         return self.user.is_superuser
 
     # ── Soft delete ───────────────────────────────────────────────
@@ -317,12 +317,12 @@ class UserProfile(models.Model):
     @property
     def bisa_soft_delete(self):
         """
-        Superuser dan Teknisi boleh soft-delete Peralatan & Pemeliharaan
-        (is_deleted=True, baris tetap ada di database dan bisa dipulihkan
-        dari site admin) -- BUKAN hapus permanen. Aksi hapus permanen lain
-        (foto lapangan, fiber optic, icon, eviden, asesmen optik) tetap
-        hanya superuser lewat can_delete/require_can_delete, karena tidak
-        punya jalan pulih.
+        Superuser dan Teknisi boleh soft-delete Peralatan, Pemeliharaan, dan
+        Eviden Tambahan perangkat (is_deleted=True, baris tetap ada di
+        database dan bisa dipulihkan dari site admin) -- BUKAN hapus permanen.
+        Aksi hapus permanen lain (foto lapangan, fiber optic, icon, device
+        event, asesmen optik) tetap hanya superuser lewat
+        can_delete/require_can_delete, karena tidak punya jalan pulih.
         """
         return self.user.is_superuser or self.role in self.SOFT_DELETE_ROLE
 
@@ -1082,7 +1082,15 @@ def device_eviden_upload(instance, filename):
 
 
 class DeviceEviden(models.Model):
-    """Foto eviden tambahan untuk suatu perangkat (bisa banyak)."""
+    """
+    Foto eviden tambahan untuk suatu perangkat (bisa banyak).
+
+    Tombol hapus di Device Detail adalah SOFT-DELETE (superuser & Teknisi,
+    lihat UserProfile.bisa_soft_delete): baris ditandai is_deleted=True dan
+    berkas fotonya dibiarkan di disk, supaya foto yang terhapus tidak sengaja
+    bisa dipulihkan dari site admin (Devices → Eviden Tambahan). Berkasnya baru
+    ikut dibuang saat barisnya dihapus permanen dari site admin.
+    """
     device      = models.ForeignKey(
         Device, on_delete=models.CASCADE, related_name='eviden_list'
     )
@@ -1093,9 +1101,17 @@ class DeviceEviden(models.Model):
         null=True, blank=True, related_name='+'
     )
     uploaded_at = models.DateTimeField(auto_now_add=True)
+    is_deleted  = models.BooleanField(default=False)
+    deleted_by  = models.ForeignKey(
+        'auth.User', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='+'
+    )
+    deleted_at  = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ['uploaded_at']
+        verbose_name = 'Eviden Tambahan'
+        verbose_name_plural = 'Eviden Tambahan'
 
     def __str__(self):
         return f'Eviden {self.pk} — {self.device.nama}'
