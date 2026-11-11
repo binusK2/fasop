@@ -1159,7 +1159,8 @@ def device_detail(request, pk):
 
     # Eviden tambahan
     from devices.models import DeviceEviden, KomponenRusak
-    eviden_list = DeviceEviden.objects.filter(device=device).order_by('uploaded_at')
+    eviden_list = DeviceEviden.objects.filter(
+        device=device, is_deleted=False).order_by('uploaded_at')
 
     # Daftar komponen rusak
     komponen_rusak_list = KomponenRusak.objects.filter(device=device).order_by('-tanggal_rusak')
@@ -3124,22 +3125,31 @@ def device_eviden_add(request, pk):
 
 
 @login_required
-@require_can_delete
+@require_can_soft_delete
 def device_eviden_delete(request, pk, eviden_pk):
-    """Hapus satu eviden."""
+    """
+    Hapus satu eviden — SOFT-DELETE (superuser & Teknisi). Baris ditandai
+    is_deleted dan berkas fotonya tetap di disk, jadi foto yang terhapus tidak
+    sengaja bisa dipulihkan dari site admin (Devices → Eviden Tambahan → aksi
+    "Pulihkan"). Hapus permanen (sekaligus membuang berkasnya) hanya dari site
+    admin — lihat devices.signals._hapus_berkas_eviden.
+    """
+    if request.method != 'POST':
+        # Tombolnya sebuah form POST; GET (mis. tautan yang disalin) tidak
+        # boleh menghapus apa pun.
+        return redirect('device_view', pk=pk)
     device = get_object_or_404(Device, pk=pk)
-    from devices.models import DeviceEviden
-    eviden = get_object_or_404(DeviceEviden, pk=eviden_pk, device=device)
-    # Hapus file fisik
-    if eviden.foto:
-        try:
-            import os
-            if os.path.isfile(eviden.foto.path):
-                os.remove(eviden.foto.path)
-        except Exception:
-            pass
-    eviden.delete()
-    return redirect('device_view', pk=pk)
+    eviden = get_object_or_404(DeviceEviden, pk=eviden_pk, device=device,
+                               is_deleted=False)
+    eviden.is_deleted = True
+    eviden.deleted_by = request.user
+    eviden.deleted_at = now()
+    eviden.save(update_fields=['is_deleted', 'deleted_by', 'deleted_at'])
+    _audit(request, 'delete', 'devices', 'Eviden Tambahan',
+           eviden.pk, f'Eviden {eviden.pk} — {device.nama}',
+           eviden.keterangan or eviden.foto.name)
+    messages.success(request, 'Foto eviden dihapus.')
+    return redirect(f"{reverse('device_view', kwargs={'pk': pk})}#section-eviden")
 
 
 @login_required

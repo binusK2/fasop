@@ -142,10 +142,10 @@ def user_permissions(request):
     Inject permission flags ke semua template.
     Pakai: {{ user_can_edit }}, {{ user_can_delete }}, {{ user_is_viewer }}
 
-    user_can_delete = hapus PERMANEN (fiber optic, foto, eviden, dst) --
-    superuser saja. user_can_soft_delete = khusus tombol Hapus Peralatan &
-    Hapus Pemeliharaan (soft-delete, bisa dipulihkan dari site admin) --
-    superuser & Teknisi. Jangan disamakan: dua template yang menampilkan
+    user_can_delete = hapus PERMANEN (fiber optic, foto lapangan, icon, dst)
+    -- superuser saja. user_can_soft_delete = khusus tombol Hapus Peralatan,
+    Hapus Pemeliharaan, dan hapus Eviden Tambahan di Device Detail
+    (soft-delete, bisa dipulihkan dari site admin) -- superuser & Teknisi. Jangan disamakan: dua template yang menampilkan
     tombol berbeda ini harus tetap membaca variabel yang berbeda pula.
     """
     if not request.user.is_authenticated:

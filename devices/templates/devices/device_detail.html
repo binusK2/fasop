@@ -702,10 +702,11 @@
                     · {{ ev.uploaded_at|date:"d/m/y" }}
                 </div>
                 {% endif %}
-                {% if user_can_delete %}
+                {# Soft-delete (superuser & Teknisi) — bisa dipulihkan dari site admin #}
+                {% if user_can_soft_delete %}
                 <form method="post" action="{% url 'device_eviden_delete' device.pk ev.pk %}"
                       style="position:absolute;top:5px;right:5px;"
-                      onsubmit="return confirmSubmit(this, 'Hapus foto ini?')">
+                      onsubmit="return confirmSubmit(this, 'Hapus foto eviden ini?')">
                     {% csrf_token %}
                     <button type="submit"
                             style="background:rgba(239,68,68,0.85);border:none;border-radius:6px;
