@@ -205,8 +205,16 @@ CAKUPAN = {
 }
 
 
+def tanggal_lokal(dt):
+    """Tanggal WITA dari DateTimeField. `dt.date()` langsung memberi tanggal
+    UTC — HAR/inspeksi pagi hari (sebelum 08.00 WITA) jatuh ke hari kemarin."""
+    if dt is None:
+        return None
+    return timezone.localtime(dt).date() if timezone.is_aware(dt) else dt.date()
+
+
 def _tgl(m):
-    return timezone.localtime(m.date).date() if timezone.is_aware(m.date) else m.date.date()
+    return tanggal_lokal(m.date)
 
 
 def _pelaksana(m):
