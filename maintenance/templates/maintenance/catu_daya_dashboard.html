@@ -136,6 +136,20 @@
 .cd-export-btn.cd-copy-ok { background: #f0fdf4; border-color: #86efac; color: #16a34a; }
 .cd-export-btn i { font-size: 12px; }
 
+/* ── Export Excel (tab Catu Daya / Rectifier) ──────────────── */
+.cd-xl-bar {
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
+    padding: 10px 14px; margin-bottom: 18px;
+}
+.cd-xl-info { display: flex; align-items: center; gap: 10px; font-size: 12.5px; color: #475569; }
+.cd-xl-info > i { font-size: 20px; color: #16a34a; }
+.cd-xl-info strong { color: #0f172a; display: block; font-size: 13px; }
+a.cd-export-btn { text-decoration: none; }
+.cd-export-btn.cd-xl { border-color: #bbf7d0; background: #f0fdf4; color: #15803d; }
+.cd-export-btn.cd-xl:hover { background: #dcfce7; border-color: #86efac; color: #166534; }
+.cd-xl-count { font-size: 10.5px; background: #fff; border-radius: 10px; padding: 0 6px; margin-left: 2px; }
+
 /* ── Section divider ───────────────────────────────────────── */
 .cd-section-title {
     font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px;
@@ -168,6 +182,29 @@
 
 <!-- ═══════════════════════════════════ TAB: CATU DAYA ═══════════════════════════════════ -->
 <div id="tab-panel-rect" class="cd-tab-panel show">
+
+<!-- ══ Export Excel ══════════════════════════════════════════ -->
+<div class="cd-xl-bar" id="catu-daya-export">
+    <div class="cd-xl-info">
+        <i class="bi bi-file-earmark-excel"></i>
+        <div>
+            <strong>Export Excel</strong>
+            HAR terakhir tiap perangkat + riwayat seluruh HAR
+        </div>
+    </div>
+    <div class="cd-export-group">
+        <a class="cd-export-btn cd-xl" href="{% url 'catu_daya_export_excel' %}?cakupan=har"
+           title="Hanya perangkat yang sudah di-HAR — sama dengan daftar di halaman ini">
+            <i class="bi bi-download"></i> Sudah HAR
+            <span class="cd-xl-count">{{ devices_data|length }}</span>
+        </a>
+        <a class="cd-export-btn cd-xl" href="{% url 'catu_daya_export_excel' %}?cakupan=semua"
+           title="Semua perangkat catu daya — yang belum di-HAR, kolom HAR-nya dikosongkan">
+            <i class="bi bi-download"></i> Semua Perangkat
+            <span class="cd-xl-count">{{ jumlah_perangkat_catu_daya }}</span>
+        </a>
+    </div>
+</div>
 
 {% if devices_data %}
 

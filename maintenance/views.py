@@ -6,6 +6,7 @@ from django.views.decorators.clickjacking import xframe_options_exempt, xframe_o
 from devices.permissions import require_can_edit, require_can_delete, require_can_soft_delete, is_viewer_only
 from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceRepeater, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset, MaintenanceRTU, MaintenanceSAS, MaintenanceRTUGeneric, MaintenanceBCU, MaintenanceRoIP, MaintenanceUPS, MaintenanceFrequencyRelay, MaintenanceMasterTrip, MaintenanceDFR, MaintenanceMasterStation, BeritaAcaraRecord, BeritaAcaraEviden
 from .forms import PESAN_PELAKSANA_WAJIB, bersihkan_pelaksana
+from . import catu_daya
 from .forms import MaintenanceForm, MaintenancePLCForm, MaintenanceRouterForm, MaintenanceRadioForm, MaintenanceRepeaterForm, MaintenanceVoIPForm, MaintenanceMuxForm, MaintenanceRectifierForm, MaintenanceTeleproteksiForm, MaintenanceGensetForm, MaintenanceRTUForm, MaintenanceSASForm, MaintenanceRTUGenericForm, MaintenanceBCUForm, MaintenanceRoIPForm, MaintenanceUPSForm, MaintenanceFrequencyRelayForm, MaintenanceMasterTripForm, MaintenanceDFRForm, MaintenanceMasterStationForm
 from devices.models import Device, DeviceType
 from gangguan.models import Gangguan
@@ -3411,112 +3412,31 @@ def corrective_add(request, device_id=None, gangguan_id=None):
 # ─────────────────────────────────────────────────────────────────────
 @login_required
 def catu_daya_dashboard(request):
-    THRESHOLD = 38.0
-
-    devices = Device.objects.filter(
-        is_deleted=False,
-        jenis__isnull=False,
-    ).filter(
-        Q(jenis__name__icontains='catu') |
-        Q(jenis__name__icontains='rectifier')
-    ).select_related('jenis').order_by('lokasi', 'nama')
-
-    def _sum_field(cells, field):
-        # Hanya jumlahkan sel INTEGER (bukan summary row vtotal/vload)
-        vals = [float(c[field]) for c in cells
-                if isinstance(c.get('cell'), int) and c.get(field) not in (None, '', 0)]
-        return round(sum(vals), 3) if vals else None
-
-    def _vtotal_row_val(cells, field):
-        """Ambil nilai dari baris summary vtotal di bat1_cells."""
-        row = next((c for c in cells if str(c.get('cell', '')) == 'vtotal'), None)
-        if row:
-            v = row.get(field)
-            return round(float(v), 3) if v not in (None, '', 0) else None
-        return None
-
-    def _linreg(xs, ys):
-        n = len(xs)
-        sx = sum(xs); sy = sum(ys)
-        sxy = sum(x * y for x, y in zip(xs, ys))
-        sx2 = sum(x * x for x in xs)
-        d = n * sx2 - sx * sx
-        if d == 0:
-            return None, None
-        slope = (n * sxy - sx * sy) / d
-        intercept = (sy - slope * sx) / n
-        return slope, intercept
+    # Perhitungan discharge/status tinggal di maintenance/catu_daya.py — ekspor
+    # Excel memakai fungsi yang sama, jadi layar dan berkas tidak bisa berbeda.
+    THRESHOLD = catu_daya.THRESHOLD_VDC
+    _linreg = catu_daya.linreg   # dipakai juga bagian UPS di bawah
 
     def _fv(v):
         """Float value or None."""
         return round(float(v), 3) if v is not None else None
 
+    devices = list(catu_daya.perangkat_catu_daya())
+    har_per_perangkat = catu_daya.rekaman_har(devices)
+
     devices_data = []
     for dev in devices:
-        # Semua record inspection untuk device ini (urut terlama → terbaru)
-        all_records = (
-            MaintenanceRectifier.objects
-            .filter(maintenance__device=dev)
-            .select_related('maintenance')
-            .order_by('maintenance__date')
-        )
-        if not all_records.exists():
+        all_records = har_per_perangkat.get(dev.id)
+        if not all_records:
             continue
 
-        latest = all_records.last()
+        latest = all_records[-1]
 
-        # ── Discharge curve dari inspeksi terbaru ───────────────────
-        cells = latest.bat1_cells or []
+        # ── Discharge curve + prediksi dari HAR terbaru ─────────────
+        analisa = catu_daya.analisa_discharge(latest)
+        slope = analisa['slope']
 
-        # Prioritas: ambil dari baris summary "vtotal" di bat1_cells
-        # (diisi user saat input form — nilai total bank tegangan per waktu discharge)
-        # Fallback: jumlah sel individual (hanya sel integer, bukan summary row)
-        def _vd(field):
-            v = _vtotal_row_val(cells, field)
-            return v if v is not None else _sum_field(cells, field)
-
-        vd_0    = _vd('vd_0')
-        vd_half = _vd('vd_half')
-        vd_1    = _vd('vd_1')
-        vd_2    = _vd('vd_2')
-
-        # V Float sebagai titik referensi sebelum discharge (t = -0.5, tampil terpisah)
-        v_float_discharge = _vtotal_row_val(cells, 'v_float') or _sum_field(cells, 'v_float') or latest.bat1_v_total
-
-        actual = []
-        if v_float_discharge:
-            actual.append({'t': -0.5, 'v': round(float(v_float_discharge), 3), 'label': 'V Float'})
-        for t, v in [(0, vd_0), (0.5, vd_half), (1, vd_1), (2, vd_2)]:
-            if v is not None:
-                actual.append({'t': t, 'v': v})
-
-        prediction = []
-        threshold_time = None
-        slope = None
-        # Regresi hanya dari titik VD (t >= 0), bukan V Float
-        discharge_pts = [p for p in actual if p['t'] >= 0]
-        if len(discharge_pts) >= 2:
-            xs = [p['t'] for p in discharge_pts]
-            ys = [p['v'] for p in discharge_pts]
-            sl, intercept = _linreg(xs, ys)
-            if sl is not None:
-                slope = sl
-                for t in [x / 2 for x in range(5, 21)]:
-                    prediction.append({'t': t, 'v': round(sl * t + intercept, 3)})
-                if sl < 0:
-                    t_thr = (THRESHOLD - intercept) / sl
-                    if t_thr > 0:
-                        threshold_time = round(t_thr, 2)
-
-        latest_v = discharge_pts[-1]['v'] if discharge_pts else (latest.bat1_v_total or 0)
-        if latest_v <= THRESHOLD:
-            status = 'danger'
-        elif threshold_time is not None and threshold_time <= 10:
-            status = 'warning'
-        else:
-            status = 'ok'
-
-        # ── History semua inspeksi: V Batt, V Load, A Load, A Batt ──
+        # ── History semua HAR: V Batt, V Load, A Load, A Batt ──────
         history = []
         for rec in all_records:
             history.append({
@@ -3556,18 +3476,10 @@ def catu_daya_dashboard(request):
                 'insp_exhaust_fan':     latest_insp.exhaust_fan or '',
             }
 
-        # ── Discharge curves dari inspeksi-inspeksi sebelumnya ──────────
+        # ── Discharge curves dari HAR-HAR sebelumnya ────────────────
         discharge_history = []
-        for rec in list(all_records)[:-1]:   # semua kecuali latest, urut lama→baru
-            h_cells = rec.bat1_cells or []
-            h_vfloat = _vtotal_row_val(h_cells, 'v_float') or _sum_field(h_cells, 'v_float') or rec.bat1_v_total
-            h_actual = []
-            if h_vfloat:
-                h_actual.append({'t': -0.5, 'v': round(float(h_vfloat), 3)})
-            for _t, _field in [(0, 'vd_0'), (0.5, 'vd_half'), (1, 'vd_1'), (2, 'vd_2')]:
-                _v = _vtotal_row_val(h_cells, _field) or _sum_field(h_cells, _field)
-                if _v is not None:
-                    h_actual.append({'t': _t, 'v': _v})
+        for rec in all_records[:-1]:   # semua kecuali latest, urut lama→baru
+            h_actual = catu_daya.titik_discharge(rec)
             if any(p['t'] >= 0 for p in h_actual):
                 discharge_history.append({
                     'date': str(rec.maintenance.date)[:10],
@@ -3579,7 +3491,7 @@ def catu_daya_dashboard(request):
             'device_name':    dev.nama,
             'lokasi':         dev.lokasi or '-',
             'tanggal':        str(latest.maintenance.date),
-            'v_float_total':  _vtotal_row_val(cells, 'v_float') or _sum_field(cells, 'v_float') or latest.bat1_v_total,
+            'v_float_total':  catu_daya.v_float(latest),
             'v_total_field':  latest.bat1_v_total,
             # latest pemeliharaan metrics
             'v_battery':      latest.rect1_v_battery,
@@ -3588,10 +3500,10 @@ def catu_daya_dashboard(request):
             'a_battery':      latest.rect1_a_battery,
             'v_rectifier':    latest.rect1_v_rectifier,
             # discharge
-            'actual':         actual,
-            'prediction':     prediction,
-            'threshold_time': threshold_time,
-            'status':         status,
+            'actual':         analisa['actual'],
+            'prediction':     analisa['prediction'],
+            'threshold_time': analisa['threshold_time'],
+            'status':         analisa['status'],
             'slope':          round(slope, 4) if slope else None,
             'bat_merk':       latest.bat1_merk or '-',
             'bat_tipe':       latest.bat1_tipe or '-',
@@ -3898,7 +3810,36 @@ def catu_daya_dashboard(request):
         'ups_selected_id':     ups_selected_id,
         'genset_data':         genset_data,
         'genset_data_json':    json.dumps(genset_data),
+        'jumlah_perangkat_catu_daya': len(devices),
     })
+
+
+@login_required
+def catu_daya_export_excel(request):
+    """Ekspor Excel tab Catu Daya / Rectifier.
+
+    ?cakupan=semua (bawaan) — semua perangkat catu daya; yang belum pernah
+    di-HAR tetap terdaftar dengan kolom HAR kosong.
+    ?cakupan=har — hanya perangkat yang sudah di-HAR (= daftar di dashboard).
+    Nilai lain ditolak, bukan jatuh ke bawaan: berkas yang isinya berbeda
+    dari yang diminta tidak akan ketahuan setelah dilampirkan ke laporan.
+    """
+    from django.http import HttpResponseBadRequest
+
+    cakupan = request.GET.get('cakupan') or 'semua'
+    if cakupan not in catu_daya.CAKUPAN:
+        return HttpResponseBadRequest(
+            'Cakupan ekspor tidak dikenal. Pilih: ' + ', '.join(catu_daya.CAKUPAN))
+
+    wb, nama_file = catu_daya.buat_workbook(cakupan)
+    buf = BytesIO()
+    wb.save(buf)
+    response = HttpResponse(
+        buf.getvalue(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    response['Content-Disposition'] = f'attachment; filename="{nama_file}"'
+    return response
 
 
 # ─────────────────────────────────────────────────────────────────────
