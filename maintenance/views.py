@@ -3460,7 +3460,7 @@ def catu_daya_dashboard(request):
         insp_data = {}
         if latest_insp:
             insp_data = {
-                'insp_tanggal':         str(latest_insp.inspection.tanggal.date()),
+                'insp_tanggal':         str(catu_daya.tanggal_lokal(latest_insp.inspection.tanggal)),
                 'insp_teg_baterai':     _fv(latest_insp.tegangan_baterai_dc),
                 'insp_teg_load':        _fv(latest_insp.tegangan_load_dc),
                 'insp_arus_load':       _fv(latest_insp.arus_load_dc),
@@ -3499,6 +3499,17 @@ def catu_daya_dashboard(request):
             'a_load':         latest.rect1_a_load,
             'a_battery':      latest.rect1_a_battery,
             'v_rectifier':    latest.rect1_v_rectifier,
+            # kartu "Hasil Pemeliharaan (HAR)" — bentuknya sama dengan kartu inspeksi
+            'tanggal_har':      str(catu_daya.tanggal_lokal(latest.maintenance.date)),
+            'har_rect_kondisi': latest.rect1_kondisi or '',
+            'har_bat_kondisi':  latest.bat1_kondisi or '',
+            'har_kabel':        latest.bat1_kondisi_kabel or '',
+            'har_mur_baut':     latest.bat1_kondisi_mur_baut or '',
+            'har_sel_rak':      latest.bat1_kondisi_sel_rak or '',
+            'har_exhaust_fan':  latest.exhaust_fan or '',
+            'har_kebersihan':   latest.kebersihan or '',
+            'har_lampu':        latest.lampu_penerangan or '',
+            'har_suhu':         _fv(latest.suhu_ruangan),
             # discharge
             'actual':         analisa['actual'],
             'prediction':     analisa['prediction'],

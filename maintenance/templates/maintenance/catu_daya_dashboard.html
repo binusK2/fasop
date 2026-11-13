@@ -150,6 +150,48 @@ a.cd-export-btn { text-decoration: none; }
 .cd-export-btn.cd-xl:hover { background: #dcfce7; border-color: #86efac; color: #166534; }
 .cd-xl-count { font-size: 10.5px; background: #fff; border-radius: 10px; padding: 0 6px; margin-left: 2px; }
 
+/* ── Kartu nilai terbaru: HAR (biru) vs Inspeksi (ungu) ────── */
+/* Bentuk kedua kartu sengaja identik; yang membedakan hanya warnanya, supaya
+   angka hasil pemeliharaan tidak terbaca sebagai hasil inspeksi (atau
+   sebaliknya). Warna yang sama dipakai untuk label, tanggal, dan kotak nilai. */
+.cd-src { border-left-width: 5px; }
+.cd-src-har  { border-color: #bfdbfe; border-left-color: #2563eb; }
+.cd-src-insp { border-color: #ddd6fe; border-left-color: #7c3aed; }
+.cd-src-head {
+    padding: 14px 18px; display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 10px; border-bottom: 1px solid;
+}
+.cd-src-har  .cd-src-head { background: #eff6ff; border-bottom-color: #dbeafe; }
+.cd-src-insp .cd-src-head { background: #f5f3ff; border-bottom-color: #ede9fe; }
+.cd-src-pill {
+    display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 8px;
+    color: #fff; font-size: 15px; font-weight: 800; letter-spacing: .4px; text-transform: uppercase;
+}
+.cd-src-pill i { font-size: 16px; }
+.cd-src-har  .cd-src-pill { background: #2563eb; }
+.cd-src-insp .cd-src-pill { background: #7c3aed; }
+.cd-src-sub { display: block; font-size: 12.5px; margin-top: 6px; }
+.cd-src-har  .cd-src-sub { color: #1e40af; }
+.cd-src-insp .cd-src-sub { color: #5b21b6; }
+.cd-src-date {
+    font-size: 13.5px; font-weight: 700; padding: 5px 12px; border-radius: 20px;
+    background: #fff; border: 1px solid; white-space: nowrap;
+}
+.cd-src-date:empty { display: none; }
+.cd-src-har  .cd-src-date { color: #1d4ed8; border-color: #bfdbfe; }
+.cd-src-insp .cd-src-date { color: #6d28d9; border-color: #ddd6fe; }
+.cd-src-sec { padding: 14px 18px; }
+.cd-src-sec + .cd-src-sec { border-top: 1px solid #f1f5f9; }
+.cd-src-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 10px; }
+.cd-src-har  .cd-src-label { color: #1d4ed8; }
+.cd-src-insp .cd-src-label { color: #6d28d9; }
+.cd-src-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+.cd-src-har  .cd-metric { background: #f8fbff; border-color: #dbeafe; }
+.cd-src-insp .cd-metric { background: #fbfaff; border-color: #ede9fe; }
+.cd-src-badges { display: flex; flex-wrap: wrap; gap: 8px; }
+.cd-src-kosong { font-size: 12.5px; color: #94a3b8; font-style: italic; }
+.cd-badge-netral { background: #f1f5f9; color: #334155; }
+
 /* ── Section divider ───────────────────────────────────────── */
 .cd-section-title {
     font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px;
@@ -242,69 +284,60 @@ a.cd-export-btn { text-decoration: none; }
     </div>
 </div>
 
-<!-- ══ 2. Metric Cards — Nilai Terbaru Pemeliharaan ══════════ -->
-<p class="cd-section-title"><i class="bi bi-tools me-1"></i>Nilai Terbaru Hasil Pemeliharaan</p>
-<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:22px;" id="metric-grid">
-    <div class="cd-metric">
-        <div class="cd-metric-label">V Battery</div>
-        <div class="cd-metric-val" id="m-vbatt" style="color:#3b82f6;">—</div>
-        <div class="cd-metric-unit">Volt DC</div>
+<!-- ══ 2. Nilai Terbaru — HAR (biru) ═════════════════════════ -->
+<div class="cd-card cd-src cd-src-har" id="metric-grid">
+    <div class="cd-src-head">
+        <div>
+            <span class="cd-src-pill"><i class="bi bi-tools"></i> Hasil Pemeliharaan (HAR)</span>
+            <span class="cd-src-sub">Nilai terbaru dari pemeliharaan berkala</span>
+        </div>
+        <span class="cd-src-date" id="har-tanggal-label"></span>
     </div>
-    <div class="cd-metric">
-        <div class="cd-metric-label">V Load</div>
-        <div class="cd-metric-val" id="m-vload" style="color:#0891b2;">—</div>
-        <div class="cd-metric-unit">Volt DC</div>
+    <div class="cd-src-sec">
+        <div class="cd-src-label">Pengukuran</div>
+        <div class="cd-src-grid">
+            <div class="cd-metric"><div class="cd-metric-label">V Battery</div><div class="cd-metric-val" id="m-vbatt" style="color:#3b82f6;">—</div><div class="cd-metric-unit">Volt DC</div></div>
+            <div class="cd-metric"><div class="cd-metric-label">V Load</div><div class="cd-metric-val" id="m-vload" style="color:#0891b2;">—</div><div class="cd-metric-unit">Volt DC</div></div>
+            <div class="cd-metric"><div class="cd-metric-label">A Load</div><div class="cd-metric-val" id="m-aload" style="color:#d97706;">—</div><div class="cd-metric-unit">Ampere</div></div>
+            <div class="cd-metric"><div class="cd-metric-label">A Battery</div><div class="cd-metric-val" id="m-abatt" style="color:#7c3aed;">—</div><div class="cd-metric-unit">Ampere</div></div>
+            <div class="cd-metric"><div class="cd-metric-label">V Rectifier</div><div class="cd-metric-val" id="m-vrect" style="color:#059669;">—</div><div class="cd-metric-unit">Volt DC</div></div>
+            <div class="cd-metric"><div class="cd-metric-label">V Total Bank</div><div class="cd-metric-val" id="m-vtotal" style="color:#0f172a;">—</div><div class="cd-metric-unit">Volt DC</div></div>
+        </div>
     </div>
-    <div class="cd-metric">
-        <div class="cd-metric-label">A Load</div>
-        <div class="cd-metric-val" id="m-aload" style="color:#d97706;">—</div>
-        <div class="cd-metric-unit">Ampere</div>
-    </div>
-    <div class="cd-metric">
-        <div class="cd-metric-label">A Battery</div>
-        <div class="cd-metric-val" id="m-abatt" style="color:#7c3aed;">—</div>
-        <div class="cd-metric-unit">Ampere</div>
-    </div>
-    <div class="cd-metric">
-        <div class="cd-metric-label">V Rectifier</div>
-        <div class="cd-metric-val" id="m-vrect" style="color:#059669;">—</div>
-        <div class="cd-metric-unit">Volt DC</div>
-    </div>
-    <div class="cd-metric">
-        <div class="cd-metric-label">V Total Bank</div>
-        <div class="cd-metric-val" id="m-vtotal" style="color:#0f172a;">—</div>
-        <div class="cd-metric-unit">Volt DC</div>
+    <div class="cd-src-sec">
+        <div class="cd-src-label">Kondisi</div>
+        <div class="cd-src-badges" id="har-badges"></div>
     </div>
 </div>
 
-<!-- ══ 2b. Inservice Inspection Terbaru ══════════════════════ -->
-<p class="cd-section-title"><i class="bi bi-clipboard-check me-1"></i>Nilai Terbaru Inservice Inspection</p>
-<div class="cd-card mb-4" id="insp-card">
-    <div class="cd-card-head">
-        <h5><i class="bi bi-clipboard2-pulse me-2" style="color:#7c3aed;"></i>Pengukuran &amp; Kondisi — Inservice Inspection</h5>
-        <span id="insp-tanggal-label" class="text-muted" style="font-size:12px;"></span>
+<!-- ══ 2b. Nilai Terbaru — Inservice Inspection (ungu) ═══════ -->
+<div class="cd-card cd-src cd-src-insp" id="insp-card">
+    <div class="cd-src-head">
+        <div>
+            <span class="cd-src-pill"><i class="bi bi-clipboard2-pulse"></i> Hasil Inspeksi (Inservice)</span>
+            <span class="cd-src-sub">Nilai terbaru dari inservice inspection</span>
+        </div>
+        <span class="cd-src-date" id="insp-tanggal-label"></span>
     </div>
     <div id="insp-no-data" class="cd-empty" style="padding:30px 20px;display:none;">
         <i class="bi bi-clipboard-x" style="font-size:28px;opacity:.4;display:block;margin-bottom:8px;"></i>
         <span style="font-size:13px;color:#94a3b8;">Belum ada data inservice inspection untuk perangkat ini.</span>
     </div>
     <div id="insp-content">
-        <!-- Pengukuran -->
-        <div style="padding:14px 18px 0;border-bottom:1px solid #f1f5f9;">
-            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#64748b;margin-bottom:10px;">Pengukuran</div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px;">
-                <div class="cd-metric"><div class="cd-metric-label">V Baterai DC</div><div class="cd-metric-val" id="i-vbatt" style="color:#3b82f6;">—</div><div class="cd-metric-unit">Volt</div></div>
-                <div class="cd-metric"><div class="cd-metric-label">V Load DC</div><div class="cd-metric-val" id="i-vload" style="color:#0891b2;">—</div><div class="cd-metric-unit">Volt</div></div>
+        <div class="cd-src-sec">
+            <div class="cd-src-label">Pengukuran</div>
+            <div class="cd-src-grid">
+                <div class="cd-metric"><div class="cd-metric-label">V Baterai DC</div><div class="cd-metric-val" id="i-vbatt" style="color:#3b82f6;">—</div><div class="cd-metric-unit">Volt DC</div></div>
+                <div class="cd-metric"><div class="cd-metric-label">V Load DC</div><div class="cd-metric-val" id="i-vload" style="color:#0891b2;">—</div><div class="cd-metric-unit">Volt DC</div></div>
                 <div class="cd-metric"><div class="cd-metric-label">A Load DC</div><div class="cd-metric-val" id="i-aload" style="color:#d97706;">—</div><div class="cd-metric-unit">Ampere</div></div>
                 <div class="cd-metric"><div class="cd-metric-label">A Baterai DC</div><div class="cd-metric-val" id="i-abatt" style="color:#7c3aed;">—</div><div class="cd-metric-unit">Ampere</div></div>
-                <div class="cd-metric"><div class="cd-metric-label">V Input AC</div><div class="cd-metric-val" id="i-vac" style="color:#059669;">—</div><div class="cd-metric-unit">Volt</div></div>
+                <div class="cd-metric"><div class="cd-metric-label">V Input AC</div><div class="cd-metric-val" id="i-vac" style="color:#059669;">—</div><div class="cd-metric-unit">Volt AC</div></div>
                 <div class="cd-metric"><div class="cd-metric-label">A Input AC</div><div class="cd-metric-val" id="i-aac" style="color:#0f172a;">—</div><div class="cd-metric-unit">Ampere</div></div>
             </div>
         </div>
-        <!-- Kondisi & Alarm -->
-        <div style="padding:14px 18px;">
-            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#64748b;margin-bottom:10px;">Kondisi &amp; Alarm</div>
-            <div style="display:flex;flex-wrap:wrap;gap:8px;" id="insp-badges"></div>
+        <div class="cd-src-sec">
+            <div class="cd-src-label">Kondisi &amp; Alarm</div>
+            <div class="cd-src-badges" id="insp-badges"></div>
         </div>
     </div>
 </div>
@@ -850,14 +883,50 @@ function renderTable() {
     });
 }
 
-/* ── Update metric cards ───────────────────────────────── */
+/* ── Helper kartu nilai terbaru (HAR & Inspeksi) ─────────── */
+function escHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+/* "2026-09-08" → "08/09/2026" */
+function fmtTgl(iso) {
+    const p = String(iso || '').slice(0, 10).split('-');
+    return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : (iso || '');
+}
+function badgeKondisi(label, val, okVal, okClass, nokClass) {
+    if (!val) return '';
+    const cls = val === okVal ? okClass : nokClass;
+    return `<span class="cd-badge ${cls}">${escHtml(label)}: ${escHtml(String(val).replace('_', ' '))}</span>`;
+}
+function isiBadges(el, items, teksKosong) {
+    const html = items.filter(Boolean).join('');
+    el.innerHTML = html || `<span class="cd-src-kosong">${teksKosong}</span>`;
+}
+
+/* ── Kartu nilai terbaru hasil pemeliharaan (HAR) ──────────── */
 function renderMetrics(dev) {
-    document.getElementById('m-vbatt').textContent  = dev.v_battery  != null ? dev.v_battery  + ' V' : '—';
-    document.getElementById('m-vload').textContent  = dev.v_load     != null ? dev.v_load     + ' V' : '—';
-    document.getElementById('m-aload').textContent  = dev.a_load     != null ? dev.a_load     + ' A' : '—';
-    document.getElementById('m-abatt').textContent  = dev.a_battery  != null ? dev.a_battery  + ' A' : '—';
-    document.getElementById('m-vrect').textContent  = dev.v_rectifier!= null ? dev.v_rectifier+ ' V' : '—';
-    document.getElementById('m-vtotal').textContent = dev.v_total_field!=null ? dev.v_total_field+' V': '—';
+    document.getElementById('har-tanggal-label').textContent =
+        dev.tanggal_har ? 'Tgl. HAR: ' + fmtTgl(dev.tanggal_har) : '';
+
+    document.getElementById('m-vbatt').textContent  = fmtV(dev.v_battery);
+    document.getElementById('m-vload').textContent  = fmtV(dev.v_load);
+    document.getElementById('m-aload').textContent  = fmtA(dev.a_load);
+    document.getElementById('m-abatt').textContent  = fmtA(dev.a_battery);
+    document.getElementById('m-vrect').textContent  = fmtV(dev.v_rectifier);
+    document.getElementById('m-vtotal').textContent = fmtV(dev.v_total_field);
+
+    const ok = 'cd-badge-ok', warn = 'cd-badge-warn', bad = 'cd-badge-danger';
+    isiBadges(document.getElementById('har-badges'), [
+        badgeKondisi('Rectifier',   dev.har_rect_kondisi, 'OK', ok, bad),
+        badgeKondisi('Battery',     dev.har_bat_kondisi,  'OK', ok, bad),
+        badgeKondisi('Kabel',       dev.har_kabel,        'OK', ok, bad),
+        badgeKondisi('Mur & Baut',  dev.har_mur_baut,     'OK', ok, bad),
+        badgeKondisi('Sel & Rak',   dev.har_sel_rak,      'OK', ok, bad),
+        badgeKondisi('Exhaust Fan', dev.har_exhaust_fan,  'Terpasang', ok, bad),
+        badgeKondisi('Kebersihan',  dev.har_kebersihan,   'Bersih', ok, warn),
+        badgeKondisi('Lampu',       dev.har_lampu,        'Menyala', ok, warn),
+        dev.har_suhu != null
+            ? `<span class="cd-badge cd-badge-netral">Suhu Ruangan: ${escHtml(dev.har_suhu)} °C</span>` : '',
+    ], 'Kondisi tidak diisi pada HAR ini.');
 }
 
 /* ── Voltage trend chart ───────────────────────────────── */
@@ -1169,40 +1238,31 @@ function renderInspection(dev) {
         return;
     }
 
-    document.getElementById('insp-tanggal-label').textContent = 'Tgl. inspeksi: ' + dev.insp_tanggal;
+    document.getElementById('insp-tanggal-label').textContent = 'Tgl. inspeksi: ' + fmtTgl(dev.insp_tanggal);
 
-    const fv = v => v != null ? v.toFixed(2) + ' V' : '—';
-    const fa = v => v != null ? v.toFixed(2) + ' A' : '—';
-    document.getElementById('i-vbatt').textContent = fv(dev.insp_teg_baterai);
-    document.getElementById('i-vload').textContent = fv(dev.insp_teg_load);
-    document.getElementById('i-aload').textContent = fa(dev.insp_arus_load);
-    document.getElementById('i-abatt').textContent = fa(dev.insp_arus_baterai);
-    document.getElementById('i-vac').textContent   = fv(dev.insp_teg_input_ac);
-    document.getElementById('i-aac').textContent   = fa(dev.insp_arus_input_ac);
+    document.getElementById('i-vbatt').textContent = fmtV(dev.insp_teg_baterai);
+    document.getElementById('i-vload').textContent = fmtV(dev.insp_teg_load);
+    document.getElementById('i-aload').textContent = fmtA(dev.insp_arus_load);
+    document.getElementById('i-abatt').textContent = fmtA(dev.insp_arus_baterai);
+    document.getElementById('i-vac').textContent   = fmtV(dev.insp_teg_input_ac);
+    document.getElementById('i-aac').textContent   = fmtA(dev.insp_arus_input_ac);
 
     /* Badges kondisi & alarm */
-    const badgesEl = document.getElementById('insp-badges');
-    badgesEl.innerHTML = '';
-    const badge = (label, val, okVal, okClass, nokClass) => {
-        if (!val) return '';
-        const isOk = val === okVal;
-        return `<span class="cd-badge ${isOk ? okClass : nokClass}">${label}: ${val.replace('_',' ')}</span>`;
-    };
     const alarmBadge = (label, val) => {
         if (!val) return '';
         const isOk = val === 'tidak_ada';
         return `<span class="cd-badge ${isOk ? 'cd-badge-ok' : 'cd-badge-danger'}">
             ${isOk ? '' : '<i class="bi bi-bell-fill me-1"></i>'}${label}: ${isOk ? 'Tidak Ada' : 'ADA'}</span>`;
     };
-    badgesEl.innerHTML = [
-        badge('Rectifier', dev.insp_kondisi_rectifier, 'normal', 'cd-badge-ok', 'cd-badge-danger'),
+    isiBadges(document.getElementById('insp-badges'), [
+        badgeKondisi('Rectifier', dev.insp_kondisi_rectifier, 'normal', 'cd-badge-ok', 'cd-badge-danger'),
         alarmBadge('Ground Fault', dev.insp_alarm_ground),
         alarmBadge('Min AC Fault', dev.insp_alarm_min_ac),
         alarmBadge('Recti Fault',  dev.insp_alarm_recti),
-        badge('Level Air Bank', dev.insp_level_air, 'normal', 'cd-badge-ok', 'cd-badge-warn'),
-        badge('Exhaust Fan', dev.insp_exhaust_fan, 'nyala', 'cd-badge-ok', 'cd-badge-danger'),
-        badge('Kondisi Keseluruhan', dev.insp_kondisi_keseluruhan, 'bersih', 'cd-badge-ok', 'cd-badge-warn'),
-    ].filter(Boolean).join('');
+        badgeKondisi('Level Air Bank', dev.insp_level_air, 'normal', 'cd-badge-ok', 'cd-badge-warn'),
+        badgeKondisi('Exhaust Fan', dev.insp_exhaust_fan, 'nyala', 'cd-badge-ok', 'cd-badge-danger'),
+        badgeKondisi('Kondisi Keseluruhan', dev.insp_kondisi_keseluruhan, 'bersih', 'cd-badge-ok', 'cd-badge-warn'),
+    ], 'Kondisi tidak diisi pada inspeksi ini.');
 }
 
 /* ── Main switch — re-render all panels for device ──── */
