@@ -29,6 +29,7 @@ urlpatterns = [
 
     # Dashboard Catu Daya
     path('catu-daya/', views.catu_daya_dashboard, name='catu_daya_dashboard'),
+    path('catu-daya/export/', views.catu_daya_export_excel, name='catu_daya_export_excel'),
 
     # Corrective Maintenance
     path('corrective/add/',                       views.corrective_add,                              name='corrective_add'),

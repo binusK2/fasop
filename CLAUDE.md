@@ -1054,6 +1054,32 @@ pemasangan mount, `.env`, dan cron-nya di `deploy/EXPORT_INSPEKSI_HARIAN.md`
 
 ---
 
+## Dashboard Catu Daya — Ekspor Excel (`maintenance/catu_daya.py`)
+
+Tab **Catu Daya / Rectifier** di `/maintenance/catu-daya/` punya dua tombol
+ekspor (`/maintenance/catu-daya/export/?cakupan=har|semua`): **Sudah HAR**
+(= daftar perangkat di dashboard) dan **Semua Perangkat** (yang belum pernah
+di-HAR tetap terdaftar, kolom HAR-nya kosong). Isinya sheet *Catu Daya* (HAR
+terakhir per perangkat), *Riwayat HAR* (satu baris per pemeliharaan), dan
+*Keterangan*. Dijaga `maintenance/tests_catu_daya_export.py`.
+
+- **Rumus discharge, estimasi capai 38 VDC, dan status Aman/Perhatian/Bahaya
+  tinggal di `maintenance/catu_daya.py`** — dashboard dan ekspor memanggil
+  fungsi yang sama (`analisa_discharge()`), dan tesnya membandingkan isi Excel
+  dengan context dashboard. Jangan menyalin rumusnya kembali ke view.
+- **`rekaman_har()` wajib `maintenance__is_deleted=False`** — lookup
+  `MaintenanceRectifier` lewat relasi melewati `MaintenanceManager`. Sebelum
+  modul ini ada, HAR yang di-soft-delete Teknisi ikut tampil di dashboard.
+- **HAR tanpa titik VD maupun V Total Bank: dashboard menulis "Bahaya", ekspor
+  menulis "Tanpa data discharge".** Rumus status memakai `V Total Bank or 0`,
+  jadi tegangan yang tidak diisi terhitung 0 V. Di data Nov 2026 itu 18 dari 46
+  rectifier — semua "Bahaya" di dashboard adalah kasus ini. Ekspor sengaja tidak
+  ikut (`label_status()`, flag `ada_data`); dashboard belum diubah.
+- HAR dengan tanggal-jam kembar (tersimpan dobel) diurutkan `pk`, jadi "HAR
+  terakhir" adalah yang paling akhir diinput. Dulu urutannya tidak ditentukan.
+
+---
+
 ## Kinerja SCADATEL — OFDB (`up2bmakassar/`)
 
 Sumber data: **OFDB** = `dbup2bmakasar` di MSSQL 192.168.19.1, database offline SCADA milik aplikasi up2bmakassar. FASOP membacanya **read-only** lewat user `fasop_readonly` (`up2bmakassar/ofdb.py`, env `OFDB_*`) dan tidak pernah menulis ke sana. Hasil perhitungan disimpan di PostgreSQL (`KinerjaAnalogHarian`, `KinerjaDigitalHarian`, `RemoteControl`); SOE log tidak disimpan sama sekali (query on-demand).
