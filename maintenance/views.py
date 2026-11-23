@@ -5,6 +5,7 @@ from django.views.decorators.http import require_POST
 from django.views.decorators.clickjacking import xframe_options_exempt, xframe_options_sameorigin
 from devices.permissions import require_can_edit, require_can_delete, require_can_soft_delete, is_viewer_only
 from .models import Maintenance, MaintenancePLC, MaintenanceRouter, MaintenanceRadio, MaintenanceRepeater, MaintenanceVoIP, MaintenanceMux, MaintenanceRectifier, MaintenanceTeleproteksi, MaintenanceGenset, MaintenanceRTU, MaintenanceSAS, MaintenanceRTUGeneric, MaintenanceBCU, MaintenanceRoIP, MaintenanceUPS, MaintenanceFrequencyRelay, MaintenanceMasterTrip, MaintenanceDFR, MaintenanceMasterStation, BeritaAcaraRecord, BeritaAcaraEviden
+from .models import JENIS_MASTER_STATION
 from .forms import PESAN_PELAKSANA_WAJIB, bersihkan_pelaksana
 from . import catu_daya
 from .forms import MaintenanceForm, MaintenancePLCForm, MaintenanceRouterForm, MaintenanceRadioForm, MaintenanceRepeaterForm, MaintenanceVoIPForm, MaintenanceMuxForm, MaintenanceRectifierForm, MaintenanceTeleproteksiForm, MaintenanceGensetForm, MaintenanceRTUForm, MaintenanceSASForm, MaintenanceRTUGenericForm, MaintenanceBCUForm, MaintenanceRoIPForm, MaintenanceUPSForm, MaintenanceFrequencyRelayForm, MaintenanceMasterTripForm, MaintenanceDFRForm, MaintenanceMasterStationForm
@@ -151,16 +152,10 @@ DEVICE_FORM_MAP = {
     'RELE DEFENSE SCHEME': (MaintenanceMasterTripForm, 'maintenance/master_trip_form.html'),
     'DFR':             (MaintenanceDFRForm, 'maintenance/dfr_form.html'),
     'PMU':             (MaintenanceDFRForm, 'maintenance/dfr_form.html'),
-    'Master Station':    (MaintenanceMasterStationForm, 'maintenance/master_station_form.html'),
-    'MASTER STATION':    (MaintenanceMasterStationForm, 'maintenance/master_station_form.html'),
-    'Workstation SCADA': (MaintenanceMasterStationForm, 'maintenance/master_station_form.html'),
-    'WORKSTATION SCADA': (MaintenanceMasterStationForm, 'maintenance/master_station_form.html'),
-    'Server Telkom':     (MaintenanceMasterStationForm, 'maintenance/master_station_form.html'),
-    'SERVER TELKOM':     (MaintenanceMasterStationForm, 'maintenance/master_station_form.html'),
-    'Server Prosis':     (MaintenanceMasterStationForm, 'maintenance/master_station_form.html'),
-    'SERVER PROSIS':     (MaintenanceMasterStationForm, 'maintenance/master_station_form.html'),
-    'Workstation PC':    (MaintenanceMasterStationForm, 'maintenance/master_station_form.html'),
-    'WORKSTATION PC':    (MaintenanceMasterStationForm, 'maintenance/master_station_form.html'),
+    # Keluarga Master Station (termasuk VM SCADA) — daftarnya di
+    # models.JENIS_MASTER_STATION, jangan ditulis ulang di sini.
+    **{jenis: (MaintenanceMasterStationForm, 'maintenance/master_station_form.html')
+       for jenis in JENIS_MASTER_STATION},
 }
 
 DEFAULT_TEMPLATE = 'maintenance/maintenance_form.html'
@@ -613,13 +608,7 @@ def maintenance_detail(request, pk):
             pass
 
     ms_detail = None
-    if device_type in (
-        'Master Station', 'MASTER STATION',
-        'Workstation SCADA', 'WORKSTATION SCADA',
-        'Server Telkom', 'SERVER TELKOM',
-        'Server Prosis', 'SERVER PROSIS',
-        'Workstation PC', 'WORKSTATION PC',
-    ):
+    if device_type in JENIS_MASTER_STATION:
         try:
             ms_detail = maintenance.maintenancemasterstation
         except MaintenanceMasterStation.DoesNotExist:
@@ -2139,7 +2128,7 @@ def export_maintenance_pdf(request, pk):
         dfr_detail = _try(lambda: maintenance.maintenancedfr)
 
     ms_detail = None
-    if device_kind in ('MASTER STATION', 'WORKSTATION SCADA', 'SERVER TELKOM', 'SERVER PROSIS', 'WORKSTATION PC'):
+    if device_kind in JENIS_MASTER_STATION:
         ms_detail = _try(lambda: maintenance.maintenancemasterstation)
 
     # Corrective detail

@@ -9,6 +9,8 @@ from io import BytesIO
 from django.template.loader import render_to_string
 from django.conf import settings
 
+from .models import JENIS_MASTER_STATION
+
 
 def _img_uri(path):
     if not path or not os.path.exists(path):
@@ -41,11 +43,8 @@ _TEMPLATE_MAP = {
     'SAS':                 'maintenance/pdf/sas.html',
     'SERVER SCADA':        'maintenance/pdf/sas.html',
     'GATEWAY SAS':         'maintenance/pdf/sas.html',
-    'MASTER STATION':      'maintenance/pdf/master_station.html',
-    'WORKSTATION SCADA':   'maintenance/pdf/master_station.html',
-    'SERVER TELKOM':       'maintenance/pdf/master_station.html',
-    'SERVER PROSIS':       'maintenance/pdf/master_station.html',
-    'WORKSTATION PC':      'maintenance/pdf/master_station.html',
+    # Keluarga Master Station (termasuk VM SCADA) — models.JENIS_MASTER_STATION
+    **{jenis: 'maintenance/pdf/master_station.html' for jenis in JENIS_MASTER_STATION},
     'ROIP':                'maintenance/pdf/roip.html',
     'UPS':                 'maintenance/pdf/ups.html',
     'UFLS':            'maintenance/pdf/ufls.html',
@@ -87,6 +86,7 @@ _TITLES = {
     'SERVER TELKOM':     'Formulir Pemeliharaan Server Telkom',
     'SERVER PROSIS':     'Formulir Pemeliharaan Server Prosis',
     'WORKSTATION PC':    'Formulir Pemeliharaan Workstation PC',
+    'VM SCADA':          'Formulir Pemeliharaan VM SCADA',
     'ROIP':         'Formulir Pemeliharaan Peralatan RoIP',
     'UPS':          'Formulir Pemeliharaan Peralatan UPS',
     'UFLS':            'Form Checklist Frequency Relay — UFLS',
@@ -126,11 +126,7 @@ _DOC_CODES = {
     'SAS':                 '',
     'SERVER SCADA':        '',
     'GATEWAY SAS':         '',
-    'MASTER STATION':      'UP2B_FML_04_1002',
-    'WORKSTATION SCADA':   'UP2B_FML_04_1002',
-    'SERVER TELKOM':       'UP2B_FML_04_1002',
-    'SERVER PROSIS':       'UP2B_FML_04_1002',
-    'WORKSTATION PC':      'UP2B_FML_04_1002',
+    **{jenis: 'UP2B_FML_04_1002' for jenis in JENIS_MASTER_STATION},
     'ROIP':                '',
     'UPS':                 '',
     'UFLS':            '',
@@ -589,11 +585,8 @@ def _ctx_roip(data, ctx):
 def _ctx_master_station(data, ctx):
     ctx.update({'ms': data.get('ms', {})})
 
-_CTX_BUILDERS['MASTER STATION']    = _ctx_master_station
-_CTX_BUILDERS['WORKSTATION SCADA'] = _ctx_master_station
-_CTX_BUILDERS['SERVER TELKOM']     = _ctx_master_station
-_CTX_BUILDERS['SERVER PROSIS']     = _ctx_master_station
-_CTX_BUILDERS['WORKSTATION PC']    = _ctx_master_station
+for _jenis in JENIS_MASTER_STATION:
+    _CTX_BUILDERS[_jenis] = _ctx_master_station
 
 _CTX_BUILDERS['ROIP'] = _ctx_roip
 

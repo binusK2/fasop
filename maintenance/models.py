@@ -1757,6 +1757,22 @@ class BeritaAcaraRecord(models.Model):
         return f'{self.kategori_display} — {self.nomor_ba or "(tanpa nomor)"}'
 
 
+# Jenis perangkat (nama DeviceType, uppercase) yang memakai form, model, halaman
+# detail, dan PDF Master Station. SATU-SATUNYA daftar: DEVICE_FORM_MAP, halaman
+# detail, ekspor PDF, dan peta template/builder di pdf_weasy membacanya dari
+# sini. Dulu daftarnya disalin di tujuh tempat, dan jenis yang terlewat di satu
+# tempat tidak memunculkan error apa pun — form-nya jatuh ke form generik, atau
+# PDF-nya keluar tanpa hasil pemeliharaan.
+JENIS_MASTER_STATION = (
+    'MASTER STATION',
+    'WORKSTATION SCADA',
+    'SERVER TELKOM',
+    'SERVER PROSIS',
+    'WORKSTATION PC',
+    'VM SCADA',
+)
+
+
 class MaintenanceMasterStation(models.Model):
 
     BERSIH_CHOICES = (('BERSIH', 'Bersih'), ('TIDAK BERSIH', 'Tidak Bersih'),)

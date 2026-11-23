@@ -1085,7 +1085,7 @@ class MaintenanceDFRForm(forms.ModelForm):
         }
 
 # ─────────────────────────────────────────────────────────────────────
-# MASTER STATION / WORKSTATION SCADA
+# MASTER STATION / WORKSTATION SCADA / VM SCADA (lihat models.JENIS_MASTER_STATION)
 # ─────────────────────────────────────────────────────────────────────
 _MS_SEL = {'class': 'form-select form-select-sm', 'style': 'display:none;'}
 _MS_TXT = forms.TextInput(attrs={'class': 'form-control form-control-sm'})

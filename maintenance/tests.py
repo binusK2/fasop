@@ -21,7 +21,7 @@ class MasterStationDetailTests(TestCase):
     """Halaman detail untuk perangkat keluarga Master Station harus terbuka."""
 
     JENIS = ('MASTER STATION', 'WORKSTATION SCADA', 'SERVER TELKOM',
-             'SERVER PROSIS', 'WORKSTATION PC')
+             'SERVER PROSIS', 'WORKSTATION PC', 'VM SCADA')
 
     def setUp(self):
         self.user = User.objects.create_superuser(username='admin', password='rahasia')
@@ -69,6 +69,175 @@ class MasterStationDetailTests(TestCase):
         m = self._buat('SERVER TELKOM', dengan_detail=False)
         resp = self.client.get(reverse('maintenance_view', args=[m.pk]))
         self.assertEqual(resp.status_code, 200)
+
+
+class KeluargaMasterStationKonsistenTests(TestCase):
+    """Setiap jenis di JENIS_MASTER_STATION harus terdaftar di SEMUA jalur.
+
+    Daftarnya dulu disalin di tujuh tempat; jenis yang terlewat di satu tempat
+    tidak memunculkan error — form-nya jatuh ke form generik, atau PDF-nya
+    keluar dengan judul umum / tanpa hasil pemeliharaan.
+    """
+
+    def test_semua_jalur_memakai_daftar_yang_sama(self):
+        from maintenance.forms import MaintenanceMasterStationForm
+        from maintenance.models import JENIS_MASTER_STATION
+        from maintenance.pdf_weasy import (_CTX_BUILDERS, _DOC_CODES,
+                                           _TEMPLATE_MAP, _TITLES,
+                                           _ctx_master_station)
+        from maintenance.views import DEVICE_FORM_MAP
+
+        for jenis in JENIS_MASTER_STATION:
+            with self.subTest(jenis=jenis):
+                self.assertEqual(jenis, jenis.upper())   # dicocokkan setelah .upper()
+                self.assertEqual(DEVICE_FORM_MAP.get(jenis),
+                                 (MaintenanceMasterStationForm,
+                                  'maintenance/master_station_form.html'))
+                self.assertEqual(_TEMPLATE_MAP.get(jenis),
+                                 'maintenance/pdf/master_station.html')
+                self.assertIs(_CTX_BUILDERS.get(jenis), _ctx_master_station)
+                self.assertEqual(_DOC_CODES.get(jenis), 'UP2B_FML_04_1002')
+                self.assertIn(jenis, _TITLES)              # bukan judul umum
+
+
+class VmScadaFormTests(TestCase):
+    """VM SCADA memakai form pemeliharaan Master Station.
+
+    Sebelumnya VM SCADA tidak terdaftar di DEVICE_FORM_MAP, sehingga tombol
+    "Tambah Preventive" membuka form generik yang hanya berisi tanggal,
+    deskripsi, dan foto — tidak ada satu pun isian hasil pemeliharaan.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_superuser(username='admin_vm', password='rahasia')
+        profil, _ = UserProfile.objects.get_or_create(user=self.user)
+        profil.role = 'asisten_manager'
+        profil.force_password_change = False
+        profil.save()
+        self.client.force_login(self.user)
+
+        host_jenis = DeviceType.objects.create(name='Master Station')
+        self.host = Device.objects.create(nama='SERVER SCADA 01', jenis=host_jenis,
+                                          merk='HP', lokasi='UP2B MAKASSAR')
+        # Nama jenis ditulis seperti di produksi ("VM SCADA"), bukan uppercase
+        # hasil olahan — yang mencocokkannya adalah .upper() di view.
+        vm_jenis = DeviceType.objects.create(name='VM SCADA')
+        self.vm = Device.objects.create(nama='VM SCADA HIS-01', jenis=vm_jenis,
+                                        host=self.host, lokasi='UP2B MAKASSAR')
+
+    def _data_post(self, **ubah):
+        data = {
+            'maintenance_type': 'Preventive',
+            'date': timezone.localtime().strftime('%Y-%m-%dT%H:%M'),
+            'description': 'HAR VM historian',
+            'status': 'Open',
+            'pelaksana_names': '["Budi"]',
+            'spek_os': 'Windows Server 2019',
+            'spek_ip': '10.20.30.40',
+            'kondisi_sebelum': 'PC/SB/TR/ON',
+            'kondisi_sesudah': 'PC/SB/TR/ON',
+            'cpu_merk': 'vCPU / 8',
+            'ram_kapasitas': '32 GB / 20 GB',
+            'storage_kapasitas': '500 GB / 310 GB',
+            'indikasi_alarm': 'TIDAK ADA',
+            'time_sync': 'OK',
+        }
+        data.update(ubah)
+        return data
+
+    def test_form_tambah_memakai_form_master_station(self):
+        resp = self.client.get(reverse('maintenance_add_device', args=[self.vm.pk]))
+        self.assertEqual(resp.status_code, 200)
+        self.assertTemplateUsed(resp, 'maintenance/master_station_form.html')
+        self.assertTemplateNotUsed(resp, 'maintenance/maintenance_form.html')
+        self.assertEqual(resp.context['detail_form'].__class__.__name__,
+                         'MaintenanceMasterStationForm')
+        self.assertContains(resp, 'Operating System')
+        self.assertContains(resp, 'Performa Peralatan')
+
+    def test_simpan_membuat_detail_master_station(self):
+        resp = self.client.post(reverse('maintenance_add_device', args=[self.vm.pk]),
+                                self._data_post())
+        self.assertEqual(resp.status_code, 302)
+
+        m = Maintenance.objects.get(device=self.vm)
+        detail = MaintenanceMasterStation.objects.get(maintenance=m)
+        self.assertEqual(detail.spek_os, 'Windows Server 2019')
+        self.assertEqual(detail.spek_ip, '10.20.30.40')
+        self.assertEqual(detail.storage_kapasitas, '500 GB / 310 GB')
+
+        # Halaman detail menampilkan seksi Master Station dengan nilainya
+        resp = self.client.get(reverse('maintenance_view', args=[m.pk]))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, 'Performa Peralatan')
+        self.assertContains(resp, '10.20.30.40')
+
+    def test_edit_memuat_nilai_lama_dan_tidak_menduplikasi(self):
+        self.client.post(reverse('maintenance_add_device', args=[self.vm.pk]),
+                         self._data_post())
+        m = Maintenance.objects.get(device=self.vm)
+
+        resp = self.client.get(reverse('maintenance_edit', args=[m.pk]))
+        self.assertEqual(resp.status_code, 200)
+        self.assertTemplateUsed(resp, 'maintenance/master_station_form.html')
+        self.assertContains(resp, 'Windows Server 2019')
+
+        resp = self.client.post(reverse('maintenance_edit', args=[m.pk]),
+                                self._data_post(spek_os='Ubuntu 22.04'))
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(MaintenanceMasterStation.objects.filter(maintenance=m).count(), 1)
+        self.assertEqual(MaintenanceMasterStation.objects.get(maintenance=m).spek_os,
+                         'Ubuntu 22.04')
+
+    def test_pemeliharaan_lama_tanpa_detail_bisa_diedit(self):
+        """HAR VM SCADA yang dicatat dengan form generik belum punya baris
+        detail; membuka & menyimpannya kini melengkapinya, bukan error."""
+        m = Maintenance.objects.create(device=self.vm, maintenance_type='Preventive',
+                                       date=timezone.now(), description='HAR lama')
+        self.assertEqual(self.client.get(reverse('maintenance_view', args=[m.pk])).status_code, 200)
+        resp = self.client.post(reverse('maintenance_edit', args=[m.pk]), self._data_post())
+        self.assertEqual(resp.status_code, 302)
+        self.assertTrue(MaintenanceMasterStation.objects.filter(maintenance=m).exists())
+
+    def _data_ekspor(self, maintenance):
+        from unittest.mock import patch
+
+        rekam = {}
+
+        def _rekam(data, output):
+            rekam.update(data)
+            output.write(b'%PDF-1.4 dummy')
+
+        with patch('maintenance.pdf_weasy.build_pdf_weasy', _rekam):
+            resp = self.client.get(reverse('export_maintenance_pdf', args=[maintenance.pk]))
+        self.assertEqual(resp.status_code, 200)
+        return rekam
+
+    def test_pdf_memuat_hasil_pemeliharaan(self):
+        from django.template.loader import render_to_string
+
+        from maintenance.pdf_weasy import _CTX_BUILDERS, _TEMPLATE_MAP, _base_context
+
+        self.client.post(reverse('maintenance_add_device', args=[self.vm.pk]),
+                         self._data_post())
+        m = Maintenance.objects.get(device=self.vm)
+        data = self._data_ekspor(m)
+        self.assertEqual(data['device_kind'], 'VM SCADA')
+        self.assertEqual(data['ms'].get('spek_os'), 'Windows Server 2019')
+
+        ctx = _base_context(data)
+        _CTX_BUILDERS['VM SCADA'](data, ctx)
+        self.assertEqual(ctx['title'], 'Formulir Pemeliharaan VM SCADA')
+        html = render_to_string(_TEMPLATE_MAP['VM SCADA'], ctx)
+        for nilai in ('Windows Server 2019', '10.20.30.40', 'vCPU / 8', '500 GB / 310 GB'):
+            self.assertIn(nilai, html)
+
+    def test_pdf_tetap_jalan_tanpa_detail(self):
+        m = Maintenance.objects.create(device=self.vm, maintenance_type='Preventive',
+                                       date=timezone.now(), description='HAR lama')
+        data = self._data_ekspor(m)
+        self.assertEqual(data.get('ms'), {})
+
 
 class DetailInstanceLookupTests(TestCase):
     """Form edit harus memuat kembali baris detail yang sudah tersimpan.
