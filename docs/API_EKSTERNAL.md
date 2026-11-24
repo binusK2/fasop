@@ -28,7 +28,7 @@ kunci per konsumen. Perlakukan seperti password:
 
 Satu kunci **tidak otomatis membuka semua data**. Tiap kunci diberi izin per
 jenis data (Beban KTT, Beban pembangkit, Beban trafo, Frekuensi sistem,
-Logsheet pembebanan), dan admin FASOP juga bisa menutup satu jenis data sekaligus untuk
+Logsheet pembebanan, Inventaris aset, Lokasi, Riwayat pemeliharaan, dst.), dan admin FASOP juga bisa menutup satu jenis data sekaligus untuk
 semua konsumen. Jadi data yang belum Anda minta akan dibalas `403`, dan
 penambahan data baru di FASOP tidak diam-diam ikut terkirim ke Anda.
 
@@ -456,7 +456,238 @@ Pencarian peralatan. Wajib mengisi `q` atau `lokasi`.
 
 ---
 
-## 12. Seberapa sering boleh ditarik
+## 12. Menyalin inventaris & riwayat pemeliharaan (Fasop Induk)
+
+Empat endpoint di bawah dibuat untuk aplikasi yang **menyalin seluruh isinya**
+ke database sendiri secara berkala (konsumen pertamanya Fasop Induk, dashboard
+UIP3B). Bedanya dengan `fasop/peralatan/` dan `fasop/pemeliharaan/` (dibuat
+untuk bot WhatsApp):
+
+- **Setiap baris punya `id`** — string hashid yang sama dengan id di URL
+  FASOP (mis. `YgAzAD`). Pakai sebagai kunci upsert. Id ini stabil selama
+  `SECRET_KEY` server FASOP tidak diganti; kalau diganti, semua id berubah dan
+  salinan harus ditarik ulang dari kosong.
+- **Semua daftar berhalaman dan diurutkan dari baris tertua** (urut pk), jadi
+  menarik halaman 1 sampai `halaman_berikutnya` bernilai `null` selalu
+  menghasilkan seluruh data.
+- **Izin datanya terpisah**: `aset`, `lokasi`, `riwayat_pemeliharaan`. Kunci
+  yang memegang izin `peralatan`/`pemeliharaan` (bot) tidak otomatis bisa
+  membacanya.
+
+### Halaman
+
+| Parameter | Bawaan | Batas |
+|---|---|---|
+| `halaman` | `1` | mulai dari 1 |
+| `per_halaman` | `100` | maks `200` — lebih dari itu **ditolak** `400`, bukan dipotong |
+
+Setiap balasan berhalaman membawa:
+
+```json
+{ "halaman": 1, "per_halaman": 100, "jumlah": 1834,
+  "jumlah_halaman": 19, "halaman_berikutnya": 2 }
+```
+
+Halaman yang melewati ujung dibalas `200` dengan daftar kosong, bukan `404`.
+
+### Cara menyalin yang disarankan
+
+FASOP **belum punya penanda "diubah sejak"** di data aset maupun pemeliharaan,
+jadi salinan dilakukan **penuh**: tarik semua halaman, upsert per `id`, lalu
+hapus di sisi Anda baris yang **tidak muncul lagi** — itulah satu-satunya cara
+penghapusan (soft-delete di FASOP) sampai ke salinan. Lakukan penghapusan hanya
+kalau semua halaman berhasil ditarik dan jumlahnya sama dengan `jumlah`; kalau
+satu halaman gagal, lewati penghapusan putaran itu.
+
+Peralatan yang dihapus di FASOP tidak muncul, dan pemeliharaan miliknya juga
+tidak — setiap pemeliharaan selalu menunjuk aset yang ada di `fasop/aset/`.
+
+---
+
+## 13. `GET /api/v1/fasop/aset/` dan `/api/v1/fasop/aset/<id>/`
+
+Izin data: **`aset`**.
+
+| Parameter | Arti |
+|---|---|
+| `halaman`, `per_halaman` | lihat bagian 12 |
+| `lokasi` | nama lokasi persis (huruf besar/kecil bebas), mis. `GI TELLO` |
+| `jenis` | nama jenis persis, mis. `RTU` |
+| `status_aset` | `UP2B`, `IPP`, atau `BELUM_STAP` |
+| `hi` | `0` = lewati Health Index (jauh lebih cepat) |
+
+```json
+{
+  "status": "ok", "dataset": "aset", "waktu": "2026-11-24T15:00:00+08:00",
+  "halaman": 1, "per_halaman": 100, "jumlah": 1834, "jumlah_halaman": 19,
+  "halaman_berikutnya": 2,
+  "aset": [
+    {
+      "id": "YgAzAD", "nama": "RTU-01", "asset_id": "100200",
+      "status_aset": "UP2B", "status_aset_label": "UP2B",
+      "jenis": "RTU", "merk": "SEL", "tipe": "3530",
+      "serial_number": "SN-01", "firmware_version": null, "ip_address": "10.1.2.3",
+      "lokasi": "GI TELLO", "lokasi_id": "k5Dz8a", "branch": "UP2B",
+      "ultg": ["ULTG Makassar"],
+      "status_operasi": "operasi", "status_operasi_label": "Operasi",
+      "tahun_operasi": 2015, "umur_tahun": 11,
+      "host": null,
+      "keterangan": null, "spesifikasi": { "jumlah_di": 64 },
+      "foto": ["/media/device_photos/RTU-01_RTU_20250101_080000.jpg"],
+      "dibuat_pada": "2025-01-01T08:00:00+08:00",
+      "health_index": 78, "kategori_hi": "Baik"
+    }
+  ]
+}
+```
+
+- `asset_id` adalah nomor aset (isian FASOP), **bukan** `id`. Bisa kosong.
+- `status_aset`: hanya `UP2B` yang dihitung sebagai jumlah aset di FASOP.
+- `branch`/`ultg` diambil dari master lokasi. Lokasi yang tidak punya master
+  (lihat `lokasi_tanpa_master` di bagian 14) bernilai `null`/`[]`.
+- `host` diisi untuk VM: `{ "id": ..., "nama": ... }` server fisiknya.
+- `foto` berupa path relatif — gabungkan dengan domain FASOP.
+- Health Index **dihitung saat diminta**, sama dengan halaman Health Index
+  FASOP (sekitar 17 query per peralatan). Untuk salinan yang sering, tarik
+  dengan `hi=0` dan perbarui HI cukup sekali sehari.
+
+**`/api/v1/fasop/aset/<id>/`** — satu peralatan selengkapnya: semua field di
+atas, ditambah
+
+| Field | Isi |
+|---|---|
+| `rincian_hi` | tiap faktor HI: `faktor`, `nilai`, `keterangan`, `deduksi`, `maks`, `status` |
+| `jumlah_pemeliharaan`, `jumlah_gangguan` | dari perhitungan HI |
+| `komponen` | komponen terpasang (modul/kartu/PSU), semua kolomnya |
+| `riwayat_kejadian` | penggantian komponen, relokasi, pembongkaran, dsb. |
+| `eviden` | foto eviden tambahan: `foto`, `keterangan`, `diunggah_pada` |
+| `vm` | VM di dalam server ini: `[{ "id", "nama" }]` |
+| `pemeliharaan` | `[{ "id", "tanggal", "tipe", "status" }]`, terbaru dulu |
+| `gambar_wiring` | path gambar wiring diagram, atau `null` |
+
+Kolom relasi di `komponen`/`riwayat_kejadian` berbentuk
+`{ "id": ..., "label": ... }`. Arti tiap kolomnya ada di `skema.komponen` dan
+`skema.riwayat_kejadian` (bentuknya sama dengan `skema_hasil` di bagian 15).
+Peralatan yang tidak ada atau sudah dihapus dibalas `404`.
+
+Yang **tidak pernah** dikirim: token halaman publik QR (itu kunci akses, bukan
+data) dan data mentah editor wiring diagram.
+
+---
+
+## 14. `GET /api/v1/fasop/lokasi/`
+
+Izin data: **`lokasi`**. Tanpa halaman.
+
+```json
+{
+  "status": "ok", "dataset": "lokasi",
+  "lokasi": [
+    { "id": "k5Dz8a", "nama": "GI TELLO", "branch": "UP2B", "branch_id": "Qb7x2m",
+      "ultg": ["ULTG Makassar"], "latitude": -5.1, "longitude": 119.4,
+      "keterangan": null, "jumlah_aset": 42 }
+  ],
+  "branch": [
+    { "id": "Qb7x2m", "nama": "UP2B", "kode": "UP2B", "keterangan": null, "jumlah_lokasi": 31 }
+  ],
+  "ultg": [
+    { "id": "Ma9kq1", "nama": "ULTG Makassar", "keterangan": null,
+      "lokasi": ["GI BONTOALA", "GI TELLO"] }
+  ],
+  "lokasi_tanpa_master": [ { "lokasi": "GI ANTAH", "jumlah_aset": 1 } ]
+}
+```
+
+- Lokasi peralatan di FASOP berupa teks yang harus **sama persis** dengan nama
+  master lokasi. `lokasi_tanpa_master` menyebut teks lokasi peralatan yang
+  tidak cocok dengan master mana pun — aset di sana tidak punya branch/ULTG.
+- Satu lokasi bisa dibawahi lebih dari satu ULTG, karena itu `ultg` berupa list.
+
+---
+
+## 15. `GET /api/v1/fasop/pemeliharaan/riwayat/` dan `/api/v1/fasop/pemeliharaan/<id>/`
+
+Izin data: **`riwayat_pemeliharaan`**. Semua pemeliharaan, **Open maupun
+Done**.
+
+| Parameter | Arti |
+|---|---|
+| `halaman`, `per_halaman` | lihat bagian 12 |
+| `dari`, `sampai` | tanggal pemeliharaan `YYYY-MM-DD`, keduanya **inklusif** |
+| `tipe` | `Preventive` atau `Corrective` (huruf besar/kecil bebas) |
+| `status` | `Open` atau `Done` |
+| `lokasi` | lokasi peralatan, persis |
+| `jenis` | jenis peralatan, persis |
+| `aset` | `id` satu peralatan |
+| `detail` | `1` = sertakan hasil pengukuran + skemanya |
+
+Nilai penyaring yang tidak dikenal (mis. `tipe=preventif`) **ditolak** `400`,
+bukan diabaikan.
+
+```json
+{
+  "status": "ok", "dataset": "riwayat_pemeliharaan",
+  "halaman": 1, "per_halaman": 100, "jumlah": 5210, "jumlah_halaman": 53,
+  "halaman_berikutnya": 2,
+  "pemeliharaan": [
+    {
+      "id": "p3LxZa",
+      "peralatan": { "id": "YgAzAD", "nama": "RECT-01", "asset_id": null,
+                     "jenis": "Rectifier", "lokasi": "GI TELLO" },
+      "tipe": "Preventive", "status": "Done",
+      "tanggal": "2026-09-05T08:00:00+08:00",
+      "deskripsi": "HAR rutin",
+      "pelaksana": ["Budi", "Citra"],
+      "ttd": { "sudah": true, "oleh": "Andi Teknisi", "pada": "2026-09-06T08:00:00+08:00" },
+      "catatan_am": "OK",
+      "foto": null,
+      "dibuat_pada": "2026-09-05T09:12:44+08:00",
+      "hasil_pengukuran": [
+        { "tabel": "rectifier",
+          "data": { "suhu_ruangan": 24.5, "rect1_kondisi": "OK",
+                    "bat1_cells": [ { "cell": 1, "v_float": 2.13 } ], "...": "..." } }
+      ]
+    }
+  ],
+  "skema_hasil": {
+    "rectifier": {
+      "nama": "Maintenance Rectifier & Battery",
+      "kolom": [
+        { "nama": "suhu_ruangan", "label": "Suhu Ruangan (°C)", "tipe": "desimal" },
+        { "nama": "rect1_kondisi", "label": "rect1 kondisi", "tipe": "teks",
+          "pilihan": { "OK": "OK", "NOK": "NOK" } }
+      ]
+    }
+  }
+}
+```
+
+- `hasil_pengukuran` dan `skema_hasil` hanya ada dengan `detail=1`.
+- `hasil_pengukuran` berupa **list**: biasanya satu tabel, tapi pemeliharaan
+  Corrective bisa membawa tabel `corrective` (jenis kerusakan, tindakan,
+  komponen diganti, durasi) **dan** tabel jenis peralatannya.
+- `data` berisi **semua kolom** tabel hasil itu apa adanya, termasuk JSON per
+  sel baterai dan modul. Kodenya: `plc`, `router`, `radio`, `repeater`, `voip`,
+  `mux`, `rectifier`, `corrective`, `teleproteksi`, `genset`, `rtu`, `sas`,
+  `rtugeneric`, `bcu`, `frequencyrelay`, `roip`, `ups`, `mastertrip`, `dfr`,
+  `masterstation`. Tabel baru di FASOP otomatis ikut dengan kodenya sendiri.
+- `skema_hasil` hanya memuat tabel yang muncul di halaman itu. Tiap kolom:
+  `label` (teks di layar FASOP), `tipe` (`teks`, `desimal`, `bulat`,
+  `boolean`, `tanggal`, `waktu`, `jam`, `json`, `berkas`, `relasi`), dan
+  `pilihan` bila isiannya dari daftar — memetakan nilai tersimpan ke teks yang
+  tampil.
+- Kolom `berkas` (foto sebelum/sesudah) berisi path relatif; kolom `relasi`
+  berisi `{ "id", "label" }`.
+- `pelaksana`: akun FASOP yang dicentang; kalau tidak ada, nama yang diketik
+  bebas — aturan yang sama dengan ekspor Excel FASOP.
+
+**`/api/v1/fasop/pemeliharaan/<id>/`** — satu pemeliharaan dengan
+`hasil_pengukuran` dan `skema_hasil` selalu disertakan. Yang tidak ada atau
+sudah dihapus dibalas `404`.
+
+---
+
+## 16. Seberapa sering boleh ditarik
 
 Angkanya diperbarui di sisi FASOP setiap beberapa detik. **Tarik paling cepat
 sekali per menit** — lebih sering dari itu tidak menambah informasi, hanya
@@ -464,9 +695,13 @@ menambah beban ke historian SCADA yang dipakai bersama ruang kontrol.
 
 Kalau butuh yang lebih cepat dari itu, bicarakan dulu dengan tim FASOP.
 
+Inventaris dan riwayat pemeliharaan (bagian 12–15) berubah dalam hitungan jam,
+bukan detik: **salin paling sering sekali per jam**, dan Health Index cukup
+sekali sehari (tarik `fasop/aset/` dengan `hi=0` di putaran lainnya).
+
 ---
 
-## 13. Contoh — Google Apps Script
+## 17. Contoh — Google Apps Script
 
 ```javascript
 const FASOP_URL = 'https://<domain-fasop>/api/v1/opsis/beban-ktt/';
@@ -513,7 +748,7 @@ sebaiknya dihentikan setelah beralih ke kunci API:
 
 ---
 
-## 14. Kalau ada masalah
+## 18. Kalau ada masalah
 
 Sebutkan ke tim FASOP: **nama konsumen di kunci Anda**, jam kejadian, dan kode
 HTTP yang diterima. Pemakaian tiap kunci (kapan terakhir dipakai, dari IP mana)

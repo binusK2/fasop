@@ -35,6 +35,15 @@ def _hdr(k):
     return {'x-api-key': k.kunci}
 
 
+def _isi_id(path):
+    """Path registry berpola `<id>` (endpoint detail) → path yang bisa dibuka.
+
+    Id-nya sengaja tidak ada di database: yang diuji di sini penjaga izinnya,
+    jadi 404 "tidak ditemukan" sudah membuktikan permintaan lolos dekorator."""
+    from fasop.hashids_helper import encode
+    return path.replace('<id>', encode(987654))
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 #  Registry & sakelar admin
 # ═══════════════════════════════════════════════════════════════════════════
@@ -50,7 +59,7 @@ class RegistryDatasetTest(TestCase):
         for entri in registry.SEMUA:
             for path in entri['endpoint']:
                 with self.subTest(kode=entri['kode'], path=path):
-                    self.assertTrue(resolve(path), path)
+                    self.assertTrue(resolve(_isi_id(path)), path)
 
     def test_setiap_endpoint_dijaga_kode_data_yang_terdaftar(self):
         """
@@ -66,7 +75,7 @@ class RegistryDatasetTest(TestCase):
         for entri in registry.SEMUA:
             for path in entri['endpoint']:
                 with self.subTest(path=path):
-                    r = self.client.get(path, headers=_hdr(k))
+                    r = self.client.get(_isi_id(path), headers=_hdr(k))
                     self.assertNotEqual(
                         r.status_code, 403,
                         f'{path} menolak kunci yang sudah diberi SEMUA izin — '
@@ -504,7 +513,8 @@ class UrlTerdaftarTest(TestCase):
         for nama in ('opsis_beban_ktt', 'opsis_beban_pembangkit',
                      'opsis_beban_pembangkit_riwayat', 'opsis_frekuensi',
                      'logsheet_pembebanan', 'fasop_status_monitor',
-                     'fasop_pemeliharaan', 'fasop_peralatan'):
+                     'fasop_pemeliharaan', 'fasop_peralatan', 'fasop_aset',
+                     'fasop_lokasi', 'fasop_pemeliharaan_riwayat'):
             with self.subTest(nama=nama):
                 try:
                     reverse(f'api:{nama}')
@@ -931,3 +941,312 @@ class PeralatanEndpointTest(TestCase):
         self.assertIsNotNone(p['health_index'])
         p = self._get(q='RTU-01', hi='0').json()['peralatan'][0]
         self.assertNotIn('health_index', p)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Inventaris aset, lokasi & riwayat pemeliharaan (untuk disalin Fasop Induk)
+# ═══════════════════════════════════════════════════════════════════════════
+def _dt(th, bl, hr, jam=8):
+    return timezone.make_aware(datetime.datetime(th, bl, hr, jam, 0))
+
+
+class _DataAset:
+    """Fixture bersama: dua GI ber-master, satu lokasi tanpa master."""
+
+    def _isi(self):
+        from django.contrib.auth.models import User
+        from devices.models import Branch, Device, DeviceEvent, DeviceType, SiteLocation, ULTG
+        from devices.models_komponen import DeviceComponent
+
+        br = Branch.objects.create(nama='UP2B', kode='UP2B')
+        tello = SiteLocation.objects.create(nama='GI TELLO', branch=br,
+                                            latitude=-5.1, longitude=119.4)
+        SiteLocation.objects.create(nama='GI BONE')
+        ultg = ULTG.objects.create(nama='ULTG Makassar')
+        ultg.lokasi.add(tello)
+
+        self.rtu = DeviceType.objects.create(name='RTU')
+        self.rect = DeviceType.objects.create(name='Rectifier')
+        self.user = User.objects.create_user('teknisi1', first_name='Andi', last_name='Teknisi')
+
+        self.d1 = Device.objects.create(
+            nama='RTU-01', jenis=self.rtu, merk='SEL', type='3530', lokasi='GI TELLO',
+            asset_id='100200', status_aset='UP2B', ip_address='10.1.2.3',
+            serial_number='SN-01', tahun_operasi=2015, spesifikasi={'jumlah_di': 64})
+        self.d2 = Device.objects.create(nama='RECT-01', jenis=self.rect, merk='Benning',
+                                        lokasi='gi tello', status_aset='IPP')
+        self.vm = Device.objects.create(nama='VM-SCADA', jenis=self.rtu, merk='VMware',
+                                        lokasi='GI BONE', host=self.d1)
+        self.d_tanpa_master = Device.objects.create(nama='PLC-X', jenis=self.rtu, merk='ABB',
+                                                    lokasi='GI ANTAH')
+        self.d_hapus = Device.objects.create(nama='RTU-HAPUS', jenis=self.rtu, merk='SEL',
+                                             lokasi='GI TELLO', is_deleted=True)
+
+        DeviceComponent.objects.create(device=self.d1, nama='CPU', posisi='Slot 1', merk='SEL')
+        DeviceEvent.objects.create(device=self.d1, tipe=DeviceEvent.TIPE_CHOICES[0][0],
+                                   tanggal=datetime.date(2026, 3, 1), komponen='PSU',
+                                   dilakukan_oleh=self.user)
+
+
+class AsetEndpointTest(_DataAset, TestCase):
+
+    def setUp(self):
+        self._isi()
+        self.kunci = _kunci('Fasop Induk', 'aset')
+
+    def _get(self, **params):
+        return self.client.get(reverse('api:fasop_aset'), params, headers=_hdr(self.kunci))
+
+    def test_berhalaman_urut_pk_dan_tanpa_yang_dihapus(self):
+        from fasop.hashids_helper import decode
+        d1 = self._get(per_halaman=3, hi='0').json()
+        self.assertEqual((d1['jumlah'], d1['jumlah_halaman'], d1['halaman_berikutnya']),
+                         (4, 2, 2))
+        d2 = self._get(per_halaman=3, halaman=2, hi='0').json()
+        self.assertIsNone(d2['halaman_berikutnya'])
+        pk = [decode(a['id']) for a in d1['aset'] + d2['aset']]
+        self.assertEqual(pk, sorted(pk))
+        self.assertNotIn(self.d_hapus.pk, pk)
+        self.assertEqual(len(pk), 4)
+
+    def test_halaman_lewat_ujung_kosong_bukan_404(self):
+        d = self._get(halaman=99, hi='0').json()
+        self.assertEqual(d['aset'], [])
+        self.assertIsNone(d['halaman_berikutnya'])
+
+    def test_isi_baris_aset(self):
+        a = {x['nama']: x for x in self._get().json()['aset']}
+        r = a['RTU-01']
+        self.assertEqual(r['asset_id'], '100200')
+        self.assertEqual(r['status_aset_label'], 'UP2B')
+        self.assertEqual(r['serial_number'], 'SN-01')
+        self.assertEqual(r['ip_address'], '10.1.2.3')
+        self.assertEqual(r['branch'], 'UP2B')
+        self.assertEqual(r['ultg'], ['ULTG Makassar'])
+        self.assertEqual(r['spesifikasi'], {'jumlah_di': 64})
+        self.assertEqual(r['umur_tahun'], timezone.localdate().year - 2015)
+        self.assertEqual(r['status_operasi'], 'operasi')
+        self.assertIsNotNone(r['health_index'])
+        # VM menunjuk server fisiknya dengan id yang sama dengan daftar.
+        self.assertEqual(a['VM-SCADA']['host'], {'id': r['id'], 'nama': 'RTU-01'})
+        # Lokasi tanpa master: tidak punya branch/ULTG, tapi asetnya tetap ada.
+        self.assertIsNone(a['PLC-X']['branch'])
+        self.assertEqual(a['PLC-X']['ultg'], [])
+
+    def test_token_qr_tidak_pernah_dikirim(self):
+        """public_token membuka halaman publik QR tanpa login — itu kunci."""
+        teks = self._get(hi='0').content.decode()
+        self.assertNotIn(self.d1.public_token, teks)
+
+    def test_hi_bisa_dilewati(self):
+        r = self._get(hi='0').json()['aset'][0]
+        self.assertNotIn('health_index', r)
+
+    def test_penyaring(self):
+        d = self._get(lokasi='GI TELLO', hi='0').json()
+        self.assertEqual({a['nama'] for a in d['aset']}, {'RTU-01', 'RECT-01'})
+        d = self._get(jenis='rectifier', hi='0').json()
+        self.assertEqual([a['nama'] for a in d['aset']], ['RECT-01'])
+        d = self._get(status_aset='ipp', hi='0').json()
+        self.assertEqual([a['nama'] for a in d['aset']], ['RECT-01'])
+
+    def test_parameter_halaman_salah_ditolak(self):
+        self.assertEqual(self._get(per_halaman=201).status_code, 400)
+        self.assertEqual(self._get(halaman='abc').status_code, 400)
+        self.assertEqual(self._get(halaman=0).status_code, 400)
+
+    def test_kunci_bot_tidak_ikut_membaca_aset(self):
+        """Kunci yang memegang `peralatan` (bot WA) tidak otomatis boleh
+        membaca inventaris lengkap — itulah alasan kodenya dipisah."""
+        bot = _kunci('Bot WA', 'peralatan', 'pemeliharaan')
+        r = self.client.get(reverse('api:fasop_aset'), headers=_hdr(bot))
+        self.assertEqual(r.status_code, 403)
+
+    def test_detail_aset(self):
+        from fasop.hashids_helper import encode
+        from maintenance.models import Maintenance
+        m = Maintenance.objects.create(device=self.d1, maintenance_type='Preventive',
+                                       status='Done', date=_dt(2026, 9, 1))
+        url = reverse('api:fasop_aset_detail', args=[self.d1.pk])
+        d = self.client.get(url, headers=_hdr(self.kunci)).json()
+        a = d['aset']
+        self.assertEqual(a['id'], encode(self.d1.pk))
+        self.assertTrue(a['rincian_hi'])
+        self.assertEqual([k['nama'] for k in a['komponen']], ['CPU'])
+        ev = a['riwayat_kejadian'][0]
+        self.assertEqual(ev['komponen'], 'PSU')
+        self.assertEqual(ev['dilakukan_oleh']['label'], 'Andi Teknisi')
+        self.assertEqual(a['vm'], [{'id': encode(self.vm.pk), 'nama': 'VM-SCADA'}])
+        self.assertEqual([p['id'] for p in a['pemeliharaan']], [encode(m.pk)])
+        self.assertIn('riwayat_kejadian', d['skema'])
+        self.assertNotIn(self.d1.public_token, str(d))
+
+    def test_detail_aset_terhapus_404(self):
+        url = reverse('api:fasop_aset_detail', args=[self.d_hapus.pk])
+        self.assertEqual(self.client.get(url, headers=_hdr(self.kunci)).status_code, 404)
+
+
+class LokasiEndpointTest(_DataAset, TestCase):
+
+    def setUp(self):
+        self._isi()
+        self.kunci = _kunci('Fasop Induk', 'lokasi')
+
+    def test_lokasi_branch_ultg(self):
+        d = self.client.get(reverse('api:fasop_lokasi'), headers=_hdr(self.kunci)).json()
+        lok = {x['nama']: x for x in d['lokasi']}
+        self.assertEqual(lok['GI TELLO']['branch'], 'UP2B')
+        self.assertEqual(lok['GI TELLO']['ultg'], ['ULTG Makassar'])
+        self.assertEqual(lok['GI TELLO']['latitude'], -5.1)
+        # RTU-01 tercatat 'GI TELLO'; RECT-01 'gi tello' tidak cocok persis
+        # dengan master, jadi dihitung terpisah — sama seperti peta di FASOP.
+        self.assertEqual(lok['GI TELLO']['jumlah_aset'], 1)
+        self.assertEqual(lok['GI BONE']['jumlah_aset'], 1)
+        self.assertEqual(d['branch'][0]['jumlah_lokasi'], 1)
+        self.assertEqual(d['ultg'][0]['lokasi'], ['GI TELLO'])
+        tanpa = {x['lokasi']: x['jumlah_aset'] for x in d['lokasi_tanpa_master']}
+        self.assertEqual(tanpa, {'GI ANTAH': 1, 'gi tello': 1})
+
+
+class RiwayatPemeliharaanTest(_DataAset, TestCase):
+
+    def setUp(self):
+        from maintenance.models import Maintenance, MaintenanceCorrective, MaintenanceRectifier
+
+        self._isi()
+        self.kunci = _kunci('Fasop Induk', 'riwayat_pemeliharaan')
+
+        self.m_done = Maintenance.objects.create(
+            device=self.d2, maintenance_type='Preventive', status='Done',
+            date=_dt(2026, 9, 5), description='HAR rutin', catatan_am='OK',
+            pelaksana_names=['Budi', 'Citra'], signed_by=self.user, signed_at=_dt(2026, 9, 6))
+        MaintenanceRectifier.objects.create(
+            maintenance=self.m_done, suhu_ruangan=24.5, rect1_kondisi='OK',
+            bat1_cells=[{'cell': 1, 'v_float': 2.13}])
+
+        self.m_cm = Maintenance.objects.create(
+            device=self.d1, maintenance_type='Corrective', status='Open', date=_dt(2026, 9, 30, 23))
+        self.m_cm.technicians.add(self.user)
+        MaintenanceCorrective.objects.create(
+            maintenance=self.m_cm, jenis_kerusakan='power',
+            deskripsi_masalah='PSU mati', tindakan='Ganti PSU')
+
+        Maintenance.objects.create(device=self.d1, maintenance_type='Preventive',
+                                   status='Open', date=_dt(2026, 10, 1))
+        # Dua yang tidak boleh ikut: soft-delete, dan milik peralatan terhapus.
+        self.m_hapus = Maintenance.objects.create(
+            device=self.d1, maintenance_type='Preventive', status='Done',
+            date=_dt(2026, 9, 7), is_deleted=True)
+        Maintenance.objects.create(device=self.d_hapus, maintenance_type='Preventive',
+                                   status='Done', date=_dt(2026, 9, 8))
+
+    def _get(self, **params):
+        return self.client.get(reverse('api:fasop_pemeliharaan_riwayat'), params,
+                               headers=_hdr(self.kunci))
+
+    def test_open_dan_done_tanpa_yang_dihapus(self):
+        d = self._get().json()
+        self.assertEqual(d['jumlah'], 3)
+        self.assertEqual({p['status'] for p in d['pemeliharaan']}, {'Open', 'Done'})
+        self.assertNotIn('hasil_pengukuran', d['pemeliharaan'][0])
+
+    def test_isi_baris(self):
+        from fasop.hashids_helper import encode
+        p = {x['id']: x for x in self._get().json()['pemeliharaan']}
+        done = p[encode(self.m_done.pk)]
+        self.assertEqual(done['peralatan']['id'], encode(self.d2.pk))
+        self.assertEqual(done['pelaksana'], ['Budi', 'Citra'])
+        self.assertEqual(done['ttd']['oleh'], 'Andi Teknisi')
+        self.assertTrue(done['ttd']['sudah'])
+        self.assertEqual(done['catatan_am'], 'OK')
+        # Akun yang dicentang mengalahkan nama bebas — aturan ekspor Excel.
+        self.assertEqual(p[encode(self.m_cm.pk)]['pelaksana'], ['Andi Teknisi'])
+
+    def test_rentang_tanggal_inklusif(self):
+        d = self._get(dari='2026-09-01', sampai='2026-09-30').json()
+        # 30 Sep 23:00 tetap masuk "sampai 2026-09-30".
+        self.assertEqual(d['jumlah'], 2)
+        self.assertEqual(self._get(dari='2026-10-01').json()['jumlah'], 1)
+
+    def test_penyaring_tipe_status_aset(self):
+        from fasop.hashids_helper import encode
+        self.assertEqual(self._get(tipe='corrective').json()['jumlah'], 1)
+        self.assertEqual(self._get(status='DONE').json()['jumlah'], 1)
+        self.assertEqual(self._get(aset=encode(self.d1.pk)).json()['jumlah'], 2)
+        self.assertEqual(self._get(jenis='rectifier').json()['jumlah'], 1)
+
+    def test_penyaring_salah_ditolak_bukan_diabaikan(self):
+        self.assertEqual(self._get(tipe='preventif').status_code, 400)
+        self.assertEqual(self._get(status='selesai').status_code, 400)
+        self.assertEqual(self._get(dari='01-09-2026').status_code, 400)
+        self.assertEqual(self._get(aset='!!').status_code, 400)
+
+    def test_detail_inline_dengan_skema(self):
+        from fasop.hashids_helper import encode
+        d = self._get(detail='1').json()
+        p = {x['id']: x for x in d['pemeliharaan']}
+        hasil = p[encode(self.m_done.pk)]['hasil_pengukuran']
+        self.assertEqual([h['tabel'] for h in hasil], ['rectifier'])
+        self.assertEqual(hasil[0]['data']['suhu_ruangan'], 24.5)
+        self.assertEqual(hasil[0]['data']['bat1_cells'], [{'cell': 1, 'v_float': 2.13}])
+        self.assertNotIn('maintenance', hasil[0]['data'])
+        cm = p[encode(self.m_cm.pk)]['hasil_pengukuran'][0]
+        self.assertEqual(cm['tabel'], 'corrective')
+        self.assertEqual(cm['data']['tindakan'], 'Ganti PSU')
+        # Skema hanya untuk tabel yang muncul, dengan label & pilihan.
+        self.assertEqual(set(d['skema_hasil']), {'rectifier', 'corrective'})
+        kolom = {k['nama']: k for k in d['skema_hasil']['rectifier']['kolom']}
+        self.assertEqual(kolom['suhu_ruangan']['label'], 'Suhu Ruangan (°C)')
+        self.assertEqual(kolom['suhu_ruangan']['tipe'], 'desimal')
+        self.assertEqual(kolom['rect1_kondisi']['pilihan'], {'OK': 'OK', 'NOK': 'NOK'})
+        pil = {k['nama']: k for k in d['skema_hasil']['corrective']['kolom']}
+        self.assertEqual(pil['jenis_kerusakan']['pilihan']['power'], 'Power / Catu Daya')
+
+    def test_detail_satu_pemeliharaan(self):
+        url = reverse('api:fasop_pemeliharaan_detail', args=[self.m_done.pk])
+        d = self.client.get(url, headers=_hdr(self.kunci)).json()
+        self.assertEqual(d['pemeliharaan']['hasil_pengukuran'][0]['tabel'], 'rectifier')
+        self.assertIn('rectifier', d['skema_hasil'])
+
+    def test_detail_yang_dihapus_404(self):
+        url = reverse('api:fasop_pemeliharaan_detail', args=[self.m_hapus.pk])
+        self.assertEqual(self.client.get(url, headers=_hdr(self.kunci)).status_code, 404)
+
+    def test_rute_riwayat_tidak_tertelan_pola_hashid(self):
+        """Regex hashid [a-zA-Z0-9]+ juga cocok dengan "riwayat"."""
+        self.assertEqual(resolve('/api/v1/fasop/pemeliharaan/riwayat/').url_name,
+                         'fasop_pemeliharaan_riwayat')
+
+    def test_kunci_bot_pemeliharaan_tidak_ikut_membaca_riwayat(self):
+        bot = _kunci('Bot WA', 'pemeliharaan')
+        self.assertEqual(self.client.get(reverse('api:fasop_pemeliharaan_riwayat'),
+                                         headers=_hdr(bot)).status_code, 403)
+
+
+class TabelHasilPengukuranTest(TestCase):
+    """
+    Hasil pengukuran dibaca generik dari relasi OneToOne `Maintenance`, bukan
+    dipetakan tangan — tes ini memastikan semua tabel benar-benar tercakup dan
+    setiap tipe kolomnya bisa dijadikan JSON.
+    """
+
+    def test_semua_tabel_detail_tercakup(self):
+        from api.inventaris import tabel_detail
+        from maintenance.models import Maintenance
+        kode = dict(tabel_detail())
+        harus = {r.related_model for r in Maintenance._meta.related_objects
+                 if r.one_to_one and r.related_model.__name__.startswith('Maintenance')}
+        self.assertEqual(set(kode.values()), harus)
+        self.assertGreaterEqual(len(kode), 20)
+        self.assertIn('masterstation', kode)
+        self.assertIn('corrective', kode)
+        self.assertNotIn('formoffline', kode)     # berkas form, bukan hasil ukur
+
+    def test_setiap_tabel_bisa_diserialisasi(self):
+        import json
+        from django.core.serializers.json import DjangoJSONEncoder
+        from api.inventaris import baris, skema_tabel, tabel_detail
+        for kode, M in tabel_detail():
+            with self.subTest(tabel=kode):
+                json.dumps(baris(M(), kecuali=('maintenance',)), cls=DjangoJSONEncoder)
+        json.dumps(skema_tabel(), cls=DjangoJSONEncoder)

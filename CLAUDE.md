@@ -2334,6 +2334,9 @@ Yang perlu diketahui saat mengubahnya:
 | `GET /api/v1/fasop/status-monitor/` | `status_monitor` | `device_mon.RTU` + `ZabbixHost` (`state_class()` yang sama dengan dashboard) |
 | `GET /api/v1/fasop/pemeliharaan/` | `pemeliharaan` | `Maintenance.objects` + `JadwalKunjungan.get_progress()` |
 | `GET /api/v1/fasop/peralatan/` | `peralatan` | `devices.Device` + `calculate_hi(save_snapshot=False)` |
+| `GET /api/v1/fasop/aset/` (+ `<hid>/`) | `aset` | `devices.Device` + `SiteLocation`/`ULTG` + `calculate_hi`; detail + `DeviceComponent`/`DeviceEvent` |
+| `GET /api/v1/fasop/lokasi/` | `lokasi` | `devices.SiteLocation` + `Branch` + `ULTG` |
+| `GET /api/v1/fasop/pemeliharaan/riwayat/` (+ `<hid>/`) | `riwayat_pemeliharaan` | `Maintenance.objects` + semua tabel detail `Maintenance*` |
 
 Tiga endpoint `fasop/*` lahir untuk **bot WhatsApp** (`deploy/WA_BOT_OLLAMA.md`):
 n8n menariknya, meringkasnya jadi teks, lalu LLM lokal menjawab hanya dari teks
@@ -2342,6 +2345,36 @@ model 7B tidak bisa diandalkan untuk berhitung, dan angka karangannya terbaca
 sama meyakinkannya dengan angka asli. `peralatan` sengaja **tidak** mengirim
 IP, serial number, maupun spesifikasi: tujuannya chat WhatsApp, dan yang sudah
 terkirim ke sana tidak bisa ditarik kembali (dijaga tes).
+
+Empat endpoint `fasop/aset/`, `fasop/lokasi/`, `fasop/pemeliharaan/riwayat/`
+(+ detailnya) lahir untuk **Fasop Induk** (dashboard UIP3B) yang MENYALIN
+seluruh isinya ke PostgreSQL-nya sendiri — bentuknya kebalikan dari endpoint bot:
+tiap baris punya `id` hashid, semua daftar berhalaman urut pk
+(`halaman`/`per_halaman`, maks 200, lebih dari itu ditolak), dan isinya lengkap
+(termasuk IP & serial number). Serialisasinya di `api/inventaris.py`. Yang perlu
+diketahui:
+
+- **Kode datanya sengaja baru, bukan perluasan `peralatan`/`pemeliharaan`** —
+  kunci bot WhatsApp yang memegang izin lama tidak boleh ikut mendapat
+  inventaris lengkap hanya karena endpoint-nya bertambah (dijaga tes).
+- **Hasil pengukuran dibaca GENERIK** dari setiap model `Maintenance*` yang
+  ber-OneToOne ke `Maintenance` (`inventaris.tabel_detail()`), lengkap dengan
+  skema kolom (`verbose_name`, tipe, `choices`). Tabel hasil baru otomatis
+  ikut — jangan diganti pemetaan tangan per jenis seperti `maintenance_detail`
+  di views, karena tabel berikutnya akan diam-diam tidak pernah terkirim.
+  `FormOffline` tersaring oleh prefix namanya.
+- **Salinannya penuh, bukan "berubah sejak"**: `Device`/`Maintenance` tidak
+  punya kolom diubah-pada, dan isian tabel hasil disimpan terpisah dari baris
+  `Maintenance` sehingga kolom seperti itu pun tidak akan bergerak saat yang
+  disunting hanya angka ukurnya. Penghapusan sampai ke salinan lewat "baris yang
+  tidak muncul lagi" — karena itu pemeliharaan milik Device yang di-soft-delete
+  ikut dibuang (`device__is_deleted=False`), supaya tiap pemeliharaan selalu
+  menunjuk aset yang ada di `fasop/aset/`.
+- **Rute literal `fasop/pemeliharaan/riwayat/` WAJIB sebelum `<hid:hid>/`** —
+  regex hashid `[a-zA-Z0-9]+` juga cocok dengan kata "riwayat".
+- Health Index di daftar aset ~17 query per peralatan (`calculate_hi`); `hi=0`
+  melewatinya. `public_token`, `wiring_json`, dan `komponen_relokasi_ids` tidak
+  pernah dikirim (`inventaris.KOLOM_TIDAK_DIKIRIM`).
 
 Yang perlu diketahui saat menambah endpoint baca berikutnya:
 

@@ -1500,3 +1500,402 @@ def fasop_peralatan_endpoint(request):
         'terpotong':  jumlah > MAKS_HASIL_PERALATAN,
         'peralatan':  hasil,
     })
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Inventaris aset, lokasi & riwayat pemeliharaan — untuk DISALIN
+#
+#  Konsumen pertamanya Fasop Induk (dashboard UIP3B), yang menarik SELURUH
+#  isinya berkala ke PostgreSQL-nya sendiri. Bedanya dengan endpoint bot di
+#  atas: tiap baris punya `id`, semua daftar berhalaman dan diurutkan pk, dan
+#  isinya lengkap. Serialisasinya di api/inventaris.py.
+#
+#  Penyalinan dilakukan PENUH (bukan "yang berubah sejak X"): Device dan
+#  Maintenance tidak punya kolom diubah-pada, dan isian tabel hasil pengukuran
+#  disimpan terpisah dari baris Maintenance-nya — kolom diubah-pada di
+#  Maintenance tidak akan bergerak saat yang disunting hanya angka ukurnya.
+#  Penyalinan penuh yang lambat masih lebih baik daripada penyalinan
+#  bertahap yang diam-diam melewatkan perubahan.
+# ═══════════════════════════════════════════════════════════════════════════
+BAWAAN_PER_HALAMAN = 100
+MAKS_PER_HALAMAN = 200      # aset menghitung Health Index per baris; 200 tetap ~detik
+
+
+def _halaman(request):
+    """(halaman, per_halaman, galat). 1-based. Melebihi batas DITOLAK, bukan
+    dipotong diam-diam — penyalin yang mengira mendapat 500 baris per halaman
+    akan melompati baris tanpa pernah tahu."""
+    try:
+        hal = int(request.GET.get('halaman') or 1)
+        per = int(request.GET.get('per_halaman') or BAWAAN_PER_HALAMAN)
+    except ValueError:
+        return None, None, 'Parameter "halaman" dan "per_halaman" harus angka.'
+    if hal < 1 or per < 1:
+        return None, None, 'Parameter "halaman" dan "per_halaman" minimal 1.'
+    if per > MAKS_PER_HALAMAN:
+        return None, None, f'Parameter "per_halaman" maksimum {MAKS_PER_HALAMAN}.'
+    return hal, per, None
+
+
+def _potong(qs, hal, per):
+    """(baris di halaman itu, info halaman). Halaman lewat ujung = list kosong,
+    bukan 404, supaya loop penyalin cukup berhenti saat berikutnya null."""
+    jumlah = qs.count()
+    jumlah_hal = max(1, -(-jumlah // per))
+    awal = (hal - 1) * per
+    isi = list(qs[awal:awal + per])
+    return isi, {
+        'halaman':            hal,
+        'per_halaman':        per,
+        'jumlah':             jumlah,
+        'jumlah_halaman':     jumlah_hal,
+        'halaman_berikutnya': hal + 1 if hal < jumlah_hal else None,
+    }
+
+
+def _hid(request, nama):
+    """Hashid dari query string → (pk, galat). Kosong = (None, None)."""
+    from fasop.hashids_helper import decode
+    mentah = (request.GET.get(nama) or '').strip()
+    if not mentah:
+        return None, None
+    pk = decode(mentah)
+    if pk is None:
+        return None, f'Parameter "{nama}" bukan id FASOP yang sah.'
+    return pk, None
+
+
+def _aset_qs():
+    return (Device.objects.filter(is_deleted=False)
+            .select_related('jenis', 'host').order_by('pk'))
+
+
+# ── Aset ────────────────────────────────────────────────────────────────────
+@csrf_exempt
+@require_kunci_baca('aset')
+@require_http_methods(["GET"])
+def fasop_aset_endpoint(request):
+    """
+    Seluruh inventaris peralatan, berhalaman.
+
+    ?halaman=1&per_halaman=100   (maks 200)
+    ?lokasi=   nama lokasi persis (tanpa beda huruf besar/kecil)
+    ?jenis=    nama jenis persis, mis. RTU
+    ?status_aset=UP2B|IPP|BELUM_STAP
+    ?hi=0      lewati Health Index (jauh lebih cepat)
+
+    Peralatan yang di-soft-delete tidak pernah ikut. Penyalin yang menarik
+    semua halaman tanpa penyaring karena itu boleh menghapus baris yang tidak
+    muncul lagi — itulah satu-satunya jalan penghapusan sampai ke sana.
+    """
+    from django.utils import timezone
+    from health_index.models import KonfigurasiHI
+    from api import inventaris
+
+    hal, per, galat = _halaman(request)
+    if galat:
+        return _galat(galat, dataset='aset')
+
+    qs = _aset_qs()
+    lokasi = (request.GET.get('lokasi') or '').strip()
+    if lokasi:
+        qs = qs.filter(lokasi__iexact=lokasi)
+    jenis = (request.GET.get('jenis') or '').strip()
+    if jenis:
+        qs = qs.filter(jenis__name__iexact=jenis)
+    status_aset = (request.GET.get('status_aset') or '').strip()
+    if status_aset:
+        qs = qs.filter(status_aset__iexact=status_aset)
+
+    isi, info = _potong(qs, hal, per)
+    peta = inventaris.peta_lokasi()
+    tahun_ini = timezone.localdate().year
+    hitung_hi = request.GET.get('hi') != '0'
+    configs = KonfigurasiHI.get_or_init() if hitung_hi else None
+
+    hasil = []
+    for d in isi:
+        item = inventaris.aset(d, peta, tahun_ini)
+        if hitung_hi:
+            item.update(inventaris.health_index(d, configs))
+        hasil.append(item)
+
+    return JsonResponse(dict({
+        'status':  'ok',
+        'dataset': 'aset',
+        'waktu':   timezone.localtime().isoformat(),
+        'sumber':  'FASOP — devices.Device + devices.SiteLocation + health_index',
+    }, **info, aset=hasil))
+
+
+@csrf_exempt
+@require_kunci_baca('aset')
+@require_http_methods(["GET"])
+def fasop_aset_detail_endpoint(request, hid):
+    """
+    Satu peralatan selengkapnya: baris aset yang sama dengan daftar, ditambah
+    rincian Health Index per faktor, komponen terpasang, riwayat kejadian
+    (penggantian/relokasi/pembongkaran), eviden foto, VM di dalamnya, dan
+    daftar id pemeliharaannya.
+    """
+    from django.utils import timezone
+    from devices.models import DeviceEvent, DeviceEviden
+    from devices.models_komponen import DeviceComponent
+    from health_index.models import KonfigurasiHI
+    from maintenance.models import Maintenance
+    from api import inventaris
+
+    d = _aset_qs().filter(pk=hid).first()
+    if d is None:
+        return _galat('Peralatan tidak ditemukan (atau sudah dihapus).', status=404,
+                      dataset='aset')
+
+    item = inventaris.aset(d, inventaris.peta_lokasi(), timezone.localdate().year)
+    item.update(inventaris.health_index(d, KonfigurasiHI.get_or_init(), rinci=True))
+
+    komp = (DeviceComponent.objects.filter(device=d)
+            .select_related(*inventaris.fk_dikirim(DeviceComponent, kecuali=('device',)))
+            .order_by('pk'))
+    kejadian = (DeviceEvent.objects.filter(device=d)
+                .select_related(*inventaris.fk_dikirim(DeviceEvent, kecuali=('device',)))
+                .order_by('-tanggal', '-created_at'))
+    eviden = DeviceEviden.objects.filter(device=d, is_deleted=False).order_by('uploaded_at')
+    vm = Device.objects.filter(host=d, is_deleted=False).order_by('nama')
+    riwayat = (Maintenance.objects.filter(device=d)
+               .order_by('-date').values('pk', 'date', 'maintenance_type', 'status'))
+
+    item.update({
+        'gambar_wiring':    inventaris.url_berkas(d.wiring_img),
+        'komponen':         [dict(id=inventaris.encode(k.pk),
+                                  **inventaris.baris(k, kecuali=('device',))) for k in komp],
+        'riwayat_kejadian': [dict(id=inventaris.encode(e.pk),
+                                  **inventaris.baris(e, kecuali=('device',))) for e in kejadian],
+        'eviden': [
+            {'foto': inventaris.url_berkas(e.foto), 'keterangan': e.keterangan,
+             'diunggah_pada': inventaris.waktu_lokal(e.uploaded_at)}
+            for e in eviden
+        ],
+        'vm':               [{'id': inventaris.encode(v.pk), 'nama': v.nama} for v in vm],
+        'pemeliharaan': [
+            {'id': inventaris.encode(r['pk']), 'tanggal': inventaris.waktu_lokal(r['date']),
+             'tipe': r['maintenance_type'], 'status': r['status']}
+            for r in riwayat
+        ],
+    })
+    return JsonResponse({
+        'status':  'ok',
+        'dataset': 'aset',
+        'waktu':   timezone.localtime().isoformat(),
+        'sumber':  'FASOP — devices.Device + komponen + DeviceEvent + health_index',
+        'skema': {
+            'komponen':         inventaris.skema(DeviceComponent, kecuali=('device',)),
+            'riwayat_kejadian': inventaris.skema(DeviceEvent, kecuali=('device',)),
+        },
+        'aset':    item,
+    })
+
+
+# ── Lokasi GI, Branch, ULTG ────────────────────────────────────────────────
+@csrf_exempt
+@require_kunci_baca('lokasi')
+@require_http_methods(["GET"])
+def fasop_lokasi_endpoint(request):
+    """
+    Master lokasi: GI/site beserta Branch, ULTG, dan koordinatnya.
+
+    Tanpa halaman — jumlahnya ratusan, bukan ribuan. `lokasi_tanpa_master`
+    menyebut nilai `Device.lokasi` yang tidak punya baris SiteLocation:
+    kolom itu teks bebas, dan aset di lokasi seperti itu tidak punya branch
+    maupun ULTG. Lebih baik penerimanya tahu daripada aset itu diam-diam
+    hilang dari rekap per ULTG.
+    """
+    from django.db.models import Count
+    from django.utils import timezone
+    from devices.models import Branch, SiteLocation, ULTG
+    from api import inventaris
+
+    jumlah_aset = {}
+    for b in (Device.objects.filter(is_deleted=False)
+              .values('lokasi').annotate(n=Count('id'))):
+        k = (b['lokasi'] or '').strip()
+        jumlah_aset[k] = jumlah_aset.get(k, 0) + b['n']
+
+    lokasi, nama_master = [], set()
+    for sl in (SiteLocation.objects.select_related('branch')
+               .prefetch_related('ultg_set').order_by('nama')):
+        nama = sl.nama.strip()
+        nama_master.add(nama)
+        lokasi.append({
+            'id':          inventaris.encode(sl.pk),
+            'nama':        sl.nama,
+            'branch':      sl.branch.nama if sl.branch else None,
+            'branch_id':   inventaris.encode(sl.branch_id) if sl.branch_id else None,
+            'ultg':        sorted(u.nama for u in sl.ultg_set.all()),
+            'latitude':    sl.latitude,
+            'longitude':   sl.longitude,
+            'keterangan':  sl.keterangan or None,
+            'jumlah_aset': jumlah_aset.get(nama, 0),
+        })
+
+    branch = [
+        {'id': inventaris.encode(b.pk), 'nama': b.nama, 'kode': b.kode or None,
+         'keterangan': b.keterangan or None, 'jumlah_lokasi': b.n}
+        for b in Branch.objects.annotate(n=Count('lokasi_set')).order_by('nama')
+    ]
+    ultg = [
+        {'id': inventaris.encode(u.pk), 'nama': u.nama, 'keterangan': u.keterangan or None,
+         'lokasi': sorted(l.nama for l in u.lokasi.all())}
+        for u in ULTG.objects.prefetch_related('lokasi').order_by('nama')
+    ]
+    tanpa_master = [
+        {'lokasi': k, 'jumlah_aset': n}
+        for k, n in sorted(jumlah_aset.items()) if k not in nama_master
+    ]
+
+    return JsonResponse({
+        'status':  'ok',
+        'dataset': 'lokasi',
+        'waktu':   timezone.localtime().isoformat(),
+        'sumber':  'FASOP — devices.SiteLocation + Branch + ULTG',
+        'lokasi':  lokasi,
+        'branch':  branch,
+        'ultg':    ultg,
+        'lokasi_tanpa_master': tanpa_master,
+    })
+
+
+# ── Riwayat pemeliharaan ───────────────────────────────────────────────────
+def _pemeliharaan_qs():
+    """Maintenance.objects sudah membuang soft-delete. Pemeliharaan milik
+    peralatan yang di-soft-delete ikut dibuang juga, supaya setiap baris di
+    sini selalu menunjuk aset yang ada di fasop/aset/ — tanpa itu penyalin
+    menerima pemeliharaan yang aset induknya tidak pernah datang."""
+    from maintenance.models import Maintenance
+    return (Maintenance.objects.filter(device__is_deleted=False)
+            .select_related('device', 'device__jenis', 'signed_by')
+            .prefetch_related('technicians'))
+
+
+def _pilihan(request, nama, choices):
+    """Nilai choices dari query string tanpa beda besar/kecil → (nilai, galat)."""
+    mentah = (request.GET.get(nama) or '').strip()
+    if not mentah:
+        return None, None
+    for nilai, _ in choices:
+        if nilai.lower() == mentah.lower():
+            return nilai, None
+    sah = ', '.join(n for n, _ in choices)
+    return None, f'Parameter "{nama}" harus salah satu dari: {sah}.'
+
+
+@csrf_exempt
+@require_kunci_baca('riwayat_pemeliharaan')
+@require_http_methods(["GET"])
+def fasop_pemeliharaan_riwayat_endpoint(request):
+    """
+    Seluruh pemeliharaan (Open dan Done), berhalaman, urut pk.
+
+    ?halaman=&per_halaman=         (maks 200)
+    ?dari=YYYY-MM-DD&sampai=YYYY-MM-DD   tanggal pemeliharaan, keduanya inklusif
+    ?tipe=Preventive|Corrective   ?status=Open|Done
+    ?lokasi=   lokasi peralatan, persis   ?jenis=   jenis peralatan, persis
+    ?aset=<id> satu peralatan
+    ?detail=1  sertakan hasil pengukuran + skema tabelnya
+
+    Nilai penyaring yang tidak dikenal DITOLAK (400), bukan diabaikan:
+    `?tipe=preventif` yang diam-diam jatuh ke "semua" akan tersalin sebagai
+    riwayat preventive padahal isinya campur.
+    """
+    import datetime
+    from django.utils import timezone
+    from maintenance.models import Maintenance
+    from api import inventaris
+
+    hal, per, galat = _halaman(request)
+    if galat:
+        return _galat(galat, dataset='riwayat_pemeliharaan')
+
+    qs = _pemeliharaan_qs()
+
+    tz = timezone.get_current_timezone()
+    for nama, op in (('dari', 'gte'), ('sampai', 'lt')):
+        mentah = (request.GET.get(nama) or '').strip()
+        if not mentah:
+            continue
+        try:
+            tgl = datetime.date.fromisoformat(mentah)
+        except ValueError:
+            return _galat(f'Parameter "{nama}" harus tanggal YYYY-MM-DD.',
+                          dataset='riwayat_pemeliharaan')
+        if op == 'lt':
+            tgl += datetime.timedelta(days=1)       # "sampai" inklusif
+        # Rentang datetime, bukan lookup __date: __date membungkus kolom dalam
+        # cast sehingga indeks (maintenance_type/status, -date) tidak terpakai.
+        batas = timezone.make_aware(datetime.datetime.combine(tgl, datetime.time()), tz)
+        qs = qs.filter(**{f'date__{op}': batas})
+
+    for nama, field, choices in (('tipe', 'maintenance_type', Maintenance.MAINTENANCE_TYPE),
+                                 ('status', 'status', Maintenance.STATUS_CHOICES)):
+        nilai, galat = _pilihan(request, nama, choices)
+        if galat:
+            return _galat(galat, dataset='riwayat_pemeliharaan')
+        if nilai:
+            qs = qs.filter(**{field: nilai})
+
+    lokasi = (request.GET.get('lokasi') or '').strip()
+    if lokasi:
+        qs = qs.filter(device__lokasi__iexact=lokasi)
+    jenis = (request.GET.get('jenis') or '').strip()
+    if jenis:
+        qs = qs.filter(device__jenis__name__iexact=jenis)
+    aset_pk, galat = _hid(request, 'aset')
+    if galat:
+        return _galat(galat, dataset='riwayat_pemeliharaan')
+    if aset_pk is not None:
+        qs = qs.filter(device_id=aset_pk)
+
+    isi, info = _potong(qs.order_by('pk'), hal, per)
+    daftar = [inventaris.pemeliharaan(m) for m in isi]
+
+    balasan = dict({
+        'status':  'ok',
+        'dataset': 'riwayat_pemeliharaan',
+        'waktu':   timezone.localtime().isoformat(),
+        'sumber':  'FASOP — maintenance.Maintenance + 20 tabel hasil pengukuran',
+    }, **info)
+
+    if request.GET.get('detail') == '1':
+        hasil = inventaris.hasil_pengukuran(m.pk for m in isi)
+        dipakai = set()
+        for m, item in zip(isi, daftar):
+            item['hasil_pengukuran'] = hasil[m.pk]
+            dipakai.update(h['tabel'] for h in hasil[m.pk])
+        balasan['skema_hasil'] = inventaris.skema_tabel(dipakai)
+
+    balasan['pemeliharaan'] = daftar
+    return JsonResponse(balasan)
+
+
+@csrf_exempt
+@require_kunci_baca('riwayat_pemeliharaan')
+@require_http_methods(["GET"])
+def fasop_pemeliharaan_detail_endpoint(request, hid):
+    """Satu pemeliharaan beserta hasil pengukurannya dan skema tabelnya."""
+    from django.utils import timezone
+    from api import inventaris
+
+    m = _pemeliharaan_qs().filter(pk=hid).first()
+    if m is None:
+        return _galat('Pemeliharaan tidak ditemukan (atau sudah dihapus).', status=404,
+                      dataset='riwayat_pemeliharaan')
+
+    item = inventaris.pemeliharaan(m)
+    item['hasil_pengukuran'] = inventaris.hasil_pengukuran([m.pk])[m.pk]
+    return JsonResponse({
+        'status':      'ok',
+        'dataset':     'riwayat_pemeliharaan',
+        'waktu':       timezone.localtime().isoformat(),
+        'sumber':      'FASOP — maintenance.Maintenance + tabel hasil pengukuran',
+        'skema_hasil': inventaris.skema_tabel({h['tabel'] for h in item['hasil_pengukuran']}),
+        'pemeliharaan': item,
+    })

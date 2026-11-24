@@ -91,6 +91,41 @@ SEMUA = [
         'sumber':     'devices.Device + health_index.calculator (dihitung, tidak disimpan)',
         'endpoint':   ['/api/v1/fasop/peralatan/'],
     },
+    # ── Untuk DISALIN utuh (Fasop Induk). Sengaja kode baru, bukan perluasan
+    #    `peralatan`/`pemeliharaan`: kunci bot WhatsApp yang sudah memegang
+    #    kedua izin itu tidak boleh ikut mendapat inventaris lengkap (IP,
+    #    serial number) dan seluruh hasil ukur hanya karena endpoint-nya
+    #    bertambah.
+    {
+        'kode':       'aset',
+        'nama':       'Inventaris aset lengkap',
+        'penjelasan': 'Seluruh peralatan berhalaman beserta ID-nya: Asset ID, '
+                      'status aset, jenis, merk, tipe, serial number, firmware, '
+                      'IP address, lokasi/branch/ULTG, spesifikasi, umur, dan '
+                      'Health Index. Detail per peralatan menambahkan rincian HI, '
+                      'komponen, riwayat kejadian, dan eviden foto.',
+        'sumber':     'devices.Device + SiteLocation + DeviceComponent + DeviceEvent '
+                      '+ health_index.calculator',
+        'endpoint':   ['/api/v1/fasop/aset/', '/api/v1/fasop/aset/<id>/'],
+    },
+    {
+        'kode':       'lokasi',
+        'nama':       'Lokasi GI, Branch & ULTG',
+        'penjelasan': 'Master lokasi/GI beserta branch, ULTG, koordinat, dan '
+                      'jumlah aset per lokasi.',
+        'sumber':     'devices.SiteLocation + Branch + ULTG',
+        'endpoint':   ['/api/v1/fasop/lokasi/'],
+    },
+    {
+        'kode':       'riwayat_pemeliharaan',
+        'nama':       'Riwayat & hasil pemeliharaan',
+        'penjelasan': 'Seluruh pemeliharaan (Open dan Done) berhalaman, dengan '
+                      'pelaksana, TTD, catatan AM, dan hasil pengukuran per jenis '
+                      'peralatan beserta skema kolomnya.',
+        'sumber':     'maintenance.Maintenance + tabel detail Maintenance* (hasil ukur)',
+        'endpoint':   ['/api/v1/fasop/pemeliharaan/riwayat/',
+                       '/api/v1/fasop/pemeliharaan/<id>/'],
+    },
 ]
 
 SEMUA_KODE = [d['kode'] for d in SEMUA]

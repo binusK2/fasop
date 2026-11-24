@@ -49,4 +49,16 @@ urlpatterns = [
          name='fasop_pemeliharaan'),
     path('fasop/peralatan/', views.fasop_peralatan_endpoint,
          name='fasop_peralatan'),
+
+    # Inventaris & riwayat lengkap untuk DISALIN (Fasop Induk). Rute literal
+    # (riwayat/) WAJIB sebelum <hid:hid>: regex hashid [a-zA-Z0-9]+ juga
+    # cocok dengan kata "riwayat".
+    path('fasop/aset/', views.fasop_aset_endpoint, name='fasop_aset'),
+    path('fasop/aset/<hid:hid>/', views.fasop_aset_detail_endpoint,
+         name='fasop_aset_detail'),
+    path('fasop/lokasi/', views.fasop_lokasi_endpoint, name='fasop_lokasi'),
+    path('fasop/pemeliharaan/riwayat/', views.fasop_pemeliharaan_riwayat_endpoint,
+         name='fasop_pemeliharaan_riwayat'),
+    path('fasop/pemeliharaan/<hid:hid>/', views.fasop_pemeliharaan_detail_endpoint,
+         name='fasop_pemeliharaan_detail'),
 ]
